@@ -784,6 +784,8 @@ _FAST_MODE = False
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
 #                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
+#   dit_shard       the token DiT's conditioned transition (Boltz-2) with its three [N, 2D] hidden products
+#                   block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and the gate after it as before.
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -802,7 +804,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-          "trimul_t2fold", "dit_mask8", "trimul_bres_b8")
+          "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "dit_shard")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -13368,6 +13370,53 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
+def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
+    """`b_to_a((silu(a w_sw) * (a w_gt)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
+    the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
+    is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
+    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
+    mt, kt = prod(int(d) for d in a.padded_shape[:-1]) // 32, int(a.padded_shape[-1]) // 32
+    nt, ct = int(w_sw.shape[-1]) // 32, int(w_ba.shape[-1]) // 32
+    grid = _transition_shard_grid(mt, nt, ct)
+    key = ("dit", mt, kt, nt, a.dtype)
+    if grid is None or key in _TRANSITION_SHARD_REFUSED:
+        return None
+    gx, gy = grid
+    pm, pn = mt // gy, nt // gx
+
+    def cfg(bw, n, act=None):
+        sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
+                      if h * w <= 4 and pm % h == 0 and n % w == 0), key=lambda s: (s[0] * s[1], s[1]))
+        return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
+            out_subblock_w=sw, out_block_h=pm, out_block_w=n, per_core_M=pm, per_core_N=n,
+            transpose_mcast=False, fused_activation=act, fuse_batch=True)
+
+    cores = ttnn.CoreRangeSet({ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))})
+    mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
+                           ttnn.ShardSpec(cores, [pm * 32, pn * 32], ttnn.ShardOrientation.ROW_MAJOR))
+    bw = _transition_kb("fc1", kt)
+    hid = []
+    try:
+        for w in (w_sw, w_gt, w_ab):
+            hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
+                                   dtype=a.dtype))
+        b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+        b = ttnn.multiply_(b, hid[2])
+        out = ttnn.linear(b, w_ba, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=a.dtype,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: the interleaved path from then on
+        for t in hid:
+            ttnn.deallocate(t)
+        _TRANSITION_SHARD_REFUSED.add(key)
+        _latch("dit_shard", "refused", e)
+        return None
+    for t in hid:
+        ttnn.deallocate(t)
+    _latch("dit_shard", "served")
+    return out
+
+
 def _ws_applies(x, ckc) -> bool:
     """`transition_ws` is on and this pair input can take it: 4-D bf16, no tape, and not where the
     Wormhole fp32-dest guard is on (the kernel keeps all of K in dest)."""
@@ -15269,6 +15318,15 @@ class ConditionedTransitionBlock(Module):
         given, is added to the gated output here (`residual + s_out * b_a`, one op under dit_shoist)."""
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
+        b_a = (_dit_transition_sharded(a, self.swish_weight, self.gates_weight, self.a_to_b_weight,
+                                       self.b_to_a_weight, self.compute_kernel_config)
+               if lever("dit_shard") and not self.atom_level and self.a_to_b_gate else None)
+        if b_a is not None:
+            ttnn.deallocate(a)
+            if s_out is None:
+                s = ttnn.linear(s, self.output_projection_weight, bias=self.output_projection_bias,
+                                compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+            return self._gated_residual(b_a, s, s_out, residual)
         mc = (_atom_l1(tuple(a.shape)[:-1] + (2 * int(a.shape[-1]),), a.dtype)
               if self.atom_level and len(a.shape) == 4 else None)
         a_swish = ttnn.linear(
@@ -15316,6 +15374,11 @@ class ConditionedTransitionBlock(Module):
             memory_config=mc,
         )
         ttnn.deallocate(b)
+        return self._gated_residual(b_a, s, s_out, residual)
+
+    @staticmethod
+    def _gated_residual(b_a, s, s_out, residual):
+        """`residual + gate * b_a`, the gate `s_out` (post-sigmoid) or else `sigmoid(s)`."""
         cut = None
         if isinstance(s_out, _ColWin):
             if residual is not None:
