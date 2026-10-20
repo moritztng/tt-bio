@@ -195,8 +195,12 @@ _SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", True)
 # both rotary_embedding_llama calls. half_pair_check (ls109, Galaxy chip at 1000 MHz, batch 7, grid 8 x 5, --fast): q / k
 # rel_l2 2.38e-3 vs float64 (v, plain bf16 rounding, 1.70e-3), pad columns 0, 0.331 ms a call vs ~0.53-0.63 for the
 # chain. The grid keeps 5 cores on minimal_matmul's in1 axis in both orientations ((8, 5) when M > N transposes it), so
-# one permuted weight serves every batch. Off until the page A/B grades it.
-_SAPROT_HALF_ROPE = env_flag("TT_BIO_SAPROT_HALF_ROPE", False)
+# one permuted weight serves every batch. Page A/B (ls110, Galaxy chip at 1000 MHz, 2 rounds x 3, ms off -> on, pcc vs
+# fp32 delta): --fast hHSA 27.37 / 26.21 -> 24.73 / 23.23 (+0.000005), hPCSK9 26.02 / 26.32 -> 24.05 / 24.59 (-0.000067);
+# normal hHSA 27.45 / 27.02 -> 24.60 / 25.20 (-0.000030), hPCSK9 27.40 / 26.51 -> 24.66 / 24.48 (-0.000017). Normal runs
+# the qkv at HiFi3 (_normal_hifi3); the probe at HiFi4 + packer L1 acc wrote one k head at 1.35e-2, the -2^n defect noted
+# at _SAPROT_NORMAL_HIFI3. None = Wormhole until Blackhole grades it.
+_SAPROT_HALF_ROPE = env_flag("TT_BIO_SAPROT_HALF_ROPE", None)
 _HALF_ROPE_CFG = (5, 5, 4, 1, 4)
 _HALF_ROPE_IN1 = 5
 _HALF_TABLES: dict = {}
@@ -648,9 +652,9 @@ class ESM2Attention(_SaprotLin, Module):
 
     def _half_rope(self, x):
         """(rope(q), rope(k), v) [B, H, L, 32] from one half-pair mm_rope matmul, or None where it is off or declines."""
-        if not (_SAPROT_HALF_ROPE and self.rope_pairs):
+        from tt_bio import mm_rope, tenstorrent
+        if not (self.rope_pairs and (tenstorrent.is_wormhole() if _SAPROT_HALF_ROPE is None else _SAPROT_HALF_ROPE)):
             return None
-        from tt_bio import mm_rope
         cfg, nc = _HALF_ROPE_CFG, _HALF_ROPE_IN1
         dev = lambda t, dt: ttnn.from_torch(t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
         if not hasattr(self, "qkv_half"):   # built on first use, so an A/B can flip the flag on a loaded model

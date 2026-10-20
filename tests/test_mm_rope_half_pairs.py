@@ -50,3 +50,33 @@ def test_half_pair_layout_on_a_five_wide_in1_axis():
     # 35M: 60 tiles = 20 q/k tile pairs + 20 v tiles. Whole pairs need 5 in1 cores (8 a core = 4 pairs, 4 v); 8 split them.
     assert mm_rope.layout(60, 5, 4) == (12, 8, 40)
     assert mm_rope.layout(60, 8, 4) is None
+
+
+@pytest.mark.parametrize("wormhole, switch, pairs, want", [(True, None, True, True), (False, None, True, False),
+                                                           (False, True, True, True), (True, False, True, False),
+                                                           (True, None, False, False)])
+@pytest.mark.parametrize("batch", [1, 7])
+def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch, monkeypatch):
+    """35M's fused half-pair qkv serves by default on Wormhole only, for the rope_pairs path, with 5 in1 cores in both
+    grid orientations ((8, 5) once B * L > N = 1920 transposes minimal_matmul's grid)."""
+    import types
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_HALF_ROPE", switch)
+    monkeypatch.setattr(sp, "_HALF_TABLES", {})
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(sp.ttnn, "from_torch", lambda t, **kw: t)
+    seen = []
+    monkeypatch.setattr(mm_rope, "qkv_rope_heads", lambda x, w, b, cos, sin, h, cfg, grid, ck, half: seen.append(
+        (tuple(w.shape), tuple(cos.shape), cfg, grid, half)) or ("q", "k", "v"))
+    H, d, D = 20, 24, 480
+    attn = types.SimpleNamespace(rope_pairs=pairs, n_heads=H, head_dim=d, device=None, qkv_weight=None,
+                                 weights={"qkv.weight": torch.randn(3 * H * d, D), "qkv.bias": torch.randn(3 * H * d)},
+                                 _ck=lambda w: "ck")
+    x = types.SimpleNamespace(padded_shape=(batch, 544, D))
+    out = sp.ESM2Attention._half_rope(attn, x)
+    assert (out == ("q", "k", "v")) is want
+    if want:
+        assert seen == [((D, 3 * H * 32), (1, 1, 544, 64), sp._HALF_ROPE_CFG, (8, 5) if batch * 544 > 1920 else (5, 8),
+                         True)]
+        g = seen[0][3]
+        assert mm_rope.in1_cores(batch * 544, 3 * H * 32, g) == sp._HALF_ROPE_IN1
