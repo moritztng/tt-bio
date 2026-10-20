@@ -56,6 +56,8 @@ ap.add_argument("--dump", type=int, default=0,
 ap.add_argument("--stub-structure", action="store_true",
                 help="TIMING ONLY, wrong numerics: replace AF2's structure module with a near-free stand-in of "
                      "the same output shapes, so host_jax measures what the structure module costs the host")
+ap.add_argument("--structure-on-card", action="store_true",
+                help="run AF2's structure module on card (bindcraft2.predictor(structure=True))")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -169,7 +171,7 @@ settings = cleaned_campaign_settings(read_settings(str(example), parse_setting_o
 
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), host=socket.gethostname(),
             chip=os.environ.get("TT_VISIBLE_DEVICES"), env=ENV, binder_length=a.binder,
-            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, stub_structure=a.stub_structure, argv=sys.argv,
+            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, stub_structure=a.stub_structure, structure_on_card=a.structure_on_card, argv=sys.argv,
             nodes=NODES)
 
 rec = LazyRecorder(__import__("ttnn"), None, a.replay)
@@ -386,7 +388,8 @@ cls.sequence_gradients = sequence_gradients
 weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
                                          ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
 print(json.dumps(dict(ev="start", **HEAD))[:2000], flush=True)
-with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
+with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {}),
+                            **({"structure": True} if a.structure_on_card else {})):
     bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
 print(f"campaign ended before iteration {a.at} (only {state['n']} gradient calls)", flush=True)
 write(partial=True)
