@@ -784,8 +784,9 @@ _FAST_MODE = False
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
 #                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
-#   dit_shard       the token DiT's conditioned transition (Boltz-2) with its three [N, 2D] hidden products
-#                   block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and the gate after it as before.
+#   dit_shard       the token DiT's conditioned transition (Boltz-2; OpenFold3's two-product SwiGLU under dit_fuse) with
+#                   its [N, 2D] hidden products block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and
+#                   the gate after it as before.
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -13407,16 +13408,18 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
-def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
-    """`b_to_a((silu(a w_sw) * (a w_gt)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
-    the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
-    is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
-    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
+def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, out_mc=None):
+    """`b_to_a((silu(a w_gt) * (a w_sw)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
+    the [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it is and
+    the output goes to `out_mc` (DRAM by default). Shipped, each hidden product goes to DRAM and back (ditshard.py: the
+    whole block 419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1).
+    `w_ab` None is OpenFold3's two-product SwiGLU, `b_to_a(silu(a w_sw) * (a w_gt))`, with the silu in w_sw's
+    matmul epilogue as its interleaved path has it."""
     xs = [int(d) for d in a.padded_shape]
     mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
     nt, ct = int(w_sw.shape[-1]) // 32, int(w_ba.shape[-1]) // 32
     grid = _transition_shard_grid(mt, nt, ct)
-    key = ("dit", mt, kt, nt, a.dtype)
+    key = ("dit", mt, kt, nt, a.dtype, w_ab is None)
     if grid is None or key in _TRANSITION_SHARD_REFUSED:
         return None
     gx, gy = grid
@@ -13429,15 +13432,20 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
     mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
                            ttnn.ShardSpec(cores, [pm * 32, pn * 32], ttnn.ShardOrientation.ROW_MAJOR))
     bw = _transition_kb("fc1", kt)
+    swiglu = w_ab is None
     hid = []
     try:
-        for w in (w_sw, w_gt, w_ab):
-            hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
-                                   dtype=a.dtype))
-        b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
-        b = ttnn.multiply_(b, hid[2])
+        for i, w in enumerate((w_sw, w_gt) if swiglu else (w_sw, w_gt, w_ab)):
+            act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if swiglu and i == 0 else None
+            hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn, act), memory_config=mc, dtype=a.dtype,
+                                   compute_kernel_config=silu_ckc(ckc) if act else ckc))
+        if swiglu:
+            b = ttnn.multiply_(hid[0], hid[1])
+        else:
+            b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+            b = ttnn.multiply_(b, hid[2])
         out = ttnn.linear(b, w_ba, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=a.dtype,
-                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                          memory_config=out_mc or ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: the interleaved path from then on
         for t in hid:
             ttnn.deallocate(t)

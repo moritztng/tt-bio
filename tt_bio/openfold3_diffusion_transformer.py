@@ -303,13 +303,20 @@ class _DiTBlock(Module):
         a = a2
 
         a_t = self._fuse_adaln(a, s_hat, 1, hoist)
-        b1 = lin(a_t, self.w_la, activation="silu")
-        b2 = lin(a_t, self.w_lb)
+        out = None
+        if _T.lever("dit_shard"):   # the two hidden products block-sharded in L1 (tenstorrent._dit_transition_sharded)
+            hifi2 = self._wormhole and _T.lever("dit_hifi2")
+            out = _T._dit_transition_sharded(a_t, self.w_la, self.w_lb, None, self.w_lout,
+                                             self.ckc_hifi2 if hifi2 else self.compute_kernel_config,
+                                             out_mc=l1.get("memory_config"))
+        if out is None:
+            b1 = lin(a_t, self.w_la, activation="silu")
+            b2 = lin(a_t, self.w_lb)
+            bb = ttnn.multiply(b1, b2)
+            ttnn.deallocate(b1); ttnn.deallocate(b2)
+            out = lin(bb, self.w_lout)
+            ttnn.deallocate(bb)
         ttnn.deallocate(a_t)
-        bb = ttnn.multiply(b1, b2)
-        ttnn.deallocate(b1); ttnn.deallocate(b2)
-        out = lin(bb, self.w_lout)
-        ttnn.deallocate(bb)
         if hoist and tok_ones:
             a2 = addcmul_at(a, out, hoist[2], C_A, z_off=(2 * self.idx + 1) * C_A)
             if a2 is not None:
