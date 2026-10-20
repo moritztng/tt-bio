@@ -145,8 +145,8 @@ class _Adapter(torch.nn.Module):
         self.argnames = argnames
 
     def forward(self, *args, **kw):
-        if self.argnames:
-            return self.m(*[_to_t(kw[n]) for n in self.argnames])
+        if self.argnames:  # anything past `argnames` (e.g. to_host) is the wrapper's own keyword
+            return self.m(*[_to_t(kw.pop(n)) for n in self.argnames], **kw)
         if isinstance(args[0], _DevPair):
             return _dev_forward(self.m, args[0])
         return self.m(_to_t(args[0]))
