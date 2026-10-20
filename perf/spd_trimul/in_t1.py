@@ -222,6 +222,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                         rec[f"w8_{k}_rel_rms_f64"], rec[f"w8_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
                     free(outs)
                     rec["w8_ms"] = timed(lambda: free(t1w()), A.reps)
+                    for m_ in [int(v) for v in A.abl.split(",") if v]:
+                        TT.T1_ABL = m_
+                        rec[f"w8_abl{m_}_ms"] = timed(lambda: free(t1w()), A.reps)
+                    TT.T1_ABL = 0
     except Exception as e:                                                    # noqa: BLE001
         rec["t1_err"] = str(e).splitlines()[0][:300]
         traceback.print_exc()
