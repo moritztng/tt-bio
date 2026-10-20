@@ -26,7 +26,7 @@ x = torch.sigmoid(lin(zn, "g_in")) * lin(zn, "p_in")
 ref_a = (x[..., :C] * mask[..., None]).permute(2, 0, 1)
 ref_b = x[..., C:].permute(2, 0, 1)
 Z = fused._dram(z.float(), dev)
-MK = fused._dram(mask.float(), dev)
+MK = fused.mask_rows(mask, dev)
 W = fused.weights(w, dev)
 P1_FLOP = 2 * N * N * C * 512
 for fid in [getattr(ttnn.MathFidelity, f) for f in A.fid]:

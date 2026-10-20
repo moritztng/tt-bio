@@ -36,6 +36,15 @@ def weights(w, dev, C=128):
             "ln_w": _dram(rows(w["norm_in.weight"]), dev), "ln_b": _dram(rows(w["norm_in.bias"]), dev)}
 
 
+def mask_rows(mask, dev):
+    """The phase-1 mask operand from the [S, S] pair mask: tile r * St + s holds mask[r, 32 s : 32 s + 32] in every
+    row, so the kernel multiplies it in DST with no reader-side rebuild. Built once per mask."""
+    S = mask.shape[-1]
+    St = S // TILE
+    t = mask.reshape(S, St, 1, TILE).expand(S, St, TILE, TILE).reshape(S * St * TILE, TILE)
+    return _dram(t.float(), dev)
+
+
 def _grid(dev):
     g = dev.compute_with_storage_grid_size()
     return g.x, g.y
@@ -81,7 +90,7 @@ def phase1(Z, W, MK, S, fid, sig=1, abl=0, out=None):
                                                 dst_full_sync_en=False))
         f32 = ttnn.float32
         cbs = [_cb(0, grid, 16 * Kt), _cb(1, grid, 2 * Kt), _cb(2, grid, 16 * Kt), _cb(3, grid, 16),
-               _cb(4, grid, 16), _cb(5, grid, 32), _cb(6, grid, 8), _cb(7, grid, 1),
+               _cb(4, grid, 16), _cb(5, grid, 32), _cb(6, grid, 8),
                _cb(8, grid, Kt), _cb(9, grid, Kt), _cb(10, grid, 1), _cb(11, grid, 1, f32), _cb(12, grid, 1, f32),
                _cb(13, grid, 1, f32), _cb(14, grid, 1, f32), _cb(16, grid, Kt, f32), _cb(17, grid, Kt, f32)]
         e = _CACHE[key] = {"kernels": [reader, writer, compute], "cbs": cbs}

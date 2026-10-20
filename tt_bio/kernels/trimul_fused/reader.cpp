@@ -36,7 +36,7 @@ void kernel_main() {
     const uint32_t nunits = get_arg_val<uint32_t>(1);
 
     constexpr uint32_t cb_w = 0, cb_z = 1, cb_bias = 3, cb_mask = 4, cb_gamma = 8, cb_beta = 9, cb_scaler = 10,
-                       cb_eps = 11, cb_mscr = 7;
+                       cb_eps = 11;
     constexpr uint32_t NW = 16 * Kt;   // 4 projections x 4 channel tiles x Kt
     const uint32_t tb = get_tile_size(cb_z);
 
@@ -71,26 +71,12 @@ void kernel_main() {
             cb_reserve_back(cb_mask, 16);
             cb_push_back(cb_mask, 16);
         } else if constexpr (MASK) {
-            const uint32_t scr = get_write_ptr(cb_mscr);
-            noc_async_read_page(rt * St + st, mk, scr);
-            noc_async_read_barrier();
+            // mask tiles from the host (`fused.mask_rows`): page r * St + s carries mask[r, 32 s ..] in all 32 rows.
             cb_reserve_back(cb_mask, 16);
             uint32_t d = get_write_ptr(cb_mask);
-            volatile tt_l1_ptr uint32_t* src = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(scr);
-            for (uint32_t li = 0; li < 16; ++li, d += tb) {
-                // source row 16 h + li sits in faces 2h (cols 0-15) and 2h + 1 (cols 16-31), row li of each.
-                const uint32_t s0 = (2 * h * 512 + li * 32) / 4;
-                volatile tt_l1_ptr uint32_t* dst = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(d);
-                for (uint32_t f = 0; f < 4; f += 2) {
-                    for (uint32_t rr = 0; rr < 16; ++rr) {
-                        const uint32_t o = (f * 512 + rr * 32) / 4;
-                        for (uint32_t k = 0; k < 8; ++k) {
-                            dst[o + k] = src[s0 + k];
-                            dst[o + 128 + k] = src[s0 + 128 + k];
-                        }
-                    }
-                }
-            }
+            const uint32_t r0 = rt * 32 + h * 16;
+            for (uint32_t li = 0; li < 16; ++li, d += tb) noc_async_read_page((r0 + li) * St + st, mk, d);
+            noc_async_read_barrier();
             cb_push_back(cb_mask, 16);
         }
         for (uint32_t li = 0; li < 16; ++li) {
