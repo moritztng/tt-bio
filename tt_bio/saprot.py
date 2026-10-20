@@ -701,14 +701,13 @@ class ESM2FFN(_SaprotLin, Module):
                                             dtype=ttnn.float32)
             self._fold = (wd, row(wq.sum(0)), row(f("norm.bias") @ w + f("fc1.bias")))
         wd, cs, c = self._fold
-        D = {"memory_config": ttnn.DRAM_MEMORY_CONFIG}   # the --fast page keeps the residual and LN outputs in L1
-        xf = ttnn.typecast(x, ttnn.float32, **D)
-        mu = ttnn.mean(xf, dim=-1, keepdim=True, **D)
-        dx = ttnn.subtract(xf, mu, **D)
-        rs = ttnn.rsqrt(ttnn.add(ttnn.mean(ttnn.multiply(dx, dx, **D), dim=-1, keepdim=True, **D), 1e-5, **D), **D)
-        acc = ttnn.matmul(x, wd, compute_kernel_config=self._ck(wd), dtype=ttnn.float32, **D)
-        y = ttnn.add(ttnn.multiply(ttnn.subtract(acc, ttnn.multiply(mu, cs, **D), **D), rs, **D), c, **D)
-        h = ttnn.typecast(ttnn.gelu(y, fast_and_approximate_mode=False, **D), ttnn.bfloat16, **D)
+        xf = ttnn.typecast(x, ttnn.float32)
+        mu = ttnn.mean(xf, dim=-1, keepdim=True)
+        dx = ttnn.subtract(xf, mu)
+        rs = ttnn.rsqrt(ttnn.add(ttnn.mean(ttnn.multiply(dx, dx), dim=-1, keepdim=True), 1e-5))
+        acc = ttnn.matmul(x, wd, compute_kernel_config=self._ck(wd), dtype=ttnn.float32)
+        y = ttnn.add(ttnn.multiply(ttnn.subtract(acc, ttnn.multiply(mu, cs)), rs), c)
+        h = ttnn.typecast(ttnn.gelu(y, fast_and_approximate_mode=False), ttnn.bfloat16)
         for t in (xf, mu, dx, rs, acc, y):
             ttnn.deallocate(t)
         return h
