@@ -179,7 +179,9 @@ OPM_B8CFG_FAST = frozenset({"opm_b8cfg"})
 # docking 34 -> 33. 9W8A lost its interface on 2 of 4 seeds; a 12-seed sweep (w8a) shows that target collapsing on
 # ~2 of 12 seeds under every Protenix-v2 fast set, so it is the target, not this stack.
 # cdk2x2 512 x 1 on a p300 chip at 1350 MHz, 4 paired warm folds in one process (bhab5): steady 28.85 -> 25.49 s median, -3.19 s.
-BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh"}) | TRIATT_LN_B8_FAST
+# ws_psilu rides along bit-identically: pair SwiGLU kernel at N 512 c 256 4.08 -> 3.26 ms (wsk), and the fold's CIFs are
+# identical with it on and off, steady warm pairs +0.39 / -0.76 / -0.78 s (psf, p300 at 1325 MHz mean).
+BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu"}) | TRIATT_LN_B8_FAST
 # dit_shoist and trimul_t1w8 (T1's resident weights bfp8, c_z 256 in one launch) in Protenix-v2's Wormhole normal set.
 # Wormhole 512-token normal grade, shipped Protenix-v2 Wormhole normal set vs + both, 44 paired folds (spd-m-protenix
 # gstn, 2026-10-20), PASS: same-seed top pose median 0.221 A vs the 0.6 A bar (1.145 A A/A floor), CA-lDDT +0.0002
