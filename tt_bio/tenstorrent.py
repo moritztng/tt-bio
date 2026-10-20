@@ -583,6 +583,9 @@ _FAST_MODE = False
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
 #   trimul_l1x2     Wormhole only: twice the trimul L1 chunk budget (`_trimul_chunk_size`), chunk 64 at 256 tokens
 #   inproj_k6       the trimul in-projection takes K_block 6 for a 12-tile contraction (`_in_proj_matmul`), not 8
+#   inproj_split    the trimul projects every channel chunk in one split call before its channel loop, not one
+#                   call per chunk (`_gp_in_all`): the pair tensor is read once and N is wide enough to fill the
+#                   grid. Bit-exact (each output tile is the same full-K contraction); holds all chunks at once
 #   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
@@ -798,7 +801,7 @@ _FAST_MODE = False
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
 #                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
-LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
@@ -822,7 +825,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "acc_off", "diffusion_bf16", "dit_
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
@@ -9429,6 +9432,11 @@ def device_weights(model) -> dict:
     return {path: t for path, _, _, t in walk_device_weights(model)}
 
 
+# `inproj_split` holds every chunk's projection at once: 0.25 GB at 288 tokens, 1.26 GB at 640. Past
+# this it keeps the per-chunk loop rather than add a DRAM peak at sizes the lever was not measured at.
+_INPROJ_SPLIT_MAX_BYTES = 1 << 30
+
+
 def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None):
     """The trimul in-projection: the dual-NOC drain where it applies, else today's call.
 
@@ -9902,6 +9910,15 @@ class TriangleMultiplication(Module):
                 for t in self._gp_fused_order((self._g_in_t, self._p_in_t), C, group)
             ]
             self._gp_gated_cache[key] = cached
+        return cached
+
+    def _gp_in_all(self, C: int, group: int) -> ttnn.Tensor:
+        """Every chunk of `_gp_in_chunks(C, group)` side by side, for one split in-projection."""
+        key = (C, group, gp_roles(), "all")
+        cached = self._gp_cache.get(key)
+        if cached is None:
+            cached = ttnn.concat(self._gp_in_chunks(C, group), dim=-1)
+            self._gp_cache[key] = cached
         return cached
 
     def _gp_in_gout(self, C: int, group: int) -> ttnn.Tensor:
@@ -10547,6 +10564,7 @@ class TriangleMultiplication(Module):
                      and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
+        pre_split = None
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
             try:
@@ -10554,6 +10572,8 @@ class TriangleMultiplication(Module):
                 # biases have to follow the weights to the new column order.
                 gp_in_biases = self._gp_in_biases(chunk_size, group)
                 for i in range(n_pairs // group):
+                    if i == 0:
+                        pre_split = None   # `inproj_split`: None = not asked yet, [] = declined
                     bias_i = None if gp_in_biases is None else gp_in_biases[i]
                     perm_a = (0, 3) + ((2, 1) if self.ending else (1, 2))
                     perm_b = (0, 3) + ((1, 2) if self.ending else (2, 1))
@@ -10669,6 +10689,9 @@ class TriangleMultiplication(Module):
                                 defer_a = perm_a == (0, 3, 2, 1)
                                 defer_b = perm_b == (0, 3, 2, 1)
                     if a_chunk is not None:
+                        if pre_split and pre_split[i] is not None:
+                            ttnn.deallocate(pre_split[i])
+                            pre_split[i] = None
                         gated = True
                         tail_mc = out_mc = memory_config
                     else:
@@ -10694,6 +10717,19 @@ class TriangleMultiplication(Module):
                                 fuse_gout = False
                             else:
                                 gp_in_fused, g_out_fused = pair
+                        n_it = n_pairs // group
+                        if (gp_in_fused is None and pre_split is None and i == 0 and n_it > 1
+                                and lever("inproj_split") and not row_norm and bias_i is None
+                                and gp_in_biases is None and not ops.taping()
+                                and x_norm_in.volume() // int(x_norm_in.shape[-1])
+                                * int(gp_in_chunks[0].shape[-1]) * n_it * 2 <= _INPROJ_SPLIT_MAX_BYTES):
+                            w_all = self._gp_in_all(chunk_size, group)
+                            pre_split = _in_proj_matmul(
+                                x_norm_in, w_all, self.compute_kernel_config, memory_config, None,
+                                split=[int(w_all.shape[-1]) // n_it] * n_it,
+                                dtype=ttnn.bfloat8_b if b8 else None) or []
+                        if gp_in_fused is None and pre_split:
+                            gp_in_fused, pre_split[i] = pre_split[i], None
                         if gp_in_fused is None:
                             gp_in_fused = (
                                 self._in_proj_rows(x_in, gp_in_chunks[i], H, batch, memory_config,
@@ -11033,6 +11069,10 @@ class TriangleMultiplication(Module):
                 # clean slate, not against the corpse of the failed attempt.
                 gp_in_fused = g_in_a = g_in_b = p_in_a = p_in_b = None
                 a_chunk = b_chunk = x_chunk = None
+                for t in pre_split or ():
+                    if t is not None:
+                        ttnn.deallocate(t)
+                pre_split = None
                 if g_out_fused is not None:
                     ttnn.deallocate(g_out_fused)
                     g_out_fused = None
