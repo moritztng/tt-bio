@@ -210,6 +210,23 @@ ALWI void add_partials(uint32_t in0_cb, uint32_t in1_cb, uint32_t out_cb, uint32
     cb_pop_front(in1_cb, num_tiles);
 }
 
+// out_cb = in_cb * the scalar tile, with in_cb kept. BW_V2 scales q (which then also carries dK's
+// scale) and dQ, 2 * Qt * Dt tiles, where the plain body scales S and dS, 2 * Qt * Nt.
+ALWI void scale_to(uint32_t in_cb, uint32_t scale_cb, uint32_t out_cb, uint32_t num_tiles) {
+    reconfig_data_format(in_cb, scale_cb);
+    mul_tiles_bcast_scalar_init_short(in_cb, scale_cb);
+    pack_reconfig_data_format(out_cb);
+    cb_wait_front(in_cb, num_tiles);
+    cb_reserve_back(out_cb, num_tiles);
+    for (uint32_t i = 0; i < num_tiles; ++i) {
+        acquire_dst();
+        mul_tiles_bcast_scalar(in_cb, scale_cb, i, 0, 0);
+        pack_tile<true>(0, out_cb, i);
+        release_dst();
+    }
+    cb_push_back(out_cb, num_tiles);
+}
+
 }  // namespace
 
 void kernel_main() {
@@ -223,6 +240,8 @@ void kernel_main() {
     constexpr uint32_t col_sbw = get_compile_time_arg_val(7);
     constexpr uint32_t Qt = get_compile_time_arg_val(8);          // query chunk, in tiles
     constexpr uint32_t qcol_sbh = get_compile_time_arg_val(9);    // subblock height for [Qt, *]
+    constexpr uint32_t row_sbh = get_compile_time_arg_val(10);    // subblock for a [Dt, Nt] result
+    constexpr uint32_t row_sbw = get_compile_time_arg_val(11);
 
     const uint32_t row_start = get_arg_val<uint32_t>(0);          // this core's leading-axis group
     const uint32_t row_end = get_arg_val<uint32_t>(1);
@@ -242,6 +261,9 @@ void kernel_main() {
     constexpr uint32_t cb_ones = tt::CBIndex::c_8;
     constexpr uint32_t cb_prev = tt::CBIndex::c_9;     // the previous chunk's dV, then dK, float32
     constexpr uint32_t cb_tmp = tt::CBIndex::c_10;     // this chunk's dV or dK before the add
+    constexpr uint32_t cb_qs = tt::CBIndex::c_11;      // BW_V2: q * scale
+    constexpr uint32_t cb_tr = tt::CBIndex::c_12;      // BW_V2: dO^T, then (q * scale)^T
+    constexpr uint32_t cb_o = tt::CBIndex::c_13;       // BW_V2: O = P V, recomputed
     constexpr uint32_t cb_p = tt::CBIndex::c_24;
     constexpr uint32_t cb_dp = tt::CBIndex::c_25;
     constexpr uint32_t cb_t = tt::CBIndex::c_26;
@@ -282,6 +304,94 @@ void kernel_main() {
         seed_zeros(cb_dbias, cb_zero, score_tiles);
 
         for (uint32_t row = row_start; row < row_end; ++row) {
+#ifdef BW_V2
+            // The same gradient with three score-sized passes and two score-sized transposes
+            // fewer. q is scaled once (Qt * Dt tiles), which is S's scale and also dK's:
+            // dK = scale * dS^T Q = dS^T (scale * Q). dV and dK are formed transposed, from
+            // dO^T and (scale * Q)^T, so only Qt * Dt and Dt * Nt tiles are transposed instead of
+            // two Qt * Nt blocks. And rowsum(dP * P) is rowsum(dO * (P V)): sum_j P_ij dP_ij =
+            // sum_d dO_id sum_j P_ij V_jd, a [Qt, Dt] product instead of a [Qt, Nt] one, on the
+            // same bf16 P this kernel normalised. Whole query only (`triatt_bw.plan`'s `v2`).
+            static_assert(Qt == Nt && Nt % Dt == 0, "BW_V2 is the whole-query body");
+            {
+            ZONE("S");
+            scale_to(cb_q, cb_scale, cb_qs, qcol_tiles);
+            mm_keep<Qt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_qs, cb_k, cb_p);
+            }
+            {
+            ZONE("BIAS");
+            add_block_inplace<false>(cb_p, cb_bias, score_tiles);
+            }
+            {
+            ZONE("EXP");
+            reduce_c<PoolType::MAX, ReduceDim::REDUCE_ROW, cb_p, cb_scalar, Qt, (int)VectorMode::RC>(
+                cb_row_a, cb_row_a, Nt, false);
+            sub_exp_block_bcast_cols_inplace<cb_p, Qt, 0x3F800000 /*1.0f*/, true, false,
+                                             (int)VectorMode::RC, false /*approx_exp*/>(
+                cb_row_a, cb_row_b, Nt);
+            }
+            {
+            ZONE("P");
+            cb_pop_front(cb_row_a, Qt);
+            mm_keep<Qt, 1, Nt, qcol_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(exp)
+            recip_block_inplace(cb_row_b, Qt);
+            mul_block_bcast_cols<Qt, Nt, true, false>(cb_p, cb_row_b, cb_p);    // P = exp / rowsum
+            }
+            {
+            ZONE("DV");
+            transpose_block<Qt, Dt>(cb_do, cb_tr);                              // dO^T
+            mm_keep<Dt, Nt, Qt, row_sbh, row_sbw, false>(cb_tr, cb_p, cb_t);    // dV^T = dO^T P
+            cb_pop_front(cb_tr, qcol_tiles);
+            transpose_block<Dt, Nt>(cb_t, cb_dv);
+            cb_pop_front(cb_t, col_tiles);
+            }
+            {
+            ZONE("DP");
+            mm_keep<Qt, Nt, Dt, sq_sbh, sq_sbw, true>(cb_do, cb_v, cb_dp);      // cb_dp = dP
+            }
+            {
+            ZONE("SUB");
+            mm_keep<Qt, Dt, Nt, qcol_sbh, col_sbw, false>(cb_p, cb_v, cb_o);    // O = P V
+            mul_block_to(cb_o, cb_do, cb_t, qcol_tiles);                        // dO * O
+            cb_pop_front(cb_o, qcol_tiles);
+            mm_keep<Qt, 1, Dt, qcol_sbh, 1, false>(cb_t, cb_ones, cb_row_a);   // = rowsum(dP * P)
+            cb_pop_front(cb_t, qcol_tiles);
+            // The same row-sum correction as the plain body, for the same reason.
+            mm_keep<Qt, 1, Nt, qcol_sbh, 1, false>(cb_p, cb_ones, cb_row_b);   // rowsum(P)
+            recip_block_inplace(cb_row_b, Qt);
+            mul_block_inplace(cb_row_a, cb_row_b, Qt);
+            cb_pop_front(cb_row_b, Qt);
+            sub_block_bcast_cols_inplace<Qt, Nt>(cb_dp, cb_row_a);
+            }
+            {
+            ZONE("DS");
+            cb_pop_front(cb_row_a, Qt);
+            mul_block_inplace(cb_dp, cb_p, score_tiles);     // cb_dp = dS
+            }
+            {
+            ZONE("DBIAS");
+            cb_pop_front(cb_p, score_tiles);
+            accumulate_fp32(cb_dbias, cb_dp, score_tiles);
+            }
+            {
+            ZONE("DQ");
+            reconfig_data_format_srca(cb_dp);
+            pack_reconfig_data_format(cb_dp);
+            mm_keep<Qt, Dt, Nt, qcol_sbh, col_sbw, false>(cb_dp, cb_k, cb_t);   // dS K
+            scale_to(cb_t, cb_scale, cb_dq, qcol_tiles);
+            cb_pop_front(cb_t, qcol_tiles);
+            }
+            {
+            ZONE("DK");
+            transpose_block<Qt, Dt>(cb_qs, cb_tr);                              // (scale * Q)^T
+            cb_pop_front(cb_qs, qcol_tiles);
+            mm_keep<Dt, Nt, Qt, row_sbh, row_sbw, false>(cb_tr, cb_dp, cb_t);   // dK^T
+            cb_pop_front(cb_tr, qcol_tiles);
+            cb_pop_front(cb_dp, score_tiles);
+            transpose_block<Dt, Nt>(cb_t, cb_dk);
+            cb_pop_front(cb_t, col_tiles);
+            }
+#else
             // ---- S = (Q K^T) * scale + bias, then P = softmax(S) ----------------------------
             {
             ZONE("S");
@@ -394,6 +504,7 @@ void kernel_main() {
             }
             cb_pop_front(cb_t, score_tiles);
 
+#endif
             cb_pop_front(cb_q, qcol_tiles);
             cb_pop_front(cb_k, col_tiles);
             cb_pop_front(cb_v, col_tiles);
