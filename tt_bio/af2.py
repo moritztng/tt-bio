@@ -887,6 +887,51 @@ class AF2MaskedOuterProductMean(OuterProductMean):
     EPS = 1e-3
     # Rows joined along the contraction (`_sum_rows`), armed by `bindcraft2.fast_round`.
     rows_in_k = False
+    # `_rows_joined_weight` is S x S blocks of proj_o, so it grows with the square of the depth.
+    ROWS_JOINED_MAX = 4
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._o_joined: dict[tuple[int, int, int], ttnn.Tensor] = {}
+
+    def _rows_joined_weight(self, S: int, C: int, D: int) -> ttnn.Tensor:
+        """`proj_o` as [S * C, c_z * S * D], block diagonal over the rows: entry
+        `(s * C + c, (k * S + s) * D + d)` is `W[c, d, k]` and every other entry is 0.
+
+        `a2 @ this` is every row's `sum_c a_sic W_cdk` at once, already in the [I, c_z, S * D]
+        order the contraction with `b` reads, so the product needs one reshape and nothing else.
+        Built from the device copy, so it holds exactly the bf16 values `proj_o` holds; the zero
+        blocks add exact zeros to the fp32 destination."""
+        w = self._o_joined.get((S, C, D))
+        if w is None:
+            o = ttnn.to_torch(self.o_weight)
+            c_z = int(o.shape[-1])
+            per_row = o.reshape(C, D, c_z).permute(0, 2, 1)
+            blocks = torch.zeros(S, C, c_z, S, D, dtype=o.dtype)
+            for s_i in range(S):
+                blocks[s_i, :, :, s_i, :] = per_row
+            w = ttnn.from_torch(blocks.reshape(S * C, c_z * S * D), dtype=ttnn.bfloat16,
+                                layout=ttnn.TILE_LAYOUT, device=self.device)
+            self._o_joined[(S, C, D)] = w
+        return w
+
+    def _sum_rows_joined(self, a, b, S, I, C, J, D):
+        """`_sum_rows` with the rows inside the contraction: [I, c_z, S*D] x [S*D, J] is one
+        product, accumulated in the fp32 destination, where S products and S-1 bf16 adds of
+        [J, I, c_z] would round each partial. Each operand comes out of one op already in the
+        layout the product reads; the per-row form took a matmul, a row-major round trip and a
+        permute per row, and a concat per operand."""
+        w = self._rows_joined_weight(S, C, D)
+        c_z = int(w.shape[1]) // (S * D)
+        a2 = ttnn.reshape(ttnn.permute(a, (1, 0, 2)), (I, S * C))
+        A = ttnn.matmul(a2, w, compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN)
+        A = ttnn.reshape(A, (I, c_z, S * D))
+        bt = ttnn.reshape(ttnn.permute(b, (0, 2, 1)), (S * D, J))
+        out = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config)
+        out = ttnn.permute(out, (0, 2, 1))
+        out = ttnn.add(out, self.o_bias)
+        return ttnn.reshape(out, (1, *tuple(out.shape)))
 
     def _sum_rows(self, a: ttnn.Tensor, b: ttnn.Tensor) -> ttnn.Tensor:
         """`sum_s a_sic b_sjd W_cdk + o_bias`, unscaled, without `ttnn.repeat`.
@@ -898,6 +943,8 @@ class AF2MaskedOuterProductMean(OuterProductMean):
         """
         S, I, C = (int(d) for d in a.shape)
         _, J, D = (int(d) for d in b.shape)
+        if self.rows_in_k and 1 < S <= self.ROWS_JOINED_MAX and self.o_weight.dtype == ttnn.bfloat16:
+            return self._sum_rows_joined(a, b, S, I, C, J, D)
         w = self._proj_o_folded(C, D)
         c_z = int(w.shape[1]) // D
         As, bts = [], []
@@ -911,19 +958,11 @@ class AF2MaskedOuterProductMean(OuterProductMean):
             As.append(ttnn.permute(A, (0, 2, 1)))
             b_s = ttnn.reshape(b if S == 1 else b[s_i:s_i + 1], (J, D))
             bts.append(ttnn.permute(b_s, (1, 0)))
-        if self.rows_in_k and S > 1:
-            # The sum over rows is part of the contraction: [I, c_z, S*D] x [S*D, J] is one
-            # product, accumulated in the fp32 destination, where S products and S-1 bf16 adds
-            # of [J, I, c_z] round each partial. D is whole tiles, so both joins are tile-aligned.
-            out = ttnn.matmul(ttnn.concat(As, dim=-1), ttnn.concat(bts, dim=0),
-                              compute_kernel_config=self.compute_kernel_config)
-            out = ttnn.permute(out, (0, 2, 1))
-        else:
-            out = None
-            for A, bt in zip(As, bts):
-                part = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config)
-                part = ttnn.permute(part, (0, 2, 1))
-                out = part if out is None else ttnn.add(out, part)
+        out = None
+        for A, bt in zip(As, bts):
+            part = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config)
+            part = ttnn.permute(part, (0, 2, 1))
+            out = part if out is None else ttnn.add(out, part)
         out = ttnn.add(out, self.o_bias)
         return ttnn.reshape(out, (1, *tuple(out.shape)))
 
