@@ -498,11 +498,11 @@ def runs(p, c):
     return p["arch"] == c["arch"] and (not c["hosts"] or p["name"] in c["hosts"])
 
 
-SHA_DIR = re.compile(r"(?:tree-|t)?([0-9a-f]{7,40})")
+SHA_DIR = re.compile(r"[a-z-]{0,8}?([0-9a-f]{7,40})")
 
 
 def tree_root(path, repo, _seen={}):
-    """(tree dir, commit) if `path` lies in a tt-bio tree named by its commit (trees/<sha>, tree-<sha>, t<sha>)."""
+    """(tree dir, commit) if `path` lies in a tt-bio tree named by its commit (trees/<sha>, tree-<sha>, t<sha>, m<sha>...)."""
     parts = path.split("/")
     for i, comp in enumerate(parts):
         m = SHA_DIR.fullmatch(comp)
@@ -724,7 +724,8 @@ def main(argv=None):
                         continue
                     if r and not st[n]["exists"].get(r[0]):
                         ship[n][r[0]] = r[1]
-                    elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL):
+                    elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL) and "/trees/" not in x:
+                        # a file under trees/ is part of a tree feed cannot name: a lone copy is a stub that satisfies `requires`
                         copy[n].add(x)
     for n in st:
         if ship[n] or copy[n]:
