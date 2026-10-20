@@ -131,7 +131,7 @@ def main() -> int:
             if act:
                 run("model-nobias-noact", lambda: ops.linear(xd, wd, dtype=ttnn.bfloat16, **lin_kw), {}, ref=pre)
             # the bias folded in as one more K tile: x gets a ones column, w the bias row, so no reload pass adds it
-            e = torch.zeros(M, 32, dtype=torch.bfloat16); e[:, 0] = 1
+            e = torch.zeros(*x.shape[:-1], 32, dtype=torch.bfloat16); e[..., 0] = 1
             wa = torch.cat([w, b[None], torch.zeros(31, N, dtype=torch.bfloat16)])
             wad = ttnn.from_torch(wa, layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt)
             ed = ttnn.from_torch(e, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
