@@ -18,6 +18,7 @@ on host (Foldseek) and is not a ttnn concern -- structure in, fused tokens out.
 from __future__ import annotations
 
 import itertools
+import math
 import os
 import pickle
 import shutil
@@ -187,6 +188,18 @@ _SAPROT_MM_ROPE = (env_flag("TT_BIO_SAPROT_MM_ROPE", False) if os.environ.get("T
 # hPCSK9 -0.000014, hHSA +0.000003, --fast +0.000021 / +0.000036. p150a 1350 MHz, hHSA: normal 23.6 -> 22.0, --fast
 # 22.7 -> 18.7, pcc +0.00001..+0.00005 in every cell. False keeps the folded projection.
 _SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", True)
+
+
+# SaProt 35M (head_dim 24): qkv, bias, NeoX RoPE and the head split as one minimal_matmul (mm_rope.half_pairs: two heads
+# per q / k tile pair, the writer splits them by face) in place of the linear, nlp_create_qkv_heads, the reshapes and
+# both rotary_embedding_llama calls. half_pair_check (ls109, Galaxy chip at 1000 MHz, batch 7, grid 8 x 5, --fast): q / k
+# rel_l2 2.38e-3 vs float64 (v, plain bf16 rounding, 1.70e-3), pad columns 0, 0.331 ms a call vs ~0.53-0.63 for the
+# chain. The grid keeps 5 cores on minimal_matmul's in1 axis in both orientations ((8, 5) when M > N transposes it), so
+# one permuted weight serves every batch. Off until the page A/B grades it.
+_SAPROT_HALF_ROPE = env_flag("TT_BIO_SAPROT_HALF_ROPE", False)
+_HALF_ROPE_CFG = (5, 5, 4, 1, 4)
+_HALF_ROPE_IN1 = 5
+_HALF_TABLES: dict = {}
 _RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                           fp32_dest_acc_en=True, packer_l1_acc=False)
 
@@ -633,6 +646,28 @@ class ESM2Attention(_SaprotLin, Module):
         cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
         return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (g.x, g.y), ck)
 
+    def _half_rope(self, x):
+        """(rope(q), rope(k), v) [B, H, L, 32] from one half-pair mm_rope matmul, or None where it is off or declines."""
+        if not (_SAPROT_HALF_ROPE and self.rope_pairs):
+            return None
+        from tt_bio import mm_rope
+        cfg, nc = _HALF_ROPE_CFG, _HALF_ROPE_IN1
+        dev = lambda t, dt: ttnn.from_torch(t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+        if not hasattr(self, "qkv_half"):   # built on first use, so an A/B can flip the flag on a loaded model
+            w, b = mm_rope.half_pairs(self.weights["qkv.weight"], self.weights["qkv.bias"], self.n_heads, self.head_dim)
+            self.qkv_half = (dev(mm_rope.permute(w, nc, cfg[2]), _dtype()),
+                             dev(mm_rope.permute(b, nc, cfg[2]), ttnn.bfloat16))
+        seq_len = int(x.padded_shape[-2])
+        rows = math.prod(int(d) for d in list(x.padded_shape)[:-1])
+        grid = (8, nc) if rows > 3 * self.n_heads * 32 else (nc, 8)
+        key = (id(self.device), seq_len, self.head_dim)
+        if key not in _HALF_TABLES:
+            _HALF_TABLES[key] = tuple(dev(t[None, None], ttnn.bfloat16)
+                                      for t in mm_rope.half_pair_tables(seq_len, self.head_dim, base=ROPE_BASE))
+        cos, sin = _HALF_TABLES[key]
+        return mm_rope.qkv_rope_heads(x, *self.qkv_half, cos, sin, self.n_heads, cfg, grid, self._ck(self.qkv_weight),
+                                      half=True)
+
     def _rope_pairs(self, t, cos, sin):
         """rotary_embedding_llama on [B, H, L, 32] heads, as one batch of B * H heads (its prefill takes batch 1)."""
         b, h, length, w = (int(d) for d in t.shape)
@@ -645,7 +680,7 @@ class ESM2Attention(_SaprotLin, Module):
         ck = self.compute_kernel_config
         x_norm = _in_b8(_block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight), self.qkv_weight,
                         int(self.norm_weight.shape[-1]))
-        heads = None if self.fold_rope else self._mm_rope(x_norm, cos, sin)
+        heads = self._half_rope(x_norm) if self.fold_rope else self._mm_rope(x_norm, cos, sin)
         qkv = None if heads is not None else self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
         if heads is not None:
             ttnn.deallocate(x_norm)
@@ -680,7 +715,8 @@ class ESM2Attention(_SaprotLin, Module):
             v = ttnn.multiply(v, key_valid)
         d = int(self.norm_weight.shape[-1])
         b8 = _in_b8_on(self.out_weight, d) and _SAPROT_SDPA_B8
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_sdpa_ckc(heads is not None),
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True,
+                    ckc=_sdpa_ckc(heads is not None and not self.fold_rope),
                     out_dtype=ttnn.bfloat8_b if b8 else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = _in_b8(o, self.out_weight, d)
