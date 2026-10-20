@@ -88,6 +88,22 @@ def test_patch_applies_to_the_installed_wheel(tmp_path):
     assert "PACK((llk_math_eltwise_unary_sfpu_silu<true, DST_ACCUM_MODE>(i)));" in (out / MO.BMM).read_text()
 
 
+def test_gelu_f32_takes_only_the_approx_path(tmp_path):
+    """gelu_f32 swaps metal's approx-mode gelu (and its init) for calculate_gelu_f32; the accurate path is untouched."""
+    root = MO.runtime_root()
+    if root is None:
+        pytest.skip("ttnn not installed")
+    out = MO.build(["gelu_f32"], root=root, cache=tmp_path / "cache")
+    for arch in MO.ARCHES:
+        d = out / MO._SFPU.format(arch=arch)
+        stock = (root / MO._SFPU.format(arch=arch) / "ckernel_sfpu_gelu.h").read_text()
+        gelu = (d / "ckernel_sfpu_gelu.h").read_text()
+        assert '#include "ckernel_sfpu_gelu_f32.h"' in gelu and "gelu_f32_init();" in gelu
+        assert "calculate_gelu_f32<ITERATIONS>();" in gelu and "_calculate_gelu_<" not in gelu
+        assert gelu.count("calculate_gelu_chebyshev(in)") == stock.count("calculate_gelu_chebyshev(in)") == 1
+        assert (d / "ckernel_sfpu_gelu_f32.h").read_text() == MO._GELU_F32.read_text()
+
+
 def _dataflow_root(tmp_path):
     root = tmp_path / "ttnn"
     hdr = root / MO.DATAFLOW_API

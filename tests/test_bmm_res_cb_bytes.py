@@ -9,7 +9,7 @@ Run: python3 -m pytest tests/test_bmm_res_cb_bytes.py   (needs ttnn importable, 
 """
 import ttnn
 
-from tt_bio import bmm_res
+from tt_bio import bmm_res, tenstorrent
 
 WH_L1 = 1499136                  # the refusal's L1 size
 WH_BANK = 1395424                # unreserved bytes per core on a Wormhole 8x9 grid
@@ -49,7 +49,7 @@ def test_split_defaults_to_wormhole_only(monkeypatch):
     t = bmm_res.MG.tile_bytes(ttnn.bfloat16)
     monkeypatch.setattr(bmm_res, "BRES_SPLIT", None)
     for arch, want in (("wormhole_b0", (2, 1)), ("blackhole", (0, 0))):
-        monkeypatch.setattr(bmm_res.ttnn, "get_arch_name", lambda: arch)
+        monkeypatch.setattr(tenstorrent, "arch_name", lambda: arch)
         assert bmm_res._plan(32, 32, t, t, transpose_a=True) == want
     monkeypatch.setattr(bmm_res, "BRES_SPLIT", True)
     assert bmm_res._plan(32, 32, t, t, transpose_a=True) == (2, 1)

@@ -572,6 +572,9 @@ _FAST_MODE = False
 #   opm_b8cfg       with opm_b8, the contraction on opm_contract_config's plan at HiFi2 (Wormhole)
 #   trimul_t2fold   the GATE-form T2 tail folds the LN's centring and gamma into Wp (trimul_tail.T2_FOLD): only rstd
 #                   is computed and the GEMM reads x itself; rounding grows with |x| instead of |x - mean|
+#   trimul_bres_b8  with trimul_bres, a bf16 b[c] is held in L1 as bfp8 where bf16 would split N (bmm_res.BRES_B8):
+#                   at 1024 tokens a[c] is read once instead of twice. Rounds b to bfp8, the einsum input trimul_b8in
+#                   meant to give it before gin_moved (which writes bf16) took the in-projection
 #   trimul_bres_bh  trimul_bres takes its fp32-dest copy under acc_off on Blackhole too (Wormhole always does), so
 #                   bmm_res fires in Blackhole --fast sets
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
@@ -726,6 +729,7 @@ _FAST_MODE = False
 #                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
 #   dit_mask16      under dit_fuse on Wormhole, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16,
 #                   not fp32 (Blackhole ignores it).
+#   dit_mask8       the same mask bfp8 on either arch (overrides dit_mask16).
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
@@ -798,12 +802,12 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-          "trimul_t2fold")
+          "trimul_t2fold", "dit_mask8", "trimul_bres_b8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2 and ws_psilu (Wormhole),
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
@@ -817,7 +821,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tai
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -954,6 +958,10 @@ _LEVERS = frozenset()
 if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT_BIO_LEVERS", ""):
     from . import metal_overlay as _metal_overlay
     _metal_overlay.enable(("silu_f32",))
+# gelu_f32 changes only metal's approx-mode gelu, which no tt-bio op asks for unless a model opts in
+# (saprot._SAPROT_GELU_F32), so every process carries it and an opt-in after the device opens still works.
+from . import metal_overlay as _metal_overlay  # noqa: E402
+_metal_overlay.enable(("gelu_f32",))
 
 
 def lever(name: str) -> bool:
@@ -7435,11 +7443,34 @@ def diffusion_fp32_device(enabled: bool):
         _DIFFUSION_FP32_DEVICE = old
 
 
+#: Part by the PCI device id the kernel driver publishes per chip (tt-kmd's own ids).
+_ARCH_BY_PCI_ID = {0x401E: "wormhole_b0", 0xB140: "blackhole"}
+
+
+def _sysfs_arch() -> str | None:
+    """The one part every chip on this host reports in sysfs, or None if they disagree or say nothing."""
+    import glob as _glob
+    archs = set()
+    for node in _glob.glob("/sys/class/tenstorrent/tenstorrent!*/device/device"):
+        try:
+            with open(node) as f:
+                archs.add(_ARCH_BY_PCI_ID.get(int(f.read().strip(), 16)))
+        except (OSError, ValueError):
+            archs.add(None)
+    return archs.pop() if len(archs) == 1 else None
+
+
 @lru_cache(maxsize=1)
 def arch_name() -> str:
-    """Tenstorrent architecture, e.g. 'wormhole_b0' or 'blackhole'. Cheap; no
-    device open required."""
-    return ttnn.get_arch_name()
+    """Tenstorrent architecture, e.g. 'wormhole_b0' or 'blackhole', without opening a card.
+
+    `ttnn.get_arch_name()` builds tt-metal's MetalContext, and with it the UMD cluster, which holds
+    the chip's driver fds until ReleaseOwnership. A probe that ran before any `get_device()` thus
+    held a card that `cleanup()` had no handle to free, and the next process to open it blocked
+    (pytest_device:1/4 wh at 938d50505: test_cleanup_drops_the_driver_fds found the card open).
+    sysfs names the part without that; ttnn answers only on a host where sysfs does not.
+    """
+    return _sysfs_arch() or ttnn.get_arch_name()
 
 
 @lru_cache(maxsize=1)
@@ -10580,7 +10611,7 @@ class TriangleMultiplication(Module):
                         x_chunk = _bmm_res.matmul(
                             a_chunk, b_chunk,
                             compute_kernel_config=_bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config)),
-                            transpose_a=defer_a, transpose_b=defer_b)
+                            transpose_a=defer_a, transpose_b=defer_b, b8=lever("trimul_bres_b8"))
                     if x_chunk is None:
                         x_chunk = ttnn.matmul(
                             a_chunk,

@@ -995,6 +995,18 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     return out
 
 
+def _cross_reads(a: Tensor, b: Tensor) -> tuple:
+    """Parent indices a PRODUCT's backward reads, given which of its two operands want a gradient.
+
+    For ``a * b`` and ``a @ b`` each operand's gradient reads only the OTHER operand's value, so a
+    side is read exactly when the other side wants a gradient. In a design round every weight is
+    frozen, so a linear's input and a dropout multiply's update are read by nothing: pinning them
+    kept ~10 of a block's ~60 pair tensors on the card for a gradient nobody asked for. The shapes
+    a backward needs are taken at record time, so an operand left unpinned can be released.
+    """
+    return tuple(i for i, other in ((0, b), (1, a)) if other is not None and other.requires_grad)
+
+
 def _evict_read_parents(parents: Sequence[Tensor]) -> None:
     """Move every L1-resident intermediate this op has just read down to DRAM.
 
@@ -1592,6 +1604,7 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     out_v = rows(a.value, lambda v: _matmul(v, b.value, transpose_a=transpose_a,
                                             transpose_b=transpose_b,
                                             compute_kernel_config=cfg))
+    ashape, bshape = a.value.shape, b.value.shape
 
     def make():
         def bw(g):
@@ -1608,23 +1621,23 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
                     # dA = g @ op(b)^T
                     a.add_grad(_reduce_to(rows(g, lambda v: bmm(v, b.value, False, not transpose_b,
                                                                 compute_kernel_config=cfg)),
-                                          a.value.shape))
+                                          ashape))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
                     a.add_grad(_reduce_to(bmm(b.value, g, transpose_b, True,
-                                              compute_kernel_config=cfg), a.value.shape))
+                                              compute_kernel_config=cfg), ashape))
             if b.requires_grad:
                 if not transpose_b:
                     # dB = op(a)^T @ g
                     b.add_grad(_reduce_to(bmm(a.value, g, not transpose_a,
-                                              compute_kernel_config=cfg), b.value.shape))
+                                              compute_kernel_config=cfg), bshape))
                 else:
                     # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
                     b.add_grad(_reduce_to(bmm(g, a.value, True, transpose_a,
-                                              compute_kernel_config=cfg), b.value.shape))
+                                              compute_kernel_config=cfg), bshape))
         return bw
 
-    return _tape(out_v, [a, b], make)
+    return _tape(out_v, [a, b], make, reads=_cross_reads(a, b))
 
 
 def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core_grid=None,
@@ -2888,6 +2901,33 @@ def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) 
 _CKPT_PINS: list = []
 
 
+def release_dead(outputs: Sequence[Tensor], inputs: Sequence[Tensor]) -> None:
+    """Release every intermediate of a taped segment that no backward reads.
+
+    The tape keeps a Tensor for every value it recorded, and a value goes back to the card only
+    where the shipped forward calls `ttnn.deallocate` on it. Most of a tuned forward lets an
+    activation go out of scope instead, and under a tape the node graph keeps the handle alive,
+    so an unpinned value nobody will read stays on the card until the backward has run. For a
+    segment whose tape is KEPT (BindCraft 2's resident Evoformer blocks) that is the difference
+    between a block's tape fitting and not. This walks from `outputs` back to `inputs` and frees
+    what lies between, through `free`, which keeps anything pinned and decides shared-storage
+    groups together. Only values with a node are touched: constants and parameters have none.
+    """
+    stop = {id(t) for t in (*outputs, *inputs) if isinstance(t, Tensor)}
+    seen = set(stop)
+    stack = [p for t in outputs if isinstance(t, Tensor) and t.node is not None
+             for p in t.node.parents]
+    while stack:
+        t = stack.pop()
+        if id(t) in seen or not isinstance(t, Tensor):
+            continue
+        seen.add(id(t))
+        if t.node is None:
+            continue
+        t.free()
+        stack.extend(t.node.parents)
+
+
 def release_pins() -> None:
     """Drop every pin a checkpointed segment took. Call after a backward, or after a forward
     whose tape is being discarded."""
@@ -3513,6 +3553,7 @@ def _taped_linear(shipped, args, kwargs):
     cfg = cfg or precise_config()
     bwcfg = precise_config()
     parents = [t for t in (x, w, bias) if t is not None]
+    xshape, wshape = x.value.shape, w.value.shape
 
     def make():
         def bw(g):
@@ -3526,7 +3567,7 @@ def _taped_linear(shipped, args, kwargs):
                                           v, w.value, True, lambda: _matmul(
                                               v, w.value, transpose_b=True,
                                               compute_kernel_config=bwcfg), bwcfg)),
-                                      x.value.shape))
+                                      xshape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,
                 # 262144 at 512 aa. `fp32_dest_acc_en` does not cover that, because
@@ -3540,12 +3581,12 @@ def _taped_linear(shipped, args, kwargs):
                 w.add_grad(_reduce_to(
                     _matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
                             compute_kernel_config=bwcfg, dtype=ttnn.float32),
-                    w.value.shape))
+                    wshape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
 
-    out = _tape(out_v, parents, make)
+    out = _tape(out_v, parents, make, reads=_cross_reads(x, w))
     if act is None:
         return out
     activated = act(out)
