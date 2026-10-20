@@ -581,6 +581,8 @@ _FAST_MODE = False
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
+#   trimul_l1x2     Wormhole only: twice the trimul L1 chunk budget (`_trimul_chunk_size`), chunk 64 at 256 tokens
+#   inproj_k6       the trimul in-projection takes K_block 6 for a 12-tile contraction (`_in_proj_matmul`), not 8
 #   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
@@ -795,7 +797,7 @@ _FAST_MODE = False
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
 #                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
-LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
@@ -818,7 +820,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
@@ -2151,6 +2153,13 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
     if _IS_SMALL_GRID:
         budget *= SMALL_GRID_TRIMUL_BUDGET_SCALE
+    if _IS_SMALL_GRID and lever("trimul_l1x2"):
+        # At 256 tokens on Wormhole the scaled 130-core budget leaves chunk 32, so the
+        # in-projection re-reads the whole pair input once per 32 channels (12 times at 384).
+        # Doubling it buys chunk 64 there: OpenDDE fast 256 on a Galaxy chip (1000 MHz)
+        # 39.7 -> 34.6 s, CIF identical. Under fp32 dest the in-projection's circular buffers
+        # clash at 64 and the clash narrows it back to 32, so normal pays one refused program.
+        budget *= 2
     c = TRIANGLE_MULT_CHUNK_SIZE
     # Price the chunk on the width it actually occupies. The chunk tensors are
     # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical
@@ -6485,8 +6494,15 @@ _TRIMUL_IBW_FULL_REFUSED: set = set()
 # 1000 MHz, perf/spd/af2_trimul_bmm_sweep.py, both deferred transposes, operands in L1 as the
 # untaped trunk runs them): [1,64,195,195]^2 0.40 -> 0.098 ms, [1,128,195,195]^2 0.80 -> 0.20 ms,
 # [1,64,224,224]^2 0.167 -> 0.103 ms; in DRAM (the taped path) 0.19 -> 0.155 and 0.37 -> 0.29 ms.
-# Blackhole stays off until measured there. None = arch default.
+# MEASURED on Blackhole (qb2 p300c chip 1, AICLK median 1350, bc4-bet-gates, the same sweep over
+# N 160-320, C 64 and 128, all three transposes, DRAM and L1): `torch.equal` to the multicast plan in
+# every cell; [1,128,224,224]^2 0.25 -> 0.11 ms in DRAM and 0.23 -> 0.09 ms in L1, 256 tokens 0.30
+# -> 0.13-0.15 ms, and no faster at 288 and 320 (within 4 %, slower in four of twelve cells).
+# None = the default: taken up to `_TRIMUL_PER_CHANNEL_MAX_ST` on both archs.
 _TRIMUL_PER_CHANNEL = env_flag("TT_BIO_TRIMUL_PER_CHANNEL", None)
+# 8 tiles (256 tokens) is where Wormhole's 8x9 grid stops giving every core one output tile, and
+# where the plan stops winning on Blackhole's 11x10.
+_TRIMUL_PER_CHANNEL_MAX_ST = 8
 # Sequence tiles whose per-channel plan clashed with live L1: they keep the multicast plan.
 _TRIMUL_PER_CHANNEL_REFUSED: set = set()
 # With the operands in L1 the plan is taken up to 7 sequence tiles (224 tokens), the window it was
@@ -6503,7 +6519,7 @@ _TRIMUL_PER_CHANNEL_L1_MAX_ST = 7
 
 
 def set_trimul_per_channel(on) -> object:
-    """A/B switch for the harness (None = arch default). Returns the previous value."""
+    """A/B switch for the harness (None = the default). Returns the previous value."""
     global _TRIMUL_PER_CHANNEL
     prev, _TRIMUL_PER_CHANNEL = _TRIMUL_PER_CHANNEL, on
     _triangle_mul_program_config.cache_clear()
@@ -6644,7 +6660,8 @@ def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False, sub: tu
                                                extra_tiles=transposed(in0_block_w)) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     if (per_core_M == per_core_N == 1 and seq_len_tiles not in _TRIMUL_PER_CHANNEL_REFUSED
-            and (is_wormhole() if _TRIMUL_PER_CHANNEL is None else _TRIMUL_PER_CHANNEL)
+            and (seq_len_tiles <= _TRIMUL_PER_CHANNEL_MAX_ST if _TRIMUL_PER_CHANNEL is None
+                 else _TRIMUL_PER_CHANNEL)
             and not (l1_operands and seq_len_tiles > _TRIMUL_PER_CHANNEL_L1_MAX_ST)
             and _matmul_cb_bytes(in0_block_w, seq_len_tiles, seq_len_tiles, 2,
                                  extra_tiles=2 * in0_block_w * seq_len_tiles) <= budget):
@@ -9458,9 +9475,18 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None)
             return out
     if split is not None:
         return None
+    kw = {}
+    kt, nt = int(w.shape[-2]) // 32, int(w.shape[-1]) // 32
+    if lever("inproj_k6") and kt == 12 and nt <= 8:
+        # A/B: the default K_block 8 pads OpenDDE's 12-tile contraction to 16, a third more
+        # matmul work on every chunk; 6 divides it. N_block 1 is what each core holds anyway once
+        # the 8-row grid splits a <= 8-tile output.
+        kw["config"] = ttnn.MinimalMatmulConfig(
+            M_block_size=8, K_block_size=6, N_block_size=1, subblock_h=4, subblock_w=1,
+            compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
     return ttnn.experimental.minimal_matmul(
         x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
-        compute_kernel_config=ckc)
+        compute_kernel_config=ckc, **kw)
 
 
 def _trimul_out_proj(
@@ -9724,8 +9750,9 @@ def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> 
     if _reblock.eligible_back(chunk, memory_config):
         return _reblock.reblock_permute_back(chunk, memory_config)
     if _reblock.eligible_back(chunk, memory_config, taped_ok=True):
-        from .autograd import _on_tape
-        if not _on_tape((chunk,), {}):
+        # Reached only with a tape open, so the hook `autograd.install` fills is there; asking it keeps
+        # the inference module from importing the training stack.
+        if not ops.grad_hook().on_tape((chunk,), {}):
             # A raw chunk under an open tape (a fused kernel's output in a forward the tape does not
             # record, `_gin_biased`): the shim hands an untaped call to the stock permute, and there
             # is nothing here to differentiate, so the kernel takes it directly.
@@ -13428,32 +13455,44 @@ def _transition_shard_rows(W: int, c: int, hid: int) -> int:
 _FC12G_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kernels", "fc12g", "compute_fc12g.cpp")
 
 
-def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden):
-    """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`).
+def _fc12g_subblock(pm, pn):
+    """(h, w) of an fc12g output subblock: it fits an fp32 dest half (4 tiles), one row when a product spans several."""
+    sw = max(w for w in range(1, 5) if pn % w == 0)
+    return (max(h for h in range(1, 5) if pm % h == 0 and h * sw <= 4) if sw == pn else 1), sw
 
-    One subblock is one fc half (1..4 rows x pn tiles, an fp32 dest half), fc1's then fc2's; the kernel runs the
-    silu on the PACK thread while MATH does fc2, then multiplies fc2 by the gate in dest (kernels/fc12g).
+
+def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden, products=2, defines=None):
+    """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`), or
+    with `products=3` silu(x @ w1) * (x @ w2) * (x @ w3), each core column's in1 block its w1, w2
+    (and w3) columns in turn (`_fc12_interleave`).
+
+    A subblock fits an fp32 dest half (4 tiles); a product wider than that spans several subblocks of one row
+    each. The kernel runs the silu on the PACK thread while MATH does the next product, then multiplies each
+    further product by the running one in dest (kernels/fc12g).
     """
     from .mm2d_generic import generic_matmul_2d
-    sh = max(h for h in range(1, 5) if pm % h == 0 and h * pn <= 4)
+    sh, sw = _fc12g_subblock(pm, pn)
     pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
-        out_subblock_w=pn, out_block_h=pm, out_block_w=2 * pn, per_core_M=pm, per_core_N=2 * pn,
+        out_subblock_w=sw, out_block_h=pm, out_block_w=products * pn, per_core_M=pm, per_core_N=products * pn,
         transpose_mcast=False, fused_activation=None, fuse_batch=True)
     shape = list(x.shape)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape[:-1] + [gx * pn * 32]), hidden, ttnn.TILE_LAYOUT,
                                          x.device(), mc)
+    defines = {"FC12G_PACK_SILU": "1", "FC12G_PRODUCTS": str(products), **(defines or {})}
     # Everything the descriptor depends on that the arguments below do not already fix.
     key = ("fc12g", tuple(shape), x.dtype, x.memory_config().buffer_type, w12.dtype, hidden, pm, pn, sh, bw, gx,
-           gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc)
-    return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=1, compute_src=_FC12G_SRC,
-                             compute_defines={"FC12G_PACK_SILU": "1"}, gate_tiles=2 * sh * pn, key=key)
+           gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc,
+           tuple(sorted(defines.items())))
+    return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=pn // sw, compute_src=_FC12G_SRC,
+                             compute_defines=defines, gate_tiles=2 * sh * sw, key=key)
 
 
-def _fc12_interleave(w1: torch.Tensor, w2: torch.Tensor, gx: int) -> torch.Tensor:
-    """[K, 2N] whose j-th of `gx` column blocks is w1's j-th block then w2's: one core column's fc1 and fc2."""
-    b = w1.shape[1] // gx
-    return torch.cat([t for j in range(gx) for t in (w1[:, j * b:(j + 1) * b], w2[:, j * b:(j + 1) * b])], 1)
+def _fc12_interleave(*ws: torch.Tensor, gx: int) -> torch.Tensor:
+    """[K, len(ws) N] whose j-th of `gx` column blocks is each of `ws`'s j-th block in turn: one core column's
+    fc1 and fc2 (and fc3)."""
+    b = ws[0].shape[1] // gx
+    return torch.cat([w[:, j * b:(j + 1) * b] for j in range(gx) for w in ws], 1)
 
 
 def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=None, out_mc=None):
@@ -13516,7 +13555,7 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
 
 
 def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
-    """`b_to_a((silu(a w_sw) * (a w_gt)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
+    """`b_to_a((silu(a w_gt) * (a w_sw)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
     the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
     is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
     419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
@@ -13664,7 +13703,7 @@ class Transition(Module):
             return None
         if getattr(self, "_w12", None) is None:
             self._w12 = ttnn.from_torch(
-                _fc12_interleave(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(), 8),
+                _fc12_interleave(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(), gx=8),
                 layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.fc1_weight.dtype)
         return self._w12
 

@@ -1441,7 +1441,7 @@ class SwiGLUFFN(_MMLin, Module):
         if T.lever("swiglu_fc12g") and T.lever("silu_f32"):
             if getattr(self, "_w12", None) is None:
                 w1, w2 = (ttnn.to_torch(w).float() for w in (self.fc1_a_weight, self.fc1_b_weight))
-                self._w12 = ttnn.from_torch(T._fc12_interleave(w1, w2, 8), layout=ttnn.TILE_LAYOUT,
+                self._w12 = ttnn.from_torch(T._fc12_interleave(w1, w2, gx=8), layout=ttnn.TILE_LAYOUT,
                                             device=self.fc1_a_weight.device(), dtype=self.fc1_a_weight.dtype)
             w12 = self._w12
         ck = self.compute_kernel_config

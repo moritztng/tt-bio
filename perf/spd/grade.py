@@ -150,6 +150,24 @@ def no_truth(free, failed, a):
     return "\n".join(out) + "\n"
 
 
+def lost_reach(reps, arch, base, test):
+    """Levers whose kernels the test arm never ran though it was meant to: one served in `base` and never in `test`
+    (a refusal latched it off for the fold), or one named only in `test` that latches and never served. gfc 10-20
+    read PASS while its test arm ran neither dit_fc123g nor dit_shard: fc12g raised at 5 samples."""
+    served, named, seen = {base: defaultdict(int), test: defaultdict(int)}, {base: set(), test: set()}, set()
+    for r in reps:
+        if r["arch"] != arch:
+            continue
+        named[r["arm"]] |= set(filter(None, (r.get("arm_env") or {}).get("TT_BIO_LEVERS", "").split("+")))
+        for k, v in (r.get("latches") or {}).items():
+            seen.add(k)
+            served[r["arm"]][k] += v.get("served", 0)
+    lost = [f"{k} served {v} in {base}, 0 in {test}" for k, v in served[base].items() if v and not served[test][k]]
+    lost += [f"{k} (only in {test}) never served" for k in sorted(named[test] - named[base])
+             if k in seen and not served[test][k]]
+    return lost
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("runs", nargs="+", type=Path)
@@ -270,7 +288,11 @@ def main():
         # Verdict.
         why = []
         missing = [p for p in pdbs if not any(q == p for q, _ in paired)]
-        if missing or len(seeds) < a.min_seeds or any(k[0] == arch for k in failed):
+        lost = lost_reach(reps, arch, a.base, a.test)
+        if lost:
+            v = "INVALID"
+            why.extend(lost)
+        elif missing or len(seeds) < a.min_seeds or any(k[0] == arch for k in failed):
             v = "INSUFFICIENT"
             why.append(f"missing complexes {missing}" if missing else "")
             why.append(f"{len(seeds)} paired seeds (< {a.min_seeds})" if len(seeds) < a.min_seeds else "")

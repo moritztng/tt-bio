@@ -42,7 +42,7 @@ they sum over query rows, so with more than one chunk they are float32 running s
 chunk adding to what the previous one wrote for the same row (`SEM_WRITTEN` orders the read after
 the write), and one cast to bf16 at the end. `serving_plan` takes the whole query when it fits and
 otherwise the largest chunk that divides `Nt` and fits, which serves every bucket from 288 to 1024
-tokens. At a shape where the whole query fits, the program is the pre-loop one, bit for bit.
+tokens. At a shape where the whole query fits, the plain body is the pre-loop one, bit for bit.
 
 Wormhole serves the chunk too. Graded against float64 through teacher-forced Evoformer VJPs on a
 Wormhole chip at 288, 480, 512 and 576 tokens (`perf/spd/whchunk_grade.py`): at every size its
@@ -137,12 +137,19 @@ DST_TILES_FP32_ACC = 4
 
 
 def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
-         dst_size=DST_TILES_FP32_ACC):
+         dst_size=DST_TILES_FP32_ACC, v2=False):
     """Work split and tile geometry. Card-free, so the gate can be tested without a device.
 
     One core owns one head and a contiguous group of the leading axis. Heads go to the FAST index
     so that the cores sharing a head are adjacent, which is what lets the bias for that head be
     read once per core rather than once per leading-axis row.
+
+    `v2` is the whole-query body with three score-sized passes and two score-sized transposes
+    fewer (`BW_V2` in the compute kernel): q scaled once instead of S and dS, dV and dK formed
+    transposed from [Qt, Dt] operands, and the softmax correction rowsum(dP * P) taken as
+    rowsum(dO * P V). Same gradient, other roundings, and closer to float64 (dq rel L2 0.0073
+    against 0.0078 at 224 tokens on a Blackhole chip, `perf/bc4_triatt/bw_bench.py`). It costs
+    three [Qt, Dt] CBs and has no chunked form.
     """
     if N % TILE or d % TILE:
         raise ValueError(f"token axis {N} and head dim {d} must both be tile aligned")
@@ -162,7 +169,7 @@ def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
     p = {
         "B": B, "H": H, "N": N, "d": d, "Nt": Nt, "Dt": Dt, "Qt": Qt,
         "groups": groups, "num_cores": num_cores, "rows_per_core": rows_per_core,
-        "gx": gx, "gy": gy, "dst_size": dst_size,
+        "gx": gx, "gy": gy, "dst_size": dst_size, "v2": bool(v2) and Qt == Nt,
     }
     # Priced off the CB table itself rather than a parallel formula. The two drifting apart is how
     # a gate ends up reporting that a config fits while tt-metal refuses it.
@@ -190,12 +197,16 @@ def largest_fitting_q_chunk(B, H, N, d, grid, wormhole=None, **kw):
 def serving_plan(B, H, N, d, grid, wormhole=None, **kw):
     """The plan `run` uses: the whole-query form when it fits, else the largest query chunk.
 
+    On Blackhole the whole query takes the `v2` body when its CBs fit as well. Wormhole keeps the
+    plain body until `v2` has a grade on a Wormhole chip.
+
     `wormhole` defaults to the board this process sees; tests pass it to price the other one.
     """
     wormhole = _wormhole() if wormhole is None else wormhole
-    p = plan(B, H, N, d, grid, **kw)
-    if fits_l1(p, wormhole):
-        return p
+    for v2 in (False,) if wormhole else (True, False):
+        p = plan(B, H, N, d, grid, v2=v2, **kw)
+        if fits_l1(p, wormhole):
+            return p
     return largest_fitting_q_chunk(B, H, N, d, grid, wormhole, **kw)
 
 
@@ -234,6 +245,7 @@ CB_SCALE = 7                     # the attention scale, as a broadcast scalar
 CB_ONES = 8                      # Nt copies of the column identity: every row sum is a matmul
 CB_PREV = 9                      # the previous query chunk's float32 dV, then dK, for one row
 CB_TMP = 10                      # this chunk's dV or dK before the previous chunk's is added
+CB_QS, CB_TR, CB_O = 11, 12, 13  # `v2` only: q * scale, dO^T then (q * scale)^T, O = P V
 CB_P = 24                        # S, then P, in place
 CB_DP = 25                       # dP, then dS, in place
 CB_T = 26                        # transpose scratch: P^T for dV, dS^T for dK
@@ -290,7 +302,8 @@ def cb_table(p):
         (CB_DQ, Qt * Dt * 2, b16, bf16),
         (CB_DK, *kv),
         (CB_DV, *kv),
-    ]
+    ] + ([(CB_QS, Qt * Dt, b16, bf16), (CB_TR, Qt * Dt, b16, bf16), (CB_O, Qt * Dt, b16, bf16)]
+         if p.get("v2") else [])
 
 
 def cb_bytes(p) -> int:
@@ -312,8 +325,9 @@ def check_cb_coverage(p):
     short of attaching the watcher.
     """
     declared = {idx for idx, _n, _pg, _f in cb_table(p)}
-    missing = sorted(KERNEL_CB_INDICES - declared)
-    extra = sorted(declared - KERNEL_CB_INDICES)
+    named = KERNEL_CB_INDICES | ({CB_QS, CB_TR, CB_O} if p.get("v2") else set())
+    missing = sorted(named - declared)
+    extra = sorted(declared - named)
     if missing or extra:
         raise ValueError(f"CB table disagrees with the kernels: missing {missing}, extra {extra}")
 
@@ -436,7 +450,9 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
     sq_h, sq_w = SG.largest_subblock(p["Qt"], Nt, p["dst_size"])
     col_h, col_w = SG.largest_subblock(Nt, Dt, p["dst_size"])
     qcol_h, _ = SG.largest_subblock(p["Qt"], Dt, p["dst_size"])
-    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w, p["Qt"], qcol_h]
+    row_h, row_w = SG.largest_subblock(Dt, Nt, p["dst_size"])
+    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w, p["Qt"], qcol_h,
+                  row_h, row_w]
 
     kd = _kdir()
     rr, wr, cr = [], [], []
@@ -477,7 +493,8 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
                      ("EXP_APPROX_MODE", "0")]
                     + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else [])
                     + ([("BW_ZONES", "1")] if os.environ.get("TT_BIO_TRIATT_BW_ZONES") else [])
-                    + ([("EXP_21F", "1")] if EXP_21F else []),
+                    + ([("EXP_21F", "1")] if EXP_21F else [])
+                    + ([("BW_V2", "1")] if p.get("v2") else []),
             runtime_args=cr,
             config=ttnn.ComputeConfigDescriptor(
                 math_fidelity=ckc[0], math_approx_mode=False,
@@ -491,7 +508,8 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
             "addrs": addrs}
 
 
-def run(device, q, k, v, bias, g, scale, ckc, packed=False, q_chunk_tiles=None, grid=None):
+def run(device, q, k, v, bias, g, scale, ckc, packed=False, q_chunk_tiles=None, grid=None,
+        v2=None):
     """The whole backward for one triangle-attention call. Returns (dq, dk, dv, dbias).
 
     With `packed`, dq, dk and dv are one and the same [B, 1, N, 3*H*d] tensor, laid out as the
@@ -509,8 +527,9 @@ def run(device, q, k, v, bias, g, scale, ckc, packed=False, q_chunk_tiles=None, 
     # `q_chunk_tiles` forces a chunk, which is how the grader reaches the looped kernel at a
     # shape the whole-query form would also fit, and on a board `serving_plan` declines it on.
     # `grid` forces a smaller work split, which is how Wormhole's 8x8 runs on a Blackhole card.
-    p = (serving_plan(B, H, N, d, grid) if q_chunk_tiles is None
-         else plan(B, H, N, d, grid, q_chunk_tiles=q_chunk_tiles))
+    # `v2` forces the whole-query body one way or the other, which is how the grader compares them.
+    p = (serving_plan(B, H, N, d, grid) if q_chunk_tiles is None and v2 is None
+         else plan(B, H, N, d, grid, q_chunk_tiles=q_chunk_tiles, v2=bool(v2)))
     if p is None or not fits_l1(p):
         raise ValueError(f"does not fit L1 at any query chunk: N={N}")
 

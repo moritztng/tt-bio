@@ -135,7 +135,10 @@ def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
                      "    FAIL m/768 MM: decline clause [] -> ['k_tiles=2']\n"
                      "    FAIL m/1024 SW: frac 0.861 -> 0.981 exceeds the 0.05 band (partial darkness)\n",
             "dark": "    FAIL m/512 SDPA: frac 1.000 -> 0.000 (went dark on pad)\n",
-            "partial": "    FAIL m/1024 SW: frac 0.981 -> 0.861 exceeds the 0.05 band (partial darkness)\n"}
+            "partial": "    FAIL m/1024 SW: frac 0.981 -> 0.861 exceeds the 0.05 band (partial darkness)\n",
+            "slower": "    FAIL m/512 SDPA: frac 0.000 -> 1.000 (started firing)\n"
+                      "    FAIL m 512->768: exponent 1.87 -> 1.31 outside ±0.50\n"
+                      "    FAIL m per-rung base->run: 512 20.4->28.5 1.40x, 768 43.6->48.5 1.11x\n"}
     for name, text in logs.items():
         (g / f"{name}.log").write_text(text + "GATE FAIL — size-ladder drift vs the recorded baseline\n")
 
@@ -147,6 +150,8 @@ def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
     assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"              # darkness is not drift
     verdict("partial.log")
     assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"
+    verdict("slower.log")
+    assert rn.decide(tmp_path, gates, "main")["do"] == "FIX"              # a slower rung beside drift is not drift
     verdict("drift.log")
     d = rn.decide(tmp_path, gates, "main")
     assert (d["do"], d["sha"], d["models"]) == ("RECORD", head, ["m"])
