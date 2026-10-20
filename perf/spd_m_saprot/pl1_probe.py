@@ -17,7 +17,7 @@ import ttnn
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
-    ap.add_argument("--rows", type=int, default=32 * 1024)
+    ap.add_argument("--per-core", type=int, default=14, help="M tiles a core")
     a = ap.parse_args()
     torch.set_grad_enabled(False)
     from tt_bio import tenstorrent as T
@@ -26,8 +26,8 @@ def main() -> int:
     g = dev.compute_with_storage_grid_size()
     out = open(a.out, "a")
     gen = torch.Generator().manual_seed(1)
-    M = a.rows
-    mt = M // 32
+    mt = g.x * g.y * a.per_core   # M tiles: divides over the grid (Galaxy 8 x 9) for both programs
+    M = mt * 32
     for nb in (2, 3, 4, 8):
         for dist in ("wide", "mixed", "same_sign"):
             x = torch.randn(M, 32 * nb, generator=gen)
