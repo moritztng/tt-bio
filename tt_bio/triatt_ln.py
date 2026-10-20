@@ -218,13 +218,36 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     nq = 3 * H if lever("triatt_ln_b8") and plan[0] == 1 and 3 * H % 4 == 0 else 0
     if nq and lever("triatt_ln_b8g"):
         nq = 4 * H   # the gate too: gated_out_proj reads a bfp8 g
+    # triatt_ln_g8: the gate alone in bfp8. The kernel writes its first nq column tiles bfp8, so the weight's
+    # gate columns move to the front ([g | q | k | v | bias]) and the outputs follow; q, k, v stay bf16.
+    g8 = not nq and lever("triatt_ln_g8") and plan[0] == 1 and H % 4 == 0
+    if g8:
+        nq, w = H, _gate_first(w, c)
     STATS[2] += bool(nq)
     hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g
+    outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g (g, q, k, v under g8)
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, nq)
+    r = _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, nq)
+    if g8:
+        (g, q, k), v, b = r
+        return (q, k, v), g, b
+    return r
+
+
+_GATE_FIRST: dict = {}   # weight buffer address -> (weight, its gate-first copy); holding the weight keeps the address its own
+
+
+def _gate_first(w, c):
+    key = w.buffer_address()
+    hit = _GATE_FIRST.get(key)
+    if hit is None or hit[0] is not w:
+        n = int(w.shape[-1])
+        cols = lambda a, b: ttnn.slice(w, [0, a], [int(w.shape[0]), b], memory_config=ttnn.DRAM_MEMORY_CONFIG)  # noqa: E731
+        hit = _GATE_FIRST[key] = (w, ttnn.concat([cols(3 * c, 4 * c), cols(0, 3 * c), cols(4 * c, n)], dim=-1,
+                                                 memory_config=ttnn.DRAM_MEMORY_CONFIG))
+    return hit[1]
 
 
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, nq=0):

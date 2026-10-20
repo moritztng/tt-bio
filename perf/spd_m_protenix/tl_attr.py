@@ -8,7 +8,9 @@ layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or sever
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
 --b8 0,1 repeats every arm with lever triatt_ln_b8 (bfp8 q, k, v); at ABL 0 each B8 arm also runs on a grid one row
 shorter and prints whether its outputs are torch.equal to the full grid's (grid_invariant), and the bf16 arm's
-deviation from a float64 reference beside the bfp8 arm's (rel_rms_f64).
+deviation from a float64 reference beside the bfp8 arm's (rel_rms_f64). --b8 2 is lever triatt_ln_g8 (the gate alone
+bfp8): its row also says whether q, k, v and bias are torch.equal to the off arm's (qkvb_equal_off) and gives the gate's
+own deviation (gate_rel_rms_f64).
 """
 import argparse, json, os, statistics, time
 
@@ -20,7 +22,7 @@ ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--abl", default="0,1,2,4,8,12,3,7,11,14,13", help="comma list of ABL masks")
 ap.add_argument("--fids", default="HiFi3,HiFi2")
-ap.add_argument("--b8", default="0", help="comma list: lever triatt_ln_b8 off (0) / on (1)")
+ap.add_argument("--b8", default="0", help="comma list: off (0) / triatt_ln_b8 (1) / triatt_ln_g8 (2)")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -39,11 +41,11 @@ lw, lb = up(torch.ones(c)), up(torch.zeros(c))
 grid = tuple(T.COMPUTE_GRID_MAIN)
 
 
-B8 = False
+B8 = 0
 
 
 def run(fid, tr, grid=grid):
-    with T.lever_scope(["triatt_ln"] + ["triatt_ln_b8"] * B8):
+    with T.lever_scope(["triatt_ln"] + {0: [], 1: ["triatt_ln_b8"], 2: ["triatt_ln_g8"]}[B8]):
         r = TL.ln_qkvgb_heads(x, lw, lb, w, (fid, False, True, False), H, 32, 8, grid, transposed=tr)
     assert r is not None, TL.REJECTS
     return r
@@ -93,8 +95,8 @@ def rel_rms(out, ref):
 small = (grid[0], grid[1] - 1)
 for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
     for tr in (False, True):
-        ref = None
-        for b8 in [bool(int(d)) for d in a.b8.split(",")]:
+        ref = off = None
+        for b8 in [int(d) for d in a.b8.split(",")]:
             B8 = b8
             for abl in [int(m) for m in a.abl.split(",")]:
                 TL.ABL = abl
@@ -108,6 +110,12 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                     out = host(r)
                     free(r)
                     row["rel_rms_f64"] = rel_rms(out, ref)
+                    if b8 == 0:
+                        off = out
+                    if b8 == 2:
+                        row["gate_rel_rms_f64"] = rel_rms(out[3:4], ref[3:4])
+                        if off is not None:
+                            row["qkvb_equal_off"] = all(torch.equal(out[i], off[i]) for i in (0, 1, 2, 4))
                     if b8:
                         r = run(fid, tr, small)
                         row["grid_invariant"] = all(torch.equal(p, q) for p, q in zip(out, host(r)))
