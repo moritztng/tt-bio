@@ -81,6 +81,11 @@ def main(a):
            "bwd_rel_l2": {"d_act0": rel(ref_g[0][:real], grads[0][:real]),
                           "d_pair": rel(ref_g[1][:real, :real], grads[1][:real, :real])}}
     print(json.dumps(res), flush=True)
+    if a.dump:
+        np.savez(a.dump, ref_d_act0=ref_g[0], ref_d_pair=ref_g[1], d_act0=grads[0], d_pair=grads[1],
+                 act0=act0, seed_act=seeds[0], seed_R=seeds[1], seed_t=seeds[2])
+        if a.layers == 1:
+            return
 
     def timed(fn, reps):
         ttnn.synchronize_device(dev); t0 = time.perf_counter()
@@ -116,4 +121,5 @@ if __name__ == "__main__":
     ap.add_argument("--reps", type=int, default=10)
     ap.add_argument("--layers", type=int, default=8)
     ap.add_argument("--out")
+    ap.add_argument("--dump", help="npz of both gradients, the input and the seeds")
     main(ap.parse_args())
