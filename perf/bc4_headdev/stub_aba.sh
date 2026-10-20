@@ -1,7 +1,8 @@
 #!/bin/bash
 # Host cost of AF2's structure module inside one BindCraft 2 iteration, measured as a removal:
 # census A/B/A on one card, B = --stub-structure (timing only). Read with stub_read.py OUT.
-#   usage: stub_aba.sh CARD OUT [LOCKFILE]     env: PY (python), BC2 (checkout at 7a2dfdb)
+#   usage: stub_aba.sh CARD OUT [LOCKFILE]     env: PY (python), BC2 (checkout at 7a2dfdb),
+#   B (the B arm, default "stub --stub-structure"; "sm --structure-on-card" for the structure module on card)
 set -u
 CARD=$1; OUT=$2; LOCK=${3:-}
 if [ -n "$LOCK" ] && [ -z "${STUB_ABA_LOCKED:-}" ]; then
@@ -20,6 +21,6 @@ run() {
     echo "$name rc=$rc $(date -u +%FT%TZ)" >> "$OUT/chain.log"
 }
 run eager-a
-run stub --stub-structure
+run ${B:-stub --stub-structure}
 run eager-b
 touch "$OUT/done"
