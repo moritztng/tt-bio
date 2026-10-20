@@ -55,7 +55,7 @@ for S in a.sizes:
     ref_t = ut.transpose(0, 1).contiguous()
     base_add = None
     for qr in a.qr:
-        PT.PAIR_TRANSPOSE_SPLIT = qr
+        PT.PAIR_TRANSPOSE_SPLIT = PT.PAIR_TRANSPOSE_SPLIT_WIDE = qr
         PT._CACHE.clear()
         row = {"S": S, "op": "pair_transpose", "qr": qr}
         try:
