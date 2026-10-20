@@ -22,6 +22,7 @@ def main() -> int:
     ap.add_argument("--calls", type=int, default=20)
     ap.add_argument("--cfgs", default="", help="';'-separated M,K,N,sh,sw: extra fused arms at these minimal_matmul blocks "
                     "(for a projection whose pick is the 2D program, today's path is then that program + ttnn.add)")
+    ap.add_argument("--where", type=int, default=0, help="record this many worst elements per arm")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -102,6 +103,15 @@ def main() -> int:
             rec[f"{arm}_rel_l2"] = float(e.norm() / sc)
             rec[f"{arm}_bias"] = float(e.mean() / exact.abs().mean())
             rec[f"{arm}_max_abs"] = float(e.abs().max())
+            if a.where:   # the worst elements: [b, row, col] index, device value, float64 value, and the residual there
+                ae = e.abs()
+                rec[f"{arm}_n_gt_0p25"] = int((ae > 0.25).sum())
+                for flat in ae.flatten().topk(min(a.where, ae.numel())).indices.tolist():
+                    i = list(torch.unravel_index(torch.tensor(flat), ae.shape))
+                    i = [int(v) for v in i]
+                    rec.setdefault(f"{arm}_worst", []).append(
+                        [i, float(o[tuple(i)]), float(exact[tuple(i)]), float(r[tuple(i)]),
+                         float((x.double() @ wq)[i[0], i[1], i[2]])])
             outs[arm] = o
         for arm in outs:
             if arm != "ref":
