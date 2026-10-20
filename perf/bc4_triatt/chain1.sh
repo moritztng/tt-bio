@@ -6,19 +6,17 @@
 #   setsid nohup bash perf/bc4_triatt/chain1.sh > /dev/null 2>&1 &
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd); cd "$WT"
-D=${OUT:-$WT/_bc4out/chain1_$(git rev-parse --short HEAD)}; mkdir -p "$D"; echo $$ > "$D/pid"
+D=${OUT:-$WT/_bc4out/chain1_$(git rev-parse --short HEAD)}; mkdir -p "$D"; [ -z "${CARD:-}" ] && echo $$ > "$D/pid"
 git rev-parse HEAD > "$D/sha"; git status --porcelain --untracked-files=no > "$D/dirty"; hostname > "$D/host"
 PY=$HOME/bcx_e2e_venv/bin/python
 PARAMS=$HOME/bcx_e2e/af2_params/params_model_1_multimer_v3.npz
-CARD=
-while [ -z "$CARD" ]; do
+if [ -z "${CARD:-}" ]; then
+  # One blocking waiter per chip; the first to get its lock claims the run, the rest let go.
   for c in ${CHIPS:-3 2 1 0}; do
-    exec 9>"$HOME/spd_qb2_chip$c.lock"
-    if flock -n 9; then CARD=$c; break; fi
-    exec 9>&-
+    ( flock 9 && mkdir "$D/claim" 2>/dev/null && CARD=$c exec bash "$0" ) 9>"$HOME/spd_qb2_chip$c.lock" &
   done
-  [ -z "$CARD" ] && sleep 30
-done
+  wait; exit 0
+fi
 echo "card $CARD start $(date +%s) load $(cut -d' ' -f1 /proc/loadavg)" >> "$D/card"
 export PYTHONPATH=$WT TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:bc4-bet-triatt
 ( while :; do printf "%s\t%s\t%s\n" "$(date +%s)" "$(cat /sys/class/tenstorrent/tenstorrent\!$CARD/tt_aiclk 2>/dev/null)" \
