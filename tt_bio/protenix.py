@@ -197,21 +197,28 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # ws_psilu rides along bit-identically on that plain kernel: CIFs identical on 8 of 8 warm folds, separate processes on
 # one Galaxy chip at 1000 MHz (psn): 53.36 / 53.24 / 53.72 / 53.24 -> 52.81 / 52.82 / 52.62 / 53.02 s warm.
 WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu"})
+# dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
+# float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
+# mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
+# vs the 0.6 A bar (1.319 A A/A floor), docking 36 -> 36; fast 0.305 A (1.305 A floor), docking 37 -> 37; every interval
+# covers 0. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, in-process A/B (shx): median -0.25 s normal, -0.32 s fast.
+# Blackhole is ungraded.
+SHOIST_MM_WH = frozenset({"dit_shoist_mm"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1` and `SHOIST_MM_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
-    pair_ln = TRIATT_LN | TRIATT_K1 if v2 and wh else frozenset()
+    wh_both = TRIATT_LN | TRIATT_K1 | SHOIST_MM_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
-    fast = WH_FAST_LEVERS | pair_ln | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
+    fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL
-                            | (WH_V2_NORMAL if wh else frozenset()) if v2 else NORMAL_LEVERS) | pair_ln,
+                            | (WH_V2_NORMAL if wh else frozenset()) if v2 else NORMAL_LEVERS) | wh_both,
                            fast | SHOIST_FAST if v2 else fast)
 
 
