@@ -67,12 +67,12 @@ def phase1(Z, W, MK, S, fid, sig=1, abl=0, out=None):
         mk = MK if MK is not None else Z
         reader = ttnn.KernelDescriptor(
             kernel_source=str(KDIR / "reader.cpp"), source_type=src, core_ranges=grid,
-            compile_time_args=[Kt, St, int(MK is not None), (inv << 16) | inv, eps] + acc(Z) + acc(W["wt"])
+            compile_time_args=[Kt, St, int(MK is not None), (inv << 16) | inv, eps, abl] + acc(Z) + acc(W["wt"])
             + acc(W["bias"]) + acc(W["ln_w"]) + acc(W["ln_b"]) + acc(mk),
             runtime_args=rd, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(KDIR / "writer_p1.cpp"), source_type=src, core_ranges=grid,
-            compile_time_args=[St] + acc(out[0]) + acc(out[1]),
+            compile_time_args=[St, abl] + acc(out[0]) + acc(out[1]),
             runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KDIR / "compute.cpp"), source_type=src, core_ranges=grid,

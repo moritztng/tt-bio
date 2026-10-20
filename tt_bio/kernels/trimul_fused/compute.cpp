@@ -46,10 +46,6 @@ struct LnCbs {
         eps = cb_eps, mean = cb_mean, var = cb_var, rstd = cb_rstd, xc = cb_xc, tmp = cb_tmp;
 };
 
-ALWI void sigmoid_fast_tile(uint32_t idst) {
-    MATH((llk_math_eltwise_unary_sfpu_sigmoid<true, false>(idst, (int)VectorMode::RC)));
-}
-
 void kernel_main() {
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
@@ -111,8 +107,8 @@ void kernel_main() {
                     }
                     if constexpr (!(ABL & 4)) {
                         if constexpr (SIG == 3) {
-                            sigmoid_tile_init();
-                            sigmoid_fast_tile(1);
+                            sigmoid_tile_init<true>();
+                            sigmoid_tile<VectorMode::RC, true>(1);
                             mul_binary_tile_init();
                             mul_binary_tile(0, 1, 0);
                         } else {
@@ -135,8 +131,10 @@ void kernel_main() {
                 if constexpr (ABL & 8) {
                     cb_wait_front(cb_rm, 32);
                     cb_pop_front(cb_rm, 32);
-                    cb_reserve_back(cb_t, 32);
-                    cb_push_back(cb_t, 32);
+                    for (uint32_t c = 0; c < 32; ++c) {
+                        cb_reserve_back(cb_t, 1);
+                        cb_push_back(cb_t, 1);
+                    }
                     continue;
                 }
                 reconfig_data_format_srca(cb_rm);

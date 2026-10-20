@@ -17,7 +17,10 @@ void kernel_main() {
     constexpr uint32_t MASK = get_compile_time_arg_val(2);
     constexpr uint32_t SCALER = get_compile_time_arg_val(3);
     constexpr uint32_t EPS = get_compile_time_arg_val(4);
-    constexpr auto z_args = TensorAccessorArgs<5>();
+    // ABL (bench only): bit 5 (32) skips the weight reads, bit 6 (64) the z reads, bit 7 (128) the mask build;
+    // the CBs are pushed as they are.
+    constexpr uint32_t ABL = get_compile_time_arg_val(5);
+    constexpr auto z_args = TensorAccessorArgs<6>();
     constexpr auto w_args = TensorAccessorArgs<z_args.next_compile_time_args_offset()>();
     constexpr auto b_args = TensorAccessorArgs<w_args.next_compile_time_args_offset()>();
     constexpr auto gm_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
@@ -49,7 +52,7 @@ void kernel_main() {
     cb_reserve_back(cb_gamma, Kt);
     cb_reserve_back(cb_beta, Kt);
     uint32_t w = get_write_ptr(cb_w);
-    for (uint32_t t = 0; t < NW; ++t, w += tb) noc_async_read_page(t, wt, w);
+    for (uint32_t t = 0; t < (ABL & 32 ? 0 : NW); ++t, w += tb) noc_async_read_page(t, wt, w);
     w = get_write_ptr(cb_bias);
     for (uint32_t t = 0; t < 16; ++t, w += tb) noc_async_read_page(t, bs, w);
     w = get_write_ptr(cb_gamma);
@@ -64,7 +67,10 @@ void kernel_main() {
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t h = u % 2, cube = u / 2, rt = cube / St, st = cube % St;
-        if constexpr (MASK) {
+        if constexpr (MASK && (ABL & 128)) {
+            cb_reserve_back(cb_mask, 16);
+            cb_push_back(cb_mask, 16);
+        } else if constexpr (MASK) {
             const uint32_t scr = get_write_ptr(cb_mscr);
             noc_async_read_page(rt * St + st, mk, scr);
             noc_async_read_barrier();
@@ -91,7 +97,7 @@ void kernel_main() {
             const uint32_t r = rt * 32 + h * 16 + li;
             cb_reserve_back(cb_z, Kt);
             uint32_t dst = get_write_ptr(cb_z);
-            for (uint32_t kc = 0; kc < Kt; ++kc, dst += tb) noc_async_read_page((r * St + st) * Kt + kc, z, dst);
+            for (uint32_t kc = 0; kc < (ABL & 64 ? 0 : Kt); ++kc, dst += tb) noc_async_read_page((r * St + st) * Kt + kc, z, dst);
             noc_async_read_barrier();
             cb_push_back(cb_z, Kt);
         }

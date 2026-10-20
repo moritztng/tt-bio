@@ -8,7 +8,8 @@
 
 void kernel_main() {
     constexpr uint32_t St = get_compile_time_arg_val(0);
-    constexpr auto a_args = TensorAccessorArgs<1>();
+    constexpr bool NOWRITE = get_compile_time_arg_val(1) & 16;   // ABL bit 16 (bench only): tiles dropped
+    constexpr auto a_args = TensorAccessorArgs<2>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto A = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto B = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -23,8 +24,10 @@ void kernel_main() {
                     cb_wait_front(cb_t, 1);
                     const uint32_t page = ((q * 32 + c) * St + rt) * St + st;
                     const uint64_t dst = ab == 0 ? A.get_noc_addr(page, h * 1024) : B.get_noc_addr(page, h * 1024);
-                    noc_async_write(get_read_ptr(cb_t) + h * 1024, dst, 1024);
-                    noc_async_writes_flushed();
+                    if constexpr (!NOWRITE) {
+                        noc_async_write(get_read_ptr(cb_t) + h * 1024, dst, 1024);
+                        noc_async_writes_flushed();
+                    }
                     cb_pop_front(cb_t, 1);
                 }
             }

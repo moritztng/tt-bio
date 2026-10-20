@@ -5,6 +5,8 @@ import argparse
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True)
 ap.add_argument("--abl", type=int, nargs="*", default=[0])
+ap.add_argument("--sig", type=int, nargs="*", default=[1, 3])
+ap.add_argument("--fid", nargs="*", default=["HiFi4", "HiFi2"])
 A = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor
@@ -27,9 +29,9 @@ Z = fused._dram(z.float(), dev)
 MK = fused._dram(mask.float(), dev)
 W = fused.weights(w, dev)
 P1_FLOP = 2 * N * N * C * 512
-for fid in (ttnn.MathFidelity.HiFi4, ttnn.MathFidelity.HiFi2):
+for fid in [getattr(ttnn.MathFidelity, f) for f in A.fid]:
     ckc = fid
-    for sig in (1, 3):
+    for sig in A.sig:
         for abl in A.abl:
             r = {"arm": "phase1", "fidelity": str(fid), "sig": sig, "abl": abl}
             try:
