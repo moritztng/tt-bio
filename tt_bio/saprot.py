@@ -357,8 +357,15 @@ def _role(d, k, n):
 # (prefix_probe: -0.1230 written as -4.1195 at a cancelling K-block add) that HiFi3 did not at any K prefix.
 # ls84 page A/B (.107 Galaxy chips, 1000 MHz, 2 rounds x 3, normal, ms off -> on, pcc vs fp32 delta): 650M hHSA
 # 159.66 -> 151.08 (+0.000009), hPCSK9 159.56 -> 150.39 (-0.000050); 1.3B hHSA 306.75 -> 288.14 (+0.000016); 35M hHSA
-# 28.88 -> 28.20 (+0.000010). Blackhole not graded yet: the switch serves its normal mode too (same fidelity semantics).
-_SAPROT_NORMAL_HIFI3 = env_flag("TT_BIO_SAPROT_NORMAL_HIFI3", True)
+# 28.88 -> 28.20 (+0.000010). None = Wormhole until Blackhole is graded.
+_SAPROT_NORMAL_HIFI3 = env_flag("TT_BIO_SAPROT_NORMAL_HIFI3", None)
+
+
+def _normal_hifi3() -> bool:
+    if _SAPROT_NORMAL_HIFI3 is not None:
+        return bool(_SAPROT_NORMAL_HIFI3)
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
 
 
 class _SaprotLin(_MMLin):
@@ -374,7 +381,7 @@ class _SaprotLin(_MMLin):
         on = d >= _HIFI2_MIN_WIDTH if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
         if not (on and w.dtype == ttnn.bfloat8_b and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _SAPROT_HIFI2_ROLES
                 and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
-            if _SAPROT_NORMAL_HIFI3 and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
+            if w.dtype == ttnn.bfloat16 and _normal_hifi3() and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
                 if getattr(self, "_ck_hifi3", None) is None:
                     self._ck_hifi3 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ck.math_approx_mode,
                                               fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
