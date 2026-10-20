@@ -45,6 +45,26 @@ def mm_prog(k, n, act=None):
         per_core_M=pm, per_core_N=pn, transpose_mcast=False, fused_activation=act)
 
 
+def lever_arm(dev, up, host, wts, ckc):
+    """The shipped lever, `T._dit_transition_sharded`, on a DRAM-interleaved input in both dtypes the DiT can hand
+    it: whether it serves or refuses, and why. dshab2 read identical CIFs on and off, i.e. it never served."""
+    r = dict(arm="lever", arch=T.arch_name(), t=time.time())
+    W = {k: up(v) for k, v in wts.items()}
+    for dt in (ttnn.bfloat16, ttnn.float32):
+        a = up(host["a"], dt)
+        try:
+            o = T._dit_transition_sharded(a, W["sw"], W["gt"], W["ab"], W["ba"], ckc)
+            r[str(dt)] = "served" if o is not None else "None"
+            if o is not None:
+                ttnn.deallocate(o)
+        except Exception as e:  # noqa: BLE001
+            r[str(dt)] = f"raised {type(e).__name__}: {str(e)[:300]}"
+        ttnn.deallocate(a)
+        T._TRANSITION_SHARD_REFUSED.clear()
+    r["latch"] = T.LATCH_STATS.get("dit_shard")
+    return r
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
@@ -100,6 +120,8 @@ def main():
             "l1": (ttnn.L1_MEMORY_CONFIG, ttnn.L1_MEMORY_CONFIG, ttnn.L1_MEMORY_CONFIG, None),
             "shard": (sd, sd, sh, shard_progs), "shard_io": (ttnn.DRAM_MEMORY_CONFIG, sd, sh, shard_progs)}
     rows, ref = [], None
+    rows.append(lever_arm(dev, up, host, wts, ckc))
+    print(json.dumps(rows[-1]), flush=True)
     for arm, (mc_in, mc_d, mc_h, progs) in arms.items():
         io = arm == "shard_io"
         r = dict(arm=arm, arch=T.arch_name(), grid=f"{GY}x{GX}", t=time.time())
