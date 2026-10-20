@@ -32,6 +32,10 @@ def main() -> int:
     ap.add_argument("--shapes", default="qkv,out,fc1,fc2")
     ap.add_argument("--kladder", default="320,640,1280,2560", help="fc1's call at these K (N, M fixed); empty = none")
     ap.add_argument("--calls", type=int, default=4)
+    ap.add_argument("--cfg2d", default="", help="extra fc1 arms (approx gelu), ';'-separated tm,kb,sh,sw,oh,ow on the "
+                    "2D mcast program at the model grid, per_core_M/N from the grid")
+    ap.add_argument("--l1x", action="store_true", help="the --fast page's L1 state: x in L1 plus a resident [rows, d] "
+                    "bf16 L1 tensor (the residual under _SAPROT_X_L1)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -66,7 +70,11 @@ def main() -> int:
         w = (torch.randn(K, N, generator=gen) / math.sqrt(K)).to(torch.bfloat16)
         b = (torch.randn(N, generator=gen) * 0.1).to(torch.bfloat16)
         wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt)
-        xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        mc = ttnn.L1_MEMORY_CONFIG if a.l1x else ttnn.DRAM_MEMORY_CONFIG
+        xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16, memory_config=mc)
+        if a.l1x:
+            resid = ttnn.from_torch(torch.zeros(B, L, d, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev,
+                                    dtype=ttnn.bfloat16, memory_config=ttnn.L1_MEMORY_CONFIG)
         bd = ttnn.from_torch(b.reshape(1, N), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
         kw = {"activation": act} if act else {}
         lin = S._SaprotLin.__new__(S._SaprotLin)
@@ -77,6 +85,19 @@ def main() -> int:
         hifi2 = mck.math_fidelity == ttnn.MathFidelity.HiFi2
         if not name.startswith("fc1k") and S._saprot_prog(xd, wd, act, hifi2) is not None:
             arms["pick"] = lambda: lin._lin(xd, wd, bias=bd, **kw)
+        if name == "fc1a":
+            g = T.CORE_GRID_MAIN
+            for spec in filter(None, a.cfg2d.split(";")):
+                tm, kb, sh, sw, oh, ow = (int(v) for v in spec.split(","))
+                rows_ax, cols_ax = (g.x, g.y) if tm else (g.y, g.x)
+                pm, pn = -(-(a.rows // 32) // rows_ax), -(-(N // 32) // cols_ax)
+                pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+                    compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh,
+                    out_subblock_w=sw, out_block_h=oh or pm, out_block_w=ow or pn, per_core_M=pm, per_core_N=pn,
+                    transpose_mcast=bool(tm), fuse_batch=True,
+                    fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, 1.0))
+                arms[f"2d:{spec}"] = lambda pc=pc: ttnn.linear(xd, wd, bias=bd, program_config=pc, compute_kernel_config=mck,
+                                                               dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
         for arm, fn in arms.items():
             try:
                 for _ in range(2):
