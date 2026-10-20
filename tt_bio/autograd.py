@@ -3957,6 +3957,9 @@ def _hook(name, shipped, args, kwargs):
 # nothing. `raw` is how `ops.fused_kernel` hands such a forward's kernel its operands.
 _hook.recording = is_grad_enabled
 _hook.raw = lambda args, kwargs: _raw(args, kwargs)
+# What `ops.declines_under_tape` asks of a kernel's operands: the shim's own test, registered
+# parameters included, so a kernel declines exactly where the stock op would be taped.
+_hook.on_tape = lambda args, kwargs: _on_tape(args, kwargs)
 
 
 def _checkpoint_segment(fn, *inputs):
