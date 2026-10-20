@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Triangle-attention backward (`triatt_bw.run`) per call: each arm graded against float64 and timed.
 
-Arms are `name:ATTR=VAL,ATTR=VAL` on the `tt_bio.triatt_bw` module, separated by `;`. Every arm runs
+Arms are `name:ATTR=VAL,ATTR=VAL` on the `tt_bio.triatt_bw` module, separated by `;`; `v2=0/1` is
+`run`'s argument instead, forcing the whole-query body (unset: the board's serving plan). Every arm runs
 on the same bf16 q, k, v, bias and cotangent; the float64 reference sees those same bf16 values, so
 what is graded is the kernel's arithmetic. Timing is synced per call, arms alternated every rep.
 
     TT_VISIBLE_DEVICES=<chip> python perf/bc4_triatt/bw_bench.py --n 224 \
-        --arms "base:EXP_21F=1;approx:EXP_APPROX=1;hifi2:EXP_21F=1,FIDELITY=HiFi2"
+        --arms "plain:EXP_21F=1,v2=0;v2:EXP_21F=1,v2=1"
 
 With TT_BIO_TRIATT_BW_ZONES=1 under a device-profiler build, `--zones` reads the per-phase zones of
 one profiled call per arm instead of timing (math RISC, median over core-units, us at the CSV's MHz).
@@ -93,12 +94,12 @@ def main():
                                    device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
     tq, tk, tv, tg, tb = (up(x) for x in (q, k, v, g, bias))
     arms = parse_arms(a.arms)
-    defaults = {n: getattr(TB, n) for _, at in arms for n in at}
+    defaults = {n: getattr(TB, n) for _, at in arms for n in at if n != "v2"}
 
     def call(attrs):
         for n, val in defaults.items():
             setattr(TB, n, attrs.get(n, val))
-        return TB.run(dev, tq, tk, tv, tb, tg, scale, (ttnn.MathFidelity.HiFi4,))
+        return TB.run(dev, tq, tk, tv, tb, tg, scale, (ttnn.MathFidelity.HiFi4,), v2=attrs.get("v2"))
 
     res = {"shape": [B, H, N, D], "bias_std": a.bias_std, "card": os.environ.get("TT_VISIBLE_DEVICES"),
            "plan": {k_: v_ for k_, v_ in TB.serving_plan(B, H, N, D, (dev.compute_with_storage_grid_size().x,
