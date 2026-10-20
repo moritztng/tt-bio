@@ -216,7 +216,7 @@ def at_exit_of(name, fn):
 
 install()
 # Which operands keep a block unit off the trace path (`_in_dram` false makes it eager for good).
-_ag = sys.modules["tt_bio.autograd"]
+from tt_bio import autograd as _ag  # noqa: E402
 _real_in_dram = _ag._in_dram
 dram = dict(true=0, false=0)
 
