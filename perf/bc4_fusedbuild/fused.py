@@ -28,7 +28,9 @@ def _dram(t, dev):
 def weights(w, dev, C=128):
     """Device tensors of the module's weights, `w` in af2_reference names."""
     pw, gw, pb, gb = w["p_in.weight"], w["g_in.weight"], w["p_in.bias"], w["g_in.bias"]
-    wt = torch.cat([pw[:C], gw[:C], pw[C:], gw[C:]])                    # [4C, C]: rows = out channel
+    # [4C, C], row tiles ordered [q][a, b][p, g]: compute's matmul_block takes p and g of one channel tile as rt 2.
+    blocks = [w_[h * C + q * TILE:h * C + (q + 1) * TILE] for q in range(C // TILE) for h in (0, 1) for w_ in (pw, gw)]
+    wt = torch.cat(blocks)
     bias = torch.cat([pb[:C], gb[:C], pb[C:], gb[C:]])
     rows = lambda v: v.float()[None, :].expand(TILE, -1)                  # noqa: E731
     return {"wt": _dram(wt.float(), dev),

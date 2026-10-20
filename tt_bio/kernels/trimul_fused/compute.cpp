@@ -73,12 +73,12 @@ void kernel_main() {
                     copy_tile(cb_z, i, 0);
                     tile_regs_commit();
                     tile_regs_wait();
-                    pack_tile(0, cb_xn);
+                    pack_tile<true>(0, cb_xn, i * 16 + li);
                     tile_regs_release();
                 }
                 cb_pop_front(cb_z, Kt);
             } else {
-                ln_prologue::layer_norm_row<LnCbs>(cb_xn, [](uint32_t) { pack_tile(0, cb_xn); });
+                ln_prologue::layer_norm_row<LnCbs>(cb_xn, [li](uint32_t i) { pack_tile<true>(0, cb_xn, i * 16 + li); });
             }
         }
         cb_push_back(cb_xn, 16 * Kt);
@@ -88,42 +88,50 @@ void kernel_main() {
         // 2-3. Projections, gates, rotation.
         for (uint32_t q = 0; q < 4; ++q) {
             for (uint32_t ab = 0; ab < 2; ++ab) {
-                const uint32_t wp = (2 * ab) * 4 + q, wg = (2 * ab + 1) * 4 + q;
+                // W^T rows ordered [q][ab][p, g], so one matmul_block (rt 2: p and g; ct 2: rows li, li + 1) fills
+                // DST 0 p_li, 1 p_li+1, 2 g_li, 3 g_li+1, each seeded with its bias tile.
+                const uint32_t wp = (q * 2 + ab) * 2, bp = (2 * ab) * 4 + q, bg = (2 * ab + 1) * 4 + q;
                 reconfig_data_format(cb_w, cb_xn);
                 pack_reconfig_data_format(cb_rm);
                 cb_reserve_back(cb_rm, 32);
-                pack_untilize_dest_init<1, 32>(cb_rm);
-                for (uint32_t li = 0; li < 16; ++li) {
+                pack_untilize_dest_init<2, 32>(cb_rm);
+                for (uint32_t li = 0; li < 16; li += 2) {
                     tile_regs_acquire();
                     copy_tile_to_dst_init_short(cb_bias);
-                    copy_tile(cb_bias, wp, 0);
-                    copy_tile(cb_bias, wg, 1);
+                    copy_tile(cb_bias, bp, 0);
+                    copy_tile(cb_bias, bp, 1);
+                    copy_tile(cb_bias, bg, 2);
+                    copy_tile(cb_bias, bg, 3);
                     if constexpr (!(ABL & 2)) {
-                        mm_init_short(cb_w, cb_xn, 1);
+                        mm_block_init_short(cb_w, cb_xn, true, 2, 2, Kt);
                         for (uint32_t kc = 0; kc < Kt; ++kc) {
-                            matmul_tiles(cb_w, cb_xn, wp * Kt + kc, li * Kt + kc, 0);
-                            matmul_tiles(cb_w, cb_xn, wg * Kt + kc, li * Kt + kc, 1);
+                            matmul_block(cb_w, cb_xn, wp * Kt + kc, kc * 16 + li, 0, true, 2, 2, Kt);
                         }
                     }
                     if constexpr (!(ABL & 4)) {
                         if constexpr (SIG == 3) {
                             sigmoid_tile_init<true>();
-                            sigmoid_tile<VectorMode::RC, true>(1);
+                            sigmoid_tile<VectorMode::RC, true>(2);
+                            sigmoid_tile<VectorMode::RC, true>(3);
                             mul_binary_tile_init();
-                            mul_binary_tile(0, 1, 0);
+                            mul_binary_tile(0, 2, 0);
+                            mul_binary_tile(1, 3, 1);
                         } else {
-                            gate_poly_tile<SIG, 1>(0);
+                            gate_poly_tile<SIG, 2>(0);
+                            gate_poly_tile<SIG, 2>(1);
                         }
                         if (MASK && ab == 0) {
                             copy_tile_to_dst_init_short(cb_mask);
-                            copy_tile(cb_mask, li, 1);
+                            copy_tile(cb_mask, li, 2);
+                            copy_tile(cb_mask, li + 1, 3);
                             mul_binary_tile_init();
-                            mul_binary_tile(0, 1, 0);
+                            mul_binary_tile(0, 2, 0);
+                            mul_binary_tile(1, 3, 1);
                         }
                     }
                     tile_regs_commit();
                     tile_regs_wait();
-                    pack_untilize_dest<1, 32>(cb_rm, 1, 16 * h + li);
+                    pack_untilize_dest<2, 32>(cb_rm, 1, (16 * h + li) / 2);
                     tile_regs_release();
                 }
                 pack_untilize_uninit(cb_rm);
@@ -148,7 +156,7 @@ void kernel_main() {
                     cb_pop_front(cb_rm, 1);
                 }
                 tilize_uninit(cb_rm, cb_t);
-                mm_init_short(cb_w, cb_xn, 1);
+                mm_block_init_short(cb_w, cb_xn, true, 2, 2, Kt);
             }
         }
         cb_pop_front(cb_xn, 16 * Kt);
