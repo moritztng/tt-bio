@@ -32,6 +32,7 @@ ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--ops", action="store_true", help="per-op synchronized census instead of stages/profile/xfer")
+ap.add_argument("--a3m", type=Path, help="fold this alignment instead of the page fixture's (e.g. one deeper than max_depth)")
 ap.add_argument("--draw", action="store_true", help="split the diffusion step by module (nested syncs)")
 ap.add_argument("--plain", action="store_true", help="cold + plain fold only; also counts the einsums bmm_res served")
 ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
@@ -51,8 +52,10 @@ B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
 from tt_bio import esmfold2 as E, esmfold2_runtime as R
 
 fix = ROOT / "perf" / "size512" / "fixtures"
-one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}", fix / f"cdk2x2_{a.size}.yaml",
-                              fix / f"cdk2x2_{a.size}.a3m", fast=a.fast)[:2]
+a3m = a.a3m or fix / f"cdk2x2_{a.size}.a3m"
+tag = "" if a.a3m is None else "_" + a3m.stem
+one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}{tag}", fix / f"cdk2x2_{a.size}.yaml",
+                              a3m, fast=a.fast)[:2]
 res = {"model": a.model, "fast": a.fast, "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
 
 # (owner, attribute, label). FoldingTrunkModel serves both the folding trunk and the LM encoder's pair
