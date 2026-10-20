@@ -910,6 +910,7 @@ class _Trunk:
     """One AlphaFold 2 checkpoint's Evoformer blocks on the card, under tt-bio's tape."""
 
     def __init__(self, path: pathlib.Path, *, template: bool = False):
+        self.path = path
         import ttnn
 
         from tt_bio import autograd, taped_ttnn
@@ -1361,6 +1362,11 @@ class EvoformerOnDevice:
         self._tapes = _Tapes()
         #: Token axes whose fused-arm L1 fit has already been decided and reported.
         self._fused_checked: set = set()
+        #: Set by `StructureOnDevice`: keep each trajectory's final pair on card for it, and add
+        #: the pair cotangent it leaves in `pair_grads` (keyed by tape token) to the backward's.
+        self.keep_pair = False
+        self.resident: dict = {}
+        self.pair_grads: dict = {}
 
     # ------------------------------------------------------------------ which side folds
 
@@ -1480,6 +1486,8 @@ class EvoformerOnDevice:
                                                          z.shape[0], msa_keep))
             trunk.sync()
             self.calls["primal"] += 1
+            if self.keep_pair:
+                self.resident[slot] = {"pair": zo, "n": n, "token": None}
             return (trunk.down(mo, tuple(m.shape))[:, :n].numpy(),
                     trunk.down(zo, tuple(z.shape))[:n, :n].numpy())
 
@@ -1518,6 +1526,8 @@ class EvoformerOnDevice:
                                       "mode": mode, "drop": drop},
                                      slot)
             self.calls["taped"] += 1
+            if self.keep_pair:
+                self.resident[slot] = {"pair": zo.value, "n": n, "token": int(token)}
             out = (trunk.down(mo.value, tuple(m.shape))[:, :n].numpy(),
                    trunk.down(zo.value, tuple(z.shape))[:n, :n].numpy(), np.int32(token))
         if watch is not None:
@@ -1578,7 +1588,12 @@ class EvoformerOnDevice:
                 duotraj.card(slot, "evoformer._backward"):
             trunk = self.pool.trunk_for(slot)
             trunk.arm(entry["mode"])
-            trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), trunk.seed(gz, zo)])
+            seed_z = trunk.seed(gz, zo)
+            extra = self.pair_grads.pop(int(token), None)
+            if extra is not None:
+                ttnn = trunk.ttnn
+                seed_z = ttnn.add(seed_z, ttnn.reshape(ttnn.typecast(extra, ttnn.bfloat16), seed_z.shape))
+            trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), seed_z])
             trunk.sync()
             out = (trunk.grad(ml, m_shape)[:, :n].numpy(),
                    trunk.grad(zl, z_shape)[:n, :n].numpy())
@@ -1650,6 +1665,148 @@ class EvoformerOnDevice:
 
         stack.defvjp(fwd, bwd)
         return stack
+
+
+class StructureOnDevice:
+    """AlphaFold 2's structure module on card, reading the Evoformer's final pair where it is.
+
+    The cut is after `initial_projection`: JAX keeps the single layer norm and the projection
+    (both [N, 384]), draws the dropout keeps from the layers' own keys, and runs the final layer's
+    sidechain, which is all BindCraft 2 reads of the per-layer outputs. The card runs the pair
+    layer norm, the pair bias and the eight FoldIterations (`tt_bio.af2_structure`, fp32), and
+    hands back the final act and every layer's frame.
+
+    The pair never crosses for it. `EvoformerOnDevice` leaves each trajectory's final pair in
+    `resident`, and in the backward this leaves the pair's cotangent in `evo.pair_grads` under the
+    Evoformer tape's token, which `EvoformerOnDevice._backward` adds to the cotangent JAX hands it.
+    JAX orders the two: this backward produces the single's cotangent, which reaches the MSA
+    cotangent the Evoformer backward waits on.
+    """
+
+    def __init__(self, evo: EvoformerOnDevice):
+        self.evo = evo
+        evo.keep_pair = True
+        self.calls = {"primal": 0, "taped": 0, "backward": 0}
+        self._tapes = _Tapes()
+        self._kbias: dict = {}
+
+    def _consts(self, trunk):
+        got = getattr(trunk, "structure", None)
+        if got is None:
+            from tt_bio import af2_structure as S
+            raw = np.load(trunk.path)
+            card = S.Card(trunk.device)
+            got = trunk.structure = (card, card.upload(S.pack(
+                {k: np.asarray(raw[k], np.float64) for k in raw.files if k.startswith(S.ROOT)})))
+        return got
+
+    def _inputs(self, slot, act_np, keep_np, mask_np, grad):
+        from tt_bio import af2_structure as S
+        res = self.evo.resident.get(slot)
+        if res is None:
+            raise RuntimeError("the structure module ran before the Evoformer left a pair on card "
+                               "for this trajectory")
+        trunk = self.evo.pool.trunk_for(slot)
+        card, k = self._consts(trunk)
+        n = res["n"]
+        n32 = _pad32(n)
+        if np.asarray(act_np).shape[0] != n:
+            raise ValueError(f"single has {np.asarray(act_np).shape[0]} rows, the pair {n}")
+        pad = ((0, n32 - n), (0, 0))
+        mask = np.pad(np.asarray(mask_np, np.float64).reshape(-1), (0, n32 - n))
+        key = mask.tobytes()
+        if key not in self._kbias:
+            self._kbias[key] = card.put(S.key_bias(mask))
+        keeps = np.pad(np.asarray(keep_np, np.float32), ((0, 0), (0, 0)) + pad, constant_values=1.0)
+        drops = [(card.put(keeps[i, 0]), card.put(keeps[i, 1])) for i in range(S.LAYERS)]
+        ttnn = trunk.ttnn
+        z = ttnn.reshape(ttnn.typecast(res["pair"], ttnn.float32), [n32, n32, S.CZ])
+        act0 = card.put(np.pad(np.asarray(act_np, np.float32), pad), grad)
+        return trunk, card, k, res, act0, card.A.Tensor(z, requires_grad=grad), self._kbias[key], drops
+
+    @staticmethod
+    def _down(card, act, traj, n):
+        get = lambda x: card.t.to_torch(x.value).float().numpy()[:n]  # noqa: E731
+        return (get(act), np.stack([get(R) for R, _ in traj]), np.stack([get(t) for _, t in traj]))
+
+    def _primal(self, slot, act_np, keep_np, mask_np, dep):
+        from tt_bio import af2_structure as S
+        with duotraj.card(slot, "structure._primal"):
+            trunk, card, k, res, act0, z, kb, drops = self._inputs(slot, act_np, keep_np, mask_np, False)
+            with card.A.no_grad():
+                act, traj = S.stack(card, k, act0, z, kb, drops)
+            self.calls["primal"] += 1
+            return self._down(card, act, traj, res["n"])
+
+    def _taped(self, slot, act_np, keep_np, mask_np, dep):
+        from tt_bio import af2_structure as S
+        with duotraj.card(slot, "structure._taped"):
+            trunk, card, k, res, act0, z, kb, drops = self._inputs(slot, act_np, keep_np, mask_np, True)
+            self._tapes.sweep(slot)
+            act, traj = S.stack(card, k, act0, z, kb, drops)
+            token = self._tapes.bank({"roots": (act, traj), "leaves": (act0, z), "n": res["n"],
+                                      "evo_token": res["token"]}, slot)
+            self.calls["taped"] += 1
+            return self._down(card, act, traj, res["n"]) + (np.int32(token),)
+
+    def _backward(self, slot, token, g_act, g_R, g_t):
+        entry = self._tapes.take(token)
+        if entry is None:
+            raise RuntimeError(f"no live structure tape for token {int(token)}")
+        act, traj = entry["roots"]
+        act0, z = entry["leaves"]
+        n = entry["n"]
+        with duotraj.card(slot, "structure._backward"):
+            card, _ = self._consts(self.evo.pool.trunk_for(slot))
+            pad = lambda g: card.raw(np.pad(np.asarray(g, np.float32), ((0, int(act.shape[0]) - n), (0, 0))))  # noqa: E731
+            roots, seeds = [act], [pad(g_act)]
+            for (R, t), gr, gt in zip(traj, np.asarray(g_R), np.asarray(g_t)):
+                for root, g in ((R, gr), (t, gt)):
+                    if np.any(g):
+                        roots.append(root); seeds.append(pad(g))
+            card.A.backward(roots, seeds)
+            if z.grad is not None and entry["evo_token"] is not None:
+                self.evo.pair_grads[entry["evo_token"]] = z.grad
+            out = (card.t.to_torch(act0.grad).float().numpy()[:n] if act0.grad is not None
+                   else np.zeros((n, int(act.shape[1])), np.float32))
+        self.calls["backward"] += 1
+        return out
+
+    def as_jax(self, slot: str = ""):
+        """`(act0, keeps, seq_mask, dep) -> (act, R [8, N, 9], t [8, N, 3])`, differentiable in
+        `act0`. `dep` is a stop-gradient scalar read off the JAX pair: it orders this call after
+        the Evoformer's, whose pair it reads on card."""
+        import jax
+        import jax.numpy as jnp
+
+        def shapes(act):
+            n = act.shape[0]
+            return (jax.ShapeDtypeStruct(act.shape, jnp.float32),
+                    jax.ShapeDtypeStruct((8, n, 9), jnp.float32),
+                    jax.ShapeDtypeStruct((8, n, 3), jnp.float32))
+
+        @jax.custom_vjp
+        def sm(act0, keeps, mask, dep):
+            return jax.pure_callback(functools.partial(self._primal, slot), shapes(act0),
+                                     act0.astype(jnp.float32), keeps, mask, dep)
+
+        def fwd(act0, keeps, mask, dep):
+            *out, token = jax.pure_callback(
+                functools.partial(self._taped, slot),
+                shapes(act0) + (jax.ShapeDtypeStruct((), jnp.int32),),
+                act0.astype(jnp.float32), keeps, mask, dep)
+            return tuple(out), (token, act0, keeps, mask, dep)
+
+        def bwd(res, cot):
+            token, act0, keeps, mask, dep = res
+            g = jax.pure_callback(functools.partial(self._backward, slot),
+                                  jax.ShapeDtypeStruct(act0.shape, jnp.float32),
+                                  token, *(c.astype(jnp.float32) for c in cot))
+            return (g.astype(act0.dtype), jnp.zeros_like(keeps), jnp.zeros_like(mask),
+                    jnp.zeros_like(dep))
+
+        sm.defvjp(fwd, bwd)
+        return sm
 
 
 class ExtraMsaOnDevice:
@@ -2024,6 +2181,70 @@ def _template_stack_mask(fn, depth: int = 0, seen=None):
         if got is not None:
             return got
     return None
+
+
+@contextlib.contextmanager
+def structure_on_device(sm: "StructureOnDevice | None"):
+    """Swap AlphaFold 2 multimer's `generate_monomer_rigids` for `sm` for the duration.
+
+    The replacement keeps, under the same haiku names, everything outside the eight
+    FoldIterations: the single layer norm, the initial projection, the dropout keeps (the same
+    keys and the same draw as `FoldIteration`) and the final layer's sidechain, which is the only
+    one BindCraft 2 reads (`final_atom_positions`). The per-layer sidechains are not computed, so
+    `sidechains` carries one layer where it carried eight. A fold `EvoformerOnDevice.on_host`
+    routes to the host, and a big-bang initialisation, keep BindCraft 2's own structure module.
+    """
+    if sm is None:
+        yield None
+        return
+    import haiku as hk
+    import jax
+    import jax.numpy as jnp
+    from bindcraft.af.alphafold.model import common_modules, prng
+    from bindcraft.af.alphafold.model import folding_multimer as fm
+    from bindcraft.af.alphafold.model.geometry import Rigid3Array, Rot3Array, Vec3Array
+
+    real = fm.generate_monomer_rigids
+
+    class FinalSidechain(hk.Module):
+        """`FoldIteration`'s sidechain call under its own name, so it reads the same weights."""
+
+        def __init__(self, config, global_config):
+            super().__init__(name="fold_iteration")
+            self.config, self.global_config = config, global_config
+
+        def __call__(self, rigid, act, initial_act, aatype):
+            return fm.MultiRigidSidechain(self.config.sidechain, self.global_config)(
+                rigid.scale_translation(self.config.position_scale), [act, initial_act], aatype)
+
+    def generate(representations, batch, config, global_config, safe_key):
+        if sm.evo.host_only or "initial_atom_pos" in batch:
+            return real(representations, batch, config, global_config, safe_key)
+        c = config
+        act = common_modules.LayerNorm(axis=-1, create_scale=True, create_offset=True,
+                                       name="single_layer_norm")(representations["single"])
+        initial_act = act
+        act = common_modules.Linear(c.num_channel, name="initial_projection")(act)
+        keep = 1.0 - jnp.where(batch["use_dropout"], c.dropout, 0.0)
+        keeps = []
+        for key in jax.random.split(safe_key.get(), c.num_layer):
+            _, k1, k2 = prng.SafeKey(key).split(3)
+            keeps.append(jnp.stack([jax.random.bernoulli(kk.get(), keep, act.shape) / keep
+                                    for kk in (k1, k2)]))
+        dep = jax.lax.stop_gradient(representations["pair"][0, 0, 0]).astype(jnp.float32)
+        out, R, t = sm.as_jax(duotraj.slot())(act, jnp.stack(keeps).astype(jnp.float32),
+                                              batch["seq_mask"].astype(jnp.float32), dep)
+        out = out.astype(act.dtype)
+        rigid = Rigid3Array(Rot3Array(*(R[..., i] for i in range(9))),
+                            Vec3Array(t[..., 0], t[..., 1], t[..., 2]))
+        sc = FinalSidechain(c, global_config)(rigid[-1], out, initial_act, batch["aatype"])
+        return {"rigid": rigid, "sc": jax.tree.map(lambda x: x[None], sc), "act": out}
+
+    fm.generate_monomer_rigids = generate
+    try:
+        yield sm
+    finally:
+        fm.generate_monomer_rigids = real
 
 
 @contextlib.contextmanager
@@ -2716,7 +2937,8 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               extra_msa: bool = True,
               template: bool = True,
               exact: bool = False,
-              fast: bool | None = None) -> Iterator[Callable[..., object]]:
+              fast: bool | None = None,
+              structure: bool = False) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -2807,6 +3029,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     evo = EvoformerOnDevice(pool, blocks=blocks, recompute=recompute, memory=mem)
     extra = ExtraMsaOnDevice(pool, recompute=recompute, memory=mem) if extra_msa else None
     tmpl = TemplateOnDevice(pool, recompute=recompute, memory=mem) if template else None
+    sm = StructureOnDevice(evo) if structure else None
     # `_EXACT_TRAINING` is a process-wide stack, not thread-local, so this covers every tape
     # opened for the duration -- both `_taped` calls and the backward's recompute -- without
     # either swap having to know about it.
@@ -2815,13 +3038,15 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
             autograd.exact_training(exact), evoformer_on_device(evo, extra), \
-            template_on_device(tmpl, evo), ipa_rewrites(IPA_POINT_EINSUM, IPA_DIST_REMAT), \
+            template_on_device(tmpl, evo), structure_on_device(sm), \
+            ipa_rewrites(IPA_POINT_EINSUM, IPA_DIST_REMAT), \
             untaped_recycles(UNTAPED_RECYCLES), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)
         build.fast = armed
         build.memory = mem
+        build.structure = sm
         yield build
 
 
