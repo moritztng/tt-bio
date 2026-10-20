@@ -52,9 +52,10 @@ def plan(x, w, cfg, grid, seq_len):
     return None
 
 
-def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc):
+def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool = False):
     """(rope(q), rope(k), v), each [B, H, L, 64], from x [B, L, D] and the `permute`d weight / bias; cos / sin are the
-    [1, 1, L, 64] tables. None where `plan` declines (the caller keeps the unpermuted weight for that)."""
+    [1, 1, L, 64] tables. `half`: the weight is `half_pairs` (then `permute`d), the tables `half_pair_tables`, and the
+    heads come out [B, H, L, 32]. None where `plan` declines (the caller keeps the unpermuted weight for that)."""
     seq_len = int(x.padded_shape[-2])
     why = plan(x, w, cfg, grid, seq_len)
     if why is not None:
@@ -64,14 +65,14 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc):
     bsz = 1
     for d in list(x.padded_shape)[:-2]:
         bsz *= int(d)
-    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([bsz, n_heads, seq_len, 64]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
-                                           dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([bsz, n_heads, seq_len, 32 if half else 64]), ttnn.bfloat16,
+                                           ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     t, p, v0 = layout(int(w.padded_shape[-1]) // 32, grid[0], cfg[2])
     spec = lambda u: (str(u.padded_shape), str(u.dtype), str(u.memory_config()))
     ck = MG.ckc_args(ckc)
-    key = (spec(x), spec(w), spec(b), spec(cos), tuple(cfg), tuple(grid), tuple(str(c) for c in ck))
+    key = (spec(x), spec(w), spec(b), spec(cos), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), half)
     entry = _CACHE.get(key)
-    rope = {"MM_HEADS_ST": seq_len // 32, "MM_ROPE_T": t, "MM_ROPE_P": p, "MM_ROPE_V0": v0}
+    rope = {"MM_HEADS_ST": seq_len // 32, "MM_ROPE_T": t, "MM_ROPE_P": p, "MM_ROPE_V0": v0, **({"MM_HALF_PAIRS": 1} if half else {})}
     if entry is None:
         entry = MG.build(dev, x, w, outs, (tuple(cfg), tuple(grid)), ck, defines=rope, kernel_dir=KERNEL_DIR, bias=b,
                          extra=(cos, sin))
