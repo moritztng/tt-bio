@@ -16,6 +16,36 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "bc4_ipa"))
 
 
+def host_card(S, base, ops):
+    """`base` with the named unary ops run on the host in float64, forward and VJP (jax), for a bisect."""
+    import jax, jax.numpy as jnp, ttnn, torch
+    jo = S.NP(jnp)
+
+    class HostCard(base):
+        def _host(self, fn, x):
+            xv = jnp.asarray(ttnn.to_torch(x.value).double().numpy())
+            y, vjp = jax.vjp(fn, xv)
+            out = self.raw(np.asarray(y))
+            def make():
+                def bw(g):
+                    gx, = vjp(jnp.asarray(ttnn.to_torch(g).double().numpy()))
+                    x.add_grad(self.raw(np.asarray(gx)))
+                return bw
+            return self.A._tape(out, [x], make)
+
+    host = HostCard
+    if "ln" in ops:
+        host.layer_norm = lambda self, x, gb, eps=1e-5: self._host(
+            lambda v: jo.layer_norm(v, tuple(jnp.asarray(ttnn.to_torch(t.value).double().numpy()) for t in gb), eps), x)
+    if "softmax" in ops:
+        host.softmax = lambda self, x: self._host(jo.softmax, x)
+    if "sqrt" in ops:
+        host.sqrt_eps = lambda self, x, eps: self._host(lambda v: jo.sqrt_eps(v, eps), x)
+    if "recip" in ops:
+        host.recip = lambda self, x: self._host(jo.recip, x)
+    return host
+
+
 def main(a):
     import jax, jax.numpy as jnp
     from tt_bio import af2_structure as S
@@ -54,7 +84,7 @@ def main(a):
     from tt_bio import autograd as A, tenstorrent as T
     import ipa_fused_tt as IT
     dev = T.get_device(trace="diffusion")
-    o = S.Card(dev)
+    o = (host_card(S, S.Card, a.host_ops.split(",")) if a.host_ops else S.Card)(dev)
     kd = o.upload(k)
     pre = [o.raw(act0), o.raw(pair)]
     kbd, sd = o.put(S.key_bias(mask)), [o.raw(s) for s in seeds]
@@ -74,7 +104,7 @@ def main(a):
     rel = lambda x, y: float(np.linalg.norm(x - y) / np.linalg.norm(x))
     out = [get(x) for x in fwd()]
     grads = [get(x) for x in step()]
-    res = {"layers": a.layers, "n": n, "real": real, "call": a.call,
+    res = {"host_ops": a.host_ops, "layers": a.layers, "n": n, "real": real, "call": a.call,
            "fwd_rel_l2": {nm: rel(x[:real], y[:real]) for nm, x, y in zip(("act", "R", "t"), ref, out)},
            "ca_rmsd_A": float(np.sqrt(((10 * (ref[2] - out[2])[:real]) ** 2).sum(-1).mean())),
            "ca_max_A": float(np.abs(10 * (ref[2] - out[2])[:real]).max()),
@@ -120,6 +150,7 @@ if __name__ == "__main__":
     ap.add_argument("--call", type=int, default=0)
     ap.add_argument("--reps", type=int, default=10)
     ap.add_argument("--layers", type=int, default=8)
+    ap.add_argument("--host-ops", default="", help="bisect: comma list of ln,softmax,sqrt,recip run on host f64")
     ap.add_argument("--out")
     ap.add_argument("--dump", help="npz of both gradients, the input and the seeds")
     main(ap.parse_args())
