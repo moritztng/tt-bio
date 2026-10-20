@@ -111,6 +111,15 @@ QKV_PACKED = env_flag("TT_BIO_TRIATT_BW_QKV_PACKED", False)
 # float64 (see `sub_exp_block_bcast_cols_inplace`).
 EXP_21F = env_flag("TT_BIO_TRIATT_BW_EXP_21F", False)
 
+# The softmax recomputes exp by the forwards fast approximate exponential, the one the forward
+# computed P with. Graded per op against a float64 VJP it sits further out than the accurate exp;
+# whether designs notice is graded on bc2_quality (bc4-bet-triatt), not per op.
+EXP_APPROX = env_flag("TT_BIO_TRIATT_BW_EXP_APPROX", False)
+
+# The compute kernels math fidelity, overriding the callers (HiFi4). Fidelity sets how many
+# passes the FPU makes over each matmul and multiply; the operands are bf16 either way.
+FIDELITY = os.environ.get("TT_BIO_TRIATT_BW_FIDELITY") or None
+
 STATS = {"served": 0, "declined": 0, "packed": 0}
 
 
@@ -477,10 +486,12 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
                      ("EXP_APPROX_MODE", "0")]
                     + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else [])
                     + ([("BW_ZONES", "1")] if os.environ.get("TT_BIO_TRIATT_BW_ZONES") else [])
-                    + ([("EXP_21F", "1")] if EXP_21F else []),
+                    + ([("EXP_21F", "1")] if EXP_21F else [])
+                    + ([("BW_EXP_APPROX", "1")] if EXP_APPROX else []),
             runtime_args=cr,
             config=ttnn.ComputeConfigDescriptor(
-                math_fidelity=ckc[0], math_approx_mode=False,
+                math_fidelity=getattr(ttnn.MathFidelity, FIDELITY) if FIDELITY else ckc[0],
+                math_approx_mode=False,
                 fp32_dest_acc_en=True, dst_full_sync_en=False)),
     ]
     # Counts (chunk, row) writes of dK/dV that have hit the write barrier, so the reader never

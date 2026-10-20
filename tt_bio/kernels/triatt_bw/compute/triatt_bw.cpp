@@ -27,6 +27,13 @@
 #include "api/debug/dprint.h"
 #include "../../triatt_sdpa/compute/compute_common.hpp"
 
+// `triatt_bw.EXP_APPROX`: the forward's fast approximate exponential in the softmax recompute.
+#ifdef BW_EXP_APPROX
+#define BW_APPROX_EXP true
+#else
+#define BW_APPROX_EXP false
+#endif
+
 // Per-phase device-profiler zones, behind BW_ZONES (TT_BIO_TRIATT_BW_ZONES).
 #ifdef BW_ZONES
 #include "tools/profiler/kernel_profiler.hpp"
@@ -304,7 +311,7 @@ void kernel_main() {
             // ACCURATE exponential: a gradient graded against a float64 VJP cannot afford the
             // forward's fast approximate one.
             sub_exp_block_bcast_cols_inplace<cb_p, Qt, 0x3F800000 /*1.0f*/, true, false,
-                                             (int)VectorMode::RC, false /*approx_exp*/>(
+                                             (int)VectorMode::RC, BW_APPROX_EXP>(
                 cb_row_a, cb_row_b, Nt);
             }
             {
