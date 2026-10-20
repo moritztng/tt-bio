@@ -8067,7 +8067,7 @@ class TraceScratch:
         before the hole is filled: it must drop every reference to a buffer they allocated,
         because one freed after the fill frees a piece of the hole for anything eager."""
         ballast = self._fill()
-        tids = []
+        tids, err = [], None
         try:
             if self.hole is None:
                 k = -(-size // self.CHUNK)
@@ -8093,13 +8093,18 @@ class TraceScratch:
                 for t, _ in self.held:
                     ttnn.deallocate(t)
                 self.held = []
-            for run in runs:
-                tids.append(capture_trace(self.dev, run)[0])
-            return tids
-        except BaseException:
-            for tid in tids:
-                ttnn.release_trace(self.dev, tid)
-            raise
+            try:
+                for run in runs:
+                    tids.append(capture_trace(self.dev, run)[0])
+            except RuntimeError as e:
+                # Keep the message, not the exception: its traceback pins the failed run's frames,
+                # and the buffers they hold sit in the hole. Freed after the fill below, they would
+                # hand pieces of the hole to eager tensors that later replays overwrite (BC2 seed 102
+                # on qb2 card 3, 2026-10-20: every trajectory after a refused capture was garbage).
+                err = str(e)
+                for tid in tids:
+                    ttnn.release_trace(self.dev, tid)
+                tids = None
         finally:
             if settle is not None:
                 settle()
@@ -8107,6 +8112,9 @@ class TraceScratch:
                 self.held += self._fill()
             for t, _ in ballast:
                 ttnn.deallocate(t)
+        if err is not None:
+            raise RuntimeError(err)
+        return tids
 
     def release(self):
         for t, _ in self.held:
