@@ -1960,6 +1960,17 @@ class DiffusionModule(_KeyedWeights):
         lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
             x, w, bias=b, activation=act, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         sig = _T.mm_sigmoid(ckc)
+        if _T.lever("dit_shoist_mm") and sig == "sigmoid":
+            # ttnn.linear's own schedule reads these [N, 384] x [384, 36864] at ~57 GB/s; a 2 x 16 tile block per core
+            # runs 2.2x (fp32) / 2.0x (bf16) faster at the same fidelity and the same float64 error (shm2, WH). K block 1
+            # only: minimal_matmul returned elements off by 4-8 at fp32 with K block >= 2 and at bf16 with K block 12.
+            gx, gy = _T.COMPUTE_GRID_MAIN
+            cfg = ttnn.MinimalMatmulConfig(M_block_size=2, K_block_size=1,
+                                           N_block_size=16, subblock_h=1, subblock_w=4,
+                                           compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
+            lin = lambda x, w, b=None, act=None: ttnn.experimental.minimal_matmul(  # noqa: E731
+                x, w, bias_tensor=b, compute_kernel_config=ckc, dtype=dt, config=cfg,
+                fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID) if act else None)
         out = (lin(s_hat, w_sc, b_sc, sig), lin(s_hat, w_sb), lin(s_t, w_g, b_g, sig))
         ttnn.deallocate(s_hat)
         return out
