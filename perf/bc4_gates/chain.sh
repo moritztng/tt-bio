@@ -1,6 +1,6 @@
 #!/bin/bash
 # bc4-bet-gates: the real BindCraft 2 loop (perf/spd/bc2_census.py, devgap's settings) under
-# perf/bc4_gates/route_probe.py, arms base / fix / base. base = every gate blind to its operands;
+# perf/bc4_gates/route_probe.py, arms base / fix / base. base = main (operand-blind gates);
 # fix = this branch. Waits for the card's fleet lock, samples AICLK and load at 1 Hz. Runs a
 # snapshot of HEAD (git archive), so the worktree may move on while it waits.
 #   CARD=1 bash perf/bc4_gates/chain.sh
