@@ -670,6 +670,13 @@ def _fc1_act() -> str:
     return "gelu_approx" if tenstorrent.is_wormhole() else "gelu"
 
 
+# Diagnostic only (off): fc1 with its pre-LN folded into the matmul, LN(x) W = rs * (x (g W) - mu colsum(g W)) + b W,
+# so a fused kernel would read raw x and keep only a per-row stats pass. Unfused ttnn ops (stats, epilogue and GELU in
+# fp32, the matmul at the model's fidelity into fp32): grades whether the fold's accuracy holds when the matmul consumes
+# raw x, whose row mean can dwarf its spread. Its time means nothing.
+_SAPROT_LN_FOLD = False
+
+
 class ESM2FFN(_SaprotLin, Module):
     """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual: returns ``x + ffn(x)``."""
 
@@ -682,7 +689,35 @@ class ESM2FFN(_SaprotLin, Module):
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=_dtype())
         self.fc2_bias = self.torch_to_tt("fc2.bias")
 
+    def _ln_fold_fc1(self, x):
+        """GELU(LN(x) W1 + b1) by the fold (see _SAPROT_LN_FOLD), bf16 out."""
+        if getattr(self, "_fold", None) is None:
+            f = lambda k: self.weights[k].float()
+            w = f("fc1.weight").t()   # [K, N]
+            wd = ttnn.from_torch((f("norm.weight")[:, None] * w).contiguous(), layout=ttnn.TILE_LAYOUT,
+                                 device=self.device, dtype=_dtype())
+            wq = ttnn.to_torch(wd).float()   # colsum of the weight the device multiplies by, block-fp8 included
+            row = lambda t: ttnn.from_torch(t.reshape(1, 1, -1).contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                                            dtype=ttnn.float32)
+            self._fold = (wd, row(wq.sum(0)), row(f("norm.bias") @ w + f("fc1.bias")))
+        wd, cs, c = self._fold
+        xf = ttnn.typecast(x, ttnn.float32)
+        mu = ttnn.mean(xf, dim=-1, keepdim=True)
+        dx = ttnn.subtract(xf, mu)
+        rs = ttnn.rsqrt(ttnn.add(ttnn.mean(ttnn.multiply(dx, dx), dim=-1, keepdim=True), 1e-5))
+        acc = ttnn.matmul(x, wd, compute_kernel_config=self._ck(wd), dtype=ttnn.float32)
+        y = ttnn.add(ttnn.multiply(ttnn.subtract(acc, ttnn.multiply(mu, cs)), rs), c)
+        h = ttnn.typecast(ttnn.gelu(y, fast_and_approximate_mode=False), ttnn.bfloat16)
+        for t in (xf, mu, dx, rs, acc, y):
+            ttnn.deallocate(t)
+        return h
+
     def __call__(self, x):
+        if _SAPROT_LN_FOLD:
+            h = self._ln_fold_fc1(x)
+            out = self._lin_add(h, self.fc2_weight, self.fc2_bias, x)
+            ttnn.deallocate(h)
+            return out
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
         h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": _fc1_act()} if _GELU_FUSED else {}))
