@@ -751,9 +751,19 @@ def _fc1_act() -> str:
     return "gelu_approx" if tenstorrent.is_wormhole() else "gelu"
 
 
-# --fast: fc1's GELU output written as block-fp8, the [rows, 4d] activation fc2 reads back (half its write and read
-# traffic). Its weights are block-fp8 already.
-_SAPROT_FC1_B8 = env_flag("TT_BIO_SAPROT_FC1_B8", False)
+# --fast: fc1's GELU output written as block-fp8 where it goes to DRAM, the [rows, 4d] activation fc2 reads back (half
+# its write and read traffic); its weights are block-fp8 already. An L1 output (35M) has no DRAM traffic to save: there
+# it measured 26.53 -> 29.92 ms. ls90 page A/B (.107, 1000 MHz, 2 rounds x 3, --fast, ms off -> on, pcc vs fp32 delta):
+# 650M hHSA 133.50 -> 128.26 (+0.000003), hPCSK9 132.95 -> 128.13 (+0.000234); 1.3B hPCSK9 255.00 -> 245.69 (+0.000089).
+# None = Wormhole until Blackhole is graded.
+_SAPROT_FC1_B8 = env_flag("TT_BIO_SAPROT_FC1_B8", None)
+
+
+def _fc1_b8() -> bool:
+    if _SAPROT_FC1_B8 is not None:
+        return bool(_SAPROT_FC1_B8)
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
 
 
 class ESM2FFN(_SaprotLin, Module):
@@ -771,7 +781,8 @@ class ESM2FFN(_SaprotLin, Module):
     def __call__(self, x):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
-        b8 = _SAPROT_FC1_B8 and _GELU_FUSED and self.fc1_weight.dtype == ttnn.bfloat8_b
+        b8 = (_fc1_b8() and _GELU_FUSED and self.fc1_weight.dtype == ttnn.bfloat8_b
+              and not _out_l1(x_norm, self.fc1_weight))
         h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"dtype": ttnn.bfloat8_b} if b8 else {}),
                       **({"activation": _fc1_act()} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
