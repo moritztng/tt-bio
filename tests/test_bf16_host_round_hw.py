@@ -5,12 +5,17 @@ ties, the neighbours of ties, subnormals, the largest finite values, infinities 
 
 ttnn opens the cluster for a host tilize, so run it pinned:
 TT_VISIBLE_DEVICES=<card> python3 -m pytest -s tests/test_bf16_host_round_hw.py
+
+No device is opened, so there is nothing to close, but the tilize built MetalContext and with it the
+card's driver fds. The test hands the chip back itself; otherwise every later test in the same
+pytest process starts on a held card (test_cleanup_drops_the_driver_fds, pytest_device:2/4 wh).
 """
 import pytest
 import torch
 import ttnn
 
 from tt_bio.main import ensure_p300_mesh_descriptor
+from tt_bio.tenstorrent import _release_ownership_fn
 
 pytestmark = pytest.mark.device
 
@@ -35,7 +40,10 @@ def _values():
 def test_torch_and_ttnn_round_float32_to_bf16_alike():
     ensure_p300_mesh_descriptor()
     v = _values()
-    a = ttnn.to_torch(ttnn.from_torch(v, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16))
-    b = ttnn.to_torch(ttnn.from_torch(v.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16))
+    try:
+        a = ttnn.to_torch(ttnn.from_torch(v, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16))
+        b = ttnn.to_torch(ttnn.from_torch(v.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16))
+    finally:
+        _release_ownership_fn()()
     same = (a.view(torch.int16) == b.view(torch.int16))
     assert bool(same.all()), f"{int((~same).sum())} of {v.numel()} differ, e.g. {v[~same][:8].tolist()}"
