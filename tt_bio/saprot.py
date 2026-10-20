@@ -299,6 +299,13 @@ def _out_l1(x, w) -> bool:
     return _SAPROT_OUT_L1 and x.volume() // int(w.shape[-2]) * int(w.shape[-1]) * 2 <= _OUT_L1_BYTES
 
 
+# Normal mode's bf16-weight qkv and out at HiFi3 (L36) on 2 x 2 subblocks: ls87 lin_sweep --fidelity HiFi3, WH 650M, Galaxy
+# chip at 1000 MHz, ms a call at equal rel_l2 (1.70e-3): qkv (8,8,8,1,4) 0.8125 -> (8,8,8,2,2) 0.7843, out (16,4,4,1,4)
+# 0.3395 -> 0.3181. --fast's block-fp8 weights keep _PROGS.
+_SAPROT_BF16_PROGS = env_flag("TT_BIO_SAPROT_BF16_PROGS", False)
+_PROGS_BF16 = {(True, 1280, 3840): ("mm", (8, 8, 8, 2, 2)), (True, 1280, 1280): ("mm", (8, 8, 8, 2, 2))}
+
+
 def _saprot_prog(x, w, act, hifi2=False):
     """("mm", MinimalMatmulConfig) or ("2d", program config) for this projection, or None where the default serves."""
     if _SAPROT_PROG is False:
@@ -307,7 +314,9 @@ def _saprot_prog(x, w, act, hifi2=False):
     k, n = int(w.shape[-2]), int(w.shape[-1])
     rows = x.volume() // k
     key = (tenstorrent.is_wormhole(), k, n)
-    hit = (_PROGS_HIFI2.get(key) if hifi2 else None) or _PROGS.get(key)
+    hit = (_PROGS_HIFI2.get(key) if hifi2 else None) \
+        or (_PROGS_BF16.get(key) if _SAPROT_BF16_PROGS and w.dtype == ttnn.bfloat16 and not hifi2 else None) \
+        or _PROGS.get(key)
     if _SAPROT_FC1_MM and key == (True, 1280, 5120):
         hit = ("mm", _FC1_MM[hifi2])
     if hit is None or not _PROG_ROWS[0] <= rows <= _PROG_ROWS[1] or act not in (None, "gelu", "gelu_approx"):
