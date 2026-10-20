@@ -152,14 +152,15 @@ def test_qkrh_default(wormhole, switch, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
-    """SaProt's packed RoPE + head split program defaults on with block-fp8 weights (--fast) on both arches; the switch
-    overrides."""
-    from tt_bio import saprot
+    """SaProt's packed RoPE + head split program defaults on with block-fp8 weights (--fast) on both arches, and in
+    normal mode where its RoPE sums run on the SFPU (Wormhole); the switch overrides."""
+    from tt_bio import qk_rope_heads, saprot
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(saprot, "_SAPROT_QKRH", switch)
+    monkeypatch.setattr(qk_rope_heads, "SFPU", None)
     for dtype in (ttnn.bfloat8_b, ttnn.bfloat16):
         w = type("W", (), {"dtype": dtype})()
-        want = (dtype == ttnn.bfloat8_b) if switch is None else switch
+        want = (dtype == ttnn.bfloat8_b or wormhole) if switch is None else switch
         assert saprot._saprot_qkrh(w) is want
 
 
