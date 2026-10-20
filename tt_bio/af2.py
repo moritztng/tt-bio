@@ -135,6 +135,10 @@ TRANSITION_WS = env_flag("TT_BIO_AF2_TRANSITION_WS", True)
 # .114 WH 2026-10-12 (off / on / off2 x 3 inputs, AICLK 1000): coords_sha16 identical on every
 # input, extra-MSA stage 0.41-0.44 -> 0.36 s and Evoformer 4.136 -> 4.09 s per fold.
 PAIR_ON_CARD = env_flag("TT_BIO_AF2_PAIR_ON_CARD", True)
+# The triangle multiplications' output tail with the dropped residual as one T2CM kernel in the
+# forwards a tape does not record (`AF2PairBlock._pair_op`). Off outside a BindCraft 2 round on
+# Blackhole (`bindcraft2._FAST_ROUND`): with it and GIN_BIASED on, AF2-IG's trunk misses its i_ptm bar.
+_AF2_T2CM = env_flag("TT_BIO_AF2_T2CM", False)
 # The MSA column attention at depth 2 in closed form (`AF2Attention._column_depth2`). With two keys
 # the softmax is a sigmoid of the logit gap, so the attention is elementwise in the MSA's own
 # [rows, n, c] layout: no permutes, and no 2-row axis padded to a 32-row tile. Depth 2 is every
@@ -578,7 +582,7 @@ class AF2PairBlock(Module):
         return self._residual(x, self._dropped(name, update, drop))
 
     def _update(self, name: str, device, x: ttnn.Tensor,
-                *args: ttnn.Tensor) -> ttnn.Tensor | None:
+                *args: ttnn.Tensor, **kw) -> ttnn.Tensor | None:
         """One op's residual update: from the card, or from its host-torch twin if substituted.
 
         The residual add stays on card either way, so a substitution changes exactly one op's
@@ -592,7 +596,7 @@ class AF2PairBlock(Module):
         if name in self.skip:
             return None
         if name not in self.substitute:
-            return device(x, *args)
+            return device(x, *args, **kw)
         down, up, twins = self.host_ops
         return up(twins[name](*[down(t) for t in (x, *args)]))
 
@@ -600,17 +604,29 @@ class AF2PairBlock(Module):
                  attn_mask: ttnn.Tensor | None = None, drop=None) -> ttnn.Tensor:
         self.tri_att_start.bias_in_matmul = self.tri_att_end.bias_in_matmul = (
             _G_O if self.tri_att_g_in_matmul else _O)
-        order = [("tri_mul_out", lambda t: self.tri_mul_out(t, mask)),
-                 ("tri_mul_in", lambda t: self.tri_mul_in(t, mask)),
+        order = [("tri_mul_out", lambda t, **kw: self.tri_mul_out(t, mask, **kw)),
+                 ("tri_mul_in", lambda t, **kw: self.tri_mul_in(t, mask, **kw)),
                  ("tri_att_start", lambda t: self.tri_att_start(t, attn_mask)),
                  ("tri_att_end", lambda t: self.tri_att_end(t, attn_mask))]
         if not self.evoformer_order:
             order = order[2:] + order[:2]
         for name, device in order + [("pair_transition", self.pair_transition)]:
-            z = self._step(lambda t, name=name, device=device:
-                           self._residual_dropped(t, name, self._update(name, device, t),
-                                                  drop), z)
+            z = self._step(lambda t, name=name, device=device: self._pair_op(t, name, device, drop), z)
         return z
+
+    def _pair_op(self, x, name: str, device, drop):
+        """One pair op and its dropped residual. Under `TT_BIO_AF2_T2CM` a triangle multiplication is
+        offered the residual (`TriangleMultiplication.fused_residual`); where its T2CM tail takes it,
+        the op returns `x + mask * update` and `x` is freed here, as `_residual_dropped` frees it."""
+        kw = {}
+        if _AF2_T2CM and name in ("tri_mul_out", "tri_mul_in"):
+            kw = {"fused_residual": (None if drop is None else drop.get(name),)}
+            getattr(self, name).took_residual = False
+        update = self._update(name, device, x, **kw)
+        if kw and update is not None and getattr(self, name).took_residual:
+            ttnn.deallocate(x)
+            return update
+        return self._residual_dropped(x, name, update, drop)
 class AF2DeviceTemplatePairStack:
     """The template's two `PairBlock`s in ttnn: host torch in, host torch out.
 
