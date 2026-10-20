@@ -6,15 +6,17 @@
 // q_ln / k_ln), left in fp32 in c_17 (the centred-x CB, free by then), then NeoX RoPE per head on those tiles: head h is tiles a = 2h, b = 2h + 1 and
 // rotate_half swaps them with a sign, so
 //     out_a = x_a * cos - x_b * sin        out_b = x_b * cos + x_a * sin
-// with one cos / sin tile for the row (c_6 / c_7). The cos products go through an fp32 CB (c_20); the sin products
-// stay in dest and the add / subtract reuses dest as srcB. Two output tiles per head into c_16. v units are the
-// reader's and the writer's alone.
+// with one cos / sin tile for the row (c_6 / c_7). Under QKRH_SFPU all four products of a head land in fp32 dest and
+// the SFPU subtracts / adds them there. Otherwise the cos products go through an fp32 CB (c_20) and the add / subtract
+// reuses dest as srcB; both operands then pass the 19-bit srcA / srcB, which truncates them toward zero. Two output
+// tiles per head into c_16. v units are the reader's and the writer's alone.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
 
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/eltwise_binary.h"
+#include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/reconfig_data_format.h"
 #include "../common/ln_prologue.hpp"
 
@@ -97,6 +99,30 @@ void kernel_main() {
         cb_wait_front(src, KT);
         cb_wait_front(cb_cos, 1);
         cb_wait_front(cb_sin, 1);
+#if defined(QKRH_SFPU)
+        reconfig_data_format(src, cb_cos);
+        pack_reconfig_data_format(cb_out);
+        for (uint32_t a = 0; a < KT; a += 2) {   // one head a dest acquire: a cos, b cos, b sin, a sin
+            cb_reserve_back(cb_out, 2);
+            tile_regs_acquire();
+            mul_tiles_init(src, cb_cos);
+            mul_tiles(src, cb_cos, a, 0, 0);
+            mul_tiles(src, cb_cos, a + 1, 0, 1);
+            mul_tiles_init(src, cb_sin);
+            mul_tiles(src, cb_sin, a + 1, 0, 2);
+            mul_tiles(src, cb_sin, a, 0, 3);
+            sub_binary_tile_init();
+            sub_binary_tile(0, 2, 0);
+            add_binary_tile_init();
+            add_binary_tile(1, 3, 1);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, cb_out);
+            pack_tile(1, cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, 2);
+        }
+#else
         for (uint32_t h0 = 0; h0 < KT / 2; h0 += HG) {   // HG heads (2 HG tiles) a dest acquire
             const uint32_t n = KT / 2 - h0 < HG ? KT / 2 - h0 : HG, a0 = 2 * h0;
             reconfig_data_format(src, cb_cos);
@@ -141,6 +167,7 @@ void kernel_main() {
             cb_push_back(cb_out, 2 * n);
             cb_pop_front(cb_p, 2 * n);
         }
+#endif
         cb_pop_front(src, KT);
         cb_pop_front(cb_cos, 1);
         cb_pop_front(cb_sin, 1);

@@ -313,13 +313,21 @@ MEMORY_MODES = ("fast", "lean", "offload")
 
 #: How many of the last Evoformer blocks keep their whole tape instead of a checkpoint, so the
 #: backward does not run their forward again: an integer pins it, ``auto`` sizes it from the card
-#: (`resident_blocks`). Default 0 while ``auto`` is in its design grade.
-RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "0")
-#: A resident Evoformer block's tape, in pair tensors (256 B a token pair). Fitted on a Wormhole
-#: chip at 224 tokens: 11 resident blocks fit beside a fast round and 12 do not, which puts a
-#: block at 64-70 (.114, out/resk3_14c9d7918). 70 is the safe end.
-_RESIDENT_BLOCK_PAIR_TENSORS = 70
-_RESIDENT_MARGIN_BYTES = int(0.5e9)
+#: (`resident_blocks`).
+RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "auto")
+#: A fast round with resident blocks peaks at `_MODE_BASE_BYTES` plus this many pair tensors
+#: (256 B a token pair) per resident block, plus a fixed count beside them. Bracketed on a
+#: Blackhole chip (34.226 GB) with real BindCraft 2 rounds: 224 tokens holds 48, 256 holds 36 and
+#: refuses 40, 288 holds 28 and refuses 32, 320 holds 24 and refuses 26, 352 holds 20
+#: (`state/bc4/bets/tape/NOTES.md`). The law gives 48, 36, 28, 22 and 18 there, so it never offers
+#: a count that refused. On a Wormhole chip it gives 10 for the 1.03 GB/block tape of 2026-10-13,
+#: where 11 fit and 12 refused.
+_RESIDENT_BLOCK_PAIR_TENSORS = 50.5
+_RESIDENT_ROUND_PAIR_TENSORS = 99.5
+#: Boards (`_MEASURED_CEILINGS` names) where whole BindCraft 2 trajectories ran with today's tape
+#: across the token range, 224 to 672 on Blackhole. ``auto`` keeps no tape anywhere else: a
+#: Wormhole chip has only the 2026-10-13 bracket of an older, larger tape.
+_RESIDENT_LADDERED = ("p150a",)
 
 #: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
 #: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
@@ -347,17 +355,25 @@ def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
                     blocks: int = EVOFORMER_BLOCKS, requested: str | None = None) -> int:
     """How many of the last `blocks` Evoformer blocks keep their tape (`RESIDENT_BLOCKS`).
 
-    ``auto`` fills what the card has left after a fast round, and is 0 in the slower modes
-    (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
+    ``auto`` fills what the card holds beside a fast round on a board in `_RESIDENT_LADDERED`,
+    and is 0 on any other board, in the slower modes (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
     neighbours peak at other times, so the room one sees is not its own to spend."""
     requested = RESIDENT_BLOCKS if requested is None else requested
     if requested != "auto":
         return max(0, min(blocks, int(requested)))
     if mode != "fast" or slot:
         return 0
-    room = card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) - _RESIDENT_MARGIN_BYTES
-    per = _RESIDENT_BLOCK_PAIR_TENSORS * 256 * int(padded) ** 2
-    return max(0, min(blocks, int(room // per)))
+    board = _measured_board(card_bytes)
+    if board is None or board[2] not in _RESIDENT_LADDERED:
+        return 0
+    pair = 256 * int(padded) ** 2
+    tape = _RESIDENT_BLOCK_PAIR_TENSORS * pair
+    # Near the top of fast mode the round's own recompute peak is what fills the card, and a
+    # resident tape would sit on top of it.
+    if card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) < tape:
+        return 0
+    room = card_bytes * _MODE_USABLE - _MODE_BASE_BYTES - _RESIDENT_ROUND_PAIR_TENSORS * pair
+    return max(0, min(blocks, int(room // tape)))
 
 
 def memory_mode(requested: str, padded: int, card_bytes: int) -> str:
@@ -514,6 +530,23 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
     banks, want, per_bank = g["banks"], g["want"], g["per_bank"]
     free_total, largest, bank_size = g["free"] * banks, g["largest"], g["bank_size"]
     card_total, held = bank_size * banks, g["allocated"] * banks
+    if space == "L1":
+        # L1 is the SRAM inside the cores, 160.8 MB on a p300c chip. Read as the card, this
+        # refusal told a 576-token fold that even `offload` tops out near 32 tokens.
+        down = padded - TOKEN_BUCKET
+        return MemoryError(
+            f"BindCraft 2 could not place a buffer in L1 in the {stack} {phase} at {padded} "
+            f"tokens.\n"
+            f"  complex   {n} residues, padded to {padded} tokens "
+            f"(tt-bio buckets the token axis to {TOKEN_BUCKET})\n"
+            f"  asked for {_gb(want)} in one L1 buffer ({_gb(per_bank)} in each of {banks} banks)\n"
+            f"  free      {_gb(free_total)} of {_gb(card_total)} of L1, largest contiguous block "
+            f"{_gb(largest)}\n"
+            f"This is L1, the SRAM inside the cores, not the card's DRAM, so a slower memory mode "
+            f"does not change it. tt-bio puts a tensor in L1 only where it should fit, so this is "
+            f"a tt-bio bug: please report it with this message. {n - down} residues off the "
+            f"binder takes this fold to {down} tokens, which may avoid it.\n"
+            f"The allocator's own refusal follows.")
     # Only a DRAM refusal is measured against a DRAM reading, and a card that gave memory back
     # since the reading has no split worth printing.
     if space != "DRAM" or held_before is None or not 0 <= held_before <= held:
@@ -964,7 +997,11 @@ class _Trunk:
         for i, block in enumerate(blocks):
             d = None if drop is None else drop[i]
             run = lambda a, b, drop, blk=block: blk(a, b, msa_mask, *pair_masks, drop=drop)
-            if i >= keep or not recompute:
+            if i >= keep:
+                m_in, z_in = m, z
+                m, z = run(m, z, d)
+                self.ag.release_dead((m, z), (m_in, z_in))
+            elif not recompute:
                 m, z = run(m, z, d)
             else:
                 m, z = self._segment("evoformer", i, run, (m, z), d, masks, offload)
@@ -2149,6 +2186,57 @@ def ipa_rewrites(einsum: bool = False, dist_remat: bool = False):
         fm.InvariantPointAttention = original
 
 
+class _FrozenRecycles:
+    """An `alphafold_runner` whose first `frozen` applies see no gradient.
+
+    BindCraft 2 stops the gradient on the output of every recycle but the last
+    (`bindcraft/af2.py`, `recycled_alphafold_outputs`), so nothing that happens inside them can
+    reach the sequence gradient. JAX still differentiates INTO them: their inputs carry the
+    sequence's tangent, so each device seam takes its forward rule and records a tape that is
+    swept unread on the next recycle. Stopping the gradient on the inputs instead sends those
+    recycles through the primal, which records nothing, and leaves the gradient unchanged.
+    """
+
+    def __init__(self, real, frozen: int):
+        self._real, self._frozen = real, frozen
+
+    def apply(self, params, key, inputs):
+        if self._frozen:
+            import jax
+            self._frozen -= 1
+            params, inputs = jax.lax.stop_gradient((params, inputs))
+        return self._real.apply(params, key, inputs)
+
+
+@contextlib.contextmanager
+def untaped_recycles(enabled: bool = True):
+    """Run BindCraft 2's stop-gradient recycles through the primal for the duration.
+
+    Same loop, same keys, same values: `recycled_alphafold_outputs` is BindCraft 2's own and only
+    its runner is wrapped (`_FrozenRecycles`). Yields whether it was installed.
+    """
+    if not enabled:
+        yield False
+        return
+    from bindcraft import af2
+
+    original = af2.recycled_alphafold_outputs
+
+    def recycled(runner, model_parameters, key, model_inputs, num_recycle):
+        return original(_FrozenRecycles(runner, num_recycle), model_parameters, key,
+                        model_inputs, num_recycle)
+
+    af2.recycled_alphafold_outputs = recycled
+    try:
+        yield True
+    finally:
+        af2.recycled_alphafold_outputs = original
+
+
+#: `untaped_recycles` on by default: the recycles it reroutes have no gradient to give.
+UNTAPED_RECYCLES = env_flag("TT_BIO_BC2_UNTAPED_RECYCLES", True)
+
+
 def ipa_point_einsum(enabled: bool = True):
     """`ipa_rewrites` with only the point einsum."""
     return ipa_rewrites(einsum=enabled)
@@ -2750,6 +2838,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
             (autograd.block_traces(trace) if trace is not None else contextlib.nullcontext()), \
             evoformer_on_device(evo, extra), \
             template_on_device(tmpl, evo), ipa_rewrites(IPA_POINT_EINSUM, IPA_DIST_REMAT), \
+            untaped_recycles(UNTAPED_RECYCLES), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)

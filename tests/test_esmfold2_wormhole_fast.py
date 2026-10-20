@@ -64,10 +64,12 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
         assert ("ef2_pair_init" in names) is (fast or not wormhole)
     assert ("ef2_opm_kq" in rt.fold_levers(False).split("+")) is wormhole
     # qk_rope_heads in the LM failed ESMFold2's normal bar on Wormhole (qrn) and passed the fast one (qrf).
-    assert ("lm_qk_chain" in normal_set) is wormhole and "lm_qk_chain" not in fast_set
-    # The legacy LM gate multiply is graded on ESMC's embeddings only; ESMFold2 on Wormhole keeps binary_ng.
-    assert ("lm_gate_ng" in normal_set) is wormhole and ("lm_gate_ng" in fast_set) is wormhole
-    assert ("lm_sdpa_stock" in normal_set) is wormhole and ("lm_sdpa_stock" in fast_set) is wormhole
+    # Blackhole keeps the LM as it folded before ESMC took the Wormhole LM path there (no fold graded yet).
+    assert "lm_qk_chain" in normal_set and ("lm_qk_chain" in fast_set) is not wormhole
+    # The legacy LM gate multiply is graded on ESMC's embeddings only; ESMFold2 keeps binary_ng.
+    assert "lm_gate_ng" in normal_set and "lm_gate_ng" in fast_set
+    assert "lm_sdpa_stock" in normal_set and "lm_sdpa_stock" in fast_set
+    assert all((n in s) is not wormhole for n in ("lm_k64", "lm_linear") for s in (normal_set, fast_set))
     # The fused token-DiT attention (dsg) and its hoisted conditioning (dsq2) passed the fast bar on Wormhole only.
     assert ("dit_qkvf" in fast_set) is wormhole and "dit_qkvf" not in normal_set
     assert ("dit_shoist" in fast_set) is wormhole and "dit_shoist" not in normal_set

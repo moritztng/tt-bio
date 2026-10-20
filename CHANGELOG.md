@@ -5,6 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- **Chain ids.** A repeated chain id is refused on every model instead of folding two chains as one.
+  OpenFold3 and OpenBind-0 accept ids longer than four characters (they crashed in MSA
+  featurization). ESMFold-2 keeps ids longer than 16 characters in mmCIF instead of truncating them.
+  RF3, OpenFold3 and OpenBind-0 write `--output_format pdb` with a multi-character id, relabelled with
+  a `REMARK 999` like the other models, instead of failing after the fold. RF3 refuses whitespace in
+  an id before it starts, and AF2-IG refuses the same chain as target and binder.
+
 ### Changed
 - **A local-database MSA search for a complex runs its unpaired and paired searches at the same time.**
   On a 64-core host a new two-chain OpenDDE input reaches its first fold about 10 s sooner (22.4 s to

@@ -34,3 +34,11 @@ def test_model_uses_it_by_default():
     R = torch.randn(1, 40, 3)
     assert M._BINS_NB is True or M.env_flag("RFD3_BINS_NB", True) is False
     assert torch.equal(M._scaled_distogram_bins(R), _ref(R, torch.linspace(1.0 / 16, 30.0 / 16, 64)))
+
+
+def test_bins_leaves_numbas_thread_pool_unlaunched():
+    """A launched numba OpenMP pool slows every later torch CPU op in the process ~20x (see distbins' docstring)."""
+    from numba.np.ufunc import parallel
+    R = torch.randn(2, 64, 3)
+    distbins.bins(R, torch.linspace(1.0 / 16, 30.0 / 16, 64))
+    assert not parallel._is_initialized

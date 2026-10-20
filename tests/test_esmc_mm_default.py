@@ -1,4 +1,4 @@
-"""ESMC's minimal_matmul projections default by arch: on for Wormhole, off for Blackhole; the switch overrides both."""
+"""ESMC's minimal_matmul projections default on for both archs unless lm_linear is active; the switch overrides."""
 from __future__ import annotations
 
 import types
@@ -14,7 +14,9 @@ from tt_bio import esmc, tenstorrent
 def test_esmc_mm_default_by_arch(wormhole, switch, monkeypatch):
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(esmc, "_ESMC_MM", switch)
-    assert esmc._esmc_mm() is (wormhole if switch is None else switch)
+    assert esmc._esmc_mm() is (True if switch is None else switch)
+    with tenstorrent.levers("lm_linear"):
+        assert esmc._esmc_mm() is (False if switch is None else switch)
 
 
 
@@ -141,10 +143,10 @@ def test_qk_l1_large_default(wormhole, switch, wdtype, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_qkrh_default(wormhole, switch, monkeypatch):
-    """qk_rope_heads defaults on for Wormhole unless lm_qk_chain is active; the switch overrides both."""
+    """qk_rope_heads defaults on for both archs unless lm_qk_chain is active; the switch overrides both."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(esmc, "_ESMC_QKRH", switch)
-    assert esmc._qkrh() is (wormhole if switch is None else switch)
+    assert esmc._qkrh() is (True if switch is None else switch)
     with tenstorrent.levers("lm_qk_chain"):
         assert esmc._qkrh() is (False if switch is None else switch)
 
@@ -152,15 +154,27 @@ def test_qkrh_default(wormhole, switch, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
-    """SaProt's packed RoPE + head split program defaults on with block-fp8 weights (--fast) on both arches; the switch
-    overrides."""
-    from tt_bio import saprot
+    """SaProt's packed RoPE + head split program defaults on with block-fp8 weights (--fast) on both arches, and in
+    normal mode where its RoPE sums run on the SFPU (Wormhole); the switch overrides."""
+    from tt_bio import qk_rope_heads, saprot
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(saprot, "_SAPROT_QKRH", switch)
+    monkeypatch.setattr(qk_rope_heads, "SFPU", None)
     for dtype in (ttnn.bfloat8_b, ttnn.bfloat16):
         w = type("W", (), {"dtype": dtype})()
-        want = (dtype == ttnn.bfloat8_b) if switch is None else switch
+        want = (dtype == ttnn.bfloat8_b or wormhole) if switch is None else switch
         assert saprot._saprot_qkrh(w) is want
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
+def test_saprot_fc1_gelu_f32_default(wormhole, switch, monkeypatch):
+    """SaProt's fc1 asks for approx gelu (calculate_gelu_f32 under the gelu_f32 overlay) on Wormhole; the switch overrides."""
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_GELU_F32", switch)
+    on = wormhole if switch is None else switch
+    assert saprot._fc1_act() == ("gelu_approx" if on else "gelu")
 
 
 @pytest.mark.parametrize("wormhole", [True, False])
@@ -177,10 +191,10 @@ def test_lm_gate_legacy_default(wormhole, switch, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_mm_gate_default(wormhole, switch, monkeypatch):
-    """The LM FFN's fc1 and gate run as one gated minimal_matmul on Wormhole unless lm_gate_ng is active."""
+    """The LM FFN's fc1 and gate run as one gated minimal_matmul on both archs unless lm_gate_ng is active."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(esmc, "_ESMC_MM_GATE", switch)
-    assert esmc._mm_gate_on() is (wormhole if switch is None else switch)
+    assert esmc._mm_gate_on() is (True if switch is None else switch)
     with tenstorrent.levers("lm_gate_ng"):
         assert esmc._mm_gate_on() is (False if switch is None else switch)
 
@@ -262,3 +276,31 @@ def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
     for qkrh in (True, False):
         want = qkrh if switch is None else switch
         assert sp._sdpa_ckc(qkrh) == (sp._SDPA_FP32 if want else None)
+
+
+@pytest.mark.parametrize("k, n, wdtype, want", [(480, 1920, "bfloat8_b", True), (480, 1920, "bfloat16", True),
+                                                (1280, 3840, "bfloat8_b", False), (1280, 5120, "bfloat16", False)])
+def test_saprot_out_l1_small_only(k, n, wdtype, want, monkeypatch):
+    """A projection writes to L1 by default only when its output fits the L1 budget, in either mode."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_OUT_L1", True)
+    assert sp._out_l1(_T(7 * 544, k, ttnn.bfloat16), _T(k, n, getattr(ttnn, wdtype))) is want
+
+
+@pytest.mark.parametrize("hifi2, want", [(False, (4, 7, 20, 1, 4)), (True, (8, 7, 10, 1, 2))])
+def test_saprot_wh_fc1_out_blocks(hifi2, want, monkeypatch):
+    """Wormhole fc1 at the page shape on Galaxy's grid runs the 2D program on out blocks: half the rows per core in
+    normal mode, half the rows and columns at --fast's HiFi2 (placeable next to the L1 LN output); a grid where the
+    blocks do not divide, and the switch, drop them."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_PROG", None)
+    monkeypatch.setattr(sp, "_SAPROT_OUT_SPLIT", True)
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: True)
+    x, w = _T(3808, 1280, ttnn.bfloat16), _T(1280, 5120, ttnn.bfloat8_b)
+    assert sp._saprot_prog(x, w, "gelu_approx", hifi2) is None   # 8 x 8: per_core_M 15 does not halve
+    x.device = lambda: types.SimpleNamespace(compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=9))
+    kind, pc = sp._saprot_prog(x, w, "gelu_approx", hifi2)
+    assert kind == "2d" and (pc.per_core_M, pc.per_core_N) == (14, 20)
+    assert (pc.in0_block_w, pc.out_block_h, pc.out_block_w, pc.out_subblock_h, pc.out_subblock_w) == want
+    monkeypatch.setattr(sp, "_SAPROT_OUT_SPLIT", False)
+    assert sp._saprot_prog(x, w, "gelu_approx", hifi2) is None

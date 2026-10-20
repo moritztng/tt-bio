@@ -102,13 +102,17 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # Protenix-v2 Wormhole fast set vs + trimul_sig6, 44 paired folds (spd-gap-small gsig6, 2026-10-15), PASS: same-seed
 # top pose median 0.333 A vs the 1.414 A A/A floor, CA-lDDT +0.0001 [-0.0013, +0.0016], docking 34 -> 35. Galaxy chip
 # (1000 MHz, s6x): -0.40 s, 4 of 4 pairs faster. Blackhole not measured.
+# ws_psilu (the SwiGLU silu on the packer thread, overlapping the matmuls) is bit-identical, so it needs no grade. At
+# c_z 256 the LayerNorm prologue does not fit L1 beside the bfp8 weights, so this transition runs the plain kernel at
+# LoFi: N512 6.00 -> 5.00 ms a call, equal to the math-thread silu (ws_attr, .107 chip 26, 2026-10-20). Galaxy chip
+# (1000 MHz, psf): CIFs identical, steady pairs -0.14 / -0.74 / -0.53 s.
 # dit_shoist (the token DiT's conditioning as three wide linears a step, each block reading its columns in place)
 # too: Wormhole 11-set fast grade, 44 paired folds (spd-gap-small gshx, 2026-10-15), PASS: same-seed top pose median
 # 0.256 A vs the 1.414 A floor, CA-lDDT +0.0014 [+0.0008, +0.0022], ipTM -0.0004, docking 34 -> 34. Galaxy chip 512 x 1
 # (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a 11-set fast grade, 44 paired folds (gshxbh,
 # 2026-10-16), PASS: top pose median 0.623 A vs the 1.371 A floor, CA-lDDT +0.0071 [+0.0035, +0.0115], docking
 # 34 -> 34; p150a 5 samples 37.46 -> 36.77 s (shxb). So it is Protenix-v2 --fast on both chips: SHOIST_FAST.
-WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6"})
+WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6", "ws_psilu"})
 SHOIST_FAST = frozenset({"dit_shoist"})
 # triatt_k1: triangle attention's fused SDPA takes the whole row as one k chunk at 288-512 tokens (no rescale pass;
 # op 1.13x at [512, 4, 512, 32] on a Galaxy chip). It fires only at those sizes, so it is graded on the 512-token
@@ -128,6 +132,10 @@ BRES_NORMAL = frozenset({"trimul_bres"})
 # PASS: same-seed top pose median 0.608 A vs the 1.311 A A/A floor, every interval on the better side (CA-lDDT +0.0049
 # [+0.0005, +0.0125]), docking 35 -> 36. cdk2x2 512 x 1 at 1000 MHz, paired warm folds (rr2n): median -0.55 s.
 WS_RESID_NORMAL = frozenset({"ws_resid", "ws_resid2"})
+# Blackhole takes TRIATT_LN and WS_RESID_NORMAL in Protenix-v2's normal set too. Blackhole 512-token normal grade, shipped
+# Protenix-v2 Blackhole normal set vs + these as one stack (spd-m-protenix gbhn, 2026-10-20), PASS on 44 paired: top pose
+# median 0.320 A vs the 0.6 A bar (1.369 A A/A floor), CA-lDDT +0.0018 [-0.0007, +0.0058], docking 35 -> 36. cdk2x2 512 x 1
+# on a p300 chip at 1350 MHz, 4 paired warm folds in one process (bhab6): steady pairs -0.84 / -1.67 / -1.87 s on ~33 s.
 # dit_qsplit (the token DiT's attention takes the q chunk that leaves the busiest core fewest rows) in Protenix-v2's
 # normal set, as OpenFold3 ships it. It moves rows between cores, not arithmetic: cdk2x2 512 x 1 on a Galaxy chip at
 # 1000 MHz, 6 paired warm folds (spd-m-protenix qsn2, 2026-10-19), CIFs identical, 6 of 6 faster, median -0.15 s
@@ -164,22 +172,36 @@ T1W8_FAST = frozenset({"trimul_t1_c256", "trimul_t1w8", "trimul_t2g"})
 # 2026-10-19), PASS: same-seed top pose median 0.510 A vs the 1.600 A A/A floor, CA-lDDT +0.0003 [-0.0010, +0.0015],
 # docking 36 -> 36. The plan is Wormhole's; Blackhole is ungraded.
 OPM_B8CFG_FAST = frozenset({"opm_b8cfg"})
+# Protenix-v2's Blackhole --fast set on top of FAST_LEVERS: triatt_ln (without apb_ln), its bfp8 q/k/v and gate, the
+# pair SwiGLU at LoFi with its fused LN, the degree-6 trimul sigmoid, T1's bfp8 resident weights and trimul_bres.
+# Blackhole 512-token fast grade, shipped Protenix-v2 Blackhole fast set vs + these as one stack (spd-m-protenix gbhf,
+# 2026-10-19), PASS on 42 paired: top pose median 0.650 A vs the 1.345 A A/A floor, CA-lDDT -0.0013 [-0.0036, +0.0003],
+# docking 34 -> 33. 9W8A lost its interface on 2 of 4 seeds; a 12-seed sweep (w8a) shows that target collapsing on
+# ~2 of 12 seeds under every Protenix-v2 fast set, so it is the target, not this stack.
+# cdk2x2 512 x 1 on a p300 chip at 1350 MHz, 4 paired warm folds in one process (bhab5): steady 28.85 -> 25.49 s median, -3.19 s.
+BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh"}) | TRIATT_LN_B8_FAST
+# dit_shoist and trimul_t1w8 (T1's resident weights bfp8, c_z 256 in one launch) in Protenix-v2's Wormhole normal set.
+# Wormhole 512-token normal grade, shipped Protenix-v2 Wormhole normal set vs + both, 44 paired folds (spd-m-protenix
+# gstn, 2026-10-20), PASS: same-seed top pose median 0.221 A vs the 0.6 A bar (1.145 A A/A floor), CA-lDDT +0.0002
+# [-0.0003, +0.0008], iRMSD -0.30 [-0.85, -0.004], ipTM -0.009 [-0.022, -0.001], docking 36 -> 36; dit_shoist alone
+# 0.077 A, every interval covers 0. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, steady warm pairs: dit_shoist
+# -0.72 / -0.61 / -1.01 s (shn), trimul_t1w8 -0.72 / -0.68 / -0.54 s (t1n). Blackhole is ungraded.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes, `BRES_NORMAL` and
-    `WS_RESID_NORMAL` to its normal and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
-    `OPM_B8CFG_FAST` to its --fast. Protenix-v2 takes `BRES_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
+    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     pair_ln = TRIATT_LN | TRIATT_K1 if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
-    fast = WH_FAST_LEVERS | pair_ln | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS
-    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL if v2 else NORMAL_LEVERS)
-                           | pair_ln | (WS_RESID_NORMAL if v2 and wh else frozenset()),
+    fast = WH_FAST_LEVERS | pair_ln | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
+    return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL
+                            | (WH_V2_NORMAL if wh else frozenset()) if v2 else NORMAL_LEVERS) | pair_ln,
                            fast | SHOIST_FAST if v2 else fast)
 
 
@@ -1426,6 +1448,10 @@ class DiffusionModule(_KeyedWeights):
             self._dit[-1][1].sdpa32 = self._dit_sdpa32
             if self._dit_lp is not None:
                 self._dit[-1][1].enable_lowp(self._dit_lp)
+        # dit_bpad: the bf16 fused-SDPA DiT runs its whole token axis at `dit_bias_pad_len` (rows are
+        # independent everywhere but the attention, whose staged bias masks the new keys).
+        self._dit_bpad = (_T.lever("dit_bpad") and not self._dit_sdpa32
+                          and all(apb.token_dit for (_, apb, _, _, _) in self._dit))
 
 
     def _up_dit(self, t):
@@ -1804,7 +1830,9 @@ class DiffusionModule(_KeyedWeights):
         NT = int(z_dev.shape[-2])
         if self._dit_sdpa32:
             NT = _T.sdpa32_rows(NT)
-        one = _T._padded_bytes((1, self.DIT_N_HEADS, NT, NT),
+        # dit_bpad: each bias staged once at the DiT's padded token axis (`_token_dit_device`).
+        to = _T.dit_bias_pad_len(NT) if self._dit_bpad else NT
+        one = _T._padded_bytes((1, self.DIT_N_HEADS, to, to),
                                4 if self._dit_dtype == ttnn.float32 else 2)
         reserve = 4 * one
         # Each DRAM reading drains the pipeline, and 48 of them cost a 20-residue fold 100 ms.
@@ -1819,7 +1847,7 @@ class DiffusionModule(_KeyedWeights):
             fb = apb.finish_bias(b)
             if fb is not b:
                 ttnn.deallocate(b)
-            biases.append(place(fb, reserve))
+            biases.append(place(_T.pad_dit_bias(fb, NT, to), reserve))
         # z_dev's only reader was this loop, and the room it frees takes parked biases back.
         ttnn.deallocate(z_dev)
         if not fits:
@@ -1848,7 +1876,8 @@ class DiffusionModule(_KeyedWeights):
             a_t = ttnn.typecast(a_t, self._dit_dtype)
             s_t = ttnn.typecast(s_t, self._dit_dtype)
         wtt = self._w_tt_dit if self._dit_fp32 else self._w_tt
-        NP = _T.sdpa32_rows(NT) if self._dit_sdpa32 else NT
+        NP = (_T.sdpa32_rows(NT) if self._dit_sdpa32 else
+              _T.dit_bias_pad_len(NT) if self._dit_bpad else NT)
         if NP != NT:
             # Rows are independent everywhere but the attention, whose mask hides the new keys.
             a_t, s_t = (ttnn.pad(x, [(0, 0)] * (len(x.shape) - 2) + [(0, NP - NT), (0, 0)], value=0.0)

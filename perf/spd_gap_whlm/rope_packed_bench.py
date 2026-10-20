@@ -1,5 +1,5 @@
 """SaProt's RoPE + head split: today's nlp_create_qkv_heads + rotary_embedding against qk_rope_heads.rope_heads_packed,
-both vs float64 on the same bf16 packed qkv. Reports rel_l2 / max_abs of q and k heads, whether v is exact, median ms,
+both vs float64 on the same bf16 packed qkv (packed-sfpu: the RoPE sums on the SFPU, qk_rope_heads.SFPU). Reports rel_l2 / max_abs of q and k heads, whether v is exact, median ms,
 and the signed bias mean((got - ref) * sign(ref)) / mean(|ref|) (negative: the arm shrinks |q|, |k|, e.g. by truncating),
 against float64 math on the float64 tables and on the bf16 tables the device reads (the kernel's own arithmetic).
 
@@ -37,6 +37,7 @@ def main() -> int:
 
     from tt_bio import tenstorrent as T
     from tt_bio.esmc import _rope, rope_tables
+    from tt_bio import qk_rope_heads as qkrh
     from tt_bio.qk_rope_heads import rope_heads_packed
     dev = T.get_device()
     out = open(args.out, "w")
@@ -63,7 +64,11 @@ def main() -> int:
             return qr, kr, v
 
         rec = {"shape": name, "bsd_h": [B, S, d, H]}
-        for arm, fn in (("chain", chain), ("packed", lambda: rope_heads_packed(qkv_tt, cos, sin))):
+        def packed(sfpu):
+            qkrh.SFPU = sfpu
+            return rope_heads_packed(qkv_tt, cos, sin)
+
+        for arm, fn in (("chain", chain), ("packed", lambda: packed(False)), ("packed-sfpu", lambda: packed(True))):
             o = fn()
             got = [ttnn.to_torch(t).double().reshape(B, H, S, hd) for t in o]
             rec[arm] = {"q": err(got[0], ref[0]), "k": err(got[1], ref[1]), "v_exact": bool(torch.equal(got[2], ref[2])),

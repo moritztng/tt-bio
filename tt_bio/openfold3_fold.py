@@ -131,9 +131,17 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # models (512-token --fast fold A/B, a3lw2, 2026-10-19, and at 1024 / 1568 tokens, a3ls). Galaxy chip at 1000 MHz,
 # 2 chips x 5 warm pairs after the compile pair, every pair faster: OpenFold3 -0.36 s, OpenBind-0 -0.38 s mean.
 # Not measured on Blackhole, so Wormhole only.
+# ws_psilu (pair SwiGLU's silu on the packer thread, overlapping the matmuls): CIFs identical with and without it on
+# both models (512-token --fast fold A/B, psf2, 2026-10-19). Galaxy chip at 1000 MHz, mean of the 5 warm pairs after
+# the compile pair: OpenFold3 -0.08 s, OpenBind-0 -0.12 s; the kernel alone 2.63 -> 2.23 ms at c_z 128. Flat in normal
+# mode (-0.06 / +0.02 s), so Wormhole fast only.
+# dit_mask8 (the token DiT attention's pair-bias mask read as bfp8): Galaxy chip at 1000 MHz, 6 paired 512-token
+# --fast folds (m8w, 2026-10-20): OpenFold3 -0.11 s, OpenBind-0 -0.06 s mean. Graded on the 11-complex fast set,
+# paired seeds (m8g): PASS on both models (DockQ -0.003 / -0.005, CIs span zero). Blackhole within noise (OpenFold3
+# median -0.04 s, m8b2), so Wormhole fast only.
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
 WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32",
-                                  "triatt_ln_b8", "dit_l1", "atom_l1"}
+                                  "triatt_ln_b8", "dit_l1", "atom_l1", "ws_psilu", "dit_mask8"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
