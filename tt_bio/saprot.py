@@ -290,12 +290,8 @@ _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
 _SAPROT_MM_RESID = (env_flag("TT_BIO_SAPROT_MM_RESID", False) if os.environ.get("TT_BIO_SAPROT_MM_RESID", "").strip()
                     else None)
 _MM_RESID_MIN_WIDTH = 1280
-# 35M (width 480) through mm_resid at blocks sized for its 15-tile output instead of the pick's (8, 4, 4, ..). mm_resid_check
-# ls118 (.107, AICLK 1000, --fast, ms a call, rel_l2 vs float64): out minimal_matmul + L1 add 0.127 (1.94e-3) -> 0.108
-# (1.70e-3) at (3, 5, 2, 1, 2); fc2 0.273 (1.94e-3) -> 0.239 (1.70e-3) at (5, 10, 2, 1, 2); normal the same blocks.
-# L33's page loss on 35M (26.4 -> 27.2) ran the pick's blocks. Off until the page A/B grades it.
-_SAPROT_MM_RESID_35M = env_flag("TT_BIO_SAPROT_MM_RESID_35M", False)
-_MM_RESID_SMALL = {(640, 480): (3, 5, 2, 1, 2), (1920, 480): (5, 10, 2, 1, 2)}
+# 35M stays off at its own blocks too: mm_resid_check ls118 (.107, 1000 MHz) won per call at (3, 5, 2, 1, 2) / (5, 10, 2, 1, 2)
+# (out 0.127 -> 0.108 ms, fc2 0.273 -> 0.239), but the page A/B ls119 read +0.3..+0.7 ms in 7 of 8 rounds, both modes.
 # Normal fc2 (bf16 weight, HiFi3 under _SAPROT_NORMAL_HIFI3) through mm_resid instead of its 2D pick + ttnn.add, at this
 # block. mm_resid_check (ls92, .107 chip 20, AICLK 1000, 650M, ms a call, rel_l2 vs float64): 2D + add 1.018 (1.93e-3),
 # (8,8,8,2,2) 0.981 (1.70e-3); the other blocks 1.14-1.21. At HiFi4 (ls75) every fused block lost. ls93b page A/B
@@ -510,8 +506,6 @@ class _SaprotLin(_MMLin):
         if _SAPROT_MM_RESID is not None:
             return _SAPROT_MM_RESID
         from tt_bio import tenstorrent
-        if _SAPROT_MM_RESID_35M and int(self.norm_weight.shape[-1]) < _MM_RESID_MIN_WIDTH:
-            return tenstorrent.is_wormhole()
         return tenstorrent.is_wormhole() and int(self.norm_weight.shape[-1]) >= _MM_RESID_MIN_WIDTH
 
     def _mm_resid(self, x, w, bias, resid, l1):
@@ -523,10 +517,6 @@ class _SaprotLin(_MMLin):
         cfg = (_MM_RESID_HIFI3.get((tenstorrent.is_wormhole(), int(w.shape[-2]), int(w.shape[-1])))
                if _SAPROT_FC2_RESID_HIFI3 and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi3
                and prog is not None else None)
-        if cfg is None and _SAPROT_MM_RESID_35M and prog is not None:
-            cfg = _MM_RESID_SMALL.get((int(w.shape[-2]), int(w.shape[-1])))
-            if cfg is None and int(w.shape[-1]) < _MM_RESID_MIN_WIDTH:   # no measured 35M block: keep linear + add
-                return None
         if cfg is not None:
             g = x.device().compute_with_storage_grid_size()
         elif prog is None or prog[0] != "mm":
