@@ -13262,6 +13262,19 @@ def _transition_shard_grid(mt: int, nt: int, ct: int):
     return gx, gy
 
 
+def _shard_mm_cfg(gx: int, gy: int, pm: int, bw: int, n: int, act=None):
+    """2D multicast program for a block-sharded [pm, n]-tile-per-core matmul output on a gx x gy grid, with the
+    largest output subblock ttnn accepts: at most 4 tiles, and taller than one row only when it spans all of `n`
+    (an area-only pick of 2 x 2 at n = 6 TT_FATALs, which kept `dit_shard` from ever serving)."""
+    sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
+                  if h * w <= 4 and pm % h == 0 and n % w == 0 and (h == 1 or w == n)),
+                 key=lambda s: (s[0] * s[1], s[1]))
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
+        out_subblock_w=sw, out_block_h=pm, out_block_w=n, per_core_M=pm, per_core_N=n,
+        transpose_mcast=False, fused_activation=act, fuse_batch=True)
+
+
 def _transition_shard_rows(W: int, c: int, hid: int) -> int:
     """Pair rows per block whose sharded swiglu fills the most grid rows, or 0 where none fits."""
     wt, gy_max = -(-W // 32), COMPUTE_GRID_MAIN[1]
@@ -13322,12 +13335,7 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     pm, pn = mt // gy, nt // gx
 
     def cfg(bw, n, act=None):
-        sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
-                      if h * w <= 4 and pm % h == 0 and n % w == 0), key=lambda s: (s[0] * s[1], s[1]))
-        return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-            compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
-            out_subblock_w=sw, out_block_h=pm, out_block_w=n, per_core_M=pm, per_core_N=n,
-            transpose_mcast=False, fused_activation=act, fuse_batch=True)
+        return _shard_mm_cfg(gx, gy, pm, bw, n, act)
 
     cores = ttnn.CoreRangeSet({ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))})
     mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
@@ -13386,12 +13394,7 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
     pm, pn = mt // gy, nt // gx
 
     def cfg(bw, n, act=None):
-        sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
-                      if h * w <= 4 and pm % h == 0 and n % w == 0), key=lambda s: (s[0] * s[1], s[1]))
-        return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-            compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
-            out_subblock_w=sw, out_block_h=pm, out_block_w=n, per_core_M=pm, per_core_N=n,
-            transpose_mcast=False, fused_activation=act, fuse_batch=True)
+        return _shard_mm_cfg(gx, gy, pm, bw, n, act)
 
     cores = ttnn.CoreRangeSet({ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))})
     mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
