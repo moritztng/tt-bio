@@ -454,7 +454,7 @@ def route_opendde_weights(state_dict):
 # cdk2x2 x 1 at 1000 MHz: normal 512 -0.56 s, 576 -1.59 s.
 # Wormhole normal also takes trimul_bres (protenix.BRES_NORMAL), bit-exact: Galaxy chip, cdk2x2 x 1, 1000 MHz, paired
 # warm folds (spd-m-opendde bnab, 2026-10-19), CIFs identical on and off, 512 -0.72 s (3 of 3 pairs), 576 -0.94 s.
-NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8"}
+NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad"}
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
@@ -500,7 +500,10 @@ WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "d
 # fold, not every call. 9LLG (1199 DiT tokens, 5 samples), Galaxy chip, 1000 MHz, 2x2 paired warm folds (spd-m-opendde
 # bpab4, 2026-10-19): 175.9 -> 171.1 s (-2.7 %). WH 11-set fast grade, shipped fast set with and without it, seeds
 # 109-112, 44 paired folds (bpg): PASS, same-seed top pose median 0.083 A (A/A floor 1.447 A), CA-lDDT +0.0002
-# [-0.0000, +0.0004], docking 26 -> 26. Normal runs the fp32 DiT SDPA (dit_sdpa32), which dit_bpad does not touch.
+# [-0.0000, +0.0004], docking 26 -> 26. Normal takes it too: OpenDDE's normal DiT is bf16, so dit_sdpa32 (fp32 DiT
+# only) is inert there. 9LLG x 5, 1000 MHz, 2x2 paired warm folds (bpn, 2026-10-20): ~-1.3 s. WH 11-set normal grade,
+# seeds 109-112, 44 paired folds (bpgn): PASS, same-seed top pose median 0.073 A (A/A floor 1.262 A), CA-lDDT +0.0000
+# [-0.0001, +0.0002], docking 26 -> 26.
 
 
 class OpenDDE:
