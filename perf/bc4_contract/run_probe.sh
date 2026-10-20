@@ -8,7 +8,7 @@ WT=$(cd "$(dirname "$0")/../.." && pwd); cd "$WT"
 CARD=${CARD:?CARD=<leased chip>}
 D=$WT/_bc4out/contract_$(git rev-parse --short HEAD); mkdir -p "$D"
 PY=${PY:-$HOME/bcx_e2e_venv/bin/python}
-export PYTHONPATH=$WT TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:bc4-bet-contract
+export PYTHONPATH=$WT TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:bc4-bet-contract}
 while fuser /dev/tenstorrent/$CARD >/dev/null 2>&1; do sleep 20; done
 exec 9>"$HOME/spd_qb2_chip$CARD.lock"; flock 9
 while fuser /dev/tenstorrent/$CARD >/dev/null 2>&1; do sleep 20; done
