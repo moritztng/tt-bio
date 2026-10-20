@@ -30,8 +30,26 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "qk_rope_heads"
 _TILE = 32 * 32 * 2
 _L1_BUDGET = 1100 * 1024
 _CACHE: dict = {}
+#: compute fidelity of the norm and RoPE products (fp32 dest either way); read at build time, part of the cache key.
+FIDELITY = ttnn.MathFidelity.HiFi4
+#: tiles per dest acquire in the norm stages, 1 or 4 (2 heads per RoPE group at 4 where the head count is even; 0
+#: reads as 1); read at build time, part of the key. 4 is bit-identical to 1; Galaxy chip at 1000 MHz, ms a call on
+#: the page shapes: 300M 0.340 -> 0.332, 600M 0.398 -> 0.385, 6B 0.245 -> 0.233.
+BLOCK = 4
+#: RoPE sums on the SFPU in fp32 dest (QKRH_SFPU) instead of the FPU's dest-reuse add, whose 19-bit srcA / srcB
+#: truncate both fp32 products toward zero. rope_packed_bench, SaProt 650M shape vs float64, Galaxy chip: bias -0.00067
+#: -> +0.00006, q rel_l2 2.72e-3 -> 2.09e-3, 0.29 ms either way. ESMC page pcc vs fp32: 300M normal +0.000011, 600M
+#: normal +0.000029, --fast -0.000002, time flat. None = on for Wormhole (Blackhole not graded yet); read at build time.
+SFPU = None
 #: [calls served, declined], read by the A/B harness.
 STATS = [0, 0]
+
+
+def _sfpu() -> bool:
+    if SFPU is not None:
+        return SFPU
+    from . import tenstorrent
+    return tenstorrent.is_wormhole()
 
 
 def _vc(kt: int) -> int:
@@ -48,8 +66,8 @@ def _plan(kt: int):
 
 
 def _l1_bytes(kt: int, reload: bool = False, xb: int = 2) -> int:
-    bf16 = (xb * kt + 2 + 2 + (1 if reload else 2) * kt + 1 + 4 + 2 * _vc(kt)) * _TILE   # x, cos, sin, gammas, scaler, out, v
-    fp32 = (4 + 2 * kt + 2) * 2 * _TILE                                                  # eps, mean, var, rstd, xc, tmp, p
+    bf16 = (xb * kt + 2 + 2 + (1 if reload else 2) * kt + 1 + 8 + 2 * _vc(kt)) * _TILE   # x, cos, sin, gammas, scaler, out, v
+    fp32 = (4 + 2 * kt + 4) * 2 * _TILE                                                  # eps, mean, var, rstd, xc, tmp, p
     return bf16 + fp32
 
 
@@ -57,7 +75,11 @@ def eligible(q, k, v, cos, packed: bool = False) -> bool:
     """bf16 TILE interleaved [B, L, D] q, k, v of one shape (or one [B, L, 3D] qkv, passed three times), D / 64 heads, a
     cos table covering L, CBs in budget."""
     shape = [int(d) for d in q.padded_shape]
-    if len(shape) != 3 or shape[-1] % (192 if packed else 64) or shape[1] % 32:
+    # The LOGICAL token axis must fill its tiles: the outputs are allocated at the padded length, so a ragged L
+    # (ESMC Attention at 16 tokens) came back as [B, H, 32, 64] with the pad rows as live keys (shape 32 out of
+    # Attention, a binary_ng broadcast throw in Block). The bucketed forwards are tile-aligned and unaffected.
+    if (len(shape) != 3 or shape[-1] % (192 if packed else 64) or shape[1] % 32
+            or [int(d) for d in q.shape] != shape):
         return False
     for t in (q, k, v):
         if (t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT or [int(d) for d in t.padded_shape] != shape
@@ -81,10 +103,13 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True):
     reload, xb = _plan(kt)
     reload = reload and ln
     vc = _vc(kt)
-    cbs = [cb(5, xb * kt), cb(6, 2), cb(7, 2), cb(8, kt), cb(10, 1), cb(16, 4), cb(21, 2 * vc),
+    cbs = [cb(5, xb * kt), cb(6, 2), cb(7, 2), cb(8, kt), cb(10, 1), cb(16, 8), cb(21, 2 * vc),
            cb(11, 1, f32), cb(12, 1, f32), cb(13, 1, f32), cb(14, 1, f32), cb(17, kt, f32), cb(18, kt, f32),
-           cb(20, 2, f32)] + ([] if reload else [cb(15, kt)])
+           cb(20, 4, f32)] + ([] if reload else [cb(15, kt)])
     defines = ([("QKRH_RELOAD", "1")] if reload else []) + ([] if ln else [("QKRH_NO_LN", "1")])
+    hg = 2 if BLOCK >= 4 and kt // 2 % 2 == 0 else 1   # whole groups only: c_20 / c_16 never wrap mid-reservation
+    defines += [("QKRH_BLK", str(max(1, BLOCK))), ("QKRH_HG", str(hg))]
+    defines += [("QKRH_SFPU", "1")] if _sfpu() else []
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -114,7 +139,7 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True):
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
                                     compile_time_args=[kt, r], runtime_args=cp, defines=defines,
-                                    config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
+                                    config=ttnn.ComputeConfigDescriptor(math_fidelity=FIDELITY,
                                                                         fp32_dest_acc_en=True))
     return [reader, writer, compute], cbs
 
@@ -145,7 +170,7 @@ def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed):
                                            ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     # without a LayerNorm the gamma slots are never read; cos stands in so every accessor has a tensor
     tensors = [q, k, v, q_gamma if ln else cos, k_gamma if ln else cos, cos, sin] + outs
-    key = (device.id(), b, length, d, float(eps), packed, ln, tuple(t.memory_config().buffer_type for t in tensors[:7]))
+    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, _sfpu(), tuple(t.memory_config().buffer_type for t in tensors[:7]))
     if key not in _CACHE:
         _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln)
     kernels, cbs = _CACHE[key]

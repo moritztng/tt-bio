@@ -70,6 +70,8 @@ void kernel_main() {
     constexpr uint32_t wo_cb = tt::CBIndex::c_18;
     constexpr uint32_t S = St * 32;
     const uint32_t tb = get_tile_size(x_cb);
+    const uint32_t wtb = get_tile_size(w_cb);    // bfp8 under trimul_t1w8, else tb
+    const uint32_t otb = get_tile_size(wo_cb);
 
     generate_reduce_scaler(scaler_cb, SCALER);
     {
@@ -82,8 +84,8 @@ void kernel_main() {
     cb_reserve_back(gamma_cb, Kt);
     cb_reserve_back(beta_cb, Kt);
     uint32_t w = get_write_ptr(w_cb);
-    for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += tb) noc_async_read_page(t, wp, w);
-    for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += tb) noc_async_read_page(t, wg, w);
+    for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wp, w);
+    for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wg, w);
     w = get_write_ptr(gamma_cb);
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);
@@ -92,7 +94,7 @@ void kernel_main() {
         cb_reserve_back(wo_cb, Kt * NG);
         w = get_write_ptr(wo_cb);
         for (uint32_t k = 0; k < Kt; ++k)
-            for (uint32_t n = N0; n < N0 + NG; ++n, w += tb) noc_async_read_page(k * NTGT + n, wo, w);
+            for (uint32_t n = N0; n < N0 + NG; ++n, w += otb) noc_async_read_page(k * NTGT + n, wo, w);
     }
     noc_async_read_barrier();
     cb_push_back(w_cb, 2 * QN * Kt);

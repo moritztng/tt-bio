@@ -73,7 +73,7 @@ On a host without a Tenstorrent card, plain `pip install tt-bio` is enough: the 
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.19.0"   # pinned release, see Releases for the latest
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.20.0"   # pinned release, see Releases for the latest
 pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -325,6 +325,16 @@ tt-bio predict proteins/ --model boltz2 --out_dir results --fast
 Pass `--devices 0,1,2,3` to pick or limit the available cards. A single target
 remains a single-card fold; additional cards increase throughput only when
 multiple targets are queued.
+
+A script that runs `predict` once per candidate pays process start, device open and model
+load on every call. Start a controller once and point each call at it instead; the model
+stays resident between calls. At 100 tokens on a Wormhole chip this takes a Boltz-2 call
+from 28 s to 11 s and a Protenix-v2 call from 34 s to 18 s, with the same output:
+
+```bash
+tt-bio controller --port 8765 &
+tt-bio predict candidate.yaml --model boltz2 --out_dir results --controller http://127.0.0.1:8765
+```
 
 Once enough folds run at once that each worker is down to a couple of CPU threads,
 tt-bio also has their idle thread pools sleep between device syncs instead of

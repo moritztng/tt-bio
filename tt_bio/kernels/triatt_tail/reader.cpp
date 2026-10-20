@@ -35,6 +35,7 @@ void kernel_main() {
     constexpr uint32_t g_cb = tt::CBIndex::c_2;
     constexpr uint32_t z_cb = tt::CBIndex::c_3;
     const uint32_t tb = get_tile_size(o_cb);
+    const uint32_t tbg = get_tile_size(g_cb);   // bfp8 under lever triatt_ln_b8g
 
     cb_reserve_back(w_cb, Kt * Nt);
     uint32_t wp = get_write_ptr(w_cb);
@@ -57,7 +58,7 @@ void kernel_main() {
         cb_reserve_back(o_cb, Kt);
         uint32_t gp = get_write_ptr(g_cb), op = get_write_ptr(o_cb);
         uint32_t page = b * Kt * St + jt;
-        for (uint32_t h = 0; h < Kt; ++h, page += St, gp += tb, op += tb) {
+        for (uint32_t h = 0; h < Kt; ++h, page += St, gp += tbg, op += tb) {
             noc_async_read_page(G3D ? u * Kt + h : page, g, gp);
             noc_async_read_page(page, o, op);
         }

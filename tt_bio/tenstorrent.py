@@ -562,8 +562,16 @@ _FAST_MODE = False
 #   triatt_b8       triangle attention's interior in bfp8. Same input on two core grids gives two
 #                   structures (825f18772, release gate leg `l1-budget`): card dependence is a hard
 #                   stop, so it is in no mode until the region is grid-invariant.
+#   triatt_ln_b8    triatt_ln writes q, k and v bfp8 (gate and bias bf16). Unlike triatt_b8 the bytes are
+#                   grid-invariant: each tile is one core's full-K dot product packed once.
+#   triatt_ln_b8g   with triatt_ln_b8, the gate bfp8 too; gated_out_proj reads it at its own format
+#   trimul_gin_w8   gin_moved holds its resident in-projection weights bfp8, so c_z 256 fits one launch and
+#                   reads the normed pair once instead of once per channel slice
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
+#   opm_b8cfg       with opm_b8, the contraction on opm_contract_config's plan at HiFi2 (Wormhole)
+#   trimul_bres_bh  trimul_bres takes its fp32-dest copy under acc_off on Blackhole too (Wormhole always does), so
+#                   bmm_res fires in Blackhole --fast sets
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
@@ -586,6 +594,11 @@ _FAST_MODE = False
 #                   ESMFold2 folds). gin writes a and b in bf16, so the deferral's bfp8 re-quantisation does not arise
 #                   where gin serves. ESMFold2's call on Wormhole (1000 MHz, fast set): 512 32.3 -> 18.5 ms, 1024
 #                   132.7 -> 68.6 ms; rel_rms of the update vs float64 0.0211 -> 0.0089 at 512
+#   trunk_hifi2     the trunk's matmuls at HiFi2, over trunk_hifi3 where both are on. ESMFold2 on Wormhole at 512 aa
+#                   --fast: -0.13 s (-Fast) / -0.15 s (ESMFold2) against HiFi3, LoFi no better (spd-gap-whesmf wtf).
+#                   ESMFold2 fast bar, 44 paired folds (dh2): CA-lDDT -0.0004 [-0.0024, +0.0010], top pose 0.56 A vs
+#                   1.58 A seed floor, docking 32 -> 33; ESMFold2-Fast -0.0006 [-0.0027, +0.0013], 0.82 vs 1.19 A,
+#                   docking 24 -> 24. In ESMFold2's Wormhole fast set.
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
@@ -656,7 +669,8 @@ _FAST_MODE = False
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
 #   trimul_bres     the trimul einsum by `bmm_res` (b[c] resident in L1, whole channels per core) where it fits:
 #                   a, b and out cross DRAM once. Bit-exact with ttnn.matmul in ESMFold2 folds (byte-identical coords
-#                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8)
+#                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8).
+#                   It sums K in an fp32 dest even under acc_off, which is what let it fire in fast sets at all
 #   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (T2m's program with
 #                   the whole hidden as its one chunk), so `reblock_permute_back`
 #                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
@@ -741,10 +755,25 @@ _FAST_MODE = False
 #                   legacy one (esmc._lm_gate_legacy) or the gated minimal_matmul (esmc._mm_gate_on): both ESMFold2
 #                   sets on Wormhole until a fold grades it.
 #   lm_sdpa_stock   the ESMC language model's key-padding mask stays a [B, 1, L, L] tensor for the stock SDPA where
-#                   Wormhole would run shsdpa on key lengths (esmc._key_lens): both ESMFold2 sets until a fold grades it.
+#                   shsdpa would run on key lengths (esmc._key_lens): both ESMFold2 sets, both arches, until a fold grades it.
+#   ef2_atom_rope   ESMFold2's atom-transformer attention takes rotate_half(q), rotate_half(k) as one exact matmul
+#                   against a signed 32x32 permutation (esmfold2._rope_mm) instead of chunk/neg/concat, 12 times a
+#                   diffusion step on [B, 4, atoms, 32]. The fused rotary_embedding needs head_dim % 64 == 0 (wrp).
+#   dit_sigf32      OpenFold3's DiT gate linears (adaLN scale, the two s gates; fast and fp32 paths) fuse their
+#                   sigmoid in approx mode, which the silu_f32 overlay runs as calculate_silu_f32's sigmoid on the
+#                   fp32 dest: 6e-6 of float64 in ~1/3 of the wheel's accurate exp + two-step reciprocal. On WH that
+#                   epilogue doubled a [512,384]x[384,768] linear (39.7 vs 19.2 us, whcen4), ~0.58 s a fold.
 #   triatt_k1       triangle attention's fused SDPA takes the whole row as one k chunk where the CB set fits once the
 #                   unused online-softmax buffers are trimmed (sdpa_generic.cb_table one_k_trim): 288-512 tokens, e.g. (q512, k512),
 #                   no rescale pass, op 1.13x on Wormhole. Same rung as TT_BIO_SDPA_WIDE_K_UP, flippable per fold.
+#   atom_l1         the atom transformer's gathered keys, q / kv projections and transition hidden tensors are written
+#                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
+#                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
+#                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
+#   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
+#                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
+#                   Placement only: the same programs on the same operands, so the same bits. Only where 12
+#                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -757,12 +786,13 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
-          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1")
+          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
+          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16 and triatt_hifi2 (Wormhole),
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2 and ws_psilu (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
@@ -774,7 +804,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
-                             "triatt_lofi", "triatt_k1"})
+                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
+                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -956,6 +987,21 @@ def silu_ckc(ckc):
     return out
 
 
+_SIGMOID_F32 = ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID, 4.0, 1.0)   # vector mode RC, approx
+
+
+def mm_sigmoid(ckc):
+    """The `activation` for a matmul with a fused sigmoid run under `ckc`: "sigmoid", or under `dit_sigf32` on an
+    fp32 dest the approx-mode sigmoid that the silu_f32 overlay computes with calculate_silu_f32 (6e-6). On a bf16
+    dest (or ttnn's default config) approx mode is metal's LUT (~2e-2), so those keep "sigmoid"; without the overlay
+    it is the LUT everywhere, so the overlay is put in place first, as `silu_ckc` does."""
+    if not lever("dit_sigf32") or not getattr(ckc, "fp32_dest_acc_en", False):
+        return "sigmoid"
+    if "silu_f32" not in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(","):
+        _silu_f32_overlay()
+    return _SIGMOID_F32
+
+
 _B8_CKCS: dict = {}
 
 
@@ -1129,6 +1175,9 @@ _TRIMUL_INPROJ_GROUP = 12
 # worst case at +1.448 GiB (704 aa, G=8: 8.377 vs 6.929 GiB) and leaves >20 GiB free at every size.
 # It keeps the full width at 512-704 aa, takes G=4 at 973 aa (9i3p) and G=2 at 1136 aa (9j4c).
 _TRIMUL_INPROJ_FUSED_BYTES = 1024 * 2 ** 20
+# T1 priced on its own outputs (a, b, g_out) rather than on the fused projection it never builds (`_t1_in`).
+# A/B knob; True is production.
+T1_OWN_BUDGET = True
 
 
 def _trimul_inproj_group(seq_len: int, chunk: int, batch: int, n_pairs: int) -> int:
@@ -1386,7 +1435,7 @@ def trunk_compute_kernel_config(base):
     in-place write to `model.trunk.compute_kernel_config.math_fidelity` that provably cannot reach
     the diffusion or confidence stages.
     """
-    fid = _TRUNK_MATH_FIDELITY or ("hifi3" if lever("trunk_hifi3") else "hifi4")
+    fid = _TRUNK_MATH_FIDELITY or ("hifi2" if lever("trunk_hifi2") else "hifi3" if lever("trunk_hifi3") else "hifi4")
     if fid not in _MATH_FIDELITIES:
         raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
                          f"got {fid!r}")
@@ -1499,6 +1548,13 @@ def set_trimul_out_l1(on: bool) -> None:
 _TRIMUL_TAIL_L1_SHARE = float(os.environ.get("TT_BIO_TRIMUL_TAIL_L1_SHARE", "0.5"))
 #: Census: tail calls that took L1, and tail calls the budget refused.
 TRIMUL_TAIL_L1_STATS = {"l1": 0, "dram": 0}
+# Concat the channel chunks straight out of L1 instead of cloning each one to DRAM first. The
+# clone is one whole extra copy of the hidden per trimul call and buys nothing but the chunks
+# being co-resident, which L1 can give directly whenever the budget above fits them all. On by
+# default: WH AF2-IG A/B (`trcl`) read identical coords on every seed, 1664 fewer ops per run.
+_TRIMUL_CONCAT_FROM_L1 = env_flag("TT_BIO_TRIMUL_CONCAT_FROM_L1", True)
+#: Census: channel loops that held their chunks in L1, and ones that cloned each to DRAM.
+TRIMUL_CONCAT_FROM_L1_STATS = {"l1": 0, "clone": 0}
 TRIANGLE_MULT_L1_MAX_SEQ_FAST = 640
 TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10 = 704
 TRIANGLE_MULT_L1_MAX_SEQ = 352
@@ -1736,6 +1792,7 @@ ATOM_N_LAYERS = 3
 # gather, bit-exact (torch.equal), whglx card 4, WH: perf/b2z2_elision/atom_gather_ab.py.
 ATOM_KEY_SHIFT = (ATOM_DIM - ATOM_WINDOW) // 2
 ATOM_SHIFT_GATHER_STATS = [0, 0]        # [slice+concat, one-hot matmul]
+ATOM_L1_STATS = [0, 0]                  # atom_l1: [atom transformer intermediates into L1, into DRAM]
 
 
 class _AtomShiftGather:
@@ -1785,7 +1842,7 @@ def _atom_gather_shift_windows(ki):
     return real if torch.equal(ki, want) else None
 
 
-def _atom_shift_gather(s: "ttnn.Tensor", windows: int) -> "ttnn.Tensor":
+def _atom_shift_gather(s: "ttnn.Tensor", windows: int, memory_config=None) -> "ttnn.Tensor":
     """The centred key window as four window-axis slices, no matmul and no permutes.
 
     One misaligned op survives: the 48-row shift, which is 48 % 32 != 0 and so cannot be a tile
@@ -1807,9 +1864,10 @@ def _atom_shift_gather(s: "ttnn.Tensor", windows: int) -> "ttnn.Tensor":
     ttnn.deallocate(rm)
     shifted = ttnn.to_layout(shifted, ttnn.TILE_LAYOUT, dtype=s.dtype)
     src = ttnn.reshape(shifted, (b, k + pieces, w, d))
-    out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2)
+    out = ttnn.concat([src[:, j:j + windows] for j in range(pieces)], dim=2,
+                      memory_config=None if windows < k else memory_config)
     if windows < k:
-        out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0)
+        out = ttnn.pad(out, [(0, 0), (0, k - windows), (0, 0), (0, 0)], 0.0, memory_config=memory_config)
     return out
 
 
@@ -3022,10 +3080,12 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     return out
 
 
-def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None) -> ttnn.Tensor:
+def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None,
+                  memory_config=None) -> ttnn.Tensor:
     """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
     `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
-    program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`)."""
+    program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`). `memory_config` places the
+    output (default DRAM); the kernels address it through a TensorAccessor either way."""
     from . import sdpa_generic as SG
     S, _, n, w = (int(d) for d in qkv.shape)
     assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
@@ -3033,7 +3093,7 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, c
     chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
-                                         ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+                                         ttnn.TILE_LAYOUT, dev, memory_config or ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc or _SDPA32_CKC, scale,
             qkv_fused=heads)
     return out
@@ -3305,11 +3365,18 @@ def _dividing_k_chunks(q_len: int, k_len: int) -> tuple:
 _SDPA_WIDE_K_UP = env_flag("TT_BIO_SDPA_WIDE_K_UP", False)
 
 
+# Off restores the widest-q-only fit test and the per-q fallback order, for a paired A/B.
+TRIATT_K1_ANY_Q = True
+
+
 def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tuple:
     """Wider dividing k_chunks whose CBs fit at `dtype`, widest first. Empty when none do.
 
-    Fit is tested at the WIDEST dividing q_chunk, which is the q the loop pairs a wide k with
-    first, so a rung offered here is a rung that config can actually take.
+    Fit is tested at each dividing q_chunk, widest first, and a rung is offered once one of them fits:
+    the loop in `_tri_att_sdpa_at` tries every fused q at a wide k before it falls back. Testing the
+    widest q alone kept the one-k rung off at padded 640, where q640 overflows and q320 fits: the TA
+    SDPA at [640, 12, 640, 32] ran (q320, k160) at 20.28 ms against (q320, k640) at 14.25 ms, float64
+    rel rms 0.0278 vs 0.0267 (spd-m-opendde tas, Galaxy chip, 1000 MHz).
     """
     from . import sdpa_generic as SG
     from . import triatt_sdpa as _TS
@@ -3319,21 +3386,19 @@ def _k_chunks_up(q_len: int, k_len: int, heads: int, head_dim: int, dtype) -> tu
     qs = [qc for qc in _tri_att_q_chunks(q_len, k_len) if padded % qc == 0]
     if not qs:
         return ()
-    qc = qs[0]
-    out = []
-    for kc in range(padded, prod, -SDPA_CHUNK_TILE):
-        if padded % kc:
-            continue
+
+    def fits(qc, kc):
         q_pf = _TS.q_parallel_factor(padded, heads, qc, cores, cap=0)
         p = SG.plan_for_shape(padded, heads, head_dim, qc, kc, grid=(cores, 1), split=(
             max(cores // (heads * q_pf), 1), heads, q_pf), dtype=dtype)
         if p["q_per_core"] != 1 or p["nh_per_core"] != 1 or p["use_padded_mask"]:
-            continue
+            return False
         pers = p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"]
-        if SG.cb_fits_l1(p, mask_cb_tiles=pers, one_k_trim=True,
-                         **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")}):
-            out.append(kc)
-    return tuple(out)
+        return SG.cb_fits_l1(p, mask_cb_tiles=pers, one_k_trim=True,
+                             **{f"{o}_dtype": dtype for o in ("q", "k", "v", "mask", "out")})
+
+    return tuple(kc for kc in range(padded, prod, -SDPA_CHUNK_TILE)
+                 if padded % kc == 0 and any(fits(qc, kc) for qc in (qs if TRIATT_K1_ANY_Q else qs[:1])))
 
 
 def _tri_att_k_chunks(q_len: int, k_len: int, heads=None, head_dim=None, dtype=None) -> tuple:
@@ -3531,9 +3596,10 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         _qs = tuple(qc for qc in _tri_att_q_chunks(q_len, k_len)
                     if _padded_sdpa_len(q_len) % qc == 0)
         for k_chunk in k_chunks[:-1]:
-            for q_chunk in _qs:
-                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
-                if cfg in _SDPA_QK_OVER_L1:
+            # Every fused q at this k before any fallback: a wide q the fused kernel declines would
+            # otherwise hand the call to the padded pair or the stock op while a narrower fused q fits.
+            for q_chunk in (_qs if TRIATT_K1_ANY_Q else ()):
+                if (q_len, k_len, q_chunk, k_chunk, q.dtype) in _SDPA_QK_OVER_L1:
                     continue
                 o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
                                       ckc_default=ckc, gate=gate)
@@ -3541,6 +3607,17 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                     SDPA_K_CHUNK_STATS[0] += 1
                     _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                     return o
+            for q_chunk in _qs:
+                cfg = (q_len, k_len, q_chunk, k_chunk, q.dtype)
+                if cfg in _SDPA_QK_OVER_L1:
+                    continue
+                if not TRIATT_K1_ANY_Q:
+                    o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
+                                          ckc_default=ckc, gate=gate)
+                    if o is not None:
+                        SDPA_K_CHUNK_STATS[0] += 1
+                        _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
+                        return o
                 if gate is not None:
                     continue
                 o = padded()
@@ -6182,6 +6259,21 @@ def _residual_update_memory_config(shape, dtype) -> ttnn.MemoryConfig | None:
     return ttnn.L1_MEMORY_CONFIG if fits else None
 
 
+def _atom_l1(shape, dtype) -> "ttnn.MemoryConfig | None":
+    """atom_l1: L1 for an atom transformer intermediate when four of the largest (kv) fit, else None.
+
+    The atom transformer's linears are short (K 128-256) and write a tensor as large as they read, so on
+    Wormhole they wait on interleaved DRAM writes: the kv projection [1, 140, 128, 128] x [128, 256] reads
+    262.6 us with a DRAM output and 128.1 us with an L1 one, bit-identical (atomlin2, 1000 MHz). Every
+    caller frees the result a few ops later, so the budget is for the call's own live set, priced on kv.
+    """
+    if not lever("atom_l1"):
+        return None
+    fits = _l1_fits(_padded_bytes(shape, 4 if dtype == ttnn.float32 else 2), 4.0, _PAIR_L1_CONSUMER_RESERVE)
+    ATOM_L1_STATS[0 if fits else 1] += 1
+    return ttnn.L1_MEMORY_CONFIG if fits else None
+
+
 def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     """`headroom` copies of `nbytes` fit across the grid's banks with `reserve_per_core` spare.
 
@@ -6340,6 +6432,20 @@ def _trimul_einsum_ckc(base):
     cfg.dst_full_sync_en = base.dst_full_sync_en
     cfg.throttle_level = base.throttle_level
     return cfg
+
+
+def _bres_ckc(cfg):
+    """`cfg` with an fp32 dest, for bmm_res: it declines a bf16 dest, which `acc_off` gives the whole trunk. The
+    einsum writes bf16 either way, and summing K in fp32 is the more precise side (rel rms vs a float64 product at
+    OpenDDE's c384 x 512: 1.5e-2 bf16 dest, 1.7e-3 fp32). Blackhole only under `trimul_bres_bh`: its fast sets are
+    not graded with bmm_res firing, so there it otherwise still declines a bf16 dest."""
+    if cfg.fp32_dest_acc_en or not (is_wormhole() or lever("trimul_bres_bh")):
+        return cfg
+    out = type(cfg)(math_fidelity=cfg.math_fidelity, math_approx_mode=cfg.math_approx_mode,
+                    fp32_dest_acc_en=True, packer_l1_acc=cfg.packer_l1_acc)
+    out.dst_full_sync_en = cfg.dst_full_sync_en
+    out.throttle_level = cfg.throttle_level
+    return out
 
 
 def set_trimul_einsum_fid(fid: str) -> str:
@@ -8968,6 +9074,8 @@ class Module:
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         """Shared linear projection on this module's kernel config and core grid."""
+        if kw.get("activation") == "sigmoid":
+            kw["activation"] = mm_sigmoid(self.compute_kernel_config)
         return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
                           dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
                           core_grid=CORE_GRID_MAIN, **kw)
@@ -9433,7 +9541,7 @@ class TriangleMultiplication(Module):
         # lever ever takes a call at this width.
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
         self._gp_gated_cache: dict = {}
-        self._t1_w = None     # T1's (wpT, wgT), built on its first served call
+        self._t1_w = {}       # trimul_t1w8 -> T1's (wpT, wgT, bfp8 g_out or None), built on first use
         # The in-projection as device leaves, set only by `train_in_proj`. Inference never
         # sets them and reads the caches above.
         self.g_in_weight = self.p_in_weight = None
@@ -9489,15 +9597,16 @@ class TriangleMultiplication(Module):
         return chunks
 
     def _gp_in_gated(self, C: int, group: int, transposed: bool = False,
-                     split: int = 1) -> list:
+                     split: int = 1, dtype=ttnn.bfloat16) -> list:
         """Per channel chunk, the in-projection's `([p_a | p_b], [g_a | g_b])` weights.
 
         The columns of `_gp_in_chunks`, regrouped so one `trimul_tail` call computes
         `a = p_a * sigmoid(g_a)` and `b` alike as the two halves of its split output.
         `transposed` gives each as [2C, K], for `trimul_tail.gin_moved`. `split` > 1 gives, per
-        chunk, `split` such pairs over equal channel slices of a and b (`gin_move_split`).
+        chunk, `split` such pairs over equal channel slices of a and b (`gin_move_split`). `dtype` is
+        the device copy's (bfp8 for gin_moved's resident weights under trimul_gin_w8).
         """
-        key = (C, group, gp_roles(), transposed, split)
+        key = (C, group, gp_roles(), transposed, split, dtype)
         cached = self._gp_gated_cache.get(key)
         if cached is None:
             sc = C * group
@@ -9505,7 +9614,7 @@ class TriangleMultiplication(Module):
             col = lambda t, r, s: t[:, gp_off(r, sc) + s * w:gp_off(r, sc) + (s + 1) * w]  # noqa: E731
             dev = lambda t: ttnn.from_torch(  # noqa: E731
                 (t.t() if transposed else t).contiguous(), layout=ttnn.TILE_LAYOUT,
-                device=self.device, dtype=ttnn.bfloat16)
+                device=self.device, dtype=dtype)
             pair = lambda t, s: (dev(torch.cat([col(t, "p_a", s), col(t, "p_b", s)], dim=-1)),  # noqa: E731
                                  dev(torch.cat([col(t, "g_a", s), col(t, "g_b", s)], dim=-1)))
             cached = [
@@ -9563,28 +9672,37 @@ class TriangleMultiplication(Module):
             TT1.T1_WHY[why] = TT1.T1_WHY.get(why, 0) + 1
             return None
         batch = prod(shp[:-3])
-        chunk = _trimul_inproj_chunk_cap(H, self._hidden, batch,
-                                         _trimul_chunk_size(H, self._hidden, batch))
-        n_pairs = self._hidden // chunk
+        # T1 never builds the fused projection the channel loop's byte budget prices (4 * hidden channels
+        # plus g_out). Its own outputs are a, b and g_out, so it is held to that budget on those. Pricing it
+        # on the fused projection declined OpenDDE's c_z 384 above 591 tokens, the 608 and 640 buckets where
+        # JapanFold's 550-600 aa folds land.
+        t1_bytes = (2 * self._hidden + shp[-1]) * H * H * batch * 2
         # This route is refused above unless the chunk memory is DRAM, so the operands are not L1.
         pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock(), False)
-        if (n_pairs // _trimul_inproj_group(H, chunk, batch, n_pairs) != 1
+        if (t1_bytes > _trimul_inproj_budget(H, self._hidden, batch)
+                or (not T1_OWN_BUDGET and self._hidden * 4 * H * H * batch * 2 > _trimul_inproj_budget(
+                    H, self._hidden, batch))
                 or not _mm_transpose_deferred(pc)):
             TT1.T1_STATS[1] += 1
             TT1.T1_WHY["route"] = TT1.T1_WHY.get("route", 0) + 1
             return None
-        if self._t1_w is None:
-            wpT, wgT, _ = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
-                                              self.weights["g_out.weight"].t())
+        # trimul_t1w8: all three resident weights as bfp8, so c_z 384 runs two channel groups, not three,
+        # and c_z 256 one
+        w8 = lever("trimul_t1w8")
+        if w8 not in self._t1_w:
+            wpT, wgT, wgo = TT1.t1_host_weights(self._g_in_t, self._p_in_t,
+                                                self.weights["g_out.weight"].t())
             up = lambda t: ttnn.from_torch(  # noqa: E731
-                t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=ttnn.bfloat16)
-            self._t1_w = (up(wpT), up(wgT))
+                t, layout=ttnn.TILE_LAYOUT, device=self.device,
+                dtype=ttnn.bfloat8_b if w8 else ttnn.bfloat16)
+            self._t1_w[w8] = (up(wpT), up(wgT), up(wgo) if w8 else None)
+        wts = self._t1_w[w8]
         fold = mask is not None and TT1.t1_mask_ok(mask, x)
         ckc = _mm_generic.ckc_args(self.compute_kernel_config)
         if lever("trimul_gin_hifi2"):
             ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
         outs = TT1.fused_in_ln(
-            x, self.in_norm_weight, self.in_norm_bias, *self._t1_w, self.g_out_weight,
+            x, self.in_norm_weight, self.in_norm_bias, *wts[:2], wts[2] or self.g_out_weight,
             ckc, tuple(COMPUTE_GRID_MAIN),
             mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
@@ -10012,7 +10130,22 @@ class TriangleMultiplication(Module):
             # re-probing the refused width once per pairformer block. Inert until a refusal has
             # been recorded for this shape.
             chunk_size = _trimul_inproj_chunk_cap(H, self._hidden, batch, chunk_size)
+        if t1 is not None:
+            chunk_size = self._hidden   # T1's a and b are the whole hidden: one channel-loop iteration
         n_pairs = self._hidden // chunk_size
+        # Hold the L1 channel chunks where they are and let the single concat read them there,
+        # instead of cloning each one to DRAM as it is produced. The clone exists only so that all
+        # n_pairs chunks can be live at once for that concat, so it is a whole extra copy of the
+        # hidden per call (2 at AF2-IG's 195, where the loop is L1 and the chunk width is 64).
+        # Priced like the tail's own L1 gate, on the whole hidden plus one working chunk rather
+        # than on a sequence length. Bit-identical: the same concat of the same blocks in the same
+        # order into the same DRAM destination the clones used to give it.
+        # `host_acc` is `large_seq and ...`, so `not large_seq` already excludes it.
+        concat_from_l1 = (_TRIMUL_CONCAT_FROM_L1 and not large_seq and not _TRIMUL_OUT_MOVE_DRAM
+                          and not keep_chunks
+                          and _trimul_l1_fits(batch, self._hidden + chunk_size, H,
+                                              4 if _dtype() == ttnn.float32 else 2, 1))
+        TRIMUL_CONCAT_FROM_L1_STATS["l1" if concat_from_l1 else "clone"] += 1
         # The matmul's N and the channel-chunk width are two different numbers this code has been
         # forcing to be one. Only the matmul widens (_TRIMUL_INPROJ_GROUP), and only on the DRAM
         # path: on the L1 path _trimul_chunk_size has already widened the chunk itself and the L1
@@ -10107,6 +10240,7 @@ class TriangleMultiplication(Module):
         # independent-channel sum). The clash is recorded, so a shape pays one failed
         # compile per process and every later call starts narrow.
         x_chunks = []
+        chunks_in_l1 = False  # set where an L1 chunk is actually kept, so a clash retry cannot leave it stale
         x_out, c_done = None, 0      # `_TRIMUL_BACK_INTO`: the output the chunks are written into
         # back_ln writes the output norm with the last chunk's move; the row-blocked tail recomputes
         # both norms itself, so it must get the raw result.
@@ -10198,12 +10332,13 @@ class TriangleMultiplication(Module):
                         if _trimul_tail.GIN_MOVE and defer:
                             # The channel moves fused in as well (both chunks leave as (0,3,1,2)
                             # moves once the matmul takes the inner swap).
+                            wdt = ttnn.bfloat8_b if lever("trimul_gin_w8") else ttnn.bfloat16
                             ns = _trimul_tail.gin_move_split(
-                                x_norm_in, int(wa.shape[-1]) // 2, mask)
+                                x_norm_in, int(wa.shape[-1]) // 2, mask, wdt)
                             ab = None
                             if ns is not None:
                                 sl = self._gp_in_gated(chunk_size, group, transposed=True,
-                                                       split=ns)[i]
+                                                       split=ns, dtype=wdt)[i]
                                 sl = [sl] if ns == 1 else sl
                                 wpT, wgT = [p for p, _ in sl], [g for _, g in sl]
                                 fold = mask is not None and _trimul_tail.gin_moved_ok(
@@ -10328,7 +10463,7 @@ class TriangleMultiplication(Module):
                                     ht = -(-H // 32)
                                     tma_reserve = max(tma_reserve, _bmm_res.cb_bytes(
                                         ht, ht, _dtype(), _dtype(), defer and perm_a == (0, 3, 2, 1),
-                                        _trimul_einsum_ckc(self.compute_kernel_config)))
+                                        _bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config))))
                                 if (not ops.taping() and tma_key not in _OF3L1_REFUSED
                                         and n_pairs // group == 1
                                         and (perm_a != (0, 3, 2, 1) or defer)
@@ -10400,7 +10535,7 @@ class TriangleMultiplication(Module):
                             and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
                         x_chunk = _bmm_res.matmul(
                             a_chunk, b_chunk,
-                            compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
+                            compute_kernel_config=_bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config)),
                             transpose_a=defer_a, transpose_b=defer_b)
                     if x_chunk is None:
                         x_chunk = ttnn.matmul(
@@ -10486,6 +10621,10 @@ class TriangleMultiplication(Module):
                         )
                     if large_seq or _TRIMUL_OUT_MOVE_DRAM or one_pass:
                         _acc_append(x_chunks, x_chunk, host_acc)
+                    elif concat_from_l1:
+                        # Stays in L1; the concat below names DRAM for the result.
+                        x_chunks.append(x_chunk)
+                        chunks_in_l1 = True
                     else:
                         # L1-resident chunk: move it to DRAM so all n_pairs can be held at
                         # once for the single concat.
@@ -10570,7 +10709,7 @@ class TriangleMultiplication(Module):
                     # assumed to hold device tensors here.
                     if isinstance(_t, ttnn.Tensor):
                         ttnn.deallocate(_t)
-                x_chunks = []
+                x_chunks, chunks_in_l1 = [], False
                 if x_out is not None:
                     ttnn.deallocate(x_out)
                 if t2m_pending is not None:
@@ -10704,7 +10843,11 @@ class TriangleMultiplication(Module):
             assert not x_chunks and c_done == self._hidden, (len(x_chunks), c_done, self._hidden)
             x = x_out
         else:
-            x = _acc_concat(x_chunks, -1, host_acc)
+            # With the chunks held in L1 the destination has to be named: ttnn.concat would
+            # otherwise place the result beside its inputs, where the clones used to put it in
+            # DRAM. Same bytes either way, but the pair-sized result does not belong in L1.
+            x = _acc_concat(x_chunks, -1, host_acc,
+                            memory_config=ttnn.DRAM_MEMORY_CONFIG if chunks_in_l1 else None)
         dram_peak(f"trimul({'end' if self.ending else 'start'}) channel loop done [z={'x'.join(str(d) for d in x_in.shape)}]")
         if rows_tail:
             return self._tail_rows(x_in, x, H, host_acc, add_to_input)
@@ -11571,6 +11714,12 @@ class TriangleAttention(Module):
             triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
             if self.ending and not self.transpose_bias:
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
+            if fused is not None and pre_qkv[0].dtype == ttnn.bfloat8_b:
+                # triatt_ln_b8: the fused SDPA serves only uniform operands, and the head-major bias
+                # (H x S x S, 1/16 of the pair at 8 heads) is cheap to narrow after its permute.
+                narrowed = ttnn.typecast(triangle_bias, ttnn.bfloat8_b)
+                ttnn.deallocate(triangle_bias)
+                triangle_bias = narrowed
             dram_peak(f"tri_att({'end' if self.ending else 'start'}) bias built [z={'x'.join(str(d) for d in x.shape)}]")
 
         # Set fresh by every `_attend_heads` call: True when the fused SDPA took the gate into
@@ -12670,9 +12819,10 @@ class AttentionPairBias(Module):
         else:
             s = ttnn.to_memory_config(s, ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype())
             B, K, W, D_S = s.shape
+            mc = _atom_l1((B, K, ATOM_DIM, 2 * D_S), _dtype())
             if isinstance(keys_indexing, _AtomShiftGather):
                 ATOM_SHIFT_GATHER_STATS[0] += 1
-                s_kv = _atom_shift_gather(s, keys_indexing.windows)
+                s_kv = _atom_shift_gather(s, keys_indexing.windows, memory_config=mc)
             else:
                 ATOM_SHIFT_GATHER_STATS[1] += 1
                 s_kv = ttnn.reshape(s, (B, 2 * K, W // 2, -1))
@@ -12693,6 +12843,7 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=mc,
             )
             kv = ttnn.linear(
                 s_kv,
@@ -12700,7 +12851,9 @@ class AttentionPairBias(Module):
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
                 dtype=_dtype(),
+                memory_config=mc,
             )
+            ttnn.deallocate(s_kv)
 
             if self.kq_norm:
                 q, kv = self._apply_kq_norm_atom(q, kv)
@@ -13069,36 +13222,37 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
         fid = ttnn.MathFidelity.LoFi
     acc = lever("ws_l1acc")
+    ps = lever("ws_psilu")   # silu on the packer, overlapping the matmuls; bit-identical
     if (resid is None and lever("ws_ln") and len(parts) == 1
             and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
-        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc)
+        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc, pack_silu=ps)
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
     if resid2:
         # x_norm stands in for the partial's layout, as under ws_chain below.
-        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc, pack_silu=ps)
         for w12, w3 in parts[1:-1]:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
-        _pair_ws.pair_swiglu(x_norm, *parts[-1], fid, l1acc=acc, resid=resid, resid2=out)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=out)
+        _pair_ws.pair_swiglu(x_norm, *parts[-1], fid, l1acc=acc, pack_silu=ps, resid=resid, resid2=out)
         ttnn.deallocate(out)
         ttnn.deallocate(x_norm)
         return resid
     if resid is not None:
         for w12, w3 in parts:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=resid)
         ttnn.deallocate(x_norm)
         return resid
     if (len(parts) > 1 and lever("ws_chain")
             and all(_pair_ws.eligible(x_norm, w12, w3, l1acc=acc, resid=x_norm) for w12, w3 in parts[1:])):
         # x_norm stands in for t's layout: same padded shape (the transition is c -> c), bf16, TILE, DRAM.
-        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc, pack_silu=ps)
         for w12, w3 in parts[1:]:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=out)
         ttnn.deallocate(x_norm)
         return out
     for w12, w3 in parts:
-        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc)
+        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps)
         if out is None:
             out = o
         else:
@@ -14931,17 +15085,21 @@ class ConditionedTransitionBlock(Module):
         given, is added to the gated output here (`residual + s_out * b_a`, one op under dit_shoist)."""
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
+        mc = (_atom_l1(tuple(a.shape)[:-1] + (2 * int(a.shape[-1]),), a.dtype)
+              if self.atom_level and len(a.shape) == 4 else None)
         a_swish = ttnn.linear(
             a,
             self.swish_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=mc,
         )
         gates = ttnn.linear(
             a,
             self.gates_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=mc,
         )
         a_swish = ttnn.multiply_(gates, a_swish, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
         if self.a_to_b_gate:
@@ -14950,6 +15108,7 @@ class ConditionedTransitionBlock(Module):
                 self.a_to_b_weight,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
+                memory_config=mc,
             )
             ttnn.deallocate(a)
             b = ttnn.multiply_(a_swish, a_b)
@@ -14970,6 +15129,7 @@ class ConditionedTransitionBlock(Module):
             self.b_to_a_weight,
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
+            memory_config=mc,
         )
         ttnn.deallocate(b)
         cut = None
@@ -15069,7 +15229,7 @@ class DiffusionTransformerLayer(Module):
                 bias=self.output_projection_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
-                activation="sigmoid",
+                activation=mm_sigmoid(self.compute_kernel_config),
             )
             if self.atom_level:
                 self.s_o, self._s_o_src = s_o, s
@@ -15267,7 +15427,7 @@ class DiffusionTransformer(Module):
                                 packer_l1_acc=ckc.packer_l1_acc)
             if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
                 sw, sb, bw = self._cond_weights_split()
-                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation="sigmoid"),
+                o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation=mm_sigmoid(ckc)),
                         ttnn.linear(s_hat, bw, compute_kernel_config=ckc))
             else:
                 o_ad = ttnn.linear(s_hat, adw, bias=adb, compute_kernel_config=ckc)
@@ -15275,7 +15435,7 @@ class DiffusionTransformer(Module):
             # `activation="sigmoid"` here is where both output projections' sigmoids go: the
             # attention one already carried it in its own linear, and the transition one moves
             # off its multiply, which is told not to re-apply it.
-            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation="sigmoid")
+            o_op = ttnn.linear(s, opw, bias=opb, compute_kernel_config=ckc, activation=mm_sigmoid(ckc))
             cond_all = (o_ad, o_op)
 
         d = self.dim
@@ -15299,7 +15459,7 @@ class DiffusionTransformer(Module):
                 s_hat, wp = jit
                 ckc = self.compute_kernel_config
                 lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
-                    x, w, bias=b, compute_kernel_config=ckc, activation=act)
+                    x, w, bias=b, compute_kernel_config=ckc, activation=mm_sigmoid(ckc) if act == "sigmoid" else act)
                 if jcat:
                     sw, sb, bw, ow, ob = wp[i]
                     sc, sh, so = lin(s_hat, sw, sb, "sigmoid"), lin(s_hat, bw), lin(s, ow, ob, "sigmoid")
@@ -16192,20 +16352,28 @@ class OuterProductMean(Module):
             else:
                 depth_parts = [(b8(acp), b8(bcp), Sc) for acp, bcp, Sc in depth_parts]
 
+        def plan(x, y):
+            return None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
+                x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
+                x.device().compute_with_storage_grid_size())
+
         def contract(x, y):
             if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
                 if z_dtype is not None:
                     x, y = ttnn.typecast(x, ttnn.bfloat16), ttnn.typecast(y, ttnn.bfloat16)
-                cfg = None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
-                    x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
-                    x.device().compute_with_storage_grid_size())
-                out = ttnn.matmul(x, y, transpose_b=True, program_config=cfg,
+                out = ttnn.matmul(x, y, transpose_b=True, program_config=plan(x, y),
                                   compute_kernel_config=self.compute_kernel_config)
                 if z_dtype is not None:
                     ttnn.deallocate(x)
                     ttnn.deallocate(y)
                 return out
             try:
+                # opm_b8cfg: the bf16 path's plan at HiFi2, which covers every bfp8 bit. ttnn's own plan binds,
+                # not the fidelity (WH, AICLK 1000, [16384, 4128]^2: HiFi4 40.5 / HiFi3 33.3 / HiFi2 33.5 /
+                # LoFi 32.6 ms); under the plan 25.8 ms, f64 rel-RMS 0.0145 -> 0.0119 (perf/spd_m_protenix/fid_b8.py).
+                if lever("opm_b8cfg"):
+                    return ttnn.matmul(x, y, transpose_b=True, dtype=z_dtype, program_config=plan(x, y),
+                                       compute_kernel_config=bfp8_fidelity(self.compute_kernel_config, x, y))
                 return ttnn.matmul(x, y, transpose_b=True, dtype=z_dtype,
                                    compute_kernel_config=self.compute_kernel_config)
             except RuntimeError as exc:

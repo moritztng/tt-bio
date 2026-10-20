@@ -152,14 +152,15 @@ def test_qkrh_default(wormhole, switch, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
-    """SaProt's packed RoPE + head split program defaults on for Wormhole with block-fp8 weights (--fast) only; the
-    switch overrides."""
-    from tt_bio import saprot
+    """SaProt's packed RoPE + head split program defaults on with block-fp8 weights (--fast) on both arches, and in
+    normal mode where its RoPE sums run on the SFPU (Wormhole); the switch overrides."""
+    from tt_bio import qk_rope_heads, saprot
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(saprot, "_SAPROT_QKRH", switch)
+    monkeypatch.setattr(qk_rope_heads, "SFPU", None)
     for dtype in (ttnn.bfloat8_b, ttnn.bfloat16):
         w = type("W", (), {"dtype": dtype})()
-        want = (wormhole and dtype == ttnn.bfloat8_b) if switch is None else switch
+        want = (dtype == ttnn.bfloat8_b or wormhole) if switch is None else switch
         assert saprot._saprot_qkrh(w) is want
 
 
@@ -183,3 +184,91 @@ def test_mm_gate_default(wormhole, switch, monkeypatch):
     assert esmc._mm_gate_on() is (wormhole if switch is None else switch)
     with tenstorrent.levers("lm_gate_ng"):
         assert esmc._mm_gate_on() is (False if switch is None else switch)
+
+
+@pytest.mark.parametrize("wdtype,bf16_acc", [("bfloat16", False), ("bfloat8_b", True)])
+@pytest.mark.parametrize("on", [True, False])
+def test_mm_config_blocks_8x8_under_bf16_acc(wdtype, bf16_acc, on, monkeypatch):
+    """--fast's bf16-accumulated block-fp8 projections take 8 x 8 blocks; every other minimal_matmul keeps 16 x 4."""
+    monkeypatch.setattr(esmc, "_ESMC_MM_CFG", True)
+    monkeypatch.setattr(esmc, "_ESMC_MM_CFG_BF16_ACC_8X8", on)
+    monkeypatch.setattr(esmc.ttnn, "MinimalMatmulConfig", lambda **kw: kw, raising=False)
+    x = types.SimpleNamespace(device=lambda: types.SimpleNamespace(
+        compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=9)))
+    cfg = esmc._mm_config(x, _T(1152, 3456, getattr(esmc.ttnn, wdtype)))["config"]
+    mn8 = bf16_acc and on
+    assert (cfg["M_block_size"], cfg["N_block_size"]) == ((8, 8) if mn8 else (16, 4))
+    assert (cfg["K_block_size"], cfg["subblock_w"]) == (4, 4 if bf16_acc else 2)
+
+
+def test_esmc_ffn_ln_l1_default_on():
+    assert esmc._ESMC_FFN_LN_L1 is True
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("width", [480, 1280])
+def test_saprot_hifi2_ffn_projections_only(width, wormhole, monkeypatch):
+    """SaProt --fast lowers only fc1 and fc2 to HiFi2, only from width _HIFI2_MIN_WIDTH up (qkv/out at HiFi2 failed
+    the fast bar), on both arches."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_HIFI2", None)
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
+    lin = sp._SaprotLin()
+    lin.compute_kernel_config = _Ck(math_fidelity=ttnn.MathFidelity.HiFi3)
+    lin.norm_weight = _T(1, width, ttnn.bfloat16)
+    want = {"qkv": (width, 3 * width), "out": (width, width), "fc1": (width, 4 * width), "fc2": (4 * width, width)}
+    for role, (k, n) in want.items():
+        assert sp._role(width, k, n) == role
+        lowered = role in ("fc1", "fc2") and width >= sp._HIFI2_MIN_WIDTH
+        fid = lin._ck(_T(k, n, ttnn.bfloat8_b)).math_fidelity
+        assert fid == (ttnn.MathFidelity.HiFi2 if lowered else ttnn.MathFidelity.HiFi3), role
+        assert lin._ck(_T(k, n, ttnn.bfloat16)).math_fidelity == ttnn.MathFidelity.HiFi3
+
+
+@pytest.mark.parametrize("wdtype, want_l1", [("bfloat8_b", True), ("bfloat16", False)])
+def test_saprot_ln_l1_fast_only(wdtype, want_l1, monkeypatch):
+    """SaProt's block layer_norm writes to L1 by default only when the next projection's weight is block-fp8 (--fast)."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_LN_L1", None)
+    monkeypatch.setattr(sp, "_LN_L1_REFUSED", set())
+    seen = []
+    monkeypatch.setattr(sp.ttnn, "layer_norm", lambda x, **kw: seen.append(kw.get("memory_config")) or x)
+    x = types.SimpleNamespace(padded_shape=(7, 544, 1280))
+    sp._block_ln(x, None, None, None, _T(1280, 3840, getattr(ttnn, wdtype)))
+    assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
+
+
+@pytest.mark.parametrize("wdtype, want_l1", [("bfloat8_b", True), ("bfloat16", False)])
+def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
+    """SaProt's unfused residual add writes the stream to L1 by default only with block-fp8 weights (--fast)."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_X_L1", None)
+    monkeypatch.setattr(sp, "_SAPROT_RESID", False)
+    monkeypatch.setattr(sp, "_X_L1_REFUSED", set())
+    seen = []
+    monkeypatch.setattr(sp.ttnn, "add", lambda a, b, **kw: seen.append(kw.get("memory_config")) or a)
+    monkeypatch.setattr(sp.ttnn, "deallocate", lambda t: None)
+    lin = sp._SaprotLin()
+    lin._lin = lambda x, w, bias=None: x
+    resid = types.SimpleNamespace(padded_shape=(7, 544, 1280))
+    lin._lin_add(resid, _T(1280, 1280, getattr(ttnn, wdtype)), None, resid)
+    assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
+
+
+@pytest.mark.parametrize("switch", [None, True, False])
+def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
+    """SaProt's page attention runs at HiFi4 fp32 dest behind the packed RoPE program by default; the switch overrides."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_SDPA", switch)
+    for qkrh in (True, False):
+        want = qkrh if switch is None else switch
+        assert sp._sdpa_ckc(qkrh) == (sp._SDPA_FP32 if want else None)
+
+
+@pytest.mark.parametrize("k, n, wdtype, want", [(480, 1920, "bfloat8_b", True), (480, 1920, "bfloat16", True),
+                                                (1280, 3840, "bfloat8_b", False), (1280, 5120, "bfloat16", False)])
+def test_saprot_out_l1_small_only(k, n, wdtype, want, monkeypatch):
+    """A projection writes to L1 by default only when its output fits the L1 budget, in either mode."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_OUT_L1", True)
+    assert sp._out_l1(_T(7 * 544, k, ttnn.bfloat16), _T(k, n, getattr(ttnn, wdtype))) is want

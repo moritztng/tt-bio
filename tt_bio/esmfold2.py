@@ -976,6 +976,31 @@ def swa_band(n_or_mask, half_window, upload, device, heads=4, head_dim=32):
     return SWAWindow(win, _valid_rank(n_or_mask)[0].shape[0], heads, head_dim, upload, device)
 
 
+_ROT_HALF = {}  # (device id, head_dim) -> the rotate-half matrix on that device
+
+
+def _rope_mm(x, cos, sin):
+    """apply_rotary with rotate_half(x) = cat([-x2, x1]) as one matmul against a signed permutation.
+
+    ttnn.experimental.rotary_embedding needs head_dim % 64 == 0 and the atom heads are 32 wide. Each output element
+    is one product with +-1 and zeros, so the matmul is exact and replaces chunk, neg and concat."""
+    d = x.shape[-1]
+    dev = x.device()
+    key = (dev.id(), d)
+    if key not in _ROT_HALF:
+        r = torch.zeros(d, d)
+        h = d // 2
+        r[h:, :h] = -torch.eye(h)
+        r[:h, h:] = torch.eye(h)
+        _ROT_HALF[key] = ttnn.from_torch(r, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+    ck = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=False,
+                                          fp32_dest_acc_en=True, packer_l1_acc=False)
+    rot = ttnn.matmul(x, _ROT_HALF[key], compute_kernel_config=ck)
+    out = ttnn.add(ttnn.multiply(x, cos), ttnn.multiply(rot, sin))
+    ttnn.deallocate(rot)
+    return out
+
+
 def _rms_norm(x, ck, eps=1e-6):
     return ttnn.rms_norm(x, epsilon=eps, compute_kernel_config=ck)
 
@@ -995,8 +1020,11 @@ class SWAAttention(Module):
         lin = self._lin
         head_dim = x.shape[-1] // self.n_heads
         q, k, v = self._split_heads(lin(x, self.qkv_w), self.n_heads)
-        q = apply_rotary(_rms_norm(q, ck), cos, sin)
-        k = apply_rotary(_rms_norm(k, ck), cos, sin)
+        q, k = _rms_norm(q, ck), _rms_norm(k, ck)
+        if lever("ef2_atom_rope"):
+            q, k = _rope_mm(q, cos, sin), _rope_mm(k, cos, sin)
+        else:
+            q, k = apply_rotary(q, cos, sin), apply_rotary(k, cos, sin)
         if isinstance(attn_mask, SWAWindow):
             ctx = attn_mask.attend(q, k, v, head_dim**-0.5)
         else:

@@ -1479,8 +1479,38 @@ ALWI void matmul_blocks(
                     add_tiles(zero_cb, mask_cb, 0, i, i);
                 }
             }
+#if defined(ABLATE_QKEXP) && defined(QK_MASK_PRELOAD)
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=QKEXP), wrong values on purpose: the QK^T stage takes
+            // on the work a one-pass softmax would add to it, an exp of every score tile in DST and
+            // an L1-accumulated row-sum pack, while MAX and SUBEXP still run. The one-pass ceiling
+            // is TA_QK(this arm) + TA_PV. CB-neutral: the sum is packed onto the score block itself.
+            // The exp runs on the math thread with the init's template arguments matching the
+            // call's: a pack-thread exp raced the math thread's own SFPU work, and an init/call
+            // clamping mismatch hangs the core (sub_exp_block_bcast_cols_inplace above).
+            if (preload_mask) {
+                exp_tile_init<true, true, 0x3F800000, InputClamping::None>();
+                for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                    exp_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                }
+            }
+#endif
             tile_regs_commit();
             tile_regs_wait();
+#if defined(ABLATE_QKEXPPT) && defined(QK_MASK_PRELOAD)
+            // INSTRUMENT (TT_BIO_TRIATT_ABLATE=QKEXPPT), the pack-thread twin of QKEXP: the exp runs on
+            // the pack thread so it can hide under the next subblock's matmul. The init waits for the
+            // first commit, which stalls on the math thread's own SFPU work, and its arguments match
+            // the call's (compute_streaming.hpp's pack-thread exp). Pair it with the row-sum pack below.
+            if (preload_mask) {
+                if (in0_subblock == 0 && in1_subblock == 0) {
+                    exp_packthread_tile_init<true, true, 0x3F800000, InputClamping::None>();
+                }
+                for (uint32_t i = 0; i < out_subblock_num_tiles; i++) {
+                    exp_packthread_tile<true, true, false, false, InputClamping::None, 32>(i, (int)VectorMode::None);
+                }
+                PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+            }
+#endif
             uint32_t dst_idx = 0;
             uint32_t out_col_offset = in1_subblock * subblock_w;
             for (uint32_t r = 0; r < subblock_h; r++) {
@@ -1490,6 +1520,18 @@ ALWI void matmul_blocks(
                     dst_idx++;
                 }
             }
+#if (defined(ABLATE_QKEXP) || defined(ABLATE_QKEXPPT)) && defined(QK_MASK_PRELOAD)
+            if (preload_mask) {
+                PACK((llk_pack_reconfig_l1_acc(1)));
+                dst_idx = 0;
+                for (uint32_t r = 0; r < subblock_h; r++) {
+                    for (uint32_t c = 0; c < subblock_w; c++) {
+                        pack_tile<true>(dst_idx++, out_cb, r * N + out_col_offset);
+                    }
+                }
+                PACK((llk_pack_reconfig_l1_acc(0)));
+            }
+#endif
             tile_regs_release();
             in1_index_offset += subblock_w;
         }

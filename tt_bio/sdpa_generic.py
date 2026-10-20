@@ -179,12 +179,26 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
 # and the figure it reports is `cb_bytes` plus a constant 109056 B, exact on all ten refusals
 # measured against it (eight from a chunk-size probe, two from a live BoltzGen design at 2208
 # padded tokens) and on the 3424768 B clash `tests/test_capacity_gate.py` already quotes.
-# 1.5 MiB is the per-core L1 on blackhole and on wormhole_b0 alike; `device->l1_size_per_core()`
-# is not exposed to Python, which is why it is a constant here rather than a query (the same gap
-# `softmax_generic` documents). `MAX_L1` is re-read from any refusal that names it, so a part with
-# a different L1 corrects the constant instead of being mispriced by it.
+# Those are Blackhole figures. A Wormhole core enforces 1499136 B and its CB region starts 103712 B
+# in, so it has 1395424 B for CBs (a Galaxy's own allocator report, `perf/ceilrfd3/results`), 68384 B
+# less than this pair allows. Priced against Blackhole, OpenFold3's fused-HiFi triangle attention
+# at 512 tokens built q512/k512 on a Galaxy and the device refused it twice per process (ends
+# 1584416 and 1518880 B, exactly 103712 + `cb_bytes`), and every caught refusal is a hang risk
+# (spd-galaxy .103 A/B 10-18: 6 caught throws a run hung 6 of 54 runs, 2 a run 1 of 57).
+# `device->l1_size_per_core()` is not exposed to Python, hence constants keyed on the arch (the
+# same gap `softmax_generic` documents). `MAX_L1` is re-read from any refusal that names it, so a
+# part with a different L1 corrects the constant instead of being mispriced by it.
 L1_PER_CORE = 1572864
 PROGRAM_RESERVE = 109056
+WH_CB_BUDGET = 1395424
+
+
+def cb_budget(wormhole=None) -> int:
+    """Bytes per core the static circular buffers may take on this part."""
+    if wormhole is None:
+        from .tenstorrent import is_wormhole
+        wormhole = is_wormhole()
+    return WH_CB_BUDGET if wormhole else L1_PER_CORE - PROGRAM_RESERVE
 
 
 class _ShapeOnly:
@@ -466,7 +480,7 @@ def cb_bytes(p, q_dtype=ttnn.bfloat16, k_dtype=ttnn.bfloat16, v_dtype=ttnn.bfloa
 
 def cb_fits_l1(p, **kw) -> bool:
     """Whether tt-metal will accept this config's CBs. `mask_cb_tiles` selects the fused kernel."""
-    return cb_bytes(p, **kw) + PROGRAM_RESERVE <= L1_PER_CORE
+    return cb_bytes(p, **kw) <= cb_budget()
 
 
 CB_X_IN, CB_W_IN = 10, 11

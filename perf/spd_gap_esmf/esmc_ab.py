@@ -54,9 +54,13 @@ def main() -> int:
     ap.add_argument("--batch", type=int, default=None, help="sequences a forward (default: the GAP cell's, 1 for the 6B, else 7)")
     ap.add_argument("--repeat", type=int, default=7)
     ap.add_argument("--rounds", type=int, default=2)
-    ap.add_argument("--on-value", type=int, default=None, help="value the on arm sets (default True), for an int switch")
+    ap.add_argument("--on-value", type=json.loads, default=None,
+                    help="value the on arm sets (default True), a JSON literal: an int switch, or a list for a tuple one")
     ap.add_argument("--block-attr", default=None,
                     help="dotted attribute on every transformer Block (e.g. attn.qk_l1): off arm = as loaded, on = True")
+    ap.add_argument("--arm", action="append", default=[],
+                    help="NAME=mod.ATTR[,mod.ATTR...]: a named arm with those switches True (repeatable; replaces --alt). "
+                         "Every round runs an off arm (all named switches off) and then each arm in order")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -96,17 +100,26 @@ def main() -> int:
         assert battr, "no transformer blocks found"
     boff = [getattr(o, n) for o, n in battr]
     cur = getattr(alt_mod, attr) if not (a.fidelity or a.block_attr) else None
-    off_value = False if cur is None else type(cur)(0)   # tri-state switches (None = per-arch default) read off as False
+    off_value = False if cur is None else type(cur)()   # tri-state switches (None = per-arch default) read off as False
+    arms = [(n, [(importlib.import_module(m), t) for m, t in (x.rsplit(".", 1) for x in v.split(","))])
+            for n, v in (s.split("=", 1) for s in a.arm)]
+    sw = {(m, t): (False if getattr(m, t) is None else type(getattr(m, t))()) for _, ms in arms for m, t in ms}
     base = None
     for r in range(a.rounds):
-        for on in (False, True):
-            if a.fidelity:
+        for on in ([None] + [n for n, _ in arms] if arms else (False, True)):
+            if arms:
+                for (m, t), v in sw.items():
+                    setattr(m, t, v)
+                for m, t in dict(arms).get(on, ()):
+                    setattr(m, t, True)
+            elif a.fidelity:
                 ckc.math_fidelity = getattr(ttnn.MathFidelity, a.fidelity) if on else fid_off
             elif a.block_attr:
                 for (o, name), v in zip(battr, boff):
                     setattr(o, name, True if on else v)
             else:
-                setattr(alt_mod, attr, (a.on_value if a.on_value is not None else True) if on else off_value)
+                on_value = True if a.on_value is None else tuple(a.on_value) if isinstance(a.on_value, list) else a.on_value
+                setattr(alt_mod, attr, on_value if on else off_value)
             # a captured trace replays the program of the arm it was captured under: drop it so this arm recaptures
             if hasattr(model, "_release_traces"):   # ESMC-6B (ESMCLanguageModel) runs eager
                 model._release_traces()
@@ -123,7 +136,7 @@ def main() -> int:
             out = one()
             if base is None:
                 base = out
-            row = {"model": a.model, "fast": a.fast, "round": r, "alt": f"fidelity:{a.fidelity}" if a.fidelity else f"block:{a.block_attr}" if a.block_attr else a.alt, "on": on,
+            row = {"model": a.model, "fast": a.fast, "round": r, "alt": ("off" if on is None else on) if arms else f"fidelity:{a.fidelity}" if a.fidelity else f"block:{a.block_attr}" if a.block_attr else a.alt, "on": on,
                    "batch7_ms": round(sorted(ts)[len(ts) // 2] * 1000, 2),
                    "batch7_all_ms": [round(t * 1000, 2) for t in ts],
                    "vs_fp32": acc.metrics(out, ref), "vs_off": acc.metrics(out, base),

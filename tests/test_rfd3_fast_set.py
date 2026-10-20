@@ -105,10 +105,21 @@ def test_dit_shoist_ships_in_both_modes(monkeypatch):
     assert M._DIT_SHOIST is True
 
 
-def test_pair_ws_lofi_is_off_until_graded():
-    """pws in bfp8 at LoFi is a fast-mode candidate only: off by default and outside the fast set until measured."""
-    assert "_PAIR_WS_LOFI" not in M._FAST_SET
-    assert M.env_flag("RFD3_PAIR_WS_LOFI", False) is False
+def test_pair_ws_lofi_is_fast_only(monkeypatch):
+    """pws in bfp8 at LoFi passed the fast bar (8 paired seeds on WH and p150a), not graded on the normal one."""
+    monkeypatch.delenv("RFD3_PAIR_WS_LOFI", raising=False)
+    assert M._FAST_SET["_PAIR_WS_LOFI"] == "RFD3_PAIR_WS_LOFI"
+    M.set_fast(True)
+    assert M._PAIR_WS_LOFI is True
+    M.set_fast(False)
+    assert M._PAIR_WS_LOFI is False
+
+
+def test_pz_spread_is_a_default(monkeypatch):
+    """The bank-spread gather table reads the same bits (digests equal on WH and p150a), so it is on in both modes."""
+    monkeypatch.delenv("RFD3_PZ_SPREAD", raising=False)
+    assert "_PZ_SPREAD" not in M._FAST_SET
+    assert M.env_flag("RFD3_PZ_SPREAD", True) is True
 
 
 def test_exact_data_movement_defaults(monkeypatch):

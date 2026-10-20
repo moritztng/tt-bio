@@ -23,6 +23,9 @@ void kernel_main() {
     constexpr uint32_t NT = get_compile_time_arg_val(2);
     constexpr bool TA = get_compile_time_arg_val(3);
     constexpr bool TB = get_compile_time_arg_val(4);
+    // A split call's raw a arrives in fixed SLOT-tile slots (the reader's AG), the last one of a row part full: a
+    // ring of A_DEPTH slots stays aligned only if every push and pop is a whole slot. 0 = unsplit (one push per row).
+    constexpr uint32_t SLOT = get_compile_time_arg_val(5);
     const uint32_t count = get_arg_val<uint32_t>(1);
     constexpr uint32_t OG = NT % 4 == 0 ? 4 : (NT % 2 == 0 ? 2 : 1);
     constexpr uint32_t cb_a = 0, cb_b = 1, cb_a_raw = 2, cb_out = 16;
@@ -45,7 +48,7 @@ void kernel_main() {
                         transpose_wh_tile(cb_a_raw, i, i);
                     }
                     tile_regs_commit();
-                    cb_pop_front(cb_a_raw, nb);
+                    cb_pop_front(cb_a_raw, SLOT ? SLOT : nb);
                     cb_reserve_back(cb_a, nb);
                     tile_regs_wait();
                     for (uint32_t i = 0; i < nb; ++i) {

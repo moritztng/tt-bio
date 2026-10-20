@@ -109,9 +109,20 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # And dit_cond_jcat: each DiT layer's six conditioning projections as three [768, 1536] linears read in place. Wormhole
 # 11-set fast grade, 43 paired folds (spd-gap-small gjcw, 2026-10-18), PASS: top pose median 1.035 A (floor 1.730 A),
 # CA-lDDT +0.0015 [+0.0008, +0.0023], docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) 20.37 -> 20.15 s, 4/4 warm pairs.
-# trimul_bres is not here: bmm_res needs an fp32 dest and acc_off turns it off in the fast trunk, so it never fires
-# (bresab / bresab2 read -0.29 / -0.09 s on byte-identical CIFs: noise around an inert lever).
-WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat"}
+# And triatt_k1 (triangle attention in one k chunk where the trimmed CB set fits): 512-token set fast grade, 44 paired
+# folds (gk1b2, 2026-10-19), PASS: top pose median 1.309 A (floor 2.381 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking
+# 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.26 s median, 7/8 warm pairs (k1b2).
+# trimul_bres is not here: it was inert under acc_off until bmm_res took its own fp32 dest (bresab / bresab2 read
+# -0.29 / -0.09 s on byte-identical CIFs), and Boltz-2 fast is unmeasured with it firing.
+# atom_l1 (the atom transformer's intermediates in L1) is placement only: on a Galaxy chip at 512 x 1 (1000 MHz) both
+# modes fold byte-identical CIFs with it, normal -0.63 s (6/6 warm pairs), fast -0.54 s (5/6) (spd-gap-small al1,
+# 2026-10-19), so it needs no grade. Blackhole leaves it off until a p150a pair reads it.
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1"}
+# triatt_ln_b8 + triatt_ln_b8g (triatt_ln writes q, k, v and the gate bfp8): 512-token set fast grade, 44 paired folds
+# (spd-gap-small gtlb2, 2026-10-19), PASS: top pose median 1.566 A (floor 2.245 A), CA-lDDT +0.0003 [-0.0006, +0.0013],
+# docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.98 s median, 5/5 warm pairs (tlb2).
+WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1",
+                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g"}
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist"}
 
 
@@ -5464,7 +5475,7 @@ class Boltz2(nn.Module):
     ) -> None:
         super().__init__()
         self._levers = (tenstorrent.model_levers(
-            LEVERS_NORMAL, WH_LEVERS_FAST if tenstorrent.is_wormhole() else BH_LEVERS_FAST)
+            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, BH_LEVERS_FAST)))
                         if use_tenstorrent else frozenset())
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
