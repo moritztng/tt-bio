@@ -244,7 +244,11 @@ _PROGS_HIFI2 = {
 # activation no longer costs minimal_matmul the ~0.4 ms a call it did with the wheel's accurate GELU. epi_probe (Galaxy
 # chip, 1000 MHz, no GELU, ms a call): --fast (4, 8, 8, 1, 4) 0.864 against ~1.03 for the 2D pick; normal (8, 8, 8, 1, 4)
 # 1.099. Off until graded.
-_SAPROT_FC1_MM = env_flag("TT_BIO_SAPROT_FC1_MM", False)
+# ls77 page A/B (.107, 1000 MHz, ms off -> on, pcc delta): --fast 650M hHSA 134.97 -> 133.50 (+0.000017), hPCSK9
+# 134.74 -> 133.12 (-0.000053), 1.3B hPCSK9 252.94 -> 249.38 (-0.000179); normal 650M hHSA 162.24 -> 160.84 (-0.000015),
+# 1.3B hHSA 311.98 -> 307.81 (-0.000042). fc1_check (ls78) against float64: --fast every block's error equals the 2D
+# program's (rel_l2 4.68e-3); normal (8,8,8,1,4) 1.75e-3 against 1.82e-3. Wormhole only (the key below).
+_SAPROT_FC1_MM = env_flag("TT_BIO_SAPROT_FC1_MM", True)
 _FC1_MM = {False: (8, 8, 8, 1, 4), True: (4, 8, 8, 1, 4)}   # by hifi2
 # Off drops the out-block entries (WH fc1) back to the linear's own pick.
 _SAPROT_OUT_SPLIT = env_flag("TT_BIO_SAPROT_OUT_SPLIT", True)
