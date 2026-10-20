@@ -332,12 +332,32 @@ def _prepare(x, out, device):
     return entry
 
 
+# The forward move takes permute_fwd_pk (unpacker transpose, packer re-tiling, no NOC gather) where it serves,
+# bit-exact. Blackhole, qb2 card 2 p300c at 1350 MHz (bets/block/raw/chain6_43185f0a9): 2.2x at 224 c128/c256,
+# 1.9-2.2x at 288 and 384, 2.1x at 512 c128 and 1.8x at 512 c256. Wormhole keeps the gather until measured there.
+# TT_BIO_PFPK overrides the arch default either way.
+_PFPK = None
+
+
+def _pfpk():
+    global _PFPK
+    if _PFPK is None:
+        _PFPK = env_flag("TT_BIO_PFPK", ttnn.get_arch_name().startswith("blackhole"))
+    return _PFPK
+
+
 @_ops.fused_kernel("reblock_permute")
 def reblock_permute(x, memory_config=None, device=None):
     """``ttnn.permute(x, (0, 3, 1, 2))`` for ``x`` of shape ``[1, N, N, C]`` bf16 TILE, C % 32 == 0."""
     device = device or x.device()
     mc = memory_config or x.memory_config()
     N, C = int(x.shape[1]), int(x.shape[3])
+    if _pfpk() and x.memory_config().memory_layout == mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED:
+        from . import permute_back_pk as _pk
+        from .tenstorrent import COMPUTE_GRID_MAIN
+        if _pk.ok_fwd(x, C):
+            STATS[0] += 1
+            return _pk.permute_fwd_pk(x, tuple(COMPUTE_GRID_MAIN), memory_config=mc)
     out = ttnn.allocate_tensor_on_device(
         ttnn.Shape([1, C, N, N]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
     )

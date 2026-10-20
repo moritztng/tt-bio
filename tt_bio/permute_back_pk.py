@@ -1,10 +1,11 @@
-"""The trimul's back channel move with the packer doing the re-tiling.
+"""The trimul's channel moves with the packer doing the re-tiling, both directions.
 
 `reblock_permute_back` moves the einsum's channel-major `[1, C, N, N]` result to `[1, N, N, H]` with a
 reader-side L1 gather of 64 NOC packets per output tile: ~2.2 ms a call at 512 c256 on Wormhole, ~116 GB/s.
 Here compute does it (kernels/permute_back_pk): untilize 32 channel tiles as one row, tilize each 2 KB page,
-transpose in the unpacker. Bit-exact by construction (a copy through a 16-bit dest). `reblock_permute_back` routes
-here on Wormhole.
+transpose in the unpacker. `permute_fwd_pk` is the mirror for `reblock_permute` ([1, N, N, H] -> [1, C, N, N]):
+transpose in the unpacker first, then the same untilize-as-one-row and per-page tilize, one pass fewer.
+Both are bit-exact by construction (a copy through a 16-bit dest).
 """
 from __future__ import annotations
 
@@ -78,6 +79,62 @@ def permute_back_pk(x, out, grid, c_off=0):
             config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False))
         cbs = [_cb(0, core_grid, 16), _cb(1, core_grid, 32), _cb(2, core_grid, 32), _cb(16, core_grid, OUT_TILES)]
         entry = _CACHE[key] = ([reader, writer, compute], cbs)
+    kernels, cbs = entry
+    kernels[0].common_runtime_args = [x.buffer_address()]
+    kernels[1].common_runtime_args = [out.buffer_address()]
+    ttnn.generic_op([x, out], ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs))
+    return out
+
+
+FWD_DIR = Path(__file__).resolve().parent / "kernels" / "permute_fwd_pk"
+_CACHE_FWD: dict = {}
+
+
+def ok_fwd(x, C, c_off=0):
+    xs = [int(d) for d in x.shape]
+    return (len(xs) == 4 and xs[0] == 1 and xs[1] == xs[2] and xs[1] % TILE == 0 and C % TILE == 0
+            and c_off % TILE == 0 and c_off + C <= xs[3] and xs[3] % TILE == 0 and x.dtype == ttnn.bfloat16
+            and x.layout == ttnn.TILE_LAYOUT)
+
+
+def permute_fwd_pk(x, grid, C=None, c_off=0, memory_config=None):
+    """out[0, c, i, j] = x[0, i, j, c_off + c] for c < C (default: every channel). Returns out [1, C, N, N]."""
+    N, H = int(x.shape[1]), int(x.shape[3])
+    C = H - c_off if C is None else C
+    assert ok_fwd(x, C, c_off)
+    St, CT, Ht = N // TILE, C // TILE, H // TILE
+    mc = memory_config or x.memory_config()
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, N, N]), ttnn.bfloat16, ttnn.TILE_LAYOUT, x.device(), mc)
+    key = (C, N, H, c_off, tuple(grid), str(x.memory_config()), str(mc), OUT_TILES, WB)
+    entry = _CACHE_FWD.get(key)
+    if entry is None:
+        gx, gy = grid
+        ncores = gx * gy
+        core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
+        nu = CT * St * St
+        rd, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+        u0 = 0
+        for c in range(ncores):
+            n = nu // ncores + (c < nu % ncores)
+            rd[c % gx][c // gx] = [u0, n]
+            cp[c % gx][c // gx] = [n]
+            u0 += n
+        acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
+        src = ttnn.KernelDescriptor.SourceType.FILE_PATH
+        reader = ttnn.KernelDescriptor(
+            kernel_source=str(FWD_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
+            compile_time_args=[St, Ht, c_off // TILE, CT] + acc(x), runtime_args=rd, common_runtime_args=[0],
+            config=ttnn.ReaderConfigDescriptor())
+        writer = ttnn.KernelDescriptor(
+            kernel_source=str(FWD_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
+            compile_time_args=[St, CT, WB] + acc(out), runtime_args=rd, common_runtime_args=[0],
+            config=ttnn.WriterConfigDescriptor())
+        compute = ttnn.KernelDescriptor(
+            kernel_source=str(FWD_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
+            compile_time_args=[], runtime_args=cp,
+            config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False))
+        cbs = [_cb(0, core_grid, 16), _cb(1, core_grid, 32), _cb(16, core_grid, OUT_TILES)]
+        entry = _CACHE_FWD[key] = ([reader, writer, compute], cbs)
     kernels, cbs = entry
     kernels[0].common_runtime_args = [x.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]
