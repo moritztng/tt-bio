@@ -1,15 +1,22 @@
 #!/bin/bash
 # bc4-bet-trikern chain on one qb2 chip: gin_sweep (per call), then the BC2 ABBA of GIN_WHOLE.
-#   CARD=<n> bash perf/bc4_trikern/chain.sh   (detached)
+#   CARDS="3 2 1 0" bash perf/bc4_trikern/chain.sh   (detached; takes the first free chip)
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd); cd "$WT"
-CARD=${CARD:-3}
 D=$WT/_bc4out/chain_$(git rev-parse --short HEAD); mkdir -p "$D"
 PY=${PY:-$HOME/bcx_e2e_venv/bin/python}
+# first chip of CARDS whose lock is free and whose device nobody has open
+CARD=
+while [ -z "$CARD" ]; do
+  for c in ${CARDS:-3 2 1 0}; do
+    fuser /dev/tenstorrent/$c >/dev/null 2>&1 && continue
+    exec 9>"$HOME/spd_qb2_chip$c.lock"; flock -n 9 || { exec 9>&-; continue; }
+    fuser /dev/tenstorrent/$c >/dev/null 2>&1 && { exec 9>&-; continue; }
+    CARD=$c; break
+  done
+  [ -n "$CARD" ] || sleep 20
+done
 export PYTHONPATH=$WT TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:bc4-bet-trikern
-while fuser /dev/tenstorrent/$CARD >/dev/null 2>&1; do sleep 20; done
-exec 9>"$HOME/spd_qb2_chip$CARD.lock"; flock 9
-while fuser /dev/tenstorrent/$CARD >/dev/null 2>&1; do sleep 20; done
 git rev-parse HEAD > "$D/sha"; git status --porcelain --untracked-files=no > "$D/dirty"; echo "$CARD" > "$D/cardno"
 ( while :; do printf "%s\t%s\t%s\n" "$(date +%s)" "$(cat /sys/class/tenstorrent/tenstorrent\!$CARD/tt_aiclk)" \
     "$(cut -d" " -f1 /proc/loadavg)"; sleep 1; done ) >> "$D/aiclk.tsv" 9>&- & P=$!
