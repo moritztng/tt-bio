@@ -448,3 +448,6 @@ perf/train_u_relpos/**/checkpoints/
 # JAX cache the batch fills.
 perf/bgx_inputs/out/xlacache/
 perf/bgx_inputs/out/run_*/
+
+# Raw pulls from a vast rental: the campaigns that matter are banked under ~/.coworker/artifacts.
+perf/kitcmp/results/
