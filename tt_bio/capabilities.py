@@ -381,15 +381,35 @@ def _click_note(msg: str) -> None:
     click.secho(msg, fg="yellow")
 
 
-def check_capabilities(path, chains, model: str, echo=_click_note) -> dict[str, str]:
+def check_chain_ids(chains, model: str, output_format: str | None = None) -> None:
+    """Refuse a chain id that ``model`` or the output format cannot carry, before the fold.
+
+    RF3 writes the ids into an mmCIF line unquoted, so whitespace in one fails its parser.
+    A PDB names a chain with one character; longer ids are relabelled at write time
+    (``tt_bio.data.pdb.chain_map``), which runs out past 62 chains. Raises ValueError.
+    """
+    ids = [cid for cid, *_r in chains or []]
+    spaced = [cid for cid in ids if any(ch.isspace() for ch in cid)]
+    if model == "rf3" and spaced:
+        raise ValueError(f"{how(model)} cannot take whitespace in a chain id "
+                         f"({', '.join(map(repr, spaced))}); rename the chain.")
+    if output_format == "pdb":
+        from tt_bio.data.pdb import chain_map
+
+        chain_map(ids)
+
+
+def check_capabilities(path, chains, model: str, echo=_click_note,
+                       output_format: str | None = None) -> dict[str, str]:
     """Refuse the structure-changing input ``model`` cannot honour; note the rest.
 
     Raises RuntimeError naming every refused feature at once, so a user fixing one key does
     not have to run again to find the next, and calls ``echo`` once per NOTED feature.
     Returns the detected features. An unknown model raises KeyError, which is the point: a
-    new port has to declare its row.
+    new port has to declare its row. Chain ids go through ``check_chain_ids`` first.
     """
     caps = CAPABILITY[model]
+    check_chain_ids(chains, model, output_format)
     found = detect(path, chains)
     refused = [f for f in FEATURES if f in found and caps[f] == REFUSED]
     if refused:
