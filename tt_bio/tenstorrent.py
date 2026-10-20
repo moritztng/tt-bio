@@ -18300,26 +18300,13 @@ class ConfidenceHeadsDevice:
             ttnn.deallocate(arm)
         self.wall.mark("same-chain select")
 
-        # Which download shape is cheaper is a part property, and it inverts between the two.
-        # The result is three numbers per (i, j), so untilizing and slicing on the card first
-        # moves 2.097 MB at 512 tokens where reading the tile whole moves 16.777 MB. On Wormhole
-        # those bytes are the cost and the narrow read wins, 17.500 against 32.644 ms. On
-        # Blackhole they are not: a row-major readback runs at a flat 159 MB/s there -- 0.524 MB
-        # through 8.389 MB, 256 to 1024 tokens, every rung within 2 MB/s of that -- against
-        # 1.8-3.9 GB/s tiled, so an 8x byte saving cannot cover an 11-23x rate penalty and the
-        # narrow read loses at every rung of the size ladder: 3.72 against 1.13 ms at 256 tokens,
-        # 14.40 against 4.88 at 512, 57.50 against 42.29 at 1024
-        # (perf/b2z2_confptm/download_shape.py, which asserts every variant returns the same
-        # channels).
-        if is_wormhole():
-            out = ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT)
-            self.wall.mark("untilize")
-            out = ttnn.slice(out, [0, 0, 0, 0], [1, seq_len, seq_len, self.CH_KEEP])
-            t = torch.Tensor(ttnn.to_torch(out)).to(torch.float32)
-        else:
-            self.wall.mark("untilize")
-            t = torch.Tensor(ttnn.to_torch(out))
-            t = t[:, :seq_len, :seq_len, :self.CH_KEEP].to(torch.float32)
+        # The tile is read whole and cut on the host, on both parts. Wormhole used to untilize and
+        # slice to [1, n, n, 4] on the card first (17.5 against 32.6 ms at 512 tokens), and that
+        # slice never returns at some lengths: every Boltz-2 fold of exactly 584 or 644 residues
+        # hung there until JapanFold's 25 min cap, on every chip it was retried on, while 583,
+        # 585, 642 and 645 folded (2026-10-19). 15 ms is not worth a length that cannot fold.
+        t = torch.Tensor(ttnn.to_torch(out))
+        t = t[:, :seq_len, :seq_len, :self.CH_KEEP].to(torch.float32)
         ttnn.deallocate(out)
         self.wall.mark("download")
         return {"pae": t[..., self.CH_PAE].contiguous(),
