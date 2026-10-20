@@ -53,11 +53,12 @@ def _reject(reason, shape):
     return None
 
 
-def _taping():
-    """Is a tape open? Every entry point here drives `generic_op`, which has no backward, so each
-    declines under one and the composed ops the tape can follow run instead (`ops.taping`)."""
+def _taping(name, *operands):
+    """Must `name` decline for a tape? Every entry point here drives `generic_op`, which has no
+    backward, so each declines when an operand is on an open tape and the composed ops the tape
+    can follow run instead (`ops.declines_under_tape`)."""
     from . import ops
-    return ops.taping()
+    return ops.declines_under_tape(name, *operands)
 
 
 def _common_ok(x, w, dtype):
@@ -80,7 +81,7 @@ def qkv_heads(x, w, ckc, n_heads, head_dim, dtype, mm_config):
     stock ops produce. Under a tape it runs only through its entry in `taped_ttnn`
     (`triatt_qkv_heads`); without one the composed ops run instead.
     """
-    if ops.declines_under_tape("triatt_qkv_heads"):
+    if ops.declines_under_tape("triatt_qkv_heads", x, w):
         return None
 
     if not _ENABLED:
@@ -184,7 +185,7 @@ def gate_proj(x, w_g, w_o, ckc, n_heads, head_dim, dtype, mm_config):
     `gate_and_project` calls `out_proj`. `w_o` is only inspected, to ask whether the `out`
     projection it will feed would have taken the L1-output leg.
     """
-    if _taping():
+    if _taping("gate_proj", x, w_g, w_o):
         return None   # no backward for `generic_op`; the composed ops run instead
     if not (_ENABLED and _TAIL_ENABLED):
         return None
@@ -279,7 +280,7 @@ def qkvg_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config):
     destinations are four equal N chunks of one matmul. Byte-identical to
     `qkv_heads(x, w[:, :3c]) + gate_proj(x, w[:, 3c:])`.
     """
-    if _taping():
+    if _taping("qkvg_heads", x, w, w_o):
         return None   # no backward for `generic_op`; the composed ops run instead
     if not (_ENABLED and _TAIL_ENABLED and _QKVG_ENABLED):
         return None
@@ -332,7 +333,7 @@ def out_proj(gated, w, ckc, dtype, memory_config=None):
     from the tensor it is handed, so an L1 destination changes which banks a tile is written to
     and nothing else: same blocking, same accumulation order, same bytes.
     """
-    if _taping():
+    if _taping("out_proj", gated, w):
         return None   # no backward for `generic_op`; the composed ops run instead
     from .tenstorrent import _mm_block_for, COMPUTE_GRID_MAIN
     B, H, S, D = (int(d) for d in gated.shape)
@@ -512,7 +513,8 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None):
     too or as its projection wrote it (`[.., B, S, H*32]`, a biased block's gate), as `[B, S, N]`;
     with `resid` (the pair `[1?, B, S, N]` the update belongs to) the sum is written into `resid`
     in place and `resid` is returned. None where it declines; the caller then runs the three ops."""
-    if _taping() or not tail_on(bias is not None or _g3d(o, g)) or not _tail_ok(o, g, w, resid, bias):
+    if (_taping("gated_out_proj", o, g, w, resid, bias) or not tail_on(bias is not None or _g3d(o, g))
+            or not _tail_ok(o, g, w, resid, bias)):
         GOP_STATS[1] += 1
         return None
     from .tenstorrent import COMPUTE_GRID_MAIN
@@ -638,7 +640,7 @@ def qkvgb_heads(x, w, w_o, ckc, n_heads, head_dim, dtype, mm_config, bias_channe
     its output axis, so the five destinations are five N chunks of one matmul -- four of four
     tiles and one of one. Byte-identical to the three calls it replaces.
     """
-    if _taping():
+    if _taping("qkvgb_heads", x, w, w_o):
         return None   # no backward for `generic_op`; the composed ops run instead
     if not (_ENABLED and _TAIL_ENABLED and _QKVG_ENABLED and _QKVGB_ENABLED):
         return None

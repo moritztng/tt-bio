@@ -269,7 +269,7 @@ class ReluTransition(Module):
         """The transition as one `pair_relu` program, or None where it does not serve."""
         from . import ops
         from . import pair_swiglu_ws as W
-        if ops.declines_under_tape("pair_relu") and ops.recording():
+        if ops.declines_under_tape("pair_relu", x, self.norm_weight, self.norm_bias) and ops.recording():
             return None
         w = self.weights
         if self._ws_weights is None:

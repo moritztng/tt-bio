@@ -4103,7 +4103,7 @@ def _tri_att_sdpa_hifi(q, k, v, bias, scale: float, one_k_chunk: bool = False):
     # With one registered -- `taped_ttnn._k_tri_att_sdpa_hifi` -- the decorator above has
     # already routed the call there and this line does not run, so the kernel serves the
     # forward and `autograd.triangle_attention` carries the backward.
-    if ops.declines_under_tape("tri_att_sdpa_hifi"):
+    if ops.declines_under_tape("tri_att_sdpa_hifi", q, k, v, bias):
         TRIATT_FUSED_HIFI_STATS["taped"] += 1
         return None
     if not _TRIATT_HIFI_MIN_S_PADDED:

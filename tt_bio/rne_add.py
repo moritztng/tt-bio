@@ -365,7 +365,7 @@ def eligible(a, b, memory_config) -> bool:
     # A `generic_op` has no tape entry of its own, so without one registered this kernel would
     # silently cut the graph. `taped_ttnn._kernel("rne_add")` is the entry; until it is installed
     # (`TT_BIO_TAPED_KERNELS`) every taped call declines here and the four-call wide path runs.
-    if _ops.declines_under_tape("rne_add"):
+    if _ops.declines_under_tape("rne_add", a, b):
         return _reject("taped_no_entry", shape_a)
     if a.dtype != _DTYPE or b.dtype != _DTYPE:
         return _reject("dtype", shape_a)
@@ -408,7 +408,7 @@ def masked_eligible(a, b, m, memory_config) -> bool:
     """What `rne_add_masked` serves: `eligible(a, b)` plus a per-row mask slab."""
     if not MASKED or m is None:
         return False
-    if _ops.declines_under_tape("rne_add_masked"):
+    if _ops.declines_under_tape("rne_add_masked", a, b, m):
         return _reject("masked_taped_no_entry", [int(d) for d in a.shape])
     if not eligible(a, b, memory_config):
         return False
@@ -471,7 +471,7 @@ def widen_eligible(a, b) -> bool:
     """What `widen_add` serves. Everything else falls through to the caller's widened path."""
     if not WIDEN_ADD:
         return False
-    if _ops.taping():
+    if _ops.declines_under_tape("widen_add", a, b):
         # Nothing tapes a backward, so this never fires on the fan-in; a taped caller would need
         # a tape entry, and there is none.
         return _widen_decline("taped")
