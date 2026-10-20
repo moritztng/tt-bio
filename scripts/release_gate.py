@@ -4215,15 +4215,28 @@ SIZE_LADDER_AGAINST: Path | None = None
 #: which the recorded quiet-box reps put at 3 % median and 14 % p90 (57 cells, max/min of 3-5
 #: reps). 1.15 sits above that and below the 1.3x a real regression has to clear.
 SIZE_LADDER_AB_BAND = 1.15
-#: Interleaved candidate/reference pairs per rung, and the most a rung reading slow may grow to.
-#: Pairs are only added while the rung reads slow, so a clean ladder pays three. A real slowdown
-#: stays slow at any count; a burst has to land on every candidate fold to survive six.
+#: Interleaved candidate/reference pairs per rung, and the most an unsettled rung may grow to
+#: (_size_ladder_ab_settled). A clean rung pays three. A real slowdown stays slow at any count; a
+#: burst has to land on every candidate fold to survive six.
 SIZE_LADDER_AB_REPS, SIZE_LADDER_AB_MAX_REPS = 3, 6
+#: Two folds within this of each other read the same clean level (quiet reps: max/min 1.033 median,
+#: 1.137 p90). 1.05 bought 0.8 points of catch rate in the replay for a quarter more folds.
+SIZE_LADDER_AB_SAME = 1.10
 
 
 def _size_ladder_ab_ratio(cell: dict) -> float:
     """Fastest candidate fold over fastest reference fold."""
     return min(cell["cand"]) / min(cell["ref"])
+
+
+def _size_ladder_ab_settled(cell: dict) -> bool:
+    """A rung needs no more pairs once it reads inside the band and each side's fastest fold has
+    been reproduced within SIZE_LADDER_AB_SAME by another. A minimum seen once can be a burst on
+    every fold of that side, and on the reference side that hides a regression."""
+    def seen_twice(ts):
+        return sum(t <= min(ts) * SIZE_LADDER_AB_SAME for t in ts) >= 2
+    return (_size_ladder_ab_ratio(cell) <= SIZE_LADDER_AB_BAND
+            and seen_twice(cell["cand"]) and seen_twice(cell["ref"]))
 
 
 def _size_ladder_ab_findings(model: str, ab: dict) -> list:
@@ -4256,7 +4269,7 @@ def _size_ladder_ab(model: str, rungs, workdir: Path, tree: Path) -> dict:
         cell = {"cand": [], "ref": []}
         while len(cell["cand"]) < SIZE_LADDER_AB_REPS or (
                 len(cell["cand"]) < SIZE_LADDER_AB_MAX_REPS
-                and _size_ladder_ab_ratio(cell) > SIZE_LADDER_AB_BAND):
+                and not _size_ladder_ab_settled(cell)):
             i = len(cell["cand"])
             for side in (("cand", "ref") if i % 2 == 0 else ("ref", "cand")):
                 r = _run_census_fold(model, rung, workdir, f"ab{i}",
