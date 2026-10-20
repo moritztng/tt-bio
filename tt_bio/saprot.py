@@ -352,6 +352,12 @@ def _role(d, k, n):
     return "qkv" if n == 3 * d else "out" if n == k else "fc1" if n > k else "fc2"
 
 
+# Normal mode's bf16-weight projections at HiFi3 instead of HiFi4 (fp32 dest, packer L1 acc kept). One fc1 tile against
+# float64 (rowcol_probe): max error 0.0045 at both; HiFi4 + packer_l1_acc also writes isolated sums off by exactly -2^n
+# (prefix_probe: -0.1230 written as -4.1195 at a cancelling K-block add) that HiFi3 did not at any K prefix.
+_SAPROT_NORMAL_HIFI3 = env_flag("TT_BIO_SAPROT_NORMAL_HIFI3", False)
+
+
 class _SaprotLin(_MMLin):
     MM_BFP8_HIFI2 = False   # SaProt 35M --fast at HiFi2: pooled cos vs fp32 0.999915 -> 0.999879, under the 0.9999 bar
 
@@ -365,6 +371,11 @@ class _SaprotLin(_MMLin):
         on = d >= _HIFI2_MIN_WIDTH if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
         if not (on and w.dtype == ttnn.bfloat8_b and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _SAPROT_HIFI2_ROLES
                 and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
+            if _SAPROT_NORMAL_HIFI3 and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
+                if getattr(self, "_ck_hifi3", None) is None:
+                    self._ck_hifi3 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ck.math_approx_mode,
+                                              fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
+                return self._ck_hifi3
             return ck
         if getattr(self, "_ck_hifi2", None) is None:
             self._ck_hifi2 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ck.math_approx_mode,
