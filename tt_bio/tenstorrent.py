@@ -706,6 +706,8 @@ _FAST_MODE = False
 #   ws_l1acc        with transition_ws, each matmul sums at most 2 K tiles in the fp32 dest and the packer adds
 #                   the chunks in L1 (the dest_guard remedy), so bf16 weights at c_z 256 / 384 (normal mode)
 #                   can take the kernel: summing all of K in dest wrote exact 1 / 2 / 4 errors there (wd1).
+#   ws_b8_plain     under ws_l1acc, chunks with bfp8 weights (transition_b8) run the plain kernel, all of K in the
+#                   fp32 dest: at c_z 256 bfp8 is one chunk, where the l1acc kernel took 10.5 ms against 6.9 (psn wsla).
 #   ws_resid        with transition_ws, fc3 adds the residual in its fp32 dest and writes over it: the transition's
 #                   `z + t` and the hidden-chunk sum stop being separate add passes over the pair (OpenDDE WH
 #                   fast census: 4.3 s of add_ per fold). Only where the weights take one hidden chunk (`ws_swiglu`).
@@ -784,6 +786,8 @@ _FAST_MODE = False
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
 #                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
+#   dit_shard       the token DiT's conditioned transition (Boltz-2) with its three [N, 2D] hidden products
+#                   block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and the gate after it as before.
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -796,13 +800,13 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
-          "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
+          "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-          "trimul_t2fold", "dit_mask8", "trimul_bres_b8")
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -814,14 +818,14 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
-                             "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
+                             "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -1243,6 +1247,11 @@ _PAIR_PROJ_BW: int | None = 16
 # these two sites are a separate parity decision. Measured on qb1 card 1 at the fold's own
 # [1,298,320,256]: 1.15x / 1.23x at 1, 1.98x / 2.08x at 16 (perf/p3narrow/).
 _NARROW_PROJ_BW: int | None = 1
+# Wider `_lin` pair projections on the same bit-exact plan (`_narrow_proj_linear`). False = core_grid as before.
+_WIDE_PROJ = True
+# Pair-sized calls only. The diffusion atom track's [1,4128,128] @ [128,768] is not torch.equal on this plan (one
+# bf16 ulp, every step, OpenDDE 512 fold check wpd), and its row count is a sixth of the smallest pair call.
+_WIDE_PROJ_MIN_ROWS = 16384
 # The pair-track output projection's 48.82 MB result never leaves the device: the trimul's
 # multiply_ and the Pairformer layer's residual add_ read it back immediately. Writing it to L1
 # instead of DRAM removes the projection's write AND the consumer's operand read, and the trunk
@@ -1405,9 +1414,10 @@ _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4":
 
 def lpx_compute_kernel_config(base):
     """`base` under the `lofi` and `acc_off` levers, or `base` itself when neither is on."""
-    if not (lever("lofi") or lever("acc_off")):
+    lofi = lever("lofi") and lofi_allowed()
+    if not (lofi or lever("acc_off")):
         return base
-    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi if lever("lofi") else base.math_fidelity,
+    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi if lofi else base.math_fidelity,
                      math_approx_mode=base.math_approx_mode,
                      fp32_dest_acc_en=base.fp32_dest_acc_en and not lever("acc_off"),
                      packer_l1_acc=base.packer_l1_acc)
@@ -4506,7 +4516,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -7081,12 +7091,26 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
 
 
 def _narrow_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
-    """The tuned config for a NARROW-output pair-track projection, or None to leave the
-    call alone. Scoped to an output of at most two tiles: that is the class whose
-    `core_grid=` ladder is flat from 16 cores to 110, and it keeps every wider `_lin` call
-    on today's path. `l1_out` is for the sites whose next op reads the result on device."""
+    """The tuned config for a pair-track projection `_lin` routes here, or None to leave the
+    call alone. `l1_out` is for the sites whose next op reads the result on device.
+
+    An output of at most two tiles is the class whose `core_grid=` ladder is flat from 16 cores
+    to 110. A wider one (`_WIDE_PROJ`) takes the same plan at in0_block_w 1 only, DRAM out, so it
+    keeps the shipped contraction order and is `torch.equal`: OpenDDE's recycle projection
+    [1,640,640,384] @ [384,384] ran 99.9 ms a call on `core_grid=` and 11.9 here, the template z
+    [1,640,640,64] @ [64,384] 17.2 -> 6.7, the MSA embed [1,1280,640,34] @ [34,128] 9.2 -> 4.8
+    (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Below `_WIDE_PROJ_MIN_ROWS` rows it declines:
+    the atom track's projections are not all bit-exact on this plan."""
     if -(-int(list(w.shape)[-1]) // 32) > 2:
-        return None
+        rows = 1
+        for d in list(x.padded_shape)[:-1]:
+            rows *= int(d)
+        if not _WIDE_PROJ or rows < _WIDE_PROJ_MIN_ROWS:
+            return None
+        cfg = _pair_proj_config(x, w, bw_cap=1)
+        return None if cfg is None else ttnn.linear(
+            x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+            compute_kernel_config=ckc, program_config=cfg)
     bw = 16 if lever("narrow_bw16") else _NARROW_PROJ_BW
     key = ("narrow", tuple(x.padded_shape), tuple(w.shape), str(dtype), bw)
     rung = _l1_out_rung(key) if l1_out else 0
@@ -7487,6 +7511,15 @@ def num_chips() -> int:
 
 def is_wormhole() -> bool:
     return arch_name() == "wormhole_b0"
+
+
+def lofi_allowed() -> bool:
+    """Whether a LoFi lever (`lofi`, `ws_lofi`, `triatt_lofi`) may take effect: Blackhole only. On Wormhole a LoFi
+    matmul stalls one core's unpacker on some chips and the fold hangs until the op timeout (spd-fasthang 2026-10-08:
+    5 hangs in 65 folds, every one at LoFi, the matmul throttle no cure; spd-gap-of3 2026-10-20: OpenFold3 9PCQ --fast
+    hung in 3 of 3 processes with the pair SwiGLU at LoFi and folded 48 of 48 clean without it). On Wormhole the
+    levers are no-ops, so no set or harness arm can bring LoFi back there."""
+    return not is_wormhole()
 
 
 def msa_row_tile(L: int, M: int) -> int:
@@ -13340,6 +13373,19 @@ def _transition_shard_grid(mt: int, nt: int, ct: int):
     return gx, gy
 
 
+def _shard_mm_cfg(gx: int, gy: int, pm: int, bw: int, n: int, act=None):
+    """2D multicast program for a block-sharded [pm, n]-tile-per-core matmul output on a gx x gy grid, with the
+    largest output subblock ttnn accepts: at most 4 tiles, and taller than one row only when it spans all of `n`
+    (an area-only pick of 2 x 2 at n = 6 TT_FATALs, which kept `dit_shard` from ever serving)."""
+    sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
+                  if h * w <= 4 and pm % h == 0 and n % w == 0 and (h == 1 or w == n)),
+                 key=lambda s: (s[0] * s[1], s[1]))
+    return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
+        out_subblock_w=sw, out_block_h=pm, out_block_w=n, per_core_M=pm, per_core_N=n,
+        transpose_mcast=False, fused_activation=act, fuse_batch=True)
+
+
 def _transition_shard_rows(W: int, c: int, hid: int) -> int:
     """Pair rows per block whose sharded swiglu fills the most grid rows, or 0 where none fits."""
     wt, gy_max = -(-W // 32), COMPUTE_GRID_MAIN[1]
@@ -13400,12 +13446,7 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     pm, pn = mt // gy, nt // gx
 
     def cfg(bw, n, act=None):
-        sh, sw = max(((h, w) for h in range(1, 5) for w in range(1, 5)
-                      if h * w <= 4 and pm % h == 0 and n % w == 0), key=lambda s: (s[0] * s[1], s[1]))
-        return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-            compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
-            out_subblock_w=sw, out_block_h=pm, out_block_w=n, per_core_M=pm, per_core_N=n,
-            transpose_mcast=False, fused_activation=act, fuse_batch=True)
+        return _shard_mm_cfg(gx, gy, pm, bw, n, act)
 
     cores = ttnn.CoreRangeSet({ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))})
     mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
@@ -13448,6 +13489,49 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
+def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
+    """`b_to_a((silu(a w_sw) * (a w_gt)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
+    the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
+    is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
+    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
+    xs = [int(d) for d in a.padded_shape]
+    mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
+    nt, ct = int(w_sw.shape[-1]) // 32, int(w_ba.shape[-1]) // 32
+    grid = _transition_shard_grid(mt, nt, ct)
+    key = ("dit", mt, kt, nt, a.dtype)
+    if grid is None or key in _TRANSITION_SHARD_REFUSED:
+        return None
+    gx, gy = grid
+    pm, pn = mt // gy, nt // gx
+
+    def cfg(bw, n, act=None):
+        return _shard_mm_cfg(gx, gy, pm, bw, n, act)
+
+    cores = ttnn.CoreRangeSet({ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))})
+    mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
+                           ttnn.ShardSpec(cores, [pm * 32, pn * 32], ttnn.ShardOrientation.ROW_MAJOR))
+    bw = _transition_kb("fc1", kt)
+    hid = []
+    try:
+        for w in (w_sw, w_gt, w_ab):
+            hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
+                                   dtype=a.dtype))
+        b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+        b = ttnn.multiply_(b, hid[2])
+        out = ttnn.linear(b, w_ba, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=a.dtype,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: the interleaved path from then on
+        for t in hid:
+            ttnn.deallocate(t)
+        _TRANSITION_SHARD_REFUSED.add(key)
+        _latch("dit_shard", "refused", e)
+        return None
+    for t in hid:
+        ttnn.deallocate(t)
+    _latch("dit_shard", "served")
+    return out
+
+
 def _ws_applies(x, ckc) -> bool:
     """`transition_ws` is on and this pair input can take it: 4-D bf16, no tape, and not where the
     Wormhole fp32-dest guard is on (the kernel keeps all of K in dest)."""
@@ -13474,18 +13558,19 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     (the one-rounding floor 0.112), 0.158 at two (c_z 256 bf16), 0.221 at four (c_z 384 bf16); the Protenix-v2 normal
     grade with two-chunk resid lost 0.33 CA-lDDT on the 680-790 token complexes (spd-gap-small gwr, 2026-10-14).
     """
+    # ws_b8_plain: bfp8 weights take one chunk and run the plain kernel; the l1acc kernel costs ~1.5x there (psn wsla).
+    acc = lever("ws_l1acc") and not (lever("ws_b8_plain") and parts[0][0].dtype == ttnn.bfloat8_b)
     resid2 = (resid is not None and len(parts) > _WS_RESID_CHUNKS and lever("ws_resid2") and lever("ws_chain")
-              and all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=x) for w12, w3 in parts[1:-1])
-              and _pair_ws.eligible(x, *parts[-1], l1acc=lever("ws_l1acc"), resid=resid, resid2=x))
+              and all(_pair_ws.eligible(x, w12, w3, l1acc=acc, resid=x) for w12, w3 in parts[1:-1])
+              and _pair_ws.eligible(x, *parts[-1], l1acc=acc, resid=resid, resid2=x))
     if resid is not None and len(parts) > _WS_RESID_CHUNKS and not resid2:
         return None
-    if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=None if resid2 else resid)
+    if not all(_pair_ws.eligible(x, w12, w3, l1acc=acc, resid=None if resid2 else resid)
                for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
-    if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
+    if lever("ws_lofi") and lofi_allowed():   # LoFi drops the low bits of every operand
         fid = ttnn.MathFidelity.LoFi
-    acc = lever("ws_l1acc")
     ps = lever("ws_psilu")   # silu on the packer, overlapping the matmuls; bit-identical
     if (resid is None and lever("ws_ln") and len(parts) == 1
             and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
@@ -15349,6 +15434,15 @@ class ConditionedTransitionBlock(Module):
         given, is added to the gated output here (`residual + s_out * b_a`, one op under dit_shoist)."""
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
+        b_a = (_dit_transition_sharded(a, self.swish_weight, self.gates_weight, self.a_to_b_weight,
+                                       self.b_to_a_weight, self.compute_kernel_config)
+               if lever("dit_shard") and not self.atom_level and self.a_to_b_gate else None)
+        if b_a is not None:
+            ttnn.deallocate(a)
+            if s_out is None:
+                s = ttnn.linear(s, self.output_projection_weight, bias=self.output_projection_bias,
+                                compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+            return self._gated_residual(b_a, s, s_out, residual)
         mc = (_atom_l1(tuple(a.shape)[:-1] + (2 * int(a.shape[-1]),), a.dtype)
               if self.atom_level and len(a.shape) == 4 else None)
         a_swish = ttnn.linear(
@@ -15396,6 +15490,11 @@ class ConditionedTransitionBlock(Module):
             memory_config=mc,
         )
         ttnn.deallocate(b)
+        return self._gated_residual(b_a, s, s_out, residual)
+
+    @staticmethod
+    def _gated_residual(b_a, s, s_out, residual):
+        """`residual + gate * b_a`, the gate `s_out` (post-sigmoid) or else `sigmoid(s)`."""
         cut = None
         if isinstance(s_out, _ColWin):
             if residual is not None:

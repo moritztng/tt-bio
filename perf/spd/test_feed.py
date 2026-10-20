@@ -147,7 +147,9 @@ def test_tree_root_names_the_commit_dir():
     sha = subprocess.run(["git", "-C", repo, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
     assert feed.tree_root(f"/home/u/spd/r/t{sha}/perf/spd/run_chip.sh", repo) == (f"/home/u/spd/r/t{sha}", sha)
     assert feed.tree_root(f"/home/u/spd/r/tree-{sha}", repo) == (f"/home/u/spd/r/tree-{sha}", sha)
+    assert feed.tree_root(f"/home/u/spd/r/trees/m{sha}/perf/spd/run_chip.sh", repo) == (f"/home/u/spd/r/trees/m{sha}", sha)
     assert feed.tree_root("/home/u/spd/r/t1b8/x", repo) is None
+    assert feed.tree_root("/home/u/spd/r/trees/mbr/perf/spd/run_chip.sh", repo) is None
 
 
 def test_probe_counts_an_empty_marker_and_tails_the_jobs_own_log(tmp_path):

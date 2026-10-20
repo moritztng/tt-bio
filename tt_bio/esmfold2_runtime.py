@@ -145,8 +145,8 @@ class _Adapter(torch.nn.Module):
         self.argnames = argnames
 
     def forward(self, *args, **kw):
-        if self.argnames:
-            return self.m(*[_to_t(kw[n]) for n in self.argnames])
+        if self.argnames:  # anything past `argnames` (e.g. to_host) is the wrapper's own keyword
+            return self.m(*[_to_t(kw.pop(n)) for n in self.argnames], **kw)
         if isinstance(args[0], _DevPair):
             return _dev_forward(self.m, args[0])
         return self.m(_to_t(args[0]))
@@ -1036,8 +1036,10 @@ def _install_resident_trunk_loop(model):
             mask = ftw._from_torch(real)
         # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
         per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
+        # A per-loop MSA draw is encoded on the device each loop (overwrite: the MSA pair IS the base).
+        msa_dev = msa_loops is not None and msa_fixed is None
         on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
-                  and (msa_loops is None or msa_fixed is not None))
+                  and (not msa_dev or overwrite))
         # The first keep mask draws on its thread while the uploads below run (no RNG use in between).
         draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps) if on_dev else None
         zt = up(padz(z).float())
@@ -1046,8 +1048,10 @@ def _install_resident_trunk_loop(model):
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
-            base = msa_fixed if msa_fixed is not None else z_init
-            if isinstance(base, _DevPair) and pad:
+            base = None if msa_dev else msa_fixed if msa_fixed is not None else z_init
+            if base is None:
+                pass
+            elif isinstance(base, _DevPair) and pad:
                 # Nothing reads the unpadded pair past this point (the caller drops z_init after the loop), and
                 # keeping it beside the padded copy is a second [L,L,c] for the whole trunk: on a 12 GiB Wormhole
                 # chip that OOMed ESMFold2-Fast --fast at ~800 tokens.
@@ -1065,13 +1069,27 @@ def _install_resident_trunk_loop(model):
             b_t = ftw._from_torch(b_mat.t().contiguous().float())
             ck = ftw.compute_kernel_config
 
-        def inject_dev():
+        def msa_base(msa_kw):
+            """This loop's MSA pair on the device, padded like `base`."""
+            x_pair = z_init.t if isinstance(z_init, _DevPair) else z_init
+            out = self.msa_encoder(x_pair=x_pair, to_host=False, **msa_kw)
+            dram_peak("esmfold2/msa-encoder")
+            if pad:
+                src = out
+                out = ttnn.pad(src, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
+                ttnn.deallocate(src)
+            return out
+
+        def inject_dev(step):
             x = _lm_dropout(lm_z, lm_p, draws.take())
             refined = _trunk_on_device(self.lm_encoder.m, x, to_host=False)
             if not _aliases(refined, x.t):
                 ttnn.deallocate(x.t)
-            s = ttnn.add(base, refined)
+            b = base if base is not None else msa_base(msa_loops[min(step, len(msa_loops) - 1)])
+            s = ttnn.add(b, refined)
             ttnn.deallocate(refined)
+            if b is not base:
+                ttnn.deallocate(b)
             n = ttnn.layer_norm(s, weight=ln_w, bias=ln_b, epsilon=norm.eps, compute_kernel_config=ck)
             ttnn.deallocate(s)
             out = ttnn.linear(n, b_t, compute_kernel_config=ck)
@@ -1086,7 +1104,7 @@ def _install_resident_trunk_loop(model):
         for _step in range(total_steps):
             E.report_progress("trunk", _step, total_steps)
             if on_dev:
-                ipt = inject_dev()
+                ipt = inject_dev(_step)
                 INJECTION_STATS[0] += 1
             elif per_loop:
                 ipt = up(padz(inject_proj(
@@ -1526,7 +1544,7 @@ LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", None)
 # Four ef2_* levers (bit draw, device pair init, relpos lookup, atom FFN split) pass ESMFold2's normal bar as a stack
 # against the set without them, 11 complexes x 4 seeds, 44 paired folds (p300c, 1350 MHz): CA-lDDT -0.0001
 # [-0.0011, +0.0008], TM +0.0092, top-pose median 0.33 A vs 1.15 A seed floor, docking 31 -> 31 of 44. The other
-# two (ef2_lm_combine, ef2_opm_kq) fail it alone (DockQ, L-RMSD and I-RMSD CIs exclude 0) and stay fast-only.
+# ef2_lm_combine fails it alone (DockQ, L-RMSD and I-RMSD CIs exclude 0) and stays fast-only.
 # trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res) is a pure speed lever in both modes on both archs:
 # coords are byte-identical with and without it in ESMFold2 folds under LEVERS_NORMAL and LEVERS_FAST (9DBP, 9LLG x 2
 # seeds, p300c, spd-gap-whesmf wbxbh), the Wormhole fast set (11 complexes x 4 seeds x 2 models, p150a, wbgbh) and the
@@ -1570,7 +1588,7 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # median 0.17 A vs 1.36 A, docking 24 -> 24. 512 aa --fast warm at 1350 MHz, A C A C: ESMFold2 15.75 -> 15.49 s,
 # ESMFold2-Fast 9.56 -> 9.31 s. Wormhole loses 2.4 s with them, so it drops them (_BH_ONLY_FAST).
 LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gin_hifi2+ws_resid+ws_lofi"
-               "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_opm_kq+ef2_relpos_lookup+ef2_atom_ffn_split"
+               "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_relpos_lookup+ef2_atom_ffn_split"
                "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm+trimul_bres")
 # ws_lofi passes the fast bar on Wormhole too, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
@@ -1587,7 +1605,7 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # 21.8 -> 20.1 s (wpi). Wormhole's normal set was graded without it (wng), so it stays fast-only there.
 _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # Wormhole's normal mode folds with the LM in bfp8 (load_ttnn_esmfold2) and adds the pair SwiGLU kernel (transition_ws
-# + ws_resid) and ef2_lm_combine + ef2_opm_kq to LEVERS_NORMAL: the set it folded for both modes before they split.
+# + ws_resid) and ef2_lm_combine to LEVERS_NORMAL: the set it folded for both modes before they split.
 # Without transition_ws ESMFold2's pair FFN runs row-blocked, 65 ms a call against 10 ms, and a 512 aa fold takes
 # 50.9 s instead of 34.7 (Galaxy chip, 1000 MHz, spd-gap-whesmf wl). Normal bar on Wormhole, against LEVERS_NORMAL with the LM
 # in bfp8: ESMFold2 CA-lDDT +0.0013 [-0.0006, +0.0039], top-pose median 0.73 A vs 1.73 A floor (44 paired folds, wng);
@@ -1598,7 +1616,7 @@ _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # bar, L-RMSD +1.77 A [+0.10, +3.92] and I-RMSD +0.30 A [+0.02, +0.74], though the top-pose median is 0.56 A against a
 # 1.20 A seed floor and docking 31 -> 31 of 44. ESMFold2-Fast --fast passes the fast bar with it (qrf, 44 paired folds:
 # CA-lDDT -0.0007 [-0.0031, +0.0011], top-pose median 0.79 A vs 1.26 A floor, docking 24 -> 24), so --fast keeps it.
-_WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+ef2_opm_kq+lm_qk_chain"
+_WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+lm_qk_chain"
 # lm_gate_ng keeps the 6B's SwiGLU gate on binary_ng in both modes (esmc._lm_gate_legacy, on for Wormhole elsewhere):
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
 # ef2_atom_rope is exact (rotate_half as a +-1 permutation matmul): ESMFold2-Fast 512 aa --fast CIF identical with and
@@ -1642,7 +1660,8 @@ def fold_levers(fast: bool) -> str:
         return os.environ["TT_BIO_LEVERS"]
     levers = LEVERS_FAST if fast else LEVERS_NORMAL
     if is_wormhole():
-        drop = _BH_ONLY_FAST if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
+        # ws_lofi too, since 2026-10-20: LoFi hangs Wormhole chips (tenstorrent.lofi_allowed)
+        drop = _BH_ONLY_FAST + ("ws_lofi",) if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     else:

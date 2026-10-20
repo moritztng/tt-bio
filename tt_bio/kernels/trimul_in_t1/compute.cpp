@@ -27,10 +27,14 @@
 #include "api/compute/eltwise_unary/rsqrt.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
+#if defined(ABL) && (ABL & 384)
+#define LN_ABL ((ABL >> 7) & 3)   // bench-only LN stage skips, see ln_prologue.hpp
+#endif
 #include "../common/ln_prologue.hpp"
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
-//   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
+//   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes,
+//   128 the layer_norm's gamma / beta stages, 256 its variance square (ln_prologue.hpp LN_ABL).
 #ifndef ABL
 #define ABL 0
 #endif

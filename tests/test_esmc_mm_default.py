@@ -295,6 +295,7 @@ def test_saprot_wh_fc1_out_blocks(hifi2, want, monkeypatch):
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_PROG", None)
     monkeypatch.setattr(sp, "_SAPROT_OUT_SPLIT", True)
+    monkeypatch.setattr(sp, "_SAPROT_FC1_MM", False)
     monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: True)
     x, w = _T(3808, 1280, ttnn.bfloat16), _T(1280, 5120, ttnn.bfloat8_b)
     assert sp._saprot_prog(x, w, "gelu_approx", hifi2) is None   # 8 x 8: per_core_M 15 does not halve
@@ -304,3 +305,43 @@ def test_saprot_wh_fc1_out_blocks(hifi2, want, monkeypatch):
     assert (pc.in0_block_w, pc.out_block_h, pc.out_block_w, pc.out_subblock_h, pc.out_subblock_w) == want
     monkeypatch.setattr(sp, "_SAPROT_OUT_SPLIT", False)
     assert sp._saprot_prog(x, w, "gelu_approx", hifi2) is None
+
+
+@pytest.mark.parametrize("hifi2, want", [(False, (8, 8, 8, 1, 4)), (True, (4, 8, 8, 1, 4))])
+def test_saprot_wh_fc1_minimal_matmul(hifi2, want, monkeypatch):
+    """Wormhole fc1 (GELU fused) runs on minimal_matmul by default, at the block measured for its fidelity."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_PROG", None)
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: True)
+    x, w = _T(3808, 1280, ttnn.bfloat16), _T(1280, 5120, ttnn.bfloat8_b)
+    x.device = lambda: types.SimpleNamespace(compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=9))
+    kind, c = sp._saprot_prog(x, w, "gelu_approx", hifi2)
+    assert kind == "mm"
+    assert (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w) == want
+
+
+class _NoSliceShape(tuple):
+    """ttnn.Shape: indexes by int, takes no slice."""
+    def __getitem__(self, i):
+        if isinstance(i, slice):
+            raise TypeError("ttnn.Shape takes no slice")
+        return tuple.__getitem__(self, i)
+
+
+@pytest.mark.parametrize("fid,dtype,want", [("HiFi3", ttnn.bfloat16, (8, 8, 8, 2, 2)), ("HiFi4", ttnn.bfloat16, None),
+                                            ("HiFi3", ttnn.bfloat8_b, None)])
+def test_saprot_wh_fc2_mm_resid_hifi3(fid, dtype, want, monkeypatch):
+    """Wormhole normal fc2 (bf16 weight at HiFi3) takes the residual add in mm_resid at its measured block; other fc2s keep
+    the 2D pick, which mm_resid does not serve."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_PROG", None)
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: True)
+    x, w = _T(3808, 5120, ttnn.bfloat16), _T(5120, 1280, dtype)
+    w.shape = _NoSliceShape(w.shape)
+    x.device = lambda: types.SimpleNamespace(compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=9))
+    lin = sp._SaprotLin.__new__(sp._SaprotLin)
+    lin._ck = lambda _w: types.SimpleNamespace(math_fidelity=getattr(ttnn.MathFidelity, fid))
+    seen = []
+    monkeypatch.setattr("tt_bio.mm_resid.matmul_add", lambda *a, **k: seen.append((a[4], a[5])) or "out")
+    out = lin._mm_resid(x, w, None, None, False)
+    assert (out, seen) == (("out", [(want, (8, 9))]) if want else (None, []))

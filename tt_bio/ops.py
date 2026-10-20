@@ -147,13 +147,24 @@ def kernel_entry(name):
     return None
 
 
-def declines_under_tape(name) -> bool:
+def declines_under_tape(name, *operands) -> bool:
     """Does the kernel called `name` have to decline this call for want of a backward?
 
     What a fused kernel's gate asks instead of `taping()`. True is the old unconditional
     answer; False means either no tape at all, or a tape with an entry for this kernel.
+
+    A gate that passes its `operands` also gets False when none of them is on the tape: such
+    a call has no gradient to drop, and the stock op it would fall back to passes the same raw
+    values straight through the tape (`taped_ttnn._taped_verb`). BC2's raw forwards under an
+    open tape ran the trimul's channel move as a 1.2 ms stock permute against the kernel's
+    0.1 ms for exactly this reason.
     """
-    return taping() and _KERNEL_ENTRIES.get(name) is None
+    if not taping() or _KERNEL_ENTRIES.get(name) is not None:
+        return False
+    if not operands:
+        return True
+    on_tape = getattr(grad_hook(), "on_tape", None)
+    return on_tape is None or on_tape(operands, {})
 
 
 @contextlib.contextmanager
