@@ -52,7 +52,7 @@ def _grid(dev):
     return g.x, g.y
 
 
-def phase1(Z, W, MK, S, fid, sig=1, abl=0, out=None):
+def phase1(Z, W, MK, S, fid, sig=1, abl=0, out=None, dest32=True):
     dev = Z.device()
     C = 128
     St, Kt = S // TILE, C // TILE
@@ -63,7 +63,7 @@ def phase1(Z, W, MK, S, fid, sig=1, abl=0, out=None):
     if out is None:
         out = [ttnn.allocate_tensor_on_device(ttnn.Shape([C, S, S]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
                                               ttnn.DRAM_MEMORY_CONFIG) for _ in range(2)]
-    key = ("p1", S, sig, abl, MK is not None, str(fid))
+    key = ("p1", S, sig, abl, MK is not None, str(fid), dest32)
     e = _CACHE.get(key)
     if e is None:
         rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
@@ -88,7 +88,7 @@ def phase1(Z, W, MK, S, fid, sig=1, abl=0, out=None):
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KDIR / "compute.cpp"), source_type=src, core_ranges=grid,
             compile_time_args=[Kt, int(MK is not None), sig, abl], runtime_args=cp,
-            config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=False, fp32_dest_acc_en=True,
+            config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=False, fp32_dest_acc_en=dest32,
                                                 dst_full_sync_en=False))
         f32 = ttnn.float32
         cbs = [_cb(0, grid, 16 * Kt), _cb(1, grid, 2 * Kt), _cb(2, grid, 16 * Kt), _cb(3, grid, 16),
