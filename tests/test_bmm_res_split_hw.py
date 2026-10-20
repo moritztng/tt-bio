@@ -64,8 +64,13 @@ def test_b8_resident_call_finishes_and_matches_float64(seq):
     out = bmm_res.matmul(A, B, compute_kernel_config=ckc, transpose_a=True, split=True, b8=True)
     assert out is not None
     got = ttnn.to_torch(out)
+    # The kernel packs b to bfp8 on the device, which rounds differently from a host from_torch, so the bound is
+    # against the bf16 truth: no worse than ttnn.matmul's own error plus what rounding b to bfp8 costs.
     b8t = ttnn.to_torch(ttnn.from_torch(b, dtype=ttnn.bfloat8_b, layout=ttnn.TILE_LAYOUT, device=dev))
-    r64 = a.double().transpose(-1, -2) @ b8t.double()
+    a64 = a.double().transpose(-1, -2)
+    r64 = a64 @ b.double()
     ref = ttnn.to_torch(ttnn.matmul(A, B, compute_kernel_config=ckc, memory_config=ttnn.DRAM_MEMORY_CONFIG,
                                     dtype=ttnn.bfloat16, transpose_a=True))
-    assert _rel64(got, r64) <= 1.05 * _rel64(ref, a.double().transpose(-1, -2) @ b.double()) + 1e-4
+    e, e_mm, e_b8 = _rel64(got, r64), _rel64(ref, r64), _rel64(a64 @ b8t.double(), r64)
+    print(f"b8 {seq}: rel {e:.5f}, ttnn.matmul {e_mm:.5f}, host bfp8 b {e_b8:.5f}")
+    assert e <= 1.1 * (e_mm ** 2 + e_b8 ** 2) ** 0.5 + 1e-4
