@@ -97,6 +97,7 @@ from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
 from tt_bio.host_controller import (
     LEASE_S,
+    MAX_LEASES,
     ControllerClient,
     ControllerServer,
     connect_controller,
@@ -2176,6 +2177,8 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
 @click.option("--lease-s", "lease_s", default=LEASE_S, type=float, show_default=True,
               help="Seconds a job stays with a worker that stops heartbeating before it is "
                    "handed to another. Workers heartbeat every 1/12 of it.")
+@click.option("--max-leases", "max_leases", default=MAX_LEASES, type=int, show_default=True,
+              help="Workers a job is handed to before a lapsed lease fails it instead.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--num_devices", default=0, type=int, help="Local devices to serve with (0=all). Ignored with --no-local-workers.")
 @click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use locally")
@@ -2185,7 +2188,7 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
 @click.option("--state-dir", default=None, type=click.Path(),
               help="Where to keep the controller's SQLite state (default: a temp dir, discarded on exit).")
 @click.option("--debug", is_flag=True, help="Do not suppress local worker output")
-def controller_cmd(port, lease_s, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
+def controller_cmd(port, lease_s, max_leases, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
     """Run a persistent controller for this host's chips.
 
     Starts the scheduler on 127.0.0.1 and, unless --no-local-workers, a worker
@@ -2207,7 +2210,7 @@ def controller_cmd(port, lease_s, accelerator, num_devices, device_ids, no_local
         tmpdir = Path(tempfile.mkdtemp(prefix="tt-bio-controller-"))
         db_path = tmpdir / "controller.sqlite3"
 
-    server = ControllerServer(port, db_path, lease_s)
+    server = ControllerServer(port, db_path, lease_s, max_leases)
     server.serve_in_background()
     url = f"http://127.0.0.1:{server.port}"
 
