@@ -102,13 +102,17 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # Protenix-v2 Wormhole fast set vs + trimul_sig6, 44 paired folds (spd-gap-small gsig6, 2026-10-15), PASS: same-seed
 # top pose median 0.333 A vs the 1.414 A A/A floor, CA-lDDT +0.0001 [-0.0013, +0.0016], docking 34 -> 35. Galaxy chip
 # (1000 MHz, s6x): -0.40 s, 4 of 4 pairs faster. Blackhole not measured.
+# ws_psilu (the SwiGLU silu on the packer thread, overlapping the matmuls) is bit-identical, so it needs no grade. At
+# c_z 256 the LayerNorm prologue does not fit L1 beside the bfp8 weights, so this transition runs the plain kernel at
+# LoFi: N512 6.00 -> 5.00 ms a call, equal to the math-thread silu (ws_attr, .107 chip 26, 2026-10-20). Galaxy chip
+# (1000 MHz, psf): CIFs identical, steady pairs -0.14 / -0.74 / -0.53 s.
 # dit_shoist (the token DiT's conditioning as three wide linears a step, each block reading its columns in place)
 # too: Wormhole 11-set fast grade, 44 paired folds (spd-gap-small gshx, 2026-10-15), PASS: same-seed top pose median
 # 0.256 A vs the 1.414 A floor, CA-lDDT +0.0014 [+0.0008, +0.0022], ipTM -0.0004, docking 34 -> 34. Galaxy chip 512 x 1
 # (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a 11-set fast grade, 44 paired folds (gshxbh,
 # 2026-10-16), PASS: top pose median 0.623 A vs the 1.371 A floor, CA-lDDT +0.0071 [+0.0035, +0.0115], docking
 # 34 -> 34; p150a 5 samples 37.46 -> 36.77 s (shxb). So it is Protenix-v2 --fast on both chips: SHOIST_FAST.
-WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6"})
+WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6", "ws_psilu"})
 SHOIST_FAST = frozenset({"dit_shoist"})
 # triatt_k1: triangle attention's fused SDPA takes the whole row as one k chunk at 288-512 tokens (no rescale pass;
 # op 1.13x at [512, 4, 512, 32] on a Galaxy chip). It fires only at those sizes, so it is graded on the 512-token
