@@ -162,6 +162,12 @@ g384 = put(torch.randn(1, 1, M, 384, generator=gen), hs(384))
 v256 = put(torch.randn(1, 1, M, 256, generator=gen), hs(256))
 m256 = put(torch.ones(1, 1, M, 256), hs(256))
 res["sigmoid"] = run("sigmoid_384", lambda: ttnn.sigmoid(g384, memory_config=hs(384)), 2)
+# controls: what fusion cannot remove from the sigmoid. relu is a near-free SFPU op, so relu_384 is the L1
+# unpack/pack/launch share; sigmoid minus relu is SFPU math every fused kernel still pays. Fast mode is a precision
+# change and only a lever if graded on designs.
+ctl_relu = run("ctl_relu_384", lambda: ttnn.relu(g384, memory_config=hs(384)), 2)
+ctl_fast = run("ctl_sigmoid_fast_384", lambda: ttnn.sigmoid(g384, mode=ttnn.SigmoidMode.FastApproximate,
+                                                             memory_config=hs(384)), 2)
 res["gate_mul"] = run("mul_256", lambda: ttnn.multiply(v256, m256, memory_config=hs(256)), 2)
 res["mask_mul"] = run("mask_mul_256", lambda: ttnn.multiply(v256, m256, memory_config=hs(256)), 2)
 
@@ -201,5 +207,6 @@ flop = 2 * N * N * C * 640 + 2 * C * N ** 3 + 2 * N * N * C * C
 emit(dict(phase="SUM", parts_ms=parts, missing=missing, floor_ms=fl, total_ms=round(tot, 4), net_ms=round(net, 4),
           whole_kernel_flop=flop, tflops_total=round(flop / tot / 1e9, 2) if tot else None,
           tflops_net=round(flop / net / 1e9, 2) if net else None,
+          sigmoid_math_ms=round((res["sigmoid"]["ms"] - ctl_relu.get("ms", 0)) * 2, 4) if "ms" in ctl_relu else None,
           aiclk_median=statistics.median(CLK) if CLK else None, aiclk_min=min(CLK) if CLK else None,
           aiclk_n=len(CLK)))

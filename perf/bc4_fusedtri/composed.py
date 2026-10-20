@@ -17,7 +17,7 @@ import torch, ttnn
 from tt_bio import tenstorrent as T
 from tt_bio.af2 import compute_kernel_config
 
-dev = T.get_device()
+dev = T.get_device(trace="bc2")
 CARD = os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0]
 CLK = []
 threading.Thread(target=lambda: [CLK.append(int(open(f"/sys/class/tenstorrent/tenstorrent!{CARD}/tt_aiclk").read()))
@@ -80,6 +80,22 @@ for ending in (False, True):
             ms.append((time.perf_counter() - t0) * 1e3 / A.burst)
         md = statistics.median(ms)
         r.update(ms=round(md, 4), min_ms=round(min(ms), 4), max_ms=round(max(ms), 4), tflops=round(flop / md / 1e9, 2))
+        try:  # traced: device time without Python dispatch, the form BC2's traced recomputes run in
+            tid = ttnn.begin_trace_capture(dev, cq_id=0)
+            for _ in range(A.burst):
+                ttnn.deallocate(f())
+            ttnn.end_trace_capture(dev, tid, cq_id=0)
+            ms = []
+            for _ in range(A.reps + 1):
+                t0 = time.perf_counter()
+                ttnn.execute_trace(dev, tid, cq_id=0, blocking=False); ttnn.synchronize_device(dev)
+                ms.append((time.perf_counter() - t0) * 1e3 / A.burst)
+            ttnn.release_trace(dev, tid); ms = ms[1:]
+            md = statistics.median(ms)
+            r.update(traced_ms=round(md, 4), traced_min_ms=round(min(ms), 4), traced_max_ms=round(max(ms), 4),
+                     traced_tflops=round(flop / md / 1e9, 2))
+        except Exception as e:
+            r["traced_error"] = f"{type(e).__name__}: {str(e)[:300]}"
     except Exception as e:
         r["error"] = f"{type(e).__name__}: {str(e)[:300]}"
     emit(r)
