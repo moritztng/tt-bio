@@ -72,10 +72,12 @@ void seed_res(uint32_t cb_res, uint32_t in0, uint32_t in1, uint32_t K, uint32_t 
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 
 #ifdef WS_PACK_SILU
-// WS_PACK_SILU (the `ws_psilu` lever, plain path only: no LN, L1ACC, RELU or RELU_BW): the silu runs on the packer
-// thread's SFPU calls (kernels/fc12g's pattern) instead of the math thread's, and fc1 of group j + SW is issued before
-// fc2 of group j, so the FPU's matmuls overlap the silu instead of waiting for it. The gate CB's 2 SW tiles hold the
-// two groups in flight. Same SFPU instructions on the same dest values: bit-identical to the math-thread silu.
+// WS_PACK_SILU (the `ws_psilu` lever; not with L1ACC, RELU or RELU_BW): the silu runs on the packer thread's SFPU
+// calls (kernels/fc12g's pattern) instead of the math thread's, and fc1 of group j + SW is issued before fc2 of group
+// j, so the FPU's matmuls overlap the silu instead of waiting for it. The gate CB's 2 SW tiles hold the two groups in
+// flight. Same SFPU instructions on the same dest values: bit-identical to the math-thread silu. With WS_LN the math
+// thread's LayerNorm SFPU work never meets the packer's: a row's last silu is packed into the gate CB before that
+// row's fc2 can finish, and the next row's fc1 (the packer's next silu) waits on the LN's packed x.
 template <uint32_t KT, uint32_t NH, uint32_t SW, uint32_t V>
 void fc1_gate(uint32_t j) {
     constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_gate = 3;

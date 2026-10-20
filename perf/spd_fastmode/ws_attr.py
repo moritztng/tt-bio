@@ -6,6 +6,7 @@ Arms: `fast` (bfp8 x and weights, HiFi2), `normal` (bf16, HiFi4) and `lofi` (bfp
 default polynomial silu plain and with one of the kernels' WS_NO_* defines (FC12, SILU, GATE, FC3 in compute; XREAD in the reader; WRITE in the writer), or several joined by `+`. A dropped phase makes the
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
 --rms runs every pair_swiglu call with the RMSNorm prologue (WS_RMS), as RFdiffusion3's pair Transition calls it.
+--ln runs it with the LayerNorm prologue (WS_LN) over a bf16 x, as the `ws_ln` lever (Protenix-v2 --fast) calls it.
 """
 import argparse, json, os, statistics, time
 
@@ -17,6 +18,7 @@ ap.add_argument("--c", type=int, default=256)
 ap.add_argument("--hidden", type=int, default=1024)
 ap.add_argument("--reps", type=int, default=20)
 ap.add_argument("--rms", action="store_true")
+ap.add_argument("--ln", action="store_true")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -33,11 +35,15 @@ dev = T.get_device()
 xt = ttnn.from_torch(torch.randn(1, a.n, a.n, c, generator=g), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                      device=dev)
 nw = ttnn.from_torch(torch.ones(c), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+nb = ttnn.from_torch(torch.randn(c, generator=g) * 0.1, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
 
 
 if a.rms:
     _ps = W.pair_swiglu
     W.pair_swiglu = lambda *args, **kw: _ps(*args, ln=(nw, None, 1e-6), **kw)
+if a.ln:
+    _ps = W.pair_swiglu
+    W.pair_swiglu = lambda *args, **kw: _ps(*args, ln=(nw, nb, 1e-5), **kw)
 
 
 def timed(fn):
@@ -71,14 +77,14 @@ for mode, dt, fid in MODES:
         emit(arm=mode, ms=None, note=f"{len(parts)} hidden chunks (L1)")
         continue
     (w12, w3t), = parts
-    x = ttnn.typecast(xt, dt) if dt != ttnn.bfloat16 else xt
-    if not W.eligible(x, w12, w3t):
+    x = ttnn.typecast(xt, dt) if dt != ttnn.bfloat16 and not a.ln else xt   # the LN prologue reads the raw bf16 x
+    if not W.eligible(x, w12, w3t, ln=(nw, nb) if a.ln else ()):
         emit(arm=mode, ms=None, note="not eligible (L1)")
         continue
     emit(arm=mode + "-metal_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 0)))
     emit(arm=mode + "-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, (), 2)))
     for tag, xin in (("", x), ("-bf16x", xt)):   # ws_psilu: the silu on the packer, must equal poly6 bit for bit
-        if tag and (dt == ttnn.bfloat16 or not W.eligible(xt, w12, w3t)):
+        if tag and (dt == ttnn.bfloat16 or a.ln or not W.eligible(xt, w12, w3t)):
             continue
         ref = ttnn.to_torch(W.pair_swiglu(xin, w12, w3t, fid, (), 2))
         got = ttnn.to_torch(W.pair_swiglu(xin, w12, w3t, fid, (), 2, pack_silu=True))
