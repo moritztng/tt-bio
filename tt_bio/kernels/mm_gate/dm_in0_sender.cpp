@@ -52,6 +52,10 @@ void kernel_main() {
     const uint32_t rope_cos_addr = get_arg_val<uint32_t>(argidx++);
     const uint32_t rope_sin_addr = get_arg_val<uint32_t>(argidx++);
 #endif
+#ifdef MM_RESID
+    // tt-bio mm_resid: the residual's address, before the outputs'
+    const uint32_t resid_addr = get_arg_val<uint32_t>(argidx++);
+#endif
 
 #ifdef FUSE_TERNARY
     // Fuse addcmul - read runtime addresses before setting out_addr_rt_arg_idx
@@ -82,6 +86,11 @@ void kernel_main() {
     constexpr auto sin_args = TensorAccessorArgs<cos_args.next_compile_time_args_offset()>();
     const auto rope_cos = TensorAccessor(cos_args, rope_cos_addr, rope_tile_size);
     const auto rope_sin = TensorAccessor(sin_args, rope_sin_addr, rope_tile_size);
+#endif
+#ifdef MM_RESID
+    constexpr uint32_t resid_tile_size = get_tile_size(tt::CBIndex::c_5);
+    constexpr auto resid_args = TensorAccessorArgs<in2_args.next_compile_time_args_offset()>();
+    const auto resid_reader = TensorAccessor(resid_args, resid_addr, resid_tile_size);
 #endif
 
 #ifdef FUSE_TERNARY
@@ -338,6 +347,12 @@ void kernel_main() {
 #ifdef MM_ROPE_T
             if constexpr (!is_output_writer) {
                 read_rope_block<M_block_tiles>(rope_cos, rope_sin, rope_tile_size, m_tile, m_tile_end);
+            }
+#endif
+#ifdef MM_RESID
+            if constexpr (!is_output_writer) {
+                read_resid_block<M_block_tiles, N_block_tiles>(
+                    resid_reader, out_shape, resid_tile_size, m_tile, m_tile_end, n_tile, n_tile_end);
             }
 #endif
 

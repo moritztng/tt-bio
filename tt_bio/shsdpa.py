@@ -100,10 +100,10 @@ def plan(B, H, S, cores, k_chunk=None, max_qt=None):
 
 
 def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2, grid=None, defines=None,
-         merged=False, exp_approx=False):
+         merged=False, exp_approx=False, out_dtype=None):
     """softmax(q k^T * scale, padded keys masked) v for bf16 [B, H, S, D] interleaved tensors (DRAM or L1); `pad` is the device
     `key_pad` pair built at the same k_chunk. `merged` writes the heads side by side, [B, 1, S, H * D], as
-    nlp_concat_heads would (bit-identical)."""
+    nlp_concat_heads would (bit-identical). `out_dtype` (default q's) is the output's storage dtype."""
     from . import tenstorrent as T
     k_chunk = k_chunk or k_chunk_default()
     B, H, S, D = (int(d) for d in q.shape)
@@ -114,7 +114,7 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2,
         defines = {"KEYPAD_ROW": 1, **(defines or {})}
     key = (B, H, S, D, grid, tuple(t.memory_config().buffer_type == ttnn.BufferType.L1 for t in (q, k, v)))
     table, row = pad
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, 1, S, H * D] if merged else [B, H, S, D]), q.dtype,
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, 1, S, H * D] if merged else [B, H, S, D]), out_dtype or q.dtype,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     while True:
         if auto:

@@ -708,6 +708,8 @@ _FAST_MODE = False
 #   ws_l1acc        with transition_ws, each matmul sums at most 2 K tiles in the fp32 dest and the packer adds
 #                   the chunks in L1 (the dest_guard remedy), so bf16 weights at c_z 256 / 384 (normal mode)
 #                   can take the kernel: summing all of K in dest wrote exact 1 / 2 / 4 errors there (wd1).
+#   ws_b8_plain     under ws_l1acc, chunks with bfp8 weights (transition_b8) run the plain kernel, all of K in the
+#                   fp32 dest: at c_z 256 bfp8 is one chunk, where the l1acc kernel took 10.5 ms against 6.9 (psn wsla).
 #   ws_resid        with transition_ws, fc3 adds the residual in its fp32 dest and writes over it: the transition's
 #                   `z + t` and the hidden-chunk sum stop being separate add passes over the pair (OpenDDE WH
 #                   fast census: 4.3 s of add_ per fold). Only where the weights take one hidden chunk (`ws_swiglu`).
@@ -788,6 +790,10 @@ _FAST_MODE = False
 #                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
 #   dit_shard       the token DiT's conditioned transition (Boltz-2) with its three [N, 2D] hidden products
 #                   block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and the gate after it as before.
+#   dit_fc123g      under dit_shard, the three hidden products and both multiplies as one fc12g pass over the
+#                   interleaved [gates | swish | a_to_b] weight (`_dit_transition_sharded`, kernels/fc12g).
+#   adaln_l1        a windowed adaLN (addcmul_at modulation) writes its LayerNorm output to L1 interleaved, not DRAM
+#                   (`_adaln_norm`). Placement only.
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -800,13 +806,14 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "acc_off", "diffusion_bf16", "dit_
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
-          "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
+          "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-          "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "dit_shard")
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_fc123g",
+            "adaln_l1")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -818,14 +825,15 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "acc_off", "diffusion_bf16", "dit_
 UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
-                             "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
+                             "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_fc123g",
+                             "adaln_l1"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -1414,9 +1422,10 @@ _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4":
 
 def lpx_compute_kernel_config(base):
     """`base` under the `lofi` and `acc_off` levers, or `base` itself when neither is on."""
-    if not (lever("lofi") or lever("acc_off")):
+    lofi = lever("lofi") and lofi_allowed()
+    if not (lofi or lever("acc_off")):
         return base
-    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi if lever("lofi") else base.math_fidelity,
+    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi if lofi else base.math_fidelity,
                      math_approx_mode=base.math_approx_mode,
                      fp32_dest_acc_en=base.fp32_dest_acc_en and not lever("acc_off"),
                      packer_l1_acc=base.packer_l1_acc)
@@ -4522,7 +4531,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_fc123g", "adaln_l1")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -6435,6 +6444,12 @@ _TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
 # two gated moves. Default on for Wormhole: AF2-IG WH fold 5.04 -> 4.77 s, ipTM within 0.002
 # (spd-gap-bind ginfold_134760004). Blackhole stays off until graded there. None = arch default.
 _TRIMUL_GIN_RAGGED = env_flag("TT_BIO_TRIMUL_GIN_RAGGED", None)
+# The biased gated in-projection (`trimul_tail.gin_ragged`, correct at any S) also where S is whole
+# tiles, for a call that carries in-projection biases (AF2): gin_moved takes no biases, so such a call
+# otherwise writes the [S, S, 4 hidden] projection and reads it back for the gated move. It runs in
+# the forwards a tape does not record (`_gin_biased`). Off outside a BindCraft 2 round on
+# Blackhole (`bindcraft2._FAST_ROUND`).
+_TRIMUL_GIN_BIASED = env_flag("TT_BIO_TRIMUL_GIN_BIASED", False)
 
 
 def set_trimul_gated_inproj(on: bool) -> bool:
@@ -7512,6 +7527,15 @@ def num_chips() -> int:
 
 def is_wormhole() -> bool:
     return arch_name() == "wormhole_b0"
+
+
+def lofi_allowed() -> bool:
+    """Whether a LoFi lever (`lofi`, `ws_lofi`, `triatt_lofi`) may take effect: Blackhole only. On Wormhole a LoFi
+    matmul stalls one core's unpacker on some chips and the fold hangs until the op timeout (spd-fasthang 2026-10-08:
+    5 hangs in 65 folds, every one at LoFi, the matmul throttle no cure; spd-gap-of3 2026-10-20: OpenFold3 9PCQ --fast
+    hung in 3 of 3 processes with the pair SwiGLU at LoFi and folded 48 of 48 clean without it). On Wormhole the
+    levers are no-ops, so no set or harness arm can bring LoFi back there."""
+    return not is_wormhole()
 
 
 def msa_row_tile(L: int, M: int) -> int:
@@ -9699,6 +9723,13 @@ def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> 
     if _reblock.eligible_back(chunk, memory_config):
         return _reblock.reblock_permute_back(chunk, memory_config)
     if _reblock.eligible_back(chunk, memory_config, taped_ok=True):
+        # Reached only with a tape open, so the hook `autograd.install` fills is there; asking it keeps
+        # the inference module from importing the training stack.
+        if not ops.grad_hook().on_tape((chunk,), {}):
+            # A raw chunk under an open tape (a fused kernel's output in a forward the tape does not
+            # record, `_gin_biased`): the shim hands an untaped call to the stock permute, and there
+            # is nothing here to differentiate, so the kernel takes it directly.
+            return _reblock.reblock_permute_back(chunk, memory_config)
         return ttnn.permute(chunk, (0, 2, 3, 1), memory_config=memory_config)
     out = ttnn.transpose(chunk, 1, 2, memory_config=memory_config)
     res = ttnn.transpose(out, 2, 3, memory_config=memory_config)
@@ -9717,6 +9748,32 @@ def _channel_move(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> ttnn.
     if _reblock.eligible(chunk, memory_config):
         return _reblock.reblock_permute(chunk, memory_config)
     return ttnn.permute(chunk, (0, 3, 1, 2), memory_config=memory_config)
+
+
+@ops.fused_kernel("trimul_gin_biased")
+def _gin_biased(x, wpT, wgT, bias, ckc, S, mask, memory_config):
+    """`trimul_tail.gin_ragged` with no tape entry: under a recording tape it declines (None) and the
+    composed in-projection runs; in a forward the tape does not record it gets raw operands."""
+    return _trimul_tail.gin_ragged(x, wpT, wgT, bias, ckc, tuple(COMPUTE_GRID_MAIN), S, mask=mask,
+                                   memory_config=memory_config)
+
+
+@ops.fused_kernel("trimul_t2cm_af2")
+def _t2cm_af2(xcm, ln_w, ln_b, wp, xb, z, wg, bp, bg, mask, ckc, cache, prev=None):
+    """`z + mask * (layer_norm(xcm moved) @ wp + bp) * sigmoid(xb @ wg + bg)` as T2CM, in a new tensor,
+    or None (nothing touched). AF2's trimul tail with its residual; `cache` (the module's dict) keeps
+    the row-replicated biases. No tape entry: under a recording tape it declines and the composed
+    ops run; in a forward the tape does not record, `fused_kernel` hands it raw operands."""
+    rows = cache.get("_t2cm_bias_rows")
+    if rows is None:
+        rows = cache["_t2cm_bias_rows"] = (_trimul_tail.bias_rows(bp), _trimul_tail.bias_rows(bg))
+    out = ttnn.allocate_tensor_on_device(z.shape, z.dtype, ttnn.TILE_LAYOUT, z.device(),
+                                         ttnn.DRAM_MEMORY_CONFIG)
+    r = _trimul_tail.fused_tail_ln_cm(xcm, ln_w, ln_b, wp, xb, z, ckc, tuple(COMPUTE_GRID_MAIN), wg=wg,
+                                      bp=rows[0], bg=rows[1], mask=mask, out=out, prev=prev)
+    if r is None:
+        ttnn.deallocate(out)
+    return r
 
 
 class TriangleMultiplication(Module):
@@ -10255,15 +10312,20 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
-                 add_to_input: bool = False) -> ttnn.Tensor:
-        """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`)."""
+                 add_to_input: bool = False, fused_residual=None) -> ttnn.Tensor:
+        """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`).
+
+        `fused_residual` = (dropout mask or None,) is AF2's offer: where T2CM serves the tail it
+        returns `x + mask * update` in a new tensor and sets `took_residual`; `x` is left to the
+        caller. Anywhere else the bare update comes back as without it."""
+        self.took_residual = False
         u = host_acc_after_refusal(
             ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
-                "triangle multiplication", lambda: self._multiply(x, mask, add_to_input)))
+                "triangle multiplication", lambda: self._multiply(x, mask, add_to_input, fused_residual)))
         return _add_input(x, u) if add_to_input else u
 
     def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None,
-                  add_to_input: bool = False) -> ttnn.Tensor:
+                  add_to_input: bool = False, fused_residual=None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
@@ -10474,10 +10536,16 @@ class TriangleMultiplication(Module):
         # `trimul_t2cm`: the whole hidden as ONE channel-major chunk, kept for T2 to read as it is
         # instead of being moved into x_out. Asked only where the T2 branch below would serve and the
         # stage fits in few enough parts to beat the move (`trimul_tail.t2cm_fit`).
-        x_cm, cm_mc = None, None
-        cm_on = (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
-                 and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
-                 and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None)
+        x_cm, cm_mc, cm_off = None, None, 0
+        # AF2 (`fused_residual`) takes the GATE form with both biases and its dropout mask, in the
+        # forwards its tape does not record; `_t2cm_af2` is the route.
+        af2 = (fused_residual is not None and g_out_fused is None and not fuse_gout
+               and x_norm_in is not None)
+        cm_ex = ((self.p_out_bias, self.g_out_bias, fused_residual[0], True) if af2 else None)
+        cm_on = ((af2 and not ops.recording() and H >= _trimul_tail.MIN_N)
+                 or (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
+                     and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
+                     and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
@@ -10517,20 +10585,22 @@ class TriangleMultiplication(Module):
                         if a_chunk is not None and defer:
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
-                    if (a_chunk is None and defer
-                            and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED)
-                            and int(x_in.shape[-2]) % 32
+                    ragged = (int(x_in.shape[-2]) % 32
+                              and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED))
+                    biased = _TRIMUL_GIN_BIASED and bias_i is not None
+                    if (a_chunk is None and defer and (ragged or biased)
                             and not row_norm and x_norm_in is not None
-                            and self.g_in_weight is None and not ops.taping()
+                            and self.g_in_weight is None
+                            and not (ops.recording() if biased else ops.taping())
                             and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (mask is None or mask_moved_ok)):
                         wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
                         S_ = int(x_in.shape[-2])
                         fold = mask is not None and _trimul_tail.gin_ragged_ok(x_norm_in, wpT, S_, mask)
-                        ab = _trimul_tail.gin_ragged(
+                        ab = _gin_biased(
                             x_norm_in, wpT, wgT, self._gp_in_gated_bias(chunk_size, group, S_)[i],
-                            _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                            S_, mask=mask if fold else None, memory_config=memory_config)
+                            _mm_generic.ckc_args(self.compute_kernel_config),
+                            S_, mask if fold else None, memory_config)
                         if ab is not None:
                             a_chunk, b_chunk = ab
                             a_masked = fold
@@ -10791,12 +10861,26 @@ class TriangleMultiplication(Module):
                             and _reblock.eligible_back(x_chunk, back_mc)))
                     into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
                             and _reblock.eligible_back(x_chunk, back_mc))
-                    if (into and cm_on and x_cm is None and x_out is None and c_done == 0
-                            and g_out_fused is not None and int(x_chunk.shape[1]) == self._hidden
+                    if (into and af2 and cm_on and x_cm is None and x_out is not None
+                            and c_done + int(x_chunk.shape[1]) == self._hidden
+                            and _trimul_tail.t2cm_fit(self.out_p_weight, True, _trimul_tail._extra_bits(cm_ex),
+                                                      c_done // 32) is None):
+                        # AF2 over several chunks: the last stays channel-major, the earlier ones are
+                        # already in x_out, and T2CM reads both (`prev`).
+                        x_cm, cm_mc, cm_off = x_chunk, back_mc, c_done
+                        c_done += int(x_chunk.shape[1])
+                        continue
+                    # AF2 needs no `into`: under its tape the back move is the taped permute, which
+                    # a late decline below falls back to.
+                    if ((into or af2) and cm_on and x_cm is None and x_out is None and c_done == 0
+                            and (g_out_fused is not None or af2) and int(x_chunk.shape[1]) == self._hidden
                             and _trimul_tail.t2cm_eligible(
                                 x_chunk, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
-                                g_out_fused, x_in,
-                                _mm_generic.ckc_args(self.compute_kernel_config)) is None):
+                                x_norm_in if af2 else g_out_fused, x_in,
+                                _mm_generic.ckc_args(self.compute_kernel_config),
+                                self.g_out_weight if af2 else None,
+                                (None, None, fused_residual[0], None) if af2 else None,
+                                own_switch=af2) is None):
                         # T2CM reads this chunk where it is; the move below never runs.
                         x_cm, cm_mc = x_chunk, back_mc
                         c_done += int(x_chunk.shape[1])
@@ -11031,9 +11115,21 @@ class TriangleMultiplication(Module):
             # `trimul_t2cm`: T2 on the channel-major chunk. Declined (it was eligible when kept, so
             # only a row-blocked tail gets here), the chunk takes the move it skipped and every
             # line below runs as without the lever.
-            fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
-                x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
-                x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+            if af2:
+                fused = None if rows_tail else _t2cm_af2(
+                    x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, x_norm_in, x_in,
+                    self.g_out_weight, self.p_out_bias, self.g_out_bias, fused_residual[0],
+                    _mm_generic.ckc_args(self.compute_kernel_config), self.__dict__,
+                    (x_out, cm_off) if cm_off else None)
+                if fused is not None:
+                    self.took_residual = True
+                    for t in (x_cm, x_norm_in) + ((x_out,) if cm_off else ()):
+                        ttnn.deallocate(t)
+                    return fused
+            else:
+                fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
+                    x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
+                    x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
             if fused is not None:
                 TRIMUL_GOUT_STATS[0] += 1
                 ttnn.deallocate(x_cm)
@@ -11041,9 +11137,13 @@ class TriangleMultiplication(Module):
                     ttnn.deallocate(x_norm_in)
                 ttnn.deallocate(g_out_fused)
                 return fused
-            x_out = ttnn.allocate_tensor_on_device(
-                ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
-            _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=0)
+            if af2 and not cm_off:
+                x_out = ttnn.permute(x_cm, (0, 2, 3, 1), memory_config=cm_mc)
+            else:
+                if not cm_off:
+                    x_out = ttnn.allocate_tensor_on_device(
+                        ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
+                _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=cm_off)
             ttnn.deallocate(x_cm)
             x_cm = None
 
@@ -13328,32 +13428,44 @@ def _transition_shard_rows(W: int, c: int, hid: int) -> int:
 _FC12G_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kernels", "fc12g", "compute_fc12g.cpp")
 
 
-def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden):
-    """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`).
+def _fc12g_subblock(pm, pn):
+    """(h, w) of an fc12g output subblock: it fits an fp32 dest half (4 tiles), one row when a product spans several."""
+    sw = max(w for w in range(1, 5) if pn % w == 0)
+    return (max(h for h in range(1, 5) if pm % h == 0 and h * sw <= 4) if sw == pn else 1), sw
 
-    One subblock is one fc half (1..4 rows x pn tiles, an fp32 dest half), fc1's then fc2's; the kernel runs the
-    silu on the PACK thread while MATH does fc2, then multiplies fc2 by the gate in dest (kernels/fc12g).
+
+def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden, products=2, defines=None):
+    """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`), or
+    with `products=3` silu(x @ w1) * (x @ w2) * (x @ w3) (`dit_fc123g`), each core column's in1 block its w1, w2
+    (and w3) columns in turn (`_fc12_interleave`).
+
+    A subblock fits an fp32 dest half (4 tiles); a product wider than that spans several subblocks of one row
+    each. The kernel runs the silu on the PACK thread while MATH does the next product, then multiplies each
+    further product by the running one in dest (kernels/fc12g).
     """
     from .mm2d_generic import generic_matmul_2d
-    sh = max(h for h in range(1, 5) if pm % h == 0 and h * pn <= 4)
+    sh, sw = _fc12g_subblock(pm, pn)
     pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
-        out_subblock_w=pn, out_block_h=pm, out_block_w=2 * pn, per_core_M=pm, per_core_N=2 * pn,
+        out_subblock_w=sw, out_block_h=pm, out_block_w=products * pn, per_core_M=pm, per_core_N=products * pn,
         transpose_mcast=False, fused_activation=None, fuse_batch=True)
     shape = list(x.shape)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape[:-1] + [gx * pn * 32]), hidden, ttnn.TILE_LAYOUT,
                                          x.device(), mc)
+    defines = {"FC12G_PACK_SILU": "1", "FC12G_PRODUCTS": str(products), **(defines or {})}
     # Everything the descriptor depends on that the arguments below do not already fix.
     key = ("fc12g", tuple(shape), x.dtype, x.memory_config().buffer_type, w12.dtype, hidden, pm, pn, sh, bw, gx,
-           gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc)
-    return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=1, compute_src=_FC12G_SRC,
-                             compute_defines={"FC12G_PACK_SILU": "1"}, gate_tiles=2 * sh * pn, key=key)
+           gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc,
+           tuple(sorted(defines.items())))
+    return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=pn // sw, compute_src=_FC12G_SRC,
+                             compute_defines=defines, gate_tiles=2 * sh * sw, key=key)
 
 
-def _fc12_interleave(w1: torch.Tensor, w2: torch.Tensor, gx: int) -> torch.Tensor:
-    """[K, 2N] whose j-th of `gx` column blocks is w1's j-th block then w2's: one core column's fc1 and fc2."""
-    b = w1.shape[1] // gx
-    return torch.cat([t for j in range(gx) for t in (w1[:, j * b:(j + 1) * b], w2[:, j * b:(j + 1) * b])], 1)
+def _fc12_interleave(*ws: torch.Tensor, gx: int) -> torch.Tensor:
+    """[K, len(ws) N] whose j-th of `gx` column blocks is each of `ws`'s j-th block in turn: one core column's
+    fc1 and fc2 (and fc3)."""
+    b = ws[0].shape[1] // gx
+    return torch.cat([w[:, j * b:(j + 1) * b] for j in range(gx) for w in ws], 1)
 
 
 def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=None, out_mc=None):
@@ -13415,11 +13527,19 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
-def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
-    """`b_to_a((silu(a w_sw) * (a w_gt)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
+_DIT_FC123G_IN1_BYTES = 900 * 1024
+_DIT_FC123G_REFUSED: set = set()
+
+
+def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
+    """`b_to_a((silu(a w_gt) * (a w_sw)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
     the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
     is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
-    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
+    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1).
+
+    `w3` (w_gt, w_sw and w_ab interleaved per core column, `_fc12_interleave`) computes the hidden product in one
+    fc12g pass (`dit_fc123g`): no hidden tensors and no separate multiplies (ditparts.py: the three linears and two
+    multiplies 157.6 us of the 209.9 us block, the one-pass [768, 4608] linear 113.2)."""
     xs = [int(d) for d in a.padded_shape]
     mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
     nt, ct = int(w_sw.shape[-1]) // 32, int(w_ba.shape[-1]) // 32
@@ -13439,11 +13559,30 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
     bw = _transition_kb("fc1", kt)
     hid = []
     try:
-        for w in (w_sw, w_gt, w_ab):
-            hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
-                                   dtype=a.dtype))
-        b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
-        b = ttnn.multiply_(b, hid[2])
+        # fc12g streams K in `bw` blocks, its in1 CB two blocks of three products: 576 KiB of bf16 at 512 x 1
+        # (K block 8 tiles, pn 6), beside 144 KiB of fp32 partials. Its fp32 multiplies need a dest tile past the
+        # subblock. A shape it cannot build (5 samples: pm 10 clashes in L1) falls back to the three linears below,
+        # and only that shape: dit_shard itself stays on.
+        b = None
+        if (w3 is not None and key not in _DIT_FC123G_REFUSED and gx == 8 and prod(_fc12g_subblock(pm, pn)) < 4
+                and 2 * 3 * pn * bw * 2048 <= _DIT_FC123G_IN1_BYTES):
+            try:
+                b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3,
+                           defines={"FC12G_MUL_SFPU": "1"})
+            except Exception as e:  # noqa: BLE001
+                _DIT_FC123G_REFUSED.add(key)
+                _latch("dit_fc123g", "refused", e)
+        if b is not None:
+            hid.append(b)
+            _latch("dit_fc123g", "served")
+        else:
+            if w3 is not None:
+                _latch("dit_fc123g", "declined")
+            for w in (w_sw, w_gt, w_ab):
+                hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc,
+                                       memory_config=mc, dtype=a.dtype))
+            b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+            b = ttnn.multiply_(b, hid[2])
         out = ttnn.linear(b, w_ba, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=a.dtype,
                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: the interleaved path from then on
@@ -13484,18 +13623,19 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     (the one-rounding floor 0.112), 0.158 at two (c_z 256 bf16), 0.221 at four (c_z 384 bf16); the Protenix-v2 normal
     grade with two-chunk resid lost 0.33 CA-lDDT on the 680-790 token complexes (spd-gap-small gwr, 2026-10-14).
     """
+    # ws_b8_plain: bfp8 weights take one chunk and run the plain kernel; the l1acc kernel costs ~1.5x there (psn wsla).
+    acc = lever("ws_l1acc") and not (lever("ws_b8_plain") and parts[0][0].dtype == ttnn.bfloat8_b)
     resid2 = (resid is not None and len(parts) > _WS_RESID_CHUNKS and lever("ws_resid2") and lever("ws_chain")
-              and all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=x) for w12, w3 in parts[1:-1])
-              and _pair_ws.eligible(x, *parts[-1], l1acc=lever("ws_l1acc"), resid=resid, resid2=x))
+              and all(_pair_ws.eligible(x, w12, w3, l1acc=acc, resid=x) for w12, w3 in parts[1:-1])
+              and _pair_ws.eligible(x, *parts[-1], l1acc=acc, resid=resid, resid2=x))
     if resid is not None and len(parts) > _WS_RESID_CHUNKS and not resid2:
         return None
-    if not all(_pair_ws.eligible(x, w12, w3, l1acc=lever("ws_l1acc"), resid=None if resid2 else resid)
+    if not all(_pair_ws.eligible(x, w12, w3, l1acc=acc, resid=None if resid2 else resid)
                for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
-    if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
+    if lever("ws_lofi") and lofi_allowed():   # LoFi drops the low bits of every operand
         fid = ttnn.MathFidelity.LoFi
-    acc = lever("ws_l1acc")
     ps = lever("ws_psilu")   # silu on the packer, overlapping the matmuls; bit-identical
     if (resid is None and lever("ws_ln") and len(parts) == 1
             and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
@@ -13563,7 +13703,7 @@ class Transition(Module):
             return None
         if getattr(self, "_w12", None) is None:
             self._w12 = ttnn.from_torch(
-                _fc12_interleave(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(), 8),
+                _fc12_interleave(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(), gx=8),
                 layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.fc1_weight.dtype)
         return self._w12
 
@@ -15186,6 +15326,24 @@ class Miniformer(Module):
         return s, z
 
 
+_ADALN_L1_BYTES = 4 << 20
+
+
+def _adaln_norm(a, ckc, windowed):
+    """The adaLN's parameter-free LayerNorm. Under `adaln_l1` the normalised activation of a windowed
+    (`addcmul_at`) adaLN goes to L1 interleaved: the modulation reads it straight back, so its DRAM write and
+    read are pure traffic (adaln_ln.py, Wormhole 512 x 1 fp32: LN 41.7 us, LN + addcmul_at 79.5 us)."""
+    if (windowed and lever("adaln_l1") and a.memory_config().buffer_type == ttnn.BufferType.DRAM
+            and prod(int(d) for d in a.padded_shape) * (4 if a.dtype == ttnn.float32 else 2) <= _ADALN_L1_BYTES):
+        try:
+            out = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc, memory_config=ttnn.L1_MEMORY_CONFIG)
+            _latch("adaln_l1", "served")
+            return out
+        except Exception as e:  # noqa: BLE001  an L1 clash: this call in DRAM
+            _latch("adaln_l1", "refused", e)
+    return ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc)
+
+
 class AdaLN(Module):
     def __init__(
         self,
@@ -15274,9 +15432,8 @@ class AdaLN(Module):
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
-        a = ttnn.layer_norm(
-            a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config
-        )
+        a = _adaln_norm(a, self.compute_kernel_config,
+                        isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin))
         own = s_terms is None
         if own:
             s_terms = self.s_terms(s, large_seq_len)
@@ -15350,6 +15507,18 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_weight = self.torch_to_tt("output_projection.0.weight")
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
+    def _w123(self):
+        """gates | swish | a_to_b interleaved for the fc12g kernel's three-product pass, built on first use; None
+        unless `dit_fc123g` is on (and silu_f32, whose PACK-thread silu the kernel runs)."""
+        if not (lever("dit_fc123g") and lever("silu_f32")):
+            return None
+        if getattr(self, "_w3", None) is None:
+            swish, gates = torch.chunk(self.weights["swish_gate.0.weight"], chunks=2, dim=0)
+            self._w3 = ttnn.from_torch(
+                _fc12_interleave(gates.t(), swish.t(), self.weights["a_to_b.weight"].t(), gx=8),
+                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.a_to_b_weight.dtype)
+        return self._w3
+
     def __call__(
         self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None, residual=None
     ) -> ttnn.Tensor:
@@ -15360,7 +15529,7 @@ class ConditionedTransitionBlock(Module):
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
         b_a = (_dit_transition_sharded(a, self.swish_weight, self.gates_weight, self.a_to_b_weight,
-                                       self.b_to_a_weight, self.compute_kernel_config)
+                                       self.b_to_a_weight, self.compute_kernel_config, self._w123())
                if lever("dit_shard") and not self.atom_level and self.a_to_b_gate else None)
         if b_a is not None:
             ttnn.deallocate(a)

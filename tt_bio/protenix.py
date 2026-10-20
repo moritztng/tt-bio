@@ -112,7 +112,9 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a 11-set fast grade, 44 paired folds (gshxbh,
 # 2026-10-16), PASS: top pose median 0.623 A vs the 1.371 A floor, CA-lDDT +0.0071 [+0.0035, +0.0115], docking
 # 34 -> 34; p150a 5 samples 37.46 -> 36.77 s (shxb). So it is Protenix-v2 --fast on both chips: SHOIST_FAST.
-WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6", "ws_psilu"})
+# ws_lofi is out of it since 2026-10-20: LoFi hangs Wormhole chips (tenstorrent.lofi_allowed), so the kernel runs
+# HiFi2 there.
+WS_FAST = frozenset({"ws_ln", "trimul_sig6", "ws_psilu"})
 SHOIST_FAST = frozenset({"dit_shoist"})
 # triatt_k1: triangle attention's fused SDPA takes the whole row as one k chunk at 288-512 tokens (no rescale pass;
 # op 1.13x at [512, 4, 512, 32] on a Galaxy chip). It fires only at those sizes, so it is graded on the 512-token
@@ -188,22 +190,35 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # [-0.0003, +0.0008], iRMSD -0.30 [-0.85, -0.004], ipTM -0.009 [-0.022, -0.001], docking 36 -> 36; dit_shoist alone
 # 0.077 A, every interval covers 0. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, steady warm pairs: dit_shoist
 # -0.72 / -0.61 / -1.01 s (shn), trimul_t1w8 -0.72 / -0.68 / -0.54 s (t1n). Blackhole is ungraded.
-WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8"})
+# transition_b8 + ws_b8_plain (bfp8 pair-transition weights in one chunk on the plain SwiGLU kernel): Wormhole 512-token
+# normal grade vs the set above (spd-m-protenix gtbn, 2026-10-20), 42 paired folds over 4 seeds: same-seed top pose median
+# 0.273 A vs the 0.6 A bar (1.254 A A/A floor), docking 35/42 -> 35/42, every interval covers 0. transition_b8 alone read 0.731 A.
+# Separate processes on one Galaxy chip at 1000 MHz (tbx): 55.98 / 55.99 -> 53.36 / 53.21 s warm; transition_b8 alone 55.18 s.
+# ws_psilu rides along bit-identically on that plain kernel: CIFs identical on 8 of 8 warm folds, separate processes on
+# one Galaxy chip at 1000 MHz (psn): 53.36 / 53.24 / 53.72 / 53.24 -> 52.81 / 52.82 / 52.62 / 53.02 s warm.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu"})
+# dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
+# float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
+# mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
+# vs the 0.6 A bar (1.319 A A/A floor), docking 36 -> 36; fast 0.305 A (1.305 A floor), docking 37 -> 37; every interval
+# covers 0. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, in-process A/B (shx): median -0.25 s normal, -0.32 s fast.
+# Blackhole is ungraded.
+SHOIST_MM_WH = frozenset({"dit_shoist_mm"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1` and `SHOIST_MM_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
-    pair_ln = TRIATT_LN | TRIATT_K1 if v2 and wh else frozenset()
+    wh_both = TRIATT_LN | TRIATT_K1 | SHOIST_MM_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
-    fast = WH_FAST_LEVERS | pair_ln | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
+    fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL
-                            | (WH_V2_NORMAL if wh else frozenset()) if v2 else NORMAL_LEVERS) | pair_ln,
+                            | (WH_V2_NORMAL if wh else frozenset()) if v2 else NORMAL_LEVERS) | wh_both,
                            fast | SHOIST_FAST if v2 else fast)
 
 
@@ -1954,6 +1969,17 @@ class DiffusionModule(_KeyedWeights):
         lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
             x, w, bias=b, activation=act, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         sig = _T.mm_sigmoid(ckc)
+        if _T.lever("dit_shoist_mm") and sig == "sigmoid":
+            # ttnn.linear's own schedule reads these [N, 384] x [384, 36864] at ~57 GB/s; a 2 x 16 tile block per core
+            # runs 2.2x (fp32) / 2.0x (bf16) faster at the same fidelity and the same float64 error (shm2, WH). K block 1
+            # only: minimal_matmul returned elements off by 4-8 at fp32 with K block >= 2 and at bf16 with K block 12.
+            gx, gy = _T.COMPUTE_GRID_MAIN
+            cfg = ttnn.MinimalMatmulConfig(M_block_size=2, K_block_size=1,
+                                           N_block_size=16, subblock_h=1, subblock_w=4,
+                                           compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
+            lin = lambda x, w, b=None, act=None: ttnn.experimental.minimal_matmul(  # noqa: E731
+                x, w, bias_tensor=b, compute_kernel_config=ckc, dtype=dt, config=cfg,
+                fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID) if act else None)
         out = (lin(s_hat, w_sc, b_sc, sig), lin(s_hat, w_sb), lin(s_t, w_g, b_g, sig))
         ttnn.deallocate(s_hat)
         return out

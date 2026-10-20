@@ -48,11 +48,12 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     normal_set = rt.fold_levers(False).split("+")
     assert "trimul_gin_hifi2" in normal_set
     # Wormhole's normal mode keeps the pair SwiGLU kernel and the LM levers; Blackhole's does not.
-    assert all((n in normal_set) is wormhole for n in ("transition_ws", "ws_resid", "ef2_lm_combine", "ef2_opm_kq"))
-    # Fast-only on both archs: trimul_b8in and ws_lofi, so a Wormhole --fast fold is not the normal one.
+    assert all((n in normal_set) is wormhole for n in ("transition_ws", "ws_resid", "ef2_lm_combine"))
+    # Fast-only: trimul_b8in on both archs, so a Wormhole --fast fold is not the normal one; ws_lofi on Blackhole
+    # only (LoFi hangs Wormhole chips).
     fast_set = rt.fold_levers(True).split("+")
     assert "ws_resid" in fast_set and fast_set.count("trimul_gin_hifi2") == 1
-    assert "ws_lofi" in fast_set and "ws_lofi" not in normal_set
+    assert ("ws_lofi" in fast_set) is not wormhole and "ws_lofi" not in normal_set
     assert "trimul_b8in" in fast_set and "trimul_b8in" not in normal_set
     # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
     assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))
@@ -62,7 +63,6 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
         names = rt.fold_levers(fast).split("+")
         assert "ef2_relpos_lookup" in names and "ef2_bit_draw" in names
         assert ("ef2_pair_init" in names) is (fast or not wormhole)
-    assert ("ef2_opm_kq" in rt.fold_levers(False).split("+")) is wormhole
     # qk_rope_heads in the LM failed ESMFold2's normal bar on Wormhole (qrn) and passed the fast one (qrf).
     # Blackhole keeps the LM as it folded before ESMC took the Wormhole LM path there (no fold graded yet).
     assert "lm_qk_chain" in normal_set and ("lm_qk_chain" in fast_set) is not wormhole

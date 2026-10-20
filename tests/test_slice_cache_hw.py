@@ -15,6 +15,7 @@ import torch
 import ttnn
 
 from tt_bio import tenstorrent as T
+from tt_bio.main import ensure_p300_mesh_descriptor
 
 pytestmark = pytest.mark.device
 
@@ -23,6 +24,7 @@ S, C, E = 1536, 32, 192
 
 @pytest.fixture(scope="module")
 def dev():
+    ensure_p300_mesh_descriptor()
     d = ttnn.open_device(device_id=0)
     yield d
     T._close_device_locked(d)

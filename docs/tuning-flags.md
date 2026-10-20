@@ -22,6 +22,8 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_AF2_OPM_ROWS_IN_K`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | moves the forward, closer to float64 |
 | [`TT_BIO_AF2_TRANSITION_WS`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.03 A for AF2-IG |
 | [`TT_BIO_AF2_COL_DEPTH2`](#bindcraft-2-round-kernels) | on | AF2-IG, BindCraft 2 | within 0.30 A for AF2-IG; BindCraft 2 design metrics not worse |
+| [`TT_BIO_AF2_T2CM`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round on Blackhole | BindCraft 2 on Blackhole | moves, design metrics not worse |
+| [`TT_BIO_TRIMUL_GIN_BIASED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round on Blackhole | BindCraft 2 on Blackhole | moves, design metrics not worse |
 | [`TT_BIO_ATOM_AXIS_BUCKET`](#tt_bio_atom_axis_bucket) | on | | identical at 298 residues, not guaranteed at 512 |
 | [`TT_BIO_ATOM_SHIFT_GATHER`](#tt_bio_atom_shift_gather) | on | | identical |
 | [`TT_BIO_ATOM_KV_WINDOW`](#tt_bio_atom_tile_heads-tt_bio_atom_kv_window) | on | Protenix-v2, OpenDDE, PXDesign | identical |
@@ -164,6 +166,8 @@ and pLDDT 0.897 against 0.901. AF2-IG structures are bit-identical with it on.
 | `TT_BIO_RNE_MASK` | The dropout keep-mask multiply and the residual add after it as one kernel, so the masked update is never written. On by default, not only in the round: only a round draws dropout masks. |
 | `TT_BIO_AF2_TRANSITION_WS` | AF2's pair Transition (LayerNorm, fc1, ReLU, fc2) as one program with both weights in L1, so the normed input and the 4x-wide hidden never reach DRAM. In a round its backward is two programs (`pair_relu` in `TT_BIO_TAPED_KERNELS`). On for every AF2 fold, not only in the round. |
 | `TT_BIO_AF2_COL_DEPTH2` | The MSA column attention over two MSA rows in closed form: with two keys the softmax is a sigmoid of the logit gap, so it runs in the MSA's own layout instead of a transposed one where each 32-row tile holds 2 real rows. On for every AF2 fold, not only in the round. |
+| `TT_BIO_AF2_T2CM` | In the forwards a round does not record, the triangle multiplication's output tail and the residual add after it as one kernel, so the update is never written. Blackhole only. |
+| `TT_BIO_TRIMUL_GIN_BIASED` | In the same forwards, the triangle multiplication's biased input projection, its gate and the channel move as one kernel per channel chunk, so the projection is never written whole. Blackhole only. |
 
 **Accuracy.** Each was graded on its own against a float64 reference of an Evoformer block's VJP
 at 288 tokens, blocks 0, 3 and 7. The largest move any of them makes is 6e-4 rel L2 (pair_mm on
@@ -207,6 +211,17 @@ were; on the teacher-forced float64 block VJP with two MSA rows no block moves b
 0.0017. Together with a ReLU backward that now gates its multiply in place (bit-exact, no flag),
 it takes the 288-token round on a p300c from 4.055 to 3.946 s, 1.028x, six arms alternated at
 AICLK 1350 with disjoint ranges.
+
+`TT_BIO_AF2_T2CM` and `TT_BIO_TRIMUL_GIN_BIASED` came later still and were graded together. They act on
+the forwards a round does not record (recycles and validation folds), and take one PD-L1 iteration on a
+p150a from 2.323 to 2.201 s, 1.055x (A/B/A at AICLK 1350, nine warm trajectories per arm, A arms 2.338
+and 2.308). Against float64 at 224 tokens the fused tail reads 0.0072 rel L2 where the composed ops read
+0.0048, and the biased projection 0.0029 to 0.0031 against 0.0029. On designs, 30 PD-L1 trajectories on a
+p300c chip accepted 9 binders where the stock B200 reference accepted 10 of 34 and the TT reference 8 of
+30, with no design metric significantly different (Holm over 17 tests). That run detects only a shift of
+about 0.7 SD, so it rules out a gross regression rather than proving the designs equivalent. Both stay
+off on Wormhole, where they were not graded, and outside the round: with both on, AF2-IG's trunk moves
+ipTM by 0.006 against its 0.005 bar.
 
 ## `BOLTZ2_TOKEN_DIT_SDPA`
 

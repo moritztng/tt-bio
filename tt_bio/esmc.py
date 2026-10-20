@@ -376,19 +376,21 @@ def _lm_mask_into(attn_mask, lens, dst):
         ttnn.copy_host_to_device_tensor(_sdpa_mask(attn_mask, dtype=dst.dtype), dst)
 
 
-def lm_sdpa(q, k, v, attn_mask, scale: float, merge: bool = False, ckc=None):
+def lm_sdpa(q, k, v, attn_mask, scale: float, merge: bool = False, ckc=None, out_dtype=None):
     """The language models' fused SDPA at the _lm_sdpa_chunks config, or `shsdpa` for a KeyPad mask. A shape whose
     few-k-chunk program the device refuses (its circular buffers clash with L1 tensors) runs at the k64 config from
     then on. `merge` returns the heads concatenated, [B, L, H * D]: shsdpa writes that layout itself (_LM_SDPA_MERGED),
     the stock op is followed by nlp_concat_heads. `ckc` overrides shsdpa's kernel config (fidelity, approx, fp32 dest,
-    full sync); None keeps its HiFi2."""
+    full sync); None keeps its HiFi2. `out_dtype` narrows the merged shsdpa output (packed from its fp32 dest); every
+    other path returns q's dtype."""
     if isinstance(attn_mask, KeyPad):
         # Interleaved DRAM or L1 (SaProt's RoPE leaves q, k in L1): the reader addresses each through its own accessor.
         if int(q.shape[-1]) % 32 == 0 and all(t.dtype == ttnn.bfloat16 and not t.is_sharded() for t in (q, k, v)):
             from tt_bio import shsdpa
             SHSDPA_STATS[0] += 1
             if merge and _LM_SDPA_MERGED:
-                return ttnn.squeeze(shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2, merged=True), 1)
+                return ttnn.squeeze(shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2, merged=True,
+                                                out_dtype=out_dtype), 1)
             o = shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2)
             return _concat_heads(o) if merge else o
         SHSDPA_STATS[1] += 1
@@ -1439,7 +1441,7 @@ class SwiGLUFFN(_MMLin, Module):
         if T.lever("swiglu_fc12g") and T.lever("silu_f32"):
             if getattr(self, "_w12", None) is None:
                 w1, w2 = (ttnn.to_torch(w).float() for w in (self.fc1_a_weight, self.fc1_b_weight))
-                self._w12 = ttnn.from_torch(T._fc12_interleave(w1, w2, 8), layout=ttnn.TILE_LAYOUT,
+                self._w12 = ttnn.from_torch(T._fc12_interleave(w1, w2, gx=8), layout=ttnn.TILE_LAYOUT,
                                             device=self.fc1_a_weight.device(), dtype=self.fc1_a_weight.dtype)
             w12 = self._w12
         ck = self.compute_kernel_config

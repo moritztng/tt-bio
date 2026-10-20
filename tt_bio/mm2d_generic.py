@@ -432,6 +432,9 @@ def build(device, in0, in1, out, pc, ckc, out_nzsb_w=None, compute_src=None, com
     if gate_tiles is not None:                      # c_5 as a gate buffer for a patched K6, in the output's format
         interm_dt, interm_ts, do_not_inplace_interm0_out_CB = out_dt, out_ts, True
         cbs.append(_cb(5, all_cores, out_dt, out_ts, int(gate_tiles) * out_ts))
+        if num_blocks > 1:                          # c_24: the patched K6's partials between K blocks
+            part_dt = ttnn.float32 if fp32_dest_acc_en else out_dt
+            cbs.append(_cb(24, all_cores, part_dt, tile_bytes(part_dt), out_block_tiles * tile_bytes(part_dt)))
     elif do_not_inplace_interm0_out_CB or interm_dt != out_dt:                      # F2D:942-966
         cbs.append(_cb(5, all_cores, interm_dt, interm_ts, interm0_CB_tiles * interm_ts))
     else:                                                                           # F2D:967-976, shared
@@ -551,6 +554,8 @@ def build(device, in0, in1, out, pc, ckc, out_nzsb_w=None, compute_src=None, com
     named_k3 = {"cb_in0": 0}                                                                  # F2D:777-779
     named_k6 = {"cb_in0": 0, "cb_in1": 1, "cb_bias": 3, "cb_out": 4, "cb_intermed0": 5,
                 "cb_in0_intermediate": 8, "cb_in1_intermediate": 9, "cb_in0_transposed": 10}  # F2D:864-873
+    if gate_tiles is not None:
+        named_k6["cb_partial"] = 24
 
     kernels, knames = [], []
 
