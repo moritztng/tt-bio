@@ -895,41 +895,42 @@ class AF2MaskedOuterProductMean(OuterProductMean):
         self._o_joined: dict[tuple[int, int, int], ttnn.Tensor] = {}
 
     def _rows_joined_weight(self, S: int, C: int, D: int) -> ttnn.Tensor:
-        """`proj_o` as [S * C, c_z * S * D], block diagonal over the rows: entry
-        `(s * C + c, (k * S + s) * D + d)` is `W[c, d, k]` and every other entry is 0.
+        """`proj_o` as [c_z * S * D, S * C], block diagonal over the rows: entry
+        `((k * S + s) * D + d, s * C + c)` is `W[c, d, k]` and every other entry is 0.
 
-        `a2 @ this` is every row's `sum_c a_sic W_cdk` at once, already in the [I, c_z, S * D]
-        order the contraction with `b` reads, so the product needs one reshape and nothing else.
-        Built from the device copy, so it holds exactly the bf16 values `proj_o` holds; the zero
-        blocks add exact zeros to the fp32 destination."""
+        `this @ a^T` is every row's `sum_c a_sic W_cdk` at once as [c_z * S * D, I], which splits
+        to [c_z, S * D, I] without moving a byte (S * D is whole tiles), and the contraction with
+        `b` reads that transposed. Built from the device copy, so it holds exactly the bf16 values
+        `proj_o` holds; the zero blocks add exact zeros to the fp32 destination."""
         w = self._o_joined.get((S, C, D))
         if w is None:
             o = ttnn.to_torch(self.o_weight)
             c_z = int(o.shape[-1])
-            per_row = o.reshape(C, D, c_z).permute(0, 2, 1)
-            blocks = torch.zeros(S, C, c_z, S, D, dtype=o.dtype)
+            per_row = o.reshape(C, D, c_z).permute(2, 1, 0)
+            blocks = torch.zeros(c_z, S, D, S, C, dtype=o.dtype)
             for s_i in range(S):
-                blocks[s_i, :, :, s_i, :] = per_row
-            w = ttnn.from_torch(blocks.reshape(S * C, c_z * S * D), dtype=ttnn.bfloat16,
+                blocks[:, s_i, :, s_i, :] = per_row
+            w = ttnn.from_torch(blocks.reshape(c_z * S * D, S * C), dtype=ttnn.bfloat16,
                                 layout=ttnn.TILE_LAYOUT, device=self.device)
             self._o_joined[(S, C, D)] = w
         return w
 
     def _sum_rows_joined(self, a, b, S, I, C, J, D):
-        """`_sum_rows` with the rows inside the contraction: [I, c_z, S*D] x [S*D, J] is one
+        """`_sum_rows` with the rows inside the contraction: [c_z, I, S*D] x [S*D, J] is one
         product, accumulated in the fp32 destination, where S products and S-1 bf16 adds of
-        [J, I, c_z] would round each partial. Each operand comes out of one op already in the
-        layout the product reads; the per-row form took a matmul, a row-major round trip and a
-        permute per row, and a concat per operand."""
+        [J, I, c_z] would round each partial. The first product comes out as [c_z * S * D, I],
+        a tile view of the [c_z, S * D, I] the second reads with `transpose_a`. The per-row
+        form took a matmul, a row-major round trip and a permute per row and a concat per
+        operand; [I, c_z * S * D] would need a byte-moving reshape (0.6 ms at 224 on a p300)."""
         w = self._rows_joined_weight(S, C, D)
-        c_z = int(w.shape[1]) // (S * D)
-        a2 = ttnn.reshape(ttnn.permute(a, (1, 0, 2)), (I, S * C))
-        A = ttnn.matmul(a2, w, compute_kernel_config=self.compute_kernel_config,
+        c_z = int(w.shape[0]) // (S * D)
+        at = ttnn.reshape(ttnn.permute(a, (0, 2, 1)), (S * C, I))
+        T = ttnn.matmul(w, at, compute_kernel_config=self.compute_kernel_config,
                         core_grid=CORE_GRID_MAIN)
-        A = ttnn.reshape(A, (I, c_z, S * D))
+        T = ttnn.reshape(T, (c_z, S * D, I))
         bt = ttnn.reshape(ttnn.permute(b, (0, 2, 1)), (S * D, J))
-        out = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config)
-        out = ttnn.permute(out, (0, 2, 1))
+        out = ttnn.matmul(T, bt, transpose_a=True, compute_kernel_config=self.compute_kernel_config)
+        out = ttnn.permute(out, (1, 2, 0))
         out = ttnn.add(out, self.o_bias)
         return ttnn.reshape(out, (1, *tuple(out.shape)))
 

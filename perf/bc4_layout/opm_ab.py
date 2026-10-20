@@ -13,9 +13,9 @@ sys.path.insert(0, str(ROOT))
 
 def per_row(opm, a, b):
     """main 1764bf7a4's `_sum_rows` with `rows_in_k`: per-row matmul, row-major round trip, permute,
-    then a concat per operand."""
-    import ttnn
-    from tt_bio.af2 import CORE_GRID_MAIN
+    then a concat per operand. `af2.ttnn` is the name the tape shims, so read it at call time."""
+    from tt_bio import af2
+    ttnn, CORE_GRID_MAIN = af2.ttnn, af2.CORE_GRID_MAIN
     S, I, C = (int(d) for d in a.shape)
     _, J, D = (int(d) for d in b.shape)
     w = opm._proj_o_folded(C, D)
@@ -33,6 +33,35 @@ def per_row(opm, a, b):
     out = ttnn.matmul(ttnn.concat(As, dim=-1), ttnn.concat(bts, dim=0),
                       compute_kernel_config=opm.compute_kernel_config)
     out = ttnn.permute(out, (0, 2, 1))
+    out = ttnn.add(out, opm.o_bias)
+    return ttnn.reshape(out, (1, *tuple(out.shape)))
+
+
+def joined_v1(opm, a, b):
+    """38b29fe0e's joined form: a2 [I, S*C] @ Wb [S*C, c_z*S*D], then a byte-moving reshape to
+    [I, c_z, S*D]."""
+    import torch as _t
+    from tt_bio import af2
+    ttnn, CORE_GRID_MAIN = af2.ttnn, af2.CORE_GRID_MAIN
+    S, I, C = (int(d) for d in a.shape)
+    _, J, D = (int(d) for d in b.shape)
+    key = ("v1", S, C, D)
+    w = opm._o_joined.get(key)
+    if w is None:
+        o = ttnn.to_torch(opm.o_weight)
+        c_z = int(o.shape[-1])
+        blocks = _t.zeros(S, C, c_z, S, D, dtype=o.dtype)
+        for s_i in range(S):
+            blocks[s_i, :, :, s_i, :] = o.reshape(C, D, c_z).permute(0, 2, 1)
+        w = ttnn.from_torch(blocks.reshape(S * C, c_z * S * D), dtype=ttnn.bfloat16,
+                            layout=ttnn.TILE_LAYOUT, device=opm.device)
+        opm._o_joined[key] = w
+    c_z = int(w.shape[1]) // (S * D)
+    a2 = ttnn.reshape(ttnn.permute(a, (1, 0, 2)), (I, S * C))
+    A = ttnn.reshape(ttnn.matmul(a2, w, compute_kernel_config=opm.compute_kernel_config,
+                                 core_grid=CORE_GRID_MAIN), (I, c_z, S * D))
+    bt = ttnn.reshape(ttnn.permute(b, (0, 2, 1)), (S * D, J))
+    out = ttnn.permute(ttnn.matmul(A, bt, compute_kernel_config=opm.compute_kernel_config), (0, 2, 1))
     out = ttnn.add(out, opm.o_bias)
     return ttnn.reshape(out, (1, *tuple(out.shape)))
 
@@ -86,7 +115,7 @@ def main():
                 ag.release_pins()
                 return yv
 
-            arms = {"per_row": per_row, "joined": lambda o, x, y: o._sum_rows(x, y)}
+            arms = {"per_row": per_row, "joined_v1": joined_v1, "joined": lambda o, x, y: o._sum_rows(x, y)}
             got, row = {}, {}
             for name, fn in arms.items():
                 yv = step(fn); tr.sync()
@@ -95,8 +124,9 @@ def main():
                              ((yv, ref), (al.grad, A64.grad), (bl.grad, B64.grad))]
                 row[name] = {"out": rel(got[name][0], ref.detach()), "da": rel(got[name][1], A64.grad),
                              "db": rel(got[name][2], B64.grad)}
-            row["bit_equal"] = {k: bool(torch.equal(x, y)) for k, x, y in
-                                zip(("out", "da", "db"), got["per_row"], got["joined"])}
+            row["bit_equal"] = {arm: {k: bool(torch.equal(x, y)) for k, x, y in
+                                      zip(("out", "da", "db"), got["per_row"], got[arm])}
+                                for arm in arms if arm != "per_row"}
             # interleaved bursts, so a clock or load change lands on both arms
             ms = {k: [] for k in arms}
             clk = []
