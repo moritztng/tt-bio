@@ -1243,6 +1243,8 @@ _PAIR_PROJ_BW: int | None = 16
 # these two sites are a separate parity decision. Measured on qb1 card 1 at the fold's own
 # [1,298,320,256]: 1.15x / 1.23x at 1, 1.98x / 2.08x at 16 (perf/p3narrow/).
 _NARROW_PROJ_BW: int | None = 1
+# Wider `_lin` pair projections on the same bit-exact plan (`_narrow_proj_linear`). False = core_grid as before.
+_WIDE_PROJ = True
 # The pair-track output projection's 48.82 MB result never leaves the device: the trimul's
 # multiply_ and the Pairformer layer's residual add_ read it back immediately. Writing it to L1
 # instead of DRAM removes the projection's write AND the consumer's operand read, and the trunk
@@ -7076,12 +7078,23 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
 
 
 def _narrow_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
-    """The tuned config for a NARROW-output pair-track projection, or None to leave the
-    call alone. Scoped to an output of at most two tiles: that is the class whose
-    `core_grid=` ladder is flat from 16 cores to 110, and it keeps every wider `_lin` call
-    on today's path. `l1_out` is for the sites whose next op reads the result on device."""
+    """The tuned config for a pair-track projection `_lin` routes here, or None to leave the
+    call alone. `l1_out` is for the sites whose next op reads the result on device.
+
+    An output of at most two tiles is the class whose `core_grid=` ladder is flat from 16 cores
+    to 110. A wider one (`_WIDE_PROJ`) takes the same plan at in0_block_w 1 only, DRAM out, so it
+    keeps the shipped contraction order and is `torch.equal`: OpenDDE's recycle projection
+    [1,640,640,384] @ [384,384] ran 99.9 ms a call on `core_grid=` and 11.9 here, the template z
+    [1,640,640,64] @ [64,384] 17.2 -> 6.7, the MSA embed [1,1280,640,34] @ [34,128] 9.2 -> 4.8
+    (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). A single-track call has too few row tiles to
+    fill the grid and `_pair_proj_program_config` declines it."""
     if -(-int(list(w.shape)[-1]) // 32) > 2:
-        return None
+        if not _WIDE_PROJ:
+            return None
+        cfg = _pair_proj_config(x, w, bw_cap=1)
+        return None if cfg is None else ttnn.linear(
+            x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+            compute_kernel_config=ckc, program_config=cfg)
     bw = 16 if lever("narrow_bw16") else _NARROW_PROJ_BW
     key = ("narrow", tuple(x.padded_shape), tuple(w.shape), str(dtype), bw)
     rung = _l1_out_rung(key) if l1_out else 0
