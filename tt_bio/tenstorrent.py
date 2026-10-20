@@ -790,7 +790,7 @@ _FAST_MODE = False
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
 #                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
-LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+LEVERS = ("lofi", "trimul_l1x2", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
@@ -2145,6 +2145,10 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
     if _IS_SMALL_GRID:
         budget *= SMALL_GRID_TRIMUL_BUDGET_SCALE
+    if lever("trimul_l1x2"):
+        # A/B: at 256-298 tokens on Wormhole the 130-core budget leaves chunk 32, so the
+        # in-projection re-reads the whole pair input once per 32 channels (12 times at 384).
+        budget *= 2
     c = TRIANGLE_MULT_CHUNK_SIZE
     # Price the chunk on the width it actually occupies. The chunk tensors are
     # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical
