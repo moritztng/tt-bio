@@ -25,9 +25,11 @@ export PYTHONPATH=$WT TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_L
     "$(cut -d' ' -f1 /proc/loadavg)"; sleep 1; done ) >> "$D/aiclk.tsv" 9>&- & P=$!
 step() { local n=$1; shift; echo "$n start $(date +%s) load $(cut -d' ' -f1 /proc/loadavg)" >> "$D/card"
   "$@" > "$D/$n.log" 2>&1; echo "$n rc=$? end $(date +%s)" >> "$D/card"; }
-ARMS="base:EXP_21F=1;exact:EXP_21F=0;approx:EXP_APPROX=1;hifi2:EXP_21F=1,FIDELITY=HiFi2;lofi:EXP_21F=1,FIDELITY=LoFi;approx_hifi2:EXP_APPROX=1,FIDELITY=HiFi2;v2:EXP_21F=1,V2=1;v2_approx:EXP_APPROX=1,V2=1;v2_approx_hifi2:EXP_APPROX=1,V2=1,FIDELITY=HiFi2"
+ARMS="base:EXP_21F=1;exact:EXP_21F=0;approx:EXP_APPROX=1;hifi2:EXP_21F=1,FIDELITY=HiFi2;lofi:EXP_21F=1,FIDELITY=LoFi;approx_hifi2:EXP_APPROX=1,FIDELITY=HiFi2"
+V2ARMS="base:EXP_21F=1;v2:EXP_21F=1,V2=1;v2_approx:EXP_APPROX=1,V2=1;v2_approx_hifi2:EXP_APPROX=1,V2=1,FIDELITY=HiFi2"
 step bench224 timeout -s INT -k 60 900 $PY perf/bc4_triatt/bw_bench.py --n 224 --arms "$ARMS" --reps 20 --out "$D/bench224.json"
-step bench224b timeout -s INT -k 60 900 $PY perf/bc4_triatt/bw_bench.py --n 224 --bias-std 2 --arms "$ARMS" --reps 4 --out "$D/bench224b.json"
+step bench224v2 timeout -s INT -k 60 900 $PY perf/bc4_triatt/bw_bench.py --n 224 --arms "$V2ARMS" --reps 20 --out "$D/bench224v2.json"
+step bench224b timeout -s INT -k 60 900 $PY perf/bc4_triatt/bw_bench.py --n 224 --bias-std 2 --arms "$ARMS;${V2ARMS#base:EXP_21F=1;}" --reps 4 --out "$D/bench224b.json"
 # Zones: the Tracy build of the same ttnn (tt-metal-b2z v0.68.0), one profiled call per arm.
 M=/home/ttuser/tt-metal-b2z
 step zones224 env TT_METAL_HOME=$M PYTHONPATH=$WT:$M/ttnn:$M/tools:$M TT_METAL_DEVICE_PROFILER=1 \
