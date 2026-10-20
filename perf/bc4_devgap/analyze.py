@@ -21,13 +21,15 @@ ap.add_argument("--json")
 a = ap.parse_args()
 doc = json.load(gzip.open(a.path, "rt"))
 C = {c: i for i, c in enumerate(doc["program_cols"])}
-INVALID = 2 ** 64 - 1
+INVALID = 2 ** 63     # an untraced program's trace_id on this build
+SHIFT = 10           # runtime_id = device operation id << 10
 
 spans = sorted(doc["spans"])
 starts = [s[0] for s in spans]
 
 
 def name(rid):
+    rid >>= SHIFT
     i = bisect.bisect_right(starts, rid) - 1
     if i >= 0 and spans[i][0] <= rid < spans[i][1]:
         return spans[i][2], spans[i][3]

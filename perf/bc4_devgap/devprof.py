@@ -10,7 +10,8 @@ but the compact records this script keeps.
 
 Program names come from Python: every outermost public ttnn call records the device-operation ids
 it consumed, and a program's `runtime_id` is that id. A traced block keeps the ids of its capture,
-so its replayed programs carry the names of the eager calls that captured it.
+so its replayed programs carry the names of the eager calls that captured it. (On this build
+`runtime_id` is the op id shifted left 10 bits; an untraced program's trace_id is 2**63.)
 
 Run it on a Tracy build (the launcher `perf/bc4_devgap/run.sh` sets the environment):
 
@@ -190,6 +191,12 @@ def install():
             read("replay")
         return out
     ttnn.execute_trace = execute_trace
+    # tt-bio's tape shim caches each verb's callable at first use; drop the cache so it resolves
+    # the wrappers (census.py's `_rebind_shim`, same reason).
+    TTS = sys.modules.get("tt_bio.taped_ttnn")
+    if TTS is not None:
+        TTS.forget_shim_bindings()
+        TTS._SHIPPED_GETITEM = ttnn.Tensor.__getitem__
     # A read syncs the device, which a trace capture forbids: none happens between begin and end.
     for verb, flag in (("begin_trace_capture", True), ("end_trace_capture", False)):
         def toggle(*args, _fn=getattr(ttnn, verb), _flag=flag, **kwargs):
@@ -222,7 +229,7 @@ PROG_COLS = ["iteration", "read", "chip", "runtime_id", "trace_id", "trace_id_co
 
 
 def write():
-    keep_ids = {r[3] for r in programs}
+    keep_ids = {r[3] >> 10 for r in programs}
     doc = dict(**HEAD, iterations=iters, reads=reads, program_cols=PROG_COLS, programs=programs,
                spans=[s for s in spans if any(i in keep_ids for i in range(s[0], s[1]))],
                read_s=st["read_s"], profiler_reads=st["reads"], replays=st["replays"])
@@ -245,7 +252,10 @@ def sequence_gradients(self, *args, **kwargs):
     finally:
         read("end")
         t1 = time.monotonic()
+        ag = sys.modules.get("tt_bio.autograd")
         iters.append(dict(n=st["n"], wall_s=t1 - t0, read_s=st["read_s"] - rs0, reads=st["reads"] - r0,
+                          spans=len(spans), replays=st["replays"], op_id=op_id(),
+                          rtrace=dict(ag.RTRACE_STATS) if ag else None,
                           load_start=l0, load_end=loadavg(), aiclk=clock(t0, t1), kept=kept()))
         print(json.dumps(dict(ev="iter", **iters[-1])), flush=True)
         if st["n"] >= a.at + a.keep - 1:
