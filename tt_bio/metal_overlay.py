@@ -102,6 +102,25 @@ def _patch_sigmoid_f32(src: str) -> str:
     return src
 
 
+_GELU_F32 = Path(__file__).resolve().parent / "kernels" / "gelu_f32" / "ckernel_sfpu_gelu_f32.h"
+
+
+def _patch_gelu_f32(src: str) -> str:
+    """Approx-mode gelu runs calculate_gelu_f32 (3e-4 of float64) instead of metal's LUT (~2e-2)."""
+    src, n0 = re.subn(r'(#include "ckernel_sfpu_exp.h"[^\n]*\n)', r'\1#include "ckernel_sfpu_gelu_f32.h"\n', src)
+    src, n1 = re.subn(r"(\n\s*)_init_gelu_<APPROXIMATION_MODE>\(\);\n",
+                      r"\1if constexpr (APPROXIMATION_MODE) {\1    gelu_f32_init();\1} else {"
+                      r"\1    _init_gelu_<APPROXIMATION_MODE>();\1}\n", src)
+    src, n2 = re.subn(r"_calculate_gelu_<APPROXIMATION_MODE, ITERATIONS>\(\);", "calculate_gelu_f32<ITERATIONS>();", src)
+    if (n0, n1, n2) != (1, 1, 1):
+        raise RuntimeError(f"gelu_f32: ckernel_sfpu_gelu.h anchors matched {n0}, {n1}, {n2} times")
+    return src
+
+
+def _add_gelu_f32(src: str | None) -> str:
+    return _GELU_F32.read_text()
+
+
 BMM = "ttnn/cpp/ttnn/operations/matmul/device/kernels/compute/bmm_large_block_zm_fused_bias_activation.cpp"
 _BMM_DECL = r"""
 // tt-bio silu_f32: a fused silu under math_approx_mode runs on the PACK thread, so the SFPU works on one dest half
@@ -245,6 +264,11 @@ PATCHES = {
         )
     }
     | {BMM: _patch_bmm_silu_pack},
+    "gelu_f32": {
+        f"{_SFPU.format(arch=arch)}/{name}": fn
+        for arch in ARCHES
+        for name, fn in (("ckernel_sfpu_gelu.h", _patch_gelu_f32), ("ckernel_sfpu_gelu_f32.h", _add_gelu_f32))
+    },
 }
 
 
