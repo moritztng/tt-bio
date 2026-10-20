@@ -1,16 +1,12 @@
 #!/bin/bash
-# bc4-bet-fuse sweep: one arm env against off at BindCraft 2's shape. ARM picks the arm (default
-# TT_BIO_L1_UNRECORDED=1, what the untaped Evoformer forward's L1 residency is worth), TAG names the out
-# dir, DIGEST=0 skips the digest pair.
-# Arm `l1` sets TT_BIO_L1_UNRECORDED=1 (tenstorrent._l1_fits answers ops.recording(), so the two
-# no_grad forwards of a round take the inference program's L1 placements). A/B/A x3 on one card,
-# devprof seam walls, a digest pair (placement must be bit-exact) and one census per arm to show
-# which bytes left DRAM.
-#   CARD=<umd index> [ARM=TT_BIO_AF2_T2CM=1 TAG=t2cm] bash perf/bc4_fuse/l1_aba.sh   (worktree root, detached)
+# bc4-bet-fuse sweep: one arm env against off at BindCraft 2's shape. ARM is the arm env (required), TAG names
+# the out dir, DIGEST=0 skips the digest pair. A/B/A x3 on one card, devprof seam walls, a digest pair and one
+# census per arm to show which bytes left DRAM.
+#   CARD=<umd index> ARM=TT_BIO_AF2_T2CM=1 TAG=t2cm bash perf/bc4_fuse/l1_aba.sh   (worktree root, detached)
 set -u
 WT=$(cd "$(dirname "$0")/../.." && pwd); cd "$WT"
-ARM=${ARM:-TT_BIO_L1_UNRECORDED=1}
-D=$WT/_bc4out/${TAG:-l1}aba_$(git rev-parse --short HEAD); mkdir -p "$D"
+ARM=${ARM:?set ARM to the arm env, e.g. TT_BIO_AF2_T2CM=1}
+D=$WT/_bc4out/${TAG:-arm}aba_$(git rev-parse --short HEAD); mkdir -p "$D"
 PY=${PY:-$HOME/bcx_e2e_venv/bin/python}
 PARAMS=${PARAMS:-$HOME/bcx_e2e/af2_params/params_model_1_multimer_v3.npz}
 export PYTHONPATH=$WT TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:bc4-bet-fuse TT_BIO_LEASE_TIMEOUT=3600
