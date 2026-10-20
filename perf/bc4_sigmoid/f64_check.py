@@ -2,7 +2,7 @@
 
 Arms (one process, one chip):
   ttnn.sigmoid accurate and FastApproximate (standalone, bf16)
-  gate_bw with tt_bio.gate_sigmoid.SIGMOID_FAST off and on (the real fp32-dest gate VJP kernel): with d = o = 1 its
+  gate_bw with fast off and on (the real fp32-dest gate VJP kernel, the same LUT the trimul gate kernels take): with d = o = 1 its
   outputs are s and s(1 - s), so the kernel's own sigmoid and the derivative the backward uses are both graded.
 Inputs: a dense grid over [-24, 24], the tails (0, +-1e-6 .. 1e-2, +-30, 88, 1e4) and the production-like N(0, 3^2)
 at [1, 224, 224, 128] bf16. A hard stop is any output outside [0, 1], a NaN, or a sign error of s - 0.5.
@@ -20,7 +20,7 @@ from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 import torch, ttnn
 from tt_bio import tenstorrent as T
-from tt_bio import gate_bw as GB, gate_sigmoid as GS
+from tt_bio import gate_bw as GB
 
 dev = T.get_device()
 CARD = os.environ.get("TT_VISIBLE_DEVICES", "0").split(",")[0]
@@ -106,12 +106,9 @@ for iname, x in inputs.items():
         except Exception as e:
             emit(dict(arm=f"{aname}/{iname}", error=f"{type(e).__name__}: {str(e)[:300]}"))
     for fast in (False, True):
-        GS.SIGMOID_FAST = fast
-        do, dg = GB.gate_bw(ones, ones, xt)
+        do, dg = GB.gate_bw(ones, ones, xt, fast=fast)
         grade(f"gate_bw_{'lut' if fast else 'accurate'}/{iname}", x, get(do), get(dg))
         ttnn.deallocate(do); ttnn.deallocate(dg)
-    GS.SIGMOID_FAST = False
-
 
 def timed(name, f):
     for _ in range(2):
@@ -129,10 +126,23 @@ def timed(name, f):
 
 x = inputs["prod_n3"]; xt = put(x); ones = put(torch.ones_like(x))
 for fast in (False, True, False):
-    GS.SIGMOID_FAST = fast
-    timed(f"gate_bw_{'lut' if fast else 'accurate'}", lambda: GB.gate_bw(ones, ones, xt))
-GS.SIGMOID_FAST = False
+    timed(f"gate_bw_{'lut' if fast else 'accurate'}", lambda: GB.gate_bw(ones, ones, xt, fast=fast))
 timed("ttnn_sigmoid_accurate", lambda: ttnn.sigmoid(xt))
 timed("ttnn_sigmoid_fast", lambda: ttnn.sigmoid(xt, mode=ttnn.SigmoidMode.FastApproximate))
+# the trimul gate itself: reblock_permute_gated(xw, p=0, g=128, 128) with p = 1 is permute(sigmoid(g)), flag off/on
+from tt_bio import reblock_permute as RP, gate_sigmoid as GS
+gq = inputs["prod_n3"]
+xw = put(torch.cat([torch.ones_like(gq), gq], dim=-1))
+for fast in (False, True):
+    GS.SIGMOID_FAST = fast
+    o = RP.reblock_permute_gated(xw, 0, 128, 128)
+    grade(f"gated_move_{'lut' if fast else 'accurate'}/prod_n3", gq.permute(0, 3, 1, 2), get(o))
+    ttnn.deallocate(o)
+GS.SIGMOID_FAST = False
+for fast in (False, True, False):
+    GS.SIGMOID_FAST = fast
+    timed(f"gated_move_{'lut' if fast else 'accurate'}", lambda: RP.reblock_permute_gated(xw, 0, 128, 128))
+GS.SIGMOID_FAST = False
+
 emit(dict(done=True, aiclk_samples=len(CLK), aiclk_median=statistics.median(CLK) if CLK else None,
           aiclk_min=min(CLK) if CLK else None))

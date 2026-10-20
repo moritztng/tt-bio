@@ -1,11 +1,14 @@
-"""Which SFPU sigmoid the pair gates compute: metal's accurate one, or its fast lookup-table one.
+"""Which SFPU sigmoid the trimul gates compute: metal's accurate one, or its fast lookup-table one.
 
 The accurate sigmoid is `1 / (1 + exp(-x))` with an exp and a Newton reciprocal, ~1000 cycles a
 tile on Blackhole; the fast one is metal's SFPLUT piecewise-linear fit, about the cost of a relu
 (bc4-bet-fusedtri: 0.0944 vs 0.0223 ms per 96 tiles a core at 224 tokens). `SIGMOID_FAST` switches
-every in-kernel gate sigmoid on BindCraft 2's gradient path (the gated channel move and its VJP, the
-gate VJP, triangle attention's gated pack, the trimul gin / T2 kernels) and the standalone ones.
-Off by default: it is a precision change and is armed only where designs grade it.
+the triangle multiplication's gates, forward and backward together: the gated channel move and its
+VJP (reblock_permute_gated, _bw), the gated in-projection and the output tails (trimul_tail's
+SIGPOLY kernels). Gates written as a ttnn multiply with a fused sigmoid keep the accurate one in
+both directions (gate_bw's `fast` is for probes), so no gate is differentiated as a different
+function than its forward computed. Off by default: a precision change, armed only where designs
+grade it.
 """
 
 from __future__ import annotations

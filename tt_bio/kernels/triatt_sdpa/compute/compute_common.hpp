@@ -11,7 +11,6 @@
 
 #include "api/debug/assert.h"
 #include "api/compute/compute_kernel_api.h"
-#include "../../common/gate_sigmoid.hpp"
 #include "api/compute/binary_max_min.h"
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/eltwise_unary/exp.h"
@@ -573,9 +572,9 @@ void mul_block_bcast_cols_gated(uint32_t in0_cb, uint32_t in1_cb, uint32_t gate_
         for (uint32_t j = 0; j < G; ++j) {
             copy_tile(gate_cb, i + j, G + j);
         }
-        gate_sigmoid_init();
+        sigmoid_tile_init();
         for (uint32_t j = 0; j < G; ++j) {
-            gate_sigmoid_tile(G + j);
+            sigmoid_tile(G + j);
         }
         mul_binary_tile_init();
         for (uint32_t j = 0; j < G; ++j) {
