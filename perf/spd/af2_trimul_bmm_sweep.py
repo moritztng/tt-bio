@@ -25,33 +25,33 @@ from tt_bio import tenstorrent as tt  # noqa: E402
 WARM, REPS = 2, 5
 
 
-def _plan(St, per_channel):
+def _plan(St, per_channel, l1=True):
     prev = tt.set_trimul_per_channel(per_channel)
     try:
-        return tt._triangle_mul_program_config(St, tt._trimul_ibw_full(), tt._trimul_subblock())
+        return tt._triangle_mul_program_config(St, tt._trimul_ibw_full(), tt._trimul_subblock(), l1)
     finally:
         tt.set_trimul_per_channel(prev)
 
 
-def _mcast_config(St):
+def _mcast_config(St, l1=True):
     """The 2D multicast plan, the reference every arm is compared against."""
-    return _plan(St, False)
+    return _plan(St, False, l1)
 
 
-def _per_channel_config(St):
+def _per_channel_config(St, l1=True):
     """The plan `TT_BIO_TRIMUL_PER_CHANNEL` actually ships, for this many sequence tiles.
 
     `prod` is the same call with the lever off, so `exact_vs_prod` on this arm is the bit-exactness
     claim the lever rests on, at whatever shape the sweep is pointed at.
     """
-    return _plan(St, True)
+    return _plan(St, True, l1)
 
 
-def timed(dev, fn, inner):
+def timed(dev, fn, inner, reps=REPS):
     for _ in range(WARM):
         o = fn(); ttnn.synchronize_device(dev); ttnn.deallocate(o)
     ts = []
-    for _ in range(REPS):
+    for _ in range(reps):
         ttnn.synchronize_device(dev)
         t0 = time.perf_counter()
         for _ in range(inner):
@@ -59,6 +59,7 @@ def timed(dev, fn, inner):
         ttnn.synchronize_device(dev)
         ts.append((time.perf_counter() - t0) / inner)
     o = fn(); ttnn.synchronize_device(dev)
+    timed.last = (min(ts), max(ts))
     return statistics.median(ts), o
 
 
@@ -66,6 +67,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--inner", type=int, default=10)
+    ap.add_argument("--reps", type=int, default=REPS, help="timed bursts of --inner calls per arm (median, min, max)")
     ap.add_argument("--sizes", default="195,224")
     ap.add_argument("--channels", default="64,128")
     ap.add_argument("--mem", default="dram", choices=("dram", "l1"),
@@ -90,7 +92,7 @@ def main():
     ckc = ckc_cls(math_fidelity=getattr(ttnn.MathFidelity, a.fid), math_approx_mode=False,
                   fp32_dest_acc_en=True, packer_l1_acc=True)
     res = {"arch": str(dev.arch()), "grid": [gx, gy], "loadavg": open("/proc/loadavg").read().split()[:3],
-           "inner": a.inner, "cells": []}
+           "inner": a.inner, "reps": a.reps, "cells": []}
     mc = ttnn.L1_MEMORY_CONFIG if a.mem == "l1" else ttnn.DRAM_MEMORY_CONFIG
     res.update(mem=a.mem, transpose=a.transpose, fid=a.fid, dtype=a.dtype)
     tkw = {"transpose_a": a.transpose == "a", "transpose_b": a.transpose == "b"}
@@ -113,8 +115,9 @@ def main():
             mm = lambda **kw: (lambda: ttnn.matmul(x, y, memory_config=mc,  # noqa: E731
                                                    dtype=ttnn.bfloat16, compute_kernel_config=ckc,
                                                    **tkw, **kw))
-            arms = [("prod", mm(program_config=_mcast_config(St))),
-                    ("perchan", mm(program_config=_per_channel_config(St))),
+            l1 = a.mem == "l1"   # the plan production takes for operands in this memory
+            arms = [("prod", mm(program_config=_mcast_config(St, l1))),
+                    ("perchan", mm(program_config=_per_channel_config(St, l1))),
                     ("plain", mm()),
                     (f"grid{gx}x{gy}", mm(core_grid=ttnn.CoreGrid(y=gy, x=gx))),
                     ("grid8x8", mm(core_grid=ttnn.CoreGrid(y=8, x=8)))]
@@ -145,12 +148,13 @@ def main():
             for name, fn in arms:
                 row = {"arm": name}
                 try:
-                    s, o = timed(dev, fn, a.inner)
+                    s, o = timed(dev, fn, a.inner, a.reps)
                     got = ttnn.to_torch(o); ttnn.deallocate(o)
                     if ref is None:
                         ref = got
                     d = got.double() - ref64
-                    row.update(ms=1e3 * s, exact_vs_prod=bool(torch.equal(got, ref)),
+                    row.update(ms=1e3 * s, ms_min=1e3 * timed.last[0], ms_max=1e3 * timed.last[1],
+                               exact_vs_prod=bool(torch.equal(got, ref)),
                                rel_l2_f64=float(d.norm() / ref64.norm()))
                     if ref64_b8 is not None and name == "res_b8":
                         row["rel_l2_f64_b8ref"] = float((got.double() - ref64_b8).norm() / ref64_b8.norm())
