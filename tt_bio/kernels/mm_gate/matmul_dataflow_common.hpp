@@ -402,14 +402,18 @@ FORCE_INLINE void write_tile_to_chunk(
 /**
  * tt-bio mm_rope half pairs (mm_rope.half_pairs, heads narrower than 32): q / k column n is tile A (n even) or B of
  * head pair n / 2, and its four bf16 faces go to two [B, H, L, 32] head tiles: CB face (r, c) -> head (n & ~1) + c,
- * face (r, n & 1). v column n is head n, written whole. d1 is H for all three chunks.
+ * face (r, n & 1). v column n is head n, written whole. The chunks are d1 tiles wide but the outputs hold MM_HEADS_H
+ * heads: tiles past it are mm_rope.half_pairs' zero pad heads (H is even, so a pair is all pad or none) and are dropped.
  */
 template <typename Tuple, size_t... Is>
 FORCE_INLINE void write_half_pair_tile(
     const Tuple& accessors, uint32_t chunk_idx, uint32_t m, uint32_t n, uint32_t d1, uint32_t read_ptr,
     std::index_sequence<Is...> seq) {
-    constexpr uint32_t st = MM_HEADS_ST, face = 512;
-    const uint32_t row = m / st * d1, l = m % st;
+    constexpr uint32_t st = MM_HEADS_ST, face = 512, heads = MM_HEADS_H;
+    if (n >= heads) {
+        return;
+    }
+    const uint32_t row = m / st * heads, l = m % st;
     if (chunk_idx == 2) {
         write_tile_to_chunk(accessors, chunk_idx, (row + n) * st + l, read_ptr, seq);
         return;

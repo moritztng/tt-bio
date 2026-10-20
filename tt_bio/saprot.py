@@ -203,6 +203,9 @@ _SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", True)
 _SAPROT_HALF_ROPE = env_flag("TT_BIO_SAPROT_HALF_ROPE", None)
 _HALF_ROPE_CFG = (5, 5, 4, 1, 4)
 _HALF_ROPE_IN1 = 5
+# Wide: zero-pad 35M's 20 heads to 24 (mm_rope.pad_heads_for) so the qkv's 72 tiles split 9 a core over all 8 in1 cores
+# (grid 8 x 8) instead of 12 over 5; the writer drops the pad heads. Off until graded (ls116 probe, then a page A/B).
+_SAPROT_HALF_WIDE = env_flag("TT_BIO_SAPROT_HALF_WIDE", False)
 _HALF_TABLES: dict = {}
 _RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                           fp32_dest_acc_en=True, packer_l1_acc=False)
@@ -287,6 +290,8 @@ _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
 _SAPROT_MM_RESID = (env_flag("TT_BIO_SAPROT_MM_RESID", False) if os.environ.get("TT_BIO_SAPROT_MM_RESID", "").strip()
                     else None)
 _MM_RESID_MIN_WIDTH = 1280
+# 35M stays off at its own blocks too: mm_resid_check ls118 (.107, 1000 MHz) won per call at (3, 5, 2, 1, 2) / (5, 10, 2, 1, 2)
+# (out 0.127 -> 0.108 ms, fc2 0.273 -> 0.239), but the page A/B ls119 read +0.3..+0.7 ms in 7 of 8 rounds, both modes.
 # Normal fc2 (bf16 weight, HiFi3 under _SAPROT_NORMAL_HIFI3) through mm_resid instead of its 2D pick + ttnn.add, at this
 # block. mm_resid_check (ls92, .107 chip 20, AICLK 1000, 650M, ms a call, rel_l2 vs float64): 2D + add 1.018 (1.93e-3),
 # (8,8,8,2,2) 0.981 (1.70e-3); the other blocks 1.14-1.21. At HiFi4 (ls75) every fused block lost. ls93b page A/B
@@ -655,21 +660,25 @@ class ESM2Attention(_SaprotLin, Module):
         from tt_bio import mm_rope, tenstorrent
         if not (self.rope_pairs and (tenstorrent.is_wormhole() if _SAPROT_HALF_ROPE is None else _SAPROT_HALF_ROPE)):
             return None
-        cfg, nc = _HALF_ROPE_CFG, _HALF_ROPE_IN1
+        cfg, nc = _HALF_ROPE_CFG, 8 if _SAPROT_HALF_WIDE else _HALF_ROPE_IN1
         dev = lambda t, dt: ttnn.from_torch(t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
-        if not hasattr(self, "qkv_half"):   # built on first use, so an A/B can flip the flag on a loaded model
-            w, b = mm_rope.half_pairs(self.weights["qkv.weight"], self.weights["qkv.bias"], self.n_heads, self.head_dim)
-            self.qkv_half = (dev(mm_rope.permute(w, nc, cfg[2]), _dtype()),
-                             dev(mm_rope.permute(b, nc, cfg[2]), ttnn.bfloat16))
+        if not hasattr(self, "qkv_half"):
+            self.qkv_half = {}
+        if nc not in self.qkv_half:   # built on first use per in1 width, so an A/B can flip the flags on a loaded model
+            hp = mm_rope.pad_heads_for(self.n_heads, nc, cfg[2])
+            w, b = mm_rope.half_pairs(self.weights["qkv.weight"], self.weights["qkv.bias"], self.n_heads, self.head_dim, hp)
+            self.qkv_half[nc] = (dev(mm_rope.permute(w, nc, cfg[2]), _dtype()),
+                                 dev(mm_rope.permute(b, nc, cfg[2]), ttnn.bfloat16))
+        qw, qb = self.qkv_half[nc]
         seq_len = int(x.padded_shape[-2])
         rows = math.prod(int(d) for d in list(x.padded_shape)[:-1])
-        grid = (8, nc) if rows > 3 * self.n_heads * 32 else (nc, 8)
+        grid = (8, nc) if rows > int(qw.shape[-1]) else (nc, 8)
         key = (id(self.device), seq_len, self.head_dim)
         if key not in _HALF_TABLES:
             _HALF_TABLES[key] = tuple(dev(t[None, None], ttnn.bfloat16)
                                       for t in mm_rope.half_pair_tables(seq_len, self.head_dim, base=ROPE_BASE))
         cos, sin = _HALF_TABLES[key]
-        return mm_rope.qkv_rope_heads(x, *self.qkv_half, cos, sin, self.n_heads, cfg, grid, self._ck(self.qkv_weight),
+        return mm_rope.qkv_rope_heads(x, qw, qb, cos, sin, self.n_heads, cfg, grid, self._ck(self.qkv_weight),
                                       half=True, ncols=nc)
 
     def _rope_pairs(self, t, cos, sin):

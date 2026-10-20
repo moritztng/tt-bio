@@ -46,6 +46,29 @@ def test_half_pairs_match_neox(n_heads, d):
     torch.testing.assert_close(q @ k.transpose(-1, -2), rq @ rk.transpose(-1, -2), rtol=1e-12, atol=1e-9)
 
 
+@pytest.mark.parametrize("n_heads,pad", [(20, 24), (2, 6)])
+def test_pad_heads_are_zero_and_leave_the_real_heads(n_heads, pad):
+    torch.manual_seed(1)
+    d, hidden, seq_len = 24, 48, 64
+    w = torch.randn(3 * n_heads * d, hidden, dtype=torch.float64)
+    b = torch.randn(3 * n_heads * d, dtype=torch.float64)
+    x = torch.randn(seq_len, hidden, dtype=torch.float64)
+    cos, sin = mm_rope.half_pair_tables(seq_len, d, dtype=torch.float64)
+    wp, bp = mm_rope.half_pairs(w, b, n_heads, d, pad)
+    assert wp.shape == (hidden, 3 * pad * 32)
+    padded = mm_rope.half_pair_heads(x @ wp + bp, cos, sin, pad)
+    plain = mm_rope.half_pair_heads(x @ mm_rope.half_pairs(w, b, n_heads, d)[0] + mm_rope.half_pairs(w, b, n_heads, d)[1],
+                                    cos, sin, n_heads)
+    for u, r in zip(padded, plain):
+        assert torch.equal(u[:n_heads], r) and not u[n_heads:].any()
+
+
+def test_pad_heads_for_eight_in1_cores():
+    # 35M: 24 heads = 72 tiles, 9 a core (3 q / k pairs + 3 v); unpadded 20 heads stay 20 where 5 cores split them.
+    assert mm_rope.pad_heads_for(20, 8, 4) == 24 and mm_rope.layout(72, 8, 4) == (9, 6, 48)
+    assert mm_rope.pad_heads_for(20, 5, 4) == 20
+
+
 def test_half_pair_layout_on_a_five_wide_in1_axis():
     # 35M: 60 tiles = 20 q/k tile pairs + 20 v tiles. Whole pairs need 5 in1 cores (8 a core = 4 pairs, 4 v); 8 split them.
     assert mm_rope.layout(60, 5, 4) == (12, 8, 40)
@@ -56,13 +79,15 @@ def test_half_pair_layout_on_a_five_wide_in1_axis():
                                                            (False, True, True, True), (True, False, True, False),
                                                            (True, None, False, False)])
 @pytest.mark.parametrize("batch", [1, 7])
-def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch, monkeypatch):
+@pytest.mark.parametrize("wide", [False, True])
+def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch, wide, monkeypatch):
     """35M's fused half-pair qkv serves by default on Wormhole only, for the rope_pairs path, with 5 in1 cores in both
     grid orientations ((8, 5) once B * L > N = 1920 transposes minimal_matmul's grid)."""
     import types
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_HALF_ROPE", switch)
     monkeypatch.setattr(sp, "_HALF_TABLES", {})
+    monkeypatch.setattr(sp, "_SAPROT_HALF_WIDE", wide)
     monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
     monkeypatch.setattr(sp.ttnn, "from_torch", lambda t, **kw: t)
     seen = []
@@ -75,7 +100,9 @@ def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch,
     x = types.SimpleNamespace(padded_shape=(batch, 544, D))
     out = sp.ESM2Attention._half_rope(attn, x)
     assert (out == ("q", "k", "v")) is want
-    if want:
+    if want and wide:   # 24 heads (4 zero) over 8 in1 cores, grid 8 x 8 in both orientations
+        assert seen == [((D, 3 * 24 * 32), (1, 1, 544, 64), sp._HALF_ROPE_CFG, (8, 8), True, 8)]
+    elif want:
         assert seen == [((D, 3 * H * 32), (1, 1, 544, 64), sp._HALF_ROPE_CFG, (8, 5) if batch * 544 > 1920 else (5, 8),
                          True, sp._HALF_ROPE_IN1)]
         g = seen[0][3]

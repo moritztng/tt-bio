@@ -64,7 +64,7 @@ def plan(x, w, cfg, grid, seq_len, ncols=None):
 def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool = False, ncols=None):
     """(rope(q), rope(k), v), each [B, H, L, 64], from x [B, L, D] and the `permute`d weight / bias; cos / sin are the
     [1, 1, L, 64] tables. `half`: the weight is `half_pairs` (then `permute`d), the tables `half_pair_tables`, and the
-    heads come out [B, H, L, 32]. `ncols`: the in1 core count `w` was permuted for (needed when M > N). None where `plan` declines (the caller keeps the unpermuted weight for that)."""
+    heads come out [B, H, L, 32] (`w` may carry zero pad heads past H, which are not written). `ncols`: the in1 core count `w` was permuted for (needed when M > N). None where `plan` declines (the caller keeps the unpermuted weight for that)."""
     seq_len = int(x.padded_shape[-2])
     why = plan(x, w, cfg, grid, seq_len, ncols)
     if why is not None:
@@ -81,7 +81,8 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool =
     ck = MG.ckc_args(ckc)
     key = (spec(x), spec(w), spec(b), spec(cos), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), half)
     entry = _CACHE.get(key)
-    rope = {"MM_HEADS_ST": seq_len // 32, "MM_ROPE_T": t, "MM_ROPE_P": p, "MM_ROPE_V0": v0, **({"MM_HALF_PAIRS": 1} if half else {})}
+    rope = {"MM_HEADS_ST": seq_len // 32, "MM_ROPE_T": t, "MM_ROPE_P": p, "MM_ROPE_V0": v0,
+            **({"MM_HALF_PAIRS": 1, "MM_HEADS_H": n_heads} if half else {})}
     if entry is None:
         entry = MG.build(dev, x, w, outs, (tuple(cfg), tuple(grid)), ck, defines=rope, kernel_dir=KERNEL_DIR, bias=b,
                          extra=(cos, sin))
@@ -111,22 +112,32 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool =
 # columns 0-15, faces 1 / 3 columns 16-31, so head h is [A[:, :16] | B[:, :16]] and head h + 1 is [A[:, 16:] | B[:, 16:]],
 # each a [L, 32] head [x1 0.. | x2 0..]. q . k is unchanged by the dim order q and k share; v keeps `_pad_heads` order.
 
-def half_pairs(w: torch.Tensor, b: torch.Tensor, n_heads: int, d: int):
-    """torch Linear qkv `w` [3 H d, D] and `b` [3 H d] as the [D, 3 H 32] weight and [1, 3 H 32] bias of the half-pair
-    layout: q and k as H / 2 tile pairs, v as H zero-padded 32-column heads."""
-    assert n_heads % 2 == 0 and d % 2 == 0 and d // 2 <= 16, (n_heads, d)
+def half_pairs(w: torch.Tensor, b: torch.Tensor, n_heads: int, d: int, pad_heads=None):
+    """torch Linear qkv `w` [3 H d, D] and `b` [3 H d] as the [D, 3 Hp 32] weight and [1, 3 Hp 32] bias of the half-pair
+    layout: q and k as Hp / 2 tile pairs, v as Hp zero-padded 32-column heads. `pad_heads` (Hp >= H, even) adds zero
+    heads so the tiles split over more in1 cores (`pad_heads_for`); the writer drops them (MM_HEADS_H)."""
+    hp = pad_heads or n_heads
+    assert n_heads % 2 == 0 and hp % 2 == 0 and hp >= n_heads and d % 2 == 0 and d // 2 <= 16, (n_heads, hp, d)
     h = d // 2
     ws, bs = w.reshape(3, n_heads, d, -1), b.reshape(3, n_heads, d)
-    wo = w.new_zeros(3, n_heads, 32, w.shape[-1])
-    bo = b.new_zeros(3, n_heads, 32)
+    wo = w.new_zeros(3, hp, 32, w.shape[-1])
+    bo = b.new_zeros(3, hp, 32)
     for j in range(2):          # q, k: pair p's tile A is virtual head 2p, tile B is 2p + 1
         for hd in range(n_heads):
             p, s = divmod(hd, 2)
             for half in range(2):
                 wo[j, 2 * p + half, 16 * s:16 * s + h] = ws[j, hd, half * h:(half + 1) * h]
                 bo[j, 2 * p + half, 16 * s:16 * s + h] = bs[j, hd, half * h:(half + 1) * h]
-    wo[2, :, :d], bo[2, :, :d] = ws[2], bs[2]
-    return wo.reshape(3 * n_heads * 32, -1).t().contiguous(), bo.reshape(1, -1)
+    wo[2, :n_heads, :d], bo[2, :n_heads, :d] = ws[2], bs[2]
+    return wo.reshape(3 * hp * 32, -1).t().contiguous(), bo.reshape(1, -1)
+
+
+def pad_heads_for(n_heads: int, ncols: int, n_block: int) -> int:
+    """The fewest even heads >= n_heads whose half-pair qkv (3 Hp tiles) `layout` splits over `ncols` in1 cores."""
+    hp = n_heads + n_heads % 2
+    while layout(3 * hp, ncols, n_block) is None:
+        hp += 2
+    return hp
 
 
 def half_pair_tables(seq_len: int, d: int, base: float = 10000.0, dtype=torch.float32):
