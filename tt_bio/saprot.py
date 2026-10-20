@@ -270,6 +270,11 @@ _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
 _SAPROT_MM_RESID = (env_flag("TT_BIO_SAPROT_MM_RESID", False) if os.environ.get("TT_BIO_SAPROT_MM_RESID", "").strip()
                     else None)
 _MM_RESID_MIN_WIDTH = 1280
+# Normal fc2 (bf16 weight, HiFi3 under _SAPROT_NORMAL_HIFI3) through mm_resid instead of its 2D pick + ttnn.add, at this
+# block. mm_resid_check (ls92, .107 chip 20, AICLK 1000, 650M, ms a call, rel_l2 vs float64): 2D + add 1.018 (1.93e-3),
+# (8,8,8,2,2) 0.981 (1.70e-3); the other blocks 1.14-1.21. At HiFi4 (ls75) every fused block lost. Off until graded.
+_SAPROT_FC2_RESID_HIFI3 = env_flag("TT_BIO_SAPROT_FC2_RESID_HIFI3", False)
+_MM_RESID_HIFI3 = {(True, 5120, 1280): (8, 8, 8, 2, 2)}
 MM_RESID_REFUSED: set = set()
 MM_RESID_STATS = [0, 0]   # served, refused (a shape / memory placement the program could not take)
 
@@ -437,13 +442,20 @@ class _SaprotLin(_MMLin):
     def _mm_resid(self, x, w, bias, resid, l1):
         """resid + (x @ w + bias) from one mm_resid matmul, into L1 where `l1` and it places, or None."""
         from tt_bio import mm_resid
+        from tt_bio import tenstorrent
         ck = self._ck(w)
         prog = _saprot_prog(x, w, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2)
-        if prog is None or prog[0] != "mm":
+        cfg = (_MM_RESID_HIFI3.get((tenstorrent.is_wormhole(), *map(int, w.shape[-2:])))
+               if _SAPROT_FC2_RESID_HIFI3 and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi3
+               and prog is not None else None)
+        if cfg is not None:
+            g = x.device().compute_with_storage_grid_size()
+        elif prog is None or prog[0] != "mm":
             return None
-        c = prog[1]
-        g = c.compute_with_storage_grid_size
-        cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
+        else:
+            c = prog[1]
+            g = c.compute_with_storage_grid_size
+            cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
         for mc in (ttnn.L1_MEMORY_CONFIG, ttnn.DRAM_MEMORY_CONFIG)[0 if l1 else 1:]:
             key = (tuple(w.shape), str(mc.buffer_type))
             if key in MM_RESID_REFUSED:
