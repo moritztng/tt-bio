@@ -251,6 +251,17 @@ PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_mat
 # the add (WH 650M +2.9 %, 1.3B +3.5 %).
 RESID_REFUSED: set = set()
 _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
+# The residual add in the out projection's and fc2's epilogue through tt-bio's own minimal_matmul (tt_bio/mm_resid), which
+# takes --fast's block-fp8 weights, wherever _PROGS serves the projection with minimal_matmul (out in both modes, fc2 under
+# --fast). One rounding instead of two: out projection rel_l2 vs float64 1.94e-3 -> 1.70e-3. Page A/B on a Galaxy chip at
+# 1000 MHz, 2 rounds x 3, pcc vs fp32: --fast 650M hHSA 138.1 -> 134.8 ms (-0.000014), hPCSK9 138.3 -> 135.2 (+0.000032),
+# 1.3B hPCSK9 264.3 -> 255.8 (+0.000086); normal 650M hHSA 164.5 -> 162.3 (+0.000010). 35M --fast reads 26.4 -> 27.2 (its
+# projections already write L1 through the linear), so None = Wormhole at width >= _MM_RESID_MIN_WIDTH. Blackhole untested.
+_SAPROT_MM_RESID = (env_flag("TT_BIO_SAPROT_MM_RESID", False) if os.environ.get("TT_BIO_SAPROT_MM_RESID", "").strip()
+                    else None)
+_MM_RESID_MIN_WIDTH = 1280
+MM_RESID_REFUSED: set = set()
+MM_RESID_STATS = [0, 0]   # served, refused (a shape / memory placement the program could not take)
 
 
 # The unfused residual adds write the residual stream to L1, so the next add and the block layer_norm read it from L1
@@ -384,9 +395,46 @@ class _SaprotLin(_MMLin):
                               else dtype, core_grid=CORE_GRID_MAIN, **kw)
         return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
 
+    def _mm_resid_on(self) -> bool:
+        if _SAPROT_MM_RESID is not None:
+            return _SAPROT_MM_RESID
+        from tt_bio import tenstorrent
+        return tenstorrent.is_wormhole() and int(self.norm_weight.shape[-1]) >= _MM_RESID_MIN_WIDTH
+
+    def _mm_resid(self, x, w, bias, resid, l1):
+        """resid + (x @ w + bias) from one mm_resid matmul, into L1 where `l1` and it places, or None."""
+        from tt_bio import mm_resid
+        ck = self._ck(w)
+        prog = _saprot_prog(x, w, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2)
+        if prog is None or prog[0] != "mm":
+            return None
+        c = prog[1]
+        g = c.compute_with_storage_grid_size
+        cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
+        for mc in (ttnn.L1_MEMORY_CONFIG, ttnn.DRAM_MEMORY_CONFIG)[0 if l1 else 1:]:
+            key = (tuple(w.shape), str(mc.buffer_type))
+            if key in MM_RESID_REFUSED:
+                continue
+            try:
+                out = mm_resid.matmul_add(x, w, bias, resid, cfg, (g.x, g.y), ck, memory_config=mc)
+            except RuntimeError as exc:   # L1 too full here, or a block the program cannot place
+                warnings.warn(f"saprot: mm_resid refused {key}: {str(exc)[:300]}")
+                MM_RESID_REFUSED.add(key)
+                MM_RESID_STATS[1] += 1
+                continue
+            if out is not None:
+                MM_RESID_STATS[0] += 1
+                if l1:
+                    ttnn.deallocate(resid)   # as the L1 add below: the block rebinds x to the sum
+            return out
+        return None
+
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
         x_l1 = w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
+        out = self._mm_resid(x, w, bias, resid, x_l1) if self._mm_resid_on() else None
+        if out is not None:
+            return out
         prog = _saprot_prog(x, w, None) if _SAPROT_RESID and w.dtype == ttnn.bfloat16 else None
         if prog is not None and prog[0] == "mm":
             n = int(w.shape[-1])
