@@ -12,6 +12,7 @@ cd "$(dirname "$0")/../.."
 PY=${PY:-python3}; BC2=${BC2:-$HOME/bcx_e2e/bc2}
 mkdir -p "$OUT"
 echo "start $(date -u +%FT%TZ) sha $(git rev-parse HEAD) card $CARD host $(hostname)" >> "$OUT/chain.log"
+fail=0
 run() {
     local name=$1; shift
     TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:bc4-bet-headdev \
@@ -19,8 +20,10 @@ run() {
         --profile 0 "$@" > "$OUT/$name.log" 2>&1
     local rc=$?
     echo "$name rc=$rc $(date -u +%FT%TZ)" >> "$OUT/chain.log"
+    [ $rc -eq 0 ] || fail=1
 }
 run eager-a
 run ${B:-stub --stub-structure}
 run eager-b
-touch "$OUT/done"
+# done only if every leg ran: a chain that failed must not read as finished
+if [ $fail -eq 0 ]; then touch "$OUT/done"; else touch "$OUT/failed"; fi
