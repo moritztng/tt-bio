@@ -173,8 +173,11 @@ _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 # The qkv projection, its bias, the packed RoPE and the head split as one minimal_matmul (tt_bio/mm_rope: the RoPE in
 # the matmul's epilogue, from a per-core permuted copy of the qkv weight), in place of minimal_matmul +
-# rope_heads_packed (WH 650M --fast page census: qkv 26.8 + rope 11.4 of 145.9 ms). Off until the page A/B grades it.
-_SAPROT_MM_ROPE = env_flag("TT_BIO_SAPROT_MM_ROPE", False)
+# rope_heads_packed (WH 650M --fast page census: qkv 26.8 + rope 11.4 of 145.9 ms). Page A/B on a Galaxy chip at 1000 MHz,
+# 2 rounds x 3, pcc vs fp32 against the two programs: normal 650M hHSA 169.3 -> 163.3 ms (-0.000019), 1.3B hHSA 325.8 ->
+# 314.3 (+0.000091); --fast 650M hHSA 145.0 -> 137.6 (-0.000003), hPCSK9 145.0 -> 138.6 (-0.000020), 1.3B hPCSK9 276.9
+# -> 263.9 (+0.000066). None = Wormhole until Blackhole grades it (mm_rope.plan declines grids that split a head).
+_SAPROT_MM_ROPE = (env_flag("TT_BIO_SAPROT_MM_ROPE", False) if os.environ.get("TT_BIO_SAPROT_MM_ROPE", "").strip() else None)
 
 
 # SaProt 35M (head_dim 24, padded to 32): q / k dims ordered in NeoX pairs so rotary_embedding_llama's 32 x 32 pair
@@ -473,13 +476,14 @@ class ESM2Attention(_SaprotLin, Module):
 
     def _mm_rope(self, x, cos, sin):
         """(rope(q), rope(k), v) from one mm_rope matmul, or None where the measured program or mm_rope declines."""
-        if not _SAPROT_MM_ROPE or self.head_dim != 64 or not _saprot_qkrh(self.qkv_weight):
+        from tt_bio import mm_rope, tenstorrent
+        on = tenstorrent.is_wormhole() if _SAPROT_MM_ROPE is None else _SAPROT_MM_ROPE
+        if not on or self.head_dim != 64 or not _saprot_qkrh(self.qkv_weight):
             return None
         if not hasattr(self, "qkv_rope"):   # built on first use, so an A/B can flip the flag on a loaded model
             self.qkv_rope = self._mm_rope_weights()
         if self.qkv_rope is None:
             return None
-        from tt_bio import mm_rope
         ck = self._ck(self.qkv_weight)
         prog = _saprot_prog(x, self.qkv_weight, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2)
         if prog is None or prog[0] != "mm":
