@@ -35,7 +35,7 @@ up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, 
                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
 res = {"arch": str(dev.arch()), "shapes": {}}
 for spec in a.shapes:
-    dims, n, fid = spec.split(":")
+    dims, n, fid, *acc = spec.split(":")   # a 4th field "noacc" runs with fp32_dest_acc_en off (fast sets' acc_off)
     shape = [int(d) for d in dims.split("x")]
     K, N = shape[-1], int(n)
     M = 1
@@ -46,7 +46,7 @@ for spec in a.shapes:
     wt = (torch.randn(K, N) * K ** -0.5).bfloat16()
     x, w = up(xt), up(wt)
     ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, fid),
-                                           math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=True)
+                                           math_approx_mode=False, fp32_dest_acc_en=not acc, packer_l1_acc=True)
     rows = torch.arange(0, M, 37)
     ref = (xt.reshape(M, K)[rows].double() @ wt.double())
 
