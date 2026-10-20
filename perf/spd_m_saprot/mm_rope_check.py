@@ -1,6 +1,6 @@
 """SaProt's qkv projection written straight into per-head q, k, v ([B, H, L, 64]) by the minimal_matmul writer
 (kernels/mm_gate, MM_HEADS_ST), against minimal_matmul + nlp_create_qkv_heads. The page shape, the shipped WH qkv
-block config; the output should be bit-identical and the split op's time gone.
+block config, with the qkv bias; the output should be bit-identical and the split op's time gone.
 
     TT_VISIBLE_DEVICES=N python perf/spd_m_saprot/mm_rope_check.py --model saprot-650m [--fast] --out check.jsonl
 """
@@ -37,6 +37,8 @@ def main() -> int:
                         dtype=ttnn.bfloat16)
     w = ttnn.from_torch((torch.randn(d, 3 * d, generator=gen) / math.sqrt(d)).to(torch.bfloat16),
                         layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat8_b if a.fast else ttnn.bfloat16)
+    b = ttnn.from_torch((torch.randn(1, 3 * d, generator=gen) * 0.1).to(torch.bfloat16), layout=ttnn.TILE_LAYOUT,
+                        device=dev, dtype=ttnn.bfloat16)
     fid = ttnn.MathFidelity.HiFi3 if a.fast else ttnn.MathFidelity.HiFi4
     ck = ttnn.WormholeComputeKernelConfig(math_fidelity=fid, math_approx_mode=False, fp32_dest_acc_en=True,
                                           packer_l1_acc=True)
@@ -44,7 +46,7 @@ def main() -> int:
                                     subblock_w=cfg[4], compute_with_storage_grid_size=ttnn.CoreCoord(*grid))
 
     def ref():
-        qkv = ttnn.experimental.minimal_matmul(x, w, compute_kernel_config=ck, config=mcfg,
+        qkv = ttnn.experimental.minimal_matmul(x, w, bias_tensor=b, compute_kernel_config=ck, config=mcfg,
                                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
         q, k, v = ttnn.experimental.nlp_create_qkv_heads(ttnn.unsqueeze(qkv, 1), num_heads=H, num_kv_heads=H,
                                                           transpose_k_heads=False,
@@ -56,12 +58,12 @@ def main() -> int:
         outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, H, L, 64]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
                                                ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
         return MG.generic_minimal_matmul(dev, x, w, outs, (cfg, grid), MG.ckc_args(ck),
-                                         defines={"MM_HEADS_ST": L // 32}, kernel_dir=mm_gate.KERNEL_DIR)
+                                         defines={"MM_HEADS_ST": L // 32}, kernel_dir=mm_gate.KERNEL_DIR, bias=b)
 
     def plain():
         return MG.generic_minimal_matmul(dev, x, w, [ttnn.allocate_tensor_on_device(
             ttnn.Shape([B, L, 3 * d]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)],
-            (cfg, grid), MG.ckc_args(ck), kernel_dir=mm_gate.KERNEL_DIR)
+            (cfg, grid), MG.ckc_args(ck), kernel_dir=mm_gate.KERNEL_DIR, bias=b)
 
     out = open(a.out, "a")
     r = [ttnn.to_torch(t) for t in ref()]
