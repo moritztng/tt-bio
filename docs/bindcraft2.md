@@ -289,6 +289,26 @@ BindCraft 2 feeds an all-zero extra-MSA mask, so there is no gradient into the e
 it measures exactly zero on BindCraft 2's own JAX, and the card's path returns zero by
 construction and refuses a mask that is not all-zero.
 
+### Block traces
+
+`trace=True` replays each Evoformer, extra-MSA and template block from a captured device trace
+instead of issuing its ttnn calls from Python one by one. The output is bit-identical to the
+default path. A round drops from 60,851 ttnn calls to 2,602, and the host time spent issuing them
+from 1.88 s to 0.20 s per round on a Blackhole p300c chip at AICLK 1350.
+
+```python
+# TT_BIO_TRACE_REGION_MB=2048 in the environment before the device opens
+with bindcraft2.predictor(card=0, trace=True) as build:
+    ...
+```
+
+The card bounds a round today, so on a quiet host the round time does not change (2.647 against
+2.651 s per iteration on PD-L1 at 80 residues). It pays on a busy host, where the default path
+waits on Python and the traced one does not (2.647 against 3.149 to 3.680 s), and it will pay
+everywhere once card time per round falls below the host's. Thirty PD-L1 trajectories with
+traces on pass the same design-quality grade as the default path. It is off by default because
+it needs a 2 GiB trace region at 224 tokens.
+
 ### The exact-training instrument
 
 Inside a tape, tt-bio can run softmax and layer norm on the host in float64 rather than on the

@@ -345,3 +345,32 @@ def test_nograd_inference_does_not_lift_l1_placement(monkeypatch):
     finally:
         ops.set_grad_hook(prev)
     assert tenstorrent._l1_fits(1, 1.0)
+
+
+def test_an_unrecorded_forward_skips_the_entry_too(monkeypatch):
+    """With an entry installed, an unrecorded forward still runs the kernel's inference path on raw
+    operands. The entry is for a node, and an entry that declines for want of its backward's state
+    (pair_relu before the block's first recording call) made a forward's program depend on whether
+    a backward had run yet, which a block trace then replayed into the other case."""
+    from tt_bio import autograd as ag, ops
+    seen, entered = [], []
+
+    @ops.fused_kernel("test_probe_kernel")
+    def probe(x):
+        seen.append(type(x))
+        return x
+
+    monkeypatch.setattr(ops, "_KERNEL_ENTRIES",
+                        {"test_probe_kernel": lambda shipped, a, k: entered.append(1)})
+    monkeypatch.setattr(ops, "NOGRAD_IS_INFERENCE", True)
+    prev = ops.set_grad_hook(ag._hook)
+    try:
+        class Raw:
+            pass
+        with ag.no_grad():
+            probe(ag.Tensor(Raw()))
+        assert seen == [Raw] and not entered
+        probe(ag.Tensor(Raw()))     # recording: the entry takes it
+        assert entered == [1]
+    finally:
+        ops.set_grad_hook(prev)

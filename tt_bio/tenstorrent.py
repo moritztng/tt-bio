@@ -8088,6 +8088,115 @@ def capture_trace(dev, run):
     return tid, out
 
 
+class TraceScratch:
+    """One DRAM hole that every trace replayed between eager work captures into.
+
+    A replay writes its intermediates at the addresses they had during capture, and the
+    allocator calls those addresses free once the capture is over. An eager tensor allocated
+    there afterwards and alive across a replay is overwritten: BC2's traced block backward
+    replayed exactly for 16 calls and then went wrong (qb2 card 2, 2026-10-19; 12 on qb1,
+    10-11). So captures run inside a fence. Every free DRAM byte outside one hole is held by
+    ballast, the captures can only allocate in the hole, and afterwards whatever they left free
+    there is taken by placeholders that stay until `release`. From then on nothing eager can
+    land in the hole. Replays run one at a time on one command queue, so every trace can share
+    the hole, and a batch of captures shares one fence.
+
+    L1 is not fenced: a caller must not hold an L1 tensor across a replay that was not live
+    at the capture.
+    """
+
+    #: Largest ballast buffer per bank, and so the precision the hole is sized to.
+    CHUNK = 64 << 20
+
+    def __init__(self, dev):
+        self.dev = dev
+        self.banks = int(ttnn.get_memory_view(dev, ttnn.BufferType.DRAM).num_banks)
+        self.hole = None       # (first, end) address per bank
+        self.held = []         # placeholders filling the hole between captures
+
+    def _hold(self, per_bank):
+        """One buffer taking ``per_bank`` bytes of every bank: row-major pages dealt round-robin."""
+        page = min(per_bank, 1 << 20)
+        return ttnn.empty([self.banks * (per_bank // page), page // 2], dtype=ttnn.bfloat16,
+                          layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev,
+                          memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+    def _fill(self):
+        """Take every free DRAM byte: ``CHUNK``-per-bank buffers, then halves, down to 64 B,
+        each size until the allocator refuses it. A memory view per buffer would cost seconds
+        each with a tape's thousands of buffers live."""
+        held, size = [], self.CHUNK
+        while size >= 64:
+            try:
+                held.append((self._hold(size), size))
+            except RuntimeError:
+                size //= 2
+        return held
+
+    def capture(self, need, size, runs, settle=None):
+        """Capture each of ``runs`` with every allocation it makes in the hole; their trace ids.
+
+        ``need`` is the largest DRAM rise per bank among them. The first batch opens a hole of
+        ``size`` bytes per bank. Returns None, capturing nothing, when no hole that large can be
+        had or the hole is smaller than ``need``. ``settle()`` runs after the captures and
+        before the hole is filled: it must drop every reference to a buffer they allocated,
+        because one freed after the fill frees a piece of the hole for anything eager."""
+        ballast = self._fill()
+        tids, err = [], None
+        try:
+            if self.hole is None:
+                k = -(-size // self.CHUNK)
+                chunks = sorted((t for t, b in ballast if b == self.CHUNK),
+                                key=lambda t: t.buffer_address())
+                hole = []
+                for t in chunks:
+                    if hole and t.buffer_address() != hole[-1].buffer_address() + self.CHUNK:
+                        hole = []
+                    hole.append(t)
+                    if len(hole) == k:
+                        break
+                if len(hole) < k:
+                    return None
+                self.hole = (hole[0].buffer_address(), hole[0].buffer_address() + k * self.CHUNK)
+                ids = {id(t) for t in hole}
+                ballast = [(t, b) for t, b in ballast if id(t) not in ids]
+                for t in hole:
+                    ttnn.deallocate(t)
+            elif need > self.hole[1] - self.hole[0]:
+                return None
+            else:
+                for t, _ in self.held:
+                    ttnn.deallocate(t)
+                self.held = []
+            try:
+                for run in runs:
+                    tids.append(capture_trace(self.dev, run)[0])
+            except RuntimeError as e:
+                # Keep the message, not the exception: its traceback pins the failed run's frames,
+                # and the buffers they hold sit in the hole. Freed after the fill below, they would
+                # hand pieces of the hole to eager tensors that later replays overwrite (BC2 seed 102
+                # on qb2 card 3, 2026-10-20: every trajectory after a refused capture was garbage).
+                err = str(e)
+                for tid in tids:
+                    ttnn.release_trace(self.dev, tid)
+                tids = None
+        finally:
+            if settle is not None:
+                settle()
+            if self.hole is not None:
+                self.held += self._fill()
+            for t, _ in ballast:
+                ttnn.deallocate(t)
+        if err is not None:
+            raise RuntimeError(err)
+        return tids
+
+    def release(self):
+        for t, _ in self.held:
+            ttnn.deallocate(t)
+        self.held = []
+        self.hole = None
+
 # How long the bring-up probe may take before it is called a wedge. A healthy open plus
 # dispatch on a qb1 p150a is 1.6 s, so this is a ~75x margin and needs no tuning.
 _DISPATCH_PROBE_TIMEOUT_S = 120.0

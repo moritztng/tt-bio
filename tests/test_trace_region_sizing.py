@@ -113,7 +113,7 @@ def test_every_named_capture_has_an_entry():
 
 def test_every_capture_site_is_sized():
     found = {str(p.relative_to(ROOT)) for p in _py([ROOT / "tt_bio"])
-             for c in _calls(p) if _name(c) in ("begin_trace_capture", "capture_trace")}
+             for c in _calls(p) if _name(c) in ("begin_trace_capture", "capture_trace", "TraceScratch")}
     assert found == set(CAPTURE_SITES), (
         f"begin_trace_capture moved or a new site appeared: {sorted(found ^ set(CAPTURE_SITES))}. "
         f"Measure its bytes (perf/mgx_trace_region) and add a TRACE_REGIONS entry.")
@@ -153,3 +153,30 @@ def test_rfd3_traces_refuse_by_name():
     init = init[:init.index("self.encoder = LocalAtomTransformer(")]
     assert '("RFD3_TRACE_ENCODER",' in init and '("RFD3_TRACE_DECODER",' in init
     assert "is withdrawn" in init and "raise ValueError(" in init
+
+
+def test_block_trace_key_carries_the_tape_mode():
+    """An open tape changes a block's op sequence (fused kernels without a tape entry decline), so
+    a trace captured under a tape must never replay without one (bc4-bet-dispatch c10)."""
+    from tt_bio import autograd, ops
+    prev = ops.set_grad_hook(None)
+    try:
+        bare = autograd._rt_sig([])
+        ops.set_grad_hook(lambda *a, **k: None)
+        taped = autograd._rt_sig([])
+    finally:
+        ops.set_grad_hook(prev)
+    assert bare != taped
+
+
+def test_block_traces_switches_both_units_and_restores():
+    """`predictor(trace=...)` is an argument: inside `block_traces` both traced units follow it,
+    and the environment-flag defaults come back at the exit, also after a raise."""
+    from tt_bio import autograd
+    before = autograd.TRACE_RECOMPUTE, autograd.TRACE_FORWARD
+    for on in (True, False):
+        with pytest.raises(RuntimeError):
+            with autograd.block_traces(on):
+                assert (autograd.TRACE_RECOMPUTE, autograd.TRACE_FORWARD) == (on, on)
+                raise RuntimeError
+        assert (autograd.TRACE_RECOMPUTE, autograd.TRACE_FORWARD) == before
