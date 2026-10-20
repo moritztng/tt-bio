@@ -40,7 +40,7 @@ def permute(w: torch.Tensor, ncols: int, n_block: int) -> torch.Tensor:
 def plan(x, w, cfg, grid, seq_len):
     """None, or why the fused kernel declines."""
     m = 1
-    for d in x.padded_shape[:-1]:
+    for d in list(x.padded_shape)[:-1]:
         m *= int(d)
     n = int(w.padded_shape[-1])
     if m > n:
@@ -62,7 +62,7 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc):
         return None
     dev = x.device()
     bsz = 1
-    for d in x.padded_shape[:-2]:
+    for d in list(x.padded_shape)[:-2]:
         bsz *= int(d)
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([bsz, n_heads, seq_len, 64]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                            dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
