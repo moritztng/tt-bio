@@ -194,7 +194,9 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # normal grade vs the set above (spd-m-protenix gtbn, 2026-10-20), 42 paired folds over 4 seeds: same-seed top pose median
 # 0.273 A vs the 0.6 A bar (1.254 A A/A floor), docking 35/42 -> 35/42, every interval covers 0. transition_b8 alone read 0.731 A.
 # Separate processes on one Galaxy chip at 1000 MHz (tbx): 55.98 / 55.99 -> 53.36 / 53.21 s warm; transition_b8 alone 55.18 s.
-WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain"})
+# ws_psilu rides along bit-identically on that plain kernel: CIFs identical on 8 of 8 warm folds, separate processes on
+# one Galaxy chip at 1000 MHz (psn): 53.36 / 53.24 / 53.72 / 53.24 -> 52.81 / 52.82 / 52.62 / 53.02 s warm.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
