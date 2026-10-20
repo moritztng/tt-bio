@@ -11,6 +11,7 @@ git rev-parse HEAD > "$D/sha"; git status --porcelain --untracked-files=no > "$D
 PY=$HOME/bcx_e2e_venv/bin/python
 PARAMS=$HOME/bcx_e2e/af2_params/params_model_1_multimer_v3.npz
 if [ -z "${CARD:-}" ]; then
+  export OUT=$D
   # One blocking waiter per chip; the first to get its lock claims the run, the rest let go.
   for c in ${CHIPS:-3 2 1 0}; do
     ( flock 9 && mkdir "$D/claim" 2>/dev/null && CARD=$c exec bash "$0" ) 9>"$HOME/spd_qb2_chip$c.lock" &

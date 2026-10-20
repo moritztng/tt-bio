@@ -9,6 +9,7 @@ D=${OUT:-$WT/_bc4out/aba_$(git rev-parse --short HEAD)}; mkdir -p "$D"
 PY=$HOME/bcx_e2e_venv/bin/python
 PARAMS=$HOME/bcx_e2e/af2_params/params_model_1_multimer_v3.npz
 if [ -z "${CARD:-}" ]; then
+  export OUT=$D
   echo $$ > "$D/pid"; git rev-parse HEAD > "$D/sha"; git status --porcelain --untracked-files=no > "$D/dirty"
   echo "${ARM:?set ARM}" > "$D/arm"
   for c in ${CHIPS:-3 2 1 0}; do
