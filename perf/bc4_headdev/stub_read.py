@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Read stub_aba.sh's three census arms: per-arm median wall, callbacks and host JAX over the warm
+"""Read stub_aba.sh's three census arms (B arm name in argv[2], default stub): per-arm median wall, callbacks and host JAX over the warm
 uninstrumented calls (calls 1-3 dropped: compile), load and clock, and stub minus mean(eager)."""
 import json, statistics as st, sys
 from pathlib import Path
 
 out = Path(sys.argv[1])
+b = sys.argv[2] if len(sys.argv) > 2 else "stub"
 rows = {}
-for arm in ("eager-a", "stub", "eager-b"):
+for arm in ("eager-a", b, "eager-b"):
     p = out / arm / "census.json"
     if not p.exists():
         print(f"{arm}: no census.json"); continue
@@ -21,7 +22,7 @@ for arm in ("eager-a", "stub", "eager-b"):
                      load1=st.median(r["load1"][0] if isinstance(r["load1"], (list, tuple)) else r["load1"] for r in u),
                      clock=d.get("cl"), sha=d.get("head", d).get("sha") if isinstance(d.get("head"), dict) else d.get("sha"))
     print(arm, json.dumps(rows[arm]))
-if {"eager-a", "stub", "eager-b"} <= rows.keys():
+if {"eager-a", b, "eager-b"} <= rows.keys():
     e = (rows["eager-a"]["host_jax"] + rows["eager-b"]["host_jax"]) / 2
-    print(f"host JAX removed by the stub: {e - rows['stub']['host_jax']:.4f} s/call "
+    print(f"host JAX removed by {b}: {e - rows[b]['host_jax']:.4f} s/call, wall {(rows['eager-a']['wall'] + rows['eager-b']['wall']) / 2 - rows[b]['wall']:+.4f} "
           f"(eager mean {e:.4f}, A drift {rows['eager-b']['host_jax'] - rows['eager-a']['host_jax']:+.4f})")

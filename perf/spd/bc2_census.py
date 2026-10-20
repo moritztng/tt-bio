@@ -227,7 +227,7 @@ def timed(name, fn):
     return run
 
 
-for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice):
+for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice, bc2.StructureOnDevice):
     for _verb in ("_primal", "_taped", "_backward"):
         setattr(_cls, _verb, timed(f"{_cls.__name__}.{_verb}", getattr(_cls, _verb)))
 
