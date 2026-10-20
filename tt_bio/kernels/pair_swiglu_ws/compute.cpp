@@ -149,9 +149,11 @@ void fc1_gate(uint32_t j) {
     PACK(TTI_SEMWAIT(
         p_stall::STALL_TDMA | p_stall::STALL_CFG, semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
     PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+#ifndef WS_NO_SILU
     for (uint32_t i = 0; i < SW; ++i) {
         silu_poly_v_tile_pack<V>(i);
     }
+#endif
     PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
     pack_tile_block(0, cb_gate, SW);
     tile_regs_release();

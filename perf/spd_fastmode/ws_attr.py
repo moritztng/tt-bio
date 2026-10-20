@@ -9,6 +9,7 @@ output wrong by design, so this prints time only: ms/call, median of --reps afte
 --ln runs it with the LayerNorm prologue (WS_LN) over a bf16 x, as the `ws_ln` lever calls it.
 --l1acc times only the `ws_l1acc` kernel (WS_L1ACC, Protenix-v2 normal) on the first hidden chunk, math-thread silu vs the
 packer's (`ws_psilu`), with the packer's output checked equal bit for bit.
+--psilu runs the dropped-phase arms with the packer's silu (`ws_psilu`): what the silu still costs once it overlaps the matmuls.
 """
 import argparse, json, os, statistics, time
 
@@ -22,6 +23,7 @@ ap.add_argument("--reps", type=int, default=20)
 ap.add_argument("--rms", action="store_true")
 ap.add_argument("--ln", action="store_true")
 ap.add_argument("--l1acc", action="store_true")
+ap.add_argument("--psilu", action="store_true")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -110,5 +112,5 @@ for mode, dt, fid in MODES if not a.l1acc else ():
         emit(arm=mode + "-bf16x-poly6_silu", fidelity=str(fid), ms=timed(lambda: W.pair_swiglu(xt, w12, w3t, fid, (), 2)))
     for drop in ("", "FC12", "SILU", "GATE", "FC3", "XREAD", "WRITE", "FC12+FC3", "FC12+FC3+SILU"):
         defs = [("WS_NO_" + d, "1") for d in drop.split("+") if d]
-        emit(arm=mode + ("-" + drop.lower() if drop else ""), fidelity=str(fid),
-             ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, defs)))
+        emit(arm=mode + ("-psilu" if a.psilu else "") + ("-" + drop.lower() if drop else ""), fidelity=str(fid),
+             ms=timed(lambda: W.pair_swiglu(x, w12, w3t, fid, defs, 2, pack_silu=a.psilu)))
