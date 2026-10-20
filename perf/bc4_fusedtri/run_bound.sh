@@ -20,3 +20,6 @@ echo "card $CARD free at $(date -u +%FT%TZ), sha $(git rev-parse HEAD)" >> "$OUT
 TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:bc4-bet-fusedtri \
   timeout 1800 python3 perf/bc4_fusedtri/phase_bound.py --out "$OUT/phase.jsonl" >> "$OUT/run.log" 2>&1
 echo "rc=$? at $(date -u +%FT%TZ)" >> "$OUT/run.log"
+TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:bc4-bet-fusedtri \
+  timeout 1200 python3 perf/bc4_fusedtri/composed.py --out "$OUT/composed.jsonl" >> "$OUT/run.log" 2>&1
+echo "composed rc=$? at $(date -u +%FT%TZ)" >> "$OUT/run.log"
