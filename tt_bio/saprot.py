@@ -293,8 +293,9 @@ def _saprot_prog(x, w, act, hifi2=False):
     rows_ax, cols_ax = (g.x, g.y) if tm else (g.y, g.x)
     mt = -(-rows // 32)
     pm, pn = -(-mt // rows_ax), -(-(n // 32) // cols_ax)
-    oh, ow = (max(b for b in range(1, t + 1) if t % b == 0 and b <= -(-t // splits))
-              for t, splits in ((pm, m_splits), (pn, n_splits)))
+    if pm % m_splits or pn % n_splits:   # out blocks as measured (Galaxy's 8 x 9 grid) or the default
+        return None
+    oh, ow = pm // m_splits, pn // n_splits
     sh, sw = _subblock(oh, ow)
     fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, float(act == "gelu_approx")) if act else None
     return kind, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
