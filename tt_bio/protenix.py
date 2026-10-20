@@ -112,7 +112,9 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a 11-set fast grade, 44 paired folds (gshxbh,
 # 2026-10-16), PASS: top pose median 0.623 A vs the 1.371 A floor, CA-lDDT +0.0071 [+0.0035, +0.0115], docking
 # 34 -> 34; p150a 5 samples 37.46 -> 36.77 s (shxb). So it is Protenix-v2 --fast on both chips: SHOIST_FAST.
-WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6", "ws_psilu"})
+# ws_lofi is out of it since 2026-10-20: LoFi hangs Wormhole chips (tenstorrent.lofi_allowed), so the kernel runs
+# HiFi2 there.
+WS_FAST = frozenset({"ws_ln", "trimul_sig6", "ws_psilu"})
 SHOIST_FAST = frozenset({"dit_shoist"})
 # triatt_k1: triangle attention's fused SDPA takes the whole row as one k chunk at 288-512 tokens (no rescale pass;
 # op 1.13x at [512, 4, 512, 32] on a Galaxy chip). It fires only at those sizes, so it is graded on the 512-token
@@ -188,7 +190,11 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # [-0.0003, +0.0008], iRMSD -0.30 [-0.85, -0.004], ipTM -0.009 [-0.022, -0.001], docking 36 -> 36; dit_shoist alone
 # 0.077 A, every interval covers 0. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, steady warm pairs: dit_shoist
 # -0.72 / -0.61 / -1.01 s (shn), trimul_t1w8 -0.72 / -0.68 / -0.54 s (t1n). Blackhole is ungraded.
-WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8"})
+# transition_b8 + ws_b8_plain (bfp8 pair-transition weights in one chunk on the plain SwiGLU kernel): Wormhole 512-token
+# normal grade vs the set above (spd-m-protenix gtbn, 2026-10-20), 42 paired folds over 4 seeds: same-seed top pose median
+# 0.273 A vs the 0.6 A bar (1.254 A A/A floor), docking 35/42 -> 35/42, every interval covers 0. transition_b8 alone read 0.731 A.
+# Separate processes on one Galaxy chip at 1000 MHz (tbx): 55.98 / 55.99 -> 53.36 / 53.21 s warm; transition_b8 alone 55.18 s.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
