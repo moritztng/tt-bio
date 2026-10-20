@@ -358,17 +358,20 @@ _SAPROT_HIFI2_ROLES = ("fc1", "fc2")
 # eighth, which is the -0.28 % |y| bias that failed qkv + out at HiFi2 above; a block-fp8 activation has no eighth bit.
 # fid_bias (ls99, Galaxy chip, 650M shapes, minimal_matmul at the shipped blocks, ms a call, bias vs float64): bf16 x
 # at HiFi2 -0.0028, the same x rounded to 7 bits -0.000002; block-fp8 x: qkv 0.695 -> 0.567, out 0.370 -> 0.257, fc1
-# 0.862 -> 0.688 (half the in0 bytes), typecast 0.04 ms in L1 at bias +0.0028 (ties round away from zero). Off until graded.
-# True = all three roles; a tuple names them ("qkv", "out", "fc1").
-_SAPROT_IN_B8 = env_flag("TT_BIO_SAPROT_IN_B8", False)
-
-
-# The typecast to block-fp8 rounds ties away from zero, so q and k come out +0.28 % in magnitude (fid_bias) and the
-# logits +0.56 %: a sharper softmax. Where qkv reads block-fp8 the attention scale divides that back out.
-_IN_B8_QK_DEBIAS = 1.0028 ** -2
+# 0.862 -> 0.688 (half the in0 bytes), typecast 0.04 ms in L1 at bias +0.0028 (ties round away from zero).
+# Page A/B (.107 Galaxy chips, AICLK 1000, 2 rounds x 3, --fast, ms off -> on, pcc vs fp32 delta, fast bar 0.0002):
+#   out alone: 650M hHSA -4.0 % (+0.000022), hPCSK9 -2.8 % (-0.000007); 1.3B hPCSK9 245.3 -> 235.5 (+0.000024).
+#   qkv + out: 650M -9.4 / -10.7 %, 1.3B -10.0 / -10.7 %, but 1.3B hPCSK9 -0.000264: the typecast's +0.28 % on q and k.
+#   Dividing the +0.56 % logit bias out of the attention scale did not help (650M hPCSK9 -0.000380), so qkv stays off.
+#   fc1 adds the loss and buys nothing (650M hPCSK9 -1.2 %, -0.000341): the typecast eats the read saving.
+# None = ("out",) on Wormhole until Blackhole is graded; True = all three roles; a tuple names them.
+_SAPROT_IN_B8 = env_flag("TT_BIO_SAPROT_IN_B8", None)
 
 
 def _in_b8_roles():
+    if _SAPROT_IN_B8 is None:
+        from tt_bio import tenstorrent
+        return ("out",) if tenstorrent.is_wormhole() else ()
     return ("qkv", "out", "fc1") if _SAPROT_IN_B8 is True else tuple(_SAPROT_IN_B8 or ())
 
 
@@ -677,8 +680,7 @@ class ESM2Attention(_SaprotLin, Module):
             v = ttnn.multiply(v, key_valid)
         d = int(self.norm_weight.shape[-1])
         b8 = _in_b8_on(self.out_weight, d) and _SAPROT_SDPA_B8
-        scale = self.head_dim ** -0.5 * (_IN_B8_QK_DEBIAS if _in_b8_on(self.qkv_weight, d) else 1.0)
-        o = lm_sdpa(q, k, v, attn_mask, scale=scale, merge=True, ckc=_sdpa_ckc(heads is not None),
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_sdpa_ckc(heads is not None),
                     out_dtype=ttnn.bfloat8_b if b8 else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = _in_b8(o, self.out_weight, d)
