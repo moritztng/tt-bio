@@ -194,7 +194,9 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # normal grade vs the set above (spd-m-protenix gtbn, 2026-10-20), 42 paired folds over 4 seeds: same-seed top pose median
 # 0.273 A vs the 0.6 A bar (1.254 A A/A floor), docking 35/42 -> 35/42, every interval covers 0. transition_b8 alone read 0.731 A.
 # Separate processes on one Galaxy chip at 1000 MHz (tbx): 55.98 / 55.99 -> 53.36 / 53.21 s warm; transition_b8 alone 55.18 s.
-WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain"})
+# ws_psilu rides along bit-identically on that plain kernel: CIFs identical on 8 of 8 warm folds, separate processes on
+# one Galaxy chip at 1000 MHz (psn): 53.36 / 53.24 / 53.72 / 53.24 -> 52.81 / 52.82 / 52.62 / 53.02 s warm.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -1960,6 +1962,17 @@ class DiffusionModule(_KeyedWeights):
         lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
             x, w, bias=b, activation=act, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         sig = _T.mm_sigmoid(ckc)
+        if _T.lever("dit_shoist_mm") and sig == "sigmoid":
+            # ttnn.linear's own schedule reads these [N, 384] x [384, 36864] at ~57 GB/s; a 2 x 16 tile block per core
+            # runs 2.2x (fp32) / 2.0x (bf16) faster at the same fidelity and the same float64 error (shm2, WH). K block 1
+            # only: minimal_matmul returned elements off by 4-8 at fp32 with K block >= 2 and at bf16 with K block 12.
+            gx, gy = _T.COMPUTE_GRID_MAIN
+            cfg = ttnn.MinimalMatmulConfig(M_block_size=2, K_block_size=1,
+                                           N_block_size=16, subblock_h=1, subblock_w=4,
+                                           compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
+            lin = lambda x, w, b=None, act=None: ttnn.experimental.minimal_matmul(  # noqa: E731
+                x, w, bias_tensor=b, compute_kernel_config=ckc, dtype=dt, config=cfg,
+                fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID) if act else None)
         out = (lin(s_hat, w_sc, b_sc, sig), lin(s_hat, w_sb), lin(s_t, w_g, b_g, sig))
         ttnn.deallocate(s_hat)
         return out
