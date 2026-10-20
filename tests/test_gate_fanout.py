@@ -462,6 +462,8 @@ def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
                         "lock": "/l/card{card}.lock"}, "a" * 40)
     perf = next(lg for lg in _legs() if lg.family == "perf")
     assert h.leg(perf).argv[-2:] == ["--against", "/r/trees/v0.13.1"]
+    ladder = next(lg for lg in _legs() if lg.family == "ladder")
+    assert h.leg(ladder).argv[-2:] == ["--size-ladder-against", "/r/trees/v0.13.1"]
     assert "--against" not in h.leg(next(lg for lg in _legs() if lg.family == "parity")).argv
 
 

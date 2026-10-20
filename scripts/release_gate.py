@@ -2985,7 +2985,7 @@ def _size_ladder_fold_timeouts(model: str, runtime_s: dict) -> dict:
 
 
 def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
-                     need_runtime: bool = True) -> dict:
+                     need_runtime: bool = True, tree: Path | None = None) -> dict:
     """One lever-census-wrapped fold of the cdk2x2_<rung> fixture. Returns
     {"levers": {flag: {resolved, served, declined, frac, how}}, "runtime_s": ...,
     "wall": ...} or {"error": ...}.
@@ -2996,12 +2996,15 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     (single-sequence, 6 steps, 1 sample, seed 0) — enough to resolve every guard
     without paying for a production fold. runtime_s comes from the fold's own
     results.json, which excludes model load and process startup.
+
+    `tree` folds another checkout's tt_bio instead (the A/B reference, see
+    SIZE_LADDER_AB_BAND) through the census's own `--pythonpath`, on the same fixture.
     """
     from tt_bio.main import predict_results_dir_name
     fixture = _size_ladder_fixture(model, rung)
     if not fixture.exists():
         return {"error": f"missing size-ladder fixture {fixture}"}
-    label = f"{model}-{rung}-{tag}"
+    label = f"{model}-{rung}-{tag}" + ("-ref" if tree else "")
     census_json = workdir / f"census_{label}.json"
     out_dir = workdir / f"out_{label}"
     log = workdir / f"{label}.log"
@@ -3009,7 +3012,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     workdir.mkdir(parents=True, exist_ok=True)
     census = ([sys.executable, str(REPO_ROOT / "scripts" / "lever_census.py"),
                "--tt-bio", sys.executable, "--label", label, "--out", str(census_json)]
-              + _census_pythonpath_args() + ["--"])
+              + (["--pythonpath", str(tree)] if tree else _census_pythonpath_args()) + ["--"])
     if model == "nesso1":
         # `tt-bio affinity`, not `predict` — see the SIZE_LADDER_NESSO_* block. The census hook
         # runs in every process the CLI starts, launcher included, and this model folds in the
@@ -3051,7 +3054,7 @@ def _run_census_fold(model: str, rung: int, workdir: Path, tag: str,
     t0 = time.monotonic()
     with open(log, "w") as fp, _clock_during() as clk:
         timeout_s = SIZE_LADDER_FOLD_TIMEOUTS.get((model, int(rung)), FOLD_TIMEOUT_S)
-        rc, timed_out = _run_fold(cmd, timeout_s, cwd=REPO_ROOT, env=env,
+        rc, timed_out = _run_fold(cmd, timeout_s, cwd=tree or REPO_ROOT, env=env,
                                   stdout=fp, stderr=subprocess.STDOUT)
     wall = time.monotonic() - t0
     aiclk, load = _aiclk_cell(clk), _load_cell(clk)
@@ -3991,7 +3994,15 @@ def _size_ladder_check_model(model: str, rungs, base_model: dict, workdir: Path,
         return {"model": model, "gate": False, "error": meas["error"],
                 "findings": [meas["error"]],
                 "runtime_s": meas.get("runtime_s") or {}, "partial": True}
-    return _size_ladder_compare(base_model, meas, model, rungs, timings_differ)
+    ab = None
+    if SIZE_LADDER_AGAINST:
+        got = _size_ladder_ab(model, [int(r) for r in meas["runtime_s"]], workdir,
+                              SIZE_LADDER_AGAINST)
+        ab = got.get("ab")
+        if ab is None:
+            print(f"  [size-ladder] {model}: no A/B ({got['error']}); timing against the "
+                  f"recorded baseline", flush=True)
+    return _size_ladder_compare(base_model, meas, model, rungs, timings_differ, ab)
 
 
 def _size_ladder_threads_differ(baseline_path: Path, card: str, model: str) -> str | None:
@@ -4022,12 +4033,16 @@ def _size_ladder_threads_differ(baseline_path: Path, card: str, model: str) -> s
 
 
 def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs,
-                         timings_differ: str | None = None) -> dict:
+                         timings_differ: str | None = None, ab: dict | None = None) -> dict:
     """Score a measured ladder against its baseline. Pure: no device, no folds.
 
     Split out from _size_ladder_check_model so the arm's verdicts can be tested, and
     reproduced from a past run's numbers, without a card. Every ladder red row this campaign
     argued about was adjudicated by hand out of the log and the baseline fragment dir.
+
+    `ab` (from _size_ladder_ab) replaces the recorded runtimes as the timing reference: the
+    rungs are judged against the last release folded beside them, and the recorded exponents,
+    timed in another session, are only reported. The lever census is judged the same either way.
     """
     findings = []
     b_grid, c_grid = base_model.get("grid"), meas.get("grid")
@@ -4075,7 +4090,9 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs,
                                                     where))
     measured_k, void = {}, {}
     drifted = False
-    if timings_differ:
+    if ab is not None:
+        findings.extend(_size_ladder_ab_findings(model, ab))
+    elif timings_differ:
         findings.append(f"{model}: {timings_differ}")
     for interval, be in ({} if timings_differ else base_model.get("exponents") or {}).items():
         n1, n2 = (int(x) for x in interval.split("->"))
@@ -4090,7 +4107,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs,
             continue
         k = math.log(t2 / t1) / math.log(n2 / n1)
         measured_k[interval] = round(k, 3)
-        if abs(k - be["k"]) > be["tol"]:
+        if ab is None and abs(k - be["k"]) > be["tol"]:
             drifted = True
             findings.append(f"{model} {interval}: exponent {be['k']:.2f} -> {k:.2f} "
                             f"outside ±{be['tol']:.2f}")
@@ -4101,6 +4118,7 @@ def _size_ladder_compare(base_model: dict, meas: dict, model: str, rungs,
             "error": "; ".join(findings) or None, "findings": findings,
             "runtime_s": meas["runtime_s"], "exponents": measured_k,
             **({"exponents_void": void} if void else {}),
+            **({"ab": ab} if ab is not None else {}),
             "baseline_from": " ".join(str(base_model.get(k)) for k in
                                       ("recorded", "host", "commit") if base_model.get(k))}
 
@@ -4182,6 +4200,75 @@ def _size_ladder_rung_localisation(model: str, base_rt: dict, meas_rt: dict) -> 
         note += (f" -- no rung moved more than {SIZE_LADDER_RUNG_MOVED:.0%}: the exponent "
                  f"tolerance is tighter than the per-rung noise it is built from")
     return note
+
+
+#: The A/B reference: a checkout of the last release (gate_fanout's `perf_against` tree). When set,
+#: a check run times its exponent rungs against it on this chip, in this session, and the
+#: recorded runtimes stop being the timing reference. --size-ladder-against.
+SIZE_LADDER_AGAINST: Path | None = None
+#: A rung fails when its fastest candidate fold is more than this much slower than the reference's
+#: fastest. Rung times on the gate pools are bimodal: across 14 gates (2026-10-14..20) about 30 % of
+#: single folds on every host, qb2 included, read 1.1-3.4x the clean level, in bursts that hit one
+#: fold and spare the next (openbind 256 aa on g110 read 9.4..22.7 s on near-identical code). A
+#: fold can only be slowed by a co-tenant, never sped up, so the minimum over a few folds is the
+#: code's speed, and the two minima on one chip in one session differ by the clean rep spread,
+#: which the recorded quiet-box reps put at 3 % median and 14 % p90 (57 cells, max/min of 3-5
+#: reps). 1.15 sits above that and below the 1.3x a real regression has to clear.
+SIZE_LADDER_AB_BAND = 1.15
+#: Interleaved candidate/reference pairs per rung, and the most a rung reading slow may grow to.
+#: Pairs are only added while the rung reads slow, so a clean ladder pays three. A real slowdown
+#: stays slow at any count; a burst has to land on every candidate fold to survive six.
+SIZE_LADDER_AB_REPS, SIZE_LADDER_AB_MAX_REPS = 3, 6
+
+
+def _size_ladder_ab_ratio(cell: dict) -> float:
+    """Fastest candidate fold over fastest reference fold."""
+    return min(cell["cand"]) / min(cell["ref"])
+
+
+def _size_ladder_ab_findings(model: str, ab: dict) -> list:
+    """The A/B rungs that read slower than SIZE_LADDER_AB_BAND. Pure, so a past run's folds can
+    be re-judged without a card."""
+    out = []
+    for rung, cell in sorted(ab.items(), key=lambda kv: int(kv[0])):
+        r = _size_ladder_ab_ratio(cell)
+        if r > SIZE_LADDER_AB_BAND:
+            out.append(f"{model}/{rung} A/B: {r:.2f}x the reference ({min(cell['ref']):.1f} -> "
+                       f"{min(cell['cand']):.1f} s fastest of {len(cell['cand'])}; candidate "
+                       f"{cell['cand']}, reference {cell['ref']}) beyond {SIZE_LADDER_AB_BAND}x")
+    return out
+
+
+def _size_ladder_ab(model: str, rungs, workdir: Path, tree: Path) -> dict:
+    """Time `model` at its exponent rungs against `tree` on this chip, folds interleaved.
+
+    The same-session A/B the perf leg runs (perf_regression.py --against), one level finer: per
+    rung, a reference warm-up, then candidate and reference folds alternating in ABBA order so a
+    slow stretch of the session lands on both sides. Returns {"ab": {rung: {"cand": [s],
+    "ref": [s]}}} or {"error": ...} when the reference cannot fold this model.
+    """
+    ab = {}
+    for rung in (r for r in _size_ladder_exp_rungs(model) if r in rungs):
+        warm = _run_census_fold(model, rung, workdir, "abwarm", tree=tree)
+        if warm.get("refused") or warm.get("error"):
+            return {"error": f"reference {tree.name} at {rung}: "
+                             f"{warm.get('refused') or warm.get('error')}"}
+        cell = {"cand": [], "ref": []}
+        while len(cell["cand"]) < SIZE_LADDER_AB_REPS or (
+                len(cell["cand"]) < SIZE_LADDER_AB_MAX_REPS
+                and _size_ladder_ab_ratio(cell) > SIZE_LADDER_AB_BAND):
+            i = len(cell["cand"])
+            for side in (("cand", "ref") if i % 2 == 0 else ("ref", "cand")):
+                r = _run_census_fold(model, rung, workdir, f"ab{i}",
+                                     tree=tree if side == "ref" else None)
+                if r.get("refused") or r.get("error"):
+                    return {"error": f"{side} at {rung} A/B pair {i}: "
+                                     f"{r.get('refused') or r.get('error')}"}
+                cell[side].append(round(r["runtime_s"], 2))
+        print(f"  [size-ladder] {model}/{rung} A/B vs {tree.name}: candidate {cell['cand']}, "
+              f"reference {cell['ref']} -> {_size_ladder_ab_ratio(cell):.2f}x", flush=True)
+        ab[str(rung)] = cell
+    return {"ab": ab}
 
 
 def run_size_ladder_fill_reasons(baseline_path: Path, models=None) -> dict:
@@ -5328,6 +5415,10 @@ def main() -> int:
                          "of checking against it. Explicit human action after an "
                          "intentional size-affecting change; runs all rungs and "
                          "measures the runtime noise floor. Never automatic.")
+    ap.add_argument("--size-ladder-against", type=Path, default=None, metavar="TREE",
+                    help="A/B in one session: time each model's exponent rungs against TREE (a "
+                         "checkout of the last release) on this card, folds interleaved, "
+                         "instead of against the recorded runtimes. Check runs only.")
     ap.add_argument("--size-ladder-baseline", default=str(SIZE_LADDER_BASELINE),
                     help="Baseline JSON path (default docs/size_ladder_baseline.json).")
     ap.add_argument("--size-ladder-models", default=None,
@@ -5391,9 +5482,10 @@ def main() -> int:
         print("\n".join(default_arms()))
         return 0
 
-    global FAST, DIFFUSION_TRACE, HOST_THREADS
+    global FAST, DIFFUSION_TRACE, HOST_THREADS, SIZE_LADDER_AGAINST
     FAST = args.fast
     HOST_THREADS = args.host_threads
+    SIZE_LADDER_AGAINST = args.size_ladder_against.resolve() if args.size_ladder_against else None
     DIFFUSION_TRACE = args.diffusion_trace
 
     # This gate is single-card by construction: every leg folds one yaml, which selects one

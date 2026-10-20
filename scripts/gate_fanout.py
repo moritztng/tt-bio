@@ -87,6 +87,9 @@ numbers are measured on the same card in the same session, then the commit is ga
 card type with no committed cell is compared with a real measurement rather than seeded.
 On a PASS the runner writes the reference's re-measured machine block into <out>/seeded/<arch>/
 perf_baselines.json for the release commit; the A/B leg's key leaves the committed baseline out.
+Ladder legs on such a host time their exponent rungs against the same tree, folds interleaved on
+their chip (release_gate.py --size-ladder-against), and their lever census still reads the
+committed baseline.
 
 SEEDING. A perf leg on a card type and machine with no baseline has nothing to regress against:
 perf_regression.py records the run as the first baseline and prints GATE SEEDED. The leg then
@@ -978,8 +981,8 @@ class Host:
     def leg(self, leg: Leg) -> Leg:
         """`leg` with this host's extra flags for its family (hosts.json `args`)."""
         extra = list(self.cfg.get("args", {}).get(leg.family, []))
-        if leg.family == "perf" and self.cfg.get("perf_against"):
-            extra += ["--against", self.against]
+        if leg.family in ("perf", "ladder") and self.cfg.get("perf_against"):
+            extra += ["--against" if leg.family == "perf" else "--size-ladder-against", self.against]
         return dataclasses.replace(leg, argv=leg.argv + extra) if extra else leg
 
     @property
