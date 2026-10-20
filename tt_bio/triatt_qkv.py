@@ -412,7 +412,7 @@ def _tail_ok(o, g, w, resid, bias=None):
     from .tenstorrent import lever
     po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
     if not (len(po) == 4 and (po == pg or _g3d(o, g)) and po[-1] == TILE and _dram_tile_bf16(o)
-            and _dram_tile_bf16(g, b8=lever("triatt_ln_b8g") or lever("triatt_ln_g8")) and _dram_tile_bf16(w) and len(w.shape) == 2
+            and _dram_tile_bf16(g, b8=lever("triatt_ln_b8g")) and _dram_tile_bf16(w) and len(w.shape) == 2
             and int(w.shape[-2]) == po[1] * TILE and int(w.shape[-1]) % TILE == 0):
         return False
     if bias is not None and not (TAIL_KB1 and bias.dtype == ttnn.bfloat16
