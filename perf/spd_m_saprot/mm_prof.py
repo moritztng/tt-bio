@@ -32,6 +32,8 @@ def main() -> int:
     ap.add_argument("--shapes", default="qkv,out,fc1,fc2")
     ap.add_argument("--kladder", default="320,640,1280,2560", help="fc1's call at these K (N, M fixed); empty = none")
     ap.add_argument("--calls", type=int, default=4)
+    ap.add_argument("--cfg2d", default="", help="extra fc1 arms (approx gelu), ';'-separated tm,kb,sh,sw,oh,ow on the "
+                    "2D mcast program at the model grid, per_core_M/N from the grid")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -77,6 +79,19 @@ def main() -> int:
         hifi2 = mck.math_fidelity == ttnn.MathFidelity.HiFi2
         if not name.startswith("fc1k") and S._saprot_prog(xd, wd, act, hifi2) is not None:
             arms["pick"] = lambda: lin._lin(xd, wd, bias=bd, **kw)
+        if name == "fc1a":
+            g = T.CORE_GRID_MAIN
+            for spec in filter(None, a.cfg2d.split(";")):
+                tm, kb, sh, sw, oh, ow = (int(v) for v in spec.split(","))
+                rows_ax, cols_ax = (g.x, g.y) if tm else (g.y, g.x)
+                pm, pn = -(-(a.rows // 32) // rows_ax), -(-(N // 32) // cols_ax)
+                pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+                    compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh,
+                    out_subblock_w=sw, out_block_h=oh or pm, out_block_w=ow or pn, per_core_M=pm, per_core_N=pn,
+                    transpose_mcast=bool(tm), fuse_batch=True,
+                    fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, 1.0))
+                arms[f"2d:{spec}"] = lambda pc=pc: ttnn.linear(xd, wd, bias=bd, program_config=pc, compute_kernel_config=mck,
+                                                               dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
         for arm, fn in arms.items():
             try:
                 for _ in range(2):
