@@ -150,30 +150,35 @@ def pack(p):
 
 
 class NP:
-    """float64 numpy backend: the op set the card backend has to supply."""
-    def put(self, x): return np.asarray(x, np.float64)
+    """float64 host backend: the op set the card backend has to supply. `xp` is numpy, or
+    jax.numpy with x64 on, which makes the same chain differentiable for a float64 reference VJP."""
+
+    def __init__(self, xp=np):
+        self.xp = xp
+
+    def put(self, x): return self.xp.asarray(x, self.xp.float64)
     def get(self, x): return np.asarray(x)
-    mm = staticmethod(lambda a, b: a @ b)
+    mm = bmm = staticmethod(lambda a, b: a @ b)
     linear = staticmethod(lambda x, w, b=None: x @ w + (0 if b is None else b))
-    add = staticmethod(np.add); sub = staticmethod(np.subtract); mul = staticmethod(np.multiply)
+    add = staticmethod(lambda a, b: a + b); sub = staticmethod(lambda a, b: a - b)
+    mul = staticmethod(lambda a, b: a * b)
     col = staticmethod(lambda x, i: x[..., i:i + 1])
     cols = staticmethod(lambda x, s, e: x[..., s:e])
-    concat = staticmethod(lambda xs: np.concatenate(xs, -1))
+    def concat(self, xs): return self.xp.concatenate(xs, -1)
     heads = staticmethod(lambda x, d: x.reshape(x.shape[0], H, d).transpose(1, 0, 2))   # [N, H*d] -> [H, N, d]
     unheads = staticmethod(lambda x: x.transpose(1, 0, 2).reshape(x.shape[1], -1))       # [H, N, d] -> [N, H*d]
-    bmm = staticmethod(lambda a, b: a @ b)
-    bmm_t = staticmethod(lambda a, b: a @ np.swapaxes(b, -1, -2))
+    bmm_t = staticmethod(lambda a, b: a @ b.swapaxes(-1, -2))
     permute = staticmethod(lambda x, perm: x.transpose(perm))
-    unsq = staticmethod(lambda x: x[:, None, :])
     flat = staticmethod(lambda x: x.reshape(x.shape[0], -1))
     reshape = staticmethod(lambda x, shape: x.reshape(shape))
-    relu = staticmethod(lambda x: np.maximum(x, 0))
-    sqrt_eps = staticmethod(lambda x, eps: np.sqrt(x + eps)); recip = staticmethod(lambda x: 1.0 / x)
+    def relu(self, x): return self.xp.maximum(x, 0)
+    def sqrt_eps(self, x, eps): return self.xp.sqrt(x + eps)
+    recip = staticmethod(lambda x: 1.0 / x)
     def softmax(self, x):
-        e = np.exp(x - x.max(-1, keepdims=True)); return e / e.sum(-1, keepdims=True)
+        e = self.xp.exp(x - x.max(-1, keepdims=True)); return e / e.sum(-1, keepdims=True)
     def layer_norm(self, x, gb, eps=1e-5):
         mu = x.mean(-1, keepdims=True); var = ((x - mu) ** 2).mean(-1, keepdims=True)
-        return (x - mu) / np.sqrt(var + eps) * gb[0] + gb[1]
+        return (x - mu) / self.xp.sqrt(var + eps) * gb[0] + gb[1]
 
 
 def layer(o, k, act, R, t, bias, z_rows, drop=None):
