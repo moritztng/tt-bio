@@ -171,6 +171,12 @@ _SAPROT_SDPA = None
 _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
+# The qkv projection, its bias, the packed RoPE and the head split as one minimal_matmul (tt_bio/mm_rope: the RoPE in
+# the matmul's epilogue, from a per-core permuted copy of the qkv weight), in place of minimal_matmul +
+# rope_heads_packed (WH 650M --fast page census: qkv 26.8 + rope 11.4 of 145.9 ms). Off until the page A/B grades it.
+_SAPROT_MM_ROPE = env_flag("TT_BIO_SAPROT_MM_ROPE", False)
+
+
 # SaProt 35M (head_dim 24, padded to 32): q / k dims ordered in NeoX pairs so rotary_embedding_llama's 32 x 32 pair
 # rotation runs RoPE on the padded heads, in place of the folded companion projection (rot_weight), two multiplies and
 # an add over [B, L, 3*H*32] (WH 35M page census: 14.9 of 41.5 ms). Galaxy chip, 1000 MHz, 2 processes per arm x 3, ms:
@@ -452,6 +458,37 @@ class ESM2Attention(_SaprotLin, Module):
             self.out_weight = self.torch_to_tt("out.weight", dtype=_dtype())
         self.out_bias = self.torch_to_tt("out.bias")
 
+    def _mm_rope_weights(self):
+        """(weight, bias) with the qkv columns in mm_rope's per-core order for this device's measured qkv program, or
+        None where it has none or the layout cannot split."""
+        from tt_bio import mm_rope, tenstorrent
+        d = int(self.weights["qkv.weight"].shape[-1])
+        hit = _PROGS.get((tenstorrent.is_wormhole(), d, 3 * d))
+        ncols = self.device.compute_with_storage_grid_size().x
+        if hit is None or hit[0] != "mm" or mm_rope.layout(3 * d // 32, ncols, hit[1][2]) is None:
+            return None
+        dev = lambda x, dt: ttnn.from_torch(x.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+        return (dev(mm_rope.permute(self.weights["qkv.weight"].t(), ncols, hit[1][2]), _dtype()),
+                dev(mm_rope.permute(self.weights["qkv.bias"][None], ncols, hit[1][2]), ttnn.bfloat16))
+
+    def _mm_rope(self, x, cos, sin):
+        """(rope(q), rope(k), v) from one mm_rope matmul, or None where the measured program or mm_rope declines."""
+        if not _SAPROT_MM_ROPE or self.head_dim != 64 or not _saprot_qkrh(self.qkv_weight):
+            return None
+        if not hasattr(self, "qkv_rope"):   # built on first use, so an A/B can flip the flag on a loaded model
+            self.qkv_rope = self._mm_rope_weights()
+        if self.qkv_rope is None:
+            return None
+        from tt_bio import mm_rope
+        ck = self._ck(self.qkv_weight)
+        prog = _saprot_prog(x, self.qkv_weight, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2)
+        if prog is None or prog[0] != "mm":
+            return None
+        c = prog[1]
+        g = c.compute_with_storage_grid_size
+        cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
+        return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (g.x, g.y), ck)
+
     def _rope_pairs(self, t, cos, sin):
         """rotary_embedding_llama on [B, H, L, 32] heads, as one batch of B * H heads (its prefill takes batch 1)."""
         b, h, length, w = (int(d) for d in t.shape)
@@ -463,9 +500,12 @@ class ESM2Attention(_SaprotLin, Module):
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
-        qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
-        heads = None
-        if self.rope_pairs:   # q / k dims in adjacent pairs (_fold_rope_qkv pairs=True), cos / sin [1, 1, L, 32]
+        heads = None if self.fold_rope else self._mm_rope(x_norm, cos, sin)
+        qkv = None if heads is not None else self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
+        if heads is not None:
+            ttnn.deallocate(x_norm)
+            q, k, v = heads
+        elif self.rope_pairs:   # q / k dims in adjacent pairs (_fold_rope_qkv pairs=True), cos / sin [1, 1, L, 32]
             ttnn.deallocate(x_norm)
             q, k, v = self._split_heads(qkv, self.n_heads)
             q, k = (self._rope_pairs(t, cos, sin) for t in (q, k))
