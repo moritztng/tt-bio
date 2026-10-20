@@ -2779,8 +2779,10 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     against eager differ by zero. It takes ~90 % of the host enqueue off a round, 0.20 s against
     1.88 s per call on a Blackhole p300c under the same host load. The card bounds the round
     today, so it buys s/it only on a contended host or once card time falls below the host's.
-    It needs a 2 GiB trace region at 224 tokens and defaults to the `TT_BIO_TRACE_RECOMPUTE`
-    environment flag, which is off.
+    It needs a 2 GiB trace region at 224 tokens, more than the `TRACE_REGIONS` default, so set
+    `TT_BIO_TRACE_REGION_MB=2048` before the device opens. A capture that does not fit is
+    refused and that block stays eager. Defaults to the `TT_BIO_TRACE_RECOMPUTE` environment
+    flag, which is off.
 
     `memory` is how the round spends device memory, one of `MEMORY_MODES` or ``"auto"``, the
     default, which picks the fastest mode that fits this card at each fold's token axis. A
