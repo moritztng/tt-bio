@@ -334,15 +334,16 @@ def _prepare(x, out, device):
 
 # The forward move takes permute_fwd_pk (unpacker transpose, packer re-tiling, no NOC gather) where it serves,
 # bit-exact. Blackhole, qb2 card 2 p300c at 1350 MHz (bets/block/raw/chain6_43185f0a9): 2.2x at 224 c128/c256,
-# 1.9-2.2x at 288 and 384, 2.1x at 512 c128 and 1.8x at 512 c256. Wormhole keeps the gather until measured there.
-# TT_BIO_PFPK overrides the arch default either way.
+# 1.9-2.2x at 288 and 384, 2.1x at 512 c128 and 1.8x at 512 c256. Off by default: in BC2, with permute_back_pk,
+# an in-process ABBA read +0.13 +- 0.06 s/it slower at host load ~18 (bets/block/raw/chain12_c647ca3df), so the
+# per-call win is not yet a whole-model one. TT_BIO_PFPK=1 opts in.
 _PFPK = None
 
 
 def _pfpk():
     global _PFPK
     if _PFPK is None:
-        _PFPK = env_flag("TT_BIO_PFPK", ttnn.get_arch_name().startswith("blackhole"))
+        _PFPK = env_flag("TT_BIO_PFPK", False)
     return _PFPK
 
 
@@ -707,8 +708,8 @@ def _prepare_back(x, out, device):
 # The move takes permute_back_pk (the packer re-tiles, the writer copies whole tiles) where it serves, bit-exact.
 # Wormhole: 1.48 vs 2.09 ms at 512 c256 and 5.67 vs 6.91 ms at 1024 (one Galaxy chip, 1000 MHz), where this kernel's
 # reader gathers 64 NOC packets a tile. Blackhole (qb2 card 2 p300c, A/B/A, torch.equal every leg,
-# bets/block/raw/chain4_5679e9931): 1.35x at 224 c128, 1.31x at 288, 1.29x at 384 c128/c256, 1.14x at 512 c128/c256.
-# TT_BIO_PBPK=0 restores the gathering reader.
+# bets/block/raw/chain4_5679e9931): 1.35x at 224 c128, 1.31x at 288, 1.29x at 384 c128/c256, 1.14x at 512 c128/c256,
+# but Blackhole stays on the gather by default for the reason given at `_PFPK`. TT_BIO_PBPK overrides either way.
 _PBPK = None
 STATS_PBPK = [0]
 
@@ -716,7 +717,7 @@ STATS_PBPK = [0]
 def _pbpk():
     global _PBPK
     if _PBPK is None:
-        _PBPK = env_flag("TT_BIO_PBPK", True)
+        _PBPK = env_flag("TT_BIO_PBPK", ttnn.get_arch_name().startswith("wormhole"))
     return _PBPK
 
 
