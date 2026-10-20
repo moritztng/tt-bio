@@ -286,6 +286,33 @@ def test_a_bh_waiter_starts_on_the_first_card_to_come_free(tmp_path):
     assert Path(f"{sh}.log").read_text() == "card 1\n"
 
 
+def test_a_freed_bh_card_goes_to_the_lowest_prio_waiter_not_the_first_placed(tmp_path):
+    # 10-20 qb2: prio-8 backfill waiters placed first took both cards for hours while four prio-3 row jobs waited
+    import fcntl, threading
+    busy = open(tmp_path / "l5", "a"); fcntl.flock(busy, fcntl.LOCK_EX)
+    (tmp_path / "spd/feed/jobs").mkdir(parents=True)
+    out = {}
+    lo = threading.Thread(target=lambda: out.setdefault("lo", _place_bh(tmp_path, [5], "sleep 1\n", name="8-lo.sh")))
+    hi = threading.Thread(target=lambda: out.setdefault("hi", _place_bh(tmp_path, [5], "sleep 1\n", name="3-hi.sh")))
+    lo.start(); time.sleep(0.6); hi.start(); time.sleep(0.6)
+    fcntl.flock(busy, fcntl.LOCK_UN)
+    lo.join(); hi.join()
+    j = tmp_path / "spd/feed/jobs"
+    assert (j / "3-hi.sh.end").read_text().strip() == "0" and (j / "8-lo.sh.end").read_text().strip() == "0"
+    assert (j / "3-hi.sh.start").stat().st_mtime < (j / "8-lo.sh.start").stat().st_mtime
+
+
+def test_a_waiter_held_off_by_a_booking_does_not_block_a_lower_prio_one(tmp_path):
+    now = int(time.time())
+    _book(tmp_path, (now + 2000, now + 5000, "cfd3-k4", "5"))
+    long = _place_bh(tmp_path, [5], "echo card $CHIP\n", cap=5000, name="3-l.sh")
+    try:
+        sh = _place_bh(tmp_path, [5], "echo card $CHIP\n", name="8-s.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+    finally:
+        subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])
+
+
 def test_withdraw_kills_an_unstarted_waiter_and_sets_it_aside(tmp_path):
     jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
     w = subprocess.Popen(["setsid", "bash", "-c", "sleep 300"])
