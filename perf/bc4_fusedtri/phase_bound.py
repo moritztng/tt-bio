@@ -23,7 +23,7 @@ import torch, ttnn
 from tt_bio import tenstorrent as T
 from tt_bio import bmm_res
 
-dev = T.get_device()
+dev = T.get_device(trace="diffusion")  # a trace region, so each phase is also timed without host dispatch
 g = dev.compute_with_storage_grid_size()
 GX, GY = g.x, g.y
 DRAM = ttnn.DRAM_MEMORY_CONFIG
@@ -49,15 +49,30 @@ def ckc(fid=ttnn.MathFidelity.HiFi4):
                                                   fp32_dest_acc_en=True, packer_l1_acc=True)
 
 
-def timed(f):
+def timed(f, trace=False):
+    """Per-call ms over bursts. Eager timing includes Python dispatch (~0.03-0.045 ms/op on a loaded qb2), which
+    hides any phase faster than that; trace=True replays a captured burst, so it reads device time plus launch."""
     ttnn.deallocate(f()); ttnn.synchronize_device(dev)
-    ms = []
-    for _ in range(A.reps):
-        t0 = time.perf_counter()
+    if trace:
+        tid = ttnn.begin_trace_capture(dev, cq_id=0)
         for _ in range(A.burst):
             ttnn.deallocate(f())
-        ttnn.synchronize_device(dev)
-        ms.append((time.perf_counter() - t0) * 1e3 / A.burst)
+        ttnn.end_trace_capture(dev, tid, cq_id=0)
+        go = lambda: ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)  # noqa: E731
+    else:
+        def go():
+            for _ in range(A.burst):
+                ttnn.deallocate(f())
+    try:
+        go(); ttnn.synchronize_device(dev)
+        ms = []
+        for _ in range(A.reps):
+            t0 = time.perf_counter()
+            go(); ttnn.synchronize_device(dev)
+            ms.append((time.perf_counter() - t0) * 1e3 / A.burst)
+    finally:
+        if trace:
+            ttnn.release_trace(dev, tid)
     return statistics.median(ms), min(ms), max(ms)
 
 
@@ -75,6 +90,8 @@ def run(phase, f, mult=1, flop=0, ref=None, conv=None):
             got = (conv(got) if conv else got).reshape(ref.shape)
             r["rel_l2_vs_f64"] = round(float((got - ref).norm() / ref.norm()), 5)
         md, lo, hi = timed(f)
+        r.update(eager_ms=round(md, 4), eager_min_ms=round(lo, 4), eager_max_ms=round(hi, 4))
+        md, lo, hi = timed(f, trace=True)
         r.update(ms=round(md, 4), min_ms=round(lo, 4), max_ms=round(hi, 4))
         if flop:
             r["tflops"] = round(flop / md / 1e9, 2)
@@ -101,10 +118,9 @@ def put(t, mem):
 
 
 def mm_prog(nt, kt):
-    sh = max(h for h in (1, 2, 4, 8) if pm % h == 0 and h <= 8)
-    sw = max(w for w in (1, 2, 4, 8) if nt % w == 0 and w * sh <= 4) if sh <= 4 else 1
-    if sh * sw > 4:
-        sh = 4 if pm % 4 == 0 else (2 if pm % 2 == 0 else 1); sw = 1
+    # fp32 dest holds 4 tiles; ttnn wants out_subblock_w == per_core_N or out_subblock_h == 1
+    sw = max(w for w in (1, 2, 4) if nt % w == 0)
+    sh = max(h for h in (1, 2, 4) if pm % h == 0 and h * sw <= 4) if sw == nt else 1
     return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
         compute_with_storage_grid_size=ttnn.CoreCoord(GX, GY), in0_block_w=kt, out_subblock_h=sh,
         out_subblock_w=sw, per_core_M=pm, per_core_N=nt, fuse_batch=True, fused_activation=None, mcast_in0=False)
@@ -115,7 +131,7 @@ z = put(hz, hs(C))
 ck = ckc()
 res = {}
 # dispatch floor: the cheapest sharded op on the same grid
-res["floor"] = run("dispatch_floor", lambda: ttnn.add(z, 0.0, memory_config=hs(C)))
+res["floor"] = run("launch_floor", lambda: ttnn.add(z, 0.0, memory_config=hs(C)))
 
 # LN in (sharded LN, falls back to L1 interleaved)
 try:
@@ -171,15 +187,19 @@ res["out_proj"] = run("out_proj_hifi4", lambda: ttnn.matmul(z, wp, program_confi
 res["out_gate"] = run("out_gate_mul_128", lambda: ttnn.multiply(z, z, memory_config=hs(C)), 2)
 res["residual"] = run("residual_add_128", lambda: ttnn.add(z, z, memory_config=hs(C)), 2)
 
+# SUM over traced per-call ms x mult. total_ms keeps every launch (the upper side); net_ms takes the traced floor
+# off each phase (the NOTES rule's "one dispatch floor subtracted") and is the fused kernel's lower bound.
 fl = res["floor"].get("ms", 0)
-tot, parts = 0.0, {}
+tot, net, parts, missing = 0.0, 0.0, {}, []
 for k, r in res.items():
-    if k in ("floor", "contract_dram") or "ms" not in r:
+    if k in ("floor", "contract_dram"):
         continue
-    t = max(r["ms"] - fl, 0) * r["mult"]
-    parts[k] = round(t, 4); tot += t
+    if "ms" not in r:
+        missing.append(k); continue
+    parts[k] = round(r["ms"] * r["mult"], 4); tot += r["ms"] * r["mult"]; net += max(r["ms"] - fl, 0) * r["mult"]
 flop = 2 * N * N * C * 640 + 2 * C * N ** 3 + 2 * N * N * C * C
-emit(dict(phase="SUM", parts_ms=parts, total_ms=round(tot, 4), whole_kernel_flop=flop,
-          whole_kernel_tflops=round(flop / tot / 1e9, 2) if tot else None,
+emit(dict(phase="SUM", parts_ms=parts, missing=missing, floor_ms=fl, total_ms=round(tot, 4), net_ms=round(net, 4),
+          whole_kernel_flop=flop, tflops_total=round(flop / tot / 1e9, 2) if tot else None,
+          tflops_net=round(flop / net / 1e9, 2) if net else None,
           aiclk_median=statistics.median(CLK) if CLK else None, aiclk_min=min(CLK) if CLK else None,
           aiclk_n=len(CLK)))
