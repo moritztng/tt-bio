@@ -522,6 +522,23 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
     banks, want, per_bank = g["banks"], g["want"], g["per_bank"]
     free_total, largest, bank_size = g["free"] * banks, g["largest"], g["bank_size"]
     card_total, held = bank_size * banks, g["allocated"] * banks
+    if space == "L1":
+        # L1 is the SRAM inside the cores, 160.8 MB on a p300c chip. Read as the card, this
+        # refusal told a 576-token fold that even `offload` tops out near 32 tokens.
+        down = padded - TOKEN_BUCKET
+        return MemoryError(
+            f"BindCraft 2 could not place a buffer in L1 in the {stack} {phase} at {padded} "
+            f"tokens.\n"
+            f"  complex   {n} residues, padded to {padded} tokens "
+            f"(tt-bio buckets the token axis to {TOKEN_BUCKET})\n"
+            f"  asked for {_gb(want)} in one L1 buffer ({_gb(per_bank)} in each of {banks} banks)\n"
+            f"  free      {_gb(free_total)} of {_gb(card_total)} of L1, largest contiguous block "
+            f"{_gb(largest)}\n"
+            f"This is L1, the SRAM inside the cores, not the card's DRAM, so a slower memory mode "
+            f"does not change it. tt-bio puts a tensor in L1 only where it should fit, so this is "
+            f"a tt-bio bug: please report it with this message. {n - down} residues off the "
+            f"binder takes this fold to {down} tokens, which may avoid it.\n"
+            f"The allocator's own refusal follows.")
     # Only a DRAM refusal is measured against a DRAM reading, and a card that gave memory back
     # since the reading has no split worth printing.
     if space != "DRAM" or held_before is None or not 0 <= held_before <= held:

@@ -1479,6 +1479,24 @@ def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down(mo
     assert "backward" in msg
 
 
+#: An L1 bank refusal off a 563-residue complex on a p300c chip (qb2 card 3, sweep15, 2026-10-20):
+#: one 576x576x128 bf16 pair tensor, with one already allocated.
+REFUSAL_L1_576 = (
+    "Out of Memory: Not enough space to allocate 84934656 B L1 buffer across 110 banks, "
+    "where each bank needs to store 774144 B, but bank size is 1461760 B "
+    "(allocated: 780288 B, free: 681472 B, largest free block: 681472 B)\n")
+
+
+def test_an_l1_refusal_is_not_read_as_a_full_card():
+    """The size-aware refusal used to price L1 as the card and advise memory modes."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_L1_576), phase="forward",
+                                             n=563, padded=576, stack="extra-MSA stack"))
+    assert "in L1 in the extra-MSA stack forward at 576 tokens" in msg
+    assert "84.9 MB in one L1 buffer" in msg and "of 160.8 MB of L1" in msg
+    assert "not the card's DRAM" in msg and "offload" not in msg
+    assert "19 residues off the binder takes this fold to 544 tokens" in msg
+
+
 def test_the_p150a_ceiling_quoted_follows_the_pad_up(monkeypatch):
     """864 with the pad-up on (the default), 576 with it off: a refusal at 608 with the pad-up off
     must not tell the user 608 fits, and one at 896 with it on must quote 864, not 576."""
