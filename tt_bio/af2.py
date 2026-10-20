@@ -966,7 +966,19 @@ class AF2MaskedOuterProductMean(OuterProductMean):
         out = ttnn.add(out, self.o_bias)
         return ttnn.reshape(out, (1, *tuple(out.shape)))
 
-    def masked(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor) -> ttnn.Tensor:
+    def pair_norm(self, msa_mask: ttnn.Tensor) -> ttnn.Tensor:
+        """`eps + sum_s m_si m_sj` as [1, n, n, 1], from a [rows, n] mask: a matmul over the row axis."""
+        n = int(msa_mask.shape[-1])
+        mt = ttnn.permute(msa_mask, (1, 0))
+        norm = ttnn.matmul(mt, msa_mask, compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(mt)
+        norm = ttnn.add_(norm, self.EPS)
+        return ttnn.reshape(norm, (1, n, n, 1))
+
+    def masked(self, x: ttnn.Tensor, msa_mask: ttnn.Tensor,
+               norm: ttnn.Tensor | None = None) -> ttnn.Tensor:
+        """`norm` is `pair_norm(msa_mask)` when the caller holds one (`_MaskBiasCache`); it is
+        read, not freed."""
         if len(x.shape) == 4:
             x = ttnn.reshape(x, tuple(x.shape)[1:])
         if len(msa_mask.shape) == 3:
@@ -995,15 +1007,13 @@ class AF2MaskedOuterProductMean(OuterProductMean):
         # numbers (`perf/bcx_predictor/opm_unit.json`).
         z = self._sum_rows(a, b)
 
-        # norm_ij = sum_s m_si m_sj, as a matmul over the row axis.
-        mt = ttnn.permute(msa_mask, (1, 0))
-        norm = ttnn.matmul(mt, msa_mask, compute_kernel_config=self.compute_kernel_config)
-        ttnn.deallocate(mt)
-        norm = ttnn.add_(norm, self.EPS)
-        norm = ttnn.reshape(norm, (1, n, n, 1))
+        own = norm is None
+        if own:
+            norm = self.pair_norm(msa_mask)
         out = ttnn.divide(z, norm)
         ttnn.deallocate(z)
-        ttnn.deallocate(norm)
+        if own:
+            ttnn.deallocate(norm)
         return out
 
 
@@ -1040,16 +1050,16 @@ class _MaskBiasCache:
         hit = self._d.get(id(key))
         if hit is None:
             return None
-        _, row, col = hit
-        if not (row.is_allocated() and col.is_allocated()):
+        _, *held = hit
+        if not all(t.is_allocated() for t in held):
             del self._d[id(key)]
             MASK_BIAS_CACHE_STATS["evicted_freed"] += 1
             return None
         MASK_BIAS_CACHE_STATS["hit"] += 1
-        return row, col
+        return tuple(held)
 
-    def put(self, key: ttnn.Tensor, row: ttnn.Tensor, col: ttnn.Tensor) -> None:
-        self._d[id(key)] = (key, row, col)
+    def put(self, key: ttnn.Tensor, *held: ttnn.Tensor) -> None:
+        self._d[id(key)] = (key, *held)
         while len(self._d) > self.cap:
             self._d.popitem(last=False)
         MASK_BIAS_CACHE_STATS["build"] += 1
@@ -1104,7 +1114,7 @@ class AF2EvoformerBlock(AF2PairBlock):
         self.opm = AF2MaskedOuterProductMean(
             self.scope("opm"), compute_kernel_config, scale_bias=True)
 
-    def _mask_biases(self, msa_mask: ttnn.Tensor) -> tuple[ttnn.Tensor, ttnn.Tensor]:
+    def _mask_biases(self, msa_mask: ttnn.Tensor) -> tuple[ttnn.Tensor, ttnn.Tensor, ttnn.Tensor | None]:
         """`[rows, n]` mask -> the row and column additive logit biases.
 
         Built once per block rather than once per attention: the two variants are the same
@@ -1138,12 +1148,14 @@ class AF2EvoformerBlock(AF2PairBlock):
             transposed = ttnn.permute(flat, (1, 0))
             col_bias = ttnn.fill_implicit_tile_padding(
                 ttnn.reshape(transposed, (n, 1, 1, rows)), 0.0)
+        # The OPM's pair norm is a function of the same mask, so a cache holds it beside the biases.
+        norm = self.opm.pair_norm(msa_mask) if cache is not None else None
         if cached is not None:
-            cache.check((row_bias, col_bias), cached)
+            cache.check((row_bias, col_bias, norm), cached)
             return cached
         if cache is not None:
-            cache.put(key, row_bias, col_bias)
-        return row_bias, col_bias
+            cache.put(key, row_bias, col_bias, norm)
+        return row_bias, col_bias, norm
 
     def _msa_track(self, msa: ttnn.Tensor, pair: ttnn.Tensor,
                    row_bias: ttnn.Tensor | None = None,
@@ -1158,22 +1170,23 @@ class AF2EvoformerBlock(AF2PairBlock):
             m, self._update("msa_transition", self.msa_transition, m)), msa)
         return msa
 
-    def _opm_update(self, msa: ttnn.Tensor, msa_mask: ttnn.Tensor | None) -> ttnn.Tensor:
+    def _opm_update(self, msa: ttnn.Tensor, msa_mask: ttnn.Tensor | None,
+                    norm: ttnn.Tensor | None = None) -> ttnn.Tensor:
         call = ((lambda m: self.opm(m, None)) if msa_mask is None
-                else (lambda m: self.opm.masked(m, msa_mask)))
+                else (lambda m: self.opm.masked(m, msa_mask, norm)))
         return self._update("opm", call, msa)
 
     def __call__(self, msa: ttnn.Tensor, z: ttnn.Tensor,
                  msa_mask: ttnn.Tensor | None = None, mask: ttnn.Tensor | None = None,
                  attn_mask: ttnn.Tensor | None = None,
                  drop=None) -> tuple[ttnn.Tensor, ttnn.Tensor]:
-        row_bias, col_bias = (self._mask_biases(msa_mask) if msa_mask is not None
-                              else (None, None))
+        row_bias, col_bias, opm_norm = (self._mask_biases(msa_mask) if msa_mask is not None
+                                        else (None, None, None))
         if self.opm_first:
             # multimer_v3 sets `outer_product_mean.first`, so the pair carries the MSA before
             # the row attention reads it as a bias. Same ops and same weights as the monomer
             # block; only this order differs, and it differs for all 52 blocks.
-            z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask)), z, msa)
+            z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask, opm_norm)), z, msa)
         msa = self._msa_track(msa, z, row_bias, col_bias, drop)
         # AF2 divides the outer product mean by `eps + norm`, and at an all-ones mask the norm
         # is the MSA depth everywhere. `eps` is 1e-3 and the trunk is bfloat16, whose spacing at
@@ -1182,7 +1195,7 @@ class AF2EvoformerBlock(AF2PairBlock):
         # Evoformer 0 and 47 (`device_gate.py --opm-eps 1e-3`). `None` reads the depth off the
         # tensor, which is that divisor.
         if not self.opm_first:
-            z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask)), z, msa)
+            z = self._step(lambda p, m: self._residual(p, self._opm_update(m, msa_mask, opm_norm)), z, msa)
         return msa, super().__call__(z, mask, attn_mask, drop)
 
 
