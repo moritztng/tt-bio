@@ -271,15 +271,3 @@ def test_saprot_out_l1_small_only(k, n, wdtype, want, monkeypatch):
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_OUT_L1", True)
     assert sp._out_l1(_T(7 * 544, k, ttnn.bfloat16), _T(k, n, getattr(ttnn, wdtype))) is want
-
-
-def test_saprot_augk_weight_folds_the_bias():
-    """[x | e0] @ _augk_weight(w, b) == x @ w.T + b: the ones column picks up the bias row."""
-    import torch
-    from tt_bio import saprot as sp
-    torch.manual_seed(0)
-    x, w, b = torch.randn(5, 64, dtype=torch.float64), torch.randn(96, 64, dtype=torch.float64), torch.randn(96, dtype=torch.float64)
-    e = torch.zeros(5, 32, dtype=torch.float64); e[:, 0] = 1
-    got = torch.cat([x, e], dim=-1) @ sp._augk_weight(w, b)
-    assert sp._augk_weight(w, b).shape == (64 + 32, 96)
-    torch.testing.assert_close(got, x @ w.t() + b)

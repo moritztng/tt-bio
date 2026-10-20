@@ -590,28 +590,6 @@ def _block_ln(x, w, b, ck, proj_w):
 # 35M 55.4 -> 52.5 (54.8 -> 53.0); error against float32 HF unchanged (1.3B pcc 0.99916 -> 0.99929, 650M 0.99976 both).
 _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 
-# fc1's bias as one more K tile: the block LN output gets a ones column and the weight the bias row, so the matmul has
-# no bias pass. With a fused bias the 2D matmul packs every output tile to its fp32 partials and reloads it for the
-# broadcast add, and fc1 has 4x the output tiles of fc2 for the same FLOPs. Off until the page A/B grades it.
-_SAPROT_AUGK = env_flag("TT_BIO_SAPROT_AUGK", False)
-_ONES_COL: dict = {}
-
-
-def _ones_col(x):
-    """[..., 32] with column 0 = 1, the rest 0, on x's device and memory config (cached per shape)."""
-    key = (tuple(x.shape[:-1]), x.memory_config().buffer_type)
-    if key not in _ONES_COL:
-        e = torch.zeros(*x.shape[:-1], 32, dtype=torch.bfloat16)
-        e[..., 0] = 1
-        _ONES_COL[key] = ttnn.from_torch(e, layout=ttnn.TILE_LAYOUT, device=x.device(), dtype=ttnn.bfloat16,
-                                         memory_config=x.memory_config())
-    return _ONES_COL[key]
-
-
-def _augk_weight(w: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
-    """torch Linear [N, K] + [N] -> [K + 32, N]: the transposed weight, the bias row, 31 zero rows."""
-    return torch.cat([w.t(), b[None], torch.zeros(31, w.shape[0], dtype=w.dtype)])
-
 
 class ESM2FFN(_SaprotLin, Module):
     """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual: returns ``x + ffn(x)``."""
@@ -622,26 +600,14 @@ class ESM2FFN(_SaprotLin, Module):
         self.norm_bias = self.torch_to_tt("norm.bias")
         self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=_dtype())
         self.fc1_bias = self.torch_to_tt("fc1.bias")
-        self.fc1_augk = None
-        if _SAPROT_AUGK:
-            wa = _augk_weight(self.weights["fc1.weight"].to(torch.bfloat16), self.weights["fc1.bias"].to(torch.bfloat16))
-            self.fc1_augk = ttnn.from_torch(wa.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
-                                            dtype=self.fc1_weight.dtype)
         self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=_dtype())
         self.fc2_bias = self.torch_to_tt("fc2.bias")
 
     def __call__(self, x):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
-        act = {"activation": "gelu"} if _GELU_FUSED else {}
-        if self.fc1_augk is not None:
-            xa = ttnn.concat([x_norm, _ones_col(x_norm)], dim=-1, memory_config=x_norm.memory_config())
-            ttnn.deallocate(x_norm)
-            h = self._lin(xa, self.fc1_augk, **act)
-            ttnn.deallocate(xa)
-        else:
-            h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **act)
-            ttnn.deallocate(x_norm)
+        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": "gelu"} if _GELU_FUSED else {}))
+        ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
             h = ttnn.gelu(h)
         out = self._lin_add(h, self.fc2_weight, self.fc2_bias, x)
