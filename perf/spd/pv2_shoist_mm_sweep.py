@@ -41,6 +41,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--inner", type=int, default=10)
     ap.add_argument("--dtypes", default="float32,bfloat16")
+    ap.add_argument("--cands", default="", help="M:K:N,... instead of the full grid")
     a = ap.parse_args()
     dev = tt.get_device()
     gx, gy = tt.COMPUTE_GRID_MAIN
@@ -51,6 +52,11 @@ def main():
     torch.manual_seed(0)
     xt = torch.randn(1, M_ROWS, K_DIM)
     wt = torch.randn(K_DIM, N_DIM) / K_DIM ** 0.5
+    ref64 = (xt.double() @ wt.double())
+
+    def rel(got):
+        d = got.double().reshape(ref64.shape) - ref64
+        return float(d.norm() / ref64.norm()), float(d.abs().max())
     for dname in a.dtypes.split(","):
         dt = getattr(ttnn, dname)
         up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
@@ -58,11 +64,15 @@ def main():
         site = lambda: ttnn.linear(x, w, compute_kernel_config=ckc, core_grid=tt.CORE_GRID_MAIN)  # noqa: E731
         base, o = timed(dev, site, a.inner)
         ref = ttnn.to_torch(o); ttnn.deallocate(o)
-        print(f"== {dname} site {1e3 * base:.4f} ms", flush=True)
-        res["rows"].append({"dtype": dname, "arm": "site", "ms": 1e3 * base})
+        rl, ma = rel(ref)
+        print(f"== {dname} site {1e3 * base:.4f} ms relL2_f64 {rl:.3e} max_abs_f64 {ma:.3e}", flush=True)
+        res["rows"].append({"dtype": dname, "arm": "site", "ms": 1e3 * base, "rel_l2_f64": rl, "max_abs_f64": ma})
         cands = [(M, K, N, sh, sw) for M in (1, 2, 4, 8, 16) for K in (1, 2, 4, 6, 12) for N in (1, 2, 4, 8, 16)
                  for sh, sw in [max(((h, v) for h in (1, 2, 4) for v in (1, 2, 4)
                                      if M % h == 0 and N % v == 0 and h * v <= 4), key=lambda p: p[0] * p[1])]]
+        if a.cands:
+            want = {tuple(int(v) for v in c.split(":")) for c in a.cands.split(",")}
+            cands = [c for c in cands if c[:3] in want]
         for M, K, N, sh, sw in cands:
             cfg = ttnn.MinimalMatmulConfig(M_block_size=M, K_block_size=K, N_block_size=N, subblock_h=sh,
                                            subblock_w=sw, compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
@@ -74,8 +84,9 @@ def main():
                 got = ttnn.to_torch(o).reshape(ref.shape); ttnn.deallocate(o)
                 row.update(ms=1e3 * s, speedup=base / s, exact=bool(torch.equal(got, ref)),
                            max_abs=float((got.float() - ref.float()).abs().max()))
-                print(f"   M={M:2d} K={K:2d} N={N:2d} {row['ms']:.4f} ms {row['speedup']:.3f}x exact={row['exact']}",
-                      flush=True)
+                row["rel_l2_f64"], row["max_abs_f64"] = rel(got)
+                print(f"   M={M:2d} K={K:2d} N={N:2d} {row['ms']:.4f} ms {row['speedup']:.3f}x exact={row['exact']} "
+                      f"relL2_f64 {row['rel_l2_f64']:.3e} max_abs_f64 {row['max_abs_f64']:.3e}", flush=True)
             except Exception as e:  # noqa: BLE001
                 row["error"] = f"{type(e).__name__}: {str(e)[:160]}"
                 print(f"   M={M:2d} K={K:2d} N={N:2d} ERROR {row['error'][:90]}", flush=True)
