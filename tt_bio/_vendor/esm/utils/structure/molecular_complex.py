@@ -866,9 +866,11 @@ class MolecularComplex:
         # Set all AtomArray attributes at once (convert object arrays to proper string arrays)
         # res_name uses U8 to accommodate CCD codes up to 5 characters (e.g., A1AZ2);
         # chain_id uses U16 because chain names like ``ligand_1`` / ``ligand_2`` /
-        # auth-asym ids of arbitrary length are possible.
+        # auth-asym ids of arbitrary length are possible. tt-bio: widened past 16 for a longer
+        # id, which U16 truncated silently (two ids sharing a 16-char prefix merged).
         atom_array.res_id = atom_res_ids
-        atom_array.chain_id = np.array(atom_chain_ids, dtype="U16")
+        width = max([16] + [len(str(c)) for c in set(atom_chain_ids)])
+        atom_array.chain_id = np.array(atom_chain_ids, dtype=f"U{width}")
         atom_array.res_name = np.array(atom_res_names, dtype="U8")
         atom_array.hetero = atom_hetero
         atom_array.atom_name = np.array(atom_names, dtype="U4")

@@ -575,6 +575,10 @@ properties:
     sequence: ...
 ```
 
+Every chain needs its own id; a repeated one is refused. An entry without `id:` is `A` for a
+polymer and `L` for a ligand, so two such entries collide. Ids may be longer than one character
+on every model (`heavy_chain` comes back as `heavy_chain`), but RF3 refuses whitespace in an id.
+
 ### Proteins with Custom MSA
 ```yaml
 - protein:
