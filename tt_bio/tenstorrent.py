@@ -1245,6 +1245,9 @@ _PAIR_PROJ_BW: int | None = 16
 _NARROW_PROJ_BW: int | None = 1
 # Wider `_lin` pair projections on the same bit-exact plan (`_narrow_proj_linear`). False = core_grid as before.
 _WIDE_PROJ = True
+# Pair-sized calls only. The diffusion atom track's [1,4128,128] @ [128,768] is not torch.equal on this plan (one
+# bf16 ulp, every step, OpenDDE 512 fold check wpd), and its row count is a sixth of the smallest pair call.
+_WIDE_PROJ_MIN_ROWS = 16384
 # The pair-track output projection's 48.82 MB result never leaves the device: the trimul's
 # multiply_ and the Pairformer layer's residual add_ read it back immediately. Writing it to L1
 # instead of DRAM removes the projection's write AND the consumer's operand read, and the trunk
@@ -7086,10 +7089,13 @@ def _narrow_proj_linear(x, w, ckc, dtype, l1_out: bool = False):
     keeps the shipped contraction order and is `torch.equal`: OpenDDE's recycle projection
     [1,640,640,384] @ [384,384] ran 99.9 ms a call on `core_grid=` and 11.9 here, the template z
     [1,640,640,64] @ [64,384] 17.2 -> 6.7, the MSA embed [1,1280,640,34] @ [34,128] 9.2 -> 4.8
-    (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). A single-track call has too few row tiles to
-    fill the grid and `_pair_proj_program_config` declines it."""
+    (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Below `_WIDE_PROJ_MIN_ROWS` rows it declines:
+    the atom track's projections are not all bit-exact on this plan."""
     if -(-int(list(w.shape)[-1]) // 32) > 2:
-        if not _WIDE_PROJ:
+        rows = 1
+        for d in list(x.padded_shape)[:-1]:
+            rows *= int(d)
+        if not _WIDE_PROJ or rows < _WIDE_PROJ_MIN_ROWS:
             return None
         cfg = _pair_proj_config(x, w, bw_cap=1)
         return None if cfg is None else ttnn.linear(
