@@ -311,13 +311,20 @@ def test_a_waiver_in_the_base_gate_covers_every_candidate_fixed_forward_from_it(
     d = rn.decide(tmp_path, gates, "main")
     assert d["do"] == "FIX" and f"{g}/WAIVE" in d["why"]       # waivers go to the base, not gc2
 
-    (g / "WAIVE").write_text("perf wh  # no Wormhole baseline yet\nux:e wh\n")   # no reason: no waiver
-    (g1 / "WAIVE").write_text("ladder:m wh  # SOME_LEVER superseded by OTHER_LEVER, e2e faster\n")
+    assert f"WAIVE as `<leg> <arch> {c2[:12]}  # why`" in d["why"]
+    # A waiver judges one commit's run: the base's own (unscoped) and one written for c1 do not carry to c2.
+    (g / "WAIVE").write_text("perf wh  # base had no Wormhole baseline\n")
+    (g1 / "WAIVE").write_text(f"ux:e wh {c1[:12]}  # flaky host on c1\n")
+    assert rn.waivers(g, gates, tmp_path, "main") == {"perf wh": "base had no Wormhole baseline"}
+    assert rn.waivers(g1, gates, tmp_path, "main") == {"ux:e wh": "flaky host on c1"}
+    assert rn.waivers(g2, gates, tmp_path, "main") == {}
+    (g / "WAIVE").write_text(f"perf wh {c2[:12]}  # no Wormhole baseline yet\nux:e wh {c2[:12]}\n")  # no reason: no waiver
+    (g1 / "WAIVE").write_text(f"ladder:m wh {c2[:9]}  # SOME_LEVER superseded by OTHER_LEVER, e2e faster\n")
     assert rn.waivers(g2, gates, tmp_path, "main") == {
         "perf wh": "no Wormhole baseline yet", "ladder:m wh": "SOME_LEVER superseded by OTHER_LEVER, e2e faster"}
     d = rn.decide(tmp_path, gates, "main")
     assert d["do"] == "FIX" and "failed: ux:e wh" in d["why"] and "perf wh" not in d["why"].split("failed:")[1]
-    (g / "WAIVE").write_text("perf wh  # no Wormhole baseline yet\nux:e wh  # flaky host, passed on rerun\n")
+    (g / "WAIVE").write_text(f"perf wh {c2[:12]}  # no Wormhole baseline yet\nux:e wh {c2}  # flaky host, passed on rerun\n")
     d = rn.decide(tmp_path, gates, "main")
     assert (d["do"], d["sha"], d["models"]) == ("RECORD", c2, ["m"])   # a waived ladder is re-recorded
     r = _plan(gates, f"rec-{c2[:9]}", c2, tmp_path, partial=True)

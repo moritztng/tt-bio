@@ -8,7 +8,7 @@ b[c] into L1 once (512 KB bf16 at 512 tokens, two channels deep when L1 allows),
 it and writes out[c], so a, b and out each cross DRAM once. The reader, compute and writer are pair_linear's, keyed
 per channel. One fp32 dest pass over all of K.
 
-Where b[c] does not fit (above 704 tokens bf16), BRES_SPLIT (on, TT_BIO_BRES_SPLIT=0 turns it off) splits N: a work
+Where b[c] does not fit (above 704 tokens bf16), BRES_SPLIT (Wormhole; TT_BIO_BRES_SPLIT=0/1 forces it) splits N: a work
 unit is (channel, a block of NB of the NT output tile columns), so b[c] is resident one column block at a time and
 a[c] is read once per block. At 1024 tokens that is two blocks, a read twice: 8 MB of DRAM traffic a channel against
 the 6 MB floor. A split call streams the transposed a in 4-tile groups and drains the output one dest group (compute's
@@ -26,6 +26,7 @@ The trimul einsum calls it under the `trimul_bres` lever (tenstorrent.py); perf/
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import ttnn
@@ -38,7 +39,9 @@ KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "bmm_res"
 A_CB, B_CB, A_RAW_CB, OUT_CB = 0, 1, 2, 16
 A_DEPTH = 2            # row tiles of a in flight per core
 SPLIT_GROUP = 4        # a split call's transposed-a read group in tiles (compute's own transpose grouping)
-BRES_SPLIT = env_flag("TT_BIO_BRES_SPLIT", True)
+#: None (unset) splits on Wormhole only. On a Blackhole p150a at 1350 MHz the split einsum lost to ttnn.matmul at 1024
+#: tokens: ESMFold2-Fast 41.49 -> 42.00 s normal, 31.82 -> 32.30 s --fast, ESMFold2 --fast 54.09 -> 54.72 s.
+BRES_SPLIT = None if os.environ.get("TT_BIO_BRES_SPLIT", "").strip() == "" else env_flag("TT_BIO_BRES_SPLIT", True)
 #: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt bf16 staged for transpose_a) + out 2 * nt tiles.
 L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
@@ -61,7 +64,8 @@ def _rest_bytes(kt, nb, ns, a_bytes, transpose_a):
 def _plan(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False, split=None):
     """(column blocks ns, b units in flight 2 or 1) for the fewest blocks that fit, or (0, 0). `split` None takes
     BRES_SPLIT; False allows only ns = 1, an int forces that ns."""
-    split = BRES_SPLIT if split is None else split
+    if split is None:
+        split = BRES_SPLIT if BRES_SPLIT is not None else ttnn.get_arch_name() == "wormhole_b0"
     if split is False:
         cands = (1,)
     elif split is True:
@@ -125,7 +129,7 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl
                                    defines=[("BRES_NO_WRITE", "1")] if abl & 2 else [], config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
-        compile_time_args=[mt, kt, nb, int(ta), int(tb)], runtime_args=cp,
+        compile_time_args=[mt, kt, nb, int(ta), int(tb), ag if ns > 1 else 0], runtime_args=cp,
         defines=[("BRES_NO_MM", "1")] if abl & 1 else [],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
     a_cb = cb(A_CB, kt, ttnn.bfloat16) if ta else cb(A_CB, A_DEPTH * kt, a.dtype)
