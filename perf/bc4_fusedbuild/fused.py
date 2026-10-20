@@ -61,7 +61,7 @@ def phase1(Z, W, MK, S, fid, sig=1, abl=0, out=None, dest32=True):
     assert units <= gx * gy, (units, gx, gy)
     grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     if out is None:
-        out = [ttnn.allocate_tensor_on_device(ttnn.Shape([C, S, S]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
+        out = [ttnn.allocate_tensor_on_device(ttnn.Shape([1, C, S, S]), ttnn.bfloat16, ttnn.TILE_LAYOUT, dev,
                                               ttnn.DRAM_MEMORY_CONFIG) for _ in range(2)]
     key = ("p1", S, sig, abl, MK is not None, str(fid), dest32)
     e = _CACHE.get(key)

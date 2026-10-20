@@ -6,7 +6,7 @@ counters of gin_ragged and T2 are recorded: a row whose levers never ran measure
 
     python perf/bc4_fusedbuild/composed.py --out <jsonl>
 """
-import argparse
+import argparse, os
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True)
@@ -16,7 +16,7 @@ A = ap.parse_args()
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 import torch, ttnn
-from tt_bio import tenstorrent as T, trimul_tail as TT, bindcraft2
+from tt_bio import tenstorrent as T, trimul_tail as TT, bindcraft2, bmm_res
 from tt_bio.af2 import compute_kernel_config
 from perf.bc4_fusedbuild.common import N, C, inputs, ref_out, grade, Clock, Out, traced
 
@@ -42,12 +42,14 @@ with bindcraft2.fast_round() as armed:
                 if not m.took_residual:      # tail declined the residual: add it as the block would
                     o2 = ttnn.add(Z, o); ttnn.deallocate(o); o = o2
                 return [o]
-            s0 = (list(TT.GIN_RAGGED_STATS), list(TT.T2_STATS))
+            s0 = (list(TT.GIN_RAGGED_STATS), list(TT.T2CM_STATS), list(bmm_res.STATS))
             o = f()[0]
             r.update(grade(ref_out(z, mask, w, ending), ttnn.to_torch(o)))
             ttnn.deallocate(o)
             r["served"] = {"gin_ragged": [a - b for a, b in zip(TT.GIN_RAGGED_STATS, s0[0])],
-                           "t2": [a - b for a, b in zip(TT.T2_STATS, s0[1])], "took_residual": m.took_residual}
+                           "t2cm": [a - b for a, b in zip(TT.T2CM_STATS, s0[1])],
+                           "bmm_res": [a - b for a, b in zip(bmm_res.STATS, s0[2])], "took_residual": m.took_residual,
+                           "fused_gout_env": os.environ.get("TT_BIO_TRIMUL_FUSED_GOUT")}
             r.update(traced(dev, f, reps=A.reps))
         except Exception as e:
             r["error"] = f"{type(e).__name__}: {str(e)[:400]}"
