@@ -445,7 +445,7 @@ class _SaprotLin(_MMLin):
         from tt_bio import tenstorrent
         ck = self._ck(w)
         prog = _saprot_prog(x, w, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2)
-        cfg = (_MM_RESID_HIFI3.get((tenstorrent.is_wormhole(), *map(int, w.shape[-2:])))
+        cfg = (_MM_RESID_HIFI3.get((tenstorrent.is_wormhole(), int(w.shape[-2]), int(w.shape[-1])))
                if _SAPROT_FC2_RESID_HIFI3 and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi3
                and prog is not None else None)
         if cfg is not None:
