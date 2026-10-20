@@ -476,6 +476,15 @@ def _ls_tree_at(sha: str, repo: Path) -> list[str]:
                           capture_output=True, text=True).stdout.splitlines()
 
 
+@functools.lru_cache(maxsize=None)
+def ladder_ab(sha: str, repo: Path = REPO) -> bool:
+    """Whether `sha`'s release_gate.py takes --size-ladder-against. This runner gates commits older
+    than itself (a fix chain's base, a re-gate), and their ladder legs keep the recorded reference."""
+    p = subprocess.run(["git", "-C", str(repo), "grep", "-q", "-e", "--size-ladder-against", sha, "--",
+                        "scripts/release_gate.py"], capture_output=True)
+    return p.returncode == 0
+
+
 def _same_code(sha: str, content: str, repo: Path = REPO) -> bool:
     """True when `sha` is in this repo and holds the code `content` hashes."""
     try:
@@ -981,7 +990,8 @@ class Host:
     def leg(self, leg: Leg) -> Leg:
         """`leg` with this host's extra flags for its family (hosts.json `args`)."""
         extra = list(self.cfg.get("args", {}).get(leg.family, []))
-        if leg.family in ("perf", "ladder") and self.cfg.get("perf_against"):
+        if self.cfg.get("perf_against") and (leg.family == "perf" or (
+                leg.family == "ladder" and ladder_ab(self.sha))):
             extra += ["--against" if leg.family == "perf" else "--size-ladder-against", self.against]
         return dataclasses.replace(leg, argv=leg.argv + extra) if extra else leg
 

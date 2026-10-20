@@ -463,6 +463,9 @@ def test_perf_against_runs_the_timed_leg_against_the_last_release_tree():
     perf = next(lg for lg in _legs() if lg.family == "perf")
     assert h.leg(perf).argv[-2:] == ["--against", "/r/trees/v0.13.1"]
     ladder = next(lg for lg in _legs() if lg.family == "ladder")
+    gf.ladder_ab.cache_clear()
+    assert "--size-ladder-against" not in h.leg(ladder).argv   # "a" * 40 is no commit with the flag
+    h = gf.Host("qb1", {**h.cfg}, gf._commit("HEAD", gf.REPO))
     assert h.leg(ladder).argv[-2:] == ["--size-ladder-against", "/r/trees/v0.13.1"]
     assert "--against" not in h.leg(next(lg for lg in _legs() if lg.family == "parity")).argv
 
