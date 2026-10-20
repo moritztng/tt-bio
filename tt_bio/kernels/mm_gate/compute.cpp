@@ -41,6 +41,68 @@ void copy_block(uint32_t in_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_
     }
 }
 
+#ifdef MM_ROPE_T
+// tt-bio mm_rope: the qkv projection's bias and NeoX RoPE as the matmul's epilogue. Each row of the block is first
+// biased into a bf16 row (c_9, the qkv tile today's matmul writes, bit for bit), then each q / k head (tiles a, b at
+// core-local columns j0 + n < MM_ROPE_P, the host's weight permutation) is rotated with the row's cos / sin tile
+// (c_7 / c_8, tile m) as qk_rope_heads' QKRH_SFPU does it, out_a = a cos - b sin, out_b = b cos + a sin, all four
+// products in fp32 dest; v tiles are copied.
+void rope_block(
+    uint32_t in_cb, uint32_t bias_cb, uint32_t out_cb, uint32_t M_block_tiles, uint32_t N_block_tiles, uint32_t j0) {
+    constexpr uint32_t cos_cb = tt::CBIndex::c_7, sin_cb = tt::CBIndex::c_8, tmp_cb = tt::CBIndex::c_9;
+    constexpr uint32_t P = MM_ROPE_P;
+    for (uint32_t m = 0; m < M_block_tiles; m++) {
+        cb_reserve_back(tmp_cb, N_block_tiles);
+        add_bcast_rows_init_short(in_cb, bias_cb);
+        reconfig_data_format(in_cb, bias_cb);
+        pack_reconfig_data_format(tmp_cb);
+        for (uint32_t n = 0; n < N_block_tiles; n++) {
+            tile_regs_acquire();
+            add_tiles_bcast<BroadcastType::ROW>(in_cb, bias_cb, m * N_block_tiles + n, n, 0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, tmp_cb);
+            tile_regs_release();
+        }
+        cb_push_back(tmp_cb, N_block_tiles);
+        cb_wait_front(tmp_cb, N_block_tiles);
+        pack_reconfig_data_format(out_cb);
+        for (uint32_t n = 0; n < N_block_tiles;) {
+            tile_regs_acquire();
+            if (j0 + n < P) {
+                reconfig_data_format(tmp_cb, cos_cb);
+                mul_tiles_init(tmp_cb, cos_cb);
+                mul_tiles(tmp_cb, cos_cb, n, m, 0);
+                mul_tiles(tmp_cb, cos_cb, n + 1, m, 1);
+                mul_tiles_init(tmp_cb, sin_cb);
+                mul_tiles(tmp_cb, sin_cb, n + 1, m, 2);
+                mul_tiles(tmp_cb, sin_cb, n, m, 3);
+                sub_binary_tile_init();
+                sub_binary_tile(0, 2, 0);
+                add_binary_tile_init();
+                add_binary_tile(1, 3, 1);
+                tile_regs_commit();
+                tile_regs_wait();
+                pack_tile(0, out_cb);
+                pack_tile(1, out_cb);
+                n += 2;
+            } else {
+                reconfig_data_format_srca(tmp_cb);
+                copy_tile_to_dst_init_short(tmp_cb);
+                copy_tile(tmp_cb, n, 0);
+                tile_regs_commit();
+                tile_regs_wait();
+                pack_tile(0, out_cb);
+                n += 1;
+            }
+            tile_regs_release();
+        }
+        cb_push_back(out_cb, N_block_tiles);
+        cb_pop_front(tmp_cb, N_block_tiles);
+    }
+}
+#endif
+
 #ifdef MM_GATED
 // tt-bio mm_gate: the SwiGLU gate as the matmul's epilogue. Each row of the accumulated block holds fc1's N_block / 2
 // tiles then fc2's (the weight is interleaved [W1_j | W2_j] per half block), so the row's output is
@@ -483,7 +545,15 @@ void kernel_main() {
             copy_block(intermediate_cb, out_cb, M_block_tiles, N_block_tiles);
 #else
             cb_wait_front(in2_cb, N_block_tiles);
+#ifdef MM_ROPE_T
+            cb_wait_front(tt::CBIndex::c_7, M_block_tiles);
+            cb_wait_front(tt::CBIndex::c_8, M_block_tiles);
+            rope_block(intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles, n_tile - N_start_tile);
+            cb_pop_front(tt::CBIndex::c_7, M_block_tiles);
+            cb_pop_front(tt::CBIndex::c_8, M_block_tiles);
+#else
             add_bias_block(intermediate_cb, in2_cb, out_cb, M_block_tiles, N_block_tiles);
+#endif
             cb_pop_front(in2_cb, N_block_tiles);
 #endif  // FUSE_BIAS
             cb_pop_front(intermediate_cb, out_block_num_tiles);
