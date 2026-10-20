@@ -65,6 +65,8 @@ def main() -> int:
         rec.update(shapes=[list(t.shape) for t in o],
                    rel_l2=[float((u - r).norm() / r.norm()) for u, r in zip(o, ref)],
                    pad_max=[float(t[..., [*range(12, 16), *range(28, 32)]].abs().max()) for t in o[:2]],
+                   head_rel_l2=[[round(float((u[:, h] - r[:, h]).norm() / r[:, h].norm()), 5) for h in range(H)]
+                                for u, r in zip(o[:2], ref[:2])],
                    qk_rel_l2=float(((o[0] @ o[1].transpose(-1, -2)) - ref[0] @ ref[1].transpose(-1, -2)).norm()
                                    / (ref[0] @ ref[1].transpose(-1, -2)).norm()))
     for name, fn in (("rope", rope), ("plain", plain)) if o is not None else (("plain", plain),):
