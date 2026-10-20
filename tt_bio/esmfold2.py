@@ -1660,8 +1660,9 @@ def _opm_fallback_rows(L: int) -> int:
 #: ~114 ms (census c3, p150a), and with a 1024-row MSA 8.0 s of a 49 s fold on Wormhole (wpo). "pk": the
 #: same product, the move done by `permute_back_pk.tile_rows` (bit-exact, a copy). "kq": contract a with
 #: Wout's q-blocks first (K = 32 x MSA depth), so no tile ever changes shape. "rm": the original with its
-#: reshapes done row-major. A/B in perf/spd_gap_esmf/opm_bench.py. Unset: "kq" under the ef2_opm_kq lever
-#: (LEVERS_FAST) for shallow MSAs, else "pk".
+#: reshapes done row-major. A/B in perf/spd_gap_esmf/opm_bench.py. Unset: "pk". It replaced the ef2_opm_kq
+#: lever (kq for MSAs up to 64 rows): Wormhole, 512 aa, 35 rows, 24.8 ms a call against kq's 63.7 and tile's 231.8,
+#: and exact where kq moves the result (opk/mic).
 _OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM") or None
 _OPM_KQ_MAX_DEPTH = 64
 
@@ -1770,8 +1771,8 @@ class OuterProductMean(Module):
         else:
             a, b = self._project(m, mf)  # [B,L,M,32]
         # kq costs 16384 L^2 Mp flops against tile's 2048 L^2 M + 524288 L^2 and holds a [L, 32 Mp, 256] transient,
-        # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones keep the tile path.
-        path = _OPM_PATH or ("kq" if gate(None, "ef2_opm_kq") else "pk")
+        # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones take pk.
+        path = _OPM_PATH or "pk"
         if path == "kq" and M <= _OPM_KQ_MAX_DEPTH:
             b2, rows = b, self._rows_kq  # kq contracts the [B,L,M,32] b itself
         else:
