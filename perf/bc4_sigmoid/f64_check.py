@@ -98,6 +98,13 @@ for iname, x in inputs.items():
     grade(f"ttnn_accurate/{iname}", x, get(ttnn.sigmoid(xt)))
     grade(f"ttnn_fast/{iname}", x, get(ttnn.sigmoid(xt, mode=ttnn.SigmoidMode.FastApproximate)))
     ones = put(torch.ones_like(x))
+    # the binary gates' forward: multiply with a fused sigmoid, as shipped and with the approx flag set
+    for aname, act in (("binary_act_accurate", ttnn.UnaryOpType.SIGMOID),
+                       ("binary_act_approx", ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID, 4.0, 1.0))):
+        try:
+            grade(f"{aname}/{iname}", x, get(ttnn.multiply(ones, xt, input_tensor_b_activations=[act])))
+        except Exception as e:
+            emit(dict(arm=f"{aname}/{iname}", error=f"{type(e).__name__}: {str(e)[:300]}"))
     for fast in (False, True):
         GS.SIGMOID_FAST = fast
         do, dg = GB.gate_bw(ones, ones, xt)
