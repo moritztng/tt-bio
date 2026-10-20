@@ -285,3 +285,22 @@ def test_saprot_out_l1_small_only(k, n, wdtype, want, monkeypatch):
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_OUT_L1", True)
     assert sp._out_l1(_T(7 * 544, k, ttnn.bfloat16), _T(k, n, getattr(ttnn, wdtype))) is want
+
+
+@pytest.mark.parametrize("hifi2, want", [(False, (4, 7, 20, 1, 4)), (True, (8, 7, 10, 1, 2))])
+def test_saprot_wh_fc1_out_blocks(hifi2, want, monkeypatch):
+    """Wormhole fc1 at the page shape on Galaxy's grid runs the 2D program on out blocks: half the rows per core in
+    normal mode, half the rows and columns at --fast's HiFi2 (placeable next to the L1 LN output); a grid where the
+    blocks do not divide, and the switch, drop them."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_PROG", None)
+    monkeypatch.setattr(sp, "_SAPROT_OUT_SPLIT", True)
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: True)
+    x, w = _T(3808, 1280, ttnn.bfloat16), _T(1280, 5120, ttnn.bfloat8_b)
+    assert sp._saprot_prog(x, w, "gelu_approx", hifi2) is None   # 8 x 8: per_core_M 15 does not halve
+    x.device = lambda: types.SimpleNamespace(compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=9))
+    kind, pc = sp._saprot_prog(x, w, "gelu_approx", hifi2)
+    assert kind == "2d" and (pc.per_core_M, pc.per_core_N) == (14, 20)
+    assert (pc.in0_block_w, pc.out_block_h, pc.out_block_w, pc.out_subblock_h, pc.out_subblock_w) == want
+    monkeypatch.setattr(sp, "_SAPROT_OUT_SPLIT", False)
+    assert sp._saprot_prog(x, w, "gelu_approx", hifi2) is None
