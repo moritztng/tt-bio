@@ -37,18 +37,25 @@ def permute(w: torch.Tensor, ncols: int, n_block: int) -> torch.Tensor:
     return w[..., idx]
 
 
-def plan(x, w, cfg, grid, seq_len):
-    """None, or why the fused kernel declines."""
+def in1_cores(m: int, n: int, grid) -> int:
+    """The cores along minimal_matmul's in1 (column) axis: the grid's y when M > N transposes it, else its x. `permute`
+    must use this count, so a weight permuted for one orientation serves only that one."""
+    return grid[1] if m > n else grid[0]
+
+
+def plan(x, w, cfg, grid, seq_len, ncols=None):
+    """None, or why the fused kernel declines. `ncols`: the in1 core count the weight was permuted for."""
     m = 1
     for d in list(x.padded_shape)[:-1]:
         m *= int(d)
     n = int(w.padded_shape[-1])
-    if m > n:
-        return "M > N transposes the core grid; the weight is permuted for its columns"
+    c = in1_cores(m, n, grid)
+    if ncols is not None and ncols != c:
+        return f"the weight is permuted for {ncols} in1 cores, this shape runs {c}"
     if seq_len % 32 or int(x.padded_shape[-2]) != seq_len:
         return "rows are not whole sequences of tiles"
-    if layout(n // 32, grid[0], cfg[2]) is None:
-        return f"qkv {n // 32} tiles do not split into whole heads over {grid[0]} cores"
+    if layout(n // 32, c, cfg[2]) is None:
+        return f"qkv {n // 32} tiles do not split into whole heads over {c} cores"
     return None
 
 
@@ -67,7 +74,7 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool =
         bsz *= int(d)
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([bsz, n_heads, seq_len, 32 if half else 64]), ttnn.bfloat16,
                                            ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
-    t, p, v0 = layout(int(w.padded_shape[-1]) // 32, grid[0], cfg[2])
+    t, p, v0 = layout(int(w.padded_shape[-1]) // 32, in1_cores(bsz * seq_len, int(w.padded_shape[-1]), grid), cfg[2])
     spec = lambda u: (str(u.padded_shape), str(u.dtype), str(u.memory_config()))
     ck = MG.ckc_args(ckc)
     key = (spec(x), spec(w), spec(b), spec(cos), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), half)
