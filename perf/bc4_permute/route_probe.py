@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Which kernel each trimul channel move takes inside BindCraft 2's taped stacks, and why.
 
-Runs `perf/spd/bc2_evo_devprof.py` (its argv after `--`) with the reblock gates and the taped
+Runs the script named after `--` (with its own argv) with the reblock gates and the taped
 permute shim instrumented, then writes the gate rejections and every taped permute's route:
 
     TT_VISIBLE_DEVICES=<chip> PYTHONPATH=. python perf/bc4_permute/route_probe.py out/route.json -- \
-        --params <multimer_v3.npz> --out out/route --warm 1 --reps 1
+        perf/spd/bc2_evo_devprof.py --params <multimer_v3.npz> --out out/route --warm 1 --reps 1
 """
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def channel_move_back(chunk, memory_config):
 
 T._channel_move_back = channel_move_back
 
-sys.argv = [str(ROOT / "perf/spd/bc2_evo_devprof.py")] + argv
+sys.argv = [str(ROOT / argv[0])] + argv[1:]
 try:
     runpy.run_path(sys.argv[0], run_name="__main__")
 finally:

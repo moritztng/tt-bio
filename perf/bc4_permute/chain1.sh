@@ -14,5 +14,5 @@ run() { local n=$1; shift
   (cd $WT && PYTHONPATH=$WT timeout -s INT -k 120 2400 $PY "$@" > $D/$n.log 2>&1)
   echo "$n rc=$? end $(date +%s) load $(cut -d' ' -f1 /proc/loadavg)" >> $D/card; }
 run move perf/bc4_permute/move_ab.py $D/move.json --n 224
-run route perf/bc4_permute/route_probe.py $D/route.json -- --params $P1 --out $D/route_evo --warm 1 --reps 1
+run route perf/bc4_permute/route_probe.py $D/route.json -- perf/spd/bc2_evo_devprof.py --params $P1 --out $D/route_evo --warm 1 --reps 1
 kill $P; touch $D/done
