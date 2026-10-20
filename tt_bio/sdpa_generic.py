@@ -913,6 +913,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
            kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
+           # EXP_APPROX_MODE is compiled in: the exact and approximate exp must not share a program.
+           bool(kw.get("exp_approx_mode")),
            None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:

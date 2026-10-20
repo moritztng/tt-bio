@@ -792,6 +792,9 @@ _FAST_MODE = False
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
 #                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
+#   dit_sdpa_h2     under dit_fuse, OpenFold3's bf16 token DiT attention (`_sdpa32_fused`) runs QK and PV at HiFi2
+#                   instead of HiFi4, fp32 dest kept.
+#   dit_sdpa_exp    the same call's softmax takes the SFPU's approximate exp (EXP_APPROX_MODE).
 LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -806,7 +809,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard")
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_sdpa_h2", "dit_sdpa_exp")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -825,7 +828,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tai
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_sdpa_h2",
+                             "dit_sdpa_exp"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2945,6 +2949,7 @@ _ZERO_MASKS = {}  # (id(device), Lq, Lk) -> (device, zero [1, 1, Lq, Lk]); clean
 # -1e4 / sqrt(head_dim), far below any score, and exp sends it to exactly 0.
 _SDPA32_PAD_MASK = -1e4
 _SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
+_SDPA32_CKC_HIFI2 = (ttnn.MathFidelity.HiFi2, False, True, False)
 
 
 def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None):
@@ -3111,7 +3116,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
 
 
 def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, ckc=None,
-                  memory_config=None) -> ttnn.Tensor:
+                  memory_config=None, fast=False) -> ttnn.Tensor:
     """`_sdpa32` read straight out of a fused `[S, 1, N, 3 * heads * DH]` qkv projection, written
     `[S, 1, N, heads * DH]`: what nlp_create_qkv_heads, `_sdpa32` and nlp_concat_heads give, as one
     program and the same arithmetic (`sdpa_generic.qkv_fused_kernel_dir`). `memory_config` places the
@@ -3124,8 +3129,11 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, c
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, memory_config or ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc or _SDPA32_CKC, scale,
-            qkv_fused=heads)
+    # `fast`: the bf16 DiT's call, where dit_sdpa_h2 / dit_sdpa_exp may lower QK/PV fidelity and the exp.
+    if ckc is None:
+        ckc = _SDPA32_CKC_HIFI2 if fast and lever("dit_sdpa_h2") else _SDPA32_CKC
+    SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc, scale,
+            qkv_fused=heads, exp_approx_mode=fast and lever("dit_sdpa_exp"))
     return out
 
 

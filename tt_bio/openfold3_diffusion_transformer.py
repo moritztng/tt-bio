@@ -282,7 +282,7 @@ class _DiTBlock(Module):
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
         qkv = ttnn.unsqueeze(qkv, 1)
         o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=ttnn.bfloat16,
-                             memory_config=l1.get("memory_config"))
+                             memory_config=l1.get("memory_config"), fast=True)
         ttnn.deallocate(qkv)
         if cache is None:
             ttnn.deallocate(bias)
