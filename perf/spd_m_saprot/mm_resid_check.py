@@ -89,7 +89,8 @@ def main() -> int:
             fns[k] = lambda bc=bc: MR.matmul_add(xd, wd, bd, rd, bc, grid, mck, memory_config=rmc)
 
         wq = ttnn.to_torch(wd).double()   # the weight as the device holds it (block-fp8 under --fast)
-        exact = r.double() + x.double() @ wq + b.double()
+        xw = x.double() @ wq
+        exact = r.double() + xw + b.double()
         sc = exact.norm()
         outs = {}
         for arm, fn in list(fns.items()):
@@ -111,7 +112,7 @@ def main() -> int:
                     i = [int(v) for v in i]
                     rec.setdefault(f"{arm}_worst", []).append(
                         [i, float(o[tuple(i)]), float(exact[tuple(i)]), float(r[tuple(i)]),
-                         float((x.double() @ wq)[i[0], i[1], i[2]])])
+                         float(xw[tuple(i)])])
             outs[arm] = o
         for arm in outs:
             if arm != "ref":
