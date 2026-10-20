@@ -5,7 +5,8 @@ against a float64 reference, under both compute configs the DiT can run (HiFi4 w
 
   shipped   T._dit_transition_sharded as it ships (three sharded linears, two sharded multiplies, b_to_a)
   fc123g    the same with the three hidden products and both multiplies as one fc12g pass (`w3`)
-  hid       the fused hidden product alone (`_fc12g(products=3)`), against the reference before b_to_a
+  hid       the fused hidden product alone (`_fc12g(products=3)`, K in blocks), against the reference before b_to_a
+  hid1      the same with K as one block (in1 single-buffered)
 rel = ||out - ref|| / ||ref|| with ref computed in float64 from the same bf16 operands.
 """
 import argparse, json, time, traceback
@@ -63,8 +64,10 @@ def main():
         arms = {"shipped": (lambda: T._dit_transition_sharded(a, W["sw"], W["gt"], W["ab"], W["ba"], ckc), out_ref),
                 "fc123g": (lambda: T._dit_transition_sharded(a, W["sw"], W["gt"], W["ab"], W["ba"], ckc, W["w3"]),
                            out_ref),
-                "hid": (lambda: T._fc12g(a, W["w3"], mc, pm, pn, kt, gx, gy, ckc, ttnn.bfloat16, products=3,
-                                         defines={"FC12G_MUL_HIFI4": "1"}), hid_ref)}
+                "hid": (lambda: T._fc12g(a, W["w3"], mc, pm, pn, bw, gx, gy, ckc, ttnn.bfloat16, products=3,
+                                         defines={"FC12G_MUL_HIFI4": "1"}), hid_ref),
+                "hid1": (lambda: T._fc12g(a, W["w3"], mc, pm, pn, kt, gx, gy, ckc, ttnn.bfloat16, products=3,
+                                          defines={"FC12G_MUL_HIFI4": "1"}), hid_ref)}
         for arm, (fn, ref) in arms.items():
             r = dict(arm=arm, ckc=cname, arch=T.arch_name(), t=time.time())
             try:

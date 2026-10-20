@@ -13449,10 +13449,10 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
     bw = _transition_kb("fc1", kt)
     hid = []
     try:
-        # fc12g takes K as one block, so its in1 block is all of K by three products (single-buffered): 864 KiB
-        # of bf16 at 512 x 1 (K 768, pn 6).
-        if w3 is not None and gx == 8 and 3 * pn * kt * 2048 <= _DIT_FC123G_IN1_BYTES:
-            b = _fc12g(a, w3, mc, pm, pn, kt, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_HIFI4": "1"})
+        # fc12g streams K in `bw` blocks, its in1 CB two blocks of three products: 576 KiB of bf16 at 512 x 1
+        # (K block 8 tiles, pn 6), beside 144 KiB of fp32 partials.
+        if w3 is not None and gx == 8 and 2 * 3 * pn * bw * 2048 <= _DIT_FC123G_IN1_BYTES:
+            b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_HIFI4": "1"})
             hid.append(b)
             _latch("dit_fc123g", "served")
         else:
