@@ -323,6 +323,10 @@ RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "auto")
 #: where 11 fit and 12 refused.
 _RESIDENT_BLOCK_PAIR_TENSORS = 50.5
 _RESIDENT_ROUND_PAIR_TENSORS = 99.5
+#: Boards (`_MEASURED_CEILINGS` names) where whole BindCraft 2 trajectories ran with today's tape
+#: across the token range, 224 to 672 on Blackhole. ``auto`` keeps no tape anywhere else: a
+#: Wormhole chip has only the 2026-10-13 bracket of an older, larger tape.
+_RESIDENT_LADDERED = ("p150a",)
 
 #: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
 #: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
@@ -350,13 +354,16 @@ def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
                     blocks: int = EVOFORMER_BLOCKS, requested: str | None = None) -> int:
     """How many of the last `blocks` Evoformer blocks keep their tape (`RESIDENT_BLOCKS`).
 
-    ``auto`` fills what the card holds beside a fast round, and is 0 in the slower modes
-    (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
+    ``auto`` fills what the card holds beside a fast round on a board in `_RESIDENT_LADDERED`,
+    and is 0 on any other board, in the slower modes (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
     neighbours peak at other times, so the room one sees is not its own to spend."""
     requested = RESIDENT_BLOCKS if requested is None else requested
     if requested != "auto":
         return max(0, min(blocks, int(requested)))
     if mode != "fast" or slot:
+        return 0
+    board = _measured_board(card_bytes)
+    if board is None or board[2] not in _RESIDENT_LADDERED:
         return 0
     pair = 256 * int(padded) ** 2
     tape = _RESIDENT_BLOCK_PAIR_TENSORS * pair

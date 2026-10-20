@@ -662,8 +662,10 @@ In `fast` mode the room a fold leaves on the card goes to speed. The last Evofor
 their whole tape from the forward, so the backward does not run their forward again. On a
 Blackhole chip all 48 blocks stay resident up to 224 tokens (a 96-residue binder on a 115-residue
 target), 36 at 256 and 22 at 320, and at 224 tokens the Evoformer backward drops from 0.99 s to
-0.64 s an iteration. The count is sized from the card for each token axis;
-`TT_BIO_BC2_RESIDENT_BLOCKS=0` turns it off and an integer pins it. A resident block runs the
+0.64 s an iteration, about 0.34 s off a whole iteration on a p150a. The count is sized from the
+card for each token axis. Wormhole keeps every block checkpointed for now, because no whole
+trajectory has run there with resident blocks; `TT_BIO_BC2_RESIDENT_BLOCKS=0` turns it off and
+an integer pins it on any board. A resident block runs the
 taped kernels where a checkpointed one runs the untaped ones, so trajectories are not
 bit-identical with it on. Its designs were graded against stock BindCraft 2 on a B200 (30
 trajectories against 34) and no metric differed.

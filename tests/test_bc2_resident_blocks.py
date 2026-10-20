@@ -18,25 +18,28 @@ def test_auto_stays_inside_the_measured_blackhole_brackets(tokens, held, refused
         assert k >= held - 2
 
 
-def test_auto_on_wormhole_stays_under_the_measured_refusal():
-    # .114, 224 tokens, the 1.03 GB/block tape of 2026-10-13: 11 fit, 12 refused. Today's tape is
-    # 50.5 pair tensors a block, so the same card holds more; the law with that day's tape stays
-    # under the refusal.
+def test_the_law_stays_under_the_wormhole_refusal():
+    # .114, 224 tokens, the 1.03 GB/block tape of 2026-10-13: 11 fit, 12 refused.
     pair = 256 * 224 ** 2
     room = WH * B._MODE_USABLE - B._MODE_BASE_BYTES - B._RESIDENT_ROUND_PAIR_TENSORS * pair
     assert room // (1.03e9) < 12
-    assert 0 < B.resident_blocks("fast", 224, WH, requested="auto") <= B.EVOFORMER_BLOCKS
+
+
+@pytest.mark.parametrize("card", [WH, 24e9])
+def test_auto_keeps_no_tape_on_a_board_without_a_resident_ladder(card):
+    assert B.resident_blocks("fast", 224, card, requested="auto") == 0
+    assert B.resident_blocks("fast", 224, card, requested="8") == 8
 
 
 def test_auto_shrinks_with_the_token_axis_and_ends_at_zero():
-    ks = [B.resident_blocks("fast", n, WH, requested="auto") for n in (224, 256, 320, 512)]
-    assert ks == sorted(ks, reverse=True) and ks[-1] == 0
+    ks = [B.resident_blocks("fast", n, BH, requested="auto") for n in (224, 256, 320, 512, 864)]
+    assert ks == sorted(ks, reverse=True) and ks[0] == B.EVOFORMER_BLOCKS and ks[-1] == 0
 
 
 def test_auto_is_zero_in_the_slower_modes_and_for_an_interleaved_trajectory():
-    assert B.resident_blocks("lean", 224, WH, requested="auto") == 0
-    assert B.resident_blocks("offload", 224, WH, requested="auto") == 0
-    assert B.resident_blocks("fast", 224, WH, slot="t1", requested="auto") == 0
+    assert B.resident_blocks("lean", 224, BH, requested="auto") == 0
+    assert B.resident_blocks("offload", 224, BH, requested="auto") == 0
+    assert B.resident_blocks("fast", 224, BH, slot="t1", requested="auto") == 0
 
 
 def test_a_pinned_count_is_clamped_to_the_stack():
