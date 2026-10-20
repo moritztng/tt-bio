@@ -166,6 +166,17 @@ def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
 
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
+def test_saprot_fc1_gelu_f32_default(wormhole, switch, monkeypatch):
+    """SaProt's fc1 asks for approx gelu (calculate_gelu_f32 under the gelu_f32 overlay) on Wormhole; the switch overrides."""
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_GELU_F32", switch)
+    on = wormhole if switch is None else switch
+    assert saprot._fc1_act() == ("gelu_approx" if on else "gelu")
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
 def test_lm_gate_legacy_default(wormhole, switch, monkeypatch):
     """The LM SwiGLU gate takes the legacy multiply on Wormhole unless lm_gate_ng is active; the switch overrides both."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)

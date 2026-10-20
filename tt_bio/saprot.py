@@ -595,9 +595,20 @@ def _block_ln(x, w, b, ck, proj_w):
 # 35M 55.4 -> 52.5 (54.8 -> 53.0); error against float32 HF unchanged (1.3B pcc 0.99916 -> 0.99929, 650M 0.99976 both).
 _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 # fc1's fused GELU as calculate_gelu_f32 (metal_overlay gelu_f32, metal's approx-mode gelu): 3e-4 of float64 against
-# 4e-3 for the wheel's accurate gelu, in about a third of the SFPU instructions. That gelu runs on the math thread
-# after each output subblock: WH 650M --fast fc1 compute 808 us -> 1201 us a call with it (ls54, device profiler).
-_SAPROT_GELU_F32 = env_flag("TT_BIO_SAPROT_GELU_F32", False)
+# 4e-3 for the wheel's accurate gelu (rel_l2 5.8e-5 vs 3.1e-4 on N(0, 1.5)) at a third of its math-thread time: WH 650M
+# --fast fc1 1203 -> 1079 us a call. Page cell, Galaxy chip at 1000 MHz, 2 rounds x 3, off -> on, pcc vs fp32 HF:
+# 650M --fast hHSA 151.0 -> 146.1 ms (+0.000045), hPCSK9 155.2 -> 146.2 (+0.000074); normal hHSA 175.4 -> 170.2
+# (+0.000019), hPCSK9 175.3 -> 171.4 (+0.000064); 1.3B --fast hPCSK9 284.9 -> 275.7 (-0.000071), normal hHSA 337.3 ->
+# 328.2 (-0.000014); 35M --fast hHSA 29.1 -> 26.3 (-0.000011), normal hPCSK9 29.6 -> 27.6 (+0.000010).
+# None = Wormhole until Blackhole is graded.
+_SAPROT_GELU_F32 = env_flag("TT_BIO_SAPROT_GELU_F32", None)
+
+
+def _fc1_act() -> str:
+    if _SAPROT_GELU_F32 is not None:
+        return "gelu_approx" if _SAPROT_GELU_F32 else "gelu"
+    from tt_bio import tenstorrent
+    return "gelu_approx" if tenstorrent.is_wormhole() else "gelu"
 
 
 class ESM2FFN(_SaprotLin, Module):
@@ -615,8 +626,7 @@ class ESM2FFN(_SaprotLin, Module):
     def __call__(self, x):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
-        act = "gelu_approx" if _SAPROT_GELU_F32 else "gelu"
-        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": act} if _GELU_FUSED else {}))
+        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": _fc1_act()} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
             h = ttnn.gelu(h)
