@@ -66,8 +66,8 @@ def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch,
     monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
     monkeypatch.setattr(sp.ttnn, "from_torch", lambda t, **kw: t)
     seen = []
-    monkeypatch.setattr(mm_rope, "qkv_rope_heads", lambda x, w, b, cos, sin, h, cfg, grid, ck, half: seen.append(
-        (tuple(w.shape), tuple(cos.shape), cfg, grid, half)) or ("q", "k", "v"))
+    monkeypatch.setattr(mm_rope, "qkv_rope_heads", lambda x, w, b, cos, sin, h, cfg, grid, ck, half, ncols: seen.append(
+        (tuple(w.shape), tuple(cos.shape), cfg, grid, half, ncols)) or ("q", "k", "v"))
     H, d, D = 20, 24, 480
     attn = types.SimpleNamespace(rope_pairs=pairs, n_heads=H, head_dim=d, device=None, qkv_weight=None,
                                  weights={"qkv.weight": torch.randn(3 * H * d, D), "qkv.bias": torch.randn(3 * H * d)},
@@ -77,6 +77,15 @@ def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch,
     assert (out == ("q", "k", "v")) is want
     if want:
         assert seen == [((D, 3 * H * 32), (1, 1, 544, 64), sp._HALF_ROPE_CFG, (8, 5) if batch * 544 > 1920 else (5, 8),
-                         True)]
+                         True, sp._HALF_ROPE_IN1)]
         g = seen[0][3]
         assert mm_rope.in1_cores(batch * 544, 3 * H * 32, g) == sp._HALF_ROPE_IN1
+
+
+def test_plan_keeps_the_untransposed_decline_without_ncols():
+    import types
+    x = types.SimpleNamespace(padded_shape=(7, 544, 480))
+    w = types.SimpleNamespace(padded_shape=(480, 1920))
+    assert "M > N" in mm_rope.plan(x, w, (5, 5, 4, 1, 4), (8, 5), 544)
+    assert mm_rope.plan(x, w, (5, 5, 4, 1, 4), (8, 5), 544, ncols=5) is None
+    assert "permuted for 8" in mm_rope.plan(x, w, (5, 5, 4, 1, 4), (8, 5), 544, ncols=8)

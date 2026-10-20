@@ -55,7 +55,7 @@ def main() -> int:
     w64 = ttnn.to_torch(wplain).double()
     ref = MR.half_pair_heads(xt.double() @ w64 + bh.to(torch.bfloat16).double(), cos_t.to(torch.bfloat16).double(),
                              sin_t.to(torch.bfloat16).double(), H)
-    rope = lambda: MR.qkv_rope_heads(x, wp, bp, cos, sin, H, cfg, grid, ck, half=True)
+    rope = lambda: MR.qkv_rope_heads(x, wp, bp, cos, sin, H, cfg, grid, ck, half=True, ncols=nc)
     plain = lambda: ttnn.experimental.minimal_matmul(x, wplain, bias_tensor=bplain, compute_kernel_config=ck, config=mcfg,
                                                      memory_config=ttnn.DRAM_MEMORY_CONFIG)
     rec = dict(fast=a.fast, batch=B, grid=a.grid, cfg=a.cfg, plan=MR.plan(x, wp, cfg, grid, L, nc), in1_cores=nc)

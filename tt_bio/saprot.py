@@ -670,7 +670,7 @@ class ESM2Attention(_SaprotLin, Module):
                                       for t in mm_rope.half_pair_tables(seq_len, self.head_dim, base=ROPE_BASE))
         cos, sin = _HALF_TABLES[key]
         return mm_rope.qkv_rope_heads(x, *self.qkv_half, cos, sin, self.n_heads, cfg, grid, self._ck(self.qkv_weight),
-                                      half=True)
+                                      half=True, ncols=nc)
 
     def _rope_pairs(self, t, cos, sin):
         """rotary_embedding_llama on [B, H, L, 32] heads, as one batch of B * H heads (its prefill takes batch 1)."""

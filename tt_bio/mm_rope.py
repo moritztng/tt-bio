@@ -50,6 +50,8 @@ def plan(x, w, cfg, grid, seq_len, ncols=None):
         m *= int(d)
     n = int(w.padded_shape[-1])
     c = in1_cores(m, n, grid)
+    if ncols is None and m > n:   # a caller that names no ncols permuted for grid x, the untransposed axis
+        return "M > N transposes the core grid; the weight is permuted for its columns"
     if ncols is not None and ncols != c:
         return f"the weight is permuted for {ncols} in1 cores, this shape runs {c}"
     if seq_len % 32 or int(x.padded_shape[-2]) != seq_len:
@@ -59,12 +61,12 @@ def plan(x, w, cfg, grid, seq_len, ncols=None):
     return None
 
 
-def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool = False):
+def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool = False, ncols=None):
     """(rope(q), rope(k), v), each [B, H, L, 64], from x [B, L, D] and the `permute`d weight / bias; cos / sin are the
     [1, 1, L, 64] tables. `half`: the weight is `half_pairs` (then `permute`d), the tables `half_pair_tables`, and the
-    heads come out [B, H, L, 32]. None where `plan` declines (the caller keeps the unpermuted weight for that)."""
+    heads come out [B, H, L, 32]. `ncols`: the in1 core count `w` was permuted for (needed when M > N). None where `plan` declines (the caller keeps the unpermuted weight for that)."""
     seq_len = int(x.padded_shape[-2])
-    why = plan(x, w, cfg, grid, seq_len)
+    why = plan(x, w, cfg, grid, seq_len, ncols)
     if why is not None:
         STATS[1] += 1
         return None
