@@ -64,7 +64,8 @@ for M in A.m:
     b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (1, M, L * 32))
     fns = {"tile": lambda: opm._rows(a, b2, r, L, M), "rm": lambda: opm._rows_rm(a, b2, r, L, M),
            "kq": lambda: opm._rows_kq(a, b, r, L, M), "pk": lambda: opm._rows_pk(a, b2, r, L, M)}
-    for arm in A.arms:  # warm (program cache) + error
+    fns = {k: fns[k] for k in A.arms}
+    for arm in list(fns):  # warm (program cache) + error
         try:
             o = fns[arm]()
             h = ttnn.to_torch(o).double()[..., :256]
