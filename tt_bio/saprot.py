@@ -355,7 +355,10 @@ def _role(d, k, n):
 # Normal mode's bf16-weight projections at HiFi3 instead of HiFi4 (fp32 dest, packer L1 acc kept). One fc1 tile against
 # float64 (rowcol_probe): max error 0.0045 at both; HiFi4 + packer_l1_acc also writes isolated sums off by exactly -2^n
 # (prefix_probe: -0.1230 written as -4.1195 at a cancelling K-block add) that HiFi3 did not at any K prefix.
-_SAPROT_NORMAL_HIFI3 = env_flag("TT_BIO_SAPROT_NORMAL_HIFI3", False)
+# ls84 page A/B (.107 Galaxy chips, 1000 MHz, 2 rounds x 3, normal, ms off -> on, pcc vs fp32 delta): 650M hHSA
+# 159.66 -> 151.08 (+0.000009), hPCSK9 159.56 -> 150.39 (-0.000050); 1.3B hHSA 306.75 -> 288.14 (+0.000016); 35M hHSA
+# 28.88 -> 28.20 (+0.000010). Blackhole not graded yet: the switch serves its normal mode too (same fidelity semantics).
+_SAPROT_NORMAL_HIFI3 = env_flag("TT_BIO_SAPROT_NORMAL_HIFI3", True)
 
 
 class _SaprotLin(_MMLin):
