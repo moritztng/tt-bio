@@ -145,8 +145,8 @@ class _Adapter(torch.nn.Module):
         self.argnames = argnames
 
     def forward(self, *args, **kw):
-        if self.argnames:
-            return self.m(*[_to_t(kw[n]) for n in self.argnames])
+        if self.argnames:  # anything past `argnames` (e.g. to_host) is the wrapper's own keyword
+            return self.m(*[_to_t(kw.pop(n)) for n in self.argnames], **kw)
         if isinstance(args[0], _DevPair):
             return _dev_forward(self.m, args[0])
         return self.m(_to_t(args[0]))
@@ -1036,8 +1036,10 @@ def _install_resident_trunk_loop(model):
             mask = ftw._from_torch(real)
         # The injection is loop-invariant only when no loop redraws its LM dropout or MSA rows.
         per_loop = (use_lm and bool(lm_p)) or (msa_loops is not None and len(msa_loops) > 1)
+        # A per-loop MSA draw is encoded on the device each loop (overwrite: the MSA pair IS the base).
+        msa_dev = msa_loops is not None and msa_fixed is None
         on_dev = (_DEVICE_INJECTION and per_loop and isinstance(lm_z, _DevPair)
-                  and (msa_loops is None or msa_fixed is not None))
+                  and (not msa_dev or overwrite))
         # The first keep mask draws on its thread while the uploads below run (no RNG use in between).
         draws = _KeepDraws(tuple(lm_z.t.shape), lm_p, total_steps) if on_dev else None
         zt = up(padz(z).float())
@@ -1046,8 +1048,10 @@ def _install_resident_trunk_loop(model):
         at = ftw._from_torch(a.reshape(1, 1, 1, -1).float())  # parcae a, broadcasts over L,L
         if on_dev:
             # What no loop redraws, uploaded once: the MSA pair (or z_init), LN and b_mat.
-            base = msa_fixed if msa_fixed is not None else z_init
-            if isinstance(base, _DevPair) and pad:
+            base = None if msa_dev else msa_fixed if msa_fixed is not None else z_init
+            if base is None:
+                pass
+            elif isinstance(base, _DevPair) and pad:
                 # Nothing reads the unpadded pair past this point (the caller drops z_init after the loop), and
                 # keeping it beside the padded copy is a second [L,L,c] for the whole trunk: on a 12 GiB Wormhole
                 # chip that OOMed ESMFold2-Fast --fast at ~800 tokens.
@@ -1065,13 +1069,27 @@ def _install_resident_trunk_loop(model):
             b_t = ftw._from_torch(b_mat.t().contiguous().float())
             ck = ftw.compute_kernel_config
 
-        def inject_dev():
+        def msa_base(msa_kw):
+            """This loop's MSA pair on the device, padded like `base`."""
+            x_pair = z_init.t if isinstance(z_init, _DevPair) else z_init
+            out = self.msa_encoder(x_pair=x_pair, to_host=False, **msa_kw)
+            dram_peak("esmfold2/msa-encoder")
+            if pad:
+                src = out
+                out = ttnn.pad(src, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0)
+                ttnn.deallocate(src)
+            return out
+
+        def inject_dev(step):
             x = _lm_dropout(lm_z, lm_p, draws.take())
             refined = _trunk_on_device(self.lm_encoder.m, x, to_host=False)
             if not _aliases(refined, x.t):
                 ttnn.deallocate(x.t)
-            s = ttnn.add(base, refined)
+            b = base if base is not None else msa_base(msa_loops[min(step, len(msa_loops) - 1)])
+            s = ttnn.add(b, refined)
             ttnn.deallocate(refined)
+            if b is not base:
+                ttnn.deallocate(b)
             n = ttnn.layer_norm(s, weight=ln_w, bias=ln_b, epsilon=norm.eps, compute_kernel_config=ck)
             ttnn.deallocate(s)
             out = ttnn.linear(n, b_t, compute_kernel_config=ck)
@@ -1086,7 +1104,7 @@ def _install_resident_trunk_loop(model):
         for _step in range(total_steps):
             E.report_progress("trunk", _step, total_steps)
             if on_dev:
-                ipt = inject_dev()
+                ipt = inject_dev(_step)
                 INJECTION_STATS[0] += 1
             elif per_loop:
                 ipt = up(padz(inject_proj(
