@@ -398,6 +398,31 @@ FORCE_INLINE void write_tile_to_chunk(
     ((chunk_idx == Is ? (noc_async_write_tile(tile_id, std::get<Is>(accessors), read_ptr), void()) : void()), ...);
 }
 
+#ifdef MM_HALF_PAIRS
+/**
+ * tt-bio mm_rope half pairs (mm_rope.half_pairs, heads narrower than 32): q / k column n is tile A (n even) or B of
+ * head pair n / 2, and its four bf16 faces go to two [B, H, L, 32] head tiles: CB face (r, c) -> head (n & ~1) + c,
+ * face (r, n & 1). v column n is head n, written whole. d1 is H for all three chunks.
+ */
+template <typename Tuple, size_t... Is>
+FORCE_INLINE void write_half_pair_tile(
+    const Tuple& accessors, uint32_t chunk_idx, uint32_t m, uint32_t n, uint32_t d1, uint32_t read_ptr,
+    std::index_sequence<Is...> seq) {
+    constexpr uint32_t st = MM_HEADS_ST, face = 512;
+    const uint32_t row = m / st * d1, l = m % st;
+    if (chunk_idx == 2) {
+        write_tile_to_chunk(accessors, chunk_idx, (row + n) * st + l, read_ptr, seq);
+        return;
+    }
+    for (uint32_t f = 0; f < 4; f++) {
+        const uint32_t tile = (row + (n & ~1u) + (f & 1)) * st + l, dst = (f & 2) | (n & 1);
+        ((chunk_idx == Is ? noc_async_write(read_ptr + f * face, std::get<Is>(accessors).get_noc_addr(tile, dst * face), face)
+                          : void()),
+         ...);
+    }
+}
+#endif
+
 /**
  * Write a block of output to a potentially padded tensor.
  * Skip writing when M >= logical_M or N >= logical_N
@@ -451,11 +476,16 @@ void write_block_sync_split(
                 continue;
             }
 
+#ifdef MM_HALF_PAIRS
+            write_half_pair_tile(accessors, chunk_idx, i, tile_idx_in_chunk, chunk_shape.logical_d1, read_ptr,
+                                 std::index_sequence_for<Accessors...>{});
+#else
             uint32_t tile_id_in_chunk = chunk_tile_id(i, tile_idx_in_chunk, chunk_shape.logical_d1);
 
             // Compile-time dispatch preserving concrete types
             write_tile_to_chunk(
                 accessors, chunk_idx, tile_id_in_chunk, read_ptr, std::index_sequence_for<Accessors...>{});
+#endif
             read_ptr += tile_size_bytes;
         }
         // finish up incrementing read_ptr if (d1_end - d1_start) < N_block_tiles
@@ -510,10 +540,15 @@ void write_block_sync_granular_split(
                     break;
                 }
 
+#ifdef MM_HALF_PAIRS
+                write_half_pair_tile(accessors, chunk_idx, m_tile, tile_idx_in_chunk, chunk_shape.logical_d1,
+                                     out_read_ptr, std::index_sequence_for<Accessors...>{});
+#else
                 uint32_t tile_id = chunk_tile_id(m_tile, tile_idx_in_chunk, chunk_shape.logical_d1);
                 // Compile-time dispatch preserving concrete types
                 write_tile_to_chunk(
                     accessors, chunk_idx, tile_id, out_read_ptr, std::index_sequence_for<Accessors...>{});
+#endif
 
                 out_read_ptr += tile_size_bytes;
             }
