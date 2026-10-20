@@ -9705,8 +9705,9 @@ def _channel_move_back(chunk: ttnn.Tensor, memory_config: ttnn.MemoryConfig) -> 
     if _reblock.eligible_back(chunk, memory_config):
         return _reblock.reblock_permute_back(chunk, memory_config)
     if _reblock.eligible_back(chunk, memory_config, taped_ok=True):
-        from .autograd import _on_tape
-        if not _on_tape((chunk,), {}):
+        # Reached only with a tape open, so the hook `autograd.install` fills is there; asking it keeps
+        # the inference module from importing the training stack.
+        if not ops.grad_hook().on_tape((chunk,), {}):
             # A raw chunk under an open tape (a fused kernel's output in a forward the tape does not
             # record, `_gin_biased`): the shim hands an untaped call to the stock permute, and there
             # is nothing here to differentiate, so the kernel takes it directly.
