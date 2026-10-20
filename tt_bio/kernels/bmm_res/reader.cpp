@@ -15,6 +15,9 @@
 // column block of b[c], and a[c] streams once per block. The transposed a moves in AG-tile groups (compute's own
 // grouping), so c_2 needs only A_DEPTH groups; unsplit, AG = KT.
 //
+// B8 (BG > 0): b moves through c_3 in BG-tile groups, in the same (k, n) order, for compute to repack into c_1 as
+// bfp8 (bmm_res.BRES_B8).
+//
 // Common runtime args: a, b addresses. Per-core runtime args: first unit, unit count.
 #include "api/dataflow/dataflow_api.h"
 
@@ -30,9 +33,10 @@ void kernel_main() {
     constexpr bool TB = get_compile_time_arg_val(4);
     constexpr uint32_t NB = get_compile_time_arg_val(5);
     constexpr uint32_t AG = get_compile_time_arg_val(6);
+    constexpr uint32_t BG = get_compile_time_arg_val(7);
     constexpr uint32_t NS = NT / NB;
-    constexpr uint32_t cb_a = TA ? 2 : 0, cb_b = 1;
-    constexpr auto a_args = TensorAccessorArgs<7>();
+    constexpr uint32_t cb_a = TA ? 2 : 0, cb_b = BG ? 3 : 1;
+    constexpr auto a_args = TensorAccessorArgs<8>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto sa = TensorAccessor(a_args, a_addr);
     const auto sb = TensorAccessor(b_args, b_addr);
@@ -40,19 +44,26 @@ void kernel_main() {
 
     for (uint32_t u = first; u < first + count; ++u) {
         const uint32_t c = u / NS, n0 = (u % NS) * NB;
-        cb_reserve_back(cb_b, KT * NB);
-        uint32_t w = get_write_ptr(cb_b);
+        constexpr uint32_t G = BG ? BG : KT * NB;
+        uint32_t w = 0, i = 0;
         for (uint32_t k = 0; k < KT; ++k) {
             for (uint32_t n = n0; n < n0 + NB; ++n, w += tb) {
+                if (i == 0) {
+                    cb_reserve_back(cb_b, G);
+                    w = get_write_ptr(cb_b);
+                }
                 noc_async_read_page(c * KT * NT + (TB ? n * KT + k : k * NT + n), sb, w);
+                if (++i == G) {
+                    noc_async_read_barrier();
+                    cb_push_back(cb_b, G);
+                    i = 0;
+                }
             }
         }
-        noc_async_read_barrier();
-        cb_push_back(cb_b, KT * NB);
         for (uint32_t r = 0; r < MT; ++r) {
             for (uint32_t k0 = 0; k0 < KT; k0 += AG) {
                 const uint32_t g = KT - k0 < AG ? KT - k0 : AG;
-                cb_reserve_back(cb_a, g);
+                cb_reserve_back(cb_a, AG);
                 w = get_write_ptr(cb_a);
 #ifndef BRES_NO_A  // time attribution only (af2_trimul_bmm_sweep --abl)
                 for (uint32_t k = k0; k < k0 + g; ++k, w += ta) {
@@ -60,7 +71,7 @@ void kernel_main() {
                 }
 #endif
                 noc_async_read_barrier();
-                cb_push_back(cb_a, g);
+                cb_push_back(cb_a, AG);  // a whole slot even when g < AG (compute's SLOT)
             }
         }
     }

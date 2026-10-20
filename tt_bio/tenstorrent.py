@@ -570,6 +570,11 @@ _FAST_MODE = False
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
 #   opm_b8cfg       with opm_b8, the contraction on opm_contract_config's plan at HiFi2 (Wormhole)
+#   trimul_t2fold   the GATE-form T2 tail folds the LN's centring and gamma into Wp (trimul_tail.T2_FOLD): only rstd
+#                   is computed and the GEMM reads x itself; rounding grows with |x| instead of |x - mean|
+#   trimul_bres_b8  with trimul_bres, a bf16 b[c] is held in L1 as bfp8 where bf16 would split N (bmm_res.BRES_B8):
+#                   at 1024 tokens a[c] is read once instead of twice. Rounds b to bfp8, the einsum input trimul_b8in
+#                   meant to give it before gin_moved (which writes bf16) took the in-projection
 #   trimul_bres_bh  trimul_bres takes its fp32-dest copy under acc_off on Blackhole too (Wormhole always does), so
 #                   bmm_res fires in Blackhole --fast sets
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
@@ -648,6 +653,9 @@ _FAST_MODE = False
 #                   operands with fp32 accumulation (OpenFold3's DiT)
 #   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
 #                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
+#   dit_bpad        the bf16 token DiT's block biases padded ONCE per fold to `dit_bias_pad_len` (new keys
+#                   masked), so no call re-fills the bias' ragged key tail and the fused SDPA runs at a length
+#                   its chunks divide (q/k/v follow the bias per call, `_sdpa_to_bias_width`)
 #   trimul_t1       the triangle multiplication's input layer_norm, gated a/b projection, mask, channel moves
 #                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
@@ -721,6 +729,7 @@ _FAST_MODE = False
 #                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
 #   dit_mask16      under dit_fuse on Wormhole, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16,
 #                   not fp32 (Blackhole ignores it).
+#   dit_mask8       the same mask bfp8 on either arch (overrides dit_mask16).
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
@@ -750,12 +759,17 @@ _FAST_MODE = False
 #   pib_where       OpenDDE's pair-init bias by the old 16-op where-chain instead of one gather from the joint
 #                   (128, c_z) table: the A/B arm for a change that must keep the fold digest (no mode sets it).
 #   lm_qk_chain     the ESMC language model's attention keeps the six-op q/k LayerNorm, RoPE and head-split chain
-#                   where Wormhole would run qk_rope_heads (esmc._qkrh): ESMFold2's normal set on Wormhole.
-#   lm_gate_ng      the ESMC language model's SwiGLU gate stays on the binary_ng multiply where Wormhole would take the
-#                   legacy one (esmc._lm_gate_legacy) or the gated minimal_matmul (esmc._mm_gate_on): both ESMFold2
-#                   sets on Wormhole until a fold grades it.
+#                   where ESMC runs qk_rope_heads (esmc._qkrh): ESMFold2's normal set on Wormhole, both on Blackhole.
+#   lm_gate_ng      the ESMC language model's SwiGLU gate stays on the binary_ng multiply where ESMC takes the
+#                   legacy one (esmc._lm_gate_legacy, Wormhole) or the gated minimal_matmul (esmc._mm_gate_on): every
+#                   ESMFold2 set until a fold grades it.
 #   lm_sdpa_stock   the ESMC language model's key-padding mask stays a [B, 1, L, L] tensor for the stock SDPA where
-#                   Wormhole would run shsdpa on key lengths (esmc._key_lens): both ESMFold2 sets until a fold grades it.
+#                   shsdpa would run on key lengths (esmc._key_lens): both ESMFold2 sets, both arches, until a fold grades it.
+#   lm_k64          the ESMC language model's SDPA keeps 64-key chunks where ESMC takes few large ones
+#                   (esmc._sdpa_k_few): ESMFold2 on Blackhole until a fold grades it.
+#   lm_linear       the ESMC language model's projections stay on ttnn.linear and its own program pick where ESMC
+#                   takes minimal_matmul (esmc._esmc_mm) or the 6B's multicast programs (esmc._lin6b_program):
+#                   ESMFold2 on Blackhole until a fold grades it.
 #   ef2_atom_rope   ESMFold2's atom-transformer attention takes rotate_half(q), rotate_half(k) as one exact matmul
 #                   against a signed 32x32 permutation (esmfold2._rope_mm) instead of chunk/neg/concat, 12 times a
 #                   diffusion step on [B, 4, atoms, 32]. The fused rotary_embedding needs head_dim % 64 == 0 (wrp).
@@ -778,7 +792,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "dit_bpad", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
@@ -786,17 +800,18 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
-          "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
-          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh")
+          "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
+          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
+          "trimul_t2fold", "dit_mask8", "trimul_bres_b8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16 and triatt_hifi2 (Wormhole),
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
@@ -805,7 +820,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
-                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh"})
+                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -942,6 +958,10 @@ _LEVERS = frozenset()
 if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT_BIO_LEVERS", ""):
     from . import metal_overlay as _metal_overlay
     _metal_overlay.enable(("silu_f32",))
+# gelu_f32 changes only metal's approx-mode gelu, which no tt-bio op asks for unless a model opts in
+# (saprot._SAPROT_GELU_F32), so every process carries it and an opt-in after the device opens still works.
+from . import metal_overlay as _metal_overlay  # noqa: E402
+_metal_overlay.enable(("gelu_f32",))
 
 
 def lever(name: str) -> bool:
@@ -2898,7 +2918,7 @@ def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
     if q_pad and int(bias.shape[-2]) == Sq:
         bp = _tile_relabel(bp, -2, Sq + q_pad) if _SDPA_TILE_VIEW and not to else \
             ttnn.pad(bp, [(0, 0)] * (nb - 2) + [(0, q_pad), (0, 0)], value=0.0)
-    if k_pad:
+    if k_pad and int(bias.shape[-1]) == Sk:   # a bias staged wider already masks its new keys
         bp = ttnn.pad(bp, [(0, 0)] * (nb - 1) + [(0, k_pad)], value=_SDPA_PAD_MASK)
     # ttnn.pad ALIASES here rather than copying: in TILE layout the buffer is already 32-aligned on
     # both tile axes, so the pad is a relabel of the logical shape plus a fill of the physical tail
@@ -3180,6 +3200,38 @@ def _sdpa_chunk_pad_len(seq_len: int) -> int:
     padded = _padded_sdpa_len(seq_len)
     kc = _capped_sdpa_chunk_size(seq_len)
     return 0 if padded % kc == 0 else -(-padded // kc) * kc
+
+
+# dit_bpad's padded length; None = `dit_bias_pad_len`'s rule. A bench knob.
+DIT_BPAD_LEN = None
+
+
+def dit_bias_pad_len(n: int) -> int:
+    """The token axis `dit_bpad` runs the DiT at for `n` tokens: the tile multiple when a dit_chunk
+    chunk divides it, else the next multiple of the capped 256 chunk (`_sdpa_chunk_pad_len`), the
+    grid the stock op would pad to inside, at a cost far beyond the padding's share.
+
+    MEASURED (perf/spd_m_opendde/ditpad_sweep.py, Wormhole 1000 MHz, q/k/v [B, 16, Np, 64] vs a bias
+    staged at Np, 1199 tokens): B 1, ship 1216 q = k = 256 1038 us + 256 us bias tail re-fill per
+    call; at 1280 q320 k256 378 us, q = k = 320 421 us, pm 572 us. B 5: 2583 -> pm 1372 us. 1248,
+    1344 and 1536 are slower than 1280 at every chunk pair. Float64 rel_rms at k256 equals ship's."""
+    if DIT_BPAD_LEN:
+        return DIT_BPAD_LEN
+    p = _padded_sdpa_len(n)
+    if any(p % c == 0 for c in range(320, 95, -SDPA_CHUNK_TILE)):
+        return p
+    return _sdpa_chunk_pad_len(n) or p
+
+
+def pad_dit_bias(b, n: int, to: int):
+    """A `[.., n, n]` additive bias as `[.., to, to]`: new query rows 0, new key columns masked, the
+    order `_stage_token_bias` pads in. Inside the last tile a pad relabels its source rather than
+    copying (`_sdpa_pad_ragged`), so nothing here is freed explicitly."""
+    if to == n:
+        return b
+    nb = len(b.shape)
+    b = ttnn.pad(b, [(0, 0)] * (nb - 2) + [(0, to - n), (0, 0)], value=0.0)
+    return ttnn.pad(b, [(0, 0)] * (nb - 1) + [(0, to - n)], value=_SDPA_PAD_MASK)
 
 
 def _sdpa_to_bias_width(fn):
@@ -7391,11 +7443,34 @@ def diffusion_fp32_device(enabled: bool):
         _DIFFUSION_FP32_DEVICE = old
 
 
+#: Part by the PCI device id the kernel driver publishes per chip (tt-kmd's own ids).
+_ARCH_BY_PCI_ID = {0x401E: "wormhole_b0", 0xB140: "blackhole"}
+
+
+def _sysfs_arch() -> str | None:
+    """The one part every chip on this host reports in sysfs, or None if they disagree or say nothing."""
+    import glob as _glob
+    archs = set()
+    for node in _glob.glob("/sys/class/tenstorrent/tenstorrent!*/device/device"):
+        try:
+            with open(node) as f:
+                archs.add(_ARCH_BY_PCI_ID.get(int(f.read().strip(), 16)))
+        except (OSError, ValueError):
+            archs.add(None)
+    return archs.pop() if len(archs) == 1 else None
+
+
 @lru_cache(maxsize=1)
 def arch_name() -> str:
-    """Tenstorrent architecture, e.g. 'wormhole_b0' or 'blackhole'. Cheap; no
-    device open required."""
-    return ttnn.get_arch_name()
+    """Tenstorrent architecture, e.g. 'wormhole_b0' or 'blackhole', without opening a card.
+
+    `ttnn.get_arch_name()` builds tt-metal's MetalContext, and with it the UMD cluster, which holds
+    the chip's driver fds until ReleaseOwnership. A probe that ran before any `get_device()` thus
+    held a card that `cleanup()` had no handle to free, and the next process to open it blocked
+    (pytest_device:1/4 wh at 938d50505: test_cleanup_drops_the_driver_fds found the card open).
+    sysfs names the part without that; ttnn answers only on a host where sysfs does not.
+    """
+    return _sysfs_arch() or ttnn.get_arch_name()
 
 
 @lru_cache(maxsize=1)
@@ -10536,7 +10611,7 @@ class TriangleMultiplication(Module):
                         x_chunk = _bmm_res.matmul(
                             a_chunk, b_chunk,
                             compute_kernel_config=_bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config)),
-                            transpose_a=defer_a, transpose_b=defer_b)
+                            transpose_a=defer_a, transpose_b=defer_b, b8=lever("trimul_bres_b8"))
                     if x_chunk is None:
                         x_chunk = ttnn.matmul(
                             a_chunk,
@@ -13222,36 +13297,37 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
         fid = ttnn.MathFidelity.LoFi
     acc = lever("ws_l1acc")
+    ps = lever("ws_psilu")   # silu on the packer, overlapping the matmuls; bit-identical
     if (resid is None and lever("ws_ln") and len(parts) == 1
             and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
-        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc)
+        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc, pack_silu=ps)
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
     if resid2:
         # x_norm stands in for the partial's layout, as under ws_chain below.
-        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc, pack_silu=ps)
         for w12, w3 in parts[1:-1]:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
-        _pair_ws.pair_swiglu(x_norm, *parts[-1], fid, l1acc=acc, resid=resid, resid2=out)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=out)
+        _pair_ws.pair_swiglu(x_norm, *parts[-1], fid, l1acc=acc, pack_silu=ps, resid=resid, resid2=out)
         ttnn.deallocate(out)
         ttnn.deallocate(x_norm)
         return resid
     if resid is not None:
         for w12, w3 in parts:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=resid)
         ttnn.deallocate(x_norm)
         return resid
     if (len(parts) > 1 and lever("ws_chain")
             and all(_pair_ws.eligible(x_norm, w12, w3, l1acc=acc, resid=x_norm) for w12, w3 in parts[1:])):
         # x_norm stands in for t's layout: same padded shape (the transition is c -> c), bf16, TILE, DRAM.
-        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc, pack_silu=ps)
         for w12, w3 in parts[1:]:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=out)
         ttnn.deallocate(x_norm)
         return out
     for w12, w3 in parts:
-        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc)
+        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps)
         if out is None:
             out = o
         else:
@@ -18814,26 +18890,13 @@ class ConfidenceHeadsDevice:
             ttnn.deallocate(arm)
         self.wall.mark("same-chain select")
 
-        # Which download shape is cheaper is a part property, and it inverts between the two.
-        # The result is three numbers per (i, j), so untilizing and slicing on the card first
-        # moves 2.097 MB at 512 tokens where reading the tile whole moves 16.777 MB. On Wormhole
-        # those bytes are the cost and the narrow read wins, 17.500 against 32.644 ms. On
-        # Blackhole they are not: a row-major readback runs at a flat 159 MB/s there -- 0.524 MB
-        # through 8.389 MB, 256 to 1024 tokens, every rung within 2 MB/s of that -- against
-        # 1.8-3.9 GB/s tiled, so an 8x byte saving cannot cover an 11-23x rate penalty and the
-        # narrow read loses at every rung of the size ladder: 3.72 against 1.13 ms at 256 tokens,
-        # 14.40 against 4.88 at 512, 57.50 against 42.29 at 1024
-        # (perf/b2z2_confptm/download_shape.py, which asserts every variant returns the same
-        # channels).
-        if is_wormhole():
-            out = ttnn.to_layout(out, ttnn.ROW_MAJOR_LAYOUT)
-            self.wall.mark("untilize")
-            out = ttnn.slice(out, [0, 0, 0, 0], [1, seq_len, seq_len, self.CH_KEEP])
-            t = torch.Tensor(ttnn.to_torch(out)).to(torch.float32)
-        else:
-            self.wall.mark("untilize")
-            t = torch.Tensor(ttnn.to_torch(out))
-            t = t[:, :seq_len, :seq_len, :self.CH_KEEP].to(torch.float32)
+        # The tile is read whole and cut on the host, on both parts. Wormhole used to untilize and
+        # slice to [1, n, n, 4] on the card first (17.5 against 32.6 ms at 512 tokens), and that
+        # slice never returns at some lengths: every Boltz-2 fold of exactly 584 or 644 residues
+        # hung there until JapanFold's 25 min cap, on every chip it was retried on, while 583,
+        # 585, 642 and 645 folded (2026-10-19). 15 ms is not worth a length that cannot fold.
+        t = torch.Tensor(ttnn.to_torch(out))
+        t = t[:, :seq_len, :seq_len, :self.CH_KEEP].to(torch.float32)
         ttnn.deallocate(out)
         self.wall.mark("download")
         return {"pae": t[..., self.CH_PAE].contiguous(),

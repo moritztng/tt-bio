@@ -1,4 +1,4 @@
-"""Key-padding SDPA for the language models on Wormhole (`esmc.lm_sdpa` with a `KeyPad` mask).
+"""Key-padding SDPA for the language models (`esmc.lm_sdpa` with a `KeyPad` mask).
 
 ESMC's language-model attention masks padded keys with an additive [B, 1, S, S] mask whose rows
 are all the same: mask[b, :, j] = -inf for j >= len_b (`esmc._batch_tokens`). The stock op re-reads
