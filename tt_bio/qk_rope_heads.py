@@ -36,6 +36,9 @@ FIDELITY = ttnn.MathFidelity.HiFi4
 #: reads as 1); read at build time, part of the key. 4 is bit-identical to 1; Galaxy chip at 1000 MHz, ms a call on
 #: the page shapes: 300M 0.340 -> 0.332, 600M 0.398 -> 0.385, 6B 0.245 -> 0.233.
 BLOCK = 4
+#: RoPE sums on the SFPU in fp32 dest (QKRH_SFPU) instead of the FPU's dest-reuse add, whose 19-bit srcA / srcB
+#: truncate both fp32 products toward zero (rope_packed_bench: bias -0.0007 against float64). Read at build time.
+SFPU = False
 #: [calls served, declined], read by the A/B harness.
 STATS = [0, 0]
 
@@ -97,6 +100,7 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True):
     defines = ([("QKRH_RELOAD", "1")] if reload else []) + ([] if ln else [("QKRH_NO_LN", "1")])
     hg = 2 if BLOCK >= 4 and kt // 2 % 2 == 0 else 1   # whole groups only: c_20 / c_16 never wrap mid-reservation
     defines += [("QKRH_BLK", str(max(1, BLOCK))), ("QKRH_HG", str(hg))]
+    defines += [("QKRH_SFPU", "1")] if SFPU else []
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -157,7 +161,7 @@ def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed):
                                            ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     # without a LayerNorm the gamma slots are never read; cos stands in so every accessor has a tensor
     tensors = [q, k, v, q_gamma if ln else cos, k_gamma if ln else cos, cos, sin] + outs
-    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, tuple(t.memory_config().buffer_type for t in tensors[:7]))
+    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, SFPU, tuple(t.memory_config().buffer_type for t in tensors[:7]))
     if key not in _CACHE:
         _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln)
     kernels, cbs = _CACHE[key]
