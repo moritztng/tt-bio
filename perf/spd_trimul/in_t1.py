@@ -28,6 +28,7 @@ ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks
 ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (lever trimul_t1w8): its error and time")
+ap.add_argument("--fid", default="", help="HiFi4/HiFi3/HiFi2/LoFi: run T1 at this fidelity instead of the trunk's")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -40,6 +41,8 @@ from tt_bio.af2 import compute_kernel_config
 dev = T.get_device()
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
 ckc = MG.ckc_args(kcfg)
+if A.fid:
+    ckc = (getattr(ttnn.MathFidelity, A.fid),) + tuple(ckc[1:])
 grid = tuple(int(v) for v in A.grid.split(",")) if A.grid else tuple(T.COMPUTE_GRID_MAIN)
 TT.set_t1(True)
 TT.T1_C256 = 1
