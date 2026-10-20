@@ -8,6 +8,12 @@ trajectory's losses.csv (rows new since its start), counted by bc2_traj.py, the 
 Trajectory 1 compiles (cold), the rest are warm.
     python bc2_gpu.py --bc2 BC2_CHECKOUT --out DIR [--seed 101] [--warm 3] [--binder-len 80] [--set K=V ...]
                                                                                               -> DIR/runs.jsonl
+--workers N runs the campaign BindCraft 2's own packed way instead: N design worker processes on the one GPU
+(auto_multi_gpu, workers_per_gpu=N), drawing trajectories from one file-locked campaign, and the record is one
+ev=campaign line with the campaign wall and every trajectory's own design time. That is PROTOCOL rule 5's "the GPU
+at its own best concurrency", and its TT twin is bench.py --trajectories N. Compare only campaign iterations per
+wall second, and take the N=1 leg with --workers 1 as well, so the driver is the one variable that does not move.
+
 --set takes a BindCraft 2 setting for one GPU arm (use_cueq=true, attention_backend=cudnn); XLA flags go in
 BC2_XLA_EXTRA, which BindCraft 2 appends to XLA_FLAGS itself. The start record carries the resolved settings and env.
 
@@ -30,6 +36,10 @@ ap.add_argument("--binder-len", default="80", help="binder_lengths override, or 
 ap.add_argument("--set", action="append", default=[], metavar="K=V", help="a BindCraft 2 setting for this arm")
 ap.add_argument("--example", default="pdl1.json", help="file under the BC2 checkout's examples/")
 ap.add_argument("--max-traj", type=int, default=None, help="max_trajectories; default 1 + --warm")
+ap.add_argument("--workers", default=None,
+                help="design worker processes packed on the one GPU (PROTOCOL rule 5): N, or 'auto' for BindCraft "
+                     "2's own choice (7 on a B200 with the memory for it). Omit for the one-at-a-time protocol "
+                     "path. Use --workers 1 for the baseline leg of a concurrency A/B")
 ap.add_argument("--final-designs", type=int, default=None,
                 help="number_of_final_designs; raise it so a campaign always spends its whole trajectory budget "
                      "instead of stopping early on an accepted design")
@@ -41,11 +51,15 @@ import bindcraft.campaign as campaign  # noqa: E402
 from bindcraft.model_weights import model_weights  # noqa: E402
 from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
 from bindcraft.preflight import cleaned_campaign_settings  # noqa: E402
-from bc2_traj import cpu_model, hook, s_per_iter, table_row  # noqa: E402  (beside this file, here and on the box)
+from bc2_traj import campaign_trajectories, cpu_model, hook, s_per_iter, table_row  # noqa: E402  (beside this file, here and on the box)
 
 project = a.out / f"campaign_s{a.seed}"
+packed = a.workers is not None
 overrides = [f"campaign_seed={a.seed}", f"max_trajectories={a.max_traj or 1 + a.warm}",
-             f"project_folder={project}", "auto_multi_gpu=false"]
+             f"project_folder={project}",
+             *([f"auto_multi_gpu=true", f"workers_per_gpu={a.workers}"]
+               + ([] if a.workers == "auto" else [f"max_workers_per_gpu={a.workers}"])
+               if packed else ["auto_multi_gpu=false"])]
 if a.binder_len != "example":
     overrides.append(f"binder_lengths=[{int(a.binder_len)}]")
 if a.final_designs is not None:
@@ -91,6 +105,32 @@ def emit(i):
         sm=sm_mhz(tr["t0w"], tr["t0w"] + (tr.get("design_s") or 0)), terminated=row.get("terminated") or None,
         accepted_total=acc, csv_row=row, err=tr.get("err"))
 
+
+if packed:
+    # BindCraft 2 packs the card itself, from `launch_campaign` and not from `run_campaign`, so the campaign runs
+    # in its own process tree and there is no single trajectory in this one to hook. One worker goes through the
+    # same driver as N, so a concurrency A/B moves the worker count and nothing else.
+    # BindCraft 2 lowers an explicit worker count that the card's free memory will not hold, so the arm reports the
+    # plan it actually ran, not the one it asked for.
+    from bindcraft.design_workers import plan_design_workers  # noqa: E402
+    from bindcraft.campaign import design_residue_count  # noqa: E402
+    plan = plan_design_workers(settings, design_residue_count(settings), int(settings["max_trajectories"]))
+    settings_path = a.out / f"packed_settings_s{a.seed}_w{a.workers}.json"
+    settings_path.write_text(json.dumps(settings, default=str, sort_keys=True))
+    t0, t0w, load0 = time.monotonic(), time.time(), os.getloadavg()[0]
+    done = subprocess.run([sys.executable, "-u", "-m", "bindcraft.cli", "design", str(settings_path)],
+                          cwd=str(a.bc2), env={**os.environ, "CUDA_VISIBLE_DEVICES":
+                                               os.environ.get("CUDA_VISIBLE_DEVICES", "0")})
+    wall = time.monotonic() - t0
+    per = campaign_trajectories(project)
+    iters = sum(p["iterations"] or 0 for p in per)
+    log(ev="campaign", workers=a.workers, planned_workers=len(plan), plan=plan,
+        workers_seen=sorted({p.get("worker") for p in per if p.get("worker") is not None}), wall_s=wall, trajectories=per, iterations=iters,
+        wall_per_iter=wall / iters if iters else None, sm=sm_mhz(t0w, time.time()),
+        loadavg=[load0, os.getloadavg()[0]], rc=done.returncode,
+        err=None if done.returncode == 0 else f"bindcraft.cli design exited {done.returncode}")
+    log(ev="end")
+    raise SystemExit(done.returncode)
 
 traj = hook(campaign, project, emit)
 af2, mpnn = model_weights()

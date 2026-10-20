@@ -93,6 +93,26 @@ def table_row(project, n):
     return next((r for r in rows if r.get("trajectory") == str(n)), {}), acc
 
 
+def campaign_trajectories(project):
+    """Every trajectory of a campaign, read off BindCraft 2's own tables rather than hooks.
+
+    Several trajectories in flight (TT threads, GPU worker processes) leave no single running trajectory for
+    `hook` to time, so a concurrent campaign is summarised from the trajectory table: design_s is BindCraft 2's
+    own `Timing` design field, iterations the rows of that design's losses.csv."""
+    import glob
+    from pathlib import Path
+    from bindcraft.campaign_output import TRAJECTORY_STAGE, stage_table
+    per = []
+    with contextlib.suppress(OSError):
+        for r in csv.DictReader(open(stage_table(str(project), TRAJECTORY_STAGE))):
+            t = dict(kv.split("=") for kv in r.get("Timing", "").split(";") if "=" in kv)
+            L = glob.glob(str(Path(project) / "1_Trajectories" / r["design"] / "*_losses.csv"))
+            per.append(dict(trajectory=r.get("trajectory"), design_s=float(t.get("design", "nan")),
+                            iterations=sum(1 for _ in csv.DictReader(open(L[0]))) if L else None,
+                            terminated=r.get("terminated") or None, worker=t.get("worker")))
+    return per
+
+
 def hook(campaign, project, emit):
     traj = []
     real_design, real_validate = campaign.run_trajectory, campaign.redesign_and_validate_binders

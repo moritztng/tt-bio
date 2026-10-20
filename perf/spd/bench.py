@@ -242,7 +242,6 @@ if a.model == "bindcraft2":
     winfo = worker_env()
     sys.path.insert(0, str(a.bc2))
     import bindcraft.campaign as campaign  # noqa: E402
-    from bindcraft.campaign_output import TRAJECTORY_STAGE, stage_table  # noqa: E402
     from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
     from bindcraft.preflight import cleaned_campaign_settings  # noqa: E402
     import tt_bio  # noqa: E402
@@ -293,14 +292,7 @@ if a.model == "bindcraft2":
         except Exception:
             err = traceback.format_exc()[-3000:]
         wall = time.monotonic() - t0
-        per = []
-        with contextlib.suppress(OSError):
-            for r in csv.DictReader(open(stage_table(str(project), TRAJECTORY_STAGE))):
-                t = dict(kv.split("=") for kv in r.get("Timing", "").split(";") if "=" in kv)
-                L = glob.glob(str(project / "1_Trajectories" / r["design"] / "*_losses.csv"))
-                per.append(dict(trajectory=r.get("trajectory"), design_s=float(t.get("design", "nan")),
-                                iterations=sum(1 for _ in csv.DictReader(open(L[0]))) if L else None,
-                                terminated=r.get("terminated") or None))
+        per = bc2_traj.campaign_trajectories(project)
         iters = sum(p["iterations"] or 0 for p in per)
         nodes = opened_nodes() or opened
         log(ev="campaign", trajectories_per_card=n, wall_s=wall, trajectories=per, iterations=iters,
