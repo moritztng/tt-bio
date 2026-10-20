@@ -44,7 +44,8 @@ def main() -> int:
     ck = S.Saprot(**cfg).compute_kernel_config
     d, ff = MODELS[a.model]
     dh = d if (d // cfg["n_heads"]) % 64 == 0 else cfg["n_heads"] * 32
-    shapes = {"qkv": (d, 3 * dh, None), "out": (dh, d, None), "fc1": (d, ff, "gelu"), "fc2": (ff, d, None)}
+    shapes = {"qkv": (d, 3 * dh, None), "out": (dh, d, None), "fc1": (d, ff, "gelu"), "fc2": (ff, d, None),
+              "fc1n": (d, ff, None)}  # fc1 without its fused GELU: the activation's device cost
     for k in filter(None, a.kladder.split(",")):
         shapes[f"fc1k{k}"] = (int(k), ff, "gelu")
     wdt = ttnn.bfloat8_b if a.fast else ttnn.bfloat16
