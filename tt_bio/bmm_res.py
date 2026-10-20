@@ -20,6 +20,10 @@ how the trimul's gin_moved chunks arrive: the reader fetches tiles in the transp
 transposes each b tile, and compute transposes each a tile into a bf16 staging CB before it multiplies (ttnn's in0
 transpose). A tile transpose moves values only and bf16 holds every bfp8 value, so neither changes a number.
 
+BRES_B8 (off) keeps a bf16 b resident as bfp8 where that removes a split: the reader stages b[c] in BG-tile groups
+and compute repacks each group into the resident buffer, so at 1024 tokens b[c] (1.06 MB) fits whole and a[c] is
+read once (6 MB of DRAM traffic a channel instead of 8). It rounds b to bfp8, as trimul_b8in does at the in-projection.
+
 The trimul einsum calls it under the `trimul_bres` lever (tenstorrent.py); perf/spd/af2_trimul_bmm_sweep.py --res times it.
 `matmul` returns the product or None, and None means the caller keeps its own path.
 """
@@ -36,32 +40,39 @@ from . import mm_generic as MG
 from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "bmm_res"
-A_CB, B_CB, A_RAW_CB, OUT_CB = 0, 1, 2, 16
+A_CB, B_CB, A_RAW_CB, B_RAW_CB, OUT_CB = 0, 1, 2, 3, 16
 A_DEPTH = 2            # row tiles of a in flight per core
 SPLIT_GROUP = 4        # a split call's transposed-a read group in tiles (compute's own transpose grouping)
 #: None (unset) splits on Wormhole only. On a Blackhole p150a at 1350 MHz the split einsum lost to ttnn.matmul at 1024
 #: tokens: ESMFold2-Fast 41.49 -> 42.00 s normal, 31.82 -> 32.30 s --fast, ESMFold2 --fast 54.09 -> 54.72 s.
 BRES_SPLIT = None if os.environ.get("TT_BIO_BRES_SPLIT", "").strip() == "" else env_flag("TT_BIO_BRES_SPLIT", True)
+BRES_B8 = env_flag("TT_BIO_BRES_B8", False)
 #: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt bf16 staged for transpose_a) + out 2 * nt tiles.
 L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
 
 
-def _groups(kt, nb, ns, transpose_a):
-    """(a read group, output drain) in tiles: whole rows unsplit; split, the transpose group and compute's OG."""
-    if ns == 1:
+def _groups(kt, nb, ns, transpose_a, small=False):
+    """(a read group, output drain) in tiles: whole rows unsplit; split (or `small`, B8's tight L1), the transpose
+    group and compute's OG."""
+    if ns == 1 and not small:
         return kt, nb
     return (SPLIT_GROUP if transpose_a else kt), (4 if nb % 4 == 0 else 2 if nb % 2 == 0 else 1)
 
 
-def _rest_bytes(kt, nb, ns, a_bytes, transpose_a):
-    """Every CB but b's: a's row tiles (the raw transposed groups + the bf16 stage) and the output."""
+def _rest_bytes(kt, nb, ns, a_bytes, transpose_a, b8=False):
+    """Every CB but b's: a's row tiles (the raw transposed groups + the bf16 stage), the output and B8's b stage."""
     bf16 = MG.tile_bytes(ttnn.bfloat16)
-    ag, w = _groups(kt, nb, ns, transpose_a)
-    return A_DEPTH * ag * a_bytes + transpose_a * kt * bf16 + 2 * w * bf16
+    ag, w = _groups(kt, nb, ns, transpose_a, b8)
+    return A_DEPTH * ag * a_bytes + transpose_a * kt * bf16 + 2 * w * bf16 + b8 * 2 * _bg(kt, nb) * bf16
 
 
-def _plan(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False, split=None):
+def _bg(kt, nb):
+    """BRES_B8's b staging group in tiles: compute repacks b two tiles at a time where the count allows."""
+    return 2 if kt * nb % 2 == 0 else 1
+
+
+def _plan(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False, split=None, b8=False):
     """(column blocks ns, b units in flight 2 or 1) for the fewest blocks that fit, or (0, 0). `split` None takes
     BRES_SPLIT; False allows only ns = 1, an int forces that ns."""
     if split is None:
@@ -75,7 +86,7 @@ def _plan(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False, split=N
         cands = (split,) if nt % split == 0 else ()
     for ns in cands:
         nb = nt // ns
-        rest = _rest_bytes(kt, nb, ns, a_bytes, transpose_a)
+        rest = _rest_bytes(kt, nb, ns, a_bytes, transpose_a, b8)
         for depth in (2, 1):
             if depth * kt * nb * b_bytes + rest <= budget:
                 return ns, depth
@@ -97,11 +108,11 @@ def cb_bytes(kt, nt, a_dtype, b_dtype, transpose_a=False, compute_kernel_config=
     return depth and depth * kt * nb * b_bytes + _rest_bytes(kt, nb, ns, a_bytes, transpose_a)
 
 
-def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl=0):
+def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl=0, b8=False):
     g = a.device().compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, C * ns, max_cores)
     nb = nt // ns
-    ag, w = _groups(kt, nb, ns, ta)
+    ag, w = _groups(kt, nb, ns, ta, b8)
 
     def cb(idx, tiles, dtype):
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=MG.tile_bytes(dtype))
@@ -117,7 +128,8 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl
                     rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [first, per]
                     first += per
     assert first == C * ns, (first, C, ns)
-    rct = [mt, kt, nt, int(ta), int(tb), nb, ag]
+    bg = _bg(kt, nb) if b8 else 0
+    rct = [mt, kt, nt, int(ta), int(tb), nb, ag, bg]
     for t in (a, b):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [mt, nt, nb, w] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
@@ -130,13 +142,15 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl
                                    defines=[("BRES_NO_WRITE", "1")] if abl & 2 else [], config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
-        compile_time_args=[mt, kt, nb, int(ta), int(tb), ag if ns > 1 else 0], runtime_args=cp,
+        compile_time_args=[mt, kt, nb, int(ta), int(tb), ag if ns > 1 or b8 else 0, bg], runtime_args=cp,
         defines=[("BRES_NO_MM", "1")] if abl & 1 else [],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
     a_cb = cb(A_CB, kt, ttnn.bfloat16) if ta else cb(A_CB, A_DEPTH * kt, a.dtype)
-    cbs = [a_cb, cb(B_CB, depth * kt * nb, b.dtype), cb(OUT_CB, 2 * w, ttnn.bfloat16)]
+    cbs = [a_cb, cb(B_CB, depth * kt * nb, ttnn.bfloat8_b if b8 else b.dtype), cb(OUT_CB, 2 * w, ttnn.bfloat16)]
     if ta:
         cbs.append(cb(A_RAW_CB, A_DEPTH * ag, a.dtype))
+    if b8:
+        cbs.append(cb(B_RAW_CB, 2 * bg, b.dtype))
     return [reader, writer, compute], cbs
 
 
@@ -144,20 +158,22 @@ STATS = [0, 0]   # calls served, calls declined (None returned)
 
 
 def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=False, budget=L1_BUDGET, max_cores=0,
-           depth=None, abl=0, split=None):
+           depth=None, abl=0, split=None, b8=None):
     """``a @ b`` over the channel axis as a new bf16 DRAM tensor, or None if the call is outside what the kernel does.
 
     It sums K in an fp32 dest at the caller's fidelity (HiFi4 without a config); a bf16-dest config declines.
     `max_cores` caps the channel split (0 = the whole grid) and `depth` forces b's channel depth; both are bench
-    knobs that move scheduling, never a number, and so is `split` (see `_plan`). `abl` is a bench-only stage mask that does change the result:
+    knobs that move scheduling, never a number, and so is `split` (see `_plan`). `b8` (None: BRES_B8) rounds a bf16 b
+    to bfp8 in L1 where that plans fewer column blocks than bf16 does, and changes the result as that rounding does. `abl` is a bench-only stage mask that does change the result:
     1 skips the matmuls, 2 the output writes, 4 the reads of a (time attribution, af2_trimul_bmm_sweep --abl).
     """
-    out = _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split)
+    out = _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split,
+                  BRES_B8 if b8 is None else b8)
     STATS[out is None] += 1
     return out
 
 
-def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split):
+def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split, b8):
     if compute_kernel_config is not None and not compute_kernel_config.fp32_dest_acc_en:
         return None
     fidelity = ttnn.MathFidelity.HiFi4 if compute_kernel_config is None else compute_kernel_config.math_fidelity
@@ -176,6 +192,12 @@ def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_c
         return None
     C, mt, kt, nt = sa[1], M // 32, K // 32, N // 32
     ns, fit = _plan(kt, nt, MG.tile_bytes(a.dtype), MG.tile_bytes(b.dtype), budget, transpose_a, split)
+    b8 = bool(b8) and b.dtype == ttnn.bfloat16 and ns != 1
+    if b8:
+        ns8, fit8 = _plan(kt, nt, MG.tile_bytes(a.dtype), MG.tile_bytes(ttnn.bfloat8_b), budget, transpose_a, split, True)
+        b8 = bool(fit8) and (not fit or ns8 < ns)
+        if b8:
+            ns, fit = ns8, fit8
     depth = min(depth or fit, fit)
     if not depth:
         return None
@@ -185,9 +207,9 @@ def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_c
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape),
                                          ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     key = (dev.id(), tuple(sa), tuple(sb), a.dtype, b.dtype, a.memory_config().buffer_type,
-           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl)
+           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8)
     if key not in _CACHE:
-        _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl)
+        _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [a.buffer_address(), b.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]
