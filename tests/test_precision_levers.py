@@ -255,7 +255,7 @@ def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.protenix import WS_CHAIN
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
-    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8"}
+    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8", "dit_bpad"}
 
 
 def test_triatt_k1_offers_the_one_k_rung_when_a_narrower_fused_q_fits(monkeypatch):

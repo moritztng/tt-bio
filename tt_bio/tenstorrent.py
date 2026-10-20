@@ -650,6 +650,9 @@ _FAST_MODE = False
 #                   operands with fp32 accumulation (OpenFold3's DiT)
 #   dit_chunk       the token DiT's fused SDPA takes q = k = the largest 32-aligned divisor of its length up
 #                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
+#   dit_bpad        the bf16 token DiT's block biases padded ONCE per fold to `dit_bias_pad_len` (new keys
+#                   masked), so no call re-fills the bias' ragged key tail and the fused SDPA runs at a length
+#                   its chunks divide (q/k/v follow the bias per call, `_sdpa_to_bias_width`)
 #   trimul_t1       the triangle multiplication's input layer_norm, gated a/b projection, mask, channel moves
 #                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
@@ -785,7 +788,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
-          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "conf_bins", "trimul_t1", "trimul_t2",
+          "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "dit_bpad", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
@@ -804,7 +807,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
@@ -2907,7 +2910,7 @@ def _sdpa_pad_ragged(q, k, v, bias, to: int = 0):
     if q_pad and int(bias.shape[-2]) == Sq:
         bp = _tile_relabel(bp, -2, Sq + q_pad) if _SDPA_TILE_VIEW and not to else \
             ttnn.pad(bp, [(0, 0)] * (nb - 2) + [(0, q_pad), (0, 0)], value=0.0)
-    if k_pad:
+    if k_pad and int(bias.shape[-1]) == Sk:   # a bias staged wider already masks its new keys
         bp = ttnn.pad(bp, [(0, 0)] * (nb - 1) + [(0, k_pad)], value=_SDPA_PAD_MASK)
     # ttnn.pad ALIASES here rather than copying: in TILE layout the buffer is already 32-aligned on
     # both tile axes, so the pad is a relabel of the logical shape plus a fill of the physical tail
@@ -3189,6 +3192,38 @@ def _sdpa_chunk_pad_len(seq_len: int) -> int:
     padded = _padded_sdpa_len(seq_len)
     kc = _capped_sdpa_chunk_size(seq_len)
     return 0 if padded % kc == 0 else -(-padded // kc) * kc
+
+
+# dit_bpad's padded length; None = `dit_bias_pad_len`'s rule. A bench knob.
+DIT_BPAD_LEN = None
+
+
+def dit_bias_pad_len(n: int) -> int:
+    """The token axis `dit_bpad` runs the DiT at for `n` tokens: the tile multiple when a dit_chunk
+    chunk divides it, else the next multiple of the capped 256 chunk (`_sdpa_chunk_pad_len`), the
+    grid the stock op would pad to inside, at a cost far beyond the padding's share.
+
+    MEASURED (perf/spd_m_opendde/ditpad_sweep.py, Wormhole 1000 MHz, q/k/v [B, 16, Np, 64] vs a bias
+    staged at Np, 1199 tokens): B 1, ship 1216 q = k = 256 1038 us + 256 us bias tail re-fill per
+    call; at 1280 q320 k256 378 us, q = k = 320 421 us, pm 572 us. B 5: 2583 -> pm 1372 us. 1248,
+    1344 and 1536 are slower than 1280 at every chunk pair. Float64 rel_rms at k256 equals ship's."""
+    if DIT_BPAD_LEN:
+        return DIT_BPAD_LEN
+    p = _padded_sdpa_len(n)
+    if any(p % c == 0 for c in range(320, 95, -SDPA_CHUNK_TILE)):
+        return p
+    return _sdpa_chunk_pad_len(n) or p
+
+
+def pad_dit_bias(b, n: int, to: int):
+    """A `[.., n, n]` additive bias as `[.., to, to]`: new query rows 0, new key columns masked, the
+    order `_stage_token_bias` pads in. Inside the last tile a pad relabels its source rather than
+    copying (`_sdpa_pad_ragged`), so nothing here is freed explicitly."""
+    if to == n:
+        return b
+    nb = len(b.shape)
+    b = ttnn.pad(b, [(0, 0)] * (nb - 2) + [(0, to - n), (0, 0)], value=0.0)
+    return ttnn.pad(b, [(0, 0)] * (nb - 1) + [(0, to - n)], value=_SDPA_PAD_MASK)
 
 
 def _sdpa_to_bias_width(fn):
