@@ -217,6 +217,26 @@ bc2._Trunk.__init__ = trunk_init
 cb = collections.Counter()
 
 
+# Wall spent blocked on the card inside callbacks (readbacks and syncs). A callback minus this is
+# the host's enqueue time: exact when the command queue never fills, an upper bound when it does.
+blocked = collections.Counter()
+
+
+def blocking(fn):
+    def run(*args, **kwargs):
+        t0 = time.monotonic()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            blocked["s"] += time.monotonic() - t0
+    return run
+
+
+_ttnn = __import__("ttnn")
+for _name in ("to_torch", "from_device", "synchronize_device"):
+    setattr(_ttnn, _name, blocking(getattr(_ttnn, _name)))
+
+
 def timed(name, fn):
     def run(*args, **kwargs):
         t0 = time.monotonic()
@@ -296,6 +316,7 @@ def sequence_gradients(self, *args, **kwargs):
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         cb.clear()
+        blocked.clear()
         t0 = time.monotonic()
         out = None
         try:
@@ -311,6 +332,7 @@ def sequence_gradients(self, *args, **kwargs):
             state["uninstrumented"].append(dict(n=state["n"], s=wall, gsha=gsha(out),
                                                 callbacks={k: round(v, 4) for k, v in cb.items()},
                                                 host_jax_s=round(wall - sum(cb.values()), 4),
+                                                blocked_s=round(blocked["s"], 4),
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
