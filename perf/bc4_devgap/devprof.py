@@ -86,6 +86,12 @@ def clock(t0, t1):
     return out
 
 
+def rss_gb():
+    for line in Path("/proc/self/status").read_text().splitlines():
+        if line.startswith("VmRSS:"):
+            return round(int(line.split()[1]) / 2**20, 1)
+
+
 def loadavg():
     return Path("/proc/loadavg").read_text().split()[:3]
 
@@ -343,7 +349,7 @@ def sequence_gradients(self, *args, **kwargs):
                           spans=len(spans), replays=st["replays"], op_id=op_id(),
                           rtrace=dict(ag.RTRACE_STATS) if ag else None, in_dram=dict(dram),
                           trace_keys=len(getattr(ag, "_RTRACE", {})),
-                          load_start=l0, load_end=loadavg(), aiclk=clock(t0, t1), kept=kept()))
+                          load_start=l0, load_end=loadavg(), rss_gb=rss_gb(), aiclk=clock(t0, t1), kept=kept()))
         print(json.dumps(dict(ev="iter", **iters[-1])), flush=True)
         if st["n"] >= a.at + a.keep - 1:
             write()
