@@ -10343,8 +10343,9 @@ class TriangleMultiplication(Module):
                             defer_a = perm_a == (0, 3, 2, 1)
                             defer_b = perm_b == (0, 3, 2, 1)
                     if (a_chunk is None and defer
-                            and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED)
-                            and int(x_in.shape[-2]) % 32
+                            and (int(x_in.shape[-2]) % 32
+                                 and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED)
+                                 or _trimul_tail.GIN_WHOLE and not int(x_in.shape[-2]) % 32)
                             and not row_norm and x_norm_in is not None
                             and self.g_in_weight is None and not ops.taping()
                             and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES

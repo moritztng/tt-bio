@@ -53,6 +53,14 @@ p.add_argument("--tape-census", action="store_true",
                     "the op that saved them (run with TT_BIO_BC2_RESIDENT_BLOCKS>=1 to see a whole block)")
 p.add_argument("--wrap", choices=("census", "all"), default="all")
 p.add_argument("--seed", type=int, default=0)
+p.add_argument("--skip", default="none",
+               help="comma list of tt_bio.af2.SUBSTITUTION_CLASSES dropped from the Evoformer and extra-MSA "
+                    "blocks (AF2PairBlock.skip): a timing leg whose arithmetic is wrong on purpose; a class's "
+                    "card cost is the incumbent minus its leg")
+p.add_argument("--alternate", metavar="MODULE.ATTR[,MODULE.ATTR]",
+               help="boolean module flags read at call time (e.g. tt_bio.reblock_permute._PFPK), set together per "
+                    "rep in ABBA order, warm-up included: an in-process A/B that host load and clock drift hit "
+                    "equally; the summary is split by arm")
 p.add_argument("--out", type=Path, required=True)
 a = p.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
@@ -82,6 +90,9 @@ evo = B.EvoformerOnDevice(pool, memory=mem)
 extra = B.ExtraMsaOnDevice(pool, memory=mem)
 tmpl = B.TemplateOnDevice(pool, memory=mem) if "template" in stacks else None
 trunk = pool.trunk_for("")
+if a.skip != "none":
+    from tt_bio.af2 import SUBSTITUTION_CLASSES
+    trunk.model.set_skip(n for c in a.skip.split(",") for n in SUBSTITUTION_CLASSES[c])
 if not trunk.multimer:
     print(f"warning: {a.params} is not multimer_v3; BC2 designs on multimer", file=sys.stderr)
 
@@ -245,20 +256,40 @@ print(json.dumps(head)[:2000], flush=True)
 with autograd.exact_training(False), \
         (B.fast_round() if not a.no_fast else __import__("contextlib").nullcontext({})) as armed:
     head["fast_round"] = armed
+    flag = None
+    if a.alternate:
+        flags = [(__import__("importlib").import_module(m), at)
+                 for m, at in (f.rsplit(".", 1) for f in a.alternate.split(","))]
+        flag = lambda on: [setattr(m, at, on) for m, at in flags]  # noqa: E731
+    arm_of = lambda i: (0, 1, 1, 0)[i % 4]  # noqa: E731
+    arms = []
     for i in range(a.warm):
+        if flag:
+            flag(bool(arm_of(i)))
         t0 = time.perf_counter()
         iteration()
         print(f"warm {i}: {time.perf_counter() - t0:.3f} s", flush=True)
     reps, walls = [], []
     for i in range(a.reps):
+        if flag:
+            flag(bool(arm_of(i)))
+            arms.append(arm_of(i))
         t0 = time.perf_counter()
         reps.append(iteration())
         walls.append(time.perf_counter() - t0)
-        print(f"rep {i}: {walls[-1]:.3f} s " + " ".join(f"{k}={sum(v):.3f}" for k, v in reps[-1].items()),
+        print(f"rep {i}{f' arm {arms[-1]}' if flag else ''}: {walls[-1]:.3f} s " + " ".join(f"{k}={sum(v):.3f}" for k, v in reps[-1].items()),
               flush=True)
     doc = dict(head, iteration_s=walls, reps=reps, summary=summary(reps),
                memory_mode=dict(mem.used), calls=dict(evo=evo.calls, extra=extra.calls,
                                                         template=tmpl.calls if tmpl else None))
+    if flag:
+        flag(False)
+        doc["arms"] = arms
+    from tt_bio import trimul_tail as _tt
+    doc["gin_ragged_stats"] = list(_tt.GIN_RAGGED_STATS)
+        doc["by_arm"] = {str(k): dict(iteration_s=[w for w, m in zip(walls, arms) if m == k],
+                                      summary=summary([r for r, m in zip(reps, arms) if m == k]))
+                         for k in (0, 1)}
 
     if a.census:
         rec = Recorder(ttnn, trunk.device, 0)
