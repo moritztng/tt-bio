@@ -10,7 +10,7 @@ with no SDPA in it: LN -> modulate -> swish / gates / a_to_b linears -> SiLU gat
 
 Arms: `dram` (what ships: DRAM interleaved), `l1` (L1 interleaved, dit_l1's layout), `shard` (block-sharded on an
 8 x 8 grid, matmul programs that read and write shards), `shard_io` (shard, plus the conversion in from and out
-to DRAM on every call). Residual fp32, linear operands bf16 with fp32 accumulation as under dit_mm16; the
+to DRAM on every call), `shipped` (the dit_shard lever as it ships: only the hidden products sharded). Residual fp32, linear operands bf16 with fp32 accumulation as under dit_mm16; the
 modulation and gated residual are multiply + add in every arm. Values are random; each arm's output is compared
 with `dram` (rel_rms) so a layout that changes the math shows up. Device time is a captured trace replayed back to back (op_probe.dev_time).
 """
@@ -118,23 +118,39 @@ def main():
         (D, H): mm_prog(D, H), (H, D): mm_prog(H, D)}
     arms = {"dram": (ttnn.DRAM_MEMORY_CONFIG, ttnn.DRAM_MEMORY_CONFIG, ttnn.DRAM_MEMORY_CONFIG, None),
             "l1": (ttnn.L1_MEMORY_CONFIG, ttnn.L1_MEMORY_CONFIG, ttnn.L1_MEMORY_CONFIG, None),
-            "shard": (sd, sd, sh, shard_progs), "shard_io": (ttnn.DRAM_MEMORY_CONFIG, sd, sh, shard_progs)}
+            "shard": (sd, sd, sh, shard_progs), "shard_io": (ttnn.DRAM_MEMORY_CONFIG, sd, sh, shard_progs),
+            "shipped": (ttnn.DRAM_MEMORY_CONFIG, None, None, None)}
+    def shipped(x, *_):
+        """What dit_shard ships: LN, modulate and gated residual DRAM-interleaved, only the hidden products sharded."""
+        a, sc, shf, so = x
+        y = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc)
+        m = ttnn.add_(ttnn.multiply_(y, sc), shf)
+        mb = ttnn.typecast(m, ttnn.bfloat16)
+        ttnn.deallocate(m)
+        ba = T._dit_transition_sharded(mb, W["sw"], W["gt"], W["ab"], W["ba"], ckc)
+        assert ba is not None, "dit_shard refused"
+        ttnn.deallocate(mb)
+        g_ = ttnn.multiply(so, ba, dtype=ttnn.float32)
+        ttnn.deallocate(ba)
+        return ttnn.add_(g_, a)
+
     rows, ref = [], None
     rows.append(lever_arm(dev, up, host, wts, ckc))
     print(json.dumps(rows[-1]), flush=True)
     for arm, (mc_in, mc_d, mc_h, progs) in arms.items():
         io = arm == "shard_io"
+        run = shipped if arm == "shipped" else chain
         r = dict(arm=arm, arch=T.arch_name(), grid=f"{GY}x{GX}", t=time.time())
         x = None
         try:
             x = (up(host["a"], ttnn.float32, mc_in), up(host["sc"], ttnn.float32, mc_in),
                  up(host["sh"], ttnn.float32, mc_in), up(host["so"], ttnn.float32, mc_in))
-            o = chain(x, mc_d, mc_h, progs, io)
+            o = run(x, mc_d, mc_h, progs, io)
             got = ttnn.to_torch(o).float(); ttnn.deallocate(o)
             if ref is None:
                 ref = got
             r["rel_rms_vs_dram"] = float((got - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt())
-            us, spread, clk = dev_time(dev, lambda: chain(x, mc_d, mc_h, progs, io), nodes=nodes)
+            us, spread, clk = dev_time(dev, lambda: run(x, mc_d, mc_h, progs, io), nodes=nodes)
             r.update(us=us, spread=spread, aiclk=clk)
         except Exception as e:  # noqa: BLE001 -- an arm a layout cannot run is a result, not a crash
             r["error"] = f"{type(e).__name__}: {str(e)[:400]}"
