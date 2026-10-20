@@ -751,6 +751,11 @@ def _fc1_act() -> str:
     return "gelu_approx" if tenstorrent.is_wormhole() else "gelu"
 
 
+# --fast: fc1's GELU output written as block-fp8, the [rows, 4d] activation fc2 reads back (half its write and read
+# traffic). Its weights are block-fp8 already.
+_SAPROT_FC1_B8 = env_flag("TT_BIO_SAPROT_FC1_B8", False)
+
+
 class ESM2FFN(_SaprotLin, Module):
     """ESM-2 feed-forward: pre-LN, Linear(intermediate)+GELU, Linear(hidden), residual: returns ``x + ffn(x)``."""
 
@@ -766,7 +771,9 @@ class ESM2FFN(_SaprotLin, Module):
     def __call__(self, x):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
-        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": _fc1_act()} if _GELU_FUSED else {}))
+        b8 = _SAPROT_FC1_B8 and _GELU_FUSED and self.fc1_weight.dtype == ttnn.bfloat8_b
+        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"dtype": ttnn.bfloat8_b} if b8 else {}),
+                      **({"activation": _fc1_act()} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
             h = ttnn.gelu(h)
