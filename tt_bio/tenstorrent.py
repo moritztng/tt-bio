@@ -758,8 +758,9 @@ _FAST_MODE = False
 #                   shsdpa would run on key lengths (esmc._key_lens): both ESMFold2 sets, both arches, until a fold grades it.
 #   lm_k64          the ESMC language model's SDPA keeps 64-key chunks where ESMC takes few large ones
 #                   (esmc._sdpa_k_few): ESMFold2 on Blackhole until a fold grades it.
-#   lm_linear       the ESMC language model's projections stay on ttnn.linear where ESMC takes minimal_matmul
-#                   (esmc._esmc_mm): ESMFold2 on Blackhole until a fold grades it.
+#   lm_linear       the ESMC language model's projections stay on ttnn.linear and its own program pick where ESMC
+#                   takes minimal_matmul (esmc._esmc_mm) or the 6B's multicast programs (esmc._lin6b_program):
+#                   ESMFold2 on Blackhole until a fold grades it.
 #   ef2_atom_rope   ESMFold2's atom-transformer attention takes rotate_half(q), rotate_half(k) as one exact matmul
 #                   against a signed 32x32 permutation (esmfold2._rope_mm) instead of chunk/neg/concat, 12 times a
 #                   diffusion step on [B, 4, atoms, 32]. The fused rotary_embedding needs head_dim % 64 == 0 (wrp).

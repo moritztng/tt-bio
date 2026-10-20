@@ -519,7 +519,9 @@ _ESMC_ACT_BFP8 = env_flag("TT_BIO_ESMC_ACT_BFP8", False)
 # (grid -> program): bf16 qkv 0.585 -> 0.556 and fc1 half 0.508 -> 0.455 (1D, N across every core), fc2 0.452 -> 0.431
 # (2D); block-fp8 qkv 0.590 -> 0.474 and fc1 half 0.482 -> 0.415 (2D), fc2 and out_proj stay on the linear's program.
 # 6B page cell, same chip at 1000 MHz, best of 3: normal 296.2 -> 287.7 ms, --fast 285.9 -> 270.6 (259.1 with the large
-# LM's L1 q/k path); pcc vs fp32 0.998964 -> 0.999002 and 0.998875 -> 0.998907, pooled cos >= 0.99982. Wormhole only.
+# LM's L1 q/k path); pcc vs fp32 0.998964 -> 0.999002 and 0.998875 -> 0.998907, pooled cos >= 0.99982.
+# Blackhole on top of the LM flip (p150a, 1340 MHz, 2 rounds): normal 139.7 -> 127.9 ms, --fast 139.5 -> 126.6, pcc vs fp32
+# 0.998961 -> 0.998913 and 0.998814 -> 0.998809. lm_linear keeps ttnn.linear's own pick (ESMFold2 on Blackhole).
 _ESMC_LIN6B_PROG = env_flag("TT_BIO_ESMC_LIN6B_PROG", True)
 _LIN6B_PROG_MAX_ROWS = 544
 
@@ -659,7 +661,7 @@ class _MMLin:
         MM_STATS[1] += mm
         if _ESMC_LIN6B_PROG and getattr(self, "lm_large", False) and not kw and bias is None:
             from tt_bio import tenstorrent
-            cfg = _lin6b_program(x, w) if tenstorrent.is_wormhole() else None
+            cfg = None if tenstorrent.lever("lm_linear") else _lin6b_program(x, w)
             if cfg is not None:
                 LIN6B_STATS[0] += 1
                 return ttnn.linear(x, w, program_config=cfg, compute_kernel_config=self.compute_kernel_config,
