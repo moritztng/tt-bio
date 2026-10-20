@@ -243,15 +243,15 @@ X_L1_STATS = [0, 0]
 # minimal_matmul pick declines an L1 input it would have to share (both measured slower there). A Galaxy chip at
 # 1000 MHz, 35M --fast page batch (3808 rows), ms per call: qkv linear 0.342 -> 0.206 with L1 out; fc2 reading fc1's
 # L1 output 0.245 (mm pick) -> 0.187. 650M fc1 (39 MB) does not place in L1 and reads the same at 952 rows, so the
-# budget keeps the large sizes as they are. None = on with block-fp8 weights (--fast), as _SAPROT_X_L1.
-_SAPROT_OUT_L1 = (env_flag("TT_BIO_SAPROT_OUT_L1", False) if os.environ.get("TT_BIO_SAPROT_OUT_L1", "").strip() else None)
+# budget keeps the large sizes as they are. Page, 35M at 1000 MHz: --fast 30.9 -> 28.2 ms, normal 31.9 -> 30.0 ms with
+# the same output; 650M and 1.3B have no projection on this path.
+_SAPROT_OUT_L1 = env_flag("TT_BIO_SAPROT_OUT_L1", True)
 _OUT_L1_BYTES = 16 << 20
 OUT_L1_STATS = [0, 0]   # projections written to L1, refused
 
 
 def _out_l1(x, w) -> bool:
-    on = w.dtype == ttnn.bfloat8_b if _SAPROT_OUT_L1 is None else _SAPROT_OUT_L1
-    return on and x.volume() // int(w.shape[-2]) * int(w.shape[-1]) * 2 <= _OUT_L1_BYTES
+    return _SAPROT_OUT_L1 and x.volume() // int(w.shape[-2]) * int(w.shape[-1]) * 2 <= _OUT_L1_BYTES
 
 
 def _saprot_prog(x, w, act, hifi2=False):
