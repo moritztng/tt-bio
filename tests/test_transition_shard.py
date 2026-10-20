@@ -80,3 +80,29 @@ def test_dit_fc123g_is_ungraded_and_off():
 def test_fc12g_is_fast_only():
     assert "swiglu_fc12g" in tt.FAST_LEVERS and "silu_f32" in tt.FAST_LEVERS
     assert "swiglu_fc12g" not in tt.NORMAL_LEVERS | tt.UNGRADED_LEVERS
+
+
+def test_a_shape_fc123g_cannot_build_keeps_dit_shard(monkeypatch):
+    """5 samples (pm 10) clashed in L1 inside fc12g and the refusal switched dit_shard off for the whole fold (gfc)."""
+    class A:
+        padded_shape, dtype = (1, 1, 80 * 32, 768), "bf16"
+
+    class W:
+        def __init__(self, n):
+            self.shape = (768, n)
+
+    calls = []
+
+    def fc12g(*a, **k):
+        raise RuntimeError("Statically allocated circular buffers clash with L1 buffers")
+
+    monkeypatch.setattr(tt, "_fc12g", fc12g)
+    monkeypatch.setattr(tt, "_shard_mm_cfg", lambda *a: None)
+    monkeypatch.setattr(tt.ttnn, "linear", lambda *a, **k: calls.append("linear") or object())
+    monkeypatch.setattr(tt.ttnn, "multiply_", lambda *a, **k: object())
+    monkeypatch.setattr(tt.ttnn, "deallocate", lambda t: None)
+    monkeypatch.setattr(tt, "_TRANSITION_SHARD_REFUSED", set())
+    monkeypatch.setattr(tt, "_DIT_FC123G_REFUSED", set())
+    out = tt._dit_transition_sharded(A(), W(1536), W(1536), W(1536), W(768), None, w3=object())
+    assert out is not None and calls == ["linear"] * 4
+    assert not tt._TRANSITION_SHARD_REFUSED and len(tt._DIT_FC123G_REFUSED) == 1

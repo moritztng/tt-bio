@@ -22,7 +22,7 @@ import ttnn  # noqa: E402
 import tt_bio.tenstorrent as T  # noqa: E402
 from perf.spd_difflin.op_probe import dev_time, opened_nodes  # noqa: E402
 
-N, D, H = 512, 768, 1536
+D, H = 768, 1536
 
 
 def rel(t, ref):
@@ -33,7 +33,9 @@ def rel(t, ref):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
+    ap.add_argument("--samples", type=int, default=1, help="diffusion samples: 512 x S token rows")
     args = ap.parse_args()
+    N = 512 * args.samples
     dev = T.get_device()
     nodes = opened_nodes()
     torch.manual_seed(0)
@@ -60,7 +62,7 @@ def main():
     mc = ttnn.MemoryConfig(ttnn.TensorMemoryLayout.BLOCK_SHARDED, ttnn.BufferType.L1,
                            ttnn.ShardSpec(cores, [pm * 32, pn * 32], ttnn.ShardOrientation.ROW_MAJOR))
     bw = T._transition_kb("fc1", kt)
-    rows = [dict(arm="grid", arch=T.arch_name(), gx=gx, gy=gy, pm=pm, pn=pn, bw=bw, t=time.time())]
+    rows = [dict(arm="grid", arch=T.arch_name(), samples=args.samples, gx=gx, gy=gy, pm=pm, pn=pn, bw=bw, t=time.time())]
     print(json.dumps(rows[-1]), flush=True)
     for cname, ckc in ckcs.items():
         arms = {"shipped": (lambda: T._dit_transition_sharded(a, W["sw"], W["gt"], W["ab"], W["ba"], ckc), out_ref),
@@ -70,6 +72,8 @@ def main():
                                          defines={"FC12G_MUL_SFPU": "1"}), hid_ref),
                 "hid1": (lambda: T._fc12g(a, W["w3"], mc, pm, pn, kt, gx, gy, ckc, ttnn.bfloat16, products=3,
                                           defines={"FC12G_MUL_SFPU": "1"}), hid_ref),
+                **{f"hid_kb{k}": (lambda k=k: T._fc12g(a, W["w3"], mc, pm, pn, k, gx, gy, ckc, ttnn.bfloat16, products=3,
+                                                       defines={"FC12G_MUL_SFPU": "1"}), hid_ref) for k in (4, 6)},
                 "hid_fpu": (lambda: T._fc12g(a, W["w3"], mc, pm, pn, bw, gx, gy, ckc, ttnn.bfloat16, products=3,
                                              defines={"FC12G_MUL_HIFI4": "1"}), hid_ref)}
         for arm, (fn, ref) in arms.items():
@@ -84,6 +88,7 @@ def main():
                 r["error"] = f"{type(e).__name__}: {str(e)[:400]}"
                 traceback.print_exc()
             T._TRANSITION_SHARD_REFUSED.clear()
+            T._DIT_FC123G_REFUSED.clear()
             r["latch"] = {k: dict(T.LATCH_STATS[k], why=T.LATCH_STATS[k]["why"][-1:]) for k in ("dit_shard", "dit_fc123g")}
             rows.append(r)
             print(json.dumps(r), flush=True)

@@ -13424,6 +13424,7 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
 
 
 _DIT_FC123G_IN1_BYTES = 900 * 1024
+_DIT_FC123G_REFUSED: set = set()
 
 
 def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
@@ -13456,10 +13457,18 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
     try:
         # fc12g streams K in `bw` blocks, its in1 CB two blocks of three products: 576 KiB of bf16 at 512 x 1
         # (K block 8 tiles, pn 6), beside 144 KiB of fp32 partials. Its fp32 multiplies need a dest tile past the
-        # subblock.
-        if (w3 is not None and gx == 8 and prod(_fc12g_subblock(pm, pn)) < 4
+        # subblock. A shape it cannot build (5 samples: pm 10 clashes in L1) falls back to the three linears below,
+        # and only that shape: dit_shard itself stays on.
+        b = None
+        if (w3 is not None and key not in _DIT_FC123G_REFUSED and gx == 8 and prod(_fc12g_subblock(pm, pn)) < 4
                 and 2 * 3 * pn * bw * 2048 <= _DIT_FC123G_IN1_BYTES):
-            b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_SFPU": "1"})
+            try:
+                b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3,
+                           defines={"FC12G_MUL_SFPU": "1"})
+            except Exception as e:  # noqa: BLE001
+                _DIT_FC123G_REFUSED.add(key)
+                _latch("dit_fc123g", "refused", e)
+        if b is not None:
             hid.append(b)
             _latch("dit_fc123g", "served")
         else:
