@@ -208,15 +208,15 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     is written over `resid`: one rounding for `z + partial + t`. The last hidden chunk of a chained transition takes
     z as `resid` and the chain's partial sum as `resid2`, so the residual add is not a pass of its own.
     `pack_silu`: the polynomial silu runs from the packer thread and fc1 of the next hidden group is issued before fc2,
-    so the FPU's matmuls overlap the SFPU's silu (WS_PACK_SILU in the compute kernel); bit-identical. Also with `ln`;
-    ignored with `l1acc` or metal's silu."""
+    so the FPU's matmuls overlap the SFPU's silu (WS_PACK_SILU in the compute kernel); bit-identical. Also with `ln`
+    and `l1acc`; ignored with metal's silu."""
     if resid is not None:
         defines = tuple(defines) + (("WS_RESID", "1"),)
     if resid2 is not None:
         assert resid is not None
         defines = tuple(defines) + (("WS_RESID2", "1"),)
     silu_poly = SILU_POLY if silu_poly is None else silu_poly
-    if pack_silu and not l1acc and silu_poly in (1, 2):
+    if pack_silu and silu_poly in (1, 2):
         defines = tuple(defines) + (("WS_PACK_SILU", "1"),)
     if l1acc:
         defines = tuple(defines) + (("WS_L1ACC", "1"),)
