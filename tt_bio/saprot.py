@@ -363,6 +363,11 @@ _SAPROT_HIFI2_ROLES = ("fc1", "fc2")
 _SAPROT_IN_B8 = env_flag("TT_BIO_SAPROT_IN_B8", False)
 
 
+# The typecast to block-fp8 rounds ties away from zero, so q and k come out +0.28 % in magnitude (fid_bias) and the
+# logits +0.56 %: a sharper softmax. Where qkv reads block-fp8 the attention scale divides that back out.
+_IN_B8_QK_DEBIAS = 1.0028 ** -2
+
+
 def _in_b8_roles():
     return ("qkv", "out", "fc1") if _SAPROT_IN_B8 is True else tuple(_SAPROT_IN_B8 or ())
 
@@ -670,11 +675,13 @@ class ESM2Attention(_SaprotLin, Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        b8 = _in_b8_on(self.out_weight, int(self.norm_weight.shape[-1])) and _SAPROT_SDPA_B8
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_sdpa_ckc(heads is not None),
+        d = int(self.norm_weight.shape[-1])
+        b8 = _in_b8_on(self.out_weight, d) and _SAPROT_SDPA_B8
+        scale = self.head_dim ** -0.5 * (_IN_B8_QK_DEBIAS if _in_b8_on(self.qkv_weight, d) else 1.0)
+        o = lm_sdpa(q, k, v, attn_mask, scale=scale, merge=True, ckc=_sdpa_ckc(heads is not None),
                     out_dtype=ttnn.bfloat8_b if b8 else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
-        o = _in_b8(o, self.out_weight, int(self.norm_weight.shape[-1]))
+        o = _in_b8(o, self.out_weight, d)
         out = self._lin_add(o, self.out_weight, self.out_bias, x)
         ttnn.deallocate(o)
         return out
