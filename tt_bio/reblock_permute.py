@@ -1084,7 +1084,7 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     slice width must be a whole number of tiles, because the reader addresses slices in tile units.
     """
     from . import ops
-    if ops.declines_under_tape("reblock_permute_gated", xw):
+    if ops.declines_under_tape("reblock_permute_gated"):
         # No tape entry installed. This one is not just a permutation -- it slices a four-way
         # fused projection and folds `p * sigmoid(g)` into the move -- so its VJP is the gate's
         # as well as the permutation's: `taped_ttnn._k_reblock_permute_gated`, with the fused
@@ -1103,7 +1103,7 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
         return _reject("gated_shape", shape)
     if shape[1] != shape[2] and not (shape[1] < shape[2] and shape[1] % TILE_H == 0):
         return _reject("gated_rowblock", shape)
-    if shape[1] != shape[2] and ops.declines_under_tape("reblock_permute_gated_rowblock", xw):
+    if shape[1] != shape[2] and ops.taping():
         # A row block writes into a caller-owned destination across calls, which no single tape
         # node owns. The tape entry covers the whole-tensor move only.
         return _reject("gated_rowblock_taped", shape)

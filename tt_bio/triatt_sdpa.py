@@ -436,7 +436,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     `fused_pairs(..., padded=True)` at lengths with no dividing pair, and by the LPX prototype.
     """
     from . import ops
-    if ops.declines_under_tape("triatt_sdpa", q, k, v, bias):
+    if ops.taping():
         return None   # generic_op has no backward; the stock fused SDPA verb is taped
 
     if not _ENABLED or bias is None:
@@ -593,7 +593,7 @@ def sdpa_fused_qkv(x, w, bias, scale, n_heads, head_dim, q_chunk, k_chunk, ckc_d
     projection.
     """
     from . import ops
-    if ops.declines_under_tape("triatt_sdpa_fused_qkv", x, w, bias):
+    if ops.taping():
         return None   # generic_op has no backward; the composed path runs instead
 
     if not (_FUSE_QKV or force) or bias is None:

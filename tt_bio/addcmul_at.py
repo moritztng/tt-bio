@@ -131,7 +131,7 @@ def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None):
             or (out_dtype or y.dtype) not in _TILE_BYTES
             or not all(_ok(t, y, ht, y.dtype) for t in (x, y, z))
             or any(o + width > int(t.shape[-1]) for t, o in ((x, x_off), (y, y_off), (z, z_off)))
-            or _ops.declines_under_tape("addcmul_at", x, y, z)):
+            or _ops.declines_under_tape("addcmul_at")):
         STATS[1] += 1
         return None
     STATS[0] += 1

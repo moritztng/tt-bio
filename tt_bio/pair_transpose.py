@@ -77,7 +77,7 @@ def shape_ok(t) -> bool:
 
 def eligible(t) -> bool:
     """The lever, a tape entry when a tape is recording, and `shape_ok`."""
-    if not PAIR_TRANSPOSE_FUSED or ops.declines_under_tape("pair_transpose", t):
+    if not PAIR_TRANSPOSE_FUSED or ops.declines_under_tape("pair_transpose"):
         return False
     ok = shape_ok(t)
     if not ok:

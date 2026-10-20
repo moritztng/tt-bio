@@ -234,7 +234,7 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
 
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
     (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
-    if ops.declines_under_tape("pair_relu", x, w1, b1, w2, b2, ln):
+    if ops.declines_under_tape("pair_relu"):
         return None
     return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
 

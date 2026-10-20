@@ -30,7 +30,7 @@ class FakeTensor:
 def gate(monkeypatch):
     monkeypatch.setattr(rne_add, "MASKED", True)
     monkeypatch.setattr(rne_add, "_ENABLED", True)
-    monkeypatch.setattr(rne_add._ops, "declines_under_tape", lambda name, *operands: False)
+    monkeypatch.setattr(rne_add._ops, "declines_under_tape", lambda name: False)
     return rne_add
 
 
