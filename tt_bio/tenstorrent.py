@@ -13418,6 +13418,9 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
+_DIT_FC123G_IN1_BYTES = 900 * 1024
+
+
 def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
     """`b_to_a((silu(a w_gt) * (a w_sw)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
     the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
@@ -13446,8 +13449,10 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
     bw = _transition_kb("fc1", kt)
     hid = []
     try:
-        if w3 is not None and gx == 8 and kt == bw:
-            b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_HIFI4": "1"})
+        # fc12g takes K as one block, so its in1 block is all of K by three products (single-buffered): 864 KiB
+        # of bf16 at 512 x 1 (K 768, pn 6).
+        if w3 is not None and gx == 8 and 3 * pn * kt * 2048 <= _DIT_FC123G_IN1_BYTES:
+            b = _fc12g(a, w3, mc, pm, pn, kt, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_HIFI4": "1"})
             hid.append(b)
             _latch("dit_fc123g", "served")
         else:
