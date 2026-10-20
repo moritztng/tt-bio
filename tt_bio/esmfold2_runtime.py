@@ -1627,7 +1627,7 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope"
 # wbfb4, 9DBP/9PCQ/9W89/9W8A x 4 seeds): ESMFold2-Fast CA-lDDT -0.0003 [-0.0009, +0.0001], docking 8 -> 8 of 16;
 # ESMFold2 --fast CA-lDDT +0.0004 [-0.0086, +0.0098], docking 10 -> 10 of 16. In-process A/B (wb8f3): -Fast 1024
 # -1.83 s (-3.3 %), 768 -1.38 s, ESMFold2 1024 -2.91 s.
-_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8"
+_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+dit_kc+dit_mask8"
 # lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere).
 _LM_SDPA_STOCK = "+lm_sdpa_stock"
 # The ESMC language model on Blackhole as ESMFold2 folded it before ESMC took the Wormhole LM path there: graded on

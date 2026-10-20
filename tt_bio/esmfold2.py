@@ -39,6 +39,7 @@ from tt_bio.tenstorrent import (
     accurate_softmax_site,
     attn_value_matmul,
     fused_sdpa,
+    is_wormhole,
     lever,
     _ColWin,
     _win_addcmul,
@@ -140,16 +141,22 @@ def _attn_fp32(q, k, v, attn_mask, scale, ck, accurate_softmax: bool = False):
 
 def _sdpa32_mask(bias, scale):
     """The cached pair bias as the `_sdpa32` mask under dit_qkvf: fp32, divided by `scale` (the program scales its mask with
-    the scores), padded to `sdpa32_rows`. Built once per block per fold, like the bias it replaces."""
+    the scores), padded to `sdpa32_rows`. Built once per block per fold, like the bias it replaces. Read by every block of
+    every step, so dit_mask16 (Wormhole) keeps it bf16 and dit_mask8 bfp8, as OpenFold3's DiT does (`_fused_mask`)."""
     f32 = ttnn.float32
     b = ttnn.typecast(bias, f32)
     m = ttnn.multiply(b, 1.0 / scale)
     ttnn.deallocate(b)
-    if sdpa32_rows(int(m.shape[-1])) == int(m.shape[-1]):
+    if sdpa32_rows(int(m.shape[-1])) != int(m.shape[-1]):
+        mp = sdpa32_mask(m)
+        ttnn.deallocate(m)
+        m = mp
+    dt = ttnn.bfloat8_b if lever("dit_mask8") else (ttnn.bfloat16 if is_wormhole() and lever("dit_mask16") else None)
+    if dt is None:
         return m
-    mp = sdpa32_mask(m)
+    mt = ttnn.typecast(m, dt)
     ttnn.deallocate(m)
-    return mp
+    return mt
 
 
 def _sdpa_bf16(q, k, v, attn_mask, scale):
