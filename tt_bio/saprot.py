@@ -202,11 +202,13 @@ def _saprot_qkrh(w) -> bool:
 #   WH 35M out 0.121 -> 0.103, fc2 0.278 -> 0.245 (against esmc._mm_config's blocks)
 #   BH 35M out 0.054 -> 0.048, fc2 0.113 -> 0.095 (mm), fc1 0.196 -> 0.124 (2D)
 # "mm" = minimal_matmul blocks (M, K, N, subblock h, w) on the model's own kernel config (fp32 accumulation, as the sweep
-# ran it); "2d" = (transpose_mcast, in0_block_w[, out blocks along M]). Out blocks along M: the 2D writer shares BRISC with
-# the weight reader and writes an out block only after its K loop, so with one out block per core all of fc1's 39 MB go
+# ran it); "2d" = (transpose_mcast, in0_block_w[, out blocks along M[, along N]]). Out blocks: the 2D writer shares
+# BRISC with the weight reader and writes an out block only after its K loop, so with one out block per core all of fc1's 39 MB go
 # out after the last K pass. Two out blocks re-read the weight once more and write the first half under the second's
 # compute. WH 650M fc1 (GELU fused, gelu_f32), device profiler, Galaxy chip at 1000 MHz, us a call against the linear's
-# own pick: --fast 1075 -> 986, normal 1369 -> 1329 (ls57; one out block at in0_block_w 4 does not fit L1).
+# own pick: --fast 1075 -> 986, normal 1369 -> 1329 (ls57; one out block at in0_block_w 4 does not fit L1). The --fast
+# page holds the block LN's output and the residual in L1, where that program no longer places; with both resident
+# (mm_prof --l1x) 7 x 10 out blocks at in0_block_w 8 read 1082 -> 1021 (ls59/60), the --fast entry below.
 _SAPROT_PROG = (env_flag("TT_BIO_SAPROT_PROG", False) if os.environ.get("TT_BIO_SAPROT_PROG", "").strip() else None)
 _PROGS = {
     (True, 1280, 3840): ("mm", (8, 8, 8, 1, 4)),
@@ -227,6 +229,7 @@ _PROGS = {
 # chip at 1000 MHz, 650M (ms, against the HiFi3 pick above): fc2 1.006 -> 0.680. Shapes not listed keep the table above.
 _PROGS_HIFI2 = {
     (True, 5120, 1280): ("mm", (8, 8, 8, 1, 2)),
+    (True, 1280, 5120): ("2d", (False, 8, 2, 2)),
 }
 # Off drops the out-block entries (WH fc1) back to the linear's own pick.
 _SAPROT_OUT_SPLIT = env_flag("TT_BIO_SAPROT_OUT_SPLIT", True)
@@ -286,16 +289,17 @@ def _saprot_prog(x, w, act, hifi2=False):
         mb, kb, nb, sh, sw = p
         return kind, ttnn.MinimalMatmulConfig(M_block_size=mb, K_block_size=kb, N_block_size=nb, subblock_h=sh,
                                               subblock_w=sw, compute_with_storage_grid_size=grid)
-    tm, kb, splits = (*p, 1)[:3]
+    tm, kb, m_splits, n_splits = (*p, 1, 1)[:4]
     rows_ax, cols_ax = (g.x, g.y) if tm else (g.y, g.x)
     mt = -(-rows // 32)
     pm, pn = -(-mt // rows_ax), -(-(n // 32) // cols_ax)
-    oh = max(h for h in range(1, pm + 1) if pm % h == 0 and h <= -(-pm // splits))
-    sh, sw = _subblock(oh, pn)
+    oh, ow = (max(b for b in range(1, t + 1) if t % b == 0 and b <= -(-t // splits))
+              for t, splits in ((pm, m_splits), (pn, n_splits)))
+    sh, sw = _subblock(oh, ow)
     fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, float(act == "gelu_approx")) if act else None
     return kind, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=grid, in0_block_w=kb, out_subblock_h=sh, out_subblock_w=sw, out_block_h=oh,
-        out_block_w=pn, per_core_M=pm, per_core_N=pn, transpose_mcast=tm, fused_activation=fa, fuse_batch=True)
+        out_block_w=ow, per_core_M=pm, per_core_N=pn, transpose_mcast=tm, fused_activation=fa, fuse_batch=True)
 
 
 # The block-fp8 projections of --fast at HiFi2 instead of the model's HiFi3, fp32 accumulation kept: a block-fp8 weight's
