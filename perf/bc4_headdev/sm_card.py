@@ -42,7 +42,7 @@ def main(a):
                              jnp.asarray(v) if isinstance(v, np.ndarray) else v) for nm, v in k.items()}
     kb = jnp.asarray(S.key_bias(mask))
     def f(a0, z):
-        act, traj = S.stack(jo, kj, a0, z, kb)
+        act, traj = S.stack(jo, kj, a0, z, kb, layers=a.layers)
         return act, traj[-1][0], traj[-1][1]
     ref, vjp = jax.vjp(f, jnp.asarray(act0), jnp.asarray(pair))
     ref = [np.asarray(x) for x in ref]
@@ -61,12 +61,12 @@ def main(a):
 
     def fwd():
         with A.no_grad():
-            act, traj = S.stack(o, kd, A.Tensor(pre[0]), A.Tensor(pre[1]), kbd)
+            act, traj = S.stack(o, kd, A.Tensor(pre[0]), A.Tensor(pre[1]), kbd, layers=a.layers)
         return act, traj[-1][0], traj[-1][1]
 
     def step():
         ins = [A.Tensor(v, requires_grad=True) for v in pre]
-        act, traj = S.stack(o, kd, *ins, kbd)
+        act, traj = S.stack(o, kd, *ins, kbd, layers=a.layers)
         A.backward([act, traj[-1][0], traj[-1][1]], seeds=sd)
         return [x.grad for x in ins]
 
@@ -74,7 +74,7 @@ def main(a):
     rel = lambda x, y: float(np.linalg.norm(x - y) / np.linalg.norm(x))
     out = [get(x) for x in fwd()]
     grads = [get(x) for x in step()]
-    res = {"n": n, "real": real, "call": a.call,
+    res = {"layers": a.layers, "n": n, "real": real, "call": a.call,
            "fwd_rel_l2": {nm: rel(x[:real], y[:real]) for nm, x, y in zip(("act", "R", "t"), ref, out)},
            "ca_rmsd_A": float(np.sqrt(((10 * (ref[2] - out[2])[:real]) ** 2).sum(-1).mean())),
            "ca_max_A": float(np.abs(10 * (ref[2] - out[2])[:real]).max()),
@@ -114,5 +114,6 @@ if __name__ == "__main__":
     ap.add_argument("--inputs", required=True)
     ap.add_argument("--call", type=int, default=0)
     ap.add_argument("--reps", type=int, default=10)
+    ap.add_argument("--layers", type=int, default=8)
     ap.add_argument("--out")
     main(ap.parse_args())

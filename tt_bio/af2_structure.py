@@ -158,6 +158,7 @@ class NP:
 
     def put(self, x): return self.xp.asarray(x, self.xp.float64)
     def get(self, x): return np.asarray(x)
+    def identity(self, n): return self.put(np.tile(np.eye(3).reshape(1, 9), (n, 1))), self.put(np.zeros((n, 3)))
     mm = bmm = staticmethod(lambda a, b: a @ b)
     linear = staticmethod(lambda x, w, b=None: x @ w + (0 if b is None else b))
     add = staticmethod(lambda a, b: a + b); sub = staticmethod(lambda a, b: a - b)
@@ -236,7 +237,7 @@ def key_bias(mask):
     return np.broadcast_to(-1e5 * S3 * (1.0 - np.asarray(mask, np.float64))[None, None, :], (H, n, n))
 
 
-def stack(o, k, act, z, kbias, drops=None):
+def stack(o, k, act, z, kbias, drops=None, layers=LAYERS):
     """The structure module after its initial projection: pair layer norm, the pair bias (the same
     in all eight layers, so computed once) and eight FoldIterations from identity frames.
 
@@ -244,12 +245,11 @@ def stack(o, k, act, z, kbias, drops=None):
     [N, N, 128], kbias `key_bias(mask)` on the backend, drops None or eight pairs of keep / keep_rate
     masks [N, 384] drawn from the layers' own keys. Returns the final act and every layer's (R, t),
     R [N, 9] row-major, t [N, 3] in AF2's unscaled units."""
-    n = int(act.shape[0])
     zl = o.layer_norm(z, k["pair_layer_norm"])
     bias = o.add(o.permute(o.linear(zl, k["w_2d"], k["b_2d"]), (2, 0, 1)), kbias)
-    R, t = o.put(np.tile(np.eye(3).reshape(1, 9), (n, 1))), o.put(np.zeros((n, 3)))
+    R, t = o.identity(int(act.shape[0]))
     traj = []
-    for i in range(LAYERS):
+    for i in range(layers):
         act, R, t = layer(o, k, act, R, t, bias, zl, None if drops is None else drops[i])
         traj.append((R, t))
     return act, traj
@@ -263,6 +263,7 @@ class Card:
         import ttnn
         from tt_bio import autograd as A
         self.t, self.A, self.device = ttnn, A, device
+        self._identity = {}
         self.ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4,
                                                     math_approx_mode=False, fp32_dest_acc_en=True,
                                                     packer_l1_acc=True)
@@ -274,6 +275,12 @@ class Card:
 
     def put(self, x, grad=False):
         return self.A.Tensor(self.raw(x), requires_grad=grad)
+
+    def identity(self, n):
+        """Identity frames for n residues, uploaded once: a trace capture refuses a host write."""
+        if n not in self._identity:
+            self._identity[n] = (self.put(np.tile(np.eye(3).reshape(1, 9), (n, 1))), self.put(np.zeros((n, 3))))
+        return self._identity[n]
 
     def upload(self, k):
         """`pack`'s constants on card; 1-D biases and layer-norm parameters as [1, w] rows."""
