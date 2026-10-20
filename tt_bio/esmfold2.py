@@ -1895,7 +1895,8 @@ class MSAEncoder(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> MSAEncoderModel:
         return MSAEncoderModel(self.n_layers, self.n_heads_msa, self.msa_head_width, weights, self.compute_kernel_config)
 
-    def forward(self, x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask):
+    def forward(self, x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask, to_host=True):
+        """`to_host=False` returns the device pair, for a caller that keeps the injection on the chip."""
         m_feat = torch.cat([msa_oh, has_deletion.unsqueeze(-1), deletion_value.unsqueeze(-1)], dim=-1)  # [B,L,M,35]
         mask_f = msa_mask.float()
         n_valid = (mask_f @ mask_f.transpose(-1, -2)).clamp(min=1.0).unsqueeze(-1)  # [B,L,L,1]
@@ -1905,7 +1906,7 @@ class MSAEncoder(TorchWrapper):
         # A device x_pair (ESMFold2's z_init built on the device) is copied: the blocks update the pair in place.
         xp = ttnn.clone(x_pair) if isinstance(x_pair, ttnn.Tensor) else ft(x_pair)
         out = self.module(xp, ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
-        return self._to_torch(out)
+        return self._to_torch(out) if to_host else out
 
 
 # ===========================================================================
