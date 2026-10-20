@@ -7,7 +7,8 @@ cs5 (9LLG, 640 tokens, WH 1000 MHz) priced four of them far off their roof: the 
 
 Arms: ship (`ttnn.linear(core_grid=CORE_GRID_MAIN)`, what those sites run), flat (the same call on
 [1,1,M,K]), pp (`_pair_proj_linear`, the trunk's tuned pair projection), mm (minimal_matmul).
-Each arm reports torch.equal against ship and float64 rel_rms on every 37th row.
+nogrid (ttnn's plan without core_grid) and cfgN (`_pair_proj_config` at in0_block_w <= N:
+bw 1 keeps the shipped K order, so it is the bit-exact candidate). Each arm reports torch.equal against ship and float64 rel_rms on every 37th row.
 
 usage: TT_VISIBLE_DEVICES=N python perf/spd_m_opendde/plin_sweep.py OUT.json [--shapes 1x640x640x384:384:HiFi3 ...]
 """
@@ -66,7 +67,23 @@ for spec in a.shapes:
         return ttnn.experimental.minimal_matmul(x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG,
                                                 dtype=ttnn.bfloat16, compute_kernel_config=ckc)
 
-    arms = {"ship": ship, "flat": flat, "pp": pp, "mm": mm}
+    def nogrid():
+        return ttnn.linear(x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16,
+                           compute_kernel_config=ckc)
+
+    def cfg(cap):
+        pc = T._pair_proj_config(x, w, bw_cap=cap)
+        if pc is None:
+            raise RuntimeError(f"_pair_proj_config declines at bw_cap {cap}")
+        return lambda: ttnn.linear(x, w, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=ttnn.bfloat16,
+                                   compute_kernel_config=ckc, program_config=pc)
+
+    arms = {"ship": ship, "flat": flat, "pp": pp, "mm": mm, "nogrid": nogrid}
+    for cap in (1, 2, 4):
+        try:
+            arms[f"cfg{cap}"] = cfg(cap)
+        except Exception as e:
+            print(spec, f"cfg{cap}", str(e).splitlines()[0][:200], flush=True)
     r = res["shapes"][spec] = {}
     base = None
     ok = []
