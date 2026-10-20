@@ -26,6 +26,7 @@ import ttnn
 
 from . import dest_guard
 from . import mm_generic as MG
+from . import ops as _ops
 from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "trimul_tail"
@@ -838,12 +839,12 @@ def _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs):
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
+@_ops.fused_kernel("trimul_gin_ragged")
 def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
     """`a, b` of the biased gated in-projection, channel-moved, for a pair grid of S rows that need
     not be whole tiles: [B, C, S, S] each with zero padding, for `[a | b] = (x @ Wp + bp) *
     sigmoid(x @ Wg + bg)` [* m on a]. `bias` from `gin_ragged_bias` at the same S. None where it declines."""
-    from . import ops
-    if ops.taping() or dest_guard.exposed_args(ckc) or not gin_ragged_ok(x, wpT, S, mask):
+    if _ops.taping() or dest_guard.exposed_args(ckc) or not gin_ragged_ok(x, wpT, S, mask):
         GIN_RAGGED_STATS[1] += 1
         return None
     shp = [int(d) for d in x.shape]

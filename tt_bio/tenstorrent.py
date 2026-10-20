@@ -10347,7 +10347,7 @@ class TriangleMultiplication(Module):
                                  and (is_wormhole() if _TRIMUL_GIN_RAGGED is None else _TRIMUL_GIN_RAGGED)
                                  or _trimul_tail.GIN_WHOLE and not int(x_in.shape[-2]) % 32)
                             and not row_norm and x_norm_in is not None
-                            and self.g_in_weight is None and not ops.taping()
+                            and self.g_in_weight is None and not ops.recording()
                             and not _FAST_MODE and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (mask is None or mask_moved_ok)):
                         wpT, wgT = self._gp_in_gated(chunk_size, group, transposed=True)[i]
