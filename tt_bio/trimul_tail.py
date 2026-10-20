@@ -24,7 +24,7 @@ from pathlib import Path
 
 import ttnn
 
-from . import dest_guard
+from . import dest_guard, gate_sigmoid
 from . import mm_generic as MG
 from .envflags import env_flag
 
@@ -304,7 +304,10 @@ SIGPOLY = env_flag("TT_BIO_TRIMUL_SIGPOLY", True)
 
 def _sigpoly():
     """The kernels' SIGPOLY arg: 0 metal's sigmoid, 1 the degree-8 polynomial, 2 the degree-6 one (lever
-    trimul_sig6, max |error| 7.4e-4 vs 3.0e-4, ~1/3 fewer SFPU instructions per gate)."""
+    trimul_sig6, max |error| 7.4e-4 vs 3.0e-4, ~1/3 fewer SFPU instructions per gate), 3 metal's LUT sigmoid
+    (gate_sigmoid.SIGMOID_FAST, over the others)."""
+    if gate_sigmoid.SIGMOID_FAST:
+        return 3
     return 0 if not SIGPOLY else 2 if _lever("trimul_sig6") else 1
 # Round DST to bf16 nearest-even in those two kernels: bit 0 before the output pack, bit 1 before the p/g
 # packs, bit 2 (resident tail, EPI 2) the product before the residual add, whose move into srcA truncates.
@@ -568,7 +571,7 @@ GIN_MOVE_NB = int(os.environ.get("TT_BIO_TRIMUL_GIN_MOVE_NB", "2"))   # writer t
 def _gin_fuse(masked):
     """Whether gin_moved runs its fused gate (lever trimul_gin_fuse): p and g side by side in DST, multiplied
     there, no p/g buffers in L1. Unmasked calls on the polynomial sigmoid only."""
-    return not masked and _sigpoly() != 0 and _lever("trimul_gin_fuse")
+    return not masked and _sigpoly() in (1, 2) and _lever("trimul_gin_fuse")
 
 
 def _gin_out_tiles(kt, ct2, masked):

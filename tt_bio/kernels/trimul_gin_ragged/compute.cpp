@@ -79,7 +79,7 @@ void kernel_main() {
                     }
                     if (pass == 1 && !(ABL & 1)) {
                         for (uint32_t i = 0; i < SBW; ++i) {
-                            if constexpr (SIGPOLY) sigmoid_poly_tile(i);
+                            if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY == 3 ? 3 : 1>(i);
                             else sigmoid_bf16_tile(i);
                         }
                     }

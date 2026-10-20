@@ -18,6 +18,7 @@
 
 #include "api/compute/common.h"
 #include "api/compute/compute_kernel_api.h"
+#include "../common/gate_sigmoid.hpp"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/reconfig_data_format.h"
 #include "api/compute/tile_move_copy.h"
@@ -49,8 +50,8 @@ void kernel_main() {
         copy_tile(g_cb, 0, 1);
         copy_tile_to_dst_init_short(p_cb);
         copy_tile(p_cb, 0, 2);
-        sigmoid_tile_init();
-        sigmoid_tile(1);
+        gate_sigmoid_init();
+        gate_sigmoid_tile(1);
         mul_binary_tile_init();
         mul_binary_tile(0, 1, 3);  // dp = da' * s
         mul_binary_tile(2, 0, 2);  // p * da'

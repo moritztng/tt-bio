@@ -18,7 +18,7 @@ from pathlib import Path
 
 import ttnn
 
-from . import genq
+from . import gate_sigmoid, genq
 from .envflags import env_flag
 from .rne_add import _NUM_CBS, _split_plan, _tile_count, _tile_grid
 
@@ -119,7 +119,7 @@ def _build(d, o, g, outs, device):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_gate_bw.cpp"), source_type=src,
         core_ranges=core_grid, compile_time_args=[D_CB, O_CB, G_CB, DO_CB, DG_CB] + genq_ct,
-        runtime_args=compute_rt, config=cfg)
+        runtime_args=compute_rt, config=cfg, defines=gate_sigmoid.defines())
     cbs = [_cb(D_CB, d.dtype, core_grid), _cb(O_CB, o.dtype, core_grid),
            _cb(G_CB, g.dtype, core_grid), _cb(DO_CB, outs[0].dtype, core_grid),
            _cb(DG_CB, outs[1].dtype, core_grid)]
@@ -135,7 +135,7 @@ def gate_bw(d, o, g):
     g_ = device.compute_with_storage_grid_size()
     key = (device.id(), _tile_grid(d), d.dtype, d.memory_config().buffer_type,
            o.memory_config().buffer_type, g.memory_config().buffer_type, g_.x, g_.y,
-           genq.compact())
+           genq.compact(), gate_sigmoid.SIGMOID_FAST)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(d, o, g, outs, device)
