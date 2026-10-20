@@ -1494,16 +1494,23 @@ def _covalent_bonds(spi, bonds):
 # Largest token count measured to fold on a 12 GiB Wormhole chip with the ESMC-6B resident
 # (single sequence, whglx 2026-09-23). Above it the LM is released after its forward.
 WH_LM_RESIDENT_MAX_TOKENS = 1088
-WH_LM_RESIDENT_MSA_BYTES = 64 << 20
+# An MSA fold costs tokens x drawn rows x 1 KiB (the encoder activation; a deeper MSA is subsampled to max_depth
+# rows per loop) plus tokens x depth x 256 B for the full alignment. The cap is the deepest point measured with the
+# LM resident on a 12 GiB Wormhole chip: 768 tokens x 4096 rows (1.5 GiB by this count) peaked at 9.78 GiB, --fast
+# and normal, 256 and 512 tokens x 1024 and 4096 rows below it (lmr, 2026-10-20). The depth slope measured
+# 170-256 B per token and row.
+WH_LM_RESIDENT_MSA_BYTES = 3 << 29
 WH_LM_RESIDENT_MSA_MAX_TOKENS = 768  # an MSA fold above it releases at any depth (pair track + encoder headroom)
 
 
-def wh_releases_lm(chains) -> bool:
+def wh_releases_lm(chains, max_depth=None) -> bool:
     """Whether a Wormhole fold of `chains` releases the ESMC-6B after its forward (see fold_complex)."""
     tokens = sum(len(c[1]) for c in chains)
     depth = max((c[2].depth for c in chains if len(c) > 2 and c[2] is not None), default=0)
     if depth:
-        return tokens > WH_LM_RESIDENT_MSA_MAX_TOKENS or tokens * depth * 1024 > WH_LM_RESIDENT_MSA_BYTES
+        drawn = min(depth, max_depth or depth)
+        return (tokens > WH_LM_RESIDENT_MSA_MAX_TOKENS
+                or tokens * (drawn * 1024 + depth * 256) > WH_LM_RESIDENT_MSA_BYTES)
     return tokens > WH_LM_RESIDENT_MAX_TOKENS
 
 
@@ -1718,8 +1725,8 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     # Bit-exact: same weights, same dtype, same order, only the device buffers move.
     # Blackhole (32 GB) always keeps the LM resident, and so does a Wormhole fold without an
     # MSA up to WH_LM_RESIDENT_MAX_TOKENS, or with one up to WH_LM_RESIDENT_MSA_MAX_TOKENS whose
-    # activation (L x depth x 1 KiB, bf16 d=512) stays within WH_LM_RESIDENT_MSA_BYTES: a shallow MSA (the 512-aa page fixture has 35 rows,
-    # 18 MiB) needs no release, so a warm fold there no longer pays the reload.
+    # footprint stays within WH_LM_RESIDENT_MSA_BYTES. Since the encoder draws max_depth rows a loop, that covers
+    # JapanFold's typical deep MSAs up to 768 aa, so they no longer pay the ~4 s reload.
     #
     # The same holds without an MSA once the pair track is large: single-sequence esmfold2 folded
     # 1088 tokens on the Galaxy with the LM resident and died at 1152 in the MSA encoder's pair FFN
@@ -1727,7 +1734,8 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
     # pays nothing for the release; a server folding many large targets pays one reload each.
     esmc = getattr(model, "_esmc", None)
     release_lm = (esmc is not None and getattr(esmc, "_persistent", False)
-                  and is_wormhole() and wh_releases_lm(chains))
+                  and is_wormhole()
+                  and wh_releases_lm(chains, getattr(getattr(model.config, "msa_encoder", None), "max_depth", None)))
     if release_lm:
         esmc._persistent = False
     from tt_bio import tenstorrent
