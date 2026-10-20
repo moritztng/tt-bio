@@ -282,11 +282,11 @@ with autograd.exact_training(False), \
     doc = dict(head, iteration_s=walls, reps=reps, summary=summary(reps),
                memory_mode=dict(mem.used), calls=dict(evo=evo.calls, extra=extra.calls,
                                                         template=tmpl.calls if tmpl else None))
+    from tt_bio import trimul_tail as _tt
+    doc["gin_ragged_stats"] = list(_tt.GIN_RAGGED_STATS)
     if flag:
         flag(False)
         doc["arms"] = arms
-    from tt_bio import trimul_tail as _tt
-    doc["gin_ragged_stats"] = list(_tt.GIN_RAGGED_STATS)
         doc["by_arm"] = {str(k): dict(iteration_s=[w for w, m in zip(walls, arms) if m == k],
                                       summary=summary([r for r, m in zip(reps, arms) if m == k]))
                          for k in (0, 1)}

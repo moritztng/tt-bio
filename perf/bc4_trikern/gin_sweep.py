@@ -1,6 +1,7 @@
 """Where gin_ragged's time goes at whole-tile grids: channel splits per cube (GIN_RAGGED_QS, fills the grid at
 the cost of re-reading x), math fidelity, and the compute stage ablation (bit 16 no matmul, 1 no sigmoid, 2 no
-gate multiply; the ablated rows are wrong on purpose and timing only). Graded rows report rel RMS vs float64.
+gate multiply; writer bit 4 no gather, 32 no DRAM write; qs 0 is the grid-fill
+default; the ablated rows are wrong on purpose and timing only). Graded rows report rel RMS vs float64.
 
 usage: TT_VISIBLE_DEVICES=<chip> python perf/bc4_trikern/gin_sweep.py --out x.jsonl [--n 224 288 320]
 """
@@ -11,8 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 os.environ["TT_BIO_TRIMUL_GIN_WHOLE"] = "1"
 ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, nargs="+", default=[224, 288, 320])
-ap.add_argument("--qs", type=int, nargs="+", default=[1, 2, 4, 8])
-ap.add_argument("--abl", type=int, nargs="+", default=[16, 1, 2, 19])
+ap.add_argument("--qs", type=int, nargs="+", default=[0, 1, 2, 4])
+ap.add_argument("--abl", type=int, nargs="+", default=[16, 19, 4, 36, 23, 55])
 ap.add_argument("--calls", type=int, default=50)
 ap.add_argument("--reps", type=int, default=5)
 ap.add_argument("--out", required=True)
@@ -94,10 +95,10 @@ for n in A.n:
             a.deallocate(); b.deallocate()
             emit({"n": n, "fid": fid, "qs": qs, "units": (-(-n // 32)) ** 2 * qs,
                   "rel_a": rr(ta, ref[0]), "rel_b": rr(tb, ref[1]), "ms": timed(lambda: run(ck))})
-    TT.GIN_RAGGED_QS = 1
+    TT.GIN_RAGGED_QS = 0
     for bits in A.abl:
         TT.GIN_MOVE_ABL = bits
-        emit({"n": n, "fid": "trunk", "qs": 1, "abl": bits, "ms": timed(lambda: run(CKC["trunk"]))})
+        emit({"n": n, "fid": "trunk", "qs": 0, "abl": bits, "ms": timed(lambda: run(CKC["trunk"]))})
     TT.GIN_MOVE_ABL = 0
     for t in (dx, dwpT, dwgT, dbias):
         t.deallocate()

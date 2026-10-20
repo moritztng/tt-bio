@@ -15,7 +15,9 @@ void kernel_main() {
     constexpr uint32_t S = get_compile_time_arg_val(2);
     constexpr uint32_t NB = get_compile_time_arg_val(3);    // output tiles gathered per read barrier
     constexpr uint32_t QS = get_compile_time_arg_val(4);
-    constexpr auto a_args = TensorAccessorArgs<5>();
+    // Stage ablation, diagnostic only: bit 2 (4) no gather reads, bit 5 (32) no DRAM writes.
+    constexpr uint32_t ABL = get_compile_time_arg_val(5);
+    constexpr auto a_args = TensorAccessorArgs<6>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -60,14 +62,14 @@ void kernel_main() {
                     const uint32_t st = gbase + j * TB;
                     const uint32_t sc = src + (c >> 4) * 2 * FB + (c & 15) * RB;
                     uint32_t s0 = sc, s1 = sc + FB;
-                    for (uint32_t il = 0; il < 32; ++il, s0 += TB, s1 += TB) {
+                    for (uint32_t il = 0; il < 32 && !(ABL & 4); ++il, s0 += TB, s1 += TB) {
                         const uint32_t d = st + (il >> 4) * 2 * FB + (il & 15) * RB;
                         noc_async_read_one_packet_with_state(il < r0 ? s0 : zero, d);
                         noc_async_read_one_packet_with_state(il < r0 ? s1 : zero, d + FB);
                     }
                 }
                 noc_async_read_barrier();
-                for (uint32_t j = 0; j < NB; ++j, page += SS)
+                for (uint32_t j = 0; j < NB && !(ABL & 32); ++j, page += SS)
                     noc_async_write(gbase + j * TB, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB);
                 dirty[grp] = true;
             }

@@ -737,7 +737,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
 # kernels/trimul_gin_ragged: x rows past S re-read row S - 1, the bias tile seeds DST before the K
 # loop, the writer zeroes rows and columns >= S, and a unit is (cube, channel range) so 49 cubes still
 # fill the grid. x and the outputs may sit in L1. Opt-in (perf/spd_gap_bind/gin195.py grades it).
-GIN_RAGGED_QS = int(os.environ.get("TT_BIO_TRIMUL_GIN_RAGGED_QS", "0"))   # 0: one split
+GIN_RAGGED_QS = int(os.environ.get("TT_BIO_TRIMUL_GIN_RAGGED_QS", "0"))   # 0: fill the grid
 GIN_RAGGED_STATS = [0, 0]   # served, declined
 # gin_ragged also on a whole-tile grid (S % 32 == 0, BindCraft 2 at 224): the bias tile is the reason to
 # take it there, since gin_moved has none. LAST is then 32 and every padding branch is dead.
@@ -779,10 +779,17 @@ def gin_ragged_bias(bp, bg, S, device):
                            layout=ttnn.TILE_LAYOUT, device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
 
-def _gin_ragged_qs(ct2):
-    # One unit per cube: splitting the channels re-reads x per split. At 195 x 64 channels on the
-    # Wormhole 8x9 grid qs 1 read 0.49 ms (DRAM) / 0.52 (L1) against 0.58 / 0.80 at qs 4.
-    return GIN_RAGGED_QS if GIN_RAGGED_QS and ct2 % GIN_RAGGED_QS == 0 else 1
+def _gin_ragged_qs(ct2, cubes, ncores):
+    # A unit is one core's whole share, so the call takes one unit's time once the units fit the grid:
+    # split each cube's channels while the units still fit (splitting re-reads x per split). WH 195
+    # (49 cubes, 72 cores) keeps qs 1, 0.49 ms against 0.58 at qs 4; BH 224 (49 cubes, 110 cores)
+    # takes qs 2, 0.350 ms against 0.505 at qs 1 and 0.362 at qs 4 (perf/bc4_trikern/gin_sweep.py).
+    if GIN_RAGGED_QS:
+        return GIN_RAGGED_QS if ct2 % GIN_RAGGED_QS == 0 else 1
+    qs = 1
+    while ct2 % (2 * qs) == 0 and cubes * 2 * qs <= ncores:
+        qs *= 2
+    return qs
 
 
 def _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs):
@@ -813,7 +820,7 @@ def _build_gin_ragged(x, wpT, wgT, bias, outs, grid, ckc, mask, S, qs):
         runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, S, GIN_MOVE_NB, qs] + acc(outs[0]) + acc(outs[1]),
+        compile_time_args=[ct2, St, S, GIN_MOVE_NB, qs, GIN_MOVE_ABL] + acc(outs[0]) + acc(outs[1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
     compute = ttnn.KernelDescriptor(
@@ -844,7 +851,7 @@ def gin_ragged(x, wpT, wgT, bias, ckc, grid, S, mask=None, memory_config=None):
     C = int(wpT.shape[-2]) // 2
     ct2 = int(wpT.shape[-2]) // TILE
     St = -(-S // TILE)
-    qs = _gin_ragged_qs(ct2)
+    qs = _gin_ragged_qs(ct2, B * St * St, grid[0] * grid[1])
     mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
     device = x.device()
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, C, S, S]), ttnn.bfloat16,
