@@ -42,3 +42,30 @@ def test_split_call_finishes_and_matches_float64(seq, ta, tb, monkeypatch):
     a64, b64 = a.double(), b.double()
     r64 = (a64.transpose(-1, -2) if ta else a64) @ (b64.transpose(-1, -2) if tb else b64)
     assert _rel64(got, r64) <= 1.05 * _rel64(ref, r64) + 1e-4
+
+
+@pytest.mark.parametrize("seq", [736, 800])
+def test_b8_resident_call_finishes_and_matches_float64(seq):
+    """B8 plans one column block at these sizes (b[c] fits whole as bfp8), yet a still moves in the slotted 4-tile
+    groups of the split path; compute must pop whole slots there too or KT 23 / 25 hangs."""
+    dev = T.get_device()
+    g = torch.Generator().manual_seed(seq)
+    a = torch.randn(1, 8, seq, seq, generator=g).to(torch.bfloat16)
+    b = (torch.randn(1, 8, seq, seq, generator=g) * seq ** -0.5).to(torch.bfloat16)
+    up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                                   memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    A, B = up(a), up(b)
+    ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=False,
+                                           fp32_dest_acc_en=True, packer_l1_acc=False)
+    kt = seq // 32
+    t, t8 = bmm_res.MG.tile_bytes(ttnn.bfloat16), bmm_res.MG.tile_bytes(ttnn.bfloat8_b)
+    assert bmm_res._plan(kt, kt, t, t, transpose_a=True, split=True)[0] > 1
+    assert bmm_res._plan(kt, kt, t, t8, transpose_a=True, split=True, b8=True)[0] == 1
+    out = bmm_res.matmul(A, B, compute_kernel_config=ckc, transpose_a=True, split=True, b8=True)
+    assert out is not None
+    got = ttnn.to_torch(out)
+    b8t = ttnn.to_torch(ttnn.from_torch(b, dtype=ttnn.bfloat8_b, layout=ttnn.TILE_LAYOUT, device=dev))
+    r64 = a.double().transpose(-1, -2) @ b8t.double()
+    ref = ttnn.to_torch(ttnn.matmul(A, B, compute_kernel_config=ckc, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                                    dtype=ttnn.bfloat16, transpose_a=True))
+    assert _rel64(got, r64) <= 1.05 * _rel64(ref, a.double().transpose(-1, -2) @ b.double()) + 1e-4

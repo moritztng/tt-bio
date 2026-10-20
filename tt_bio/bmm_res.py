@@ -141,7 +141,7 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl
                                    defines=[("BRES_NO_WRITE", "1")] if abl & 2 else [], config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
-        compile_time_args=[mt, kt, nb, int(ta), int(tb), ag if ns > 1 else 0, bg], runtime_args=cp,
+        compile_time_args=[mt, kt, nb, int(ta), int(tb), ag if ns > 1 or b8 else 0, bg], runtime_args=cp,
         defines=[("BRES_NO_MM", "1")] if abl & 1 else [],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
     a_cb = cb(A_CB, kt, ttnn.bfloat16) if ta else cb(A_CB, A_DEPTH * kt, a.dtype)
