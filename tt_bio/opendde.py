@@ -460,7 +460,7 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
-WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8"} | TRIATT_LN | TRIATT_K1
+WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad"} | TRIATT_LN | TRIATT_K1
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
@@ -495,6 +495,12 @@ WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8"} | 
 # 109-112, 44 paired folds each (w8f, w8n): fast PASS, same-seed top pose max 3.1 A, CA-lDDT +0.0000 [-0.0001, +0.0002],
 # docking 26 -> 26 (A/A floor 1.187 A); normal PASS, CA-lDDT -0.0002 [-0.0004, +0.0000], docking 26 -> 26 (floor
 # 1.333 A). T1 served only the five complexes at 515-559 tokens; the six at 611-791 were bit-identical on and off.
+# Wormhole fast also takes dit_bpad: the bf16 token DiT runs its whole token axis at dit_bias_pad_len, so a ragged
+# length (1216 tiles, no dit_chunk divisor) gets a chunk-friendly SDPA grid and the bias key tail is filled once per
+# fold, not every call. 9LLG (1199 DiT tokens, 5 samples), Galaxy chip, 1000 MHz, 2x2 paired warm folds (spd-m-opendde
+# bpab4, 2026-10-19): 175.9 -> 171.1 s (-2.7 %). WH 11-set fast grade, shipped fast set with and without it, seeds
+# 109-112, 44 paired folds (bpg): PASS, same-seed top pose median 0.083 A (A/A floor 1.447 A), CA-lDDT +0.0002
+# [-0.0000, +0.0004], docking 26 -> 26. Normal runs the fp32 DiT SDPA (dit_sdpa32), which dit_bpad does not touch.
 
 
 class OpenDDE:

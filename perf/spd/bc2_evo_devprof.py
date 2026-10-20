@@ -43,6 +43,9 @@ p.add_argument("--binder", type=int, default=80)
 p.add_argument("--target", type=int, default=115, help="PD-L1 in examples/pdl1.json")
 p.add_argument("--recycles", type=int, default=1, help="design_recycles (settings/core/default.json)")
 p.add_argument("--stacks", default="template,extra,evo")
+p.add_argument("--primal-recycles", action="store_true",
+               help="every recycle but the last runs `_primal`, as BindCraft 2 does under "
+                    "`untaped_recycles` (their outputs are stop-gradiented, so they record no tape)")
 p.add_argument("--no-dropout", action="store_true", help="the harden stage: keeps all true, scales 1")
 p.add_argument("--no-fast", action="store_true", help="skip bindcraft2.fast_round (the shipped levers)")
 p.add_argument("--warm", type=int, default=2)
@@ -156,9 +159,21 @@ def seam(phase, fn, *args):
 
 def iteration():
     T = collections.defaultdict(list)
-    for _ in range(a.recycles + 1):
+    for r in range(a.recycles + 1):
         d = draw()                # a fresh key per recycle; drawing is host work outside the seams
         z = pair
+        if a.primal_recycles and r < a.recycles:
+            if tmpl:
+                _, pk, sc = d["template"]
+                T["template.primal"].append(seam("template.primal", tmpl._primal, act, tmpl_mask, pk, sc)[1])
+            if "extra" in stacks:
+                _, pk, sc = d["extra"]
+                z, s = seam("extra.primal", extra._primal, z, extra_mask, pair_mask, pk, sc)
+                T["extra.primal"].append(s)
+            if "evo" in stacks:
+                mk, pk, sc = d["evo"]
+                T["evo.primal"].append(seam("evo.primal", evo._primal, msa, z, msa_mask, pair_mask, mk, pk, sc)[1])
+            continue
         if tmpl:
             _, pk, sc = d["template"]
             (_, t_tok), s = seam("template.taped", tmpl._taped, act, tmpl_mask, pk, sc)

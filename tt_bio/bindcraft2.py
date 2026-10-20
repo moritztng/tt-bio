@@ -33,6 +33,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import functools
+import itertools
 import json
 import os
 import pathlib
@@ -312,13 +313,21 @@ MEMORY_MODES = ("fast", "lean", "offload")
 
 #: How many of the last Evoformer blocks keep their whole tape instead of a checkpoint, so the
 #: backward does not run their forward again: an integer pins it, ``auto`` sizes it from the card
-#: (`resident_blocks`). Default 0 while ``auto`` is in its design grade.
-RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "0")
-#: A resident Evoformer block's tape, in pair tensors (256 B a token pair). Fitted on a Wormhole
-#: chip at 224 tokens: 11 resident blocks fit beside a fast round and 12 do not, which puts a
-#: block at 64-70 (.114, out/resk3_14c9d7918). 70 is the safe end.
-_RESIDENT_BLOCK_PAIR_TENSORS = 70
-_RESIDENT_MARGIN_BYTES = int(0.5e9)
+#: (`resident_blocks`).
+RESIDENT_BLOCKS = os.environ.get("TT_BIO_BC2_RESIDENT_BLOCKS", "auto")
+#: A fast round with resident blocks peaks at `_MODE_BASE_BYTES` plus this many pair tensors
+#: (256 B a token pair) per resident block, plus a fixed count beside them. Bracketed on a
+#: Blackhole chip (34.226 GB) with real BindCraft 2 rounds: 224 tokens holds 48, 256 holds 36 and
+#: refuses 40, 288 holds 28 and refuses 32, 320 holds 24 and refuses 26, 352 holds 20
+#: (`state/bc4/bets/tape/NOTES.md`). The law gives 48, 36, 28, 22 and 18 there, so it never offers
+#: a count that refused. On a Wormhole chip it gives 10 for the 1.03 GB/block tape of 2026-10-13,
+#: where 11 fit and 12 refused.
+_RESIDENT_BLOCK_PAIR_TENSORS = 50.5
+_RESIDENT_ROUND_PAIR_TENSORS = 99.5
+#: Boards (`_MEASURED_CEILINGS` names) where whole BindCraft 2 trajectories ran with today's tape
+#: across the token range, 224 to 672 on Blackhole. ``auto`` keeps no tape anywhere else: a
+#: Wormhole chip has only the 2026-10-13 bracket of an older, larger tape.
+_RESIDENT_LADDERED = ("p150a",)
 
 #: Device bytes a gradient round peaks at, per mode: a constant plus a count of bf16
 #: `[N, N, 128]` pair tensors (256 B a token pair). `fast` is `bcw-census`'s account, which the
@@ -346,17 +355,25 @@ def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
                     blocks: int = EVOFORMER_BLOCKS, requested: str | None = None) -> int:
     """How many of the last `blocks` Evoformer blocks keep their tape (`RESIDENT_BLOCKS`).
 
-    ``auto`` fills what the card has left after a fast round, and is 0 in the slower modes
-    (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
+    ``auto`` fills what the card holds beside a fast round on a board in `_RESIDENT_LADDERED`,
+    and is 0 on any other board, in the slower modes (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
     neighbours peak at other times, so the room one sees is not its own to spend."""
     requested = RESIDENT_BLOCKS if requested is None else requested
     if requested != "auto":
         return max(0, min(blocks, int(requested)))
     if mode != "fast" or slot:
         return 0
-    room = card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) - _RESIDENT_MARGIN_BYTES
-    per = _RESIDENT_BLOCK_PAIR_TENSORS * 256 * int(padded) ** 2
-    return max(0, min(blocks, int(room // per)))
+    board = _measured_board(card_bytes)
+    if board is None or board[2] not in _RESIDENT_LADDERED:
+        return 0
+    pair = 256 * int(padded) ** 2
+    tape = _RESIDENT_BLOCK_PAIR_TENSORS * pair
+    # Near the top of fast mode the round's own recompute peak is what fills the card, and a
+    # resident tape would sit on top of it.
+    if card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) < tape:
+        return 0
+    room = card_bytes * _MODE_USABLE - _MODE_BASE_BYTES - _RESIDENT_ROUND_PAIR_TENSORS * pair
+    return max(0, min(blocks, int(room // tape)))
 
 
 def memory_mode(requested: str, padded: int, card_bytes: int) -> str:
@@ -513,6 +530,23 @@ def _size_aware_refusal(exc: BaseException, *, phase: str, n: int, padded: int,
     banks, want, per_bank = g["banks"], g["want"], g["per_bank"]
     free_total, largest, bank_size = g["free"] * banks, g["largest"], g["bank_size"]
     card_total, held = bank_size * banks, g["allocated"] * banks
+    if space == "L1":
+        # L1 is the SRAM inside the cores, 160.8 MB on a p300c chip. Read as the card, this
+        # refusal told a 576-token fold that even `offload` tops out near 32 tokens.
+        down = padded - TOKEN_BUCKET
+        return MemoryError(
+            f"BindCraft 2 could not place a buffer in L1 in the {stack} {phase} at {padded} "
+            f"tokens.\n"
+            f"  complex   {n} residues, padded to {padded} tokens "
+            f"(tt-bio buckets the token axis to {TOKEN_BUCKET})\n"
+            f"  asked for {_gb(want)} in one L1 buffer ({_gb(per_bank)} in each of {banks} banks)\n"
+            f"  free      {_gb(free_total)} of {_gb(card_total)} of L1, largest contiguous block "
+            f"{_gb(largest)}\n"
+            f"This is L1, the SRAM inside the cores, not the card's DRAM, so a slower memory mode "
+            f"does not change it. tt-bio puts a tensor in L1 only where it should fit, so this is "
+            f"a tt-bio bug: please report it with this message. {n - down} residues off the "
+            f"binder takes this fold to {down} tokens, which may avoid it.\n"
+            f"The allocator's own refusal follows.")
     # Only a DRAM refusal is measured against a DRAM reading, and a card that gave memory back
     # since the reading has no split worth printing.
     if space != "DRAM" or held_before is None or not 0 <= held_before <= held:
@@ -873,6 +907,9 @@ def _is_multimer(path: pathlib.Path) -> bool:
         return any("~_relative_encoding" in name for name in npz.files)
 
 
+_TRUNK_SERIAL = itertools.count()
+
+
 class _Trunk:
     """One AlphaFold 2 checkpoint's Evoformer blocks on the card, under tt-bio's tape."""
 
@@ -893,9 +930,10 @@ class _Trunk:
                                            template=template, multimer=self.multimer,
                                            trunk_dtype=torch.bfloat16)
         self.device = self.model._device
-        if self.ag.TRACE_RECOMPUTE:
-            # New weights are a persistent allocation made after any capture so far.
-            self.ag.release_recompute_traces(self.device)
+        # Keys the block traces. Not `id(self)`: a trunk dropped from the pool and a new one
+        # built at the same address would replay traces over the old weights. New weights made
+        # after a capture need no release, the captures' scratch hole is fenced off.
+        self.serial = next(_TRUNK_SERIAL)
         self.blocks = len(self.model.device_evoformer)
         self.extra_blocks = len(self.model.device_extra_msa)
         self.template_blocks = len(self.model.device_template)
@@ -955,25 +993,38 @@ class _Trunk:
         reaches them first and frees them first, and they cost no recompute."""
         blocks = self.model.device_evoformer
         keep = len(blocks) - resident
+        masks = self._mask_key(msa_mask, *pair_masks)
         for i, block in enumerate(blocks):
             d = None if drop is None else drop[i]
+            run = lambda a, b, drop, blk=block: blk(a, b, msa_mask, *pair_masks, drop=drop)
             if i >= keep:
-                m, z = block(m, z, msa_mask, *pair_masks, drop=d)
-            elif recompute and self.ag.TRACE_RECOMPUTE:
-                # The masks are new tensors every round, so they ride in as inputs, where the
-                # traced backward copies them into its own buffers (`autograd._traced_recompute`).
-                ks = tuple(d) if d else ()
-                m, z = self.ag.checkpoint(
-                    lambda a, b, *dv, blk=block, ks=ks: blk(
-                        a, b, msa_mask, *pair_masks, drop=dict(zip(ks, dv)) if ks else None),
-                    m, z, *(d[k] for k in ks), offload=offload, trace=(id(self), "evoformer", i))
-            elif recompute:
-                m, z = self.ag.checkpoint(
-                    lambda a, b, blk=block, d=d: blk(a, b, msa_mask, *pair_masks, drop=d), m, z,
-                    offload=offload)
+                m_in, z_in = m, z
+                m, z = run(m, z, d)
+                self.ag.release_dead((m, z), (m_in, z_in))
+            elif not recompute:
+                m, z = run(m, z, d)
             else:
-                m, z = block(m, z, msa_mask, *pair_masks, drop=d)
+                m, z = self._segment("evoformer", i, run, (m, z), d, masks, offload)
         return m, z
+
+    @staticmethod
+    def _mask_key(*masks):
+        """The masks' addresses. A block closes over its masks, so a trace bakes those addresses in
+        and they belong in its key."""
+        return tuple(t.buffer_address() for t in masks if t is not None)
+
+    def _segment(self, stack, i, run, xs, d, masks, offload):
+        """Block `i` of `stack`, `run(*xs, drop=d)`, under a checkpoint.
+
+        With block traces on (`autograd.TRACE_RECOMPUTE` / `TRACE_FORWARD`) the dropout masks,
+        new tensors every round, ride in as inputs so the trace copies them into its own
+        buffers, and the block replays from a trace keyed on (serial, stack, i, mask addresses)."""
+        if not (self.ag.TRACE_RECOMPUTE or self.ag.TRACE_FORWARD):
+            return self.ag.checkpoint(lambda *a: run(*a, drop=d), *xs, offload=offload)
+        ks, n = tuple(d) if d else (), len(xs)
+        return self.ag.checkpoint(
+            lambda *a: run(*a[:n], drop=dict(zip(ks, a[n:])) if ks else None),
+            *xs, *(d[k] for k in ks), offload=offload, trace=(self.serial, stack, i, masks))
 
     def extra_msa(self, z, pair_masks, recompute: bool, offload: bool = False, drop=None):
         """The extra-MSA stack's four pair blocks, `pair -> pair`, left on card throughout.
@@ -989,23 +1040,18 @@ class _Trunk:
         """
         model = self.model
 
-        # Built per execution, never captured. `_residual` DEALLOCATES its `update` operand
-        # (`tt_bio/af2.py::_residual`), and under `recompute` the checkpoint runs this same
-        # closure a second time in the backward, so a constant hoisted out of the loop body is
-        # a freed buffer by then and `ttnn.typecast` raises "Buffer is not allocated". The
-        # Evoformer loop above has no such operand, which is why only this stack broke.
-        def const(index):
-            return model._up(model.opm_constant[index].reshape(1, 1, -1))
-
+        # A fresh constant per execution: `_residual` DEALLOCATES its `update` operand
+        # (`tt_bio/af2.py::_residual`), and under `recompute` the checkpoint runs the block a
+        # second time in the backward, so the block consumes a clone and the constant rides in
+        # as an input. An upload inside the block would also make it untraceable.
+        masks = self._mask_key(*pair_masks)
         for index, block in enumerate(model.device_extra_msa):
             d = None if drop is None else drop[index]
-            if recompute:
-                z = self.ag.checkpoint(
-                    lambda t, blk=block, i=index, d=d: blk(blk._residual(t, const(i)),
-                                                           *pair_masks, drop=d), z,
-                    offload=offload)
-            else:
-                z = block(block._residual(z, const(index)), *pair_masks, drop=d)
+            c = model._up(model.opm_constant[index].reshape(1, 1, -1))
+            run = lambda t, c, drop, blk=block: blk(blk._residual(t, self.ttnn.clone(c)),
+                                                    *pair_masks, drop=drop)
+            z = (self._segment("extra_msa", index, run, (z, c), d, masks, offload) if recompute
+                 else run(z, c, d))
         return z
 
     def template_stack(self, z, pair_masks, recompute: bool, offload: bool = False,
@@ -1017,13 +1063,11 @@ class _Trunk:
         which is what a gradient round needs. No `opm_constant`: the template stack has no MSA
         track for an outer product mean to collapse, unlike `extra_msa` above.
         """
+        masks = self._mask_key(*pair_masks)
         for i, block in enumerate(self.model.device_template):
             d = None if drop is None else drop[i]
-            if recompute:
-                z = self.ag.checkpoint(lambda t, blk=block, d=d: blk(t, *pair_masks, drop=d), z,
-                                       offload=offload)
-            else:
-                z = block(z, *pair_masks, drop=d)
+            run = lambda t, drop, blk=block: blk(t, *pair_masks, drop=drop)
+            z = self._segment("template", i, run, (z,), d, masks, offload) if recompute else run(z, d)
         return z
 
     def seed(self, t: torch.Tensor, like):
@@ -2142,6 +2186,57 @@ def ipa_rewrites(einsum: bool = False, dist_remat: bool = False):
         fm.InvariantPointAttention = original
 
 
+class _FrozenRecycles:
+    """An `alphafold_runner` whose first `frozen` applies see no gradient.
+
+    BindCraft 2 stops the gradient on the output of every recycle but the last
+    (`bindcraft/af2.py`, `recycled_alphafold_outputs`), so nothing that happens inside them can
+    reach the sequence gradient. JAX still differentiates INTO them: their inputs carry the
+    sequence's tangent, so each device seam takes its forward rule and records a tape that is
+    swept unread on the next recycle. Stopping the gradient on the inputs instead sends those
+    recycles through the primal, which records nothing, and leaves the gradient unchanged.
+    """
+
+    def __init__(self, real, frozen: int):
+        self._real, self._frozen = real, frozen
+
+    def apply(self, params, key, inputs):
+        if self._frozen:
+            import jax
+            self._frozen -= 1
+            params, inputs = jax.lax.stop_gradient((params, inputs))
+        return self._real.apply(params, key, inputs)
+
+
+@contextlib.contextmanager
+def untaped_recycles(enabled: bool = True):
+    """Run BindCraft 2's stop-gradient recycles through the primal for the duration.
+
+    Same loop, same keys, same values: `recycled_alphafold_outputs` is BindCraft 2's own and only
+    its runner is wrapped (`_FrozenRecycles`). Yields whether it was installed.
+    """
+    if not enabled:
+        yield False
+        return
+    from bindcraft import af2
+
+    original = af2.recycled_alphafold_outputs
+
+    def recycled(runner, model_parameters, key, model_inputs, num_recycle):
+        return original(_FrozenRecycles(runner, num_recycle), model_parameters, key,
+                        model_inputs, num_recycle)
+
+    af2.recycled_alphafold_outputs = recycled
+    try:
+        yield True
+    finally:
+        af2.recycled_alphafold_outputs = original
+
+
+#: `untaped_recycles` on by default: the recycles it reroutes have no gradient to give.
+UNTAPED_RECYCLES = env_flag("TT_BIO_BC2_UNTAPED_RECYCLES", True)
+
+
 def ipa_point_einsum(enabled: bool = True):
     """`ipa_rewrites` with only the point einsum."""
     return ipa_rewrites(einsum=enabled)
@@ -2630,7 +2725,8 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               extra_msa: bool = True,
               template: bool = True,
               exact: bool = False,
-              fast: bool | None = None) -> Iterator[Callable[..., object]]:
+              fast: bool | None = None,
+              trace: bool | None = None) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -2677,6 +2773,17 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     BindCraft 2 does not have. Read `tt_bio.autograd.EXACT_SOFTMAX_STATS` to confirm which one
     ran.
 
+    `trace` replays each Evoformer, extra-MSA and template block from a captured device trace
+    instead of enqueueing its ~300 ttnn calls from Python. The output is bit-identical to the
+    eager path: every gradient digest of a 39-call census agrees, and 5,229 replays checked
+    against eager differ by zero. It takes ~90 % of the host enqueue off a round, 0.20 s against
+    1.88 s per call on a Blackhole p300c under the same host load. The card bounds the round
+    today, so it buys s/it only on a contended host or once card time falls below the host's.
+    It needs a 2 GiB trace region at 224 tokens, more than the `TRACE_REGIONS` default, so set
+    `TT_BIO_TRACE_REGION_MB=2048` before the device opens. A capture that does not fit is
+    refused and that block stays eager. Defaults to the `TT_BIO_TRACE_RECOMPUTE` environment
+    flag, which is off.
+
     `memory` is how the round spends device memory, one of `MEMORY_MODES` or ``"auto"``, the
     default, which picks the fastest mode that fits this card at each fold's token axis. A
     Wormhole Galaxy chip runs ``fast`` to 512 tokens; past that, ``lean`` and ``offload`` trade
@@ -2710,7 +2817,8 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # close at exit runs on the main thread. Left to the first device call, the open happens on
     # one of XLA's CPU pool threads (the device seams run there), the unlock at exit fails with
     # EPERM and the process aborts with exit 134 after the campaign has already finished.
-    get_device(trace="bc2" if autograd.TRACE_RECOMPUTE else None)
+    traced = autograd.TRACE_RECOMPUTE or autograd.TRACE_FORWARD if trace is None else trace
+    get_device(trace="bc2" if traced else None)
 
     pool = checkpoints if isinstance(checkpoints, TrunkPool) else TrunkPool(
         checkpoints, resident=resident, template=template)
@@ -2728,8 +2836,11 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     # Outermost, so a refusal from any seam under it reaches the caller as the `MemoryError`
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
-            autograd.exact_training(exact), evoformer_on_device(evo, extra), \
+            autograd.exact_training(exact), \
+            (autograd.block_traces(trace) if trace is not None else contextlib.nullcontext()), \
+            evoformer_on_device(evo, extra), \
             template_on_device(tmpl, evo), ipa_rewrites(IPA_POINT_EINSUM, IPA_DIST_REMAT), \
+            untaped_recycles(UNTAPED_RECYCLES), \
             (fast_round() if fast else contextlib.nullcontext()) as armed:
         build = _factory(trunk="device", pool=pool, evoformer=evo, extra_msa=extra,
                          template=tmpl, exact=exact)

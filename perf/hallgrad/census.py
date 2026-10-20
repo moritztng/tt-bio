@@ -38,6 +38,12 @@ import time
 import numpy as np
 import torch
 
+
+def _capturing() -> bool:
+    from tt_bio.tenstorrent import CAPTURING
+    return CAPTURING[0] > 0
+
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from perf.hallgrad.e2e_distogram import ClockTrace, make_weights, tt_chain  # noqa: E402
@@ -148,7 +154,8 @@ class Recorder:
         ttnn, rec = self.ttnn, self
 
         def w(*args, **kwargs):
-            if not rec.active or rec.depth:
+            # Inside a trace capture the op is only recorded, and a synchronize there is fatal.
+            if not rec.active or rec.depth or _capturing():
                 return fn(*args, **kwargs)
             rec.depth += 1
             try:

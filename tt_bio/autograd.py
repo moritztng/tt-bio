@@ -21,6 +21,8 @@ topological sort and the fan-in sum below are the whole of what it would have su
 from __future__ import annotations
 
 import contextlib
+import functools
+import gc
 import math
 import os
 import sys
@@ -995,6 +997,18 @@ def _tape(out_value, parents: Sequence[Tensor], make_fn, reads=None) -> Tensor:
     return out
 
 
+def _cross_reads(a: Tensor, b: Tensor) -> tuple:
+    """Parent indices a PRODUCT's backward reads, given which of its two operands want a gradient.
+
+    For ``a * b`` and ``a @ b`` each operand's gradient reads only the OTHER operand's value, so a
+    side is read exactly when the other side wants a gradient. In a design round every weight is
+    frozen, so a linear's input and a dropout multiply's update are read by nothing: pinning them
+    kept ~10 of a block's ~60 pair tensors on the card for a gradient nobody asked for. The shapes
+    a backward needs are taken at record time, so an operand left unpinned can be released.
+    """
+    return tuple(i for i, other in ((0, b), (1, a)) if other is not None and other.requires_grad)
+
+
 def _evict_read_parents(parents: Sequence[Tensor]) -> None:
     """Move every L1-resident intermediate this op has just read down to DRAM.
 
@@ -1592,6 +1606,7 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
     out_v = rows(a.value, lambda v: _matmul(v, b.value, transpose_a=transpose_a,
                                             transpose_b=transpose_b,
                                             compute_kernel_config=cfg))
+    ashape, bshape = a.value.shape, b.value.shape
 
     def make():
         def bw(g):
@@ -1608,23 +1623,23 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
                     # dA = g @ op(b)^T
                     a.add_grad(_reduce_to(rows(g, lambda v: bmm(v, b.value, False, not transpose_b,
                                                                 compute_kernel_config=cfg)),
-                                          a.value.shape))
+                                          ashape))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
                     a.add_grad(_reduce_to(bmm(b.value, g, transpose_b, True,
-                                              compute_kernel_config=cfg), a.value.shape))
+                                              compute_kernel_config=cfg), ashape))
             if b.requires_grad:
                 if not transpose_b:
                     # dB = op(a)^T @ g
                     b.add_grad(_reduce_to(bmm(a.value, g, not transpose_a,
-                                              compute_kernel_config=cfg), b.value.shape))
+                                              compute_kernel_config=cfg), bshape))
                 else:
                     # B entered as B^T, so dB = (dB_eff)^T = g^T @ op(a)
                     b.add_grad(_reduce_to(bmm(g, a.value, True, transpose_a,
-                                              compute_kernel_config=cfg), b.value.shape))
+                                              compute_kernel_config=cfg), bshape))
         return bw
 
-    return _tape(out_v, [a, b], make)
+    return _tape(out_v, [a, b], make, reads=_cross_reads(a, b))
 
 
 def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core_grid=None,
@@ -2888,6 +2903,33 @@ def pair_contract(a: Tensor, b: Tensor, *, incoming: bool = False, config=None) 
 _CKPT_PINS: list = []
 
 
+def release_dead(outputs: Sequence[Tensor], inputs: Sequence[Tensor]) -> None:
+    """Release every intermediate of a taped segment that no backward reads.
+
+    The tape keeps a Tensor for every value it recorded, and a value goes back to the card only
+    where the shipped forward calls `ttnn.deallocate` on it. Most of a tuned forward lets an
+    activation go out of scope instead, and under a tape the node graph keeps the handle alive,
+    so an unpinned value nobody will read stays on the card until the backward has run. For a
+    segment whose tape is KEPT (BindCraft 2's resident Evoformer blocks) that is the difference
+    between a block's tape fitting and not. This walks from `outputs` back to `inputs` and frees
+    what lies between, through `free`, which keeps anything pinned and decides shared-storage
+    groups together. Only values with a node are touched: constants and parameters have none.
+    """
+    stop = {id(t) for t in (*outputs, *inputs) if isinstance(t, Tensor)}
+    seen = set(stop)
+    stack = [p for t in outputs if isinstance(t, Tensor) and t.node is not None
+             for p in t.node.parents]
+    while stack:
+        t = stack.pop()
+        if id(t) in seen or not isinstance(t, Tensor):
+            continue
+        seen.add(id(t))
+        if t.node is None:
+            continue
+        t.free()
+        stack.extend(t.node.parents)
+
+
 def release_pins() -> None:
     """Drop every pin a checkpointed segment took. Call after a backward, or after a forward
     whose tape is being discarded."""
@@ -2957,12 +2999,47 @@ def _to_host(t: Tensor):
 TRACE_RECOMPUTE = env_flag("TT_BIO_TRACE_RECOMPUTE", False)
 _RTRACE: dict = {}    # (key, signature) -> rounds seen (int), then (trace id, shared)
 _RSHARED: dict = {}   # signature -> dict(ins=[...], seeds=[...], outs=[...])
-RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0}
+RTRACE_STATS = {"eager": 0, "capture": 0, "replay": 0, "refused": 0, "regrow": 0}
+# The checkpoint's untaped FORWARD replayed the same way (`_traced_forward`), so a block's three
+# passes per round (two forwards, one recompute + VJP) all come from traces. Follows
+# TRACE_RECOMPUTE unless set on its own.
+TRACE_FORWARD = env_flag("TT_BIO_TRACE_FORWARD", TRACE_RECOMPUTE)
+
+
+@contextlib.contextmanager
+def block_traces(on: bool = True):
+    """Replay every traced block unit (checkpoint forward, recompute + VJP) for the duration, or
+    run them all eagerly with `on=False`. What `bindcraft2.predictor(trace=...)` sets; the two
+    environment flags only pick the default. Captures made inside stay cached after the exit."""
+    global TRACE_RECOMPUTE, TRACE_FORWARD
+    saved = TRACE_RECOMPUTE, TRACE_FORWARD
+    TRACE_RECOMPUTE = TRACE_FORWARD = bool(on)
+    try:
+        yield
+    finally:
+        TRACE_RECOMPUTE, TRACE_FORWARD = saved
+
+
+_RPEAK: dict = {}     # signature -> DRAM rise per bank of its first eager run; sizes the hole
+_RSHAPE: dict = {}    # forward signature -> whether fn returns a tuple
+_SCRATCH: list = [None]   # the device's `TraceScratch`, made at the first capture
+_EAGER = object()
+_RPEND: dict = {}     # signature -> {key: make(shared)}, keys waiting for their batch capture
 # Diagnostic: the first N replays also run the block eagerly on the same inputs and record the
 # relative L2 error of each input gradient against it (RTRACE_CHECKS). Replays are expected to be
 # exact; anything else means a replay read or wrote memory the eager side now owns.
 TRACE_RECOMPUTE_CHECK = int(os.environ.get("TT_BIO_TRACE_RECOMPUTE_CHECK", "0"))
 RTRACE_CHECKS: list = []
+
+
+_RMODE: dict = {}     # diagnostic: the ambient mode at a key's registration and at its capture
+
+
+def _mode():
+    from . import ops
+    return dict(taping=ops.taping(), recording=ops.recording(), grad=_GRAD_ENABLED,
+                nogradinf=ops.NOGRAD_IS_INFERENCE, relu_entry=ops._KERNEL_ENTRIES.get("pair_relu") is not None,
+                raw=ops._RAW_DEPTH)
 
 
 def _rt_raw(t, home):
@@ -2974,73 +3051,326 @@ def _grad_value(dup):
     return g.value if isinstance(g, Tensor) else g
 
 
+def _rt_sig(vals, extra=()):
+    """What a block trace is keyed on: its operands' shapes, plus the ambient state that picks the
+    block's op sequence. An open tape turns off the fused kernels that have no tape entry
+    (`ops.taping`), so one block ran 300 ttnn calls under a tape and 288 without; a trace captured
+    in one mode and replayed in the other was off by rel 1e-4 on every block (bc4-bet-dispatch c10)."""
+    from . import ops
+    return (tuple(None if v is None else (tuple(v.shape), str(v.dtype), str(v.layout)) for v in vals),
+            tuple(extra), ops.taping(), tuple(sorted(_EXACT_SAVED)))
+
+
+def _in_dram(vals) -> bool:
+    """Every device operand interleaved in DRAM. L1 is not fenced (`TraceScratch`), so a unit
+    whose operands or outputs live in L1 stays eager."""
+    return all(v.memory_config().buffer_type == ttnn.BufferType.DRAM for v in vals if v is not None)
+
+
+def _rise(device, run):
+    """``run()`` eagerly; return its result and its DRAM high-water rise per bank.
+
+    Sampled after every 32nd ttnn call: an allocation only happens inside a call, and the miss
+    between two samples is covered by the hole's margin. Too small a hole fails as a refused
+    capture (the unit stays eager), never as a wrong replay. Run once per signature."""
+    from ttnn import decorators as D
+    mem = lambda: int(ttnn.get_memory_view(device, ttnn.BufferType.DRAM).total_bytes_allocated_per_bank)
+    base = mem()
+    peak = [base]
+    real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
+    n = [0]
+
+    def sampled(f):
+        def call(op, *a, **k):
+            out = f(op, *a, **k)
+            n[0] += 1
+            if n[0] % 32 == 0:
+                peak[0] = max(peak[0], mem())
+            return out
+        return call
+
+    for c, f in real.items():
+        c.__call__ = sampled(f)
+    try:
+        out = run()
+    finally:
+        for c, f in real.items():
+            c.__call__ = f
+    return out, max(peak[0], mem()) - base
+
+
+def _op_desc(v):
+    if isinstance(v, ttnn.Tensor):
+        return f"T{tuple(v.shape)}:{v.dtype}:{v.layout}:{v.memory_config().buffer_type}"
+    if isinstance(v, (list, tuple)):
+        return "[" + ",".join(_op_desc(x) for x in v) + "]"
+    return repr(v)[:120]
+
+
+def _ops(run):
+    """``run()`` and the list of ttnn calls it made, each as name plus operand description.
+    Diagnostic for `TRACE_RECOMPUTE_CHECK`: a replay that disagrees with eager on the same
+    inputs ran different calls, and the first differing one names the state that moved."""
+    from ttnn import decorators as D
+    real = {c: c.__call__ for c in (D.FastOperation, D.Operation)}
+    log = []
+
+    def rec(f):
+        def call(op, *a, **k):
+            log.append(f"{getattr(op, 'python_fully_qualified_name', op)}("
+                       + ", ".join([_op_desc(x) for x in a] + [f"{n}={_op_desc(x)}" for n, x in k.items()]) + ")")
+            return f(op, *a, **k)
+        return call
+
+    for c, f in real.items():
+        c.__call__ = rec(f)
+    try:
+        out = run()
+    finally:
+        for c, f in real.items():
+            c.__call__ = f
+    return out, log
+
+
+def _ops_diff(key, ref, now) -> None:
+    import difflib
+    print(f"[trace-check] {key!r}: capture made {len(ref)} calls, eager {len(now)}", flush=True)
+    for tag, a0, a1, b0, b1 in difflib.SequenceMatcher(None, ref, now, autojunk=False).get_opcodes():
+        if tag != "equal":
+            print(f"[trace-check]   {tag} capture[{a0}:{a1}] eager[{b0}:{b1}]", flush=True)
+            for x in ref[a0:a1][:6]:
+                print(f"[trace-check]     - {x}", flush=True)
+            for x in now[b0:b1][:6]:
+                print(f"[trace-check]     + {x}", flush=True)
+
+
+_ROPS: dict = {}      # (key, signature) -> the calls its capture made, when checking
+
+
+def _rt_first(device, sig, run):
+    """A unit's first eager run at a key; its DRAM rise is measured for the signature's first."""
+    if sig in _RPEAK:
+        return run()
+    out, _RPEAK[sig] = _rise(device, run)
+    return out
+
+
+def _rt_clone(vals):
+    return [None if v is None else ttnn.clone(v) for v in vals]
+
+
+def _rt_inner(kinds, bufs):
+    return [Tensor(ttnn.clone(b), requires_grad=rg) if tensor else (ttnn.clone(b) if b is not None else raw)
+            for (tensor, rg, raw), b in zip(kinds, bufs)]
+
+
+def _rt_kinds(inputs):
+    return [(isinstance(t, Tensor), getattr(t, "requires_grad", False),
+             None if isinstance(t, (Tensor, ttnn.Tensor)) else t) for t in inputs]
+
+
+def _rt_copy_in(vals, bufs):
+    for v, b in zip(vals, bufs):
+        if b is not None:
+            ttnn.copy(v, b)
+
+
+def _rt_batch(device, sig, sh):
+    """Capture every key of ``sig`` waiting in `_RPEND`, all inside one fence."""
+    from .tenstorrent import TraceScratch
+    pend = _RPEND.pop(sig, {})
+    if not pend:
+        return
+    if _SCRATCH[0] is None:
+        _SCRATCH[0] = TraceScratch(device)
+    sc = _SCRATCH[0]
+    margin = lambda b: b + b // 4 + sc.CHUNK
+    need = margin(_RPEAK[sig])
+    if sc.hole is not None and need > sc.hole[1] - sc.hole[0]:
+        # A unit measured after the hole was opened needs a bigger one: drop every trace and
+        # the hole, and let every key capture again into one sized for all of them.
+        release_recompute_traces(device)
+        RTRACE_STATS["regrow"] += 1
+        return
+    runs = [functools.partial(make, sh) for make in pend.values()]
+    if TRACE_RECOMPUTE_CHECK:
+        def logged(key, run):
+            def go():
+                _RMODE.setdefault(("cap", key, sig), _mode())
+                _, _ROPS[(key, sig)] = _ops(run)
+            return go
+        runs = [logged(key, run) for key, run in zip(pend, runs)]
+    # One warm pass through the shared buffers compiles anything only they reach.
+    runs[0]()
+    ttnn.synchronize_device(device)
+    before = set(_WRAPPED)
+
+    def settle():
+        # Wrappers the captures made hold buffers allocated in the hole. Dropped before the
+        # hole is filled, so no later tape close frees them into it (bcx-tracewire).
+        for k in set(_WRAPPED) - before:
+            del _WRAPPED[k]
+        gc.collect()
+
+    try:
+        tids = sc.capture(need, margin(max(_RPEAK.values())), runs, settle)
+    except RuntimeError as e:   # a trace region too small for the batch: the keys stay eager
+        print(f"[trace] {len(runs)} captures refused: {str(e).splitlines()[0][:200]}", flush=True)
+        tids = None
+    for i, key in enumerate(pend):
+        _RTRACE[(key, sig)] = "eager" if tids is None else (tids[i],)
+    RTRACE_STATS["refused" if tids is None else "capture"] += len(pend)
+
+
 def _traced_recompute(key, fn, inputs, home, seeded) -> bool:
-    """`_recompute(seeded)` from a trace, or False to let the caller run it eagerly."""
+    """`_recompute(seeded)` from a trace, or False to let the caller run it eagerly.
+
+    Round 1 at a key runs eagerly and registers the key. Round 2 runs eagerly, makes the
+    signature's shared buffers if they are new, and captures every registered key of that
+    signature in one fence (`_rt_batch`). Later rounds copy in, replay and clone the input
+    gradients out."""
     from .taped_ttnn import recompute_scope
     vals = [_rt_raw(t, home) for t in inputs]
-    sig = (tuple(None if v is None else (tuple(v.shape), str(v.dtype), str(v.layout)) for v in vals),
-           tuple((k, tuple(g.shape), str(g.dtype)) for k, g in seeded))
+    ks = [k for k, _ in seeded]
+    sig = ("bwd",) + _rt_sig(vals, ((k, tuple(g.shape), str(g.dtype)) for k, g in seeded))
     st = _RTRACE.get((key, sig), 0)
-    if isinstance(st, int) and st == 0:
-        _RTRACE[(key, sig)] = 1
-        RTRACE_STATS["eager"] += 1
+    if st == "eager":
         return False
     device = next(v for v in vals if v is not None).device()
 
-    def run(ins, seeds, outs):
-        inner = [Tensor(ttnn.clone(b), requires_grad=t.requires_grad) if isinstance(t, Tensor)
-                 else (ttnn.clone(b) if b is not None else t) for t, b in zip(inputs, ins)]
-        with recompute_scope():
-            y = fn(*inner)
-        roots = [y[k] if k is not None else y for k, _ in seeded]
-        backward(roots, [ttnn.clone(b) for b in seeds])
-        for dup, ob in zip(inner, outs):
-            if ob is not None:
-                ttnn.copy(_grad_value(dup), ob)
-        del y, inner, roots
+    if isinstance(st, tuple):
+        sh = _RSHARED[sig]
+        _rt_copy_in(vals, sh["ins"])
+        _rt_copy_in([g for _, g in seeded], sh["seeds"])
+        ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+        RTRACE_STATS["replay"] += 1
+        if RTRACE_STATS["replay"] <= TRACE_RECOMPUTE_CHECK:
+            _check_replay(key, fn, inputs, vals, seeded, sh["outs"])
+        for src, ob in zip(inputs, sh["outs"]):
+            if ob is not None and isinstance(src, Tensor):
+                src.add_grad(ttnn.clone(ob))
+        return True
 
-    if st == 1:
-        # Round 2: eager, and the shared buffers are born here (see above).
+    def eager():
         inner = [Tensor(v, requires_grad=t.requires_grad) if isinstance(t, Tensor) else t
                  for t, v in zip(inputs, vals)]
         with recompute_scope():
             y = fn(*inner)
-        roots = [y[k] if k is not None else y for k, _ in seeded]
-        backward(roots, [g for _, g in seeded])
-        if sig not in _RSHARED:
-            _RSHARED[sig] = dict(
-                ins=[None if v is None else ttnn.clone(v) for v in vals],
-                seeds=[ttnn.clone(g) for _, g in seeded],
-                outs=[None if _grad_value(d) is None else ttnn.clone(_grad_value(d)) for d in inner])
-        for src, dup in zip(inputs, inner):
-            if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
-                src.add_grad(dup.grad)
-        del y, inner, roots
-        _RTRACE[(key, sig)] = 2
-        RTRACE_STATS["eager"] += 1
+        backward([y[k] if k is not None else y for k in ks], [g for _, g in seeded])
+        return inner
+
+    inner = _rt_first(device, sig, eager) if st == 0 else eager()
+    grads = [_grad_value(d) for d in inner]
+    for src, dup in zip(inputs, inner):
+        if isinstance(src, Tensor) and isinstance(dup, Tensor) and dup.grad is not None:
+            src.add_grad(dup.grad)
+    RTRACE_STATS["eager"] += 1
+    if st == 0:
+        if not _in_dram([*vals, *grads]):
+            _RTRACE[(key, sig)] = "eager"
+            return True
+        kinds = _rt_kinds(inputs)
+
+        def make(sh):
+            inner = _rt_inner(kinds, sh["ins"])
+            with recompute_scope():
+                y = fn(*inner)
+            backward([y[k] if k is not None else y for k in ks], [ttnn.clone(b) for b in sh["seeds"]])
+            for dup, ob in zip(inner, sh["outs"]):
+                if ob is not None:
+                    ttnn.copy(_grad_value(dup), ob)
+            del y, inner
+        _RPEND.setdefault(sig, {})[key] = make
+        if TRACE_RECOMPUTE_CHECK:
+            _RMODE[("key", key, sig)] = _mode()
+        _RTRACE[(key, sig)] = 1
         return True
+    if sig not in _RSHARED:
+        _RSHARED[sig] = dict(ins=_rt_clone(vals), seeds=_rt_clone([g for _, g in seeded]),
+                             outs=_rt_clone(grads))
     sh = _RSHARED[sig]
-    for v, b in zip(vals, sh["ins"]):
-        if b is not None:
-            ttnn.copy(v, b)
-    for (_, g), b in zip(seeded, sh["seeds"]):
-        ttnn.copy(g, b)
-    if st == 2:
-        run(sh["ins"], sh["seeds"], sh["outs"])     # compiles anything only the capture uses
-        ttnn.synchronize_device(device)
-        from .tenstorrent import capture_trace
-        tid, _ = capture_trace(device, lambda: run(sh["ins"], sh["seeds"], sh["outs"]))
-        _RTRACE[(key, sig)] = st = (tid,)
-        RTRACE_STATS["capture"] += 1
-    else:
-        RTRACE_STATS["replay"] += 1
-    ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
-    if RTRACE_STATS["replay"] <= TRACE_RECOMPUTE_CHECK:
-        _check_replay(key, fn, inputs, vals, seeded, sh["outs"])
-    for src, ob in zip(inputs, sh["outs"]):
-        if ob is not None and isinstance(src, Tensor):
-            src.add_grad(ttnn.clone(ob))
+    _rt_copy_in(vals, sh["ins"])
+    _rt_copy_in([g for _, g in seeded], sh["seeds"])
+    del inner, grads
+    _rt_batch(device, sig, sh)
     return True
+
+
+def _traced_forward(key, fn, inputs):
+    """A checkpoint's untaped forward ``fn(*inputs)`` from a trace, or the sentinel `_EAGER` to
+    let the caller run it. The same rounds as `_traced_recompute`; the caller is under
+    `no_grad`."""
+    vals = [_rt_raw(t, lambda t: t.value) for t in inputs]
+    sig = ("fwd",) + _rt_sig(vals)
+    st = _RTRACE.get((key, sig), 0)
+    if st == "eager":
+        return _EAGER
+    device = next(v for v in vals if v is not None).device()
+
+    def flat(y):
+        ys = y if isinstance(y, (tuple, list)) else (y,)
+        return [o.value if isinstance(o, Tensor) else o for o in ys]
+
+    if isinstance(st, tuple):
+        sh = _RSHARED[sig]
+        check = RTRACE_STATS["replay"] < TRACE_RECOMPUTE_CHECK
+        pre = _rt_clone(flat(fn(*inputs))) if check else None
+        _rt_copy_in(vals, sh["ins"])
+        ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+        RTRACE_STATS["replay"] += 1
+        outs = [None if ob is None else ttnn.clone(ob) for ob in sh["outs"]]
+        if check:
+            # Four readings on the same inputs separate the two ways a replay can be wrong:
+            # replay != replay again means it read scratch another trace last wrote;
+            # eager before != eager after means it wrote memory the eager side owns.
+            _rt_copy_in(vals, sh["ins"])
+            ttnn.execute_trace(device, st[0], cq_id=0, blocking=False)
+            again = _rt_clone(sh["outs"])
+            post, now = _ops(lambda: flat(fn(*inputs)))
+            rel = lambda xs, ys: max([_rel(x, y) for x, y in zip(xs, ys) if x is not None and y is not None] or [0.0])
+            r = dict(eager=rel(outs, post), again=rel(outs, again), drift=rel(pre, post), pre=rel(outs, pre))
+            RTRACE_CHECKS.append(dict(key=repr(key), unit="fwd", replay=RTRACE_STATS["replay"], rel=[r["eager"]], **r))
+            if max(r.values()) > 0:
+                print(f"[trace-check] fwd replay {RTRACE_STATS['replay']} {key!r}: "
+                      + " ".join(f"{k} {v:.3e}" for k, v in r.items()), flush=True)
+                print(f"[trace-check]   mode at key {_RMODE.get(('key', key, sig))}, capture "
+                      f"{_RMODE.get(('cap', key, sig))}, now {_mode()}", flush=True)
+                if (key, sig) in _ROPS:
+                    _ops_diff(key, _ROPS.pop((key, sig)), now)
+        return tuple(outs) if _RSHAPE[sig] else outs[0]
+
+    y = _rt_first(device, sig, lambda: fn(*inputs)) if st == 0 else fn(*inputs)
+    RTRACE_STATS["eager"] += 1
+    if st == 0:
+        if not _in_dram([*vals, *flat(y)]):
+            _RTRACE[(key, sig)] = "eager"
+            return y
+        _RSHAPE[sig] = isinstance(y, (tuple, list))
+        kinds = _rt_kinds(inputs)
+
+        def make(sh):
+            inner = _rt_inner(kinds, sh["ins"])
+            for o, ob in zip(flat(fn(*inner)), sh["outs"]):
+                if ob is not None:
+                    ttnn.copy(o, ob)
+            del inner
+        _RPEND.setdefault(sig, {})[key] = make
+        if TRACE_RECOMPUTE_CHECK:
+            _RMODE[("key", key, sig)] = _mode()
+        _RTRACE[(key, sig)] = 1
+        return y
+    if sig not in _RSHARED:
+        _RSHARED[sig] = dict(ins=_rt_clone(vals), outs=_rt_clone(flat(y)))
+    sh = _RSHARED[sig]
+    _rt_copy_in(vals, sh["ins"])
+    _rt_batch(device, sig, sh)
+    return y
+
+
+def _rel(a, b) -> float:
+    a, b = ttnn.to_torch(a).double(), ttnn.to_torch(b).double()
+    den = float(b.norm())
+    return float((a - b).norm()) / den if den else float((a - b).norm())
 
 
 def _check_replay(key, fn, inputs, vals, seeded, outs) -> None:
@@ -3062,8 +3392,8 @@ def _check_replay(key, fn, inputs, vals, seeded, outs) -> None:
         den = float(b.norm())
         rels.append(float((a - b).norm()) / den if den else float((a - b).norm()))
     RTRACE_CHECKS.append(dict(key=repr(key), replay=RTRACE_STATS["replay"], rel=rels))
-    if rels and max(rels) > 1e-3:
-        print(f"[trace-check] replay {RTRACE_STATS['replay']} {key!r}: grad rel L2 {max(rels):.3e}", flush=True)
+    if rels and max(rels) > 0:
+        print(f"[trace-check] bwd replay {RTRACE_STATS['replay']} {key!r}: grad rel L2 {max(rels):.3e}", flush=True)
     del y, inner, roots
 
 
@@ -3076,11 +3406,16 @@ def release_recompute_traces(device) -> None:
         if isinstance(st, tuple):
             ttnn.release_trace(device, st[0])
     for sh in _RSHARED.values():
-        for b in (*sh["ins"], *sh["seeds"], *sh["outs"]):
+        for b in (*sh["ins"], *sh.get("seeds", ()), *sh["outs"]):
             if b is not None:
                 ttnn.deallocate(b)
     _RTRACE.clear()
     _RSHARED.clear()
+    _RSHAPE.clear()
+    _RPEND.clear()
+    if _SCRATCH[0] is not None:
+        _SCRATCH[0].release()
+        _SCRATCH[0] = None
 
 
 def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool = False,
@@ -3134,7 +3469,11 @@ def checkpoint(fn, *inputs: Tensor, params: Sequence[Tensor] = (), offload: bool
             _CKPT_PINS.append(t)
     _TOUCHED.clear()
     with no_grad():
-        produced = fn(*inputs)
+        produced = _EAGER
+        if trace is not None and TRACE_FORWARD and not offload and params is not _ALL_PARAMS:
+            produced = _traced_forward(trace, fn, inputs)
+        if produced is _EAGER:
+            produced = fn(*inputs)
     # Only the parameters this segment READ. Naming all of them would give every block a node,
     # including the ones that touch no trainable weight, and those recompute to an empty tape.
     touched = [t for k, t in _PARAMS.items() if k in _TOUCHED] if params is _ALL_PARAMS \
@@ -3513,6 +3852,7 @@ def _taped_linear(shipped, args, kwargs):
     cfg = cfg or precise_config()
     bwcfg = precise_config()
     parents = [t for t in (x, w, bias) if t is not None]
+    xshape, wshape = x.value.shape, w.value.shape
 
     def make():
         def bw(g):
@@ -3526,7 +3866,7 @@ def _taped_linear(shipped, args, kwargs):
                                           v, w.value, True, lambda: _matmul(
                                               v, w.value, transpose_b=True,
                                               compute_kernel_config=bwcfg), bwcfg)),
-                                      x.value.shape))
+                                      xshape))
             if w.requires_grad:
                 # dW reduces over every token at once: 4096 terms on a 64x64 pair block,
                 # 262144 at 512 aa. `fp32_dest_acc_en` does not cover that, because
@@ -3540,12 +3880,12 @@ def _taped_linear(shipped, args, kwargs):
                 w.add_grad(_reduce_to(
                     _matmul(_flat2d(x.value), _flat2d(g), transpose_a=True,
                             compute_kernel_config=bwcfg, dtype=ttnn.float32),
-                    w.value.shape))
+                    wshape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
 
-    out = _tape(out_v, parents, make)
+    out = _tape(out_v, parents, make, reads=_cross_reads(x, w))
     if act is None:
         return out
     activated = act(out)

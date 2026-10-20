@@ -41,6 +41,10 @@ PAIR_TRANSPOSE_FUSED = env_flag("TT_BIO_PAIR_TRANSPOSE_FUSED", True)
 #: at 1184 plain 10.38, QR 8 8.09 ms (175 GB/s, 0.71 of the DRAM roof). The reader's DRAM reads share
 #: its NoC with its shuffle, so past ~10 tiles it becomes the slow side.
 PAIR_TRANSPOSE_SPLIT = int(os.environ.get("TT_BIO_PAIR_TRANSPOSE_SPLIT", "8"))
+#: The split for 12+ channel tiles (OpenDDE's c_z 384) on Wormhole, where fewer reader-side tiles win: QR 8 / 4 / 2
+#: 3.44 / 2.97 / 2.98 ms at [512, 512, 384], 5.23 / 4.69 / 4.63 at 640, every arm torch.equal
+#: (perf/spd_m_opendde/ptr_sweep.py, 1000 MHz). Blackhole was not measured and keeps PAIR_TRANSPOSE_SPLIT.
+PAIR_TRANSPOSE_SPLIT_WIDE = int(os.environ.get("TT_BIO_PAIR_TRANSPOSE_SPLIT_WIDE", "4"))
 
 #: (calls served, calls declined), cumulative; sample at a round boundary.
 STATS = [0, 0]
@@ -129,11 +133,15 @@ def pair_transpose(t, memory_config=None):
     out = ttnn.empty(ttnn.Shape(shape), t.dtype, ttnn.TILE_LAYOUT, device,
                      memory_config or ttnn.DRAM_MEMORY_CONFIG)
     g_ = device.compute_with_storage_grid_size()
+    split = PAIR_TRANSPOSE_SPLIT
+    if split and C >= 384:
+        from .tenstorrent import is_wormhole
+        split = PAIR_TRANSPOSE_SPLIT_WIDE if is_wormhole() else split
     key = (device.id(), S1, S2, C, str(t.dtype), t.memory_config().buffer_type,
-           out.memory_config().buffer_type, g_.x, g_.y, PAIR_TRANSPOSE_SPLIT)
+           out.memory_config().buffer_type, g_.x, g_.y, split)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(t, out, device, S1 // 32, S2 // 32, C // 32, PAIR_TRANSPOSE_SPLIT)
+        entry = _CACHE[key] = _build(t, out, device, S1 // 32, S2 // 32, C // 32, split)
     reader, writer = entry["kernels"]
     reader.common_runtime_args = [t.buffer_address()]
     writer.common_runtime_args = [out.buffer_address()]
