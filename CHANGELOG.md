@@ -5,6 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-10-20
+
+### Fixed
+- **Boltz-2 on Wormhole no longer hangs on some protein lengths.** Every fold of exactly 584 or 644
+  residues stalled while reading the confidence heads back from the chip and never finished; 583, 585,
+  642 and 645 folded. The confidence result is now read whole and cut on the host, as on Blackhole,
+  which costs about 15 ms at 512 tokens. Blackhole is unchanged.
+
 ## [0.20.0] - 2026-10-18
 
 ### Changed
