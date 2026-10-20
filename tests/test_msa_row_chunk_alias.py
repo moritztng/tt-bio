@@ -31,7 +31,7 @@ SEQ, CHAN = 512, 64
 def dev():
     d = ttnn.open_device(device_id=0)
     yield d
-    ttnn.close_device(d)
+    T._close_device_locked(d)
 
 
 def _rows(d, n):
