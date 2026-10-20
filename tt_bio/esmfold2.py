@@ -1795,43 +1795,35 @@ class OuterProductMean(Module):
 
 
 class MSAPairWeightedAveraging(Module):
-    """Pair-biased MSA row update (head_width 16 sub-tile -> contraction on host)."""
+    """Pair-biased MSA row update on tt-bio's shared `PairWeightedAveraging` (AF3 Algorithm 10).
+
+    The shared module holds the MSA depth-major, [1, M, L, c]; ESMFold2 holds it token-major,
+    [1, L, M, c], so the update is one permute in and one out. The old path ran the head contraction
+    on the host in fp32 because head_width 16 is sub-tile; the shared module's unpadded head path
+    does it on the chip. With a 1024-row MSA at 512 tokens that host einsum was 1.3 s a call, 33
+    calls a fold (11 loops x 3 blocks).
+    """
 
     def __init__(self, n_heads, head_width, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
-        self.n_heads, self.head_width = n_heads, head_width
-        self.ns_w = self.torch_to_tt("norm_single.weight"); self.ns_b = self.torch_to_tt("norm_single.bias")
-        self.cb_ln_w = self.torch_to_tt("compute_bias.0.weight"); self.cb_ln_b = self.torch_to_tt("compute_bias.0.bias")
-        self.cb_w = self.torch_to_tt("compute_bias.1.weight")
-        self.Wv = self.torch_to_tt("Wv.weight"); self.Wgate = self.torch_to_tt("Wgate.weight")
-        self.Wout = self.torch_to_tt("Wout.weight")
+        from tt_bio import tenstorrent
+        sd = self.weights.as_dict()
+        names = {"norm_m": "norm_single", "norm_z": "compute_bias.0", "proj_z": "compute_bias.1",
+                 "proj_m": "Wv", "proj_g": "Wgate", "proj_o": "Wout"}
+        self.pwa = tenstorrent.PairWeightedAveraging(head_width, n_heads, WeightScope(
+            {f"{k}.{t}": sd[f"{v}.{t}"] for k, v in names.items() for t in ("weight", "bias")
+             if f"{v}.{t}" in sd}), compute_kernel_config)
 
     def __call__(self, m, pair):
-        """Returns `m + update`: the residual is folded into the row loop so a
-        second full [B,L,M,c] copy never has to sit on the chip alongside `m`."""
-        ck = self.compute_kernel_config
-        lin = self._lin
-        B, L, M = m.shape[0], m.shape[1], m.shape[2]
-        h, dh = self.n_heads, self.head_width
-        bias = lin(ttnn.layer_norm(pair, weight=self.cb_ln_w, bias=self.cb_ln_b, epsilon=1e-5, compute_kernel_config=ck), self.cb_w)  # [B,L,L,8]
-        # non-learned 5D contraction on host (head_width 16 is sub-tile)
-        bias_t = torch.Tensor(ttnn.to_torch(bias)).float()
-        attn = torch.softmax(bias_t, dim=-2)  # over j
-        blocks = _msa_row_blocks(L, M) or [(0, L)]
-        rows = (lambda t, s, e: t) if len(blocks) == 1 else (lambda t, s, e: t[:, s:e])
-        v_t, gate_t = [], []
-        for s, e in blocks:
-            mn = ttnn.layer_norm(rows(m, s, e), weight=self.ns_w, bias=self.ns_b, epsilon=1e-5, compute_kernel_config=ck)
-            v_t.append(torch.Tensor(ttnn.to_torch(lin(mn, self.Wv))).float())          # [B,rows,M,128]
-            gate_t.append(torch.Tensor(ttnn.to_torch(ttnn.sigmoid(lin(mn, self.Wgate)))).float())
-        cat = lambda ts: (ts[0] if len(ts) == 1 else torch.cat(ts, dim=1)).reshape(B, L, M, h, dh)
-        out = torch.einsum("bijh,bjmhd,bimhd->bimhd", attn, cat(v_t), cat(gate_t)).reshape(B, L, M, h * dh)
-        upd = []
-        for s, e in blocks:
-            out_tt = ttnn.from_torch(rows(out, s, e), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
-            upd.append(ttnn.add(rows(m, s, e), lin(out_tt, self.Wout)))
-        from tt_bio import tenstorrent
-        return tenstorrent._acc_concat(upd, 1, False)
+        """Returns `m + update`."""
+        mt = ttnn.permute(m, (0, 2, 1, 3))
+        o = self.pwa(mt, pair)
+        ttnn.deallocate(mt)
+        u = ttnn.permute(o, (0, 2, 1, 3))
+        ttnn.deallocate(o)
+        out = ttnn.add(m, u)
+        ttnn.deallocate(u)
+        return out
 
 
 class MSAEncoderBlock(Module):
