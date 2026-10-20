@@ -113,7 +113,7 @@ def origin():
     while f is not None:
         fn = f.f_code.co_filename
         if "tt_bio" in fn and not fn.endswith(ORIGIN_SKIP):
-            return f"{Path(fn).name}:{f.f_code.co_name}"
+            return f"{Path(fn).name}:{f.f_lineno}:{f.f_code.co_name}"
         f = f.f_back
     return "?"
 
@@ -149,23 +149,75 @@ def read(tag):
     reads.append([st["n"], st["reads"], round(t0, 6), nprog, tag])
 
 
-def wrap(label, fn):
+ESIZE = {"BFLOAT16": 2, "FLOAT32": 4, "BFLOAT8_B": 1.0625, "BFLOAT4_B": 0.5625, "UINT32": 4, "INT32": 4,
+         "UINT16": 2, "UINT8": 1}
+
+
+def _tensors(x):
+    if isinstance(x, ttnn.Tensor):
+        yield x
+    elif isinstance(x, (list, tuple)):
+        for y in x:
+            yield from _tensors(y)
+
+
+def _nbytes(t):
+    try:
+        n = 1
+        for d in t.shape:
+            n *= int(d)
+        return n * ESIZE.get(str(t.dtype).rsplit(".", 1)[-1].upper(), 2)
+    except Exception:
+        return 0
+
+
+def _flops(label, args):
+    """2 M N K of a matmul-shaped call (a [..., M, K] @ b [..., K, N]); 0 for anything else."""
+    if not any(k in label for k in ("matmul", "linear")) or len(args) < 2:
+        return 0
+    try:
+        x, w = list(args[0].shape), list(args[1].shape)
+        m = 1
+        for d in x[:-1]:
+            m *= int(d)
+        return 2 * m * int(x[-1]) * int(w[-1])
+    except Exception:
+        return 0
+
+
+def wrap(label, fn, labeller=None):
+    """Name the device programs of an outermost call: (first id, last id + 1, label, origin, iteration,
+    bytes of tensor operands + results, matmul FLOPs). `labeller(args)` names a call by its object."""
     def run(*args, **kwargs):
         if st["depth"]:
             return fn(*args, **kwargs)
         st["depth"] = 1
         i0 = op_id()
+        out = None
         try:
-            return fn(*args, **kwargs)
+            out = fn(*args, **kwargs)
+            return out
         finally:
-            st["depth"] = 0
             i1 = op_id()
             if i1 != i0:
-                spans.append((i0, i1, label, origin(), st["n"]))
-                if i1 - st["last_read_id"] >= a.ops:
-                    read(f"ops:{label}")
+                lab = labeller(args) if labeller else label
+                targs = args[1:] if labeller else args
+                nb = sum(_nbytes(t) for t in _tensors(list(targs) + list(kwargs.values()) + [out]))
+                spans.append((i0, i1, lab, origin(), st["n"], nb, _flops(lab, targs)))
+            st["depth"] = 0
+            if i1 != i0 and i1 - st["last_read_id"] >= a.ops:
+                read(f"ops:{label}")
     run.__wrapped__ = fn
     return run
+
+
+TENSOR_SKIP = ("shape", "padded_shape", "dtype", "layout", "storage_type", "memory_config", "device",
+               "is_allocated", "is_sharded", "volume", "logical_volume", "element_size", "buffer_address",
+               "tensor_id", "spec", "tensor_topology", "get_", "is_", "__getattribute__", "__setattr__",
+               "__init__", "__new__", "__repr__", "__str__", "__hash__", "__eq__", "__ne__", "__bool__",
+               "__len__", "__class__", "__dir__", "__reduce__", "__del__", "__getitem__", "__format__",
+               "__sizeof__", "__init_subclass__", "__subclasshook__", "__reduce_ex__", "__getstate__",
+               "__setstate__", "__delattr__", "__lt__", "__le__", "__gt__", "__ge__", "__array__")
 
 
 def install():
@@ -182,6 +234,23 @@ def install():
             setattr(mod, n, wrap(f"{mod_name}.{n}" if mod_name else n, fn))
     gi = wrap("getitem", ttnn.Tensor.__getitem__)
     ttnn.Tensor.__getitem__ = lambda self_, key: gi(self_, key)
+    # Every registered op object, however a caller got hold of it: the tape's entries and any alias
+    # taken before this script ran call the FastOperation itself, never the module attribute above.
+    for klass in (ttnn.decorators.FastOperation, ttnn.decorators.Operation):
+        klass.__call__ = wrap(klass.__name__, klass.__call__,
+                              labeller=lambda args: getattr(args[0], "python_fully_qualified_name", "?")
+                              .removeprefix("ttnn.").removeprefix("_ttnn."))
+    # Tensor methods that reach C++ without a Python op (reshape, to, arithmetic dunders, ...).
+    for n in dir(ttnn.Tensor):
+        fn = getattr(ttnn.Tensor, n, None)
+        if n.startswith(TENSOR_SKIP) or not callable(fn) or isinstance(fn, (type, property)):
+            continue
+        if n.startswith("_") and not n.startswith("__"):
+            continue
+        try:
+            setattr(ttnn.Tensor, n, wrap(f"Tensor.{n}", fn))
+        except Exception as exc:
+            print(f"[unnamed] cannot wrap Tensor.{n}: {exc}", flush=True)
     real_exec = ttnn.execute_trace
 
     def execute_trace(*args, **kwargs):
