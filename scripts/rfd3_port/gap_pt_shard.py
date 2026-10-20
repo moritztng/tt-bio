@@ -70,7 +70,7 @@ def main():
         wt = {}
         for name, dt in (("bf16", ttnn.bfloat16), ("b8", ttnn.bfloat8_b)):
             wt[name] = (up(w1, dt), up(w2, dt), up(w3, dt),
-                        up(T._fc12_interleave(w1, w2, 8), dt))
+                        up(T._fc12_interleave(w1, w2, gx=8), dt))
 
         def shard(hid, fc12g):
             a1, a2, a3, a12 = wt["b8" if hid == ttnn.bfloat8_b else "bf16"]
