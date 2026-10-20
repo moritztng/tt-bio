@@ -215,6 +215,23 @@ def at_exit_of(name, fn):
 
 
 install()
+# Which operands keep a block unit off the trace path (`_in_dram` false makes it eager for good).
+_ag = sys.modules["tt_bio.autograd"]
+_real_in_dram = _ag._in_dram
+dram = dict(true=0, false=0)
+
+
+def _in_dram(vals):
+    ok = _real_in_dram(vals)
+    dram["true" if ok else "false"] += 1
+    if not ok and dram["false"] <= 3:
+        print("[devgap] not in DRAM: " + ", ".join(
+            f"{tuple(v.shape)}:{v.memory_config().buffer_type}:{v.memory_config().memory_layout}"
+            for v in vals if v is not None), flush=True)
+    return ok
+
+
+_ag._in_dram = _in_dram
 for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice):
     for _verb in ("_primal", "_taped", "_backward"):
         setattr(_cls, _verb, at_exit_of(f"{_cls.__name__}.{_verb}", getattr(_cls, _verb)))
@@ -255,7 +272,8 @@ def sequence_gradients(self, *args, **kwargs):
         ag = sys.modules.get("tt_bio.autograd")
         iters.append(dict(n=st["n"], wall_s=t1 - t0, read_s=st["read_s"] - rs0, reads=st["reads"] - r0,
                           spans=len(spans), replays=st["replays"], op_id=op_id(),
-                          rtrace=dict(ag.RTRACE_STATS) if ag else None,
+                          rtrace=dict(ag.RTRACE_STATS) if ag else None, in_dram=dict(dram),
+                          trace_keys=len(getattr(ag, "_RTRACE", {})),
                           load_start=l0, load_end=loadavg(), aiclk=clock(t0, t1), kept=kept()))
         print(json.dumps(dict(ev="iter", **iters[-1])), flush=True)
         if st["n"] >= a.at + a.keep - 1:
