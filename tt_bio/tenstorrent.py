@@ -581,6 +581,8 @@ _FAST_MODE = False
 #   trimul_ibw      the trimul einsum takes all of K in one block (`_TRIMUL_IBW_FULL`)
 #   trimul_tail     the trimul tail's lean epilogue with the residual folded in (trimul_tail.EPI 2)
 #   trimul_b8in     the trimul in-projection writes bfp8 for the gated move (`_TRIMUL_INPROJ_B8`)
+#   trimul_l1x2     Wormhole only: twice the trimul L1 chunk budget (`_trimul_chunk_size`), chunk 64 at 256 tokens
+#   inproj_k6       the trimul in-projection takes K_block 6 for a 12-tile contraction (`_in_proj_matmul`), not 8
 #   dit_sdpa32      the fp32 token DiT's attention as one SDPA program: q, k, v, bias and output fp32,
 #                   the exponentiated scores and row statistics bf16 (`_sdpa32`). Inert in bf16.
 #   trimul_gin      the trimul in-projection, both gates, the pair mask and both channel moves in one
@@ -792,7 +794,7 @@ _FAST_MODE = False
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
 #                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
-LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
@@ -815,7 +817,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
@@ -2148,6 +2150,13 @@ def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
     budget = TRIANGLE_MULT_L1_CHUNK_BUDGET * gx * gy / (COMPUTE_GRID_X_13 * 10)
     if _IS_SMALL_GRID:
         budget *= SMALL_GRID_TRIMUL_BUDGET_SCALE
+    if _IS_SMALL_GRID and lever("trimul_l1x2"):
+        # At 256 tokens on Wormhole the scaled 130-core budget leaves chunk 32, so the
+        # in-projection re-reads the whole pair input once per 32 channels (12 times at 384).
+        # Doubling it buys chunk 64 there: OpenDDE fast 256 on a Galaxy chip (1000 MHz)
+        # 39.7 -> 34.6 s, CIF identical. Under fp32 dest the in-projection's circular buffers
+        # clash at 64 and the clash narrows it back to 32, so normal pays one refused program.
+        budget *= 2
     c = TRIANGLE_MULT_CHUNK_SIZE
     # Price the chunk on the width it actually occupies. The chunk tensors are
     # [batch, chunk, seq, seq] TILE tensors, so both seq dims round up to 32 and a logical
@@ -9433,9 +9442,18 @@ def _in_proj_matmul(x, w, ckc, memory_config, bias=None, split=None, dtype=None)
             return out
     if split is not None:
         return None
+    kw = {}
+    kt, nt = int(w.shape[-2]) // 32, int(w.shape[-1]) // 32
+    if lever("inproj_k6") and kt == 12 and nt <= 8:
+        # A/B: the default K_block 8 pads OpenDDE's 12-tile contraction to 16, a third more
+        # matmul work on every chunk; 6 divides it. N_block 1 is what each core holds anyway once
+        # the 8-row grid splits a <= 8-tile output.
+        kw["config"] = ttnn.MinimalMatmulConfig(
+            M_block_size=8, K_block_size=6, N_block_size=1, subblock_h=4, subblock_w=1,
+            compute_with_storage_grid_size=_mm_core_coord(*COMPUTE_GRID_MAIN))
     return ttnn.experimental.minimal_matmul(
         x, w, bias_tensor=bias, memory_config=memory_config, dtype=dtype,
-        compute_kernel_config=ckc)
+        compute_kernel_config=ckc, **kw)
 
 
 def _trimul_out_proj(
