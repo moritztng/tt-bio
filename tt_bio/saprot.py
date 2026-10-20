@@ -147,7 +147,11 @@ def _saprot_mm(width: int) -> bool:
 # Against float64 the program is the more accurate one (q rel_l2 0.0027 vs 0.0036, perf/spd_gap_whlm/rope_packed_bench.py).
 # Page cell on a Galaxy chip at 1000 MHz, best of 3: 650M 217.5 -> 200.1 ms (--fast 205.4 -> 190.4), 1.3B 414.0 -> 381.8
 # (400.2 -> 366.4); pcc vs fp32 moves -0.000126 / -0.000109 (650M) and -0.000096 / -0.000025 (1.3B). That passes the fast
-# bar (0.0002) and misses the normal one (0.0001) on 650M, so None = on with block-fp8 weights (--fast) only.
+# bar (0.0002) and missed the normal one (0.0001) on 650M hPCSK9 (-0.000133). That miss was the program's FPU add
+# truncating both RoPE products (qk_rope_heads.SFPU); with the sums on the SFPU, normal mode, Galaxy chip at 1000 MHz,
+# 2 rounds x 3, pcc vs fp32 against the chain on ten cells: 650M hPCSK9 -0.000003, hEGFR +0.000105, hHSA +0.000077,
+# hTF +0.000049, hTNFa +0.000046; 1.3B +0.000020..+0.000126; time 650M -6..-8 %, 1.3B -6..-7 %.
+# None = on with block-fp8 weights (--fast), and in normal mode where the SFPU sums run (Wormhole until Blackhole grades).
 # Blackhole --fast 650M on a p300c chip at 1350 MHz: 98.5 -> 91.2 ms, pcc -0.000111.
 _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
 
@@ -186,7 +190,8 @@ def _sdpa_ckc(qkrh: bool):
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
-    return w.dtype == ttnn.bfloat8_b
+    from tt_bio import qk_rope_heads
+    return w.dtype == ttnn.bfloat8_b or qk_rope_heads._sfpu()
 
 
 # The measured program for each SaProt projection at the page shape (7 x 544 rows), per arch, keyed (wormhole, K, N).

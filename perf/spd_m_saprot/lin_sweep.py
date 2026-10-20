@@ -125,6 +125,25 @@ def main() -> int:
             if act:   # what the activation costs: the same call without it, scored against the pre-activation reference
                 run("model-noact", lambda: ops.linear(xd, wd, bias=bd, dtype=ttnn.bfloat16, **lin_kw), {},
                     ref=x.double() @ wq.double() + b.double())
+            pre = x.double() @ wq.double()   # the bias as its own pass over the output: the same call without it
+            run("model-nobias", lambda: ops.linear(xd, wd, dtype=ttnn.bfloat16, **lin_kw, **kw), {},
+                ref=torch.nn.functional.gelu(pre) if act == "gelu" else pre)
+            if act:
+                run("model-nobias-noact", lambda: ops.linear(xd, wd, dtype=ttnn.bfloat16, **lin_kw), {}, ref=pre)
+            # the bias folded in as one more K tile: x gets a ones column, w the bias row, so no reload pass adds it
+            e = torch.zeros(*x.shape[:-1], 32, dtype=torch.bfloat16); e[..., 0] = 1
+            wa = torch.cat([w, b[None], torch.zeros(31, N, dtype=torch.bfloat16)])
+            wad = ttnn.from_torch(wa, layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt)
+            ed = ttnn.from_torch(e, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+            xa = ttnn.concat([xd, ed], dim=-1)
+            waq = ttnn.to_torch(wad).double()
+            aref = torch.cat([x.double(), e.double()], dim=-1) @ waq
+            run("model-augk", lambda: ops.linear(xa, wad, dtype=ttnn.bfloat16, **lin_kw, **kw), {},
+                ref=torch.nn.functional.gelu(aref) if act == "gelu" else aref)
+            run("concat-ones", lambda: ttnn.concat([xd, ed], dim=-1), {}, ref=torch.cat([x.double(), e.double()], dim=-1))
+            run("concat-ones-l1", lambda: ttnn.concat([xd, ed], dim=-1, memory_config=ttnn.L1_MEMORY_CONFIG), {},
+                ref=torch.cat([x.double(), e.double()], dim=-1))
+            ttnn.deallocate(xa); ttnn.deallocate(wad); ttnn.deallocate(ed)
             run("model-b8out", lambda: ops.linear(xd, wd, bias=bd, dtype=ttnn.bfloat8_b, **lin_kw, **kw), {})
             x8 = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat8_b)
             run("model-b8in", lambda: ops.linear(x8, wd, bias=bd, dtype=ttnn.bfloat16, **lin_kw, **kw), {})

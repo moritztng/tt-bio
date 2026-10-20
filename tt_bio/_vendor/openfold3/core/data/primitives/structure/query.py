@@ -902,6 +902,14 @@ def structure_with_ref_mols_from_query(query: Query) -> StructureWithReferenceMo
             # Add processed reference molecules
             processed_reference_mols.extend(segment_ref_mols)
 
+            # tt-bio: the segment builders assign chain_id into biotite's default <U4, which
+            # truncates a longer id, and the MSA token mapper then matches no atom. Set it
+            # at full width; an id of 4 or fewer keeps <U4 and the identical array.
+            segment_atom_array.set_annotation(
+                "chain_id",
+                np.full(len(segment_atom_array), chain_id, f"<U{max(4, len(chain_id))}"),
+            )
+
             segment_atom_array.set_annotation(
                 "entity_id",
                 np.repeat(entity_to_id[representation], len(segment_atom_array)),
