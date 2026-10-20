@@ -368,6 +368,11 @@ def _normal_hifi3() -> bool:
     return tenstorrent.is_wormhole()
 
 
+# Normal mode's fc1 and fc2 at HiFi2 on their bf16 weights, as --fast runs them on block-fp8 (L7b: fc1+fc2 at HiFi2 moved
+# --fast pcc +0.000052 / -0.000003 at 650M / 1.3B); qkv and out keep HiFi3.
+_SAPROT_NORMAL_HIFI2 = env_flag("TT_BIO_SAPROT_NORMAL_HIFI2", False)
+
+
 class _SaprotLin(_MMLin):
     MM_BFP8_HIFI2 = False   # SaProt 35M --fast at HiFi2: pooled cos vs fp32 0.999915 -> 0.999879, under the 0.9999 bar
 
@@ -375,22 +380,24 @@ class _SaprotLin(_MMLin):
         return _saprot_mm(int(self.norm_weight.shape[-1]))
 
     def _ck(self, w):
-        """The model's kernel config, at HiFi2 for a block-fp8 weight where _SAPROT_HIFI2 serves."""
+        """The model's kernel config: HiFi2 for fc1/fc2 where _SAPROT_HIFI2 serves (block-fp8 weights, or bf16 ones
+        under _SAPROT_NORMAL_HIFI2), else HiFi3 for a bf16 weight under _SAPROT_NORMAL_HIFI3."""
         ck = self.compute_kernel_config
         d = int(self.norm_weight.shape[-1])
         on = d >= _HIFI2_MIN_WIDTH if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
-        if not (on and w.dtype == ttnn.bfloat8_b and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _SAPROT_HIFI2_ROLES
+        if (on and (w.dtype == ttnn.bfloat8_b or (_SAPROT_NORMAL_HIFI2 and w.dtype == ttnn.bfloat16))
+                and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _SAPROT_HIFI2_ROLES
                 and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
-            if _normal_hifi3() and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
-                if getattr(self, "_ck_hifi3", None) is None:
-                    self._ck_hifi3 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ck.math_approx_mode,
-                                              fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
-                return self._ck_hifi3
-            return ck
-        if getattr(self, "_ck_hifi2", None) is None:
-            self._ck_hifi2 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ck.math_approx_mode,
-                                      fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
-        return self._ck_hifi2
+            if getattr(self, "_ck_hifi2", None) is None:
+                self._ck_hifi2 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ck.math_approx_mode,
+                                          fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
+            return self._ck_hifi2
+        if _normal_hifi3() and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
+            if getattr(self, "_ck_hifi3", None) is None:
+                self._ck_hifi3 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ck.math_approx_mode,
+                                          fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
+            return self._ck_hifi3
+        return ck
 
     def _lin(self, x, w, bias=None, dtype=None, **kw):
         act = kw.get("activation")
