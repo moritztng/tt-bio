@@ -209,8 +209,8 @@ _CKC_LOFI = (ttnn.MathFidelity.LoFi, True, False, False)
 
 
 def _ckc(ckc_default):
-    from .tenstorrent import lever
-    return ckc_default or _CKC_OVERRIDE or (_CKC_LOFI if lever("triatt_lofi") else _CKC_DEFAULT)
+    from .tenstorrent import lever, lofi_allowed
+    return ckc_default or _CKC_OVERRIDE or (_CKC_LOFI if lever("triatt_lofi") and lofi_allowed() else _CKC_DEFAULT)
 
 
 def q_parallel_factor(S: int, H: int, q_chunk: int, cores: int, cap: int = -1) -> int:

@@ -25,6 +25,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.delenv("TT_BIO_LEVERS")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.NORMAL_LEVERS
     assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit"}
+    assert of3.FAST_LEVERS - of3.WH_FAST_LEVERS == {"ws_lofi"}   # LoFi hangs Wormhole chips
     assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32", "triatt_ln_b8", "dit_l1", "atom_l1", "ws_psilu", "dit_mask8"}
     assert of3.WH_NORMAL_LEVERS - of3.NORMAL_LEVERS == {"trimul_bres"} and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
 
@@ -267,3 +268,18 @@ def test_triatt_k1_offers_the_one_k_rung_when_a_narrower_fused_q_fits(monkeypatc
     assert T._tri_att_k_chunks(640, 640, 12, 32, ttnn.bfloat16) == (640, 160)
     monkeypatch.setattr(T, "TRIATT_K1_ANY_Q", False)
     assert T._tri_att_k_chunks(640, 640, 12, 32, ttnn.bfloat16) == (160,)
+
+
+def test_lofi_levers_are_inert_on_wormhole(monkeypatch):
+    """LoFi hangs Wormhole chips (spd-fasthang 10-08, OpenFold3 9PCQ 10-20), so no set or arm turns it on there."""
+    import ttnn
+    from tt_bio import triatt_sdpa
+    base = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4)
+    with T.levers("lofi,triatt_lofi,ws_lofi"):
+        monkeypatch.setattr(T, "is_wormhole", lambda: True)
+        assert not T.lofi_allowed()
+        assert T.lpx_compute_kernel_config(base) is base
+        assert triatt_sdpa._ckc(None) == triatt_sdpa._CKC_DEFAULT
+        monkeypatch.setattr(T, "is_wormhole", lambda: False)
+        assert T.lpx_compute_kernel_config(base).math_fidelity == ttnn.MathFidelity.LoFi
+        assert triatt_sdpa._ckc(None) == triatt_sdpa._CKC_LOFI
