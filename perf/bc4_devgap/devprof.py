@@ -15,7 +15,7 @@ so its replayed programs carry the names of the eager calls that captured it.
 Run it on a Tracy build (the launcher `perf/bc4_devgap/run.sh` sets the environment):
 
     TT_METAL_DEVICE_PROFILER=1 TT_METAL_PROFILER_MID_RUN_DUMP=1 TT_METAL_PROFILER_CPP_POST_PROCESS=1 \\
-    TT_METAL_PROFILER_DISABLE_DUMP_TO_FILES=1 TT_METAL_TRACE_PROFILER=1 \\
+    TT_METAL_PROFILER_DISABLE_DUMP_TO_FILES=1 \\
         python perf/bc4_devgap/devprof.py --out RUN --at 4 --keep 2
 
 A read stalls the host until the card drains, so a gap that spans a read is the instrument's and
