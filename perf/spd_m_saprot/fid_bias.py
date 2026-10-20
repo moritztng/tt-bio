@@ -96,6 +96,17 @@ def main() -> int:
                               bias=float((d * ref.sign()).mean() / ref.abs().mean())))
                 except Exception as e:  # noqa: BLE001 -- a refused arm is a data point
                     emit(dict(shape=name, fid=fid, x=tag, error=str(e).splitlines()[0][:200]))
+        # the same matmul packing block-fp8 straight from its fp32 dest: the rounding a producer-packed block-fp8
+        # activation carries (shsdpa's output, an LN kernel's), against the typecast's from a bf16 source
+        ck = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=False,
+                                              fp32_dest_acc_en=True, packer_l1_acc=True)
+        for odt, tag in ((ttnn.bfloat16, "pack-bf16"), (ttnn.bfloat8_b, "pack-b8")):
+            o, ms = timed(lambda: ttnn.experimental.minimal_matmul(
+                xs["bf16"], wd, bias_tensor=bd, compute_kernel_config=ck, dtype=odt,
+                memory_config=ttnn.DRAM_MEMORY_CONFIG, config=cfg))
+            d = ttnn.to_torch(o).double().reshape(ref.shape) - ref; ttnn.deallocate(o)
+            emit(dict(shape=name, fid="HiFi3", x="bf16", arm=tag, ms=round(ms, 4), rel_l2=float(d.norm() / ref.norm()),
+                      bias=float((d * ref.sign()).mean() / ref.abs().mean())))
         for t in xs.values():
             ttnn.deallocate(t)
         ttnn.deallocate(wd); ttnn.deallocate(bd)

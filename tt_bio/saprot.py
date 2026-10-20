@@ -366,10 +366,19 @@ def _hifi2_roles():
     return _SAPROT_HIFI2_ROLES + (("qkv", "out") if _SAPROT_IN_B8 else ())
 
 
+def _in_b8_on(w, d):
+    return _SAPROT_IN_B8 and w.dtype == ttnn.bfloat8_b and d >= _HIFI2_MIN_WIDTH
+
+
+# Under _SAPROT_IN_B8, shsdpa packs the attention output as block-fp8 from its fp32 dest instead of a bf16 output and a
+# typecast (whose bf16 source makes half the values ties).
+_SAPROT_SDPA_B8 = env_flag("TT_BIO_SAPROT_SDPA_B8", True)
+
+
 def _in_b8(x, w, d):
     """x as block-fp8 where _SAPROT_IN_B8 serves w (a block-fp8 weight in a model at least _HIFI2_MIN_WIDTH wide); the
     bf16 x is freed."""
-    if not (_SAPROT_IN_B8 and w.dtype == ttnn.bfloat8_b and d >= _HIFI2_MIN_WIDTH and x.dtype == ttnn.bfloat16):
+    if not (_in_b8_on(w, d) and x.dtype == ttnn.bfloat16):
         return x
     y = ttnn.typecast(x, ttnn.bfloat8_b, memory_config=x.memory_config())
     ttnn.deallocate(x)
@@ -655,7 +664,9 @@ class ESM2Attention(_SaprotLin, Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_sdpa_ckc(heads is not None))  # [B, L, H*32] when fold_rope; out_weight has the zero rows
+        b8 = _in_b8_on(self.out_weight, int(self.norm_weight.shape[-1])) and _SAPROT_SDPA_B8
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_sdpa_ckc(heads is not None),
+                    out_dtype=ttnn.bfloat8_b if b8 else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = _in_b8(o, self.out_weight, int(self.norm_weight.shape[-1]))
         out = self._lin_add(o, self.out_weight, self.out_bias, x)
