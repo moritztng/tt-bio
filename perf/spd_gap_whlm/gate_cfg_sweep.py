@@ -24,6 +24,8 @@ def main() -> int:
     ap.add_argument("--fidelity", default=None, help="one MathFidelity for every arm (the 300M/600M model runs HiFi3); "
                     "default HiFi2 --fast, HiFi4 normal and for the 6B")
     ap.add_argument("--modes", default="normal,fast")
+    ap.add_argument("--full-sync", action="store_true", help="dst_full_sync_en for every arm: dest holds twice the "
+                    "subblock tiles (8 fp32 / 16 bf16) but math and pack no longer overlap on dest halves")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -47,7 +49,8 @@ def main() -> int:
             ck = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=getattr(ttnn.MathFidelity, args.fidelity) if args.fidelity else
                 ttnn.MathFidelity.HiFi2 if fast and name != "6b" else ttnn.MathFidelity.HiFi4,
-                math_approx_mode=False, fp32_dest_acc_en=not fast or name == "6b", packer_l1_acc=True)   # the 6B keeps HiFi4
+                math_approx_mode=False, fp32_dest_acc_en=not fast or name == "6b", packer_l1_acc=True,   # the 6B keeps HiFi4
+                dst_full_sync_en=args.full_sync)
             xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
             wd1, wd2 = (ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt) for w in (w1, w2))
             base = esmc._mm_config(xd, wd1)["config"]   # 6b: only its K block seeds the sweep
@@ -77,17 +80,17 @@ def main() -> int:
                 return o
 
             ts = sorted(timed(lambda: ttnn.deallocate(today()), dev, 1, args.inner) for _ in range(args.repeat))
-            rec = {"shape": name, "mode": mode, "fidelity": str(ck.math_fidelity), "today_ms": ts[len(ts) // 2], "configs": []}
+            rec = {"shape": name, "mode": mode, "fidelity": str(ck.math_fidelity), "full_sync": args.full_sync, "today_ms": ts[len(ts) // 2], "configs": []}
             w1h, w2h = (ttnn.to_torch(w).double() for w in (wd1, wd2))
             ref = torch.nn.functional.silu(x.double() @ w1h) * (x.double() @ w2h)
-            dmax = 4 if not fast or name == "6b" else 8             # dest tiles per half under fp32 / bf16 acc
+            dmax = (4 if not fast or name == "6b" else 8) * (2 if args.full_sync else 1)   # dest tiles a subblock gets
             for kb in sorted({base.K_block_size, 2, 4}):
                 if (d // 32) % kb:
                     continue
                 for nb in (4, 6, 8, 10, 12):
                     wd12 = None
                     for mb in ((1, 2, 4, 8) if name == "6b" else (8, 16)):
-                        for sw in (2, 3, 4, 5, 6):
+                        for sw in (2, 3, 4, 5, 6, 8):
                             for sh in (1, 2, 4):
                                 if nb % sw or mb % sh or sh * sw > dmax:
                                     continue
