@@ -82,6 +82,8 @@ ap.add_argument("--bc2", type=Path, default=Path("~/bcx_shipped/bc2").expanduser
 ap.add_argument("--trajectories", default="1",
                 help="BindCraft 2 trajectories per card: 1 (the GAP protocol, one at a time) or N / auto, the "
                      "interleaved campaign a served run takes by default; then one campaign record, no per-rep ones")
+ap.add_argument("--structure-on-card", action="store_true",
+                help="BindCraft 2: run AF2's structure module on card (bindcraft2.campaign_predictor(structure=True))")
 ap.add_argument("--no-coords", action="store_true")
 ap.add_argument("--dry", action="store_true", help="build the run config, log it, stop before weights and device")
 a = ap.parse_args()
@@ -280,6 +282,8 @@ if a.model == "bindcraft2":
 
     weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
                                             ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
+    predictor_kw = {**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {}),
+                    **({"structure": True} if a.structure_on_card else {})}
     if a.trajectories != "1":
         # Interleaved trajectories run on their own threads, so the per-rep hooks above (which
         # take the latest trajectory as the running one) do not apply. Time the whole campaign
@@ -287,8 +291,7 @@ if a.model == "bindcraft2":
         n = a.trajectories if a.trajectories == "auto" else int(a.trajectories)
         t0, err = time.monotonic(), None
         try:
-            with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]}
-                                           if "af2_weights" in weights else {})):
+            with bc2.campaign_predictor(**predictor_kw):
                 bc2.run_campaign(settings, str(project), trajectories_per_card=n, **weights)
         except Exception:
             err = traceback.format_exc()[-3000:]
@@ -320,7 +323,7 @@ if a.model == "bindcraft2":
     campaign.run_trajectory = design
     try:
         # the card's trunk pool reads the same AF2 params the campaign does, not tt-bio's weights cache
-        with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
+        with bc2.campaign_predictor(**predictor_kw):
             bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
     except Exception:
         if traj:
