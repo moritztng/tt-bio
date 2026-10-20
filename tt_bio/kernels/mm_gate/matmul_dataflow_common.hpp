@@ -312,6 +312,20 @@ void write_block_sync_granular(
 }
 
 /**
+ * tt-bio mm_rope: the page of output tile (m, n) of a chunk d1 tiles wide. Under MM_HEADS_ST the chunk is written per
+ * head, [B, H, S, 64] with S = MM_HEADS_ST tiles: row tile m is (batch m / S, position m % S) and column tile n is
+ * (head n / 2, half n % 2), so the qkv matmul writes q, k and v in the layout SDPA reads, nlp_create_qkv_heads' layout.
+ */
+FORCE_INLINE uint32_t chunk_tile_id(uint32_t m, uint32_t n, uint32_t d1) {
+#ifdef MM_HEADS_ST
+    constexpr uint32_t st = MM_HEADS_ST;
+    return ((m / st * (d1 >> 1) + (n >> 1)) * st + m % st) * 2 + (n & 1);
+#else
+    return m * d1 + n;
+#endif
+}
+
+/**
  * Helper: dispatch to correct tuple element using fold expression.
  * Each branch calls noc_async_write_tile with the concrete TensorAccessor type.
  */
@@ -372,7 +386,7 @@ void write_block_sync_split(
                 continue;
             }
 
-            uint32_t tile_id_in_chunk = i * chunk_shape.logical_d1 + tile_idx_in_chunk;
+            uint32_t tile_id_in_chunk = chunk_tile_id(i, tile_idx_in_chunk, chunk_shape.logical_d1);
 
             // Compile-time dispatch preserving concrete types
             write_tile_to_chunk(
@@ -427,7 +441,7 @@ void write_block_sync_granular_split(
                     break;
                 }
 
-                uint32_t tile_id = m_tile * chunk_shape.logical_d1 + tile_idx_in_chunk;
+                uint32_t tile_id = chunk_tile_id(m_tile, tile_idx_in_chunk, chunk_shape.logical_d1);
                 // Compile-time dispatch preserving concrete types
                 write_tile_to_chunk(
                     accessors, chunk_idx, tile_id, out_read_ptr, std::index_sequence_for<Accessors...>{});
