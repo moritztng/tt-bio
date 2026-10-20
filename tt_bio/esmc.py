@@ -522,6 +522,9 @@ _ESMC_ACT_BFP8 = env_flag("TT_BIO_ESMC_ACT_BFP8", False)
 # LM's L1 q/k path); pcc vs fp32 0.998964 -> 0.999002 and 0.998875 -> 0.998907, pooled cos >= 0.99982.
 # Blackhole on top of the LM flip (p150a, 1340 MHz, 2 rounds): normal 139.7 -> 127.9 ms, --fast 139.5 -> 126.6, pcc vs fp32
 # 0.998961 -> 0.998913 and 0.998814 -> 0.998809. lm_linear keeps ttnn.linear's own pick (ESMFold2 on Blackhole).
+# bf16 takes the 1D program unless spreading N over every core pads more than a quarter of it: Blackhole's 110 cores
+# pad the qkv's 240 tiles to 330, where 2D wins (lin6b_sweep, p150a, 1350 MHz: 0.274 -> 0.227 ms a call); Wormhole's
+# 72 pad it to 288 and the fc1 half fits either grid, so 1D stays (0.196 against 0.212 for 2D on Blackhole).
 _ESMC_LIN6B_PROG = env_flag("TT_BIO_ESMC_LIN6B_PROG", True)
 _LIN6B_PROG_MAX_ROWS = 544
 
@@ -544,8 +547,9 @@ def _lin6b_program(x, w):
     g = x.device().compute_with_storage_grid_size()
     mt, kt, nt = -(-rows // 32), k // 32, n // 32
     kb = next(b for b in (8, 4, 2, 1) if kt % b == 0)
-    if n > k and not bfp8:
-        pn = -(-nt // (g.x * g.y))
+    cores = g.x * g.y
+    pn = -(-nt // cores)
+    if not bfp8 and 4 * (pn * cores - nt) <= nt:
         sh, sw = _subblock(mt, pn)
         return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
             compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh,
