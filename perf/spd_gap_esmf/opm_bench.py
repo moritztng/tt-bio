@@ -19,7 +19,7 @@ ap.add_argument("--n", type=int, default=512)
 ap.add_argument("--m", type=int, nargs="+", default=[35, 64])
 ap.add_argument("--reps", type=int, default=4)
 ap.add_argument("--calls", type=int, default=4)
-ap.add_argument("--arms", nargs="+", default=["tile", "rm", "kq"])
+ap.add_argument("--arms", nargs="+", default=["tile", "pk", "rm", "kq"])
 A = ap.parse_args()
 OUT = Path(A.out).resolve(); OUT.mkdir(parents=True, exist_ok=True)
 LOG = open(OUT / "bench.jsonl", "a")
@@ -63,7 +63,7 @@ for M in A.m:
     a, b, r = up(ah), up(bh), up(rh)
     b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (1, M, L * 32))
     fns = {"tile": lambda: opm._rows(a, b2, r, L, M), "rm": lambda: opm._rows_rm(a, b2, r, L, M),
-           "kq": lambda: opm._rows_kq(a, b, r, L, M)}
+           "kq": lambda: opm._rows_kq(a, b, r, L, M), "pk": lambda: opm._rows_pk(a, b2, r, L, M)}
     for arm in A.arms:  # warm (program cache) + error
         try:
             o = fns[arm]()
@@ -75,6 +75,10 @@ for M in A.m:
         except Exception as exc:
             log(ev="arm_failed", M=M, arm=arm, err=f"{type(exc).__name__}: {str(exc)[:400]}")
             fns.pop(arm)
+    if "tile" in fns and "pk" in fns:  # pk is the tile path with a copy kernel in place of two reshapes
+        o1, o2 = fns["tile"](), fns["pk"]()
+        log(ev="bitexact", M=M, pk_vs_tile=bool(torch.equal(ttnn.to_torch(o1), ttnn.to_torch(o2))))
+        ttnn.deallocate(o1); ttnn.deallocate(o2)
     ts = {k: [] for k in fns}
     for rep in range(A.reps):
         for arm, fn in fns.items():
