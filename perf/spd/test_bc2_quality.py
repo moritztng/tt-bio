@@ -734,3 +734,57 @@ def test_a_campaign_on_an_unpriced_card_is_left_unpriced_not_guessed(tmp_path):
     c = Q.build_reference(req, root)["cost"]["per_campaign"]["pdl1/C1_s104"]
     assert "usd_per_trajectory" not in c
     assert "L40S" in c["unpriced_why"]
+
+
+def test_overflow_runs_are_read_but_never_become_a_target(tmp_path):
+    """A session that spends leftover budget on a third target must not create a target at n=1. The 2026-10-20
+    rental banked 30 dyn trajectories and exactly 1 il7ra; listing il7ra beside the other two would have failed
+    the phase-0 gate and, worse, offered a reference distribution nothing can be graded against."""
+    root = str(tmp_path)
+    make_arm(root, "pdl1", "A1", seeds=(101, 102, 103))
+    make_campaign(root, "il7ra", "E1", 101, n=1)
+    req = _request(root, _runs("pdl1", "A1", (101, 102, 103)))
+    req["overflow_runs"] = _runs("il7ra", "E1", (101,), n=5)
+    ref = Q.build_reference(req, root)
+    assert list(ref["targets"]) == ["pdl1"]
+    assert ref["overflow"]["targets"]["il7ra"]["n"] == 1
+    assert [m["id"] for m in ref["missing_runs"]] == ["il7ra/E1_s101"], "a short overflow campaign still reports"
+
+
+def test_a_target_whose_refold_metrics_are_thin_says_so(tmp_path):
+    """dyn runs 30 trajectories and refolds 5 of them: a metric's n is not the target's n. The reference has to
+    name that, or a reader takes the stated power at n=30 for metrics that never had 30 values."""
+    root = str(tmp_path)
+    make_arm(root, "dyn", "D1", seeds=(101, 102, 103), terminated_every=2)
+    ref = Q.build_reference(_request(root, _runs("dyn", "D1", (101, 102, 103))), root)
+    t = ref["targets"]["dyn"]
+    assert t["n"] == 30
+    assert t["thin_metrics"]["i_ptm"] == 15
+    assert "final_loss" not in t["thin_metrics"], "final_loss exists for every trajectory, refold or not"
+    assert "final_loss" in t["thin_metrics_note"]
+
+    make_arm(root, "pdl1", "A1", seeds=(201,), terminated_every=10 ** 6)
+    full = Q.build_reference(_request(root, _runs("pdl1", "A1", (201,))), root)
+    assert "thin_metrics" not in full["targets"]["pdl1"], "no note when every metric is at full n"
+
+
+def test_an_unbought_target_is_priced_at_its_own_rate_not_the_cheapest_one(tmp_path):
+    """A trajectory's cost is set by the target's token count: dyn's 78-token complex measured $0.0118 against
+    pdl1's $0.0223 on the same card. Pricing a pdl1 top-up at dyn's rate halves it."""
+    root = str(tmp_path)
+    for target, span in (("pdl1", 180.0), ("dyn", 90.0)):
+        make_campaign(root, target, "C1", 104, n=4)
+        rows = [json.dumps({"ev": "start", "gpu": "NVIDIA CMP 170HX, 200.00 W"})]
+        rows += [json.dumps({"ev": "rep", "trajectory": i + 1, "traj_s": span}) for i in range(4)]
+        (tmp_path / target / "C1_s104" / "runs.jsonl").write_text("\n".join(rows) + "\n")
+    req = _request(root, _runs("pdl1", "C1", (104,), n=4) + _runs("dyn", "C1", (104,), n=4))
+    req["dph_usd_per_hour"] = {"CMP 170HX": 0.4469}
+    req["unbought"] = [{"what": "more pdl1", "target": "pdl1", "trajectories": 100},
+                       {"what": "il2r", "target": "il2r", "price_like": "pdl1", "trajectories": 100}]
+    cost = Q.build_reference(req, root)["cost"]
+    pdl1_rate = cost["usd_per_trajectory_by_target"]["pdl1"]["usd_per_trajectory"]
+    assert cost["usd_per_trajectory_by_target"]["dyn"]["usd_per_trajectory"] < pdl1_rate
+    assert cost["unbought"][0]["usd"] == pytest.approx(100 * pdl1_rate, abs=0.01)
+    assert "own measured rate" in cost["unbought"][0]["usd_basis"]
+    assert cost["unbought"][1]["usd"] == cost["unbought"][0]["usd"]
+    assert "floor for il2r" in cost["unbought"][1]["usd_basis"]

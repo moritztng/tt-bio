@@ -847,7 +847,7 @@ def merge_requests(requests: list[dict]) -> dict:
     campaign (which would repeat its (campaign_seed, trajectory_number) keys and break pairing).
     """
     out = dict(requests[0])
-    for key in ("runs", "banked_runs", "unbought"):
+    for key in ("runs", "banked_runs", "overflow_runs", "unbought"):
         seen, merged = set(), []
         for req in requests:
             for item in req.get(key) or []:
@@ -880,7 +880,13 @@ def build_reference(request: dict, root, seed: int = 0, provisional: bool = Fals
     # Several roots, because a two-target reference is bought in more than one rental and each session pulls to
     # its own directory. First root that holds the campaign wins.
     roots = [root] if isinstance(root, str) else list(root)
-    for run in list(request.get("runs", [])) + list(request.get("banked_runs", [])):
+    # `overflow_runs` are campaigns a session ran with whatever budget was left over, on a target nobody expects
+    # to reach n >= 30. They are read and reported, never promoted to a target: a reference distribution at n=1
+    # is not a reference, and listing it beside the real ones invites a grade that cannot mean anything.
+    overflow_by_target: dict[str, list[Trajectory]] = {}
+    overflow_paths: dict[str, list[str]] = {}
+    for run in (list(request.get("runs", [])) + list(request.get("banked_runs", []))
+                + [dict(r, _overflow=True) for r in request.get("overflow_runs", [])]):
         leaf = os.path.join(run["target"], f"{run['arm']}_s{run['campaign_seed']}")
         arm_dir = next((os.path.join(r, leaf) for r in roots if os.path.isdir(os.path.join(r, leaf))), None)
         if arm_dir is None:
@@ -891,8 +897,12 @@ def build_reference(request: dict, root, seed: int = 0, provisional: bool = Fals
         if len(got) != run["trajectories"]:
             missing.append({"id": run["id"], "tier": run["tier"], "expected_at": arm_dir,
                             "note": f"{len(got)} trajectories, the request asked for {run['trajectories']}"})
-        by_target.setdefault(run["target"], {}).setdefault(run["arm"], []).extend(got)
-        paths.setdefault(run["target"], []).append(arm_dir)
+        if run.get("_overflow"):
+            overflow_by_target.setdefault(run["target"], []).extend(got)
+            overflow_paths.setdefault(run["target"], []).append(arm_dir)
+        else:
+            by_target.setdefault(run["target"], {}).setdefault(run["arm"], []).extend(got)
+            paths.setdefault(run["target"], []).append(arm_dir)
         # A banked campaign may have run at a different concurrency than this session, and the two cannot
         # share one number: the B200 ran three campaigns to a card, this one runs one.
         priced = campaign_cost(arm_dir, rates, int(run.get("concurrency") or concurrency))
@@ -901,6 +911,18 @@ def build_reference(request: dict, root, seed: int = 0, provisional: bool = Fals
 
     targets = {t: target_summary([x for arm in arms.values() for x in arm], paths.get(t, []))
                for t, arms in by_target.items()}
+    for t, summary in targets.items():
+        thin = {m: summary["metrics"][m].get("n", 0) for m in CONTINUOUS
+                if summary["metrics"][m].get("n", 0) < summary["n"]}
+        if thin:
+            summary["thin_metrics"] = thin
+            summary["thin_metrics_note"] = (
+                f"{t} ran {summary['n']} trajectories, but "
+                + ", ".join(f"{m} has {n}" for m, n in sorted(thin.items()))
+                + ". A refold metric only exists for a trajectory that produced a design to refold, so on a "
+                  "target that rarely accepts, n per metric is not n per target. Read this target's verdict on "
+                  "the metrics at full n (final_loss, iterations, the terminated distribution, collapse and the "
+                  "acceptance counts); the thin ones cannot carry the stated power.")
 
     # The A/A control: two stock runs at different seeds, on the target that has two arms.
     #
@@ -948,10 +970,21 @@ def build_reference(request: dict, root, seed: int = 0, provisional: bool = Fals
     #  * It does not price trajectories alone. A top-up is a FRESH rental, so it pays setup once (clone, pip,
     #    weights, first JAX import) and the bandwidth of pulling results back, on top of per-trajectory compute.
     #    `topup_overhead` carries both, measured, from the request.
+    #  * It does not price one target at another's rate. A trajectory's cost is set by the target's token count:
+    #    dyn's 78-token complex ran at $0.0118 and pdl1's 195-token one at $0.0223 on the same card, and a
+    #    bigger target than either costs more again. An unbought item naming a target is priced at that
+    #    target's own measured rate; one that names an unmeasured target says whose rate it borrowed.
     cost = {}
     if per_campaign:
         priced = [c for c in per_campaign.values() if c.get("usd_per_trajectory")]
         cost = {"dph_usd_per_hour": [c["usd_per_trajectory"] for c in priced], "per_campaign": per_campaign}
+        by_target_cost = {}
+        for run_id, c in per_campaign.items():
+            if c.get("usd_per_trajectory"):
+                t = run_id.split("/")[0]
+                prev = by_target_cost.get(t)
+                if prev is None or c["usd_per_trajectory"] < prev["usd_per_trajectory"]:
+                    by_target_cost[t] = c
         if priced:
             best = min(priced, key=lambda c: c["usd_per_trajectory"])
             usd = best["usd_per_trajectory"]
@@ -962,10 +995,29 @@ def build_reference(request: dict, root, seed: int = 0, provisional: bool = Fals
             cost["usd_per_trajectory_basis"] = (
                 f"cheapest card that delivered trajectories here: {best.get('gpu')} at "
                 f"${best.get('dph_usd_per_hour')}/h, {best.get('delivered_s_per_trajectory')} s/trajectory")
+            cost["usd_per_trajectory_by_target"] = {
+                t: {"usd_per_trajectory": round(c["usd_per_trajectory"], 4), "gpu": c.get("gpu"),
+                    "s_per_trajectory": c.get("delivered_s_per_trajectory")}
+                for t, c in sorted(by_target_cost.items())}
             cost["topup_fixed_usd"] = fixed
-            cost["unbought"] = [dict(item, usd=round(item["trajectories"] * usd + fixed, 2),
-                                     usd_basis=f"{item['trajectories']} x ${usd:.4f} + ${fixed:.4f} rental overhead")
-                                for item in request.get("unbought", []) if item.get("trajectories")]
+
+            def price(item):
+                # `target` is the item's own target, `price_like` the measured target whose rate it borrows when
+                # its own has never run here. Borrowing is always a floor: the item names a bigger complex, or
+                # it would not need to borrow.
+                t, proxy = item.get("target"), item.get("price_like")
+                c = by_target_cost.get(t) or by_target_cost.get(proxy)
+                rate = c["usd_per_trajectory"] if c else usd
+                if by_target_cost.get(t):
+                    how = f"at {t}'s own measured rate"
+                elif c:
+                    how = f"at {proxy}'s measured rate, a floor for {t}, which has never run here"
+                else:
+                    how = "at the cheapest rate measured here, a floor and not a quote"
+                return dict(item, usd=round(item["trajectories"] * rate + fixed, 2),
+                            usd_basis=f"{item['trajectories']} x ${rate:.4f} + ${fixed:.4f} rental overhead, {how}")
+
+            cost["unbought"] = [price(item) for item in request.get("unbought", []) if item.get("trajectories")]
             cost["note"] = ("Measured from each campaign's own runs.jsonl against the hourly rate actually "
                             "billed, so a top-up is execution and not re-planning. Unbought items are priced as "
                             "a fresh rental of the cheapest demonstrated card: per-trajectory compute plus one "
@@ -977,6 +1029,12 @@ def build_reference(request: dict, root, seed: int = 0, provisional: bool = Fals
         "aa_control": aa,
         "cost": cost,
         "missing_runs": missing,
+        **({"overflow": {
+            "why": ("Campaigns a session ran on leftover budget, on a target it never planned to take to 30. "
+                    "Kept out of `targets` on purpose: nothing may be graded against them."),
+            "targets": {t: target_summary(tr, overflow_paths.get(t, []))
+                        for t, tr in overflow_by_target.items()}}}
+           if overflow_by_target else {}),
         **({"provisional": True,
             "provisional_why": (
                 "Built with --provisional on the trajectories that happened to be on disk, at an n far below what "
