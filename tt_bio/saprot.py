@@ -359,15 +359,21 @@ _SAPROT_HIFI2_ROLES = ("fc1", "fc2")
 # fid_bias (ls99, Galaxy chip, 650M shapes, minimal_matmul at the shipped blocks, ms a call, bias vs float64): bf16 x
 # at HiFi2 -0.0028, the same x rounded to 7 bits -0.000002; block-fp8 x: qkv 0.695 -> 0.567, out 0.370 -> 0.257, fc1
 # 0.862 -> 0.688 (half the in0 bytes), typecast 0.04 ms in L1 at bias +0.0028 (ties round away from zero). Off until graded.
+# True = all three roles; a tuple names them ("qkv", "out", "fc1").
 _SAPROT_IN_B8 = env_flag("TT_BIO_SAPROT_IN_B8", False)
 
 
+def _in_b8_roles():
+    return ("qkv", "out", "fc1") if _SAPROT_IN_B8 is True else tuple(_SAPROT_IN_B8 or ())
+
+
 def _hifi2_roles():
-    return _SAPROT_HIFI2_ROLES + (("qkv", "out") if _SAPROT_IN_B8 else ())
+    return _SAPROT_HIFI2_ROLES + tuple(r for r in ("qkv", "out") if r in _in_b8_roles())
 
 
 def _in_b8_on(w, d):
-    return _SAPROT_IN_B8 and w.dtype == ttnn.bfloat8_b and d >= _HIFI2_MIN_WIDTH
+    return (w.dtype == ttnn.bfloat8_b and d >= _HIFI2_MIN_WIDTH
+            and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _in_b8_roles())
 
 
 # Under _SAPROT_IN_B8, shsdpa packs the attention output as block-fp8 from its fp32 dest instead of a bf16 output and a
