@@ -77,6 +77,34 @@ def test_declines_under_tape_answers_the_three_cases(taping):
     assert ops.declines_under_tape("other") is True
 
 
+def test_a_gate_that_names_its_operands_serves_raw_ones_under_a_tape(taping):
+    """A raw operand under an open tape has no gradient to drop, so the kernel serves it."""
+    on_tape = []
+
+    def hook(*a, **kw):
+        return None
+    hook.on_tape = lambda args, kwargs: on_tape.append(args) or "taped" in args
+    ops.set_grad_hook(hook)
+    assert ops.declines_under_tape("probe", "raw") is False
+    assert ops.declines_under_tape("probe", "raw", "taped") is True
+    assert on_tape == [("raw",), ("raw", "taped")]
+    assert ops.declines_under_tape("probe") is True, "no operands keeps the blanket answer"
+    ops.set_kernel_entries({"probe": lambda *a: None})
+    assert ops.declines_under_tape("probe", "taped") is False
+
+
+def test_a_hook_that_cannot_answer_for_operands_keeps_declining(taping):
+    assert ops.declines_under_tape("probe", "raw") is True
+
+
+def test_autograd_answers_for_operands_with_the_shims_own_test(monkeypatch):
+    ag = pytest.importorskip("tt_bio.autograd")
+    seen = []
+    monkeypatch.setattr(ag, "_on_tape", lambda args, kwargs: seen.append((args, kwargs)) or True)
+    assert ag._hook.on_tape(("x",), {}) is True
+    assert seen == [(("x",), {})]
+
+
 def test_nothing_installs_by_default(monkeypatch):
     """The release gate. Empty is byte-identical to the behaviour before the registry."""
     monkeypatch.delenv("TT_BIO_TAPED_KERNELS", raising=False)

@@ -49,10 +49,11 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     assert "trimul_gin_hifi2" in normal_set
     # Wormhole's normal mode keeps the pair SwiGLU kernel and the LM levers; Blackhole's does not.
     assert all((n in normal_set) is wormhole for n in ("transition_ws", "ws_resid", "ef2_lm_combine"))
-    # Fast-only on both archs: trimul_b8in and ws_lofi, so a Wormhole --fast fold is not the normal one.
+    # Fast-only: trimul_b8in on both archs, so a Wormhole --fast fold is not the normal one; ws_lofi on Blackhole
+    # only (LoFi hangs Wormhole chips).
     fast_set = rt.fold_levers(True).split("+")
     assert "ws_resid" in fast_set and fast_set.count("trimul_gin_hifi2") == 1
-    assert "ws_lofi" in fast_set and "ws_lofi" not in normal_set
+    assert ("ws_lofi" in fast_set) is not wormhole and "ws_lofi" not in normal_set
     assert "trimul_b8in" in fast_set and "trimul_b8in" not in normal_set
     # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
     assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))

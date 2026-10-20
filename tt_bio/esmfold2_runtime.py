@@ -1660,7 +1660,8 @@ def fold_levers(fast: bool) -> str:
         return os.environ["TT_BIO_LEVERS"]
     levers = LEVERS_FAST if fast else LEVERS_NORMAL
     if is_wormhole():
-        drop = _BH_ONLY_FAST if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
+        # ws_lofi too, since 2026-10-20: LoFi hangs Wormhole chips (tenstorrent.lofi_allowed)
+        drop = _BH_ONLY_FAST + ("ws_lofi",) if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     else:
