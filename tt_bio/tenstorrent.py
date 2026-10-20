@@ -788,6 +788,8 @@ _FAST_MODE = False
 #                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
 #   dit_shard       the token DiT's conditioned transition (Boltz-2) with its three [N, 2D] hidden products
 #                   block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and the gate after it as before.
+#   dit_fc123g      under dit_shard, the three hidden products and both multiplies as one fc12g pass over the
+#                   interleaved [gates | swish | a_to_b] weight (`_dit_transition_sharded`, kernels/fc12g).
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -806,7 +808,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm")
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_fc123g")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -825,7 +827,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "dit_bpad", "atom_mm16", "triatt_tai
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_fc123g"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -4516,7 +4518,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_fc123g")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -13322,32 +13324,39 @@ def _transition_shard_rows(W: int, c: int, hid: int) -> int:
 _FC12G_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kernels", "fc12g", "compute_fc12g.cpp")
 
 
-def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden):
-    """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`).
+def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden, products=2, defines=None):
+    """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`), or
+    with `products=3` silu(x @ w1) * (x @ w2) * (x @ w3) (`dit_fc123g`), each core column's in1 block its w1, w2
+    (and w3) columns in turn (`_fc12_interleave`).
 
-    One subblock is one fc half (1..4 rows x pn tiles, an fp32 dest half), fc1's then fc2's; the kernel runs the
-    silu on the PACK thread while MATH does fc2, then multiplies fc2 by the gate in dest (kernels/fc12g).
+    A subblock fits an fp32 dest half (4 tiles); a product wider than that spans several subblocks of one row
+    each. The kernel runs the silu on the PACK thread while MATH does the next product, then multiplies each
+    further product by the running one in dest (kernels/fc12g).
     """
     from .mm2d_generic import generic_matmul_2d
-    sh = max(h for h in range(1, 5) if pm % h == 0 and h * pn <= 4)
+    sw = max(w for w in range(1, 5) if pn % w == 0)
+    sh = max(h for h in range(1, 5) if pm % h == 0 and h * sw <= 4) if sw == pn else 1
     pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
-        out_subblock_w=pn, out_block_h=pm, out_block_w=2 * pn, per_core_M=pm, per_core_N=2 * pn,
+        out_subblock_w=sw, out_block_h=pm, out_block_w=products * pn, per_core_M=pm, per_core_N=products * pn,
         transpose_mcast=False, fused_activation=None, fuse_batch=True)
     shape = list(x.shape)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape[:-1] + [gx * pn * 32]), hidden, ttnn.TILE_LAYOUT,
                                          x.device(), mc)
+    defines = {"FC12G_PACK_SILU": "1", "FC12G_PRODUCTS": str(products), **(defines or {})}
     # Everything the descriptor depends on that the arguments below do not already fix.
     key = ("fc12g", tuple(shape), x.dtype, x.memory_config().buffer_type, w12.dtype, hidden, pm, pn, sh, bw, gx,
-           gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc)
-    return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=1, compute_src=_FC12G_SRC,
-                             compute_defines={"FC12G_PACK_SILU": "1"}, gate_tiles=2 * sh * pn, key=key)
+           gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc,
+           tuple(sorted(defines.items())))
+    return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=pn // sw, compute_src=_FC12G_SRC,
+                             compute_defines=defines, gate_tiles=2 * sh * sw, key=key)
 
 
-def _fc12_interleave(w1: torch.Tensor, w2: torch.Tensor, gx: int) -> torch.Tensor:
-    """[K, 2N] whose j-th of `gx` column blocks is w1's j-th block then w2's: one core column's fc1 and fc2."""
-    b = w1.shape[1] // gx
-    return torch.cat([t for j in range(gx) for t in (w1[:, j * b:(j + 1) * b], w2[:, j * b:(j + 1) * b])], 1)
+def _fc12_interleave(*ws: torch.Tensor, gx: int) -> torch.Tensor:
+    """[K, len(ws) N] whose j-th of `gx` column blocks is each of `ws`'s j-th block in turn: one core column's
+    fc1 and fc2 (and fc3)."""
+    b = ws[0].shape[1] // gx
+    return torch.cat([w[:, j * b:(j + 1) * b] for j in range(gx) for w in ws], 1)
 
 
 def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=None, out_mc=None):
@@ -13409,11 +13418,15 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
-def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
-    """`b_to_a((silu(a w_sw) * (a w_gt)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
+def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
+    """`b_to_a((silu(a w_gt) * (a w_sw)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
     the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
     is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
-    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
+    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1).
+
+    `w3` (w_gt, w_sw and w_ab interleaved per core column, `_fc12_interleave`) computes the hidden product in one
+    fc12g pass (`dit_fc123g`): no hidden tensors and no separate multiplies (ditparts.py: the three linears and two
+    multiplies 157.6 us of the 209.9 us block, the one-pass [768, 4608] linear 113.2)."""
     xs = [int(d) for d in a.padded_shape]
     mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
     nt, ct = int(w_sw.shape[-1]) // 32, int(w_ba.shape[-1]) // 32
@@ -13433,11 +13446,18 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
     bw = _transition_kb("fc1", kt)
     hid = []
     try:
-        for w in (w_sw, w_gt, w_ab):
-            hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
-                                   dtype=a.dtype))
-        b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
-        b = ttnn.multiply_(b, hid[2])
+        if w3 is not None and gx == 8 and kt == bw:
+            b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_HIFI4": "1"})
+            hid.append(b)
+            _latch("dit_fc123g", "served")
+        else:
+            if w3 is not None:
+                _latch("dit_fc123g", "declined")
+            for w in (w_sw, w_gt, w_ab):
+                hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc,
+                                       memory_config=mc, dtype=a.dtype))
+            b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+            b = ttnn.multiply_(b, hid[2])
         out = ttnn.linear(b, w_ba, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=a.dtype,
                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: the interleaved path from then on
@@ -13558,7 +13578,7 @@ class Transition(Module):
             return None
         if getattr(self, "_w12", None) is None:
             self._w12 = ttnn.from_torch(
-                _fc12_interleave(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(), 8),
+                _fc12_interleave(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(), gx=8),
                 layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.fc1_weight.dtype)
         return self._w12
 
@@ -15345,6 +15365,18 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_weight = self.torch_to_tt("output_projection.0.weight")
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
+    def _w123(self):
+        """gates | swish | a_to_b interleaved for the fc12g kernel's three-product pass, built on first use; None
+        unless `dit_fc123g` is on (and silu_f32, whose PACK-thread silu the kernel runs)."""
+        if not (lever("dit_fc123g") and lever("silu_f32")):
+            return None
+        if getattr(self, "_w3", None) is None:
+            swish, gates = torch.chunk(self.weights["swish_gate.0.weight"], chunks=2, dim=0)
+            self._w3 = ttnn.from_torch(
+                _fc12_interleave(gates.t(), swish.t(), self.weights["a_to_b.weight"].t(), gx=8),
+                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.a_to_b_weight.dtype)
+        return self._w3
+
     def __call__(
         self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None, residual=None
     ) -> ttnn.Tensor:
@@ -15355,7 +15387,7 @@ class ConditionedTransitionBlock(Module):
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
         b_a = (_dit_transition_sharded(a, self.swish_weight, self.gates_weight, self.a_to_b_weight,
-                                       self.b_to_a_weight, self.compute_kernel_config)
+                                       self.b_to_a_weight, self.compute_kernel_config, self._w123())
                if lever("dit_shard") and not self.atom_level and self.a_to_b_gate else None)
         if b_a is not None:
             ttnn.deallocate(a)
