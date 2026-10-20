@@ -310,6 +310,7 @@ if a.model == "bindcraft2":
             opened[:] = opened_nodes() or opened
 
     campaign.run_trajectory = design
+    t0 = time.monotonic()
     try:
         # the card's trunk pool reads the same AF2 params the campaign does, not tt-bio's weights cache
         with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
@@ -321,6 +322,15 @@ if a.model == "bindcraft2":
             log(ev="crash", err=traceback.format_exc()[-3000:], **HEAD)
     if traj:
         emit(len(traj) - 1)
+    # The campaign summary the interleaved path writes, written here too: a concurrency A/B compares campaign
+    # iterations per wall second (PROTOCOL rule 5), so its N=1 leg needs the same line, not a wall reconstructed
+    # from two record timestamps.
+    wall, per = time.monotonic() - t0, bc2_traj.campaign_trajectories(project)
+    iters = sum(p["iterations"] or 0 for p in per)
+    nodes = opened_nodes() or opened
+    log(ev="campaign", trajectories_per_card=1, wall_s=wall, trajectories=per, iterations=iters,
+        wall_per_iter=wall / iters if iters else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
+        err=None, **HEAD)
     log(ev="end")
     os._exit(0)
 
