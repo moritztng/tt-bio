@@ -1414,9 +1414,10 @@ _MATH_FIDELITIES = {"lofi": "LoFi", "hifi2": "HiFi2", "hifi3": "HiFi3", "hifi4":
 
 def lpx_compute_kernel_config(base):
     """`base` under the `lofi` and `acc_off` levers, or `base` itself when neither is on."""
-    if not (lever("lofi") or lever("acc_off")):
+    lofi = lever("lofi") and lofi_allowed()
+    if not (lofi or lever("acc_off")):
         return base
-    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi if lever("lofi") else base.math_fidelity,
+    cfg = type(base)(math_fidelity=ttnn.MathFidelity.LoFi if lofi else base.math_fidelity,
                      math_approx_mode=base.math_approx_mode,
                      fp32_dest_acc_en=base.fp32_dest_acc_en and not lever("acc_off"),
                      packer_l1_acc=base.packer_l1_acc)
@@ -7507,6 +7508,15 @@ def is_wormhole() -> bool:
     return arch_name() == "wormhole_b0"
 
 
+def lofi_allowed() -> bool:
+    """Whether a LoFi lever (`lofi`, `ws_lofi`, `triatt_lofi`) may take effect: Blackhole only. On Wormhole a LoFi
+    matmul stalls one core's unpacker on some chips and the fold hangs until the op timeout (spd-fasthang 2026-10-08:
+    5 hangs in 65 folds, every one at LoFi, the matmul throttle no cure; spd-gap-of3 2026-10-20: OpenFold3 9PCQ --fast
+    hung in 3 of 3 processes with the pair SwiGLU at LoFi and folded 48 of 48 clean without it). On Wormhole the
+    levers are no-ops, so no set or harness arm can bring LoFi back there."""
+    return not is_wormhole()
+
+
 def msa_row_tile(L: int, M: int) -> int:
     """Rows per block for an MSA [B,L,M,*] row-independent op so the transient
     (~rows*M*width) stays bounded as L and the MSA depth grow. Returns 0 (single
@@ -13479,7 +13489,7 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
                for w12, w3 in parts):
         return None
     fid = ttnn.MathFidelity.HiFi2 if parts[0][0].dtype == ttnn.bfloat8_b else ckc.math_fidelity
-    if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
+    if lever("ws_lofi") and lofi_allowed():   # LoFi drops the low bits of every operand
         fid = ttnn.MathFidelity.LoFi
     ps = lever("ws_psilu")   # silu on the packer, overlapping the matmuls; bit-identical
     if (resid is None and lever("ws_ln") and len(parts) == 1

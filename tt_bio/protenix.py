@@ -112,7 +112,9 @@ TRIATT_LN = frozenset({"triatt_ln", "apb_ln"})
 # (1000 MHz, shx2): 55.92 -> 54.70 s, 5 of 5 warm pairs faster. p150a 11-set fast grade, 44 paired folds (gshxbh,
 # 2026-10-16), PASS: top pose median 0.623 A vs the 1.371 A floor, CA-lDDT +0.0071 [+0.0035, +0.0115], docking
 # 34 -> 34; p150a 5 samples 37.46 -> 36.77 s (shxb). So it is Protenix-v2 --fast on both chips: SHOIST_FAST.
-WS_FAST = frozenset({"ws_ln", "ws_lofi", "trimul_sig6", "ws_psilu"})
+# ws_lofi is out of it since 2026-10-20: LoFi hangs Wormhole chips (tenstorrent.lofi_allowed), so the kernel runs
+# HiFi2 there.
+WS_FAST = frozenset({"ws_ln", "trimul_sig6", "ws_psilu"})
 SHOIST_FAST = frozenset({"dit_shoist"})
 # triatt_k1: triangle attention's fused SDPA takes the whole row as one k chunk at 288-512 tokens (no rescale pass;
 # op 1.13x at [512, 4, 512, 32] on a Galaxy chip). It fires only at those sizes, so it is graded on the 512-token
