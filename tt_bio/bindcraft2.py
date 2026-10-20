@@ -971,9 +971,16 @@ class _Trunk:
         self.ttnn.synchronize_device(self.device)
 
     def card_bytes(self) -> int:
-        """This chip's DRAM as the allocator reports it."""
-        mv = self.ttnn.get_memory_view(self.device, self.ttnn.BufferType.DRAM)
-        return int(mv.total_bytes_per_bank) * int(mv.num_banks)
+        """This chip's DRAM as the allocator reports it.
+
+        Read once: the total is a constant of the chip, and `get_memory_view` walks the
+        allocator, ~10 ms a call on pc with a tape live, paid before the forward enqueues
+        anything, so the card sat idle for it on every taped seam.
+        """
+        if getattr(self, "_card_bytes", None) is None:
+            mv = self.ttnn.get_memory_view(self.device, self.ttnn.BufferType.DRAM)
+            self._card_bytes = int(mv.total_bytes_per_bank) * int(mv.num_banks)
+        return self._card_bytes
 
     def arm(self, mode: str) -> bool:
         """Set every block of this trunk to `mode` (see `MEMORY_MODES`). True when the

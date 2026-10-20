@@ -837,6 +837,22 @@ def test_the_extra_msa_segment_survives_being_recomputed():
     assert len(built) == 1, built
 
 
+def test_card_bytes_reads_the_allocator_once():
+    """The DRAM total is a constant of the chip; every taped seam asked `get_memory_view` again,
+    ~10 ms of card idle a seam on pc before the forward enqueued anything."""
+    reads = []
+
+    def view(_device, _kind):
+        reads.append(1)
+        return types.SimpleNamespace(total_bytes_per_bank=3, num_banks=4)
+
+    trunk = object.__new__(bindcraft2._Trunk)
+    trunk.device = None
+    trunk.ttnn = types.SimpleNamespace(get_memory_view=view, BufferType=types.SimpleNamespace(DRAM=0))
+    assert [trunk.card_bytes() for _ in range(3)] == [12, 12, 12]
+    assert len(reads) == 1
+
+
 # ------------------------------------------------ several trajectories on one card
 
 
