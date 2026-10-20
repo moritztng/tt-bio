@@ -76,7 +76,8 @@ def _plan(kt, nt, a_bytes, b_bytes, budget=L1_BUDGET, transpose_a=False, split=N
     """(column blocks ns, b units in flight 2 or 1) for the fewest blocks that fit, or (0, 0). `split` None takes
     BRES_SPLIT; False allows only ns = 1, an int forces that ns."""
     if split is None:
-        split = BRES_SPLIT if BRES_SPLIT is not None else ttnn.get_arch_name() == "wormhole_b0"
+        from .tenstorrent import arch_name     # ttnn.get_arch_name() would open the card to plan
+        split = BRES_SPLIT if BRES_SPLIT is not None else arch_name() == "wormhole_b0"
     if split is False:
         cands = (1,)
     elif split is True:

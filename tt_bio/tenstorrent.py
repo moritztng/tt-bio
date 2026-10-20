@@ -958,6 +958,10 @@ _LEVERS = frozenset()
 if "silu_f32" in NORMAL_LEVERS | FAST_LEVERS or "silu_f32" in os.environ.get("TT_BIO_LEVERS", ""):
     from . import metal_overlay as _metal_overlay
     _metal_overlay.enable(("silu_f32",))
+# gelu_f32 changes only metal's approx-mode gelu, which no tt-bio op asks for unless a model opts in
+# (saprot._SAPROT_GELU_F32), so every process carries it and an opt-in after the device opens still works.
+from . import metal_overlay as _metal_overlay  # noqa: E402
+_metal_overlay.enable(("gelu_f32",))
 
 
 def lever(name: str) -> bool:
@@ -7439,11 +7443,34 @@ def diffusion_fp32_device(enabled: bool):
         _DIFFUSION_FP32_DEVICE = old
 
 
+#: Part by the PCI device id the kernel driver publishes per chip (tt-kmd's own ids).
+_ARCH_BY_PCI_ID = {0x401E: "wormhole_b0", 0xB140: "blackhole"}
+
+
+def _sysfs_arch() -> str | None:
+    """The one part every chip on this host reports in sysfs, or None if they disagree or say nothing."""
+    import glob as _glob
+    archs = set()
+    for node in _glob.glob("/sys/class/tenstorrent/tenstorrent!*/device/device"):
+        try:
+            with open(node) as f:
+                archs.add(_ARCH_BY_PCI_ID.get(int(f.read().strip(), 16)))
+        except (OSError, ValueError):
+            archs.add(None)
+    return archs.pop() if len(archs) == 1 else None
+
+
 @lru_cache(maxsize=1)
 def arch_name() -> str:
-    """Tenstorrent architecture, e.g. 'wormhole_b0' or 'blackhole'. Cheap; no
-    device open required."""
-    return ttnn.get_arch_name()
+    """Tenstorrent architecture, e.g. 'wormhole_b0' or 'blackhole', without opening a card.
+
+    `ttnn.get_arch_name()` builds tt-metal's MetalContext, and with it the UMD cluster, which holds
+    the chip's driver fds until ReleaseOwnership. A probe that ran before any `get_device()` thus
+    held a card that `cleanup()` had no handle to free, and the next process to open it blocked
+    (pytest_device:1/4 wh at 938d50505: test_cleanup_drops_the_driver_fds found the card open).
+    sysfs names the part without that; ttnn answers only on a host where sysfs does not.
+    """
+    return _sysfs_arch() or ttnn.get_arch_name()
 
 
 @lru_cache(maxsize=1)
