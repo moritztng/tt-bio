@@ -6466,8 +6466,15 @@ _TRIMUL_IBW_FULL_REFUSED: set = set()
 # 1000 MHz, perf/spd/af2_trimul_bmm_sweep.py, both deferred transposes, operands in L1 as the
 # untaped trunk runs them): [1,64,195,195]^2 0.40 -> 0.098 ms, [1,128,195,195]^2 0.80 -> 0.20 ms,
 # [1,64,224,224]^2 0.167 -> 0.103 ms; in DRAM (the taped path) 0.19 -> 0.155 and 0.37 -> 0.29 ms.
-# Blackhole stays off until measured there. None = arch default.
+# MEASURED on Blackhole (qb2 p300c chip 1, AICLK median 1350, bc4-bet-gates, the same sweep over
+# N 160-320, C 64 and 128, all three transposes, DRAM and L1): `torch.equal` to the multicast plan in
+# every cell; [1,128,224,224]^2 0.25 -> 0.11 ms in DRAM and 0.23 -> 0.09 ms in L1, 256 tokens 0.30
+# -> 0.13-0.15 ms, and no faster at 288 and 320 (within 4 %, slower in four of twelve cells).
+# None = the default: taken up to `_TRIMUL_PER_CHANNEL_MAX_ST` on both archs.
 _TRIMUL_PER_CHANNEL = env_flag("TT_BIO_TRIMUL_PER_CHANNEL", None)
+# 8 tiles (256 tokens) is where Wormhole's 8x9 grid stops giving every core one output tile, and
+# where the plan stops winning on Blackhole's 11x10.
+_TRIMUL_PER_CHANNEL_MAX_ST = 8
 # Sequence tiles whose per-channel plan clashed with live L1: they keep the multicast plan.
 _TRIMUL_PER_CHANNEL_REFUSED: set = set()
 # With the operands in L1 the plan is taken up to 7 sequence tiles (224 tokens), the window it was
@@ -6484,7 +6491,7 @@ _TRIMUL_PER_CHANNEL_L1_MAX_ST = 7
 
 
 def set_trimul_per_channel(on) -> object:
-    """A/B switch for the harness (None = arch default). Returns the previous value."""
+    """A/B switch for the harness (None = the default). Returns the previous value."""
     global _TRIMUL_PER_CHANNEL
     prev, _TRIMUL_PER_CHANNEL = _TRIMUL_PER_CHANNEL, on
     _triangle_mul_program_config.cache_clear()
@@ -6625,7 +6632,8 @@ def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False, sub: tu
                                                extra_tiles=transposed(in0_block_w)) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     if (per_core_M == per_core_N == 1 and seq_len_tiles not in _TRIMUL_PER_CHANNEL_REFUSED
-            and (is_wormhole() if _TRIMUL_PER_CHANNEL is None else _TRIMUL_PER_CHANNEL)
+            and (seq_len_tiles <= _TRIMUL_PER_CHANNEL_MAX_ST if _TRIMUL_PER_CHANNEL is None
+                 else _TRIMUL_PER_CHANNEL)
             and not (l1_operands and seq_len_tiles > _TRIMUL_PER_CHANNEL_L1_MAX_ST)
             and _matmul_cb_bytes(in0_block_w, seq_len_tiles, seq_len_tiles, 2,
                                  extra_tiles=2 * in0_block_w * seq_len_tiles) <= budget):
