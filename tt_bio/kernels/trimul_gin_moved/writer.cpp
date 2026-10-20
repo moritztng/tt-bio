@@ -7,6 +7,10 @@
 // [channel c, y] of row x = xt*32 + il. The output tile of channel c at (xt, yt) has row il = row c
 // of tile il: 64 local face-row reads assemble it in a staging slot, then one 2 KB DRAM write. The
 // same gather as reblock_permute's writer, whose comment carries the alignment argument.
+//
+// O8 (lever trimul_gin_o8): compute packs bfp8_b, whose tile is 64 exponent bytes (16 per face, one per 16-value
+// face row) then the faces as 16 B mantissa rows. The gather moves whole face rows, so every shared exponent stays
+// valid: 64 NOC reads of 16 B mantissa rows and a byte copy of the 64 exponents, then one 1088 B write.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -18,7 +22,8 @@ void kernel_main() {
     // L1 runs as several launches over channel slices that write into the same two tensors.
     constexpr uint32_t CTO = get_compile_time_arg_val(4);
     constexpr uint32_t CTT = get_compile_time_arg_val(5);
-    constexpr auto a_args = TensorAccessorArgs<6>();
+    constexpr bool O8 = get_compile_time_arg_val(6);
+    constexpr auto a_args = TensorAccessorArgs<7>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(0));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -29,7 +34,8 @@ void kernel_main() {
     constexpr uint32_t stage_cb = tt::CBIndex::c_24;
     constexpr uint32_t CT = CT2 / 2;
     constexpr uint32_t SS = St * St;
-    constexpr uint32_t TB = 2048, FB = 512, RB = 32;
+    // Tile, face and face-row bytes, and where the face data starts (after bfp8_b's 64 exponent bytes).
+    constexpr uint32_t TB = O8 ? 1088 : 2048, FB = O8 ? 256 : 512, RB = O8 ? 16 : 32, EB = O8 ? 64 : 0;
 
     // 2 * NB stage tiles: group g gathers NB tiles into its half while the other half's writes drain.
     cb_reserve_back(stage_cb, 2 * NB);
@@ -52,17 +58,27 @@ void kernel_main() {
                 for (uint32_t j = 0; j < NB; ++j) {
                     const uint32_t c = c0 + j;
                     const uint32_t st = gbase + j * TB;
-                    const uint32_t sc = src + (c >> 4) * 2 * FB + (c & 15) * RB;
-                    uint32_t s0 = sc, s1 = sc + FB, d0 = st, d1 = st + FB;
+                    const uint32_t sc = src + EB + (c >> 4) * 2 * FB + (c & 15) * RB;
+                    uint32_t s0 = sc, s1 = sc + FB, d0 = st + EB, d1 = st + EB + FB;
                     for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
                         noc_async_read_one_packet_with_state(s0, d0);
                         noc_async_read_one_packet_with_state(s1, d1);
                     }
-                    d0 = st + 2 * FB;
-                    d1 = st + 3 * FB;
+                    d0 = st + EB + 2 * FB;
+                    d1 = st + EB + 3 * FB;
                     for (uint32_t il = 0; il < 16; ++il, s0 += TB, s1 += TB, d0 += RB, d1 += RB) {
                         noc_async_read_one_packet_with_state(s0, d0);
                         noc_async_read_one_packet_with_state(s1, d1);
+                    }
+                    if constexpr (O8) {
+                        // Exponent of row c, face (c >> 4) * 2 + h of tile il -> row il & 15, face (il >> 4) * 2 + h.
+                        const volatile uint8_t* se = reinterpret_cast<const volatile uint8_t*>(src) + (c >> 4) * 32 + (c & 15);
+                        volatile uint8_t* de = reinterpret_cast<volatile uint8_t*>(st);
+                        for (uint32_t il = 0; il < 32; ++il, se += TB) {
+                            const uint32_t o = (il >> 4) * 32 + (il & 15);
+                            de[o] = se[0];
+                            de[o + 16] = se[16];
+                        }
                     }
                 }
                 noc_async_read_barrier();

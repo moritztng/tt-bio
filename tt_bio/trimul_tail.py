@@ -571,6 +571,11 @@ def _gin_fuse(masked):
     return not masked and _sigpoly() != 0 and _lever("trimul_gin_fuse")
 
 
+def _gin_o8():
+    """Whether gin_moved writes a and b as bfp8_b (lever trimul_gin_o8): the einsum then reads half the bytes."""
+    return _lever("trimul_gin_o8")
+
+
 def _gin_out_tiles(kt, ct2, masked):
     """The output buffer: two channel tiles' worth (compute runs one ahead of the writer's gather), or one when
     the fused gate gets the call into a single launch only that way (ESMFold2's c_z 256 on Wormhole)."""
@@ -665,8 +670,8 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt]
-        + acc(outs[0]) + acc(outs[1]),
+        compile_time_args=[ct2, St, GIN_MOVE_ABL, GIN_MOVE_NB, cto, ct2 // 2 if ctt is None else ctt,
+                           int(outs[0].dtype == ttnn.bfloat8_b)] + acc(outs[0]) + acc(outs[1]),
         runtime_args=wr, common_runtime_args=[0, 0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = ckc
     # The fused gate holds a subblock's p and g in DST at once: half of DST each.
@@ -679,12 +684,13 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
+    odt = outs[0].dtype   # the output tile and the writer's staging slots share the output's format
     if fuse:
         cbs = [_cb_fmt(0, core_grid, 2 * ct2 * kt, wpT.dtype), _cb(1, core_grid, 32 * kt),
-               _cb(2, core_grid, _gin_out_tiles(kt, ct2, False)), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
+               _cb_fmt(2, core_grid, _gin_out_tiles(kt, ct2, False), odt), _cb_fmt(24, core_grid, 2 * GIN_MOVE_NB, odt)]
         return {"kernels": [reader, writer, compute], "cbs": cbs}
-    cbs = [_cb_fmt(0, core_grid, 2 * ct2 * kt, wpT.dtype), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
-           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
+    cbs = [_cb_fmt(0, core_grid, 2 * ct2 * kt, wpT.dtype), _cb(1, core_grid, 32 * kt), _cb_fmt(2, core_grid, 64, odt),
+           _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb_fmt(24, core_grid, 2 * GIN_MOVE_NB, odt)]
     if mask is not None:
         cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
@@ -709,13 +715,14 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     n = len(wps)
     S, Cs = shp[-2], int(wps[0].shape[-2]) // 2
     device = x.device()
-    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, n * Cs, S, S]), ttnn.bfloat16,
+    odt = ttnn.bfloat8_b if _gin_o8() else ttnn.bfloat16
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, n * Cs, S, S]), odt,
                                            ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
             for _ in range(2)]
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), str(wp.dtype), tuple(grid),
                tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
-               s_, n, _gin_fuse(mask is not None))
+               s_, n, _gin_fuse(mask is not None), odt)
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_gin_move(x, wp, wg, outs, grid, ckc, mask,

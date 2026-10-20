@@ -590,6 +590,8 @@ _FAST_MODE = False
 #   trimul_gin_fuse gin_moved multiplies value and gate in DST (both side by side, half of DST each) instead of
 #                   packing both to L1 as bf16 and multiplying them back: two 32-tile buffers fewer, so ESMFold2's
 #                   c_z 256 in-projection fits one launch and reads the pair tensor once instead of twice
+#   trimul_gin_o8   gin_moved writes a and b as bfp8_b (the writer's gather moves whole face rows, so each row's
+#                   shared exponent stays valid): the einsum reads half the bytes, a and b round as under trimul_b8in
 #   trimul_gin_b8   trimul_gin, and the einsum's deferred transpose, also under the bfp8 `_FAST_MODE` (how Wormhole
 #                   ESMFold2 folds). gin writes a and b in bf16, so the deferral's bfp8 re-quantisation does not arise
 #                   where gin serves. ESMFold2's call on Wormhole (1000 MHz, fast set): 512 32.3 -> 18.5 ms, 1024
@@ -784,7 +786,7 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+          "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse", "trimul_gin_o8",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu")
@@ -802,7 +804,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_opm_kq",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
-                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
+                             "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse", "trimul_gin_o8",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu"})
