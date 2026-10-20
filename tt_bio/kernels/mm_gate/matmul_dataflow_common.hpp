@@ -278,6 +278,35 @@ void read_ternary_blocks_sync(
     }
 }
 
+#ifdef MM_RESID
+/**
+ * tt-bio mm_resid: the residual's [M, N] output block into c_5, row by row, as read_ternary_blocks_sync reads
+ * ternary_a (rows past the tensor are pushed unread).
+ */
+template <uint32_t M_block_tiles, uint32_t N_block_tiles, typename TensorAccessorType>
+void read_resid_block(
+    const TensorAccessorType& resid, const TensorShape2D& shape, uint32_t tile_size, uint32_t d0_start,
+    uint32_t d0_end, uint32_t d1_start, uint32_t d1_end) {
+    constexpr uint32_t cb = tt::CBIndex::c_5;
+    uint32_t m_id = 0;
+    for (uint32_t i = d0_start; i < d0_end; i++, m_id++) {
+        cb_reserve_back(cb, N_block_tiles);
+        uint32_t ptr = get_write_ptr(cb);
+        for (uint32_t j = d1_start; j < d1_end && j < shape.logical_d1; j++, ptr += tile_size) {
+            if (i < shape.logical_d0) {
+                noc_async_read_tile(i * shape.logical_d1 + j, resid, ptr);
+            }
+        }
+        noc_async_read_barrier();
+        cb_push_back(cb, N_block_tiles);
+    }
+    for (; m_id < M_block_tiles; m_id++) {
+        cb_reserve_back(cb, N_block_tiles);
+        cb_push_back(cb, N_block_tiles);
+    }
+}
+#endif
+
 /**
  * This write method is more granular, waiting on a row of output tiles
  * in the output CB before writing those out, rather than waiting on the entire block.

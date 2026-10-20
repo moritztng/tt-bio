@@ -466,7 +466,7 @@ def eligible(x, memory_config, taped_ok: bool = False) -> bool:
     multiple of 32, because the trunk's own chunk width depends on the compute grid.
     """
     from . import ops
-    if ops.declines_under_tape("reblock_permute") and not (taped_ok and TAPED_MOVE):
+    if ops.declines_under_tape("reblock_permute", x) and not (taped_ok and TAPED_MOVE):
         # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
         # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
         # these two moves the tape can follow the kernel: the move is a pure index reordering
@@ -768,7 +768,7 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     chunk from 352 aa up.
     """
     from . import ops
-    if ops.declines_under_tape("reblock_permute_back") and not (taped_ok and TAPED_MOVE):
+    if ops.declines_under_tape("reblock_permute_back", x) and not (taped_ok and TAPED_MOVE):
         # A DIRECT caller under a tape gets no node for this `generic_op`, so it has to keep
         # the stock permute the tape can follow. `taped_ok` is the tape itself asking, and for
         # these two moves the tape can follow the kernel: the move is a pure index reordering

@@ -10,6 +10,10 @@ Builds the fold through tt_baseline.build_fold (as ab.py), runs one cold fold, t
   profile  one fold under cProfile, no syncs, top functions by tottime / cumtime into --out.prof.txt.
   xfer     one fold with ttnn.from_torch / to_torch timed per call site (first tt_bio frame), no syncs: which
            uploads and downloads the host blocks on (cProfile only sees ttnn's decorator as their caller).
+  --draw   instead of stages/profile/xfer: one fold with the diffusion step's modules (conditioning, atom encoder
+           and its blocks, token DiT and its blocks, atom decoder) synchronized on both sides, nested, so each
+           module's wall is its device time when the step is device-bound (host_s well below s); `self_s` is a
+           module's time outside its wrapped children. ~36 syncs a step, so read it against the plain fold.
   --ops    instead of stages/profile/xfer: one fold with every top-level ttnn op synchronized on both sides,
            summed by (module region, op) and (region, op, first-input shape) into --out. Needs no Tracy build,
            so it is the census on a Galaxy chip; each op carries one sync round trip (sync_us, reported).
@@ -28,6 +32,8 @@ ap.add_argument("--fast", action="store_true")
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", type=Path, required=True)
 ap.add_argument("--ops", action="store_true", help="per-op synchronized census instead of stages/profile/xfer")
+ap.add_argument("--a3m", type=Path, help="fold this alignment instead of the page fixture's (e.g. one deeper than max_depth)")
+ap.add_argument("--draw", action="store_true", help="split the diffusion step by module (nested syncs)")
 ap.add_argument("--plain", action="store_true", help="cold + plain fold only; also counts the einsums bmm_res served")
 ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
 a = ap.parse_args()
@@ -46,8 +52,10 @@ B.SAMPLING_STEPS = _resolve_sampling_steps(None, a.model)
 from tt_bio import esmfold2 as E, esmfold2_runtime as R
 
 fix = ROOT / "perf" / "size512" / "fixtures"
-one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}", fix / f"cdk2x2_{a.size}.yaml",
-                              fix / f"cdk2x2_{a.size}.a3m", fast=a.fast)[:2]
+a3m = a.a3m or fix / f"cdk2x2_{a.size}.a3m"
+tag = "" if a.a3m is None else "_" + a3m.stem
+one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}{tag}", fix / f"cdk2x2_{a.size}.yaml",
+                              a3m, fast=a.fast)[:2]
 res = {"model": a.model, "fast": a.fast, "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
 
 # (owner, attribute, label). FoldingTrunkModel serves both the folding trunk and the LM encoder's pair
@@ -202,8 +210,45 @@ def op_census():
         print(r, flush=True)
 
 
+def draw_split():
+    mods = [(E.DiffusionModuleModel, "step", "step"), (E.DiffusionConditioningModel, "cond_single", "cond"),
+            (E.AtomEncoder, "__call__", "enc"), (E.AtomDecoder, "__call__", "dec"), (E.SWAAtomBlock, "__call__", "swa"),
+            (E.DiffusionTransformerModel, "__call__", "dit"), (E.DiffusionTransformerModel, "_shoist", "shoist"),
+            (E.AttentionPairBias, "__call__", "attn"), (E.ConditionedTransitionBlock, "__call__", "trans")]
+    stack, tot, hst, kid, n, undo = [], collections.defaultdict(float), collections.defaultdict(float), \
+        collections.defaultdict(float), collections.Counter(), []
+
+    def wrap_n(owner, attr, label):
+        fn = getattr(owner, attr)
+
+        def timed(self, *x, **kw):
+            lab = "/".join([*stack, label])
+            ttnn.synchronize_device(dev); t0 = time.perf_counter(); stack.append(label)
+            try:
+                return fn(self, *x, **kw)
+            finally:
+                hst[lab] += time.perf_counter() - t0
+                ttnn.synchronize_device(dev); stack.pop(); dt = time.perf_counter() - t0
+                tot[lab] += dt; n[lab] += 1
+                if stack:
+                    kid["/".join(stack)] += dt
+        setattr(owner, attr, timed); undo.append((owner, attr, fn))
+
+    for o, at, lab in mods:
+        wrap_n(o, at, lab)
+    t0 = time.perf_counter(); one_fold(); res["draw_fold_s"] = round(time.perf_counter() - t0, 3)
+    for o, at, fn in reversed(undo):
+        setattr(o, at, fn)
+    res["draw"] = {k: {"n": n[k], "s": round(v, 4), "self_s": round(v - kid[k], 4), "host_s": round(hst[k], 4)}
+                   for k, v in sorted(tot.items())}
+    a.out.write_text(json.dumps(res, indent=1))
+    print(json.dumps({k: res[k] for k in ("plain_s", "draw_fold_s", "draw")}, indent=1), flush=True)
+
+
 if a.ops:
     op_census(); T.cleanup(); sys.exit(0)
+if a.draw:
+    draw_split(); T.cleanup(); sys.exit(0)
 staged("stages")
 
 pr = cProfile.Profile()
