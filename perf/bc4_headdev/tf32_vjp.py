@@ -9,6 +9,11 @@ HiFi4 matmul reads through its 19-bit source registers. Card-free.
   tf32_vjp.py --params <npz>                    one layer, ipa grad_check's random inputs and seeds (n 224)
   tf32_vjp.py --params <npz> --inputs <npz>     the 8-layer stack on real trunk outputs (dump_sm_inputs.py),
                                                 VJP of (act, R, t) to (single, pair), CA deviation in A
+
+Result 2026-10-20 (rel L2 vs float64). One layer, random inputs, n 224: float32 VJP 7e-6; TF32 d_act/d_R/d_t
+0.15/0.12/0.10, the card measured 0.17/0.16/0.14 (ipa), so the card error is TF32 rounding, not a bug.
+8-layer stack on real PD-L1 trunk outputs, N 192, TF32: CA 0.006 A (max 0.014), d_single 0.02-0.13,
+d_pair 0.056-0.097; main's Evoformer block VJP on card reads 0.035-0.073 against the same reference.
 """
 import argparse, os, sys
 
