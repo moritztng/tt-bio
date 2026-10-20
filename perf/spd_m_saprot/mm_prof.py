@@ -34,6 +34,8 @@ def main() -> int:
     ap.add_argument("--calls", type=int, default=4)
     ap.add_argument("--cfg2d", default="", help="extra fc1 arms (approx gelu), ';'-separated tm,kb,sh,sw,oh,ow on the "
                     "2D mcast program at the model grid, per_core_M/N from the grid")
+    ap.add_argument("--l1x", action="store_true", help="the --fast page's L1 state: x in L1 plus a resident [rows, d] "
+                    "bf16 L1 tensor (the residual under _SAPROT_X_L1)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -68,7 +70,11 @@ def main() -> int:
         w = (torch.randn(K, N, generator=gen) / math.sqrt(K)).to(torch.bfloat16)
         b = (torch.randn(N, generator=gen) * 0.1).to(torch.bfloat16)
         wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt)
-        xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        mc = ttnn.L1_MEMORY_CONFIG if a.l1x else ttnn.DRAM_MEMORY_CONFIG
+        xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16, memory_config=mc)
+        if a.l1x:
+            resid = ttnn.from_torch(torch.zeros(B, L, d, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev,
+                                    dtype=ttnn.bfloat16, memory_config=ttnn.L1_MEMORY_CONFIG)
         bd = ttnn.from_torch(b.reshape(1, N), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
         kw = {"activation": act} if act else {}
         lin = S._SaprotLin.__new__(S._SaprotLin)
