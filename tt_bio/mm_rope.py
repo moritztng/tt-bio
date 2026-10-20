@@ -93,3 +93,52 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc):
     ttnn.generic_op([x, w, *outs], entry["pd"])
     STATS[0] += 1
     return tuple(outs)
+
+
+# Heads narrower than 32 (SaProt 35M: head_dim 24). Two heads share a pair of column tiles, A = [h.x1 0.. | h+1.x1 0..]
+# and B = [h.x2 0.. | h+1.x2 0..] (x1 / x2 the NeoX halves, each zero-padded to 16 columns), so rotate_half is the tile
+# swap the epilogue already does for a 64-wide head. The writer then splits each rotated tile by faces: faces 0 / 2 are
+# columns 0-15, faces 1 / 3 columns 16-31, so head h is [A[:, :16] | B[:, :16]] and head h + 1 is [A[:, 16:] | B[:, 16:]],
+# each a [L, 32] head [x1 0.. | x2 0..]. q . k is unchanged by the dim order q and k share; v keeps `_pad_heads` order.
+
+def half_pairs(w: torch.Tensor, b: torch.Tensor, n_heads: int, d: int):
+    """torch Linear qkv `w` [3 H d, D] and `b` [3 H d] as the [D, 3 H 32] weight and [1, 3 H 32] bias of the half-pair
+    layout: q and k as H / 2 tile pairs, v as H zero-padded 32-column heads."""
+    assert n_heads % 2 == 0 and d % 2 == 0 and d // 2 <= 16, (n_heads, d)
+    h = d // 2
+    ws, bs = w.reshape(3, n_heads, d, -1), b.reshape(3, n_heads, d)
+    wo = w.new_zeros(3, n_heads, 32, w.shape[-1])
+    bo = b.new_zeros(3, n_heads, 32)
+    for j in range(2):          # q, k: pair p's tile A is virtual head 2p, tile B is 2p + 1
+        for hd in range(n_heads):
+            p, s = divmod(hd, 2)
+            for half in range(2):
+                wo[j, 2 * p + half, 16 * s:16 * s + h] = ws[j, hd, half * h:(half + 1) * h]
+                bo[j, 2 * p + half, 16 * s:16 * s + h] = bs[j, hd, half * h:(half + 1) * h]
+    wo[2, :, :d], bo[2, :, :d] = ws[2], bs[2]
+    return wo.reshape(3 * n_heads * 32, -1).t().contiguous(), bo.reshape(1, -1)
+
+
+def half_pair_tables(seq_len: int, d: int, base: float = 10000.0, dtype=torch.float32):
+    """[L, 64] NeoX cos / sin for the half-pair layout: column c carries frequency c % 16 (< d / 2), both column tiles
+    equal (read_rope_block reads one); pad columns hold cos 1, sin 0 over a zero activation."""
+    inv = 1.0 / (base ** (torch.arange(0, d, 2, dtype=dtype) / d))
+    f = torch.outer(torch.arange(seq_len, dtype=dtype), inv)
+    cos, sin = torch.ones(seq_len, 16, dtype=dtype), torch.zeros(seq_len, 16, dtype=dtype)
+    cos[:, :d // 2], sin[:, :d // 2] = f.cos(), f.sin()
+    return cos.repeat(1, 4), sin.repeat(1, 4)
+
+
+def half_pair_heads(y: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor, n_heads: int):
+    """Reference for the fused kernel: [.., L, 3 H 32] half-pair projection -> (q, k, v) [.., H, L, 32] after the
+    epilogue's tile-pair RoPE and the writer's face split."""
+    t = y.unflatten(-1, (3, n_heads // 2, 2, 32))
+    outs = []
+    for j in range(2):
+        a, b_ = t[..., j, :, 0, :], t[..., j, :, 1, :]                    # [.., L, H / 2, 32]
+        c, s = cos[:, None, :32], sin[:, None, :32]
+        a, b_ = a * c - b_ * s, b_ * c + a * s
+        heads = torch.stack((torch.cat((a[..., :16], b_[..., :16]), -1), torch.cat((a[..., 16:], b_[..., 16:]), -1)), -2)
+        outs.append(heads.flatten(-3, -2).movedim(-2, -3))                  # [.., H, L, 32]
+    outs.append(y[..., 2 * n_heads * 32:].unflatten(-1, (n_heads, 32)).movedim(-2, -3))
+    return tuple(outs)
