@@ -13375,7 +13375,8 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
     the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
     is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
     419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
-    mt, kt = prod(int(d) for d in a.padded_shape[:-1]) // 32, int(a.padded_shape[-1]) // 32
+    xs = [int(d) for d in a.padded_shape]
+    mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
     nt, ct = int(w_sw.shape[-1]) // 32, int(w_ba.shape[-1]) // 32
     grid = _transition_shard_grid(mt, nt, ct)
     key = ("dit", mt, kt, nt, a.dtype)
