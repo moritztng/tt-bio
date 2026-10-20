@@ -20,6 +20,8 @@ def main() -> int:
     ap.add_argument("--model", default="saprot-650m", choices=sorted(MODELS))
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--calls", type=int, default=20)
+    ap.add_argument("--cfgs", default="", help="';'-separated M,K,N,sh,sw: extra fused arms at these minimal_matmul blocks "
+                    "(for a projection whose pick is the 2D program, today's path is then that program + ttnn.add)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -52,37 +54,59 @@ def main() -> int:
         prog = S._saprot_prog(xd, wd, None, mck.math_fidelity == ttnn.MathFidelity.HiFi2)
         rec = dict(model=a.model, fast=a.fast, shape=name, prog=None if prog is None else prog[0],
                    fidelity=str(mck.math_fidelity))
-        if prog is None or prog[0] != "mm":
+        extra = [tuple(int(v) for v in c.split(",")) for c in filter(None, a.cfgs.split(";"))]
+        if prog is None or (prog[0] != "mm" and not extra):
             print(json.dumps(rec), flush=True)
             out.write(json.dumps(rec) + "\n")
             continue
-        c = prog[1]
-        g = c.compute_with_storage_grid_size
-        bc = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
-        rec["cfg"] = bc
+        g = dev.compute_with_storage_grid_size()   # the grid _saprot_prog's picks run on
+        grid = (g.x, g.y)
+        if prog[0] == "mm":
+            c = prog[1]
+            bc = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
+            rec["cfg"] = bc
+            arms = {"fused": bc}
 
-        def ref():
-            p = ttnn.experimental.minimal_matmul(xd, wd, bias_tensor=bd, compute_kernel_config=mck, dtype=ttnn.bfloat16,
-                                                 memory_config=ttnn.DRAM_MEMORY_CONFIG, config=c)
-            o = ttnn.add(rd, p, memory_config=rmc)
-            ttnn.deallocate(p)
-            return o
+            def ref():
+                p = ttnn.experimental.minimal_matmul(xd, wd, bias_tensor=bd, compute_kernel_config=mck,
+                                                     dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG, config=c)
+                o = ttnn.add(rd, p, memory_config=rmc)
+                ttnn.deallocate(p)
+                return o
+        else:
+            arms = {}
 
-        def fused():
-            return MR.matmul_add(xd, wd, bd, rd, bc, (g.x, g.y), mck, memory_config=rmc)
+            def ref():
+                p = ttnn.linear(xd, wd, bias=bd, program_config=prog[1], compute_kernel_config=mck, dtype=ttnn.bfloat16,
+                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
+                o = ttnn.add(rd, p, memory_config=rmc)
+                ttnn.deallocate(p)
+                return o
+        arms.update({"fused" + "_".join(map(str, bc)): bc for bc in extra})
+        fns = {"ref": ref}
+        for k, bc in arms.items():
+            fns[k] = lambda bc=bc: MR.matmul_add(xd, wd, bd, rd, bc, grid, mck, memory_config=rmc)
 
         wq = ttnn.to_torch(wd).double()   # the weight as the device holds it (block-fp8 under --fast)
         exact = r.double() + x.double() @ wq + b.double()
         sc = exact.norm()
-        for arm, fn in (("ref", ref), ("fused", fused)):
-            o = ttnn.to_torch(fn()).double()
+        outs = {}
+        for arm, fn in list(fns.items()):
+            try:
+                o = ttnn.to_torch(fn()).double()
+            except RuntimeError as exc:   # a block that does not place
+                rec[f"{arm}_error"] = str(exc).splitlines()[0][:200]
+                del fns[arm]
+                continue
             e = o - exact
             rec[f"{arm}_rel_l2"] = float(e.norm() / sc)
             rec[f"{arm}_bias"] = float(e.mean() / exact.abs().mean())
             rec[f"{arm}_max_abs"] = float(e.abs().max())
-            rec[f"_{arm}"] = o
-        rec["ndiff"] = int((rec.pop("_ref") != rec.pop("_fused")).sum())
-        for arm, fn in (("ref", ref), ("fused", fused)):
+            outs[arm] = o
+        for arm in outs:
+            if arm != "ref":
+                rec[f"{arm}_ndiff"] = int((outs["ref"] != outs[arm]).sum())
+        for arm, fn in fns.items():
             for _ in range(2):
                 ttnn.deallocate(fn())
             ttnn.synchronize_device(dev)
