@@ -202,19 +202,22 @@ WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_p
 # mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
 # vs the 0.6 A bar (1.319 A A/A floor), docking 36 -> 36; fast 0.305 A (1.305 A floor), docking 37 -> 37; every interval
 # covers 0. cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, in-process A/B (shx): median -0.25 s normal, -0.32 s fast.
-# Blackhole is ungraded.
-SHOIST_MM_WH = frozenset({"dit_shoist_mm"})
+# dit_step_mm: the DiT's per-step linears on minimal_matmul with blocks measured at Protenix-v2's shapes. Same grade
+# against the set above (gsmn / gsmf, 2026-10-21), PASS: normal 0.080 A (1.368 A floor), docking 36 -> 36; fast 1.041 A
+# (1.386 A floor), docking 37 -> 37, CA-lDDT +0.0013 and pLDDT +0.0010. Same A/B (stx): median -0.27 s normal, -0.16 s fast.
+# Blackhole is ungraded for both.
+DIT_MM_WH = frozenset({"dit_shoist_mm", "dit_step_mm"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1` and `SHOIST_MM_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1` and `DIT_MM_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
-    wh_both = TRIATT_LN | TRIATT_K1 | SHOIST_MM_WH if v2 and wh else frozenset()
+    wh_both = TRIATT_LN | TRIATT_K1 | DIT_MM_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL
