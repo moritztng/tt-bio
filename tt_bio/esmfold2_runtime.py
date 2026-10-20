@@ -1625,6 +1625,9 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope"
 _WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold"
 # lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere).
 _LM_SDPA_STOCK = "+lm_sdpa_stock"
+# The ESMC language model on Blackhole as ESMFold2 folded it before ESMC took the Wormhole LM path there: graded on
+# ESMC's embeddings only, not on a fold yet.
+_BH_LM_KEEP = "+lm_qk_chain+lm_gate_ng+lm_k64+lm_linear"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1637,6 +1640,8 @@ def fold_levers(fast: bool) -> str:
         drop = _BH_ONLY_FAST if fast else _BH_ONLY_FAST + ("ef2_pair_init",)
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
+    else:
+        levers += _BH_LM_KEEP
     return levers + _LM_SDPA_STOCK
 
 

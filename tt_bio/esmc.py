@@ -233,11 +233,12 @@ def _ln_fold_on() -> bool:
 # 16.48 -> 16.55 s), so the Block of a model past _LM_LARGE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 # q/k LayerNorm + RoPE + head split of q, k, v as one program (tt_bio/qk_rope_heads.py) in place of the six-op chain
-# of _qk_heads + _rope, on every ESMC size (the 6B re-reads its gammas per row to fit L1). None = on for Wormhole:
+# of _qk_heads + _rope, on every ESMC size (the 6B re-reads its gammas per row to fit L1). On by default on both archs:
 # page cell on a Galaxy chip at 1000 MHz (best of 3 rounds), 300M 133.5 -> 121.2 ms (--fast 132.6 -> 120.3), 600M 196.4 ->
 # 172.9 (212.1 -> 190.5), 6B 287.2 -> 259.0 (259.5 -> 236.7); pcc vs fp32 moves -0.00006..+0.00003. The chain alone
 # against float64: q/k rel_l2 0.0042 -> 0.0034..0.0050, v exact, 0.24-0.46 ms a layer against 0.60-1.27.
-# The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set, esmfold2_runtime._WH_NORMAL_EXTRA).
+# The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set and Blackhole, esmfold2_runtime).
+# Blackhole (p150a, 1350 MHz, one load, page cell, esmc_ab eb1): 300M 66.4 -> 62.5 ms, 600M 102.7 -> 95.8, 6B 159.8 -> 137.8.
 _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC_QKRH", "").strip() else None)
 # shsdpa writes its output with the heads already concatenated ([B, L, H * D]) instead of nlp_concat_heads after it:
 # only the writer's tile addresses change (sdpa_generic merged_out), so the output is bit-identical.
@@ -270,8 +271,8 @@ ESMC_SDPA_Q_WHOLE = 544
 # 0.0356). Its circular buffers are larger, so where q, k and v sit in L1 (600M, SaProt) the device can refuse the
 # program; lm_sdpa then runs that shape at the k64 config. Page cell on a Galaxy chip at 1000 MHz, 3 rounds, k64 -> few:
 # 300M 149.7 -> 143.8 ms, --fast 144.2 -> 137.0, 6B 302.5 -> 297.2, --fast 293.9 -> 287.1; 600M and SaProt flat (several
-# shapes fall back); pcc vs fp32 moves <= 0.00008. On by default on Wormhole; Blackhole keeps k64 until its own A/B says.
-# None = by arch, the switch overrides.
+# shapes fall back); pcc vs fp32 moves <= 0.00008. On by default on both archs
+# (Blackhole alone -0.4..-4.7 %); the lm_k64 lever keeps k64 (ESMFold2 on Blackhole). The switch overrides.
 _ESMC_SDPA_K_FEW = (env_flag("TT_BIO_ESMC_SDPA_K_FEW", False) if os.environ.get("TT_BIO_ESMC_SDPA_K_FEW", "").strip()
                     else None)
 ESMC_SDPA_K_FEW_MAX = 192
@@ -295,14 +296,14 @@ def _qkrh() -> bool:
     if _ESMC_QKRH is not None:
         return _ESMC_QKRH
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_qk_chain")
+    return not tenstorrent.lever("lm_qk_chain")
 
 
 def _sdpa_k_few() -> bool:
     if _ESMC_SDPA_K_FEW is not None:
         return _ESMC_SDPA_K_FEW
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole()
+    return not tenstorrent.lever("lm_k64")
 
 
 # The SDPA key-padding mask in block-fp8: [B, 1, L, L] is re-read for every (batch, head), ~62 MB a layer at the 300M
@@ -443,8 +444,8 @@ class Embedding(Module):
 # 600M fc2 0.719 -> 0.466 ms, out 0.350 -> 0.263, qkv 0.851 -> 0.710; 300M qkv 0.651 -> 0.537, fc2 0.485 -> 0.416.
 # At the 6B's 544 rows it gains nothing (out 0.200 -> 0.242), so only a projection over ESMC_MM_MIN_ROWS takes it.
 # Page cell on a Galaxy chip (esmc_ab.py, 2 rounds, batch of 7): 300M 177.8 -> 171.8 ms, 600M 272.0 -> 253.3 ms, with
-# embeddings equal to the linear's. On by default on Wormhole;
-# Blackhole keeps the linear until its own A/B says. None = by arch, the switch overrides.
+# embeddings equal to the linear's. On by default on both archs
+# (Blackhole with mm_gate: 300M -2..-9 %, 600M -9 %); the lm_linear lever keeps the linear (ESMFold2 on Blackhole).
 _ESMC_MM = (env_flag("TT_BIO_ESMC_MM", False) if os.environ.get("TT_BIO_ESMC_MM", "").strip() else None)
 ESMC_MM_MIN_ROWS = 2048
 #: [projections served by minimal_matmul, declined], read by the A/B harness.
@@ -518,7 +519,9 @@ _ESMC_ACT_BFP8 = env_flag("TT_BIO_ESMC_ACT_BFP8", False)
 # (grid -> program): bf16 qkv 0.585 -> 0.556 and fc1 half 0.508 -> 0.455 (1D, N across every core), fc2 0.452 -> 0.431
 # (2D); block-fp8 qkv 0.590 -> 0.474 and fc1 half 0.482 -> 0.415 (2D), fc2 and out_proj stay on the linear's program.
 # 6B page cell, same chip at 1000 MHz, best of 3: normal 296.2 -> 287.7 ms, --fast 285.9 -> 270.6 (259.1 with the large
-# LM's L1 q/k path); pcc vs fp32 0.998964 -> 0.999002 and 0.998875 -> 0.998907, pooled cos >= 0.99982. Wormhole only.
+# LM's L1 q/k path); pcc vs fp32 0.998964 -> 0.999002 and 0.998875 -> 0.998907, pooled cos >= 0.99982.
+# Blackhole on top of the LM flip (p150a, 1340 MHz, 2 rounds): normal 139.7 -> 127.9 ms, --fast 139.5 -> 126.6, pcc vs fp32
+# 0.998961 -> 0.998913 and 0.998814 -> 0.998809. lm_linear keeps ttnn.linear's own pick (ESMFold2 on Blackhole).
 _ESMC_LIN6B_PROG = env_flag("TT_BIO_ESMC_LIN6B_PROG", True)
 _LIN6B_PROG_MAX_ROWS = 544
 
@@ -576,7 +579,7 @@ def _esmc_mm() -> bool:
     if _ESMC_MM is not None:
         return _ESMC_MM
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole()
+    return not tenstorrent.lever("lm_linear")
 
 
 class _MMLin:
@@ -658,7 +661,7 @@ class _MMLin:
         MM_STATS[1] += mm
         if _ESMC_LIN6B_PROG and getattr(self, "lm_large", False) and not kw and bias is None:
             from tt_bio import tenstorrent
-            cfg = _lin6b_program(x, w) if tenstorrent.is_wormhole() else None
+            cfg = None if tenstorrent.lever("lm_linear") else _lin6b_program(x, w)
             if cfg is not None:
                 LIN6B_STATS[0] += 1
                 return ttnn.linear(x, w, program_config=cfg, compute_kernel_config=self.compute_kernel_config,
@@ -965,7 +968,7 @@ def _mm_gate_on() -> bool:
     if _ESMC_MM_GATE is not None:
         return _ESMC_MM_GATE
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_gate_ng")
+    return not tenstorrent.lever("lm_gate_ng")
 
 
 def _lm_gate_legacy() -> bool:
@@ -1020,7 +1023,7 @@ _ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
 # gate: 300M 1.268 -> 0.925 (--fast 1.084 -> 0.739), 600M 1.600 -> 1.248 (--fast 1.336 -> 0.991); rel_l2 against
 # float64 0.0041 -> 0.0019 (normal), equal under --fast. Every LM FFN of the loaded model over a page batch
 # (perf/spd_gap_whlm/ffn_stack_bench.py, same chip, 1000 MHz), ms a layer saved: 300M 0.374 / 0.286 (--fast), 600M
-# 0.411 / 0.239. None = on for Wormhole; lm_gate_ng (ESMFold2 on Wormhole) keeps the three ops there too.
+# 0.411 / 0.239. On by default on both archs; lm_gate_ng (ESMFold2) keeps the three ops.
 _ESMC_MM_GATE = (env_flag("TT_BIO_ESMC_MM_GATE", False)
                  if os.environ.get("TT_BIO_ESMC_MM_GATE", "").strip() else None)
 #: [LM FFN gates served by mm_gate, declined where it was asked]
