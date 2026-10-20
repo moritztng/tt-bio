@@ -55,8 +55,12 @@ back0 = T._channel_move_back
 def channel_move_back(chunk, memory_config):
     a = R.eligible_back(chunk, memory_config)
     b = R.eligible_back(chunk, memory_config, taped_ok=True)
+    from tt_bio import ops
+    # A raw operand under an open tape skips the shim: ttnn.permute is then the stock op.
     routes[("_channel_move_back", _sig(chunk), str(memory_config.buffer_type),
-            "direct" if a else "taped_permute" if b else "two_transposes")] += 1
+            "direct" if a else "taped_permute" if b else "two_transposes",
+            "on_tape" if TT._on_tape((chunk,), {}) else "raw",
+            "recording" if ops.recording() else "not_recording")] += 1
     return back0(chunk, memory_config)
 
 
