@@ -121,7 +121,7 @@ def test_batched_matmul_config():
             ttnn.deallocate(a)
             ttnn.deallocate(b)
     finally:
-        ttnn.close_device(dev)
+        T._close_device_locked(dev)
     print("PASS")
 
 
