@@ -1754,7 +1754,12 @@ def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) 
 # The chunk width is a partition of an independent-channel sum, so every width is bit-exact
 # (see `_trimul_chunk_size`); the residency threshold picks a memory config, not an arithmetic.
 # Measured on 8x9: state/wh-perf-esmfold2.md.
-SMALL_GRID_TRIMUL_L1_MAX_SEQ = 0
+# The residency threshold applies in both modes. On the Galaxy 8x9 the L1 channel loop narrows its chunk as S^2 grows
+# and pays a fixed set of ops per chunk, so from 160 tokens the DRAM route (gin_moved in-projection, bmm_res einsum) is
+# faster, at any batch: ESMFold2 160 / 224 / 256 aa -19 / -41 / -40 %, OpenDDE 256 -33 %, Boltz-2 256 -5..-15 %,
+# OpenFold3 256 -6 %, 192 and 288 neutral, while 96 aa is 14-20 % slower on DRAM and 128 aa within -1..+5 %
+# (xmodel_ab, 1000 MHz, tdx). Graded on ESMFold2 and -Fast, both modes (tdg).
+SMALL_GRID_TRIMUL_L1_MAX_SEQ = 128
 SMALL_GRID_TRIMUL_BUDGET_SCALE = 1.0
 
 SDPA_CHUNK_TILE = 32
@@ -2066,9 +2071,9 @@ def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryCo
 
 def _trimul_l1_max_seq() -> int:
     """Longest sequence whose trimul chunks still live in L1."""
+    if _IS_SMALL_GRID and SMALL_GRID_TRIMUL_L1_MAX_SEQ:
+        return SMALL_GRID_TRIMUL_L1_MAX_SEQ
     if _FAST_MODE:
-        if _IS_SMALL_GRID and SMALL_GRID_TRIMUL_L1_MAX_SEQ:
-            return SMALL_GRID_TRIMUL_L1_MAX_SEQ
         return (
             TRIANGLE_MULT_L1_MAX_SEQ_FAST_13X10
             if COMPUTE_GRID_MAIN[0] == COMPUTE_GRID_X_13
