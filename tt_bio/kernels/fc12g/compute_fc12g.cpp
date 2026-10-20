@@ -23,6 +23,10 @@
 // FC12G_PACK_SILU: the silu runs on the PACK thread over the fc1 dest half while MATH starts fc2 in the other half
 // (the same handoff as the silu_f32 overlay of the stock kernel, tt_bio/metal_overlay.py). It needs the silu_f32
 // overlay (APPROX silu = calculate_silu_f32). Without it the silu runs on MATH after the fc1 matmul.
+// FC12G_MUL_SFPU: the multiplies run on the SFPU in float32 (gate tile copied into the dest slot past the subblock,
+// mul_binary_tile) instead of the FPU's dest-reuse multiply. On Wormhole the dest-to-srcB move keeps only the top 16
+// bits of an fp32 dest, so the FPU route truncates every product to bf16 before multiplying: 0.0068 rel against
+// float64 for the DiT transition's hidden against 0.0030 modelled for an fp32 multiply. Needs a free dest tile.
 // FC12G_MATH_SILU=k (with FC12G_PACK_SILU): MATH takes the first k tiles of each fc1 subblock and PACK the rest, so
 // the two threads' work per row can be balanced (PACK also packs both subblocks).
 
@@ -30,6 +34,7 @@
 
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
+#include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/pack.h"
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/compute_kernel_api.h"
@@ -179,6 +184,17 @@ void kernel_main() {
                     fc12g_accumulate(in0_cb_id, in1_cb_id, partial_cb_id, reload, in0_offset,
                                      p * product_w + c * out_subblock_w, in0_block_w, in1_block_w, out_subblock_w,
                                      out_subblock_h, n);
+#ifdef FC12G_MUL_SFPU
+                    static_assert(n < 4, "FC12G_MUL_SFPU needs a dest tile past the subblock in an fp32 dest half");
+                    gate_cb.wait_front(n);
+                    for (uint32_t i = 0; i < n; i++) {
+                        copy_tile_to_dst_init_short_with_dt(in1_cb_id, gate_cb_id);
+                        copy_tile(gate_cb_id, i, n);
+                        mul_binary_tile_init();
+                        mul_binary_tile(i, n, i);
+                    }
+                    gate_cb.pop_front(n);
+#else
                     // binary_dest_reuse_tiles_init/_tiles<ELWMUL, DEST_TO_SRCB>, with the multiply's fidelity a choice
                     // (FC12G_MUL_HIFI4) rather than the matmul's.
                     UNPACK((llk_unpack_A_init<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
@@ -194,6 +210,7 @@ void kernel_main() {
                             gate_cb_id, gate_cb_id, i, true)));
                     }
                     gate_cb.pop_front(n);
+#endif
                     mm_block_init_short_with_dt(
                         in0_cb_id, in1_cb_id, gate_cb_id, false, out_subblock_w, out_subblock_h, in0_block_w);
                     tile_regs_commit();

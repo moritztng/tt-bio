@@ -13324,6 +13324,12 @@ def _transition_shard_rows(W: int, c: int, hid: int) -> int:
 _FC12G_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kernels", "fc12g", "compute_fc12g.cpp")
 
 
+def _fc12g_subblock(pm, pn):
+    """(h, w) of an fc12g output subblock: it fits an fp32 dest half (4 tiles), one row when a product spans several."""
+    sw = max(w for w in range(1, 5) if pn % w == 0)
+    return (max(h for h in range(1, 5) if pm % h == 0 and h * sw <= 4) if sw == pn else 1), sw
+
+
 def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden, products=2, defines=None):
     """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`), or
     with `products=3` silu(x @ w1) * (x @ w2) * (x @ w3) (`dit_fc123g`), each core column's in1 block its w1, w2
@@ -13334,8 +13340,7 @@ def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden, products=2, defines
     further product by the running one in dest (kernels/fc12g).
     """
     from .mm2d_generic import generic_matmul_2d
-    sw = max(w for w in range(1, 5) if pn % w == 0)
-    sh = max(h for h in range(1, 5) if pm % h == 0 and h * sw <= 4) if sw == pn else 1
+    sh, sw = _fc12g_subblock(pm, pn)
     pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=_mm_core_coord(gx, gy), in0_block_w=bw, out_subblock_h=sh,
         out_subblock_w=sw, out_block_h=pm, out_block_w=products * pn, per_core_M=pm, per_core_N=products * pn,
@@ -13450,9 +13455,11 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
     hid = []
     try:
         # fc12g streams K in `bw` blocks, its in1 CB two blocks of three products: 576 KiB of bf16 at 512 x 1
-        # (K block 8 tiles, pn 6), beside 144 KiB of fp32 partials.
-        if w3 is not None and gx == 8 and 2 * 3 * pn * bw * 2048 <= _DIT_FC123G_IN1_BYTES:
-            b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_HIFI4": "1"})
+        # (K block 8 tiles, pn 6), beside 144 KiB of fp32 partials. Its fp32 multiplies need a dest tile past the
+        # subblock.
+        if (w3 is not None and gx == 8 and prod(_fc12g_subblock(pm, pn)) < 4
+                and 2 * 3 * pn * bw * 2048 <= _DIT_FC123G_IN1_BYTES):
+            b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_SFPU": "1"})
             hid.append(b)
             _latch("dit_fc123g", "served")
         else:
