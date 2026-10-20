@@ -239,6 +239,21 @@ _X_L1_REFUSED: set = set()
 X_L1_STATS = [0, 0]
 
 
+# A projection small enough for L1 writes there through the linear instead of DRAM through minimal_matmul, and the
+# minimal_matmul pick declines an L1 input it would have to share (both measured slower there). A Galaxy chip at
+# 1000 MHz, 35M --fast page batch (3808 rows), ms per call: qkv linear 0.342 -> 0.206 with L1 out; fc2 reading fc1's
+# L1 output 0.245 (mm pick) -> 0.187. 650M fc1 (39 MB) does not place in L1 and reads the same at 952 rows, so the
+# budget keeps the large sizes as they are. Page, 35M at 1000 MHz: --fast 30.9 -> 28.2 ms, normal 31.9 -> 30.0 ms with
+# the same output; 650M and 1.3B have no projection on this path.
+_SAPROT_OUT_L1 = env_flag("TT_BIO_SAPROT_OUT_L1", True)
+_OUT_L1_BYTES = 16 << 20
+OUT_L1_STATS = [0, 0]   # projections written to L1, refused
+
+
+def _out_l1(x, w) -> bool:
+    return _SAPROT_OUT_L1 and x.volume() // int(w.shape[-2]) * int(w.shape[-1]) * 2 <= _OUT_L1_BYTES
+
+
 def _saprot_prog(x, w, act, hifi2=False):
     """("mm", MinimalMatmulConfig) or ("2d", program config) for this projection, or None where the default serves."""
     if _SAPROT_PROG is False:
@@ -309,6 +324,9 @@ class _SaprotLin(_MMLin):
         ck = self._ck(w)
         hifi2 = ck.math_fidelity == ttnn.MathFidelity.HiFi2
         prog = None if set(kw) - {"activation"} else _saprot_prog(x, w, act, hifi2)
+        l1 = not set(kw) - {"activation"} and _out_l1(x, w)
+        if prog is not None and prog[0] == "mm" and l1 and x.memory_config().buffer_type == ttnn.BufferType.L1:
+            prog = None
         if prog is not None:
             kind, cfg = prog
             dt = _dtype(ttnn.bfloat16) if dtype is None else dtype
@@ -324,6 +342,14 @@ class _SaprotLin(_MMLin):
                 return out
             except RuntimeError:   # a program this shape or grid cannot place: the default serves
                 pass
+        elif l1:
+            try:
+                out = ops.linear(x, w, bias=bias, compute_kernel_config=ck, dtype=_dtype(ttnn.bfloat16) if dtype is None
+                                 else dtype, core_grid=CORE_GRID_MAIN, memory_config=ttnn.L1_MEMORY_CONFIG, **kw)
+                OUT_L1_STATS[0] += 1
+                return out
+            except RuntimeError:   # L1 too full at this point of the block: DRAM serves
+                OUT_L1_STATS[1] += 1
         if ck is not self.compute_kernel_config and not self._mm_on():
             return ops.linear(x, w, bias=bias, compute_kernel_config=ck, dtype=_dtype(ttnn.bfloat16) if dtype is None
                               else dtype, core_grid=CORE_GRID_MAIN, **kw)

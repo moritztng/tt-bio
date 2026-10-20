@@ -262,3 +262,12 @@ def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
     for qkrh in (True, False):
         want = qkrh if switch is None else switch
         assert sp._sdpa_ckc(qkrh) == (sp._SDPA_FP32 if want else None)
+
+
+@pytest.mark.parametrize("k, n, wdtype, want", [(480, 1920, "bfloat8_b", True), (480, 1920, "bfloat16", True),
+                                                (1280, 3840, "bfloat8_b", False), (1280, 5120, "bfloat16", False)])
+def test_saprot_out_l1_small_only(k, n, wdtype, want, monkeypatch):
+    """A projection writes to L1 by default only when its output fits the L1 budget, in either mode."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_OUT_L1", True)
+    assert sp._out_l1(_T(7 * 544, k, ttnn.bfloat16), _T(k, n, getattr(ttnn, wdtype))) is want
