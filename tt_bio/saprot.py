@@ -147,7 +147,11 @@ def _saprot_mm(width: int) -> bool:
 # Against float64 the program is the more accurate one (q rel_l2 0.0027 vs 0.0036, perf/spd_gap_whlm/rope_packed_bench.py).
 # Page cell on a Galaxy chip at 1000 MHz, best of 3: 650M 217.5 -> 200.1 ms (--fast 205.4 -> 190.4), 1.3B 414.0 -> 381.8
 # (400.2 -> 366.4); pcc vs fp32 moves -0.000126 / -0.000109 (650M) and -0.000096 / -0.000025 (1.3B). That passes the fast
-# bar (0.0002) and misses the normal one (0.0001) on 650M, so None = on with block-fp8 weights (--fast) only.
+# bar (0.0002) and missed the normal one (0.0001) on 650M hPCSK9 (-0.000133). That miss was the program's FPU add
+# truncating both RoPE products (qk_rope_heads.SFPU); with the sums on the SFPU, normal mode, Galaxy chip at 1000 MHz,
+# 2 rounds x 3, pcc vs fp32 against the chain on ten cells: 650M hPCSK9 -0.000003, hEGFR +0.000105, hHSA +0.000077,
+# hTF +0.000049, hTNFa +0.000046; 1.3B +0.000020..+0.000126; time 650M -6..-8 %, 1.3B -6..-7 %.
+# None = on with block-fp8 weights (--fast), and in normal mode where the SFPU sums run (Wormhole until Blackhole grades).
 # Blackhole --fast 650M on a p300c chip at 1350 MHz: 98.5 -> 91.2 ms, pcc -0.000111.
 _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
 
@@ -171,9 +175,9 @@ _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 # rotation runs RoPE on the padded heads, in place of the folded companion projection (rot_weight), two multiplies and
 # an add over [B, L, 3*H*32] (WH 35M page census: 14.9 of 41.5 ms). Galaxy chip, 1000 MHz, 2 processes per arm x 3, ms:
 # normal hHSA 39.1 -> 31.7, hPCSK9 38.8 -> 31.7; --fast hHSA 39.0 -> 31.1, hPCSK9 37.9 -> 31.3 (-19 %). pcc vs fp32: normal
-# hPCSK9 -0.000014, hHSA +0.000003, --fast +0.000021 / +0.000036. False keeps the folded projection. None = Wormhole
-# only until the Blackhole A/B reads (TT_BIO_SAPROT_RL forces either way).
-_SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", None)
+# hPCSK9 -0.000014, hHSA +0.000003, --fast +0.000021 / +0.000036. p150a 1350 MHz, hHSA: normal 23.6 -> 22.0, --fast
+# 22.7 -> 18.7, pcc +0.00001..+0.00005 in every cell. False keeps the folded projection.
+_SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", True)
 _RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                           fp32_dest_acc_en=True, packer_l1_acc=False)
 
@@ -186,7 +190,8 @@ def _sdpa_ckc(qkrh: bool):
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
-    return w.dtype == ttnn.bfloat8_b
+    from tt_bio import qk_rope_heads
+    return w.dtype == ttnn.bfloat8_b or qk_rope_heads._sfpu()
 
 
 # The measured program for each SaProt projection at the page shape (7 x 544 rows), per arch, keyed (wormhole, K, N).
@@ -237,6 +242,21 @@ _SAPROT_X_L1 = (env_flag("TT_BIO_SAPROT_X_L1", False) if os.environ.get("TT_BIO_
 _X_L1_REFUSED: set = set()
 #: [residual sums written to L1, declined]
 X_L1_STATS = [0, 0]
+
+
+# A projection small enough for L1 writes there through the linear instead of DRAM through minimal_matmul, and the
+# minimal_matmul pick declines an L1 input it would have to share (both measured slower there). A Galaxy chip at
+# 1000 MHz, 35M --fast page batch (3808 rows), ms per call: qkv linear 0.342 -> 0.206 with L1 out; fc2 reading fc1's
+# L1 output 0.245 (mm pick) -> 0.187. 650M fc1 (39 MB) does not place in L1 and reads the same at 952 rows, so the
+# budget keeps the large sizes as they are. Page, 35M at 1000 MHz: --fast 30.9 -> 28.2 ms, normal 31.9 -> 30.0 ms with
+# the same output; 650M and 1.3B have no projection on this path.
+_SAPROT_OUT_L1 = env_flag("TT_BIO_SAPROT_OUT_L1", True)
+_OUT_L1_BYTES = 16 << 20
+OUT_L1_STATS = [0, 0]   # projections written to L1, refused
+
+
+def _out_l1(x, w) -> bool:
+    return _SAPROT_OUT_L1 and x.volume() // int(w.shape[-2]) * int(w.shape[-1]) * 2 <= _OUT_L1_BYTES
 
 
 def _saprot_prog(x, w, act, hifi2=False):
@@ -309,6 +329,9 @@ class _SaprotLin(_MMLin):
         ck = self._ck(w)
         hifi2 = ck.math_fidelity == ttnn.MathFidelity.HiFi2
         prog = None if set(kw) - {"activation"} else _saprot_prog(x, w, act, hifi2)
+        l1 = not set(kw) - {"activation"} and _out_l1(x, w)
+        if prog is not None and prog[0] == "mm" and l1 and x.memory_config().buffer_type == ttnn.BufferType.L1:
+            prog = None
         if prog is not None:
             kind, cfg = prog
             dt = _dtype(ttnn.bfloat16) if dtype is None else dtype
@@ -324,6 +347,14 @@ class _SaprotLin(_MMLin):
                 return out
             except RuntimeError:   # a program this shape or grid cannot place: the default serves
                 pass
+        elif l1:
+            try:
+                out = ops.linear(x, w, bias=bias, compute_kernel_config=ck, dtype=_dtype(ttnn.bfloat16) if dtype is None
+                                 else dtype, core_grid=CORE_GRID_MAIN, memory_config=ttnn.L1_MEMORY_CONFIG, **kw)
+                OUT_L1_STATS[0] += 1
+                return out
+            except RuntimeError:   # L1 too full at this point of the block: DRAM serves
+                OUT_L1_STATS[1] += 1
         if ck is not self.compute_kernel_config and not self._mm_on():
             return ops.linear(x, w, bias=bias, compute_kernel_config=ck, dtype=_dtype(ttnn.bfloat16) if dtype is None
                               else dtype, core_grid=CORE_GRID_MAIN, **kw)
@@ -386,7 +417,7 @@ class ESM2Attention(_SaprotLin, Module):
         d_model = self.weights["qkv.weight"].shape[-1]  # torch Linear [3*hidden, hidden]
         self.head_dim = d_model // n_heads
         self.fold_rope = self.head_dim % 64 != 0
-        self.rope_pairs = self.fold_rope and (tenstorrent.is_wormhole() if _SAPROT_RL is None else _SAPROT_RL)
+        self.rope_pairs = self.fold_rope and _SAPROT_RL
         if self.fold_rope:
             w, b, wr, br = _fold_rope_qkv(self.weights["qkv.weight"], self.weights["qkv.bias"],
                                           n_heads, self.head_dim, pairs=self.rope_pairs)

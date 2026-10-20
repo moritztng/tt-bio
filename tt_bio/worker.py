@@ -247,8 +247,9 @@ def _write_atom_array_structure(atom_array, coords, outpath, output_format,
     array carries all atom metadata, and only the coordinates and the per-atom pLDDT
     B-factors (0-100, the AF/Boltz convention) are replaced. Used by OpenFold3 and RF3,
     both of which featurize into an AtomArray."""
-    import biotite.structure.io.pdb as _pdb
     import biotite.structure.io.pdbx as _pdbx
+
+    from tt_bio.data.pdb import write_atom_array
 
     arr = atom_array.copy()
     arr.coord = coords.detach().cpu().numpy().astype("float32")
@@ -263,9 +264,7 @@ def _write_atom_array_structure(atom_array, coords, outpath, output_format,
         arr.occupancy[:] = 1.0
     outpath = Path(outpath)
     if output_format == "pdb":
-        pf = _pdb.PDBFile()
-        pf.set_structure(arr)
-        pf.write(str(outpath))
+        write_atom_array(arr, outpath)
     else:
         cf = _pdbx.CIFFile()
         _pdbx.set_structure(cf, arr)
@@ -1204,7 +1203,8 @@ class _WorkerState:
         chains = _read_bio_chains(path, what=cfg.get("model", "esmfold2"))
         if not chains:
             raise RuntimeError("no sequences")
-        check_capabilities(path, chains, cfg.get("model", "esmfold2"))
+        check_capabilities(path, chains, cfg.get("model", "esmfold2"),
+                           output_format=cfg.get("output_format"))
         # covalent bonds + ring closures, upstream's covalent_bonds -> token_bonds
         bonds = _read_bio_bonds(path, chains)
         msa_dir = Path(cfg["msa_dir"])
@@ -1323,7 +1323,8 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein sequences")
-        check_capabilities(path, chains, model)
+        check_capabilities(path, chains, model,
+                           output_format=cfg.get("output_format"))
         bonds = _read_bio_bonds(path, chains)   # covalent bonds + ring closures -> token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
@@ -1396,7 +1397,8 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
-        check_capabilities(path, chains, model)
+        check_capabilities(path, chains, model,
+                           output_format=cfg.get("output_format"))
         bonds = _read_bio_bonds(path, chains)   # covalent bonds + ring closures -> token_bonds
         msa_dir = Path(cfg["msa_dir"])
 
@@ -1574,7 +1576,8 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no sequences")
-        check_capabilities(path, chains, "rf3")
+        check_capabilities(path, chains, "rf3",
+                           output_format=cfg.get("output_format"))
         msa_dir = Path(cfg["msa_dir"])
         # `templates:` (either form) -> the template's CA coordinates on the aligned residues,
         # which is how RF3 templates (featurize.apply_template_ca).
@@ -1782,7 +1785,8 @@ class _WorkerState:
         chains = _read_bio_chains(path)
         if not chains:
             raise RuntimeError("no protein/nucleic-acid sequences")
-        check_capabilities(path, chains, model)
+        check_capabilities(path, chains, model,
+                           output_format=cfg.get("output_format"))
         tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
         msa_dir = Path(cfg["msa_dir"])
 

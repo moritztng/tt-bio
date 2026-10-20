@@ -570,6 +570,8 @@ _FAST_MODE = False
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
 #   opm_b8          the outer product mean's two operands in bfp8, cast once after their relayout
 #   opm_b8cfg       with opm_b8, the contraction on opm_contract_config's plan at HiFi2 (Wormhole)
+#   trimul_t2fold   the GATE-form T2 tail folds the LN's centring and gamma into Wp (trimul_tail.T2_FOLD): only rstd
+#                   is computed and the GEMM reads x itself; rounding grows with |x| instead of |x - mean|
 #   trimul_bres_bh  trimul_bres takes its fp32-dest copy under acc_off on Blackhole too (Wormhole always does), so
 #                   bmm_res fires in Blackhole --fast sets
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
@@ -755,7 +757,7 @@ _FAST_MODE = False
 #                   legacy one (esmc._lm_gate_legacy) or the gated minimal_matmul (esmc._mm_gate_on): both ESMFold2
 #                   sets on Wormhole until a fold grades it.
 #   lm_sdpa_stock   the ESMC language model's key-padding mask stays a [B, 1, L, L] tensor for the stock SDPA where
-#                   Wormhole would run shsdpa on key lengths (esmc._key_lens): both ESMFold2 sets until a fold grades it.
+#                   shsdpa would run on key lengths (esmc._key_lens): both ESMFold2 sets, both arches, until a fold grades it.
 #   ef2_atom_rope   ESMFold2's atom-transformer attention takes rotate_half(q), rotate_half(k) as one exact matmul
 #                   against a signed 32x32 permutation (esmfold2._rope_mm) instead of chunk/neg/concat, 12 times a
 #                   diffusion step on [B, 4, atoms, 32]. The fused rotary_embedding needs head_dim % 64 == 0 (wrp).
@@ -787,12 +789,13 @@ LEVERS = ("lofi", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "tr
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
-          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh")
+          "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
+          "trimul_t2fold")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16 and triatt_hifi2 (Wormhole),
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2 and ws_psilu (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
@@ -805,7 +808,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "atom_mm16", "triatt_tail_bias", "di
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
-                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh"})
+                             "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
+                             "trimul_t2fold"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -13302,36 +13306,37 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     if lever("ws_lofi"):   # ungraded: LoFi drops the low bits of every operand (cen3: 4.1 s at ~48 TFLOP/s, WH PV2 fast)
         fid = ttnn.MathFidelity.LoFi
     acc = lever("ws_l1acc")
+    ps = lever("ws_psilu")   # silu on the packer, overlapping the matmuls; bit-identical
     if (resid is None and lever("ws_ln") and len(parts) == 1
             and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
-        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc)
+        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc, pack_silu=ps)
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
     if resid2:
         # x_norm stands in for the partial's layout, as under ws_chain below.
-        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc, pack_silu=ps)
         for w12, w3 in parts[1:-1]:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
-        _pair_ws.pair_swiglu(x_norm, *parts[-1], fid, l1acc=acc, resid=resid, resid2=out)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=out)
+        _pair_ws.pair_swiglu(x_norm, *parts[-1], fid, l1acc=acc, pack_silu=ps, resid=resid, resid2=out)
         ttnn.deallocate(out)
         ttnn.deallocate(x_norm)
         return resid
     if resid is not None:
         for w12, w3 in parts:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=resid)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=resid)
         ttnn.deallocate(x_norm)
         return resid
     if (len(parts) > 1 and lever("ws_chain")
             and all(_pair_ws.eligible(x_norm, w12, w3, l1acc=acc, resid=x_norm) for w12, w3 in parts[1:])):
         # x_norm stands in for t's layout: same padded shape (the transition is c -> c), bf16, TILE, DRAM.
-        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc)
+        out = _pair_ws.pair_swiglu(x_norm, *parts[0], fid, l1acc=acc, pack_silu=ps)
         for w12, w3 in parts[1:]:
-            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, resid=out)
+            _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps, resid=out)
         ttnn.deallocate(x_norm)
         return out
     for w12, w3 in parts:
-        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc)
+        o = _pair_ws.pair_swiglu(x_norm, w12, w3, fid, l1acc=acc, pack_silu=ps)
         if out is None:
             out = o
         else:

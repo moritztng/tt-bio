@@ -1652,7 +1652,7 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     return failed
 
 
-def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
+def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path, output_format=None):
     """Split ``jobs`` into the ones ``model`` can fold and the ones it refuses.
 
     A refused input is reported and recorded as a failed row in results.json, and the rest of
@@ -1675,7 +1675,7 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
                 from tt_bio.af2ig_input import read_af2ig_input
 
                 read_af2ig_input(jp)
-            check_capabilities(jp, chains, model)
+            check_capabilities(jp, chains, model, output_format=output_format)
             keep.append(job)
         except (RuntimeError, ValueError, click.ClickException) as e:
             refused[job.id] = e.message if isinstance(e, click.ClickException) else str(e)
@@ -2502,6 +2502,14 @@ def _read_bio_chains(path, what="input"):
                     chains.append((c.strip(), spec, None, "ligand", None))
     else:
         raise click.ClickException(f"Unsupported input for {what}: {path.name}")
+    ids = [cid for cid, *_r in chains]
+    repeated = sorted({cid for cid in ids if ids.count(cid) > 1})
+    if repeated:
+        # every model folded two chains under one id as one merged chain, or crashed on it
+        raise click.ClickException(
+            f"{path.name}: chain id(s) {', '.join(map(repr, repeated))} are used more than "
+            f"once; every chain needs its own id (an entry without `id:` is A for a polymer, "
+            f"L for a ligand).")
     blank = [cid for cid, cseq, _sp, _mt, _mods in chains if not cseq or not cseq.strip()]
     if blank:
         raise click.ClickException(
@@ -3428,7 +3436,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # minutes for a model load to be told the yaml key is unsupported.
         results_path = out / "results.json"
         total = len(jobs)
-        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path)
+        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path, output_format)
         if not jobs:
             raise click.ClickException("\n".join(refused.values()))
 

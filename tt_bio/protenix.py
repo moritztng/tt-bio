@@ -164,6 +164,14 @@ T1W8_FAST = frozenset({"trimul_t1_c256", "trimul_t1w8", "trimul_t2g"})
 # 2026-10-19), PASS: same-seed top pose median 0.510 A vs the 1.600 A A/A floor, CA-lDDT +0.0003 [-0.0010, +0.0015],
 # docking 36 -> 36. The plan is Wormhole's; Blackhole is ungraded.
 OPM_B8CFG_FAST = frozenset({"opm_b8cfg"})
+# Protenix-v2's Blackhole --fast set on top of FAST_LEVERS: triatt_ln (without apb_ln), its bfp8 q/k/v and gate, the
+# pair SwiGLU at LoFi with its fused LN, the degree-6 trimul sigmoid, T1's bfp8 resident weights and trimul_bres.
+# Blackhole 512-token fast grade, shipped Protenix-v2 Blackhole fast set vs + these as one stack (spd-m-protenix gbhf,
+# 2026-10-19), PASS on 42 paired: top pose median 0.650 A vs the 1.345 A A/A floor, CA-lDDT -0.0013 [-0.0036, +0.0003],
+# docking 34 -> 33. 9W8A lost its interface on 2 of 4 seeds; a 12-seed sweep (w8a) shows that target collapsing on
+# ~2 of 12 seeds under every Protenix-v2 fast set, so it is the target, not this stack.
+# cdk2x2 512 x 1 on a p300 chip at 1350 MHz, 4 paired warm folds in one process (bhab5): steady 28.85 -> 25.49 s median, -3.19 s.
+BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh"}) | TRIATT_LN_B8_FAST
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -172,12 +180,12 @@ def mode_levers(state_dict):
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN` and `TRIATT_K1` to both Protenix-v2 modes, `BRES_NORMAL` and
     `WS_RESID_NORMAL` to its normal and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
-    `OPM_B8CFG_FAST` to its --fast. Protenix-v2 takes `BRES_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
+    `OPM_B8CFG_FAST` to its --fast; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast. Protenix-v2 takes `BRES_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     pair_ln = TRIATT_LN | TRIATT_K1 if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
-    fast = WH_FAST_LEVERS | pair_ln | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS
+    fast = WH_FAST_LEVERS | pair_ln | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL if v2 else NORMAL_LEVERS)
                            | pair_ln | (WS_RESID_NORMAL if v2 and wh else frozenset()),
                            fast | SHOIST_FAST if v2 else fast)
