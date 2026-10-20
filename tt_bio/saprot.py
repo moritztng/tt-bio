@@ -381,7 +381,7 @@ class _SaprotLin(_MMLin):
         on = d >= _HIFI2_MIN_WIDTH if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
         if not (on and w.dtype == ttnn.bfloat8_b and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _SAPROT_HIFI2_ROLES
                 and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
-            if w.dtype == ttnn.bfloat16 and _normal_hifi3() and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
+            if _normal_hifi3() and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
                 if getattr(self, "_ck_hifi3", None) is None:
                     self._ck_hifi3 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ck.math_approx_mode,
                                               fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc)
