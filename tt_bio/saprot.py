@@ -252,8 +252,14 @@ PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_mat
 RESID_REFUSED: set = set()
 _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
 # The residual add in the out projection's and fc2's epilogue through tt-bio's own minimal_matmul (tt_bio/mm_resid), which
-# takes --fast's block-fp8 weights, wherever _PROGS serves the projection with minimal_matmul. Off until graded.
-_SAPROT_MM_RESID = env_flag("TT_BIO_SAPROT_MM_RESID", False)
+# takes --fast's block-fp8 weights, wherever _PROGS serves the projection with minimal_matmul (out in both modes, fc2 under
+# --fast). One rounding instead of two: out projection rel_l2 vs float64 1.94e-3 -> 1.70e-3. Page A/B on a Galaxy chip at
+# 1000 MHz, 2 rounds x 3, pcc vs fp32: --fast 650M hHSA 138.1 -> 134.8 ms (-0.000014), hPCSK9 138.3 -> 135.2 (+0.000032),
+# 1.3B hPCSK9 264.3 -> 255.8 (+0.000086); normal 650M hHSA 164.5 -> 162.3 (+0.000010). 35M --fast reads 26.4 -> 27.2 (its
+# projections already write L1 through the linear), so None = Wormhole at width >= _MM_RESID_MIN_WIDTH. Blackhole untested.
+_SAPROT_MM_RESID = (env_flag("TT_BIO_SAPROT_MM_RESID", False) if os.environ.get("TT_BIO_SAPROT_MM_RESID", "").strip()
+                    else None)
+_MM_RESID_MIN_WIDTH = 1280
 MM_RESID_REFUSED: set = set()
 MM_RESID_STATS = [0, 0]   # served, refused (a shape / memory placement the program could not take)
 
@@ -389,6 +395,12 @@ class _SaprotLin(_MMLin):
                               else dtype, core_grid=CORE_GRID_MAIN, **kw)
         return super()._lin(x, w, bias=bias, dtype=dtype, **kw)
 
+    def _mm_resid_on(self) -> bool:
+        if _SAPROT_MM_RESID is not None:
+            return _SAPROT_MM_RESID
+        from tt_bio import tenstorrent
+        return tenstorrent.is_wormhole() and int(self.norm_weight.shape[-1]) >= _MM_RESID_MIN_WIDTH
+
     def _mm_resid(self, x, w, bias, resid, l1):
         """resid + (x @ w + bias) from one mm_resid matmul, into L1 where `l1` and it places, or None."""
         from tt_bio import mm_resid
@@ -420,7 +432,7 @@ class _SaprotLin(_MMLin):
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
         x_l1 = w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
-        out = self._mm_resid(x, w, bias, resid, x_l1) if _SAPROT_MM_RESID else None
+        out = self._mm_resid(x, w, bias, resid, x_l1) if self._mm_resid_on() else None
         if out is not None:
             return out
         prog = _saprot_prog(x, w, None) if _SAPROT_RESID and w.dtype == ttnn.bfloat16 else None
