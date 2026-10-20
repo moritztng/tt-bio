@@ -266,6 +266,8 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
         outs = [outs]
     out = outs[0]
     (M_block_tiles, K_block_tiles, N_block_tiles, subblock_h, subblock_w), (gx, gy) = cfg
+    if M_block_tiles % subblock_h or N_block_tiles % subblock_w:   # the kernels run and write garbage (ls118: 5,4,2,2,2 inf)
+        raise RuntimeError(f"subblock {subblock_h}x{subblock_w} does not tile the {M_block_tiles}x{N_block_tiles} block")
     math_fidelity, math_approx_mode, fp32_dest_acc_en, dst_full_sync_en = ckc
     defines = [(str(k), str(v)) for k, v in dict(defines).items()]
 

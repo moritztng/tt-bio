@@ -1,7 +1,7 @@
 """mm_rope's half-pair arm for heads narrower than 32 (SaProt 35M: 20 heads of 24): qkv + bias + NeoX RoPE + head split
 in one minimal_matmul (MM_HALF_PAIRS writer), q / k / v [B, H, L, 32] against float64 on the same bf16 inputs, and its
 time beside the plain qkv minimal_matmul it replaces (the split, reshapes and RL it also replaces are in the page census).
-At batch >= 4 M > N transposes the grid: pass --grid 8,5 so the in1 axis (y) is 5 wide.
+At batch >= 4 M > N transposes the grid: pass --grid 8,5 so the in1 axis (y) is 5 wide, or --grid 8,8 --pad 24.
 
     TT_VISIBLE_DEVICES=N python perf/spd_m_saprot/half_pair_check.py --out check.jsonl [--fast] [--batch 1]
 """
@@ -21,6 +21,7 @@ def main() -> int:
     ap.add_argument("--grid", default="5,8")
     ap.add_argument("--cfg", default="3,5,4,1,4")
     ap.add_argument("--calls", type=int, default=20)
+    ap.add_argument("--pad", type=int, default=0, help="pad heads (mm_rope.pad_heads_for); 0 = none")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -35,11 +36,12 @@ def main() -> int:
     xt = torch.randn(B, L, D, generator=gen).to(torch.bfloat16)
     w = torch.randn(3 * H * hd, D, generator=gen, dtype=torch.float64) / math.sqrt(D)
     bias = torch.randn(3 * H * hd, generator=gen, dtype=torch.float64) * 0.1
-    wh, bh = MR.half_pairs(w, bias, H, hd)
+    hp = a.pad or H
+    wh, bh = MR.half_pairs(w, bias, H, hd, hp)
     wdt = ttnn.bfloat8_b if a.fast else ttnn.bfloat16
     tt = lambda t, dt: ttnn.from_torch(t.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev, dtype=dt)
     x = tt(xt, ttnn.bfloat16)
-    nc = MR.in1_cores(B * L, 3 * H * 32, grid)
+    nc = MR.in1_cores(B * L, 3 * hp * 32, grid)
     wp_t, bp_t = MR.permute(wh, nc, cfg[2]), MR.permute(bh, nc, cfg[2])
     wp, bp = tt(wp_t, wdt), tt(bp_t, ttnn.bfloat16)
     wplain, bplain = tt(wh, wdt), tt(bh, ttnn.bfloat16)
@@ -54,11 +56,12 @@ def main() -> int:
     # float64 on the device's inputs: bf16 x, the weight as stored (bf16 or block-fp8), bf16 bias and tables
     w64 = ttnn.to_torch(wplain).double()
     ref = MR.half_pair_heads(xt.double() @ w64 + bh.to(torch.bfloat16).double(), cos_t.to(torch.bfloat16).double(),
-                             sin_t.to(torch.bfloat16).double(), H)
+                             sin_t.to(torch.bfloat16).double(), hp)
+    ref = tuple(r[..., :H, :, :] for r in ref)
     rope = lambda: MR.qkv_rope_heads(x, wp, bp, cos, sin, H, cfg, grid, ck, half=True, ncols=nc)
     plain = lambda: ttnn.experimental.minimal_matmul(x, wplain, bias_tensor=bplain, compute_kernel_config=ck, config=mcfg,
                                                      memory_config=ttnn.DRAM_MEMORY_CONFIG)
-    rec = dict(fast=a.fast, batch=B, grid=a.grid, cfg=a.cfg, plan=MR.plan(x, wp, cfg, grid, L, nc), in1_cores=nc)
+    rec = dict(fast=a.fast, batch=B, pad=hp, grid=a.grid, cfg=a.cfg, plan=MR.plan(x, wp, cfg, grid, L, nc), in1_cores=nc)
     o = rope()
     if o is not None:
         o = [ttnn.to_torch(t).double() for t in o]
