@@ -25,7 +25,7 @@ export PYTHONPATH=$WT TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_L
     "$(cut -d' ' -f1 /proc/loadavg)"; sleep 1; done ) >> "$D/aiclk.tsv" 9>&- & P=$!
 step() { local n=$1; shift; echo "$n start $(date +%s) load $(cut -d' ' -f1 /proc/loadavg)" >> "$D/card"
   "$@" > "$D/$n.log" 2>&1; echo "$n rc=$? end $(date +%s)" >> "$D/card"; }
-ARMS="base:EXP_21F=1;exact:EXP_21F=0;approx:EXP_APPROX=1;hifi2:EXP_21F=1,FIDELITY=HiFi2;lofi:EXP_21F=1,FIDELITY=LoFi;approx_hifi2:EXP_APPROX=1,FIDELITY=HiFi2"
+ARMS="base:EXP_21F=1;exact:EXP_21F=0;approx:EXP_APPROX=1;hifi2:EXP_21F=1,FIDELITY=HiFi2;lofi:EXP_21F=1,FIDELITY=LoFi;approx_hifi2:EXP_APPROX=1,FIDELITY=HiFi2;v2:EXP_21F=1,V2=1;v2_approx:EXP_APPROX=1,V2=1;v2_approx_hifi2:EXP_APPROX=1,V2=1,FIDELITY=HiFi2"
 step bench224 timeout -s INT -k 60 900 $PY perf/bc4_triatt/bw_bench.py --n 224 --arms "$ARMS" --reps 20 --out "$D/bench224.json"
 step bench224b timeout -s INT -k 60 900 $PY perf/bc4_triatt/bw_bench.py --n 224 --bias-std 2 --arms "$ARMS" --reps 4 --out "$D/bench224b.json"
 # Zones: the Tracy build of the same ttnn (tt-metal-b2z v0.68.0), one profiled call per arm.
@@ -33,7 +33,8 @@ M=/home/ttuser/tt-metal-b2z
 step zones224 env TT_METAL_HOME=$M PYTHONPATH=$WT:$M/ttnn:$M/tools:$M TT_METAL_DEVICE_PROFILER=1 \
   TT_METAL_PROFILER_DIR=$D/prof TT_BIO_TRIATT_BW_ZONES=1 PATH=$HOME/bcx_e2e_venv/bin:$PATH \
   timeout -s INT -k 60 900 $PY perf/bc4_triatt/bw_bench.py --n 224 --lead 27 --zones \
-  --arms "base:EXP_21F=1;approx:EXP_APPROX=1;hifi2:EXP_21F=1,FIDELITY=HiFi2" --out "$D/zones224.json"
+  --arms "base:EXP_21F=1;approx:EXP_APPROX=1;v2:EXP_21F=1,V2=1;v2_approx:EXP_APPROX=1,V2=1" --out "$D/zones224.json"
+step bench288 timeout -s INT -k 60 900 $PY perf/bc4_triatt/bw_bench.py --n 288 --arms "base:EXP_21F=1;v2:EXP_21F=1,V2=1;v2_approx:EXP_APPROX=1,V2=1" --reps 10 --out "$D/bench288.json"
 step census env TT_BIO_BC2_RESIDENT_BLOCKS=48 timeout -s INT -k 120 3000 $PY perf/spd/bc2_evo_devprof.py \
   --params "$PARAMS" --out "$D/census" --warm 2 --reps 3 --census
 kill $P; touch "$D/done"

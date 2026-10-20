@@ -120,6 +120,11 @@ EXP_APPROX = env_flag("TT_BIO_TRIATT_BW_EXP_APPROX", False)
 # passes the FPU makes over each matmul and multiply; the operands are bf16 either way.
 FIDELITY = os.environ.get("TT_BIO_TRIATT_BW_FIDELITY") or None
 
+# The whole-query backward with fewer score-sized passes (BW_V2 in the compute kernel): q scaled
+# once instead of S and dS, dV and dK formed transposed from Qt * Dt operands, and the softmax
+# correction rowsum(dP * P) taken as rowsum(dO * P V). Same gradient, different roundings.
+V2 = env_flag("TT_BIO_TRIATT_BW_V2", False)
+
 STATS = {"served": 0, "declined": 0, "packed": 0}
 
 
@@ -171,7 +176,7 @@ def plan(B: int, H: int, N: int, d: int, grid, q_chunk_tiles=None,
     p = {
         "B": B, "H": H, "N": N, "d": d, "Nt": Nt, "Dt": Dt, "Qt": Qt,
         "groups": groups, "num_cores": num_cores, "rows_per_core": rows_per_core,
-        "gx": gx, "gy": gy, "dst_size": dst_size,
+        "gx": gx, "gy": gy, "dst_size": dst_size, "v2": bool(V2) and Qt == Nt,
     }
     # Priced off the CB table itself rather than a parallel formula. The two drifting apart is how
     # a gate ends up reporting that a config fits while tt-metal refuses it.
@@ -243,6 +248,7 @@ CB_SCALE = 7                     # the attention scale, as a broadcast scalar
 CB_ONES = 8                      # Nt copies of the column identity: every row sum is a matmul
 CB_PREV = 9                      # the previous query chunk's float32 dV, then dK, for one row
 CB_TMP = 10                      # this chunk's dV or dK before the previous chunk's is added
+CB_QS, CB_TR, CB_O = 11, 12, 13  # V2 only: q * scale, dO^T then (q * scale)^T, O = P V
 CB_P = 24                        # S, then P, in place
 CB_DP = 25                       # dP, then dS, in place
 CB_T = 26                        # transpose scratch: P^T for dV, dS^T for dK
@@ -299,7 +305,8 @@ def cb_table(p):
         (CB_DQ, Qt * Dt * 2, b16, bf16),
         (CB_DK, *kv),
         (CB_DV, *kv),
-    ]
+    ] + ([(CB_QS, Qt * Dt, b16, bf16), (CB_TR, Qt * Dt, b16, bf16), (CB_O, Qt * Dt, b16, bf16)]
+         if p.get("v2") else [])
 
 
 def cb_bytes(p) -> int:
@@ -321,8 +328,9 @@ def check_cb_coverage(p):
     short of attaching the watcher.
     """
     declared = {idx for idx, _n, _pg, _f in cb_table(p)}
-    missing = sorted(KERNEL_CB_INDICES - declared)
-    extra = sorted(declared - KERNEL_CB_INDICES)
+    named = KERNEL_CB_INDICES | ({CB_QS, CB_TR, CB_O} if p.get("v2") else set())
+    missing = sorted(named - declared)
+    extra = sorted(declared - named)
     if missing or extra:
         raise ValueError(f"CB table disagrees with the kernels: missing {missing}, extra {extra}")
 
@@ -445,7 +453,9 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
     sq_h, sq_w = SG.largest_subblock(p["Qt"], Nt, p["dst_size"])
     col_h, col_w = SG.largest_subblock(Nt, Dt, p["dst_size"])
     qcol_h, _ = SG.largest_subblock(p["Qt"], Dt, p["dst_size"])
-    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w, p["Qt"], qcol_h]
+    row_h, row_w = SG.largest_subblock(Dt, Nt, p["dst_size"])
+    compute_ct = [Nt, Dt, H, _f32_bits(scale), sq_h, sq_w, col_h, col_w, p["Qt"], qcol_h,
+                  row_h, row_w]
 
     kd = _kdir()
     rr, wr, cr = [], [], []
@@ -487,7 +497,8 @@ def build(device, q, k, v, do, bias, dq, dk, dv, dbias_partial, p, ckc, scale, p
                     + ([("BW_DUMP", "1")] if os.environ.get("TT_BIO_TRIATT_BW_DUMP") else [])
                     + ([("BW_ZONES", "1")] if os.environ.get("TT_BIO_TRIATT_BW_ZONES") else [])
                     + ([("EXP_21F", "1")] if EXP_21F else [])
-                    + ([("BW_EXP_APPROX", "1")] if EXP_APPROX else []),
+                    + ([("BW_EXP_APPROX", "1")] if EXP_APPROX else [])
+                    + ([("BW_V2", "1")] if p.get("v2") else []),
             runtime_args=cr,
             config=ttnn.ComputeConfigDescriptor(
                 math_fidelity=getattr(ttnn.MathFidelity, FIDELITY) if FIDELITY else ckc[0],
