@@ -208,6 +208,22 @@ ESMC_SDPA_Q_CHUNK = 128
 # 161.2, 600M 254.5 -> 252.0, --fast 245.1 -> 242.2; p150a (1350 MHz) 300M 74.5 -> 70.9. The slices are a second
 # copy of the qkv weight, so the 6B (Attention.qk_l1 off, 3 GB of it) keeps the chunk.
 _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
+# The attention's input LayerNorm without its gamma and beta: gamma folded into the qkv weight's input rows and beta W
+# added as the projection's bias (LN(x) W = n (diag(g) W) + b W, n the plain normalisation), both formed in float64 at load.
+# The affine is ~1/3 of the op on a Galaxy chip at 1000 MHz (lnstat_bench, [7, 544, 960]: 0.146 -> 0.098 ms a call).
+# Not the 6B (its LIN6B programs take no bias). Page cell, batch of 7, Galaxy chip (1000 MHz), off/on in separate
+# processes, 2 rounds: 300M 93.3 -> 92.1 ms, --fast 84.5 -> 83.4; 600M --fast 124.4 -> 123.5; pcc vs fp32 within 0.00004
+# either way. 600M normal is bimodal without the fold (147-148 ms on chip 20, 144 on chip 27, 135-136 on chip 4) and ran
+# 135-136 with it on all three. On by default on Wormhole; Blackhole until its own A/B says.
+_ESMC_LN_FOLD = (env_flag("TT_BIO_ESMC_LN_FOLD", False)
+                 if os.environ.get("TT_BIO_ESMC_LN_FOLD", "").strip() else None)
+
+
+def _ln_fold_on() -> bool:
+    if _ESMC_LN_FOLD is not None:
+        return _ESMC_LN_FOLD
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
 # The attention's input layer norm, the q/k layer norms and the qkv re-pack written to L1 instead of
 # DRAM: the qkv projection and the head split read them straight back, so DRAM never carries them. Same ops, same values (a memory
 # placement). An L1 refusal at a shape falls back to DRAM for that shape for good, decided in the
@@ -217,11 +233,12 @@ _ESMC_QKV_SPLIT = env_flag("TT_BIO_ESMC_QKV_SPLIT", True)
 # 16.48 -> 16.55 s), so the Block of a model past _LM_LARGE_MODEL_BYTES keeps the DRAM path (Attention.qk_l1).
 _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 # q/k LayerNorm + RoPE + head split of q, k, v as one program (tt_bio/qk_rope_heads.py) in place of the six-op chain
-# of _qk_heads + _rope, on every ESMC size (the 6B re-reads its gammas per row to fit L1). None = on for Wormhole:
+# of _qk_heads + _rope, on every ESMC size (the 6B re-reads its gammas per row to fit L1). On by default on both archs:
 # page cell on a Galaxy chip at 1000 MHz (best of 3 rounds), 300M 133.5 -> 121.2 ms (--fast 132.6 -> 120.3), 600M 196.4 ->
 # 172.9 (212.1 -> 190.5), 6B 287.2 -> 259.0 (259.5 -> 236.7); pcc vs fp32 moves -0.00006..+0.00003. The chain alone
 # against float64: q/k rel_l2 0.0042 -> 0.0034..0.0050, v exact, 0.24-0.46 ms a layer against 0.60-1.27.
-# The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set, esmfold2_runtime._WH_NORMAL_EXTRA).
+# The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set and Blackhole, esmfold2_runtime).
+# Blackhole (p150a, 1350 MHz, one load, page cell, esmc_ab eb1): 300M 66.4 -> 62.5 ms, 600M 102.7 -> 95.8, 6B 159.8 -> 137.8.
 _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC_QKRH", "").strip() else None)
 # shsdpa writes its output with the heads already concatenated ([B, L, H * D]) instead of nlp_concat_heads after it:
 # only the writer's tile addresses change (sdpa_generic merged_out), so the output is bit-identical.
@@ -254,8 +271,8 @@ ESMC_SDPA_Q_WHOLE = 544
 # 0.0356). Its circular buffers are larger, so where q, k and v sit in L1 (600M, SaProt) the device can refuse the
 # program; lm_sdpa then runs that shape at the k64 config. Page cell on a Galaxy chip at 1000 MHz, 3 rounds, k64 -> few:
 # 300M 149.7 -> 143.8 ms, --fast 144.2 -> 137.0, 6B 302.5 -> 297.2, --fast 293.9 -> 287.1; 600M and SaProt flat (several
-# shapes fall back); pcc vs fp32 moves <= 0.00008. On by default on Wormhole; Blackhole keeps k64 until its own A/B says.
-# None = by arch, the switch overrides.
+# shapes fall back); pcc vs fp32 moves <= 0.00008. On by default on both archs
+# (Blackhole alone -0.4..-4.7 %); the lm_k64 lever keeps k64 (ESMFold2 on Blackhole). The switch overrides.
 _ESMC_SDPA_K_FEW = (env_flag("TT_BIO_ESMC_SDPA_K_FEW", False) if os.environ.get("TT_BIO_ESMC_SDPA_K_FEW", "").strip()
                     else None)
 ESMC_SDPA_K_FEW_MAX = 192
@@ -279,14 +296,14 @@ def _qkrh() -> bool:
     if _ESMC_QKRH is not None:
         return _ESMC_QKRH
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_qk_chain")
+    return not tenstorrent.lever("lm_qk_chain")
 
 
 def _sdpa_k_few() -> bool:
     if _ESMC_SDPA_K_FEW is not None:
         return _ESMC_SDPA_K_FEW
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole()
+    return not tenstorrent.lever("lm_k64")
 
 
 # The SDPA key-padding mask in block-fp8: [B, 1, L, L] is re-read for every (batch, head), ~62 MB a layer at the 300M
@@ -310,8 +327,9 @@ def _sdpa_mask(attn_mask, device=None, dtype=None):
 # `tt_bio.shsdpa` takes it as per-batch key lengths: no [B, 1, L, L] re-read per (batch, head), the mask add only on
 # the key chunk holding the boundary, chunks past len_b skipped. Op device time at the page batch (B7, S544, D64,
 # 1000 MHz): 300M 0.556 -> 0.393 ms, 600M 0.629 -> 0.448, SaProt 650M 0.676 -> 0.456, 6B (B1) 0.291 -> 0.230; float64
-# error equal to the stock op's. None = on for Wormhole (untested on Blackhole); ESMFold2 keeps the stock op
-# (lm_sdpa_stock) until a fold grades it.
+# error equal to the stock op's. Blackhole SaProt page cell, 1350 MHz: 35M normal 25.6 -> 21.5 ms, 650M normal 98.3 ->
+# 86.9, 1.3B --fast 142.1 -> 134.2, pcc vs fp32 -0.000009..+0.00028. None = on for both arches; ESMFold2 keeps the stock
+# op (lm_sdpa_stock) until a fold grades it.
 _ESMC_SHSDPA = (env_flag("TT_BIO_ESMC_SHSDPA", False) if os.environ.get("TT_BIO_ESMC_SHSDPA", "").strip() else None)
 #: [KeyPad calls served by shsdpa, sent to the stock op], read by the A/B harness.
 SHSDPA_STATS = [0, 0]
@@ -330,7 +348,7 @@ def _key_lens(attn_mask) -> list | None:
     on = _ESMC_SHSDPA
     if on is None:
         from tt_bio import tenstorrent
-        on = tenstorrent.is_wormhole() and not tenstorrent.lever("lm_sdpa_stock")
+        on = not tenstorrent.lever("lm_sdpa_stock")
     if not on:
         return None
     lens = (attn_mask[:, 0, :] == 0).sum(1)
@@ -426,8 +444,8 @@ class Embedding(Module):
 # 600M fc2 0.719 -> 0.466 ms, out 0.350 -> 0.263, qkv 0.851 -> 0.710; 300M qkv 0.651 -> 0.537, fc2 0.485 -> 0.416.
 # At the 6B's 544 rows it gains nothing (out 0.200 -> 0.242), so only a projection over ESMC_MM_MIN_ROWS takes it.
 # Page cell on a Galaxy chip (esmc_ab.py, 2 rounds, batch of 7): 300M 177.8 -> 171.8 ms, 600M 272.0 -> 253.3 ms, with
-# embeddings equal to the linear's. On by default on Wormhole;
-# Blackhole keeps the linear until its own A/B says. None = by arch, the switch overrides.
+# embeddings equal to the linear's. On by default on both archs
+# (Blackhole with mm_gate: 300M -2..-9 %, 600M -9 %); the lm_linear lever keeps the linear (ESMFold2 on Blackhole).
 _ESMC_MM = (env_flag("TT_BIO_ESMC_MM", False) if os.environ.get("TT_BIO_ESMC_MM", "").strip() else None)
 ESMC_MM_MIN_ROWS = 2048
 #: [projections served by minimal_matmul, declined], read by the A/B harness.
@@ -501,7 +519,9 @@ _ESMC_ACT_BFP8 = env_flag("TT_BIO_ESMC_ACT_BFP8", False)
 # (grid -> program): bf16 qkv 0.585 -> 0.556 and fc1 half 0.508 -> 0.455 (1D, N across every core), fc2 0.452 -> 0.431
 # (2D); block-fp8 qkv 0.590 -> 0.474 and fc1 half 0.482 -> 0.415 (2D), fc2 and out_proj stay on the linear's program.
 # 6B page cell, same chip at 1000 MHz, best of 3: normal 296.2 -> 287.7 ms, --fast 285.9 -> 270.6 (259.1 with the large
-# LM's L1 q/k path); pcc vs fp32 0.998964 -> 0.999002 and 0.998875 -> 0.998907, pooled cos >= 0.99982. Wormhole only.
+# LM's L1 q/k path); pcc vs fp32 0.998964 -> 0.999002 and 0.998875 -> 0.998907, pooled cos >= 0.99982.
+# Blackhole on top of the LM flip (p150a, 1340 MHz, 2 rounds): normal 139.7 -> 127.9 ms, --fast 139.5 -> 126.6, pcc vs fp32
+# 0.998961 -> 0.998913 and 0.998814 -> 0.998809. lm_linear keeps ttnn.linear's own pick (ESMFold2 on Blackhole).
 _ESMC_LIN6B_PROG = env_flag("TT_BIO_ESMC_LIN6B_PROG", True)
 _LIN6B_PROG_MAX_ROWS = 544
 
@@ -559,7 +579,7 @@ def _esmc_mm() -> bool:
     if _ESMC_MM is not None:
         return _ESMC_MM
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole()
+    return not tenstorrent.lever("lm_linear")
 
 
 class _MMLin:
@@ -592,13 +612,13 @@ class _MMLin:
                 and (x.dtype == ttnn.bfloat16 or (_ESMC_ACT_BFP8 and x.dtype == ttnn.bfloat8_b == w.dtype))
                 and x.volume() // int(x.shape[-1]) >= ESMC_MM_MIN_ROWS and self._mm_on())
 
-    def _lin_split(self, x, w, chunks: int):
-        """x @ w split into `chunks` outputs along the last dim by the matmul itself, or None where it does not serve."""
+    def _lin_split(self, x, w, chunks: int, bias=None):
+        """x @ w (+ bias) split into `chunks` outputs along the last dim by the matmul itself, or None where it does not serve."""
         if not (_ESMC_QKV_MM_SPLIT and self._mm_ok(x, w)):
             return None
         try:
             out = ttnn.experimental.minimal_matmul_split(
-                x, w, chunks=chunks, compute_kernel_config=self._mm_ck(w), dtype=_dtype(ttnn.bfloat16),
+                x, w, chunks=chunks, bias_tensor=bias, compute_kernel_config=self._mm_ck(w), dtype=_dtype(ttnn.bfloat16),
                 memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, self.mm_exact_acc))
         except RuntimeError:
             return None
@@ -641,7 +661,7 @@ class _MMLin:
         MM_STATS[1] += mm
         if _ESMC_LIN6B_PROG and getattr(self, "lm_large", False) and not kw and bias is None:
             from tt_bio import tenstorrent
-            cfg = _lin6b_program(x, w) if tenstorrent.is_wormhole() else None
+            cfg = None if tenstorrent.lever("lm_linear") else _lin6b_program(x, w)
             if cfg is not None:
                 LIN6B_STATS[0] += 1
                 return ttnn.linear(x, w, program_config=cfg, compute_kernel_config=self.compute_kernel_config,
@@ -666,6 +686,11 @@ class Attention(_MMLin, Module):
         self.lm_large = lm_large
         self.in_norm_weight = self.torch_to_tt("layernorm_qkv.0.weight")
         self.in_norm_bias = self.torch_to_tt("layernorm_qkv.0.bias")
+        self.ln_fold = _ln_fold_on() and not lm_large
+        sd = self.weights
+        fold = ((lambda w: (w.double() * sd["layernorm_qkv.0.weight"].double()).float()) if self.ln_fold
+                else (lambda w: w))
+        bias = lambda lo, hi: lambda b: (sd["layernorm_qkv.1.weight"][lo:hi].double() @ b.double()).float()[None]  # noqa: E731
         # The two big projection weights (qkv, out_proj) carry the bulk of the
         # ESMC-6B's parameters; in fast mode they load as block-fp8 (bfloat8_b),
         # halving their weight-read bandwidth and resident size. _dtype() is bf16
@@ -674,32 +699,38 @@ class Attention(_MMLin, Module):
         # (a device-side slice of the 6B's bf16 qkv OOMs: the weights leave a Wormhole chip ~7 MB of DRAM a bank).
         if _ESMC_QKV_SPLIT and qk_l1 and d_model:
             d = d_model  # from the caller: a weight-cache load carries no state dict to read it from
-            self.qkv_weight = None
-            self._qkv_w = tuple(self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w, i=i: w[i * d:(i + 1) * d].t(),
+            self.qkv_weight = self.qkv_bias = None
+            self._qkv_w = tuple(self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w, i=i: fold(w)[i * d:(i + 1) * d].t(),
                                                  dtype=_dtype()) for i in range(3))
+            self._qkv_b = (tuple(self.torch_to_tt("layernorm_qkv.0.bias", transform=bias(i * d, (i + 1) * d)) for i in range(3))
+                           if self.ln_fold else (None,) * 3)
             # Not for the 6B: its packed copy is another 1.56 GiB of a Wormhole chip, and an ESMFold2 fold under
             # 2048 tokens is under ESMC_MM_MIN_ROWS, so it never reads it. Holding it left ESMFold2-Fast at 1024 aa
             # without the DRAM for its first trimul.
             if _ESMC_QKV_MM_SPLIT and _esmc_mm() and not lm_large:
-                self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
+                self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w: fold(w).t(), dtype=_dtype())
+                if self.ln_fold:
+                    self.qkv_bias = self.torch_to_tt("layernorm_qkv.0.bias", transform=bias(0, 3 * d))
         else:
-            self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", dtype=_dtype())
+            self.qkv_weight = self.torch_to_tt("layernorm_qkv.1.weight", transform=lambda w: fold(w).t(), dtype=_dtype())
+            self.qkv_bias = self.torch_to_tt("layernorm_qkv.0.bias", transform=bias(0, None)) if self.ln_fold else None
         self.q_ln_weight = self.torch_to_tt("q_ln.weight")
         self.k_ln_weight = self.torch_to_tt("k_ln.weight")
         self.out_weight = self.torch_to_tt("out_proj.weight", transform=_scaled_t(out_scale), dtype=_dtype())
 
     def _qkv(self, x, ln_mc=None):
         """q, k, v projections of LayerNorm(x), the layer norm written to `ln_mc` (DRAM if None)."""
-        x_norm = ttnn.layer_norm(x, weight=self.in_norm_weight, bias=self.in_norm_bias, epsilon=1e-5,
-                                 compute_kernel_config=self.compute_kernel_config, memory_config=ln_mc)
+        affine = {} if self.ln_fold else {"weight": self.in_norm_weight, "bias": self.in_norm_bias}
+        x_norm = ttnn.layer_norm(x, **affine, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config,
+                                 memory_config=ln_mc)
         try:
             if self.qkv_weight is not None:
-                split = self._lin_split(x_norm, self.qkv_weight, 3)
+                split = self._lin_split(x_norm, self.qkv_weight, 3, bias=self.qkv_bias)
                 if split is not None:
                     return split
             if getattr(self, "_qkv_w", None) is not None:
-                return tuple(self._lin(x_norm, w) for w in self._qkv_w)
-            qkv = self._lin(x_norm, self.qkv_weight)
+                return tuple(self._lin(x_norm, w, bias=b) for w, b in zip(self._qkv_w, self._qkv_b))
+            qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
             q, k, v = ttnn.chunk(qkv, 3, dim=-1)
             ttnn.deallocate(qkv)
             return q, k, v
@@ -937,7 +968,7 @@ def _mm_gate_on() -> bool:
     if _ESMC_MM_GATE is not None:
         return _ESMC_MM_GATE
     from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole() and not tenstorrent.lever("lm_gate_ng")
+    return not tenstorrent.lever("lm_gate_ng")
 
 
 def _lm_gate_legacy() -> bool:
@@ -992,7 +1023,7 @@ _ESMC_GATE_L1 = env_flag("TT_BIO_ESMC_GATE_L1", False)
 # gate: 300M 1.268 -> 0.925 (--fast 1.084 -> 0.739), 600M 1.600 -> 1.248 (--fast 1.336 -> 0.991); rel_l2 against
 # float64 0.0041 -> 0.0019 (normal), equal under --fast. Every LM FFN of the loaded model over a page batch
 # (perf/spd_gap_whlm/ffn_stack_bench.py, same chip, 1000 MHz), ms a layer saved: 300M 0.374 / 0.286 (--fast), 600M
-# 0.411 / 0.239. None = on for Wormhole; lm_gate_ng (ESMFold2 on Wormhole) keeps the three ops there too.
+# 0.411 / 0.239. On by default on both archs; lm_gate_ng (ESMFold2) keeps the three ops.
 _ESMC_MM_GATE = (env_flag("TT_BIO_ESMC_MM_GATE", False)
                  if os.environ.get("TT_BIO_ESMC_MM_GATE", "").strip() else None)
 #: [LM FFN gates served by mm_gate, declined where it was asked]

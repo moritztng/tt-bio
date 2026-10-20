@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -146,7 +147,11 @@ def _saprot_mm(width: int) -> bool:
 # Against float64 the program is the more accurate one (q rel_l2 0.0027 vs 0.0036, perf/spd_gap_whlm/rope_packed_bench.py).
 # Page cell on a Galaxy chip at 1000 MHz, best of 3: 650M 217.5 -> 200.1 ms (--fast 205.4 -> 190.4), 1.3B 414.0 -> 381.8
 # (400.2 -> 366.4); pcc vs fp32 moves -0.000126 / -0.000109 (650M) and -0.000096 / -0.000025 (1.3B). That passes the fast
-# bar (0.0002) and misses the normal one (0.0001) on 650M, so None = on with block-fp8 weights (--fast) only.
+# bar (0.0002) and missed the normal one (0.0001) on 650M hPCSK9 (-0.000133). That miss was the program's FPU add
+# truncating both RoPE products (qk_rope_heads.SFPU); with the sums on the SFPU, normal mode, Galaxy chip at 1000 MHz,
+# 2 rounds x 3, pcc vs fp32 against the chain on ten cells: 650M hPCSK9 -0.000003, hEGFR +0.000105, hHSA +0.000077,
+# hTF +0.000049, hTNFa +0.000046; 1.3B +0.000020..+0.000126; time 650M -6..-8 %, 1.3B -6..-7 %.
+# None = on with block-fp8 weights (--fast), and in normal mode where the SFPU sums run (Wormhole until Blackhole grades).
 # Blackhole --fast 650M on a p300c chip at 1350 MHz: 98.5 -> 91.2 ms, pcc -0.000111.
 _SAPROT_QKRH = (env_flag("TT_BIO_SAPROT_QKRH", False) if os.environ.get("TT_BIO_SAPROT_QKRH", "").strip() else None)
 
@@ -166,10 +171,36 @@ _SAPROT_SDPA = None
 _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
+# The qkv projection, its bias, the packed RoPE and the head split as one minimal_matmul (tt_bio/mm_rope: the RoPE in
+# the matmul's epilogue, from a per-core permuted copy of the qkv weight), in place of minimal_matmul +
+# rope_heads_packed (WH 650M --fast page census: qkv 26.8 + rope 11.4 of 145.9 ms). Page A/B on a Galaxy chip at 1000 MHz,
+# 2 rounds x 3, pcc vs fp32 against the two programs: normal 650M hHSA 169.3 -> 163.3 ms (-0.000019), 1.3B hHSA 325.8 ->
+# 314.3 (+0.000091); --fast 650M hHSA 145.0 -> 137.6 (-0.000003), hPCSK9 145.0 -> 138.6 (-0.000020), 1.3B hPCSK9 276.9
+# -> 263.9 (+0.000066). None = Wormhole until Blackhole grades it (mm_rope.plan declines grids that split a head).
+_SAPROT_MM_ROPE = (env_flag("TT_BIO_SAPROT_MM_ROPE", False) if os.environ.get("TT_BIO_SAPROT_MM_ROPE", "").strip() else None)
+
+
+# SaProt 35M (head_dim 24, padded to 32): q / k dims ordered in NeoX pairs so rotary_embedding_llama's 32 x 32 pair
+# rotation runs RoPE on the padded heads, in place of the folded companion projection (rot_weight), two multiplies and
+# an add over [B, L, 3*H*32] (WH 35M page census: 14.9 of 41.5 ms). Galaxy chip, 1000 MHz, 2 processes per arm x 3, ms:
+# normal hHSA 39.1 -> 31.7, hPCSK9 38.8 -> 31.7; --fast hHSA 39.0 -> 31.1, hPCSK9 37.9 -> 31.3 (-19 %). pcc vs fp32: normal
+# hPCSK9 -0.000014, hHSA +0.000003, --fast +0.000021 / +0.000036. p150a 1350 MHz, hHSA: normal 23.6 -> 22.0, --fast
+# 22.7 -> 18.7, pcc +0.00001..+0.00005 in every cell. False keeps the folded projection.
+_SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", True)
+_RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
+                                          fp32_dest_acc_en=True, packer_l1_acc=False)
+
+
+def _sdpa_ckc(qkrh: bool):
+    """shsdpa's kernel config for a block whose heads came from the packed RoPE program (`qkrh`); None = its HiFi2."""
+    return _SDPA_FP32 if (qkrh if _SAPROT_SDPA is None else _SAPROT_SDPA) else None
+
+
 def _saprot_qkrh(w) -> bool:
     if _SAPROT_QKRH is not None:
         return _SAPROT_QKRH
-    return w.dtype == ttnn.bfloat8_b
+    from tt_bio import qk_rope_heads
+    return w.dtype == ttnn.bfloat8_b or qk_rope_heads._sfpu()
 
 
 # The measured program for each SaProt projection at the page shape (7 x 544 rows), per arch, keyed (wormhole, K, N).
@@ -179,13 +210,20 @@ def _saprot_qkrh(w) -> bool:
 #   BH 650M/1.3B qkv 0.424 -> 0.377, out 0.155 -> 0.135, fc2 0.480 -> 0.430 (mm), fc1 0.733 -> 0.546 (2D, GELU fused)
 #   WH 35M out 0.121 -> 0.103, fc2 0.278 -> 0.245 (against esmc._mm_config's blocks)
 #   BH 35M out 0.054 -> 0.048, fc2 0.113 -> 0.095 (mm), fc1 0.196 -> 0.124 (2D)
-# Wormhole's fc1 has no better program than the linear's. "mm" = minimal_matmul blocks (M, K, N, subblock h, w) on the
-# model's own kernel config (fp32 accumulation, as the sweep ran it); "2d" = (transpose_mcast, in0_block_w).
+# "mm" = minimal_matmul blocks (M, K, N, subblock h, w) on the model's own kernel config (fp32 accumulation, as the sweep
+# ran it); "2d" = (transpose_mcast, in0_block_w[, out blocks along M[, along N]]). Out blocks: the 2D writer shares
+# BRISC with the weight reader and writes an out block only after its K loop, so with one out block per core all of fc1's 39 MB go
+# out after the last K pass. Two out blocks re-read the weight once more and write the first half under the second's
+# compute. WH 650M fc1 (GELU fused, gelu_f32), device profiler, Galaxy chip at 1000 MHz, us a call against the linear's
+# own pick: --fast 1075 -> 986, normal 1369 -> 1329 (ls57; one out block at in0_block_w 4 does not fit L1). The --fast
+# page holds the block LN's output and the residual in L1, where that program no longer places; with both resident
+# (mm_prof --l1x) 7 x 10 out blocks at in0_block_w 8 read 1082 -> 1021 (ls59/60), the --fast entry below.
 _SAPROT_PROG = (env_flag("TT_BIO_SAPROT_PROG", False) if os.environ.get("TT_BIO_SAPROT_PROG", "").strip() else None)
 _PROGS = {
     (True, 1280, 3840): ("mm", (8, 8, 8, 1, 4)),
     (True, 1280, 1280): ("mm", (16, 4, 4, 1, 4)),
     (True, 5120, 1280): ("2d", (False, 10)),
+    (True, 1280, 5120): ("2d", (False, 4, 2)),
     (True, 640, 480): ("mm", (8, 4, 4, 1, 4)),
     (True, 1920, 480): ("mm", (8, 4, 4, 1, 2)),
     (False, 1280, 3840): ("mm", (8, 2, 4, 1, 4)),
@@ -200,13 +238,44 @@ _PROGS = {
 # chip at 1000 MHz, 650M (ms, against the HiFi3 pick above): fc2 1.006 -> 0.680. Shapes not listed keep the table above.
 _PROGS_HIFI2 = {
     (True, 5120, 1280): ("mm", (8, 8, 8, 1, 2)),
+    (True, 1280, 5120): ("2d", (False, 8, 2, 2)),
 }
+# Off drops the out-block entries (WH fc1) back to the linear's own pick.
+_SAPROT_OUT_SPLIT = env_flag("TT_BIO_SAPROT_OUT_SPLIT", True)
 _PROG_ROWS = (3072, 4096)   # page batch 7 x 544 = 3808 rows: the shape the table was measured at
 PROG_STATS = [0, 0, 0]   # projections served by a measured program: minimal_matmul, 2D multicast, minimal_matmul + residual
 # The block's residual add inside the out projection's and fc2's matmul (dit_minimal_matmul_addcmul_fused:
 # x + 1 * (o W + b) * ones) wherever _PROGS serves that projection with minimal_matmul and the weight is bf16, so the
 # add does not re-read the projection from DRAM (ls1 census: 66 adds = 13.4 ms of the WH 650M page batch, 6.6 on BH).
+# bf16 weights only: with --fast's block-fp8 weights the op needs a bf16 copy, whose doubled weight stream cost more than
+# the add (WH 650M +2.9 %, 1.3B +3.5 %).
+RESID_REFUSED: set = set()
 _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
+
+
+# The unfused residual adds write the residual stream to L1, so the next add and the block layer_norm read it from L1
+# instead of DRAM. Page cell on a Galaxy chip at 1000 MHz, --fast, 2 rounds x 3, output bit-identical: 35M 39.3 -> 38.6 ms,
+# 650M 155.2 -> 151.7 (hPCSK9 156.2 -> 152.1), 1.3B 297.5 -> 290.0. None = on with block-fp8 weights (--fast) only, as
+# _SAPROT_LN_L1; normal mode's out/fc2 adds are fused into the matmul (_SAPROT_RESID) where it serves.
+_SAPROT_X_L1 = (env_flag("TT_BIO_SAPROT_X_L1", False) if os.environ.get("TT_BIO_SAPROT_X_L1", "").strip() else None)
+_X_L1_REFUSED: set = set()
+#: [residual sums written to L1, declined]
+X_L1_STATS = [0, 0]
+
+
+# A projection small enough for L1 writes there through the linear instead of DRAM through minimal_matmul, and the
+# minimal_matmul pick declines an L1 input it would have to share (both measured slower there). A Galaxy chip at
+# 1000 MHz, 35M --fast page batch (3808 rows), ms per call: qkv linear 0.342 -> 0.206 with L1 out; fc2 reading fc1's
+# L1 output 0.245 (mm pick) -> 0.187. 650M fc1 (39 MB) does not place in L1 and reads the same at 952 rows, so the
+# budget keeps the large sizes as they are. Page, 35M at 1000 MHz: --fast 30.9 -> 28.2 ms, normal 31.9 -> 30.0 ms with
+# the same output; 650M and 1.3B have no projection on this path.
+_SAPROT_OUT_L1 = env_flag("TT_BIO_SAPROT_OUT_L1", True)
+_OUT_L1_BYTES = 16 << 20
+OUT_L1_STATS = [0, 0]   # projections written to L1, refused
+
+
+def _out_l1(x, w) -> bool:
+    return _SAPROT_OUT_L1 and x.volume() // int(w.shape[-2]) * int(w.shape[-1]) * 2 <= _OUT_L1_BYTES
 
 
 def _saprot_prog(x, w, act, hifi2=False):
@@ -218,24 +287,29 @@ def _saprot_prog(x, w, act, hifi2=False):
     rows = x.volume() // k
     key = (tenstorrent.is_wormhole(), k, n)
     hit = (_PROGS_HIFI2.get(key) if hifi2 else None) or _PROGS.get(key)
-    if hit is None or not _PROG_ROWS[0] <= rows <= _PROG_ROWS[1] or act not in (None, "gelu"):
+    if hit is None or not _PROG_ROWS[0] <= rows <= _PROG_ROWS[1] or act not in (None, "gelu", "gelu_approx"):
         return None
     kind, p = hit
+    if kind == "2d" and len(p) > 2 and not _SAPROT_OUT_SPLIT:
+        return None
     g = x.device().compute_with_storage_grid_size()
     grid = ttnn.CoreCoord(g.x, g.y)
     if kind == "mm":
         mb, kb, nb, sh, sw = p
         return kind, ttnn.MinimalMatmulConfig(M_block_size=mb, K_block_size=kb, N_block_size=nb, subblock_h=sh,
                                               subblock_w=sw, compute_with_storage_grid_size=grid)
-    tm, kb = p
+    tm, kb, m_splits, n_splits = (*p, 1, 1)[:4]
     rows_ax, cols_ax = (g.x, g.y) if tm else (g.y, g.x)
     mt = -(-rows // 32)
     pm, pn = -(-mt // rows_ax), -(-(n // 32) // cols_ax)
-    sh, sw = _subblock(pm, pn)
-    fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, 0.0) if act else None
+    if pm % m_splits or pn % n_splits:   # out blocks as measured (Galaxy's 8 x 9 grid) or the default
+        return None
+    oh, ow = pm // m_splits, pn // n_splits
+    sh, sw = _subblock(oh, ow)
+    fa = ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, float(act == "gelu_approx")) if act else None
     return kind, ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-        compute_with_storage_grid_size=grid, in0_block_w=kb, out_subblock_h=sh, out_subblock_w=sw, per_core_M=pm,
-        per_core_N=pn, transpose_mcast=tm, fused_activation=fa, fuse_batch=True)
+        compute_with_storage_grid_size=grid, in0_block_w=kb, out_subblock_h=sh, out_subblock_w=sw, out_block_h=oh,
+        out_block_w=ow, per_core_M=pm, per_core_N=pn, transpose_mcast=tm, fused_activation=fa, fuse_batch=True)
 
 
 # The block-fp8 projections of --fast at HiFi2 instead of the model's HiFi3, fp32 accumulation kept: a block-fp8 weight's
@@ -279,6 +353,9 @@ class _SaprotLin(_MMLin):
         ck = self._ck(w)
         hifi2 = ck.math_fidelity == ttnn.MathFidelity.HiFi2
         prog = None if set(kw) - {"activation"} else _saprot_prog(x, w, act, hifi2)
+        l1 = not set(kw) - {"activation"} and _out_l1(x, w)
+        if prog is not None and prog[0] == "mm" and l1 and x.memory_config().buffer_type == ttnn.BufferType.L1:
+            prog = None
         if prog is not None:
             kind, cfg = prog
             dt = _dtype(ttnn.bfloat16) if dtype is None else dtype
@@ -286,7 +363,7 @@ class _SaprotLin(_MMLin):
                 if kind == "mm":
                     out = ttnn.experimental.minimal_matmul(
                         x, w, bias_tensor=bias, compute_kernel_config=ck, dtype=dt, memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                        config=cfg, **({"fused_activation": (ttnn.UnaryOpType.GELU, False)} if act else {}))
+                        config=cfg, **({"fused_activation": (ttnn.UnaryOpType.GELU, act == "gelu_approx")} if act else {}))
                 else:
                     out = ttnn.linear(x, w, bias=bias, program_config=cfg, compute_kernel_config=ck, dtype=dt,
                                       memory_config=ttnn.DRAM_MEMORY_CONFIG)
@@ -294,6 +371,14 @@ class _SaprotLin(_MMLin):
                 return out
             except RuntimeError:   # a program this shape or grid cannot place: the default serves
                 pass
+        elif l1:
+            try:
+                out = ops.linear(x, w, bias=bias, compute_kernel_config=ck, dtype=_dtype(ttnn.bfloat16) if dtype is None
+                                 else dtype, core_grid=CORE_GRID_MAIN, memory_config=ttnn.L1_MEMORY_CONFIG, **kw)
+                OUT_L1_STATS[0] += 1
+                return out
+            except RuntimeError:   # L1 too full at this point of the block: DRAM serves
+                OUT_L1_STATS[1] += 1
         if ck is not self.compute_kernel_config and not self._mm_on():
             return ops.linear(x, w, bias=bias, compute_kernel_config=ck, dtype=_dtype(ttnn.bfloat16) if dtype is None
                               else dtype, core_grid=CORE_GRID_MAIN, **kw)
@@ -301,6 +386,7 @@ class _SaprotLin(_MMLin):
 
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
+        x_l1 = w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
         prog = _saprot_prog(x, w, None) if _SAPROT_RESID and w.dtype == ttnn.bfloat16 else None
         if prog is not None and prog[0] == "mm":
             n = int(w.shape[-1])
@@ -313,10 +399,22 @@ class _SaprotLin(_MMLin):
                     dtype=_dtype(ttnn.bfloat16), memory_config=ttnn.DRAM_MEMORY_CONFIG)
                 PROG_STATS[2] += 1
                 return out
-            except RuntimeError:
-                pass
+            except RuntimeError as exc:   # a shape the fused op refuses: say so once, then project + add
+                if not RESID_REFUSED:
+                    warnings.warn(f"saprot: fused residual matmul refused {tuple(w.shape)} {w.dtype}: {str(exc)[:400]}")
+                RESID_REFUSED.add((tuple(w.shape), w.dtype))
         r = self._lin(x, w, bias=bias)
-        out = ttnn.add(resid, r)
+        out = None
+        if x_l1 and tuple(resid.padded_shape) not in _X_L1_REFUSED:
+            try:
+                out = ttnn.add(resid, r, memory_config=ttnn.L1_MEMORY_CONFIG)
+                X_L1_STATS[0] += 1
+                ttnn.deallocate(resid)   # the block rebinds x to the sum; the old stream would pin L1 until GC
+            except RuntimeError:
+                _X_L1_REFUSED.add(tuple(resid.padded_shape))
+                X_L1_STATS[1] += 1
+        if out is None:
+            out = ttnn.add(resid, r)
         ttnn.deallocate(r)
         return out
 
@@ -343,15 +441,19 @@ class ESM2Attention(_SaprotLin, Module):
         d_model = self.weights["qkv.weight"].shape[-1]  # torch Linear [3*hidden, hidden]
         self.head_dim = d_model // n_heads
         self.fold_rope = self.head_dim % 64 != 0
+        self.rope_pairs = self.fold_rope and _SAPROT_RL
         if self.fold_rope:
             w, b, wr, br = _fold_rope_qkv(self.weights["qkv.weight"], self.weights["qkv.bias"],
-                                          n_heads, self.head_dim)
+                                          n_heads, self.head_dim, pairs=self.rope_pairs)
             ow = _pad_heads_in(self.weights["out.weight"], n_heads, self.head_dim)
             dev = lambda x, dt=None: ttnn.from_torch(x.contiguous(), layout=ttnn.TILE_LAYOUT,
                                                      device=self.device,
                                                      dtype=_dtype(ttnn.bfloat16) if dt is None else dt)
             self.qkv_weight, self.qkv_bias = dev(w.t(), _dtype()), dev(b)
-            self.rot_weight, self.rot_bias = dev(wr.t(), _dtype()), dev(br)
+            if self.rope_pairs:
+                self.trans_mat = dev(_pair_rotation()[None, None], ttnn.bfloat16)
+            else:
+                self.rot_weight, self.rot_bias = dev(wr.t(), _dtype()), dev(br)
             self.out_weight = dev(ow.t(), _dtype())
         else:
             self.qkv_weight = self.torch_to_tt("qkv.weight", dtype=_dtype())
@@ -359,12 +461,59 @@ class ESM2Attention(_SaprotLin, Module):
             self.out_weight = self.torch_to_tt("out.weight", dtype=_dtype())
         self.out_bias = self.torch_to_tt("out.bias")
 
+    def _mm_rope_weights(self):
+        """(weight, bias) with the qkv columns in mm_rope's per-core order for this device's measured qkv program, or
+        None where it has none or the layout cannot split."""
+        from tt_bio import mm_rope, tenstorrent
+        d = int(self.weights["qkv.weight"].shape[-1])
+        hit = _PROGS.get((tenstorrent.is_wormhole(), d, 3 * d))
+        ncols = self.device.compute_with_storage_grid_size().x
+        if hit is None or hit[0] != "mm" or mm_rope.layout(3 * d // 32, ncols, hit[1][2]) is None:
+            return None
+        dev = lambda x, dt: ttnn.from_torch(x.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
+        return (dev(mm_rope.permute(self.weights["qkv.weight"].t(), ncols, hit[1][2]), _dtype()),
+                dev(mm_rope.permute(self.weights["qkv.bias"][None], ncols, hit[1][2]), ttnn.bfloat16))
+
+    def _mm_rope(self, x, cos, sin):
+        """(rope(q), rope(k), v) from one mm_rope matmul, or None where the measured program or mm_rope declines."""
+        from tt_bio import mm_rope, tenstorrent
+        on = tenstorrent.is_wormhole() if _SAPROT_MM_ROPE is None else _SAPROT_MM_ROPE
+        if not on or self.head_dim != 64 or not _saprot_qkrh(self.qkv_weight):
+            return None
+        if not hasattr(self, "qkv_rope"):   # built on first use, so an A/B can flip the flag on a loaded model
+            self.qkv_rope = self._mm_rope_weights()
+        if self.qkv_rope is None:
+            return None
+        ck = self._ck(self.qkv_weight)
+        prog = _saprot_prog(x, self.qkv_weight, None, ck.math_fidelity == ttnn.MathFidelity.HiFi2)
+        if prog is None or prog[0] != "mm":
+            return None
+        c = prog[1]
+        g = c.compute_with_storage_grid_size
+        cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
+        return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (g.x, g.y), ck)
+
+    def _rope_pairs(self, t, cos, sin):
+        """rotary_embedding_llama on [B, H, L, 32] heads, as one batch of B * H heads (its prefill takes batch 1)."""
+        b, h, length, w = (int(d) for d in t.shape)
+        out = ttnn.experimental.rotary_embedding_llama(ttnn.reshape(t, (1, b * h, length, w)), cos, sin, self.trans_mat,
+                                                       compute_kernel_config=_RL_CK)
+        ttnn.deallocate(t)
+        return ttnn.reshape(out, (b, h, length, w))
+
     def __call__(self, x, cos, sin, attn_mask=None, key_valid=None):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.qkv_weight)
-        qkv = self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
-        heads = None
-        if self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
+        heads = None if self.fold_rope else self._mm_rope(x_norm, cos, sin)
+        qkv = None if heads is not None else self._lin(x_norm, self.qkv_weight, bias=self.qkv_bias)
+        if heads is not None:
+            ttnn.deallocate(x_norm)
+            q, k, v = heads
+        elif self.rope_pairs:   # q / k dims in adjacent pairs (_fold_rope_qkv pairs=True), cos / sin [1, 1, L, 32]
+            ttnn.deallocate(x_norm)
+            q, k, v = self._split_heads(qkv, self.n_heads)
+            q, k = (self._rope_pairs(t, cos, sin) for t in (q, k))
+        elif self.fold_rope:  # cos/sin are the packed [1, L, 3*H*32] tables from fold_rope_tables
             rot = self._lin(x_norm, self.rot_weight, bias=self.rot_bias)
             ttnn.deallocate(x_norm)
             a = ttnn.multiply(qkv, cos)
@@ -388,7 +537,7 @@ class ESM2Attention(_SaprotLin, Module):
         if key_valid is not None and attn_mask is None:  # the -inf mask already zeroes them, see esmc.Attention
             k = ttnn.multiply(k, key_valid)
             v = ttnn.multiply(v, key_valid)
-        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_SDPA_FP32 if (heads is not None if _SAPROT_SDPA is None else _SAPROT_SDPA) else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
+        o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True, ckc=_sdpa_ckc(heads is not None))  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         out = self._lin_add(o, self.out_weight, self.out_bias, x)
         ttnn.deallocate(o)
@@ -401,12 +550,25 @@ def _pad_heads(w: torch.Tensor, n_heads: int, d: int) -> torch.Tensor:
     return torch.nn.functional.pad(w, (0, 0) * (w.dim() - 2) + (0, 32 - d)).reshape(n_heads * 32, *w.shape[2:])
 
 
+def _pair_rotation() -> torch.Tensor:
+    """[32, 32] T with x @ T = (-x1, x0, -x3, x2, ...): rotate_half over adjacent pairs, as rotary_embedding_llama wants."""
+    t = torch.zeros(32, 32)
+    t[torch.arange(0, 32, 2), torch.arange(1, 32, 2)] = 1.0
+    t[torch.arange(1, 32, 2), torch.arange(0, 32, 2)] = -1.0
+    return t
+
+
+def _pair_order(d: int) -> torch.Tensor:
+    """Head dims in pair order: NeoX's (i, i + d/2) become positions (2i, 2i + 1)."""
+    return torch.stack([torch.arange(d // 2), torch.arange(d // 2, d)], dim=1).flatten()
+
+
 def _pad_heads_in(w: torch.Tensor, n_heads: int, d: int) -> torch.Tensor:
     """Output projection [out, H*d] -> [out, H*32] with zero columns for the pad dims."""
     return _pad_heads(w.t(), n_heads, d).t()
 
 
-def _fold_rope_qkv(w, b, n_heads: int, d: int):
+def _fold_rope_qkv(w, b, n_heads: int, d: int, pairs: bool = False):
     """Head-padded q/k/v projection plus its RoPE companion.
 
     ``w`` is torch Linear ``[3*H*d, hidden]`` (q, k, v stacked), ``b`` is ``[3*H*d]``.
@@ -414,9 +576,14 @@ def _fold_rope_qkv(w, b, n_heads: int, d: int):
     shape whose q/k rows are ``rotate_half`` of the q/k rows (``cat(-x2, x1)`` per head)
     and whose v rows are zero, so ``x @ w_rot.T + b_rot == rotate_half(x @ w.T + b)``
     over q and k exactly: a row permutation with a sign flip, no arithmetic.
+    ``pairs`` instead orders each q / k head's rows in NeoX pairs (``_pair_order``) for rotary_embedding_llama; q . k
+    is unchanged by the common permutation, v keeps its order (the output projection reads it).
     """
     h = d // 2
-    ws, bs = w.reshape(3, n_heads, d, -1), b.reshape(3, n_heads, d)
+    ws, bs = w.reshape(3, n_heads, d, -1).clone(), b.reshape(3, n_heads, d).clone()
+    if pairs:
+        o = _pair_order(d)
+        ws[:2], bs[:2] = ws[:2, :, o], bs[:2, :, o]
     wr = torch.cat([-ws[:, :, h:], ws[:, :, :h]], dim=2)
     br = torch.cat([-bs[:, :, h:], bs[:, :, :h]], dim=2)
     wr[2] = 0
@@ -436,6 +603,14 @@ def _fold_rope_tables_torch(seq_len: int, n_heads: int, d: int, dtype=torch.floa
     cos = torch.cat([qk(freqs.cos()), torch.ones(seq_len, n_heads * 32, dtype=dtype)], dim=-1)
     sin = torch.cat([qk(freqs.sin()), torch.zeros(seq_len, n_heads * 32, dtype=dtype)], dim=-1)
     return cos, sin
+
+
+def pair_rope_tables_torch(seq_len: int, d: int, dtype=torch.float32):
+    """[L, 32] cos / sin for head dims in pair order (``_pair_order``), zero over the pad dims."""
+    inv_freq = 1.0 / (ROPE_BASE ** (torch.arange(0, d, 2, dtype=dtype) / d))
+    f = torch.outer(torch.arange(seq_len, dtype=dtype), inv_freq).repeat_interleave(2, dim=-1)
+    pad = lambda t: torch.nn.functional.pad(t, (0, 32 - d))
+    return pad(f.cos()), pad(f.sin())
 
 
 def fold_rope_tables(seq_len: int, n_heads: int, d: int, device):
@@ -478,6 +653,21 @@ def _block_ln(x, w, b, ck, proj_w):
 # 7, Galaxy chip at 1000 MHz: 650M 250.0 -> 234.2 ms (--fast 244.8 -> 228.5), 1.3B 482.4 -> 450.1 (472.7 -> 441.3),
 # 35M 55.4 -> 52.5 (54.8 -> 53.0); error against float32 HF unchanged (1.3B pcc 0.99916 -> 0.99929, 650M 0.99976 both).
 _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
+# fc1's fused GELU as calculate_gelu_f32 (metal_overlay gelu_f32, metal's approx-mode gelu): 3e-4 of float64 against
+# 4e-3 for the wheel's accurate gelu (rel_l2 5.8e-5 vs 3.1e-4 on N(0, 1.5)) at a third of its math-thread time: WH 650M
+# --fast fc1 1203 -> 1079 us a call. Page cell, Galaxy chip at 1000 MHz, 2 rounds x 3, off -> on, pcc vs fp32 HF:
+# 650M --fast hHSA 151.0 -> 146.1 ms (+0.000045), hPCSK9 155.2 -> 146.2 (+0.000074); normal hHSA 175.4 -> 170.2
+# (+0.000019), hPCSK9 175.3 -> 171.4 (+0.000064); 1.3B --fast hPCSK9 284.9 -> 275.7 (-0.000071), normal hHSA 337.3 ->
+# 328.2 (-0.000014); 35M --fast hHSA 29.1 -> 26.3 (-0.000011), normal hPCSK9 29.6 -> 27.6 (+0.000010).
+# None = Wormhole until Blackhole is graded.
+_SAPROT_GELU_F32 = env_flag("TT_BIO_SAPROT_GELU_F32", None)
+
+
+def _fc1_act() -> str:
+    if _SAPROT_GELU_F32 is not None:
+        return "gelu_approx" if _SAPROT_GELU_F32 else "gelu"
+    from tt_bio import tenstorrent
+    return "gelu_approx" if tenstorrent.is_wormhole() else "gelu"
 
 
 class ESM2FFN(_SaprotLin, Module):
@@ -495,7 +685,7 @@ class ESM2FFN(_SaprotLin, Module):
     def __call__(self, x):
         ck = self.compute_kernel_config
         x_norm = _block_ln(x, self.norm_weight, self.norm_bias, ck, self.fc1_weight)
-        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": "gelu"} if _GELU_FUSED else {}))
+        h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"activation": _fc1_act()} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
             h = ttnn.gelu(h)
@@ -576,7 +766,10 @@ class SaprotModel(Module):
         rope = self._rope.get(seq_len)
         if rope is None:  # built and uploaded once per bucket length, then resident
             attn = self.blocks[0].attn
-            if attn.fold_rope:
+            if attn.rope_pairs:
+                rope = tuple(ttnn.from_torch(t[None, None], layout=ttnn.TILE_LAYOUT, device=self.device,
+                                             dtype=ttnn.bfloat16) for t in pair_rope_tables_torch(seq_len, attn.head_dim))
+            elif attn.fold_rope:
                 rope = fold_rope_tables(seq_len, self.n_heads, attn.head_dim, self.device)
             else:
                 rope = rope_tables(seq_len, attn.head_dim, device=self.device)

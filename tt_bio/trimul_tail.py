@@ -587,7 +587,13 @@ def _gin_move_tiles(kt, ct2, mask):
     return 2 * ct2 * kt + 32 * kt + 64 + 2 * 32 + 2 * GIN_MOVE_NB + (33 if mask else 0)
 
 
-def gin_move_split(x, c, mask=None):
+def _gin_move_bytes(kt, ct2, mask, wdt=ttnn.bfloat16):
+    """L1 bytes of a gin_moved launch whose resident weights are `wdt` (bf16, or bfp8 under trimul_gin_w8)."""
+    bf = MG.tile_bytes(ttnn.bfloat16)
+    return _gin_move_tiles(kt, ct2, mask) * bf - 2 * ct2 * kt * (bf - MG.tile_bytes(wdt))
+
+
+def gin_move_split(x, c, mask=None, wdt=ttnn.bfloat16):
     """How many channel slices `gin_moved` runs `c` output channels of `a` (and of `b`) in, or None.
 
     One launch keeps the whole [2c, K] weight pair resident, which is 256 of the 677 tiles at
@@ -601,7 +607,7 @@ def gin_move_split(x, c, mask=None):
     from .tenstorrent import _l1_bank_bytes
     ct, kt = c // TILE, shp[-1] // TILE
     for n in (1, 2, 4):
-        if ct % n == 0 and (_gin_move_tiles(kt, 2 * ct // n, mask is not None) * MG.tile_bytes(ttnn.bfloat16)
+        if ct % n == 0 and (_gin_move_bytes(kt, 2 * ct // n, mask is not None, wdt)
                             <= 0.85 * _l1_bank_bytes()):
             return n
     return None
@@ -613,7 +619,7 @@ def gin_moved_ok(x, wpT, mask=None):
     mask (if any) as `mask_ok` wants it, and the program's circular buffers inside L1."""
     shp = [int(d) for d in x.shape]
     if not (GIN_MOVE and len(shp) in (3, 4) and shp[-2] == shp[-3] and shp[-2] % TILE == 0
-            and x.dtype == ttnn.bfloat16 and wpT.dtype == ttnn.bfloat16
+            and x.dtype == ttnn.bfloat16 and wpT.dtype in (ttnn.bfloat16, ttnn.bfloat8_b)
             and x.layout == ttnn.TILE_LAYOUT
             and x.memory_config() == ttnn.DRAM_MEMORY_CONFIG
             and wpT.memory_config() == ttnn.DRAM_MEMORY_CONFIG
@@ -627,8 +633,8 @@ def gin_moved_ok(x, wpT, mask=None):
                 and mask.layout == ttnn.TILE_LAYOUT and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG):
             return False
     from .tenstorrent import _l1_bank_bytes
-    tiles = _gin_move_tiles(shp[-1] // TILE, int(wpT.shape[-2]) // TILE, mask is not None)
-    return tiles * MG.tile_bytes(ttnn.bfloat16) <= 0.85 * _l1_bank_bytes()
+    return (_gin_move_bytes(shp[-1] // TILE, int(wpT.shape[-2]) // TILE, mask is not None, wpT.dtype)
+            <= 0.85 * _l1_bank_bytes())
 
 
 def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
@@ -674,10 +680,10 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=fp32,
             dst_full_sync_en=full))
     if fuse:
-        cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt),
+        cbs = [_cb_fmt(0, core_grid, 2 * ct2 * kt, wpT.dtype), _cb(1, core_grid, 32 * kt),
                _cb(2, core_grid, _gin_out_tiles(kt, ct2, False)), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
         return {"kernels": [reader, writer, compute], "cbs": cbs}
-    cbs = [_cb(0, core_grid, 2 * ct2 * kt), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
+    cbs = [_cb_fmt(0, core_grid, 2 * ct2 * kt, wpT.dtype), _cb(1, core_grid, 32 * kt), _cb(2, core_grid, 64),
            _cb(4, core_grid, 32), _cb(5, core_grid, 32), _cb(24, core_grid, 2 * GIN_MOVE_NB)]
     if mask is not None:
         cbs += [_cb(3, core_grid, 1), _cb(6, core_grid, 32)]
@@ -707,7 +713,7 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
                                            ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
             for _ in range(2)]
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
-        key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), tuple(grid),
+        key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), str(wp.dtype), tuple(grid),
                tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
                s_, n, _gin_fuse(mask is not None))
         entry = _CACHE.get(key)
@@ -872,6 +878,34 @@ T2_STATS = [0, 0]       # served, declined
 # T2 only). Diagnostic only, 0 in every model path.
 T2_ABL = 0
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
+# T2_FOLD (off): fold the LN's centring and gamma into Wp, LN(x) @ Wp = rstd * (x @ Wc) + beta @ Wp with
+# Wc = (I - 11^T / K) diag(gamma) Wp, so compute_ln.cpp only needs rstd and skips four of the LN's five Kt-tile
+# passes. Exact algebra; in bf16 its error scales with |x| instead of |x - mean|. Non-moved GATE form, K == N.
+T2_FOLD = env_flag("TT_BIO_T2_FOLD", False)
+_FOLD_W: dict = {}
+
+
+def _fold_weights(wp, ln_w, ln_b):
+    """(Wc, bias tiles) for `wp`, `ln_w`, `ln_b`, derived once per weight set. The entry holds the three tensors,
+    so the ids it is keyed on stay theirs."""
+    key = (id(wp), id(ln_w), id(ln_b))
+    hit = _FOLD_W.get(key)
+    if hit is None:
+        import torch
+        K, N = int(wp.shape[-2]), int(wp.shape[-1])
+        w = ttnn.to_torch(wp).double().reshape(K, N)
+        g = ttnn.to_torch(ln_w).double().reshape(-1)[:K]
+        b = ttnn.to_torch(ln_b).double().reshape(-1)[:K]
+        wg = w * g[:, None]
+        wc = (wg - wg.sum(0, keepdim=True) / K).to(torch.bfloat16).reshape(tuple(wp.shape))
+        bias = (b @ w).to(torch.bfloat16).reshape(1, 1, 1, N).expand(1, 1, TILE, N).contiguous()
+        dev = wp.device()
+        hit = _FOLD_W[key] = (wp, ln_w, ln_b,
+                              ttnn.from_torch(wc, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                                              memory_config=wp.memory_config()),
+                              ttnn.from_torch(bias, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
+                                              memory_config=ln_b.memory_config()))
+    return hit[3], hit[4]
 # c_z 384 (OpenDDE) under the `trimul_t2w` lever, at T2's own block: `_MM_BLOCK`'s (8, 12, 1, 2, 1) does not
 # fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
 # WH chip, perf/spd_trimul/tail_t2.py --c 384 vs float64 (10-13): N 512 13.63 -> 6.19 ms, rel_rms 0.0028
@@ -996,8 +1030,9 @@ def _t2_tiles(kt, nt, Mb, gate=False, moved=None):
     return bf16 + 2 * fp32
 
 
-def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None):
-    """T2's program. `wg`: the GATE form. `moved` (T2m, and T2CM with c_off 0): see `fused_tail_ln`."""
+def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None, fold=False):
+    """T2's program. `wg`: the GATE form. `moved` (T2m, and T2CM with c_off 0): see `fused_tail_ln`. `fold`:
+    T2_FOLD, `wp` and `ln_b` already Wc and the bias tiles."""
     import struct
     Mb, sbw = block[0], block[4]
     K = int(wp.shape[-2])
@@ -1068,7 +1103,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute_ln.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, sbw, _sigpoly(), RNE, int(gate), int(moved is not None),
-                           0 if moved is None else Cp, T2_ABL],
+                           0 if moved is None else Cp, T2_ABL, int(fold)],
         runtime_args=cp,
         # fp32 DEST always: the LayerNorm statistics are packed to fp32 CBs and the 4-tile
         # epilogue fits half-sync fp32 DEST. The fidelity stays the caller's, so the GEMM is
@@ -1085,7 +1120,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
            _cb(7, core_grid, 2 * blk),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
-           _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, 1, f32),
+           _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, Mb if fold else 1, f32),
            _cb_fmt(16, core_grid, kt, f32), _cb_fmt(17, core_grid, kt, f32)]
     if gate:
         cbs.append(_cb(6, core_grid, 2 * Mb * kt))
@@ -1169,14 +1204,17 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         k = ("t2:l1", "x".join(str(int(d)) for d in x.padded_shape))
         REJECTS[k] = REJECTS.get(k, 0) + 1
         return None
+    fold = (T2_FOLD or TT.lever("trimul_t2fold")) and moved is None and wg is not None and kt == nt
+    if fold:
+        wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
-           None if moved is None else (spec(moved[0]), moved[1], P))
+           None if moved is None else (spec(moved[0]), moved[1], P), fold)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg,
-                                        None if moved is None else (moved[0], moved[1], P))
+                                        None if moved is None else (moved[0], moved[1], P), fold)
     reader, writer, _ = entry["kernels"]
     wg_ = wg if wg is not None else wp
     if moved is None:
@@ -1343,7 +1381,8 @@ T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
 T1_KEYS = set(T1_PLANS)
 # The plans when the resident weights are bfp8 (lever trimul_t1w8): half the weight bytes per core, so c_z 384
 # fits its [a | b] and g_out weights in two channel groups instead of three, one launch and one xn pass fewer.
-T1_PLANS_W8 = {(12, 24, 12): (2, 8)}
+# c_z 256 fits ONE launch of 16-row units (1072 KB of CBs, what its two bf16 groups take now): z is read once.
+T1_PLANS_W8 = {(8, 16, 8): (1, 16), (12, 24, 12): (2, 8)}
 
 
 def t1_plan(key, w8=False):

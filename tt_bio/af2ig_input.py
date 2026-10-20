@@ -86,8 +86,11 @@ def read_af2ig_input(path) -> AF2IGInput:
     if unknown:
         raise ValueError(f"binder.sequence has non-standard residue(s) {''.join(unknown)}; "
                          "AF2-IG places one of the 20 standard types on each position")
+    target_chain = _chain_id(target.get("chain"), "target.chain", DEFAULT_TARGET_CHAIN)
+    binder_chain = _chain_id(binder.get("chain"), "binder.chain", DEFAULT_BINDER_CHAIN)
+    if target_chain == binder_chain:
+        # one chain on both sides folds the chain against a copy of itself
+        raise ValueError(f"target.chain and binder.chain are both {target_chain!r}; "
+                         "they must name two different chains of the structure")
     return AF2IGInput(structure=text, binder_sequence=sequence,
-                      target_chain=_chain_id(target.get("chain"), "target.chain",
-                                             DEFAULT_TARGET_CHAIN),
-                      binder_chain=_chain_id(binder.get("chain"), "binder.chain",
-                                             DEFAULT_BINDER_CHAIN))
+                      target_chain=target_chain, binder_chain=binder_chain)

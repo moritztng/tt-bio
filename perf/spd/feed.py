@@ -266,22 +266,29 @@ for j in A["jobs"]:
         os.rename(t, q + "/" + j["name"])
     else:
         J = H + "/spd/feed/jobs"; sh = J + "/" + j["name"]
-        for x in (".end", ".start", ".pid", ".log", ".pg", ".until"):
+        for x in (".end", ".start", ".pid", ".log", ".pg", ".until", ".want", ".w"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
         open(sh + ".outs", "w").write("".join(os.path.expanduser(d) + "\n" for d in j.get("outs", [])))
         # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg, has
         # no booking before the job's worst-case end (checked again once its flock is held) and whose flock is free.
         # 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
-        w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
-             'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
-             'G="' + GATE_LEG % "$c" + '"; '
+        # A card goes to the lowest prio digit waiting for it, as pool.sh does on a Galaxy: a waiter leaves a card to a live,
+        # unstarted waiter of lower digit that wants it ($1.want) and is not held off by a booking ($1.w), and hands the
+        # dispatch flock on. 10-20 qb2: prio-8 backfill placed first held both cards for hours over four prio-3 row jobs.
+        w = (NODE + 'hi() { local f p b=${1##*/}; for f in "$J"/[0-9]-*.sh; do p=${f##*/}; [ "${p%%-*}" -lt "${b%%-*}" ] 2>/dev/null || continue; '
+             '[ -e "$f.start" ] || [ -e "$f.end" ] || [ -e "$f.w" ] && continue; grep -qw "$2" "$f.want" 2>/dev/null || continue; '
+             'kill -0 "$(cat "$f.pid" 2>/dev/null)" 2>/dev/null && return 0; done; return 1; }; '
+             'echo "$2" > "$1.want"; exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; Y=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
+             'hi "$1" $c && { Y=1; continue; }; G="' + GATE_LEG % "$c" + '"; '
              'gate "$5" && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! gate "$5" && break 2; exec 9>&-; done; '
              '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; '
-             'if [ -n "$W" ]; then flock -u 8; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'if [ -n "$W" ]; then touch "$1.w"; else rm -f "$1.w"; fi; '
+             'if [ -n "$W$Y" ]; then flock -u 8; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'else sleep "${POLL:-20}"; fi; done; '
-             'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
+             'exec 8>&-; rm -f "$1.w"; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
              'cd "$(dirname "$1")"; ' + RUN)
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, " ".join(map(str, j["cards"])),
                               j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300), A.get("reset", "")],

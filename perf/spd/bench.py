@@ -36,7 +36,8 @@ Records of a non-Protenix model also carry `model`; a Protenix-v2 record is unch
 
 BindCraft 2 (--model bindcraft2): one rep = one design trajectory, the unit a JapanFold campaign is
 billed and capped in. It runs BindCraft 2's own campaign on its shipped PD-L1 example (examples/pdl1.json,
-settings unedited) the way japanfold.bc2run does: `campaign_predictor` on this chip, validation on BindCraft
+settings unedited but auto_multi_gpu=false, which bc2_gpu.py needs on a GPU and is a no-op here) the way
+japanfold.bc2run does: `campaign_predictor` on this chip, validation on BindCraft
 2's host JAX, one trajectory per card, `max_trajectories` = 1 + --warm. The campaign seed is --seed.
 Trajectory 1 compiles (`cold`), the rest are `warm`. Per trajectory: design_s is BindCraft 2's
 `run_trajectory` call (the gradient design on the card, every stage), validate_s is MPNN redesign + validation
@@ -241,61 +242,41 @@ if a.model == "bindcraft2":
     winfo = worker_env()
     sys.path.insert(0, str(a.bc2))
     import bindcraft.campaign as campaign  # noqa: E402
-    from bindcraft.campaign_output import TRAJECTORY_STAGE, accepted_table, stage_table  # noqa: E402
+    from bindcraft.campaign_output import TRAJECTORY_STAGE, stage_table  # noqa: E402
     from bindcraft.settings import parse_setting_overrides, read_settings  # noqa: E402
     from bindcraft.preflight import cleaned_campaign_settings  # noqa: E402
     import tt_bio  # noqa: E402
     from tt_bio import bindcraft2 as bc2  # noqa: E402
+    sys.path.insert(0, str(Path(__file__).parents[1] / "kitcmp"))
+    import bc2_traj  # noqa: E402  (the trajectory timing bc2_gpu.py uses on the GPU)
     blen = int(a.inputs) if a.inputs.isdigit() else 80
     project = a.out / f"campaign_s{a.seed}"
     example = a.bc2 / "examples" / "pdl1.json"
     settings = cleaned_campaign_settings(read_settings(str(example), parse_setting_overrides(
-        [f"campaign_seed={a.seed}", f"max_trajectories={1 + a.warm}", f"project_folder={project}",
+        [f"campaign_seed={a.seed}", f"max_trajectories={1 + a.warm}", f"project_folder={project}", "auto_multi_gpu=false",
          f"binder_lengths=[{blen}]"])))
     HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), model=a.model, arm=ARM,
                 arm_env=ARM_ENV, fast=FAST, host=socket.gethostname(), ncpu=os.cpu_count(), share=a.share,
-                chip=a.chip, env=ENV, example=str(example), binder_length=blen, campaign_seed=a.seed)
+                chip=a.chip, env=ENV, example=str(example), binder_length=blen, campaign_seed=a.seed,
+                cpu=bc2_traj.cpu_model(), bc2_sha=subprocess.run(["git", "-C", str(a.bc2), "rev-parse", "HEAD"], capture_output=True,
+                                       text=True).stdout.strip())
     log(ev="start", argv=sys.argv, worker=winfo, TT_VISIBLE_DEVICES=os.environ.get("TT_VISIBLE_DEVICES"),
         settings={k: v for k, v in settings.items() if k != "targets"}, **HEAD)
     if a.dry:
         os._exit(0)
-    traj, opened = [], []  # traj: one dict per trajectory (n, t0, design_s, validate_s, err)
-    real_design, real_validate = campaign.run_trajectory, campaign.redesign_and_validate_binders
+    opened = []
 
-    def emit(i, t_end):
+    def emit(i):
         tr = traj[i]
-        rows = []
-        with contextlib.suppress(OSError):
-            rows = list(csv.DictReader(open(stage_table(str(project), TRAJECTORY_STAGE))))
-        row = next((r for r in rows if r.get("trajectory") == str(tr["n"])), {})
-        acc = 0
-        with contextlib.suppress(OSError):
-            acc = sum(1 for _ in csv.DictReader(open(accepted_table(str(project)))))
+        row, acc = bc2_traj.table_row(project, tr["n"])
         nodes = opened_nodes() or opened
         log(ev="rep", input=f"pdl1_b{blen}", seed=a.seed, trajectory=tr["n"], kind="cold" if i == 0 else "warm",
-            design_s=tr.get("design_s"), validate_s=tr.get("validate_s"), traj_s=t_end - tr["t0"],
-            fold_s=tr.get("design_s"), aiclk=clock(tr["t0"], tr["t0"] + (tr.get("design_s") or 0), nodes),
-            aiclk_traj=clock(tr["t0"], t_end, nodes), nodes=nodes, terminated=row.get("terminated") or None,
+            design_s=tr.get("design_s"), validate_s=tr.get("validate_s"), traj_s=time.monotonic() - tr["t0"],
+            fold_s=tr.get("design_s"), iterations=tr.get("iterations"), s_per_iter=bc2_traj.s_per_iter(tr),
+            loadavg=tr.get("loadavg"), other_load=tr.get("other_load"), aiclk=clock(tr["t0"], tr["t0"] + (tr.get("design_s") or 0), nodes),
+            aiclk_traj=clock(tr["t0"], time.monotonic(), nodes), nodes=nodes, terminated=row.get("terminated") or None,
             finite=bool(row) and tr.get("err") is None, accepted_total=acc, csv_row=row,
             err=tr.get("err"), **HEAD)
-
-    def design(*args, **kw):
-        if traj:
-            emit(len(traj) - 1, time.monotonic())
-        traj.append(dict(n=len(traj) + 1, t0=time.monotonic()))
-        t0 = time.monotonic()
-        try:
-            return real_design(*args, **kw)
-        finally:
-            traj[-1]["design_s"] = time.monotonic() - t0
-            opened[:] = opened_nodes() or opened
-
-    def validate(*args, **kw):
-        t0 = time.monotonic()
-        try:
-            return real_validate(*args, **kw)
-        finally:
-            traj[-1]["validate_s"] = time.monotonic() - t0
 
     weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
                                             ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
@@ -327,7 +308,16 @@ if a.model == "bindcraft2":
             err=err, **HEAD)
         log(ev="end")
         os._exit(0)
-    campaign.run_trajectory, campaign.redesign_and_validate_binders = design, validate
+    traj = bc2_traj.hook(campaign, project, emit)
+    real_design = campaign.run_trajectory
+
+    def design(*args, **kw):
+        try:
+            return real_design(*args, **kw)
+        finally:
+            opened[:] = opened_nodes() or opened
+
+    campaign.run_trajectory = design
     try:
         # the card's trunk pool reads the same AF2 params the campaign does, not tt-bio's weights cache
         with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
@@ -338,7 +328,7 @@ if a.model == "bindcraft2":
         else:
             log(ev="crash", err=traceback.format_exc()[-3000:], **HEAD)
     if traj:
-        emit(len(traj) - 1, time.monotonic())
+        emit(len(traj) - 1)
     log(ev="end")
     os._exit(0)
 

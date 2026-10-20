@@ -223,6 +223,7 @@ def _v_matmul(shipped, args, kwargs):
     if shipped is ttnn.matmul and len(ra) > 1:
         rk = _mm_layout.plan(ra[0], ra[1], rk)
     out_v = shipped(*ra, **rk)
+    ashape, bshape = a.value.shape, b.value.shape
 
     def make():
         def bw(g):
@@ -235,15 +236,15 @@ def _v_matmul(shipped, args, kwargs):
             # the same broadcast and not the same reduction. It is a no-op on equal shapes,
             # so the ordinary path pays one shape comparison.
             if a.requires_grad:
-                rows = _via2d if len(b.value.shape) == 2 else (lambda t, fn: fn(t))
+                rows = _via2d if len(bshape) == 2 else (lambda t, fn: fn(t))
                 da = (rows(g, lambda v: ag._pair_mm_or(
                                 v, b.value, not tb, lambda: ag.bmm(v, b.value, False, not tb,
                                                                    compute_kernel_config=cfg),
-                                cfg) if len(b.value.shape) == 2 else
+                                cfg) if len(bshape) == 2 else
                            ag.bmm(v, b.value, False, not tb, compute_kernel_config=cfg))
                       if not ta else
                       ag.bmm(b.value, g, tb, True, compute_kernel_config=cfg))
-                a.add_grad(_reduce_to(da, a.value.shape))
+                a.add_grad(_reduce_to(da, ashape))
             if b.requires_grad:
                 # The weight reduces over every token, so it is `_flat2d`'s DRAM-normalised
                 # long-K path and fp32 out, for the reason documented there.
@@ -252,19 +253,19 @@ def _v_matmul(shipped, args, kwargs):
                 # another activation contracts over the batch as well, and `_flat2d`
                 # would fold that away: measured as a (64, 32) gradient arriving at a
                 # (1, 4, 64, 32) value in AttentionPairBias.
-                if (not ta and not tb and len(a.value.shape) > 2
-                        and len(b.value.shape) == 2):
+                if (not ta and not tb and len(ashape) > 2 and len(bshape) == 2):
                     db = _matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
                                  compute_kernel_config=cfg, dtype=ttnn.float32)
                 else:
                     db = (ag.bmm(a.value, g, not ta, compute_kernel_config=cfg) if not tb else
                           ag.bmm(g, a.value, True, ta, compute_kernel_config=cfg))
-                b.add_grad(_reduce_to(db, b.value.shape))
+                b.add_grad(_reduce_to(db, bshape))
             if bias is not None and bias.requires_grad:
                 bias.add_grad(_sum_leading(g, bias.value.shape))
         return bw
 
-    return _tape(out_v, [p for p in (a, b, bias) if p is not None], make)
+    return _tape(out_v, [p for p in (a, b, bias) if p is not None], make,
+                 reads=ag._cross_reads(a, b))
 
 
 # `d_logits = y * (g - sum_j g_j y_j)` has EXACTLY zero row sums when `sum_j y_j = 1`, and the
@@ -613,7 +614,7 @@ def _activation(kwargs, key, probe=None):
 
 
 def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=None,
-            gate=False):
+            gate=False, cross=False):
     """Register a binary eltwise verb. The second operand may be a python scalar, which the
     shipped chain does often enough (`ttnn.multiply(s, 1 / sqrt(d))`) that treating it as a
     tensor would be wrong rather than merely slow.
@@ -637,6 +638,9 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
     gate marks the multiply verbs: `multiply(o, g, input_tensor_b_activations=[SIGMOID])`
     with both sides wanting a gradient and no broadcast runs as one kernel,
     `gate_bw.gate_bw`, where it would otherwise be seven ops.
+    ``cross`` marks a product: each side's rule reads only the other side, so a side is read
+    only when the other wants a gradient (`autograd._cross_reads`). A dropout multiply's mask
+    has none, so its update is released.
     """
     def impl(shipped, args, kwargs):
         a = _wrap(args[0])
@@ -673,10 +677,15 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
         # unary sits on it. Everything else is dead the moment the shipped forward is done,
         # and naming it here is what lets `_tape` leave it unpinned.
         gate_b = gate and fa is None and _is_sigmoid(kwargs.get("input_tensor_b_activations"))
-        reads_a = needs[0] or (fa is not None and not _act_const(kwargs,
-                                                                 "input_tensor_a_activations"))
-        reads_b = needs[1] or (fb is not None and not _act_const(kwargs,
-                                                                 "input_tensor_b_activations"))
+        if cross:
+            need_a, need_b = b.requires_grad, a.requires_grad
+        else:
+            need_a, need_b = needs
+        reads_a = need_a or (fa is not None and a.requires_grad
+                             and not _act_const(kwargs, "input_tensor_a_activations"))
+        reads_b = need_b or (fb is not None and b.requires_grad
+                             and not _act_const(kwargs, "input_tensor_b_activations"))
+        ashape, bshape = a.value.shape, b.value.shape
         out_v = shipped(a.value, b.value, **kw)
         def make():
             def bw(g):
@@ -710,11 +719,11 @@ def _binary(grad_a, grad_b, scalar, out_of_place=None, needs=(True, True), both=
                 if a.requires_grad:
                     da = grad_a(g, ea, eb)
                     da = _chain_fused(fa, da, av, ea) if fa else da
-                    a.add_grad(_reduce_to(da, av.shape))
+                    a.add_grad(_reduce_to(da, ashape))
                 if b.requires_grad:
                     db = grad_b(g, ea, eb)
                     db = _chain_fused(fb, db, bv, eb) if fb else db
-                    b.add_grad(_reduce_to(db, bv.shape))
+                    b.add_grad(_reduce_to(db, bshape))
             return bw
 
         out = _tape(out_v, [a, b], make,
@@ -769,9 +778,9 @@ def _is_sigmoid(acts) -> bool:
             and getattr(acts[0], "op_type", acts[0]) == u.SIGMOID)
 
 
-_VERBS["multiply"] = _binary(*_MUL, both=_MUL_BOTH, gate=True)
+_VERBS["multiply"] = _binary(*_MUL, both=_MUL_BOTH, gate=True, cross=True)
 _VERBS["multiply_"] = _binary(*_MUL, out_of_place=ttnn.multiply, both=_MUL_BOTH,
-                               gate=True)
+                               gate=True, cross=True)
 _VERBS["divide"] = _binary(
     lambda g, av, bv: ttnn.divide(g, bv),
     lambda g, av, bv: ttnn.multiply(ttnn.divide(g, ttnn.multiply(bv, bv)),
@@ -782,7 +791,8 @@ _VERBS["divide"] = _binary(
 # --- shape ------------------------------------------------------------------------------
 # Every one of these is its own inverse applied to the gradient. They carry no arithmetic,
 # so nothing here can lose precision; what they can lose is an axis, which is why each
-# reads the source shape at forward time rather than inferring it in the backward.
+# reads the source shape at forward time rather than inferring it in the backward. For the
+# same reason none reads a value, so none pins one (`reads=()`).
 
 @_verb("reshape", "unsqueeze", "squeeze")
 def _v_reshape(shipped, args, kwargs):
@@ -798,7 +808,7 @@ def _v_reshape(shipped, args, kwargs):
             x.add_grad(ttnn.reshape(g, src))
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("permute")
@@ -816,7 +826,7 @@ def _v_permute(shipped, args, kwargs):
             x.add_grad(_permute_back(g, inv))
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 # Whether a permute's backward goes through the reblock kernels where they serve its inverse.
@@ -909,7 +919,7 @@ def _v_transpose(shipped, args, kwargs):
             x.add_grad(ttnn.transpose(g, d0, d1))
         return bw
 
-    return _tape(out_v, [x], make)
+    return _tape(out_v, [x], make, reads=())
 
 
 @_verb("concat")
@@ -933,7 +943,31 @@ def _v_concat(shipped, args, kwargs):
                 off += n
         return bw
 
-    return _tape(out_v, xs, make)
+    return _tape(out_v, xs, make, reads=())
+
+
+@_verb("repeat")
+def _v_repeat(shipped, args, kwargs):
+    """A repeat along axes where the input has extent 1 is a broadcast, so its backward is the
+    sum over each repeated axis. Tiling a wider axis is not taped: it raises rather than guess
+    how the copies fold back."""
+    x = _wrap(args[0])
+    reps = [int(r) for r in (kwargs.get("repetition_vector") or args[1])]
+    shape = [int(d) for d in x.value.shape]
+    axes = [ax for ax, r in enumerate(reps) if r != 1]
+    if any(shape[ax] != 1 for ax in axes):
+        raise NotImplementedError(f"taped ttnn.repeat {reps} of {shape}: only extent-1 axes are taped")
+    ra, rk = _raw(args, kwargs)
+    out_v = shipped(*ra, **rk)
+
+    def make():
+        def bw(g):
+            for ax in axes:
+                g = ttnn.sum(g, dim=ax, keepdim=True)
+            x.add_grad(g)
+        return bw
+
+    return _tape(out_v, [x], make)
 
 
 def _sliced(x: "Tensor", out_v, starts, ends):

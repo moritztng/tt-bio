@@ -340,6 +340,10 @@ def main():
                                   if hasattr(TT_, k)}
     except Exception as e:
         res["trimul_tail_sub"] = {"absent": repr(e)}
+    # Latched refusals: a lever that refuses on its first call and latches falls back silently, which reads as a
+    # bit-exact null A/B (dshab2: dit_shard, identical CIFs). Only the names that saw a call.
+    res["latches"] = {k: v for k, v in getattr(T, "LATCH_STATS", {}).items()
+                      if any(v.get(f) for f in ("served", "refused", "blocked", "declined"))}
     # The grid-derived thresholds in effect in this process. _apply_grid_thresholds runs at
     # device open, not at import, so this has to be read after a fold, not from the source.
     res["thresholds"] = {k: getattr(T, k, "absent") for k in (
@@ -357,6 +361,7 @@ def main():
         str(k) for k in getattr(T, "_TRANSPOSE_L1_REFUSED", ()))
     flush()
     print(f"[{a.label}] reach {res['reach']}", flush=True)
+    print(f"[{a.label}] latches {res['latches']}", flush=True)
     print(f"[{a.label}] FP32_SOFTMAX_STATS {res['fp32_softmax_stats']}", flush=True)
     print(f"[{a.label}] TRIMUL_ROUTES {res['trimul_routes']} {res['trimul_tail_sub']} BMM_RES served/declined {res['bmm_res']}", flush=True)
     print("wrote", a.out, flush=True)

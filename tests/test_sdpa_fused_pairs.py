@@ -136,14 +136,28 @@ def test_padded_pairs_at_736_lead_with_the_measured_best():
     assert pairs[:2] == ((256, 768), (256, 384))
 
 
-def test_the_token_dit_is_priced_at_its_own_batch():
+def _clear_pair_memos():
+    for f in (TS.fused_pairs, getattr(TS, "_ranked_pairs", None)):
+        if f is not None:
+            f.cache_clear()
+
+
+def test_the_token_dit_is_priced_at_its_own_batch(monkeypatch):
     """The token DiT's batch is its 5 samples, not the sequence. Priced at batch 5 on a Wormhole
     8x9 grid at 16 heads and head dim 64, the first padded pair is the q192 split that lights 64
     cores (0.532 ms against 0.693 ms for q384 k256, the seq-priced pick; perf/spd_ditsdpa/opbench.py
     on .107 chips 3 and 11). The default batch is still the sequence, so triangle attention's order
-    is unchanged."""
-    assert TS.fused_pairs(736, 16, 64, 72, padded=True, batch=5)[0] == (192, 768)
-    assert TS.fused_pairs(736, 16, 64, 72, padded=True)[0] == (384, 384)
+    is unchanged.
+
+    Priced at Wormhole's own L1 (`sdpa_generic.cb_budget`) whatever card runs the test: on Blackhole's
+    budget q384 k384 also fits and leads, on a Wormhole host it does not, and the test read the host."""
+    monkeypatch.setattr(SG, "cb_budget", lambda wormhole=None: SG.WH_CB_BUDGET)
+    _clear_pair_memos()
+    try:
+        assert TS.fused_pairs(736, 16, 64, 72, padded=True, batch=5)[0] == (192, 768)
+        assert TS.fused_pairs(736, 16, 64, 72, padded=True)[0] == (384, 256)
+    finally:
+        _clear_pair_memos()
     assert TS.fused_pairs(736, 8, HEAD_DIM, 72, padded=True, batch=736) == \
         TS.fused_pairs(736, 8, HEAD_DIM, 72, padded=True)
 

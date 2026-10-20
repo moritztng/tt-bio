@@ -48,25 +48,8 @@ for a in sorted({a for a, _ in rows}):
 # change sends a design trajectory somewhere new, which makes two arms two independent samples of one
 # distribution if the lever is harmless. So test that: a two-sided Fisher exact test on accepted per
 # trajectory, and a permutation test on the mean last-iteration i_pTM per trajectory.
-from math import comb
-import random
-
-
-def fisher_two_sided(a, b, c, d):
-    """2x2 [[a, b], [c, d]]; p of every table with the same margins at least as unlikely."""
-    n, r1, c1 = a + b + c + d, a + b, a + c
-    def pr(x):
-        return comb(c1, x) * comb(n - c1, r1 - x) / comb(n, r1)
-    p0 = pr(a)
-    return min(1.0, sum(pr(x) for x in range(max(0, r1 + c1 - n), min(r1, c1) + 1) if pr(x) <= p0 * (1 + 1e-9)))
-
-
-def perm_mean_diff(x, y, n=20000, seed=0):
-    rng = random.Random(seed); obs = abs(st.mean(x) - st.mean(y)); pool = x + y; k = 0
-    for _ in range(n):
-        rng.shuffle(pool)
-        if abs(st.mean(pool[:len(x)]) - st.mean(pool[len(x):])) >= obs - 1e-12: k += 1
-    return (k + 1) / (n + 1)
+# Both tests live in bc2_quality, which BC4 grades against; one home, tested there.
+from bc2_quality import fisher_two_sided, perm_mean_diff
 
 
 arms = sorted({a for a, _ in rows})

@@ -42,6 +42,10 @@
 #include "api/compute/eltwise_unary/relu.h"
 #include "api/compute/eltwise_unary/comp.h"
 
+#if defined(WS_PACK_SILU) && defined(TRISC_PACK)
+#include "llk_math_eltwise_unary_sfpu_silu.h"   // the packer-side SFPU init, as kernels/fc12g
+#endif
+
 // Dest 0..N-1 = the residual tiles i0..i0+N-1 of c_20 (+ c_24's under WS_RESID2), then the matmul `in0 x in1` is
 // re-armed: the seed fc3 accumulates on.
 template <uint32_t N>
@@ -66,14 +70,6 @@ void seed_res(uint32_t cb_res, uint32_t in0, uint32_t in1, uint32_t K, uint32_t 
 #endif
 }
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
-#ifdef WS_LN
-#include "../common/ln_prologue.hpp"
-
-struct LnCbs {
-    static constexpr uint32_t Kt = get_compile_time_arg_val(0), x = 5, gamma = 8, beta = 9, scaler = 10, eps = 11,
-                              mean = 12, var = 13, rstd = 14, xc = 17, tmp = 18;
-};
-#endif
 
 #ifdef WS_L1ACC
 // cb_acc holds SLOT tiles (one fp32 dest half) and every result takes all of them, N <= SLOT used. The packer and
@@ -123,6 +119,57 @@ void acc_to_dest() {
 }
 #endif
 
+#ifdef WS_PACK_SILU
+// WS_PACK_SILU (the `ws_psilu` lever; not with RELU or RELU_BW): the silu runs on the packer thread's SFPU
+// calls (kernels/fc12g's pattern) instead of the math thread's, and fc1 of group j + SW is issued before fc2 of group
+// j, so the FPU's matmuls overlap the silu instead of waiting for it. The gate CB's 2 SW tiles hold the two groups in
+// flight. Same SFPU instructions on the same dest values: bit-identical to the math-thread silu. With WS_LN the math
+// thread's LayerNorm SFPU work never meets the packer's: a row's last silu is packed into the gate CB before that
+// row's fc2 can finish, and the next row's fc1 (the packer's next silu) waits on the LN's packed x. With WS_L1ACC
+// the matmul's K chunks go through c_19 as on the math-thread path and the silu reads the same fp32 copy in dest.
+template <uint32_t KT, uint32_t NH, uint32_t SW, uint32_t V>
+void fc1_gate(uint32_t j) {
+    constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_gate = 3;
+#ifdef WS_L1ACC
+    mm_acc<KT, SW>(cb_x, cb_w12, 2 * NH, j);
+    tile_regs_acquire();
+    acc_to_dest<SW>();
+    pack_reconfig_data_format(cb_gate);
+#else
+    mm_block_init_short(cb_x, cb_w12, false, SW, 1, KT);
+    reconfig_data_format(cb_w12, cb_x);
+    tile_regs_acquire();
+    for (uint32_t k = 0; k < KT; ++k) {
+        matmul_block(cb_x, cb_w12, k, k * 2 * NH + j, 0, false, SW, 1, KT);
+    }
+#endif
+    tile_regs_commit();
+    cb_reserve_back(cb_gate, SW);
+    // tile_regs_wait() that also points the SFPU at the packer's dest half, then the silu before the pack
+    PACK(TTI_SEMWAIT(
+        p_stall::STALL_TDMA | p_stall::STALL_CFG, semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
+    PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+#ifndef WS_NO_SILU
+    for (uint32_t i = 0; i < SW; ++i) {
+        silu_poly_v_tile_pack<V>(i);
+    }
+#endif
+    PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+    pack_tile_block(0, cb_gate, SW);
+    tile_regs_release();
+    cb_push_back(cb_gate, SW);
+}
+#endif
+#ifdef WS_LN
+#include "../common/ln_prologue.hpp"
+
+struct LnCbs {
+    static constexpr uint32_t Kt = get_compile_time_arg_val(0), x = 5, gamma = 8, beta = 9, scaler = 10, eps = 11,
+                              mean = 12, var = 13, rstd = 14, xc = 17, tmp = 18;
+};
+#endif
+
+
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
     constexpr uint32_t NH = get_compile_time_arg_val(1);
@@ -154,6 +201,9 @@ void kernel_main() {
 #else
     mm_block_init(cb_x, cb_w12, cb_gate, false, SW, 1, KT);
 #endif
+#ifdef WS_PACK_SILU
+    PACK((llk_math_eltwise_unary_sfpu_silu_init<true>()));   // the packer thread's SFPU address modes, as fc12g
+#endif
     cb_wait_front(cb_w12, KT * W12);
     cb_wait_front(cb_w3, NH * CT);
 #ifdef WS_RELU
@@ -184,6 +234,48 @@ void kernel_main() {
 #ifdef WS_RELU_BW
         cb_wait_front(cb_dy, KT);
 #endif
+#ifdef WS_PACK_SILU
+        static_assert(SILU_POLY == 1 || SILU_POLY == 2);
+        fc1_gate<KT, NH, SW, SILU_POLY>(0);
+        for (uint32_t j = 0; j < NH; j += SW) {
+            if (j + SW < NH) {
+                fc1_gate<KT, NH, SW, SILU_POLY>(j + SW);
+            }
+#ifdef WS_L1ACC
+            mm_acc<KT, SW>(cb_x, cb_w12, 2 * NH, NH + j);
+            tile_regs_acquire();
+            acc_to_dest<SW>();
+            pack_reconfig_data_format(cb_hid);
+            cb_wait_front(cb_gate, SW);
+            reconfig_data_format_srca(cb_acc, cb_gate);
+#else
+            mm_block_init_short(cb_x, cb_w12, false, SW, 1, KT);
+            reconfig_data_format(cb_w12, cb_x);
+            tile_regs_acquire();
+            for (uint32_t k = 0; k < KT; ++k) {
+                matmul_block(cb_x, cb_w12, k, k * 2 * NH + NH + j, 0, false, SW, 1, KT);
+            }
+            cb_wait_front(cb_gate, SW);
+            reconfig_data_format_srca(cb_w12, cb_gate);
+#endif
+            UNPACK((llk_unpack_A_init<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                false, false, cb_gate)));
+            MATH((llk_math_eltwise_binary_init<ELWMUL, NONE, mul_fidelity, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
+                false)));
+            for (uint32_t i = 0; i < SW; ++i) {
+                UNPACK((llk_unpack_A<BroadcastType::NONE, true, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_gate, i)));
+                MATH((llk_math_eltwise_binary<ELWMUL, NONE, DST_ACCUM_MODE, mul_fidelity,
+                                              EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_gate, cb_gate, i, true)));
+            }
+            cb_pop_front(cb_gate, SW);
+            tile_regs_commit();
+            cb_reserve_back(cb_hid, SW);
+            tile_regs_wait();
+            pack_tile_block(0, cb_hid, SW);
+            tile_regs_release();
+            cb_push_back(cb_hid, SW);
+        }
+#else
         for (uint32_t j = 0; j < NH; j += SW) {
 #ifdef WS_RELU
             // fc1 group on top of b1 -> relu -> hidden
@@ -301,6 +393,7 @@ void kernel_main() {
             cb_push_back(cb_hid, SW);
 #endif
         }
+#endif  // WS_PACK_SILU
         cb_pop_front(cb_x, KT);
 #ifdef WS_RELU_BW
         cb_pop_front(cb_dy, KT);

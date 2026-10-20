@@ -25,10 +25,12 @@ def _rel_rms(a, b):
     return ((a - b).pow(2).mean().sqrt() / b.pow(2).mean().sqrt()).item()
 
 
-@pytest.mark.parametrize("gate", [False, True])
+# fold: T2_FOLD (the LN's centring and gamma folded into Wp), GATE form only.
+@pytest.mark.parametrize("gate,fold", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("c", [128, 256])
-def test_t2_matches_float64_like_the_incumbent(c, gate, monkeypatch):
+def test_t2_matches_float64_like_the_incumbent(c, gate, fold, monkeypatch):
     monkeypatch.setattr(TTL, "T2", True)
+    monkeypatch.setattr(TTL, "T2_FOLD", fold)
     dev = T.get_device()
     n = 128     # a size the bench also ran; the model path declines below MIN_N on its own
     gen = torch.Generator().manual_seed(c + gate)

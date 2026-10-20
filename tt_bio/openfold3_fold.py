@@ -117,8 +117,31 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # 0.230 A (floor 1.091 A), CA-lDDT -0.0003 [-0.0006, -0.0000], docking 27 -> 27/44. 512-token page fold on a Galaxy
 # chip at 1000 MHz, paired median of 4: OpenFold3 -0.27 s, OpenBind-0 -0.35 s. On p300c -0.04 / -0.12 s and not
 # graded there, so Wormhole only.
+# triatt_ln_b8 (the fused triangle-attention LayerNorm writes q, k, v as bfp8 into the SDPA) joins Wormhole fast on its
+# 11-set fast grade of the Wormhole fast set + it against that set, paired seeds (tlbg, 2026-10-19), PASS: OpenFold3
+# 40 folds (10 complexes), top pose median 0.709 A (floor 1.029 A), CA-lDDT -0.0002 [-0.0014, +0.0008], docking
+# 20 -> 20/40; OpenBind-0 44 folds, 0.846 A (floor 1.160 A), CA-lDDT -0.0024 [-0.0053, -0.0003], docking 27 -> 28/44.
+# 512-token page fold on a Galaxy chip at 1000 MHz, mean of the 3 warm pairs after the compile: OpenFold3 -0.27 s,
+# OpenBind-0 -0.28 s. On p300c within noise (-0.03 / -0.11 s paired medians), so Wormhole only.
+# dit_l1 (the bf16 token DiT's per-step tensors in L1, placement only): CIFs identical with and without it on both
+# models (512-token --fast fold A/B, xmodel_ab, dl1w, 2026-10-19). Galaxy chip at 1000 MHz, the three warm pairs after
+# the first (which paid the L1 programs' compile): OpenFold3 -0.95 / -0.87 / -0.71 s, OpenBind-0 -1.04 / -0.99 / -1.09 s.
+# Flat on Blackhole (bhl1), so Wormhole only.
+# atom_l1 (the atom transformer's per-step tensors in L1, placement only): CIFs identical with and without it on both
+# models (512-token --fast fold A/B, a3lw2, 2026-10-19, and at 1024 / 1568 tokens, a3ls). Galaxy chip at 1000 MHz,
+# 2 chips x 5 warm pairs after the compile pair, every pair faster: OpenFold3 -0.36 s, OpenBind-0 -0.38 s mean.
+# Not measured on Blackhole, so Wormhole only.
+# ws_psilu (pair SwiGLU's silu on the packer thread, overlapping the matmuls): CIFs identical with and without it on
+# both models (512-token --fast fold A/B, psf2, 2026-10-19). Galaxy chip at 1000 MHz, mean of the 5 warm pairs after
+# the compile pair: OpenFold3 -0.08 s, OpenBind-0 -0.12 s; the kernel alone 2.63 -> 2.23 ms at c_z 128. Flat in normal
+# mode (-0.06 / +0.02 s), so Wormhole fast only.
+# dit_mask8 (the token DiT attention's pair-bias mask read as bfp8): Galaxy chip at 1000 MHz, 6 paired 512-token
+# --fast folds (m8w, 2026-10-20): OpenFold3 -0.11 s, OpenBind-0 -0.06 s mean. Graded on the 11-complex fast set,
+# paired seeds (m8g): PASS on both models (DockQ -0.003 / -0.005, CIs span zero). Blackhole within noise (OpenFold3
+# median -0.04 s, m8b2), so Wormhole fast only.
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres"}
-WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32"}
+WH_FAST_LEVERS = FAST_LEVERS | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32",
+                                  "triatt_ln_b8", "dit_l1", "atom_l1", "ws_psilu", "dit_mask8"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].

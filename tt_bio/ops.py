@@ -179,13 +179,17 @@ def fused_kernel(name):
     """
     def register(fn):
         def call(*args, **kwargs):
+            if taping() and not recording():
+                # Nothing to differentiate: the kernel's inference path, on raw operands, with or
+                # without an entry. An entry may decline for state its backward needs (pair_relu's
+                # backward weights are built at the block's first recording call), and a forward
+                # that falls back to the composed ops until then runs a different program before
+                # the first backward than after it (bc4-bet-dispatch c14).
+                args, kwargs = grad_hook().raw(args, kwargs)
+                with untaped_kernel():
+                    return fn(*args, **kwargs)
             entry = kernel_entry(name)
             if entry is None:
-                if taping() and not recording():
-                    # Nothing to differentiate: the kernel's inference path, on raw operands.
-                    args, kwargs = grad_hook().raw(args, kwargs)
-                    with untaped_kernel():
-                        return fn(*args, **kwargs)
                 return fn(*args, **kwargs)
 
             def shipped(*a, **k):
