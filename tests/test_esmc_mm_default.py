@@ -225,6 +225,7 @@ def test_saprot_hifi2_ffn_projections_only(width, wormhole, monkeypatch):
     the fast bar), on both arches."""
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_HIFI2", None)
+    monkeypatch.setattr(sp, "_SAPROT_IN_B8", False)
     monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
     lin = sp._SaprotLin()
     lin.compute_kernel_config = _Ck(math_fidelity=ttnn.MathFidelity.HiFi3)
@@ -236,6 +237,23 @@ def test_saprot_hifi2_ffn_projections_only(width, wormhole, monkeypatch):
         fid = lin._ck(_T(k, n, ttnn.bfloat8_b)).math_fidelity
         assert fid == (ttnn.MathFidelity.HiFi2 if lowered else ttnn.MathFidelity.HiFi3), role
         assert lin._ck(_T(k, n, ttnn.bfloat16)).math_fidelity == ttnn.MathFidelity.HiFi3
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch, want", [(None, None), (False, ()), (True, ("qkv", "out", "fc1")), (("qkv",), ("qkv",))])
+def test_saprot_in_b8_default(wormhole, switch, want, monkeypatch):
+    """--fast's block-fp8 activation serves out alone by default on Wormhole (qkv failed the fast bar, fc1 bought
+    nothing); the roles it serves run at HiFi2, and a bf16 weight or a narrow model never takes it."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_SAPROT_IN_B8", switch)
+    monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
+    want = (("out",) if wormhole else ()) if want is None else want
+    assert sp._in_b8_roles() == want
+    assert sp._hifi2_roles() == ("fc1", "fc2") + tuple(r for r in ("qkv", "out") if r in want)
+    w = sp._HIFI2_MIN_WIDTH
+    assert sp._in_b8_on(_T(w, w, ttnn.bfloat8_b), w) is ("out" in want)
+    assert sp._in_b8_on(_T(w, w, ttnn.bfloat16), w) is False
+    assert sp._in_b8_on(_T(480, 480, ttnn.bfloat8_b), 480) is False
 
 
 @pytest.mark.parametrize("wdtype, want_l1", [("bfloat8_b", True), ("bfloat16", False)])
