@@ -59,6 +59,9 @@ from .tenstorrent import (
     Weights,
     _fp32_softmax_attention,
     _pair_bias_from_z,
+    _PAIR_L1_CONSUMER_RESERVE,
+    _l1_fits,
+    _padded_bytes,
     _residual_update_memory_config,
     capture_trace,
     host_f64_softmax_site,
@@ -544,9 +547,20 @@ class AF2PairBlock(Module):
         Under a tape `ttnn` is the proxy, so the multiply tapes itself and the backward is the
         same mask on the cotangent. The mask is a raw tensor and never a taped one, so it takes
         no gradient and the broadcast needs no reduction.
+
+        The product lands where the update is unless that is L1 with no room for a second copy.
+        `_residual_update_memory_config` sizes an L1 update for one pair tensor, and a tape
+        keeps the update alive beside its masked copy, so at 576 tokens on a p300c (two 84.9 MB
+        copies against 160.8 MB of L1) the multiply refused in the extra-MSA stack.
         """
         mask = None if drop is None else drop.get(name)
-        return update if mask is None or update is None else ttnn.multiply(update, mask)
+        if mask is None or update is None:
+            return update
+        if update.memory_config().buffer_type == ttnn.BufferType.L1 and not _l1_fits(
+                2 * _padded_bytes(update.shape, 4 if update.dtype == ttnn.float32 else 2),
+                1.0, _PAIR_L1_CONSUMER_RESERVE):
+            return ttnn.multiply(update, mask, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        return ttnn.multiply(update, mask)
 
     def _residual_dropped(self, x, name: str, update, drop):
         """`_residual(x, _dropped(name, update, drop))`, in one kernel where `rne_add_masked`

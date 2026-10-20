@@ -658,6 +658,16 @@ This fold ran in the 'lean' memory mode. The 'offload' mode should hold 768 toke
 card, slower: ... Pass memory='offload', or leave memory='auto' and it is picked for you.
 ```
 
+In `fast` mode the room a fold leaves on the card goes to speed. The last Evoformer blocks keep
+their whole tape from the forward, so the backward does not run their forward again. On a
+Blackhole chip all 48 blocks stay resident up to 224 tokens (a 96-residue binder on a 115-residue
+target), 36 at 256 and 22 at 320, and at 224 tokens the Evoformer backward drops from 0.99 s to
+0.64 s an iteration. The count is sized from the card for each token axis;
+`TT_BIO_BC2_RESIDENT_BLOCKS=0` turns it off and an integer pins it. A resident block runs the
+taped kernels where a checkpointed one runs the untaped ones, so trajectories are not
+bit-identical with it on. Its designs were graded against stock BindCraft 2 on a B200 (30
+trajectories against 34) and no metric differed.
+
 Measured on one chip of a dev Wormhole Galaxy, AICLK 1000 MHz throughout:
 
 | token axis | mode | peak DRAM | one round |
