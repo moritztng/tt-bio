@@ -149,3 +149,12 @@ def test_shsdpa_steps_down_the_q_chunk_on_an_l1_refusal(monkeypatch):
     monkeypatch.setattr(shsdpa.SG, "sdpa", boom)
     with pytest.raises(RuntimeError, match="something else"):
         shsdpa.sdpa(q, q, q, 0.125, ("table", "row"))
+
+
+@pytest.mark.parametrize("one, S, want", [(True, 544, 544), (True, 520, 544), (True, 64, 64), (True, 576, 288),
+                                          (True, None, 288), (False, 544, 288)])
+def test_shsdpa_one_key_chunk_up_to_544(one, S, want, monkeypatch):
+    from tt_bio import shsdpa
+    monkeypatch.setattr(shsdpa, "_K_CHUNK_ONE", one)
+    monkeypatch.setattr(shsdpa, "_K_CHUNK_WIDE", True)
+    assert shsdpa.k_chunk_default(S) == want

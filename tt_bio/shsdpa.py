@@ -38,7 +38,17 @@ _KEYPAD_ROW = env_flag("TT_BIO_SHSDPA_KEYPAD_ROW", True)
 _K_CHUNK_WIDE = env_flag("TT_BIO_SHSDPA_K288", True)
 
 
-def k_chunk_default() -> int:
+# One key chunk spanning the whole padded key length up to 544 (17 tiles), so the online softmax never rescales. Same
+# bench, SaProt 650M shape B7 H20 S544 D64 at HiFi4 with fp32 dest, Galaxy chip at 1000 MHz: 0.444 -> 0.390 ms a call,
+# rel_rms vs float64 0.0212 -> 0.0206. Off until the ESMC/SaProt page cells grade it.
+_K_CHUNK_ONE = env_flag("TT_BIO_SHSDPA_K1", False)
+K_ONE_MAX = 544
+
+
+def k_chunk_default(S: int | None = None) -> int:
+    """Key chunk for padded key length `S`: the whole of it when it fits one chunk, else 288 (192 without K288)."""
+    if _K_CHUNK_ONE and S and -(-S // 32) * 32 <= K_ONE_MAX:
+        return -(-S // 32) * 32
     return 288 if _K_CHUNK_WIDE else K_CHUNK
 
 
@@ -62,7 +72,7 @@ def key_pad(lens, S: int, device=None, k_chunk: int | None = None):
     """(table, row) for key lengths `lens` at padded length S: the [1, 1, 1, W] uint32 chunk table and the
     [B, 1, 32, S] bf16 mask row. Host tensors without `device`; a traced forward keeps one device pair and
     rewrites it per call with `copy_host_to_device_tensor`."""
-    k_chunk = k_chunk or k_chunk_default()
+    k_chunk = k_chunk or k_chunk_default(S)
     m = torch.zeros(len(lens), 1, 32, S)
     for b, n in enumerate(lens):
         m[b, :, :, n:] = float("-inf")
@@ -105,8 +115,8 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2,
     `key_pad` pair built at the same k_chunk. `merged` writes the heads side by side, [B, 1, S, H * D], as
     nlp_concat_heads would (bit-identical)."""
     from . import tenstorrent as T
-    k_chunk = k_chunk or k_chunk_default()
     B, H, S, D = (int(d) for d in q.shape)
+    k_chunk = k_chunk or k_chunk_default(int(k.shape[-2]))
     dev = q.device()
     grid = grid or tuple(T.COMPUTE_GRID_MAIN)
     auto = q_chunk is None and split is None
