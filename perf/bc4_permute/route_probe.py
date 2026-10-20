@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import collections
 import json
+import os
 import runpy
 import sys
 from pathlib import Path
@@ -23,6 +24,12 @@ assert sys.argv[2] == "--"
 argv = sys.argv[3:]
 
 from tt_bio import reblock_permute as R, taped_ttnn as TT, tenstorrent as T  # noqa: E402
+from tt_bio import ops  # noqa: E402
+
+if os.environ.get("BC4_PERMUTE_ARM") == "base":
+    # The gate as it was before dc7157ea9: blind to its operands, so a raw one declines too.
+    _decl = ops.declines_under_tape
+    ops.declines_under_tape = lambda name, *operands: _decl(name)
 
 routes = collections.Counter()
 
@@ -70,7 +77,7 @@ sys.argv = [str(ROOT / argv[0])] + argv[1:]
 try:
     runpy.run_path(sys.argv[0], run_name="__main__")
 finally:
-    doc = dict(argv=argv,
+    doc = dict(argv=argv, arm=os.environ.get("BC4_PERMUTE_ARM", "fix"),
                routes=[dict(key=list(k), calls=v) for k, v in routes.most_common()],
                rejects=[dict(reason=k[0], shape=list(k[1]), calls=v)
                         for k, v in sorted(R.REJECTS.items(), key=lambda kv: -kv[1])],
