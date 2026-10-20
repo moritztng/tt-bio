@@ -727,7 +727,7 @@ _FAST_MODE = False
 #   dit_cond_jcat   under dit_cond_jit, each layer's six projections as three [768, 1536] linears (the two adaLN
 #                   scales with their sigmoid, the two shifts, the two gates), whose halves the layer reads in place
 #                   (`addcmul_at`); same K, so each term's arithmetic is unchanged.
-#   triatt_lofi     triangle attention's fused SDPA (QK^T and PV) at LoFi instead of HiFi2; the softmax is unchanged.
+#   triatt_lofi     triangle attention's fused SDPA (QK^T and PV) at LoFi, stock and HiFi route; softmax unchanged.
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
 #                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
 #                   dit_cond_jit (adaLN modulation, the attention gate and the transition gate + residual each one op).
@@ -3762,10 +3762,14 @@ _TRIATT_FUSED_HIFI = env_flag("TT_BIO_TRIATT_FUSED_HIFI", False)
 # triatt_sdpa.py). Fields are `(fidelity, math_approx, fp32_dest_acc, dst_full_sync)`.
 _TRIATT_FUSED_HIFI_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 _TRIATT_FUSED_HIFI2_CKC = (ttnn.MathFidelity.HiFi2, False, True, False)
+_TRIATT_FUSED_LOFI_CKC = (ttnn.MathFidelity.LoFi, False, True, False)
 
 
 def _triatt_hifi_ckc():
-    """`_TRIATT_FUSED_HIFI_CKC`, at HiFi2 under the triatt_hifi2 lever (math_approx and fp32_dest_acc kept)."""
+    """`_TRIATT_FUSED_HIFI_CKC`, at HiFi2 under the triatt_hifi2 lever and LoFi under triatt_lofi (math_approx and
+    fp32_dest_acc kept either way)."""
+    if lever("triatt_lofi"):
+        return _TRIATT_FUSED_LOFI_CKC
     return _TRIATT_FUSED_HIFI2_CKC if lever("triatt_hifi2") else _TRIATT_FUSED_HIFI_CKC
 
 #: HiFi4, math_approx off, fp32 destination accumulation -- ``ComputeKernelConfig::precise()``.
