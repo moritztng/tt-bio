@@ -900,7 +900,7 @@ class AF2MaskedOuterProductMean(OuterProductMean):
 
         `this @ a^T` is every row's `sum_c a_sic W_cdk` at once as [c_z * S * D, I], which splits
         to [c_z, S * D, I] without moving a byte (S * D is whole tiles), and the contraction with
-        `b` reads that transposed. Built from the device copy, so it holds exactly the bf16 values
+        `b` reads after one permute. Built from the device copy, so it holds exactly the bf16 values
         `proj_o` holds; the zero blocks add exact zeros to the fp32 destination."""
         w = self._o_joined.get((S, C, D))
         if w is None:
@@ -916,21 +916,22 @@ class AF2MaskedOuterProductMean(OuterProductMean):
         return w
 
     def _sum_rows_joined(self, a, b, S, I, C, J, D):
-        """`_sum_rows` with the rows inside the contraction: [c_z, I, S*D] x [S*D, J] is one
+        """`_sum_rows` with the rows inside the contraction: [I, c_z, S*D] x [S*D, J] is one
         product, accumulated in the fp32 destination, where S products and S-1 bf16 adds of
         [J, I, c_z] would round each partial. The first product comes out as [c_z * S * D, I],
-        a tile view of the [c_z, S * D, I] the second reads with `transpose_a`. The per-row
-        form took a matmul, a row-major round trip and a permute per row and a concat per
-        operand; [I, c_z * S * D] would need a byte-moving reshape (0.6 ms at 224 on a p300)."""
+        a tile view of [c_z, S * D, I], and one permute gives the operand the second reads.
+        The per-row form took a matmul, a row-major round trip and a permute per row and a
+        concat per operand; [I, c_z * S * D] would need a reshape that moves bytes at ~6 GB/s,
+        and `transpose_a` on a batched operand against a 2D one is refused by ttnn."""
         w = self._rows_joined_weight(S, C, D)
         c_z = int(w.shape[0]) // (S * D)
         at = ttnn.reshape(ttnn.permute(a, (0, 2, 1)), (S * C, I))
         T = ttnn.matmul(w, at, compute_kernel_config=self.compute_kernel_config,
                         core_grid=CORE_GRID_MAIN)
-        T = ttnn.reshape(T, (c_z, S * D, I))
+        A = ttnn.permute(ttnn.reshape(T, (c_z, S * D, I)), (2, 0, 1))
         bt = ttnn.reshape(ttnn.permute(b, (0, 2, 1)), (S * D, J))
-        out = ttnn.matmul(T, bt, transpose_a=True, compute_kernel_config=self.compute_kernel_config)
-        out = ttnn.permute(out, (1, 2, 0))
+        out = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config)
+        out = ttnn.permute(out, (0, 2, 1))
         out = ttnn.add(out, self.o_bias)
         return ttnn.reshape(out, (1, *tuple(out.shape)))
 
