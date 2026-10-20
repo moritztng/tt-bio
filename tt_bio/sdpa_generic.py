@@ -478,9 +478,9 @@ def cb_bytes(p, q_dtype=ttnn.bfloat16, k_dtype=ttnn.bfloat16, v_dtype=ttnn.bfloa
         im_dtype, out_im_dtype, stats_dtype, one_k_trim))
 
 
-def cb_fits_l1(p, **kw) -> bool:
+def cb_fits_l1(p, wormhole=None, **kw) -> bool:
     """Whether tt-metal will accept this config's CBs. `mask_cb_tiles` selects the fused kernel."""
-    return cb_bytes(p, **kw) <= cb_budget()
+    return cb_bytes(p, **kw) <= cb_budget(wormhole)
 
 
 CB_X_IN, CB_W_IN = 10, 11
