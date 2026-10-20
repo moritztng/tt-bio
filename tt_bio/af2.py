@@ -882,6 +882,16 @@ class AF2Attention(Module):
         return projected
 
 
+def rows_joined_blocks(o: torch.Tensor, S: int, C: int, D: int) -> torch.Tensor:
+    """`proj_o` ([C * D, c_z]) as `AF2MaskedOuterProductMean._rows_joined_weight` lays it out."""
+    c_z = int(o.shape[-1])
+    per_row = o.reshape(C, D, c_z).permute(2, 1, 0)
+    blocks = torch.zeros(c_z, S, D, S, C, dtype=o.dtype)
+    for s_i in range(S):
+        blocks[:, s_i, :, s_i, :] = per_row
+    return blocks.reshape(c_z * S * D, S * C)
+
+
 class AF2MaskedOuterProductMean(OuterProductMean):
     """AF2's outer product mean with a real MSA mask.
 
@@ -903,6 +913,47 @@ class AF2MaskedOuterProductMean(OuterProductMean):
     EPS = 1e-3
     # Rows joined along the contraction (`_sum_rows`), armed by `bindcraft2.fast_round`.
     rows_in_k = False
+    # `_rows_joined_weight` is S x S blocks of proj_o, so it grows with the square of the depth.
+    ROWS_JOINED_MAX = 4
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._o_joined: dict[tuple[int, int, int], ttnn.Tensor] = {}
+
+    def _rows_joined_weight(self, S: int, C: int, D: int) -> ttnn.Tensor:
+        """`proj_o` as [c_z * S * D, S * C], block diagonal over the rows: entry
+        `((k * S + s) * D + d, s * C + c)` is `W[c, d, k]` and every other entry is 0.
+
+        `this @ a^T` is every row's `sum_c a_sic W_cdk` at once as [c_z * S * D, I], which splits
+        to [c_z, S * D, I] without moving a byte (S * D is whole tiles), and the contraction with
+        `b` reads after one permute. Built from the device copy, so it holds exactly the bf16 values
+        `proj_o` holds; the zero blocks add exact zeros to the fp32 destination."""
+        w = self._o_joined.get((S, C, D))
+        if w is None:
+            w = ttnn.from_torch(rows_joined_blocks(ttnn.to_torch(self.o_weight), S, C, D),
+                                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+            self._o_joined[(S, C, D)] = w
+        return w
+
+    def _sum_rows_joined(self, a, b, S, I, C, J, D):
+        """`_sum_rows` with the rows inside the contraction: [I, c_z, S*D] x [S*D, J] is one
+        product, accumulated in the fp32 destination, where S products and S-1 bf16 adds of
+        [J, I, c_z] would round each partial. The first product comes out as [c_z * S * D, I],
+        a tile view of [c_z, S * D, I], and one permute gives the operand the second reads.
+        The per-row form took a matmul, a row-major round trip and a permute per row and a
+        concat per operand; [I, c_z * S * D] would need a reshape that moves bytes at ~6 GB/s,
+        and `transpose_a` on a batched operand against a 2D one is refused by ttnn."""
+        w = self._rows_joined_weight(S, C, D)
+        c_z = int(w.shape[0]) // (S * D)
+        at = ttnn.reshape(ttnn.permute(a, (0, 2, 1)), (S * C, I))
+        T = ttnn.matmul(w, at, compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN)
+        A = ttnn.permute(ttnn.reshape(T, (c_z, S * D, I)), (2, 0, 1))
+        bt = ttnn.reshape(ttnn.permute(b, (0, 2, 1)), (S * D, J))
+        out = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config)
+        out = ttnn.permute(out, (0, 2, 1))
+        out = ttnn.add(out, self.o_bias)
+        return ttnn.reshape(out, (1, *tuple(out.shape)))
 
     def _sum_rows(self, a: ttnn.Tensor, b: ttnn.Tensor) -> ttnn.Tensor:
         """`sum_s a_sic b_sjd W_cdk + o_bias`, unscaled, without `ttnn.repeat`.
@@ -914,6 +965,8 @@ class AF2MaskedOuterProductMean(OuterProductMean):
         """
         S, I, C = (int(d) for d in a.shape)
         _, J, D = (int(d) for d in b.shape)
+        if self.rows_in_k and 1 < S <= self.ROWS_JOINED_MAX and self.o_weight.dtype == ttnn.bfloat16:
+            return self._sum_rows_joined(a, b, S, I, C, J, D)
         w = self._proj_o_folded(C, D)
         c_z = int(w.shape[1]) // D
         As, bts = [], []
@@ -928,9 +981,7 @@ class AF2MaskedOuterProductMean(OuterProductMean):
             b_s = ttnn.reshape(b if S == 1 else b[s_i:s_i + 1], (J, D))
             bts.append(ttnn.permute(b_s, (1, 0)))
         if self.rows_in_k and S > 1:
-            # The sum over rows is part of the contraction: [I, c_z, S*D] x [S*D, J] is one
-            # product, accumulated in the fp32 destination, where S products and S-1 bf16 adds
-            # of [J, I, c_z] round each partial. D is whole tiles, so both joins are tile-aligned.
+            # Past `ROWS_JOINED_MAX` or on a non-bf16 weight: the same join, by concat.
             out = ttnn.matmul(ttnn.concat(As, dim=-1), ttnn.concat(bts, dim=0),
                               compute_kernel_config=self.compute_kernel_config)
             out = ttnn.permute(out, (0, 2, 1))
