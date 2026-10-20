@@ -739,11 +739,14 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
 # fill the grid. x and the outputs may sit in L1. Opt-in (perf/spd_gap_bind/gin195.py grades it).
 GIN_RAGGED_QS = int(os.environ.get("TT_BIO_TRIMUL_GIN_RAGGED_QS", "0"))   # 0: one split
 GIN_RAGGED_STATS = [0, 0]   # served, declined
+# gin_ragged also on a whole-tile grid (S % 32 == 0, BindCraft 2 at 224): the bias tile is the reason to
+# take it there, since gin_moved has none. LAST is then 32 and every padding branch is dead.
+GIN_WHOLE = os.environ.get("TT_BIO_TRIMUL_GIN_WHOLE", "0") == "1"
 
 
 def gin_ragged_ok(x, wpT, S, mask=None):
     shp = [int(d) for d in x.shape]
-    if not (len(shp) in (3, 4) and shp[-2] == shp[-3] == S and S % TILE
+    if not (len(shp) in (3, 4) and shp[-2] == shp[-3] == S and (S % TILE or GIN_WHOLE)
             and x.dtype == ttnn.bfloat16 and wpT.dtype == ttnn.bfloat16
             and x.layout == ttnn.TILE_LAYOUT and not x.memory_config().is_sharded()
             and wpT.memory_config() == ttnn.DRAM_MEMORY_CONFIG
