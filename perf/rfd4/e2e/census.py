@@ -107,21 +107,27 @@ def instrument(engine, dev):
     return undo
 
 
-#: ARCH.md section 8, per trunk pass at n=128, in GFLOP. The pair block numbers are that document's
-#: own arithmetic (tri-mult in-projection 12.9 x2, pair transition 19.3, linear_g 4.8 x2,
-#: linear_z 3.2 x2 = 61 GFLOP per pair block, 7 blocks), split here by family.
+#: Per trunk pass at n=128, in GFLOP, from the checkpoint's own shapes. Each triangle multiplication
+#: projects z 384 -> 4 x 256 (a/b, value and gate), gates its output with linear_g 384 -> 384 and
+#: projects back with linear_z 256 -> 384: 12.9 + 4.8 + 3.2 GFLOP, plus the 2 n^3 c contraction.
+#: The pair transition is 384 -> 768 ReLU -> 384. The Hadamard write projects the n token rows
+#: (768 -> 2 x 384) and takes an outer product, so it is tiny in FLOPs and bound by writing z.
+#: Up to 2026-10-21 this function priced the trimul at half (in-projection 384 -> 512, no
+#: linear_g), billed linear_g and linear_z to pair_write on n^2 rows, and gave the transition a
+#: 1536 hidden; the per-pass total still landed near ARCH's 0.496 TFLOP because the errors cancel.
 def arch_gflops(n: int, nlayers: int, n_pair: int) -> dict:
-    tok, c_z, c_h, c_pair_hidden = 768, 384, 256, 1536
+    tok, c_z, c_h, c_pair_hidden = 768, 384, 256, 768
     f = lambda rows, k, m: 2 * rows * k * m / 1e9  # noqa: E731
     per_block = {
         "attention": f(n, tok, 3 * tok) + f(n, tok, tok) + 2 * 2 * n * n * tok / 1e9,
         "token_transition": f(n, tok, 2 * 2 * tok) + f(n, 2 * tok, tok),
     }
+    tri = f(n * n, c_z, 4 * c_h) + f(n * n, c_z, c_z) + f(n * n, c_h, c_z) + 2 * c_h * n ** 3 / 1e9
     per_pair = {
-        "pair_write": 2 * f(n * n, tok, c_z),                  # linear_g and linear_z
-        "tri_mult_out": f(n * n, c_z, 2 * c_h) + f(n * n, c_h, c_z) + 2 * c_h * n ** 3 / 1e9,
-        "tri_mult_in": f(n * n, c_z, 2 * c_h) + f(n * n, c_h, c_z) + 2 * c_h * n ** 3 / 1e9,
-        "pair_transition": f(n * n, c_z, c_pair_hidden) + f(n * n, c_pair_hidden // 2, c_z),
+        "pair_write": f(n, tok, 2 * c_z) + n * n * c_z / 1e9,  # linear_x on tokens, outer product
+        "tri_mult_out": tri,
+        "tri_mult_in": tri,
+        "pair_transition": f(n * n, c_z, c_pair_hidden) + f(n * n, c_pair_hidden, c_z),
     }
     out = {k: v * nlayers for k, v in per_block.items()}
     out.update({k: v * n_pair for k, v in per_pair.items()})
