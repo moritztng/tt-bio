@@ -209,7 +209,7 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # trimul_t1_2g: T1 may hold 2 GiB of outputs, so it also serves c_z 256 from ~900 to 1152 tokens, where every call declined.
 # Never fires at 512. 1024 tokens, warm, in-process A/B x2: Wormhole (1000 MHz) 257.8 / 259.1 -> 218.9 / 217.2 s, pLDDT 0.786 ->
 # 0.788; Blackhole p300 (1275-1350 MHz) 124.7 / 121.7 -> 116.9 / 102.9 s. Op error at 768 and 1024 vs float64 matches the
-# incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037, 12 single-element outliers each at 768). No OOM at 1152 on a 12 GiB Wormhole chip.
+# incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037 at HiFi4). No OOM at 1152 on a 12 GiB Wormhole chip.
 WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram",
                           "trimul_t1_2g"})
 # Protenix-v2's Blackhole normal set: dit_shoist + transition_b8 + ws_b8_plain, graded as one stack. Blackhole 512-token normal
