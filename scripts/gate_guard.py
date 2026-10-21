@@ -223,6 +223,8 @@ def declared_dependency_problems(pyproject, extras=("tenstorrent",), env=None):
     missing, wrong = [], []
     for spec in reqs:
         req = Requirement(spec)
+        if req.marker and not req.marker.evaluate({"extra": ""}):
+            continue  # a split pin: the other interpreter's line does not bind this one
         version = installed(req.name)
         if version is False:
             missing.append(req.name)
