@@ -2,7 +2,7 @@
 modules called standalone, in one process on one card.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/e2e/tri_gap.py --spec <spec.yaml> --weights <bundle> \
-        --out <file.json> [--arms default,cap128,cap64,lever:trimul_bres,set:reblock_permute.L1_N_MIN=32]
+        --out <file.json> [--arms default,cap128,cap64,lever:trimul_bres,set:reblock_permute.L1_N_MIN=32,lever:x;set:m.Y=1]
 
 1. Cold design: counts every L1/circular-buffer clash the trimul catches (`_record_trimul_clash`) and
    times the first trimul calls, which pay the clash, the refused program and the narrower compile.
@@ -47,6 +47,27 @@ def stats(xs):
     s = sorted(xs)
     return {"n": len(s), "median_ms": round(statistics.median(s) * 1e3, 4), "p10_ms": round(s[len(s) // 10] * 1e3, 4),
             "max_ms": round(s[-1] * 1e3, 4), "sum_s": round(sum(s), 4)}
+
+
+def parse_arm(arm, T):
+    """`(chunk cap, lever set, saved globals)` for an arm; parts combine with ';' (lever:a+b;set:m.X=1).
+
+    `set:` assigns tt_bio module globals in place and returns what it replaced so the caller restores them.
+    """
+    cap, lev, saved = 0, frozenset(), []
+    for part in arm.split(";"):
+        if part.startswith("cap"):
+            cap = int(part[3:])
+        elif part.startswith("lever:"):
+            lev = T.parse_levers(part[6:].replace("+", ","))
+        elif part.startswith("set:"):
+            for kv in part[4:].split("+"):
+                k, v = kv.split("=", 1)
+                modname, attr = k.rsplit(".", 1)
+                tgt = importlib.import_module(f"tt_bio.{modname}")
+                saved.append((tgt, attr, getattr(tgt, attr)))
+                setattr(tgt, attr, ast.literal_eval(v))
+    return cap, lev, saved
 
 
 def main():
@@ -182,18 +203,7 @@ def main():
     ref = {}
     arms = {}
     for arm in a.arms.split(","):
-        cap, lev, saved = 0, frozenset(), []
-        if arm.startswith("cap"):
-            cap = int(arm[3:])
-        elif arm.startswith("lever:"):
-            lev = T.parse_levers(arm[6:].replace("+", ","))
-        elif arm.startswith("set:"):
-            for kv in arm[4:].split("+"):
-                k, v = kv.split("=", 1)
-                modname, attr = k.rsplit(".", 1)
-                tgt = importlib.import_module(f"tt_bio.{modname}")
-                saved.append((tgt, attr, getattr(tgt, attr)))
-                setattr(tgt, attr, ast.literal_eval(v))
+        cap, lev, saved = parse_arm(arm, T)
         T._TRIMUL_CHUNK_CAP = cap
         res = {}
         with clocksample.during(period=0.5) as clk, T.levers(lev):
@@ -225,6 +235,10 @@ def main():
         from tt_bio import reblock_permute as RP
         res["reblock_rejects"] = sorted({k[0] for k in RP.REJECTS})
         RP.REJECTS.clear()
+        from tt_bio import trimul_tail as TT
+        res["gout_rejects"], res["t1_why"] = dict(T.TRIMUL_GOUT_REJECTS), dict(TT.T1_WHY)
+        T.TRIMUL_GOUT_REJECTS.clear()
+        TT.T1_WHY.clear()
         res["load"] = os.getloadavg()[0]
         arms[arm] = res
         print(json.dumps({arm: res}), flush=True)
