@@ -82,8 +82,9 @@ ap.add_argument("--bc2", type=Path, default=Path("~/bcx_shipped/bc2").expanduser
 ap.add_argument("--trajectories", default="1",
                 help="BindCraft 2 trajectories per card: 1 (the GAP protocol, one at a time) or N / auto, the "
                      "interleaved campaign a served run takes by default; then one campaign record, no per-rep ones")
-ap.add_argument("--structure-on-card", action="store_true",
-                help="BindCraft 2: run AF2's structure module on card (bindcraft2.campaign_predictor(structure=True))")
+ap.add_argument("--structure", choices=("card", "host"),
+                help="BindCraft 2: where AF2's structure module runs; default: bindcraft2.campaign_predictor's own choice "
+                     "(card under the fast round on Blackhole)")
 ap.add_argument("--no-coords", action="store_true")
 ap.add_argument("--dry", action="store_true", help="build the run config, log it, stop before weights and device")
 a = ap.parse_args()
@@ -283,7 +284,7 @@ if a.model == "bindcraft2":
     weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
                                             ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
     predictor_kw = {**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {}),
-                    **({"structure": True} if a.structure_on_card else {})}
+                    **({"structure": a.structure == "card"} if a.structure else {})}
     if a.trajectories != "1":
         # Interleaved trajectories run on their own threads, so the per-rep hooks above (which
         # take the latest trajectory as the running one) do not apply. Time the whole campaign

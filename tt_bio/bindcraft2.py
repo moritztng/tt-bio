@@ -2921,6 +2921,9 @@ _FAST_ROUND = (
     # 0.005 bar), so they are armed here only, where BindCraft 2's designs grade them.
     ("af2", None, "_AF2_T2CM", "TT_BIO_AF2_T2CM", True),
     ("tenstorrent", None, "_TRIMUL_GIN_BIASED", "TT_BIO_TRIMUL_GIN_BIASED", True),
+    # Metal's lookup-table sigmoid in the trimul gate kernels, forward and backward together: graded
+    # on BindCraft 2's designs (n=30 against both references, no metric significant), ~0.02 s/it.
+    ("gate_sigmoid", None, "SIGMOID_FAST", "TT_BIO_SIGMOID_FAST", True),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None,
      "tri_att_sdpa_hifi,rne_add,rne_add_masked,reblock_permute_gated,pair_transpose,triatt_qkv_heads,pair_relu"),
     # OpenFold3 training turned the fp32 softmax backward on by default; the round above was
@@ -2936,7 +2939,8 @@ _FAST_ROUND = (
 #: six campaign seeds on one Wormhole chip it accepted 11 designs of 30 trajectories against the
 #: composed path's 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM
 #: 0.624 against 0.571, at 7.45 against 7.81 s per iteration.
-_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul", "_AF2_T2CM", "_TRIMUL_GIN_BIASED"})
+_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul", "_AF2_T2CM", "_TRIMUL_GIN_BIASED",
+                             "SIGMOID_FAST"})
 
 
 @contextlib.contextmanager
@@ -2979,7 +2983,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
               exact: bool = False,
               fast: bool | None = None,
               trace: bool | None = None,
-              structure: bool = False) -> Iterator[Callable[..., object]]:
+              structure: bool | None = None) -> Iterator[Callable[..., object]]:
     """Put tt-bio's Evoformer on card for the duration and yield a predictor factory.
 
     The factory takes BindCraft 2's own `AlphaFoldDesignModel` arguments (`presets`, `data_dir`,
@@ -3048,6 +3052,11 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     the work it does, and the exact tape is the arm they are graded against. `build.fast`
     holds what was armed.
 
+    `structure` runs AlphaFold 2's structure module on card (`StructureOnDevice`), reading the
+    Evoformer's final pair where it already is. It defaults to on wherever the fast round is armed
+    on Blackhole, the configuration its designs were graded in; pass False for BindCraft 2's own
+    JAX structure module. Read `build.structure.calls` to check it ran.
+
     `trunk="jax"` opens no device and touches no card. It runs BindCraft 2's own trunk through
     this same class, which is the control arm every device result should be read against.
 
@@ -3082,11 +3091,14 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
     evo = EvoformerOnDevice(pool, blocks=blocks, recompute=recompute, memory=mem)
     extra = ExtraMsaOnDevice(pool, recompute=recompute, memory=mem) if extra_msa else None
     tmpl = TemplateOnDevice(pool, recompute=recompute, memory=mem) if template else None
+    fast = not exact if fast is None else fast
+    if structure is None:
+        from tt_bio.tenstorrent import is_wormhole
+        structure = fast and not is_wormhole()
     sm = StructureOnDevice(evo) if structure else None
     # `_EXACT_TRAINING` is a process-wide stack, not thread-local, so this covers every tape
     # opened for the duration -- both `_taped` calls and the backward's recompute -- without
     # either swap having to know about it.
-    fast = not exact if fast is None else fast
     # Outermost, so a refusal from any seam under it reaches the caller as the `MemoryError`
     # it was raised as even when JAX stringified it into a `JaxRuntimeError` on the way out.
     with refusals_unwrapped(), \
