@@ -362,7 +362,8 @@ def test_the_floor_watcher_calibrates_from_the_reference_index(tmp_path, monkeyp
 
     assert ffr.main() == 0
     floor = json.loads(out.read_text())["seed_floor"][FEATURE]
-    assert floor["_source"] == "thinking_medium bf16 | vast:57063695 | seeds 1234/5678"
+    assert floor["_source"] == "thinking_medium bf16 | vast:57063695 | two-seed arms 1234/5678"
+    assert floor["_kind"] == "two-seed"
     assert floor["_n"] == [40, 40]
     assert "refolded_backbone_rmsd.rmsd" in floor
 
@@ -541,3 +542,37 @@ def test_a_pass_criterion_with_no_inputs_is_not_a_clean_rate(tmp_path):
     assert rc == 1 and feat["verdict"] == "FAIL"
     assert "unconditional.all_metrics_present" in feat["failed"]
     assert feat["metrics"]["unconditional.pass"]["pass"] is True  # the rate alone sees nothing wrong
+
+
+def test_a_resample_floor_is_labelled_and_reaches_the_grade_that_reads_it(tmp_path):
+    """Two halves of one arm bound sampling noise, not seed noise. A grade must be able to say
+    which it cleared, so the kind is structural in QUALITY.json and copied into the grade."""
+    a = quality.load_arm(str(_write_arm(tmp_path, "a", _rows(40, 1))))
+    b = quality.load_arm(str(_write_arm(tmp_path, "b", _rows(40, 2))))
+
+    floor = quality.calibrate_floor(FEATURE, a, b, permutations=FAST, source="halves", kind="resample")
+    assert floor["_kind"] == "resample"
+    assert quality.calibrate_floor(FEATURE, a, b, permutations=FAST)["_kind"] == "two-seed"
+    with pytest.raises(ValueError):
+        quality.calibrate_floor(FEATURE, a, b, permutations=FAST, kind="two_seeds")
+
+    res = quality.grade_feature(FEATURE, a, b, {FEATURE: floor}, permutations=FAST, allow_no_oracle=True)
+    assert res["seed_floor_kind"] == "resample" and res["seed_floor_source"] == "halves"
+
+
+def test_the_floor_watcher_refuses_an_index_kind_it_does_not_know(tmp_path, capsys):
+    import floor_from_reference as ffr
+
+    index = {"binder": {"recipe": "r", "session": "s", "kind": "vibes",
+                        "seeds": {"A": str(tmp_path), "B": str(tmp_path)}}}
+    idx = tmp_path / "reference-designs.json"
+    idx.write_text(json.dumps(index))
+    doc = tmp_path / "QUALITY.json"
+    monkey = {"INDEX": ffr.INDEX, "QUALITY_JSON": quality.QUALITY_JSON}
+    ffr.INDEX, quality.QUALITY_JSON = idx, doc
+    try:
+        assert ffr.main() == 0
+    finally:
+        ffr.INDEX, quality.QUALITY_JSON = monkey["INDEX"], monkey["QUALITY_JSON"]
+    assert "is not one of" in capsys.readouterr().out
+    assert not doc.exists()
