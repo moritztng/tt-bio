@@ -4,7 +4,7 @@
         --mode normal|fast [--data ~/spd-data] [--out report.md]
 
 Folds come from bench.py run over the accuracy inputs (the 11 PDB ids of perf/pfm_accuracy/set.tsv, or the same
-complexes cropped to 512 tokens in set512.tsv, ids <PDB>_512), 4+ seeds,
+complexes cropped to 512 or 256 tokens in set512.tsv / set256.tsv, ids <PDB>_512 / <PDB>_256), 4+ seeds,
 on as many chips as you like:
     bench.py --out RUN/<arm>/c<chip> --chip N --arm <spec> --inputs 9TH6,9W89,... --seed 101 --warm 3
 Every RUN_DIR holding a bench.jsonl is read; records are grouped by (arch, arm), so one call grades WH and BH.
@@ -47,9 +47,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "pfm_accuracy"))
 from score import ca, chains, kabsch, score  # noqa: E402
 
-# The 11-set and the same complexes cropped to 512 tokens (make_inputs.py truth512): either is a verdict set.
-SET = {l.split("\t")[0]: l.split("\t")[1:3] for t in ("set.tsv", "set512.tsv")
-       for l in (HERE.parent / "pfm_accuracy" / t).read_text().splitlines()[1:]}
+# The 11-set and the same complexes cropped to 512 or 256 tokens (make_inputs.py --truth): each is a verdict set.
+SET = {l.split("\t")[0]: l.split("\t")[1:3] for t in sorted((HERE.parent / "pfm_accuracy").glob("set*.tsv"))
+       for l in t.read_text().splitlines()[1:]}
 KILL_BAR = 0.60
 CONF_TOL = 0.005  # normal: tolerated mean pLDDT / ipTM drop (fast bar is 0.03)
 SUCCESS = 0.23
