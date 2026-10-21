@@ -23,6 +23,8 @@ ap.add_argument("--bh", default="7,15", help="ESMC batch,heads (300M 7,15; 600M 
 ap.add_argument("--nomask", default="",
                 help="stock SDPA arms WITHOUT a mask (the wheel's streaming compute path), q:k chunk pairs a,b;c,d. "
                      "Only right against the reference when every --lens is 544; the bench checks it per config")
+ap.add_argument("--b8", action="store_true",
+                help="add arms e_b8 (q, k, v block-fp8) and e_b8kv (k, v block-fp8): what a --fast LM would hand shsdpa")
 ap.add_argument("--host", action="store_true", help="time eager host dispatch instead of trace replay")
 ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q[:DEF+DEF];... (qc 0 = whole, split - = factory; LOFI or HIFI4, FP32 dest, NOAPPROX, FULLSYNC, EXPA = exp approx; any other name is a kernel define)")
 a = ap.parse_args()
@@ -112,6 +114,11 @@ if "esmc" in a.shape:
         PROTO = {}
         EPAD = P.key_pad(lens, S, dev)      # built outside any capture: an upload is a host write
         ARMS["e_auto"] = ("esmc", lambda: P.sdpa(eq, ek, ev, sc, EPAD))
+        if a.b8:
+            b8 = lambda t: ttnn.typecast(t, ttnn.bfloat8_b)
+            bq, bk, bv = b8(eq), b8(ek), b8(ev)
+            ARMS["e_b8"] = ("esmc", lambda: P.sdpa(bq, bk, bv, sc, EPAD, out_dtype=ttnn.bfloat16))
+            ARMS["e_b8kv"] = ("esmc", lambda: P.sdpa(eq, bk, bv, sc, EPAD))
         if a.proto:
             PROTO = {}
             for t in a.proto.split(";"):
