@@ -42,7 +42,8 @@ The `design` tag is complete and matches upstream to all four published decimals
   `pre_oracle_pass`.
 
 The `partial_diffusion` tag adds `ca_rmsd_to_input` and `sequence_similarity_to_input`, both read
-against the `<name>_input.cif` written beside the design.
+against the `<name>_input.cif` written beside the design. `hotspot_conditioning` adds
+`hotspot_obedience`, the fraction of conditioned hotspot atoms with a binder atom within 4.5 Å.
 
 ## Refolding
 
@@ -59,7 +60,11 @@ which is the same cache upstream resumes from, so scoring the same `out_dir` a s
 nothing and a refold from any oracle is scored identically. A design with no refold there is named
 in the error rather than written out with the columns missing.
 
-Tags that switch on anything else (motif RMSDs, apo/holo, hotspot and unindexed metrics, CATH,
+Before each RMSD the design's identical chains, and its chemically equivalent atoms (the two
+oxygens of an aspartate, the ring edges of a phenylalanine), are matched to the refold the way
+upstream matches them. A refold is therefore not penalised for a labelling it cannot know.
+
+Tags that switch on anything else (motif RMSDs, apo/holo, unindexed metrics, CATH,
 Rosetta developability, antibody contacts) are refused with the list of what is missing, rather
 than producing a shorter CSV that looks complete.
 
