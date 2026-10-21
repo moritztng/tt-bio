@@ -74,41 +74,60 @@ def _is_sidecar(path: pathlib.Path) -> bool:
     return any(s in path.name for s in SIDECAR) or "trajectories" in path.parts
 
 
-def load_arm(path: str | pathlib.Path, chain: str | None = None) -> dict:
-    """One arm: per-design rows keyed by design path, upstream columns plus `geom.*`."""
-    root = pathlib.Path(path)
-    if not root.exists():
-        raise FileNotFoundError(root)
+def load_arm(path, chain: str | None = None) -> dict:
+    """One arm: per-design rows keyed by design path, upstream columns plus `geom.*`.
+
+    `path` may be several roots, because one arm's metrics are split across two output trees:
+    generation writes `inference_metrics/` beside the CIFs, and a later `rfd4-evaluate` pass over
+    those same CIFs writes `evaluation_metrics/` somewhere else. Both CSVs carry the same absolute
+    `designed_structure_path`, so the rows merge per design. An evaluate tree also re-exports every
+    input design under `evaluation_samples/`, so a design whose row already carries geometry is
+    skipped: one design counts once however many trees hold a copy of it.
+    """
+    roots = [pathlib.Path(p) for p in ([path] if isinstance(path, (str, pathlib.Path)) else path)]
+    for root in roots:
+        if not root.exists():
+            raise FileNotFoundError(root)
     rows: dict[str, dict] = {}
-    for csv_path in _find_csvs(root):
+    csvs = [p for root in roots for p in _find_csvs(root)]
+    for csv_path in csvs:
         with csv_path.open() as fh:
             for rec in csv.DictReader(fh):
                 key = rec.get("designed_structure_path") or rec.get("example_id") or str(len(rows))
                 rows.setdefault(key, {}).update({k: _num(v) for k, v in rec.items()})
-    designs = _find_designs(root)
+    designs = [p for root in roots for p in _find_designs(root)]
     sequences: list[str] = []
+    n_designs = 0
     for cif in designs:
         key = str(cif)
+        match = key if key in rows else (_match_row(rows, cif) or key)
+        if "geom.n_ca" in rows.get(match, {}):
+            continue  # already loaded from another root's copy of this design
         geom = geometry.design_geometry(cif, chain=chain)
         if not geom:
             continue
-        match = key if key in rows else _match_row(rows, cif)
-        rows.setdefault(match or key, {}).update(geom)
+        rows.setdefault(match, {}).update(geom)
         sequences.append(geometry.sequence_of(cif, chain=chain))
+        n_designs += 1
     return {
-        "root": str(root),
+        "root": str(roots[0]) if len(roots) == 1 else [str(r) for r in roots],
         "rows": list(rows.values()),
         "n": len(rows),
-        "n_designs_parsed": len(designs),
+        "n_designs_parsed": n_designs,
         "n_unique_sequences": len(set(s for s in sequences if s)) if sequences else None,
-        "csvs": [str(p) for p in _find_csvs(root)],
+        "csvs": [str(p) for p in csvs],
     }
 
 
 def _match_row(rows: dict[str, dict], cif: pathlib.Path) -> str | None:
+    """Match a CIF to its CSV row by filename, not by substring: `monomer_short_1_generated`
+    is a substring of `monomer_short_1x_generated` and of any path containing it."""
     stem = cif.name.split(".")[0]
-    for key in rows:
-        if stem in key:
+    for key in rows:  # a path row: compare filenames
+        if pathlib.PurePath(key).name.split(".")[0] == stem:
+            return key
+    for key in rows:  # an example_id row: upstream suffixes the id with a content hash
+        if key == stem or stem.startswith(key + "_") or key.startswith(stem + "_"):
             return key
     return None
 
@@ -229,14 +248,27 @@ def _grade_guard(column: str, a: np.ndarray) -> dict:
 
 
 def _grade_diversity(tt: dict, ref: dict) -> dict:
+    """Unique sequences out of n, tested against the reference arm, not against a constant.
+
+    The unique count is a count, so it gets the same one-sided Fisher exact as a pass rate:
+    small p means the TT arm really did lose diversity. A ratio bar was tried first and was
+    wrong -- unique_frac quantizes in steps of 1/n, so at n=8 a single duplicate moves it by
+    0.125 and upstream against itself (6/8 vs 4/8) failed a 0.8x bar. Fisher reads that as
+    p=0.61, which is the honest answer. The one absolute bar left is literal mode collapse:
+    every design the same sequence is a broken port at any n.
+    """
     u_tt, u_ref = tt.get("n_unique_sequences"), ref.get("n_unique_sequences")
     if not u_tt or not u_ref or not tt["n"] or not ref["n"]:
         return {"missing": True}
     f_tt, f_ref = u_tt / tt["n"], u_ref / ref["n"]
-    ok = bool(f_ref == 0 or f_tt >= mspec.DIVERSITY_RATIO_MIN * f_ref)
+    p = stats.fisher_exact_greater(u_tt, tt["n"], u_ref, ref["n"])
+    collapsed = tt["n"] >= 2 and u_tt < 2
     return {
+        "unique_tt": int(u_tt), "unique_ref": int(u_ref), "n_tt": tt["n"], "n_ref": ref["n"],
         "unique_frac_tt": round(f_tt, 4), "unique_frac_ref": round(f_ref, 4),
-        "bar": f"unique_frac_tt >= {mspec.DIVERSITY_RATIO_MIN} x unique_frac_ref", "pass": ok,
+        "p": round(p, 6), "collapsed": collapsed,
+        "bar": f"Fisher exact p >= {mspec.P_BAR} against a drop, and more than one unique sequence",
+        "pass": bool(p >= mspec.P_BAR and not collapsed),
     }
 
 

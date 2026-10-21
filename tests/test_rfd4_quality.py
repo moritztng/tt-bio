@@ -278,3 +278,44 @@ def test_a_family_with_no_oracle_columns_is_not_a_pass(tmp_path):
     rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--allow-no-oracle", "--permutations", str(FAST), "--out", str(out)])
     assert rc == 0 and json.loads(out.read_text())["features"][FEATURE]["verdict"] == "PASS"
+
+
+def test_an_evaluate_tree_merges_into_the_arm_without_double_counting(tmp_path):
+    """Generation and `rfd4-evaluate` write two trees for one arm, and evaluate re-exports every
+    input design under `evaluation_samples/`. The arm is 2 designs, not 4."""
+    gen = tmp_path / "gen" / "inference_samples"
+    ev = tmp_path / "eval" / "evaluation_samples"
+    paths = []
+    for i in (0, 1):
+        (gen / f"ex{i}").mkdir(parents=True)
+        _helix_cif(gen / f"ex{i}" / f"ex{i}_generated.cif", n=12)
+        paths.append(str(gen / f"ex{i}" / f"ex{i}_generated.cif"))
+        (ev / f"ex{i}_generated_abc{i}").mkdir(parents=True)
+        _helix_cif(ev / f"ex{i}_generated_abc{i}" / f"ex{i}_generated.cif", n=12)
+    (gen.parent / "inference_metrics").mkdir()
+    (ev.parent / "evaluation_metrics").mkdir()
+    for d, cols in ((gen.parent / "inference_metrics", {"seed": 0}),
+                    (ev.parent / "evaluation_metrics", {"clash_metrics.frac_atoms_clashing_1p5A": 0.01})):
+        with (d / "per_example_metrics.csv").open("w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=["designed_structure_path", *cols])
+            w.writeheader()
+            for p in paths:
+                w.writerow({"designed_structure_path": p, **cols})
+    arm = quality.load_arm([tmp_path / "gen", tmp_path / "eval"])
+    assert arm["n"] == 2 and arm["n_designs_parsed"] == 2
+    # both CSVs landed on the same rows, and geometry landed once
+    assert all("seed" in r and "clash_metrics.frac_atoms_clashing_1p5A" in r and "geom.n_ca" in r
+               for r in arm["rows"])
+
+
+def test_diversity_is_tested_against_the_reference_not_a_ratio_bar():
+    """6/8 vs 4/8 unique is one duplicate at n=8. Upstream against itself must not fail it."""
+    tt = {"n": 8, "n_unique_sequences": 4}
+    ref = {"n": 8, "n_unique_sequences": 6}
+    assert quality._grade_diversity(tt, ref)["pass"] is True
+    # a real collapse at a real n does fail
+    worse = quality._grade_diversity({"n": 40, "n_unique_sequences": 8}, {"n": 40, "n_unique_sequences": 38})
+    assert worse["pass"] is False and worse["p"] < mspec.P_BAR
+    # every design identical is a broken port whatever the reference did
+    dead = quality._grade_diversity({"n": 30, "n_unique_sequences": 1}, {"n": 30, "n_unique_sequences": 1})
+    assert dead["pass"] is False and dead["collapsed"] is True

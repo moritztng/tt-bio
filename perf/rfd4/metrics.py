@@ -43,7 +43,10 @@ FEATURE_TAGS = {
 # Graded on every family: cheap, no oracle, and they are what a broken port breaks first.
 COMMON = [
     ("clash_metrics.frac_atoms_clashing_1p5A", "dist", False),
-    ("bond_length_metrics.frac_unreasonable", "dist", False),
+    # Upstream emits this one with the metric's own name repeated: the class is
+    # BondLengthMetric, its sub-metric key is `bond_length`. Verified against a real
+    # `rfd4-evaluate metrics_tags=[design]` CSV, not from the docs, which drop the middle part.
+    ("bond_length_metrics.bond_length.frac_unreasonable", "dist", False),
     ("amino_acid_composition.ala_fraction", "dist", False),
     ("amino_acid_composition.gly_fraction", "dist", False),
     ("sse_distribution.helix_fraction", "dist", False),
@@ -124,10 +127,9 @@ GUARDS = {
     "geom.n_nonfinite_coords": {"max_mean": 0.0},
 }
 
-# Designs that are all the same design are not 30 designs. The reference arm sets the scale, so
-# the bar is relative: the TT arm may not be less diverse than the reference arm by more than
-# this factor, on distinct designed sequences.
-DIVERSITY_RATIO_MIN = 0.80
+# Designs that are all the same design are not 30 designs. Diversity is graded in quality.py
+# against the reference arm with the same one-sided Fisher exact a pass rate gets; it carries no
+# constant of its own beyond P_BAR, because unique_frac quantizes in steps of 1/n.
 
 P_BAR = 0.05
 N_MIN = 30
