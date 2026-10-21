@@ -196,7 +196,11 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # Separate processes on one Galaxy chip at 1000 MHz (tbx): 55.98 / 55.99 -> 53.36 / 53.21 s warm; transition_b8 alone 55.18 s.
 # ws_psilu rides along bit-identically on that plain kernel: CIFs identical on 8 of 8 warm folds, separate processes on
 # one Galaxy chip at 1000 MHz (psn): 53.36 / 53.24 / 53.72 / 53.24 -> 52.81 / 52.82 / 52.62 / 53.02 s warm.
-WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu"})
+# trimul_t1_dram: below 352 tokens the trimul loop runs from L1, where T1 declined; on the DRAM path T1 serves those folds
+# too. Never fires at 512. Wormhole 256-token normal grade vs the set above (spd-m-protenix t1p, 2026-10-21), 44 paired folds
+# over 4 seeds, PASS: same-seed top pose median 0.306 A vs the 0.6 A bar (3.271 A A/A floor), CA-lDDT -0.0010 [-0.0030,
+# +0.0008], ipTM -0.0035, docking 23/44 -> 24/44. Same grid, 5 samples, two Galaxy chips at 1000 MHz: warm median 42.02 -> 35.45 s.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram"})
 # Protenix-v2's Blackhole normal set: dit_shoist + transition_b8 + ws_b8_plain, graded as one stack. Blackhole 512-token normal
 # grade vs the shipped Blackhole normal set (spd-m-protenix gsbn, 2026-10-21), 44 paired folds over 4 seeds on a p300 at
 # 1312-1350 MHz, PASS: same-seed top pose median 0.602 A vs the 1.311 A A/A floor, CA-lDDT -0.0004 [-0.0045, +0.0038], docking
