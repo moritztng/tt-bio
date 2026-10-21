@@ -1,0 +1,6 @@
+# Folding is inverse folding's mirror: condition on the sequence, let the model place it.
+# No coordinate conditioning at all, which is what separates it from motif scaffolding.
+fold_7hiy:
+  input: ../inputs/7HIY.cif.zst
+  conditions:
+    C_SEQ: {true: [{select: "sel('*')"}]}
