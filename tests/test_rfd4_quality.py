@@ -440,3 +440,47 @@ def test_the_overall_verdict_says_why_it_is_not_a_pass():
     # a real failure outranks every other reason
     assert quality.overall_verdict(
         {"features": {"a": {"verdict": "FAIL"}, "b": {"verdict": "ORACLE_MISSING"}}}) == "FAIL"
+
+
+def _two_chain_cif(path: pathlib.Path, binder_n: int, target_n: int) -> pathlib.Path:
+    """A complex: chain A is the designed binder, chain B a big fixed target."""
+    lines = ["data_x", "loop_", "_atom_site.group_PDB", "_atom_site.label_atom_id",
+             "_atom_site.label_comp_id", "_atom_site.label_asym_id", "_atom_site.label_seq_id",
+             "_atom_site.Cartn_x", "_atom_site.Cartn_y", "_atom_site.Cartn_z"]
+    i = 0
+    for ch, n, res, offset in (("A", binder_n, "ALA", 0.0), ("B", target_n, "GLY", 200.0)):
+        for k in range(n):
+            i += 1
+            lines.append(f"ATOM CA {res} {ch} {k + 1} {offset + k * 3.8:.3f} 0.000 0.000")
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def test_a_complex_is_graded_on_its_chain_of_interest(tmp_path):
+    """A radius of gyration dominated by a fixed target barely moves whatever the port does."""
+    cif = _two_chain_cif(tmp_path / "ex_generated.cif", binder_n=10, target_n=200)
+    whole = geometry.design_geometry(cif)
+    binder = geometry.design_geometry(cif, chain="A")
+    assert binder["geom.n_ca"] == 10 and whole["geom.n_ca"] == 210
+    assert binder["geom.radius_of_gyration"] < whole["geom.radius_of_gyration"] / 5
+    assert geometry.sequence_of(cif, chain="A") == "A" * 10
+
+    # load_arm takes the chain from upstream's own per-design column
+    d = tmp_path / "run" / "inference_samples" / "ex"
+    d.mkdir(parents=True)
+    _two_chain_cif(d / "ex_generated.cif", binder_n=10, target_n=200)
+    m = tmp_path / "run" / "evaluation_metrics"
+    m.mkdir(parents=True)
+    with (m / "per_example_metrics.csv").open("w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=["designed_structure_path", "chain_of_interest"])
+        w.writeheader()
+        w.writerow({"designed_structure_path": str(d / "ex_generated.cif"), "chain_of_interest": "A"})
+    arm = quality.load_arm(tmp_path / "run")
+    assert arm["rows"][0]["geom.n_ca"] == 10 and arm["rows"][0]["geom.chain_not_found"] == 0.0
+
+
+def test_an_unmatched_chain_id_keeps_the_design_and_flags_it(tmp_path):
+    """Dropping the design instead would quietly shrink n and bias the grade."""
+    cif = _two_chain_cif(tmp_path / "ex_generated.cif", binder_n=10, target_n=20)
+    geom = geometry.design_geometry(cif, chain="Z")
+    assert geom["geom.n_ca"] == 30 and geom["geom.chain_not_found"] == 1.0

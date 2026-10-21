@@ -91,12 +91,17 @@ def design_geometry(path: pathlib.Path, chain: str | None = None) -> dict[str, f
     comp = np.array(site.get("label_comp_id", [""] * len(xyz)))
     seq_id = np.array([_float(v) for v in site.get("label_seq_id", ["nan"] * len(xyz))])
 
+    # A named chain that matches no atom would select nothing and silently drop the design, and a
+    # dropped design is a design nobody grades. Fall back to the whole structure and say so.
     sel = atom == "CA"
-    if chain is not None:
-        sel &= chains == chain
+    named = sel & (chains == chain) if chain else sel
+    chain_found = bool(chain) and bool(named.any())
+    if chain_found:
+        sel = named
     ca = xyz[sel]
     ca = ca[np.isfinite(ca).all(axis=1)]
     out: dict[str, float] = {
+        "geom.chain_not_found": float(bool(chain) and not chain_found),
         "geom.n_nonfinite_coords": float(n_nonfinite),
         "geom.n_ca": float(ca.shape[0]),
         "geom.frac_unknown_residue": _unk_fraction(comp[sel]) if sel.any() else float("nan"),
@@ -147,9 +152,13 @@ def sequence_of(path: pathlib.Path, chain: str | None = None) -> str:
     atom = np.array(site.get("label_atom_id", []))
     comp = np.array(site.get("label_comp_id", []))
     chains = np.array(site.get("label_asym_id", [""] * len(atom)))
+    # A named chain that matches no atom would select nothing and silently drop the design, and a
+    # dropped design is a design nobody grades. Fall back to the whole structure and say so.
     sel = atom == "CA"
-    if chain is not None:
-        sel &= chains == chain
+    named = sel & (chains == chain) if chain else sel
+    chain_found = bool(chain) and bool(named.any())
+    if chain_found:
+        sel = named
     return "".join(THREE_TO_ONE.get(c, "X") for c in comp[sel])
 
 

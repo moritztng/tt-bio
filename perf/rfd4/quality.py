@@ -103,11 +103,16 @@ def load_arm(path, chain: str | None = None) -> dict:
         match = key if key in rows else (_match_row(rows, cif) or key)
         if "geom.n_ca" in rows.get(match, {}):
             continue  # already loaded from another root's copy of this design
-        geom = geometry.design_geometry(cif, chain=chain)
+        # For a complex, the geometry and the sequence must describe the BINDER, not the whole
+        # assembly: a radius of gyration dominated by a fixed target barely moves whatever the
+        # port does to the binder, and a sequence that includes the target makes every design
+        # look alike. Upstream already decided which chain that is, per design.
+        coi = chain or _chain_of_interest(rows.get(match))
+        geom = geometry.design_geometry(cif, chain=coi)
         if not geom:
             continue
         rows.setdefault(match, {}).update(geom)
-        sequences.append(geometry.sequence_of(cif, chain=chain))
+        sequences.append(geometry.sequence_of(cif, chain=coi))
         n_designs += 1
     return {
         "root": str(roots[0]) if len(roots) == 1 else [str(r) for r in roots],
@@ -117,6 +122,13 @@ def load_arm(path, chain: str | None = None) -> dict:
         "n_unique_sequences": len(set(s for s in sequences if s)) if sequences else None,
         "csvs": [str(p) for p in csvs],
     }
+
+
+def _chain_of_interest(row: dict | None) -> str | None:
+    """Upstream writes `chain_of_interest` per design, empty when it is ambiguous (a monomer has
+    no chain of interest, and the whole structure is the right scope there)."""
+    value = (row or {}).get("chain_of_interest")
+    return value.strip() or None if isinstance(value, str) else None
 
 
 def _match_row(rows: dict[str, dict], cif: pathlib.Path) -> str | None:

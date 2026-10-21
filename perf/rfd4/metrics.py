@@ -67,6 +67,7 @@ COMMON = [
     ("pre_oracle_pass", "rate", False),
     ("amino_acid_composition.n_generated_unknown_residues", "guard", False),
     ("geom.n_nonfinite_coords", "guard", False),
+    ("geom.chain_not_found", "guard", False),
 ]
 
 # Family-specific, on top of COMMON.
@@ -137,6 +138,10 @@ SPECIFIC["nanobody_cdr"] = SPECIFIC["antibody_cdr"]
 GUARDS = {
     "amino_acid_composition.n_generated_unknown_residues": {"max_mean": 0.0},
     "geom.n_nonfinite_coords": {"max_mean": 0.0},
+    # Upstream named a chain of interest the design file does not contain. The harness keeps the
+    # whole structure so the design is still graded, but every geom.* column then describes the
+    # complex rather than the binder, which is not the measurement anyone asked for.
+    "geom.chain_not_found": {"max_mean": 0.0},
 }
 
 # Designs that are all the same design are not 30 designs. Diversity is graded in quality.py
