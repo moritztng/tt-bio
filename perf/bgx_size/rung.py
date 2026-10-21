@@ -229,8 +229,8 @@ def observe_axis():
     """
     inner = bindcraft2.EvoformerOnDevice._pad
 
-    def pad(m, z, mask, pair_mask):
-        out = inner(m, z, mask, pair_mask)
+    def pad(*args, **kw):
+        out = inner(*args, **kw)
         n = int(out[4])
         AXIS.setdefault("complex_residues", n)
         AXIS.setdefault("evoformer_axis", int(bindcraft2._pad32(n)))
