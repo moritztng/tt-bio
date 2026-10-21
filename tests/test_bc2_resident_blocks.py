@@ -46,3 +46,16 @@ def test_a_pinned_count_is_clamped_to_the_stack():
     assert B.resident_blocks("lean", 224, WH, requested="8") == 8
     assert B.resident_blocks("fast", 224, WH, requested="99") == B.EVOFORMER_BLOCKS
     assert B.resident_blocks("fast", 224, WH, requested="0") == 0
+
+
+def test_the_structure_module_on_card_comes_off_the_room():
+    # 224 tokens on a Blackhole chip: 48 blocks fill the card to within 0.32 GB, and the on-card
+    # structure module holds 0.75 GB at its peak while the tape is live. Measured on qb2 chip 3,
+    # 2026-10-21: with 48 resident blocks the stack refused a 0.9 MB buffer in the 4th iteration.
+    from tt_bio import af2_structure as S
+    full = B.resident_blocks("fast", 224, BH, requested="auto")
+    beside = B.resident_blocks("fast", 224, BH, requested="auto", beside=S.device_bytes(224))
+    assert beside < full
+    pair = 256 * 224 ** 2
+    room = BH * B._MODE_USABLE - B._MODE_BASE_BYTES - B._RESIDENT_ROUND_PAIR_TENSORS * pair
+    assert beside * B._RESIDENT_BLOCK_PAIR_TENSORS * pair + S.device_bytes(224) <= room
