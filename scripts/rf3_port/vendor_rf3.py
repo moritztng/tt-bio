@@ -3,11 +3,13 @@
 
 Three upstream pieces, all BSD:
 
-- ``atomworks`` (PyPI 2.2.1) -- the AF3 transform pipeline. Vendored rather than
-  pip-depended on because it declares ``requires-python >=3.11`` and pins
-  ``biotite==1.4.0``, while tt-bio runs 3.10 with biotite unpinned. Both are
-  conservative metadata: with two small shims it is bit-exact on 3.10 + biotite
-  1.2.0 (see ``scripts/rf3_port/ab_pipeline.py`` and the state file).
+- ``atomworks`` (PyPI 3.0.4; 2.2.1 until RFD4) -- the AF3 transform pipeline, shared
+  by RF3 and RFD4. Vendored rather than pip-depended on because it declares
+  ``requires-python >=3.11`` and pins ``biotite`` exactly, while tt-bio runs 3.10
+  with biotite only capped. Both are conservative metadata: with the shims below it
+  runs on 3.10, and RF3's featurizer stays bit-exact on its ten committed fixtures
+  (``tests/test_rf3_featurizer.py``). RFD4's prep package is vendored on top of it
+  by ``scripts/rfd4_port/vendor_rfd4_prep.py``, which reuses this module.
 - ``rf3`` (RosettaCommons/foundry, models/rf3) -- the RF3-specific host transforms
   and input-spec plumbing, plus the torch reference model the ttnn port is scored
   against. Inference only: no losses, no trainers, no Lightning.
@@ -18,7 +20,8 @@ Three upstream pieces, all BSD:
 Import rewriting is textual and checked afterwards: no bare ``atomworks``/``rf3``/
 ``foundry`` reference may survive.
 
-Re-run with --check to verify an existing vendor tree without rewriting.
+Re-run with --check to verify an existing vendor tree without rewriting. Without
+--foundry-src only atomworks is re-vendored and rf3/foundry are left as they are.
 """
 from __future__ import annotations
 
@@ -169,9 +172,9 @@ __all__ = ["RankedLogger", "get_current_rank", "is_rank_zero"]
 '''
 
 
-def rewrite_imports(text: str) -> str:
-    """Point absolute imports of the three vendored packages at the vendor namespace."""
-    for pkg in PKGS:
+def rewrite_imports(text: str, pkgs=PKGS) -> str:
+    """Point absolute imports of the vendored packages at the vendor namespace."""
+    for pkg in pkgs:
         # from <pkg>[.sub] import ...
         text = re.sub(
             rf"^(\s*)from {pkg}(\.|\s)",
@@ -193,19 +196,40 @@ def rewrite_imports(text: str) -> str:
     return text
 
 
-def apply_shims(root: Path) -> list[str]:
-    """Replace the two Python 3.11-only imports atomworks relies on.
+#: Python 3.12-only syntax, fixed by exact text substitution with identical behaviour.
+#: (path under the vendor root, upstream text, 3.10-valid text). A substitution whose
+#: upstream text is missing fails the vendor run, so an upstream edit cannot leave the
+#: tree silently unpatched.
+PY310_FIXES = (
+    # PEP 701: a backslash inside an f-string expression. U+2500 written literally.
+    ("atomworks/ml/datasets/metadata.py",
+     "{'\\u2500' * inner_width}", "{'\u2500' * inner_width}"),
+)
 
-    Both are plain ``from <mod> import a, b, c`` lines, so drop the 3.11-only name
-    from the list and add a line importing it from the shim.
+
+def apply_shims(root: Path, pkgs=("atomworks",)) -> list[str]:
+    """Make the vendored packages run on Python 3.10.
+
+    The two 3.11-only imports are plain ``from <mod> import a, b, c`` lines, so drop
+    the 3.11-only name from the list and add a line importing it from the shim. The
+    3.12-only syntax in PY310_FIXES is substituted verbatim.
     """
     touched = []
     (root / "atomworks" / "_compat.py").write_text(STRENUM_SHIM)
+    for rel, old, new in PY310_FIXES:
+        path = root / rel
+        if not path.exists() or rel.split("/")[0] not in pkgs:
+            continue
+        text = path.read_text()
+        if old not in text:
+            raise SystemExit(f"PY310_FIXES: {rel} no longer contains {old!r}")
+        path.write_text(text.replace(old, new))
+        touched.append(rel)
     swaps = (
         ("enum", "StrEnum", f"from {VENDOR_NS}.atomworks._compat import StrEnum"),
         ("typing", "Never", "from typing_extensions import Never"),
     )
-    for path in (root / "atomworks").rglob("*.py"):
+    for path in (p for pkg in pkgs for p in (root / pkg).rglob("*.py")):
         original = path.read_text()
         out = []
         for line in original.splitlines():
@@ -231,12 +255,12 @@ def apply_shims(root: Path) -> list[str]:
     return touched
 
 
-def check(root: Path) -> int:
+def check(root: Path, pkgs=PKGS) -> int:
     """Fail if any un-rewritten absolute import of a vendored package survives."""
     bad = []
     for path in root.rglob("*.py"):
         for lineno, line in enumerate(path.read_text().splitlines(), 1):
-            for pkg in PKGS:
+            for pkg in pkgs:
                 if re.match(rf"\s*(from {pkg}[.\s]|import {pkg}([.\s]|$))", line):
                     bad.append(f"{path.relative_to(root)}:{lineno}: {line.strip()}")
     for entry in bad[:40]:
@@ -248,7 +272,7 @@ def check(root: Path) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", required=True)
-    ap.add_argument("--atomworks-src", help="site-packages/atomworks of a 2.2.1 install")
+    ap.add_argument("--atomworks-src", help="site-packages/atomworks of a 3.0.4 install")
     ap.add_argument("--foundry-src", help="RosettaCommons/foundry checkout root")
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
@@ -257,16 +281,59 @@ def main() -> int:
     if args.check:
         return check(vendor)
 
-    if not (args.atomworks_src and args.foundry_src):
-        ap.error("--atomworks-src and --foundry-src are required unless --check")
+    if not args.atomworks_src:
+        ap.error("--atomworks-src is required unless --check")
     aw_src = Path(args.atomworks_src)
-    fo_src = Path(args.foundry_src)
 
     # atomworks: whole package
     dst = vendor / "atomworks"
     shutil.rmtree(dst, ignore_errors=True)
     shutil.copytree(aw_src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    # The licence lives in the wheel's dist-info, not the package directory, so a plain
+    # copy of site-packages/atomworks ships the code without it.
+    licences = sorted(aw_src.parent.glob("atomworks-*.dist-info/licenses/LICENSE*"))
+    if not licences:
+        raise SystemExit(f"no atomworks LICENSE next to {aw_src}; refusing to vendor without it")
+    shutil.copy2(licences[-1], dst / "LICENSE")
+    if args.foundry_src:
+        vendor_rf3_and_foundry(vendor, Path(args.foundry_src))
 
+    # rewrite imports everywhere
+    n = 0
+    for pkg in PKGS:
+        for path in (vendor / pkg).rglob("*.py"):
+            text = path.read_text()
+            new = rewrite_imports(text)
+            if new != text:
+                path.write_text(new)
+                n += 1
+    print(f"rewrote imports in {n} files")
+
+    touched = apply_shims(vendor)
+    print(f"shimmed {len(touched)} files: {touched}")
+    apply_local_patch(vendor / "atomworks")
+
+    return check(vendor)
+
+
+#: tt-bio's own changes to atomworks, kept as a patch against the shimmed tree so a
+#: re-vendor carries them instead of erasing them: reference conformers generated in a
+#: small helper process, concurrently per CCD code (``ml/transforms/conformer_helper.py``
+#: and the hooks into ``rdkit_utils``, ``af3_reference_molecule`` and ``utils/timer``).
+LOCAL_PATCH = Path(__file__).with_name("atomworks_local.patch")
+
+
+def apply_local_patch(dst: Path) -> None:
+    import subprocess
+
+    r = subprocess.run(["patch", "-p0", "--forward", "--no-backup-if-mismatch", "-d", str(dst),
+                        "-i", str(LOCAL_PATCH)], capture_output=True, text=True)
+    print(r.stdout.strip())
+    if r.returncode:
+        raise SystemExit(f"{LOCAL_PATCH.name} did not apply cleanly:\n{r.stdout}{r.stderr}")
+
+
+def vendor_rf3_and_foundry(vendor: Path, fo_src: Path) -> None:
     # rf3: featurization subset only
     dst = vendor / "rf3"
     shutil.rmtree(dst, ignore_errors=True)
@@ -301,22 +368,6 @@ def main() -> int:
             target.write_text(
                 '"""Namespace package for the vendored foundry subset."""\n'
             )
-
-    # rewrite imports everywhere
-    n = 0
-    for pkg in PKGS:
-        for path in (vendor / pkg).rglob("*.py"):
-            text = path.read_text()
-            new = rewrite_imports(text)
-            if new != text:
-                path.write_text(new)
-                n += 1
-    print(f"rewrote imports in {n} files")
-
-    touched = apply_shims(vendor)
-    print(f"shimmed {len(touched)} files: {touched}")
-
-    return check(vendor)
 
 
 if __name__ == "__main__":

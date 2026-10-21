@@ -36,8 +36,10 @@ Example:
     [ True  True  True ... False False False]
 """
 
+import contextlib
 import functools
 from collections.abc import Callable
+from itertools import pairwise
 from typing import Any
 
 import biotite.structure as struc
@@ -45,10 +47,11 @@ import numpy as np
 from biotite.structure import AtomArray
 from jaxtyping import Bool, Float, Int
 
-from tt_bio._vendor.atomworks.common import listmap
 from tt_bio._vendor.atomworks.constants import (
     DNA_BACKBONE_ATOM_NAMES,
     ELEMENT_NAME_TO_ATOMIC_NUMBER,
+    MASKED,
+    MAX_CHEM_TYPE_LENGTH,
     METAL_ELEMENTS,
     NUCLEIC_ACID_BACKBONE_ATOM_NAMES,
     PROTEIN_BACKBONE_ATOM_NAMES,
@@ -60,13 +63,18 @@ from tt_bio._vendor.atomworks.constants import (
     STANDARD_PYRIMIDINE_RESIDUES,
     STANDARD_RNA,
     UNKNOWN_AA,
+    UNKNOWN_ATOMIC_NUMBER,
     UNKNOWN_DNA,
     UNKNOWN_RNA,
 )
 from tt_bio._vendor.atomworks.enums import ChainType
-from tt_bio._vendor.atomworks.io.utils.atom_array import apply_and_spread
-from tt_bio._vendor.atomworks.ml.transforms.atom_array import get_within_group_res_idx
-from tt_bio._vendor.atomworks.ml.utils.token import get_token_starts
+from tt_bio._vendor.atomworks.io.transforms.atom_array import add_chain_type_annotation
+from tt_bio._vendor.atomworks.io.utils.atom_array_plus import AnnotationList2D, has_annotation
+from tt_bio._vendor.atomworks.io.utils.ccd import get_chem_comp_type
+from tt_bio._vendor.atomworks.io.utils.chain_info import build_chain_info
+from tt_bio._vendor.atomworks.io.utils.scatter import apply_and_spread_segment_wise
+from tt_bio._vendor.atomworks.io.utils.selection import get_annotation_categories
+from tt_bio._vendor.atomworks.io.utils.standard_annotations.base import STANDARD_ANNOTATIONS
 
 Array = np.ndarray
 """Alias for numpy.ndarray"""
@@ -97,9 +105,14 @@ def _register_lazy_annotator(annot_name: str) -> Callable:
     def decorator(fn: Callable[[AtomArray], Array]) -> Callable[[AtomArray], None]:
         @functools.wraps(fn)
         def wrapper(atom_array: AtomArray) -> None:
-            if annot_name not in atom_array.get_annotation_categories():
+            if not has_annotation(atom_array, annot_name, n_body="all"):
                 values = fn(atom_array)
-                atom_array.set_annotation(annot_name, values)
+                if isinstance(values, AnnotationList2D):
+                    atom_array.set_annotation(annot_name, values, n_body=2)
+                elif np.ndim(values) == 0:
+                    atom_array.set_annotation(annot_name, values, n_body=0)
+                else:
+                    atom_array.set_annotation(annot_name, values)
 
         # Register the annotation in the ANNOTATOR_REGISTRY
         ANNOTATOR_REGISTRY[annot_name] = wrapper
@@ -136,10 +149,7 @@ def _requires_annotations(*annot_names: str) -> Callable:
         def wrapper(atom_array: AtomArray, *args, **kwargs) -> Any:
             # Generate missing annotations
             for annot_name in annot_names:
-                if annot_name not in atom_array.get_annotation_categories():
-                    if annot_name not in ANNOTATOR_REGISTRY:
-                        raise ValueError(f"No generator found for annotation: {annot_name}")
-                    ANNOTATOR_REGISTRY[annot_name](atom_array)
+                _ensure_single_annotation(atom_array, annot_name)
 
             # Call the original function
             return fn(atom_array, *args, **kwargs)
@@ -149,27 +159,56 @@ def _requires_annotations(*annot_names: str) -> Callable:
     return decorator
 
 
+def _resolve_standard_annotation(name: str) -> type | None:
+    """Return the StandardAnnotation matching a registry name, canonical name, or alias."""
+    for annotation_cls in STANDARD_ANNOTATIONS:
+        if name in (annotation_cls.name, annotation_cls.full_name, *annotation_cls.aliases):
+            return annotation_cls
+    return None
+
+
+def _ensure_single_annotation(atom_array: AtomArray, name: str) -> None:
+    """Ensure a single annotation exists on ``atom_array``, generating it if absent.
+
+    Checks ``ANNOTATOR_REGISTRY`` first, then falls back to
+    :py:class:`~atomworks.io.utils.standard_annotations.base.StandardAnnotationBase` subclasses
+    registered in :py:attr:`~atomworks.io.utils.standard_annotations.base.StandardAnnotationMeta._registry`.
+
+    Raises:
+        ValueError: If no generator is found for ``name``.
+    """
+    if not has_annotation(atom_array, name, n_body="all"):
+        if name in ANNOTATOR_REGISTRY:
+            ANNOTATOR_REGISTRY[name](atom_array)
+        else:
+            result = _resolve_standard_annotation(name)
+            if result is not None:
+                result.set_annotation(atom_array, result.annotation(atom_array, default="generate"))
+            else:
+                raise ValueError(f"No generator found for annotation: {name}")
+
+
 def ensure_annotations(atom_array: AtomArray, *annotation_names: str) -> None:
     """
     Ensure that specified annotations exist on the AtomArray.
     If an annotation does not exist, it will be generated according to the
-    generator function registered in the `ANNOTATOR_REGISTRY` and added to
-    the `AtomArray` in-place.
+    generator function registered in the `ANNOTATOR_REGISTRY`, or by the
+    default generation method of a registered :py:class:`StandardAnnotationBase`
+    subclass, and added to the `AtomArray` in-place.
+
+    StandardAnnotation names resolve to canonical storage fields, preserving existing alias values.
 
     Args:
         atom_array: The AtomArray to annotate
         *annotation_names: Names of annotations to ensure. Must be
-            registered in the `ANNOTATOR_REGISTRY`. To register an annotation,
-            decorate a function with `_register_lazy_annotator("annot_name")`.
+            registered in ``ANNOTATOR_REGISTRY`` or correspond to a
+            registered StandardAnnotation's registry name, ``full_name``, or accepted alias.
 
     Raises:
         ValueError: If a requested annotation has no generator
     """
     for name in annotation_names:
-        if name not in atom_array.get_annotation_categories():
-            if name not in ANNOTATOR_REGISTRY:
-                raise ValueError(f"No generator found for annotation: {name}")
-            ANNOTATOR_REGISTRY[name](atom_array)
+        _ensure_single_annotation(atom_array, name)
 
 
 def remove_annotations(atom_array: AtomArray, *annotation_names: str) -> None:
@@ -183,10 +222,15 @@ def remove_annotations(atom_array: AtomArray, *annotation_names: str) -> None:
     Note:
         Silently skips annotations that don't exist.
     """
-    existing_annotations = atom_array.get_annotation_categories()
+    existing = {n_body: get_annotation_categories(atom_array, n_body=n_body) for n_body in (1, 2, 0)}
     for name in annotation_names:
-        if name in existing_annotations:
-            atom_array.del_annotation(name)
+        for n_body, categories in existing.items():
+            if name in categories:
+                if n_body == 1:
+                    atom_array.del_annotation(name)
+                else:
+                    atom_array.del_annotation(name, n_body=n_body)
+                break
 
 
 def clear_generated_annotations(atom_array: AtomArray) -> None:
@@ -196,32 +240,41 @@ def clear_generated_annotations(atom_array: AtomArray) -> None:
     Args:
         atom_array: The AtomArray to modify
     """
-    existing_annotations = atom_array.get_annotation_categories()
-    for name in ANNOTATOR_REGISTRY:
-        if name in existing_annotations:
-            atom_array.del_annotation(name)
+    remove_annotations(atom_array, *ANNOTATOR_REGISTRY)
 
 
 # Custom annotation generators
+@_register_lazy_annotator("chain_type")
+def chain_type(atom_array: AtomArray) -> Array:
+    """Annotate chain type using the ChainType enum."""
+    chain_info = build_chain_info(atom_array)
+    modified_atom_array = add_chain_type_annotation(atom_array.copy(), chain_info)  # avoid inplace operations
+    return modified_atom_array.chain_type
+
+
 @_register_lazy_annotator("is_protein")
+@_requires_annotations("chain_type")
 def is_protein(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to protein chains."""
     return np.isin(atom_array.chain_type, ChainType.get_proteins())
 
 
 @_register_lazy_annotator("is_nucleic_acid")
+@_requires_annotations("chain_type")
 def is_nucleic_acid(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to nucleic acid chains."""
     return np.isin(atom_array.chain_type, ChainType.get_nucleic_acids())
 
 
 @_register_lazy_annotator("is_dna")
+@_requires_annotations("chain_type")
 def is_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to DNA chains."""
     return np.isin(atom_array.chain_type, ChainType.DNA)
 
 
 @_register_lazy_annotator("is_rna")
+@_requires_annotations("chain_type")
 def is_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to RNA chains."""
     return np.isin(atom_array.chain_type, ChainType.RNA)
@@ -240,6 +293,18 @@ def is_standard_or_unknown_aa(atom_array: AtomArray) -> Bool[Array, "n_atoms"]: 
     NOTE: May be different than the chain-level "is_protein" in the case of mixed-type chains (e.g., a protein with a non-canonical amino acid).
     """
     return np.isin(atom_array.res_name, [*STANDARD_AA, UNKNOWN_AA])
+
+
+@_register_lazy_annotator("is_standard_unknown_or_masked_aa")
+@_requires_annotations("chain_type", "is_standard_or_unknown_aa")
+def is_standard_unknown_or_masked_aa(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to standard, unknown, or masked amino acid residue.
+
+    NOTE: May be different than the chain-level "is_protein" in the case of mixed-type chains (e.g., a protein with a non-canonical amino acid).
+    """
+    standard_and_unknown = atom_array.get_annotation("is_standard_or_unknown_aa")
+    masked = (atom_array.res_name == MASKED) & (atom_array.chain_type == ChainType.POLYPEPTIDE_L)
+    return standard_and_unknown | masked
 
 
 @_register_lazy_annotator("is_protein_backbone")
@@ -309,6 +374,18 @@ def is_standard_or_unknown_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
     return np.isin(atom_array.res_name, [*STANDARD_DNA, UNKNOWN_DNA])
 
 
+@_register_lazy_annotator("is_standard_unknown_or_masked_dna")
+@_requires_annotations("chain_type", "is_standard_or_unknown_dna")
+def is_standard_unknown_or_masked_dna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to standard, unknown, or masked DNA residue.
+
+    NOTE: May be different than the chain-level "is_dna" in the case of mixed-type chains (e.g., DNA/RNA hybrids).
+    """
+    standard_and_unknown = atom_array.get_annotation("is_standard_or_unknown_dna")
+    masked = (atom_array.res_name == MASKED) & (atom_array.chain_type == ChainType.DNA)
+    return standard_and_unknown | masked
+
+
 @_register_lazy_annotator("is_standard_or_unknown_rna")
 def is_standard_or_unknown_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to standard or unknown RNA residue.
@@ -316,6 +393,18 @@ def is_standard_or_unknown_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:
     NOTE: May be different than the chain-level "is_rna" in the case of mixed-type chains (e.g., DNA/RNA hybrids).
     """
     return np.isin(atom_array.res_name, [*STANDARD_RNA, UNKNOWN_RNA])
+
+
+@_register_lazy_annotator("is_standard_unknown_or_masked_rna")
+@_requires_annotations("chain_type", "is_standard_or_unknown_rna")
+def is_standard_unknown_or_masked_rna(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
+    """Check if atoms belong to standard, unknown, or masked RNA residue.
+
+    NOTE: May be different than the chain-level "is_rna" in the case of mixed-type chains (e.g., DNA/RNA hybrids).
+    """
+    standard_and_unknown = atom_array.get_annotation("is_standard_or_unknown_rna")
+    masked = (atom_array.res_name == MASKED) & (atom_array.chain_type == ChainType.RNA)
+    return standard_and_unknown | masked
 
 
 @_register_lazy_annotator("is_pyrimidine")
@@ -351,15 +440,6 @@ def is_res_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     return is_res_start
 
 
-@_register_lazy_annotator("is_token_start")
-def is_token_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
-    """Mark the first atom of each token."""
-    token_starts = get_token_starts(atom_array, add_exclusive_stop=False)
-    is_token_start = np.zeros(atom_array.array_length(), dtype=bool)
-    is_token_start[token_starts] = True
-    return is_token_start
-
-
 @_register_lazy_annotator("is_chain_start")
 def is_chain_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to chain starts."""
@@ -370,15 +450,17 @@ def is_chain_start(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F8
 
 
 @_register_lazy_annotator("is_polymer")
+@_requires_annotations("chain_type")
 def is_polymer(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to polymers."""
     return np.isin(atom_array.chain_type, ChainType.get_polymers())
 
 
 @_register_lazy_annotator("is_ligand")
+@_requires_annotations("chain_type")
 def is_ligand(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F821
     """Check if atoms belong to ligands."""
-    return np.isin(atom_array.chain_type, ChainType.NON_POLYMER)
+    return np.isin(atom_array.chain_type, ChainType.get_non_polymers())
 
 
 @_register_lazy_annotator("is_metal")
@@ -393,14 +475,6 @@ def is_carbohydrate(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: F
     return struc.filter_carbohydrates(atom_array)
 
 
-@_register_lazy_annotator("within_chain_res_idx")
-def within_chain_res_idx(atom_array: AtomArray) -> Int[Array, "n_atoms"]:  # noqa: F821
-    """Get the within-chain residue index for the atom array."""
-    annotations = atom_array.get_annotation_categories()
-    chain_group = "chain_iid" if "chain_iid" in annotations else "chain_id"
-    return get_within_group_res_idx(atom_array, group_by=chain_group)
-
-
 @_register_lazy_annotator("res_min_occupancy")
 @_requires_annotations("is_res_start")
 def res_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:  # noqa: F821
@@ -408,28 +482,7 @@ def res_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:  # noqa
     is_res_start = atom_array.get_annotation("is_res_start")
     res_start_idxs = np.where(is_res_start)[0]
     res_segments = np.concatenate([res_start_idxs, [atom_array.array_length()]])
-    return apply_and_spread(res_segments, atom_array.occupancy, np.min)
-
-
-@_register_lazy_annotator("token_min_occupancy")
-@_requires_annotations("is_token_start")
-def token_min_occupancy(atom_array: AtomArray) -> Float[Array, "n_atoms"]:  # noqa: F821
-    """Calculate minimum occupancy for each token."""
-    is_token_start = atom_array.get_annotation("is_token_start")
-    token_start_idxs = np.where(is_token_start)[0]
-    token_segments = np.concatenate([token_start_idxs, [atom_array.array_length()]])
-    return apply_and_spread(token_segments, atom_array.occupancy, np.min)
-
-
-@_register_lazy_annotator("token_id")
-@_requires_annotations("is_token_start")
-def token_id(atom_array: AtomArray) -> Int[Array, "n_atoms"]:  # noqa: F821
-    """Assign a unique ID to each token."""
-    is_token_start = atom_array.get_annotation("is_token_start")
-    token_start_idxs = np.where(is_token_start)[0]
-    token_id = np.arange(sum(is_token_start))
-    token_segments = np.concatenate([token_start_idxs, [atom_array.array_length()]])
-    return struc.segments.spread_segment_wise(token_segments, token_id)
+    return apply_and_spread_segment_wise(res_segments, atom_array.occupancy, np.min)
 
 
 @_register_lazy_annotator("res_has_tip_atom")
@@ -440,10 +493,45 @@ def res_has_tip_atom(atom_array: AtomArray) -> Bool[Array, "n_atoms"]:  # noqa: 
     is_res_start = atom_array.get_annotation("is_res_start")
     res_start_idxs = np.where(is_res_start)[0]
     res_segments = np.concatenate([res_start_idxs, [atom_array.array_length()]])
-    return apply_and_spread(res_segments, is_tip_atom, np.any)
+    return apply_and_spread_segment_wise(res_segments, is_tip_atom, np.any)
 
 
 @_register_lazy_annotator("atomic_number")
 def atomic_number(atom_array: AtomArray) -> Int[Array, "n_atoms"]:  # noqa: F821
-    """Get atomic numbers for each atom."""
-    return np.array(listmap(ELEMENT_NAME_TO_ATOMIC_NUMBER.get, np.char.upper(atom_array.element)), dtype=np.int8)
+    """Get atomic numbers for each atom. Unknown elements map to ``UNKNOWN_ATOMIC_NUMBER``."""
+    atomic_numbers = [
+        ELEMENT_NAME_TO_ATOMIC_NUMBER.get(elem, UNKNOWN_ATOMIC_NUMBER) for elem in np.char.upper(atom_array.element)
+    ]
+    return np.array(atomic_numbers, dtype=np.int8)
+
+
+@_register_lazy_annotator("chem_comp_type")
+def chem_comp_type(atom_array: AtomArray) -> np.ndarray:
+    """Get chemical component types for each atom (``<U{MAX_CHEM_TYPE_LENGTH}`` dtype).
+
+    Residues not in the CCD or custom CCD registry are set to ``OTHER``.
+    """
+    # Cache by unique res_name
+    res_name_to_type: dict[str, str] = {}
+    residue_bounds = struc.get_residue_starts(atom_array, add_exclusive_stop=True)
+    residue_sizes = np.diff(residue_bounds)
+    chem_comp_types = np.empty(len(residue_sizes), dtype=f"<U{MAX_CHEM_TYPE_LENGTH}")
+    for i, (start, stop) in enumerate(pairwise(residue_bounds)):
+        res_name = atom_array.res_name[start]
+
+        comp_type = res_name_to_type.get(res_name)
+        if comp_type is None:
+            comp_type = get_chem_comp_type(res_name, atom_names=set(atom_array.atom_name[start:stop]))
+            res_name_to_type[res_name] = comp_type
+
+        chem_comp_types[i] = comp_type
+
+    return np.repeat(chem_comp_types, residue_sizes)
+
+
+# If available, ensure that all annotators in `atomworks.ml` get registered in the `ANNOTATOR_REGISTRY`.
+# This import must come AFTER all definitions in this module to avoid circular import issues:
+# ml/conditions/annotator.py imports _register_lazy_annotator from this module, so this module
+# must be fully initialized before ml/conditions/annotator.py can be imported.
+with contextlib.suppress(ImportError):
+    import tt_bio._vendor.atomworks.ml.utils.annotator as _annotator_ml  # noqa: F401
