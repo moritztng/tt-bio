@@ -252,7 +252,7 @@ def test_a_feature_with_no_data_is_not_a_pass(tmp_path):
     rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(empty), "--ref", str(other),
                        "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
-    assert rc == 1 and doc["features"][FEATURE]["verdict"] == "NO_DATA" and doc["verdict"] == "FAIL"
+    assert rc == 1 and doc["features"][FEATURE]["verdict"] == "NO_DATA" and doc["verdict"] == "NO_DATA"
 
 
 def test_every_feature_family_has_a_metric_set_and_tags():
@@ -429,3 +429,14 @@ def test_the_reference_index_names_one_entry_per_seed_and_refuses_a_single_seed(
     assert ri.main(["--root", str(only), "--family", "binder", "--recipe", "r", "--session", "s",
                     "--out", str(tmp_path / "one.json")]) == 1
     assert "needs TWO seeds" in capsys.readouterr().out
+
+
+def test_the_overall_verdict_says_why_it_is_not_a_pass():
+    """FAIL is reserved for a metric that moved. An ungraded campaign must not look like one."""
+    assert quality.overall_verdict({"features": {}}) == "NOT_GRADED"
+    assert quality.overall_verdict({"features": {"a": {"verdict": "PASS"}}}) == "PASS"
+    assert quality.overall_verdict(
+        {"features": {"a": {"verdict": "PASS"}, "b": {"verdict": "INSUFFICIENT_N"}}}) == "INSUFFICIENT_N"
+    # a real failure outranks every other reason
+    assert quality.overall_verdict(
+        {"features": {"a": {"verdict": "FAIL"}, "b": {"verdict": "ORACLE_MISSING"}}}) == "FAIL"

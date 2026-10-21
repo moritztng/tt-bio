@@ -337,10 +337,19 @@ def load_doc(path: pathlib.Path) -> dict:
 
 
 def overall_verdict(doc: dict) -> str:
+    """PASS only when every family passed, and otherwise the reason -- `FAIL` is reserved for a
+    metric that actually moved. A gate reading this must treat anything but PASS as not passing;
+    calling an ungraded campaign FAIL instead makes a missing oracle look like a regression."""
     feats = doc.get("features") or {}
     if not feats:
-        return "FAIL"
-    return "PASS" if all(f.get("verdict") == "PASS" for f in feats.values()) else "FAIL"
+        return "NOT_GRADED"
+    verdicts = {f.get("verdict") for f in feats.values()}
+    if verdicts == {"PASS"}:
+        return "PASS"
+    for v in ("FAIL", "NO_DATA", "NO_FLOOR", "ORACLE_MISSING", "INSUFFICIENT_N"):
+        if v in verdicts:
+            return v
+    return "FAIL"
 
 
 def write_doc(doc: dict, path: pathlib.Path) -> None:
@@ -358,14 +367,18 @@ def _arm_summary(arm: dict) -> dict:
     }
 
 
+ARM_HELP = ("one arm; repeat the flag when the arm's designs and its metrics sit in different "
+            "trees (generation writes inference_metrics/, rfd4-evaluate writes evaluation_metrics/)")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     g = sub.add_parser("grade", help="grade a TT arm against a reference arm")
     g.add_argument("--feature", required=True)
-    g.add_argument("--tt", required=True)
-    g.add_argument("--ref", required=True)
+    g.add_argument("--tt", required=True, action="append", help=ARM_HELP)
+    g.add_argument("--ref", required=True, action="append", help=ARM_HELP)
     g.add_argument("--chain", default=None, help="chain of interest for the geom.* columns")
     g.add_argument("--n-min", type=int, default=mspec.N_MIN)
     g.add_argument("--permutations", type=int, default=stats.DEFAULT_PERMUTATIONS)
@@ -378,8 +391,8 @@ def main(argv=None) -> int:
 
     f = sub.add_parser("floor", help="calibrate the seed floor from two reference seeds")
     f.add_argument("--feature", required=True)
-    f.add_argument("--a", required=True)
-    f.add_argument("--b", required=True)
+    f.add_argument("--a", required=True, action="append", help=ARM_HELP)
+    f.add_argument("--b", required=True, action="append", help=ARM_HELP)
     f.add_argument("--chain", default=None)
     f.add_argument("--permutations", type=int, default=stats.DEFAULT_PERMUTATIONS)
     f.add_argument("--source", default=None,
