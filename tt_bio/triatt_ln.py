@@ -25,7 +25,8 @@ Each tile is one core's full-K dot product packed once, so the bytes do not depe
 Where the whole weight does not fit a core's L1 (OpenDDE: K 384, [12 x 49] tiles, 1.2 MB), the cores
 split into G column groups: each holds 1/G of the weight's columns and norms the same rows, so x is read
 G times instead of being normed into DRAM and read back. Each output tile is still one core's full-K
-dot product, so the split changes no value.
+dot product, so the split changes no value. With triatt_ln_b8 two groups split at 2H instead (`b8_cols`),
+so each group's bfp8 tiles form one run that ends on a DST block.
 """
 
 from __future__ import annotations
@@ -131,10 +132,24 @@ def _plan(kt, nw, tr, dev, ncores):
 
 
 def _nq(nq):
-    return [("NQ", str(nq))] if nq else []
+    return [("NQ", "1")] if nq else []
 
 
-def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
+def b8_cols(g, nw, H, gate=False):
+    """Per column group (first tile, bfp8 tiles, end tile) for bfp8 q, k, v (and the gate), or None.
+
+    One group: q|k|v(|g) are its first tiles. Two groups split at 2H instead of nw, so group 0 is q|k (and
+    one v tile it computes but leaves to group 1) and group 1 is v(|g), then the bf16 rest: each group's
+    bfp8 run starts its row and ends on a DST block (or the group's end)."""
+    nb = (4 if gate else 3) * H
+    if g == 1:
+        return [(0, nb, 4 * H + 1)] if nb % 4 == 0 else None
+    if g == 2 and H % 4 == 0 and nw == 2 * H + 1:
+        return [(0, nw, 2 * H), (2 * H, nb - 2 * H, 4 * H + 1)]
+    return None
+
+
+def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
     for d in list(x.padded_shape)[:-1]:
@@ -146,13 +161,15 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
     # TR splits 16-row units (2 per x^T row-tile pair (bt, jt)), the rest splits row tiles. Core c is in
     # column group c % g, and every group splits the same rows.
     split = split_rows(m // 16 if tr else m, gx * gy // g)
+    nq = max(q for _, q, _ in cols) if cols else 0
     for c in range(gx * gy):
         r0, n = split[c // g]
         cx, cy = c % gx, c // gx
         rows = 16 * n if tr else n
-        rd[cx][cy] = [r0, n, int(bool(tr)), MT, (c % g) * nw]
-        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, (c % g) * nw]
-        cp[cx][cy] = [rows]
+        n0, q, end = cols[c % g] if cols else ((c % g) * nw, 0, nwf)
+        rd[cx][cy] = [r0, n, int(bool(tr)), MT, n0]
+        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end]
+        cp[cx][cy] = [rows, q]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())  # noqa: E731
@@ -178,8 +195,8 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
            _cb(10, core_grid, 1)]
     if tr:
         cbs.append(_cb(3, core_grid, 16))   # the 32 half tiles of one channel tile
-    if nq:
-        cbs.append(_cb(4, core_grid, 2 * (nw - nq)))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
+    if nq and nw > min(q for _, q, _ in cols):
+        cbs.append(_cb(4, core_grid, 2 * (nw - min(q for _, q, _ in cols))))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -214,26 +231,26 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if plan is None:
         return _reject(f"l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:tr{int(transposed)}", x)
     dev = x.device()
-    # bfp8 q, k, v need the whole row in one group (plan g 1) and q|k|v ending on a DST block (3H % 4)
-    nq = 3 * H if lever("triatt_ln_b8") and plan[0] == 1 and 3 * H % 4 == 0 else 0
-    if nq and lever("triatt_ln_b8g"):
-        nq = 4 * H   # the gate too: gated_out_proj reads a bfp8 g
+    # bfp8 q, k, v: each group's bfp8 run must start its row and end on a DST block (b8_cols)
+    gate = lever("triatt_ln_b8g")   # the gate too: gated_out_proj reads a bfp8 g
+    cols = b8_cols(plan[0], plan[1], H, gate) if lever("triatt_ln_b8") else None
+    nq = (4 if gate else 3) * H if cols else 0
     STATS[2] += bool(nq)
     hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, nq)
+    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, cols)
 
 
-def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, nq=0):
+def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, nq)
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq)
+        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), w.buffer_address(), ln_w.buffer_address(),
                                   ln_b.buffer_address()]
