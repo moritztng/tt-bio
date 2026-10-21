@@ -13,6 +13,7 @@ The last line runs a whole trunk pass the same way.
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 import torch
@@ -96,6 +97,20 @@ def main():
             for t in (out if isinstance(out, tuple) else (out,)):
                 ttnn.deallocate(t)
             free(warm)
+        ms = {}
+        for width in (1, B):
+            # Device ms per call at each width, so a sublayer that costs more per design batched shows.
+            fresh = [inputs(list(range(width))) for _ in range(5)]
+            ttnn.synchronize_device(dev)
+            t0 = time.perf_counter()
+            outs = [fn(x) for x in fresh]
+            ttnn.synchronize_device(dev)
+            ms[width] = (time.perf_counter() - t0) / len(fresh) * 1e3
+            for x, out in zip(fresh, outs):
+                free(x)
+                for t in (out if isinstance(out, tuple) else (out,)):
+                    if t.is_allocated():
+                        ttnn.deallocate(t)
         batched, single, again = inputs(list(range(B))), [inputs([k]) for k in range(B)], inputs([0])
         got = fn(batched)
         got = [host(t) for t in got] if isinstance(got, tuple) else [host(got)]
@@ -113,7 +128,8 @@ def main():
         for x in (batched, *single, again):
             free(x)
         row = {"sublayer": name, "batch": B, "bit_exact": exact, "max_rel_dev": worst,
-               "single_repeatable": repeatable}
+               "single_repeatable": repeatable, "ms_b1": round(ms[1], 3), f"ms_b{B}": round(ms[B], 3),
+               "per_design_ratio": round(ms[B] / B / ms[1], 3)}
         rows.append(row)
         print(json.dumps(row), flush=True)
     Path(a.out).write_text(json.dumps({"n": n, "batch": B, "rows": rows}, indent=1))
