@@ -181,3 +181,35 @@ def test_golden_chain_blocks_1_to_12(weights):
               f"{ferr:.3e}, device vs floor {vf:.3e}")
         assert err < BAR, f"chain {name} {err:.3e} over the {BAR} bar"
         assert err < FLOOR_FACTOR * max(ferr, 1e-4), f"chain {name} {err:.3e} over {FLOOR_FACTOR}x floor {ferr:.3e}"
+
+
+@pytest.mark.device
+def test_released_trunk_14x6_recycles(weights):
+    """The released trunk, all 14 blocks and 7 pair updates with its trained recycle projections, run 6 times
+    (the first band of thinking_medium) on the card, against the float64 reference on the host. The goldens
+    hold one pass, so this one grades against float64 directly. Inputs are golden-scale: block 1's golden
+    input stands in for s_init / z_init and its cond is read every cycle (upstream recomputes cond per cycle
+    with the remaining-pass count; that changes the values, not the arithmetic graded here)."""
+    dev = T.get_device()
+    (x, z, cond, mask), _ = _golden("MultiheadAttnAndTransition__nn_transformer_layers_1__call0.pt")
+    mask = mask.double()
+    cycles = 6
+    k, n = x.shape[1], _bucket(x.shape[1])
+    ref_s, ref_z = REF.trunk(weights, x, z, [cond] * cycles, mask, 14, n_heads=HEADS)
+    wb = {kk: REF.bf16(v) for kk, v in weights.items()}
+    fl_s, fl_z = REF.trunk(wb, x, z, [cond] * cycles, mask, 14, n_heads=HEADS, rnd=REF.bf16_mixed)
+    mod = TR.Trunk(T.WeightScope({kk: v.float() for kk, v in weights.items()}), TR.compute_kernel_config(), 14,
+                   HEADS, residual_dtype=ttnn.float32)
+    masks = TR.trunk_masks(_pad(mask, n, [1]), dev, residual_dtype=ttnn.float32)
+    ct = _dev(_pad(cond, n, [1]), dev)
+    s, zt = mod(_dev(_pad(x, n, [1]), dev, ttnn.float32), _dev(_pad(z, n, [1, 2]), dev, ttnn.float32),
+                [ct] * cycles, masks)
+    got_s = ttnn.to_torch(s).double()[:, :k]
+    got_z = ttnn.to_torch(zt).double()[:, :k, :k]
+    m, pm = mask.bool(), (mask[:, :, None] * mask[:, None, :]).bool()
+    for name, g, f, r, mm in (("s", got_s, fl_s, ref_s, m), ("z", got_z, fl_z, ref_z, pm)):
+        err, ferr, vf, pcc = _rel(g[mm], r[mm]), _rel(f[mm], r[mm]), _rel(g[mm], f[mm]), _pcc(g[mm], r[mm])
+        print(f"\nreleased trunk 14x6 {name}: device {err:.3e} vs float64 (pcc {pcc:.6f}), bf16-mixed floor "
+              f"{ferr:.3e}, device vs floor {vf:.3e}")
+        assert err < BAR, f"14x6 {name} {err:.3e} over the {BAR} bar"
+        assert err < FLOOR_FACTOR * max(ferr, 1e-4), f"14x6 {name} {err:.3e} over {FLOOR_FACTOR}x floor {ferr:.3e}"
