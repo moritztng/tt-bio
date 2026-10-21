@@ -15,7 +15,9 @@ cost of measuring is visible rather than hidden.
 
 Families are the model's, not ttnn's: `pair_write` (the token stream's two projections into the pair
 stream), `tri_mult_out`, `tri_mult_in`, `pair_transition` -- together the pair track -- against
-`attention` and `token_transition`, the token track. What neither timer catches (residual adds,
+`attention`, `pair_bias` and `token_transition`, the token track (`pair_bias` is the attention's bias
+from z, which the trunk builds once per z for the two blocks that read it; add it to `attention`
+to compare with a census taken before that). What neither timer catches (residual adds,
 masking, dtype casts, the recycle projections) falls out as `unattributed` by subtraction rather than
 being quietly dropped.
 
@@ -54,6 +56,7 @@ def instrument(engine, dev):
 
     targets = [(TR.AttnADALN, "__call__", "attention"),
                (TR.TransitionADALN, "__call__", "token_transition"),
+               (TR.Trunk, "_group_biases", "pair_bias"),
                (TR.PairUpdate, "_write", "pair_write"),
                (TR.PairUpdate, "_transition", "pair_transition")]
     originals = []
@@ -180,7 +183,7 @@ def main():
     passes = engine.spec.nsteps * 3  # thinking_medium: 180 passes over 60 steps
     attributed = sum(TIMES.values())
     pair_fams = ("pair_write", "tri_mult_out", "tri_mult_in", "pair_transition")
-    token_fams = ("attention", "token_transition")
+    token_fams = ("attention", "pair_bias", "token_transition")
     pass_gf = sum(gf.values())
 
     families = {}
