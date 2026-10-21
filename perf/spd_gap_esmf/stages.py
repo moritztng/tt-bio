@@ -71,6 +71,7 @@ STAGES = [
     (E.DiffusionConditioning, "forward", "diffusion_conditioning"),
     (E.DistogramHeadModel, "forward", "distogram"),
     (E.RelPosEncoding, "forward", "relpos"),
+    (R, "_conf_pair_dev", "confidence_pair"),  # module function: wrap() passes `head` as self
 ]
 acc = collections.defaultdict(float); host = collections.defaultdict(float); cnt = collections.Counter(); depth = [0]
 # Name the trace capture at open: a device opened without its region makes the sampler run eager under
