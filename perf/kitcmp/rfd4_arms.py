@@ -109,6 +109,22 @@ def climb(arm, size, warm, tag, seed=None):
     return sweep
 
 
+def choose_arm(best, final):
+    """One arm across sizes: the one that wins most sizes, ties broken by the largest size's rate.
+
+    Used for the reference designs, so it must be right in every partial write of ARMS.json too -- a run that
+    dies after 256 still has to name the arm its own numbers support.
+    """
+    if not best:
+        return None
+    votes = {}
+    for v in best.values():
+        votes[v["arm"]] = votes.get(v["arm"], 0) + 1
+    big = max(best, key=int)
+    return max(votes, key=lambda k: (votes[k],
+                                     final.get(big, {}).get("designs_s", 0) if best[big]["arm"] == k else 0))
+
+
 def main():
     global a
     ap = argparse.ArgumentParser()
@@ -199,29 +215,36 @@ def main():
                 run(arm, size, SCREEN_BATCH[size], a.screen_warm, ov))
             (a.out / "ARMS.json").write_text(json.dumps({"screen": results}, indent=2) + "\n")
 
-    # winner per size from the screen, then its batch sweep, then the clean final run at --final-warm
+    # The screen ranks every arm at one small batch, where the card is far from busy, so it partly ranks host
+    # overhead rather than the arms. Climb the top --arms arms per size and rank them at each arm's own best
+    # batch; the ranking can invert, and the reference designs are generated from whatever wins here.
     best, final = {}, {}
     for size in SIZES:
         ok = {k: v for k, v in results.get(str(size), {}).items() if v["status"] == "ok"}
         if not ok:
             continue
-        arm = max(ok, key=lambda k: ok[k]["designs_s"])
-        sweep = climb(arm, size, max(3, a.screen_warm - 2), f"sweep-{arm}")
-        okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
-        bb = max(okb, key=lambda b: okb[b]["designs_s"]) if okb else SCREEN_BATCH[size]
-        best[str(size)] = {"arm": arm, "batch": bb, "sweep": {str(k): v for k, v in sweep.items()}}
+        per_arm = {}
+        for arm in sorted(ok, key=lambda k: ok[k]["designs_s"], reverse=True)[:a.arms]:
+            sweep = climb(arm, size, max(3, a.screen_warm - 2), f"sweep-{arm}")
+            okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
+            if okb:
+                bb = max(okb, key=lambda b: okb[b]["designs_s"])
+                per_arm[arm] = {"batch": bb, "designs_s": okb[bb]["designs_s"],
+                                "sweep": {str(k): v for k, v in sweep.items()}}
+        if not per_arm:
+            continue
+        arm = max(per_arm, key=lambda k: per_arm[k]["designs_s"])
+        bb = per_arm[arm]["batch"]
+        best[str(size)] = {"arm": arm, "batch": bb, "climbed": per_arm,
+                           "sweep": per_arm[arm]["sweep"]}
         if time_left():
             final[str(size)] = summarise(run(arm, size, bb, a.final_warm, ARMS[arm], tag=f"final-{arm}"))
         (a.out / "ARMS.json").write_text(json.dumps(
             {"screen": results, "best": best, "final": final,
-             "best_arm": max(best.values(), key=lambda v: 0)["arm"] if best else None}, indent=2) + "\n")
+             "best_arm": choose_arm(best, final)}, indent=2) + "\n")
 
-    # one chosen arm across sizes: the one that wins most sizes, ties broken by the largest size's rate
     if best:
-        votes = {}
-        for s, v in best.items():
-            votes[v["arm"]] = votes.get(v["arm"], 0) + 1
-        chosen = max(votes, key=lambda k: (votes[k], final.get("512", {}).get("designs_s", 0) if best.get("512", {}).get("arm") == k else 0))
+        chosen = choose_arm(best, final)
         (a.out / "ARMS.json").write_text(json.dumps(
             {"screen": results, "best": best, "final": final, "best_arm": chosen}, indent=2) + "\n")
         print(f"best_arm={chosen}")
