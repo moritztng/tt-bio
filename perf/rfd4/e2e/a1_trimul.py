@@ -1,0 +1,95 @@
+"""ANOMALIES A1: is `tri_mult_out` at n=256 really 8 s, or was the chip contended?
+
+`scripts/rfd4_ceiling_bench.py` measured 8.136 s for one `tri_mult_out` call at n=256 against 4.0 ms
+for `tri_mult_in` at the same size and 15.3 ms for outgoing at n=512. Its `timed()` already threw a
+warmup away and averaged five calls, so a first-call compile does not explain it; what is left is
+contention on the card or a genuinely different path at that one shape.
+
+This reports every repeat separately instead of a mean, so one slow call cannot hide inside four fast
+ones and four slow ones cannot be read as one. Both directions run at every size, each on its own
+freshly built module, with the device synchronised around each call.
+
+    TT_VISIBLE_DEVICES=<idle card> TT_BIO_LEASE_CARDS=<card> python perf/rfd4/e2e/a1_trimul.py \
+        --out state/rfd4/census/a1-trimul.json
+
+The chip must be idle: contention is the hypothesis under test, so a shared card cannot refute it.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+
+import torch
+import ttnn
+
+from tt_bio import tenstorrent as T
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--sizes", type=int, nargs="+", default=[128, 256, 512])
+    ap.add_argument("--repeats", type=int, default=5)
+    a = ap.parse_args()
+
+    sys.path.insert(0, "tests")
+    import rfd4_reference as REF
+
+    from tt_bio.rfd4 import trunk as TR
+
+    sys.path.insert(0, "perf")
+    import clocksample
+
+    dev = ttnn.open_device(device_id=0)
+    weights = REF.pair_update_weights(1024, 384, 256, seed=0, prefix="p")
+    scope = T.WeightScope({k: v.float() for k, v in weights.items()}).child("p")
+    rows = []
+    with clocksample.during(period=0.5) as clk:
+        for n in a.sizes:
+            for ending, name in ((False, "tri_mult_out"), (True, "tri_mult_in")):
+                mod = T.TriangleMultiplication(ending, TR._trimul_weights(scope.child(name)),
+                                               TR.compute_kernel_config())
+                z = ttnn.from_torch(torch.randn(1, n, n, 384), dtype=ttnn.bfloat16,
+                                    layout=ttnn.TILE_LAYOUT, device=dev)
+                pm = ttnn.from_torch(torch.ones(1, n, n), dtype=ttnn.bfloat16,
+                                     layout=ttnn.TILE_LAYOUT, device=dev)
+                ttnn.deallocate(mod(z, pm))          # warmup, discarded
+                ttnn.synchronize_device(dev)
+                per_call = []
+                for _ in range(a.repeats):
+                    t0 = time.perf_counter()
+                    out = mod(z, pm)
+                    ttnn.synchronize_device(dev)
+                    per_call.append(time.perf_counter() - t0)
+                    ttnn.deallocate(out)
+                fl = 2 * n * n * (4 * 384 * 256 + 256 * 384 + 384 * 384) + 2 * 256 * n ** 3
+                row = {"op": name, "n": n, "c_z": 384, "c_hidden": 256,
+                       "s_per_call": [round(s, 6) for s in per_call],
+                       "median_s": round(sorted(per_call)[len(per_call) // 2], 6),
+                       "max_s": round(max(per_call), 6),
+                       "tflops_median": round(fl / sorted(per_call)[len(per_call) // 2] / 1e12, 2)}
+                rows.append(row)
+                print(json.dumps(row), flush=True)
+                ttnn.deallocate(z)
+                ttnn.deallocate(pm)
+    aiclk = clk.summary()
+    slow = [r for r in rows if r["op"] == "tri_mult_out" and r["n"] == 256 and r["max_s"] > 0.1]
+    out = {"anomaly": "A1", "claim": "tri_mult_out n=256 = 8.136 s vs 4.0 ms for tri_mult_in",
+           "method": f"{a.repeats} repeats after a discarded warmup, synchronised per call, idle chip",
+           "aiclk": aiclk, "rows": rows,
+           "verdict": "REPRODUCED" if slow else "NOT REPRODUCED",
+           "reading": ("a shipped TriangleMultiplication really is ~2000x slow at this one shape; it is "
+                       "tt-bio's shared module, so Boltz-2 and OpenFold3 carry the same bug and the fleet "
+                       "needs to hear about it now")
+                      if slow else
+                      ("every repeat is fast, so the 8.136 s was contention on a shared chip, not a path: "
+                       "the ceiling's triangle number stands and nothing is owed")}
+    json.dump(out, open(a.out, "w"), indent=2)
+    print(json.dumps({k: out[k] for k in ("verdict", "aiclk", "reading")}, indent=2))
+    ttnn.close_device(dev)
+
+
+if __name__ == "__main__":
+    main()
