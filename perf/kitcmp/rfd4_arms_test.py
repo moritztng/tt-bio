@@ -133,7 +133,57 @@ def test_binder_spec_keeps_its_relative_input():
     print("ok: the binder spec stays beside the input it names")
 
 
+def test_published_prefers_the_extended_climb():
+    """A worker sweep must measure the arm the evidence publishes, which is the extended climb's when it ran."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp)
+        (out / "ARMS.json").write_text(json.dumps({"best": {"128": {"arm": "bioir", "batch": 8},
+                                                            "256": {"arm": "native-compile", "batch": 4}}}))
+        (out / "ARMS-EXT.json").write_text(json.dumps({"128": {"arm": "compile-reduce-overhead", "batch": 64}}))
+        pub = M.published(out)
+        assert pub["128"] == ("compile-reduce-overhead", 64), pub
+        assert pub["256"] == ("native-compile", 4), pub
+    print("ok: the worker sweep reads the arm and batch the session publishes")
+
+
+def test_workers_phase_picks_the_count_that_wins():
+    """Host parallelism is the GPU's to use: the phase ranks num_workers at the published arm and batch."""
+    seen = []
+
+    def run_with_workers(arm, size, batch, warm, overrides, tag=None, spec=None, extra=(), seed=None, bucket=True):
+        nw = next((int(o.split("=")[1]) for o in extra if o.startswith("num_workers=")), 4)
+        seen.append((arm, size, batch, nw))
+        # host-bound: the rate rises with loader workers and saturates at 16
+        r = 1.0 * min(nw, 16) ** 0.5
+        return [{"kind": "warm", "designs": batch, "wall_s": batch / r, "batch": batch, "sm_mhz": 1965}
+                for _ in range(warm)]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp)
+        (out / "ARMS.json").write_text(json.dumps({"best": {"512": {"arm": "native-compile", "batch": 8}}}))
+        setup(tmp)
+        M.run = run_with_workers
+        argv = sys.argv
+        sys.argv = ["rfd4_arms.py", "--inputs", tmp, "--out", tmp, "--deadline", str(2 ** 31 - 1),
+                    "--workers", "4,16,64"]
+        try:
+            M.main()
+        except SystemExit as e:
+            assert e.code == 0, e.code
+        finally:
+            sys.argv = argv
+        w = json.loads((out / "ARMS-WORKERS.json").read_text())["512"]
+        assert w["arm"] == "native-compile" and w["batch"] == 8, w
+        assert w["best_workers"] == 16, w
+        assert sorted(w["workers"]) == ["16", "4", "64"], w
+        assert w["final"]["status"] == "ok", w
+        assert {s[3] for s in seen} == {4, 16, 64}, seen
+    print("ok: the worker sweep ranks num_workers at the published arm and keeps the best")
+
+
 if __name__ == "__main__":
+    test_published_prefers_the_extended_climb()
+    test_workers_phase_picks_the_count_that_wins()
     test_reference_families_resolve()
     test_binder_spec_keeps_its_relative_input()
     test_climb_inverts_the_screen()

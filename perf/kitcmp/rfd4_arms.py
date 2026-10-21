@@ -32,7 +32,10 @@ SCREEN_BATCH = {128: 8, 256: 4, 512: 2}
 # A fixed ladder stopping at 16/8/4 is not "its best": at 512 x b2 the B200 held 8.5 GiB of ~180 GiB and the
 # rate was still climbing at the top rung, so the ladder would have set NVIDIA's number instead of the card.
 # Double until the card actually pushes back -- a failed/OOM rung, or two rungs that buy nothing.
-SWEEP_CEIL = {128: 128, 256: 64, 512: 32}
+SWEEP_CEIL = {128: 512, 256: 256, 512: 64}
+# Session 4's 128 climb ended ON the old ceiling (b128) still gaining 4.7 % a rung, so that rate was our cost
+# guard's number, not the card's. The real stop is the stall rule above -- two rungs that buy under 2 % -- and
+# these values only bound what one stuck size may spend.
 # Reference designs are reproducible from this seed plus the batch index; rfd4-quality needs the
 # upstream set and the TT set to be the same draw, so it is pinned here rather than per-run.
 REF_SEED = 1234
@@ -151,6 +154,22 @@ def choose_arm(best, final):
                                      final.get(big, {}).get("designs_s", 0) if best[big]["arm"] == k else 0))
 
 
+def published(out):
+    """{size: (arm, batch)} as the session would publish it: the extended climb if it ran, else the climb.
+
+    A worker sweep measured against a different arm or batch than the published one measures nothing, so the
+    arm comes from the same file the evidence does.
+    """
+    pub, ext = {}, out / "ARMS-EXT.json"
+    if ext.exists():
+        for size, v in json.loads(ext.read_text()).items():
+            if v.get("arm"):
+                pub[size] = (v["arm"], int(v["batch"]))
+    for size, v in json.loads((out / "ARMS.json").read_text()).get("best", {}).items():
+        pub.setdefault(size, (v["arm"], int(v["batch"])))
+    return pub
+
+
 def main():
     global a
     ap = argparse.ArgumentParser()
@@ -169,7 +188,42 @@ def main():
                     help="upstream checkout, substituted for ${RFD4_SRC} in the reference specs")
     ap.add_argument("--arms", type=int, default=2,
                     help="how many arms per size the extended climb re-ranks (default 2)")
+    ap.add_argument("--workers", default="",
+                    help="comma list of num_workers to measure on each size's published arm and batch")
     a = ap.parse_args()
+
+    if a.workers:
+        # Most of a batch's wall clock is spent OFF the GPU. In session 4 the B200 was above 50 % util for
+        # 35 % of a 128-token b128 batch and drew 195 W of its 1000 W limit, so the rate we were about to
+        # publish as NVIDIA's was set by host featurization, not by the card. Upstream ships
+        # `num_workers: 4` (configs/inference.yaml:79) and the rented box has 192 cores. The standing rule
+        # gives the GPU every shipped option that does the same work, and loader parallelism changes what
+        # the host overlaps, never what is computed. See DECISIONS.md D-fairgpu-04.
+        counts = [int(x) for x in a.workers.split(",") if x.strip()]
+        pub = published(a.out)
+        out = {}
+        for size in SIZES:
+            if str(size) not in pub or not time_left():
+                continue
+            arm, batch = pub[str(size)]
+            per = {}
+            out[str(size)] = {"arm": arm, "batch": batch, "workers": per}
+            for w in counts:
+                if not time_left():
+                    break
+                per[str(w)] = summarise(run(arm, size, batch, max(3, a.screen_warm - 2), ARMS[arm],
+                                            tag=f"nw{w}-{arm}", extra=[f"num_workers={w}"]))
+                (a.out / "ARMS-WORKERS.json").write_text(json.dumps(out, indent=2) + "\n")
+            okw = {w: v for w, v in per.items() if v["status"] == "ok"}
+            if okw:
+                bw = max(okw, key=lambda w: okw[w]["designs_s"])
+                out[str(size)] |= {"best_workers": int(bw), "designs_s": okw[bw]["designs_s"]}
+                if time_left():
+                    out[str(size)]["final"] = summarise(run(arm, size, batch, a.final_warm, ARMS[arm],
+                                                            tag=f"nwfinal-{arm}", extra=[f"num_workers={bw}"]))
+            (a.out / "ARMS-WORKERS.json").write_text(json.dumps(out, indent=2) + "\n")
+        print(json.dumps(out, indent=2))
+        sys.exit(0)
 
     if a.sweep_only:
         # Session 3 screened and swept under the old 16/8/4 ladder, which bounded the B200 below its own best.

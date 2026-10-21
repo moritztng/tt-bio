@@ -8,7 +8,13 @@ set -u
 CAP_H=${1:-5}; T0=$(date +%s); DEADLINE=$(python3 -c "print(int($T0 + $CAP_H*3600 - 900))")
 # The arms phase climbs the batch until the card pushes back, so left alone it will spend the whole cap and
 # the reference designs -- rfd4-quality's entire upstream side -- would be skipped with no error anywhere.
-REF_RESERVE=${REF_RESERVE:-5400}; ARMS_DEADLINE=$(( DEADLINE - REF_RESERVE ))
+REF_RESERVE=${REF_RESERVE:-5400}
+# The GPU is host-bound at the batches it wins on (session 4: above 50 % util for 35 % of a 128-token b128
+# batch, 195 W of a 1000 W limit), and upstream's `num_workers: 4` is a shipped same-work knob on a 192-core
+# box. The worker sweep gets its own slice so neither the climb nor the reference designs pay for it.
+WORKERS=${WORKERS:-4,16,48}; WORKERS_RESERVE=${WORKERS_RESERVE:-2700}
+[ -n "$WORKERS" ] || WORKERS_RESERVE=0
+WORKERS_DEADLINE=$(( DEADLINE - REF_RESERVE )); ARMS_DEADLINE=$(( WORKERS_DEADLINE - WORKERS_RESERVE ))
 SHA=${RFD4_SHA:-2db07bb444d91695f8c10e6acb7648e9297f9221}
 B=/root/kc/rfd4; mkdir -p $B; cd /root/kc
 say(){ echo "$(date -u +%FT%TZ) box_rfd4: $*"; }
@@ -108,6 +114,13 @@ if [ "${BATCHES:-0}" -eq 0 ]; then
   say "NO ARM PRODUCED A WARM BATCH — failing the session instead of claiming done"
   grep -m1 -A20 Traceback $B/arms.log || tail -20 $B/arms.log
   echo "no warm batch" > $B/RFD4-FAILED; exit 4
+fi
+
+# --- the host-parallelism knob, at each size's published arm and batch -----------------------------------------
+if [ -n "$WORKERS" ] && [ -f $B/ARMS.json ] && [ $(date +%s) -lt $WORKERS_DEADLINE ]; then
+  /opt/rfd4-venv/bin/python /root/kc/rfd4_arms.py --inputs /root/kc/inputs --out $B \
+    --deadline $WORKERS_DEADLINE --workers "$WORKERS" --final-warm ${FINAL_WARM:-9} > $B/workers.log 2>&1
+  echo $? > $B/WORKERS-DONE; say "worker sweep done after $(( $(date +%s) - T0 ))s"
 fi
 
 # --- rfd4-quality's reference designs, from the chosen arm, in this same session -------------------------------
