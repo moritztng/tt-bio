@@ -63,6 +63,12 @@ FAMILIES = {
         "what": "re-noise a design from the binder run to 0.42 of the schedule and run the tail "
                 "(upstream's antibody refinement setting)",
     },
+    "structure_prediction_folding": {
+        "spec": "folding.yaml", "spec_input": "data/benchmarks/structure_prediction/de_novo_proteins/7HIY.cif.zst",
+        "recipe": "thinking_medium", "golden": None,
+        "what": "folding, the mirror of inverse folding: C_SEQ on every residue, no coordinate "
+                "conditioning, so the model places a sequence it is told",
+    },
     "inverse_folding": {
         "input": "data/benchmarks/motif_scaffolding/motif_data_aa/2kl8_aa.cif.zst",
         "annotated_cif": True, "recipe": "medium/flat", "golden": None,
@@ -90,10 +96,14 @@ def stage() -> list[str]:
         if not rel:
             continue
         src, dst = UPSTREAM / rel, INPUTS / Path(rel).name
+        if dst.exists():
+            done.append(f"{name}: {dst} (already here)")
+            continue
         if not src.exists():
-            raise SystemExit(f"{name}: {src} is missing; set RFD4_UPSTREAM to the clone")
-        if not dst.exists():
-            shutil.copy2(src, dst)
+            raise SystemExit(
+                f"{name}: neither {dst} nor {src}. Point RFD4_UPSTREAM at the clone, or copy the "
+                f"inputs from a host that has them: rsync -a pc:{INPUTS}/ {INPUTS}/")
+        shutil.copy2(src, dst)
         done.append(f"{name}: {dst}")
     return done
 

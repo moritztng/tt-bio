@@ -22,7 +22,7 @@ from click.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[1]
 MINE = ("unconditional", "binder", "antibody_cdr", "nanobody_cdr", "enzyme", "motif_scaffold",
-        "partial_diffusion", "inverse_folding")
+        "partial_diffusion", "structure_prediction_folding", "inverse_folding")
 
 
 def _families():
@@ -105,7 +105,10 @@ def available(family):
     staged = families.staged(family)
     if "spec" in f:
         # The spec is in the repo; the structure it points at is staged.
-        return path if path.exists() and (families.INPUTS / "5o45_cropped.cif.zst").exists() else None
+        structure = families.INPUTS / Path(f["spec_input"]).name if "spec_input" in f else None
+        if structure is not None and not structure.exists():
+            return None
+        return path if path.exists() else None
     return path if staged and staged.exists() else None
 
 
@@ -120,7 +123,9 @@ def run(engine, family, tmp_path, extra=()):
 
 # ---- the table itself ----------------------------------------------------------------
 
-def test_the_table_is_exactly_this_rows_eight_families():
+def test_the_table_is_exactly_this_rows_families():
+    """Eight from the brief, plus structure_prediction_folding, which FEATURES.json assigns to
+    this row and which is inverse folding's mirror on the same CLI."""
     assert tuple(families.FAMILIES) == MINE
 
 

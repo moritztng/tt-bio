@@ -36,7 +36,7 @@ run() {
   echo "== $family: rc=$? $(date -u +%FT%TZ)"
 }
 
-for family in unconditional binder antibody_cdr nanobody_cdr enzyme motif_scaffold inverse_folding; do
+for family in unconditional binder antibody_cdr nanobody_cdr enzyme motif_scaffold structure_prediction_folding inverse_folding; do
   run "$family"
 done
 
