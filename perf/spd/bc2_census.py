@@ -68,6 +68,9 @@ ap.add_argument("--gc-census", type=int, default=0,
                      "types that fill generation 2, then time one full collection (0 = never)")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
+ap.add_argument("--jaxprof", type=int, default=0,
+                help="run this (uninstrumented) gradient call under jax.profiler, which times BindCraft 2's "
+                     "host JAX per XLA op (<out>/jaxprof, perfetto json); 0 = off")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 
@@ -179,7 +182,7 @@ settings = cleaned_campaign_settings(read_settings(str(example), parse_setting_o
 
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), host=socket.gethostname(),
             chip=os.environ.get("TT_VISIBLE_DEVICES"), env=ENV, binder_length=a.binder,
-            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, stub_structure=a.stub_structure, structure=a.structure, argv=sys.argv,
+            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, jaxprof=a.jaxprof, stub_structure=a.stub_structure, structure=a.structure, argv=sys.argv,
             nodes=NODES)
 
 rec = LazyRecorder(__import__("ttnn"), None, a.replay)
@@ -365,6 +368,10 @@ def sequence_gradients(self, *args, **kwargs):
         try:
             if state["n"] == a.profile:
                 out = profiled(lambda: real_grads(self, *args, **kwargs))
+            elif state["n"] == a.jaxprof:
+                import jax
+                with jax.profiler.trace(str(a.out / "jaxprof"), create_perfetto_trace=True):
+                    out = real_grads(self, *args, **kwargs)
             else:
                 out = real_grads(self, *args, **kwargs)
             return out
@@ -377,7 +384,7 @@ def sequence_gradients(self, *args, **kwargs):
                                                 host_jax_s=round(wall - sum(cb.values()), 4),
                                                 blocked_s=round(blocked["s"], 4),
                                                 gc={k: round(v, 4) for k, v in gcwall.items()},
-                                                profiled=state["n"] == a.profile,
+                                                profiled=state["n"] in (a.profile, a.jaxprof),
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
     if a.wrap == "all":
