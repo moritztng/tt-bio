@@ -2365,6 +2365,9 @@ def run_worker_loop(
                     shard(client, run_id, worker_id, worker_info, meta, job, cfg)
                 continue
 
+            # A design engine held from an earlier design run would otherwise keep RFD4's
+            # weights in DRAM while this worker loads a predict model onto the same chip.
+            _free_rfd4_engine()
             _ensure_local_artifacts(cfg)
 
             try:
@@ -2933,6 +2936,14 @@ def _execute_rfd4_job_inprocess(
 
 #: (recipe, engine) — the RFD4 engine this worker holds, reused across shards of a run.
 _RFD4_ENGINE: tuple[str | None, Any] = (None, None)
+
+
+def _free_rfd4_engine() -> None:
+    """Drop this worker's RFD4 engine, if it holds one. Called before a predict model loads."""
+    global _RFD4_ENGINE
+    if _RFD4_ENGINE[1] is not None:
+        _RFD4_ENGINE = (None, None)
+        gc.collect()
 
 
 def _rfd4_engine(cfg: dict[str, Any]):

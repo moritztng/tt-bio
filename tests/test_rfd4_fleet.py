@@ -181,3 +181,13 @@ def test_a_shard_with_no_input_fails_with_a_reason_not_a_traceback(monkeypatch):
     worker_mod._execute_rfd4_job_inprocess(client, "run-1", "w1", {}, {}, job, {"engine": "rfd4"})
     assert client.row["status"] == "failed"
     assert "no annotated CIF" in client.row["error"]
+
+
+def test_a_held_engine_is_dropped_before_a_predict_model_loads(monkeypatch):
+    """The worker keeps the design engine across shards, so something has to let go of it
+    when the same chip is asked for a fold."""
+    from tt_bio import worker as worker_mod
+
+    monkeypatch.setattr(worker_mod, "_RFD4_ENGINE", ("high/flat", object()))
+    worker_mod._free_rfd4_engine()
+    assert worker_mod._RFD4_ENGINE == (None, None)
