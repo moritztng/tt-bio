@@ -34,7 +34,8 @@
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes,
-//   128 the layer_norm's gamma / beta stages, 256 its variance square (ln_prologue.hpp LN_ABL).
+//   128 the layer_norm's gamma / beta stages, 256 its variance square (ln_prologue.hpp LN_ABL),
+//   512 the gate sigmoid.
 #ifndef ABL
 #define ABL 0
 #endif
@@ -177,7 +178,7 @@ void kernel_main() {
                     uint32_t i1 = il0;
                     for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += IL)
                         matmul_block(w_cb, xn_cb, i0, i1, 0, true, SBW, 1, Kt);
-                    if (pass == 1) {
+                    if (pass == 1 && !(ABL & 512)) {
                         for (uint32_t i = 0; i < SBW; ++i) {
                             if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                             else sigmoid_bf16_tile(i);

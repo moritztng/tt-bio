@@ -24,8 +24,8 @@ ap.add_argument("--hidden", type=int, default=128)
 ap.add_argument("--no-mask", action="store_true")
 ap.add_argument("--ln1-ab", action="store_true", help="also run T1 with T1_LN1 off: bit-equality of a, b, g_out and its time")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
-                " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
-ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
+                " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes, 512 gate sigmoid)")
+ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS, SIGPOLY)")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (lever trimul_t1w8): its error and time")
 ap.add_argument("--fid", default="", help="HiFi4/HiFi3/HiFi2/LoFi: run T1 at this fidelity instead of the trunk's")
@@ -50,7 +50,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS", "SIGPOLY"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
