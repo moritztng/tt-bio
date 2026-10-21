@@ -170,8 +170,13 @@ for n in [int(s) for s in A.ns.split(",") if s]:
 
     try:
         outs = incumbent()
-        for k, o in zip("abg", outs):
-            rec[f"inc_{k}_rel_rms_f64"], rec[f"inc_{k}_max_abs"] = rel(ttnn.to_torch(o).reshape(ref[k].shape), ref[k])
+        inc = [ttnn.to_torch(o).reshape(ref[k].shape) for k, o in zip("abg", outs)]
+        for k, t in zip("abg", inc):
+            rec[f"inc_{k}_rel_rms_f64"], rec[f"inc_{k}_max_abs"] = rel(t, ref[k])
+        if m is not None:
+            il_ = TT.T1_PLANS.get((C // 32, 2 * h // 32, C // 32), (1, 32))[1]
+            bi = bad_units(inc[0], ref["a"], il_)
+            rec["inc_a_bad_units"], rec["inc_a_bad_first"] = len(bi), bi[:24]
         free(outs)
         rec["inc_ms"] = timed(lambda: free(incumbent()), A.reps)
     except Exception as e:                                                    # noqa: BLE001
@@ -193,6 +198,17 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 bu = bad_units(host[0].reshape(ref["a"].shape), ref["a"], il)
                 rec["a_bad_units"], rec["a_bad_first"] = len(bu), bu[:24]   # [u, xt, h, yt, core, pos, units on core]
                 rec["a_bad_map"] = unit_map(host[0].reshape(ref["a"].shape), ref["a"], il, bu[:3])
+                # The 6 worst elements of T1's a: (c, i, j), reference, T1, incumbent, mask, z row mean/std.
+                ea = (host[0].reshape(ref["a"].shape).double() - ref["a"]).abs()
+                worst = []
+                for f in ea.flatten().topk(6).indices.tolist():
+                    _, c_, i_, j_ = torch.unravel_index(torch.tensor(f), ea.shape)
+                    zr = z[0, i_, j_].double()
+                    worst.append([int(c_), int(i_), int(j_), round(float(ref["a"][0, c_, i_, j_]), 4),
+                                  round(float(host[0].reshape(ref["a"].shape)[0, c_, i_, j_]), 4),
+                                  round(float(inc[0][0, c_, i_, j_]), 4), float(m[0, i_, j_]),
+                                  round(float(zr.mean()), 3), round(float(zr.std()), 3)])
+                rec["a_worst"] = worst
             free(outs)
             rec["t1_ms"] = timed(lambda: free(t1()), A.reps)
             rec["t1_GBps"] = round(4 * P / rec["t1_ms"] / 1e6, 1)
