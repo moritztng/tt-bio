@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-21
+
 ### Fixed
 - **Chain ids.** A repeated chain id is refused on every model instead of folding two chains as one.
   OpenFold3 and OpenBind-0 accept ids longer than four characters (they crashed in MSA
