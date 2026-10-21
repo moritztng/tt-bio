@@ -206,14 +206,19 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # too. Never fires at 512. Wormhole 256-token normal grade vs the set above (spd-m-protenix t1p, 2026-10-21), 44 paired folds
 # over 4 seeds, PASS: same-seed top pose median 0.306 A vs the 0.6 A bar (3.271 A A/A floor), CA-lDDT -0.0010 [-0.0030,
 # +0.0008], ipTM -0.0035, docking 23/44 -> 24/44. Same grid, 5 samples, two Galaxy chips at 1000 MHz: warm median 42.02 -> 35.45 s.
-WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram"})
+# trimul_t1_2g: T1 may hold 2 GiB of outputs, so it also serves c_z 256 from ~900 to 1152 tokens, where every call declined.
+# Never fires at 512. 1024 tokens, warm, in-process A/B x2: Wormhole (1000 MHz) 257.8 / 259.1 -> 218.9 / 217.2 s, pLDDT 0.786 ->
+# 0.788; Blackhole p300 (1275-1350 MHz) 124.7 / 121.7 -> 116.9 / 102.9 s. Op error at 768 and 1024 vs float64 matches the
+# incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037, 12 single-element outliers each at 768). No OOM at 1152 on a 12 GiB Wormhole chip.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram",
+                          "trimul_t1_2g"})
 # Protenix-v2's Blackhole normal set: dit_shoist + transition_b8 + ws_b8_plain, graded as one stack. Blackhole 512-token normal
 # grade vs the shipped Blackhole normal set (spd-m-protenix gsbn, 2026-10-21), 44 paired folds over 4 seeds on a p300 at
 # 1312-1350 MHz, PASS: same-seed top pose median 0.602 A vs the 1.311 A A/A floor, CA-lDDT -0.0004 [-0.0045, +0.0038], docking
 # 36/44 -> 36/44, every interval covers 0. dit_shoist alone read 0.049 A but its lrmsd interval excluded 0 (+0.69 [+0.004, +1.76]),
 # so it ships only inside the stack. Separate processes on one p300 chip at 1300-1350 MHz (bhab10): transition_b8 + ws_b8_plain
 # 28.57 / 28.28 -> 27.37 / 27.26 / 27.08 / 27.22 s warm; dit_shoist in-process x3 (bhab12) +0.1 s, inside the noise.
-BH_V2_NORMAL = frozenset({"dit_shoist", "transition_b8", "ws_b8_plain"})
+BH_V2_NORMAL = frozenset({"dit_shoist", "transition_b8", "ws_b8_plain", "trimul_t1_2g"})
 # dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
 # float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
 # mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
