@@ -148,6 +148,12 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # 25.20 -> 20.02 s, OpenBind-0 25.27 -> 20.03 s.
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres", "atom_l1", "trimul_t1", "trimul_t2", "transition_ws", "ws_l1dest",
                                     "triatt_ln", "edm_device"}
+# Per-model additions to WH_NORMAL_LEVERS, each with the grade the other model failed. The bf16 DiT stack (dit_s16,
+# diffusion_bf16, dit_fuse, dit_l1) on top of WH_NORMAL_LEVERS, 11-set normal grade, paired seeds, 44 folds per model
+# (nwd, 2026-10-21): OpenFold3 PASS, top pose median 0.434 A (floor 0.980 A), CA-lDDT -0.0001 [-0.0013, +0.0011],
+# docking 21 -> 23/44. OpenBind-0 FAIL, CA-lDDT -0.0012 [-0.0020, -0.0006] (without dit_fuse and dit_l1 also ligand
+# RMSD +1.52 A [+0.04, +3.96]), so OpenBind-0 keeps the fp32 DiT.
+WH_NORMAL_MODEL_LEVERS = {"openfold3": frozenset({"dit_s16", "diffusion_bf16", "dit_fuse", "dit_l1"})}
 # ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
 # 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.
 # trimul_t2cm leaves Wormhole fast too: plain T2 + reblock_permute_back is faster there at the page cell. Galaxy chip at
@@ -376,13 +382,15 @@ class OpenFold3(Module):
         num_cycles: trunk recycle cycles (OF3 default 4 = num_recycles+1).
     """
 
-    def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None):
+    def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None, model="openfold3"):
         """``levers``: the precision levers (``tenstorrent.LEVERS``) this model builds and folds
         under, active only inside its own build and fold, as for Protenix-v2. None takes the
-        mode's set (``tenstorrent.model_levers``): ``NORMAL_LEVERS`` / ``FAST_LEVERS`` below (``WH_*`` on Wormhole) and
-        nothing else, the older bfp8 trunk is off inside the scope."""
-        self._levers = _T.model_levers(
-            *((WH_NORMAL_LEVERS, WH_FAST_LEVERS) if _T.is_wormhole() else (NORMAL_LEVERS, FAST_LEVERS)), spec=levers)
+        mode's set (``tenstorrent.model_levers``): ``NORMAL_LEVERS`` / ``FAST_LEVERS`` below (``WH_*`` on Wormhole,
+        plus ``WH_NORMAL_MODEL_LEVERS[model]`` in normal mode) and nothing else, the older bfp8 trunk is off inside
+        the scope. ``model``: the family id the weights belong to (openfold3, openbind)."""
+        wh = _T.is_wormhole()
+        normal = WH_NORMAL_LEVERS | WH_NORMAL_MODEL_LEVERS.get(model, frozenset()) if wh else NORMAL_LEVERS
+        self._levers = _T.model_levers(normal, WH_FAST_LEVERS if wh else FAST_LEVERS, spec=levers)
         with _T.lever_scope(self._levers):
             self._build(sd, compute_kernel_config, num_cycles)
 
