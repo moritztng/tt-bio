@@ -4268,7 +4268,7 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    f"over {r['conditioned_tokens']} conditioned tokens")
 
 
-def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
+def _run_rfd4_cli(inputs: Path, out_dir, num_designs, recipe, nsteps, seed, spec_subset,
                   annotated_cif: bool, validate: bool) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
 
@@ -4287,7 +4287,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
     out_dir = Path(out_dir or "./designs")
     try:
         written = rfd4.design(inputs, out_dir, num_designs=num_designs,
-                              nsteps=nsteps, seed=seed, only=only, validate=validate,
+                              recipe=recipe, nsteps=nsteps, seed=seed, only=only, validate=validate,
                               annotated_cif=annotated_cif,
                               on_design=lambda example_id, tokens, cif: click.echo(
                                   f"  {example_id}: {tokens} tokens <- {cif}"),
@@ -4365,6 +4365,12 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
               help="pxdesign only. Diffusion denoising steps. 400 is what an upstream run "
                    "uses; lower is a fast smoke and moves the coordinates.")
 # ---- rfd4-scoped options ----
+@click.option("--recipe", default=None,
+              help="rfd4 only. Thinking budget: how many trunk passes the trajectory spends and "
+                   "where. `thinking_low|medium|high` are the released recipes (medium is the "
+                   "default, 180 passes); `low|medium|high` crossed with "
+                   "`flat|front_loaded|midpeak` are upstream's per-family schedules. More passes "
+                   "is more accuracy and more time.")
 @click.option("--nsteps", default=60, show_default=True, type=click.IntRange(min=1),
               help="rfd4 only. Flow-matching integration steps (upstream's `generation.args."
                    "nsteps` default).")
@@ -4426,8 +4432,8 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
 @torch.no_grad()
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
-               spec_subset, from_pdb, batch_size, n_step, nsteps, annotated_cif, no_validate,
-               host_threads,
+               spec_subset, from_pdb, batch_size, n_step, recipe, nsteps, annotated_cif,
+               no_validate, host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log,
                controller, run_id, owner):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
@@ -4507,7 +4513,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
                            ("--n_step", "n_step"),
-                           ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                           ("--recipe", "recipe"), ("--nsteps", "nsteps"),
+                           ("--annotated_cif", "annotated_cif"),
                            ("--no_validate", "no_validate")):
             if _explicit(name):
                 click.secho(f"Note: --model boltzgen does not use {flag}; ignoring.", fg="yellow")
@@ -4557,7 +4564,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
                            ("--devices", "devices"),
-                           ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                           ("--recipe", "recipe"), ("--nsteps", "nsteps"),
+                           ("--annotated_cif", "annotated_cif"),
                            ("--no_validate", "no_validate")):
             if _explicit(name):
                 click.secho(f"Note: --model pxdesign does not use {flag}; ignoring.", fg="yellow")
@@ -4601,7 +4609,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 click.secho(f"Note: --model rfd4 does not use {flag}; ignoring.", fg="yellow")
         _run_rfd4_cli(Path(inputs), out_dir,
                       num_designs if num_designs is not None else 1,
-                      nsteps, seed, spec_subset, annotated_cif, not no_validate)
+                      recipe, nsteps, seed, spec_subset, annotated_cif, not no_validate)
         return
 
     # --model rfd3
@@ -4610,7 +4618,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                        ("--reuse", "reuse"),
                        ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
                        ("--log", "log"), ("--n_step", "n_step"),
-                       ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                       ("--recipe", "recipe"), ("--nsteps", "nsteps"),
+                       ("--annotated_cif", "annotated_cif"),
                        ("--no_validate", "no_validate")):
         if _explicit(name):
             click.secho(f"Note: --model rfd3 does not use {flag}; ignoring.", fg="yellow")

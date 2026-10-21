@@ -132,8 +132,30 @@ def test_the_cli_runs_the_same_call(host, monkeypatch):
     result = CliRunner().invoke(cli, ["design", str(host.spec), "--model", "rfd4",
                                       "--out_dir", str(host.out), "--num_designs", "3",
                                       "--nsteps", "40", "--seed", "7", "--spec", "a,b",
-                                      "--no_validate"])
+                                      "--recipe", "high/midpeak", "--no_validate"])
     assert result.exit_code == 0, result.output
     assert seen["spec"] == host.spec and seen["out_dir"] == host.out
     assert (seen["num_designs"], seen["nsteps"], seen["seed"]) == (3, 40, 7)
     assert seen["only"] == ["a", "b"] and seen["validate"] is False
+    assert seen["recipe"] == "high/midpeak"
+
+
+def test_an_unknown_recipe_fails_before_anything_is_built(host):
+    """The thinking budget is a user choice with a fixed vocabulary; a typo must not surface
+    after a spec has been built and a device opened."""
+    with pytest.raises(ValueError, match="unknown recycle strategy 'thinking_massive'"):
+        rfd4.design(host.spec, host.out, recipe="thinking_massive")
+    assert not host.out.exists()
+
+
+def test_a_recipe_and_a_loaded_engine_are_mutually_exclusive(host):
+    with pytest.raises(ValueError, match="already carries its recipe"):
+        rfd4.design(host.spec, host.out, recipe="high/flat", engine=StubEngine())
+
+
+def test_the_recipe_reaches_the_engine_that_is_loaded(host, monkeypatch):
+    loaded = {}
+    monkeypatch.setattr(rfd4.engine, "get_engine",
+                        lambda **kw: loaded.update(kw) or StubEngine())
+    rfd4.design(host.spec, host.out, recipe="medium/midpeak")
+    assert loaded == {"recipe": "medium/midpeak"}

@@ -27,7 +27,8 @@ __all__ = ["design"]
 
 
 def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: int = 1,
-           nsteps: int | None = None, seed: int = 0, only: Sequence[str] | None = None,
+           recipe: str | None = None, nsteps: int | None = None, seed: int = 0,
+           only: Sequence[str] | None = None,
            validate: bool = True, annotated_cif: bool = False, engine: Any = None,
            on_design: Callable[[str, int, Path], None] | None = None,
            on_write: Callable[[Path], None] | None = None) -> list[Path]:
@@ -44,6 +45,12 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
     from tt_bio.rfd4.engine import get_engine
     from tt_bio.rfd4.io import DesignInput, featurize, prepare_examples, write_design
 
+    if recipe is not None:
+        from tt_bio.rfd4.sampler import recycle_strategy
+
+        if engine is not None:
+            raise ValueError("an engine already carries its recipe; pass one or the other")
+        recycle_strategy(recipe)  # an unknown name fails here, before any design is built
     spec = Path(spec).expanduser()
     out_dir = Path(out_dir).expanduser()
     if annotated_cif:
@@ -55,7 +62,8 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
         inputs = prepare_examples(spec, out_dir / "inputs", only=list(only) if only else None,
                                   validate=validate)
 
-    engine = engine if engine is not None else get_engine()
+    engine = engine if engine is not None else get_engine(
+        **({"recipe": recipe} if recipe is not None else {}))
     if nsteps is None:
         nsteps = getattr(getattr(engine, "spec", None), "nsteps", 60)
 
