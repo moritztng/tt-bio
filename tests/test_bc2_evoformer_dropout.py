@@ -163,3 +163,29 @@ def test_the_template_stacks_masks_are_the_hosts_own(use_dropout):
             mine = np.asarray(pair_keep[b, i]) * float(scales[i])
             np.testing.assert_allclose(mine, expect, rtol=0, atol=0, err_msg=f"block {b}, {op}")
     np.testing.assert_array_equal(np.asarray(key_out), np.asarray(safe_key._key))
+
+
+@pytest.mark.parametrize("use_dropout,opm_first", [(True, False), (True, True), (False, False)])
+def test_drawn_beside_the_card_is_the_same_upload(use_dropout, opm_first):
+    """`DrawnDropout` draws from the scanned sub-keys on a host thread, chunk by chunk; every
+    block it uploads is the block `upload_dropout` makes from `dropout_masks`, bit for bit."""
+    import torch
+
+    blocks = 2 * bindcraft2.DRAW_CHUNK + 1  # a partial last chunk
+    key = jax.random.PRNGKey(11)
+    msa_keep, pair_keep, scales, key_out = bindcraft2.dropout_masks(
+        key, blocks, (ROWS, N, C_MSA), (N, N, C_PAIR), use_dropout, opm_first)
+    want = bindcraft2.upload_dropout(_StubTrunk, bindcraft2.DROPOUT_DRAWS[1:], pair_keep, scales,
+                                     32, msa_keep)
+    op, idx, rate, axis = bindcraft2.DROPOUT_DRAWS[0]
+    draws = ((op, idx + (1 if opm_first else 0), rate, axis),) + bindcraft2.DROPOUT_DRAWS[1:]
+    k_out, subs = bindcraft2.dropout_subkeys(key, blocks, bindcraft2.EVOFORMER_KEY_FAN)
+    got = bindcraft2.DrawnDropout(_StubTrunk, draws, subs,
+                                  bindcraft2.dropout_keep_rate(draws, use_dropout), N, 32, C_PAIR,
+                                  C_MSA)
+    assert np.array_equal(np.asarray(k_out), np.asarray(key_out))
+    assert len(got) == blocks
+    for b in reversed(range(blocks)):  # out of order: chunks are independent
+        assert set(got[b]) == set(want[b])
+        for name in want[b]:
+            assert torch.equal(got[b][name], want[b][name]), (b, name)
