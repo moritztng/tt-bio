@@ -17,7 +17,12 @@ if [ ! -f $B/SETUP-DONE ]; then
     # every plugin fails to load, pybel's "broken formats" report is itself malformed, and the import of
     # rfd4_proteina dies in a list comprehension 6 frames deep. That cost one box's whole 12-minute life and
     # $1.83 on 2026-10-21, with the ValueError pointing nowhere near the missing library.
-    apt-get update -qq && apt-get install -y -qq --no-install-recommends libxrender1 libxext6 libsm6
+    # python3.12-dev: Triton JIT-builds its CUDA driver shim at the FIRST kernel launch and hardcodes
+    # `-I/usr/include/python3.12`. The CUDA image ships python3.12 without its headers, so every arm that
+    # reached a kernel died on `fatal error: Python.h: No such file or directory` — after the model had
+    # loaded, so the import gate passed. That was session 2, 2026-10-21, $2.74.
+    apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+      libxrender1 libxext6 libsm6 python3.12-dev
     git clone https://github.com/RosettaCommons/RFD4-Proteina /root/rfd4 && cd /root/rfd4 && git checkout $SHA
     # uv, not `python3 -m venv`: the CUDA images ship python3.12 without python3.12-venv, which cost one box's
     # first four minutes on 2026-10-21. uv brings its own interpreter and seeds pip.
@@ -33,13 +38,31 @@ if [ ! -f $B/SETUP-DONE ]; then
 fi
 say "setup done after $(( $(date +%s) - T0 ))s"
 
-# --- import gate: seconds, and it stands between a broken image and a full rented hour -------------------------
+# --- pre-flight gate: seconds, and it stands between a broken image and a full rented hour ---------------------
 # Session 1 ran eight arms x three sizes against a model that could never import, then wrote RFD4-DONE.
+# Session 2 then died on a Triton compile and on nn.* overrides the API rejects, because the gate only tested
+# that the model IMPORTS. So it now also launches a real compiled kernel and checks every arm's overrides.
 if ! /opt/rfd4-venv/bin/python - > $B/import-gate.log 2>&1 <<'PY'; then
+import sys
+sys.path.insert(0, "/root/kc")
 from openbabel import pybel
 import torch, rfd4_proteina
 assert len(pybel.informats) > 10, f"openbabel loaded only {len(pybel.informats)} input formats"
-print(len(pybel.informats), "formats,", "cuda", torch.cuda.is_available(), torch.cuda.get_device_name(0))
+assert torch.cuda.is_available(), "no CUDA device"
+
+# A real Triton build + kernel launch. Session 2's arms all reached this and died here, one by one, paying a
+# full model load each time; it costs seconds once.
+torch.compile(lambda x: (x * 2).relu().sum())(torch.randn(256, 256, device="cuda")).item()
+
+# Every arm's overrides, through the same splitter rfd4_gpu.py uses, against upstream's own validator.
+from rfd4_arms import ARMS
+from rfd4_gpu import split_overrides
+from rfproteina.generate import _requested_nn_overrides
+for arm, ov in ARMS.items():
+    nn, gen = split_overrides(ov)
+    _requested_nn_overrides(nn)
+    assert not [g for g in gen if g.startswith("nn.")], f"{arm}: nn.* leaked into generate overrides"
+print(len(pybel.informats), "formats, triton ok,", len(ARMS), "arms ok,", torch.cuda.get_device_name(0))
 PY
   say "IMPORT GATE FAILED — not renting time on a stack that cannot load the model"; tail -30 $B/import-gate.log
   echo gate > $B/RFD4-FAILED; exit 3

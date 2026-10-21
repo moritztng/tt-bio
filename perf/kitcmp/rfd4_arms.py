@@ -30,15 +30,6 @@ ARMS = {
 SCREEN_BATCH = {128: 8, 256: 4, 512: 2}
 SWEEP = {128: (1, 2, 4, 8, 16), 256: (1, 2, 4, 8), 512: (1, 2, 4)}
 
-ap = argparse.ArgumentParser()
-ap.add_argument("--inputs", required=True, type=Path)
-ap.add_argument("--out", required=True, type=Path)
-ap.add_argument("--deadline", required=True, type=int)
-ap.add_argument("--screen-warm", type=int, default=5)
-ap.add_argument("--final-warm", type=int, default=9)
-ap.add_argument("--reference", type=int, default=0, help="reference-design mode: N designs per feature family")
-a = ap.parse_args()
-
 
 def run(arm, size, batch, warm, overrides, tag=None, spec=None, extra=()):
     """One rfd4_gpu.py process. Returns its warm records.
@@ -78,60 +69,75 @@ def time_left(margin=600):
     return time.time() < a.deadline - margin
 
 
-if a.reference:
-    # The chosen arm, the documented 50-120 binder range, scored: rfd4-quality's reference distribution.
-    chosen = json.loads((a.out / "ARMS.json").read_text())["best_arm"]
-    ov = ARMS[chosen] + ["metrics_tags='[ppi_refolding,hotspot_conditioning]'"]
-    done = {}
-    for fam, spec in sorted({p.stem: p for p in a.inputs.glob("pdl1-ref*.yaml")}.items()):
-        if not time_left(1200):
-            break
-        recs = run(chosen, 256, min(8, a.reference), a.reference // min(8, a.reference), ov,
-                   tag="reference", spec=spec)
-        done[fam] = {"designs": sum(r.get("designs", 0) for r in recs), "spec": str(spec), "arm": chosen}
-    (a.out / "REFERENCE.json").write_text(json.dumps(done, indent=2) + "\n")
-    print(json.dumps(done, indent=2))
-    sys.exit(0)
+def main():
+    global a
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--inputs", required=True, type=Path)
+    ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--deadline", required=True, type=int)
+    ap.add_argument("--screen-warm", type=int, default=5)
+    ap.add_argument("--final-warm", type=int, default=9)
+    ap.add_argument("--reference", type=int, default=0, help="reference-design mode: N designs per feature family")
+    a = ap.parse_args()
 
-results = {}
-for size in SIZES:
-    for arm, ov in ARMS.items():
-        if not time_left():
-            print(f"deadline: skipping {arm} @ {size}", flush=True)
+    if a.reference:
+        # The chosen arm, the documented 50-120 binder range, scored: rfd4-quality's reference distribution.
+        chosen = json.loads((a.out / "ARMS.json").read_text())["best_arm"]
+        ov = ARMS[chosen] + ["metrics_tags='[ppi_refolding,hotspot_conditioning]'"]
+        done = {}
+        for fam, spec in sorted({p.stem: p for p in a.inputs.glob("pdl1-ref*.yaml")}.items()):
+            if not time_left(1200):
+                break
+            recs = run(chosen, 256, min(8, a.reference), a.reference // min(8, a.reference), ov,
+                       tag="reference", spec=spec)
+            done[fam] = {"designs": sum(r.get("designs", 0) for r in recs), "spec": str(spec), "arm": chosen}
+        (a.out / "REFERENCE.json").write_text(json.dumps(done, indent=2) + "\n")
+        print(json.dumps(done, indent=2))
+        sys.exit(0)
+
+    results = {}
+    for size in SIZES:
+        for arm, ov in ARMS.items():
+            if not time_left():
+                print(f"deadline: skipping {arm} @ {size}", flush=True)
+                continue
+            if arm == "bioir-graph512" and size != 512:
+                continue
+            results.setdefault(str(size), {})[arm] = summarise(
+                run(arm, size, SCREEN_BATCH[size], a.screen_warm, ov))
+            (a.out / "ARMS.json").write_text(json.dumps({"screen": results}, indent=2) + "\n")
+
+    # winner per size from the screen, then its batch sweep, then the clean final run at --final-warm
+    best, final = {}, {}
+    for size in SIZES:
+        ok = {k: v for k, v in results.get(str(size), {}).items() if v["status"] == "ok"}
+        if not ok:
             continue
-        if arm == "bioir-graph512" and size != 512:
-            continue
-        results.setdefault(str(size), {})[arm] = summarise(
-            run(arm, size, SCREEN_BATCH[size], a.screen_warm, ov))
-        (a.out / "ARMS.json").write_text(json.dumps({"screen": results}, indent=2) + "\n")
+        arm = max(ok, key=lambda k: ok[k]["designs_s"])
+        sweep = {}
+        for b in SWEEP[size]:
+            if not time_left():
+                break
+            sweep[b] = summarise(run(arm, size, b, max(3, a.screen_warm - 2), ARMS[arm], tag=f"sweep-{arm}"))
+        okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
+        bb = max(okb, key=lambda b: okb[b]["designs_s"]) if okb else SCREEN_BATCH[size]
+        best[str(size)] = {"arm": arm, "batch": bb, "sweep": {str(k): v for k, v in sweep.items()}}
+        if time_left():
+            final[str(size)] = summarise(run(arm, size, bb, a.final_warm, ARMS[arm], tag=f"final-{arm}"))
+        (a.out / "ARMS.json").write_text(json.dumps(
+            {"screen": results, "best": best, "final": final,
+             "best_arm": max(best.values(), key=lambda v: 0)["arm"] if best else None}, indent=2) + "\n")
 
-# winner per size from the screen, then its batch sweep, then the clean final run at --final-warm
-best, final = {}, {}
-for size in SIZES:
-    ok = {k: v for k, v in results.get(str(size), {}).items() if v["status"] == "ok"}
-    if not ok:
-        continue
-    arm = max(ok, key=lambda k: ok[k]["designs_s"])
-    sweep = {}
-    for b in SWEEP[size]:
-        if not time_left():
-            break
-        sweep[b] = summarise(run(arm, size, b, max(3, a.screen_warm - 2), ARMS[arm], tag=f"sweep-{arm}"))
-    okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
-    bb = max(okb, key=lambda b: okb[b]["designs_s"]) if okb else SCREEN_BATCH[size]
-    best[str(size)] = {"arm": arm, "batch": bb, "sweep": {str(k): v for k, v in sweep.items()}}
-    if time_left():
-        final[str(size)] = summarise(run(arm, size, bb, a.final_warm, ARMS[arm], tag=f"final-{arm}"))
-    (a.out / "ARMS.json").write_text(json.dumps(
-        {"screen": results, "best": best, "final": final,
-         "best_arm": max(best.values(), key=lambda v: 0)["arm"] if best else None}, indent=2) + "\n")
+    # one chosen arm across sizes: the one that wins most sizes, ties broken by the largest size's rate
+    if best:
+        votes = {}
+        for s, v in best.items():
+            votes[v["arm"]] = votes.get(v["arm"], 0) + 1
+        chosen = max(votes, key=lambda k: (votes[k], final.get("512", {}).get("designs_s", 0) if best.get("512", {}).get("arm") == k else 0))
+        (a.out / "ARMS.json").write_text(json.dumps(
+            {"screen": results, "best": best, "final": final, "best_arm": chosen}, indent=2) + "\n")
+        print(f"best_arm={chosen}")
 
-# one chosen arm across sizes: the one that wins most sizes, ties broken by the largest size's rate
-if best:
-    votes = {}
-    for s, v in best.items():
-        votes[v["arm"]] = votes.get(v["arm"], 0) + 1
-    chosen = max(votes, key=lambda k: (votes[k], final.get("512", {}).get("designs_s", 0) if best.get("512", {}).get("arm") == k else 0))
-    (a.out / "ARMS.json").write_text(json.dumps(
-        {"screen": results, "best": best, "final": final, "best_arm": chosen}, indent=2) + "\n")
-    print(f"best_arm={chosen}")
+
+if __name__ == "__main__":
+    main()
