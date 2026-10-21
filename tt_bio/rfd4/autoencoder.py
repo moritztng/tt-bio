@@ -6,10 +6,9 @@ blocks and the fused output head; the host builds the input features, projects t
 stream in fp32, and does the head post-processing (`ae_fold.decode_heads` / `finish_decode`), so the
 residue masking, argmax and atom masks are upstream's own arithmetic in fp32.
 
-The input projection and the final LayerNorm + output head stay on the host. The head because every
-token's final stream is nearly the same vector (on a real RNA batch the token-common part is 27.50 of a
-27.71 row norm), so the card's result rounding makes the same error for every token: a constant logit
-shift (-0.14 between the two classes an RNA token chooses from) that flipped coin-flip residues one way.
+The input projection and the final LayerNorm + output head stay on the host. The head is N x 768 x 295,
+and on the host it is exact; on the card it added a small common-mode logit error (every token's final
+stream is nearly the same vector, so the result rounding repeats for every token).
 The input projection because the card's matmul accumulates to about 2^-11 of the
 summed |terms|, and the features mix absolute CA coordinates (nm) with a unit-scale 32-d latent: on
 the device the coordinate terms swamp the latent's contribution. It is N x 214 x 768 (decoder) or
