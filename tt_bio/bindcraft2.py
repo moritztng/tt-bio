@@ -33,6 +33,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import functools
+import gc
 import itertools
 import json
 import os
@@ -1266,7 +1267,8 @@ class TrunkPool:
     def _load(self, name: str) -> _Trunk:
         with self._lock:
             trunk = self._trunks.get(name)
-            if trunk is None:
+            loaded = trunk is None
+            if loaded:
                 trunk = self._trunks[name] = _Trunk(self.paths[name],
                                                     template=self.template)
             if name in self._order:
@@ -1274,6 +1276,9 @@ class TrunkPool:
             self._order.append(name)
             evicted = False
             while len(self._order) > (self.resident or len(self.paths)):
+                # A frozen trunk caught in a reference cycle would never be collected, and its
+                # weight buffers would stay on card.
+                gc.unfreeze()
                 self._trunks.pop(self._order.pop(0), None)
                 evicted = True
             if evicted:
@@ -1281,6 +1286,15 @@ class TrunkPool:
                 # and holds the weight beside it.
                 from tt_bio import pair_mm
                 pair_mm.forget()
+            if loaded:
+                # Take the long-lived heap (imports, trunks, compiled JAX) out of the cyclic
+                # collector's generation-2 walk. Left in, that walk is ~0.3 s every fourth
+                # gradient step on pc, inside a seam, with the card waiting on the host.
+                # Collecting first leaves no garbage frozen. A load lands at a step's first seam,
+                # so a single trajectory has no tape live; under duotraj the other slot's tape
+                # is frozen too and only its cyclic part outlives it, until the next eviction.
+                gc.collect()
+                gc.freeze()
             return trunk
 
     @property
