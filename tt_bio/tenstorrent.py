@@ -18917,6 +18917,8 @@ class InputAtomEncoderDevice:
                                    (B, NW, ATOM_WINDOW, D)) for _ in range(2))
         n_tokens = feats["atom_to_token"].shape[-1]
         q = self.transformer(q_tt, c_tt, bias, gather, large_seq_len=n_tokens > SEQ_LEN_MORE_CHUNKING)
+        for layer in self.transformer.layers:   # each keeps its gate keyed by c_tt: one fold's, freed here
+            layer.s_o = layer._s_o_src = None
         ttnn.deallocate(bias)
         ttnn.deallocate(c_tt)
         q = ttnn.reshape(q, (B, N, D))
