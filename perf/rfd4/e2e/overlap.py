@@ -41,6 +41,8 @@ def main():
     ap.add_argument("--width", type=int, default=1)
     ap.add_argument("--reps", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--split", action="store_true",
+                    help="time FlowNetwork.prepare/launch/finish (host wall in each stage, summed)")
     a = ap.parse_args()
 
     import tt_bio
@@ -51,13 +53,18 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     log = open(out / "overlap.jsonl", "a")
     tree = Path(tt_bio.__file__).resolve().parents[1]
-    sha = os.popen(f"git -C {tree} rev-parse --short HEAD 2>/dev/null").read().strip() or tree.name
+    pinned = tree / ".sha"  # a `git archive` tree sits inside another checkout; it names its own sha
+    sha = pinned.read_text().strip() if pinned.exists() else \
+        os.popen(f"git -C {tree} rev-parse --short HEAD 2>/dev/null").read().strip()
+    stages = _split_stages() if a.split else None
 
     designs = rfd4.prepare_examples(a.spec, out / "inputs")
     features, atom_array = rfd4.featurize(designs[0].cif, seed=a.seed)
     engine = E.DesignEngine(a.weights, recipe="thinking_medium", max_parallel_samples=a.width)
 
     for rep in range(a.reps):
+        if stages is not None:
+            stages.clear()
         load0 = os.getloadavg()[0]
         with clocksample.during(period=1.0) as clk:
             t0 = time.perf_counter()
@@ -83,10 +90,31 @@ def main():
                "aiclk_mhz": mhz, "aiclk": summ, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
                "load1": round(load0, 2), "load1_end": round(os.getloadavg()[0], 2), "nproc": os.cpu_count(),
                "card": os.environ.get("TT_VISIBLE_DEVICES"), "seed": a.seed,
+               **({"stages_s": {k: round(v, 3) for k, v in stages.items()}} if stages is not None else {}),
                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         log.write(json.dumps(rec) + "\n")
         log.flush()
         print(json.dumps({k: v for k, v in rec.items() if k not in ("aiclk", "tree")}), flush=True)
+
+
+def _split_stages():
+    from collections import defaultdict
+
+    from tt_bio.rfd4 import network as N
+
+    acc = defaultdict(float)
+    for name in ("prepare", "launch", "finish"):
+        fn = getattr(N.FlowNetwork, name, None)
+        if fn is None:
+            continue
+
+        def wrapper(self, *args, _fn=fn, _name=name, **kwargs):
+            t = time.perf_counter()
+            r = _fn(self, *args, **kwargs)
+            acc[_name] += time.perf_counter() - t
+            return r
+        setattr(N.FlowNetwork, name, wrapper)
+    return acc
 
 
 if __name__ == "__main__":
