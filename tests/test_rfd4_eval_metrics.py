@@ -1,0 +1,79 @@
+"""The ported RFD4 evaluate metrics against upstream's own output.
+
+`perf/rfd4/eval_goldens/upstream_design_metrics.json` is what upstream's `rfd4-evaluate` wrote for
+the two CIFs beside it, in the reference venv at the pinned sha. Upstream rounds the CSV to 4
+decimals and writes NaN as an empty cell, so that is the comparison this test makes.
+
+`clean_generated.cif` is a CPU fp32 RFD4 design and scores zero everywhere, which only proves the
+port raises no false positives. `clashy_generated.cif` is that design with residues 40-60 pulled in
+towards the centroid: 19.73 % of its atoms clash and two backbone bonds are stretched past the
+1.8 A threshold, so it is the case that can actually tell a wrong implementation apart.
+"""
+
+import json
+from pathlib import Path
+
+import numpy as np
+import pytest
+from biotite.structure import filter_amino_acids, filter_nucleotides
+from biotite.structure.io.pdbx import CIFFile, get_structure
+
+from tt_bio.rfd4.eval_metrics import compute_bond_length_stats, compute_clash_stats
+
+GOLDENS = Path(__file__).resolve().parents[1] / "perf" / "rfd4" / "eval_goldens"
+UPSTREAM = json.loads((GOLDENS / "upstream_design_metrics.json").read_text())
+
+
+def port_columns(cif_path):
+    atoms = get_structure(CIFFile.read(str(cif_path)), model=1, include_bonds=True)
+    is_polymer = filter_amino_acids(atoms) | filter_nucleotides(atoms)
+    out = {f"bond_length_metrics.{k}": v for k, v in compute_bond_length_stats(atoms, is_polymer).items()}
+    out.update({f"clash_metrics.{k}": v for k, v in compute_clash_stats(atoms, is_polymer).items()})
+    return out
+
+
+def as_upstream_cell(value):
+    """Upstream's CSV goes through DataFrame.round(4); NaN lands as an empty cell."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return ""
+    return f"{round(float(value), 4):g}"
+
+
+@pytest.mark.parametrize("design", sorted(UPSTREAM["rows"]))
+def test_port_matches_upstream_design_metrics(design):
+    expected = UPSTREAM["rows"][design]
+    ours = port_columns(GOLDENS / design)
+    compared = 0
+    for column, upstream_value in expected.items():
+        if not column.startswith(("clash_metrics.", "bond_length_metrics.")):
+            continue  # the rest of the design tag is not ported yet
+        assert column in ours, f"{column} missing from the port"
+        got = as_upstream_cell(ours[column])
+        want = "" if upstream_value in ("", None) else f"{float(upstream_value):g}"
+        assert got == want, f"{column}: port {got!r} vs upstream {upstream_value!r}"
+        compared += 1
+    assert compared == 11, f"expected 11 ported columns, compared {compared}"
+
+
+def test_the_clashy_fixture_actually_discriminates():
+    """A fixture that scores zero everywhere cannot catch a wrong implementation."""
+    clashy = UPSTREAM["rows"]["clashy_generated.cif"]
+    assert float(clashy["clash_metrics.frac_atoms_clashing_1p5A"]) > 0.1
+    assert float(clashy["bond_length_metrics.bond_length.frac_unreasonable"]) > 0
+
+
+def test_no_bonds_means_no_bond_length_columns():
+    """Upstream returns {} rather than zeros, which is how the cell ends up empty."""
+    atoms = get_structure(CIFFile.read(str(GOLDENS / "clean_generated.cif")), model=1, include_bonds=False)
+    is_polymer = filter_amino_acids(atoms) | filter_nucleotides(atoms)
+    assert compute_bond_length_stats(atoms, is_polymer) == {}
+
+
+def test_an_empty_bond_category_is_nan_not_zero():
+    """A monomer has no between-chain bonds; upstream reports nan there, never 0.0."""
+    ours = port_columns(GOLDENS / "clean_generated.cif")
+    for column in (
+        "bond_length_metrics.bond_length.frac_unreasonable.between_chain.polymer_polymer",
+        "bond_length_metrics.bond_length.frac_unreasonable.between_chain.nonpolymer_to_polymer",
+    ):
+        assert np.isnan(ours[column])
