@@ -1659,6 +1659,8 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu"
 # trimul_gin_w8 holds gin_moved's resident weights bfp8, so c_z 256 runs in one launch and reads the normed pair once
 # instead of per 128-channel slice. In-process A/B on the WH --fast set, repeat 3, Galaxy chip at 1000 MHz (wgw8):
 # ESMFold2 512 aa 25.11 -> 24.63 s, -Fast 512 14.74 -> 14.53 s, -Fast 256 5.30 -> 5.17 s, -Fast 1024 52.62 -> 52.47 s.
+# Fast-bar grade wgw8g (same chip, WH --fast set vs + this, 4 seeds x 5 samples): -Fast 11 complexes CA-lDDT +0.0008
+# [-0.0002, +0.0022], docking 23 -> 24 of 44; ESMFold2 10 complexes +0.0028 [-0.0000, +0.0073], docking 28 -> 27 of 40.
 _WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8"
 # lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere).
 _LM_SDPA_STOCK = "+lm_sdpa_stock"
