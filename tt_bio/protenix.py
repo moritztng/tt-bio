@@ -1914,7 +1914,7 @@ class DiffusionModule(_KeyedWeights):
         stay (1,n_heads,NT,NT) and broadcast over M in the QK-scale add rather than being
         replicated, which at NT=1095 in fp32 is 1.9 GB per copy saved. `_denoise_multiplicity`
         used to call a `_token_dit_device_m` whose body was byte-identical to this one."""
-        ckc = _T.dit_ckc(self._dit_ckc, self._dit_dtype)
+        ckc = self._dit_ckc
         if self._dit_fp32:   # inputs are already fp32; typecast is trace-safe and idempotent
             a_t = ttnn.typecast(a_t, self._dit_dtype)
             s_t = ttnn.typecast(s_t, self._dit_dtype)
@@ -1990,8 +1990,8 @@ class DiffusionModule(_KeyedWeights):
             ws[dt] = (up(torch.cat(sw, 1)), up(torch.cat(sb, 0).reshape(1, -1)), up(torch.cat(bw, 1)),
                       up(torch.cat(gw, 1)), up(torch.cat(gb, 0).reshape(1, -1)))
         w_sc, b_sc, w_sb, w_g, b_g = ws[dt]
-        ckc = _T.dit_ckc(self._dit_ckc, self._dit_dtype)
-        s_hat = ttnn.layer_norm(s_t, epsilon=1e-5, compute_kernel_config=self._dit_ckc)
+        ckc = self._dit_ckc
+        s_hat = ttnn.layer_norm(s_t, epsilon=1e-5, compute_kernel_config=ckc)
         lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
             x, w, bias=b, activation=act, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN)
         sig = _T.mm_sigmoid(ckc)

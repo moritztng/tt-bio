@@ -724,10 +724,9 @@ _FAST_MODE = False
 #   opm_jd          the OPM contracts against b in (j d) row order, so z's tile (i, j) is pair (i, j)'s [c, d]
 #                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
 #                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
-#   dit_hifi2       a bf16 token DiT's linears (OpenFold3's `--fast` stack; the Protenix family's DiT through
-#                   `dit_ckc`) at HiFi2 instead of the model's fidelity, fp32 accumulation kept, on Wormhole. On a
-#                   Galaxy chip they are math-bound at HiFi4 (768 x 3072: 107 us, ~23 TF/s at 1000 MHz) and take
-#                   2.5 s of the 512-token fold.
+#   dit_hifi2       a bf16 token DiT's linears (OpenFold3's `--fast` stack) at HiFi2 instead of the model's
+#                   fidelity, fp32 accumulation kept. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
+#                   107 us, ~23 TF/s at 1000 MHz) and take 2.5 s of the 512-token fold.
 #   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
 #                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
 #                   The k chunk stays, so each row's arithmetic is unchanged: expected bit-exact (fold A/B digest).
@@ -1014,22 +1013,6 @@ def silu_ckc(ckc):
     out = _SILU_CKCS.get(key)
     if out is None:
         out = type(ckc)(math_fidelity=ckc.math_fidelity, math_approx_mode=approx,
-                        fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
-        out.dst_full_sync_en = ckc.dst_full_sync_en
-        out.throttle_level = ckc.throttle_level
-        _SILU_CKCS[key] = out
-    return out
-
-
-def dit_ckc(ckc, dtype):
-    """`ckc` for a bf16 token DiT linear, read per call: under `dit_hifi2` on Wormhole the same config at HiFi2."""
-    if ckc is None or dtype != ttnn.bfloat16 or not lever("dit_hifi2") or not is_wormhole():
-        return ckc
-    key = (type(ckc), ckc.math_approx_mode, ckc.fp32_dest_acc_en, ckc.packer_l1_acc, ckc.dst_full_sync_en,
-           ckc.throttle_level, "hifi2")
-    out = _SILU_CKCS.get(key)
-    if out is None:
-        out = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ckc.math_approx_mode,
                         fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
         out.dst_full_sync_en = ckc.dst_full_sync_en
         out.throttle_level = ckc.throttle_level
@@ -13051,7 +13034,7 @@ class AttentionPairBias(Module):
                 s,
                 self.qkv_weight,
                 bias=self.qkv_bias,
-                compute_kernel_config=self._lin_ckc(),
+                compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             ))
             if self.kq_norm:
@@ -13329,18 +13312,13 @@ class AttentionPairBias(Module):
             o = sl
         return o
 
-    def _lin_ckc(self):
-        """The ckc of this attention's own linears: a token DiT's take `dit_ckc`."""
-        return dit_ckc(self.compute_kernel_config, self.dtype) if self.token_dit else self.compute_kernel_config
-
     def _gate_out(self, s, o, cat_w):
         """sigmoid(s W_g) * o, then the output projection (on the padded head lanes when `cat_w`)."""
         g_weight, o_weight = cat_w or (self.g_weight, self.o_weight)
-        ckc = self._lin_ckc()
         g = ttnn.linear(
             s,
             g_weight,
-            compute_kernel_config=ckc,
+            compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
         if _FAST_MODE:
@@ -13348,7 +13326,7 @@ class AttentionPairBias(Module):
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
         x = ttnn.linear(
-            o, o_weight, compute_kernel_config=ckc,
+            o, o_weight, compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
         ttnn.deallocate(o)
