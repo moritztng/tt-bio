@@ -23,6 +23,7 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--sizes", default="96,250,500")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--real-in", default="", help="dir of capture_real.py batches to add as real cases")
     a = ap.parse_args()
     torch.set_default_dtype(torch.float64)
     from omegaconf import OmegaConf
@@ -41,17 +42,21 @@ def main() -> int:
     dec.load_state_dict(F._sub(sd, "decoder."), strict=True)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    for n in (int(s) for s in a.sizes.split(",")):
-        batch = synthetic_batch(n, a.seed + n, tab, F.C_SEQ)
+    cases = [(f"synthetic_n{n}", synthetic_batch(n, a.seed + n, tab, F.C_SEQ), 1234 + n)
+             for n in (int(s) for s in a.sizes.split(",") if s)]
+    for i, p in enumerate(sorted(Path(a.real_in).glob("*.pt")) if a.real_in else []):
+        b = torch.load(p, map_location="cpu", weights_only=False)["batch"]
+        b = {k: v.double() if v.is_floating_point() else v for k, v in b.items()}
+        cases.append((f"real_{p.stem}", b, 99 + i))
+    for case, batch, seed in cases:
         with torch.no_grad():
-            torch.manual_seed(1234 + n)
+            torch.manual_seed(seed)
             e = enc(batch)
-            torch.manual_seed(1234 + n)
+            torch.manual_seed(seed)
             noise = torch.randn_like(e["log_scale"])
             db = dict(batch, z_latent=e["z_latent"], ca_coors_nm=batch["coords_nm"][:, :, 1, :])
             d = dec(db)
             fin = AutoEncoder.decode(type("A", (), {"decoder": dec})(), db)
-        case = f"synthetic_n{n}"
         torch.save({"case": case, "batch": db, "noise": noise, "encoder": e, "decoder": d, "decode": fin,
                     "dtype": "float64", "upstream_sha": "2db07bb444d91695f8c10e6acb7648e9297f9221", "ckpt": CKPT},
                    out / f"{case}.pt")

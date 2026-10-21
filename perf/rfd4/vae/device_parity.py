@@ -30,6 +30,10 @@ BAR = {
     "coord_rmsd_A": 0.05,         # decoded all-atom coordinates vs float64, Angstrom
     "argmax_agree": 0.99,         # residue type agreement over emitted tokens
     "tv_mean": 1e-2,              # mean total variation of the 147-class distribution
+    # Real captured structures: the TT reconstruction must be as good as upstream's, not merely close
+    # to it in tensor norm. Upstream's own all-atom RMSD is the yardstick, so these are DELTAS.
+    "d_rmsd_A": 0.02,
+    "d_seq_recovery": -0.01,
 }
 
 
@@ -70,6 +74,19 @@ def grade_decoder(tt: dict, ref: dict, ref_fin: dict, tt_fin: dict, legal: torch
     return out
 
 
+def recon(fin: dict, batch: dict) -> dict | None:
+    """Reconstruction against the INPUT structure: all-atom RMSD (no alignment, as upstream's
+    `rmsd_no_align_a37_ang`) and sequence recovery. Only a real captured batch carries both."""
+    if "residue_type" not in batch or "coords_nm" not in batch:
+        return None
+    m = fin["atom_mask"] & batch["atom37_mask"].bool()
+    d = (fin["coors_nm"].double() - batch["coords_nm"].double())[m] * 10.0
+    emit = fin["emit_mask"]
+    return {"all_atom_rmsd_A": float(d.norm(dim=-1).pow(2).mean().sqrt()), "n_atoms": int(m.sum()),
+            "seq_recovery": float((fin["residue_type"] == batch["residue_type"])[emit].double().mean()),
+            "n_tokens": int(emit.sum())}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--goldens", required=True)
@@ -97,10 +114,18 @@ def main() -> int:
         em = g["encoder"]["emit_mask"]
         c["encoder"] = {k: rel(e[k], g["encoder"][k], em) for k in ("mean", "log_scale", "z_latent")}
         d = ae.decode_raw(batch)
-        c["decoder"] = grade_decoder(d, g["decoder"], g["decode"], AF.finish_decode(d, batch, tab), legal)
+        fin = AF.finish_decode(d, batch, tab)
+        c["decoder"] = grade_decoder(d, g["decoder"], g["decode"], fin, legal)
         rb = dict(batch, z_latent=e["z_latent"])
         d2 = ae.decode_raw(rb)
-        c["roundtrip"] = grade_decoder(d2, g["decoder"], g["decode"], AF.finish_decode(d2, rb, tab), legal)
+        fin2 = AF.finish_decode(d2, rb, tab)
+        c["roundtrip"] = grade_decoder(d2, g["decoder"], g["decode"], fin2, legal)
+        # Product-level: does the TT autoencoder reconstruct the input as well as upstream does?
+        r_ref, r_tt, r_rt = recon(g["decode"], batch), recon(fin, batch), recon(fin2, batch)
+        if r_ref is not None:
+            c["recon"] = {"upstream": r_ref, "tt_decode": r_tt, "tt_roundtrip": r_rt,
+                          "d_rmsd_A": r_tt["all_atom_rmsd_A"] - r_ref["all_atom_rmsd_A"],
+                          "d_seq_recovery": r_tt["seq_recovery"] - r_ref["seq_recovery"]}
         with during(period=1.0) as clk:
             ts = {"encode": [], "decode": []}
             for _ in range(a.reps):
@@ -127,10 +152,18 @@ def main() -> int:
     rec["coord_rmsd_A"] = max(worst(("decoder", "coords", "rmsd_A")))
     rec["argmax_agree"] = min(worst(("decoder", "residue", "argmax_agree")))
     rec["tv_mean"] = max(worst(("decoder", "residue", "tv_mean")))
-    rec["verdict"] = "PASS" if (rec["max_rel_err"] <= BAR["max_rel_err"] and rec["coord_rmsd_A"] <= BAR["coord_rmsd_A"]
-                                and rec["argmax_agree"] >= BAR["argmax_agree"] and rec["tv_mean"] <= BAR["tv_mean"]) else "FAIL"
+    real = [c["recon"] for c in rec["cases"].values() if "recon" in c]
+    ok = (rec["max_rel_err"] <= BAR["max_rel_err"] and rec["coord_rmsd_A"] <= BAR["coord_rmsd_A"]
+          and rec["argmax_agree"] >= BAR["argmax_agree"] and rec["tv_mean"] <= BAR["tv_mean"])
+    if real:
+        rec["d_rmsd_A"] = max(r["d_rmsd_A"] for r in real)
+        rec["d_seq_recovery"] = min(r["d_seq_recovery"] for r in real)
+        rec["n_real_cases"] = len(real)
+        ok = ok and rec["d_rmsd_A"] <= BAR["d_rmsd_A"] and rec["d_seq_recovery"] >= BAR["d_seq_recovery"]
+    rec["verdict"] = "PASS" if ok else "FAIL"
     Path(a.out).write_text(json.dumps(rec, indent=1) + "\n")
-    print("VERDICT", rec["verdict"], rec["max_rel_err"], rec["coord_rmsd_A"], rec["argmax_agree"], rec["tv_mean"])
+    print("VERDICT", rec["verdict"], json.dumps({k: rec.get(k) for k in
+          ("max_rel_err", "coord_rmsd_A", "argmax_agree", "tv_mean", "d_rmsd_A", "d_seq_recovery")}))
     return 0
 
 
