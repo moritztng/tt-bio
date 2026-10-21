@@ -76,22 +76,24 @@ def main() -> int:
             row = {"shape": shp, "affine": aff}
             kw = {"weight": w, "bias": b}
             stock = ttnn.to_torch(ttnn.layer_norm(x, epsilon=1e-5, compute_kernel_config=ck, **kw)).double()
-            got = ln_split.layer_norm(x, w, b, 1e-5)
             row["g"] = ln_split.plan(int(x.volume()) // k // 32, k // 32,
                                      dev.compute_with_storage_grid_size().x * dev.compute_with_storage_grid_size().y)
             err = lambda a: round(float((a - ref).norm() / ref.norm()), 6)  # noqa: E731
             row["rel_l2_stock"] = err(stock)
             row["ms_stock"] = ms(lambda: ttnn.layer_norm(x, epsilon=1e-5, compute_kernel_config=ck, **kw), dev)
             row["dev_ms_stock"] = dev_ms(lambda: ttnn.layer_norm(x, epsilon=1e-5, compute_kernel_config=ck, **kw), dev)
-            if got is not None:
-                g = ttnn.to_torch(got).double()
-                row["rel_l2_split"] = err(g)
-                row["max_abs_split_vs_stock"] = round(float((g - stock).abs().max()), 5)
-                row["ms_split"] = ms(lambda: ln_split.layer_norm(x, w, b, 1e-5), dev)
-                row["dev_ms_split"] = dev_ms(lambda: ln_split.layer_norm(x, w, b, 1e-5), dev)
-                # repeat-launch consistency: the semaphores reset between launches
-                again = ttnn.to_torch(ln_split.layer_norm(x, w, b, 1e-5)).double()
-                row["repeat_equal"] = bool(torch.equal(again, g))
+            for im in (ttnn.float32, ttnn.bfloat16):
+                ln_split.IM_DTYPE = im
+                got = ln_split.layer_norm(x, w, b, 1e-5)
+                if got is not None:
+                    g = ttnn.to_torch(got).double()
+                    row[f"rel_l2_split_{im}"] = err(g)
+                    row[f"max_abs_vs_stock_{im}"] = round(float((g - stock).abs().max()), 5)
+                    row[f"ms_split_{im}"] = ms(lambda: ln_split.layer_norm(x, w, b, 1e-5), dev)
+                    row[f"dev_ms_split_{im}"] = dev_ms(lambda: ln_split.layer_norm(x, w, b, 1e-5), dev)
+                    # repeat-launch consistency: the semaphores reset between launches
+                    again = ttnn.to_torch(ln_split.layer_norm(x, w, b, 1e-5)).double()
+                    row[f"repeat_equal_{im}"] = bool(torch.equal(again, g))
             rows.append(row)
             print(json.dumps(row), flush=True)
     Path(args.out).write_text(json.dumps(rows, indent=1) + "\n")

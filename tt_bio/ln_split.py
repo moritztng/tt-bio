@@ -25,6 +25,8 @@ TILE = 32
 _CACHE: dict = {}
 #: (served, declined)
 STATS = [0, 0]
+#: data format of x - mean and the stage scratch (c_16 / c_17)
+IM_DTYPE = ttnn.float32
 
 
 def plan(mt, kt, ncores):
@@ -94,8 +96,8 @@ def _build(x, out, w, b, g, eps):
     bf, f32 = ttnn.bfloat16, ttnn.float32
     cbs = [_cb(2, grid, kc, bf), _cb(7, grid, kc, bf), _cb(10, grid, 1, bf)]
     cbs += [_cb(i, grid, kc, bf) for i, v in ((8, w), (9, b)) if v is not None]
-    cbs += [_cb(i, grid, t, f32) for i, t in ((11, 1), (12, 1), (13, g), (14, 1), (15, 1), (16, kc), (17, kc),
-                                               (18, g), (19, 1), (20, 1))]
+    cbs += [_cb(i, grid, t, f32) for i, t in ((11, 1), (12, 1), (13, g), (14, 1), (15, 1), (18, g), (19, 1), (20, 1))]
+    cbs += [_cb(i, grid, kc, IM_DTYPE) for i in (16, 17)]
     sems = [ttnn.SemaphoreDescriptor(id=i, core_ranges=grid, initial_value=0) for i in (0, 1)]
     return {"kernels": [reader, writer, compute], "cbs": cbs, "sems": sems}
 
@@ -118,7 +120,7 @@ def layer_norm(x, weight=None, bias=None, epsilon=1e-5, memory_config=None):
         STATS[1] += 1
         return None
     out = ttnn.allocate_tensor_on_device(x.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    key = (dev.id(), tuple(pad), weight is not None, bias is not None, float(epsilon), g)
+    key = (dev.id(), tuple(pad), weight is not None, bias is not None, float(epsilon), g, IM_DTYPE)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, out, weight, bias, g, epsilon)
