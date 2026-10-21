@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 
 #: The 20 + UNK protein residues and water. Everything else is "chemistry the protein path
@@ -29,6 +30,15 @@ import sys
 PROTEIN_COMPS = frozenset(
     "ALA ARG ASN ASP CYS GLN GLU GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL UNK HOH".split()
 )
+
+#: An expandable segment is written as one placeholder residue named `<min>-<max>` holding a
+#: single element-X atom, and the design replaces it with the residues it sampled. It is a
+#: length sentinel, not a chemical component, so its disappearance is the writer working.
+_SENTINEL = re.compile(r"^\d+-\d+$")
+
+
+def is_chemistry(comp: str) -> bool:
+    return comp not in PROTEIN_COMPS and not _SENTINEL.match(comp)
 
 
 def read_block(path):
@@ -42,10 +52,15 @@ def _col(cat, name):
     return cat[name].as_array(str) if name in cat else None
 
 
-def atom_chemistry(block, comps=None):
-    """``{(comp, seq, atom): (element, charge)}`` for every non-protein atom."""
+def atom_chemistry(block, comps=None, hydrogens=False):
+    """``{(comp, seq, atom): (element, charge)}`` for every non-protein atom.
+
+    Hydrogens are excluded by default: RFD4's atom37 vocabulary is heavy-atom only, so a
+    design never carries them even when the input did. They are counted, not compared.
+    """
     cat = block["atom_site"]
     comp = _col(cat, "label_comp_id")
+    n_h = [0]
     seq = _col(cat, "auth_seq_id")
     atom = _col(cat, "label_atom_id")
     elem = _col(cat, "type_symbol")
@@ -53,13 +68,13 @@ def atom_chemistry(block, comps=None):
     out = {}
     for i in range(len(comp)):
         c = comp[i]
-        if comps is not None:
-            if c not in comps:
-                continue
-        elif c in PROTEIN_COMPS:
+        if c not in comps if comps is not None else not is_chemistry(c):
+            continue
+        if not hydrogens and elem[i] in ("H", "D"):
+            n_h[0] += 1
             continue
         out[(c, seq[i], atom[i])] = (elem[i], _charge(charge[i] if charge is not None else "?"))
-    return out
+    return out, n_h[0]
 
 
 def _charge(v):
@@ -86,10 +101,7 @@ def bond_chemistry(block, comps=None):
     out = {}
     for i in range(len(comp)):
         c = comp[i]
-        if comps is not None:
-            if c not in comps:
-                continue
-        elif c in PROTEIN_COMPS:
+        if c not in comps if comps is not None else not is_chemistry(c):
             continue
         key = (c,) + tuple(sorted((a1[i], a2[i])))
         out[key] = (order[i], arom[i] if arom is not None else "?")
@@ -106,9 +118,9 @@ def diff(ref, got, label):
     return bad
 
 
-def check(input_cif, generated_cif, comps=None):
+def check(input_cif, generated_cif, comps=None, hydrogens=False):
     ref, got = read_block(input_cif), read_block(generated_cif)
-    atoms_ref, atoms_got = atom_chemistry(ref, comps), atom_chemistry(got, comps)
+    (atoms_ref, h_ref), (atoms_got, h_got) = atom_chemistry(ref, comps, hydrogens), atom_chemistry(got, comps, hydrogens)
     bonds_ref, bonds_got = bond_chemistry(ref, comps), bond_chemistry(got, comps)
     bad = diff(atoms_ref, atoms_got, "atom_site") + diff(bonds_ref, bonds_got, "chem_comp_bond")
     comps_seen = sorted({k[0] for k in atoms_ref})
@@ -117,6 +129,7 @@ def check(input_cif, generated_cif, comps=None):
         "generated": str(generated_cif),
         "components": comps_seen,
         "atoms_checked": len(atoms_ref),
+        "hydrogens_dropped": {"input": h_ref, "generated": h_got},
         "bonds_checked": len(bonds_ref),
         "charged_atoms": sorted(
             [list(map(str, k)) + [v[1]] for k, v in atoms_ref.items() if v[1] not in (0, "0")],
@@ -133,10 +146,12 @@ def main():
     ap.add_argument("--generated", required=True, help="the design the model wrote")
     ap.add_argument("--comps", default=None,
                     help="comma-separated component ids to grade; default is every non-protein one")
+    ap.add_argument("--with-hydrogens", action="store_true",
+                    help="compare hydrogens too; off because atom37 is heavy-atom only")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     comps = frozenset(a.comps.split(",")) if a.comps else None
-    res = check(a.input, a.generated, comps)
+    res = check(a.input, a.generated, comps, a.with_hydrogens)
     text = json.dumps(res, indent=2)
     if a.out:
         with open(a.out, "w") as fh:

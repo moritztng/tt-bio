@@ -202,3 +202,34 @@ def test_design_help_lists_the_recipes():
     assert "--recipe" in out
     for name in ("medium/midpeak", "medium/front_loaded", "thinking_medium"):
         assert name in out
+
+
+# ---- two things that are NOT chemistry loss, and must not read as it ----
+
+def test_an_expandable_segment_placeholder_is_not_a_component(tmp_path):
+    """A spec's variable-length segment is written as one residue named `<min>-<max>` holding a
+    single element-X atom, and the design replaces it with the residues it sampled. Counting that
+    as a lost component makes every conditioned design fail."""
+    cc = _chem_check()
+    assert not cc.is_chemistry("150-150")
+    assert not cc.is_chemistry("120-150")
+    assert cc.is_chemistry("SAM") and cc.is_chemistry("NAG") and cc.is_chemistry("DA")
+    assert not cc.is_chemistry("ALA")
+
+
+def test_hydrogens_are_counted_not_compared(ligand_cif, tmp_path):
+    """RFD4's atom37 vocabulary is heavy-atom only, so a design never carries the hydrogens an
+    input had. That is the encoding, not a chemistry change -- but it is reported, because a
+    check that silently drops atoms is how one stops checking."""
+    cc = _chem_check()
+    with_h = LIGAND_CIF.replace(
+        "HETATM O O2  LIG B 2 . 2 LIG B O2  6 1.0 ?  3.0 1.0 0.0 1\n",
+        "HETATM O O2  LIG B 2 . 2 LIG B O2  6 1.0 ?  3.0 1.0 0.0 1\n"
+        "HETATM H HO1 LIG B 2 . 2 LIG B HO1 7 1.0 ?  4.5 0.5 0.0 1\n")
+    src = tmp_path / "with_h.cif"
+    src.write_text(with_h)
+
+    res = cc.check(src, ligand_cif)
+    assert res["verdict"] == "PASS", res["differences"]
+    assert res["hydrogens_dropped"] == {"input": 1, "generated": 0}
+    assert cc.check(src, ligand_cif, hydrogens=True)["verdict"] == "FAIL"
