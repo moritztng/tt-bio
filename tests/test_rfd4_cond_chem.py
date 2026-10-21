@@ -169,3 +169,36 @@ def test_the_n_acetyl_glycans_carry_their_amide_nitrogen():
     for name in ("NAG", "NDG", "A2G", "NGA"):
         atoms = set(UNIFIED_ATOM37_ENCODING.token_atoms[name])
         assert {"N2", "C7", "C8", "O7"} <= atoms, f"{name} is missing its N-acetyl group"
+
+
+# ---- the recycle schedule is per design task, so the CLI has to expose it ----
+
+def test_the_cli_offers_every_shipped_recycle_schedule():
+    """Upstream prescribes a different schedule per task: midpeak for small-molecule binders,
+    front_loaded for DNA binders. A CLI that only runs thinking_medium cannot run either at
+    its own task's recipe. The list is spelled out in main.py to keep `--help` free of torch,
+    so it has to be checked against the real one."""
+    from tt_bio.main import _RFD4_RECIPES
+    from tt_bio.rfd4.sampler import RECYCLE_SCHEDULES
+
+    assert sorted(_RFD4_RECIPES) == sorted(RECYCLE_SCHEDULES)
+
+
+def test_every_recipe_is_sixty_steps():
+    """`--nsteps` defaults to 60 for all of them; a schedule that did not sum to 60 would make
+    the default silently wrong for that recipe (the sampler refuses the mismatch)."""
+    from tt_bio.rfd4.sampler import RECYCLE_SCHEDULES
+
+    for name, schedule in RECYCLE_SCHEDULES.items():
+        assert sum(n for n, _ in schedule) == 60, name
+
+
+def test_design_help_lists_the_recipes():
+    from click.testing import CliRunner
+
+    from tt_bio.main import cli
+
+    out = CliRunner().invoke(cli, ["design", "--help"]).output
+    assert "--recipe" in out
+    for name in ("medium/midpeak", "medium/front_loaded", "thinking_medium"):
+        assert name in out

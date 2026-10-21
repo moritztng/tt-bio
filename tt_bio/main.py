@@ -186,6 +186,14 @@ SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
 # backbones against a target structure, conditioned on a distogram of the target only.
 DESIGN_MODELS = ("boltzgen", "rfd3", "pxdesign", "rfd4")
 
+# `design --model rfd4 --recipe`: RFD4's shipped recycle schedules, which are its thinking
+# budget. Spelled out here rather than imported so `--help` does not pull in torch;
+# test_rfd4_cond_chem keeps the list equal to `tt_bio.rfd4.sampler.RECYCLE_SCHEDULES`.
+_RFD4_RECIPES = ("high/flat", "high/front_loaded", "high/midpeak",
+                 "low/flat", "low/front_loaded", "low/midpeak",
+                 "medium/flat", "medium/front_loaded", "medium/midpeak",
+                 "thinking_high", "thinking_low", "thinking_medium")
+
 # `affinity --model`: scalar-output affinity predictors. Separate from PREDICT_MODELS
 # because these fold nothing — no coordinates, no PAE, no confidence — so they do not
 # ride the structure-writing scheduler path predict uses.
@@ -4269,7 +4277,7 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 
 
 def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
-                  annotated_cif: bool, validate: bool) -> None:
+                  annotated_cif: bool, validate: bool, recipe: str) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
 
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
@@ -4296,7 +4304,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
         raise click.ClickException(f"{type(e).__name__}: {e}")
 
     click.echo(f"{len(designs)} design(s) from {Path(inputs).name}, seed {seed}")
-    engine = rfd4.get_engine()
+    engine = rfd4.get_engine(recipe=recipe)
     for design in designs:
         features, atom_array = rfd4.featurize(design.cif, seed=seed)
         tokens = int(features["padding_mask"].shape[-1])
@@ -4378,6 +4386,14 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
 @click.option("--nsteps", default=60, show_default=True, type=click.IntRange(min=1),
               help="rfd4 only. Flow-matching integration steps (upstream's `generation.args."
                    "nsteps` default).")
+@click.option("--recipe", default="thinking_medium", show_default=True,
+              type=click.Choice(_RFD4_RECIPES),
+              help="rfd4 only. Recycle schedule, which is the thinking budget: how many trunk "
+                   "passes each of the 60 steps gets. thinking_{low,medium,high} are RFD4's "
+                   "own aliases for the matching front_loaded schedule; the flat and midpeak "
+                   "schedules spend the same total differently and upstream prescribes a "
+                   "different one per design task (midpeak for small-molecule binders, "
+                   "front_loaded for DNA binders).")
 @click.option("--annotated_cif", is_flag=True,
               help="rfd4 only. INPUTS is already an annotated CIF (RFD4's `input_as_annotated_cif` "
                    "form, e.g. one written by an earlier run), not a design spec, so it is "
@@ -4612,7 +4628,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 click.secho(f"Note: --model rfd4 does not use {flag}; ignoring.", fg="yellow")
         _run_rfd4_cli(Path(inputs), out_dir,
                       num_designs if num_designs is not None else 1,
-                      nsteps, seed, spec_subset, annotated_cif, not no_validate)
+                      nsteps, seed, spec_subset, annotated_cif, not no_validate, recipe)
         return
 
     # --model rfd3
