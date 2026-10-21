@@ -27,7 +27,7 @@
 #include "api/compute/eltwise_unary/rsqrt.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
-#if defined(T1_PSIG) && defined(TRISC_PACK)
+#if (defined(T1_PSIG) || defined(T1_GSIG)) && defined(TRISC_PACK)
 #include "llk_math_eltwise_unary_sfpu_silu.h"   // the packer-side SFPU init, as pair_swiglu_ws's WS_PACK_SILU
 #endif
 #if defined(ABL) && (ABL & 384)
@@ -126,7 +126,7 @@ void kernel_main() {
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     mm_init(w_cb, xn_cb, p_cb, 1);
-#ifdef T1_PSIG
+#if defined(T1_PSIG) || defined(T1_GSIG)
     PACK((llk_math_eltwise_unary_sfpu_silu_init<true>()));   // the packer thread's SFPU address modes
 #endif
     cb_wait_front(w_cb, 2 * QN * Kt);
@@ -159,7 +159,17 @@ void kernel_main() {
                     for (uint32_t k = 0; k < Kt; ++k, i0 += IL, i1 += NG)
                         matmul_block(xn_cb, wo_cb, i0, i1, 0, false, GSBW, 1, Kt);
                     tile_regs_commit();
+#ifdef T1_GSIG
+                    // T1_GSIG: g_out leaves as sigmoid(g_out), taken on the packer thread's SFPU from the fp32 dest
+                    // (the tail then skips its own sigmoid of the bf16 g_out). Same sync as T1_PSIG below.
+                    PACK(TTI_SEMWAIT(p_stall::STALL_TDMA | p_stall::STALL_CFG,
+                                     semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
+                    PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+                    for (uint32_t i = 0; i < GSBW; ++i) sigmoid_poly_tile_pack<SIGPOLY>(i);
+                    PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+#else
                     tile_regs_wait();
+#endif
                     for (uint32_t i = 0; i < GSBW; ++i) pack_tile<true>(i, go_cb, n0 + i);
                     tile_regs_release();
                 }
