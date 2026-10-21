@@ -6,6 +6,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Fixed
+- **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating
+  on the same job, the controller fails it with an error saying so instead of handing it to a third
+  chip, which the same input would hang too. One dead chip is still retried. `tt-bio controller
+  --max-leases` changes the limit (default 2). See [multi-host](docs/multi-host.md).
+
+## [0.21.0] - 2026-10-21
+
+### Fixed
 - **Chain ids.** A repeated chain id is refused on every model instead of folding two chains as one.
   OpenFold3 and OpenBind-0 accept ids longer than four characters (they crashed in MSA
   featurization). ESMFold-2 keeps ids longer than 16 characters in mmCIF instead of truncating them.

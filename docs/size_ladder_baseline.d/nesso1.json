@@ -3318,24 +3318,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-10-15",
+      "recorded": "2026-10-21",
       "host": "tt-quietbox2",
-      "commit": "4ba29781f",
+      "commit": "a2b7938f1",
       "host_threads": 5,
       "models": {
         "nesso1": {
           "grid": "11x10",
-          "recorded": "2026-10-15",
+          "recorded": "2026-10-21",
           "host": "tt-quietbox2",
-          "commit": "4ba29781f",
+          "commit": "a2b7938f1",
           "host_threads": 5,
           "runtime_s": {
-            "256": 3.01,
-            "512": 4.49,
-            "640": 5.36,
-            "768": 6.84,
-            "896": 8.68,
-            "1024": 12.84
+            "256": 2.4,
+            "512": 3.55,
+            "640": 4.85,
+            "768": 5.51,
+            "896": 6.96,
+            "1024": 8.95
           },
           "levers": {
             "256": {
@@ -4908,10 +4908,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 192,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -4951,24 +4951,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 192,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 192
-                },
-                "reason": "declines all 192 calls on k_tiles=4:(4,4) x192: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4 x96: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4994,24 +4988,26 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 672,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection [carried from rung 896]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection [carried from rung 896]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -5162,189 +5158,189 @@
           },
           "runtime_reps_s": {
             "256": [
-              3.18,
-              3.01,
-              3.3,
-              2.98,
-              2.98
+              2.46,
+              2.39,
+              2.39,
+              2.4,
+              2.47
             ],
             "512": [
-              4.19,
-              4.82,
-              4.33,
-              4.57,
-              4.49
+              3.6,
+              3.55,
+              3.58,
+              3.5,
+              3.5
             ],
             "640": [
-              5.36
+              4.85
             ],
             "768": [
-              6.84
+              5.51
             ],
             "896": [
-              8.68
+              6.96
             ],
             "1024": [
-              12.84
+              8.95
             ]
           },
           "aiclk": {
             "256": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350,
-                800,
-                800,
-                800,
+                1350,
+                1350,
+                1350,
                 1350
               ],
-              "n": 13
+              "n": 10
             },
             "512": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
                 1350,
-                800,
-                800,
-                800
-              ],
-              "n": 15
-            },
-            "640": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 3
-            },
-            "768": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
+                1331,
+                1350,
+                1331,
                 1343
               ],
-              "n": 3
+              "n": 10
+            },
+            "640": {
+              "card": "1",
+              "min": 800,
+              "max": 1306,
+              "rep_median": [
+                1306
+              ],
+              "n": 2
+            },
+            "768": {
+              "card": "1",
+              "min": 800,
+              "max": 1300,
+              "rep_median": [
+                1300
+              ],
+              "n": 2
             },
             "896": {
-              "card": "2",
+              "card": "1",
               "min": 800,
-              "max": 1350,
+              "max": 1275,
               "rep_median": [
-                1350
+                800
               ],
               "n": 3
             },
             "1024": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1337
+                1331
               ],
-              "n": 4
+              "n": 3
             }
           },
           "load": {
             "256": {
-              "max": 0.82,
+              "max": 0.25,
               "rep_median": [
-                0.75,
-                0.74,
-                0.76,
-                0.78,
-                0.82
+                0.25,
+                0.25,
+                0.24,
+                0.25,
+                0.24
               ]
             },
             "512": {
-              "max": 0.8,
+              "max": 0.23,
               "rep_median": [
-                0.75,
-                0.78,
-                0.75,
-                0.75,
-                0.71
+                0.23,
+                0.22,
+                0.21,
+                0.23,
+                0.23
               ]
             },
             "640": {
-              "max": 0.8,
+              "max": 0.28,
               "rep_median": [
-                0.79
+                0.28
               ]
             },
             "768": {
-              "max": 0.75,
+              "max": 0.29,
               "rep_median": [
-                0.75
+                0.29
               ]
             },
             "896": {
-              "max": 0.71,
+              "max": 0.25,
               "rep_median": [
-                0.7
+                0.24
               ]
             },
             "1024": {
-              "max": 0.8,
+              "max": 0.26,
               "rep_median": [
-                0.77
+                0.25
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0534,
+          "sigma_runtime_512": 0.0129,
           "exponents": {
             "256->512": {
-              "k": 0.577,
+              "k": 0.565,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.038,
-              "tol": 0.559
+              "k": 1.084,
+              "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0457,
-            "512": 0.0534
+            "256": 0.0155,
+            "512": 0.0129
           },
           "exponents_measured": {
-            "256->512": 0.577,
-            "512->640": 0.794,
-            "640->768": 1.337,
-            "768->896": 1.545,
-            "896->1024": 2.932
+            "256->512": 0.565,
+            "512->640": 1.398,
+            "640->768": 0.7,
+            "768->896": 1.515,
+            "896->1024": 1.883
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-15",
-      "host": "UF-EV-A4-GWH01",
-      "commit": "4ba29781f",
+      "recorded": "2026-10-21",
+      "host": "UF-EV-A5-GWH02",
+      "commit": "a2b7938f1",
       "host_threads": 2,
       "models": {
         "nesso1": {
           "grid": "8x9",
-          "recorded": "2026-10-15",
-          "host": "UF-EV-A4-GWH01",
-          "commit": "4ba29781f",
+          "recorded": "2026-10-21",
+          "host": "UF-EV-A5-GWH02",
+          "commit": "a2b7938f1",
           "host_threads": 2,
           "runtime_s": {
-            "256": 5.16,
-            "512": 7.81,
-            "640": 9.87,
-            "768": 12.64,
-            "896": 15.89,
-            "1024": 24.6,
-            "1280": 44.4,
-            "1536": 66.33
+            "256": 4.9,
+            "512": 7.35,
+            "640": 9.26,
+            "768": 12.79,
+            "896": 15.68,
+            "1024": 18.62,
+            "1280": 43.55,
+            "1536": 64.74
           },
           "levers": {
             "256": {
@@ -6927,10 +6923,10 @@
                 "how": "stats"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 192,
-                "declined": 0,
-                "frac": 1.0,
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
@@ -6970,24 +6966,18 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 192,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "k_tiles=4:(4,4)": 192
-                },
-                "reason": "declines all 192 calls on k_tiles=4:(4,4) x192: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: it is scoped to an 8-tile weight K dim and Nesso-1's pair channel is 128, so every projection resolves 4 K tiles. That is a property of the checkpoint's c_z, not of N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 96,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=4": 96
-                },
-                "reason": "declines all 96 calls on k_tiles=4 x96: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and Nesso-1's trimul tail weight resolves 4 K tiles from c_hidden, not from N \u2014 inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -7013,24 +7003,26 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 672,
+                "served": 576,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection [carried from rung 896]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 384,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: trimul_t1 + trimul_t1_dram serve every trimul in-projection at 256-896, and T1 replaces the gated channel move and the mask-after-move, so neither is called. From 1024 the channel loop splits, T1 declines and both serve 384. Same on BH and WH (gate rel-803db0fc1 reads these cells 0/0 on WH). Falsifier: a call here means T1 stopped taking the in-projection [carried from rung 896]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -7797,67 +7789,67 @@
           },
           "runtime_reps_s": {
             "256": [
-              5.21,
-              5.22,
-              5.16,
-              5.16,
-              5.15
+              4.9,
+              4.86,
+              4.9,
+              4.98,
+              5.02
             ],
             "512": [
-              7.81,
-              7.72,
-              7.92,
-              7.81,
-              7.93
+              7.35,
+              7.4,
+              7.1,
+              7.35,
+              7.18
             ],
             "640": [
-              9.87
+              9.26
             ],
             "768": [
-              12.64
+              12.79
             ],
             "896": [
-              15.89
+              15.68
             ],
             "1024": [
-              24.6
+              18.62
             ],
             "1280": [
-              44.4
+              43.55
             ],
             "1536": [
-              66.33
+              64.74
             ]
           },
           "aiclk": {
             "256": {
-              "card": "31",
+              "card": "2",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                500,
+                500,
+                1000,
+                500,
+                1000
+              ],
+              "n": 16
+            },
+            "512": {
+              "card": "2",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
-                500,
+                1000,
                 1000,
                 1000,
                 1000
               ],
               "n": 15
             },
-            "512": {
-              "card": "31",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000,
-                1000,
-                1000
-              ],
-              "n": 16
-            },
             "640": {
-              "card": "31",
+              "card": "2",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7866,7 +7858,7 @@
               "n": 4
             },
             "768": {
-              "card": "31",
+              "card": "2",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7875,7 +7867,7 @@
               "n": 4
             },
             "896": {
-              "card": "31",
+              "card": "2",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7884,16 +7876,16 @@
               "n": 5
             },
             "1024": {
-              "card": "31",
+              "card": "2",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 7
+              "n": 5
             },
             "1280": {
-              "card": "31",
+              "card": "2",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7902,97 +7894,97 @@
               "n": 10
             },
             "1536": {
-              "card": "31",
+              "card": "2",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 14
+              "n": 20
             }
           },
           "load": {
             "256": {
-              "max": 0.61,
+              "max": 0.49,
               "rep_median": [
-                0.6,
-                0.58,
-                0.56,
-                0.55,
-                0.55
+                0.41,
+                0.43,
+                0.48,
+                0.48,
+                0.46
               ]
             },
             "512": {
-              "max": 0.74,
+              "max": 0.48,
               "rep_median": [
-                0.57,
-                0.62,
-                0.58,
-                0.6,
-                0.72
+                0.47,
+                0.46,
+                0.45,
+                0.45,
+                0.45
               ]
             },
             "640": {
-              "max": 0.64,
+              "max": 0.46,
               "rep_median": [
-                0.62
+                0.45
               ]
             },
             "768": {
-              "max": 0.63,
+              "max": 0.51,
               "rep_median": [
-                0.62
+                0.48
               ]
             },
             "896": {
-              "max": 0.67,
+              "max": 0.52,
               "rep_median": [
-                0.64
+                0.51
               ]
             },
             "1024": {
-              "max": 0.67,
+              "max": 0.51,
               "rep_median": [
-                0.65
+                0.5
               ]
             },
             "1280": {
-              "max": 0.67,
+              "max": 0.52,
               "rep_median": [
-                0.63
+                0.5
               ]
             },
             "1536": {
-              "max": 0.68,
+              "max": 0.58,
               "rep_median": [
-                0.66
+                0.53
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0114,
+          "sigma_runtime_512": 0.018,
           "exponents": {
             "256->512": {
-              "k": 0.598,
+              "k": 0.585,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.187,
+              "k": 1.366,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0061,
-            "512": 0.0114
+            "256": 0.0138,
+            "512": 0.018
           },
           "exponents_measured": {
-            "256->512": 0.598,
-            "512->640": 1.049,
-            "640->768": 1.357,
-            "768->896": 1.484,
-            "896->1024": 3.273,
-            "1024->1280": 2.646,
-            "1280->1536": 2.202
+            "256->512": 0.585,
+            "512->640": 1.035,
+            "640->768": 1.771,
+            "768->896": 1.322,
+            "896->1024": 1.287,
+            "1024->1280": 3.808,
+            "1280->1536": 2.175
           }
         }
       }

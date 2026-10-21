@@ -183,7 +183,13 @@ OPM_B8CFG_FAST = frozenset({"opm_b8cfg"})
 # cdk2x2 512 x 1 on a p300 chip at 1350 MHz, 4 paired warm folds in one process (bhab5): steady 28.85 -> 25.49 s median, -3.19 s.
 # ws_psilu rides along bit-identically: pair SwiGLU kernel at N 512 c 256 4.08 -> 3.26 ms (wsk), and the fold's CIFs are
 # identical with it on and off, steady warm pairs +0.39 / -0.76 / -0.78 s (psf, p300 at 1325 MHz mean).
-BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu"}) | TRIATT_LN_B8_FAST
+# trimul_t1_dram: below 352 tokens T1 declined every call on the L1 path (0 served, 3384 declined per 256-token fold); on the
+# DRAM path it serves. Never fires at 512. Blackhole 256-token fast grade vs the set above (spd-m-protenix gt1bhf, 2026-10-21),
+# 44 paired folds over 4 seeds, PASS: same-seed top pose median 1.118 A vs the 4.872 A A/A floor, CA-lDDT +0.0008 [-0.0012,
+# +0.0034], DockQ -0.012 [-0.028, -0.001], docking 22/44 -> 22/44. Separate processes on a p300 chip at 1350 MHz (bht1d):
+# warm 12.47 / 11.87 / 12.05 / 12.11 -> 9.85 / 9.74 / 9.95 s.
+BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu",
+                        "trimul_t1_dram"}) | TRIATT_LN_B8_FAST
 # dit_shoist and trimul_t1w8 (T1's resident weights bfp8, c_z 256 in one launch) in Protenix-v2's Wormhole normal set.
 # Wormhole 512-token normal grade, shipped Protenix-v2 Wormhole normal set vs + both, 44 paired folds (spd-m-protenix
 # gstn, 2026-10-20), PASS: same-seed top pose median 0.221 A vs the 0.6 A bar (1.145 A A/A floor), CA-lDDT +0.0002
@@ -196,7 +202,18 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # Separate processes on one Galaxy chip at 1000 MHz (tbx): 55.98 / 55.99 -> 53.36 / 53.21 s warm; transition_b8 alone 55.18 s.
 # ws_psilu rides along bit-identically on that plain kernel: CIFs identical on 8 of 8 warm folds, separate processes on
 # one Galaxy chip at 1000 MHz (psn): 53.36 / 53.24 / 53.72 / 53.24 -> 52.81 / 52.82 / 52.62 / 53.02 s warm.
-WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu"})
+# trimul_t1_dram: below 352 tokens the trimul loop runs from L1, where T1 declined; on the DRAM path T1 serves those folds
+# too. Never fires at 512. Wormhole 256-token normal grade vs the set above (spd-m-protenix t1p, 2026-10-21), 44 paired folds
+# over 4 seeds, PASS: same-seed top pose median 0.306 A vs the 0.6 A bar (3.271 A A/A floor), CA-lDDT -0.0010 [-0.0030,
+# +0.0008], ipTM -0.0035, docking 23/44 -> 24/44. Same grid, 5 samples, two Galaxy chips at 1000 MHz: warm median 42.02 -> 35.45 s.
+WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram"})
+# Protenix-v2's Blackhole normal set: dit_shoist + transition_b8 + ws_b8_plain, graded as one stack. Blackhole 512-token normal
+# grade vs the shipped Blackhole normal set (spd-m-protenix gsbn, 2026-10-21), 44 paired folds over 4 seeds on a p300 at
+# 1312-1350 MHz, PASS: same-seed top pose median 0.602 A vs the 1.311 A A/A floor, CA-lDDT -0.0004 [-0.0045, +0.0038], docking
+# 36/44 -> 36/44, every interval covers 0. dit_shoist alone read 0.049 A but its lrmsd interval excluded 0 (+0.69 [+0.004, +1.76]),
+# so it ships only inside the stack. Separate processes on one p300 chip at 1300-1350 MHz (bhab10): transition_b8 + ws_b8_plain
+# 28.57 / 28.28 -> 27.37 / 27.26 / 27.08 / 27.22 s warm; dit_shoist in-process x3 (bhab12) +0.1 s, inside the noise.
+BH_V2_NORMAL = frozenset({"dit_shoist", "transition_b8", "ws_b8_plain"})
 # dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
 # float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
 # mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
@@ -210,18 +227,34 @@ DIT_MM_WH = frozenset({"dit_shoist_mm", "dit_step_mm"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
+_TEMPLATE_KEYS = ("template_aatype", "template_distogram", "template_pseudo_beta_mask", "template_unit_vector",
+                  "template_backbone_frame_mask")
+
+
+def template_sources(feat):
+    """For each template slot, the first slot whose features equal it (itself when none does).
+
+    Equal slots give bit-identical template-embedder outputs, so `Trunk._template` computes each once and re-adds
+    it in slot order. Without real templates that is 2 of the 4 dummy slots: slot 0 is the gap token, slots 1-3
+    are ALA over zero geometry (`protenix_data.dummy_template_features`)."""
+    src = []
+    for t in range(feat["template_aatype"].shape[0] if "template_aatype" in feat else 0):
+        src.append(next((u for u in sorted(set(src)) if all(torch.equal(feat[k][u], feat[k][t]) for k in _TEMPLATE_KEYS)), t))
+    return src
+
+
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1` and `DIT_MM_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
-    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
+    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     wh_both = TRIATT_LN | TRIATT_K1 | DIT_MM_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL
-                            | (WH_V2_NORMAL if wh else frozenset()) if v2 else NORMAL_LEVERS) | wh_both,
+                            | (WH_V2_NORMAL if wh else BH_V2_NORMAL) if v2 else NORMAL_LEVERS) | wh_both,
                            fast | SHOIST_FAST if v2 else fast)
 
 
@@ -3481,8 +3514,10 @@ class Trunk(_KeyedWeights):
         w = state_dict.get("layernorm_z_cycle.weight")
         return int(w.shape[0]) if w is not None else None
 
-    def _template(self, z3, tpl_a, N, nt, pmask_tt=None, attn_tt=None):
-        # tpl_a: nt device tensors, each already `linear_no_bias_a(at)` for one template.
+    def _template(self, z3, tpl_a, src, pmask_tt=None, attn_tt=None):
+        # tpl_a: one device tensor per distinct template, each already `linear_no_bias_a(at)`; src[t] is the
+        # first slot whose features equal slot t's (`template_sources`), so a repeated slot re-adds that
+        # slot's output in its own place in the sum: the fold is bit-identical to computing every slot.
         # The projection is cycle-invariant, so the caller hoists it out of the recycling
         # loop (see Trunk.__call__); passing the raw host feature concat here is a bug.
         # nt template projections read this whole normed pair tensor to write two tiles of
@@ -3496,20 +3531,24 @@ class Trunk(_KeyedWeights):
         zn = self._ln(z3, "template_embedder.layernorm_z.weight",
                       "template_embedder.layernorm_z.bias", l1=True)
         vs = []
-        for t in range(nt):
-            a = host_unpark(tpl_a[t])
+        for ta in tpl_a:
+            a = host_unpark(ta)
             vs.append(ttnn.add(a, self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
                                memory_config=ttnn.DRAM_MEMORY_CONFIG))
-            if a is not tpl_a[t]:
+            if a is not ta:
                 ttnn.deallocate(a)
         ttnn.deallocate(zn)
-        u = None
-        for t in range(nt):
-            v = vs[t]
-            for pl in self.TPL:
-                v = pl(None, v, pmask_tt, attn_tt, attn_tt)[1]
-            v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
+        slot = {t: i for i, t in enumerate(sorted(set(src)))}
+        out, u = {}, None
+        for t in range(nt := len(src)):
+            if src[t] == t:
+                v = vs[slot[t]]
+                for pl in self.TPL:
+                    v = pl(None, v, pmask_tt, attn_tt, attn_tt)[1]
+                out[t] = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
+            v = out[src[t]]
             u = v if u is None else ttnn.add(u, v)
+        del out
         u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
         # z + linear_u(relu(u)), the embedder's residual. Per pair position, so after DRAM refuses
         # the single pass it runs in row blocks and the old z is freed at the join: at 1536 tokens
@@ -3707,8 +3746,9 @@ class Trunk(_KeyedWeights):
         # -1 == -1 is True in the pad-by-pad block, and pm is what covers that.
         pm = torch.ones(N, N) if not pad else (m1[0][:, None] * m1[0][None, :])
         nt = feat["template_aatype"].shape[0] if "template_aatype" in feat else 0
+        tpl_src = template_sources(feat)
         te_at = []
-        for t in range(nt):
+        for t in sorted(set(tpl_src)):
             dg = feat["template_distogram"][t] * mc[..., None] * pm[..., None]
             pb = (feat["template_pseudo_beta_mask"][t] * mc * pm).unsqueeze(-1)
             aa = F.one_hot(feat["template_aatype"][t].long(), 32).float()
@@ -3729,7 +3769,7 @@ class Trunk(_KeyedWeights):
                   else None)
         return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp), relp_g=relp_g,
                     token_bonds=self._host_cast(token_bonds.unsqueeze(-1)),
-                    pm_pad=pm_pad, at_pad=at_pad, nt=nt,
+                    pm_pad=pm_pad, at_pad=at_pad, nt=nt, tpl_src=tpl_src,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
 
     def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
@@ -3856,7 +3896,7 @@ class Trunk(_KeyedWeights):
             # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
             # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
             if nt > 0 and self.TPL:
-                z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
+                z3 = self._template(z3, tpl_a, host["tpl_src"], pmask_tt, attn_tt)
             z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, rows)
             if rows is not None and not ops.taping():
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's

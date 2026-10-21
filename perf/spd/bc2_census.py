@@ -26,6 +26,7 @@ the census is of the part that runs on the card.
 """
 import argparse
 import collections
+import gc
 import glob
 import json
 import os
@@ -59,6 +60,12 @@ ap.add_argument("--stub-structure", action="store_true",
 ap.add_argument("--structure", choices=("card", "host"),
                 help="BindCraft 2: where AF2's structure module runs; default: bindcraft2.predictor's own choice "
                      "(card under the fast round on Blackhole)")
+ap.add_argument("--gc-freeze", type=int, default=0,
+                help="gc.freeze() at the start of this call (0 = never): the host objects alive by then, "
+                     "trunks and weights, leave the cyclic collector's generation-2 walk")
+ap.add_argument("--gc-census", type=int, default=0,
+                help="at the start of this call write gc_census.json: tracked objects per generation and the "
+                     "types that fill generation 2, then time one full collection (0 = never)")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -233,6 +240,22 @@ def blocking(fn):
     return run
 
 
+# Wall of Python's cyclic collector, by generation. A live tape is millions of host objects, so a
+# generation-2 pass can stall the enqueue of whatever seam it lands in.
+gcwall = collections.Counter()
+_gc_t0 = [0.0]
+
+
+def _gc_cb(phase, info):
+    if phase == "start":
+        _gc_t0[0] = time.monotonic()
+    else:
+        gcwall[f"gen{info['generation']}_s"] += time.monotonic() - _gc_t0[0]
+        gcwall[f"gen{info['generation']}_n"] += 1
+
+
+gc.callbacks.append(_gc_cb)
+
 _ttnn = __import__("ttnn")
 for _name in ("to_torch", "from_device", "synchronize_device"):
     setattr(_ttnn, _name, blocking(getattr(_ttnn, _name)))
@@ -312,12 +335,31 @@ def dump(out, path):
     np.savez(path, **{f"leaf_{i}": np.asarray(a, dtype=np.float64) for i, a in enumerate(arrays(out))})
 
 
+def gc_census(path):
+    """What a generation-2 pass walks: tracked objects per generation, the 40 commonest types in
+    generation 2 by module.qualname, and the wall of one full collection taken right after."""
+    gens = [gc.get_objects(generation=g) for g in range(3)]
+    types = collections.Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gens[2])
+    doc = dict(n=state["n"], per_gen=[len(g) for g in gens], frozen=gc.get_freeze_count(),
+               gen2_types=types.most_common(40))
+    del gens
+    t = time.monotonic()
+    doc["collected"] = gc.collect()
+    doc["full_collect_s"] = round(time.monotonic() - t, 4)
+    path.write_text(json.dumps(doc, indent=1))
+
+
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
+    if state["n"] == a.gc_census:
+        gc_census(a.out / "gc_census.json")
+    if state["n"] == a.gc_freeze:
+        gc.freeze()
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         cb.clear()
         blocked.clear()
+        gcwall.clear()
         t0 = time.monotonic()
         out = None
         try:
@@ -334,6 +376,7 @@ def sequence_gradients(self, *args, **kwargs):
                                                 callbacks={k: round(v, 4) for k, v in cb.items()},
                                                 host_jax_s=round(wall - sum(cb.values()), 4),
                                                 blocked_s=round(blocked["s"], 4),
+                                                gc={k: round(v, 4) for k, v in gcwall.items()},
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))

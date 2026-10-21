@@ -1628,7 +1628,11 @@ _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+lm_qk_chain"
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
 # ef2_atom_rope is exact (rotate_half as a +-1 permutation matmul): ESMFold2-Fast 512 aa --fast CIF identical with and
 # without it, warm fold 16.53 -> 16.26 s mean of 3 pairs (Galaxy chip, 1000 MHz, spd-gap-whesmf wrp2).
-_WH_EXTRA = "+lm_gate_ng+ef2_atom_rope"
+# ws_psilu runs the pair SwiGLU's silu on the packer thread, overlapping the matmuls: CIFs identical with and without
+# it. In-process A/B, 512 aa --fast, repeat 3, Galaxy chip at 1000 MHz (wps6): ESMFold2 25.32 -> 24.54 s, ESMFold2-Fast
+# 15.07 -> 14.57 s, -Fast 256 aa 5.32 -> 5.22 s; normal mode (wpsn) ESMFold2 25.78 -> 25.07 s, -Fast 15.25 -> 14.81 s.
+# Wormhole only: on Blackhole -Fast 512 aa --fast reads +0.15 s at 1350 MHz.
+_WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu"
 # dit_qkvf runs the token DiT's attention as one `_sdpa32_fused` program off a folded q|k|v projection. Fast bar on
 # Wormhole against the WH fast set without it, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-bet-ditpersist dsg): ESMFold2-Fast CA-lDDT -0.0002 [-0.0006, +0.0003], top-pose median 0.55 A vs 1.46 A
@@ -1652,7 +1656,12 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope"
 # wbfb4, 9DBP/9PCQ/9W89/9W8A x 4 seeds): ESMFold2-Fast CA-lDDT -0.0003 [-0.0009, +0.0001], docking 8 -> 8 of 16;
 # ESMFold2 --fast CA-lDDT +0.0004 [-0.0086, +0.0098], docking 10 -> 10 of 16. In-process A/B (wb8f3): -Fast 1024
 # -1.83 s (-3.3 %), 768 -1.38 s, ESMFold2 1024 -2.91 s.
-_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8"
+# trimul_gin_w8 holds gin_moved's resident weights bfp8, so c_z 256 runs in one launch and reads the normed pair once
+# instead of per 128-channel slice. In-process A/B on the WH --fast set, repeat 3, Galaxy chip at 1000 MHz (wgw8):
+# ESMFold2 512 aa 25.11 -> 24.63 s, -Fast 512 14.74 -> 14.53 s, -Fast 256 5.30 -> 5.17 s, -Fast 1024 52.62 -> 52.47 s.
+# Fast-bar grade wgw8g (same chip, WH --fast set vs + this, 4 seeds x 5 samples): -Fast 11 complexes CA-lDDT +0.0008
+# [-0.0002, +0.0022], docking 23 -> 24 of 44; ESMFold2 10 complexes +0.0028 [-0.0000, +0.0073], docking 28 -> 27 of 40.
+_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8"
 # lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere).
 _LM_SDPA_STOCK = "+lm_sdpa_stock"
 # The ESMC language model on Blackhole as ESMFold2 folded it before ESMC took the Wormhole LM path there: graded on

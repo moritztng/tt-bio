@@ -199,8 +199,10 @@ _SAPROT_RL = env_flag("TT_BIO_SAPROT_RL", True)
 # fp32 delta): --fast hHSA 27.37 / 26.21 -> 24.73 / 23.23 (+0.000005), hPCSK9 26.02 / 26.32 -> 24.05 / 24.59 (-0.000067);
 # normal hHSA 27.45 / 27.02 -> 24.60 / 25.20 (-0.000030), hPCSK9 27.40 / 26.51 -> 24.66 / 24.48 (-0.000017). Normal runs
 # the qkv at HiFi3 (_normal_hifi3); the probe at HiFi4 + packer L1 acc wrote one k head at 1.35e-2, the -2^n defect noted
-# at _SAPROT_NORMAL_HIFI3. None = Wormhole until Blackhole grades it.
-_SAPROT_HALF_ROPE = env_flag("TT_BIO_SAPROT_HALF_ROPE", None)
+# at _SAPROT_NORMAL_HIFI3. Blackhole (ls114, p300c at 1350 MHz, host-loaded so ms = min of 3 a round, off -> on, pcc
+# delta): --fast hHSA 17.35 / 17.72 -> 14.74 / 15.98 (-0.000057), hPCSK9 24.73 / 27.99 -> 23.86 / 26.24 (-0.000002);
+# normal hHSA 15.99 -> 15.97 (+0.000002), hPCSK9 26.99 / 27.11 -> 25.31 / 28.01 (-0.000057).
+_SAPROT_HALF_ROPE = env_flag("TT_BIO_SAPROT_HALF_ROPE", True)
 _HALF_ROPE_CFG = (5, 5, 4, 1, 4)
 _HALF_ROPE_IN1 = 5
 # Wide: zero-pad 35M's 20 heads to 24 (mm_rope.pad_heads_for) so the qkv's 72 tiles split 9 a core over all 8 in1 cores
@@ -211,9 +213,10 @@ _RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4,
                                           fp32_dest_acc_en=True, packer_l1_acc=False)
 
 
-def _sdpa_ckc(qkrh: bool):
-    """shsdpa's kernel config for a block whose heads came from the packed RoPE program (`qkrh`); None = its HiFi2."""
-    return _SDPA_FP32 if (qkrh if _SAPROT_SDPA is None else _SAPROT_SDPA) else None
+def _sdpa_ckc(qkrh: bool, h3: bool = False):
+    """shsdpa's kernel config for a block whose heads came from the packed RoPE program (`qkrh`) or whose normal-mode
+    projections run at HiFi3 (`h3`, see _SAPROT_NORMAL_HIFI3); None = its HiFi2."""
+    return _SDPA_FP32 if ((qkrh or h3) if _SAPROT_SDPA is None else _SAPROT_SDPA) else None
 
 
 def _saprot_qkrh(w) -> bool:
@@ -431,15 +434,16 @@ def _role(d, k, n):
 # (prefix_probe: -0.1230 written as -4.1195 at a cancelling K-block add) that HiFi3 did not at any K prefix.
 # ls84 page A/B (.107 Galaxy chips, 1000 MHz, 2 rounds x 3, normal, ms off -> on, pcc vs fp32 delta): 650M hHSA
 # 159.66 -> 151.08 (+0.000009), hPCSK9 159.56 -> 150.39 (-0.000050); 1.3B hHSA 306.75 -> 288.14 (+0.000016); 35M hHSA
-# 28.88 -> 28.20 (+0.000010). None = Wormhole until Blackhole is graded.
-_SAPROT_NORMAL_HIFI3 = env_flag("TT_BIO_SAPROT_NORMAL_HIFI3", None)
+# 28.88 -> 28.20 (+0.000010). Blackhole normal has no packed RoPE, so its attention ran shsdpa's HiFi2 bf16 dest and
+# HiFi3 alone failed 650M hPCSK9 (ls85, -0.000154 vs the normal bar 0.0001). With the attention at HiFi4 fp32 dest
+# wherever the HiFi3 projections run (_sdpa_ckc), ls120 (p300c at 1350 MHz, min of 3 a round, off -> on, pcc delta):
+# 650M hHSA 91.54 / 91.65 -> 91.08 / 89.93 (+0.000137), hPCSK9 91.43 / 93.37 -> 89.14 / 88.89 (+0.000086), 1.3B
+# hPCSK9 184.22 / 187.75 -> 179.17 / 188.55 (+0.000087). The two ship as one stack.
+_SAPROT_NORMAL_HIFI3 = env_flag("TT_BIO_SAPROT_NORMAL_HIFI3", True)
 
 
 def _normal_hifi3() -> bool:
-    if _SAPROT_NORMAL_HIFI3 is not None:
-        return bool(_SAPROT_NORMAL_HIFI3)
-    from tt_bio import tenstorrent
-    return tenstorrent.is_wormhole()
+    return bool(_SAPROT_NORMAL_HIFI3)
 
 
 class _SaprotLin(_MMLin):
@@ -657,8 +661,8 @@ class ESM2Attention(_SaprotLin, Module):
 
     def _half_rope(self, x):
         """(rope(q), rope(k), v) [B, H, L, 32] from one half-pair mm_rope matmul, or None where it is off or declines."""
-        from tt_bio import mm_rope, tenstorrent
-        if not (self.rope_pairs and (tenstorrent.is_wormhole() if _SAPROT_HALF_ROPE is None else _SAPROT_HALF_ROPE)):
+        from tt_bio import mm_rope
+        if not (self.rope_pairs and _SAPROT_HALF_ROPE):
             return None
         cfg, nc = _HALF_ROPE_CFG, 8 if _SAPROT_HALF_WIDE else _HALF_ROPE_IN1
         dev = lambda t, dt: ttnn.from_torch(t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
@@ -680,6 +684,11 @@ class ESM2Attention(_SaprotLin, Module):
         cos, sin = _HALF_TABLES[key]
         return mm_rope.qkv_rope_heads(x, qw, qb, cos, sin, self.n_heads, cfg, grid, self._ck(self.qkv_weight),
                                       half=True, ncols=nc)
+
+    def _h3(self) -> bool:
+        """Normal mode's qkv runs at HiFi3 (see _ck)."""
+        return (_normal_hifi3() and self.qkv_weight.dtype == ttnn.bfloat16
+                and self.compute_kernel_config.math_fidelity == ttnn.MathFidelity.HiFi4)
 
     def _rope_pairs(self, t, cos, sin):
         """rotary_embedding_llama on [B, H, L, 32] heads, as one batch of B * H heads (its prefill takes batch 1)."""
@@ -729,7 +738,7 @@ class ESM2Attention(_SaprotLin, Module):
         d = int(self.norm_weight.shape[-1])
         b8 = _in_b8_on(self.out_weight, d) and _SAPROT_SDPA_B8
         o = lm_sdpa(q, k, v, attn_mask, scale=self.head_dim ** -0.5, merge=True,
-                    ckc=_sdpa_ckc(heads is not None and not self.fold_rope),
+                    ckc=_sdpa_ckc(heads is not None and not self.fold_rope, not self.fold_rope and self._h3()),
                     out_dtype=ttnn.bfloat8_b if b8 else None)  # [B, L, H*32] when fold_rope; out_weight has the zero rows
         ttnn.deallocate(q); ttnn.deallocate(k); ttnn.deallocate(v)
         o = _in_b8(o, self.out_weight, d)

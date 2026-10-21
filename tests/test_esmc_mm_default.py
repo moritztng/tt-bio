@@ -275,6 +275,7 @@ def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_X_L1", None)
     monkeypatch.setattr(sp, "_SAPROT_RESID", False)
+    monkeypatch.setattr(sp, "_SAPROT_MM_RESID", False)   # the unfused add; mm_resid is on by default on Wormhole
     monkeypatch.setattr(sp, "_X_L1_REFUSED", set())
     seen = []
     monkeypatch.setattr(sp.ttnn, "add", lambda a, b, **kw: seen.append(kw.get("memory_config")) or a)
@@ -288,12 +289,14 @@ def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
 
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
-    """SaProt's page attention runs at HiFi4 fp32 dest behind the packed RoPE program by default; the switch overrides."""
+    """SaProt's page attention runs at HiFi4 fp32 dest behind the packed RoPE program or normal's HiFi3 projections by
+    default; the switch overrides."""
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_SDPA", switch)
     for qkrh in (True, False):
-        want = qkrh if switch is None else switch
-        assert sp._sdpa_ckc(qkrh) == (sp._SDPA_FP32 if want else None)
+        for h3 in (True, False):
+            want = (qkrh or h3) if switch is None else switch
+            assert sp._sdpa_ckc(qkrh, h3) == (sp._SDPA_FP32 if want else None)
 
 
 @pytest.mark.parametrize("k, n, wdtype, want", [(480, 1920, "bfloat8_b", True), (480, 1920, "bfloat16", True),

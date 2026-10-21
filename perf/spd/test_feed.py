@@ -195,6 +195,28 @@ def test_probe_reports_waiter_age(tmp_path):
     out = _probe_bh(tmp_path, queued=True)
     assert out["free"] == [] and out["queued"] == 1
     assert out["jobs"]["4-a.sh"]["state"] == "queued" and out["jobs"]["4-a.sh"]["age"] >= 0
+    assert out["qprio"] == [0, 0, 0, 0, 1, 0, 0, 0, 0]
+
+
+def test_a_bh_box_full_of_backfill_still_takes_a_lower_digit_cell(tmp_path, monkeypatch):
+    """A BH waiter yields its card to a lower digit, so backfill queued past the depth must not lock a prio-3 cell out
+    (10-21 qb2: five prio-4/8 waiters, depth 2 x 2 cards, every prio-3 Protenix BH cell refused)."""
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(BH_GRID.replace("prio: 4", "prio: 3"))
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb2": {"ssh": "qb2", "cards": [2, 3], "lock": "/l2_{c}"}})
+    placed = []
+
+    def remote(ssh, script, payload, timeout=120):
+        if script is feed.PROBE:
+            q = {f"{d}-y-f-b{i}.sh": {"state": "queued", "age": 5} for i, d in enumerate((4, 8, 8, 8, 8))}
+            return {"healthy": 2, "cards": [2, 3], "queued": 5, "qprio": [0, 0, 0, 0, 1, 0, 0, 0, 4], "free": [],
+                    "paused": False, "swept": 0, "live": [], "jobs": q, "exists": {}}
+        placed.extend(payload.get("jobs", []))
+        return len(payload.get("jobs", []))
+    monkeypatch.setattr(feed, "remote", remote)
+    run(tmp_path)
+    assert [j["name"][0] for j in placed] == ["3"]
 
 
 BH_GRID = """
@@ -785,3 +807,42 @@ def test_a_chip_lending_japanfold_box_is_a_pool_sized_by_its_lent_chips(tmp_path
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path)}, check=True)
     assert json.loads(r.stdout)["paused"] is True
+
+
+LEAD = """row: spd-a
+experiments:
+  - name: ok
+    axes: {seed: ["1", "2"]}
+    done: ["/tmp/x/{seed}/done"]
+    command: echo {seed}
+  - name: hiprio
+    prio: 1
+    done: ["/tmp/y"]
+    command: echo y
+"""
+
+
+def test_a_bad_grid_file_skips_alone_and_prio_clamps(tmp_path):
+    (tmp_path / "a.yaml").write_text(LEAD)
+    (tmp_path / "b.yaml").write_text("row: [unclosed\n")
+    (tmp_path / "c.yaml").write_text("experiments: []\n")   # no row
+    warned = []
+    cs = feed.cells(tmp_path, log=warned.append)
+    prio = {c["key"]: int(c["name"].split("-")[0]) for c in cs}
+    assert sorted(prio) == ["spd-a/hiprio/x", "spd-a/ok/1", "spd-a/ok/2"]
+    assert prio["spd-a/hiprio/x"] == 3
+    assert sum(w.startswith("skip ") for w in warned) == 2, warned
+    lead = {c["key"]: int(c["name"].split("-")[0]) for c in feed.cells(tmp_path, log=lambda m: None, lead={"spd-a"})}
+    assert lead["spd-a/hiprio/x"] == 2
+
+
+def test_lead_rows_are_live_rows_dedicated_to_a_directive(tmp_path):
+    (tmp_path / "state/spd/steer").mkdir(parents=True); (tmp_path / "state/concluded").mkdir()
+    (tmp_path / "state/spd/steer/config.json").write_text(json.dumps(
+        {"groups": {"protenix": ["protenix-v2"], "esmc": ["esmc-300m"]}, "directives": {"protenix": {"x": 5}}}))
+    (tmp_path / "state/spd/OWNERS.tsv").write_text(
+        "# slug kind models\nspd-m-protenix\tcell\tprotenix-v2\nspd-bet-old\tbet\tprotenix-v2\n"
+        "spd-shared\tcell\tprotenix-v2,esmc-300m\nspd-m-esmc\tcell\tesmc-300m\n")
+    (tmp_path / "state/concluded/spd-bet-old").touch()
+    assert feed.lead_rows(tmp_path) == {"spd-m-protenix"}
+    assert feed.lead_rows(tmp_path / "missing") == set()
