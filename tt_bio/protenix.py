@@ -1926,15 +1926,11 @@ class DiffusionModule(_KeyedWeights):
             a_t, s_t = (ttnn.pad(x, [(0, 0)] * (len(x.shape) - 2) + [(0, NP - NT), (0, 0)], value=0.0)
                         for x in (a_t, s_t))
 
-        lp = self._dit_lp
-
         def linb(x, wk, bk=None, act=None):
-            # dit_step_mm reaches these only on a DiT without DitLowp (a bf16 DiT off dit_b8: OpenDDE).
-            if lp is None:
-                return _T.dit_linear(x, wtt(wk), wtt(bk, False) if bk else None, ckc=ckc, activation=act)
             return ttnn.linear(x, wtt(wk), bias=(wtt(bk, False) if bk else None), activation=act,
                                compute_kernel_config=_T.silu_ckc(ckc) if act == "silu" else ckc,
                                core_grid=CORE_GRID_MAIN)
+        lp = self._dit_lp
         # dit_mm16 / dit_b8: each adaLN writes lp.act, read only by linears; the transition's two
         # hidden linears write bf16, their product lp.mid into linear_nobias_b, which writes lp.out.
         ln_dt = lp.act if lp else None
