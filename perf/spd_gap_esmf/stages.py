@@ -73,7 +73,9 @@ STAGES = [
     (E.RelPosEncoding, "forward", "relpos"),
 ]
 acc = collections.defaultdict(float); host = collections.defaultdict(float); cnt = collections.Counter(); depth = [0]
-dev = T.get_device()
+# Name the trace capture at open: a device opened without its region makes the sampler run eager under
+# TT_BIO_ESMFOLD2_DIFFUSION_TRACE=1, and a trace arm then times the eager path.
+dev = T.get_device(trace="esmfold2" if E.DIFFUSION_TRACE else None)
 
 
 def wrap(owner, attr, label):
@@ -123,6 +125,7 @@ if a.plain:
         return r
     bmm_res.matmul = counted
 t0 = time.perf_counter(); s, m = one_fold(); res["plain_s"] = round(time.perf_counter() - t0, 3)
+res["diffusion_trace"] = [T.trace_region_size(), *E.DIFFUSION_TRACE_STATS]  # region bytes, steps replayed, steps eager
 res["plain_fold_s"] = round(s, 3); res["plddt"] = m.get("plddt"); res["ptm"] = m.get("ptm")
 print("plain", res["plain_s"], flush=True)
 if a.plain:
