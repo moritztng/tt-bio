@@ -43,6 +43,13 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", required=True)
     ap.add_argument("--work", default="/home/moritz/rfd4-e2e-runs/tt/control")
+    ap.add_argument("--features", choices=("ours", "upstream"), default="ours",
+                    help="upstream: take the featurizer's ambient-stream draws (the chain and "
+                         "molecule labels and the internal-coordinate frame) from an upstream "
+                         "seam dump, which is the only way to hold them equal across the two "
+                         "implementations -- see state/rfd4/PAIR.md")
+    ap.add_argument("--upstream-seams",
+                    default="/home/moritz/rfd4-pair-runs/upstream/seed0/seams.pt")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -56,6 +63,11 @@ def main():
     designs = rfd4.prepare_examples(a.spec, f"{a.work}/inputs")
     features, _ = rfd4.featurize(designs[0].cif, seed=a.seed)
     batch = E.preprocess(features)
+    if a.features == "upstream":
+        up_seams = torch.load(a.upstream_seams, weights_only=False)
+        for key in ("chain_iid", "molecule_iid", "condition_InternalCoordinate_1_atom"):
+            src = next(v for k, v in up_seams["batch"].items() if k == key or k.endswith("." + key))
+            batch[key] = src.to(batch[key].dtype)
     n_tokens = batch["padding_mask"].shape[1]
 
     snapshot = glob.glob("/home/moritz/.cache/huggingface/hub/models--nvidia--RFD4-Proteina/snapshots/*/")[0]
@@ -90,7 +102,7 @@ def main():
     r, t = kabsch(ours_target[:len(up_target)], up_target)
     rmsd = float(np.sqrt((((ours_binder @ r.T + t) - up_binder) ** 2).sum(1).mean()))
     tgt = float(np.sqrt((((ours_target[:len(up_target)] @ r.T + t) - up_target) ** 2).sum(1).mean()))
-    res = {"seed": a.seed, "tokens": n_tokens, "binder_residues": n_binder,
+    res = {"seed": a.seed, "tokens": n_tokens, "features": a.features, "binder_residues": n_binder,
            "trunk": "upstream's own host fp32 layers", "sampler": "tt-bio, rng_mode=upstream",
            "binder_ca_rmsd_a": round(rmsd, 3), "target_ca_rmsd_a": round(tgt, 3),
            "device_run_rmsd_a": 3.315,

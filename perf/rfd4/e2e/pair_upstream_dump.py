@@ -92,6 +92,39 @@ def reseed_at_featurize(seed: int) -> None:
     D.DataLoader.__init__ = loader_init
 
 
+def log_featurize_draws() -> list:
+    """Record every `np.random.permutation` the featurizer takes, with the array it indexes.
+
+    The chain and molecule labels are `permutation(n)[inverse_of_unique(annotation)]`, so both
+    the draw and the annotation's sort order decide the label. The caller's frame carries the
+    atom array, which is the only place the annotation can be read at that moment.
+    """
+    import inspect
+
+    from rfproteina.datapipes import pipeline as P
+
+    draws: list = []
+    real = P.np.random.permutation
+
+    def spy(n):
+        result = real(n)
+        frame = inspect.currentframe().f_back
+        aa = frame.f_locals.get("aa")
+        entry = {"n": int(n), "draw": [int(v) for v in np.atleast_1d(result)],
+                 "line": frame.f_lineno}
+        if aa is not None:
+            for name in ("chain_iid", "molecule_iid"):
+                if name in aa.get_annotation_categories():
+                    v = aa.get_annotation(name)
+                    entry[name] = {"unique": [str(x) for x in np.unique(v)],
+                                   "first": str(v[0]), "last": str(v[-1])}
+        draws.append(entry)
+        return result
+
+    P.np.random.permutation = spy
+    return draws
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=0)
@@ -102,6 +135,9 @@ def main() -> int:
                     help="seed python/numpy/torch to --seed at the entry of each example's "
                          "featurization, the way tt-bio's prepare_cif does, and run the "
                          "dataloader in-process so that is the stream the transforms draw from")
+    ap.add_argument("--log-featurize-draws", action="store_true",
+                    help="record the pipeline's chain/molecule permutation draws and the "
+                         "annotations they index, which is where the labels are decided")
     ap.add_argument("overrides", nargs="*")
     a = ap.parse_args()
     out = Path(a.out)
@@ -168,6 +204,8 @@ def main() -> int:
     force_cpu_fp32_trainer()
     if a.reseed_at_featurize:
         reseed_at_featurize(a.seed)
+    if a.log_featurize_draws:
+        blob["featurize_draws"] = log_featurize_draws()
 
     def caused_by_enough(exc):
         seen = set()
