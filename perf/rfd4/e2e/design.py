@@ -1,11 +1,12 @@
 """One RFD4 design end to end on a card, timed, with the clock sampled during it.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/e2e/design.py --spec <spec.yaml> --weights <bundle> \
-        --out <dir> [--seed 0] [--designs 2]
+        --out <dir> [--seed 0] [--designs 2] [--recipe thinking_medium]
 
-The recipe is the released `thinking_medium`, 60 steps and 180 trunk passes, and nothing here can
-shorten it: the engine takes its step count from the recipe and the sampler refuses a depth list of
-the wrong length. Each design writes its CIF and one JSON line to `<out>/runs.jsonl`:
+`--cif` takes an annotated CIF instead of a spec, which is the form the condition-family
+benchmarks ship in. `--recipe` picks the recycle schedule, because RFD4 prescribes a different
+one per design task. Every schedule is 60 steps and nothing here can shorten it: the engine takes
+its step count from the recipe and the sampler refuses a depth list of the wrong length. Each design writes its CIF and one JSON line to `<out>/runs.jsonl`:
 
 * `kind: cold` is the engine build (device open, weight upload), reported apart, never amortised.
 * The first design pays kernel compilation; it is recorded but is not the warm number.
@@ -37,7 +38,9 @@ CLOCK_FLOOR_MHZ = 1200
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--spec", required=True)
+    ap.add_argument("--spec", help="design spec; mutually exclusive with --cif")
+    ap.add_argument("--cif", help="an annotated CIF, featurized directly")
+    ap.add_argument("--recipe", default="thinking_medium")
     ap.add_argument("--weights", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
@@ -61,15 +64,20 @@ def main():
         log.flush()
         print(json.dumps(rec), flush=True)
 
+    if bool(a.spec) == bool(a.cif):
+        ap.error("pass exactly one of --spec and --cif")
     t0 = time.perf_counter()
-    designs = rfd4.prepare_examples(a.spec, out / "inputs")
+    if a.cif:
+        designs = [rfd4.DesignInput(Path(a.cif).stem, Path(a.cif))]
+    else:
+        designs = rfd4.prepare_examples(a.spec, out / "inputs")
     features, atom_array = rfd4.featurize(designs[0].cif, seed=a.seed)
     t_feat = time.perf_counter() - t0
     n_tokens = int(features["padding_mask"].shape[-1])
 
     with clocksample.during() as clk:
         t0 = time.perf_counter()
-        engine = E.DesignEngine(a.weights, recipe="thinking_medium")
+        engine = E.DesignEngine(a.weights, recipe=a.recipe)
         t_build = time.perf_counter() - t0
     emit({"kind": "cold", "what": "engine build (device open + weight upload)", "wall_s": round(t_build, 2),
           "featurize_s": round(t_feat, 2), "aiclk": clk.summary()})
@@ -99,7 +107,7 @@ def main():
         summ = clk.summary()
         mhz = _median_mhz(summ)
         emit({"kind": "compile" if i == 0 else "warm", "size": n_tokens, "designs": 1, "batch": 1,
-              "recipe": "thinking_medium", "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
+              "recipe": a.recipe, "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
               "trunk_passes": int(sum(_depths(engine))), "seed": a.seed, "rng": a.rng,
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
               "trunk_s": round(sum(trunk_s), 3), "host_s": round(t_design - sum(trunk_s), 3),
