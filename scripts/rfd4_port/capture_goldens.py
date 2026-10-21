@@ -10,7 +10,11 @@ Work is handed out in chunks, one worker process per chunk, because importing rf
 torch costs ~30 s and featurizing one example costs ~15 s. A process per file spent four
 fifths of the wall clock on imports.
 
-    rfd4-ref-env/venv/bin/python -I capture_goldens.py [--jobs N] [--chunk N]
+Every golden is captured at an explicit --seed and records it. Without one the corpus is
+noise: `RealizeExpandableSegments` samples each expandable segment's length, so an input with a
+variable-length binder featurizes to a different token count on every run.
+
+    rfd4-ref-env/venv/bin/python -I capture_goldens.py [--jobs N] [--chunk N] [--seed N]
 """
 import argparse
 import json
@@ -45,10 +49,11 @@ def discover():
     return jobs
 
 
-def run_chunk(chunk):
+def run_chunk(args):
     """Worker entry: featurize a list of (family, src, dst) in ONE interpreter."""
     from dump_upstream_features import dump  # noqa: PLC0415 — after sys.path is set
 
+    chunk, seed = args
     out = []
     for family, src, dst in chunk:
         if Path(dst).exists():
@@ -56,7 +61,7 @@ def run_chunk(chunk):
             continue
         t0 = time.time()
         try:
-            dump(Path(src), Path(dst))
+            dump(Path(src), Path(dst), seed)
             out.append((src, "ok", time.time() - t0, ""))
         except Exception as e:  # one bad input must not lose the chunk
             out.append((src, "fail", time.time() - t0, f"{type(e).__name__}: {e}"[:300]))
@@ -67,6 +72,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--jobs", type=int, default=6)
     ap.add_argument("--chunk", type=int, default=8)
+    ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
 
     sys.path.insert(0, str(SELF.parent))
@@ -78,7 +84,7 @@ def main():
     print(f"{len(jobs)} inputs across {len(fams)} families ({len(todo)} to do): "
           + ", ".join(f"{k}={v}" for k, v in sorted(fams.items())), flush=True)
 
-    chunks = [todo[i:i + a.chunk] for i in range(0, len(todo), a.chunk)]
+    chunks = [(todo[i:i + a.chunk], a.seed) for i in range(0, len(todo), a.chunk)]
     results, done = [], 0
     with ProcessPoolExecutor(max_workers=a.jobs) as ex:
         for res in ex.map(run_chunk, chunks):
@@ -95,6 +101,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "INDEX.json").write_text(json.dumps({
         "upstream_sha": "2db07bb444d91695f8c10e6acb7648e9297f9221",
+        "seed": a.seed,
         "benchmarks": str(BENCH),
         "inputs": len(jobs),
         "captured": len(list(OUT.rglob("*.npz"))),
