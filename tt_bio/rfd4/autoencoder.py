@@ -55,6 +55,11 @@ class AEHalf(Module):
         for L in folded["layers"]:
             q_w, k_w, v_w = L["qkv_w"].chunk(3)
             q_b, k_b, v_b = L["qkv_b"].chunk(3)
+            # q and k go straight into a LayerNorm, which subtracts each row's channel mean, so removing
+            # that mean from the projection is exact. It matters on the card: a matmul result keeps 10
+            # mantissa bits, and the k projection's large common part made its rounding 5x the bf16 floor.
+            q_w, k_w = q_w - q_w.mean(0), k_w - k_w.mean(0)
+            q_b, k_b = q_b - q_b.mean(), k_b - k_b.mean()
             self.layers.append({
                 "ln1_w": vec(L["ln1_w"]), "ln1_b": vec(L["ln1_b"]),
                 "node_w": vec(L["node_w"]), "node_b": vec(L["node_b"]),
