@@ -30,17 +30,21 @@ from tt_bio.rfd4.eval_io import read_design
 # the comparison, so it only matters for a design that kept one in an atomized residue).
 PROTEIN_BACKBONE_ATOM_NAMES = ("N", "CA", "C", "O", "OXT")
 
-#: Upstream's default oracle config, `configs/metrics/all_metrics.yaml`: AF3 under three keys.
-#: (config key, oracle_name, gate tags). The config key prefixes the columns, `oracle_name` the
-#: file; a pass criterion reads `oracle_ppi.*` whichever oracle produced it.
+#: Upstream's oracle configs: `configs/metrics/all_metrics.yaml` selects `refolding_oracles: af3`
+#: by default, and `of3.yaml` is the same three keys with OpenFold3 weights and `oracle_name` set
+#: to `of3*` (it changes the file name, nothing else).
+#: (config key, oracle_names, gate tags). The config key prefixes the columns, `oracle_name` the
+#: file; a pass criterion reads `oracle_ppi.*` whichever oracle produced it. Several names per key
+#: because a design directory may hold an AF3 refold, an OF3 one, or both; `refold_paths` takes
+#: the first that is there, in this order.
 ORACLES = (
-    ("oracle", "af3", {
+    ("oracle", ("af3", "of3"), {
         "af3_refolding", "unconditional_refolding", "motif_scaffold_refolding",
         "internal_coordinate_motif_scaffold_refolding", "sm_binder_refolding", "ame_refolding",
         "ame_no_ligand_refolding", "ame_original_benchmark_refolding", "disco_refolding",
     }),
-    ("oracle_ppi", "af3_ppi", {"ppi_refolding", "antibody"}),
-    ("oracle_dna", "af3_dna", {"dna_refolding"}),
+    ("oracle_ppi", ("af3_ppi", "of3_ppi"), {"ppi_refolding", "antibody"}),
+    ("oracle_dna", ("af3_dna", "of3_dna"), {"dna_refolding"}),
 )  # fmt: skip
 
 
@@ -224,18 +228,26 @@ def _resolve(mask_spec, table):
     return out
 
 
-def refold_paths(samples_dir, example_id, oracle_name):
-    """The cached confidences and refold for one design, or `(None, None)` if it has none."""
+def refold_paths(samples_dir, example_id, oracle_names):
+    """The cached confidences and refold for one design, or `(None, None)` if it has none.
+
+    `oracle_names` is one name or several; the first with a confidences file wins, so a directory
+    carrying both an AF3 and an OpenFold3 refold grades on the one its key names first.
+    """
     design_dir = Path(samples_dir) / example_id
-    stem = f"{example_id}_{oracle_name}"
-    confidences = design_dir / f"{stem}_confidences.json"
-    if not confidences.exists():
-        return None, None
-    refolded = next(
-        (p for s in (".cif", ".cif.gz", ".cif.zst", ".bcif") if (p := design_dir / f"{stem}_refolded{s}").exists()),
-        None,
-    )
-    return confidences, refolded
+    if isinstance(oracle_names, str):
+        oracle_names = (oracle_names,)
+    for oracle_name in oracle_names:
+        stem = f"{example_id}_{oracle_name}"
+        confidences = design_dir / f"{stem}_confidences.json"
+        if not confidences.exists():
+            continue
+        refolded = next(
+            (p for s in (".cif", ".cif.gz", ".cif.zst", ".bcif") if (p := design_dir / f"{stem}_refolded{s}").exists()),
+            None,
+        )
+        return confidences, refolded
+    return None, None
 
 
 def oracle_metrics(samples_dir, example_id, tags):
@@ -245,10 +257,10 @@ def oracle_metrics(samples_dir, example_id, tags):
     the parsed refold per oracle key for the refolding metrics to score.
     """
     columns, refolds, coi = {}, {}, None
-    for key, oracle_name, gate in ORACLES:
+    for key, oracle_names, gate in ORACLES:
         if not (tags is None or tags & gate):
             continue
-        confidences, refolded = refold_paths(samples_dir, example_id, oracle_name)
+        confidences, refolded = refold_paths(samples_dir, example_id, oracle_names)
         if confidences is None:
             continue
         values = json.loads(confidences.read_text())

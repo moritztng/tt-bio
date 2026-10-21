@@ -16,6 +16,7 @@ scoring a candidate costs one fold and no file round trip.
 """
 from __future__ import annotations
 
+import json
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,12 +29,18 @@ from tt_bio.rfd4.oracle_af2ig import _pair_matrix, chain_sequence, residue_view
 
 
 def structure_chains(structure_text: str) -> list[str]:
-    """The chain ids a candidate carries, in the order its tokens appear."""
+    """The chain ids a candidate carries, in the order its tokens appear.
+
+    `tt-bio design --model rfd4` writes mmCIF, so the text arriving here is usually a CIF;
+    `to_pdb_text` converts it, as `chain_sequence` beside it already did.
+    """
     import io
 
     import biotite.structure.io.pdb as pdb
 
-    atoms = pdb.PDBFile.read(io.StringIO(structure_text)).get_structure(model=1)
+    from tt_bio.af2ig import to_pdb_text
+
+    atoms = pdb.PDBFile.read(io.StringIO(to_pdb_text(structure_text))).get_structure(model=1)
     _first, chains = residue_view(atoms)
     seen: list[str] = []
     for chain in chains.tolist():
@@ -65,6 +72,9 @@ class OpenFold3Oracle:
     msa_dir: str
     template_structures: str
     name: str = "oracle"
+    #: upstream's `oracle_name` for this key under `refolding_oracles: of3`; it names the
+    #: refold-cache files evaluate looks for, while `name` prefixes the columns.
+    oracle_name: str = "of3"
     model_id: str = "openfold3"
     #: upstream's AF3 oracle protocol: --num_recycles=5 --num_diffusion_samples=1
     recycles: int = 5
@@ -136,7 +146,8 @@ class OpenFold3Oracle:
             diffusion_samples=int(self.diffusion_samples), distogram=False)
 
         confs = result.confidence
-        conf = max(confs, key=lambda c: c["ranking_score"])
+        best = max(range(len(confs)), key=lambda k: confs[k]["ranking_score"])
+        conf = confs[best]
         n_token = int(host.features["restype"].shape[0])
         plddt = token_plddt(conf["plddt_atom"], host.aux["atom_to_token_index"], n_token)
         asym = np.asarray(host.features["asym_id"]).reshape(-1)[:n_token]
@@ -152,4 +163,33 @@ class OpenFold3Oracle:
                        if conf.get("chain_ptm") else None),
             ranking_score=conf.get("ranking_score"),
             fraction_disordered=conf.get("disorder"), has_clash=conf.get("has_clash"))
-        return extract_confidence_metrics(summary, job.chain_of_interest, chains_in_order)
+        metrics = extract_confidence_metrics(summary, job.chain_of_interest, chains_in_order)
+        if job.out_dir is not None:
+            self.write_refold(job, metrics, host.features["atom_array"],
+                              result.samples[best], conf["plddt_atom"])
+        return metrics
+
+    def write_refold(self, job: OracleRequest, metrics: dict, atom_array, coords,
+                     plddt_atom) -> tuple[Path, Path]:
+        """Write the refold cache upstream's evaluate reads instead of folding again.
+
+        `OracleMetric.compute` folds a design only when its confidence JSON is missing from the
+        design's output directory (`oracles/oracle_metric.py:471-520`), so these two files are the
+        whole seam between a Tenstorrent refold and every oracle-bound metric column. The JSON is
+        written last: a run interrupted mid-fold leaves no cache entry a resumed run would trust.
+        """
+        from tt_bio.worker import _write_atom_array_structure
+
+        out_dir = Path(job.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        stem = f"{job.example_id}_{self.oracle_name}"
+        refolded = out_dir / f"{stem}_refolded.cif"
+        _write_atom_array_structure(atom_array, coords, refolded, "cif",
+                                    b_factors=plddt_atom * 100.0)
+        confidences = out_dir / f"{stem}_confidences.json"
+        payload = dict(metrics)
+        payload["chain_of_interest"] = job.chain_of_interest
+        tmp = confidences.with_suffix(".json.part")
+        tmp.write_text(json.dumps(payload, indent=1, sort_keys=True))
+        tmp.rename(confidences)
+        return confidences, refolded
