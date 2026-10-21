@@ -47,7 +47,7 @@ against the `<name>_input.cif` written beside the design. `hotspot_conditioning`
 
 ## Refolding
 
-`--metrics_tags design,unconditional_refolding` (or `ppi_refolding`) adds the refolding RMSDs, the
+`--metrics_tags design,unconditional_refolding` (or `ppi_refolding`, `motif_scaffold_refolding`) adds the refolding RMSDs, the
 oracle's confidence columns and the pass criteria that read them. This command folds nothing: it
 reads the refold the oracle already wrote under
 
@@ -64,7 +64,7 @@ Before each RMSD the design's identical chains, and its chemically equivalent at
 oxygens of an aspartate, the ring edges of a phenylalanine), are matched to the refold the way
 upstream matches them. A refold is therefore not penalised for a labelling it cannot know.
 
-Tags that switch on anything else (motif RMSDs, apo/holo, unindexed metrics, CATH,
+Tags that switch on anything else (apo/holo, unindexed metrics, CATH,
 Rosetta developability, antibody contacts) are refused with the list of what is missing, rather
 than producing a shorter CSV that looks complete.
 
