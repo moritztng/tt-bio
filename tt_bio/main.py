@@ -4268,8 +4268,32 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    f"over {r['conditioned_tokens']} conditioned tokens")
 
 
+def _rfd4_mode(sampling: dict) -> str:
+    """How a run that does not start from pure noise is reported on the first line."""
+    if sampling.get("inverse_folding"):
+        return "inverse folding (backbone held, sequence designed)"
+    frac = sampling.get("partial_trajectory_fraction_steps")
+    if frac is not None:
+        return f"partial diffusion from {frac:.4g} of the schedule"
+    bb, lat = sampling.get("partial_t_backbone"), sampling.get("partial_t_latent")
+    return f"partial diffusion from t_backbone={bb}, t_latent={lat}"
+
+
+def _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent, couple_partial_t,
+                   inverse_folding) -> dict:
+    """The partial-diffusion / inverse-folding arguments, absent when the run is from noise.
+
+    Upstream's own mutual exclusions are enforced in the sampler, which is where they are graded;
+    this only decides whether there is anything to pass at all.
+    """
+    args = {"partial_trajectory_fraction_steps": partial_fraction,
+            "partial_t_backbone": partial_t_backbone, "partial_t_latent": partial_t_latent,
+            "couple_partial_t": couple_partial_t, "inverse_folding": inverse_folding}
+    return args if any(v not in (None, False) for v in args.values()) else {}
+
+
 def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
-                  annotated_cif: bool, validate: bool) -> None:
+                  annotated_cif: bool, validate: bool, sampling: dict | None = None) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
 
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
@@ -4295,13 +4319,19 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
     except (ValueError, KeyError, FileNotFoundError) as e:
         raise click.ClickException(f"{type(e).__name__}: {e}")
 
-    click.echo(f"{len(designs)} design(s) from {Path(inputs).name}, seed {seed}")
+    sampling = sampling or {}
+    click.echo(f"{len(designs)} design(s) from {Path(inputs).name}, seed {seed}"
+               + (f", {_rfd4_mode(sampling)}" if sampling else ""))
     engine = rfd4.get_engine()
     for design in designs:
         features, atom_array = rfd4.featurize(design.cif, seed=seed)
         tokens = int(features["padding_mask"].shape[-1])
         click.echo(f"  {design.example_id}: {tokens} tokens <- {design.cif}")
-        output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed)
+        try:
+            output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed,
+                                   **sampling)
+        except ValueError as e:
+            raise click.UsageError(str(e))
         for row in range(num_designs):
             suffix = "" if num_designs == 1 else f"_{row}"
             path = rfd4.write_design(output, features, atom_array,
@@ -4386,6 +4416,22 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
               help="rfd4 only. Skip the pre-save checks on each built structure. They are the "
                    "slow part of preparing a large spec and they are what catches a selection "
                    "that matched nothing.")
+@click.option("--partial", "partial_fraction", default=None, type=click.FloatRange(0, 1, min_open=True),
+              help="rfd4 only. Partial diffusion: re-noise INPUTS part-way and run that fraction "
+                   "of the step schedule, to refine or diversify a design you already have. "
+                   "0.42 is upstream's antibody refinement setting (25 of 60 steps). INPUTS "
+                   "should be a generated annotated CIF, which carries its own conditioning.")
+@click.option("--partial_t_backbone", default=None, type=float,
+              help="rfd4 only. Partial diffusion by explicit corruption time for the backbone, "
+                   "instead of --partial. Give --partial_t_latent too, or --couple_partial_t.")
+@click.option("--partial_t_latent", default=None, type=float,
+              help="rfd4 only. The same for the sequence latents.")
+@click.option("--couple_partial_t", is_flag=True,
+              help="rfd4 only. Derive the modality time you did not give from the one you did, "
+                   "by step index on a dense schedule.")
+@click.option("--inverse_folding", is_flag=True,
+              help="rfd4 only. Keep INPUTS' backbone exactly as given and design only the "
+                   "sequence. Excludes the partial-diffusion options.")
 @click.option("--host_threads", default=None, type=int,
               help="rfd3 only. Total host CPU threads this process may use, split across its "
                    "cards. Defaults to every core, which is right when this is the only tt-bio "
@@ -4437,7 +4483,8 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
                spec_subset, from_pdb, batch_size, n_step, nsteps, annotated_cif, no_validate,
-               host_threads,
+               partial_fraction, partial_t_backbone, partial_t_latent, couple_partial_t,
+               inverse_folding, host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log,
                controller, run_id, owner):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
@@ -4519,7 +4566,11 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
                            ("--n_step", "n_step"),
                            ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
-                           ("--no_validate", "no_validate")):
+                           ("--no_validate", "no_validate"), ("--partial", "partial_fraction"),
+                           ("--partial_t_backbone", "partial_t_backbone"),
+                           ("--partial_t_latent", "partial_t_latent"),
+                           ("--couple_partial_t", "couple_partial_t"),
+                           ("--inverse_folding", "inverse_folding")):
             if _explicit(name):
                 click.secho(f"Note: --model boltzgen does not use {flag}; ignoring.", fg="yellow")
         argv = ["run", str(inputs)]
@@ -4569,7 +4620,11 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
                            ("--devices", "devices"),
                            ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
-                           ("--no_validate", "no_validate")):
+                           ("--no_validate", "no_validate"), ("--partial", "partial_fraction"),
+                           ("--partial_t_backbone", "partial_t_backbone"),
+                           ("--partial_t_latent", "partial_t_latent"),
+                           ("--couple_partial_t", "couple_partial_t"),
+                           ("--inverse_folding", "inverse_folding")):
             if _explicit(name):
                 click.secho(f"Note: --model pxdesign does not use {flag}; ignoring.", fg="yellow")
         if controller:
@@ -4612,7 +4667,9 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 click.secho(f"Note: --model rfd4 does not use {flag}; ignoring.", fg="yellow")
         _run_rfd4_cli(Path(inputs), out_dir,
                       num_designs if num_designs is not None else 1,
-                      nsteps, seed, spec_subset, annotated_cif, not no_validate)
+                      nsteps, seed, spec_subset, annotated_cif, not no_validate,
+                      _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent,
+                                     couple_partial_t, inverse_folding))
         return
 
     # --model rfd3
@@ -4622,7 +4679,11 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                        ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
                        ("--log", "log"), ("--n_step", "n_step"),
                        ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
-                       ("--no_validate", "no_validate")):
+                       ("--no_validate", "no_validate"), ("--partial", "partial_fraction"),
+                           ("--partial_t_backbone", "partial_t_backbone"),
+                           ("--partial_t_latent", "partial_t_latent"),
+                           ("--couple_partial_t", "couple_partial_t"),
+                           ("--inverse_folding", "inverse_folding")):
         if _explicit(name):
             click.secho(f"Note: --model rfd3 does not use {flag}; ignoring.", fg="yellow")
     if golden_dir is not None:
