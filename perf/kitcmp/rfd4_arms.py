@@ -28,7 +28,11 @@ ARMS = {
     "bioir-graph512":         ["inference_backend=bioir", "bioir.cuda_graph_max_tokens=1024"],
 }
 SCREEN_BATCH = {128: 8, 256: 4, 512: 2}
-SWEEP = {128: (1, 2, 4, 8, 16), 256: (1, 2, 4, 8), 512: (1, 2, 4)}
+# The GPU is entitled to its own best batch (STANDING memory gpu-comparison-must-be-one-protocol-both-sides).
+# A fixed ladder stopping at 16/8/4 is not "its best": at 512 x b2 the B200 held 8.5 GiB of ~180 GiB and the
+# rate was still climbing at the top rung, so the ladder would have set NVIDIA's number instead of the card.
+# Double until the card actually pushes back -- a failed/OOM rung, or two rungs that buy nothing.
+SWEEP_CEIL = {128: 128, 256: 64, 512: 32}
 
 
 def run(arm, size, batch, warm, overrides, tag=None, spec=None, extra=()):
@@ -69,6 +73,34 @@ def time_left(margin=600):
     return time.time() < a.deadline - margin
 
 
+def climb(arm, size, warm, tag):
+    """Double the batch until the card pushes back. Returns {batch: summary}.
+
+    Stops on the first rung that fails (OOM is the expected failure) or after two rungs that do not beat the
+    best rate by more than 2 %, so a card with headroom keeps climbing and one without stops paying for it.
+    """
+    sweep, best_rate, stall, b = {}, 0.0, 0, 1
+    while b <= SWEEP_CEIL[size] and time_left():
+        s = summarise(run(arm, size, b, warm, ARMS[arm], tag=tag))
+        sweep[b] = s
+        if s["status"] != "ok":
+            print(f"climb {arm}@{size}: b{b} failed ({s.get('error')}) -- that is the ceiling", flush=True)
+            break
+        if s["designs_s"] > best_rate * 1.02:
+            best_rate, stall = s["designs_s"], 0
+        else:
+            stall += 1
+            if stall >= 2:
+                print(f"climb {arm}@{size}: two rungs with no gain, stopping at b{b}", flush=True)
+                break
+        b *= 2
+    else:
+        if b > SWEEP_CEIL[size]:
+            print(f"climb {arm}@{size}: hit the configured ceiling b{SWEEP_CEIL[size]} still improving "
+                  f"-- the ceiling, not the card, bounded this", flush=True)
+    return sweep
+
+
 def main():
     global a
     ap = argparse.ArgumentParser()
@@ -78,7 +110,31 @@ def main():
     ap.add_argument("--screen-warm", type=int, default=5)
     ap.add_argument("--final-warm", type=int, default=9)
     ap.add_argument("--reference", type=int, default=0, help="reference-design mode: N designs per feature family")
+    ap.add_argument("--sweep-only", action="store_true",
+                    help="re-climb the batch of each size's winning arm from ARMS.json, without the screen")
     a = ap.parse_args()
+
+    if a.sweep_only:
+        # Session 3 screened and swept under the old 16/8/4 ladder, which bounded the B200 below its own best.
+        # This re-climbs the winners on the same box, in the same session, so the published number is the
+        # card's ceiling and not the ladder's. Writes beside ARMS.json, never over it.
+        prev = json.loads((a.out / "ARMS.json").read_text())
+        ext = {}
+        for size in SIZES:
+            ok = {k: v for k, v in prev.get("screen", {}).get(str(size), {}).items() if v["status"] == "ok"}
+            if not ok or not time_left():
+                continue
+            arm = max(ok, key=lambda k: ok[k]["designs_s"])
+            sweep = climb(arm, size, max(3, a.screen_warm - 2), f"ext-{arm}")
+            okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
+            bb = max(okb, key=lambda b: okb[b]["designs_s"]) if okb else SCREEN_BATCH[size]
+            ext[str(size)] = {"arm": arm, "batch": bb, "sweep": {str(k): v for k, v in sweep.items()}}
+            if time_left():
+                ext[str(size)]["final"] = summarise(
+                    run(arm, size, bb, a.final_warm, ARMS[arm], tag=f"extfinal-{arm}"))
+            (a.out / "ARMS-EXT.json").write_text(json.dumps(ext, indent=2) + "\n")
+        print(json.dumps(ext, indent=2))
+        sys.exit(0)
 
     if a.reference:
         # The chosen arm, the documented 50-120 binder range, scored: rfd4-quality's reference distribution.
@@ -114,11 +170,7 @@ def main():
         if not ok:
             continue
         arm = max(ok, key=lambda k: ok[k]["designs_s"])
-        sweep = {}
-        for b in SWEEP[size]:
-            if not time_left():
-                break
-            sweep[b] = summarise(run(arm, size, b, max(3, a.screen_warm - 2), ARMS[arm], tag=f"sweep-{arm}"))
+        sweep = climb(arm, size, max(3, a.screen_warm - 2), f"sweep-{arm}")
         okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
         bb = max(okb, key=lambda b: okb[b]["designs_s"]) if okb else SCREEN_BATCH[size]
         best[str(size)] = {"arm": arm, "batch": bb, "sweep": {str(k): v for k, v in sweep.items()}}
