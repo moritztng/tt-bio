@@ -14,11 +14,12 @@ oracle seam (`tt_bio/rfd4/oracle.py`) plugs in.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from tt_bio.rfd4.oracle import Oracle, OracleRequest
 from tt_bio.rfd4.search import ORACLE_METRIC_NAMES, SEARCH_REWARD_KEY, RewardModel, parse_checkpoints
 
 DESIGN_METRIC_NAMES = frozenset({"designability", "novelty", "diversity", "secondary_structure",
@@ -56,6 +57,35 @@ class MetricProvider(Protocol):
     name: str
 
     def score(self, candidates: list[Any], batch: Any) -> list[dict]: ...
+
+
+@dataclass
+class OracleProvider:
+    """The oracle seam as a metric provider: the glue between `oracle.py` and this loop.
+
+    `render` turns one decoded candidate into an `OracleRequest`, which is where a structure gets
+    written out as text and the chain of interest named. It is injected rather than inferred
+    because what a decoded candidate IS belongs to the model, not to the search.
+
+    A candidate the oracle failed on comes back `{}`, which the reward model turns into -inf. That
+    is the chain upstream relies on, so it is deliberately not repaired here.
+    """
+
+    oracle: Oracle
+    render: Callable[[Any, int], OracleRequest]
+
+    @property
+    def name(self) -> str:
+        return self.oracle.name
+
+    def setup(self) -> None:
+        self.oracle.setup()
+
+    def teardown(self) -> None:
+        self.oracle.teardown()
+
+    def score(self, candidates: list[Any], batch: Any) -> list[dict]:
+        return self.oracle.fold_batch([self.render(c, i) for i, c in enumerate(candidates)])
 
 
 @dataclass

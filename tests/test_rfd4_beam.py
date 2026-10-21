@@ -189,3 +189,55 @@ def test_configure_metrics_refuses_at_config_time(checkpoints, providers, messag
 def test_the_beam_shape_must_be_positive_integers(kw):
     with pytest.raises(ValueError):
         strategy(**kw)
+
+
+def test_the_oracle_seam_plugs_into_the_loop_end_to_end():
+    """Decoded candidate -> OracleRequest -> AF2-IG adapter -> reward keys -> beam. The trunk is
+    stubbed, so this is the wiring of the whole chain, which is what the seam exists for."""
+    from tt_bio.rfd4 import oracle_af2ig as adapter
+    from tt_bio.rfd4.beam import OracleProvider
+    from tt_bio.rfd4.oracle import OracleRequest
+    from tests.test_rfd4_oracle_af2ig import _StubTrunk, _pdb
+
+    structure = _pdb()
+    oracle = adapter.AF2IGOracle(params="unused", name="oracle_ppi", recycles=0)
+    oracle.model = _StubTrunk(10)
+    provider = OracleProvider(oracle=oracle,
+                              render=lambda cand, i: OracleRequest(structure=structure,
+                                                                   example_id=f"cand{i}",
+                                                                   chain_of_interest="B"))
+    assert provider.name == "oracle_ppi"
+
+    s = BeamSearchStrategy(
+        checkpoints={30: {"metrics": ["oracle_ppi"],
+                          "rewards": {"oracle_ppi.min_ipae_coi": {"weight": -1.0}}}},
+        providers={"oracle_ppi": provider}, n_branch=2, beam_width=2)
+    out = s.generate(ToyModel(), batch=["x"], n_inputs=1)
+
+    assert len(out) == 2
+    assert oracle.model.calls == 4            # one trunk pass per candidate, recycles=0
+    for design in out:
+        assert design["metrics"]["oracle_ppi.min_ipae_coi"] > 0
+        assert design["reward"] == -design["metrics"]["oracle_ppi.min_ipae_coi"]
+
+
+def test_a_failed_oracle_candidate_is_dropped_by_the_loop_not_ranked():
+    from tt_bio.rfd4.beam import OracleProvider
+    from tt_bio.rfd4.oracle import OracleRequest
+
+    class AlwaysFails:
+        name = "oracle"
+
+        def setup(self): pass
+
+        def teardown(self): pass
+
+        def fold_batch(self, jobs): return [{} for _ in jobs]
+
+    provider = OracleProvider(oracle=AlwaysFails(),
+                              render=lambda c, i: OracleRequest(structure="", example_id=str(i)))
+    s = BeamSearchStrategy(checkpoints={30: {"metrics": ["oracle"],
+                                             "rewards": {"oracle.plddt_coi": {"weight": 1.0}}}},
+                           providers={"oracle": provider}, n_branch=2, beam_width=2)
+    out = s.generate(ToyModel(), batch=["x"], n_inputs=1)
+    assert all(d["reward"] == float("-inf") for d in out)
