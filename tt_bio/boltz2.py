@@ -127,8 +127,12 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres"}
 # trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res, firing under acc_off since it took its own fp32 dest):
 # same 44-fold fast grade (gbres, 2026-10-21), PASS: top pose median 1.537 A (floor 2.328 A), CA-lDDT +0.0004
 # [-0.0005, +0.0014], docking 24 -> 24; 5-sample folds -0.44 s median, 39/44 faster (1000 MHz); 512 x 1 -0.23 s (xf8).
+# ie_dev (the input embedder's atom encoder on the card): same 44-fold fast grade (gief, 2026-10-21), PASS: top pose
+# median 0.944 A (floor 2.434 A), CA-lDDT -0.0004 [-0.0013, +0.0006], docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz)
+# -0.20 s paired median, 5/7 warm pairs (ie). Normal FAILS its grade (gie: DockQ -0.0067 [-0.0148, -0.0008], CA-lDDT
+# -0.0010 [-0.0018, -0.0002]), so fast only.
 WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1",
-                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres"}
+                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev"}
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist"}
 
 
