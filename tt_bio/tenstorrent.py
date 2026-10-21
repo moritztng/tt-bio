@@ -760,6 +760,8 @@ _FAST_MODE = False
 #                   instead of gathering it from the encoder's joint table: the bit-exact A/B arm (no mode sets it).
 #   atomp_dev       Boltz-2's diffusion-conditioning atom-pair tensor and its encoder/decoder bias stacks built on the
 #                   card from the z_to_p projection already there (AtomPairDevice), instead of in fp32 torch and uploaded.
+#   ie_dev          Boltz-2's input-embedder atom encoder (pair track, atom transformer, atom-to-token mean) on the
+#                   card (InputAtomEncoderDevice), the diffusion encoder's device code, instead of in fp32 torch.
 #   triatt_hifi2    the fused triangle-attention SDPA's QK and PV products at HiFi2 instead of HiFi4, math_approx
 #                   off and fp32 accumulation kept. A Galaxy chip runs the 512-token call at 45 % of its DRAM roof,
 #                   so there the fidelity passes may be the cost (on Blackhole the op is bandwidth-bound).
@@ -811,7 +813,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_relpos_lookup",
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
-          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
+          "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm")
@@ -5864,20 +5866,29 @@ def _fp32_softmax_attention(
         # the bias is the same tensor in every block, so its fp32 copy is made once per call
         bias_f = (_fp32_softmax_bias(bias, scale_inv, bias_scale_inv)
                   if FP32_SOFTMAX_BIAS_HOIST else None)
+        # A bias with one leading row broadcasts over all of them. One with a row per q row
+        # (AF2's pair bias plus its per-row MSA mask) belongs to those rows, so a block takes its
+        # own: handing it the whole bias broadcast a 1-row block to 2 rows and the in-place add
+        # refused, which was BindCraft 2 at 864 tokens.
+        row_bias = int(bias.shape[0]) > 1
         try:
             for s in range(0, rows, blk):
                 e = min(s + blk, rows)
                 qs, ks, vs = q[s:e], k[s:e], v[s:e]
+                bs = bias[s:e] if row_bias and bias_f is None else bias
+                bfs = bias_f[s:e] if row_bias and bias_f is not None else bias_f
                 sh = shard_for(e - s)
                 FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
-                parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
+                parts.append(_fp32_softmax_attention_block(qs, ks, vs, bs, scale_inv,
                                                            compute_kernel_config, out_dtype,
-                                                           bias_scale_inv, sh, l1_key, bias_f,
+                                                           bias_scale_inv, sh, l1_key, bfs,
                                                            free=free,
                                                            accurate_softmax=accurate_softmax,
                                                            host_f64=host_f64))
                 for t in (qs, ks, vs):
                     ttnn.deallocate(t)
+                if row_bias:
+                    ttnn.deallocate(bs if bias_f is None else bfs)
         except Exception:
             # A retry re-runs every block from zero, so the ones already done have to go back or
             # the second attempt starts against a device the first attempt filled.
@@ -17885,6 +17896,67 @@ class MiniformerModule(TorchWrapper):
         return s_result, z_result
 
 
+def stage_atom_windows(keys_indexing: torch.Tensor, mask: torch.Tensor, atom_pad: int, NW_padded: int,
+                       K_padded: int, compute_kernel_config):
+    """The windowed atom transformer's key gather and its additive key mask, on the card.
+
+    ``keys_indexing`` is boltz2's ``get_indexing_matrix`` and ``mask`` the ``[B, N]`` atom pad mask;
+    both are padded by ``atom_pad`` atoms to ``NW_padded`` windows a structure. The mask still contracts against the real matrix; only the
+    per-layer gather gets the shift sentinel, and only if the matrix really is the centred window.
+    Returns ``(gather, mask)``, the mask ``[K_padded, 1, 1, H]`` with 0 for a key and -1e9 for padding.
+    """
+    device = get_device()
+    if atom_pad:
+        ki_pad_rows = 2 * NW_padded - keys_indexing.shape[0]
+        ki_pad_cols = 8 * NW_padded - keys_indexing.shape[1]
+        keys_indexing = torch.nn.functional.pad(keys_indexing, (0, ki_pad_cols, 0, ki_pad_rows))
+        mask = torch.nn.functional.pad(mask, (0, atom_pad))
+    keys_indexing_tt = upload(keys_indexing, dtype=ttnn.bfloat4_b, device=device)
+    shift_windows = _atom_gather_shift_windows(keys_indexing)
+    gather = _AtomShiftGather(shift_windows) if shift_windows else keys_indexing_tt
+    mask = upload(mask, dtype=ttnn.bfloat16, device=device)
+    mask = ttnn.reshape(mask, (2 * K_padded, ATOM_WINDOW // 2, -1))
+    # transpose_a swaps only the last two dims and cannot replace this 3D axis reorder.
+    mask = ttnn.permute(mask, (1, 2, 0))
+    mask = ttnn.matmul(mask, keys_indexing_tt, compute_kernel_config=compute_kernel_config,
+                       core_grid=CORE_GRID_MAIN)
+    mask = ttnn.permute(mask, (2, 0, 1))
+    mask = ttnn.reshape(mask, (K_padded, 1, 1, -1))
+    # Additive mask: 0 → valid, -1e9 → padded (bfloat16 for -1e9 precision)
+    return gather, (-1 * mask + 1) * -1e9
+
+
+def stage_atom_bias(bias, mask: ttnn.Tensor, K_padded: int) -> ttnn.Tensor:
+    """An atom transformer's pair bias, masked and pre-scaled by sqrt(window), heads-major on the card.
+
+    ``bias`` is either ``[K, heads, W, H]`` already on the card (``AtomPairDevice``, padded here with
+    zero windows up to ``K_padded``) or the host's ``[B, K, W, H, heads]`` stack.
+    """
+    if isinstance(bias, ttnn.Tensor):
+        # The fold's conditioning, so it is padded and masked into a copy.
+        if bias.shape[0] < K_padded:
+            shape = bias.shape
+            zero = ttnn.zeros((K_padded - shape[0], shape[1], shape[2], shape[3]),
+                              dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=get_device())
+            bias = ttnn.concat([bias, zero], dim=0)
+            ttnn.deallocate(zero)
+            bias = ttnn.add_(bias, mask)
+        else:
+            bias = ttnn.add(bias, mask)
+        return ttnn.multiply_(bias, ATOM_WINDOW ** 0.5)
+    B, K = bias.shape[:2]
+    if B * K < K_padded:
+        bias = torch.nn.functional.pad(bias, (0, 0, 0, 0, 0, 0, 0, K_padded // B - K))
+    # Heads-major on the host, then upload: tilizing [.., 128, heads] pads every
+    # 12-wide row to a 32-wide tile on one host thread, 0.43 s per fold at 512 aa
+    # (py-spy, p150a), where [.., heads, 32, 128] tiles without padding. The same
+    # values move either way, so the staged bias is bit-identical.
+    bias = upload(bias.reshape(K_padded, ATOM_WINDOW, ATOM_DIM, -1).permute(0, 3, 1, 2).contiguous(),
+                  dtype=ttnn.bfloat16, device=get_device())
+    bias = ttnn.add_(bias, mask)
+    return ttnn.multiply_(bias, ATOM_WINDOW ** 0.5)
+
+
 class DiffusionModule(TorchWrapper):
     def __init__(self):
         super().__init__()
@@ -17923,7 +17995,6 @@ class DiffusionModule(TorchWrapper):
             # from "first step of a new one", but tensor identity can.
             self.reset_static_cache()
         B, N, _ = q.shape
-        NW = N // ATOM_WINDOW
 
         seq_len = s_inputs.shape[1]
         token_pad = pad_amount(seq_len, PAIRFORMER_PAD_MULTIPLE) if bucket_enabled() else 0
@@ -17982,66 +18053,14 @@ class DiffusionModule(TorchWrapper):
             self._cache_set("q", self._from_torch(q_pt))
             self._cache_set("c", self._from_torch(c_pt))
 
-            if atom_pad:
-                ki_pad_rows = 2 * NW_padded - keys_indexing.shape[0]
-                ki_pad_cols = 8 * NW_padded - keys_indexing.shape[1]
-                keys_indexing = torch.nn.functional.pad(keys_indexing, (0, ki_pad_cols, 0, ki_pad_rows))
-            keys_indexing_tt = self._from_torch(keys_indexing, dtype=ttnn.bfloat4_b)
-            # The mask below still contracts against the real matrix; only the per-step gather
-            # gets the sentinel, and only if the matrix really is the centred window.
-            shift_windows = _atom_gather_shift_windows(keys_indexing)
-            self._cache_set("keys_indexing",
-                            _AtomShiftGather(shift_windows) if shift_windows
-                            else keys_indexing_tt)
-
-            if atom_pad:
-                mask = torch.nn.functional.pad(mask, (0, atom_pad))
-            mask = self._from_torch(mask)
-            mask = ttnn.reshape(mask, (2 * K_padded, ATOM_WINDOW // 2, -1))
-            # transpose_a swaps only the last two dims and cannot replace this 3D axis reorder.
-            mask = ttnn.permute(mask, (1, 2, 0))
-            mask = ttnn.matmul(
-                mask,
-                keys_indexing_tt,
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
-            mask = ttnn.permute(mask, (2, 0, 1))
-            mask = ttnn.reshape(mask, (K_padded, 1, 1, -1))
-            # Additive mask: 0 → valid, -1e9 → padded (bfloat16 for -1e9 precision)
-            mask = (-1 * mask + 1) * -1e9
-
-            def prepare_atom_bias(bias_pt):
-                if isinstance(bias_pt, ttnn.Tensor):
-                    # `AtomPairDevice` staged it heads-major on the card; it is the fold's
-                    # conditioning, so it is padded and masked into a copy.
-                    bias = bias_pt
-                    if atom_pad:
-                        shape = bias.shape
-                        zero = ttnn.zeros((B * NW_padded - shape[0], shape[1], shape[2], shape[3]),
-                                          dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
-                                          device=get_device())
-                        bias = ttnn.concat([bias, zero], dim=0)
-                        ttnn.deallocate(zero)
-                        bias = ttnn.add_(bias, mask)
-                    else:
-                        bias = ttnn.add(bias, mask)
-                    return ttnn.multiply_(bias, ATOM_WINDOW ** 0.5)
-                if atom_pad:
-                    bias_pt = torch.nn.functional.pad(bias_pt, (0, 0, 0, 0, 0, 0, 0, NW_padded - NW))
-                # Heads-major on the host, then upload: tilizing [.., 128, heads] pads every
-                # 12-wide row to a 32-wide tile on one host thread, 0.43 s per fold at 512 aa
-                # (py-spy, p150a), where [.., heads, 32, 128] tiles without padding. The same
-                # values move either way, so the staged bias is bit-identical.
-                bias = self._from_torch(
-                    bias_pt.reshape(B * NW_padded, ATOM_WINDOW, ATOM_DIM, -1).permute(0, 3, 1, 2).contiguous())
-                bias = ttnn.add_(bias, mask)
-                return ttnn.multiply_(bias, ATOM_WINDOW ** 0.5)
+            keys_gather, mask = stage_atom_windows(keys_indexing, mask, atom_pad, NW_padded, K_padded,
+                                                   self.compute_kernel_config)
+            self._cache_set("keys_indexing", keys_gather)
 
             self._cache_set("bias_encoder", self._hoist_layer_bias(
-                prepare_atom_bias(bias_encoder), self.module.encoder))
+                stage_atom_bias(bias_encoder, mask, K_padded), self.module.encoder))
             self._cache_set("bias_decoder", self._hoist_layer_bias(
-                prepare_atom_bias(bias_decoder), self.module.decoder))
+                stage_atom_bias(bias_decoder, mask, K_padded), self.module.decoder))
 
             if self._cache_get("bias_token") is None:
                 self._cache_set("bias_token", self._stage_token_bias(bias_token, token_pad, seq_len))
@@ -18740,6 +18759,7 @@ class AtomPairDevice:
     """
 
     def __init__(self, atom_encoder, enc_fused, dec_fused, compute_kernel_config):
+        """``dec_fused=None`` builds the encoder stack alone (the input embedder's, ``ie_dev``)."""
         self.compute_kernel_config = compute_kernel_config
         device = get_device()
 
@@ -18751,15 +18771,15 @@ class AtomPairDevice:
         self.w0 = w(torch.cat([ae.embed_atompair_ref_pos.weight, ae.embed_atompair_ref_dist.weight,
                                ae.embed_atompair_mask.weight], dim=1))
         self.mlp = [w(ae.p_mlp[i].weight) for i in (1, 3, 5)]
-        (we, be, _, eps), (wd, bd, _, eps_d) = enc_fused, dec_fused
-        assert eps == eps_d
-        self.bias_weight = w(torch.cat([we, wd], dim=0))
-        self.bias_bias = ttnn.from_torch(torch.cat([be, bd]).detach().reshape(1, -1).contiguous(),
+        stacks = [enc_fused] + ([dec_fused] if dec_fused is not None else [])
+        assert len({f[3] for f in stacks}) == 1
+        self.bias_weight = w(torch.cat([f[0] for f in stacks], dim=0))
+        self.bias_bias = ttnn.from_torch(torch.cat([f[1] for f in stacks]).detach().reshape(1, -1).contiguous(),
                                          layout=ttnn.TILE_LAYOUT, device=device,
                                          dtype=ttnn.bfloat16)
-        self.eps = eps
-        self.heads_enc = we.shape[0]
-        self.atom_z = we.shape[1]
+        self.eps = enc_fused[3]
+        self.heads_enc = enc_fused[0].shape[0]
+        self.atom_z = enc_fused[0].shape[1]
 
     def _linear(self, x, weight, bias=None, activation=None):
         return ops.linear(x, weight, bias=bias, activation=activation,
@@ -18787,10 +18807,11 @@ class AtomPairDevice:
         return ttnn.from_torch(rows.contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
                                device=get_device(), dtype=ttnn.bfloat16)
 
-    def __call__(self, encoder, feats, c, z_to_p):
+    def __call__(self, encoder, feats, c, z_to_p=None):
         """``(enc_bias, dec_bias, to_keys)``; the biases as ``[K, heads, W, H]`` device tensors,
         the layout ``DiffusionModule`` stages. ``z_to_p`` (``[1, P, P, atom_z]``, padded) is
-        consumed."""
+        consumed; ``None`` (the input embedder's encoder, no trunk yet) leaves its term out, and
+        a module built without a decoder stack returns ``dec_bias=None``."""
         to_keys, K, W, H, d, d_norm, v = encoder.windows(feats)
         assert c.shape[0] == 1, "AtomPairDevice serves one structure per fold"
         rows = K * W
@@ -18800,28 +18821,29 @@ class AtomPairDevice:
         p = self._linear(feat_tt, self.w0)
         ttnn.deallocate(feat_tt)
 
-        # z_to_p by token pair, the zero row where either atom is padding.
-        P = z_to_p.shape[1]
-        from tt_bio.boltz2 import atom_window_tokens  # boltz2 imports this module
-        tok_q, tok_k, keep = atom_window_tokens(
-            feats["atom_to_token"].float(), to_keys, K, W, H)
-        index = (tok_q.view(K, W, 1) * P + tok_k.view(K, 1, H)).reshape(rows, H)
-        index = torch.where(keep.reshape(rows, H) > 0, index, P * P)
-        # Pad in row-major: a TILE tensor is already 32 wide, so ttnn.pad returns z_to_p's own
-        # buffer and freeing z_to_p would free the table under the gather (perf/b2_atomp/table_probe.py).
-        rm = ttnn.to_layout(z_to_p, ttnn.ROW_MAJOR_LAYOUT)
-        ttnn.deallocate(z_to_p)
-        zp = ttnn.pad(rm, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
-        ttnn.deallocate(rm)
-        table = ttnn.reshape(zp, (P * P, 32))
-        zero = ttnn.from_torch(torch.zeros(1, 32), layout=ttnn.ROW_MAJOR_LAYOUT,
-                               device=get_device(), dtype=ttnn.bfloat16)
-        table = ttnn.concat([table, zero], dim=0)
-        ttnn.deallocate(zero)
-        term = self._gather(index, table)
-        ttnn.deallocate(table)
-        p = ttnn.add_(p, term)
-        ttnn.deallocate(term)
+        if z_to_p is not None:
+            # z_to_p by token pair, the zero row where either atom is padding.
+            P = z_to_p.shape[1]
+            from tt_bio.boltz2 import atom_window_tokens  # boltz2 imports this module
+            tok_q, tok_k, keep = atom_window_tokens(
+                feats["atom_to_token"].float(), to_keys, K, W, H)
+            index = (tok_q.view(K, W, 1) * P + tok_k.view(K, 1, H)).reshape(rows, H)
+            index = torch.where(keep.reshape(rows, H) > 0, index, P * P)
+            # Pad in row-major: a TILE tensor is already 32 wide, so ttnn.pad returns z_to_p's own
+            # buffer and freeing z_to_p would free the table under the gather (perf/b2_atomp/table_probe.py).
+            rm = ttnn.to_layout(z_to_p, ttnn.ROW_MAJOR_LAYOUT)
+            ttnn.deallocate(z_to_p)
+            zp = ttnn.pad(rm, [(0, 0), (0, 0), (0, 0), (0, 32 - self.atom_z)], 0.0)
+            ttnn.deallocate(rm)
+            table = ttnn.reshape(zp, (P * P, 32))
+            zero = ttnn.from_torch(torch.zeros(1, 32), layout=ttnn.ROW_MAJOR_LAYOUT,
+                                   device=get_device(), dtype=ttnn.bfloat16)
+            table = ttnn.concat([table, zero], dim=0)
+            ttnn.deallocate(zero)
+            term = self._gather(index, table)
+            ttnn.deallocate(table)
+            p = ttnn.add_(p, term)
+            ttnn.deallocate(term)
 
         # c projected per atom, by query atom and by key atom (zero row past the sequence).
         n_atoms = c.shape[1]
@@ -18854,10 +18876,73 @@ class AtomPairDevice:
         ttnn.deallocate(p_norm)
         heads = bias.shape[-1]
         bias = ttnn.permute(ttnn.reshape(bias, (K, W, H, heads)), (0, 3, 1, 2))
+        if heads == self.heads_enc:
+            return bias, None, to_keys
         enc = ttnn.slice(bias, (0, 0, 0, 0), (K, self.heads_enc, W, H))
         dec = ttnn.slice(bias, (0, self.heads_enc, 0, 0), (K, heads, W, H))
         ttnn.deallocate(bias)
         return enc, dec, to_keys
+
+
+class InputAtomEncoderDevice:
+    """Boltz-2's input-embedder atom encoder on the card (``ie_dev``): the atom-pair track, the
+    three-layer windowed atom transformer and the mean over each token's atoms, with the same device
+    code the diffusion encoder runs (``AtomPairDevice``, ``DiffusionTransformer``, ``stage_atom_*``).
+
+    On the host this is ~17 fp32 passes over the ``[K, 32, 128, atom_z]`` pair tensor plus the
+    transformer, 0.8 s per fold at 512 aa on a loaded Wormhole host. Only the atom singles ``c``,
+    five masked scalars per pair and the index maps cross the bus; ``[N_tokens, token_s]`` comes back.
+    bf16 device math against fp32 torch: not bit-exact, in no mode set until graded.
+    """
+
+    def __init__(self, embedder, compute_kernel_config):
+        self.embedder = embedder
+        self.compute_kernel_config = compute_kernel_config
+        norm, proj = embedder.atom_enc_proj_z
+        fused = (proj.weight * norm.weight, proj.weight @ norm.bias, norm.normalized_shape, norm.eps)
+        self.pair = AtomPairDevice(embedder.atom_encoder, fused, None, compute_kernel_config)
+        encoder = embedder.atom_attention_encoder
+        self.transformer = DiffusionTransformer(
+            n_layers=ATOM_N_LAYERS, dim=ATOM_DIM, n_heads=ATOM_N_HEADS, atom_level=True,
+            state_dict=encoder.atom_encoder.diffusion_transformer.state_dict(),
+            compute_kernel_config=compute_kernel_config,
+        )
+        self.to_token = ttnn.from_torch(encoder.atom_to_token_trans[0].weight.detach().t().contiguous(),
+                                        layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=ttnn.bfloat16)
+
+    def __call__(self, feats) -> torch.Tensor:
+        """``a`` as the host ``AtomAttentionEncoder`` returns it, ``[1, N_tokens, token_s]`` fp32."""
+        atom_encoder = self.embedder.atom_encoder
+        _, c = atom_encoder.single(feats)          # q == c before the trunk
+        bias, _, to_keys = self.pair(atom_encoder, feats, c)
+        B, N, D = c.shape
+        NW = N // ATOM_WINDOW
+        gather, mask = stage_atom_windows(to_keys.keywords["indexing_matrix"], feats["atom_pad_mask"].float(),
+                                          0, NW, B * NW, self.compute_kernel_config)
+        bias = stage_atom_bias(bias, mask, B * NW)
+        ttnn.deallocate(mask)
+        # Two uploads: the transformer may update its stream in place, and c is also its condition.
+        q_tt, c_tt = (ttnn.reshape(upload(c.float().contiguous(), dtype=ttnn.bfloat16, device=get_device()),
+                                   (B, NW, ATOM_WINDOW, D)) for _ in range(2))
+        n_tokens = feats["atom_to_token"].shape[-1]
+        q = self.transformer(q_tt, c_tt, bias, gather, large_seq_len=n_tokens > SEQ_LEN_MORE_CHUNKING)
+        for layer in self.transformer.layers:   # each keeps its gate keyed by c_tt: one fold's, freed here
+            layer.s_o = layer._s_o_src = None
+        ttnn.deallocate(bias)
+        ttnn.deallocate(c_tt)
+        q = ttnn.reshape(q, (B, N, D))
+        a = ttnn.linear(q, self.to_token, activation="relu", compute_kernel_config=self.compute_kernel_config,
+                        core_grid=CORE_GRID_MAIN)
+        ttnn.deallocate(q)
+        atom_to_token = feats["atom_to_token"].float()
+        a2t = upload(atom_to_token / (atom_to_token.sum(dim=1, keepdim=True) + 1e-6),
+                     dtype=ttnn.bfloat16, device=get_device())
+        a_tok = ttnn.matmul(a, a2t, transpose_a=True, compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(a)
+        ttnn.deallocate(a2t)
+        out = torch.Tensor(download(a_tok)).to(torch.float32)
+        ttnn.deallocate(a_tok)
+        return out.transpose(1, 2).contiguous()
 
 
 class _ZInitModules:

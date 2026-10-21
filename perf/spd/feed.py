@@ -431,12 +431,38 @@ def inputs(cmd):
             if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
 
 
-def cells(grid_dir, log=print):
-    """All cells of all active experiments, ordered by tier, rows round-robin within a tier."""
+def lead_rows(root):
+    """Live rows dedicated to a steer directive's group (state/spd/steer/config.json "directives"). They may queue at
+    prio 2: at 3 Protenix's bhcen3 tied with esmc's prio-3 jobs on qb2 and raced them for the dispatch flock (10-20).
+    A row shared with another group does not hold the directive, as in spd_steer.py."""
+    try:
+        cfg = json.loads((root / "state/spd/steer/config.json").read_text())
+        lines = (root / "state/spd/OWNERS.tsv").read_text().splitlines()
+    except (OSError, ValueError):
+        return set()
+    group = {m: g for g, ms in cfg.get("groups", {}).items() for m in ms}
+    lead, out = set(cfg.get("directives", {})), set()
+    for line in lines:
+        p = line.split("\t")
+        if line.startswith("#") or len(p) < 3 or (root / "state/concluded" / p[0]).exists():
+            continue
+        gs = {group.get(m, m) for m in p[2].split(",") if m}
+        if len(gs) == 1 and gs <= lead:
+            out.add(p[0])
+    return out
+
+
+def cells(grid_dir, log=print, lead=frozenset()):
+    """All cells of all active experiments, ordered by tier, rows round-robin within a tier. Rows in `lead` may use
+    prio 2 (lead_rows)."""
     by_tier = {}
     for f in sorted(Path(grid_dir).glob("*.yaml")):
-        g = yaml.safe_load(f.read_text()) or {}
-        row, tier = g["row"], TIERS[g.get("tier", "amber")]
+        try:  # one unreadable grid file must not stop every row's feed
+            g = yaml.safe_load(f.read_text()) or {}
+            row, tier = g["row"], TIERS[g.get("tier", "amber")]
+        except Exception as x:
+            log(f"skip {f.name}: {type(x).__name__}: {str(x).splitlines()[0] if str(x) else ''}")
+            continue
         for e in g.get("experiments", []):
             if not e.get("active", True):
                 continue
@@ -445,9 +471,10 @@ def cells(grid_dir, log=print):
             except (TypeError, ValueError):
                 log(f"skip {f.name}:{e['name']}: prio {e.get('prio')!r} is not a number")
                 continue
-            if not 3 <= prio <= 8:  # 0-2 is hand-queued release/integrate work; a skip left wsv unqueued (10-17)
-                log(f"clamp {f.name}:{e['name']}: prio {prio} -> {min(max(prio, 3), 8)} (pool prio 3-8)")
-                prio = min(max(prio, 3), 8)
+            lo = 2 if row in lead else 3  # 0-1 (2 outside a directive) is hand-queued release/integrate work
+            if not lo <= prio <= 8:  # a skip left wsv unqueued (10-17)
+                log(f"clamp {f.name}:{e['name']}: prio {prio} -> {min(max(prio, lo), 8)} (pool prio {lo}-8)")
+                prio = min(max(prio, lo), 8)
             axes = e.get("axes", {})
             out = []
             for vals in itertools.product(*axes.values()):
@@ -599,7 +626,7 @@ def main(argv=None):
     def log(m):
         logf.write(f"{stamp} {m}\n"); print(m)
 
-    cs = cells(R / "state/spd/grids", log)
+    cs = cells(R / "state/spd/grids", log, lead_rows(R))
     P = pools(R)
     # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch. A dark BH box
     # keeps its results: an experiment with a cell done there waits for it, so its A/B arms stay on one box.

@@ -133,6 +133,35 @@ def test_an_evicted_trunk_keeps_no_weight_alive(tmp_path, monkeypatch):
     assert pair_mm._WT == {}
 
 
+def test_a_frozen_trunk_in_a_cycle_is_still_freed_on_eviction(tmp_path, monkeypatch):
+    """A load freezes the heap so the cyclic collector stops walking it every few steps. A frozen
+    object is never collected, so a trunk that sits in a reference cycle would keep its weights
+    on card after eviction unless the pool unfreezes first."""
+    import gc
+    import weakref
+
+    class Weight:
+        pass
+
+    class Trunk:
+        def __init__(self, path, *, template=False):
+            self.weight = Weight()
+            self.me = self                      # only the cyclic collector can free this
+
+    monkeypatch.setattr(bindcraft2, "_Trunk", Trunk)
+    for name in ("a", "b"):
+        (tmp_path / f"params_{name}.npz").touch()
+    pool = bindcraft2.TrunkPool(tmp_path, resident=1)
+    pool.require(["a", "b"])
+    try:
+        weight = weakref.ref(pool._load("a").weight)
+        assert gc.get_freeze_count() > 0
+        pool._load("b")                        # evicts "a"
+        assert weight() is None, "the evicted trunk stayed frozen"
+    finally:
+        gc.unfreeze()
+
+
 def test_a_model_the_pool_was_never_given_is_refused(tmp_path):
     """`require` classifies, but `use` still refuses: its caller has already decided the card
     runs this fold, and folding it on another checkpoint's weights is invisible downstream."""

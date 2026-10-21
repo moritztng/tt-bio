@@ -457,6 +457,16 @@ MM_STATS = [0, 0]
 # op's default: 300M proj 0.233 -> 0.197, fc1 half 0.495 -> 0.461, fc2 0.392 -> 0.382; 600M proj 0.268 -> 0.226, fc1
 # half 0.645 -> 0.587, fc2 0.470 -> 0.452; error against float64 equal to the default's. Off = the op's default.
 _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
+# K in blocks of 6 tiles where K divides and the projection widens (qkv, fc1). mm_cfg_sweep --kb on a Galaxy chip at
+# 1000 MHz, fp32 accumulation, ms a call: 300M qkv 0.487 -> 0.461, fc1 half 0.471 -> 0.425; 600M qkv 0.653 -> 0.613,
+# fc1 half 0.604 -> 0.591; rel_l2 vs float64 unchanged. Square and narrowing shapes (out proj, fc2) keep 4 / 2.
+# The FFN gate (mm_gate) keeps K 2: K 6 there is 600M 1.131 -> 1.055 ms a layer alone, but in the model its circular
+# buffers clash with the FFN LayerNorm's L1 output (TT_THROW at the 600M page cell), and 300M gains nothing (0.833).
+# In the model (esmc_ab page cell, traced, 3 rounds, Galaxy chip at 1000 MHz) 300M normal 92.83/93.52/92.93 ->
+# 92.65/91.80/92.27 ms, 600M 136.04/138.61/137.57 -> 135.17/137.75/136.88; pcc vs fp32 300M -0.000022, 600M +0.000001;
+# single sequences to 4000 aa finite. On by default on Wormhole; Blackhole until its own A/B says.
+_ESMC_MM_KB6 = (env_flag("TT_BIO_ESMC_MM_KB6", False)
+                if os.environ.get("TT_BIO_ESMC_MM_KB6", "").strip() else None)
 # Under bf16 accumulation (--fast's block-fp8 weights) the qkv split runs fastest in 8 x 8 blocks: mm_cfg_sweep on a
 # Galaxy chip at 1000 MHz, 600M 0.540 -> 0.481 ms a call, 300M 0.419 -> 0.406, same rel_l2 vs float64.
 _ESMC_MM_CFG_BF16_ACC_8X8 = env_flag("TT_BIO_ESMC_MM_CFG_8X8", True)
@@ -524,6 +534,9 @@ _ESMC_ACT_BFP8 = env_flag("TT_BIO_ESMC_ACT_BFP8", False)
 # LM's L1 q/k path); pcc vs fp32 0.998964 -> 0.999002 and 0.998875 -> 0.998907, pooled cos >= 0.99982.
 # Blackhole on top of the LM flip (p150a, 1340 MHz, 2 rounds): normal 139.7 -> 127.9 ms, --fast 139.5 -> 126.6, pcc vs fp32
 # 0.998961 -> 0.998913 and 0.998814 -> 0.998809. lm_linear keeps ttnn.linear's own pick (ESMFold2 on Blackhole).
+# bf16 takes the 1D program unless spreading N over every core pads more than a quarter of it: Blackhole's 110 cores
+# pad the qkv's 240 tiles to 330, where 2D wins (lin6b_sweep, p150a, 1350 MHz: 0.274 -> 0.227 ms a call); Wormhole's
+# 72 pad it to 288 and the fc1 half fits either grid, so 1D stays (0.196 against 0.212 for 2D on Blackhole).
 _ESMC_LIN6B_PROG = env_flag("TT_BIO_ESMC_LIN6B_PROG", True)
 _LIN6B_PROG_MAX_ROWS = 544
 
@@ -546,8 +559,9 @@ def _lin6b_program(x, w):
     g = x.device().compute_with_storage_grid_size()
     mt, kt, nt = -(-rows // 32), k // 32, n // 32
     kb = next(b for b in (8, 4, 2, 1) if kt % b == 0)
-    if n > k and not bfp8:
-        pn = -(-nt // (g.x * g.y))
+    cores = g.x * g.y
+    pn = -(-nt // cores)
+    if not bfp8 and 4 * (pn * cores - nt) <= nt:
         sh, sw = _subblock(mt, pn)
         return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
             compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh,
@@ -565,6 +579,13 @@ def _mm_bf16_acc(w, exact: bool = False) -> bool:
     return w.dtype == ttnn.bfloat8_b and not exact if _ESMC_MM_BF16_ACC is None else _ESMC_MM_BF16_ACC
 
 
+def _kb6_on() -> bool:
+    if _ESMC_MM_KB6 is not None:
+        return _ESMC_MM_KB6
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole()
+
+
 def _mm_config(x, w, exact: bool = False):
     if not _ESMC_MM_CFG:
         return {}
@@ -572,8 +593,9 @@ def _mm_config(x, w, exact: bool = False):
     kt = int(w.shape[-2]) // 32
     bf16_acc = _mm_bf16_acc(w, exact)
     mn8 = bf16_acc and _ESMC_MM_CFG_BF16_ACC_8X8
+    kb6 = _kb6_on() and not bf16_acc and kt % 6 == 0 and int(w.shape[-1]) > int(w.shape[-2])
     return {"config": ttnn.MinimalMatmulConfig(
-        M_block_size=8 if mn8 else 16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=8 if mn8 else 4,
+        M_block_size=8 if mn8 else 16, K_block_size=6 if kb6 else 4 if kt % 4 == 0 else 2, N_block_size=8 if mn8 else 4,
         subblock_h=2, subblock_w=4 if bf16_acc else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
 
 

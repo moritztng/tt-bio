@@ -38,6 +38,7 @@ def main() -> int:
     ap.add_argument("--shapes", default="proj,fc1h,fc2",
                     help="comma list of proj, fc1h, fc2, qkv (q/k/v from one minimal_matmul_split, as the model runs it)")
     ap.add_argument("--fidelity", default="HiFi3", choices=["HiFi2", "HiFi3", "HiFi4"])
+    ap.add_argument("--kb", default="1,2,4,8", help="K block sizes in tiles to try (those dividing K's tiles)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -61,7 +62,7 @@ def main() -> int:
         wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=getattr(ttnn, args.wdtype))
         kt = K // 32
         arms = {"default": None}
-        for mb, kb, nb in itertools.product((2, 4, 8, 16), (1, 2, 4, 8), (2, 4, 8, 16)):
+        for mb, kb, nb in itertools.product((2, 4, 8, 16), [int(k) for k in args.kb.split(",")], (2, 4, 8, 16)):
             if kt % kb:
                 continue
             for sh, sw in ((2, 2), (1, 4), (4, 1)) if args.acc == "fp32" else ((2, 4), (4, 2), (1, 8), (8, 1), (2, 2)):
