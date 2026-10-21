@@ -303,10 +303,11 @@ class _DiTBlock(Module):
         a = a2
 
         a_t = self._fuse_adaln(a, s_hat, 1, hoist)
-        b1 = lin(a_t, self.w_la, activation="silu")
+        silumul = _T.lever("dit_silumul")
+        b1 = lin(a_t, self.w_la, activation=None if silumul else "silu")
         b2 = lin(a_t, self.w_lb)
         ttnn.deallocate(a_t)
-        bb = ttnn.multiply(b1, b2)
+        bb = ttnn.multiply(b1, b2, **({"input_tensor_a_activations": [ttnn.UnaryOpType.SILU]} if silumul else {}))
         ttnn.deallocate(b1); ttnn.deallocate(b2)
         out = lin(bb, self.w_lout)
         ttnn.deallocate(bb)
