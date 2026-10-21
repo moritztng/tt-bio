@@ -1,16 +1,19 @@
 """Capture upstream feature goldens for every shipped RFD4 benchmark example.
 
 One .npz per input under state/rfd4/goldens-io/<family>/<stem>.npz, plus an INDEX.json
-naming the upstream sha, the input path and the arrays captured. Parity for this row is
-scored on every family, not on one example, so the corpus is the whole benchmark tree.
+naming the upstream sha, the inputs and any failures. Parity for this row is scored on every
+family, not on one example, so the corpus is the whole benchmark tree.
 
 Runs in the upstream reference env only. Resumable: an existing .npz is skipped.
 
-    rfd4-ref-env/venv/bin/python -I capture_goldens.py [--jobs N] [--limit-per-family N]
+Work is handed out in chunks, one worker process per chunk, because importing rfproteina and
+torch costs ~30 s and featurizing one example costs ~15 s. A process per file spent four
+fifths of the wall clock on imports.
+
+    rfd4-ref-env/venv/bin/python -I capture_goldens.py [--jobs N] [--chunk N]
 """
 import argparse
 import json
-import os
 import subprocess
 import sys
 import time
@@ -19,72 +22,81 @@ from pathlib import Path
 
 BENCH = Path("/home/moritz/rfd4-upstream/RFD4-Proteina/data/benchmarks")
 OUT = Path("/home/moritz/.coworker/state/rfd4/goldens-io")
-DUMP = Path(__file__).with_name("dump_upstream_features.py")
 PY = "/home/moritz/rfd4-ref-env/venv/bin/python"
+SELF = Path(__file__).resolve()
 
 
-def inputs(limit_per_family=None):
-    found = {}
+def discover():
+    """benchmark inputs as (family, src, dst) triples, newest-style suffixes only."""
+    jobs = []
     for p in sorted(BENCH.rglob("*.cif*")):
         if p.suffix not in (".zst", ".gz", ".cif"):
             continue
         family = p.relative_to(BENCH).parts[0]
-        found.setdefault(family, []).append(p)
-    if limit_per_family:
-        found = {k: v[:limit_per_family] for k, v in found.items()}
-    return found
+        stem = p.name.split(".cif")[0]
+        jobs.append((family, str(p), str(OUT / family / f"{stem}.npz")))
+    return jobs
 
 
-def one(job):
-    src, dst = Path(job[0]), Path(job[1])
-    if dst.exists():
-        return (str(src), "skip", 0.0, "")
-    t0 = time.time()
-    r = subprocess.run([PY, "-I", str(DUMP), str(src), str(dst)],
-                       capture_output=True, text=True, timeout=1800)
-    dt = time.time() - t0
-    if r.returncode != 0:
-        tail = (r.stderr.strip().splitlines() or [""])[-1][:300]
-        return (str(src), "fail", dt, tail)
-    return (str(src), "ok", dt, "")
+def run_chunk(chunk):
+    """Worker entry: featurize a list of (family, src, dst) in ONE interpreter."""
+    from dump_upstream_features import dump  # noqa: PLC0415 — after sys.path is set
+
+    out = []
+    for family, src, dst in chunk:
+        if Path(dst).exists():
+            out.append((src, "skip", 0.0, ""))
+            continue
+        t0 = time.time()
+        try:
+            dump(Path(src), Path(dst))
+            out.append((src, "ok", time.time() - t0, ""))
+        except Exception as e:  # one bad input must not lose the chunk
+            out.append((src, "fail", time.time() - t0, f"{type(e).__name__}: {e}"[:300]))
+    return out
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--jobs", type=int, default=6)
-    ap.add_argument("--limit-per-family", type=int, default=None)
+    ap.add_argument("--chunk", type=int, default=8)
     a = ap.parse_args()
 
-    fams = inputs(a.limit_per_family)
-    jobs = []
-    for family, paths in fams.items():
-        for p in paths:
-            stem = p.name.split(".cif")[0]
-            jobs.append((str(p), str(OUT / family / f"{stem}.npz")))
-    print(f"{len(jobs)} inputs across {len(fams)} families: "
-          + ", ".join(f"{k}={len(v)}" for k, v in sorted(fams.items())), flush=True)
+    sys.path.insert(0, str(SELF.parent))
+    jobs = discover()
+    todo = [j for j in jobs if not Path(j[2]).exists()]
+    fams = {}
+    for f, _, _ in jobs:
+        fams[f] = fams.get(f, 0) + 1
+    print(f"{len(jobs)} inputs across {len(fams)} families ({len(todo)} to do): "
+          + ", ".join(f"{k}={v}" for k, v in sorted(fams.items())), flush=True)
 
-    results = []
+    chunks = [todo[i:i + a.chunk] for i in range(0, len(todo), a.chunk)]
+    results, done = [], 0
     with ProcessPoolExecutor(max_workers=a.jobs) as ex:
-        for i, r in enumerate(ex.map(one, jobs), 1):
-            results.append(r)
-            if r[1] != "ok" or i % 10 == 0:
-                print(f"[{i}/{len(jobs)}] {r[1]} {Path(r[0]).name} {r[2]:.1f}s {r[3]}", flush=True)
+        for res in ex.map(run_chunk, chunks):
+            results.extend(res)
+            done += len(res)
+            for r in res:
+                if r[1] == "fail":
+                    print(f"  FAIL {Path(r[0]).name}: {r[3]}", flush=True)
+            rate = sum(r[2] for r in results if r[1] == "ok") / max(1, sum(r[1] == "ok" for r in results))
+            print(f"[{done}/{len(todo)}] {rate:.1f}s/example", flush=True)
 
-    ok = [r for r in results if r[1] == "ok"]
-    skip = [r for r in results if r[1] == "skip"]
+    ok = sum(r[1] == "ok" for r in results)
     fail = [r for r in results if r[1] == "fail"]
-    index = {
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "INDEX.json").write_text(json.dumps({
         "upstream_sha": "2db07bb444d91695f8c10e6acb7648e9297f9221",
         "benchmarks": str(BENCH),
-        "captured": len(ok) + len(skip),
+        "inputs": len(jobs),
+        "captured": len(list(OUT.rglob("*.npz"))),
         "failed": len(fail),
-        "families": {k: len(v) for k, v in sorted(fams.items())},
+        "families": dict(sorted(fams.items())),
         "failures": [{"input": r[0], "error": r[3]} for r in fail],
-    }
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "INDEX.json").write_text(json.dumps(index, indent=2) + "\n")
-    print(f"captured {len(ok)} new, {len(skip)} already there, {len(fail)} failed", flush=True)
+    }, indent=2) + "\n")
+    print(f"captured {ok} new, {len(fail)} failed, "
+          f"{len(list(OUT.rglob('*.npz')))} npz on disk", flush=True)
 
 
 if __name__ == "__main__":
