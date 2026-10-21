@@ -40,7 +40,7 @@ def _rows(n: int, seed: int, rmsd_mu: float = 1.0, pass_rate: float = 0.7) -> li
             "example_id": f"{seed}_{i}",
             "designed_structure_path": f"/designs/{seed}_{i}.cif",
             "refolded_backbone_rmsd.rmsd": rmsd,
-            "oracle.plddt": float(rng.normal(85, 4)),
+            "oracle.overall_plddt": float(rng.normal(85, 4)),
             "clash_metrics.frac_atoms_clashing_1p5A": float(abs(rng.normal(0.001, 0.0005))),
             "unconditional.pass": float(rng.random() < pass_rate),
             "amino_acid_composition.n_generated_unknown_residues": 0.0,
@@ -285,7 +285,7 @@ def test_a_family_with_no_oracle_columns_is_not_a_pass(tmp_path):
     """The pass criteria and every refold RMSD come from the oracle: without it, nothing is graded."""
     rows_tt, rows_ref = _rows(40, 1), _rows(40, 2)
     for r in rows_tt + rows_ref:  # as if no oracle had run
-        for col in ("refolded_backbone_rmsd.rmsd", "oracle.plddt", "unconditional.pass"):
+        for col in ("refolded_backbone_rmsd.rmsd", "oracle.overall_plddt", "unconditional.pass"):
             r[col] = ""
     tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
     out = tmp_path / "QUALITY.json"
