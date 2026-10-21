@@ -123,11 +123,12 @@ void kernel_main() {
                 // byte stores to L1 cost ~2.3 ms of a 9 ms call at 512 tokens on Wormhole.
                 static_assert(NB == 1 || NB == 2 || NB == 4, "exponent bytes of a barrier group share one word");
                 static_assert(IL % 4 == 0, "four rows per exponent word");
+                // Stored after the read barrier: CPU stores into L1 the NOC reads are still filling stall the writer.
+                uint32_t e0[IL / 4][NB], e1[IL / 4][NB];
                 if constexpr (!(ABL & 32)) {
                     const uint32_t sf = (c0 >> 4) * 2, sr0 = c0 & 15;
                     for (uint32_t i4 = 0; i4 < IL; i4 += 4) {
-                        uint32_t e0[NB], e1[NB];
-                        for (uint32_t j = 0; j < NB; ++j) e0[j] = e1[j] = 0;
+                        for (uint32_t j = 0; j < NB; ++j) e0[i4 / 4][j] = e1[i4 / 4][j] = 0;
                         for (uint32_t k = 0; k < 4; ++k) {
                             const uint32_t il = i4 + k, r = r0 + il;
                             const uint32_t df = (r >> 4) * 2, dr = r & 15;
@@ -141,16 +142,9 @@ void kernel_main() {
                                 const uint32_t d0 = gbase + j * TB + EB + df * FB8 + dr * RB8;
                                 noc_async_read_one_packet_with_state(s0, d0);
                                 noc_async_read_one_packet_with_state(s0 + FB8, d0 + FB8);
-                                e0[j] |= ((w0 >> (8 * j)) & 0xff) << (8 * k);
-                                e1[j] |= ((w1 >> (8 * j)) & 0xff) << (8 * k);
+                                e0[i4 / 4][j] |= ((w0 >> (8 * j)) & 0xff) << (8 * k);
+                                e1[i4 / 4][j] |= ((w1 >> (8 * j)) & 0xff) << (8 * k);
                             }
-                        }
-                        if constexpr (ABL & 128) continue;
-                        const uint32_t r = r0 + i4, df = (r >> 4) * 2, dr = r & 15;
-                        for (uint32_t j = 0; j < NB; ++j) {
-                            const uint32_t st = gbase + j * TB;
-                            *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(st + df * 16 + dr) = e0[j];
-                            *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(st + (df + 1) * 16 + dr) = e1[j];
                         }
                     }
                 }
@@ -170,6 +164,18 @@ void kernel_main() {
                 }
 #endif
                 noc_async_read_barrier();
+#if T1B8
+                if constexpr (!(ABL & 32) && !(ABL & 128)) {
+                    for (uint32_t i4 = 0; i4 < IL; i4 += 4) {
+                        const uint32_t r = r0 + i4, df = (r >> 4) * 2, dr = r & 15;
+                        for (uint32_t j = 0; j < NB; ++j) {
+                            const uint32_t st = gbase + j * TB;
+                            *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(st + df * 16 + dr) = e0[i4 / 4][j];
+                            *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(st + (df + 1) * 16 + dr) = e1[i4 / 4][j];
+                        }
+                    }
+                }
+#endif
                 for (uint32_t j = 0; j < NB; ++j, page += SS) {
                     if constexpr (ABL & 64) continue;
                     const uint32_t st = gbase + j * TB;
