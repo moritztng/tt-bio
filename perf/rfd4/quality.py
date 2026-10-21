@@ -222,6 +222,7 @@ def grade_feature(
     # measured for THIS family, a p-value has nothing to be read against and the charter's
     # discipline (quote the deviation beside the floor) cannot be met.
     result["seed_floor_source"] = (floor.get(feature) or {}).get("_source")
+    result["seed_floor_kind"] = (floor.get(feature) or {}).get("_kind")
     if not (floor.get(feature) or {}):
         notes.append("no seed floor calibrated for this family")
 
@@ -327,14 +328,27 @@ def _grade_diversity(tt: dict, ref: dict) -> dict:
 
 
 # --------------------------------------------------------------------------- the seed floor
+FLOOR_KINDS = ("two-seed", "resample")
+
+
 def calibrate_floor(feature: str, a: dict, b: dict, permutations: int = stats.DEFAULT_PERMUTATIONS,
-                    source: str | None = None) -> dict:
+                    source: str | None = None, kind: str = "two-seed") -> dict:
     """How far the metrics move when only the seed changes. Same arithmetic as the grade.
 
     `source` names the arms the floor was measured on and is carried into every grade that reads
     it: a floor measured on a reduced CPU recipe does not license a bar on a released-recipe run.
+
+    `kind` says what the two arms actually differ by, because the two are not equally strong.
+    `two-seed` is the charter's floor: two runs of the same recipe at different seeds. `resample`
+    is two disjoint halves of ONE arm, which measures the sampling noise of a fixed configuration
+    and nothing about the seed itself. A resample floor is a real floor for a distributional test
+    and it is not the charter's, so it is recorded structurally rather than left to the prose in
+    `_source`, and every grade that reads it repeats the kind.
     """
-    floor: dict = {"_source": source or f"{a['root']} vs {b['root']}",
+    if kind not in FLOOR_KINDS:
+        raise ValueError(f"floor kind {kind!r} is not one of {FLOOR_KINDS}")
+    floor: dict = {"_kind": kind,
+                   "_source": source or f"{a['root']} vs {b['root']}",
                    "_measured": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                    "_n": [a["n"], b["n"]]}
     for column, kind, _ in mspec.columns_for(feature):
@@ -430,6 +444,9 @@ def main(argv=None) -> int:
     f.add_argument("--b", required=True, action="append", help=ARM_HELP)
     f.add_argument("--chain", default=None)
     f.add_argument("--permutations", type=int, default=stats.DEFAULT_PERMUTATIONS)
+    f.add_argument("--kind", default="two-seed", choices=list(FLOOR_KINDS),
+                   help="two-seed: the charter's floor. resample: two halves of one arm, which "
+                        "bounds sampling noise only and is labelled as such in QUALITY.json")
     f.add_argument("--source", default=None,
                    help="what the two seed arms are (recipe, host, session) -- every grade quotes it")
     f.add_argument("--out", default=str(QUALITY_JSON))
@@ -449,7 +466,7 @@ def main(argv=None) -> int:
     if args.cmd == "floor":
         a, b = load_arm(args.a, args.chain), load_arm(args.b, args.chain)
         doc.setdefault("seed_floor", {})[args.feature] = calibrate_floor(
-            args.feature, a, b, args.permutations, args.source)
+            args.feature, a, b, args.permutations, args.source, args.kind)
         doc.setdefault("paths", {}).setdefault(args.feature, {})["seed_floor_arms"] = [_arm_summary(a), _arm_summary(b)]
         write_doc(doc, out)
         n_cols = sum(1 for k in doc["seed_floor"][args.feature] if not k.startswith("_"))

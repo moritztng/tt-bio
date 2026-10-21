@@ -75,15 +75,19 @@ def main() -> int:
             arms.append(roots)
         if not arms:
             continue
+        kind = entry.get("kind", "two-seed")
+        if kind not in quality.FLOOR_KINDS:
+            _say(f"{family}: index kind {kind!r} is not one of {quality.FLOOR_KINDS}, skipped")
+            continue
         source = (f"{entry.get('recipe', 'recipe not recorded')} | {entry.get('session', 'session not recorded')}"
-                  f" | seeds {picked[0]}/{picked[1]}")
+                  f" | {kind} arms {picked[0]}/{picked[1]}")
         if (floors.get(family) or {}).get("_source") == source:
             continue  # already calibrated from this exact entry
         a, b = quality.load_arm(arms[0]), quality.load_arm(arms[1])
         if min(a["n"], b["n"]) < mspec.N_MIN:
             _say(f"{family}: seed arms are {a['n']} and {b['n']} designs, the floor needs >= {mspec.N_MIN}")
             continue
-        floors[family] = quality.calibrate_floor(family, a, b, source=source)
+        floors[family] = quality.calibrate_floor(family, a, b, source=source, kind=kind)
         doc.setdefault("paths", {}).setdefault(family, {})["seed_floor_arms"] = [
             quality._arm_summary(a), quality._arm_summary(b)]
         n_cols = sum(1 for k in floors[family] if not k.startswith("_"))
