@@ -130,3 +130,36 @@ def test_a_real_view_is_still_found(dev):
         y = tt.taped_ttnn().reshape(x, (1, 128, 64))
     assert y.value.buffer_address() == x.value.buffer_address(), "precondition: a view"
     assert _linked(x, y)
+
+
+def test_a_dead_dram_view_group_in_a_kept_tape_goes_back_to_the_card(dev):
+    """A view group no backward reads is released like a lone tensor would be.
+
+    Both members are mid-graph intermediates, so both require a gradient; neither is read. The
+    group used to be kept on that alone, which is how BindCraft 2's masked outer product mean
+    held one pair tensor per resident Evoformer block once it reshaped its matmul output."""
+    x = _leaf(dev, (1, 4, 32, 64), ttnn.DRAM_MEMORY_CONFIG)
+    with tt.tape():
+        a = tt.taped_ttnn().typecast(x, ttnn.float32)
+        v = tt.taped_ttnn().reshape(a, (1, 128, 64))
+        w = tt.taped_ttnn().permute(v, (0, 2, 1))
+    assert _linked(a, v), "precondition: the reshape is a view"
+    assert a.requires_grad and v.requires_grad and not (a.pinned or v.pinned)
+    ag.release_dead([w], [x])
+    assert not a.value.is_allocated(), "a view group nothing reads stayed on the card"
+    ag.backward([w], [None])
+    torch.testing.assert_close(ttnn.to_torch(x.grad).float(), torch.ones(1, 4, 32, 64),
+                               rtol=0, atol=0)
+
+
+def test_a_view_group_a_backward_reads_is_kept(dev):
+    """The control: the matmul's weight gradient reads its left operand, a view."""
+    x = _leaf(dev, (1, 4, 32, 64), ttnn.DRAM_MEMORY_CONFIG)
+    wt = _leaf(dev, (64, 32), ttnn.DRAM_MEMORY_CONFIG)
+    with tt.tape():
+        a = tt.taped_ttnn().typecast(x, ttnn.float32)
+        v = tt.taped_ttnn().reshape(a, (1, 128, 64))
+        y = tt.taped_ttnn().matmul(v, wt)
+    assert _linked(a, v), "precondition: the reshape is a view"
+    ag.release_dead([y], [x, wt])
+    assert a.value.is_allocated() and v.value.is_allocated()

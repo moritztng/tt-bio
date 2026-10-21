@@ -566,19 +566,20 @@ On BindCraft 2's own examples that gives 320 for `pdl1.json` and `pdl1_homotrime
 
 | | Blackhole p150a (34.226 GB) | One chip of a Wormhole Galaxy (12.885 GB) |
 |---|---|---|
-| supported | **192 to 864 tokens** with no flag: up to 672 in `fast`, 704 to 864 in `lean`, which the default picks for you | **192 to 864 tokens**: up to 512 in `fast`, 544 to 864 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
-| first size that refuses | not measured: 864 is the documented top | 896, in `offload`, on the third gradient round, twice out of two; the default refuses it before the first round |
-| where it refuses | | fragmentation: 4.386 GB free, largest block 67.8 MB against a 68.5 MB request a bank |
-| held at the top | 31.39 GB of 34.226 at 864 | 10.324 GB at 864, 2.56 GB still free |
-| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864 | 12.7 GB at 512 in `fast`, 7.5 to 10.3 GB from 544 up |
-| one gradient round | 58.7 s at 864 in `lean`, AICLK 1350 | 60.2 s at 512 in `fast`; 222.9 s at 800 and 262.5 s at 864 in `offload`, 3.70x and 4.36x the 512 round; AICLK 1000 |
+| supported | **192 to 1536 tokens** with no flag: up to 672 in `fast`, 704 to 1184 in `lean`, 1216 to 1536 in `offload`, which the default picks for you | **192 to 864 tokens**: up to 512 in `fast`, 544 to 864 in the slower [memory modes](#large-complexes-the-memory-modes) the default picks for you |
+| first size that refuses | 1568, in `offload`, in the first gradient round, twice out of two | 896, in `offload`, on the third gradient round, twice out of two; the default refuses it before the first round |
+| where it refuses | fragmentation: 4.873 GB free, largest block 144.1 MB against a 157.4 MB request a bank | fragmentation: 4.386 GB free, largest block 67.8 MB against a 68.5 MB request a bank |
+| held at the top | not recorded at 1536; 31.39 GB of 34.226 at 864 | 10.324 GB at 864, 2.56 GB still free |
+| peak inside the range | 2.63 GB at 192 to 31.39 GB at 864, not recorded above | 12.7 GB at 512 in `fast`, 7.5 to 10.3 GB from 544 up |
+| one gradient round | 58.7 s at 864 in `lean`, about 625 s at 1536 in `offload`; AICLK 1350 | 60.2 s at 512 in `fast`; 222.9 s at 800 and 262.5 s at 864 in `offload`, 3.70x and 4.36x the 512 round; AICLK 1000 |
 | the 768 axis | runs at the default, 42.4 s in `lean`; 0.11.0 crashes there | runs, in `offload` |
 | AICLK ceiling | 1350 MHz | 1000 MHz, the part's own ceiling and not a throttle |
 
 Every number in that table was measured on the tree this release ships, each rung run to completed
 gradient rounds with the card's AICLK sampled during the fold: the Blackhole column on a p150a, the
 Wormhole column on one chip of a Galaxy, except the Wormhole 544 peak, which is from the tree
-before it.
+before it. The Blackhole figures above 864 come from a p300c chip, which reports a p150a's DRAM
+([the ladder](#blackhole-past-864-tokens)).
 
 Blackhole's ladder, every rung run to a completed gradient round on qb1 card 0 with the card's
 AICLK sampled during each fold. Its round column was measured on v0.11.0 and was not re-measured
@@ -630,6 +631,37 @@ for not refusing.
 | 832 | hHSA 578 + 210 | 103.0 s |
 | 864 | hHSA 578 + 240 | 112.6 s |
 
+#### Blackhole past 864 tokens
+
+The same p300c chip at the default, one trajectory, AICLK 1350 median sampled during every round.
+A three-round rung shows its steady round (the second and third); a one-round rung includes
+compilation and reads high. Every rung completed; 1568 was refused twice on fragmentation.
+
+| tokens at the seam | mode | one round | rounds run |
+|---|---|---|---|
+| 864 | `lean` | 49.4 s | 3 |
+| 896 | `lean` | 55.7 s | 3 |
+| 928 | `lean` | 62.5 s | 3 |
+| 960 | `lean` | 64.2 s | 3 |
+| 992 | `lean` | 71.1 s | 3 |
+| 1056 | `lean` | 83.5 s | 3 |
+| 1120 | `lean` | 147.2 s with compile | 1 |
+| 1184 | `lean` | 323.4 s with compile | 1 |
+| 1248 | `offload` | 356.1 s with compile | 1 |
+| 1312 | `offload` | 421.7 s with compile | 1 |
+| 1376 | `offload` | 481.3 s with compile | 1 |
+| 1440 | `offload` | 484.3 s | 3 |
+| 1504 | `offload` | 636.4 s | 3 |
+| 1536 | `offload` | 625.0 s | 3 |
+| 1568 | `offload` | refused | |
+
+`offload` holds the Evoformer's block inputs in host memory, and the process peaked at 59 GB of
+host RAM at 1440 and 66 GB at 1536, so budget the host as well as the card at these sizes.
+
+Trees before this release crash from 896 tokens up on Blackhole with `Shape of Output tensor
+Shape([1, 8, 896, 896]) provided does not match the broadcasted output shape` in the MSA attention.
+If you see that error, update.
+
 0.11.0 crashes at 768 tokens on Blackhole with a circular-buffer error in the gradient ("CBs grow
 to 1864192 B which is beyond max L1 size"), even though 736 and 800 run there. If you see that
 error, update: on this release the same rung runs at the default, and a fold too big for the card
@@ -637,14 +669,16 @@ refuses with a message naming the size instead of crashing.
 
 In residues, which is how a target arrives: the fusion costs 18 to 28, so a Wormhole chip's 512
 tokens at full speed is about 484 to 494 residues of target plus binder, and 864 tokens, the top
-of both boards, about 836 to 846. With a binder in BindCraft 2's default 60-180 draw range that is
+of Wormhole, about 836 to 846. With a binder in BindCraft 2's default 60-180 draw range that is
 a target of roughly 300 to 430 residues on Wormhole at full speed, and 655 to 785 on either board
-at 864, in `offload` on Wormhole and at the default on Blackhole. Read `design_tokens` rather than trusting the
+at 864, in `offload` on Wormhole and at the default on Blackhole. Blackhole goes on to 1536
+tokens, about 1508 to 1518 residues, in `offload`. Read `design_tokens` rather than trusting the
 arithmetic; it is there because this sum is one or two buckets low often enough to matter.
 
 **The card is the limit, and only at the top of the range.** At 512 tokens a p150a holds 38 % of
-the board. At 864 it is 92 % with the largest free block down to 291 MB, so the next rung is a
-board question rather than a software one. On a Wormhole chip in `fast` the top is 97 % of a card
+the board. At 864 it is 92 % with the largest free block down to 291 MB, which is why the default
+moves to `lean` there and to `offload` from 1216; `offload` ends at 1536, where 1568 is refused on
+fragmentation with 4.9 GB still free. On a Wormhole chip in `fast` the top is 97 % of a card
 a third the size, and nothing that keeps the round's speed moves it: padding the forward serves 544 and
 608 there, and 544 then refuses in the backward instead, where the L1 gate is a size gate rather
 than a divisor gate and a pad-up asks for more L1, not less. Spending time does move it, which is
@@ -757,12 +791,15 @@ estimate built from the round time misses.
 
 **A Blackhole p150a has the modes too, and `auto` picks them from a measured ladder.** `fast` is
 not monotone in the axis on that board: 704, 768 and 832 refuse in `fast` while 736 and 864
-fit. So `auto` runs `fast` up to 672 tokens and `lean` from 704 to 864, and every 32-token axis
-from 576 to 864 completed at the default, AICLK 1350 with no sample under 1200. The steady round
-in `lean` is 34.6 s at 704, 42.4 s at 768, 51.1 s at 832 and 58.7 s at 864. You need no flag.
+fit. So `auto` runs `fast` up to 672 tokens, `lean` from 704 to 1184 and `offload` from 1216 to
+1536, and every 32-token axis from 576 to 864 completed at the default, AICLK 1350 with no sample
+under 1200, as did every rung run above it up to 1536. The steady round in `lean` is 34.6 s at
+704, 42.4 s at 768, 51.1 s at 832 and 58.7 s at 864; in `offload` it is 484 s at 1440 and 625 s
+at 1536 ([the ladder](#blackhole-past-864-tokens)). You need no flag.
 
 `memory='offload'` is a device-memory escape bought with host memory, so it needs a host with room
-to spend: on a 30 GB p150a box every `offload` rung was killed by the kernel rather than refused by the card.
+to spend: on a 30 GB p150a box every `offload` rung was killed by the kernel rather than refused by the card,
+and at 1536 tokens the process holds 66 GB of host RAM.
 `lean` costs no host memory.
 
 ### What a refusal looks like
