@@ -25,10 +25,12 @@ def _rel_rms(a, b):
     return ((a - b).pow(2).mean().sqrt() / b.pow(2).mean().sqrt()).item()
 
 
-@pytest.mark.parametrize("gate", [False, True])
+# fold: T2_FOLD (the LN's centring and gamma folded into Wp), GATE form only.
+@pytest.mark.parametrize("gate,fold", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("c", [128, 256])
-def test_t2_matches_float64_like_the_incumbent(c, gate, monkeypatch):
+def test_t2_matches_float64_like_the_incumbent(c, gate, fold, monkeypatch):
     monkeypatch.setattr(TTL, "T2", True)
+    monkeypatch.setattr(TTL, "T2_FOLD", fold)
     dev = T.get_device()
     n = 128     # a size the bench also ran; the model path declines below MIN_N on its own
     gen = torch.Generator().manual_seed(c + gate)
@@ -61,8 +63,11 @@ def test_t2_matches_float64_like_the_incumbent(c, gate, monkeypatch):
     assert torch.isfinite(out).all()
     e_inc, e_t2 = _rel_rms(inc, ref), _rel_rms(out, ref)
     assert e_inc < 5e-3, e_inc
-    # bench (perf/spd_trimul/tail_t2.py, n 512): GATE within 1.12x of the incumbent, plain 1.45x
-    assert e_t2 <= (1.25 if gate else 1.6) * e_inc, (e_t2, e_inc)
+    # bench (perf/spd_trimul/tail_t2.py, n 512): GATE within 1.12x of the incumbent, plain 1.45x. FOLD multiplies the
+    # uncentred x by Wc and subtracts the mean term after it, so bf16 x loses the bits the centring kept: 1.57-1.78x
+    # at n 128 on Blackhole and Wormhole (gate 53e9a469a), still inside the incumbent's own 5e-3 bar
+    assert e_t2 <= (2.0 if fold else 1.25 if gate else 1.6) * e_inc, (e_t2, e_inc)
+    assert e_t2 < 5e-3, e_t2
 
 
 @pytest.mark.parametrize("levers", ["normal-trunk_hifi3+trimul_gin", "normal+trimul_b8in+transition_ws+trimul_gin"])

@@ -73,7 +73,7 @@ On a host without a Tenstorrent card, plain `pip install tt-bio` is enough: the 
 ### From GitHub / source
 Pin to a tagged release, track nightly `main` (may be untested), or work from an editable clone:
 ```bash
-pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.20.0"   # pinned release, see Releases for the latest
+pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@v0.21.0"   # pinned release, see Releases for the latest
 pip install "tt-bio[tenstorrent] @ git+https://github.com/moritztng/tt-bio.git@main"     # nightly
 # or
 git clone https://github.com/moritztng/tt-bio.git
@@ -574,6 +574,10 @@ properties:
     id: [A, B]  # Two identical chains
     sequence: ...
 ```
+
+Every chain needs its own id; a repeated one is refused. An entry without `id:` is `A` for a
+polymer and `L` for a ligand, so two such entries collide. Ids may be longer than one character
+on every model (`heavy_chain` comes back as `heavy_chain`), but RF3 refuses whitespace in an id.
 
 ### Proteins with Custom MSA
 ```yaml

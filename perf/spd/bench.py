@@ -82,6 +82,9 @@ ap.add_argument("--bc2", type=Path, default=Path("~/bcx_shipped/bc2").expanduser
 ap.add_argument("--trajectories", default="1",
                 help="BindCraft 2 trajectories per card: 1 (the GAP protocol, one at a time) or N / auto, the "
                      "interleaved campaign a served run takes by default; then one campaign record, no per-rep ones")
+ap.add_argument("--structure", choices=("card", "host"),
+                help="BindCraft 2: where AF2's structure module runs; default: bindcraft2.campaign_predictor's own choice "
+                     "(card under the fast round on Blackhole)")
 ap.add_argument("--no-coords", action="store_true")
 ap.add_argument("--dry", action="store_true", help="build the run config, log it, stop before weights and device")
 a = ap.parse_args()
@@ -100,8 +103,14 @@ def _reach():
     """Cumulative [served, declined] of the gated OPM paths. The TT_BIO_CAPACITY_CENSUS atexit dump never runs here
     (this script leaves through os._exit), so an A/B of a gated lever reads whether it fired from this record."""
     tt = sys.modules.get("tt_bio.tenstorrent")
-    return {k: list(getattr(tt, n)) for k, n in (("opm_small_depth", "OPM_SMALL_DEPTH_STATS"),
-                                                  ("opm_depth_join", "OPM_DEPTH_JOIN_STATS")) if hasattr(tt, n)}
+    out = {k: list(getattr(tt, n)) for k, n in (("opm_small_depth", "OPM_SMALL_DEPTH_STATS"),
+                                                 ("opm_depth_join", "OPM_DEPTH_JOIN_STATS")) if hasattr(tt, n)}
+    # The trimul T1 input side the same way: [served, declined] and the call-site decline reasons.
+    t1 = sys.modules.get("tt_bio.trimul_tail")
+    if t1 is not None and any(t1.T1_STATS):
+        out["trimul_t1"] = list(t1.T1_STATS)
+        out["trimul_t1_why"] = dict(t1.T1_WHY)
+    return out
 
 
 _LATCH_MODS = ("tt_bio.tenstorrent", "tt_bio.protenix", "tt_bio.triatt_qkv")
@@ -163,10 +172,21 @@ LOG = open(a.out / "bench.jsonl", "a")
 REPO = Path(__file__).resolve().parents[2]
 
 
+ERRED = []  # records that carried an err: every rep is still written, then the run exits 1
+
+
 def log(**kw):
     kw["t_unix"] = time.time()
+    if kw.get("err"):
+        ERRED.append(kw.get("ev"))
     line = json.dumps(kw, default=str)
     LOG.write(line + "\n"); LOG.flush(); print(line, flush=True)
+
+
+def end():
+    """Close the log and leave. A crashed rep is a recorded result, but not a run that passed."""
+    log(ev="end", errored=len(ERRED))
+    os._exit(1 if ERRED else 0)
 
 
 def git(*args):
@@ -279,16 +299,26 @@ if a.model == "bindcraft2":
 
     weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
                                             ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
+    predictor_kw = {**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {}),
+                    **({"structure": a.structure == "card"} if a.structure else {})}
+
+    def stamp(build):
+        """What the round armed and whether the structure module ran on card, so a leg names its own stack."""
+        sm = build.structure
+        log(ev="predictor", fast={k: str(v) for k, v in (build.fast or {}).items()},
+            structure_calls=dict(sm.calls) if sm is not None else None)
+
     if a.trajectories != "1":
         # Interleaved trajectories run on their own threads, so the per-rep hooks above (which
         # take the latest trajectory as the running one) do not apply. Time the whole campaign
         # and read each trajectory's iterations and BindCraft 2's own design timing from its CSVs.
         n = a.trajectories if a.trajectories == "auto" else int(a.trajectories)
-        t0, err = time.monotonic(), None
+        t0, err, load0 = time.monotonic(), None, os.getloadavg()
         try:
-            with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]}
-                                           if "af2_weights" in weights else {})):
+            with bc2.campaign_predictor(**predictor_kw) as build:
+                stamp(build)
                 bc2.run_campaign(settings, str(project), trajectories_per_card=n, **weights)
+                stamp(build)
         except Exception:
             err = traceback.format_exc()[-3000:]
         wall = time.monotonic() - t0
@@ -297,9 +327,8 @@ if a.model == "bindcraft2":
         nodes = opened_nodes() or opened
         log(ev="campaign", trajectories_per_card=n, wall_s=wall, trajectories=per, iterations=iters,
             wall_per_iter=wall / iters if iters else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
-            err=err, **HEAD)
-        log(ev="end")
-        os._exit(0)
+            loadavg=[load0, os.getloadavg()], err=err, **HEAD)
+        end()
     traj = bc2_traj.hook(campaign, project, emit)
     real_design = campaign.run_trajectory
 
@@ -310,11 +339,13 @@ if a.model == "bindcraft2":
             opened[:] = opened_nodes() or opened
 
     campaign.run_trajectory = design
-    t0 = time.monotonic()
+    t0, load0 = time.monotonic(), os.getloadavg()
     try:
         # the card's trunk pool reads the same AF2 params the campaign does, not tt-bio's weights cache
-        with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
+        with bc2.campaign_predictor(**predictor_kw) as build:
+            stamp(build)
             bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
+            stamp(build)
     except Exception:
         if traj:
             traj[-1]["err"] = traceback.format_exc()[-3000:]
@@ -330,9 +361,8 @@ if a.model == "bindcraft2":
     nodes = opened_nodes() or opened
     log(ev="campaign", trajectories_per_card=1, wall_s=wall, trajectories=per, iterations=iters,
         wall_per_iter=wall / iters if iters else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
-        err=None, **HEAD)
-    log(ev="end")
-    os._exit(0)
+        loadavg=[load0, os.getloadavg()], err=None, **HEAD)
+    end()
 
 INPUTS = []
 for name in a.inputs.split(","):
@@ -558,5 +588,4 @@ for i_in, (name, y) in enumerate(INPUTS):
                      if k in metrics},
             samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
             struct_dir=str(sdir), latches=_latches(), reach=_reach(), refused=_refused(), **HEAD)
-log(ev="end")
-os._exit(0)
+end()

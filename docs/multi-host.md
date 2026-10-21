@@ -157,8 +157,10 @@ heartbeats then 8 s apart. The same stall at 10 s apart reads about 16 s, seven 
 inside the lease. Every job finished on its first attempt
 ([measurement](../perf/dst_boundary/)).
 
-The controller has no attempt limit: a job goes back as often as the worker holding it
-dies. Put a limit in your layer if you want one. JapanFold fails a job after two tries.
+A job goes to at most two workers. If the second one's lease lapses too, the controller
+fails the job with an error saying so, because a worker that stops heartbeating twice on
+the same input is almost always a hang that input causes, and a third chip would hang the
+same way. `--max-leases` changes the limit.
 
 JapanFold's own API uses the same numbers one level up: a host's agent leases a job from
 the API for 120 s and reports on it every 10 s. A lost worker or a lost host is noticed

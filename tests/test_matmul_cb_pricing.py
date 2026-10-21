@@ -180,6 +180,28 @@ def test_trimul_per_channel_plan_keeps_the_k_block(monkeypatch, grid, bank):
 
 
 @pytest.mark.parametrize("grid, bank", [((8, 9), WH_BANK), ((11, 10), BANK)])
+def test_trimul_per_channel_default_is_one_cap_on_both_archs(monkeypatch, grid, bank):
+    """By default the per-channel plan is taken up to 8 sequence tiles (256 tokens) on both
+    archs, wherever the explicit switch would take it, and the multicast plan runs above: 9 and
+    10 tiles on Blackhole measured no faster."""
+    monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", grid)
+    monkeypatch.setattr(T, "_matmul_cb_budget", lambda: bank)
+    monkeypatch.setattr(T, "_TRIMUL_PER_CHANNEL_REFUSED", set())
+    prev = T.set_trimul_per_channel(True)
+    try:
+        forced = {kt: T._triangle_mul_program_config(kt, l1_operands=False) for kt in range(1, 20)}
+        T.set_trimul_per_channel(None)
+        want = ttnn.MatmulMultiCoreReuseProgramConfig
+        for kt, f in forced.items():
+            cfg = T._triangle_mul_program_config(kt, l1_operands=False)
+            assert isinstance(cfg, want) is (isinstance(f, want) and kt <= T._TRIMUL_PER_CHANNEL_MAX_ST), kt
+            assert cfg.in0_block_w == f.in0_block_w, kt
+        assert isinstance(T._triangle_mul_program_config(7, l1_operands=False), want)
+    finally:
+        T.set_trimul_per_channel(prev)
+
+
+@pytest.mark.parametrize("grid, bank", [((8, 9), WH_BANK), ((11, 10), BANK)])
 def test_trimul_per_channel_plan_is_capped_where_the_operands_are_in_l1(monkeypatch, grid, bank):
     """With the operands in L1 the plan stops at 7 sequence tiles (224 tokens).
 

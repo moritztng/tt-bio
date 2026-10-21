@@ -37,6 +37,7 @@ from tt_bio.tenstorrent import (
     _accurate_softmax,
     _sdpa_program_config_for_lengths,
     accurate_softmax_site,
+    atom_l1_linears,
     attn_value_matmul,
     fused_sdpa,
     lever,
@@ -450,7 +451,7 @@ class AttentionPairBias(Module):
         z_norm = ttnn.layer_norm(
             z, weight=self.pair_norm_w, bias=self.pair_norm_b, epsilon=1e-5, compute_kernel_config=ck
         )
-        pb = self._lin(z_norm, self.pair_bias_w)  # [B, L, L, H]
+        pb = self._lin(z_norm, self.pair_bias_w, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [B, L, L, H], cached
         ttnn.deallocate(z_norm)
         pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
         ttnn.deallocate(pb)
@@ -1076,7 +1077,7 @@ class SWAAtomBlock(Module):
             if self._mod is not None:
                 for _t in self._mod:
                     ttnn.deallocate(_t)
-            mod = lin(ttnn.silu(c_l), self.adaln_w)  # [B,N,6d]
+            mod = lin(ttnn.silu(c_l), self.adaln_w, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [B,N,6d], cached
             sa, ca, ga, sf, cf, gf = ttnn.chunk(mod, 6, dim=-1)
             ttnn.deallocate(mod)
             self._mod = (sa, ca, ga, sf, cf, gf)
@@ -1179,7 +1180,7 @@ class AtomEncoder(Module):
         else:
             if self._c is not None:
                 ttnn.deallocate(self._c)
-            c = ttnn.layer_norm(lin(atom_feats, self.atom_linear_w), weight=self.atom_norm_w, bias=self.atom_norm_b, epsilon=1e-5, compute_kernel_config=ck)
+            c = ttnn.layer_norm(lin(atom_feats, self.atom_linear_w, memory_config=ttnn.DRAM_MEMORY_CONFIG), weight=self.atom_norm_w, bias=self.atom_norm_b, epsilon=1e-5, compute_kernel_config=ck)
             self._c = c
             self._c_src = atom_feats
         q = ttnn.add(c, lin(r_input, self.coords_w)) if self.structure_prediction else c
@@ -1229,6 +1230,14 @@ class DiffusionModuleModel(Module):
         self.token_norm_b = self.torch_to_tt("token_norm.bias")
 
     def _denoise(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid):
+        # atom_l1: the step's linears write L1 where the output fits (placement only, the same bits). The DiT's
+        # short-K and 512-row projections wait on their interleaved DRAM write: on a Galaxy chip at 1000 MHz
+        # [4128, 128] x [128, 256] reads 59.9 us with a DRAM output and 30.5 us with an L1 one, [512, 768] x
+        # [768, 3072] 103.2 vs 70.1 us, rel_l2 vs float64 equal (wdy).
+        with atom_l1_linears():
+            return self._denoise_step(s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid)
+
+    def _denoise_step(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid):
         ck = self.compute_kernel_config
         lin = self._lin
         a, q_skip, c_skip = self.atom_encoder(atom_feats, cos, sin, band, scatter_m, r_input=r_input, valid=valid)
@@ -1657,9 +1666,12 @@ def _opm_fallback_rows(L: int) -> int:
 
 #: How the outer product meets Wout. "tile" (the original): the [L*32, L*32] product, then two tile
 #: reshapes that turn each 32x32 tile into a row of 1024; at 512 aa those reshapes are 95 of the op's
-#: ~114 ms (census c3, p150a). "kq": contract a with Wout's q-blocks first (K = 32 x MSA depth), so
-#: no tile ever changes shape. "rm": the original with its reshapes done row-major. A/B in
-#: perf/spd_gap_esmf/opm_bench.py. Unset: "kq" under the ef2_opm_kq lever (LEVERS_FAST), else "tile".
+#: ~114 ms (census c3, p150a), and with a 1024-row MSA 8.0 s of a 49 s fold on Wormhole (wpo). "pk": the
+#: same product, the move done by `permute_back_pk.tile_rows` (bit-exact, a copy). "kq": contract a with
+#: Wout's q-blocks first (K = 32 x MSA depth), so no tile ever changes shape. "rm": the original with its
+#: reshapes done row-major. A/B in perf/spd_gap_esmf/opm_bench.py. Unset: "pk". It replaced the ef2_opm_kq
+#: lever (kq for MSAs up to 64 rows): Wormhole, 512 aa, 35 rows, 24.8 ms a call against kq's 63.7 and tile's 231.8,
+#: and exact where kq moves the result (opk/mic).
 _OPM_PATH = os.environ.get("TT_BIO_ESMFOLD2_OPM") or None
 _OPM_KQ_MAX_DEPTH = 64
 
@@ -1728,6 +1740,26 @@ class OuterProductMean(Module):
         out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
         return ttnn.multiply(out, recip_blk)
 
+    def _rows_pk(self, a_blk, b2, recip_blk, L, M):
+        """`_rows` with the tile -> row move on `permute_back_pk.tile_rows`; `_rows` where that kernel does not serve."""
+        from . import permute_back_pk as PK
+        from .tenstorrent import COMPUTE_GRID_MAIN
+        ck = self.compute_kernel_config
+        B, Bl = int(a_blk.shape[0]), int(a_blk.shape[1])
+        a2 = ttnn.reshape(ttnn.permute(a_blk, (0, 1, 3, 2)), (B, Bl * 32, M))
+        prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl*32,L*32]
+        outer = ttnn.allocate_tensor_on_device(ttnn.Shape([B, Bl, L, 1024]), _DTYPE, ttnn.TILE_LAYOUT,
+                                               prod.device(), prod.memory_config())
+        if not PK.tile_rows_ok(prod, outer):
+            ttnn.deallocate(outer)
+            ttnn.deallocate(prod)
+            return self._rows(a_blk, b2, recip_blk, L, M)
+        PK.tile_rows(prod, outer, tuple(COMPUTE_GRID_MAIN))
+        ttnn.deallocate(prod)
+        out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
+        ttnn.deallocate(outer)
+        return ttnn.multiply(out, recip_blk)
+
     def _project(self, mm, mf=None):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
         ck = self.compute_kernel_config
         x = self._lin(ttnn.layer_norm(mm, weight=self.norm_w, bias=self.norm_b, epsilon=1e-5, compute_kernel_config=ck), self.W)
@@ -1748,13 +1780,13 @@ class OuterProductMean(Module):
         else:
             a, b = self._project(m, mf)  # [B,L,M,32]
         # kq costs 16384 L^2 Mp flops against tile's 2048 L^2 M + 524288 L^2 and holds a [L, 32 Mp, 256] transient,
-        # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones keep the tile path.
-        path = _OPM_PATH or ("kq" if gate(None, "ef2_opm_kq") else "tile")
+        # so it is for shallow MSAs only (the page fixture has 35 rows); deep ones take pk.
+        path = _OPM_PATH or "pk"
         if path == "kq" and M <= _OPM_KQ_MAX_DEPTH:
             b2, rows = b, self._rows_kq  # kq contracts the [B,L,M,32] b itself
         else:
             b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
-            rows = self._rows_rm if path == "rm" else self._rows
+            rows = {"rm": self._rows_rm, "tile": self._rows}.get(path, self._rows_pk)  # a deep MSA under kq too
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile
@@ -1795,43 +1827,35 @@ class OuterProductMean(Module):
 
 
 class MSAPairWeightedAveraging(Module):
-    """Pair-biased MSA row update (head_width 16 sub-tile -> contraction on host)."""
+    """Pair-biased MSA row update on tt-bio's shared `PairWeightedAveraging` (AF3 Algorithm 10).
+
+    The shared module holds the MSA depth-major, [1, M, L, c]; ESMFold2 holds it token-major,
+    [1, L, M, c], so the update is one permute in and one out. The old path ran the head contraction
+    on the host in fp32 because head_width 16 is sub-tile; the shared module's unpadded head path
+    does it on the chip. With a 1024-row MSA at 512 tokens that host einsum was 1.3 s a call, 33
+    calls a fold (11 loops x 3 blocks).
+    """
 
     def __init__(self, n_heads, head_width, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
-        self.n_heads, self.head_width = n_heads, head_width
-        self.ns_w = self.torch_to_tt("norm_single.weight"); self.ns_b = self.torch_to_tt("norm_single.bias")
-        self.cb_ln_w = self.torch_to_tt("compute_bias.0.weight"); self.cb_ln_b = self.torch_to_tt("compute_bias.0.bias")
-        self.cb_w = self.torch_to_tt("compute_bias.1.weight")
-        self.Wv = self.torch_to_tt("Wv.weight"); self.Wgate = self.torch_to_tt("Wgate.weight")
-        self.Wout = self.torch_to_tt("Wout.weight")
+        from tt_bio import tenstorrent
+        sd = self.weights.as_dict()
+        names = {"norm_m": "norm_single", "norm_z": "compute_bias.0", "proj_z": "compute_bias.1",
+                 "proj_m": "Wv", "proj_g": "Wgate", "proj_o": "Wout"}
+        self.pwa = tenstorrent.PairWeightedAveraging(head_width, n_heads, WeightScope(
+            {f"{k}.{t}": sd[f"{v}.{t}"] for k, v in names.items() for t in ("weight", "bias")
+             if f"{v}.{t}" in sd}), compute_kernel_config)
 
     def __call__(self, m, pair):
-        """Returns `m + update`: the residual is folded into the row loop so a
-        second full [B,L,M,c] copy never has to sit on the chip alongside `m`."""
-        ck = self.compute_kernel_config
-        lin = self._lin
-        B, L, M = m.shape[0], m.shape[1], m.shape[2]
-        h, dh = self.n_heads, self.head_width
-        bias = lin(ttnn.layer_norm(pair, weight=self.cb_ln_w, bias=self.cb_ln_b, epsilon=1e-5, compute_kernel_config=ck), self.cb_w)  # [B,L,L,8]
-        # non-learned 5D contraction on host (head_width 16 is sub-tile)
-        bias_t = torch.Tensor(ttnn.to_torch(bias)).float()
-        attn = torch.softmax(bias_t, dim=-2)  # over j
-        blocks = _msa_row_blocks(L, M) or [(0, L)]
-        rows = (lambda t, s, e: t) if len(blocks) == 1 else (lambda t, s, e: t[:, s:e])
-        v_t, gate_t = [], []
-        for s, e in blocks:
-            mn = ttnn.layer_norm(rows(m, s, e), weight=self.ns_w, bias=self.ns_b, epsilon=1e-5, compute_kernel_config=ck)
-            v_t.append(torch.Tensor(ttnn.to_torch(lin(mn, self.Wv))).float())          # [B,rows,M,128]
-            gate_t.append(torch.Tensor(ttnn.to_torch(ttnn.sigmoid(lin(mn, self.Wgate)))).float())
-        cat = lambda ts: (ts[0] if len(ts) == 1 else torch.cat(ts, dim=1)).reshape(B, L, M, h, dh)
-        out = torch.einsum("bijh,bjmhd,bimhd->bimhd", attn, cat(v_t), cat(gate_t)).reshape(B, L, M, h * dh)
-        upd = []
-        for s, e in blocks:
-            out_tt = ttnn.from_torch(rows(out, s, e), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_DTYPE)
-            upd.append(ttnn.add(rows(m, s, e), lin(out_tt, self.Wout)))
-        from tt_bio import tenstorrent
-        return tenstorrent._acc_concat(upd, 1, False)
+        """Returns `m + update`."""
+        mt = ttnn.permute(m, (0, 2, 1, 3))
+        o = self.pwa(mt, pair)
+        ttnn.deallocate(mt)
+        u = ttnn.permute(o, (0, 2, 1, 3))
+        ttnn.deallocate(o)
+        out = ttnn.add(m, u)
+        ttnn.deallocate(u)
+        return out
 
 
 class MSAEncoderBlock(Module):
@@ -1903,7 +1927,8 @@ class MSAEncoder(TorchWrapper):
     def _create_module(self, weights: WeightScope) -> MSAEncoderModel:
         return MSAEncoderModel(self.n_layers, self.n_heads_msa, self.msa_head_width, weights, self.compute_kernel_config)
 
-    def forward(self, x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask):
+    def forward(self, x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask, to_host=True):
+        """`to_host=False` returns the device pair, for a caller that keeps the injection on the chip."""
         m_feat = torch.cat([msa_oh, has_deletion.unsqueeze(-1), deletion_value.unsqueeze(-1)], dim=-1)  # [B,L,M,35]
         mask_f = msa_mask.float()
         n_valid = (mask_f @ mask_f.transpose(-1, -2)).clamp(min=1.0).unsqueeze(-1)  # [B,L,L,1]
@@ -1913,7 +1938,7 @@ class MSAEncoder(TorchWrapper):
         # A device x_pair (ESMFold2's z_init built on the device) is copied: the blocks update the pair in place.
         xp = ttnn.clone(x_pair) if isinstance(x_pair, ttnn.Tensor) else ft(x_pair)
         out = self.module(xp, ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
-        return self._to_torch(out)
+        return self._to_torch(out) if to_host else out
 
 
 # ===========================================================================

@@ -147,7 +147,9 @@ def test_tree_root_names_the_commit_dir():
     sha = subprocess.run(["git", "-C", repo, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
     assert feed.tree_root(f"/home/u/spd/r/t{sha}/perf/spd/run_chip.sh", repo) == (f"/home/u/spd/r/t{sha}", sha)
     assert feed.tree_root(f"/home/u/spd/r/tree-{sha}", repo) == (f"/home/u/spd/r/tree-{sha}", sha)
+    assert feed.tree_root(f"/home/u/spd/r/trees/m{sha}/perf/spd/run_chip.sh", repo) == (f"/home/u/spd/r/trees/m{sha}", sha)
     assert feed.tree_root("/home/u/spd/r/t1b8/x", repo) is None
+    assert feed.tree_root("/home/u/spd/r/trees/mbr/perf/spd/run_chip.sh", repo) is None
 
 
 def test_probe_counts_an_empty_marker_and_tails_the_jobs_own_log(tmp_path):
@@ -193,6 +195,28 @@ def test_probe_reports_waiter_age(tmp_path):
     out = _probe_bh(tmp_path, queued=True)
     assert out["free"] == [] and out["queued"] == 1
     assert out["jobs"]["4-a.sh"]["state"] == "queued" and out["jobs"]["4-a.sh"]["age"] >= 0
+    assert out["qprio"] == [0, 0, 0, 0, 1, 0, 0, 0, 0]
+
+
+def test_a_bh_box_full_of_backfill_still_takes_a_lower_digit_cell(tmp_path, monkeypatch):
+    """A BH waiter yields its card to a lower digit, so backfill queued past the depth must not lock a prio-3 cell out
+    (10-21 qb2: five prio-4/8 waiters, depth 2 x 2 cards, every prio-3 Protenix BH cell refused)."""
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(BH_GRID.replace("prio: 4", "prio: 3"))
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb2": {"ssh": "qb2", "cards": [2, 3], "lock": "/l2_{c}"}})
+    placed = []
+
+    def remote(ssh, script, payload, timeout=120):
+        if script is feed.PROBE:
+            q = {f"{d}-y-f-b{i}.sh": {"state": "queued", "age": 5} for i, d in enumerate((4, 8, 8, 8, 8))}
+            return {"healthy": 2, "cards": [2, 3], "queued": 5, "qprio": [0, 0, 0, 0, 1, 0, 0, 0, 4], "free": [],
+                    "paused": False, "swept": 0, "live": [], "jobs": q, "exists": {}}
+        placed.extend(payload.get("jobs", []))
+        return len(payload.get("jobs", []))
+    monkeypatch.setattr(feed, "remote", remote)
+    run(tmp_path)
+    assert [j["name"][0] for j in placed] == ["3"]
 
 
 BH_GRID = """
@@ -284,6 +308,33 @@ def test_a_bh_waiter_starts_on_the_first_card_to_come_free(tmp_path):
     sh = _place_bh(tmp_path, [0, 1], "echo card $CHIP\n")
     t.join()
     assert Path(f"{sh}.log").read_text() == "card 1\n"
+
+
+def test_a_freed_bh_card_goes_to_the_lowest_prio_waiter_not_the_first_placed(tmp_path):
+    # 10-20 qb2: prio-8 backfill waiters placed first took both cards for hours while four prio-3 row jobs waited
+    import fcntl, threading
+    busy = open(tmp_path / "l5", "a"); fcntl.flock(busy, fcntl.LOCK_EX)
+    (tmp_path / "spd/feed/jobs").mkdir(parents=True)
+    out = {}
+    lo = threading.Thread(target=lambda: out.setdefault("lo", _place_bh(tmp_path, [5], "sleep 1\n", name="8-lo.sh")))
+    hi = threading.Thread(target=lambda: out.setdefault("hi", _place_bh(tmp_path, [5], "sleep 1\n", name="3-hi.sh")))
+    lo.start(); time.sleep(0.6); hi.start(); time.sleep(0.6)
+    fcntl.flock(busy, fcntl.LOCK_UN)
+    lo.join(); hi.join()
+    j = tmp_path / "spd/feed/jobs"
+    assert (j / "3-hi.sh.end").read_text().strip() == "0" and (j / "8-lo.sh.end").read_text().strip() == "0"
+    assert (j / "3-hi.sh.start").stat().st_mtime < (j / "8-lo.sh.start").stat().st_mtime
+
+
+def test_a_waiter_held_off_by_a_booking_does_not_block_a_lower_prio_one(tmp_path):
+    now = int(time.time())
+    _book(tmp_path, (now + 2000, now + 5000, "cfd3-k4", "5"))
+    long = _place_bh(tmp_path, [5], "echo card $CHIP\n", cap=5000, name="3-l.sh")
+    try:
+        sh = _place_bh(tmp_path, [5], "echo card $CHIP\n", name="8-s.sh")
+        assert Path(f"{sh}.log").read_text() == "card 5\n"
+    finally:
+        subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])
 
 
 def test_withdraw_kills_an_unstarted_waiter_and_sets_it_aside(tmp_path):
@@ -756,3 +807,42 @@ def test_a_chip_lending_japanfold_box_is_a_pool_sized_by_its_lent_chips(tmp_path
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path)}, check=True)
     assert json.loads(r.stdout)["paused"] is True
+
+
+LEAD = """row: spd-a
+experiments:
+  - name: ok
+    axes: {seed: ["1", "2"]}
+    done: ["/tmp/x/{seed}/done"]
+    command: echo {seed}
+  - name: hiprio
+    prio: 1
+    done: ["/tmp/y"]
+    command: echo y
+"""
+
+
+def test_a_bad_grid_file_skips_alone_and_prio_clamps(tmp_path):
+    (tmp_path / "a.yaml").write_text(LEAD)
+    (tmp_path / "b.yaml").write_text("row: [unclosed\n")
+    (tmp_path / "c.yaml").write_text("experiments: []\n")   # no row
+    warned = []
+    cs = feed.cells(tmp_path, log=warned.append)
+    prio = {c["key"]: int(c["name"].split("-")[0]) for c in cs}
+    assert sorted(prio) == ["spd-a/hiprio/x", "spd-a/ok/1", "spd-a/ok/2"]
+    assert prio["spd-a/hiprio/x"] == 3
+    assert sum(w.startswith("skip ") for w in warned) == 2, warned
+    lead = {c["key"]: int(c["name"].split("-")[0]) for c in feed.cells(tmp_path, log=lambda m: None, lead={"spd-a"})}
+    assert lead["spd-a/hiprio/x"] == 2
+
+
+def test_lead_rows_are_live_rows_dedicated_to_a_directive(tmp_path):
+    (tmp_path / "state/spd/steer").mkdir(parents=True); (tmp_path / "state/concluded").mkdir()
+    (tmp_path / "state/spd/steer/config.json").write_text(json.dumps(
+        {"groups": {"protenix": ["protenix-v2"], "esmc": ["esmc-300m"]}, "directives": {"protenix": {"x": 5}}}))
+    (tmp_path / "state/spd/OWNERS.tsv").write_text(
+        "# slug kind models\nspd-m-protenix\tcell\tprotenix-v2\nspd-bet-old\tbet\tprotenix-v2\n"
+        "spd-shared\tcell\tprotenix-v2,esmc-300m\nspd-m-esmc\tcell\tesmc-300m\n")
+    (tmp_path / "state/concluded/spd-bet-old").touch()
+    assert feed.lead_rows(tmp_path) == {"spd-m-protenix"}
+    assert feed.lead_rows(tmp_path / "missing") == set()

@@ -22,6 +22,14 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/reduce.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
+#include "api/compute/tile_move_copy.h"
+
+// LN_ABL (bench-only, 0 in every model path; trimul_in_t1 maps ABL bits 128 / 256 to it): bit 0 skips the * gamma and
+// + beta stages (the normalised tile is copied to the pack hook), bit 1 reduces x - mean directly instead of its
+// square. Each prices what fusing those stages away could save.
+#ifndef LN_ABL
+#define LN_ABL 0
+#endif
 
 namespace ln_prologue {
 
@@ -106,13 +114,32 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
     cb_pop_front(C::x, C::Kt);
     cb_pop_front(C::mean, 1);
     cb_wait_front(C::xc, C::Kt);
-    stage<C, MUL>(C::xc, C::xc, C::tmp);                  // xc^2
-    row_mean<C>(C::tmp, C::var, true);                    // var (biased, as layer_norm)
+    if constexpr (LN_ABL & 2) {
+        row_mean<C>(C::xc, C::var, false);
+    } else {
+        stage<C, MUL>(C::xc, C::xc, C::tmp);              // xc^2
+        row_mean<C>(C::tmp, C::var, true);                // var (biased, as layer_norm)
+    }
     rstd<C>();                                            // rstd = rsqrt(var + eps)
     stage<C, MUL_COL>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
     cb_wait_front(C::tmp, C::Kt);
+    if constexpr (LN_ABL & 1) {
+        reconfig_data_format_srca(C::tmp);
+        pack_reconfig_data_format(out);
+        copy_tile_to_dst_init_short(C::tmp);
+        for (uint32_t i = 0; i < C::Kt; ++i) {
+            tile_regs_acquire();
+            copy_tile(C::tmp, i, 0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack(i);
+            tile_regs_release();
+        }
+        cb_pop_front(C::tmp, C::Kt);
+        return;
+    }
     stage<C, MUL_ROW>(C::tmp, C::gamma, C::xc);           // * gamma
     cb_pop_front(C::tmp, C::Kt);
     cb_wait_front(C::xc, C::Kt);

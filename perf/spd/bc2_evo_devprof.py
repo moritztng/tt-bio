@@ -43,6 +43,9 @@ p.add_argument("--binder", type=int, default=80)
 p.add_argument("--target", type=int, default=115, help="PD-L1 in examples/pdl1.json")
 p.add_argument("--recycles", type=int, default=1, help="design_recycles (settings/core/default.json)")
 p.add_argument("--stacks", default="template,extra,evo")
+p.add_argument("--primal-recycles", action="store_true",
+               help="every recycle but the last runs `_primal`, as BindCraft 2 does under "
+                    "`untaped_recycles` (their outputs are stop-gradiented, so they record no tape)")
 p.add_argument("--no-dropout", action="store_true", help="the harden stage: keeps all true, scales 1")
 p.add_argument("--no-fast", action="store_true", help="skip bindcraft2.fast_round (the shipped levers)")
 p.add_argument("--warm", type=int, default=2)
@@ -53,10 +56,18 @@ p.add_argument("--tape-census", action="store_true",
                     "the op that saved them (run with TT_BIO_BC2_RESIDENT_BLOCKS>=1 to see a whole block)")
 p.add_argument("--wrap", choices=("census", "all"), default="all")
 p.add_argument("--seed", type=int, default=0)
+p.add_argument("--digest", action="store_true",
+               help="sha256 of every seam's host outputs, per rep, hashed after the clock stops: an "
+                    "op-exactness check between arms run with the same --seed")
+p.add_argument("--alternate", metavar="MODULE.ATTR[,MODULE.ATTR]",
+               help="boolean module flags read at call time (e.g. tt_bio.af2._AF2_T2CM), set together per rep in "
+                    "ABBA order, warm-up included: an in-process A/B that host load and clock drift hit "
+                    "equally; the summary is split by arm")
 p.add_argument("--out", type=Path, required=True)
 a = p.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 
+import hashlib  # noqa: E402
 import numpy as np  # noqa: E402
 
 from tt_bio import bindcraft2 as B  # noqa: E402  (jax-free at import; jax only inside as_jax & co.)
@@ -128,6 +139,7 @@ def draw():
 
 # ---------------------------------------------------------------- one design iteration
 rec = None
+DIGESTS = [] if a.digest else None
 
 
 def seam(phase, fn, *args):
@@ -135,14 +147,33 @@ def seam(phase, fn, *args):
         rec.phase = phase
     t0 = time.perf_counter()
     out = fn("", *args)           # every seam ends in trunk.sync(), so this is its device wall
-    return out, time.perf_counter() - t0
+    wall = time.perf_counter() - t0
+    if DIGESTS is not None:
+        h = hashlib.sha256()
+        for x in out if isinstance(out, (tuple, list)) else (out,):
+            if isinstance(x, np.ndarray) and x.size > 1:
+                h.update(np.ascontiguousarray(x).tobytes())
+        DIGESTS.append(f"{phase}:{h.hexdigest()[:16]}")
+    return out, wall
 
 
 def iteration():
     T = collections.defaultdict(list)
-    for _ in range(a.recycles + 1):
+    for r in range(a.recycles + 1):
         d = draw()                # a fresh key per recycle; drawing is host work outside the seams
         z = pair
+        if a.primal_recycles and r < a.recycles:
+            if tmpl:
+                _, pk, sc = d["template"]
+                T["template.primal"].append(seam("template.primal", tmpl._primal, act, tmpl_mask, pk, sc)[1])
+            if "extra" in stacks:
+                _, pk, sc = d["extra"]
+                z, s = seam("extra.primal", extra._primal, z, extra_mask, pair_mask, pk, sc)
+                T["extra.primal"].append(s)
+            if "evo" in stacks:
+                mk, pk, sc = d["evo"]
+                T["evo.primal"].append(seam("evo.primal", evo._primal, msa, z, msa_mask, pair_mask, mk, pk, sc)[1])
+            continue
         if tmpl:
             _, pk, sc = d["template"]
             (_, t_tok), s = seam("template.taped", tmpl._taped, act, tmpl_mask, pk, sc)
@@ -245,20 +276,38 @@ print(json.dumps(head)[:2000], flush=True)
 with autograd.exact_training(False), \
         (B.fast_round() if not a.no_fast else __import__("contextlib").nullcontext({})) as armed:
     head["fast_round"] = armed
+    flag = None
+    if a.alternate:
+        flags = [(__import__("importlib").import_module(m), at)
+                 for m, at in (f.rsplit(".", 1) for f in a.alternate.split(","))]
+        flag = lambda on: [setattr(m, at, on) for m, at in flags]  # noqa: E731
+    arm_of = lambda i: (0, 1, 1, 0)[i % 4]
+    arms = []
     for i in range(a.warm):
+        if flag:
+            flag(bool(arm_of(i)))
         t0 = time.perf_counter()
         iteration()
         print(f"warm {i}: {time.perf_counter() - t0:.3f} s", flush=True)
     reps, walls = [], []
     for i in range(a.reps):
+        if flag:
+            flag(bool(arm_of(i)))
+            arms.append(arm_of(i))
         t0 = time.perf_counter()
         reps.append(iteration())
         walls.append(time.perf_counter() - t0)
-        print(f"rep {i}: {walls[-1]:.3f} s " + " ".join(f"{k}={sum(v):.3f}" for k, v in reps[-1].items()),
+        print(f"rep {i}{f' arm {arms[-1]}' if flag else ''}: {walls[-1]:.3f} s " + " ".join(f"{k}={sum(v):.3f}" for k, v in reps[-1].items()),
               flush=True)
-    doc = dict(head, iteration_s=walls, reps=reps, summary=summary(reps),
+    doc = dict(head, iteration_s=walls, reps=reps, summary=summary(reps), digests=DIGESTS,
                memory_mode=dict(mem.used), calls=dict(evo=evo.calls, extra=extra.calls,
                                                         template=tmpl.calls if tmpl else None))
+    if flag:
+        flag(False)
+        doc["arms"] = arms
+        doc["by_arm"] = {str(k): dict(iteration_s=[w for w, m in zip(walls, arms) if m == k],
+                                      summary=summary([r for r, m in zip(reps, arms) if m == k]))
+                         for k in (0, 1)}
 
     if a.census:
         rec = Recorder(ttnn, trunk.device, 0)

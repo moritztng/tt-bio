@@ -170,7 +170,7 @@ else:
             out["arc"].append({"card": c, "at": int(b.rsplit(".", 1)[1]), "result": open(b + ".result").read().strip()})
         elif os.path.exists("/proc/" + open(f).read().strip()):
             out["arc_busy"].append(c)
-    out["healthy"] = len(cards); out["cards"] = cards; queued = 0; held = set()
+    out["healthy"] = len(cards); out["cards"] = cards; queued = 0; held = set(); out["qprio"] = [0] * 9
     for sh in glob.glob(J + "/*.sh"):
         n = os.path.basename(sh); card = int(open(sh + ".card").read()) if os.path.exists(sh + ".card") else -1
         if os.path.exists(sh + ".end"):
@@ -181,6 +181,7 @@ else:
             out["jobs"][n] = {"state": "running"}; held.add(card)
         else:
             out["jobs"][n] = {"state": "queued", "age": int(now - os.path.getmtime(sh))}; queued += 1
+            if n[0].isdigit(): out["qprio"][int(n[0])] += 1
     import fcntl, subprocess
     def lock_free(c):
         try:
@@ -266,22 +267,29 @@ for j in A["jobs"]:
         os.rename(t, q + "/" + j["name"])
     else:
         J = H + "/spd/feed/jobs"; sh = J + "/" + j["name"]
-        for x in (".end", ".start", ".pid", ".log", ".pg", ".until"):
+        for x in (".end", ".start", ".pid", ".log", ".pg", ".until", ".want", ".w"):
             if os.path.exists(sh + x): os.remove(sh + x)
         open(sh, "w").write(j["body"]); open(sh + ".card", "w").write("-1")
         open(sh + ".outs", "w").write("".join(os.path.expanduser(d) + "\n" for d in j.get("outs", [])))
         # Take the box's dispatch flock in turn, then the first card that is not BAD or dead-ARC, runs no release-gate leg, has
         # no booking before the job's worst-case end (checked again once its flock is held) and whose flock is free.
         # 10-15: waiters bound to one card queued on busy cards 2 and 3 while qb1 card 0 sat free 15+ min.
-        w = (NODE + 'exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
-             'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
-             'G="' + GATE_LEG % "$c" + '"; '
+        # A card goes to the lowest prio digit waiting for it, as pool.sh does on a Galaxy: a waiter leaves a card to a live,
+        # unstarted waiter of lower digit that wants it ($1.want) and is not held off by a booking ($1.w), and hands the
+        # dispatch flock on. 10-20 qb2: prio-8 backfill placed first held both cards for hours over four prio-3 row jobs.
+        w = (NODE + 'hi() { local f p b=${1##*/}; for f in "$J"/[0-9]-*.sh; do p=${f##*/}; [ "${p%%-*}" -lt "${b%%-*}" ] 2>/dev/null || continue; '
+             '[ -e "$f.start" ] || [ -e "$f.end" ] || [ -e "$f.w" ] && continue; grep -qw "$2" "$f.want" 2>/dev/null || continue; '
+             'kill -0 "$(cat "$f.pid" 2>/dev/null)" 2>/dev/null && return 0; done; return 1; }; '
+             'echo "$2" > "$1.want"; exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; Y=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
+             'hi "$1" $c && { Y=1; continue; }; G="' + GATE_LEG % "$c" + '"; '
              'gate "$5" && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! gate "$5" && break 2; exec 9>&-; done; '
              '[ $SECONDS -lt $D ] || { echo flockbusy > "$1.end"; exit 3; }; '
-             'if [ -n "$W" ]; then flock -u 8; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
+             'if [ -n "$W" ]; then touch "$1.w"; else rm -f "$1.w"; fi; '
+             'if [ -n "$W$Y" ]; then flock -u 8; sleep "${POLL:-20}"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
              'else sleep "${POLL:-20}"; fi; done; '
-             'exec 8>&-; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
+             'exec 8>&-; rm -f "$1.w"; echo $c > "$1.card"; touch "$1.start"; echo $(($(date +%s) + $5 + 600)) > "$1.until"; set -- "$1" $c "$3" "$(dirname "$1")/nolock.$c" "$5" "$6"; '
              'cd "$(dirname "$1")"; ' + RUN)
         p = subprocess.Popen(["setsid", "nohup", "bash", "-c", w, "_", sh, " ".join(map(str, j["cards"])),
                               j["lock"].replace("{c}", "@"), "", str(j["cap"] + 300), A.get("reset", "")],
@@ -423,12 +431,38 @@ def inputs(cmd):
             if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
 
 
-def cells(grid_dir, log=print):
-    """All cells of all active experiments, ordered by tier, rows round-robin within a tier."""
+def lead_rows(root):
+    """Live rows dedicated to a steer directive's group (state/spd/steer/config.json "directives"). They may queue at
+    prio 2: at 3 Protenix's bhcen3 tied with esmc's prio-3 jobs on qb2 and raced them for the dispatch flock (10-20).
+    A row shared with another group does not hold the directive, as in spd_steer.py."""
+    try:
+        cfg = json.loads((root / "state/spd/steer/config.json").read_text())
+        lines = (root / "state/spd/OWNERS.tsv").read_text().splitlines()
+    except (OSError, ValueError):
+        return set()
+    group = {m: g for g, ms in cfg.get("groups", {}).items() for m in ms}
+    lead, out = set(cfg.get("directives", {})), set()
+    for line in lines:
+        p = line.split("\t")
+        if line.startswith("#") or len(p) < 3 or (root / "state/concluded" / p[0]).exists():
+            continue
+        gs = {group.get(m, m) for m in p[2].split(",") if m}
+        if len(gs) == 1 and gs <= lead:
+            out.add(p[0])
+    return out
+
+
+def cells(grid_dir, log=print, lead=frozenset()):
+    """All cells of all active experiments, ordered by tier, rows round-robin within a tier. Rows in `lead` may use
+    prio 2 (lead_rows)."""
     by_tier = {}
     for f in sorted(Path(grid_dir).glob("*.yaml")):
-        g = yaml.safe_load(f.read_text()) or {}
-        row, tier = g["row"], TIERS[g.get("tier", "amber")]
+        try:  # one unreadable grid file must not stop every row's feed
+            g = yaml.safe_load(f.read_text()) or {}
+            row, tier = g["row"], TIERS[g.get("tier", "amber")]
+        except Exception as x:
+            log(f"skip {f.name}: {type(x).__name__}: {str(x).splitlines()[0] if str(x) else ''}")
+            continue
         for e in g.get("experiments", []):
             if not e.get("active", True):
                 continue
@@ -437,9 +471,10 @@ def cells(grid_dir, log=print):
             except (TypeError, ValueError):
                 log(f"skip {f.name}:{e['name']}: prio {e.get('prio')!r} is not a number")
                 continue
-            if not 3 <= prio <= 8:  # 0-2 is hand-queued release/integrate work; a skip left wsv unqueued (10-17)
-                log(f"clamp {f.name}:{e['name']}: prio {prio} -> {min(max(prio, 3), 8)} (pool prio 3-8)")
-                prio = min(max(prio, 3), 8)
+            lo = 2 if row in lead else 3  # 0-1 (2 outside a directive) is hand-queued release/integrate work
+            if not lo <= prio <= 8:  # a skip left wsv unqueued (10-17)
+                log(f"clamp {f.name}:{e['name']}: prio {prio} -> {min(max(prio, lo), 8)} (pool prio {lo}-8)")
+                prio = min(max(prio, lo), 8)
             axes = e.get("axes", {})
             out = []
             for vals in itertools.product(*axes.values()):
@@ -491,11 +526,11 @@ def runs(p, c):
     return p["arch"] == c["arch"] and (not c["hosts"] or p["name"] in c["hosts"])
 
 
-SHA_DIR = re.compile(r"(?:tree-|t)?([0-9a-f]{7,40})")
+SHA_DIR = re.compile(r"[a-z-]{0,8}?([0-9a-f]{7,40})")
 
 
 def tree_root(path, repo, _seen={}):
-    """(tree dir, commit) if `path` lies in a tt-bio tree named by its commit (trees/<sha>, tree-<sha>, t<sha>)."""
+    """(tree dir, commit) if `path` lies in a tt-bio tree named by its commit (trees/<sha>, tree-<sha>, t<sha>, m<sha>...)."""
     parts = path.split("/")
     for i, comp in enumerate(parts):
         m = SHA_DIR.fullmatch(comp)
@@ -591,7 +626,7 @@ def main(argv=None):
     def log(m):
         logf.write(f"{stamp} {m}\n"); print(m)
 
-    cs = cells(R / "state/spd/grids", log)
+    cs = cells(R / "state/spd/grids", log, lead_rows(R))
     P = pools(R)
     # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch. A dark BH box
     # keeps its results: an experiment with a cell done there waits for it, so its A/B arms stay on one box.
@@ -670,8 +705,9 @@ def main(argv=None):
     # counts only queued work it does not jump: pool.sh starts the lowest prio digit first, so prio-6 jobs hand-queued
     # past the depth must not lock prio-3 cells out (10-15: 211 queued on .107, every grid cell refused for hours).
     # Depth counts expected chip time: a job whose experiment's median done run is under TICK_S weighs that fraction
-    # (at least 0.1), so the queue covers two passes of short cells too. BH waiters start in placement order whatever
-    # their prio, so a BH box counts all its queued work at prio 0.
+    # (at least 0.1), so the queue covers two passes of short cells too. A BH waiter leaves a card to a lower digit (hi()),
+    # so a BH box counts its queue by digit too: counted at prio 0, five prio-4/8 waiters on qb2 locked out every
+    # prio-3 Protenix BH cell (10-21).
     exp = lambda k: k.rsplit("/", 1)[0]
     durs = {}
     for k, L in ledger.items():
@@ -717,7 +753,8 @@ def main(argv=None):
                         continue
                     if r and not st[n]["exists"].get(r[0]):
                         ship[n][r[0]] = r[1]
-                    elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL):
+                    elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL) and "/trees/" not in x:
+                        # a file under trees/ is part of a tree feed cannot name: a lone copy is a stub that satisfies `requires`
                         copy[n].add(x)
     for n in st:
         if ship[n] or copy[n]:

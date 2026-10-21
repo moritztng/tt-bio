@@ -121,6 +121,6 @@ def test_c256_two_parts_only_on_blackhole(monkeypatch, arch, bank, fit):
 
 def test_routes_through_the_moved_program():
     src = Path(TTL.__file__).read_text()
-    assert "moved=(xcm, 0, P)" in src
+    assert "moved=(xcm, c_off, P)" in src
     assert not (KDIR / "reader_ln_cm.cpp").exists() and not (KDIR / "writer_ln_cm.cpp").exists()
     assert "CM" not in re.sub(r"//.*", "", (KDIR / "compute_ln.cpp").read_text())

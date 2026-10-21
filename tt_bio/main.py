@@ -97,6 +97,7 @@ from tt_bio.data.types import Coords, Input, Interface
 from tt_bio.data.write import to_mmcif, to_pdb
 from tt_bio.host_controller import (
     LEASE_S,
+    MAX_LEASES,
     ControllerClient,
     ControllerServer,
     connect_controller,
@@ -1652,7 +1653,7 @@ def _dispatch_to_controller(controller_url: str, run_payload: dict, *, total: in
     return failed
 
 
-def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
+def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path, output_format=None):
     """Split ``jobs`` into the ones ``model`` can fold and the ones it refuses.
 
     A refused input is reported and recorded as a failed row in results.json, and the rest of
@@ -1675,7 +1676,7 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path):
                 from tt_bio.af2ig_input import read_af2ig_input
 
                 read_af2ig_input(jp)
-            check_capabilities(jp, chains, model)
+            check_capabilities(jp, chains, model, output_format=output_format)
             keep.append(job)
         except (RuntimeError, ValueError, click.ClickException) as e:
             refused[job.id] = e.message if isinstance(e, click.ClickException) else str(e)
@@ -2176,6 +2177,8 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
 @click.option("--lease-s", "lease_s", default=LEASE_S, type=float, show_default=True,
               help="Seconds a job stays with a worker that stops heartbeating before it is "
                    "handed to another. Workers heartbeat every 1/12 of it.")
+@click.option("--max-leases", "max_leases", default=MAX_LEASES, type=int, show_default=True,
+              help="Workers a job is handed to before a lapsed lease fails it instead.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--num_devices", default=0, type=int, help="Local devices to serve with (0=all). Ignored with --no-local-workers.")
 @click.option("--device_ids", default=None, type=str, help="Comma-separated TT device IDs to use locally")
@@ -2185,7 +2188,7 @@ def worker_cmd(connect, accelerator, num_devices, device_ids, debug):
 @click.option("--state-dir", default=None, type=click.Path(),
               help="Where to keep the controller's SQLite state (default: a temp dir, discarded on exit).")
 @click.option("--debug", is_flag=True, help="Do not suppress local worker output")
-def controller_cmd(port, lease_s, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
+def controller_cmd(port, lease_s, max_leases, accelerator, num_devices, device_ids, no_local_workers, state_dir, debug):
     """Run a persistent controller for this host's chips.
 
     Starts the scheduler on 127.0.0.1 and, unless --no-local-workers, a worker
@@ -2207,7 +2210,7 @@ def controller_cmd(port, lease_s, accelerator, num_devices, device_ids, no_local
         tmpdir = Path(tempfile.mkdtemp(prefix="tt-bio-controller-"))
         db_path = tmpdir / "controller.sqlite3"
 
-    server = ControllerServer(port, db_path, lease_s)
+    server = ControllerServer(port, db_path, lease_s, max_leases)
     server.serve_in_background()
     url = f"http://127.0.0.1:{server.port}"
 
@@ -2502,6 +2505,14 @@ def _read_bio_chains(path, what="input"):
                     chains.append((c.strip(), spec, None, "ligand", None))
     else:
         raise click.ClickException(f"Unsupported input for {what}: {path.name}")
+    ids = [cid for cid, *_r in chains]
+    repeated = sorted({cid for cid in ids if ids.count(cid) > 1})
+    if repeated:
+        # every model folded two chains under one id as one merged chain, or crashed on it
+        raise click.ClickException(
+            f"{path.name}: chain id(s) {', '.join(map(repr, repeated))} are used more than "
+            f"once; every chain needs its own id (an entry without `id:` is A for a polymer, "
+            f"L for a ligand).")
     blank = [cid for cid, cseq, _sp, _mt, _mods in chains if not cseq or not cseq.strip()]
     if blank:
         raise click.ClickException(
@@ -3428,7 +3439,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # minutes for a model load to be told the yaml key is unsupported.
         results_path = out / "results.json"
         total = len(jobs)
-        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path)
+        jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path, output_format)
         if not jobs:
             raise click.ClickException("\n".join(refused.values()))
 

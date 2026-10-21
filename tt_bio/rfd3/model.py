@@ -1245,7 +1245,9 @@ class Transition(Module):
         r = x if resid else None
         if not _WS.eligible(x, self._ws12, self._ws3, resid=r):
             return None
-        fid = (ttnn.MathFidelity.LoFi if _PAIR_WS_LOFI else ttnn.MathFidelity.HiFi2 if _PAIR_WS_B8
+        from ..tenstorrent import lofi_allowed   # Wormhole: the bfp8 weights at HiFi2 instead
+        fid = (ttnn.MathFidelity.LoFi if _PAIR_WS_LOFI and lofi_allowed()
+               else ttnn.MathFidelity.HiFi2 if _PAIR_WS_B8 or _PAIR_WS_LOFI
                else self.compute_kernel_config.math_fidelity)
         # The input RMSNorm as the program's prologue: bit-identical to ttnn.rms_norm first, and the normalised
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.

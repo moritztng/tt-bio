@@ -26,6 +26,7 @@ the census is of the part that runs on the card.
 """
 import argparse
 import collections
+import gc
 import glob
 import json
 import os
@@ -53,6 +54,18 @@ ap.add_argument("--wrap", choices=("census", "all"), default="all",
 ap.add_argument("--dump", type=int, default=0,
                 help="save the first N gradient calls' results to dump_<n>.npz, so two arms can be compared "
                      "by magnitude when their digests differ")
+ap.add_argument("--stub-structure", action="store_true",
+                help="TIMING ONLY, wrong numerics: replace AF2's structure module with a near-free stand-in of "
+                     "the same output shapes, so host_jax measures what the structure module costs the host")
+ap.add_argument("--structure", choices=("card", "host"),
+                help="BindCraft 2: where AF2's structure module runs; default: bindcraft2.predictor's own choice "
+                     "(card under the fast round on Blackhole)")
+ap.add_argument("--gc-freeze", type=int, default=0,
+                help="gc.freeze() at the start of this call (0 = never): the host objects alive by then, "
+                     "trunks and weights, leave the cyclic collector's generation-2 walk")
+ap.add_argument("--gc-census", type=int, default=0,
+                help="at the start of this call write gc_census.json: tracked objects per generation and the "
+                     "types that fill generation 2, then time one full collection (0 = never)")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -112,6 +125,40 @@ import tt_bio  # noqa: E402
 from tt_bio import bindcraft2 as bc2, tenstorrent as TT  # noqa: E402
 
 
+def stub_structure_module():
+    """Swap `StructureModule.__call__` for constants of its own output shapes.
+
+    The stand-in keeps a 1e-30 dependence on the single and pair activations, so the trunk stays on the
+    differentiation path and its backward runs exactly as before; the heads still read the real pair.
+    Float leaves are fixed draws scaled to ~10 A (non-degenerate, so the Kabsch alignment and the losses
+    stay finite), integer and boolean leaves are ones. The trajectory's numbers are wrong by design.
+    """
+    import haiku as hk
+    import jax
+    import jax.numpy as jnp
+    import numpy as np
+    from bindcraft.af.alphafold.model import folding_multimer
+
+    real = folding_multimer.StructureModule.__call__
+
+    def stand_in(self, representations, batch, *args, **kwargs):
+        shapes = hk.eval_shape(lambda: real(self, representations, batch, *args, **kwargs))
+        tie = 1e-30 * (jnp.mean(representations["single"]) + jnp.mean(representations["pair"]))
+        rng = np.random.default_rng(0)
+
+        def leaf(s):
+            if jnp.issubdtype(s.dtype, jnp.floating):
+                return jnp.asarray(10 * rng.standard_normal(s.shape), s.dtype) + tie.astype(s.dtype)
+            return jnp.ones(s.shape, s.dtype)
+        return jax.tree.map(leaf, shapes)
+
+    folding_multimer.StructureModule.__call__ = stand_in
+
+
+if a.stub_structure:
+    stub_structure_module()
+
+
 class LazyRecorder(Recorder):
     """Recorder against tt-bio's own open device, which exists only once the campaign has opened it."""
 
@@ -132,7 +179,7 @@ settings = cleaned_campaign_settings(read_settings(str(example), parse_setting_o
 
 HEAD = dict(sha=SHA, dirty=DIRTY, engine=str(Path(tt_bio.__file__).parent), host=socket.gethostname(),
             chip=os.environ.get("TT_VISIBLE_DEVICES"), env=ENV, binder_length=a.binder,
-            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, argv=sys.argv,
+            campaign_seed=a.seed, at=a.at, replay=a.replay, wrap=a.wrap, profile=a.profile, stub_structure=a.stub_structure, structure=a.structure, argv=sys.argv,
             nodes=NODES)
 
 rec = LazyRecorder(__import__("ttnn"), None, a.replay)
@@ -178,6 +225,42 @@ bc2._Trunk.__init__ = trunk_init
 cb = collections.Counter()
 
 
+# Wall spent blocked on the card inside callbacks (readbacks and syncs). A callback minus this is
+# the host's enqueue time: exact when the command queue never fills, an upper bound when it does.
+blocked = collections.Counter()
+
+
+def blocking(fn):
+    def run(*args, **kwargs):
+        t0 = time.monotonic()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            blocked["s"] += time.monotonic() - t0
+    return run
+
+
+# Wall of Python's cyclic collector, by generation. A live tape is millions of host objects, so a
+# generation-2 pass can stall the enqueue of whatever seam it lands in.
+gcwall = collections.Counter()
+_gc_t0 = [0.0]
+
+
+def _gc_cb(phase, info):
+    if phase == "start":
+        _gc_t0[0] = time.monotonic()
+    else:
+        gcwall[f"gen{info['generation']}_s"] += time.monotonic() - _gc_t0[0]
+        gcwall[f"gen{info['generation']}_n"] += 1
+
+
+gc.callbacks.append(_gc_cb)
+
+_ttnn = __import__("ttnn")
+for _name in ("to_torch", "from_device", "synchronize_device"):
+    setattr(_ttnn, _name, blocking(getattr(_ttnn, _name)))
+
+
 def timed(name, fn):
     def run(*args, **kwargs):
         t0 = time.monotonic()
@@ -188,7 +271,7 @@ def timed(name, fn):
     return run
 
 
-for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice):
+for _cls in (bc2.EvoformerOnDevice, bc2.ExtraMsaOnDevice, bc2.TemplateOnDevice, bc2.StructureOnDevice):
     for _verb in ("_primal", "_taped", "_backward"):
         setattr(_cls, _verb, timed(f"{_cls.__name__}.{_verb}", getattr(_cls, _verb)))
 
@@ -252,11 +335,31 @@ def dump(out, path):
     np.savez(path, **{f"leaf_{i}": np.asarray(a, dtype=np.float64) for i, a in enumerate(arrays(out))})
 
 
+def gc_census(path):
+    """What a generation-2 pass walks: tracked objects per generation, the 40 commonest types in
+    generation 2 by module.qualname, and the wall of one full collection taken right after."""
+    gens = [gc.get_objects(generation=g) for g in range(3)]
+    types = collections.Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gens[2])
+    doc = dict(n=state["n"], per_gen=[len(g) for g in gens], frozen=gc.get_freeze_count(),
+               gen2_types=types.most_common(40))
+    del gens
+    t = time.monotonic()
+    doc["collected"] = gc.collect()
+    doc["full_collect_s"] = round(time.monotonic() - t, 4)
+    path.write_text(json.dumps(doc, indent=1))
+
+
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
+    if state["n"] == a.gc_census:
+        gc_census(a.out / "gc_census.json")
+    if state["n"] == a.gc_freeze:
+        gc.freeze()
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         cb.clear()
+        blocked.clear()
+        gcwall.clear()
         t0 = time.monotonic()
         out = None
         try:
@@ -272,6 +375,8 @@ def sequence_gradients(self, *args, **kwargs):
             state["uninstrumented"].append(dict(n=state["n"], s=wall, gsha=gsha(out),
                                                 callbacks={k: round(v, 4) for k, v in cb.items()},
                                                 host_jax_s=round(wall - sum(cb.values()), 4),
+                                                blocked_s=round(blocked["s"], 4),
+                                                gc={k: round(v, 4) for k, v in gcwall.items()},
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))
@@ -349,7 +454,8 @@ cls.sequence_gradients = sequence_gradients
 weights = {k: os.environ[v] for k, v in (("af2_weights", "JAPANFOLD_BC2_AF2_WEIGHTS"),
                                          ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
 print(json.dumps(dict(ev="start", **HEAD))[:2000], flush=True)
-with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {})):
+with bc2.campaign_predictor(**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {}),
+                            **({"structure": a.structure == "card"} if a.structure else {})):
     bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
 print(f"campaign ended before iteration {a.at} (only {state['n']} gradient calls)", flush=True)
 write(partial=True)

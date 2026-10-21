@@ -49,11 +49,13 @@ def test_lm_sdpa_falls_back_once(monkeypatch):
 
 
 @pytest.mark.parametrize("wormhole", [True, False])
-def test_k_few_default_is_wormhole_only(wormhole, monkeypatch):
+def test_k_few_default_on_both_archs(wormhole, monkeypatch):
     from tt_bio import tenstorrent
     monkeypatch.setattr(esmc, "_ESMC_SDPA_K_FEW", None)
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
-    assert esmc._sdpa_k_few() is wormhole
+    assert esmc._sdpa_k_few() is True
+    with tenstorrent.levers("lm_k64"):            # ESMFold2 on Blackhole keeps 64-key chunks
+        assert esmc._sdpa_k_few() is False
 
 
 def _pad_mask(lens, L):
@@ -107,7 +109,7 @@ def test_lm_sdpa_keypad_route(dram, sharded, d, route, monkeypatch):
     """A KeyPad goes to shsdpa for bf16 interleaved (DRAM or L1) q/k/v on whole tiles; anything else runs the stock op
     over the row repeated to the full [B, 1, S, S] mask."""
     from tt_bio import shsdpa
-    monkeypatch.setattr(shsdpa, "sdpa", lambda q, k, v, scale, pad, ckc=None: ("shsdpa", pad))
+    monkeypatch.setattr(shsdpa, "sdpa", lambda q, k, v, scale, pad, ckc=None, out_dtype=None: ("shsdpa", pad))
     monkeypatch.setattr(esmc.ttnn, "repeat", lambda t, reps: ("rep", t, tuple(reps)))
     monkeypatch.setattr(esmc, "_sdpa_k_few", lambda: False)
     monkeypatch.setattr(esmc, "_sdpa_program_config", lambda q, k: (q, k))

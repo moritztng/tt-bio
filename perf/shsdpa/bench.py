@@ -23,8 +23,10 @@ ap.add_argument("--bh", default="7,15", help="ESMC batch,heads (300M 7,15; 600M 
 ap.add_argument("--nomask", default="",
                 help="stock SDPA arms WITHOUT a mask (the wheel's streaming compute path), q:k chunk pairs a,b;c,d. "
                      "Only right against the reference when every --lens is 544; the bench checks it per config")
+ap.add_argument("--b8", action="store_true",
+                help="add arms e_b8 (q, k, v block-fp8) and e_b8kv (k, v block-fp8): what a --fast LM would hand shsdpa")
 ap.add_argument("--host", action="store_true", help="time eager host dispatch instead of trace replay")
-ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q[:DEF+DEF];... (qc 0 = whole, split - = factory; LOFI, FULLSYNC, EXPA = exp approx)")
+ap.add_argument("--proto", default="", help="extra ESMC proto arms qc:kc:b,h,q[:DEF+DEF];... (qc 0 = whole, split - = factory; LOFI or HIFI4, FP32 dest, NOAPPROX, FULLSYNC, EXPA = exp approx; any other name is a kernel define)")
 a = ap.parse_args()
 
 samples = []
@@ -112,6 +114,11 @@ if "esmc" in a.shape:
         PROTO = {}
         EPAD = P.key_pad(lens, S, dev)      # built outside any capture: an upload is a host write
         ARMS["e_auto"] = ("esmc", lambda: P.sdpa(eq, ek, ev, sc, EPAD))
+        if a.b8:
+            b8 = lambda t: ttnn.typecast(t, ttnn.bfloat8_b)
+            bq, bk, bv = b8(eq), b8(ek), b8(ev)
+            ARMS["e_b8"] = ("esmc", lambda: P.sdpa(bq, bk, bv, sc, EPAD, out_dtype=ttnn.bfloat16))
+            ARMS["e_b8kv"] = ("esmc", lambda: P.sdpa(eq, bk, bv, sc, EPAD))
         if a.proto:
             PROTO = {}
             for t in a.proto.split(";"):
@@ -121,8 +128,9 @@ if "esmc" in a.shape:
                     int(qc) or None, int(kc), None if spl == "-" else tuple(map(int, spl.split(","))), dfs)
         for nm, (qc, kc, spl, *dfs) in PROTO.items():
             d = dict(dfs[0]) if dfs and dfs[0] else {}
-            ckc = (ttnn.MathFidelity.LoFi if d.pop("LOFI", 0) else ttnn.MathFidelity.HiFi2, True, False,
-                   bool(d.pop("FULLSYNC", 0)))
+            fid = (ttnn.MathFidelity.LoFi if d.pop("LOFI", 0) else
+                   ttnn.MathFidelity.HiFi4 if d.pop("HIFI4", 0) else ttnn.MathFidelity.HiFi2)
+            ckc = (fid, not d.pop("NOAPPROX", 0), bool(d.pop("FP32", 0)), bool(d.pop("FULLSYNC", 0)))
             xa = bool(d.pop("EXPA", 0))
             ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(d or None), ckc=ckc, xa=xa, pad=P.key_pad(lens, S, dev, kc):
                         P.sdpa(eq, ek, ev, sc, pad, q_chunk=qc, k_chunk=kc, split=spl, defines=d, ckc=ckc, exp_approx=xa))

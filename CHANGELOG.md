@@ -5,10 +5,34 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating
+  on the same job, the controller fails it with an error saying so instead of handing it to a third
+  chip, which the same input would hang too. One dead chip is still retried. `tt-bio controller
+  --max-leases` changes the limit (default 2). See [multi-host](docs/multi-host.md).
+
+## [0.21.0] - 2026-10-21
+
+### Fixed
+- **Chain ids.** A repeated chain id is refused on every model instead of folding two chains as one.
+  OpenFold3 and OpenBind-0 accept ids longer than four characters (they crashed in MSA
+  featurization). ESMFold-2 keeps ids longer than 16 characters in mmCIF instead of truncating them.
+  RF3, OpenFold3 and OpenBind-0 write `--output_format pdb` with a multi-character id, relabelled with
+  a `REMARK 999` like the other models, instead of failing after the fold. RF3 refuses whitespace in
+  an id before it starts, and AF2-IG refuses the same chain as target and binder.
+
 ### Changed
 - **A local-database MSA search for a complex runs its unpaired and paired searches at the same time.**
   On a 64-core host a new two-chain OpenDDE input reaches its first fold about 10 s sooner (22.4 s to
   12.8 s of search), with byte-identical alignments. Applies to OpenDDE, Protenix, ESMFold-2 and OpenBind-0.
+
+## [0.20.1] - 2026-10-20
+
+### Fixed
+- **Boltz-2 on Wormhole no longer hangs on some protein lengths.** Every fold of exactly 584 or 644
+  residues stalled while reading the confidence heads back from the chip and never finished; 583, 585,
+  642 and 645 folded. The confidence result is now read whole and cut on the host, as on Blackhole,
+  which costs about 15 ms at 512 tokens. Blackhole is unchanged.
 
 ## [0.20.0] - 2026-10-18
 

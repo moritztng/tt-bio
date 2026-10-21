@@ -4,7 +4,7 @@
         --mode normal|fast [--data ~/spd-data] [--out report.md]
 
 Folds come from bench.py run over the accuracy inputs (the 11 PDB ids of perf/pfm_accuracy/set.tsv, or the same
-complexes cropped to 512 tokens in set512.tsv, ids <PDB>_512), 4+ seeds,
+complexes cropped to 512 or 256 tokens in set512.tsv / set256.tsv, ids <PDB>_512 / <PDB>_256), 4+ seeds,
 on as many chips as you like:
     bench.py --out RUN/<arm>/c<chip> --chip N --arm <spec> --inputs 9TH6,9W89,... --seed 101 --warm 3
 Every RUN_DIR holding a bench.jsonl is read; records are grouped by (arch, arm), so one call grades WH and BH.
@@ -47,9 +47,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "pfm_accuracy"))
 from score import ca, chains, kabsch, score  # noqa: E402
 
-# The 11-set and the same complexes cropped to 512 tokens (make_inputs.py truth512): either is a verdict set.
-SET = {l.split("\t")[0]: l.split("\t")[1:3] for t in ("set.tsv", "set512.tsv")
-       for l in (HERE.parent / "pfm_accuracy" / t).read_text().splitlines()[1:]}
+# The 11-set and the same complexes cropped to 512 or 256 tokens (make_inputs.py --truth): each is a verdict set.
+SET = {l.split("\t")[0]: l.split("\t")[1:3] for t in sorted((HERE.parent / "pfm_accuracy").glob("set*.tsv"))
+       for l in t.read_text().splitlines()[1:]}
 KILL_BAR = 0.60
 CONF_TOL = 0.005  # normal: tolerated mean pLDDT / ipTM drop (fast bar is 0.03)
 SUCCESS = 0.23
@@ -148,6 +148,24 @@ def no_truth(free, failed, a):
                    f"{len(pr)} | {f(pr, 0, statistics.median)} / {f(pr, 0, max)} | {f(pr, 1, statistics.median)} / "
                    f"{f(pr, 1, min)} | {f'{statistics.mean(dp):+.4f}' if dp else '-'} | {nf} |")
     return "\n".join(out) + "\n"
+
+
+def lost_reach(reps, arch, base, test):
+    """Levers whose kernels the test arm never ran though it was meant to: one served in `base` and never in `test`
+    (a refusal latched it off for the fold), or one named only in `test` that latches and never served. gfc 10-20
+    read PASS while its test arm ran neither dit_fc123g nor dit_shard: fc12g raised at 5 samples."""
+    served, named, seen = {base: defaultdict(int), test: defaultdict(int)}, {base: set(), test: set()}, set()
+    for r in reps:
+        if r["arch"] != arch:
+            continue
+        named[r["arm"]] |= set(filter(None, (r.get("arm_env") or {}).get("TT_BIO_LEVERS", "").split("+")))
+        for k, v in (r.get("latches") or {}).items():
+            seen.add(k)
+            served[r["arm"]][k] += v.get("served", 0)
+    lost = [f"{k} served {v} in {base}, 0 in {test}" for k, v in served[base].items() if v and not served[test][k]]
+    lost += [f"{k} (only in {test}) never served" for k in sorted(named[test] - named[base])
+             if k in seen and not served[test][k]]
+    return lost
 
 
 def main():
@@ -270,7 +288,11 @@ def main():
         # Verdict.
         why = []
         missing = [p for p in pdbs if not any(q == p for q, _ in paired)]
-        if missing or len(seeds) < a.min_seeds or any(k[0] == arch for k in failed):
+        lost = lost_reach(reps, arch, a.base, a.test)
+        if lost:
+            v = "INVALID"
+            why.extend(lost)
+        elif missing or len(seeds) < a.min_seeds or any(k[0] == arch for k in failed):
             v = "INSUFFICIENT"
             why.append(f"missing complexes {missing}" if missing else "")
             why.append(f"{len(seeds)} paired seeds (< {a.min_seeds})" if len(seeds) < a.min_seeds else "")

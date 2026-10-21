@@ -112,18 +112,31 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # And triatt_k1 (triangle attention in one k chunk where the trimmed CB set fits): 512-token set fast grade, 44 paired
 # folds (gk1b2, 2026-10-19), PASS: top pose median 1.309 A (floor 2.381 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking
 # 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.26 s median, 7/8 warm pairs (k1b2).
-# trimul_bres is not here: it was inert under acc_off until bmm_res took its own fp32 dest (bresab / bresab2 read
-# -0.29 / -0.09 s on byte-identical CIFs), and Boltz-2 fast is unmeasured with it firing.
 # atom_l1 (the atom transformer's intermediates in L1) is placement only: on a Galaxy chip at 512 x 1 (1000 MHz) both
 # modes fold byte-identical CIFs with it, normal -0.63 s (6/6 warm pairs), fast -0.54 s (5/6) (spd-gap-small al1,
 # 2026-10-19), so it needs no grade. Blackhole leaves it off until a p150a pair reads it.
-WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1"}
+# trimul_bres in normal (no acc_off there) is the same: byte-identical CIFs, Galaxy chip 512 x 1 (1000 MHz) 28.45 ->
+# 28.24 s, -0.21 s median, 7/8 warm pairs (spd-gap-small xf9, 2026-10-21).
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres"}
 # triatt_ln_b8 + triatt_ln_b8g (triatt_ln writes q, k, v and the gate bfp8): 512-token set fast grade, 44 paired folds
 # (spd-gap-small gtlb2, 2026-10-19), PASS: top pose median 1.566 A (floor 2.245 A), CA-lDDT +0.0003 [-0.0006, +0.0013],
 # docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.98 s median, 5/5 warm pairs (tlb2).
+# dit_shard (the token DiT transition's hidden products block-sharded in L1): same 44-fold fast grade (gdsh, 2026-10-20),
+# PASS: top pose median 1.006 A (floor 2.254 A), CA-lDDT -0.0004 [-0.0010, +0.0002], docking 24 -> 24; 5-sample folds
+# -1.21 s median, 44/44 faster (1000 MHz). Normal FAILS the same grade (CA-lDDT -0.0013 [-0.0023, -0.0005]), so fast only.
+# trimul_bres (the trimul einsum with b[c] resident in L1, bmm_res, firing under acc_off since it took its own fp32 dest):
+# same 44-fold fast grade (gbres, 2026-10-21), PASS: top pose median 1.537 A (floor 2.328 A), CA-lDDT +0.0004
+# [-0.0005, +0.0014], docking 24 -> 24; 5-sample folds -0.44 s median, 39/44 faster (1000 MHz); 512 x 1 -0.23 s (xf8).
+# ie_dev (the input embedder's atom encoder on the card): same 44-fold fast grade (gief, 2026-10-21), PASS: top pose
+# median 0.944 A (floor 2.434 A), CA-lDDT -0.0004 [-0.0013, +0.0006], docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz)
+# -0.20 s paired median, 5/7 warm pairs (ie). Normal FAILS its grade (gie: DockQ -0.0067 [-0.0148, -0.0008], CA-lDDT
+# -0.0010 [-0.0018, -0.0002]), so fast only.
 WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1",
-                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g"}
-BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist"}
+                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev"}
+# On Blackhole ie_dev reads p300c 512 x 1 fast -0.25 s paired median (5/5 warm pairs, AICLK ~1350; iebh) and passes the
+# same 44-fold fast grade (giebh, 2026-10-21): top pose median 1.106 A (floor 2.438 A), CA-lDDT +0.0001 [-0.0006, +0.0007],
+# docking 24 -> 24.
+BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev"}
 
 
 def _under_levers(method):
@@ -2500,13 +2513,15 @@ class InputEmbedder(nn.Module):
             )
             self.mol_type_conditioning_init.weight.data.fill_(0)
 
-    def forward(self, feats: dict[str, Tensor], affinity: bool = False) -> Tensor:
+    def forward(self, feats: dict[str, Tensor], affinity: bool = False, atom_dev=None) -> Tensor:
         """Perform the forward pass.
 
         Parameters
         ----------
         feats : dict[str, Tensor]
             Input features
+        atom_dev : tenstorrent.InputAtomEncoderDevice, optional
+            Runs the atom encoder on the card (``ie_dev``) instead of the host.
 
         Returns
         -------
@@ -2525,15 +2540,18 @@ class InputEmbedder(nn.Module):
                 deletion_mean = feats["deletion_mean"].unsqueeze(-1)
 
         # Compute input embedding
-        q, c, p, to_keys = self.atom_encoder(feats)
-        atom_enc_bias = self.atom_enc_proj_z(p)
-        a, _, _, _ = self.atom_attention_encoder(
-            feats=feats,
-            q=q,
-            c=c,
-            atom_enc_bias=atom_enc_bias,
-            to_keys=to_keys,
-        )
+        if atom_dev is not None:
+            a = atom_dev(feats)
+        else:
+            q, c, p, to_keys = self.atom_encoder(feats)
+            atom_enc_bias = self.atom_enc_proj_z(p)
+            a, _, _, _ = self.atom_attention_encoder(
+                feats=feats,
+                q=q,
+                c=c,
+                atom_enc_bias=atom_enc_bias,
+                to_keys=to_keys,
+            )
 
         s = a + self.res_type_encoding(res_type)
         if self.use_msa_profile:
@@ -5899,6 +5917,14 @@ class Boltz2(nn.Module):
             self._tt_atom_pair = mod
         return mod
 
+    def _tt_input_atom_module(self):
+        """Lazily build the input embedder's device atom encoder (``ie_dev``, TT path only). Cached."""
+        mod = getattr(self, "_tt_input_atom", None)
+        if mod is None:
+            mod = tenstorrent.InputAtomEncoderDevice(self.input_embedder, self.msa_module.compute_kernel_config)
+            self._tt_input_atom = mod
+        return mod
+
     @_under_levers
     def load_state_dict(self, *a, **kw):
         # The device modules are built here (TorchWrapper._load_from_state_dict).
@@ -5938,7 +5964,9 @@ class Boltz2(nn.Module):
         if self.trace:
             print("[boltz2] forward: input_embedder")
         
-        s_inputs = self.input_embedder(feats)
+        s_inputs = self.input_embedder(
+            feats, atom_dev=self._tt_input_atom_module()
+            if self.use_tenstorrent and tenstorrent.lever("ie_dev") else None)
 
         # Initialize the sequence embeddings
         s_init = self.s_init(s_inputs)

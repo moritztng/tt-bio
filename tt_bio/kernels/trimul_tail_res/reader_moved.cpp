@@ -23,12 +23,15 @@ void kernel_main() {
     constexpr uint32_t SCALER = get_compile_time_arg_val(5);
     constexpr uint32_t EPS = get_compile_time_arg_val(6);
     constexpr uint32_t GATE = get_compile_time_arg_val(7);
-    constexpr auto x_args = TensorAccessorArgs<8>();
+    constexpr uint32_t EXTRA = get_compile_time_arg_val(8);  // compute_ln.cpp's; bits 1 / 2 are read here
+    constexpr auto x_args = TensorAccessorArgs<9>();
     constexpr auto p_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto w_args = TensorAccessorArgs<p_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<w_args.next_compile_time_args_offset()>();
     constexpr auto gm_args = TensorAccessorArgs<wg_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
+    constexpr auto bp_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
+    constexpr auto bg_args = TensorAccessorArgs<bp_args.next_compile_time_args_offset()>();
     constexpr uint32_t Clt = Kt - Cp;
     constexpr uint32_t R = 32 / P;
 
@@ -38,12 +41,15 @@ void kernel_main() {
     const auto wg = TensorAccessor(wg_args, get_common_arg_val<uint32_t>(3));
     const auto gm = TensorAccessor(gm_args, get_common_arg_val<uint32_t>(4));
     const auto bt = TensorAccessor(bt_args, get_common_arg_val<uint32_t>(5));
+    const auto bp = TensorAccessor(bp_args, get_common_arg_val<uint32_t>(6));
+    const auto bg = TensorAccessor(bg_args, get_common_arg_val<uint32_t>(7));
     const uint32_t first_unit = get_arg_val<uint32_t>(0);
     const uint32_t num_units = get_arg_val<uint32_t>(1);
 
     constexpr uint32_t cb_w = tt::CBIndex::c_1, cb_gamma = tt::CBIndex::c_8, cb_beta = tt::CBIndex::c_9,
                        cb_scaler = tt::CBIndex::c_10, cb_eps = tt::CBIndex::c_11, cb_in = tt::CBIndex::c_15,
-                       cb_prev = tt::CBIndex::c_18, cb_stage = tt::CBIndex::c_24;
+                       cb_prev = tt::CBIndex::c_18, cb_stage = tt::CBIndex::c_24, cb_bias = tt::CBIndex::c_19;
+    constexpr uint32_t NBIAS = (EXTRA & 1) + ((EXTRA >> 1) & 1);
     constexpr uint32_t TILE_BYTES = 2048, FACE_BYTES = 512, FACE_ROW_BYTES = 32;
     constexpr uint32_t PART_ROW_BYTES = R * FACE_ROW_BYTES;
     constexpr uint32_t STAGE_TILE = 2 * PART_ROW_BYTES;
@@ -67,7 +73,19 @@ void kernel_main() {
     for (uint32_t t = 0; t < Kt; ++t, w += TILE_BYTES) noc_async_read_page(t, gm, w);
     w = get_write_ptr(cb_beta);
     for (uint32_t t = 0; t < Kt; ++t, w += TILE_BYTES) noc_async_read_page(t, bt, w);
+    if constexpr (NBIAS > 0) {
+        // the [32, N] row-replicated biases, p's first
+        cb_reserve_back(cb_bias, NBIAS * Nt);
+        w = get_write_ptr(cb_bias);
+        if constexpr (EXTRA & 1) {
+            for (uint32_t t = 0; t < Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, bp, w);
+        }
+        if constexpr (EXTRA & 2) {
+            for (uint32_t t = 0; t < Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, bg, w);
+        }
+    }
     noc_async_read_barrier();
+    if constexpr (NBIAS > 0) cb_push_back(cb_bias, NBIAS * Nt);
     cb_push_back(cb_w, (1 + GATE) * Kt * Nt);
     cb_push_back(cb_gamma, Kt);
     cb_push_back(cb_beta, Kt);

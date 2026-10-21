@@ -50,6 +50,11 @@ ALLOWED = {
     # one in `ag.Tensor` itself, so they enter the tape as constants. A module-scope import
     # would hand it the shim and change what the gradient-parity result was measured on.
     "train/openfold3.py",
+    # `af2_structure.Card` uploads its leaves with the raw `from_torch` and tapes its own VJPs
+    # (`sqrt`, `reciprocal` on `.value`, then `autograd._tape`), so the shim would tape them
+    # twice. It defers the import for the same `pin_card()` reason as `bindcraft2.py`, which
+    # imports it.
+    "af2_structure.py",
     # A kernel-source patcher, not a model path.
     "kernels/trimul_tail/patch_trimul_tail.py",
     # `bindcraft2.py` defers the import because `pin_card()` has to set TT_VISIBLE_DEVICES

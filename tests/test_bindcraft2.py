@@ -133,6 +133,35 @@ def test_an_evicted_trunk_keeps_no_weight_alive(tmp_path, monkeypatch):
     assert pair_mm._WT == {}
 
 
+def test_a_frozen_trunk_in_a_cycle_is_still_freed_on_eviction(tmp_path, monkeypatch):
+    """A load freezes the heap so the cyclic collector stops walking it every few steps. A frozen
+    object is never collected, so a trunk that sits in a reference cycle would keep its weights
+    on card after eviction unless the pool unfreezes first."""
+    import gc
+    import weakref
+
+    class Weight:
+        pass
+
+    class Trunk:
+        def __init__(self, path, *, template=False):
+            self.weight = Weight()
+            self.me = self                      # only the cyclic collector can free this
+
+    monkeypatch.setattr(bindcraft2, "_Trunk", Trunk)
+    for name in ("a", "b"):
+        (tmp_path / f"params_{name}.npz").touch()
+    pool = bindcraft2.TrunkPool(tmp_path, resident=1)
+    pool.require(["a", "b"])
+    try:
+        weight = weakref.ref(pool._load("a").weight)
+        assert gc.get_freeze_count() > 0
+        pool._load("b")                        # evicts "a"
+        assert weight() is None, "the evicted trunk stayed frozen"
+    finally:
+        gc.unfreeze()
+
+
 def test_a_model_the_pool_was_never_given_is_refused(tmp_path):
     """`require` classifies, but `use` still refuses: its caller has already decided the card
     runs this fold, and folding it on another checkpoint's weights is invisible downstream."""
@@ -767,7 +796,8 @@ def test_the_extra_msa_segment_survives_being_recomputed():
     card-free suite and the on-card forward passed while every backward was broken.
 
     Two stubs stand in for the card: a buffer that can be consumed once, and a `checkpoint` that
-    runs the segment a second time the way a backward does.
+    runs the segment a second time the way a backward does. The constant rides into the segment
+    as an input (so a block trace can copy it in) and each execution consumes a clone of it.
     """
     class Buf:
         def __init__(self):
@@ -801,19 +831,24 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             built.append(Buf())
             return built[-1]
 
-    def checkpoint(fn, z, offload=False):
-        out = fn(z)     # the forward
-        fn(z)           # the recompute the backward performs on the same closure
+    def checkpoint(fn, *xs, offload=False):
+        out = fn(*xs)   # the forward
+        fn(*xs)         # the recompute the backward performs on the same closure
         return out
+
+    def clone(b):
+        if not b.alive:
+            raise RuntimeError("Buffer is not allocated")
+        return Buf()
 
     trunk = object.__new__(bindcraft2._Trunk)
     trunk.model = Model()
-    trunk.ag = types.SimpleNamespace(checkpoint=checkpoint)
+    trunk.ag = types.SimpleNamespace(checkpoint=checkpoint, TRACE_RECOMPUTE=False, TRACE_FORWARD=False)
+    trunk.ttnn = types.SimpleNamespace(clone=clone)
 
     assert trunk.extra_msa("z", (), recompute=True) == "z"
-    # One constant per block PER EXECUTION, two blocks run twice. Hoisting it out of the loop
-    # body -- the shape that shipped -- builds 2 and reuses them, which is the failure above.
-    assert len(built) == 4, built
+    # One constant per block, never consumed itself: both executions consume clones of it.
+    assert len(built) == 2 and all(b.alive for b in built), built
 
     built.clear()
     assert trunk.extra_msa("z", (), recompute=False) == "z"
@@ -829,6 +864,22 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             const = model._up(model.opm_constant[index].reshape(1, 1, -1))
             z = checkpoint(lambda t, blk=block, c=const: blk(blk._residual(t, c)), z)
     assert len(built) == 1, built
+
+
+def test_card_bytes_reads_the_allocator_once():
+    """The DRAM total is a constant of the chip; every taped seam asked `get_memory_view` again,
+    ~10 ms of card idle a seam on pc before the forward enqueued anything."""
+    reads = []
+
+    def view(_device, _kind):
+        reads.append(1)
+        return types.SimpleNamespace(total_bytes_per_bank=3, num_banks=4)
+
+    trunk = object.__new__(bindcraft2._Trunk)
+    trunk.device = None
+    trunk.ttnn = types.SimpleNamespace(get_memory_view=view, BufferType=types.SimpleNamespace(DRAM=0))
+    assert [trunk.card_bytes() for _ in range(3)] == [12, 12, 12]
+    assert len(reads) == 1
 
 
 # ------------------------------------------------ several trajectories on one card
@@ -1479,6 +1530,24 @@ def test_a_refusal_above_the_measured_ceiling_names_the_size_and_the_way_down(mo
     assert "backward" in msg
 
 
+#: An L1 bank refusal off a 563-residue complex on a p300c chip (qb2 card 3, sweep15, 2026-10-20):
+#: one 576x576x128 bf16 pair tensor, with one already allocated.
+REFUSAL_L1_576 = (
+    "Out of Memory: Not enough space to allocate 84934656 B L1 buffer across 110 banks, "
+    "where each bank needs to store 774144 B, but bank size is 1461760 B "
+    "(allocated: 780288 B, free: 681472 B, largest free block: 681472 B)\n")
+
+
+def test_an_l1_refusal_is_not_read_as_a_full_card():
+    """The size-aware refusal used to price L1 as the card and advise memory modes."""
+    msg = str(bindcraft2._size_aware_refusal(RuntimeError(REFUSAL_L1_576), phase="forward",
+                                             n=563, padded=576, stack="extra-MSA stack"))
+    assert "in L1 in the extra-MSA stack forward at 576 tokens" in msg
+    assert "84.9 MB in one L1 buffer" in msg and "of 160.8 MB of L1" in msg
+    assert "not the card's DRAM" in msg and "offload" not in msg
+    assert "19 residues off the binder takes this fold to 544 tokens" in msg
+
+
 def test_the_p150a_ceiling_quoted_follows_the_pad_up(monkeypatch):
     """864 with the pad-up on (the default), 576 with it off: a refusal at 608 with the pad-up off
     must not tell the user 608 fits, and one at 896 with it on must quote 864, not 576."""
@@ -2095,10 +2164,18 @@ def test_auto_runs_lean_where_fast_was_measured_to_refuse_on_a_p150a():
         assert bindcraft2.memory_mode("auto", padded, card) == "fast", padded
     for padded in (704, 736, 768, 800, 832, 864, 896):
         assert bindcraft2.memory_mode("auto", padded, card) == "lean", padded
-    # The 896 lean served is a floor under lean, not its ceiling, so lean is not capped there.
-    assert bindcraft2.max_tokens("lean", card) >= 896
-    # No offload row: every offload rung on the measuring box was killed by host RAM.
-    assert "offload" not in bindcraft2._MEASURED_MODE_LADDERS["p150a"]
+    # The 1184 lean served is a floor under lean, not its ceiling, so lean is not capped there.
+    assert bindcraft2.max_tokens("lean", card) >= 1184
+
+
+def test_offload_on_a_p150a_is_capped_where_it_was_measured_to_refuse():
+    """The law puts offload at 1568 on a p150a, and 1568 was measured to refuse on fragmentation.
+    Nothing may offer 1568 as fitting, and 1536, which completed three rounds, is the measured top."""
+    card = bindcraft2.P150A_DRAM_BYTES
+    top, refuses = bindcraft2._MEASURED_MODE_LADDERS["p150a"]["offload"]
+    assert bindcraft2.mode_ceiling("offload", card) == (1536, True)
+    assert bindcraft2.memory_mode("auto", top, card) == "offload"
+    assert bindcraft2.max_tokens("offload", card) < refuses
 
 
 def test_a_measured_refusal_caps_the_memory_law_everywhere_it_is_quoted():
@@ -2186,3 +2263,42 @@ def test_an_allocator_refusal_is_still_read_as_a_size_and_not_as_an_l1_clash():
     """The two wrappers must not catch each other's refusal: the remedies are opposites."""
     assert bindcraft2._l1_refusal_names_the_size(RuntimeError(REFUSAL_WORMHOLE),
                                                  phase="backward", n=520, padded=544) is None
+
+
+def test_untaped_recycles_keep_the_gradient_and_skip_the_forward_rule():
+    """The stop-gradient recycles take the primal; the gradient is the one BindCraft 2 computes."""
+    jax = pytest.importorskip("jax")
+    af2 = pytest.importorskip("bindcraft.af2")
+    jnp = jax.numpy
+    rules = []
+
+    @jax.custom_vjp
+    def seam(x):
+        rules.append("primal")
+        return jnp.sin(x)
+
+    def fwd(x):
+        rules.append("forward rule")
+        return jnp.sin(x), x
+
+    seam.defvjp(fwd, lambda x, g: (g * jnp.cos(x),))
+
+    class Runner:
+        def apply(self, params, key, inputs):
+            out = seam(inputs["x"] * params + inputs["prev"]["s"])
+            return {"prev": {"s": out}, "y": out}
+
+    def loss(x):
+        out = af2.recycled_alphafold_outputs(Runner(), 2.0, jax.random.PRNGKey(0),
+                                             {"x": x, "prev": {"s": jnp.zeros(3)}}, 2)
+        return (out["y"] ** 2).sum()
+
+    x = jnp.array([0.3, -1.1, 2.0])
+    with bindcraft2.untaped_recycles(False):
+        want = jax.grad(loss)(x)
+    assert rules == ["forward rule"] * 3
+    rules.clear()
+    with bindcraft2.untaped_recycles():
+        got = jax.grad(loss)(x)
+    assert rules == ["primal", "primal", "forward rule"]
+    np.testing.assert_array_equal(np.asarray(got), np.asarray(want))

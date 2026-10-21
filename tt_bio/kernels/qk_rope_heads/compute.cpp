@@ -6,16 +6,20 @@
 // q_ln / k_ln), left in fp32 in c_17 (the centred-x CB, free by then), then NeoX RoPE per head on those tiles: head h is tiles a = 2h, b = 2h + 1 and
 // rotate_half swaps them with a sign, so
 //     out_a = x_a * cos - x_b * sin        out_b = x_b * cos + x_a * sin
-// with one cos / sin tile for the row (c_6 / c_7). The cos products go through an fp32 CB (c_20); the sin products
-// stay in dest and the add / subtract reuses dest as srcB. Two output tiles per head into c_16. v units are the
-// reader's and the writer's alone.
+// with one cos / sin tile for the row (c_6 / c_7). Under QKRH_SFPU all four products of a head land in fp32 dest and
+// the SFPU subtracts / adds them there. Otherwise the cos products go through an fp32 CB (c_20) and the add / subtract
+// reuses dest as srcB; both operands then pass the 19-bit srcA / srcB, which truncates them toward zero. Two output
+// tiles per head into c_16. v units are the reader's and the writer's alone, except under QKRH_V_PACK (a block-fp8
+// output), where this kernel copies them c_21 -> c_22 through the packer, VC tiles at a time.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
 
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/eltwise_binary.h"
+#include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/reconfig_data_format.h"
+#include "api/compute/tile_move_copy.h"
 #include "../common/ln_prologue.hpp"
 
 constexpr uint32_t KT = get_compile_time_arg_val(0);
@@ -64,16 +68,23 @@ void kernel_main() {
     constexpr uint32_t R = get_compile_time_arg_val(1);
     const uint32_t first = get_arg_val<uint32_t>(0);
     const uint32_t count = get_arg_val<uint32_t>(1);
+#ifdef QKRH_V_PACK
+    const uint32_t v_count = get_arg_val<uint32_t>(3);
+#else
+    constexpr uint32_t v_count = 0;
+#endif
     constexpr uint32_t cb_x = 5, cb_cos = 6, cb_sin = 7, cb_gq = 8, cb_scaler = 10, cb_eps = 11, cb_out = 16,
                        cb_n = 17, cb_p = 20;
     [[maybe_unused]] constexpr uint32_t cb_gk = 15;
-    if (count == 0) {
+    if (count + v_count == 0) {
         return;
     }
     binary_op_init_common(cb_x, cb_gq, cb_n);
 #if !defined(QKRH_RELOAD) && !defined(QKRH_NO_LN)
-    cb_wait_front(cb_gq, KT);
-    cb_wait_front(cb_gk, KT);
+    if (count) {
+        cb_wait_front(cb_gq, KT);
+        cb_wait_front(cb_gk, KT);
+    }
 #endif
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
@@ -97,6 +108,30 @@ void kernel_main() {
         cb_wait_front(src, KT);
         cb_wait_front(cb_cos, 1);
         cb_wait_front(cb_sin, 1);
+#if defined(QKRH_SFPU)
+        reconfig_data_format(src, cb_cos);
+        pack_reconfig_data_format(cb_out);
+        for (uint32_t a = 0; a < KT; a += 2) {   // one head a dest acquire: a cos, b cos, b sin, a sin
+            cb_reserve_back(cb_out, 2);
+            tile_regs_acquire();
+            mul_tiles_init(src, cb_cos);
+            mul_tiles(src, cb_cos, a, 0, 0);
+            mul_tiles(src, cb_cos, a + 1, 0, 1);
+            mul_tiles_init(src, cb_sin);
+            mul_tiles(src, cb_sin, a + 1, 0, 2);
+            mul_tiles(src, cb_sin, a, 0, 3);
+            sub_binary_tile_init();
+            sub_binary_tile(0, 2, 0);
+            add_binary_tile_init();
+            add_binary_tile(1, 3, 1);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, cb_out);
+            pack_tile(1, cb_out);
+            tile_regs_release();
+            cb_push_back(cb_out, 2);
+        }
+#else
         for (uint32_t h0 = 0; h0 < KT / 2; h0 += HG) {   // HG heads (2 HG tiles) a dest acquire
             const uint32_t n = KT / 2 - h0 < HG ? KT / 2 - h0 : HG, a0 = 2 * h0;
             reconfig_data_format(src, cb_cos);
@@ -141,8 +176,30 @@ void kernel_main() {
             cb_push_back(cb_out, 2 * n);
             cb_pop_front(cb_p, 2 * n);
         }
+#endif
         cb_pop_front(src, KT);
         cb_pop_front(cb_cos, 1);
         cb_pop_front(cb_sin, 1);
     }
+#ifdef QKRH_V_PACK
+    constexpr uint32_t VC = get_compile_time_arg_val(2), cb_v = 21, cb_vo = 22, DST = 4;
+    reconfig_data_format_srca(cb_v);
+    pack_reconfig_data_format(cb_vo);
+    copy_tile_to_dst_init_short(cb_v);
+    for (uint32_t i = 0; i < v_count * (KT / VC); ++i) {
+        cb_wait_front(cb_v, VC);
+        cb_reserve_back(cb_vo, VC);
+        for (uint32_t c0 = 0; c0 < VC; c0 += DST) {
+            const uint32_t n = VC - c0 < DST ? VC - c0 : DST;
+            tile_regs_acquire();
+            for (uint32_t j = 0; j < n; ++j) copy_tile(cb_v, c0 + j, j);
+            tile_regs_commit();
+            tile_regs_wait();
+            for (uint32_t j = 0; j < n; ++j) pack_tile(j, cb_vo);
+            tile_regs_release();
+        }
+        cb_push_back(cb_vo, VC);
+        cb_pop_front(cb_v, VC);
+    }
+#endif
 }
