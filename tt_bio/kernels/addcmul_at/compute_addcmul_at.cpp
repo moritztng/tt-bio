@@ -7,6 +7,8 @@
 // the product is truncated to x's format on its way back into srcA, so it is not bit-exact with it.
 // ADDCMUL_SFPU (fp32 operands): the FPU reads fp32 at tf32, so the three tiles are unpacked to DEST at
 // fp32 and multiplied and added on the SFPU, one tile at a time, as ttnn's fp32 binary ops do.
+// SIG_Z (`dit_cond_sigat`): `out = x + y * sigmoid(z)`, z being the conditioning logits. z goes to DEST, the
+// sigmoid runs there on the SFPU, and DEST is reused as srcA for the product with y, then for the sum with x.
 #include <cstdint>
 
 #include "api/compute/common.h"
@@ -14,8 +16,8 @@
 #include "api/compute/eltwise_binary.h"
 #ifdef ADDCMUL_SFPU
 #include "api/compute/eltwise_binary_sfpu.h"
-#include "api/compute/tile_move_copy.h"
 #endif
+#include "api/compute/tile_move_copy.h"
 
 void kernel_main() {
     const uint32_t num_tiles = get_arg_val<uint32_t>(0);
@@ -38,6 +40,10 @@ void kernel_main() {
             copy_tile(cb_y, j, 1);
             copy_tile_to_dst_init_short(cb_z);
             copy_tile(cb_z, j, 2);
+#ifdef SIG_Z
+            sigmoid_tile_init();
+            sigmoid_tile(2);
+#endif
             mul_binary_tile_init();
             mul_binary_tile(1, 2, 1);
             add_binary_tile_init();
@@ -49,8 +55,18 @@ void kernel_main() {
         }
 #else
         tile_regs_acquire();
+#ifdef SIG_Z
+        copy_tile_to_dst_init_short(cb_z);
+        for (uint32_t j = 0; j < n; ++j) copy_tile(cb_z, j, j);
+        sigmoid_tile_init();
+        for (uint32_t j = 0; j < n; ++j) sigmoid_tile(j);
+        binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_y);
+        for (uint32_t j = 0; j < n; ++j)
+            binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_y, j, j);
+#else
         mul_tiles_init(cb_y, cb_z);
         for (uint32_t j = 0; j < n; ++j) mul_tiles(cb_y, cb_z, j, j, j);
+#endif
         binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_x);
         for (uint32_t j = 0; j < n; ++j)
             binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(cb_x, j, j);

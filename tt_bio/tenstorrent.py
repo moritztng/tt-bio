@@ -740,6 +740,9 @@ _FAST_MODE = False
 #   dit_cond_jcat   under dit_cond_jit, each layer's six projections as three [768, 1536] linears (the two adaLN
 #                   scales with their sigmoid, the two shifts, the two gates), whose halves the layer reads in place
 #                   (`addcmul_at`); same K, so each term's arithmetic is unchanged.
+#   dit_cond_sigat  under dit_cond_jcat, the adaLN scale and shift as ONE [768, 3072] linear and the gate linear without
+#                   its fused sigmoid: `addcmul_at` takes the sigmoid of the logit window it reads (two linears a layer
+#                   instead of three, none with an activation epilogue).
 #   triatt_lofi     triangle attention's fused SDPA (QK^T and PV) at LoFi instead of HiFi2; the softmax is unchanged.
 #   dit_shoist      the DiT's conditioning as three wide linears a step whose columns each layer reads in place
 #                   (`addcmul_at`): OpenFold3's DiT, and Boltz-2's token DiT, where it takes precedence over
@@ -811,7 +814,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "acc_off", "diffusion_bf16", "dit_
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm")
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm", "dit_cond_sigat")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -830,7 +833,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "dit_bpad", "atom_mm16"
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm",
+                             "dit_cond_sigat"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2620,10 +2624,21 @@ class _ColWin(tuple):
         return t[..., off:off + width]
 
 
+class _SigWin(_ColWin):
+    """`dit_cond_sigat`: a `_ColWin` of logits; its reader takes the sigmoid (`addcmul_at` in the kernel, `cut()` here)."""
+    __slots__ = ()
+
+    def cut(self):
+        x = super().cut()
+        out = ttnn.sigmoid(x)
+        ttnn.deallocate(x)
+        return out
+
+
 def _win_addcmul(x, y, win):
     """`x + y * win` with `win` read in place, or None where `addcmul_at` declines."""
     t, off, width = win
-    return _addcmul_at(x, y, t, width, z_off=off)
+    return _addcmul_at(x, y, t, width, z_off=off, sig_z=isinstance(win, _SigWin))
 # Every diffusion sample of a fold sees the same noise level and the same trunk output, so the
 # token conditioning `s` and everything the DiT derives from it (the hoisted AdaLN and gate
 # projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
@@ -15424,7 +15439,8 @@ class AdaLN(Module):
             own = self._s_memo is not s_terms
         if isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin):
             (sc_t, sc_off, width), (sh_t, sh_off, _) = s_terms
-            out = _addcmul_at(sh_t, a, sc_t, width, x_off=sh_off, z_off=sc_off, out_dtype=dtype)
+            out = _addcmul_at(sh_t, a, sc_t, width, x_off=sh_off, z_off=sc_off, out_dtype=dtype,
+                              sig_z=isinstance(s_terms[0], _SigWin))
             if out is not None:
                 ttnn.deallocate(a)
                 return out
@@ -15804,18 +15820,29 @@ class DiffusionTransformer(Module):
         """`dit_cond_jcat`: `_cond_weights_parts` with the attention and transition halves of each term side by
         side, `(scale w, b, shift w, gate w, b)` a layer, every weight [768, 1536]."""
         if getattr(self, "_cond_wc", None) is None:
-            dt = _dtype(ttnn.bfloat16)
-            up = lambda t: ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
-            parts = []
-            for layer in self.layers:
-                (sw0, sb0, bw0), (sw1, sb1, bw1) = (ad.folded_weights()
-                                                    for ad in (layer.adaln, layer.transition.adaln))
-                ow, ob = zip(*((ws[f"{k}.weight"].t(), ws[f"{k}.bias"]) for ws, k in (
-                    (layer.weights, "output_projection_linear"), (layer.transition.weights, "output_projection.0"))))
-                parts.append((up(torch.cat((sw0, sw1), -1)), up(torch.cat((sb0, sb1), -1)),
-                              up(torch.cat((bw0, bw1), -1)), up(torch.cat(ow, -1)), up(torch.cat(ob, -1))))
-            self._cond_wc = parts
+            self._cond_wc = [tuple(map(self._cond_up, p)) for p in self._cond_cat_host()]
         return self._cond_wc
+
+    def _cond_up(self, t):
+        return ttnn.from_torch(t, layout=ttnn.TILE_LAYOUT, device=self.device, dtype=_dtype(ttnn.bfloat16))
+
+    def _cond_cat_host(self):
+        """`_cond_weights_cat`'s five tensors a layer, on the host."""
+        for layer in self.layers:
+            (sw0, sb0, bw0), (sw1, sb1, bw1) = (ad.folded_weights() for ad in (layer.adaln, layer.transition.adaln))
+            ow, ob = zip(*((ws[f"{k}.weight"].t(), ws[f"{k}.bias"]) for ws, k in (
+                (layer.weights, "output_projection_linear"), (layer.transition.weights, "output_projection.0"))))
+            yield (torch.cat((sw0, sw1), -1), torch.cat((sb0, sb1), -1), torch.cat((bw0, bw1), -1),
+                   torch.cat(ow, -1), torch.cat(ob, -1))
+
+    def _cond_weights_sigat(self):
+        """`dit_cond_sigat`: `_cond_weights_cat` with each layer's scale and shift weights side by side,
+        `(scale|shift w [768, 3072], b, gate w, b)`; the shift columns get a zero bias."""
+        if getattr(self, "_cond_ws", None) is None:
+            self._cond_ws = [tuple(map(self._cond_up, (torch.cat((sw, bw), -1), torch.cat((sb, torch.zeros_like(sb)), -1),
+                                                       ow, ob)))
+                             for sw, sb, bw, ow, ob in self._cond_cat_host()]
+        return self._cond_ws
 
     def _peak_tag(self, a):
         # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
@@ -15842,7 +15869,8 @@ class DiffusionTransformer(Module):
             # the 144 slices that cut them up cost as much again in dispatch.
             jcat = lever("dit_cond_jcat")
             jit = (ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config),
-                   self._cond_weights_cat() if jcat else self._cond_weights_parts())
+                   self._cond_weights_sigat() if jcat and lever("dit_cond_sigat")
+                   else self._cond_weights_cat() if jcat else self._cond_weights_parts())
         elif _B2_DIT_COND_HOIST and not self.atom_level:
             adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
@@ -15888,6 +15916,12 @@ class DiffusionTransformer(Module):
                 ckc = self.compute_kernel_config
                 lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
                     x, w, bias=b, compute_kernel_config=ckc, activation=mm_sigmoid(ckc) if act == "sigmoid" else act)
+                if jcat and len(wp[i]) == 4:   # dit_cond_sigat
+                    ssw, ssb, ow, ob = wp[i]
+                    ss, so = lin(s_hat, ssw, ssb), lin(s, ow, ob)
+                    w = lambda t, j, k=_ColWin: k(t, j * d, d)  # noqa: E731
+                    return (_SigTerms((w(ss, 0, _SigWin), w(ss, 2))), w(so, 0, _SigWin),
+                            _SigTerms((w(ss, 1, _SigWin), w(ss, 3))), w(so, 1, _SigWin)), (ss, so)
                 if jcat:
                     sw, sb, bw, ow, ob = wp[i]
                     sc, sh, so = lin(s_hat, sw, sb, "sigmoid"), lin(s_hat, bw), lin(s, ow, ob, "sigmoid")

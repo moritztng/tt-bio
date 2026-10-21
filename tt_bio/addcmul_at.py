@@ -47,7 +47,7 @@ def _grid(t):
     return lead * ((shape[-2] + TILE - 1) // TILE), (shape[-1] + TILE - 1) // TILE
 
 
-def _build(x, y, z, out, device, ht, wt):
+def _build(x, y, z, out, device, ht, wt, sig_z=False):
     f32 = y.dtype == ttnn.float32
     num_tiles = ht * wt
     g = device.compute_with_storage_grid_size()
@@ -94,7 +94,8 @@ def _build(x, y, z, out, device, ht, wt):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_addcmul_at.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH, core_ranges=core_grid,
-        compile_time_args=[_GRAN], defines=[("ADDCMUL_SFPU", "1")] if f32 else [],
+        compile_time_args=[_GRAN],
+        defines=([("ADDCMUL_SFPU", "1")] if f32 else []) + ([("SIG_Z", "1")] if sig_z else []),
         runtime_args=compute_rt, config=cfg)
     cbs = [cb(X_CB), cb(Y_CB), cb(Z_CB), cb(OUT_CB, out.dtype)]
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=cbs)
@@ -117,8 +118,9 @@ def _ok(t, y, ht, dtype=ttnn.bfloat16):
 
 
 @_ops.fused_kernel("addcmul_at")
-def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None):
+def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None, sig_z=False):
     """``x[.., off_x:off_x+width] + y[..] * z[..]`` (offsets and width in elements, tile-aligned).
+    `sig_z`: ``x + y * sigmoid(z)``, the sigmoid taken in the kernel (lever `dit_cond_sigat`).
 
     The result is a dense tensor of `out_dtype` (default `y`'s; the packer converts), `y`'s leading
     shape and `width` columns: bfloat16 on the
@@ -141,11 +143,11 @@ def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None):
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype or y.dtype, ttnn.TILE_LAYOUT, device,
                                          ttnn.DRAM_MEMORY_CONFIG)
     # The buffer types are compile-time args of the TensorAccessors: an L1 operand must not reuse a DRAM program.
-    key = (device.id(), ht, wt, _grid(x), _grid(y)[1], _grid(z), str(y.dtype), str(out.dtype),
+    key = (device.id(), ht, wt, _grid(x), _grid(y)[1], _grid(z), str(y.dtype), str(out.dtype), bool(sig_z),
            *(str(t.memory_config().buffer_type) for t in (x, y, z)))
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(x, y, z, out, device, ht, wt)
+        entry = _CACHE[key] = _build(x, y, z, out, device, ht, wt, sig_z)
     common_r = [x.buffer_address(), x_off // TILE, y.buffer_address(), y_off // TILE,
                 z.buffer_address(), z_off // TILE]
     common_w = [out.buffer_address()]
