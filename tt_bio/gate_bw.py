@@ -72,7 +72,7 @@ def _cb(idx, dtype, core_grid):
                              format_descriptors=[fmt])
 
 
-def _build(d, o, g, outs, device):
+def _build(d, o, g, outs, device, fast=False):
     num_tiles = _tile_count(d)
     num_cores, core_grid, cg1, cg2, work1, work2 = _split_plan(device, num_tiles)
     assign, placed = {}, 0
@@ -119,26 +119,28 @@ def _build(d, o, g, outs, device):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_gate_bw.cpp"), source_type=src,
         core_ranges=core_grid, compile_time_args=[D_CB, O_CB, G_CB, DO_CB, DG_CB] + genq_ct,
-        runtime_args=compute_rt, config=cfg)
+        runtime_args=compute_rt, config=cfg, defines=[("TT_BIO_SIG_FAST", "1")] if fast else [])
     cbs = [_cb(D_CB, d.dtype, core_grid), _cb(O_CB, o.dtype, core_grid),
            _cb(G_CB, g.dtype, core_grid), _cb(DO_CB, outs[0].dtype, core_grid),
            _cb(DG_CB, outs[1].dtype, core_grid)]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def gate_bw(d, o, g):
+def gate_bw(d, o, g, fast=False):
     """``(d * s, d * o * s * (1 - s))`` with ``s = sigmoid(g)``, both in d's dtype (the dtype
-    the composed path's multiplies return)."""
+    the composed path's multiplies return). ``fast`` takes metal's LUT sigmoid
+    (kernels/common/gate_sigmoid.hpp); only a probe sets it, because the forward of every gate this
+    differentiates is a ttnn multiply with the accurate sigmoid fused."""
     device = d.device()
     outs = [ttnn.allocate_tensor_on_device(d.shape, d.dtype, ttnn.TILE_LAYOUT, device,
                                            d.memory_config()) for _ in range(2)]
     g_ = device.compute_with_storage_grid_size()
     key = (device.id(), _tile_grid(d), d.dtype, d.memory_config().buffer_type,
            o.memory_config().buffer_type, g.memory_config().buffer_type, g_.x, g_.y,
-           genq.compact())
+           genq.compact(), fast)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(d, o, g, outs, device)
+        entry = _CACHE[key] = _build(d, o, g, outs, device, fast)
     reader, writer, compute = entry["kernels"]
     # Rebuilt per call so the new addresses are in the descriptor; rne_add's ADDR_WRITE_MODE
     # probe says whether that is needed, and the rebuild is the safe answer either way.
