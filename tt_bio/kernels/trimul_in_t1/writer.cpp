@@ -116,22 +116,29 @@ void kernel_main() {
                 const uint32_t gbase = stage0 + grp * NB * TB;
                 if (dirty[grp]) noc_async_writes_flushed();
 #if T1B8
-                for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
-                    const uint32_t c = c0 + j;
-                    const uint32_t st = gbase + j * TB;
-                    // source row c of tile il: face (c >> 4) * 2 (+1 for the right half), face row c & 15
-                    const uint32_t sf = (c >> 4) * 2, sr = c & 15;
-                    volatile tt_l1_ptr uint8_t* se = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(src);
-                    volatile tt_l1_ptr uint8_t* de = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(st);
+                // The NB channels c0 .. c0 + NB - 1 are consecutive face rows of one source face, so their
+                // exponent bytes are adjacent: one aligned word load per source tile and face, not one load a byte.
+                static_assert(NB == 1 || NB == 2 || NB == 4, "exponent bytes of a barrier group share one word");
+                if constexpr (!(ABL & 32)) {
+                    const uint32_t sf = (c0 >> 4) * 2, sr0 = c0 & 15;
                     for (uint32_t il = 0; il < IL; ++il) {
                         const uint32_t r = r0 + il;
                         const uint32_t df = (r >> 4) * 2, dr = r & 15;
-                        const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + sr * RB8;
-                        const uint32_t d0 = st + EB + df * FB8 + dr * RB8;
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s0 + FB8, d0 + FB8);
-                        de[df * 16 + dr] = se[il * TB8 + sf * 16 + sr];
-                        de[(df + 1) * 16 + dr] = se[il * TB8 + (sf + 1) * 16 + sr];
+                        const uint32_t ea = src + il * TB8 + sf * 16 + sr0;
+                        const uint32_t sh = (ea & 3) * 8;
+                        const uint32_t w0 = *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(ea & ~3u) >> sh;
+                        const uint32_t w1 = *reinterpret_cast<volatile tt_l1_ptr uint32_t*>((ea + 16) & ~3u) >> sh;
+                        for (uint32_t j = 0; j < NB; ++j) {
+                            const uint32_t st = gbase + j * TB;
+                            // source row c0 + j of tile il: face sf (+1 for the right half), face row sr0 + j
+                            const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + (sr0 + j) * RB8;
+                            const uint32_t d0 = st + EB + df * FB8 + dr * RB8;
+                            noc_async_read_one_packet_with_state(s0, d0);
+                            noc_async_read_one_packet_with_state(s0 + FB8, d0 + FB8);
+                            volatile tt_l1_ptr uint8_t* de = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(st);
+                            de[df * 16 + dr] = (w0 >> (8 * j)) & 0xff;
+                            de[(df + 1) * 16 + dr] = (w1 >> (8 * j)) & 0xff;
+                        }
                     }
                 }
 #else
