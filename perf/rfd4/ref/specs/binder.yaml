@@ -1,5 +1,5 @@
 pdl1_binder:
-  input: docs/examples/inputs/5o45_cropped.cif.zst
+  input: /home/moritz/rfd4-ref-env/src/RFD4-Proteina/docs/examples/inputs/5o45_cropped.cif.zst
   contig: "50-120, /0, A17-131"
   conditions:
     C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}
