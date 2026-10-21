@@ -1,0 +1,69 @@
+"""The same grade device_parity.py applies, run on the float64 torch fold instead of the device.
+
+This is what separates a featurisation bug from a device-precision one: the fold and the device read
+the SAME host features, so if a real captured batch grades clean here and dirty on the card, the
+card is the cause, and if it grades dirty here the features are. No TT device, no ttnn import.
+
+    python -I perf/rfd4/vae/cpu_parity.py --goldens <dir> --out <json>
+"""
+
+import argparse
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+import torch
+
+HERE = Path(__file__).resolve()
+ROOT = HERE.parents[3]
+
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    m = importlib.util.module_from_spec(spec)
+    sys.modules[name] = m
+    spec.loader.exec_module(m)
+    return m
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--goldens", required=True)
+    ap.add_argument("--out", required=True)
+    a = ap.parse_args()
+    torch.set_default_dtype(torch.float64)
+    AF = _load("ae_fold", ROOT / "tt_bio/rfd4/ae_fold.py")
+    DP = _load("device_parity_grade", HERE.parent / "device_parity.py")
+    CF = _load("check_fold", HERE.parent / "check_fold.py")
+
+    sd = torch.load(CF.CKPT, map_location="cpu", weights_only=False)["state_dict"]
+    folded = {p: AF.fold(sd, p) for p in ("encoder", "decoder")}
+    tab = AF.tables()
+    rec = {"bar": DP.BAR, "dtype": "float64", "cases": {}}
+    for path in sorted(Path(a.goldens).glob("*.pt")):
+        g = torch.load(path, map_location="cpu", weights_only=False)
+        batch = g["batch"]
+        legal = tab["allowed"][batch["token_type"].long()] & g["decoder"]["emit_mask"][..., None]
+        em = g["encoder"]["emit_mask"]
+        e = AF.encode(folded["encoder"], batch, g["noise"])
+        c = {"n_tokens": int(batch["padding_mask"].shape[1]),
+             "encoder": {k: DP.rel(e[k], g["encoder"][k], em) for k in ("mean", "log_scale", "z_latent")}}
+        d = AF.decode(folded["decoder"], batch, tab)
+        fin = AF.finish_decode(d, batch, tab)
+        c["decoder"] = DP.grade_decoder(d, g["decoder"], g["decode"], fin, legal)
+        r_ref, r_tt = DP.recon(g["decode"], batch), DP.recon(fin, batch)
+        if r_ref is not None:
+            c["recon"] = {"upstream": r_ref, "fold": r_tt,
+                          "d_rmsd_A": r_tt["all_atom_rmsd_A"] - r_ref["all_atom_rmsd_A"],
+                          "d_seq_recovery": r_tt["seq_recovery"] - r_ref["seq_recovery"]}
+        rec["cases"][g["case"]] = c
+        print(g["case"], "max_rel", max(c["encoder"][k]["max_rel_err"] for k in c["encoder"]),
+              "coords_A", c["decoder"]["coords"]["rmsd_A"], "argmax", c["decoder"]["residue"]["argmax_agree"],
+              "recon", c.get("recon", {}).get("upstream", {}).get("all_atom_rmsd_A"), flush=True)
+    Path(a.out).write_text(json.dumps(rec, indent=1) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
