@@ -21,6 +21,7 @@ passes is a different model, not a faster one.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -257,7 +258,14 @@ def _as_bool(mask, num_designs: int):
 
 
 def _resolve_weights(weights: str | Path) -> Path:
-    """The released bundle's directory, downloading it on first use."""
+    """The released bundle's directory, downloading it on first use.
+
+    `$TT_BIO_RFD4_WEIGHTS` names a bundle already on the host and is taken for the default hub
+    id only: a host that was given the bundle by hand (every QuietBox here) then costs no 1.7 GB
+    download, while an explicit path or a different checkpoint still wins over it.
+    """
+    if str(weights) == DEFAULT_WEIGHTS and os.environ.get("TT_BIO_RFD4_WEIGHTS"):
+        weights = os.environ["TT_BIO_RFD4_WEIGHTS"]
     path = Path(str(weights)).expanduser()
     if path.exists():
         return path
