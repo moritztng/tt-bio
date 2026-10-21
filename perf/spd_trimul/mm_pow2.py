@@ -11,6 +11,7 @@ import math
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, default=768)
+ap.add_argument("--fids", default="HiFi4,HiFi3,HiFi2,LoFi")
 ap.add_argument("--out", help="also append each JSON line here")
 A = ap.parse_args()
 
@@ -56,7 +57,7 @@ def grade(name, out, r, **kw):
           "rel_rms": float((e.square().mean() / r.square().mean()).sqrt()), "first": bad[:6]})
 
 
-for fid in ("HiFi4", "HiFi2", "LoFi"):
+for fid in A.fids.split(","):
     for f32 in (True, False):
         for l1 in (True, False):
             cfg = type(base)(math_fidelity=getattr(ttnn.MathFidelity, fid), math_approx_mode=base.math_approx_mode,
