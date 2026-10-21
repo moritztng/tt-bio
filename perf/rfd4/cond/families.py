@@ -120,12 +120,34 @@ def input_path(family: str, parent_design: Path | None = None) -> Path:
     return path if path.exists() else UPSTREAM / f["input"]
 
 
+#: What the engine runs when nothing names a recipe (see Engine.__init__).
+DEFAULT_RECIPE = "thinking_medium"
+
+
+def cli_takes_recipe() -> bool:
+    """Whether the tt-bio in this environment exposes ``--recipe`` on ``design``.
+
+    The option rides with the conditional families. A tt-bio without it runs DEFAULT_RECIPE and
+    nothing else, so a family that wants another schedule has to stop rather than run the default
+    under that family's name.
+    """
+    from tt_bio.main import design_cmd
+
+    return any("--recipe" in param.opts for param in design_cmd.params)
+
+
 def command(family: str, out_dir: Path, *, seed: int, num_designs: int,
             parent_design: Path | None = None) -> list[str]:
     f = FAMILIES[family]
     cmd = ["tt-bio", "design", "--model", "rfd4", str(input_path(family, parent_design)),
-           "--out_dir", str(out_dir), "--seed", str(seed), "--num_designs", str(num_designs),
-           "--recipe", f["recipe"]]
+           "--out_dir", str(out_dir), "--seed", str(seed), "--num_designs", str(num_designs)]
+    if cli_takes_recipe():
+        cmd += ["--recipe", f["recipe"]]
+    elif f["recipe"] != DEFAULT_RECIPE:
+        raise SystemExit(
+            f"{family} wants the {f['recipe']} recipe and this tt-bio's design CLI has no "
+            f"--recipe, so it would run {DEFAULT_RECIPE} instead. Run it from a tree that "
+            f"carries the option.")
     if f.get("annotated_cif"):
         cmd.append("--annotated_cif")
     return cmd + list(f.get("args", []))
