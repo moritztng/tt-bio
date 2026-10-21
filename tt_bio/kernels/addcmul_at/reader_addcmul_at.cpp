@@ -16,8 +16,6 @@
 // cause in this codebase).
 #include "api/dataflow/dataflow_api.h"
 
-#include "../genq/genq_split.h"
-
 void kernel_main() {
     const uint32_t x_addr = get_common_arg_val<uint32_t>(0);
     const uint32_t x_off = get_common_arg_val<uint32_t>(1);
@@ -25,6 +23,9 @@ void kernel_main() {
     const uint32_t y_off = get_common_arg_val<uint32_t>(3);
     const uint32_t z_addr = get_common_arg_val<uint32_t>(4);
     const uint32_t z_off = get_common_arg_val<uint32_t>(5);
+    const uint32_t first_tile = get_arg_val<uint32_t>(0);
+    const uint32_t num_tiles = get_arg_val<uint32_t>(1);
+
     constexpr uint32_t GRAN = get_compile_time_arg_val(0);
     constexpr uint32_t WT = get_compile_time_arg_val(1);
     constexpr uint32_t XS = get_compile_time_arg_val(2);
@@ -33,22 +34,7 @@ void kernel_main() {
     constexpr uint32_t XH = get_compile_time_arg_val(5);
     constexpr uint32_t YH = get_compile_time_arg_val(6);
     constexpr uint32_t ZH = get_compile_time_arg_val(7);
-    // genq compact split (tt_bio/genq.py): args 8..15, flag then seven constants.
-    constexpr uint32_t G = 8;
-    uint32_t first_tile, num_tiles;
-    if constexpr (get_compile_time_arg_val(G) == 1) {
-        const auto s = genq::slice<get_compile_time_arg_val(G + 1), get_compile_time_arg_val(G + 2),
-                                   get_compile_time_arg_val(G + 3), get_compile_time_arg_val(G + 4),
-                                   get_compile_time_arg_val(G + 5), get_compile_time_arg_val(G + 6),
-                                   get_compile_time_arg_val(G + 7)>(
-            get_absolute_logical_x(), get_absolute_logical_y());
-        first_tile = s.first;
-        num_tiles = s.num;
-    } else {
-        first_tile = get_arg_val<uint32_t>(0);
-        num_tiles = get_arg_val<uint32_t>(1);
-    }
-    constexpr auto x_args = TensorAccessorArgs<G + 8>();
+    constexpr auto x_args = TensorAccessorArgs<8>();
     constexpr auto y_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto z_args = TensorAccessorArgs<y_args.next_compile_time_args_offset()>();
     const auto sx = TensorAccessor(x_args, x_addr);
