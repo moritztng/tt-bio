@@ -4585,7 +4585,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_cond_steps")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -18361,8 +18361,12 @@ class DiffusionModule(TorchWrapper):
         """This step's row block of the conditioning computed ahead (`dit_cond_steps`), or None."""
         sched = getattr(self, "_time_schedule", None)
         tt = self.module.token_transformer
-        if (not sched or times.numel() != 1 or not lever("dit_cond_steps") or self.module.token_transformer_fp32
-                or not tt.steps_ok()):
+        if not lever("dit_cond_steps"):
+            return None
+        why = ("no schedule" if not sched else f"{times.numel()} times" if times.numel() != 1
+               else "fp32 token path" if self.module.token_transformer_fp32 else None if tt.steps_ok() else "steps_ok")
+        if why:
+            _latch("dit_cond_steps", "declined", why)
             return None
         s_trunk = self._cache_get("s_trunk")
         # G x n rows a linear: where a Wormhole linear at K 768 is past its fixed cost (matlim: M 4096 runs
@@ -18371,12 +18375,14 @@ class DiffusionModule(TorchWrapper):
         t = float(times.reshape(-1)[0])
         k = next((i for i, x in enumerate(sched) if x == t), None)
         if k is None or G < 2:
+            _latch("dit_cond_steps", "declined", f"times {t} not in the schedule" if k is None else f"G {G}")
             return None
         k0 = k - k % G
         if self._steps_k0 != k0:
             ts = torch.tensor(sched[k0:k0 + G], dtype=times.dtype)
             self.module.cond_steps(self._from_torch(ts), s_trunk, self._cache_get("s_inputs"), self._cache_get("c"))
             self._steps_k0 = k0
+            _latch("dit_cond_steps", "served")
         return k - k0
 
     def _run_diffusion_device(
