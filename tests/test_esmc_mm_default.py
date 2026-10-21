@@ -275,6 +275,7 @@ def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_X_L1", None)
     monkeypatch.setattr(sp, "_SAPROT_RESID", False)
+    monkeypatch.setattr(sp, "_SAPROT_MM_RESID", False)   # the unfused add; mm_resid is on by default on Wormhole
     monkeypatch.setattr(sp, "_X_L1_REFUSED", set())
     seen = []
     monkeypatch.setattr(sp.ttnn, "add", lambda a, b, **kw: seen.append(kw.get("memory_config")) or a)
