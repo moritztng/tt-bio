@@ -6,7 +6,11 @@ blocks and the fused output head; the host builds the input features, projects t
 stream in fp32, and does the head post-processing (`ae_fold.decode_heads` / `finish_decode`), so the
 residue masking, argmax and atom masks are upstream's own arithmetic in fp32.
 
-The input projection stays on the host because the card's matmul accumulates to about 2^-11 of the
+The input projection and the final LayerNorm + output head stay on the host. The head because every
+token's final stream is nearly the same vector (on a real RNA batch the token-common part is 27.50 of a
+27.71 row norm), so the card's result rounding makes the same error for every token: a constant logit
+shift (-0.14 between the two classes an RNA token chooses from) that flipped coin-flip residues one way.
+The input projection because the card's matmul accumulates to about 2^-11 of the
 summed |terms|, and the features mix absolute CA coordinates (nm) with a unit-scale 32-d latent: on
 the device the coordinate terms swamp the latent's contribution. It is N x 214 x 768 (decoder) or
 N x 1587 x 768 (encoder), milliseconds on the host, and the upload shrinks to 768 columns.
@@ -32,10 +36,6 @@ _PRECISE = dict(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
 
 def _ckc():
     return ttnn.WormholeComputeKernelConfig(**_PRECISE)
-
-
-def _pad_to(n: int) -> int:
-    return -(-n // TILE) * TILE
 
 
 class AEHalf(Module):
@@ -69,11 +69,8 @@ class AEHalf(Module):
                 "w1a": w(L["w1"][: L["w1"].shape[0] // 2].T), "w1g": w(L["w1"][L["w1"].shape[0] // 2:].T),
                 "w2": w(L["w2"].T),
             })
-        hw, hb = folded["head_w"], folded["head_b"]
-        self.n_head = hw.shape[0]
-        pad = _pad_to(self.n_head) - self.n_head
-        self.head_w = w(torch.nn.functional.pad(hw.T, (0, pad)))
-        self.head_b = row(torch.nn.functional.pad(hb, (0, pad)))
+        self.head_w = folded["head_w"].float().T.contiguous()  # host fp32, see the module docstring
+        self.head_b = folded["head_b"].float()
 
     def _lin32(self, x, w, b=None, activation=None):
         return self._lin(x, w, bias=b, dtype=ttnn.float32, activation=activation)
@@ -158,7 +155,7 @@ class AEHalf(Module):
         return out
 
     def __call__(self, feats: torch.Tensor, attend: torch.Tensor) -> torch.Tensor:
-        """`feats` [B, N, n_feat], `attend` [B, N] bool -> raw head output [B, N, n_head] fp32 on host.
+        """`feats` [B, N, n_feat], `attend` [B, N] bool -> raw head output [B, N, n_head] fp32 (host).
 
         Pads the token axis to the 32-bucket; padded tokens are masked keys, so the valid rows equal
         the unpadded forward."""
@@ -179,13 +176,9 @@ class AEHalf(Module):
             x = self._block(L, x, bias, kmean)
         ttnn.deallocate(bias)
         ttnn.deallocate(kmean)
-        a = self._ln(x)
+        out = ttnn.to_torch(x).float()[:, :N]
         ttnn.deallocate(x)
-        out = self._lin32(a, self.head_w, self.head_b)
-        ttnn.deallocate(a)
-        res = ttnn.to_torch(out).float()[:, :N, : self.n_head]
-        ttnn.deallocate(out)
-        return res
+        return AF._ln(out) @ self.head_w + self.head_b
 
 
 class RFD4AutoEncoder:
