@@ -1964,15 +1964,20 @@ class DiffusionModule(_KeyedWeights):
             dram_peak(f"dit[M={a_t.shape[0]}] block {_bi}")
             ao = gated(a_t, attn, 2 * _bi, A + "linear_a_last.weight", A + "linear_a_last.bias")
             an2 = ctb_adaln(ao, s_t, dtype=ln_dt, s_terms=terms(2 * _bi + 1))
-            if lp:
-                bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
-                                   linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
-            else:
-                bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
-                                   linb(an2, Cc + "linear_nobias_a2.weight"))
-            a_t = gated(ao, linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp
-                        else linb(bb, Cc + "linear_nobias_b.weight"), 2 * _bi + 1,
-                        Cc + "linear_s.weight", Cc + "linear_s.bias")
+            # dit_tshard: the two hidden products and their product block-sharded in L1, never in DRAM.
+            tr = (_T._transition_swiglu_sharded(
+                an2, wtt(Cc + "linear_nobias_a1.weight"), wtt(Cc + "linear_nobias_a2.weight"),
+                wtt(Cc + "linear_nobias_b.weight"), ckc, _T.silu_ckc(ckc), an2.dtype, an2.dtype)
+                  if not lp and _T.lever("dit_tshard") else None)
+            if tr is None:
+                if lp:
+                    bb = ttnn.multiply(linlp(an2, Cc + "linear_nobias_a1.weight", ttnn.bfloat16, "silu"),
+                                       linlp(an2, Cc + "linear_nobias_a2.weight", ttnn.bfloat16), dtype=lp.mid)
+                else:
+                    bb = ttnn.multiply(linb(an2, Cc + "linear_nobias_a1.weight", act="silu"),
+                                       linb(an2, Cc + "linear_nobias_a2.weight"))
+                tr = linlp(bb, Cc + "linear_nobias_b.weight", lp.out) if lp else linb(bb, Cc + "linear_nobias_b.weight")
+            a_t = gated(ao, tr, 2 * _bi + 1, Cc + "linear_s.weight", Cc + "linear_s.bias")
         if wide:
             for t in wide:
                 ttnn.deallocate(t)
