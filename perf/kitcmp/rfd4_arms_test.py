@@ -94,7 +94,48 @@ def test_partial_arms_json_names_a_supported_arm():
     print(f"ok: a partial ARMS.json names {chosen}, an arm its own sizes measured")
 
 
+REF_INPUTS = Path("/home/moritz/.coworker/state/rfd4/inputs")
+
+
+def test_reference_families_resolve():
+    """Every reference family must name a spec that exists and tags upstream actually defines.
+
+    A typo here is only discovered on a rented box, after the arms phase has already been paid for.
+    """
+    fams = json.loads((REF_INPUTS / "ref" / "FAMILIES.json").read_text())["families"]
+    assert len(fams) >= 10, len(fams)
+    with tempfile.TemporaryDirectory() as tmp:
+        setup(tmp)
+        M.a.inputs, M.a.src = REF_INPUTS, Path("/SRC")
+        for fam, cfg in fams.items():
+            spec = (REF_INPUTS / "ref" / cfg["spec"])
+            assert spec.exists(), f"{fam}: missing spec {spec}"
+            assert cfg["metrics_tags"], fam
+            assert set(cfg["fallback_tags"]) <= set(cfg["metrics_tags"]), fam
+            assert not any(t.endswith("_refolding") for t in cfg["fallback_tags"]), \
+                f"{fam}: fallback still needs an oracle"
+            p = M.materialise_spec(spec, fam)
+            body = p.read_text()
+            assert "${RFD4_SRC}" not in body, fam
+            if p != spec.resolve():            # a materialised spec must point into the box's checkout
+                assert "/SRC/" in body, fam
+    print(f"ok: {len(fams)} reference families resolve, tags fall back without an oracle")
+
+
+def test_binder_spec_keeps_its_relative_input():
+    """The PD-L1 spec ships beside its own input, so it must be used in place, not copied elsewhere."""
+    with tempfile.TemporaryDirectory() as tmp:
+        setup(tmp)
+        M.a.inputs, M.a.src = REF_INPUTS, Path("/SRC")
+        spec = REF_INPUTS / "ref" / ".." / "pdl1-ref.yaml"
+        assert M.materialise_spec(spec, "binder") == spec.resolve()
+        assert (spec.resolve().parent / "5o45_cropped.cif.zst").exists()
+    print("ok: the binder spec stays beside the input it names")
+
+
 if __name__ == "__main__":
+    test_reference_families_resolve()
+    test_binder_spec_keeps_its_relative_input()
     test_climb_inverts_the_screen()
     test_climb_stops_on_the_card_not_the_ladder()
     test_chosen_arm_is_the_one_the_climb_ranked()

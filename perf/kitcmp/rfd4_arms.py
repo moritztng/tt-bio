@@ -33,21 +33,29 @@ SCREEN_BATCH = {128: 8, 256: 4, 512: 2}
 # rate was still climbing at the top rung, so the ladder would have set NVIDIA's number instead of the card.
 # Double until the card actually pushes back -- a failed/OOM rung, or two rungs that buy nothing.
 SWEEP_CEIL = {128: 128, 256: 64, 512: 32}
+# Reference designs are reproducible from this seed plus the batch index; rfd4-quality needs the
+# upstream set and the TT set to be the same draw, so it is pinned here rather than per-run.
+REF_SEED = 1234
 
 
-def run(arm, size, batch, warm, overrides, tag=None, spec=None, extra=()):
+def run(arm, size, batch, warm, overrides, tag=None, spec=None, extra=(), seed=None, bucket=True):
     """One rfd4_gpu.py process. Returns its warm records.
 
     A compiled arm compiles only the bucket it runs: the shipped `compile_lengths` is 15 buckets from 128 to
     1024, and compiling 14 shapes a run never uses would inflate its cold line without changing a warm one.
     Both sides still pad to the same bucket, so this is the same work, measured without the dead weight.
     """
-    if not any(o.startswith(("compile_lengths=", "inference_backend=")) for o in list(overrides) + list(extra)):
+    # A reference family is whatever length its own benchmark input is, so pinning one bucket there would
+    # compile a shape the run never uses; only the gated sizes get the single-bucket treatment.
+    if bucket and not any(o.startswith(("compile_lengths=", "inference_backend="))
+                          for o in list(overrides) + list(extra)):
         overrides = list(overrides) + [f"compile_lengths=[{size}]"]
     out = a.out / (tag or arm) / f"{size}-b{batch}"
     out.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, str(HERE / "rfd4_gpu.py"), "--spec", str(spec or a.inputs / f"pdl1-{size}.yaml"),
            "--size", str(size), "--arm", arm, "--batch", str(batch), "--warm", str(warm), "--out", str(out)]
+    if seed is not None:
+        cmd += ["--seed", str(seed)]
     for o in list(overrides) + list(extra):
         cmd += ["--set", o]
     print(f"{time.strftime('%FT%TZ', time.gmtime())} -> {' '.join(cmd)}", flush=True)
@@ -109,6 +117,24 @@ def climb(arm, size, warm, tag, seed=None):
     return sweep
 
 
+def materialise_spec(spec, fam):
+    """Expand ${RFD4_SRC} in a reference spec. Returns a path rfd4_gpu.py can read.
+
+    The family specs point at upstream's own benchmark inputs, which live wherever the repo was cloned. A spec
+    without the placeholder (the PD-L1 binder, whose input ships beside it) is used where it is, because its
+    input path is relative to its own directory.
+    """
+    spec = spec.resolve()
+    text = spec.read_text()
+    if "${RFD4_SRC}" not in text:
+        return spec
+    out = a.out / "ref-specs"
+    out.mkdir(parents=True, exist_ok=True)
+    p = out / f"{fam}.yaml"
+    p.write_text(text.replace("${RFD4_SRC}", str(a.src)))
+    return p
+
+
 def choose_arm(best, final):
     """One arm across sizes: the one that wins most sizes, ties broken by the largest size's rate.
 
@@ -139,6 +165,8 @@ def main():
                                             "from the arm actually published, not the screen's winner.")
     ap.add_argument("--sweep-only", action="store_true",
                     help="re-climb the batch of each size's top arms from ARMS.json, without the screen")
+    ap.add_argument("--src", type=Path, default=Path("/root/rfd4"),
+                    help="upstream checkout, substituted for ${RFD4_SRC} in the reference specs")
     ap.add_argument("--arms", type=int, default=2,
                     help="how many arms per size the extended climb re-ranks (default 2)")
     a = ap.parse_args()
@@ -191,14 +219,31 @@ def main():
         if chosen not in ARMS:
             sys.exit(f"reference: unknown arm {chosen!r}")
         print(f"reference designs from arm {chosen}", flush=True)
-        ov = ARMS[chosen] + ["metrics_tags='[ppi_refolding,hotspot_conditioning]'"]
+        fams = json.loads((a.inputs / "ref" / "FAMILIES.json").read_text())["families"]
+        batch = min(8, a.reference)
         done = {}
-        for fam, spec in sorted({p.stem: p for p in a.inputs.glob("pdl1-ref*.yaml")}.items()):
+        for fam, cfg in fams.items():
             if not time_left(1200):
+                print(f"deadline: {fam} and everything after it did not run", flush=True)
                 break
-            recs = run(chosen, 256, min(8, a.reference), a.reference // min(8, a.reference), ov,
-                       tag="reference", spec=spec)
-            done[fam] = {"designs": sum(r.get("designs", 0) for r in recs), "spec": str(spec), "arm": chosen}
+            spec = materialise_spec(a.inputs / "ref" / cfg["spec"], fam)
+            for tags in (cfg["metrics_tags"], cfg["fallback_tags"]):
+                ov = ARMS[chosen] + ["metrics_tags='[%s]'" % ",".join(tags)]
+                recs = run(chosen, 256, batch, -(-a.reference // batch), ov, tag=f"reference/{fam}",
+                           spec=spec, seed=REF_SEED, bucket=False)
+                n = sum(r.get("designs", 0) for r in recs
+                        if r.get("status") != "FAILED" and r.get("wall_s", 0) > 0)
+                if n:
+                    break
+                print(f"reference {fam}: nothing with tags {tags}", flush=True)
+            # Seeds are rfd4_gpu.py's --seed plus the batch index, so the whole set is reproducible from these.
+            done[fam] = {"designs": n, "spec": str(spec), "arm": chosen, "metrics_tags": tags,
+                         "seeds": [REF_SEED + i for i in range(-(-a.reference // batch))],
+                         "enough": n >= a.reference}
+            print(f"reference {fam}: {n} designs ({'ok' if n >= a.reference else 'SHORT'})", flush=True)
+            (a.out / "REFERENCE.json").write_text(json.dumps(done, indent=2) + "\n")
+        short = [f for f, d in done.items() if not d["enough"]] or ["none"]
+        print(f"reference families short of {a.reference}: {', '.join(short)}", flush=True)
         (a.out / "REFERENCE.json").write_text(json.dumps(done, indent=2) + "\n")
         print(json.dumps(done, indent=2))
         sys.exit(0)

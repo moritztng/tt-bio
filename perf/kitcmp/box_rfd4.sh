@@ -6,6 +6,9 @@
 # dies mid-way still leaves every finished arm behind.
 set -u
 CAP_H=${1:-5}; T0=$(date +%s); DEADLINE=$(python3 -c "print(int($T0 + $CAP_H*3600 - 900))")
+# The arms phase climbs the batch until the card pushes back, so left alone it will spend the whole cap and
+# the reference designs -- rfd4-quality's entire upstream side -- would be skipped with no error anywhere.
+REF_RESERVE=${REF_RESERVE:-5400}; ARMS_DEADLINE=$(( DEADLINE - REF_RESERVE ))
 SHA=${RFD4_SHA:-2db07bb444d91695f8c10e6acb7648e9297f9221}
 B=/root/kc/rfd4; mkdir -p $B; cd /root/kc
 say(){ echo "$(date -u +%FT%TZ) box_rfd4: $*"; }
@@ -78,7 +81,7 @@ nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.lim
 echo $! > $B/smi.pid
 
 # --- every arm at every gated size, then the batch sweep on the winner -----------------------------------------
-/opt/rfd4-venv/bin/python /root/kc/rfd4_arms.py --inputs /root/kc/inputs --out $B --deadline $DEADLINE \
+/opt/rfd4-venv/bin/python /root/kc/rfd4_arms.py --inputs /root/kc/inputs --out $B --deadline $ARMS_DEADLINE \
   --screen-warm ${SCREEN_WARM:-5} --final-warm ${FINAL_WARM:-9} > $B/arms.log 2>&1
 echo $? > $B/ARMS-DONE; say "arms done after $(( $(date +%s) - T0 ))s"
 
