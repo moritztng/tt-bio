@@ -27,7 +27,6 @@
 
 #include "api/compute/common.h"
 #include "api/compute/compute_kernel_api.h"
-#include "../common/gate_sigmoid.hpp"
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/tile_move_copy.h"
@@ -91,9 +90,9 @@ void kernel_main() {
                 transpose_wh_tile(g_cb, j, j);
             }
             if constexpr (!skip_sigmoid) {
-                gate_sigmoid_init();
+                sigmoid_tile_init();
                 for (uint32_t j = 0; j < n; ++j) {
-                    gate_sigmoid_tile(j);
+                    sigmoid_tile(j);
                 }
             }
             tile_regs_commit();
@@ -175,9 +174,9 @@ void kernel_main() {
             copy_tile(g_cb, j, j);
         }
         if constexpr (!skip_sigmoid) {
-            gate_sigmoid_init();
+            sigmoid_tile_init();
             for (uint32_t j = 0; j < n; ++j) {
-                gate_sigmoid_tile(j);
+                sigmoid_tile(j);
             }
         }
         tile_regs_commit();

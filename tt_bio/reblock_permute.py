@@ -28,7 +28,7 @@ from pathlib import Path
 import ttnn
 
 from . import core_split
-from . import gate_sigmoid, genq
+from . import genq
 from .envflags import env_flag
 from . import ops as _ops
 
@@ -861,7 +861,7 @@ def _cache_key_gated(x, out, device, reader_ct, writer_ct):
         # `_build_gated` bakes this into the compute kernel's compile-time args AND into four CB
         # depths, so it has to be in the key. Without it an A/B that flips the granularity gets the
         # FIRST arm's compiled program back for both legs and reads a 1.000x that means nothing.
-        GATE_GRANULARITY, _gate_lean(), gate_sigmoid.SIGMOID_FAST,
+        GATE_GRANULARITY, _gate_lean(),
     )
 
 
@@ -952,7 +952,6 @@ def _build_gated(x, out, device, reader_ct, writer_ct, fidelity, fp32_acc):
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fidelity, fp32_dest_acc_en=fp32_acc
         ),
-        defines=gate_sigmoid.defines(),
     )
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=cbs)
 
@@ -1227,7 +1226,6 @@ def _build_gated_bw(da, xw, device, reader_ct, writer_ct, packed=False):
         runtime_args=compute_rt,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4,
                                             fp32_dest_acc_en=True),
-        defines=gate_sigmoid.defines(),
     )
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -1257,7 +1255,7 @@ def reblock_permute_gated_bw(da, xw, p_slice, g_slice, out=None):
         writer_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     g = device.compute_with_storage_grid_size()
     key = (device.id(), C, N, int(xw.shape[3]), g.x, g.y, REBLOCK_CORES,
-           tuple(reader_ct), tuple(writer_ct), out is not None, gate_sigmoid.SIGMOID_FAST)
+           tuple(reader_ct), tuple(writer_ct), out is not None)
     entry = _CACHE_GATED_BW.get(key)
     if entry is None:
         entry = _CACHE_GATED_BW[key] = _build_gated_bw(da, xw, device, reader_ct, writer_ct,

@@ -6,8 +6,6 @@
 // round-to-nearest-even of DST to bf16 ahead of a pack.
 #pragma once
 
-#include "../common/gate_sigmoid.hpp"
-
 #if defined(TRISC_MATH) || (defined(TRISC_PACK) && defined(WS_PACK_SILU))
 #include "llk_math_eltwise_unary_sfpu_params.h"
 #include "sfpi.h"
@@ -126,14 +124,9 @@ inline void _round_bf16_rne_() {
 }  // namespace ckernel
 #endif  // TRISC_MATH, or TRISC_PACK under WS_PACK_SILU
 
-// V is the kernels' SIGPOLY compile-time arg: 1 the degree-8 polynomial, 2 the degree-6 one, 3 metal's LUT
-// sigmoid (TT_BIO_SIGMOID_FAST, gate_sigmoid.hpp).
+// V is the kernels' SIGPOLY compile-time arg: 1 the degree-8 polynomial, 2 the degree-6 one.
 template <uint32_t V = 1>
 ALWI void sigmoid_poly_tile(uint32_t idst) {
-    if constexpr (V == 3) {
-        gate_sigmoid_lut_tile(idst);
-        return;
-    }
     MATH((ckernel::sfpu::_sig_init_<V>()));
     MATH((_llk_math_eltwise_unary_sfpu_params_<false>(
         []() __attribute__((always_inline)) { ckernel::sfpu::_sig_rows_<V, false>(); }, idst, (int)VectorMode::RC)));
