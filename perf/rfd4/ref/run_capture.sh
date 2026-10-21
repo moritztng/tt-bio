@@ -8,7 +8,8 @@ export PROJECT_ROOT=$SRC
 export HYDRA_FULL_ERROR=1
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-10}
 cd "$SRC"
+# CAPTURE_FLAGS passes capture.py's own flags, e.g. CAPTURE_FLAGS="--f64 --per-module 2"
 exec "$ROOT/venv/bin/python" "$ROOT/harness/capture.py" \
-  --feature "$FEATURE" --seed "$SEED" \
+  --feature "$FEATURE" --seed "$SEED" ${CAPTURE_FLAGS:-} \
   "inputs=$ROOT/specs/$SPEC" "out_dir=$ROOT/runs/$FEATURE" "seed=$SEED" \
   num_replicates=1 batch_size=1 '~metrics' compile_lengths=null "$@"

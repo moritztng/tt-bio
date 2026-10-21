@@ -64,6 +64,21 @@ def _describe(obj, depth: int = 0):
     return {"t": type(obj).__name__}
 
 
+def _to_f64(obj, depth: int = 0):
+    """Cast every floating tensor in an arg tree to float64, leave the rest alone."""
+    if isinstance(obj, torch.Tensor):
+        return obj.double() if obj.is_floating_point() else obj
+    if depth > 3:
+        return obj
+    if isinstance(obj, tuple):
+        return tuple(_to_f64(x, depth + 1) for x in obj)
+    if isinstance(obj, list):
+        return [_to_f64(x, depth + 1) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _to_f64(v, depth + 1) for k, v in obj.items()}
+    return obj
+
+
 def _detach(obj, depth: int = 0):
     if isinstance(obj, torch.Tensor):
         return obj.detach().cpu().clone()
@@ -82,7 +97,7 @@ class Capturer:
     """Hooks selected submodules and writes <out>/<feature>/<slug>.pt per capture."""
 
     def __init__(self, out_dir: Path, feature: str, seed: int, sha: str,
-                 classes: list[str], per_module: int, records: Path):
+                 classes: list[str], per_module: int, records: Path, f64: bool = False):
         self.dir = out_dir / feature
         self.dir.mkdir(parents=True, exist_ok=True)
         self.feature = feature
@@ -91,6 +106,7 @@ class Capturer:
         self.classes = set(classes)
         self.per_module = per_module
         self.records = records
+        self.f64 = f64
         self.counts: dict[str, int] = {}
         self.handles: list = []
 
@@ -128,6 +144,18 @@ class Capturer:
                 "kwargs": _detach(kwargs),
                 "output": _detach(output),
             }
+            f64_err = None
+            if self.f64:
+                try:
+                    import copy
+
+                    ref = copy.deepcopy(mod).double().eval()
+                    with torch.no_grad():
+                        out64 = ref(*_to_f64(args), **_to_f64(kwargs))
+                    payload["output_f64"] = _detach(out64)
+                    del ref
+                except Exception as exc:  # a module the reference cannot run in float64
+                    f64_err = f"{type(exc).__name__}: {exc}"[:300]
             torch.save(payload, path)
             rec = {
                 "feature": self.feature,
@@ -144,6 +172,8 @@ class Capturer:
                 "in_args": _describe(args),
                 "in_kwargs": _describe(kwargs),
                 "out": _describe(output),
+                "f64": bool(self.f64 and f64_err is None),
+                "f64_error": f64_err,
                 "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             }
             with self.records.open("a") as fh:
@@ -159,6 +189,8 @@ def main() -> int:
     ap.add_argument("--records", default="/home/moritz/rfd4-goldens/records.jsonl")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--per-module", type=int, default=1)
+    ap.add_argument("--f64", action="store_true",
+                    help="also run each hooked module on the same inputs in float64 and store that output")
     ap.add_argument("--classes", default=",".join(DEFAULT_CLASSES))
     ap.add_argument("--ckpt", default="nvidia/RFD4-Proteina")
     ap.add_argument("overrides", nargs="*", help="hydra overrides for rfd4.generate")
@@ -172,7 +204,7 @@ def main() -> int:
 
     model = rfd4.Proteina.from_pretrained(a.ckpt)
     cap = Capturer(Path(a.out), a.feature, a.seed, sha, a.classes.split(","),
-                   a.per_module, Path(a.records))
+                   a.per_module, Path(a.records), f64=a.f64)
     n = cap.attach(model)
     print(f"[capture] hooked {n} modules for feature {a.feature}", flush=True)
     seed_everything(a.seed)
