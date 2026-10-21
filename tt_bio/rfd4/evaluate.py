@@ -71,13 +71,13 @@ INLINE = (
         _gate(any_of=["design"], none_of=["small_molecule_only", "structure_prediction"]),
         lambda d, i: M.compute_sse_accuracy(d),
     ),
+    ("hotspot_obedience", _gate(any_of=["hotspot_conditioning"]), lambda d, i: M.compute_hotspot_obedience(d)),
     ("sequence_similarity_to_input", _gate(any_of=["partial_diffusion"]), M.compute_sequence_similarity_to_input),
     ("ca_rmsd_to_input", _gate(any_of=["partial_diffusion"]), M.compute_ca_rmsd_to_input),
 )
 
 # Upstream inline metrics this port does not compute yet, with the tags that switch them on.
 NOT_PORTED = {
-    "hotspot_obedience": _gate(any_of=["hotspot_conditioning"]),
     "rasa_adherence": _gate(any_of=["rasa_conditioning"]),
     "centroid_conditioning_adherence": _gate(any_of=["centroid_conditioning"]),
     "interchain_interactions": _gate(any_of=["interchain_interactions"]),

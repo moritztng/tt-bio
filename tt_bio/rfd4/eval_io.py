@@ -31,6 +31,7 @@ _OPTIONAL_COLUMNS = (
     "atomize",
     "condition_CoordinateGroup_1_atom",
     "condition_secondary-structure_1_residue",
+    "condition_hotspot_1_atom",
     *(f"condition_sequence-probability-{t}_1_residue" for t in SEQUENCE_PROBABILITY_TOKENS),
 )
 
@@ -46,6 +47,7 @@ class Design:
     crd_group: np.ndarray
     seq_prob: np.ndarray = field(default=None)  # (n_atoms, 28), NaN where unconditioned
     c_sec: np.ndarray = None  # SSEnum ints per atom; None when the CIF has no C_SEC column at all
+    hotspot: np.ndarray = None  # C_HOT per atom, False where unconditioned
 
 
 def _atom_site_columns(block):
@@ -130,6 +132,7 @@ def read_design(path) -> Design:
         is_crd=np.isfinite(crd).any(axis=1),
         crd_group=crd_group,
         seq_prob=seq_prob,
+        hotspot=_as_bool(ann("condition_hotspot_1_atom", "False")),
         c_sec=(
             atoms.get_annotation("condition_secondary-structure_1_residue").astype(float).astype(int)
             if "condition_secondary-structure_1_residue" in extra

@@ -106,8 +106,8 @@ def test_evaluate_writes_upstreams_design_csv(tmp_path):
 def test_a_tag_that_needs_an_unported_metric_is_refused(tmp_path):
     from tt_bio.rfd4.evaluate import evaluate
 
-    with pytest.raises(NotImplementedError, match="hotspot_obedience"):
-        evaluate(GOLDENS, "design,hotspot_conditioning", tmp_path)
+    with pytest.raises(NotImplementedError, match="rasa_adherence"):
+        evaluate(GOLDENS, "design,rasa_conditioning", tmp_path)
 
 
 def test_partial_diffusion_tag_matches_upstream(tmp_path):
@@ -220,3 +220,42 @@ def test_ppi_refolding_tag_matches_upstream(tmp_path):
             assert (got == want) if "" in (got, want) else float(got) == float(want), (column, got, want)
         compared += 1
     assert compared >= 53, f"expected the whole row compared, got {compared} columns"
+
+
+def _assert_row_matches(expected, got_row, min_compared):
+    compared = 0
+    for column, want in expected.items():
+        if column in ("example_id", "dataset_name", "designed_structure_path", "output_base_dir") or column.endswith(
+            ("refolded_structure_path", "confidence_json_path", "designed_chain_path")
+        ):
+            continue
+        got = got_row[column]
+        if column in ("task", "metrics_tags", "chain_of_interest"):
+            assert got == want, (column, got, want)
+        else:
+            assert (got == want) if "" in (got, want) else float(got) == float(want), (column, got, want)
+        compared += 1
+    assert compared >= min_compared, f"expected the whole row compared, got {compared} columns"
+
+
+def test_hotspot_conditioning_tag_matches_upstream(tmp_path):
+    """`hotspot_obedience` on a two-chain design whose halves stay in contact.
+
+    `make_ppi_fixture.py --in-contact --hotspots ...` marks 101 atoms on 12 target residues, of
+    which 19 have a generated binder atom within 4.5 A: 0.1881, neither branch of the trivial 0/1.
+    The same row also grades `clash_metrics` on a real inter-chain interface (0.0025).
+    """
+    import csv
+    import shutil
+
+    from tt_bio.rfd4.evaluate import evaluate
+
+    golden = json.loads((GOLDENS / "upstream_hotspot.json").read_text())
+    inputs = tmp_path / "designs"
+    inputs.mkdir()
+    shutil.copy(GOLDENS / "hotspot" / "hotspot_generated.cif", inputs / "hotspot_generated.cif")
+    csv_path = evaluate(inputs, "design,hotspot_conditioning", tmp_path / "out")
+    rows = {r["designed_structure_path"].rsplit("/", 1)[-1]: r for r in csv.DictReader(open(csv_path))}
+    expected = golden["rows"]["hotspot_generated.cif"]
+    assert expected["hotspot_obedience.hotspot_obedience"] == "0.1881"
+    _assert_row_matches(expected, rows["hotspot_generated.cif"], 34)

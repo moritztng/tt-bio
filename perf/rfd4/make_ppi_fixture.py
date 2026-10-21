@@ -18,32 +18,37 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-from biotite.structure import get_residue_positions, residue_iter
+from biotite.structure import residue_iter
 from biotite.structure.io.pdbx import CIFCategory, CIFFile, get_structure, set_structure
 
 CRDGRP_ABSOLUTE = 0
 CRDGRP_UNKNOWN = -1
 
 
-def split_chains(atoms, split_after):
-    """Residues after `split_after` become chain B, moved clear of chain A so they do not clash."""
+def split_chains(atoms, split_after, move_clear=True):
+    """Residues after `split_after` become chain B, by default moved clear of chain A.
+
+    `move_clear=False` keeps the two halves where the fold put them, in contact, which is what a
+    hotspot fixture needs: a hotspot the binder never comes near only tests the zero branch."""
     out = atoms.copy()
     residue_index = np.zeros(out.array_length(), dtype=int)
     for i, residue in enumerate(residue_iter(out)):
         residue_index[np.isin(out.res_id, residue.res_id[0]) & (out.chain_id == residue.chain_id[0])] = i
     target = residue_index >= split_after
     out.chain_id = np.where(target, "B", "A")
-    extent = np.nanmax(out.coord, axis=0) - np.nanmin(out.coord, axis=0)
-    out.coord[target] += np.array([extent[0] + 8.0, 0.0, 0.0])
-    return out, target
+    if move_clear:
+        extent = np.nanmax(out.coord, axis=0) - np.nanmin(out.coord, axis=0)
+        out.coord[target] += np.array([extent[0] + 8.0, 0.0, 0.0])
+    return out, target, residue_index
 
 
-def write(atoms, target, path):
-    """Write the design with the two conditioning annotations the C_CRD mask is read from."""
+def write(atoms, target, path, hotspot=None):
+    """Write the design with the conditioning annotations the C_CRD (and C_HOT) masks read."""
     cif = CIFFile()
     set_structure(cif, atoms)
     block = cif.block
-    n = atoms.array_length()
+    if hotspot is not None:
+        block["atom_site"]["condition_hotspot_1_atom"] = np.where(hotspot, "True", "False")
     block["atom_site"]["condition_CoordinateGroup_1_atom"] = np.where(
         target, CRDGRP_ABSOLUTE, CRDGRP_UNKNOWN
     ).astype(str)
@@ -62,12 +67,17 @@ def main():
     ap.add_argument("design", type=Path)
     ap.add_argument("out", type=Path)
     ap.add_argument("--split", type=int, default=50, help="residues kept in chain A")
+    ap.add_argument("--in-contact", action="store_true", help="leave chain B where the fold put it")
+    ap.add_argument("--hotspots", default="", help="comma-separated 0-based residue indices on chain B")
     args = ap.parse_args()
 
     atoms = get_structure(CIFFile.read(str(args.design)), model=1, include_bonds=True)
     assert np.isfinite(atoms.coord).all(), "a design with a NaN coordinate breaks upstream's aligner"
-    design, target = split_chains(atoms, args.split)
-    write(design, target, args.out)
+    design, target, residue_index = split_chains(atoms, args.split, move_clear=not args.in_contact)
+    hotspot = None
+    if args.hotspots:
+        hotspot = np.isin(residue_index, [int(i) for i in args.hotspots.split(",")]) & target
+    write(design, target, args.out, hotspot)
     print(f"{args.out}: chain A {int((~target).sum())} atoms, chain B {int(target.sum())} conditioned")
 
 

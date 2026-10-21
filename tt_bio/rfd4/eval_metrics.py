@@ -432,3 +432,27 @@ def compute_sequence_similarity_to_input(design, input_design) -> dict:
     if pred is None or ref is None or len(pred) != len(ref):
         return {"sequence_identity_to_input": float("nan")}
     return {"sequence_identity_to_input": float(np.mean(pred == ref))}
+
+
+def compute_hotspot_obedience(design, max_hotspot_distance=4.5) -> dict:
+    """`hotspot_obedience`, rfproteina `metrics/hotspots.py:18-88`, configured at 4.5 A.
+
+    The fraction of hotspot atoms with a generated atom of another chain within the cutoff. Per
+    hotspot chain, the candidates are every atom off that chain that is not coordinate-
+    conditioned, so a fixed partner chain never counts as the binder. NaN with no hotspots.
+    """
+    hot = design.hotspot
+    if hot is None or not hot.any():
+        return {"hotspot_obedience": float("nan")}
+    coord = design.atoms.coord
+    chains = design.atoms.chain_id
+    obeyed = 0
+    for chain in np.unique(chains[hot]):
+        on_chain = chains == chain
+        binder = coord[~on_chain & ~design.is_crd]
+        hotspots = coord[hot & on_chain]
+        if len(binder) == 0:
+            continue
+        distance = np.linalg.norm(binder[None, :, :] - hotspots[:, None, :], axis=-1)
+        obeyed += int(np.any(distance < max_hotspot_distance, axis=1).sum())
+    return {"hotspot_obedience": float(obeyed / hot.sum())}
