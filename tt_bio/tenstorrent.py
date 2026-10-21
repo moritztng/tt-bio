@@ -3009,7 +3009,7 @@ class DitLowp(NamedTuple):
     qkv: object     # q/k/v when the attention is `_sdpa32` (else `out`)
 
     def linear(self, x, w, bias=None, *, dtype, activation=None):
-        y = _dit_step_mm(x, w, bias, self, dtype, activation) if lever("dit_step_mm") else None
+        y = _dit_step_mm(x, w, bias, self.k1, self.ckc, dtype, activation) if lever("dit_step_mm") else None
         if y is not None:
             return y
         if self.k1:
@@ -3023,10 +3023,10 @@ class DitLowp(NamedTuple):
 _DIT_STEP_MM = {(True, 24, 96): (4, 1, 16, 1, 4), (True, 24, 48): (4, 1, 8, 1, 4), (True, 48, 24): (2, 1, 4, 1, 4),
                 (True, 24, 24): (2, 1, 4, 1, 4), (False, 24, 96): (2, 4, 16, 2, 4), (False, 24, 48): (2, 4, 8, 2, 4),
                 (False, 48, 24): (2, 4, 4, 2, 4), (False, 24, 24): (2, 4, 4, 2, 4)}
-def _dit_step_mm(x, w, bias, lp, dtype, activation):
-    """`DitLowp.linear` on minimal_matmul (`dit_step_mm`), or None where no block was measured (a fused activation
-    was not)."""
-    blk = (_DIT_STEP_MM.get((lp.k1, int(w.padded_shape[-2]) // 32, int(w.padded_shape[-1]) // 32))
+def _dit_step_mm(x, w, bias, k1, ckc, dtype, activation):
+    """A token DiT linear on minimal_matmul (`dit_step_mm`), or None where no block was measured (a fused activation
+    was not). `k1`: fp32 accumulation, so the K block 1 rows."""
+    blk = (_DIT_STEP_MM.get((k1, int(w.padded_shape[-2]) // 32, int(w.padded_shape[-1]) // 32))
            if is_wormhole() and activation is None else None)
     if blk is None:
         return None
@@ -3034,7 +3034,19 @@ def _dit_step_mm(x, w, bias, lp, dtype, activation):
     gx, gy = COMPUTE_GRID_MAIN
     cfg = ttnn.MinimalMatmulConfig(M_block_size=m, K_block_size=k, N_block_size=n, subblock_h=sh, subblock_w=sw,
                                    compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
-    return ttnn.experimental.minimal_matmul(x, w, bias_tensor=bias, compute_kernel_config=lp.ckc, dtype=dtype, config=cfg)
+    return ttnn.experimental.minimal_matmul(x, w, bias_tensor=bias, compute_kernel_config=ckc, dtype=dtype, config=cfg)
+
+
+def dit_linear(x, w, bias=None, *, ckc, activation=None):
+    """A bf16 token DiT's plain linear (no `DitLowp`): under `dit_step_mm` on the measured minimal_matmul block, else
+    ttnn.linear. ttnn.linear's own schedule reads OpenDDE's [2880, 768] x [768, 3072] at ~55 GB/s and HiFi2 buys 5 %
+    of it (spd-m-opendde dfid), so the schedule, not the math, is the cost."""
+    if x.dtype == ttnn.bfloat16 and w.dtype == ttnn.bfloat16 and lever("dit_step_mm"):
+        y = _dit_step_mm(x, w, bias, bool(getattr(ckc, "fp32_dest_acc_en", False)), ckc, ttnn.bfloat16, activation)
+        if y is not None:
+            return y
+    return ttnn.linear(x, w, bias=bias, activation=activation, core_grid=CORE_GRID_MAIN,
+                       compute_kernel_config=silu_ckc(ckc) if activation == "silu" else ckc)
 
 
 def dit_lowp(dit_dtype, ckc):
@@ -13030,6 +13042,8 @@ class AttentionPairBias(Module):
             qkv = (lp.linear(s, lw["qkv_weight"], lw["qkv_bias"],
                              dtype=lp.qkv if self.sdpa32 and not self.kq_norm else lp.out)
                    if lp is not None else
+                   dit_linear(s, self.qkv_weight, self.qkv_bias, ckc=self.compute_kernel_config)
+                   if self.token_dit else
                    ttnn.linear(
                 s,
                 self.qkv_weight,
@@ -13315,20 +13329,15 @@ class AttentionPairBias(Module):
     def _gate_out(self, s, o, cat_w):
         """sigmoid(s W_g) * o, then the output projection (on the padded head lanes when `cat_w`)."""
         g_weight, o_weight = cat_w or (self.g_weight, self.o_weight)
-        g = ttnn.linear(
-            s,
-            g_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        lin = (functools.partial(dit_linear, ckc=self.compute_kernel_config) if self.token_dit and self._lp is None
+               else lambda x_, w_: ttnn.linear(x_, w_, compute_kernel_config=self.compute_kernel_config,
+                                               core_grid=CORE_GRID_MAIN))
+        g = lin(s, g_weight)
         if _FAST_MODE:
             o = ttnn.typecast(o, ttnn.bfloat16)
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=self.dtype)
         ttnn.deallocate(g)
-        x = ttnn.linear(
-            o, o_weight, compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
+        x = lin(o, o_weight)
         ttnn.deallocate(o)
         return x
 
