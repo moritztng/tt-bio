@@ -73,7 +73,7 @@ class AdaptiveNorm(Module):
     `self.norm` has no elementwise weight; `norm_cond` does, and it is folded into both
     projections: W (w * rms0(c)) = (W diag(w)) rms0(c), where rms0 is the RMSNorm without a weight.
     So every adaptive norm of a pass reads the same rms0(cond), which the trunk computes once
-    (`cn`) instead of 48 times.
+    (`cn`) instead of 28 times (two per block).
     """
 
     def __init__(self, state_dict, ckc, dtype=None):
