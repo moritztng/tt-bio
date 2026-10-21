@@ -1,7 +1,7 @@
 #!/bin/bash
 # A/B one RFD4 perf branch against its base on ONE card in ONE session: device suites on the branch,
 # then warm designs base, branch, base (the second base catches drift on a shared board), then the
-# census on the branch. AICLK is sampled inside every design (design.py) and census leg.
+# census on both trees. AICLK is sampled inside every design (design.py) and census leg.
 #
 #   perf/rfd4/e2e/ab.sh <card> <base-commit> <branch-tree> <base-tree> <out-dir>
 #
@@ -18,7 +18,7 @@ stamp() { echo "$1 $(date -u +%FT%TZ)"; }
 stamp "start branch=$(git -C "$tree" log --oneline -1) base=$(git -C "$btree" log --oneline -1)"
 [ "$(git -C "$btree" rev-parse HEAD)" = "$(git -C "$btree" rev-parse "$base")" ] || { echo "base tree not at $base"; exit 2; }
 
-(cd "$tree" && PYTHONPATH=$PWD timeout 1800 "$py" -m pytest -q -m device \
+(cd "$tree" && PYTHONPATH=$PWD timeout 1800 "$py" -m pytest -q -s -m device \
     tests/test_rfd4_trunk_parity.py tests/test_rfd4_trunk_golden.py) >"$out/suites.log" 2>&1
 stamp "suites rc=$? $(tail -1 "$out/suites.log")"
 
@@ -31,7 +31,11 @@ leg base1 "$btree"
 leg branch "$tree"
 leg base2 "$btree"
 
-(cd "$tree" && PYTHONPATH=$PWD timeout 3600 "$py" perf/rfd4/e2e/census.py \
-    --spec "$spec" --weights "$weights" --out "$out/census.json") >"$out/census.log" 2>&1
-stamp "census rc=$?"
+census() {  # census <name> <tree>
+    (cd "$2" && PYTHONPATH=$PWD timeout 3600 "$py" perf/rfd4/e2e/census.py \
+        --spec "$spec" --weights "$weights" --out "$out/$1.json") >"$out/$1.log" 2>&1
+    stamp "$1 rc=$?"
+}
+census census "$tree"
+census census-base "$btree"
 stamp end
