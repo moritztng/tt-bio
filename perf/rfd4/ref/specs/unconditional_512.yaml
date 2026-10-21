@@ -1,0 +1,3 @@
+monomer_512:
+  input: /home/moritz/rfd4-ref-env/specs/monomer-512.cif.zst
+  input_as_annotated_cif: true
