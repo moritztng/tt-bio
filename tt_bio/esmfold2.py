@@ -37,6 +37,7 @@ from tt_bio.tenstorrent import (
     _accurate_softmax,
     _sdpa_program_config_for_lengths,
     accurate_softmax_site,
+    atom_l1_linears,
     attn_value_matmul,
     fused_sdpa,
     lever,
@@ -450,7 +451,7 @@ class AttentionPairBias(Module):
         z_norm = ttnn.layer_norm(
             z, weight=self.pair_norm_w, bias=self.pair_norm_b, epsilon=1e-5, compute_kernel_config=ck
         )
-        pb = self._lin(z_norm, self.pair_bias_w)  # [B, L, L, H]
+        pb = self._lin(z_norm, self.pair_bias_w, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [B, L, L, H], cached
         ttnn.deallocate(z_norm)
         pair_bias = ttnn.permute(pb, (0, 3, 1, 2))  # [B, H, L, L]
         ttnn.deallocate(pb)
@@ -1076,7 +1077,7 @@ class SWAAtomBlock(Module):
             if self._mod is not None:
                 for _t in self._mod:
                     ttnn.deallocate(_t)
-            mod = lin(ttnn.silu(c_l), self.adaln_w)  # [B,N,6d]
+            mod = lin(ttnn.silu(c_l), self.adaln_w, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # [B,N,6d], cached
             sa, ca, ga, sf, cf, gf = ttnn.chunk(mod, 6, dim=-1)
             ttnn.deallocate(mod)
             self._mod = (sa, ca, ga, sf, cf, gf)
@@ -1179,7 +1180,7 @@ class AtomEncoder(Module):
         else:
             if self._c is not None:
                 ttnn.deallocate(self._c)
-            c = ttnn.layer_norm(lin(atom_feats, self.atom_linear_w), weight=self.atom_norm_w, bias=self.atom_norm_b, epsilon=1e-5, compute_kernel_config=ck)
+            c = ttnn.layer_norm(lin(atom_feats, self.atom_linear_w, memory_config=ttnn.DRAM_MEMORY_CONFIG), weight=self.atom_norm_w, bias=self.atom_norm_b, epsilon=1e-5, compute_kernel_config=ck)
             self._c = c
             self._c_src = atom_feats
         q = ttnn.add(c, lin(r_input, self.coords_w)) if self.structure_prediction else c
@@ -1229,6 +1230,14 @@ class DiffusionModuleModel(Module):
         self.token_norm_b = self.torch_to_tt("token_norm.bias")
 
     def _denoise(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid):
+        # atom_l1: the step's linears write L1 where the output fits (placement only, the same bits). The DiT's
+        # short-K and 512-row projections wait on their interleaved DRAM write: on a Galaxy chip at 1000 MHz
+        # [4128, 128] x [128, 256] reads 59.9 us with a DRAM output and 30.5 us with an L1 one, [512, 768] x
+        # [768, 3072] 103.2 vs 70.1 us, rel_l2 vs float64 equal (wdy).
+        with atom_l1_linears():
+            return self._denoise_step(s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid)
+
+    def _denoise_step(self, s, z, atom_feats, r_input, cos, sin, band, scatter_m, gather_g, valid):
         ck = self.compute_kernel_config
         lin = self._lin
         a, q_skip, c_skip = self.atom_encoder(atom_feats, cos, sin, band, scatter_m, r_input=r_input, valid=valid)
