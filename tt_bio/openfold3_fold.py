@@ -140,10 +140,14 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # --fast folds (m8w, 2026-10-20): OpenFold3 -0.11 s, OpenBind-0 -0.06 s mean. Graded on the 11-complex fast set,
 # paired seeds (m8g): PASS on both models (DockQ -0.003 / -0.005, CIs span zero). Blackhole within noise (OpenFold3
 # median -0.04 s, m8b2), so Wormhole fast only.
-# Wormhole normal keeps the pre-nwg set: the nwg set (fast trunk kernels in normal mode, 512-token page fold
-# 25.2 -> 20.0 s) runs out of DRAM at 1568 tokens on both OpenFold3 and OpenBind-0 (nsw, 2026-10-21), so it waits for
-# the fix on wk/spd-m-of3.
-WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres", "atom_l1"}
+# Wormhole normal also runs the fast set's trunk kernels: trimul_t1, trimul_t2, transition_ws, ws_l1dest, triatt_ln and
+# edm_device (the DiT stays fp32). 11-set normal grade of that set against the normal set before it, paired seeds, 44
+# folds per model (nwg, 2026-10-21), PASS: OpenFold3 top pose median 0.398 A (floor 1.010 A), CA-lDDT +0.0005
+# [-0.0012, +0.0025], docking 20 -> 21/44; OpenBind-0 0.633 A (floor 0.813 A), CA-lDDT -0.0004 [-0.0017, +0.0007],
+# docking 27 -> 27/44. 512-token page fold on a Galaxy chip at 1000 MHz, off/on/on/off processes (pnw): OpenFold3
+# 25.20 -> 20.02 s, OpenBind-0 25.27 -> 20.03 s.
+WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres", "atom_l1", "trimul_t1", "trimul_t2", "transition_ws", "ws_l1dest",
+                                    "triatt_ln", "edm_device"}
 # ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
 # 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.
 # trimul_t2cm leaves Wormhole fast too: plain T2 + reblock_permute_back is faster there at the page cell. Galaxy chip at
