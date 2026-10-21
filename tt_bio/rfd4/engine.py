@@ -84,7 +84,11 @@ class DesignEngine:
         self.max_parallel_samples = max_parallel_samples
         self._device = self.autoencoder.dev["decoder"].device
 
-    def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int) -> DesignOutput:
+    def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int,
+               rng: str = "per_design") -> DesignOutput:
+        """`rng="per_design"` gives every design its own stream (`sampler.DesignRng`).
+        `rng="upstream"` seeds the global stream with `seed` and draws in upstream's order, which
+        is how a design is compared one to one against upstream's run of the same seed."""
         import torch
 
         from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
@@ -105,8 +109,10 @@ class DesignEngine:
         network = _network.FlowNetwork(self.glue, trunk, batch)
         chunked = _sampler.ChunkedNetwork(network, spec,
                                           max_parallel_samples=self.max_parallel_samples)
+        if rng == "upstream":
+            torch.manual_seed(seed)
         out = _sampler.generate(spec, chunked, n_designs=num_designs, n_tokens=n_tokens,
-                                seed=seed, emit_masks=compute_flow_emit_masks(batch),
+                                seed=seed, rng_mode=rng, emit_masks=compute_flow_emit_masks(batch),
                                 groups=_groups(batch), coord_cond_mask=batch.get("coord_cond_mask"))
         logger.info("rfd4: %d designs, %d steps, %d trunk passes", num_designs, nsteps,
                     out.trunk_passes)

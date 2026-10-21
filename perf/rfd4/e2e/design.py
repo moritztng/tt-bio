@@ -42,6 +42,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--designs", type=int, default=2, help="sequential single designs; the first is the compile")
+    ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
+                    help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -88,7 +90,7 @@ def main():
         trunk_s.clear()
         with clocksample.during(period=1.0) as clk:
             t0 = time.perf_counter()
-            output = engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed)
+            output = engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng=a.rng)
             t_design = time.perf_counter() - t0
             t1 = time.perf_counter()
             path = rfd4.write_design(output, features, atom_array,
@@ -98,7 +100,7 @@ def main():
         mhz = _median_mhz(summ)
         emit({"kind": "compile" if i == 0 else "warm", "size": n_tokens, "designs": 1, "batch": 1,
               "recipe": "thinking_medium", "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
-              "trunk_passes": int(sum(_depths(engine))), "seed": a.seed,
+              "trunk_passes": int(sum(_depths(engine))), "seed": a.seed, "rng": a.rng,
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
               "trunk_s": round(sum(trunk_s), 3), "host_s": round(t_design - sum(trunk_s), 3),
               "trunk_call_s": {"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)},

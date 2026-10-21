@@ -260,6 +260,26 @@ def wrap_sampler(cap: "Capturer", model, steps: int, stop_after: int = 0) -> Non
     model.predict_for_sampling = wrapped
 
 
+def reseed_at_sampler(model, seed: int) -> None:
+    """Seed the global torch stream at the entry of the sampler loop, and nowhere else.
+
+    Upstream's CLI seeds once at start-up, then featurization, data loading and model
+    construction all draw from the same global stream before the first noise sample, so the
+    noise a design starts from depends on everything that ran before it. Reseeding at
+    `full_simulation`'s entry makes the noise a function of the seed alone, which is what lets
+    another implementation start from the same noise (tt-bio's `DesignRng(mode="upstream")`)
+    and be compared design for design.
+    """
+    fm = model.fm
+    inner = fm.full_simulation
+
+    def wrapped(*args, **kwargs):
+        torch.manual_seed(seed)
+        return inner(*args, **kwargs)
+
+    fm.full_simulation = wrapped
+
+
 def force_cpu_fp32_trainer() -> None:
     """Run upstream's generation Trainer on CPU in fp32.
 
@@ -319,6 +339,8 @@ def main() -> int:
                     help="also run each hooked module on the same inputs in float64 and store that output")
     ap.add_argument("--classes", default=",".join(DEFAULT_CLASSES))
     ap.add_argument("--ckpt", default="nvidia/RFD4-Proteina")
+    ap.add_argument("--reseed-at-sampler", action="store_true",
+                    help="seed the global stream at full_simulation's entry (a paired comparison's golden)")
     ap.add_argument("overrides", nargs="*", help="hydra overrides for rfd4.generate")
     a = ap.parse_args()
 
@@ -336,6 +358,8 @@ def main() -> int:
     cap.overrides = overrides
     n = cap.attach(model, per_class=a.per_class)
     wrap_sampler(cap, model, a.sampler_steps, stop_after=a.stop_after_steps)
+    if a.reseed_at_sampler:
+        reseed_at_sampler(model, a.seed)
     print(f"[capture] hooked {n} modules for feature {a.feature}", flush=True)
     seed_everything(a.seed)
     force_cpu_fp32_trainer()
