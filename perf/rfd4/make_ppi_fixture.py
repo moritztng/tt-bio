@@ -14,6 +14,9 @@ That is what `sa_mask('C_CRD')` reads, and what makes chain A the unambiguous ch
     python3 perf/rfd4/make_ppi_fixture.py <monomer.cif> <out.cif> [--split 50]
     python3 perf/rfd4/make_ppi_fixture.py <monomer.cif> <out.cif> --homodimer
 
+`--dna duplex.cif` instead keeps the nucleotide chains of that file as the target and adds the
+monomer beside them as chain C, the binder: the case `dna_refolding` scores.
+
 `--homodimer` instead copies the whole monomer into chain B, moved clear and conditioned: two
 identical subunits, the case upstream's subunit matching exists for.
 """
@@ -59,6 +62,24 @@ def homodimer(atoms):
     return out, out.chain_id == "B"
 
 
+def dna_complex(atoms, dna_path):
+    """The DNA chains of `dna_path` as the target, the monomer as chain C next to them."""
+    from biotite.structure import concatenate, filter_nucleotides
+
+    dna = get_structure(CIFFile.read(str(dna_path)), model=1, include_bonds=True)
+    dna = dna[filter_nucleotides(dna) & np.isfinite(dna.coord).all(axis=-1)]
+    binder = atoms.copy()
+    binder.chain_id[:] = "C"
+    binder.coord = binder.coord - binder.coord.mean(axis=0) + dna.coord.mean(axis=0)
+    binder.coord[:, 0] += dna.coord[:, 0].max() + 6.0 - binder.coord[:, 0].min()
+    for name in set(binder.get_annotation_categories()) - set(dna.get_annotation_categories()):
+        binder.del_annotation(name)
+    for name in set(dna.get_annotation_categories()) - set(binder.get_annotation_categories()):
+        dna.del_annotation(name)
+    out = concatenate([dna, binder])
+    return out, out.chain_id != "C"
+
+
 def write(atoms, target, path, hotspot=None):
     """Write the design with the conditioning annotations the C_CRD (and C_HOT) masks read."""
     cif = CIFFile()
@@ -85,12 +106,18 @@ def main():
     ap.add_argument("out", type=Path)
     ap.add_argument("--split", type=int, default=50, help="residues kept in chain A")
     ap.add_argument("--in-contact", action="store_true", help="leave chain B where the fold put it")
+    ap.add_argument("--dna", type=Path, default=None, help="a duplex CIF whose nucleotide chains become the target")
     ap.add_argument("--homodimer", action="store_true", help="chain B is a copy of the whole monomer")
     ap.add_argument("--hotspots", default="", help="comma-separated 0-based residue indices on chain B")
     args = ap.parse_args()
 
     atoms = get_structure(CIFFile.read(str(args.design)), model=1, include_bonds=True)
     assert np.isfinite(atoms.coord).all(), "a design with a NaN coordinate breaks upstream's aligner"
+    if args.dna:
+        design, target = dna_complex(atoms, args.dna)
+        write(design, target, args.out)
+        print(f"{args.out}: DNA target {int(target.sum())} atoms, binder chain C {int((~target).sum())}")
+        return
     if args.homodimer:
         design, target = homodimer(atoms)
         write(design, target, args.out)

@@ -388,3 +388,21 @@ def test_sm_binder_refolding_matches_upstream(tmp_path):
     assert expected["refolded_backbone_aligned_ligand_rmsd.rmsd"] == "0.5159"
     assert expected["sm_binder.all_metrics_present"] == "1.0"
     _assert_row_matches(expected, rows["sam_generated.cif"], 52)
+
+
+def test_dna_refolding_matches_upstream(tmp_path):
+    """A DNA binder: the shipped duplex as target, the 80-aa design beside it as chain C
+    (`make_ppi_fixture.py --dna`), with 101 equivalent pairs flipped in the refold, nucleotide
+    OP1/OP2 included. Covers the DNA-aligned binder RMSD and a passing `dna` criterion."""
+    golden = json.loads((GOLDENS / "upstream_dna_refolding.json").read_text())
+    rows = _run_cached(
+        tmp_path,
+        GOLDENS / "dna" / "dna_generated.cif",
+        GOLDENS / "dna" / "refold_dna_generated_3f5cf1c0",
+        "dna_generated_3f5cf1c0",
+        "design,dna_refolding",
+    )
+    expected = golden["rows"]["dna_generated.cif"]
+    assert expected["refolded_target_aligned_binder_rmsd.rmsd"] == "0.5162"
+    assert expected["dna.pass"] == "1.0"
+    _assert_row_matches(expected, rows["dna_generated.cif"], 56)

@@ -63,6 +63,7 @@ EQUIVALENT = {
     "VAL": [("CG1", "CG2")],
     "PHE": [("CD1", "CD2"), ("CE1", "CE2")],
     "TYR": [("CD1", "CD2"), ("CE1", "CE2")],
+    **{na: [("OP1", "OP2")] for na in ("DA", "DC", "DG", "DT", "A", "C", "G", "U")},
 }
 
 
