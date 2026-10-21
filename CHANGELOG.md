@@ -22,7 +22,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   with every design that landed. See [rfd4-design](docs/rfd4-design.md).
 - **RFD4 loads a LoRA fine-tune.** `rfd4.DesignEngine(adapter=...)` merges a PEFT adapter directory
   into the weights at load, so it costs nothing per design. Merging the released bundle's own
-  adapter onto its own base reproduces NVIDIA's merged checkpoint to 3e-08.
+  adapter onto its own base reproduces NVIDIA's merged checkpoint to 3e-08. `--lora DIR` on the
+  CLI; local runs only, and asking for it with `--controller` says so.
 - **`--backend` on `--model rfd4`.** `native` runs the model; `bioir` is declined with the reason
   (it is NVIDIA BioNeMo-IR, CUDA-only) instead of being ignored.
 - **`--recipe` picks RFD4's thinking budget.** Upstream runs each design family at its own recycle

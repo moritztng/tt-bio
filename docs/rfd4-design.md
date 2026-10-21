@@ -184,14 +184,20 @@ designs on hardware tt-bio does not target.
 A LoRA fine-tune loads on top of the released weights and is merged once at load, so it costs
 nothing per design:
 
+```bash
+tt-bio design binder.yaml --model rfd4 --lora my-lora/
+```
+
 ```python
-engine = rfd4.DesignEngine.from_pretrained("nvidia/RFD4-Proteina", adapter="my-lora/")
+rfd4.design("binder.yaml", "designs/", adapter="my-lora/")
 ```
 
 `adapter` is a PEFT directory (`adapter_config.json` plus `adapter_model.safetensors`); its rank
 and alpha come from that config. An adapter naming a layer the checkpoint does not have is
-refused rather than silently skipped. Training an adapter is not something tt-bio does; it runs
-one you already have.
+refused rather than silently skipped, and a path that is not a directory is refused before the
+weights load. An adapter is not shipped to fleet workers, so `--lora` and `--controller` together
+are refused rather than quietly dropping the fine-tune. Training an adapter is not something
+tt-bio does; it runs one you already have.
 
 ## Checkpoint
 

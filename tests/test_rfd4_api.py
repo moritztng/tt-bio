@@ -185,3 +185,31 @@ def test_the_cli_declines_bioir_without_opening_a_device(host, monkeypatch, tmp_
                                       "--out_dir", str(host.out), "--backend", "bioir"])
     assert result.exit_code != 0
     assert "BioNeMo-IR" in result.output and "native" in result.output
+
+
+def test_an_adapter_reaches_the_engine_and_a_missing_one_is_named(host, monkeypatch, tmp_path):
+    loaded = {}
+    monkeypatch.setattr(rfd4.engine, "get_engine",
+                        lambda **kw: loaded.update(kw) or StubEngine())
+    adapter = tmp_path / "ad"
+    adapter.mkdir()
+    rfd4.design(host.spec, host.out, adapter=adapter)
+    assert loaded == {"adapter": adapter}
+    with pytest.raises(ValueError, match="no LoRA adapter directory"):
+        rfd4.design(host.spec, host.out, adapter=tmp_path / "nope")
+    with pytest.raises(ValueError, match="already carries its recipe and adapter"):
+        rfd4.design(host.spec, host.out, adapter=adapter, engine=StubEngine())
+
+
+def test_lora_and_controller_together_are_refused_with_the_reason(host, tmp_path):
+    from click.testing import CliRunner
+
+    from tt_bio.main import cli
+
+    adapter = tmp_path / "ad"
+    adapter.mkdir()
+    host.spec.write_text("a: {}\n")
+    result = CliRunner().invoke(cli, ["design", str(host.spec), "--model", "rfd4",
+                                      "--lora", str(adapter), "--controller", "http://c"])
+    assert result.exit_code != 0
+    assert "not shipped to fleet workers" in result.output
