@@ -75,13 +75,13 @@ def test_half_pair_layout_on_a_five_wide_in1_axis():
     assert mm_rope.layout(60, 8, 4) is None
 
 
-@pytest.mark.parametrize("wormhole, switch, pairs, want", [(True, None, True, True), (False, None, True, False),
-                                                           (False, True, True, True), (True, False, True, False),
-                                                           (True, None, False, False)])
+@pytest.mark.parametrize("wormhole, switch, pairs, want", [(True, True, True, True), (False, True, True, True),
+                                                           (True, False, True, False), (False, False, True, False),
+                                                           (True, True, False, False)])
 @pytest.mark.parametrize("batch", [1, 7])
 @pytest.mark.parametrize("wide", [False, True])
 def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch, wide, monkeypatch):
-    """35M's fused half-pair qkv serves by default on Wormhole only, for the rope_pairs path, with 5 in1 cores in both
+    """35M's fused half-pair qkv serves by default on both arches, for the rope_pairs path, with 5 in1 cores in both
     grid orientations ((8, 5) once B * L > N = 1920 transposes minimal_matmul's grid)."""
     import types
     from tt_bio import saprot as sp
