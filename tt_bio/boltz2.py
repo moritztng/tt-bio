@@ -2506,13 +2506,15 @@ class InputEmbedder(nn.Module):
             )
             self.mol_type_conditioning_init.weight.data.fill_(0)
 
-    def forward(self, feats: dict[str, Tensor], affinity: bool = False) -> Tensor:
+    def forward(self, feats: dict[str, Tensor], affinity: bool = False, atom_dev=None) -> Tensor:
         """Perform the forward pass.
 
         Parameters
         ----------
         feats : dict[str, Tensor]
             Input features
+        atom_dev : tenstorrent.InputAtomEncoderDevice, optional
+            Runs the atom encoder on the card (``ie_dev``) instead of the host.
 
         Returns
         -------
@@ -2531,15 +2533,18 @@ class InputEmbedder(nn.Module):
                 deletion_mean = feats["deletion_mean"].unsqueeze(-1)
 
         # Compute input embedding
-        q, c, p, to_keys = self.atom_encoder(feats)
-        atom_enc_bias = self.atom_enc_proj_z(p)
-        a, _, _, _ = self.atom_attention_encoder(
-            feats=feats,
-            q=q,
-            c=c,
-            atom_enc_bias=atom_enc_bias,
-            to_keys=to_keys,
-        )
+        if atom_dev is not None:
+            a = atom_dev(feats)
+        else:
+            q, c, p, to_keys = self.atom_encoder(feats)
+            atom_enc_bias = self.atom_enc_proj_z(p)
+            a, _, _, _ = self.atom_attention_encoder(
+                feats=feats,
+                q=q,
+                c=c,
+                atom_enc_bias=atom_enc_bias,
+                to_keys=to_keys,
+            )
 
         s = a + self.res_type_encoding(res_type)
         if self.use_msa_profile:
@@ -5905,6 +5910,14 @@ class Boltz2(nn.Module):
             self._tt_atom_pair = mod
         return mod
 
+    def _tt_input_atom_module(self):
+        """Lazily build the input embedder's device atom encoder (``ie_dev``, TT path only). Cached."""
+        mod = getattr(self, "_tt_input_atom", None)
+        if mod is None:
+            mod = tenstorrent.InputAtomEncoderDevice(self.input_embedder, self.msa_module.compute_kernel_config)
+            self._tt_input_atom = mod
+        return mod
+
     @_under_levers
     def load_state_dict(self, *a, **kw):
         # The device modules are built here (TorchWrapper._load_from_state_dict).
@@ -5944,7 +5957,9 @@ class Boltz2(nn.Module):
         if self.trace:
             print("[boltz2] forward: input_embedder")
         
-        s_inputs = self.input_embedder(feats)
+        s_inputs = self.input_embedder(
+            feats, atom_dev=self._tt_input_atom_module()
+            if self.use_tenstorrent and tenstorrent.lever("ie_dev") else None)
 
         # Initialize the sequence embeddings
         s_init = self.s_init(s_inputs)
