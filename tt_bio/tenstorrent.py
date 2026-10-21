@@ -9311,9 +9311,62 @@ def weight_cache(cache_dir: str, mode: str):
     prev = _weight_cache
     _weight_cache = {"dir": cache_dir, "mode": mode, "counter": 0}
     try:
-        yield
+        yield _weight_cache
     finally:
         _weight_cache = prev
+
+
+class TileCacheMismatch(RuntimeError):
+    """A tile cache written by a different module construction than the one loading it."""
+
+
+def tile_cached(cache_dir: str, build, load):
+    """Run ``build()`` (reads the checkpoint) or ``load()`` (constructs with no state dict) so
+    every torch_to_tt tile comes from ``cache_dir``, writing it on the first call.
+
+    One builder under a flock; ``.done`` marks a complete cache, so a crashed build is
+    redone, and loads run in parallel once it exists. The cache stores, per call, the weight
+    key and dtype it was dumped under; a load that asks for anything else raises before a
+    wrong tile reaches the device, and the cache is rebuilt. Bit-exact: a loaded tile is
+    what from_torch made.
+    """
+    import fcntl, json
+    os.makedirs(cache_dir, exist_ok=True)
+    done, manifest = os.path.join(cache_dir, ".done"), os.path.join(cache_dir, "manifest.json")
+    with open(os.path.join(cache_dir, ".lock"), "w") as lockf:
+        for _ in range(2):
+            fcntl.flock(lockf, fcntl.LOCK_EX)
+            try:
+                if not os.path.exists(done):
+                    try:
+                        with weight_cache(cache_dir, "dump") as wc:
+                            wc["manifest"] = []
+                            out = build()
+                        json.dump(wc["manifest"], open(manifest, "w"))
+                        open(done, "w").close()
+                    except BaseException:
+                        _clear_tiles(cache_dir)
+                        raise
+                    return out
+            finally:
+                fcntl.flock(lockf, fcntl.LOCK_UN)
+            try:
+                with weight_cache(cache_dir, "load") as wc:
+                    wc["manifest"] = json.load(open(manifest))
+                    return load()
+            except TileCacheMismatch as e:
+                print(f"[tt-bio] rebuilding stale weight tile cache {cache_dir}: {e}", file=sys.stderr)
+                fcntl.flock(lockf, fcntl.LOCK_EX)
+                _clear_tiles(cache_dir)
+                fcntl.flock(lockf, fcntl.LOCK_UN)
+        raise TileCacheMismatch(f"{cache_dir} still mismatches after a rebuild")
+
+
+def _clear_tiles(cache_dir):
+    """Empty a tile cache but keep its .lock, which waiting peers hold open."""
+    for f in os.listdir(cache_dir):
+        if f != ".lock":
+            os.remove(os.path.join(cache_dir, f))
 
 
 class Module:
@@ -9359,9 +9412,14 @@ class Module:
                 mem[i] = ttnn.from_torch(transform(self.weights[key]), layout=ttnn.TILE_LAYOUT, dtype=dtype)
             return ttnn.to_device(mem[i], self.device)
         path = os.path.join(wc["dir"], f"{i}.tensorbin")
+        tag = [key, str(dtype)]
         if wc["mode"] == "load":
+            if "manifest" in wc and (i >= len(wc["manifest"]) or wc["manifest"][i] != tag):
+                raise TileCacheMismatch(f"call {i} asks for {tag}, cache holds "
+                                        f"{wc['manifest'][i] if i < len(wc['manifest']) else 'nothing'}")
             host = ttnn.load_tensor(path)
         else:
+            wc.get("manifest", []).append(tag)
             host = ttnn.from_torch(transform(self.weights[key]), layout=ttnn.TILE_LAYOUT, dtype=dtype)
             tmp = f"{path}.{os.getpid()}.tmp.tensorbin"  # dump_tensor requires a .tensorbin name
             ttnn.dump_tensor(tmp, host)
