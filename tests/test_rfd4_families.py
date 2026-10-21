@@ -182,6 +182,20 @@ def test_family_designs_through_the_cli(family, tmp_path, engine):
     assert written, "the serving path writes a design, not just features"
 
 
+def test_two_designs_in_one_invocation_write_two_cifs(tmp_path, engine):
+    """The seed floor is two designs from one invocation, and that is what the grades are read
+    against: the writer indexes a design row against features that hold one example, which is
+    one row, and that cost the first run on the card its second design."""
+    if available("unconditional") is None:
+        pytest.skip("upstream input not staged")
+    from tt_bio.main import cli
+
+    cmd = families.command("unconditional", tmp_path / "two", seed=0, num_designs=2)[1:]
+    result = CliRunner().invoke(cli, cmd)
+    assert result.exit_code == 0, result.output + str(result.exception)
+    assert len(list((tmp_path / "two").glob("*_generated.cif"))) == 2
+
+
 def test_inverse_folding_reaches_the_engine_as_inverse_folding(tmp_path, engine):
     if available("inverse_folding") is None:
         pytest.skip("upstream input not staged")
