@@ -14,6 +14,8 @@
 // T1B8 (lever trimul_t1b8): a and b leave compute as bfp8 tiles. bfp8 keeps one exponent per 16-value face row,
 // the unit this gather moves, so the re-tiling is lossless: 16 mantissa bytes per face row by NOC as before, and
 // the face row's exponent byte by a core store (64 per tile; the NOC cannot move a single unaligned byte).
+// With IL = 16 a unit's rows are two whole faces of each output tile, whose 32 exponent bytes and 512
+// mantissa bytes are each contiguous in the bfp8 tile: two writes per tile, no byte shared with the other half.
 #ifndef ABL
 #define ABL 0
 #endif
@@ -38,7 +40,7 @@ void kernel_main() {
     constexpr uint32_t NTGT = get_compile_time_arg_val(7);  // g_out channel tiles in all
     constexpr uint32_t IL = get_compile_time_arg_val(8);    // row tiles per unit, 32, 16 or 8
     constexpr uint32_t H = 32 / IL;
-    static_assert(!T1B8 || IL == 32, "the bfp8 gather moves whole tiles");
+    static_assert(!T1B8 || IL >= 16, "the bfp8 gather moves whole faces");
     constexpr auto a_args = TensorAccessorArgs<9>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     constexpr auto g_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
@@ -121,8 +123,9 @@ void kernel_main() {
                     const uint32_t sf = (c >> 4) * 2, sr = c & 15;
                     volatile tt_l1_ptr uint8_t* se = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(src);
                     volatile tt_l1_ptr uint8_t* de = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(st);
-                    for (uint32_t il = 0; il < 32; ++il) {
-                        const uint32_t df = (il >> 4) * 2, dr = il & 15;
+                    for (uint32_t il = 0; il < IL; ++il) {
+                        const uint32_t r = r0 + il;
+                        const uint32_t df = (r >> 4) * 2, dr = r & 15;
                         const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + sr * RB8;
                         const uint32_t d0 = st + EB + df * FB8 + dr * RB8;
                         noc_async_read_one_packet_with_state(s0, d0);
@@ -150,8 +153,13 @@ void kernel_main() {
                 for (uint32_t j = 0; j < NB; ++j, page += SS) {
                     if constexpr (ABL & 64) continue;
                     const uint32_t st = gbase + j * TB;
-                    if constexpr (T1B8) {
+                    if constexpr (T1B8 && IL == 32) {
                         noc_async_write(st, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB8);
+                    } else if constexpr (T1B8) {
+                        const uint32_t e0 = (r0 >> 4) * 32, m0 = EB + (r0 >> 4) * 2 * FB8;
+                        const uint64_t dst = is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page);
+                        noc_async_write(st + e0, dst + e0, 32);
+                        noc_async_write(st + m0, dst + m0, 2 * FB8);
                     } else {
                         const uint64_t dst = is_a ? oa.get_noc_addr(page, off0) : ob.get_noc_addr(page, off0);
                         noc_async_write(st + off0, dst, wlen);
