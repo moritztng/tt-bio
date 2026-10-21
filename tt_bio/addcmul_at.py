@@ -23,6 +23,7 @@ from pathlib import Path
 import ttnn
 
 from . import core_split
+from . import genq
 from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "addcmul_at"
@@ -58,22 +59,32 @@ def _build(x, y, z, out, device, ht, wt):
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dt, page_size=b)
         return ttnn.CBDescriptor(total_size=2 * _GRAN * b, core_ranges=core_grid, format_descriptors=[fmt])
 
-    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    first = 0
+    assign, first = {}, 0
     for group, per_core in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    reader_rt[cx][cy] = [first, per_core]
-                    compute_rt[cx][cy] = [per_core]
-                    writer_rt[cx][cy] = [first, per_core]
+                    assign[(cx, cy)] = (first, per_core)
                     first += per_core
     assert first == num_tiles, (first, num_tiles)
 
-    reader_ct = [_GRAN, wt] + [_grid(t)[1] for t in (x, y, z)] + [_grid(t)[0] for t in (x, y, z)]
+    # genq's compact split: each core recomputes its (first, num) from its own coordinates, so the
+    # descriptor carries no per-core runtime args. A generic_op dispatch is charged per (core, kernel)
+    # carrying them (gop: 53 us host a call here vs 12-14 us for a stock eltwise op, 19,200 calls a
+    # Boltz-2 fold). compact_plan returns None unless the arithmetic reproduces `assign` exactly.
+    plan_ct = genq.compact_plan(assign, core_grid) if genq.compact() else None
+    genq_ct = [1] + plan_ct if plan_ct else [0] * 8
+    reader_rt, compute_rt, writer_rt = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    if plan_ct is None:
+        for (cx, cy), (fst, per_core) in assign.items():
+            reader_rt[cx][cy] = [fst, per_core]
+            compute_rt[cx][cy] = [per_core]
+            writer_rt[cx][cy] = [fst, per_core]
+
+    reader_ct = [_GRAN, wt] + [_grid(t)[1] for t in (x, y, z)] + [_grid(t)[0] for t in (x, y, z)] + genq_ct
     for t in (x, y, z):
         reader_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
-    writer_ct = [_GRAN] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    writer_ct = [_GRAN] + genq_ct + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader_addcmul_at.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH, core_ranges=core_grid,
@@ -94,7 +105,7 @@ def _build(x, y, z, out, device, ht, wt):
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute_addcmul_at.cpp"),
         source_type=ttnn.KernelDescriptor.SourceType.FILE_PATH, core_ranges=core_grid,
-        compile_time_args=[_GRAN], defines=[("ADDCMUL_SFPU", "1")] if f32 else [],
+        compile_time_args=[_GRAN] + genq_ct, defines=[("ADDCMUL_SFPU", "1")] if f32 else [],
         runtime_args=compute_rt, config=cfg)
     cbs = [cb(X_CB), cb(Y_CB), cb(Z_CB), cb(OUT_CB, out.dtype)]
     pd = ttnn.ProgramDescriptor(kernels=[reader, writer, compute], semaphores=[], cbs=cbs)
@@ -142,7 +153,7 @@ def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None):
                                          ttnn.DRAM_MEMORY_CONFIG)
     # The buffer types are compile-time args of the TensorAccessors: an L1 operand must not reuse a DRAM program.
     key = (device.id(), ht, wt, _grid(x), _grid(y)[1], _grid(z), str(y.dtype), str(out.dtype),
-           *(str(t.memory_config().buffer_type) for t in (x, y, z)))
+           *(str(t.memory_config().buffer_type) for t in (x, y, z)), genq.compact())
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, y, z, out, device, ht, wt)

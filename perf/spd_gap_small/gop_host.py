@@ -18,6 +18,7 @@ from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
 ensure_p300_mesh_descriptor()
 import tt_bio.tenstorrent as T  # noqa: E402
 from tt_bio.addcmul_at import addcmul_at  # noqa: E402
+from tt_bio import genq  # noqa: E402
 import ttnn  # noqa: E402
 
 ap = argparse.ArgumentParser()
@@ -33,6 +34,7 @@ z7 = up(torch.randn(1, 512, 768))
 
 cases = {
     "addcmul_at": lambda: addcmul_at(x, y, z, 768, x_off=768, z_off=0),
+    "addcmul_at_genq": lambda: addcmul_at(x, y, z, 768, x_off=768, z_off=0),
     "ttnn.addcmul": lambda: ttnn.addcmul(y, y, z7),
     "ttnn.multiply": lambda: ttnn.multiply(y, z7),
     "ttnn.add": lambda: ttnn.add(y, z7),
@@ -40,7 +42,13 @@ cases = {
 ref = ttnn.to_torch(cases["addcmul_at"]()).float()
 check = (ttnn.to_torch(x).float()[..., 768:] + ttnn.to_torch(y).float() * ttnn.to_torch(z).float()[..., :768])
 res = {"rel_err_vs_host": float((ref - check).norm() / check.norm()), "n": args.n, "cases": {}}
+# addcmul_at_genq: the same call on genq's compact split (no per-core runtime args); its output must equal the
+# per-core program's bit for bit.
+genq.set_compact(True)
+res["genq_bitexact"] = bool(ttnn.to_torch(cases["addcmul_at_genq"]()).float().equal(ref))
+genq.set_compact(False)
 for name, f in cases.items():
+    genq.set_compact(name.endswith("_genq"))
     for _ in range(50):
         ttnn.deallocate(f())
     ttnn.synchronize_device(dev)

@@ -17,9 +17,21 @@
 #include "api/compute/tile_move_copy.h"
 #endif
 
+#include "../genq/genq_split.h"
+
 void kernel_main() {
-    const uint32_t num_tiles = get_arg_val<uint32_t>(0);
     constexpr uint32_t GRAN = get_compile_time_arg_val(0);
+    constexpr uint32_t G = 1;  // genq compact split, see the reader
+    uint32_t num_tiles;
+    if constexpr (get_compile_time_arg_val(G) == 1) {
+        num_tiles = genq::slice<get_compile_time_arg_val(G + 1), get_compile_time_arg_val(G + 2),
+                                get_compile_time_arg_val(G + 3), get_compile_time_arg_val(G + 4),
+                                get_compile_time_arg_val(G + 5), get_compile_time_arg_val(G + 6),
+                                get_compile_time_arg_val(G + 7)>(
+            get_absolute_logical_x(), get_absolute_logical_y()).num;
+    } else {
+        num_tiles = get_arg_val<uint32_t>(0);
+    }
     constexpr uint32_t cb_x = 0, cb_y = 1, cb_z = 2, cb_out = 16;
 
     binary_op_init_common(cb_y, cb_z, cb_out);
