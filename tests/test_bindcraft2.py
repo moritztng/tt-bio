@@ -2164,10 +2164,18 @@ def test_auto_runs_lean_where_fast_was_measured_to_refuse_on_a_p150a():
         assert bindcraft2.memory_mode("auto", padded, card) == "fast", padded
     for padded in (704, 736, 768, 800, 832, 864, 896):
         assert bindcraft2.memory_mode("auto", padded, card) == "lean", padded
-    # The 896 lean served is a floor under lean, not its ceiling, so lean is not capped there.
-    assert bindcraft2.max_tokens("lean", card) >= 896
-    # No offload row: every offload rung on the measuring box was killed by host RAM.
-    assert "offload" not in bindcraft2._MEASURED_MODE_LADDERS["p150a"]
+    # The 1184 lean served is a floor under lean, not its ceiling, so lean is not capped there.
+    assert bindcraft2.max_tokens("lean", card) >= 1184
+
+
+def test_offload_on_a_p150a_is_capped_where_it_was_measured_to_refuse():
+    """The law puts offload at 1568 on a p150a, and 1568 was measured to refuse on fragmentation.
+    Nothing may offer 1568 as fitting, and the axis under it is quoted as unmeasured."""
+    card = bindcraft2.P150A_DRAM_BYTES
+    top, refuses = bindcraft2._MEASURED_MODE_LADDERS["p150a"]["offload"]
+    assert bindcraft2.mode_ceiling("offload", card) == (refuses - 32, refuses - 32 == top)
+    assert bindcraft2.memory_mode("auto", top, card) == "offload"
+    assert bindcraft2.max_tokens("offload", card) < refuses
 
 
 def test_a_measured_refusal_caps_the_memory_law_everywhere_it_is_quoted():
