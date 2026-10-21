@@ -36,13 +36,15 @@ def get(d, path):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", required=True)
-    ap.add_argument("--floor", required=True)
+    ap.add_argument("--floor", required=True, help="the grading floor: cpu_parity.py --mixed (upstream's bf16-mixed)")
+    ap.add_argument("--weights-floor", default="", help="optional cpu_parity.py --bf16-weights, recorded beside it")
     ap.add_argument("--out", required=True)
     ap.add_argument("--row", required=True)
     ap.add_argument("--branch", default="wk/rfd4-vae")
     ap.add_argument("--card", default="qb2 chip 3 p300c")
     a = ap.parse_args()
     dev, flo = json.loads(Path(a.device).read_text()), json.loads(Path(a.floor).read_text())
+    wfl = json.loads(Path(a.weights_floor).read_text()) if a.weights_floor else None
 
     modules, clocks = [], []
     for case, c in dev["cases"].items():
@@ -52,6 +54,8 @@ def main() -> int:
             m = {"name": f"{case} {'.'.join(p)}", "shape": shape, "ref": "float64",
                  "rel_err": get(c, p + ("max_rel_err",)), "rel_l2": get(c, p + ("rel_l2",)),
                  "bf16_floor": get(f, p + ("max_rel_err",)), "test": "perf/rfd4/vae/device_parity.py"}
+            if wfl:
+                m["bf16_weight_floor"] = get(wfl["cases"][case], p + ("max_rel_err",))
             if case.startswith("synthetic"):
                 m["graded_on"] = (f"floor only (random out-of-distribution features; bf16 weights alone read "
                                   f"{m['bf16_floor']:.3g}): rel_err <= {FLOOR_RATIO} x bf16_floor")
@@ -116,6 +120,9 @@ def main() -> int:
     rec["goldens"] = ("upstream AE (sha 2db07bb4) in float64 on CPU: 3 synthetic mixed batches (n 96/250/500, B=2) "
                       "and 9 real encoder batches captured inside upstream's own partial-diffusion runs "
                       "(perf/rfd4/vae/gen_goldens.py, capture_real.py)")
+    rec["floor"] = ("bf16_floor is upstream's bf16-mixed precision modelled in float64 (cpu_parity.py --mixed: bf16 "
+                    "weights and matmul inputs, full-precision LayerNorm/softmax/residual), a lower bound on a GPU "
+                    "bf16-mixed run's deviation; bf16_weight_floor rounds only the weights")
     rec["sha"] = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
                                 cwd=Path(__file__).parent).stdout.strip()
     Path(a.out).write_text(json.dumps(rec, indent=1) + "\n")
