@@ -118,6 +118,9 @@ def main():
     ap.add_argument("--screen-warm", type=int, default=5)
     ap.add_argument("--final-warm", type=int, default=9)
     ap.add_argument("--reference", type=int, default=0, help="reference-design mode: N designs per feature family")
+    ap.add_argument("--reference-arm", help="arm to generate reference designs with (default: ARMS.json best_arm). "
+                                            "The extended climb can re-rank, and reference designs must come "
+                                            "from the arm actually published, not the screen's winner.")
     ap.add_argument("--sweep-only", action="store_true",
                     help="re-climb the batch of each size's top arms from ARMS.json, without the screen")
     ap.add_argument("--arms", type=int, default=2,
@@ -168,7 +171,10 @@ def main():
 
     if a.reference:
         # The chosen arm, the documented 50-120 binder range, scored: rfd4-quality's reference distribution.
-        chosen = json.loads((a.out / "ARMS.json").read_text())["best_arm"]
+        chosen = a.reference_arm or json.loads((a.out / "ARMS.json").read_text())["best_arm"]
+        if chosen not in ARMS:
+            sys.exit(f"reference: unknown arm {chosen!r}")
+        print(f"reference designs from arm {chosen}", flush=True)
         ov = ARMS[chosen] + ["metrics_tags='[ppi_refolding,hotspot_conditioning]'"]
         done = {}
         for fam, spec in sorted({p.stem: p for p in a.inputs.glob("pdl1-ref*.yaml")}.items()):
