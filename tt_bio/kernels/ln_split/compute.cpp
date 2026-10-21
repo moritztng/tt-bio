@@ -6,7 +6,8 @@
 // statistics over all KT tiles of the row from the G cores that share it. Two-pass as ttnn.layer_norm: the partial
 // row sum (x 1/K) goes to the writer, the G partials come back and their sum is the mean; then the same for the
 // biased variance of x - mean. Sums of partials are SFPU adds in fp32 DEST. Then (x - mean) * rstd [* gamma] [+ beta]
-// to c_2 (ln_prologue.hpp's stages), rounded to nearest even before the bf16 pack.
+// to c_2 (ln_prologue.hpp's stages), rounded to nearest even before the bf16 pack. x - mean and its square come out
+// of one DEST acquire (the square on the SFPU in fp32), not a second pass that re-reads x - mean through srcA.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -69,6 +70,33 @@ ALWI void sum_parts(uint32_t in, uint32_t out) {
     cb_pop_front(in, G);
 }
 
+// xc = x - mean and tmp = xc^2, KC tiles each, two tiles a DEST acquire (four fp32 slots of a half-sync dest). The
+// subtraction runs twice per tile rather than an SFPU dest copy, which not every tt-metal here has.
+ALWI void center_and_square() {
+    reconfig_data_format(cb_x, cb_mean);
+    pack_reconfig_data_format(cb_xc);
+    cb_reserve_back(cb_xc, KC);
+    cb_reserve_back(cb_tmp, KC);
+    for (uint32_t i0 = 0; i0 < KC; i0 += 2) {
+        const uint32_t n = KC - i0 < 2 ? KC - i0 : 2;
+        tile_regs_acquire();
+        sub_bcast_cols_init_short(cb_x, cb_mean);
+        for (uint32_t j = 0; j < n; ++j) {
+            sub_tiles_bcast_cols(cb_x, cb_mean, i0 + j, 0, j);
+            sub_tiles_bcast_cols(cb_x, cb_mean, i0 + j, 0, 2 + j);
+        }
+        square_tile_init();
+        for (uint32_t j = 0; j < n; ++j) square_tile(2 + j);
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) pack_tile(j, cb_xc);
+        for (uint32_t j = 0; j < n; ++j) pack_tile(2 + j, cb_tmp);
+        tile_regs_release();
+    }
+    cb_push_back(cb_xc, KC);
+    cb_push_back(cb_tmp, KC);
+}
+
 // `in` (KC tiles, popped) + beta, or a copy of it, packed to c_2.
 ALWI void finish(uint32_t in) {
     cb_wait_front(in, KC);
@@ -104,11 +132,10 @@ void kernel_main() {
     ln_prologue::row_mean<LnCbs>(cb_x, cb_p1, false);         // partial sum / K
     sum_parts(cb_parts1, cb_mean);                        // mean
     cb_wait_front(cb_mean, 1);
-    ln_prologue::stage<LnCbs, ln_prologue::SUB_COL, 4>(cb_x, cb_mean, cb_xc);
+    center_and_square();
     cb_pop_front(cb_x, KC);
     cb_pop_front(cb_mean, 1);
     cb_wait_front(cb_xc, KC);
-    ln_prologue::stage<LnCbs, ln_prologue::MUL, 4>(cb_xc, cb_xc, cb_tmp);
     ln_prologue::row_mean<LnCbs>(cb_tmp, cb_p2, true);        // partial sum (x - mean)^2 / K
     sum_parts(cb_parts2, cb_var);                         // biased variance
     ln_prologue::rstd<LnCbs>();
