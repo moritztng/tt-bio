@@ -58,8 +58,8 @@ def test_a_folder_of_existing_structures_scores_without_a_generation_run(tmp_pat
     assert set(rows) == set(DESIGNS)
     # The clashy fixture is the clean one with residues 40-60 pulled in, so it is the one that
     # has to come out different; a run that scored both the same would pass a smoke test.
-    clean = float(rows["clean_generated.cif"]["clash_metrics.frac_atoms_clashing_inter_residue"])
-    clashy = float(rows["clashy_generated.cif"]["clash_metrics.frac_atoms_clashing_inter_residue"])
+    clean = float(rows["clean_generated.cif"]["clash_metrics.frac_atoms_clashing_1p5A"])
+    clashy = float(rows["clashy_generated.cif"]["clash_metrics.frac_atoms_clashing_1p5A"])
     assert clean == 0.0 and clashy > 0.1
 
 
