@@ -177,3 +177,194 @@ def compute_clash_stats(atoms, is_polymer, is_crd=None, threshold: float = CLASH
     for category in CLASH_CATEGORIES:
         out[f"frac_atoms_clashing_{category}_{key}"] = frac_atoms_clashing(masks[category])
     return out
+
+
+# --- residue / token level ---------------------------------------------------------------------
+
+# atomworks `constants.py:488`.
+STANDARD_AA = (
+    "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE",
+    "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL",
+)  # fmt: skip
+
+# rfproteina SSEnum values; only equality and run-counting matter here.
+SSE_NONE, SSE_HELIX, SSE_SHEET, SSE_LOOP = 0, 1, 2, 3
+
+
+def _residue_change(atoms):
+    """True at every atom where chain, residue id, insertion code or residue name changes."""
+    change = np.zeros(atoms.array_length(), dtype=bool)
+    if len(change):
+        change[0] = True
+        for name in ("chain_id", "res_id", "ins_code", "res_name"):
+            values = atoms.get_annotation(name)
+            change[1:] |= values[1:] != values[:-1]
+    return change
+
+
+def residue_starts(atoms):
+    return np.flatnonzero(_residue_change(atoms))
+
+
+def token_starts(atoms, atomize):
+    """atomworks `ml/utils/token.py:18`: a new token at every residue change and at every atomized atom."""
+    return np.flatnonzero(_residue_change(atoms) | atomize)
+
+
+def chain_of_interest(design):
+    """rfproteina `utils/chain.py:29-103`. Returns (chain, unambiguous)."""
+    chains = design.atoms.chain_id
+    unique = np.unique(chains)
+    if len(unique) < 2:
+        return unique[0], True
+    protein = [c for c in unique if design.is_protein[chains == c].all()]
+    if len(protein) == 1:
+        return protein[0], True
+    if not protein:
+        return sorted(unique)[0], False
+    seq_frac = {c: float(np.mean(design.c_seq[chains == c] != "<M>")) for c in protein}
+    least = min(seq_frac.values())
+    candidates = [c for c in protein if seq_frac[c] == least]
+    if len(candidates) == 1:
+        return candidates[0], True
+    internal = (design.crd_group != -1) & (design.crd_group != 0)
+    crd_frac = {c: float(design.is_crd[chains == c].mean() + internal[chains == c].mean()) for c in candidates}
+    least = min(crd_frac.values())
+    candidates = [c for c in candidates if crd_frac[c] == least]
+    if len(candidates) == 1:
+        return candidates[0], True
+    return sorted(candidates)[0], False
+
+
+def compute_amino_acid_composition(design) -> dict:
+    """`amino_acid_composition`, rfproteina `metrics/amino_acid_composition.py:26-41`."""
+    starts = residue_starts(design.atoms)
+    names = design.atoms.res_name[starts]
+    input_unknown = (design.c_seq[starts] != "<M>") & (design.c_seq[starts] == "UNK")
+    standard = names[np.isin(names, STANDARD_AA)]
+    n = len(standard)
+    return {
+        "n_generated_unknown_residues": float(np.count_nonzero((names == "UNK") & ~input_unknown)),
+        "n_standard_residues": float(n),
+        "ala_fraction": float(np.mean(standard == "ALA")) if n else float("nan"),
+        "val_fraction": float(np.mean(standard == "VAL")) if n else float("nan"),
+        "gly_fraction": float(np.mean(standard == "GLY")) if n else float("nan"),
+    }
+
+
+def compute_sequence_adherence(design) -> dict:
+    """`sequence_adherence`, rfproteina `metrics/sequence_adherence_metric.py:52-73`."""
+    starts = residue_starts(design.atoms)
+    conditioned = design.c_seq[starts] != "<M>"
+    if not conditioned.any():
+        return {"sequence_adherence": float("nan"), "n_violations": 0.0}
+    target = design.c_seq[starts][conditioned]
+    generated = design.atoms.res_name[starts][conditioned]
+    n_violations = int((target != generated).sum())
+    return {"sequence_adherence": 1.0 - n_violations / len(target), "n_violations": float(n_violations)}
+
+
+def compute_sequence_probability_adherence(design) -> dict:
+    """`sequence_probability_adherence`, rfproteina `sequence_adherence_metric.py:76-106`.
+
+    Only the exact 0 and 1 constraints are checked inline; upstream pools soft errors post hoc."""
+    from tt_bio.rfd4.eval_io import SEQUENCE_PROBABILITY_TOKENS
+
+    starts = residue_starts(design.atoms)
+    values = design.seq_prob[starts]
+    masks = np.isfinite(values)
+    outcomes = design.atoms.res_name[starts][:, None] == np.asarray(SEQUENCE_PROBABILITY_TOKENS)[None, :]
+    zero = masks & (values == 0.0)
+    one = masks & (values == 1.0)
+    n_zero, n_one = int(zero.sum()), int(one.sum())
+    v_zero, v_one = int(outcomes[zero].sum()), int((~outcomes[one]).sum())
+    return {
+        "zero_adherence": 1.0 - v_zero / n_zero if n_zero else float("nan"),
+        "one_adherence": 1.0 - v_one / n_one if n_one else float("nan"),
+        "n_zero_conditions": float(n_zero),
+        "n_zero_violations": float(v_zero),
+        "n_one_conditions": float(n_one),
+        "n_one_violations": float(v_one),
+    }
+
+
+def _sse_fractions(valid, suffix):
+    if len(valid) == 0:
+        return {f"{k}{suffix}": float("nan") for k in ("helix_fraction", "sheet_fraction", "loop_fraction", "num_ss_elements")}
+    n = len(valid)
+    runs = 1 + int(np.count_nonzero(valid[1:] != valid[:-1]))
+    return {
+        f"helix_fraction{suffix}": float((valid == SSE_HELIX).sum() / n),
+        f"sheet_fraction{suffix}": float((valid == SSE_SHEET).sum() / n),
+        f"loop_fraction{suffix}": float((valid == SSE_LOOP).sum() / n),
+        f"num_ss_elements{suffix}": float(runs),
+    }
+
+
+def _psea(atoms):
+    """rfproteina `sse_metrics.py:19-79`: per-residue SSEnum and validity, NONE everywhere on failure."""
+    from biotite.structure import annotate_sse
+
+    n_res = len(residue_starts(atoms))
+    sse = np.full(n_res, SSE_NONE, dtype=np.int8)
+    valid = np.zeros(n_res, dtype=bool)
+    try:
+        codes = annotate_sse(atoms)
+        if len(codes) == n_res:
+            sse[codes == "a"] = SSE_HELIX
+            sse[codes == "b"] = SSE_SHEET
+            sse[codes == "c"] = SSE_LOOP
+            valid = codes != ""
+    except Exception:
+        pass
+    return sse, valid
+
+
+def compute_sse_accuracy(design) -> dict:
+    """`sse_accuracy`, rfproteina `sse_metrics.py:186-276`: secondary-structure conditioning
+    against P-SEA on the same generated structure. Atom-level, so `n_conditioned_atoms` counts
+    atoms that are conditioned and have a valid P-SEA code. No C_SEC column, or nothing
+    conditioned, contributes no columns."""
+    if design.c_sec is None:
+        return {}
+    conditioned = design.c_sec != SSE_NONE
+    if not conditioned.any():
+        return {}
+    sse, valid = _psea(design.atoms)
+    residue_index = np.cumsum(_residue_change(design.atoms)) - 1
+    atom_sse, atom_valid = sse[residue_index], valid[residue_index]
+    compare = conditioned & atom_valid
+    if not compare.any():
+        nan = float("nan")
+        return {"overall_accuracy": nan, "helix_recall": nan, "sheet_recall": nan, "loop_recall": nan,
+                "n_conditioned_atoms": int(conditioned.sum())}
+    target, predicted = design.c_sec[compare], atom_sse[compare]
+
+    def recall(cls):
+        sel = target == cls
+        return float((predicted[sel] == cls).mean()) if sel.any() else float("nan")
+
+    return {
+        "overall_accuracy": float((target == predicted).mean()),
+        "helix_recall": recall(SSE_HELIX),
+        "sheet_recall": recall(SSE_SHEET),
+        "loop_recall": recall(SSE_LOOP),
+        "n_conditioned_atoms": int(compare.sum()),
+    }
+
+
+def compute_sse_distribution(design) -> dict:
+    """`sse_distribution`, rfproteina `metrics/sse_metrics.py:19-160`.
+
+    P-SEA (biotite `annotate_sse`) gives one code per residue; it is spread to atoms and then read
+    at *token* starts, so an atomized residue counts once per atom. Any P-SEA failure leaves every
+    residue unassigned, exactly as upstream's bare `except` does."""
+    atoms = design.atoms
+    sse, valid = _psea(atoms)
+    residue_index = np.cumsum(_residue_change(atoms)) - 1
+    tokens = token_starts(atoms, design.atomize)
+    token_sse = sse[residue_index[tokens]]
+    token_valid = valid[residue_index[tokens]]
+    coi, _ = chain_of_interest(design)
+    coi_mask = token_valid & (atoms.chain_id[tokens] == coi)
+    return {**_sse_fractions(token_sse[token_valid], ""), **_sse_fractions(token_sse[coi_mask], "_coi")}
