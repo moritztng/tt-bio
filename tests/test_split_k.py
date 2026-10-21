@@ -41,8 +41,9 @@ def test_cut_is_a_fixed_number_of_whole_tile_chunks(monkeypatch):
     monkeypatch.setattr(ttnn, "reshape", lambda t, s: _Op(list(s), t.dtype))
     monkeypatch.setattr(ttnn, "matmul", lambda a3, b3, **kw: calls.append(("mm", a3.shape, b3.shape, kw)) or
                         _Op([a3.shape[0], a3.shape[2], b3.shape[2]], kw["dtype"]))
-    monkeypatch.setattr(ttnn, "sum", lambda t, dim, compute_kernel_config: calls.append(
-        ("sum", t.shape, dim, compute_kernel_config.fp32_dest_acc_en)) or _Op(t.shape[1:], t.dtype))
+    monkeypatch.setattr(ttnn, "slice", lambda t, lo, hi: _Op([h - l for l, h in zip(lo, hi)], t.dtype))
+    monkeypatch.setattr(ttnn, "add", lambda x, y, dtype: calls.append(("add", x.shape, y.shape, dtype)) or
+                        _Op(x.shape, dtype))
     monkeypatch.setattr(ttnn, "typecast", lambda t, d: calls.append(("cast", d)) or _Op(t.shape, d))
     monkeypatch.setattr(ttnn, "deallocate", lambda t: None)
     before = ag.SPLIT_K_STATS["served"]
@@ -51,7 +52,9 @@ def test_cut_is_a_fixed_number_of_whole_tile_chunks(monkeypatch):
     # Kt = 896 -> 64 chunks of 14 tiles; the count does not depend on the card's grid.
     assert calls[0][:3] == ("mm", [64, 448, 64], [64, 448, 224])
     assert calls[0][3]["dtype"] == ttnn.float32 and calls[0][3]["transpose_a"]
-    assert calls[1] == ("sum", [64, 64, 224], 0, True)
+    # fp32 halving, 64 -> 32 -> ... -> 1, never a reduction.
+    assert [c[1][0] for c in calls[1:7]] == [32, 16, 8, 4, 2, 1]
+    assert all(c[0] == "add" and c[1] == c[2] and c[3] == ttnn.float32 for c in calls[1:7])
     calls.clear()
     out = ag._split_k(_Op((8192, 64)), _Op((8192, 224)), {"transpose_a": True})
     assert calls[0][:3] == ("mm", [64, 128, 64], [64, 128, 224])

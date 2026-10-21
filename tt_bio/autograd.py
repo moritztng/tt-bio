@@ -1126,7 +1126,8 @@ def _split_k(a, b, kw):
     ``[8192, 64]^T @ [8192, 224]`` 173 us, 0.037 device s/it together on a p300c
     (`bets/unnamed` u2). Splitting K by whole tiles is a view, each chunk is one batch element of
     `bmm_program_config`'s reuse plan, so the chunks land on separate cores, and the partials
-    stay fp32 into one sum. The same contraction, grouped by chunk instead of by K block.
+    stay fp32 through a pairwise tree of adds. The same contraction, grouped by chunk instead of
+    by K block.
     """
     if (not kw.get("transpose_a") or kw.get("transpose_b") or kw.get("program_config") is not None
             or set(kw) - {"transpose_a", "transpose_b", "program_config", "compute_kernel_config",
@@ -1140,7 +1141,9 @@ def _split_k(a, b, kw):
     Kt = K // ttnn.TILE_SIZE
     if (M // ttnn.TILE_SIZE) * (N // ttnn.TILE_SIZE) > SPLIT_K_OUT_TILES or Kt < SPLIT_K_MIN_KT:
         return None
-    P = max(d for d in range(1, min(Kt // 2, SPLIT_K_CHUNKS) + 1) if Kt % d == 0)
+    P = 1
+    while P * 2 <= min(Kt // 2, SPLIT_K_CHUNKS) and Kt % (P * 2) == 0:
+        P *= 2
     if P < 4:
         return None
     a3 = ttnn.reshape(a, [P, K // P, M])
@@ -1151,9 +1154,17 @@ def _split_k(a, b, kw):
         return None
     parts = ttnn.matmul(a3, b3, transpose_a=True, program_config=plan, dtype=ttnn.float32,
                         compute_kernel_config=cfg)
-    # fp32 destination accumulation, or the sum rounds to bf16: rel L2 1.0e-3 against 4.9e-4 stock.
-    out = ttnn.sum(parts, dim=0, compute_kernel_config=precise_config())
-    ttnn.deallocate(parts)
+    # Halve with fp32 adds, not ttnn.sum: a reduction feeds the FPU, which reads fp32 as tf32, and
+    # took rel L2 against float64 from the partials' 4.1e-4 to 1.0e-3 (stock 4.9e-4). P is a power of two.
+    out = parts
+    while P > 1:
+        P //= 2
+        lo = ttnn.slice(out, [0, 0, 0], [P, M, N])
+        hi = ttnn.slice(out, [P, 0, 0], [2 * P, M, N])
+        ttnn.deallocate(out)
+        out = ttnn.add(lo, hi, dtype=ttnn.float32)
+        ttnn.deallocate(lo)
+        ttnn.deallocate(hi)
     out = ttnn.reshape(out, [M, N])
     dtype = kw.get("dtype") or a.dtype
     if dtype != ttnn.float32:
