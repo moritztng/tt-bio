@@ -47,8 +47,10 @@ def main():
 
     for key, v in u["groups"].items():
         w = t["groups"].get(key)
+        if v is None and w is None:
+            continue  # the batch carries no such grouping on either side
         if v is None or w is None:
-            report["groups"][key] = "absent" if v is w else "one side absent"
+            report["groups"][key] = "one side absent"
             continue
         d = diff(v, w)
         if d:
