@@ -8,7 +8,7 @@ and the same inputs as the reference.
 
 This is a modified port of DeepMind's AlphaFold code, Copyright 2021 DeepMind Technologies
 Limited, licensed under the Apache License, Version 2.0: translated from JAX/Haiku to torch and cut
-down to inference. See NOTICE item 10.
+down to inference. See NOTICE item 11.
 
 **Precision follows AlphaFold's, which is the whole reason the per-block bar can be tight.**
 `global_config.bfloat16` is on, so the trunk runs in bfloat16 while parameters stay float32 and
