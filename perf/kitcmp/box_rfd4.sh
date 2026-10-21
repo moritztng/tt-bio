@@ -14,16 +14,20 @@ say(){ echo "$(date -u +%FT%TZ) box_rfd4: $*"; }
 if [ ! -f $B/SETUP-DONE ]; then
   {
     git clone https://github.com/RosettaCommons/RFD4-Proteina /root/rfd4 && cd /root/rfd4 && git checkout $SHA
-    python3 -m venv /opt/rfd4-venv
-    /opt/rfd4-venv/bin/pip install -U pip
+    # uv, not `python3 -m venv`: the CUDA images ship python3.12 without python3.12-venv, which cost one box's
+    # first four minutes on 2026-10-21. uv brings its own interpreter and seeds pip.
+    command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH=$PATH:/root/.local/bin:/root/.cargo/bin
+    uv venv --python 3.12 --seed /opt/rfd4-venv || { apt-get update -qq && apt-get install -y -qq python3.12-venv && python3 -m venv /opt/rfd4-venv; }
+    /opt/rfd4-venv/bin/python -m pip install -U pip
     # cu13 wheel: bioir needs CUDA 13, and the box census records the driver it actually got.
-    /opt/rfd4-venv/bin/pip install -e "/root/rfd4[all-cuda13]" || \
-      /opt/rfd4-venv/bin/pip install -e "/root/rfd4[all]"
+    /opt/rfd4-venv/bin/python -m pip install -e "/root/rfd4[all-cuda13]" || \
+      /opt/rfd4-venv/bin/python -m pip install -e "/root/rfd4[all]"
   } > $B/setup.log 2>&1 || { say "setup failed"; tail -30 $B/setup.log; exit 2; }
   echo ok > $B/SETUP-DONE
 fi
 say "setup done after $(( $(date +%s) - T0 ))s"
-/opt/rfd4-venv/bin/pip freeze > $B/pip-freeze.txt 2>&1
+/opt/rfd4-venv/bin/python -m pip freeze > $B/pip-freeze.txt 2>&1
 nvidia-smi -q > $B/nvidia-smi-q.txt 2>&1
 { uname -a; nproc; free -g; df -h /; } > $B/census.txt 2>&1
 
