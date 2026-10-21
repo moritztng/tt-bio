@@ -654,6 +654,11 @@ class Trunk(Module):
         (tests/test_rfd4_trunk_parity.py::test_padding_does_not_touch_the_real_tokens). rfd4 gets
         its `token_axis.TOKEN_AXIS` row when it ships as a CLI model; that table admits shipped
         models only."""
+        return self.collect(self.launch(s_init, z_init, conds, mask, device, pair=pair))
+
+    def launch(self, s_init, z_init, conds, mask, device, pair=True):
+        """`run_bucketed` up to the readback: uploads the inputs and enqueues the trunk, without
+        waiting for the card. `collect` reads the result."""
         from .. import token_axis
         n = int(mask.shape[1])
         npad = token_axis.pad_amount(n, token_axis.bucket_multiple("rfd4")) if token_axis.bucket_enabled() else 0
@@ -673,8 +678,13 @@ class Trunk(Module):
         z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.residual_dtype)
         cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
         s_out, z_out = self(s, z, cs, masks)
+        return n, pair, (s_out, z_out), (s, z, *cs)
+
+    def collect(self, pending):
+        """The `(s, z)` of a `launch`, back on the host, and its device tensors freed."""
+        n, pair, (s_out, z_out), inputs = pending
         out = download(s_out)[:, :n], download(z_out)[:, :n, :n] if pair else None
-        for t in (s, z, s_out, z_out, *cs):
+        for t in (*inputs, s_out, z_out):
             if t.is_allocated():
                 ttnn.deallocate(t)
         return out
