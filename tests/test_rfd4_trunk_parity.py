@@ -24,7 +24,7 @@ from tt_bio.rfd4 import trunk as TR
 
 import rfd4_reference as REF
 
-#: bf16 weights and activations through a 1024-wide dot product, four linears deep in the block.
+#: bf16 weights and activations through a 768-wide dot product, four linears deep in the block.
 BAR = 5e-2
 #: How far above its bf16 floor a component may sit before the device chain itself is suspect. The
 #: attention sits at 2.6x because the fused flash kernel rescales its running max and sum in bf16,
@@ -35,7 +35,8 @@ FLOOR_FACTOR = 3.0
 #: rel_rms and still carry the whole signal.
 PCC_BAR = 0.999
 
-DIM, DIM_PAIR, DIM_COND, HEADS = 1024, 384, 256, 16
+#: The release flow config (`config.nn` of the checkpoint): token 768, pair 384, cond 256, 12 heads, 14 blocks.
+DIM, DIM_PAIR, DIM_COND, HEADS = 768, 384, 256, 12
 
 # conftest's `_release_device_after_test` closes the card after every test, so each test takes the
 # handle itself -- a module-scoped device fixture would hand the second test a closed mesh.
@@ -223,12 +224,12 @@ _MODES = {"bf16": (None, REF.bf16), "mixed": (ttnn.float32, REF.bf16_mixed)}
 
 
 @pytest.mark.device
-@pytest.mark.parametrize("nlayers,cycles,mode", [(4, 2, "bf16"), (4, 2, "mixed"), (24, 6, "mixed")],
-                         ids=["4x2-bf16", "4x2-mixed", "24x6-mixed"])
+@pytest.mark.parametrize("nlayers,cycles,mode", [(4, 2, "bf16"), (4, 2, "mixed"), (14, 6, "mixed")],
+                         ids=["4x2-bf16", "4x2-mixed", "14x6-mixed"])
 def test_trunk_stack(nlayers, cycles, mode):
     """The stack with its recycles: `nlayers` blocks (pair update after every second but the last)
-    run `cycles` times, each cycle with its own conditioning. 24 x 6 is the release model's
-    deepest pass, the first band of the thinking_medium schedule.
+    run `cycles` times, each cycle with its own conditioning. 14 x 6 is the release model at the
+    first band of the thinking_medium schedule (6 recycles).
 
     The deep case runs with fp32 residual streams, which is what the release inference config
     (`precision: bf16-mixed`) runs on a GPU. All-bf16 streams sit at their own bf16 floor there too,
@@ -256,7 +257,7 @@ def test_trunk_stack(nlayers, cycles, mode):
     # alone move z 8.4e-3 after one cycle and 2.1e-2 after two, while a 1e-6 nudge to z0 stays at
     # 1e-6 and bf16 activations stay at 6e-3. 0.42 from float64 is what this precision reaches
     # with these random weights, the GPU's included; the bar is being at that floor.
-    deep = nlayers * cycles > 8
+    deep = nlayers * cycles > 8  # 14 x 6
     _grade(f"trunk {nlayers}x{cycles} {mode} z", got_z, ref_z, fl_z, pair,
            bar=None if deep else BAR, pcc_bar=0.85 if deep else PCC_BAR)
     m = pair.bool()

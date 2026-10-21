@@ -134,3 +134,50 @@ def test_golden_pair_update(weights, layer):
     k = x.shape[1]
     pm = (mask[:, :, None] * mask[:, None, :]).bool()
     _grade(f"golden pair update {layer}", got[:, :k, :k], ref64, floor, out, pm)
+
+
+@pytest.mark.device
+def test_golden_chain_blocks_1_to_12(weights):
+    """Twelve released blocks and six pair updates (2, 4, .., 12) chained on the card, from block 1's golden
+    input to block 13's: upstream's x and z entering block 13 are the outputs of exactly this chain within
+    one pass, so this grades the stack on trained weights with the fp32 streams the release config keeps."""
+    dev = T.get_device()
+    (x, z, cond, mask), _ = _golden("MultiheadAttnAndTransition__nn_transformer_layers_1__call0.pt")
+    (x13, z13, cond13, _), _ = _golden("MultiheadAttnAndTransition__nn_transformer_layers_13__call0.pt")
+    assert torch.equal(cond, cond13), "blocks 1 and 13 read the same cond within a pass"
+    mask = mask.double()
+    k, n = x.shape[1], _bucket(x.shape[1])
+    ckc = TR.compute_kernel_config()
+    masks = TR.trunk_masks(_pad(mask, n, [1]), dev, residual_dtype=ttnn.float32)
+    tok, bias, pair, pair_c, res_tok, res_pair_c = masks
+    s = _dev(_pad(x, n, [1]), dev, ttnn.float32)
+    zt = _dev(_pad(z, n, [1, 2]), dev, ttnn.float32)
+    ct = _dev(_pad(cond, n, [1]), dev)
+    wb = {kk: REF.bf16(v) for kk, v in weights.items()}
+    fs, fz = x, z
+    for i in range(1, 13):
+        blk = TR.TrunkBlock(T.WeightScope({kk: v.float() for kk, v in _sub(weights, f"transformer_layers.{i}").items()}),
+                            ckc, HEADS, residual_dtype=ttnn.float32)
+        zb = ttnn.typecast(zt, ttnn.bfloat16)
+        s_new = blk(s, zb, ct, tok, bias, res_tok)
+        ttnn.deallocate(zb)
+        ttnn.deallocate(s)
+        s = s_new
+        fs = REF.trunk_block(_sub(wb, f"transformer_layers.{i}"), fs, fz, cond, mask, HEADS, "", REF.bf16_mixed)
+        if i % 2 == 0:
+            p = f"pair_update_layers.{i}"
+            pu = TR.PairUpdate(T.WeightScope({kk[len(p) + 1:]: v.float() for kk, v in weights.items()
+                                              if kk.startswith(p + ".")}), ckc, residual_dtype=ttnn.float32)
+            z_new = pu(s, zt, tok, pair, pair_c, res_pair_c)
+            ttnn.deallocate(zt)
+            zt = z_new
+            fz = REF.pair_update(wb, p, fs, fz, mask, REF.bf16_mixed)
+    got_s = ttnn.to_torch(s).double()[:, :k]
+    got_z = ttnn.to_torch(zt).double()[:, :k, :k]
+    m, pm = mask.bool(), (mask[:, :, None] * mask[:, None, :]).bool()
+    for name, g, f, o, mm in (("s", got_s, fs, x13, m), ("z", got_z, fz, z13, pm)):
+        err, ferr, vf, pcc = _rel(g[mm], o[mm]), _rel(f[mm], o[mm]), _rel(g[mm], f[mm]), _pcc(g[mm], o[mm])
+        print(f"\ngolden chain 1..12 {name}: device {err:.3e} vs golden (pcc {pcc:.6f}), bf16-mixed floor "
+              f"{ferr:.3e}, device vs floor {vf:.3e}")
+        assert err < BAR, f"chain {name} {err:.3e} over the {BAR} bar"
+        assert err < FLOOR_FACTOR * max(ferr, 1e-4), f"chain {name} {err:.3e} over {FLOOR_FACTOR}x floor {ferr:.3e}"
