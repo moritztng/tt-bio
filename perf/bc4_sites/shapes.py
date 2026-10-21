@@ -19,6 +19,7 @@ ap.add_argument("--binder", type=int, default=80)
 ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--iters", type=int, default=6)
 ap.add_argument("--off", action="store_true", help="split-K off and the stock (1,2,0) permute VJP")
+ap.add_argument("--no-split", action="store_true", help="split-K off, permute VJP lever on")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(a.bc2))
@@ -38,8 +39,9 @@ def emit(r):
     log.write(json.dumps(r) + "\n"); log.flush(); print(json.dumps(r)[:400], flush=True)
 
 
-if a.off:
+if a.off or a.no_split:
     ag.SPLIT_K_OUT_TILES = 0
+if a.off:
     _pb = tt._permute_back
     tt._permute_back = lambda g, inv: ttnn.permute(g, inv) if list(inv) == [1, 2, 0] else _pb(g, inv)
 

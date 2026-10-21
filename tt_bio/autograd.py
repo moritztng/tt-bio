@@ -1146,7 +1146,8 @@ def _split_k(a, b, kw):
         return None
     parts = ttnn.matmul(a3, b3, transpose_a=True, program_config=plan, dtype=ttnn.float32,
                         compute_kernel_config=cfg)
-    out = ttnn.sum(parts, dim=0)
+    # fp32 destination accumulation, or the sum rounds to bf16: rel L2 1.0e-3 against 4.9e-4 stock.
+    out = ttnn.sum(parts, dim=0, compute_kernel_config=precise_config())
     ttnn.deallocate(parts)
     out = ttnn.reshape(out, [M, N])
     dtype = kw.get("dtype") or a.dtype

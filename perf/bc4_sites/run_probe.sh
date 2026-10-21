@@ -22,9 +22,9 @@ cat sha > "$D/sha" 2>/dev/null; echo "$CARD" > "$D/cardno"
 echo "start $(date +%s) card $CARD load $(cut -d" " -f1 /proc/loadavg)" >> "$D/card"
 timeout -s INT -k 60 1200 "$PY" perf/bc4_sites/probe.py --out "$D/probe.jsonl" > "$D/run.log" 2>&1
 echo "probe rc=$? end $(date +%s) load $(cut -d" " -f1 /proc/loadavg)" >> "$D/card"
-for arm in off on; do
+for arm in off perm on; do
   timeout -s INT -k 60 2400 "$PY" perf/bc4_sites/shapes.py --out "$D/shapes_$arm" --iters ${ITERS:-6} \
-      $([ $arm = off ] && echo --off) > "$D/shapes_$arm.log" 2>&1
+      $([ $arm = off ] && echo --off) $([ $arm = perm ] && echo --no-split) > "$D/shapes_$arm.log" 2>&1
   echo "shapes_$arm rc=$? end $(date +%s) load $(cut -d" " -f1 /proc/loadavg)" >> "$D/card"
 done
 kill $P; touch "$D/done"
