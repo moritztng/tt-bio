@@ -12,7 +12,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   input's frame. `--nsteps` changes the integration steps (a different model, not a faster one),
   `--annotated_cif` designs from an annotated CIF instead of a spec, and `--no_validate` skips the
   per-structure checks when building a large spec. A 128-token binder design takes 13.2 s on one
-  Blackhole p300 chip at 1350 MHz. See the [README](README.md#design).
+  Blackhole p300 chip at 1350 MHz. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4-Proteina designs from Python in one call.** `tt_bio.rfd4.design(spec, out_dir, ...)` takes a
+  design spec to annotated-CIF designs with the same arguments and defaults as `tt-bio design --model
+  rfd4`, which now runs that same call. `rfd4.DesignEngine.from_pretrained()` keeps the weights on the
+  card across a sweep. See [rfd4-design](docs/rfd4-design.md).
+- **`--recipe` picks RFD4's thinking budget.** Upstream runs each design family at its own recycle
+  schedule, and only the released `thinking_medium` was reachable from the CLI; all twelve are now.
+  An unknown name is refused before a spec is built or a device is opened.
 
 ### Fixed
 - **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating
