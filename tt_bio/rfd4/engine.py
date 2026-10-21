@@ -58,7 +58,7 @@ class DesignEngine:
     """
 
     def __init__(self, weights: str | Path = DEFAULT_WEIGHTS, *, recipe: str = "thinking_medium",
-                 max_parallel_samples: int | None = 5):
+                 max_parallel_samples: int | None = 1):
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
@@ -81,6 +81,10 @@ class DesignEngine:
         # The bundle stores the AE under `autoencoder.`; it is byte-identical to the AE's own
         # checkpoint (699/699 tensors), which is what the AE was graded on.
         self.autoencoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("decoder",))
+        # One design per device step. At 128 tokens the pair stack already fills the grid, so
+        # the trunk took 13 % and 14 % longer per design at width 2 and 4, and the auto config of the
+        # transition's 768->3072 linear is not batch-invariant, so a batched design is not
+        # bit-identical to the same design alone (perf/rfd4/batch/sweep.py, 2026-10-21).
         self.max_parallel_samples = max_parallel_samples
         self._device = self.autoencoder.dev["decoder"].device
 
