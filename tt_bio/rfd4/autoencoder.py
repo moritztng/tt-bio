@@ -47,7 +47,8 @@ class AEHalf(Module):
         w = lambda t, dt=ttnn.bfloat16: ttnn.from_torch(t.float().contiguous(), dtype=dt,  # noqa: E731
                                                        layout=ttnn.TILE_LAYOUT, device=dev)
         row = lambda t: w(t.reshape(1, -1), ttnn.float32)  # noqa: E731  (a linear's bias)
-        vec = lambda t: w(t.reshape(-1), ttnn.float32)  # noqa: E731  (a layer norm's affine)
+        vec = row  # a layer norm's affine, [1, D] fp32 like a bias
+        self.ones = w(torch.ones(TILE, 1))  # the last 32-term reduction of `_row_mean`
         self.in_w = folded["in_w"].float().T.contiguous()  # host fp32, see the module docstring
         self.n_feat = self.in_w.shape[0]
         self.layers = []
@@ -77,9 +78,37 @@ class AEHalf(Module):
     def _lin32(self, x, w, b=None, activation=None):
         return self._lin(x, w, bias=b, dtype=ttnn.float32, activation=activation)
 
+    def _row_mean(self, x):
+        """Mean over the last (768) dim, [.., D] fp32 -> [.., 1], to fp32 rather than FPU accuracy.
+
+        The card's FPU accumulates to about 2^-11 of the summed |terms| (`ttnn.mean`, `layer_norm` and
+        a matmul against ones all read 5e-4..3e-3), while fp32 elementwise adds are exact. So the 24
+        column tiles fold to one with elementwise adds, and only the last 32 terms go through a matmul,
+        split into exact bf16 hi and lo parts."""
+        d = x.shape[-1]
+        while d > TILE and d % (2 * TILE) == 0:
+            d //= 2
+            x = ttnn.add(x[..., :d], x[..., d:])
+        acc = x[..., :TILE]
+        for i in range(1, d // TILE):
+            acc = ttnn.add(acc, x[..., i * TILE:(i + 1) * TILE])
+        hi = ttnn.typecast(acc, ttnn.bfloat16)
+        lo = ttnn.typecast(ttnn.subtract(acc, ttnn.typecast(hi, ttnn.float32)), ttnn.bfloat16)
+        ckc = self.compute_kernel_config
+        s = ttnn.add(ttnn.matmul(hi, self.ones, dtype=ttnn.float32, compute_kernel_config=ckc),
+                     ttnn.matmul(lo, self.ones, dtype=ttnn.float32, compute_kernel_config=ckc))
+        return ttnn.multiply(s, 1.0 / AF.D)
+
     def _ln(self, x, w=None, b=None):
-        return ttnn.layer_norm(x, epsilon=AF.LN_EPS, weight=w, bias=b,
-                               compute_kernel_config=self.compute_kernel_config)
+        """LayerNorm with `_row_mean` statistics: `ttnn.layer_norm` on fp32 is off by ~2.5e-3 (Welford
+        too), and it is the largest single loss in the stack (perf/rfd4/vae/debug_block.py)."""
+        xc = ttnn.subtract(x, self._row_mean(x))
+        y = ttnn.multiply(xc, ttnn.rsqrt(ttnn.add(self._row_mean(ttnn.multiply(xc, xc)), AF.LN_EPS)))
+        if w is not None:
+            y = ttnn.multiply(y, w)
+        if b is not None:
+            y = ttnn.add(y, b)
+        return y
 
     def _block(self, L, x, bias):
         ckc = self.compute_kernel_config
