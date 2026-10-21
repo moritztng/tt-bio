@@ -105,20 +105,20 @@ void kernel_main() {
     ln_prologue::row_mean<LnCbs>(cb_x, cb_p1, false);         // partial sum / K
     sum_parts(cb_parts1, cb_mean);                        // mean
     cb_wait_front(cb_mean, 1);
-    ln_prologue::stage<LnCbs, ln_prologue::SUB_COL>(cb_x, cb_mean, cb_xc);
+    ln_prologue::stage<LnCbs, ln_prologue::SUB_COL, 4>(cb_x, cb_mean, cb_xc);
     cb_pop_front(cb_x, KC);
     cb_pop_front(cb_mean, 1);
     cb_wait_front(cb_xc, KC);
-    ln_prologue::stage<LnCbs, ln_prologue::MUL>(cb_xc, cb_xc, cb_tmp);
+    ln_prologue::stage<LnCbs, ln_prologue::MUL, 4>(cb_xc, cb_xc, cb_tmp);
     ln_prologue::row_mean<LnCbs>(cb_tmp, cb_p2, true);        // partial sum (x - mean)^2 / K
     sum_parts(cb_parts2, cb_var);                         // biased variance
     ln_prologue::rstd<LnCbs>();
-    ln_prologue::stage<LnCbs, ln_prologue::MUL_COL>(cb_xc, cb_rstd, cb_tmp);
+    ln_prologue::stage<LnCbs, ln_prologue::MUL_COL, 4>(cb_xc, cb_rstd, cb_tmp);
     cb_pop_front(cb_xc, KC);
     cb_pop_front(cb_rstd, 1);
     if constexpr (HAS_W) {
         cb_wait_front(cb_tmp, KC);
-        ln_prologue::stage<LnCbs, ln_prologue::MUL_ROW>(cb_tmp, cb_gamma, cb_xc);
+        ln_prologue::stage<LnCbs, ln_prologue::MUL_ROW, 4>(cb_tmp, cb_gamma, cb_xc);
         cb_pop_front(cb_tmp, KC);
         finish(cb_xc);
     } else {

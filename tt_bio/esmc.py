@@ -253,6 +253,25 @@ _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC
 # (a KeyPad mask), so ESMFold2 (lm_sdpa_stock) is untouched.
 _ESMC_QKRH_BF8 = (env_flag("TT_BIO_ESMC_QKRH_BF8", False)
                   if os.environ.get("TT_BIO_ESMC_QKRH_BF8", "").strip() else None)
+# ln_split (tt_bio/ln_split.py): the per-layer LayerNorms of a forward with few tile rows (the 6B at one sequence: 17 of
+# 72 Wormhole cores busy in ttnn.layer_norm) split each row tile over G cores. [544, 2560] device ms a call (.110,
+# trace replay): weight+bias 0.109 -> 0.085, weight 0.091 -> 0.073. Not bit-exact (rel_l2 vs float64 0.0032 against
+# 0.0019). Declines where ttnn spreads as wide (300M/600M page batches). None = off until the page cell grades it.
+_ESMC_LN_SPLIT = (env_flag("TT_BIO_ESMC_LN_SPLIT", False)
+                  if os.environ.get("TT_BIO_ESMC_LN_SPLIT", "").strip() else None)
+
+
+def _ln(x, weight, bias, ck, memory_config=None):
+    """ttnn.layer_norm(x, weight, bias, eps 1e-5), through ln_split when it is on and serves the shape."""
+    if _ESMC_LN_SPLIT:
+        from tt_bio import ln_split
+        y = ln_split.layer_norm(x, weight, bias, 1e-5, memory_config)
+        if y is not None:
+            return y
+    return ttnn.layer_norm(x, weight=weight, bias=bias, epsilon=1e-5, compute_kernel_config=ck,
+                           memory_config=memory_config)
+
+
 # shsdpa writes its output with the heads already concatenated ([B, L, H * D]) instead of nlp_concat_heads after it:
 # only the writer's tile addresses change (sdpa_generic merged_out), so the output is bit-identical.
 _LM_SDPA_MERGED = env_flag("TT_BIO_LM_SDPA_MERGED", True)
@@ -766,9 +785,8 @@ class Attention(_MMLin, Module):
 
     def _qkv(self, x, ln_mc=None):
         """q, k, v projections of LayerNorm(x), the layer norm written to `ln_mc` (DRAM if None)."""
-        affine = {} if self.ln_fold else {"weight": self.in_norm_weight, "bias": self.in_norm_bias}
-        x_norm = ttnn.layer_norm(x, **affine, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config,
-                                 memory_config=ln_mc)
+        w, b = (None, None) if self.ln_fold else (self.in_norm_weight, self.in_norm_bias)
+        x_norm = _ln(x, w, b, self.compute_kernel_config, ln_mc)
         try:
             if self.qkv_weight is not None:
                 split = self._lin_split(x_norm, self.qkv_weight, 3, bias=self.qkv_bias)
@@ -1387,7 +1405,7 @@ class SwiGLUFFN(_MMLin, Module):
                 FFN_LN_L1_STATS[1] += 1
         if x_norm is None:
             L1_LN_STATS[1] += bool(l1_gated and _PAIR_FFN_L1_LN)
-            x_norm = ttnn.layer_norm(x, **ln)
+            x_norm = _ln(x, self.norm_weight, self.norm_bias, ck)
         if self.fuse_swiglu:
             gated = ttnn.experimental.minimal_matmul(
                 input_tensor=x_norm,
