@@ -12,6 +12,10 @@ carries its own coordinate in `_condition_coordinate_1_atom` with `CoordinateGro
 That is what `sa_mask('C_CRD')` reads, and what makes chain A the unambiguous chain of interest.
 
     python3 perf/rfd4/make_ppi_fixture.py <monomer.cif> <out.cif> [--split 50]
+    python3 perf/rfd4/make_ppi_fixture.py <monomer.cif> <out.cif> --homodimer
+
+`--homodimer` instead copies the whole monomer into chain B, moved clear and conditioned: two
+identical subunits, the case upstream's subunit matching exists for.
 """
 
 import argparse
@@ -42,6 +46,19 @@ def split_chains(atoms, split_after, move_clear=True):
     return out, target, residue_index
 
 
+def homodimer(atoms):
+    """The monomer as chain A and an identical copy, moved clear, as chain B."""
+    from biotite.structure import concatenate
+
+    first, second = atoms.copy(), atoms.copy()
+    first.chain_id[:] = "A"
+    second.chain_id[:] = "B"
+    extent = np.nanmax(atoms.coord, axis=0) - np.nanmin(atoms.coord, axis=0)
+    second.coord += np.array([extent[0] + 8.0, 0.0, 0.0])
+    out = concatenate([first, second])
+    return out, out.chain_id == "B"
+
+
 def write(atoms, target, path, hotspot=None):
     """Write the design with the conditioning annotations the C_CRD (and C_HOT) masks read."""
     cif = CIFFile()
@@ -68,11 +85,17 @@ def main():
     ap.add_argument("out", type=Path)
     ap.add_argument("--split", type=int, default=50, help="residues kept in chain A")
     ap.add_argument("--in-contact", action="store_true", help="leave chain B where the fold put it")
+    ap.add_argument("--homodimer", action="store_true", help="chain B is a copy of the whole monomer")
     ap.add_argument("--hotspots", default="", help="comma-separated 0-based residue indices on chain B")
     args = ap.parse_args()
 
     atoms = get_structure(CIFFile.read(str(args.design)), model=1, include_bonds=True)
     assert np.isfinite(atoms.coord).all(), "a design with a NaN coordinate breaks upstream's aligner"
+    if args.homodimer:
+        design, target = homodimer(atoms)
+        write(design, target, args.out)
+        print(f"{args.out}: chains A and B, {int(target.sum())} atoms each, B conditioned")
+        return
     design, target, residue_index = split_chains(atoms, args.split, move_clear=not args.in_contact)
     hotspot = None
     if args.hotspots:

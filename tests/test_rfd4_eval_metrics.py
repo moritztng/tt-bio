@@ -259,3 +259,54 @@ def test_hotspot_conditioning_tag_matches_upstream(tmp_path):
     expected = golden["rows"]["hotspot_generated.cif"]
     assert expected["hotspot_obedience.hotspot_obedience"] == "0.1881"
     _assert_row_matches(expected, rows["hotspot_generated.cif"], 34)
+
+
+def _run_cached(tmp_path, design, refold_dir, eid, tags):
+    import csv
+    import shutil
+
+    from tt_bio.rfd4.evaluate import evaluate
+
+    inputs = tmp_path / "designs"
+    inputs.mkdir()
+    shutil.copy(design, inputs / design.name)
+    out = tmp_path / "out"
+    (out / "evaluation_samples").mkdir(parents=True)
+    shutil.copytree(refold_dir, out / "evaluation_samples" / eid)
+    csv_path = evaluate(inputs, tags, out)
+    return {r["designed_structure_path"].rsplit("/", 1)[-1]: r for r in csv.DictReader(open(csv_path))}
+
+
+def test_equivalent_atom_flips_are_resolved_as_upstream(tmp_path):
+    """A refold that hands each of 57 equivalent pairs (ASP OD1/OD2, PHE ring edges, ...) the
+    other's coordinate (`make_refold_fixture.py --flip-equivalent`). Upstream permutes the design's
+    labels to match before any RMSD; without that step the target-aligned binder RMSD reads 1.0387
+    instead of 0.5314."""
+    golden = json.loads((GOLDENS / "upstream_symmetry_flip.json").read_text())
+    rows = _run_cached(
+        tmp_path,
+        GOLDENS / "ppi" / "binder_generated.cif",
+        GOLDENS / "symmetry" / "refold_flip_binder_generated_975e6ee5",
+        "binder_generated_975e6ee5",
+        "design,ppi_refolding",
+    )
+    expected = golden["rows"]["binder_generated.cif"]
+    assert expected["refolded_target_aligned_binder_rmsd.rmsd"] == "0.5314"
+    _assert_row_matches(expected, rows["binder_generated.cif"], 53)
+
+
+def test_swapped_identical_chains_are_resolved_as_upstream(tmp_path):
+    """A homodimer whose refold has its two chains exchanged and its equivalent atoms flipped
+    (`make_ppi_fixture.py --homodimer`, `make_refold_fixture.py --swap-chains A,B`). Upstream
+    matches the copies first; without that the backbone RMSD reads 18.21 instead of 0.5207."""
+    golden = json.loads((GOLDENS / "upstream_symmetry_dimer.json").read_text())
+    rows = _run_cached(
+        tmp_path,
+        GOLDENS / "symmetry" / "dimer_generated.cif",
+        GOLDENS / "symmetry" / "refold_dimer_generated_0e3de0a0",
+        "dimer_generated_0e3de0a0",
+        "design,unconditional_refolding",
+    )
+    expected = golden["rows"]["dimer_generated.cif"]
+    assert expected["refolded_backbone_rmsd.rmsd"] == "0.5207"
+    _assert_row_matches(expected, rows["dimer_generated.cif"], 51)

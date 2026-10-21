@@ -10,7 +10,13 @@ The refold written here is the design itself, rotated, translated and jittered b
 the backbone RMSD it produces is a number both implementations must agree on rather than zero. The
 confidences come from `tt_bio.rfd4.oracle`, so the file is in the shape the TT oracle will write.
 
-    python3 perf/rfd4/make_refold_fixture.py <design.cif> <out_dir> [--rmsd-target 1.2]
+    python3 perf/rfd4/make_refold_fixture.py <design.cif> <out_dir> [--sigma 0.9]
+        [--flip-equivalent] [--swap-chains A,B]
+
+`--flip-equivalent` hands every chemically equivalent pair (ASP OD1/OD2, the PHE ring edges, ...)
+the other's coordinate, as a real refold does about half the time; `--swap-chains` exchanges two
+identical chains. Both are invisible to a model and must be undone by symmetry resolution before
+any RMSD, so they grade that step: without it the all-atom numbers move by Angstroms.
 """
 
 import argparse
@@ -46,6 +52,41 @@ def perturbed(atoms, sigma):
     centroid = out.coord.mean(axis=0)
     out.coord = (out.coord - centroid) @ _rotation(rng).T + centroid + np.array([12.0, -7.5, 3.25])
     out.coord = out.coord + rng.normal(scale=sigma, size=out.coord.shape)
+    return out
+
+
+EQUIVALENT = {
+    "ARG": [("NH1", "NH2")],
+    "ASP": [("OD1", "OD2")],
+    "GLU": [("OE1", "OE2")],
+    "LEU": [("CD1", "CD2")],
+    "VAL": [("CG1", "CG2")],
+    "PHE": [("CD1", "CD2"), ("CE1", "CE2")],
+    "TYR": [("CD1", "CD2"), ("CE1", "CE2")],
+}
+
+
+def flip_equivalent(atoms):
+    """Swap the coordinates of each equivalent atom pair, residue by residue."""
+    out = atoms.copy()
+    key = list(zip(atoms.chain_id, atoms.res_id, atoms.atom_name))
+    index = {k: i for i, k in enumerate(key)}
+    flipped = 0
+    for (chain, res, name), i in index.items():
+        for a, b in EQUIVALENT.get(atoms.res_name[i], []):
+            j = index.get((chain, res, b))
+            if name == a and j is not None:
+                out.coord[[i, j]] = out.coord[[j, i]]
+                flipped += 1
+    return out, flipped
+
+
+def swap_chains(atoms, first, second):
+    """Exchange the coordinates of two chains with the same atoms in the same order."""
+    out = atoms.copy()
+    a, b = atoms.chain_id == first, atoms.chain_id == second
+    assert (atoms.atom_name[a] == atoms.atom_name[b]).all(), "chains differ, nothing to swap"
+    out.coord[a], out.coord[b] = atoms.coord[b], atoms.coord[a]
     return out
 
 
@@ -85,6 +126,8 @@ def main():
     ap.add_argument("--sigma", type=float, default=0.9, help="per-coordinate jitter, Angstrom")
     ap.add_argument("--oracle-name", default="af3")
     ap.add_argument("--chain-of-interest", default=None)
+    ap.add_argument("--flip-equivalent", action="store_true")
+    ap.add_argument("--swap-chains", default=None, help="two chain ids, e.g. A,B")
     args = ap.parse_args()
 
     inputs = args.inputs or args.design.parent
@@ -103,6 +146,11 @@ def main():
     # reads it (`utils/chain.py:24`) -- the whole oracle row with them.
     refolded = CIFFile.read(str(args.design))
     moved = perturbed(atoms, args.sigma)
+    if args.flip_equivalent:
+        moved, flipped = flip_equivalent(moved)
+        print(f"flipped {flipped} equivalent pairs", file=sys.stderr)
+    if args.swap_chains:
+        moved = swap_chains(moved, *args.swap_chains.split(","))
     for axis, column in enumerate(("Cartn_x", "Cartn_y", "Cartn_z")):
         refolded.block["atom_site"][column] = np.array([f"{v:.3f}" for v in moved.coord[:, axis]])
     refolded.write(str(design_dir / f"{stem}_refolded.cif"))

@@ -379,15 +379,23 @@ def _finite(atoms):
     return np.isfinite(atoms.coord).all(axis=-1)
 
 
-def structure_comparison(gt, gt_align, gt_subset, pred, pred_align, pred_subset) -> dict:
+def structure_comparison(gt, gt_align, gt_subset, pred, pred_align, pred_subset, gt_is_polymer=None) -> dict:
     """rfproteina `gt_structure_comparison.py:194-285`, one structure per side.
 
-    Each mask is applied to its own side and ANDed with finite coordinates there. Kabsch
-    (biotite `superimpose`, gt fixed) on the align atoms, applied to the whole prediction; then
-    positional RMSD over the subset atoms. A length mismatch on either step returns {} (no
-    column), an empty subset returns NaN, exactly as upstream. `gt_align=None` skips alignment."""
+    With `gt_is_polymer` given, the ground truth's identical subunits and equivalent atoms are
+    first matched to the prediction (`eval_symmetry.resolve`, upstream's default
+    `resolve_symmetry=("subunit", "atom")`). Each mask is applied to its own side and ANDed with
+    finite coordinates there. Kabsch (biotite `superimpose`, gt fixed) on the align atoms, applied
+    to the whole prediction; then positional RMSD over the subset atoms. A length mismatch on either
+    step returns {} (no column), an empty subset returns NaN, exactly as upstream. `gt_align=None`
+    skips alignment."""
     from biotite.structure import rmsd, superimpose
 
+    if gt_is_polymer is not None and gt.array_length() == pred.array_length():
+        from tt_bio.rfd4.eval_symmetry import resolve
+
+        gt = gt.copy()
+        gt.coord = resolve(gt, pred, gt_is_polymer, gt_align, gt_subset)
     pred_coord = pred.coord.copy()
     if gt_align is not None:
         g = gt_align & _finite(gt)
@@ -411,7 +419,7 @@ def compute_ca_rmsd_to_input(design, input_design) -> dict:
         raise ValueError("ca_rmsd_to_input needs the design's <stem>_input.cif")
     g = input_design.is_protein & (input_design.atoms.atom_name == "CA")
     p = design.is_protein & (design.atoms.atom_name == "CA")
-    return structure_comparison(input_design.atoms, g, g, design.atoms, p, p)
+    return structure_comparison(input_design.atoms, g, g, design.atoms, p, p, input_design.is_polymer)
 
 
 def _protein_sequence(design):

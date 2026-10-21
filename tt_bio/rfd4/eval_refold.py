@@ -259,6 +259,7 @@ def refolding_metrics(design, refolds, tags, coi):
                 pred,
                 _resolve(align, pred_masks),
                 _resolve(subset, pred_masks),
+                design.is_polymer[design_keep],
             )
             out.update({f"{name}.{k}": v for k, v in result.items()})
     return out
