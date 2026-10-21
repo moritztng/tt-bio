@@ -27,7 +27,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit"}
     assert of3.FAST_LEVERS - of3.WH_FAST_LEVERS == {"ws_lofi", "trimul_t2cm"}   # LoFi hangs Wormhole chips; plain T2 is faster there
     assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32", "triatt_ln_b8", "dit_l1", "atom_l1", "ws_psilu", "dit_mask8"}
-    assert of3.WH_NORMAL_LEVERS - of3.NORMAL_LEVERS == {"trimul_bres", "atom_l1"} and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
+    assert of3.WH_NORMAL_LEVERS - of3.NORMAL_LEVERS == {"trimul_bres", "atom_l1", "trimul_t1", "trimul_t2", "transition_ws", "ws_l1dest", "triatt_ln", "edm_device"} and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
 
 
 def test_parse_expands_modes_and_rejects_unknown_names():
