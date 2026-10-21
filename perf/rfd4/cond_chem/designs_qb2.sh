@@ -24,6 +24,11 @@ for SEED in $SEEDS; do
   for row in "${FAMILIES[@]}"; do
     read -r NAME CIF RECIPE <<<"$row"
     [ -f "$CIF" ] || { echo "$NAME: missing $CIF"; continue; }
+    # Idempotent: a family-seed whose designs are on disk is never re-run, so the chain can be
+    # relaunched to fill in what a timeout or a card collision left out.
+    if ls "$OUT/$NAME/seed$SEED"/*_generated.cif >/dev/null 2>&1; then
+      echo "=== $NAME seed $SEED already designed, skipping"; continue
+    fi
     echo "=== $NAME seed $SEED recipe $RECIPE start $(date -u +%FT%TZ)"
     PYTHONPATH=$WT timeout 3600 "$PY" perf/rfd4/e2e/design.py \
       --cif "$CIF" --recipe "$RECIPE" --weights nvidia/RFD4-Proteina \
