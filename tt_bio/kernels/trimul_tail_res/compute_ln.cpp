@@ -46,7 +46,7 @@ constexpr uint32_t MOVED = get_compile_time_arg_val(7);
 constexpr uint32_t CP = get_compile_time_arg_val(8);
 // ABL (bench-only, trimul_tail.T2_ABL; 0 in every model path): bits that skip one stage's compute and
 // push its CB as is, so the stage's time drops out while the reader and writer move the same bytes.
-// 1 LayerNorm, 2 the p GEMM, 4 the gate GEMM + sigmoid (GATE), 8 the epilogue.
+// 1 LayerNorm, 2 the p GEMM, 4 the gate GEMM + sigmoid (GATE), 8 the epilogue, 16 the epilogue's sigmoid (not GATE).
 constexpr uint32_t ABL = get_compile_time_arg_val(9);
 // EXTRA (MOVED only, 0 for every caller before AF2): 1 a bias on p, 2 a bias on the GATE g, each as Nt
 // tiles with the bias row in all 32 rows (c_19, p first), copied into DST before the K accumulation;
@@ -317,7 +317,7 @@ void kernel_main() {
             reconfig_data_format_srca(cb_g);
             copy_tile_to_dst_init_short(cb_g);
             for (uint32_t i = 0; i < 4; ++i) copy_tile(cb_g, t0 + i, i);
-            if constexpr (!GATE) {
+            if constexpr (!GATE && !(ABL & 16)) {
                 for (uint32_t i = 0; i < 4; ++i) {
                     if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                     else sigmoid_bf16_tile(i);
