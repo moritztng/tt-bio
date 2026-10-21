@@ -499,7 +499,10 @@ class ConditionedTransitionBlock(Module):
         ttnn.deallocate(x)
         a1, a2 = ttnn.chunk(sw, 2, dim=-1)
         ttnn.deallocate(sw)
-        b = ttnn.multiply(ttnn.silu(a1), a2)
+        if lever("ef2_atom_fuse"):
+            b = ttnn.multiply(a1, a2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+        else:
+            b = ttnn.multiply(ttnn.silu(a1), a2)
         ttnn.deallocate(a1); ttnn.deallocate(a2)
         out = lin(b, self.out_w)
         ttnn.deallocate(b)
@@ -1035,9 +1038,15 @@ class SWAAttention(Module):
         # valid atoms via masked 0*inf in later blocks (matches reference out*valid).
         if valid is not None:
             ctx = ttnn.multiply(ctx, valid)
-        gate = ttnn.sigmoid(lin(x, self.gate_w))
-        ctx = ttnn.multiply(ctx, gate)
-        ttnn.deallocate(gate)
+        g = lin(x, self.gate_w)
+        if lever("ef2_atom_fuse"):
+            ctx = ttnn.multiply(g, ctx, input_tensor_a_activations=[ttnn.UnaryOpType.SIGMOID])
+        else:
+            gate = ttnn.sigmoid(g)
+            ttnn.deallocate(g)
+            ctx = ttnn.multiply(ctx, gate)
+            g = gate
+        ttnn.deallocate(g)
         out = lin(ctx, self.out_w)
         ttnn.deallocate(ctx)
         return out
@@ -1057,10 +1066,25 @@ class SWAAtomBlock(Module):
         self.ffn_down = self.torch_to_tt("ffn.w_down.weight")
         self._mod = None       # cached adaLN modulation chunks (see __call__)
         self._mod_src = None   # identity of the conditioning c_l they were built from
+        self._mod_fused = False  # whether they hold 1 + scale (ef2_atom_fuse)
 
     def _modulate(self, x, scale, shift):
+        """RMSNorm(x) * (1 + scale) + shift. Under ef2_atom_fuse `scale` already holds 1 + scale (cached with the
+        modulation) and the multiply-add is one addcmul."""
         ck = self.compute_kernel_config
+        if lever("ef2_atom_fuse"):
+            n = _rms_norm(x, ck)
+            out = ttnn.addcmul(shift, n, scale, value=1.0)
+            ttnn.deallocate(n)
+            return out
         return ttnn.add(ttnn.multiply(_rms_norm(x, ck), ttnn.add(scale, 1.0)), shift)
+
+    @staticmethod
+    def _gated_add(x, g, y):
+        """x + g * y: one addcmul under ef2_atom_fuse."""
+        if lever("ef2_atom_fuse"):
+            return ttnn.addcmul(x, g, y, value=1.0)
+        return ttnn.add(x, ttnn.multiply(g, y))
 
     def __call__(self, x, c_l, cos, sin, attn_mask, valid=None):
         ck = self.compute_kernel_config
@@ -1070,7 +1094,8 @@ class SWAAtomBlock(Module):
         # cached c each step), so cache the 6 chunks keyed by c_l identity.
         # Bit-identical to recomputing; saves a silu + O(N.6d) projection per
         # step per atom block (3 encoder + 3 decoder).
-        if _STEP_CACHE and self._mod_src is c_l:
+        fuse = lever("ef2_atom_fuse")
+        if _STEP_CACHE and self._mod_src is c_l and self._mod_fused == fuse:
             sa, ca, ga, sf, cf, gf = self._mod
         else:
             if self._mod is not None:
@@ -1079,12 +1104,16 @@ class SWAAtomBlock(Module):
             mod = lin(ttnn.silu(c_l), self.adaln_w)  # [B,N,6d]
             sa, ca, ga, sf, cf, gf = ttnn.chunk(mod, 6, dim=-1)
             ttnn.deallocate(mod)
+            if fuse:    # 1 + scale once per conditioning, not every step
+                ca1, cf1 = ttnn.add(ca, 1.0), ttnn.add(cf, 1.0)
+                ttnn.deallocate(ca); ttnn.deallocate(cf)
+                ca, cf = ca1, cf1
             self._mod = (sa, ca, ga, sf, cf, gf)
-            self._mod_src = c_l
+            self._mod_src, self._mod_fused = c_l, fuse
 
         attn_in = self._modulate(x, ca, sa)
         attn_out = self.attn(attn_in, cos, sin, attn_mask, valid)
-        x = ttnn.add(x, ttnn.multiply(ga, attn_out))
+        x = self._gated_add(x, ga, attn_out)
         ttnn.deallocate(attn_out)
 
         ffn_in = self._modulate(x, cf, sf)
@@ -1093,9 +1122,14 @@ class SWAAtomBlock(Module):
         else:
             h1, h2 = ttnn.chunk(lin(ffn_in, self.ffn_up), 2, dim=-1)
         ttnn.deallocate(ffn_in)
-        ffn_out = lin(ttnn.multiply(ttnn.silu(h1), h2), self.ffn_down)
+        if lever("ef2_atom_fuse"):
+            hb = ttnn.multiply(h1, h2, input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+        else:
+            hb = ttnn.multiply(ttnn.silu(h1), h2)
         ttnn.deallocate(h1); ttnn.deallocate(h2)
-        x = ttnn.add(x, ttnn.multiply(gf, ffn_out))
+        ffn_out = lin(hb, self.ffn_down)
+        ttnn.deallocate(hb)
+        x = self._gated_add(x, gf, ffn_out)
         ttnn.deallocate(ffn_out)
         return x
 

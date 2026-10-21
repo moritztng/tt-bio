@@ -782,6 +782,10 @@ _FAST_MODE = False
 #   ef2_atom_rope   ESMFold2's atom-transformer attention takes rotate_half(q), rotate_half(k) as one exact matmul
 #                   against a signed 32x32 permutation (esmfold2._rope_mm) instead of chunk/neg/concat, 12 times a
 #                   diffusion step on [B, 4, atoms, 32]. The fused rotary_embedding needs head_dim % 64 == 0 (wrp).
+#   ef2_atom_fuse   ESMFold2's diffusion blocks drop eltwise launches: the atom adaLN holds 1 + scale with the cached
+#                   modulation, modulate and both gated residuals are one addcmul each, the attention gate's sigmoid
+#                   and the SwiGLU silu ride the multiply as an input activation (atom blocks and token DiT transition).
+#                   The draw is launch-bound (~27 us a device op), so ops, not bytes, are its cost.
 #   dit_sigf32      OpenFold3's DiT gate linears (adaLN scale, the two s gates; fast and fp32 paths) fuse their
 #                   sigmoid in approx mode, which the silu_f32 overlay runs as calculate_silu_f32's sigmoid on the
 #                   fp32 dest: 6e-6 of float64 in ~1/3 of the wheel's accurate exp + two-step reciprocal. On WH that
@@ -814,7 +818,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
-          "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
+          "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "ef2_atom_fuse",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
@@ -833,7 +837,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bp
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
-                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
+                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "ef2_atom_fuse", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
