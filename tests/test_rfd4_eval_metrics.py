@@ -310,3 +310,24 @@ def test_swapped_identical_chains_are_resolved_as_upstream(tmp_path):
     expected = golden["rows"]["dimer_generated.cif"]
     assert expected["refolded_backbone_rmsd.rmsd"] == "0.5207"
     _assert_row_matches(expected, rows["dimer_generated.cif"], 51)
+
+
+def test_motif_scaffold_refolding_matches_upstream_on_a_real_design(tmp_path):
+    """The motif RMSD pair and the `motif_scaffold` criterion on a real upstream RFD4 design.
+
+    `motif/pdl1_binder_0_generated.cif` is the PD-L1 binder from the reference env, whose target is
+    the coordinate-conditioned motif (`SA_CRDSRC`, `coords-with-insertion`). The cached refold
+    flips 100 equivalent pairs, so the per-group symmetry step fires too."""
+    golden = json.loads((GOLDENS / "upstream_motif_real_binder.json").read_text())
+    rows = _run_cached(
+        tmp_path,
+        GOLDENS / "motif" / "pdl1_binder_0_generated.cif",
+        GOLDENS / "motif" / "refold_pdl1_binder_0_generated_479647c2",
+        "pdl1_binder_0_generated_479647c2",
+        "design,motif_scaffold_refolding",
+    )
+    expected = golden["rows"]["pdl1_binder_0_generated.cif"]
+    assert expected["refolded_motif_allatom_rmsd.rmsd"] == "0.5367"
+    assert expected["refolded_motif_ca_rmsd.rmsd"] == "0.5486"
+    assert expected["motif_scaffold.pass"] == "1.0"
+    _assert_row_matches(expected, rows["pdl1_binder_0_generated.cif"], 53)

@@ -76,6 +76,8 @@ def masks(design, coi):
             np.zeros(atoms.array_length(), dtype=bool) if coi is None else chain_iid(atoms) == coi
         ),
         "C_CRD": design.is_crd,
+        "SA_CRDSRC": design.crd_src,
+        "is_CA": atoms.atom_name == "CA",
         "all": np.ones(atoms.array_length(), dtype=bool),
     }
 
@@ -126,15 +128,29 @@ REFOLDING = (
     ),
 )  # fmt: skip
 
-#: Refolding metrics this port does not compute, with the tags that switch them on. The motif pair
-#: needs `SA_CRDSRC` and the `coords-with-insertion` annotation; apo/holo needs a second refold
-#: from `ApoOnlyTransform`; the DISCO one needs `LigandCentroidDistanceMetric`.
+#: The motif pair, `subdivide_by_annotation: condition_CoordinateGroup_1_atom` with the design's
+#: coordinates taken from `annotation_coords-with-insertion_1_atom`: each coordinate group is
+#: resolved for symmetry, aligned and scored on its own, and the groups are pooled as
+#: sqrt(sum(rmsd^2 * n) / sum(n)) (`gt_structure_comparison.py:402-462`).
+MOTIF = (
+    (
+        "refolded_motif_allatom_rmsd",
+        {
+            "motif_scaffold_refolding", "internal_coordinate_motif_scaffold_refolding", "ame_refolding",
+            "ame_no_ligand_refolding", "ame_original_benchmark_refolding",
+        },
+        ["SA_CRDSRC", "is_protein"],
+    ),
+    (
+        "refolded_motif_ca_rmsd",
+        {"motif_scaffold_refolding", "internal_coordinate_motif_scaffold_refolding"},
+        ["SA_CRDSRC", "is_protein", "is_CA"],
+    ),
+)  # fmt: skip
+
+#: Refolding metrics this port does not compute, with the tags that switch them on. Apo/holo needs
+#: a second refold from `ApoOnlyTransform`; the DISCO one needs `LigandCentroidDistanceMetric`.
 REFOLDING_NOT_PORTED = {
-    "refolded_motif_allatom_rmsd": {
-        "motif_scaffold_refolding", "internal_coordinate_motif_scaffold_refolding", "ame_refolding",
-        "ame_no_ligand_refolding", "ame_original_benchmark_refolding",
-    },
-    "refolded_motif_ca_rmsd": {"motif_scaffold_refolding", "internal_coordinate_motif_scaffold_refolding"},
     "refolded_apo_holo_rmsd": {"apo_refolding"},
     "max_ligand_centroid_distance": {"disco_refolding"},
 }  # fmt: skip
@@ -142,7 +158,15 @@ REFOLDING_NOT_PORTED = {
 #: `configs/metrics/pass_criteria/all_pass_criteria.yaml`: (name, gate tags, prohibited tags,
 #: {metric key: bounds}). Bounds are upstream's own, read off the config rather than the docs --
 #: `developability.rosetta_developability.sap_score` is 50.0 there and 75 in the published table.
+_MOTIF_THRESHOLDS = {
+    "refolded_backbone_rmsd.rmsd": {"max": 2.0},
+    "refolded_motif_allatom_rmsd.rmsd": {"max": 2.0},
+    "refolded_motif_ca_rmsd.rmsd": {"max": 1.0},
+}
+
 PASS_CRITERIA = (
+    ("motif_scaffold", {"motif_scaffold_refolding"}, set(), _MOTIF_THRESHOLDS),
+    ("internal_coords", {"internal_coordinate_motif_scaffold_refolding"}, set(), _MOTIF_THRESHOLDS),
     ("unconditional", {"unconditional_refolding"}, set(), {"refolded_backbone_rmsd.rmsd": {"max": 1.5}}),
     ("ppi", {"ppi_refolding"}, set(), {
         "oracle_ppi.ptm_coi": {"min": 80.0},
@@ -167,8 +191,6 @@ PASS_CRITERIA = (
 
 #: Pass criteria whose thresholds read a metric this port does not compute.
 PASS_NOT_PORTED = {
-    "motif_scaffold": {"motif_scaffold_refolding"},
-    "internal_coords": {"internal_coordinate_motif_scaffold_refolding"},
     "ame": {"ame_refolding"},
     "ame_no_ligand": {"ame_refolding"},
     "disco": {"disco_refolding"},
@@ -262,7 +284,43 @@ def refolding_metrics(design, refolds, tags, coi):
                 design.is_polymer[design_keep],
             )
             out.update({f"{name}.{k}": v for k, v in result.items()})
+        for name, gate, mask in MOTIF:
+            if not (tags is None or tags & gate):
+                continue
+            motif_gt = gt.copy()
+            motif_gt.coord = design.coords_with_insertion[design_keep].astype(np.float32)
+            result = motif_rmsd(
+                motif_gt,
+                _resolve(mask, gt_masks),
+                design.crd_group[design_keep],
+                pred,
+                _resolve(mask, pred_masks),
+                design.is_polymer[design_keep],
+            )
+            out.update({f"{name}.{k}": v for k, v in result.items()})
     return out
+
+
+def motif_rmsd(gt, gt_mask, groups, pred, pred_mask, gt_is_polymer):
+    """`StructureComparisonMetric._compute_per_group` with align and subset the same mask.
+
+    Each value of the group annotation (read on the design) is a slice of both structures; symmetry
+    is resolved inside the slice, then aligned and scored on the mask there. A slice with no
+    result, or none of its atoms left, drops out, and the rest pool by atom count."""
+    total, weighted = 0, 0.0
+    for value in np.unique(groups):
+        sel = groups == value
+        result = M.structure_comparison(
+            gt[sel], gt_mask[sel], gt_mask[sel], pred[sel], pred_mask[sel], pred_mask[sel], gt_is_polymer[sel],
+            return_n_atoms=True,
+        )
+        if not result or result["n_atoms"] == 0:
+            continue
+        total += result["n_atoms"]
+        weighted += result["rmsd"] ** 2 * result["n_atoms"]
+    if total == 0:
+        return {}
+    return {"rmsd": float(np.sqrt(weighted / total))}
 
 
 def pass_criteria(metrics, tags):

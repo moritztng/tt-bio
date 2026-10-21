@@ -379,7 +379,9 @@ def _finite(atoms):
     return np.isfinite(atoms.coord).all(axis=-1)
 
 
-def structure_comparison(gt, gt_align, gt_subset, pred, pred_align, pred_subset, gt_is_polymer=None) -> dict:
+def structure_comparison(
+    gt, gt_align, gt_subset, pred, pred_align, pred_subset, gt_is_polymer=None, return_n_atoms=False
+) -> dict:
     """rfproteina `gt_structure_comparison.py:194-285`, one structure per side.
 
     With `gt_is_polymer` given, the ground truth's identical subunits and equivalent atoms are
@@ -408,9 +410,10 @@ def structure_comparison(gt, gt_align, gt_subset, pred, pred_align, pred_subset,
     p = pred_subset & np.isfinite(pred_coord).all(axis=-1)
     if g.sum() != p.sum():
         return {}
-    if g.sum() == 0:
-        return {"rmsd": float("nan")}
-    return {"rmsd": float(rmsd(gt.coord[g], pred_coord[p]))}
+    out = {"rmsd": float("nan") if g.sum() == 0 else float(rmsd(gt.coord[g], pred_coord[p]))}
+    if return_n_atoms:
+        out["n_atoms"] = int(g.sum())
+    return out
 
 
 def compute_ca_rmsd_to_input(design, input_design) -> dict:
