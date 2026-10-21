@@ -17,7 +17,8 @@ what it would run and stops at the engine with a clear message. The spec surface
 features and the writer are exact against upstream today (scripts/rfd4_port/).
 """
 from tt_bio.rfd4.engine import Engine, NotPortedEngine, get_engine
-from tt_bio.rfd4.io import DesignInput, featurize, load_spec, write_design
+from tt_bio.rfd4.io import (DesignInput, featurize, load_spec, prepare_examples,
+                            write_design)
 
 __all__ = ["DesignInput", "Engine", "NotPortedEngine", "featurize", "get_engine",
-           "load_spec", "write_design"]
+           "load_spec", "prepare_examples", "write_design"]
