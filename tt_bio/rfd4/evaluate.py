@@ -119,6 +119,23 @@ PRE_ORACLE_NOT_PORTED = {
     "insertion_rmsd_filter": _gate(all_of=["unindexed", "insertion_rmsd_filter"]),
 }
 
+#: Upstream metrics no tag reaches: they are deliberately left out of `all_inline_metrics.yaml`
+#: and a user copies one into a metric set. Each is bound to a dependency tt-bio does not take
+#: (DECISIONS.md, 2026-10-21), so each is refused by name with that dependency.
+OPT_IN_NOT_PORTED = {
+    "ligand_interface_ddg": "tmol, a torch-CUDA energy stack",
+    "ligand_interface_hbonds": "tmol, a torch-CUDA energy stack",
+    "ligand_interface_electrostatics": "tmol, a torch-CUDA energy stack",
+    "soft_ddg": "tmol, a torch-CUDA energy stack",
+    "ppi_interface_ddg": "tmol, a torch-CUDA energy stack",
+    "ppi_interface_coulomb": "tmol, a torch-CUDA energy stack",
+    "mutation_interface_ddg": "tmol, a torch-CUDA energy stack",
+    "mutation_interface_ddg_scan": "tmol, a torch-CUDA energy stack",
+    "charge_complementarity": "PyRosetta (ddg_salt_metrics), which is licence-encumbered",
+    "ipa_interaction_energy": "the IPA QM binary ($IPA_PATH)",
+    "foldseek_novelty": "the Foldseek binary ($FOLDSEEK_EXEC) and its passer database",
+}
+
 # Tags that switch on a refolding oracle. The oracle itself is not run here: `eval_refold` reads
 # the refold the oracle cached, which is how upstream resumes too.
 ORACLE_TAGS = {tag for _, _, gate in R.ORACLES for tag in gate}
@@ -205,9 +222,27 @@ def _cell(value):
     return value
 
 
-def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njobs=1):
-    """Run the ported inline metrics over `inputs` and write upstream's CSV. Returns its path."""
+def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njobs=1,
+             extra_metrics=None, cluster_with_foldseek=False):
+    """Run the ported inline metrics over `inputs` and write upstream's CSV. Returns its path.
+
+    `extra_metrics` names upstream metrics that no tag reaches: the ones a user copies into a
+    metric set by hand (`configs/metrics/inline_metrics/{tmol_block_pair,ipa}_metrics.yaml`).
+    None of them is ported, so naming one is refused with the dependency it would pull in, rather
+    than scored short. `cluster_with_foldseek` is refused the same way.
+    """
     tags = parse_tags(metrics_tags)
+    for name in extra_metrics or ():
+        if name in OPT_IN_NOT_PORTED:
+            raise NotImplementedError(
+                f"{name} is not ported: it needs {OPT_IN_NOT_PORTED[name]}, which tt-bio does "
+                "not ship (state/rfd4/DECISIONS.md). Run it upstream.")
+        raise ValueError(f"unknown metric: {name}")
+    if cluster_with_foldseek:
+        raise NotImplementedError(
+            f"cluster_with_foldseek is not ported: it needs {OPT_IN_NOT_PORTED['foldseek_novelty']}. "
+            "A clustering or novelty number against a database tt-bio does not ship is not "
+            "reproducible for a user (state/rfd4/DECISIONS.md).")
     missing = unsupported(tags)
     if missing:
         raise NotImplementedError(
