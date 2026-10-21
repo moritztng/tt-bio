@@ -76,10 +76,17 @@ def grade_decoder(tt: dict, ref: dict, ref_fin: dict, tt_fin: dict, legal: torch
 
 def recon(fin: dict, batch: dict) -> dict | None:
     """Reconstruction against the INPUT structure: all-atom RMSD (no alignment, as upstream's
-    `rmsd_no_align_a37_ang`) and sequence recovery. Only a real captured batch carries both."""
+    `rmsd_no_align_a37_ang`) and sequence recovery.
+
+    Returns None unless the batch actually CARRIES a structure. A design-task input (the monomer
+    benchmark files, say) is a specification: it names a chain and its length and leaves every
+    coordinate at zero with an empty atom37_mask. Reconstruction against that is not a bad score,
+    it is a meaningless one, and averaging over an empty mask is how it reaches the report as NaN."""
     if "residue_type" not in batch or "coords_nm" not in batch:
         return None
     m = fin["atom_mask"] & batch["atom37_mask"].bool()
+    if not bool(m.any()):
+        return None
     d = (fin["coors_nm"].double() - batch["coords_nm"].double())[m] * 10.0
     emit = fin["emit_mask"]
     return {"all_atom_rmsd_A": float(d.norm(dim=-1).pow(2).mean().sqrt()), "n_atoms": int(m.sum()),
