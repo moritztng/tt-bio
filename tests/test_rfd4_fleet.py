@@ -191,3 +191,27 @@ def test_a_held_engine_is_dropped_before_a_predict_model_loads(monkeypatch):
     monkeypatch.setattr(worker_mod, "_RFD4_ENGINE", ("high/flat", object()))
     worker_mod._free_rfd4_engine()
     assert worker_mod._RFD4_ENGINE == (None, None)
+
+
+def test_the_cli_submits_rather_than_designing_locally(monkeypatch, tmp_path):
+    from click.testing import CliRunner
+
+    from tt_bio.main import cli
+    from tt_bio.rfd4 import fleet as fleet_mod
+
+    seen = {}
+    monkeypatch.setattr(fleet_mod, "design_via_controller",
+                        lambda spec, out_dir, **kw: seen.update(kw, spec=pathlib.Path(spec)) or [])
+    monkeypatch.setattr("tt_bio.rfd4.run.design",
+                        lambda *a, **k: pytest.fail("the CLI designed locally with --controller"))
+    spec = tmp_path / "spec.yaml"
+    spec.write_text("a: {}\n")
+    result = CliRunner().invoke(cli, ["design", str(spec), "--model", "rfd4",
+                                      "--out_dir", str(tmp_path / "out"), "--num_designs", "4",
+                                      "--seed", "3", "--recipe", "high/flat",
+                                      "--controller", "http://c", "--run-id", "job-9",
+                                      "--owner", "abc"])
+    assert result.exit_code == 0, result.output
+    assert seen["controller_url"] == "http://c" and seen["num_designs"] == 4
+    assert (seen["seed"], seen["recipe"], seen["run_id"], seen["owner"]) == (3, "high/flat",
+                                                                            "job-9", "abc")
