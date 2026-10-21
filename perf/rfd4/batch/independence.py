@@ -33,7 +33,7 @@ def main():
     import ttnn
 
     from tt_bio.rfd4 import engine as E
-    from tt_bio.rfd4.trunk import trunk_masks
+    from tt_bio.rfd4.trunk import _per_design, trunk_masks
 
     eng = E.DesignEngine(a.weights, recipe="thinking_medium")
     dev, tr = eng._device, eng.trunk
@@ -72,8 +72,8 @@ def main():
         "transition_adaln": lambda x: blk.transition(x["s16"], x["c"], x["masks"][0]),
         "trunk_block": lambda x: blk(x["s32"], x["z16"], x["c"], x["masks"][0], x["masks"][1], x["masks"][4]),
         "pair.write": lambda x: pu._write(x["s16"], x["masks"][0])[0],
-        "pair.tri_mult_out": lambda x: pu.tri_out(x["z16"], x["masks"][2]),
-        "pair.tri_mult_in": lambda x: pu.tri_in(x["z16"], x["masks"][2]),
+        "pair.tri_mult_out": lambda x: _per_design(pu.tri_out, x["z16"], x["masks"][2]),
+        "pair.tri_mult_in": lambda x: _per_design(pu.tri_in, x["z16"], x["masks"][2]),
         "pair.transition": lambda x: pu._transition(x["z16"], x["masks"][3]),
         "pair_update": lambda x: pu(x["s32"], x["z32"], x["masks"][0], x["masks"][2], x["masks"][3], x["masks"][5]),
         "recycle.s": lambda x: tr._recycle(x["s32"], x["s32"], tr.s_norm, tr.s_proj),
