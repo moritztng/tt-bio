@@ -21,6 +21,7 @@ import math
 from pathlib import Path
 
 from tt_bio.rfd4 import eval_metrics as M
+from tt_bio.rfd4 import eval_refold as R
 from tt_bio.rfd4.eval_io import read_design
 
 log = logging.getLogger(__name__)
@@ -107,12 +108,9 @@ PRE_ORACLE_NOT_PORTED = {
     "ligand_clash_filter": _gate(all_of=["ligand_clash_filter"], none_of=["no_ligand"]),
 }
 
-# Tags that switch on the refolding oracles; none of them run in this port yet.
-ORACLE_TAGS = {
-    "unconditional_refolding", "ppi_refolding", "dna_refolding", "motif_scaffold_refolding",
-    "internal_coordinate_motif_scaffold_refolding", "sm_binder_refolding", "ame_refolding",
-    "disco_refolding",
-}  # fmt: skip
+# Tags that switch on a refolding oracle. The oracle itself is not run here: `eval_refold` reads
+# the refold the oracle cached, which is how upstream resumes too.
+ORACLE_TAGS = {tag for _, _, gate in R.ORACLES for tag in gate}
 
 
 def parse_tags(raw):
@@ -128,9 +126,7 @@ def parse_tags(raw):
 def unsupported(tags):
     tagset = None if tags is None else set(tags)
     names = [n for n, g in {**NOT_PORTED, **PRE_ORACLE_NOT_PORTED}.items() if g(tagset)]
-    if tagset is None or tagset & ORACLE_TAGS:
-        names.append("refolding oracles")
-    return names
+    return names + R.not_ported(tagset)
 
 
 def structure_files(inputs):
@@ -224,7 +220,7 @@ def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njob
     metrics_dir = out_dir / "evaluation_metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = []
+    rows, uncached = [], []
     for path in files:
         eid = example_id(path, inputs)
         row = {
@@ -235,9 +231,11 @@ def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njob
             "output_base_dir": str(samples_dir),
             "metrics_tags": ",".join(tags) if tags else "",
         }
+        design = None
         try:
+            design = read_design(path)
             sidecar = input_structure(path)
-            metrics = inline_metrics(read_design(path), tags, read_design(sidecar) if sidecar else None)
+            metrics = inline_metrics(design, tags, read_design(sidecar) if sidecar else None)
         except Exception as exc:  # upstream drops the whole inline block for this design
             log.warning("Design metrics failed for %s: %s", eid, exc)
             metrics = {}
@@ -246,7 +244,32 @@ def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njob
         # rfproteina `proteina.py:283-290` fills this from metric keys ending in `chain_of_interest`;
         # only the oracles emit one, so on the inline-only path it is always empty.
         row["chain_of_interest"] = None
+
+        oracle_active = tags is None or set(tags) & ORACLE_TAGS
+        # A design that fails a pre-oracle filter is dropped before the oracle stage
+        # (rfproteina `evaluate.py:200-209`), so it gets no oracle or refolding columns at all.
+        if oracle_active and design is not None and row["pre_oracle_pass"] == 1.0:
+            tagset = None if tags is None else set(tags)
+            columns, refolds, coi = R.oracle_metrics(samples_dir, eid, tagset)
+            if not columns:
+                uncached.append(eid)
+            row.update(columns)
+            row["chain_of_interest"] = coi
+            refold_columns = R.refolding_metrics(design, refolds, tagset, coi)
+            row.update(refold_columns)
+            row.update(R.pass_criteria({**metrics, **columns, **refold_columns}, tagset))
+        elif oracle_active:
+            # Upstream still writes the criterion's columns for a design the filter dropped, zeroed
+            # at merge time (rfproteina `evaluate.py:251-256`).
+            row.update({k: 0.0 for k in R.pass_criteria({}, None if tags is None else set(tags))})
         rows.append(row)
+
+    if uncached:
+        raise NotImplementedError(
+            f"{len(uncached)} of {len(rows)} designs have no cached refold under {samples_dir} "
+            f"(first: {uncached[0]}), and this port folds nothing itself. Refold them with "
+            "`tt_bio.rfd4.oracle` or upstream's rfd4-evaluate, then score the same out_dir again."
+        )
 
     columns = []
     for row in rows:

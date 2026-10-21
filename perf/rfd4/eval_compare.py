@@ -34,6 +34,14 @@ PROVENANCE = {
     "metrics_tags",
 }
 
+#: Column suffixes upstream itself treats as metadata rather than a metric
+#: (rfproteina `proteina.py:231-250`): every refold's own file paths, which name the out_dir.
+PROVENANCE_SUFFIXES = ("refolded_structure_path", "confidence_json_path")
+
+
+def is_provenance(column):
+    return column in PROVENANCE or column.endswith(PROVENANCE_SUFFIXES)
+
 
 def load(path):
     with open(path, newline="") as fh:
@@ -80,7 +88,7 @@ def compare(upstream, port, atol, rtol, only_prefix=None):
 
     for design in shared:
         up, pt = upstream[design], port[design]
-        cols = [c for c in up if c not in PROVENANCE and not c.startswith("generation.")]
+        cols = [c for c in up if not is_provenance(c) and not c.startswith("generation.")]
         if only_prefix:
             cols = [c for c in cols if c.startswith(only_prefix)]
         diffs = {}
@@ -92,7 +100,7 @@ def compare(upstream, port, atol, rtol, only_prefix=None):
             if not cell_equal(up[col], pt[col], atol, rtol):
                 diffs[col] = {"upstream": up[col], "port": pt[col], "reason": "value differs"}
         for col in pt:
-            if col in PROVENANCE or col.startswith("generation.") or col in up:
+            if is_provenance(col) or col.startswith("generation.") or col in up:
                 continue
             if only_prefix and not col.startswith(only_prefix):
                 continue
