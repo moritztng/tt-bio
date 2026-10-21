@@ -287,9 +287,11 @@ void kernel_main() {
             }
             mm_block_init_short(cb_x, cb_w12, false, SW, 1, KT);
             reconfig_data_format(cb_w12, cb_x);
+#ifndef WS_NO_FC12
             for (uint32_t k = 0; k < KT; ++k) {
                 matmul_block(cb_x, cb_w12, k, k * W12 + j, 0, false, SW, 1, KT);
             }
+#endif
             relu_tile_init();
             for (uint32_t i = 0; i < SW; ++i) {
                 relu_tile(i);
