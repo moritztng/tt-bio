@@ -405,3 +405,27 @@ def test_an_arm_rejected_by_a_pre_oracle_filter_is_no_data(tmp_path):
     res = json.loads(out.read_text())["features"][FEATURE]
     assert rc == 1 and res["verdict"] == "NO_DATA"
     assert any("pre-oracle filter" in n for n in res["notes"])
+
+
+def test_the_reference_index_names_one_entry_per_seed_and_refuses_a_single_seed(tmp_path, capsys):
+    import reference_index as ri
+
+    root = tmp_path / "reference"
+    for seed in ("1234", "5678"):
+        d = root / f"binder_seed{seed}" / "inference_samples" / "ex"
+        d.mkdir(parents=True)
+        _helix_cif(d / "ex_generated.cif", n=12)
+    out = tmp_path / "reference-designs.json"
+    rc = ri.main(["--root", str(root), "--family", "binder", "--recipe", "thinking_medium bf16",
+                  "--session", "vast:57071268", "--out", str(out)])
+    entry = json.loads(out.read_text())["binder"]
+    assert rc == 0 and sorted(entry["seeds"]) == ["1234", "5678"]
+    assert entry["recipe"] == "thinking_medium bf16" and entry["session"] == "vast:57071268"
+
+    only = tmp_path / "one"
+    d = only / "binder_seed1234" / "inference_samples" / "ex"
+    d.mkdir(parents=True)
+    _helix_cif(d / "ex_generated.cif", n=12)
+    assert ri.main(["--root", str(only), "--family", "binder", "--recipe", "r", "--session", "s",
+                    "--out", str(tmp_path / "one.json")]) == 1
+    assert "needs TWO seeds" in capsys.readouterr().out
