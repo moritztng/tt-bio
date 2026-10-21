@@ -367,7 +367,8 @@ def _key_lens(attn_mask) -> list | None:
     lens = (attn_mask[:, 0, :] == 0).sum(1)
     keep = torch.arange(attn_mask.shape[-1]) < lens[:, None]
     want = torch.where(keep, 0.0, float("-inf")).to(attn_mask.dtype)
-    if not (bool((lens > 0).all()) and torch.equal(attn_mask, want[:, None, :].expand_as(attn_mask))):
+    rows = attn_mask[:, :1] if attn_mask.stride(1) == 0 else attn_mask   # _batch_tokens' mask repeats one row
+    if not (bool((lens > 0).all()) and torch.equal(rows, want[:, None, :].expand_as(rows))):
         return None
     return lens.tolist()
 
@@ -2665,12 +2666,14 @@ def _batch_tokens(seqs: list[str], bucket: int = BUCKET):
         input_ids[i, :lens[i]] = t
     if all(li == Lb for li in lens):
         return input_ids, lens, None, None
-    attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
+    key_row = torch.zeros(B, 1, Lb, dtype=torch.float32)
     key_valid = torch.ones(B, 1, Lb, 1, dtype=torch.float32)
     for i, li in enumerate(lens):
-        attn_mask[i, :, li:] = float("-inf")     # no query attends to padded keys
+        key_row[i, :, li:] = float("-inf")       # no query attends to padded keys
         key_valid[i, :, li:, :] = 0.0            # padded keys/values contribute 0
-    return input_ids, lens, attn_mask, key_valid
+    # Every query row is the same, so the [B, Lb, Lb] mask is a stride-0 view of one row per batch: the page batch
+    # (7 x 544) no longer fills 8 MB on the host before each forward. Writing into it raises; copy first.
+    return input_ids, lens, key_row.expand(B, Lb, Lb), key_valid
 
 
 def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = False,
