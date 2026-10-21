@@ -164,3 +164,14 @@ def test_dram_shapes_force_the_dram_config(grid, clean_memos):
     assert T._triangle_mul_memory_config(140) is T.ttnn.L1_MEMORY_CONFIG
     T._TRIMUL_DRAM_SHAPES.add(140)
     assert T._triangle_mul_memory_config(140) is T.ttnn.DRAM_MEMORY_CONFIG
+
+
+@pytest.mark.parametrize("fast", [False, True])
+def test_wormhole_residency_threshold_holds_in_both_modes(monkeypatch, fast):
+    """On the small (Wormhole) grid the re-fit threshold decides residency in normal mode too; Blackhole keeps its own."""
+    monkeypatch.setattr(T, "_FAST_MODE", fast)
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", True)
+    assert T._trimul_l1_max_seq() == T.SMALL_GRID_TRIMUL_L1_MAX_SEQ == 128
+    assert T._trimul_chunk_size(160, HIDDEN, 1) == T.TRIANGLE_MULT_CHUNK_SIZE
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", False)
+    assert T._trimul_l1_max_seq() > 128
