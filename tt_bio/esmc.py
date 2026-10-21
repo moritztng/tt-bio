@@ -2672,7 +2672,8 @@ def _batch_tokens(seqs: list[str], bucket: int = BUCKET):
         key_row[i, :, li:] = float("-inf")       # no query attends to padded keys
         key_valid[i, :, li:, :] = 0.0            # padded keys/values contribute 0
     # Every query row is the same, so the [B, Lb, Lb] mask is a stride-0 view of one row per batch: the page batch
-    # (7 x 544) no longer fills 8 MB on the host before each forward. Writing into it raises; copy first.
+    # (7 x 544) no longer fills 8 MB on the host before each forward. A slice write into it raises (one element
+    # would alias every query row): pad or clone first, as bucket_token_axis does.
     return input_ids, lens, key_row.expand(B, Lb, Lb), key_valid
 
 
