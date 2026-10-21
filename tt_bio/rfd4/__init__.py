@@ -1,5 +1,7 @@
 """RFD4-Proteina all-atom design on Tenstorrent: the host side.
 
+Ported from RosettaCommons/RFD4-Proteina at 2db07bb444d91695f8c10e6acb7648e9297f9221.
+
 ``tt-bio design --model rfd4`` takes a design spec (the same YAML/JSON RFD4 itself takes)
 or an annotated CIF, featurizes it, runs the flow-matching model, and writes an annotated
 CIF per design.
