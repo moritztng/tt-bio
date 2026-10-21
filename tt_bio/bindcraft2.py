@@ -352,12 +352,14 @@ def round_device_bytes(mode: str, padded: int) -> int:
 
 
 def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
-                    blocks: int = EVOFORMER_BLOCKS, requested: str | None = None) -> int:
+                    blocks: int = EVOFORMER_BLOCKS, requested: str | None = None,
+                    beside: int = 0) -> int:
     """How many of the last `blocks` Evoformer blocks keep their tape (`RESIDENT_BLOCKS`).
 
     ``auto`` fills what the card holds beside a fast round on a board in `_RESIDENT_LADDERED`,
     and is 0 on any other board, in the slower modes (they exist because the card is short) and for an interleaved trajectory (`slot` set): its
-    neighbours peak at other times, so the room one sees is not its own to spend."""
+    neighbours peak at other times, so the room one sees is not its own to spend. `beside` is what
+    another on-card module holds while the tape is live (`StructureOnDevice`): it comes off the room."""
     requested = RESIDENT_BLOCKS if requested is None else requested
     if requested != "auto":
         return max(0, min(blocks, int(requested)))
@@ -372,7 +374,7 @@ def resident_blocks(mode: str, padded: int, card_bytes: int, slot: str = "",
     # resident tape would sit on top of it.
     if card_bytes * _MODE_USABLE - round_device_bytes("fast", padded) < tape:
         return 0
-    room = card_bytes * _MODE_USABLE - _MODE_BASE_BYTES - _RESIDENT_ROUND_PAIR_TENSORS * pair
+    room = card_bytes * _MODE_USABLE - _MODE_BASE_BYTES - _RESIDENT_ROUND_PAIR_TENSORS * pair - beside
     return max(0, min(blocks, int(room // tape)))
 
 
@@ -1374,6 +1376,8 @@ class EvoformerOnDevice:
         #: Set by `StructureOnDevice`: keep each trajectory's final pair on card for it, and add
         #: the pair cotangent it leaves in `pair_grads` (keyed by tape token) to the backward's.
         self.keep_pair = False
+        #: Set by `StructureOnDevice`: device bytes it holds beside the tape at a token axis.
+        self.beside = lambda padded: 0
         self.resident: dict = {}
         self.pair_grads: dict = {}
 
@@ -1527,7 +1531,8 @@ class EvoformerOnDevice:
                                          self._pair_masks(trunk, pair_mask),
                                          recompute=self.recompute, offload=offload, drop=drop,
                                          resident=resident_blocks(mode, z.shape[0],
-                                                                  trunk.card_bytes(), slot))
+                                                                  trunk.card_bytes(), slot,
+                                                                  beside=self.beside(z.shape[0])))
             trunk.sync()
             trunk.ag.release_pins()
             token = self._tapes.bank({"roots": (mo, zo), "leaves": (ml, zl),
@@ -1602,6 +1607,8 @@ class EvoformerOnDevice:
             if extra is not None:
                 ttnn = trunk.ttnn
                 seed_z = ttnn.add(seed_z, ttnn.reshape(ttnn.typecast(extra, ttnn.bfloat16), seed_z.shape))
+                # fp32 and pair-sized: freed before the backward's recompute peak, not at return.
+                ttnn.deallocate(extra); del extra
             trunk.ag.backward([mo, zo], [trunk.seed(gm, mo), seed_z])
             trunk.sync()
             out = (trunk.grad(ml, m_shape)[:, :n].numpy(),
@@ -1695,6 +1702,8 @@ class StructureOnDevice:
     def __init__(self, evo: EvoformerOnDevice):
         self.evo = evo
         evo.keep_pair = True
+        from tt_bio import af2_structure as S
+        evo.beside = S.device_bytes
         self.calls = {"primal": 0, "taped": 0, "backward": 0}
         self._tapes = _Tapes()
         self._kbias: dict = {}

@@ -31,6 +31,6 @@ for s in $SEEDS; do
   log "s$s start load $(cut -d' ' -f1 /proc/loadavg) aiclk $(cat /sys/class/tenstorrent/tenstorrent\!$CARD/tt_aiclk)"
   timeout 28800 "$PY" perf/spd/bench.py --out "$D/tt_s$s" --chip "$CARD" --model bindcraft2 \
       --bc2 "$HOME/bcx_e2e/bc2" --seed "$s" --warm 9 --inputs 80 > "$D/tt_s$s.log" 2>&1
-  log "s$s rc=$? crashes $(grep -ci crash "$D/tt_s$s.log" 2>/dev/null)"
+  log "s$s rc=$? crashes $(grep -ciE "crash|TT_FATAL|Traceback" "$D/tt_s$s.log" 2>/dev/null)"
 done
 touch "$D/done_c$CARD"; log "done chip $CARD"

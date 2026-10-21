@@ -226,6 +226,16 @@ def layer(o, k, act, R, t, bias, z_rows, drop=None):
     return act, R_new, t_new
 
 
+def device_bytes(padded):
+    """Device bytes `Card` holds at its peak for one taped stack and its backward at `padded` tokens:
+    the fp32 pair copy, key bias, dropout keeps, the tape and the backward's transient. They are
+    live while the Evoformer's tape is, so the Evoformer's resident budget has to leave them room.
+    Fitted on a Blackhole chip at 224/352/512/672 (0.75/1.37/2.32/3.50 GB, all within 0.01 GB);
+    the per-token term is the [N, 3, w] frame tensors, each padded to a 32-row tile.
+    `perf/bc4_stack/sm_bytes.py`."""
+    return int(2.434e6 * padded + 4119 * padded ** 2)
+
+
 def key_bias(mask):
     """-1e5 s3 on every masked key, [H, N, N].
 
