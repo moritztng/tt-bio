@@ -7,6 +7,7 @@
 //      = the [c x j] block of pair row i in row-major order, 2 KB contiguous;
 //   2. each 2 KB page tilized alone into c_2 -> a [c x j] tile;
 //   3. transposed in the unpacker -> [j x c], the channel-last output tile of row it*32 + i.
+// TR = 0 (tile_rows) stops after step 2: the tilized page is the output tile.
 // A pure copy through a 16-bit dest: bit-exact. The same re-tiling dit_pair_bias does, plus the transpose a
 // three-axis move needs.
 #include <cstdint>
@@ -21,6 +22,7 @@
 
 void kernel_main() {
     constexpr uint32_t ABL = get_compile_time_arg_val(0);   // bit 1: no tilize/transpose, bit 3: no transpose (diagnostic)
+    constexpr uint32_t TR = get_compile_time_arg_val(1);    // 1: transpose each tilized tile, 0: write it as is
     const uint32_t nunits = get_arg_val<uint32_t>(0);
     constexpr uint32_t in_cb = tt::CBIndex::c_0, rm_cb = tt::CBIndex::c_1, t_cb = tt::CBIndex::c_2;
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
@@ -55,7 +57,8 @@ void kernel_main() {
             }
             continue;
         }
-        constexpr uint32_t tz_cb = (ABL & 8) ? out_cb : t_cb;   // bit 3: tilize straight to out, no transpose
+        constexpr bool tr = TR && !(ABL & 8);
+        constexpr uint32_t tz_cb = tr ? t_cb : out_cb;
         tilize_init(rm_cb, 1, tz_cb);
         for (uint32_t i = 0; i < 32; ++i) {
             cb_wait_front(rm_cb, 1);
@@ -65,7 +68,7 @@ void kernel_main() {
             cb_pop_front(rm_cb, 1);
         }
         tilize_uninit(rm_cb, tz_cb);
-        if constexpr (ABL & 8) continue;
+        if constexpr (!tr) continue;
 
         // The short init: the full one re-runs pack_sync_init and the hw configure mid-kernel, which hung the chip
         // (bpk, bpk2 on .107); in-tree kernels call it once at start and the short form after other ops.

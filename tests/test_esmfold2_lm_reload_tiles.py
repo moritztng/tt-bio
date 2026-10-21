@@ -61,3 +61,20 @@ def test_adapter_reloads_from_its_tiles_on_wormhole(monkeypatch, wormhole):
         assert calls == [("pretrained", "dump"), ("load", "load", {0: "tile"}, {})]
     else:
         assert calls == [("pretrained", None), ("pretrained", None)] and a._tiles is None
+
+
+def test_wh_lm_release_rule_counts_drawn_rows():
+    """Deep MSAs up to 768 aa keep the 6B resident: the encoder draws max_depth rows a loop (lmr)."""
+    from types import SimpleNamespace as NS
+    from tt_bio.esmfold2_runtime import wh_releases_lm
+
+    def chains(tokens, depth):
+        return [("A", "M" * tokens, NS(depth=depth) if depth else None)]
+
+    # measured resident on a 12 GiB chip (lmr / lmv, 2026-10-20)
+    for tokens, depth in [(512, 35), (512, 4096), (256, 16384), (512, 6144), (768, 4096)]:
+        assert not wh_releases_lm(chains(tokens, depth), max_depth=1024), (tokens, depth)
+    assert wh_releases_lm(chains(768, 8192), max_depth=1024)  # past the deepest point measured
+    assert wh_releases_lm(chains(769, 64), max_depth=1024)  # pair track headroom
+    assert wh_releases_lm(chains(512, 4096))  # no subsampling: every row is an encoder row
+    assert not wh_releases_lm(chains(1088, 0)) and wh_releases_lm(chains(1089, 0))

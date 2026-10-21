@@ -971,9 +971,16 @@ class _Trunk:
         self.ttnn.synchronize_device(self.device)
 
     def card_bytes(self) -> int:
-        """This chip's DRAM as the allocator reports it."""
-        mv = self.ttnn.get_memory_view(self.device, self.ttnn.BufferType.DRAM)
-        return int(mv.total_bytes_per_bank) * int(mv.num_banks)
+        """This chip's DRAM as the allocator reports it.
+
+        Read once: the total is a constant of the chip, and `get_memory_view` walks the
+        allocator, ~10 ms a call on pc with a tape live, paid before the forward enqueues
+        anything, so the card sat idle for it on every taped seam.
+        """
+        if getattr(self, "_card_bytes", None) is None:
+            mv = self.ttnn.get_memory_view(self.device, self.ttnn.BufferType.DRAM)
+            self._card_bytes = int(mv.total_bytes_per_bank) * int(mv.num_banks)
+        return self._card_bytes
 
     def arm(self, mode: str) -> bool:
         """Set every block of this trunk to `mode` (see `MEMORY_MODES`). True when the
@@ -2669,6 +2676,11 @@ _FAST_ROUND = (
     ("af2", "AF2PairBlock", "rne_kernel", None, True),
     ("af2", "AF2PairBlock", "tri_att_g_in_matmul", "TT_BIO_AF2_G_BIAS_IN_MATMUL", True),
     ("af2", "AF2MaskedOuterProductMean", "rows_in_k", "TT_BIO_AF2_OPM_ROWS_IN_K", True),
+    # The trimul output tail with its dropped residual as one T2CM kernel, and the biased input projection on
+    # gin_ragged. With both on, the AF2-IG trunk falls off its committed device floor (i_ptm 0.006 against a
+    # 0.005 bar), so they are armed here only, where BindCraft 2's designs grade them.
+    ("af2", None, "_AF2_T2CM", "TT_BIO_AF2_T2CM", True),
+    ("tenstorrent", None, "_TRIMUL_GIN_BIASED", "TT_BIO_TRIMUL_GIN_BIASED", True),
     ("taped_ttnn", None, "TAPED_KERNELS_DEFAULT", None,
      "tri_att_sdpa_hifi,rne_add,rne_add_masked,reblock_permute_gated,pair_transpose,triatt_qkv_heads,pair_relu"),
     # OpenFold3 training turned the fp32 softmax backward on by default; the round above was
@@ -2684,7 +2696,7 @@ _FAST_ROUND = (
 #: six campaign seeds on one Wormhole chip it accepted 11 designs of 30 trajectories against the
 #: composed path's 12 (Fisher p=1.00), with mean pLDDT 0.893 against 0.885 and last-iteration ipTM
 #: 0.624 against 0.571, at 7.45 against 7.81 s per iteration.
-_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul"})
+_BLACKHOLE_ONLY = frozenset({"tri_att_g_in_matmul", "_AF2_T2CM", "_TRIMUL_GIN_BIASED"})
 
 
 @contextlib.contextmanager

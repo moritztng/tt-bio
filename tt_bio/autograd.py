@@ -724,7 +724,14 @@ class Tensor:
 
 
 def _pad_slice(g, starts, ends, shape):
-    """A slice's gradient padded with zeros back out to the shape it was cut from."""
+    """A slice's gradient padded with zeros back out to the shape it was cut from.
+
+    One `ttnn.pad` when the cut starts at 0 on every axis. A concat with a zeros tensor along a
+    sub-tile last dim runs ~14 GB/s: 2.90 ms against the pad's 0.15 ms on the template's
+    [224, 4, 224, 16] head, same bits (`perf/bc4_layout/padslice_ab.py`)."""
+    if not any(starts):
+        pads = [(0, n - e) for e, n in zip(ends, shape)]
+        return ttnn.pad(g, pads, 0.0) if any(q for _, q in pads) else g
     for ax in range(len(shape)):
         before, after = starts[ax], shape[ax] - ends[ax]
         if before or after:
@@ -3957,6 +3964,9 @@ def _hook(name, shipped, args, kwargs):
 # nothing. `raw` is how `ops.fused_kernel` hands such a forward's kernel its operands.
 _hook.recording = is_grad_enabled
 _hook.raw = lambda args, kwargs: _raw(args, kwargs)
+# What `ops.declines_under_tape` asks of a kernel's operands: the shim's own test, registered
+# parameters included, so a kernel declines exactly where the stock op would be taped.
+_hook.on_tape = lambda args, kwargs: _on_tape(args, kwargs)
 
 
 def _checkpoint_segment(fn, *inputs):

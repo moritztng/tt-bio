@@ -141,7 +141,9 @@ FRAC_BAND = re.compile(r": frac ([\d.]+) -> ([\d.]+) exceeds the ")
 
 def is_drift(line: str) -> bool:
     return bool(DRIFT_OK.search(line)) or bool((m := FRAC_BAND.search(line)) and float(m[2]) > float(m[1]))
-DRIFT_LINE = re.compile(r"^\s+FAIL \S+/\d+ \w+: ", re.M)
+#: Every finding a ladder leg prints, the lever lines and the timing ones alike (`m 512->768: exponent ...`, `m per-rung
+#: base->run: ...`): matching only `m/<rung> LEVER:` lines let a slower rung ride along with real drift as drift.
+FINDING = re.compile(r"^\s+FAIL \S")
 
 
 def waivers(d: Path, gates: Path | None = None, repo: Path = REPO, ref: str = "origin/main") -> dict:
@@ -199,7 +201,7 @@ def failures(d: Path, waived: dict | None = None) -> tuple[list[str], list[str]]
         name = f"{r['leg']} {r.get('arch', '')}".strip()
         log = Path(r.get("log") or "")
         text = log.read_text(errors="replace") if r["leg"].startswith("ladder:") and log.is_file() else ""
-        lines = [ln for ln in text.splitlines() if DRIFT_LINE.match(ln + " ")]
+        lines = [ln for ln in text.splitlines() if FINDING.match(ln)]
         if r["leg"].startswith("ladder:") and (name in (waived or {}) or (
                 "size-ladder drift vs the recorded baseline" in text and lines and all(map(is_drift, lines)))):
             drift.add(r["leg"].split(":", 1)[1].split("@", 1)[0])
