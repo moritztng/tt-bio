@@ -115,7 +115,7 @@ def main() -> None:
              for t in template_features]
     tt_z_pre_msa = ttnn.add(
         tt_z_pre_template,
-        p.trunk._template(tt_z_pre_template, tpl_a, n_token, nt))
+        p.trunk._template(tt_z_pre_template, tpl_a, list(range(nt))))
     ref_z_msa = reference.msa_module(
         ref_feats, ref_z_pre_msa, ref_s_inputs, pair_mask=None,
         triangle_multiplicative=cfg.triangle_multiplicative,

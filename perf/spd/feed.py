@@ -170,7 +170,7 @@ else:
             out["arc"].append({"card": c, "at": int(b.rsplit(".", 1)[1]), "result": open(b + ".result").read().strip()})
         elif os.path.exists("/proc/" + open(f).read().strip()):
             out["arc_busy"].append(c)
-    out["healthy"] = len(cards); out["cards"] = cards; queued = 0; held = set()
+    out["healthy"] = len(cards); out["cards"] = cards; queued = 0; held = set(); out["qprio"] = [0] * 9
     for sh in glob.glob(J + "/*.sh"):
         n = os.path.basename(sh); card = int(open(sh + ".card").read()) if os.path.exists(sh + ".card") else -1
         if os.path.exists(sh + ".end"):
@@ -181,6 +181,7 @@ else:
             out["jobs"][n] = {"state": "running"}; held.add(card)
         else:
             out["jobs"][n] = {"state": "queued", "age": int(now - os.path.getmtime(sh))}; queued += 1
+            if n[0].isdigit(): out["qprio"][int(n[0])] += 1
     import fcntl, subprocess
     def lock_free(c):
         try:
@@ -677,8 +678,9 @@ def main(argv=None):
     # counts only queued work it does not jump: pool.sh starts the lowest prio digit first, so prio-6 jobs hand-queued
     # past the depth must not lock prio-3 cells out (10-15: 211 queued on .107, every grid cell refused for hours).
     # Depth counts expected chip time: a job whose experiment's median done run is under TICK_S weighs that fraction
-    # (at least 0.1), so the queue covers two passes of short cells too. BH waiters start in placement order whatever
-    # their prio, so a BH box counts all its queued work at prio 0.
+    # (at least 0.1), so the queue covers two passes of short cells too. A BH waiter leaves a card to a lower digit (hi()),
+    # so a BH box counts its queue by digit too: counted at prio 0, five prio-4/8 waiters on qb2 locked out every
+    # prio-3 Protenix BH cell (10-21).
     exp = lambda k: k.rsplit("/", 1)[0]
     durs = {}
     for k, L in ledger.items():
