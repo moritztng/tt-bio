@@ -24,6 +24,34 @@ KEYS = {"k": "DEVICE KERNEL DURATION [ns]", "br": "DEVICE BRISC KERNEL DURATION 
 SUMS = {"wait": "DEVICE COMPUTE CB WAIT FRONT [ns]", "resv": "DEVICE COMPUTE CB RESERVE BACK [ns]"}
 
 
+def _sub8(h, w):
+    """The largest out subblock (h, w) dividing an h x w block within 8 dest tiles, widest first."""
+    return max(((sh, sw) for sh in range(1, 9) for sw in range(1, 9) if sh * sw <= 8 and h % sh == 0 and w % sw == 0),
+               key=lambda t: (t[0] * t[1], t[1]))
+
+
+def fullsync_arm(prog, xd, wd, bd, ck):
+    """The picked program with dst_full_sync_en and a subblock of up to 8 tiles (fp32 dest at full sync holds 8)."""
+    ckfs = type(ck)(math_fidelity=ck.math_fidelity, math_approx_mode=ck.math_approx_mode,
+                    fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=ck.packer_l1_acc, dst_full_sync_en=True)
+    kind, c = prog
+    if kind == "mm":
+        sh, sw = _sub8(c.M_block_size, c.N_block_size)
+        cfg = ttnn.MinimalMatmulConfig(M_block_size=c.M_block_size, K_block_size=c.K_block_size,
+                                       N_block_size=c.N_block_size, subblock_h=sh, subblock_w=sw,
+                                       compute_with_storage_grid_size=c.compute_with_storage_grid_size)
+        return lambda: ttnn.experimental.minimal_matmul(xd, wd, bias_tensor=bd, compute_kernel_config=ckfs,
+                                                         dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+                                                         config=cfg)
+    sh, sw = _sub8(c.out_block_h, c.out_block_w)
+    cfg = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+        compute_with_storage_grid_size=c.compute_with_storage_grid_size, in0_block_w=c.in0_block_w, out_subblock_h=sh,
+        out_subblock_w=sw, out_block_h=c.out_block_h, out_block_w=c.out_block_w, per_core_M=c.per_core_M,
+        per_core_N=c.per_core_N, transpose_mcast=c.transpose_mcast, fused_activation=c.fused_activation, fuse_batch=True)
+    return lambda: ttnn.linear(xd, wd, bias=bd, program_config=cfg, compute_kernel_config=ckfs, dtype=ttnn.bfloat16,
+                               memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="saprot-650m", choices=sorted(MODELS))
@@ -32,6 +60,12 @@ def main() -> int:
     ap.add_argument("--shapes", default="qkv,out,fc1,fc2")
     ap.add_argument("--kladder", default="320,640,1280,2560", help="fc1's call at these K (N, M fixed); empty = none")
     ap.add_argument("--calls", type=int, default=4)
+    ap.add_argument("--cfg2d", default="", help="extra fc1 arms (approx gelu), ';'-separated tm,kb,sh,sw,oh,ow on the "
+                    "2D mcast program at the model grid, per_core_M/N from the grid")
+    ap.add_argument("--l1x", action="store_true", help="the --fast page's L1 state: x in L1 plus a resident [rows, d] "
+                    "bf16 L1 tensor (the residual under _SAPROT_X_L1)")
+    ap.add_argument("--fullsync", action="store_true", help="per shape, the pick again with the full-sync dest (8 fp32 "
+                    "tiles instead of 4) and the largest subblock that fits it: arm pickfs, plus max |pick - pickfs|")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -66,7 +100,11 @@ def main() -> int:
         w = (torch.randn(K, N, generator=gen) / math.sqrt(K)).to(torch.bfloat16)
         b = (torch.randn(N, generator=gen) * 0.1).to(torch.bfloat16)
         wd = ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt)
-        xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+        mc = ttnn.L1_MEMORY_CONFIG if a.l1x else ttnn.DRAM_MEMORY_CONFIG
+        xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16, memory_config=mc)
+        if a.l1x:
+            resid = ttnn.from_torch(torch.zeros(B, L, d, dtype=torch.bfloat16), layout=ttnn.TILE_LAYOUT, device=dev,
+                                    dtype=ttnn.bfloat16, memory_config=ttnn.L1_MEMORY_CONFIG)
         bd = ttnn.from_torch(b.reshape(1, N), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
         kw = {"activation": act} if act else {}
         lin = S._SaprotLin.__new__(S._SaprotLin)
@@ -75,8 +113,32 @@ def main() -> int:
         arms = {"model": lambda: ops.linear(xd, wd, bias=bd, compute_kernel_config=mck, dtype=ttnn.bfloat16,
                                             core_grid=T.CORE_GRID_MAIN, **kw)}
         hifi2 = mck.math_fidelity == ttnn.MathFidelity.HiFi2
-        if not name.startswith("fc1k") and S._saprot_prog(xd, wd, act, hifi2) is not None:
+        prog = None if name.startswith("fc1k") else S._saprot_prog(xd, wd, act, hifi2)
+        if prog is not None:
             arms["pick"] = lambda: lin._lin(xd, wd, bias=bd, **kw)
+        if prog is not None and a.fullsync:
+            arms["pickfs"] = fullsync_arm(prog, xd, wd, bd, mck)
+        if name == "fc1a":
+            g = T.CORE_GRID_MAIN
+            for spec in filter(None, a.cfg2d.split(";")):
+                tm, kb, sh, sw, oh, ow = (int(v) for v in spec.split(","))
+                rows_ax, cols_ax = (g.x, g.y) if tm else (g.y, g.x)
+                pm, pn = -(-(a.rows // 32) // rows_ax), -(-(N // 32) // cols_ax)
+                pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+                    compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y), in0_block_w=kb, out_subblock_h=sh,
+                    out_subblock_w=sw, out_block_h=oh or pm, out_block_w=ow or pn, per_core_M=pm, per_core_N=pn,
+                    transpose_mcast=bool(tm), fuse_batch=True,
+                    fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.GELU, 1.0))
+                arms[f"2d:{spec}"] = lambda pc=pc: ttnn.linear(xd, wd, bias=bd, program_config=pc, compute_kernel_config=mck,
+                                                               dtype=ttnn.bfloat16, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        if "pickfs" in arms:
+            try:
+                ref, alt = (ttnn.to_torch(arms[k]()).float() for k in ("pick", "pickfs"))
+                rec = dict(model=a.model, fast=a.fast, shape=name, arm="pickfs_diff", max_abs=float((ref - alt).abs().max()),
+                           ndiff=int((ref != alt).sum()), numel=ref.numel())
+            except Exception as e:  # noqa: BLE001
+                rec = dict(model=a.model, fast=a.fast, shape=name, arm="pickfs_diff", error=str(e).splitlines()[0][:200])
+            print(json.dumps(rec), flush=True); out.write(json.dumps(rec) + "\n"); out.flush()
         for arm, fn in arms.items():
             try:
                 for _ in range(2):

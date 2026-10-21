@@ -147,7 +147,9 @@ def test_tree_root_names_the_commit_dir():
     sha = subprocess.run(["git", "-C", repo, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
     assert feed.tree_root(f"/home/u/spd/r/t{sha}/perf/spd/run_chip.sh", repo) == (f"/home/u/spd/r/t{sha}", sha)
     assert feed.tree_root(f"/home/u/spd/r/tree-{sha}", repo) == (f"/home/u/spd/r/tree-{sha}", sha)
+    assert feed.tree_root(f"/home/u/spd/r/trees/m{sha}/perf/spd/run_chip.sh", repo) == (f"/home/u/spd/r/trees/m{sha}", sha)
     assert feed.tree_root("/home/u/spd/r/t1b8/x", repo) is None
+    assert feed.tree_root("/home/u/spd/r/trees/mbr/perf/spd/run_chip.sh", repo) is None
 
 
 def test_probe_counts_an_empty_marker_and_tails_the_jobs_own_log(tmp_path):
@@ -193,6 +195,28 @@ def test_probe_reports_waiter_age(tmp_path):
     out = _probe_bh(tmp_path, queued=True)
     assert out["free"] == [] and out["queued"] == 1
     assert out["jobs"]["4-a.sh"]["state"] == "queued" and out["jobs"]["4-a.sh"]["age"] >= 0
+    assert out["qprio"] == [0, 0, 0, 0, 1, 0, 0, 0, 0]
+
+
+def test_a_bh_box_full_of_backfill_still_takes_a_lower_digit_cell(tmp_path, monkeypatch):
+    """A BH waiter yields its card to a lower digit, so backfill queued past the depth must not lock a prio-3 cell out
+    (10-21 qb2: five prio-4/8 waiters, depth 2 x 2 cards, every prio-3 Protenix BH cell refused)."""
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(BH_GRID.replace("prio: 4", "prio: 3"))
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb2": {"ssh": "qb2", "cards": [2, 3], "lock": "/l2_{c}"}})
+    placed = []
+
+    def remote(ssh, script, payload, timeout=120):
+        if script is feed.PROBE:
+            q = {f"{d}-y-f-b{i}.sh": {"state": "queued", "age": 5} for i, d in enumerate((4, 8, 8, 8, 8))}
+            return {"healthy": 2, "cards": [2, 3], "queued": 5, "qprio": [0, 0, 0, 0, 1, 0, 0, 0, 4], "free": [],
+                    "paused": False, "swept": 0, "live": [], "jobs": q, "exists": {}}
+        placed.extend(payload.get("jobs", []))
+        return len(payload.get("jobs", []))
+    monkeypatch.setattr(feed, "remote", remote)
+    run(tmp_path)
+    assert [j["name"][0] for j in placed] == ["3"]
 
 
 BH_GRID = """

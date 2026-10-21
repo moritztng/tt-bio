@@ -278,6 +278,35 @@ void read_ternary_blocks_sync(
     }
 }
 
+#ifdef MM_RESID
+/**
+ * tt-bio mm_resid: the residual's [M, N] output block into c_5, row by row, as read_ternary_blocks_sync reads
+ * ternary_a (rows past the tensor are pushed unread).
+ */
+template <uint32_t M_block_tiles, uint32_t N_block_tiles, typename TensorAccessorType>
+void read_resid_block(
+    const TensorAccessorType& resid, const TensorShape2D& shape, uint32_t tile_size, uint32_t d0_start,
+    uint32_t d0_end, uint32_t d1_start, uint32_t d1_end) {
+    constexpr uint32_t cb = tt::CBIndex::c_5;
+    uint32_t m_id = 0;
+    for (uint32_t i = d0_start; i < d0_end; i++, m_id++) {
+        cb_reserve_back(cb, N_block_tiles);
+        uint32_t ptr = get_write_ptr(cb);
+        for (uint32_t j = d1_start; j < d1_end && j < shape.logical_d1; j++, ptr += tile_size) {
+            if (i < shape.logical_d0) {
+                noc_async_read_tile(i * shape.logical_d1 + j, resid, ptr);
+            }
+        }
+        noc_async_read_barrier();
+        cb_push_back(cb, N_block_tiles);
+    }
+    for (; m_id < M_block_tiles; m_id++) {
+        cb_reserve_back(cb, N_block_tiles);
+        cb_push_back(cb, N_block_tiles);
+    }
+}
+#endif
+
 /**
  * This write method is more granular, waiting on a row of output tiles
  * in the output CB before writing those out, rather than waiting on the entire block.
@@ -312,6 +341,52 @@ void write_block_sync_granular(
 }
 
 /**
+ * tt-bio mm_rope: the page of output tile (m, n) of a chunk d1 tiles wide. Under MM_HEADS_ST the chunk is written per
+ * head, [B, H, S, 64] with S = MM_HEADS_ST tiles: row tile m is (batch m / S, position m % S) and column tile n is
+ * (head n / 2, half n % 2), so the qkv matmul writes q, k and v in the layout SDPA reads, nlp_create_qkv_heads' layout.
+ */
+FORCE_INLINE uint32_t chunk_tile_id(uint32_t m, uint32_t n, uint32_t d1) {
+#ifdef MM_HEADS_ST
+    constexpr uint32_t st = MM_HEADS_ST;
+    return ((m / st * (d1 >> 1) + (n >> 1)) * st + m % st) * 2 + (n & 1);
+#else
+    return m * d1 + n;
+#endif
+}
+
+#ifdef MM_ROPE_T
+/**
+ * tt-bio mm_rope: the weight's columns are permuted per core so that each core's MM_ROPE_T tiles are MM_ROPE_P q / k
+ * tiles (whole heads, so the compute epilogue can rotate them) then MM_ROPE_T - MM_ROPE_P v tiles. The original qkv
+ * column of permuted column n; v starts at column MM_ROPE_V0.
+ */
+FORCE_INLINE uint32_t rope_col(uint32_t n) {
+    constexpr uint32_t t = MM_ROPE_T, p = MM_ROPE_P;
+    const uint32_t r = n / t, j = n % t;
+    return j < p ? r * p + j : MM_ROPE_V0 + r * (t - p) + j - p;
+}
+
+/**
+ * The cos and sin tiles of an output block's M_block_tiles rows into c_7 / c_8: row tile m is position m % MM_HEADS_ST,
+ * page 2 (m % S) of the [1, 1, L, 64] tables (both column tiles are equal). Rows past m_tile_end are left unread.
+ */
+template <uint32_t M_block_tiles, typename CA, typename SA>
+FORCE_INLINE void read_rope_block(const CA& cs, const SA& sn, uint32_t tile_size, uint32_t m_tile, uint32_t m_tile_end) {
+    constexpr uint32_t st = MM_HEADS_ST;
+    cb_reserve_back(tt::CBIndex::c_7, M_block_tiles);
+    cb_reserve_back(tt::CBIndex::c_8, M_block_tiles);
+    uint32_t wc = get_write_ptr(tt::CBIndex::c_7), ws = get_write_ptr(tt::CBIndex::c_8);
+    for (uint32_t m = m_tile; m < m_tile_end; m++, wc += tile_size, ws += tile_size) {
+        noc_async_read_tile((m % st) * 2, cs, wc);
+        noc_async_read_tile((m % st) * 2, sn, ws);
+    }
+    noc_async_read_barrier();
+    cb_push_back(tt::CBIndex::c_7, M_block_tiles);
+    cb_push_back(tt::CBIndex::c_8, M_block_tiles);
+}
+#endif
+
+/**
  * Helper: dispatch to correct tuple element using fold expression.
  * Each branch calls noc_async_write_tile with the concrete TensorAccessor type.
  */
@@ -322,6 +397,35 @@ FORCE_INLINE void write_tile_to_chunk(
     // Each branch calls noc_async_write_tile with the concrete type
     ((chunk_idx == Is ? (noc_async_write_tile(tile_id, std::get<Is>(accessors), read_ptr), void()) : void()), ...);
 }
+
+#ifdef MM_HALF_PAIRS
+/**
+ * tt-bio mm_rope half pairs (mm_rope.half_pairs, heads narrower than 32): q / k column n is tile A (n even) or B of
+ * head pair n / 2, and its four bf16 faces go to two [B, H, L, 32] head tiles: CB face (r, c) -> head (n & ~1) + c,
+ * face (r, n & 1). v column n is head n, written whole. The chunks are d1 tiles wide but the outputs hold MM_HEADS_H
+ * heads: tiles past it are mm_rope.half_pairs' zero pad heads (H is even, so a pair is all pad or none) and are dropped.
+ */
+template <typename Tuple, size_t... Is>
+FORCE_INLINE void write_half_pair_tile(
+    const Tuple& accessors, uint32_t chunk_idx, uint32_t m, uint32_t n, uint32_t d1, uint32_t read_ptr,
+    std::index_sequence<Is...> seq) {
+    constexpr uint32_t st = MM_HEADS_ST, face = 512, heads = MM_HEADS_H;
+    if (n >= heads) {
+        return;
+    }
+    const uint32_t row = m / st * heads, l = m % st;
+    if (chunk_idx == 2) {
+        write_tile_to_chunk(accessors, chunk_idx, (row + n) * st + l, read_ptr, seq);
+        return;
+    }
+    for (uint32_t f = 0; f < 4; f++) {
+        const uint32_t tile = (row + (n & ~1u) + (f & 1)) * st + l, dst = (f & 2) | (n & 1);
+        ((chunk_idx == Is ? noc_async_write(read_ptr + f * face, std::get<Is>(accessors).get_noc_addr(tile, dst * face), face)
+                          : void()),
+         ...);
+    }
+}
+#endif
 
 /**
  * Write a block of output to a potentially padded tensor.
@@ -366,17 +470,26 @@ void write_block_sync_split(
                 chunk_idx++;  // Move to next chunk; if chunk is past last one then next branch will skip padding
             }
 
+#ifdef MM_ROPE_T
+            chunk_idx = rope_col(j) / N_tiles_per_chunk;
+            tile_idx_in_chunk = rope_col(j) % N_tiles_per_chunk;
+#endif
             // Skip padding
             if (chunk_idx >= N_chunks) {
                 read_ptr += tile_size_bytes;
                 continue;
             }
 
-            uint32_t tile_id_in_chunk = i * chunk_shape.logical_d1 + tile_idx_in_chunk;
+#ifdef MM_HALF_PAIRS
+            write_half_pair_tile(accessors, chunk_idx, i, tile_idx_in_chunk, chunk_shape.logical_d1, read_ptr,
+                                 std::index_sequence_for<Accessors...>{});
+#else
+            uint32_t tile_id_in_chunk = chunk_tile_id(i, tile_idx_in_chunk, chunk_shape.logical_d1);
 
             // Compile-time dispatch preserving concrete types
             write_tile_to_chunk(
                 accessors, chunk_idx, tile_id_in_chunk, read_ptr, std::index_sequence_for<Accessors...>{});
+#endif
             read_ptr += tile_size_bytes;
         }
         // finish up incrementing read_ptr if (d1_end - d1_start) < N_block_tiles
@@ -423,14 +536,23 @@ void write_block_sync_granular_split(
                     chunk_idx++;  // Move to next chunk; if chunk is past last one then next branch will skip padding
                 }
 
+#ifdef MM_ROPE_T
+                chunk_idx = rope_col(n_tile_id) / N_tiles_per_chunk;
+                tile_idx_in_chunk = rope_col(n_tile_id) % N_tiles_per_chunk;
+#endif
                 if (chunk_idx >= N_chunks) {
                     break;
                 }
 
-                uint32_t tile_id = m_tile * chunk_shape.logical_d1 + tile_idx_in_chunk;
+#ifdef MM_HALF_PAIRS
+                write_half_pair_tile(accessors, chunk_idx, m_tile, tile_idx_in_chunk, chunk_shape.logical_d1,
+                                     out_read_ptr, std::index_sequence_for<Accessors...>{});
+#else
+                uint32_t tile_id = chunk_tile_id(m_tile, tile_idx_in_chunk, chunk_shape.logical_d1);
                 // Compile-time dispatch preserving concrete types
                 write_tile_to_chunk(
                     accessors, chunk_idx, tile_id, out_read_ptr, std::index_sequence_for<Accessors...>{});
+#endif
 
                 out_read_ptr += tile_size_bytes;
             }

@@ -92,6 +92,23 @@ def test_a_result_settles_once_and_only_from_the_lease_holder(tmp_path, clock):
     assert store.results(run) == [{"id": "x", "status": "ok"}]
 
 
+def test_a_job_that_outlives_two_leases_fails_instead_of_hanging_a_third_chip(tmp_path, clock):
+    """A Boltz-2 input that hung the device was handed to ~10 chips in turn until JapanFold's
+    25 min cap (10-19). The second lapse now ends it, and the run with it."""
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    run = _run(store, "x")
+    for wid in ("a", "b"):
+        assert [j["id"] for j in store.lease({"worker": _worker(wid)})["jobs"]] == ["x"]
+        clock[0] += H.LEASE_S + 1
+    assert store.lease({"worker": _worker("c")})["jobs"] == []
+    assert store.run_status(run) == {"status": "failed"}
+    [result] = store.results(run)
+    assert result["status"] == "failed" and "2 workers" in result["error"]
+    assert [e["event"] for e in store.events(run, 0)["events"]].count("run_done") == 1
+    store.complete_job({"run_id": run, "worker_id": "b", "result": {"id": "x", "status": "ok"}})
+    assert store.run_status(run) == {"status": "failed"}     # a late answer reopens nothing
+
+
 def test_a_worker_asking_for_work_gives_back_what_it_still_held(tmp_path, clock):
     """Its completion never arrived; without this its heartbeats renewed the job forever."""
     store = H.ControllerStore(tmp_path / "c.sqlite3")

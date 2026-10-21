@@ -55,11 +55,21 @@ def test_lever_is_fast_only_and_rides_on_transition_bw():
 def test_fc12_interleave_gives_each_core_column_its_fc1_then_fc2_block():
     import torch
     w1, w2 = torch.arange(4 * 16.).reshape(4, 16), -torch.arange(4 * 16.).reshape(4, 16)
-    w12 = tt._fc12_interleave(w1, w2, 8)
+    w12 = tt._fc12_interleave(w1, w2, gx=8)
     assert w12.shape == (4, 32)
     for j in range(8):
         assert torch.equal(w12[:, 4 * j:4 * j + 2], w1[:, 2 * j:2 * j + 2])
         assert torch.equal(w12[:, 4 * j + 2:4 * j + 4], w2[:, 2 * j:2 * j + 2])
+
+
+def test_fc12_interleave_takes_three_weights_for_the_dit_pass():
+    import torch
+    ws = [k * torch.arange(4 * 48.).reshape(4, 48) for k in (1, -1, 2)]
+    w = tt._fc12_interleave(*ws, gx=8)
+    assert w.shape == (4, 144)
+    for j in range(8):
+        for i, wi in enumerate(ws):
+            assert torch.equal(w[:, 18 * j + 6 * i:18 * j + 6 * i + 6], wi[:, 6 * j:6 * j + 6])
 
 
 def test_fc12g_is_fast_only():

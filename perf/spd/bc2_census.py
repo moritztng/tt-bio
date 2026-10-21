@@ -26,6 +26,7 @@ the census is of the part that runs on the card.
 """
 import argparse
 import collections
+import gc
 import glob
 import json
 import os
@@ -53,6 +54,9 @@ ap.add_argument("--wrap", choices=("census", "all"), default="all",
 ap.add_argument("--dump", type=int, default=0,
                 help="save the first N gradient calls' results to dump_<n>.npz, so two arms can be compared "
                      "by magnitude when their digests differ")
+ap.add_argument("--gc-freeze", type=int, default=0,
+                help="gc.freeze() at the start of this call (0 = never): the host objects alive by then, "
+                     "trunks and weights, leave the cyclic collector's generation-2 walk")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -178,6 +182,42 @@ bc2._Trunk.__init__ = trunk_init
 cb = collections.Counter()
 
 
+# Wall spent blocked on the card inside callbacks (readbacks and syncs). A callback minus this is
+# the host's enqueue time: exact when the command queue never fills, an upper bound when it does.
+blocked = collections.Counter()
+
+
+def blocking(fn):
+    def run(*args, **kwargs):
+        t0 = time.monotonic()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            blocked["s"] += time.monotonic() - t0
+    return run
+
+
+# Wall of Python's cyclic collector, by generation. A live tape is millions of host objects, so a
+# generation-2 pass can stall the enqueue of whatever seam it lands in.
+gcwall = collections.Counter()
+_gc_t0 = [0.0]
+
+
+def _gc_cb(phase, info):
+    if phase == "start":
+        _gc_t0[0] = time.monotonic()
+    else:
+        gcwall[f"gen{info['generation']}_s"] += time.monotonic() - _gc_t0[0]
+        gcwall[f"gen{info['generation']}_n"] += 1
+
+
+gc.callbacks.append(_gc_cb)
+
+_ttnn = __import__("ttnn")
+for _name in ("to_torch", "from_device", "synchronize_device"):
+    setattr(_ttnn, _name, blocking(getattr(_ttnn, _name)))
+
+
 def timed(name, fn):
     def run(*args, **kwargs):
         t0 = time.monotonic()
@@ -254,9 +294,13 @@ def dump(out, path):
 
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
+    if state["n"] == a.gc_freeze:
+        gc.freeze()
     loads0, load1 = state["loads"], loadavg()
     if state["n"] != a.at:
         cb.clear()
+        blocked.clear()
+        gcwall.clear()
         t0 = time.monotonic()
         out = None
         try:
@@ -272,6 +316,8 @@ def sequence_gradients(self, *args, **kwargs):
             state["uninstrumented"].append(dict(n=state["n"], s=wall, gsha=gsha(out),
                                                 callbacks={k: round(v, 4) for k, v in cb.items()},
                                                 host_jax_s=round(wall - sum(cb.values()), 4),
+                                                blocked_s=round(blocked["s"], 4),
+                                                gc={k: round(v, 4) for k, v in gcwall.items()},
                                                 profiled=state["n"] == a.profile,
                                                 trunk_loads=state["loads"] - loads0,
                                                 load1=load1, ncpu=os.cpu_count()))

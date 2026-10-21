@@ -37,6 +37,11 @@ from typing import Any
 LEASE_S = 120.0
 #: Renewals per lease: ten seconds between heartbeats at the default lease.
 HEARTBEAT_PER_LEASE = 12
+#: Workers a job is handed to before a lapsed lease fails it. A worker that stops
+#: heartbeating mid-job is usually a hang the input causes, and the next chip hangs the
+#: same way: JapanFold's 584-residue Boltz-2 folds took ~10 chips each to its 25 min cap
+#: on 10-19 before one was failed. Two leases still cover a single chip dying.
+MAX_LEASES = 2
 #: How recently an idle worker must have polled to be left a job it has the weights for. An
 #: idle worker polls every second, so five seconds is a live one that missed a poll or two.
 IDLE_WARM_S = 5.0
@@ -113,9 +118,10 @@ def _coarse_stage(event: dict[str, Any]) -> str | None:
 class ControllerStore:
     """SQLite-backed controller state."""
 
-    def __init__(self, path: Path, lease_s: float = LEASE_S):
+    def __init__(self, path: Path, lease_s: float = LEASE_S, max_leases: int = MAX_LEASES):
         self.path = path
         self.lease_s = float(lease_s)
+        self.max_leases = int(max_leases)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._init_db()
@@ -259,6 +265,7 @@ class ControllerStore:
             self._upsert_worker(conn, worker, now)
             conn.execute("UPDATE jobs SET lease_until=0 WHERE worker_id=? AND status='running'",
                          (worker_id,))
+            self._fail_spent_leases(conn, now)
             # Work-conserving max-min fair share across users (owners). Devices in
             # use right now, per owner:
             load: dict[str, int] = {}
@@ -456,25 +463,46 @@ class ControllerStore:
             event = payload.get("event")
             if event:
                 self.add_event(conn, run_id, worker_id, event)
-            pending = conn.execute(
-                "SELECT COUNT(*) AS n FROM jobs WHERE run_id=? AND status IN ('pending', 'running')",
-                (run_id,),
-            ).fetchone()["n"]
-            if pending == 0:
-                failed = conn.execute(
-                    "SELECT COUNT(*) AS n FROM jobs WHERE run_id=? AND status != 'ok'",
-                    (run_id,),
-                ).fetchone()["n"]
-                run_status = "failed" if failed else "ok"
-                # Only conclude a run that's still running — never overwrite a
-                # 'canceled' status set by cancel_run with a late job completion.
-                changed = conn.execute(
-                    "UPDATE runs SET status=?, updated_at=? WHERE run_id=? AND status='running'",
-                    (run_status, now, run_id),
-                ).rowcount
-                if changed:
-                    self.add_event(conn, run_id, None, {"event": "run_done", "status": run_status, "failed": failed})
+            self._finish_run(conn, run_id, now)
         return {"ok": True}
+
+    def _fail_spent_leases(self, conn: sqlite3.Connection, now: float) -> None:
+        """Fail each job whose lease lapsed on its last allowed worker, instead of handing
+        a hang to one chip after another (``MAX_LEASES``)."""
+        for row in conn.execute(
+            "SELECT run_id, job_id FROM jobs WHERE status='running' AND lease_until < ? AND attempts >= ?",
+            (now, self.max_leases),
+        ).fetchall():
+            error = (f"no result after {self.max_leases} workers: each stopped heartbeating "
+                     f"(hung or died) while running this input")
+            conn.execute(
+                "UPDATE jobs SET status='failed', result_json=?, error=?, lease_until=NULL, updated_at=? "
+                "WHERE run_id=? AND job_id=?",
+                (json.dumps({"id": row["job_id"], "status": "failed", "error": error}), error, now,
+                 row["run_id"], row["job_id"]),
+            )
+            self._finish_run(conn, row["run_id"], now)
+
+    def _finish_run(self, conn: sqlite3.Connection, run_id: str, now: float) -> None:
+        pending = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs WHERE run_id=? AND status IN ('pending', 'running')",
+            (run_id,),
+        ).fetchone()["n"]
+        if pending:
+            return
+        failed = conn.execute(
+            "SELECT COUNT(*) AS n FROM jobs WHERE run_id=? AND status != 'ok'",
+            (run_id,),
+        ).fetchone()["n"]
+        run_status = "failed" if failed else "ok"
+        # Only conclude a run that's still running — never overwrite a
+        # 'canceled' status set by cancel_run with a late job completion.
+        changed = conn.execute(
+            "UPDATE runs SET status=?, updated_at=? WHERE run_id=? AND status='running'",
+            (run_status, now, run_id),
+        ).rowcount
+        if changed:
+            self.add_event(conn, run_id, None, {"event": "run_done", "status": run_status, "failed": failed})
 
     def results(self, run_id: str) -> list[dict[str, Any]]:
         with self._connect() as conn:
@@ -587,8 +615,8 @@ class ControllerStore:
 class ControllerServer:
     """The HTTP face of :class:`ControllerStore`, on loopback only."""
 
-    def __init__(self, port: int, db_path: Path, lease_s: float = LEASE_S):
-        self.store = ControllerStore(db_path, lease_s)
+    def __init__(self, port: int, db_path: Path, lease_s: float = LEASE_S, max_leases: int = MAX_LEASES):
+        self.store = ControllerStore(db_path, lease_s, max_leases)
         store = self.store
 
         class Handler(BaseHTTPRequestHandler):

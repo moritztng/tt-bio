@@ -767,7 +767,8 @@ def test_the_extra_msa_segment_survives_being_recomputed():
     card-free suite and the on-card forward passed while every backward was broken.
 
     Two stubs stand in for the card: a buffer that can be consumed once, and a `checkpoint` that
-    runs the segment a second time the way a backward does.
+    runs the segment a second time the way a backward does. The constant rides into the segment
+    as an input (so a block trace can copy it in) and each execution consumes a clone of it.
     """
     class Buf:
         def __init__(self):
@@ -801,19 +802,24 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             built.append(Buf())
             return built[-1]
 
-    def checkpoint(fn, z, offload=False):
-        out = fn(z)     # the forward
-        fn(z)           # the recompute the backward performs on the same closure
+    def checkpoint(fn, *xs, offload=False):
+        out = fn(*xs)   # the forward
+        fn(*xs)         # the recompute the backward performs on the same closure
         return out
+
+    def clone(b):
+        if not b.alive:
+            raise RuntimeError("Buffer is not allocated")
+        return Buf()
 
     trunk = object.__new__(bindcraft2._Trunk)
     trunk.model = Model()
-    trunk.ag = types.SimpleNamespace(checkpoint=checkpoint)
+    trunk.ag = types.SimpleNamespace(checkpoint=checkpoint, TRACE_RECOMPUTE=False, TRACE_FORWARD=False)
+    trunk.ttnn = types.SimpleNamespace(clone=clone)
 
     assert trunk.extra_msa("z", (), recompute=True) == "z"
-    # One constant per block PER EXECUTION, two blocks run twice. Hoisting it out of the loop
-    # body -- the shape that shipped -- builds 2 and reuses them, which is the failure above.
-    assert len(built) == 4, built
+    # One constant per block, never consumed itself: both executions consume clones of it.
+    assert len(built) == 2 and all(b.alive for b in built), built
 
     built.clear()
     assert trunk.extra_msa("z", (), recompute=False) == "z"
@@ -829,6 +835,22 @@ def test_the_extra_msa_segment_survives_being_recomputed():
             const = model._up(model.opm_constant[index].reshape(1, 1, -1))
             z = checkpoint(lambda t, blk=block, c=const: blk(blk._residual(t, c)), z)
     assert len(built) == 1, built
+
+
+def test_card_bytes_reads_the_allocator_once():
+    """The DRAM total is a constant of the chip; every taped seam asked `get_memory_view` again,
+    ~10 ms of card idle a seam on pc before the forward enqueued anything."""
+    reads = []
+
+    def view(_device, _kind):
+        reads.append(1)
+        return types.SimpleNamespace(total_bytes_per_bank=3, num_banks=4)
+
+    trunk = object.__new__(bindcraft2._Trunk)
+    trunk.device = None
+    trunk.ttnn = types.SimpleNamespace(get_memory_view=view, BufferType=types.SimpleNamespace(DRAM=0))
+    assert [trunk.card_bytes() for _ in range(3)] == [12, 12, 12]
+    assert len(reads) == 1
 
 
 # ------------------------------------------------ several trajectories on one card
