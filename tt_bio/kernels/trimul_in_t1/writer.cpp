@@ -11,7 +11,7 @@
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes,
-//   128 the bfp8 gather's exponent byte stores.
+//   128 the bfp8 gather's exponent stores, 256 its exponent loads (constant exponents).
 // T1B8 (lever trimul_t1b8): a and b leave compute as bfp8 tiles. bfp8 keeps one exponent per 16-value face row,
 // the unit this gather moves, so the re-tiling is lossless: 16 mantissa bytes per face row by NOC as before, and
 // the face row's exponent byte by a core store (64 per tile; the NOC cannot move a single unaligned byte).
@@ -119,36 +119,42 @@ void kernel_main() {
 #if T1B8
                 // The NB channels c0 .. c0 + NB - 1 are consecutive face rows of one source face, so their
                 // exponent bytes are adjacent: one aligned word load per source tile and face. Four consecutive
-                // rows of a destination tile have adjacent exponent bytes too, so they are stored as one word:
-                // byte stores to L1 cost ~2.3 ms of a 9 ms call at 512 tokens on Wormhole.
+                // rows of a destination tile have adjacent exponent bytes too, so they are stored as one word.
                 static_assert(NB == 1 || NB == 2 || NB == 4, "exponent bytes of a barrier group share one word");
                 static_assert(IL % 4 == 0, "four rows per exponent word");
-                // Stored after the read barrier: CPU stores into L1 the NOC reads are still filling stall the writer.
+                // Every exponent word of the group is loaded and composed BEFORE the group issues a NOC read, and
+                // stored after its read barrier: a core load from L1 its own NOC reads are draining waits for them
+                // (2.2 ms of a 9.1 ms call at 512 tokens on Wormhole when interleaved), a load before them does not.
                 uint32_t e0[IL / 4][NB], e1[IL / 4][NB];
                 if constexpr (!(ABL & 32)) {
                     const uint32_t sf = (c0 >> 4) * 2, sr0 = c0 & 15;
+                    const uint32_t ea0 = src + sf * 16 + sr0, sh = (ea0 & 3) * 8;
                     for (uint32_t i4 = 0; i4 < IL; i4 += 4) {
-                        for (uint32_t j = 0; j < NB; ++j) e0[i4 / 4][j] = e1[i4 / 4][j] = 0;
-                        // The core stalls on a load's first use, not its issue: issue all eight before using one.
-                        const uint32_t ea0 = src + i4 * TB8 + sf * 16 + sr0, sh = (ea0 & 3) * 8;
                         uint32_t lw[8];
                         for (uint32_t k = 0; k < 4; ++k) {
-                            lw[2 * k] = *reinterpret_cast<volatile tt_l1_ptr uint32_t*>((ea0 + k * TB8) & ~3u);
-                            lw[2 * k + 1] = *reinterpret_cast<volatile tt_l1_ptr uint32_t*>((ea0 + k * TB8 + 16) & ~3u);
+                            const uint32_t ea = ea0 + (i4 + k) * TB8;
+                            lw[2 * k] = (ABL & 256) ? 0x7f7f7f7fu : *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(ea & ~3u);
+                            lw[2 * k + 1] = (ABL & 256) ? 0x7f7f7f7fu
+                                                        : *reinterpret_cast<volatile tt_l1_ptr uint32_t*>((ea + 16) & ~3u);
                         }
-                        for (uint32_t k = 0; k < 4; ++k) {
-                            const uint32_t il = i4 + k, r = r0 + il;
-                            const uint32_t df = (r >> 4) * 2, dr = r & 15;
-                            const uint32_t w0 = lw[2 * k] >> sh, w1 = lw[2 * k + 1] >> sh;
-                            for (uint32_t j = 0; j < NB; ++j) {
-                                // source row c0 + j of tile il: face sf (+1 for the right half), face row sr0 + j
-                                const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + (sr0 + j) * RB8;
-                                const uint32_t d0 = gbase + j * TB + EB + df * FB8 + dr * RB8;
-                                noc_async_read_one_packet_with_state(s0, d0);
-                                noc_async_read_one_packet_with_state(s0 + FB8, d0 + FB8);
-                                e0[i4 / 4][j] |= ((w0 >> (8 * j)) & 0xff) << (8 * k);
-                                e1[i4 / 4][j] |= ((w1 >> (8 * j)) & 0xff) << (8 * k);
+                        for (uint32_t j = 0; j < NB; ++j) {
+                            uint32_t x0 = 0, x1 = 0;
+                            for (uint32_t k = 0; k < 4; ++k) {
+                                x0 |= ((lw[2 * k] >> (sh + 8 * j)) & 0xff) << (8 * k);
+                                x1 |= ((lw[2 * k + 1] >> (sh + 8 * j)) & 0xff) << (8 * k);
                             }
+                            e0[i4 / 4][j] = x0;
+                            e1[i4 / 4][j] = x1;
+                        }
+                    }
+                    for (uint32_t il = 0; il < IL; ++il) {
+                        const uint32_t r = r0 + il, df = (r >> 4) * 2, dr = r & 15;
+                        for (uint32_t j = 0; j < NB; ++j) {
+                            // source row c0 + j of tile il: face sf (+1 for the right half), face row sr0 + j
+                            const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + (sr0 + j) * RB8;
+                            const uint32_t d0 = gbase + j * TB + EB + df * FB8 + dr * RB8;
+                            noc_async_read_one_packet_with_state(s0, d0);
+                            noc_async_read_one_packet_with_state(s0 + FB8, d0 + FB8);
                         }
                     }
                 }
