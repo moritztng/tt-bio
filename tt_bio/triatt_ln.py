@@ -243,6 +243,11 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
         return _reject("tr_groups", x)
     if plan is None:
         return _reject(f"l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:tr{int(transposed)}", x)
+    if lever("triatt_ln_f3") and plan[0] > 1 and ckc[0] == ttnn.MathFidelity.HiFi2:
+        # On column groups this kernel runs slower at HiFi2 than at HiFi3: OpenDDE 640 x c384 (2 groups),
+        # Wormhole, fp32 dest, 1000 MHz: HiFi2 15.0-16.6 ms, HiFi3 12.1-12.3, HiFi4 14.3. On one group
+        # (Protenix-v2 512 x c256) HiFi2 is the faster, 5.5 vs 5.9 ms. HiFi3 is also the more exact.
+        ckc = (ttnn.MathFidelity.HiFi3,) + tuple(ckc[1:])
     dev = x.device()
     # bfp8 q, k, v: each group's bfp8 run must start its row and end on a DST block (b8_cols)
     gate = lever("triatt_ln_b8g")   # the gate too: gated_out_proj reads a bfp8 g
