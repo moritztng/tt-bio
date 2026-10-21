@@ -74,6 +74,44 @@ def test_climb_stops_on_the_card_not_the_ladder():
         print(f"ok: ladder ran {rungs} and stopped on the OOM rung, below the b{M.SWEEP_CEIL[256]} ceiling")
 
 
+def test_extended_climb_reuses_every_arms_measured_rungs():
+    """The extended climb must re-pay no rung this box already measured, for either climbed arm.
+
+    ARMS.json records the winner's ladder twice (as `sweep` and inside `climbed`) and the runner-up's only
+    inside `climbed`. Keying the reuse on the winner made the runner-up re-climb from b1: on 2026-10-21 that
+    was 42 rungs across the three sizes, paid a second time on a rented B200.
+    """
+    rungs = {"1": {"status": "ok", "designs_s": 0.1, "n": 3},
+             "2": {"status": "ok", "designs_s": 0.2, "n": 3},
+             "4": {"status": "ok", "designs_s": 0.4, "n": 3}}
+    prev = {"screen": {"256": {a: {"status": "ok", "designs_s": r} for a, r in
+                               (("native-compile", 0.5), ("bioir", 0.4))}},
+            "best": {"256": {"arm": "native-compile", "batch": 4, "sweep": rungs,
+                             "climbed": {"native-compile": {"sweep": rungs}, "bioir": {"sweep": rungs}}}}}
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp)
+        (out / "ARMS.json").write_text(json.dumps(prev))
+        setup(tmp)
+        M.a.sweep_only = True
+        ran = []
+        M.run = lambda arm, size, batch, warm, ov, **kw: (ran.append((arm, batch)) or
+                                                          fake_run(arm, size, batch, warm, ov, **kw))
+        argv = sys.argv
+        sys.argv = ["rfd4_arms.py", "--inputs", tmp, "--out", tmp, "--deadline", str(2 ** 31 - 1),
+                    "--sweep-only", "--arms", "2"]
+        try:
+            M.main()
+        except SystemExit as e:
+            assert e.code == 0, e.code
+        finally:
+            sys.argv = argv
+        # Both arms were climbed, and neither re-ran a rung the seed already carried.
+        assert {a for a, _ in ran} == {"native-compile", "bioir"}, ran
+        repaid = [(a, b) for a, b in ran if str(b) in rungs]
+        assert not repaid, repaid
+    print(f"ok: the extended climb reused {len(rungs)} measured rungs for BOTH arms, re-paying none")
+
+
 def test_chosen_arm_is_the_one_the_climb_ranked():
     best = {"128": {"arm": "bioir", "batch": 32}, "256": {"arm": "bioir", "batch": 32},
             "512": {"arm": "native-compile", "batch": 8}}
@@ -188,6 +226,7 @@ if __name__ == "__main__":
     test_binder_spec_keeps_its_relative_input()
     test_climb_inverts_the_screen()
     test_climb_stops_on_the_card_not_the_ladder()
+    test_extended_climb_reuses_every_arms_measured_rungs()
     test_chosen_arm_is_the_one_the_climb_ranked()
     test_partial_arms_json_names_a_supported_arm()
     print("all ok")

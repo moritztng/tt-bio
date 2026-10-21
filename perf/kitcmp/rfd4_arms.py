@@ -244,8 +244,12 @@ def main():
             for arm in ranked:
                 if not time_left():
                     break
+                # Every rung this box already measured, for THIS arm. ARMS.json records the winner's ladder
+                # twice -- once as `sweep`, once inside `climbed` -- and the runner-up's only inside
+                # `climbed`, so keying the reuse on the winner alone made the extended climb re-pay the
+                # runner-up's whole ladder from b1 (42 rungs across the three sizes, 2026-10-21).
                 was = prev.get("best", {}).get(str(size), {})
-                seed = was.get("sweep") if was.get("arm") == arm else None
+                seed = (was.get("climbed", {}).get(arm) or {}).get("sweep")
                 sweep = climb(arm, size, max(3, a.screen_warm - 2), f"ext-{arm}", seed=seed)
                 okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
                 if not okb:
