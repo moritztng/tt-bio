@@ -347,3 +347,25 @@ def test_motif_family_tags_match_upstream_on_a_real_design(tmp_path):
     expected = golden["rows"]["pdl1_binder_0_generated.cif"]
     assert expected["design_motif_allatom_rmsd.rmsd"] == "0.178"
     _assert_row_matches(expected, rows["pdl1_binder_0_generated.cif"], 54)
+
+
+@pytest.mark.parametrize(
+    "golden_name, tags, criterion",
+    [
+        ("upstream_ame_real_binder.json", "design,ame_refolding,motif_scaffold_refolding", "ame"),
+        ("upstream_amenl_real_binder.json", "design,ame_refolding,motif_scaffold_refolding,no_ligand", "ame_no_ligand"),
+    ],
+)
+def test_enzyme_family_criteria_match_upstream(tmp_path, golden_name, tags, criterion):
+    """`ame` (prohibited by `no_ligand`) and `ame_no_ligand` (requires it), on the real design."""
+    golden = json.loads((GOLDENS / golden_name).read_text())
+    rows = _run_cached(
+        tmp_path,
+        GOLDENS / "motif" / "pdl1_binder_0_generated.cif",
+        GOLDENS / "motif" / "refold_pdl1_binder_0_generated_479647c2",
+        "pdl1_binder_0_generated_479647c2",
+        tags,
+    )
+    expected = golden["rows"]["pdl1_binder_0_generated.cif"]
+    assert expected[f"{criterion}.pass"] == "1.0"
+    _assert_row_matches(expected, rows["pdl1_binder_0_generated.cif"], 55)

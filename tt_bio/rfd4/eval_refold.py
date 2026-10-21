@@ -187,12 +187,20 @@ PASS_CRITERIA = (
         "refolded_backbone_rmsd.rmsd": {"max": 1.5},
         "refolded_backbone_aligned_ligand_rmsd.rmsd": {"max": 5.0},
     }),
+    ("ame", {"ame_refolding"}, {"no_ligand"}, {
+        "oracle.min_ipae_coi": {"max_exclusive": 1.5},
+        "refolded_backbone_rmsd.rmsd": {"max": 2.0},
+        "refolded_motif_allatom_rmsd.rmsd": {"max": 1.5},
+        "clash_metrics.frac_atoms_clashing_inter_residue_polymer_ligand_1p5A": {"max": 0},
+    }),
+    ("ame_no_ligand", {"ame_refolding"}, set(), {
+        "refolded_backbone_rmsd.rmsd": {"max": 2.0},
+        "refolded_motif_allatom_rmsd.rmsd": {"max": 1.5},
+    }, {"no_ligand"}),
 )  # fmt: skip
 
 #: Pass criteria whose thresholds read a metric this port does not compute.
 PASS_NOT_PORTED = {
-    "ame": {"ame_refolding"},
-    "ame_no_ligand": {"ame_refolding"},
     "disco": {"disco_refolding"},
     "developability": {"developability"},
 }
@@ -336,8 +344,10 @@ def pass_criteria(metrics, tags):
     """`oracles/pass_criterion_metric.py:118-150`: every threshold must hold, a missing key is
     indeterminate and scores `pass=0` with `all_metrics_present=0`."""
     out = {}
-    for name, gate, prohibited, thresholds in PASS_CRITERIA:
+    for name, gate, prohibited, thresholds, *required_all in PASS_CRITERIA:
         if tags is not None and (not (tags & gate) or tags & prohibited):
+            continue
+        if tags is not None and required_all and not required_all[0] <= tags:
             continue
         present, passed = True, True
         for key, bounds in thresholds.items():
