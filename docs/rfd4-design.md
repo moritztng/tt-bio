@@ -155,6 +155,23 @@ A design is reproducible from its seed, featurization included. Note that featur
 that: a contig with a variable-length segment samples its length per seed, so the same spec at two
 seeds is two different designs with two different token counts.
 
+## Many designs at once
+
+A spec can hold any number of designs and `--num_designs` multiplies them. Locally they run one
+after another on one card. Across a fleet, each becomes its own job:
+
+```bash
+tt-bio design specs.yaml --model rfd4 --num_designs 32 --controller http://127.0.0.1:8765
+```
+
+The inputs are built once on the submitting host and each prepared CIF rides with its job, so a
+worker needs no view of your filesystem and a spec that selects nothing fails here rather than on
+every worker. Design *k* gets seed `seed + k`, so a single design out of a 32-design run
+reproduces on its own. `<out_dir>/metrics.json` lists every design that landed with its token
+count and runtime.
+
+From Python: `rfd4.design_via_controller(spec, out_dir, controller_url=...)`.
+
 ## Backends
 
 Upstream has two: `native`, the model, and `bioir`, which runs the whole workflow through NVIDIA's

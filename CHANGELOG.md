@@ -17,6 +17,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   design spec to annotated-CIF designs with the same arguments and defaults as `tt-bio design --model
   rfd4`, which now runs that same call. `rfd4.DesignEngine.from_pretrained()` keeps the weights on the
   card across a sweep. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4 designs fan across the fleet.** `tt-bio design --model rfd4 --controller URL` makes one job
+  per design, each carrying the input the submitting host prepared, and writes a `metrics.json`
+  with every design that landed. See [rfd4-design](docs/rfd4-design.md).
 - **RFD4 loads a LoRA fine-tune.** `rfd4.DesignEngine(adapter=...)` merges a PEFT adapter directory
   into the weights at load, so it costs nothing per design. Merging the released bundle's own
   adapter onto its own base reproduces NVIDIA's merged checkpoint to 3e-08.

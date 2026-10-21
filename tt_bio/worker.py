@@ -2358,7 +2358,8 @@ def run_worker_loop(
             if cfg.get("kind") == "design":
                 state.free_model()
                 shard = {"rfd3": _execute_rfd3_job_inprocess,
-                         "pxdesign": _execute_pxdesign_job_inprocess}.get(
+                         "pxdesign": _execute_pxdesign_job_inprocess,
+                         "rfd4": _execute_rfd4_job_inprocess}.get(
                              cfg.get("engine"), _execute_design_job_inprocess)
                 for job in jobs:
                     shard(client, run_id, worker_id, worker_info, meta, job, cfg)
@@ -2843,6 +2844,110 @@ def _execute_pxdesign_job_inprocess(
         )
     except Exception:
         traceback.print_exc()
+
+
+def _execute_rfd4_job_inprocess(
+    client: ControllerClient,
+    run_id: str,
+    worker_id: str,
+    worker_info: dict[str, Any],
+    meta: dict[str, Any],
+    job: dict[str, Any],
+    cfg: dict[str, Any],
+) -> None:
+    """Run one RFD4 design IN-PROCESS on this worker's persistent device.
+
+    A shard is ONE design: the payload carries the annotated CIF the submitter built, a stem and
+    a seed, so the worker needs neither the spec nor the structures it names. The engine is kept
+    on this worker across shards (``_RFD4_ENGINE``) — loading the bundle costs more than a small
+    design, and a cold device open per shard is what deadlocked the UMD init path on the RFD3
+    path, so the engine is built on the chip this worker already holds.
+    """
+    import threading
+    job_id = job["id"]
+    t0 = time.time()
+
+    def emit(event: str, **kw):
+        try:
+            client.event(run_id, worker_id, {"event": event, **meta, **kw})
+        except Exception:
+            pass
+
+    workdir = Path(tempfile.mkdtemp(prefix=f"tt-bio-rfd4-{job_id}-"))
+    out_dir = workdir / "out"
+    row: dict[str, Any] = {"id": job_id, "status": "failed"}
+    outputs: dict[str, str] = {}
+    emit("start", name=job.get("name") or job_id)
+
+    # The sampler reports nothing until a design finishes, so relay a heartbeat; without it
+    # the orchestrator's stall watchdog reads a long design as a hang.
+    stop = threading.Event()
+
+    def _beat():
+        while not stop.wait(15.0):
+            emit("progress", name=job.get("name") or job_id,
+                 elapsed_s=round(time.time() - t0, 1))
+
+    beat = threading.Thread(target=_beat, daemon=True)
+    beat.start()
+    try:
+        from tt_bio import rfd4
+
+        data = json.loads(base64.b64decode(job.get("input_b64", "")).decode("utf-8"))
+        stem = str(data.get("stem") or job_id)
+        seed = int(data.get("seed") or 0)
+        row["name"] = stem
+        row["example_id"] = data.get("example_id")
+        if not data.get("cif"):
+            raise RuntimeError("design shard shipped no annotated CIF")
+        cif = workdir / f"{stem}.cif"
+        cif.write_text(str(data["cif"]))
+
+        engine = _rfd4_engine(cfg)
+        tokens: list[int] = []
+        rfd4.design(cif, out_dir, num_designs=1, nsteps=cfg.get("nsteps"), seed=seed,
+                    annotated_cif=True, engine=engine,
+                    on_design=lambda _id, n, _cif: tokens.append(n))
+        row.update({"status": "ok", "tokens": tokens[0] if tokens else None,
+                    "runtime_s": round(time.time() - t0, 1)})
+        outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
+    except Exception as exc:
+        traceback.print_exc()
+        row["error"] = _err_text(exc)
+    finally:
+        stop.set()
+        shutil.rmtree(workdir, ignore_errors=True)
+        gc.collect()  # drop host refs; the engine and the chip stay
+
+    try:
+        client.complete(
+            run_id, worker_id, row,
+            {**meta, "event": "done", "name": row.get("name") or job_id,
+             "status": row["status"], "time": round(time.time() - t0, 1),
+             "error": row.get("error", ""), "row": row},
+            outputs=outputs or None,
+        )
+    except Exception:
+        traceback.print_exc()
+
+
+#: (recipe, engine) — the RFD4 engine this worker holds, reused across shards of a run.
+_RFD4_ENGINE: tuple[str | None, Any] = (None, None)
+
+
+def _rfd4_engine(cfg: dict[str, Any]):
+    """This worker's RFD4 engine, loading it on first use and on a recipe change.
+
+    The recipe is the one thing a run can change that the loaded engine carries, so it keys the
+    cache; everything else per design (seed, steps, the input) is an argument.
+    """
+    global _RFD4_ENGINE
+    recipe = cfg.get("recipe")
+    if _RFD4_ENGINE[0] != recipe or _RFD4_ENGINE[1] is None:
+        from tt_bio.rfd4 import get_engine
+
+        _RFD4_ENGINE = (recipe, get_engine(**({"recipe": recipe} if recipe else {})))
+    return _RFD4_ENGINE[1]
 
 
 def _forward_design_progress(path: Path, pos: int, emit) -> int:
