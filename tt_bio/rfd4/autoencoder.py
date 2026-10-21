@@ -51,23 +51,26 @@ class AEHalf(Module):
         self.in_w = folded["in_w"].float().T.contiguous()  # host fp32, see the module docstring
         self.n_feat = self.in_w.shape[0]
         self.layers = []
+        hw = lambda t: t.float().T.contiguous()  # noqa: E731  (host fp32 copy for the common rows)
         for L in folded["layers"]:
             q_w, k_w, v_w = L["qkv_w"].chunk(3)
             q_b, k_b, v_b = L["qkv_b"].chunk(3)
-            self.layers.append({
+            w1a, w1g = L["w1"].chunk(2)  # upstream chunks [a | gate]; two projections keep each tile-aligned
+            # Each linear runs twice over: the device takes the per-token part (x - c), the host the
+            # token-common row c @ W + b in fp32, see `_split_common`.
+            mats = {"q": (q_w, q_b), "k": (k_w, k_b), "v": (v_w, v_b), "g": (L["g_w"], L["g_b"]),
+                    "o": (L["o_w"], L["o_b"]), "w1a": (w1a, None), "w1g": (w1g, None), "w2": (L["w2"], None)}
+            layer = {
                 "ln1_w": vec(L["ln1_w"]), "ln1_b": vec(L["ln1_b"]),
                 "node_w": vec(L["node_w"]), "node_b": vec(L["node_b"]),
-                "q_w": w(q_w.T), "q_b": row(q_b), "k_w": w(k_w.T), "k_b": row(k_b),
-                "v_w": w(v_w.T), "v_b": row(v_b),
                 "q_ln_w": vec(L["q_ln_w"]), "q_ln_b": vec(L["q_ln_b"]),
                 "k_ln_w": vec(L["k_ln_w"]), "k_ln_b": vec(L["k_ln_b"]),
-                "g_w": w(L["g_w"].T), "g_b": row(L["g_b"]),
-                "o_w": w(L["o_w"].T), "o_b": row(L["o_b"]),
                 "ln2_w": vec(L["ln2_w"]), "ln2_b": vec(L["ln2_b"]),
-                # SwiGLU: upstream chunks [a | gate]; two projections keep each half tile-aligned.
-                "w1a": w(L["w1"][: L["w1"].shape[0] // 2].T), "w1g": w(L["w1"][L["w1"].shape[0] // 2:].T),
-                "w2": w(L["w2"].T),
-            })
+            }
+            for n, (wt, bt) in mats.items():
+                layer[n] = w(wt.T)
+                layer[n + "_h"] = (hw(wt), None if bt is None else bt.float())
+            self.layers.append(layer)
         self.head_w = folded["head_w"].float().T.contiguous()  # host fp32, see the module docstring
         self.head_b = folded["head_b"].float()
 
@@ -106,22 +109,50 @@ class AEHalf(Module):
             y = ttnn.add(y, b)
         return y
 
+    def _split_common(self, x, kmean):
+        """x -> (x - c on the device, c on the host) with c the mean attended row, [B, 1, D].
+
+        Every token's stream is nearly the same vector (a real batch's final stream: token-common part
+        27.50 of a 27.71 row norm), so a matmul over it rounds the same way for every token, and the
+        card keeps 10 mantissa bits of a result: the error does not average out, it is a common-mode
+        shift (logit25 - logit23 moved -0.14 on all 240 RNA tokens of real_rna_pk). W x = W (x - c) + W c
+        holds for ANY c, so the device multiplies the small per-token part and the host adds W c in fp32."""
+        c = ttnn.matmul(kmean, x, dtype=ttnn.float32, compute_kernel_config=self.compute_kernel_config)
+        ch = ttnn.to_torch(c).float()
+        xc = ttnn.subtract(x, c)
+        ttnn.deallocate(c)
+        return xc, ch
+
+    def _row(self, ch, wb):
+        """The host's token-common row c @ W (+ b), fp32, on the device as [B, 1, out]."""
+        w, b = wb
+        r = ch @ w if b is None else ch @ w + b
+        return ttnn.from_torch(r.contiguous(), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=self.device)
+
+    def _lin_cm(self, xc, ch, L, n, row=True):
+        y = self._lin32(xc, L[n])
+        return ttnn.add(y, self._row(ch, L[n + "_h"])) if row else y
+
     def _block(self, L, x, bias, kmean):
         ckc = self.compute_kernel_config
         h1 = self._ln(x, L["ln1_w"], L["ln1_b"])  # the folded adaLN
-        h = self._ln(h1, L["node_w"], L["node_b"])
+        h0 = self._ln(h1, L["node_w"], L["node_b"])
         ttnn.deallocate(h1)
+        h, ch = self._split_common(h0, kmean)
+        ttnn.deallocate(h0)
         # qk-LayerNorm runs on the full 768 inner dim, before the heads are split, so the three
         # projections stay separate and are re-packed for `_split_heads` -- the tile-aware split
         # (`nlp_create_qkv_heads`), never a reshape to [B, N, 12, 64]: 12 is not tile-aligned.
-        q = self._ln(self._lin32(h, L["q_w"], L["q_b"]), L["q_ln_w"], L["q_ln_b"])
-        k = self._ln(self._lin32(h, L["k_w"], L["k_b"]), L["k_ln_w"], L["k_ln_b"])
+        q = self._ln(self._lin_cm(h, ch, L, "q"), L["q_ln_w"], L["q_ln_b"])
+        k = self._ln(self._lin_cm(h, ch, L, "k"), L["k_ln_w"], L["k_ln_b"])
         # Subtract the mean attended key. Softmax is invariant to a per-row constant and q.(k - c) is
         # q.k - q.c for ANY c, so this is exact; it matters because the card's matmul keeps 10 mantissa
         # bits of its result. The keys share a large common part: on a real batch block 0's scores reach
         # |s| 824 with a row span of 5.2, so tf32 rounding alone moved them ~0.4; centred they reach 3.1.
         k = ttnn.subtract(k, ttnn.matmul(kmean, k, dtype=ttnn.float32, compute_kernel_config=ckc))
-        v = self._lin32(h, L["v_w"], L["v_b"])
+        # Softmax rows sum to 1, so p @ v = p @ (v - v_row) + v_row: attention averages only the
+        # per-token part of v and the common row is added back after the heads merge.
+        v = self._lin_cm(h, ch, L, "v", row=False)
         qkv = ttnn.concat([q, k, v], dim=-1)
         for t in (q, k, v):
             ttnn.deallocate(t)
@@ -135,21 +166,27 @@ class AEHalf(Module):
         ttnn.deallocate(s)
         o = ttnn.matmul(p, v, dtype=ttnn.float32, compute_kernel_config=ckc)
         ttnn.deallocate(p); ttnn.deallocate(v)
-        o = self._merge_heads(o)
-        g = self._lin32(h, L["g_w"], L["g_b"], activation="sigmoid")
+        o = ttnn.add(self._merge_heads(o), self._row(ch, L["v_h"]))
+        g = ttnn.sigmoid(self._lin_cm(h, ch, L, "g"))
         ttnn.deallocate(h)
-        og = ttnn.multiply(o, g)
+        og0 = ttnn.multiply(o, g)
         ttnn.deallocate(o); ttnn.deallocate(g)
-        x2 = ttnn.add(x, self._lin32(og, L["o_w"], L["o_b"]))
+        og, cog = self._split_common(og0, kmean)
+        ttnn.deallocate(og0)
+        x2 = ttnn.add(x, self._lin_cm(og, cog, L, "o"))
         ttnn.deallocate(og)
 
-        t = self._ln(x2, L["ln2_w"], L["ln2_b"])
-        u = self._lin32(t, L["w1a"])
-        gate = self._lin32(t, L["w1g"], activation="silu")
+        t0 = self._ln(x2, L["ln2_w"], L["ln2_b"])
+        t, ct = self._split_common(t0, kmean)
+        ttnn.deallocate(t0)
+        u = self._lin_cm(t, ct, L, "w1a")
+        gate = ttnn.silu(self._lin_cm(t, ct, L, "w1g"))
         ttnn.deallocate(t)
-        ug = ttnn.multiply(u, gate)
+        ug0 = ttnn.multiply(u, gate)
         ttnn.deallocate(u); ttnn.deallocate(gate)
-        out = ttnn.add(x2, self._lin32(ug, L["w2"]))
+        ug, cug = self._split_common(ug0, kmean)
+        ttnn.deallocate(ug0)
+        out = ttnn.add(x2, self._lin_cm(ug, cug, L, "w2"))
         ttnn.deallocate(ug); ttnn.deallocate(x2)
         return out
 
