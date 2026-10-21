@@ -45,6 +45,10 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--designs", type=int, default=2, help="sequential single designs; the first is the compile")
+    ap.add_argument("--upstream-seams", default=None,
+                    help="an upstream seam dump (perf/rfd4/cond_chem/seams.sh). Transplants the "
+                         "featurizer's three ambient-stream draws so the design can be compared "
+                         "to upstream's at the same seed; see state/rfd4/PAIR.md")
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
     a = ap.parse_args()
@@ -74,6 +78,26 @@ def main():
     features, atom_array = rfd4.featurize(designs[0].cif, seed=a.seed)
     t_feat = time.perf_counter() - t0
     n_tokens = int(features["padding_mask"].shape[-1])
+
+    if a.upstream_seams:
+        # The same substitution host_trunk_control.py --features upstream makes, one layer up:
+        # engine.design() builds the batch itself, so the hook goes on preprocess.
+        import torch
+        up = torch.load(a.upstream_seams, weights_only=False)["batch"]
+        keys = ("chain_iid", "molecule_iid", "condition_InternalCoordinate_1_atom")
+        inner_pre = E.preprocess
+
+        def transplanted(feats):
+            batch = inner_pre(feats)
+            for key in keys:
+                src = next((v for k, v in up.items() if k == key or k.endswith("." + key)), None)
+                if src is None:
+                    raise KeyError(f"{a.upstream_seams} has no {key}")
+                batch[key] = src.to(batch[key].dtype)
+            return batch
+
+        E.preprocess = transplanted
+        emit({"kind": "transplant", "seams": a.upstream_seams, "keys": list(keys)})
 
     with clocksample.during() as clk:
         t0 = time.perf_counter()
