@@ -388,3 +388,40 @@ def test_grading_a_design_against_itself_is_zero():
     assert grade["rmsd_a"] == pytest.approx(0.0, abs=1e-6)
     assert grade["anchor_rmsd_a"] == pytest.approx(0.0, abs=1e-6)
     assert grade["designed_residues"] == 12
+
+
+# --- the designed half of the chemistry grade: what the model CHOSE, not what it held ---
+
+
+def test_a_renumbered_design_still_grades_its_chemistry(ligand_cif, tmp_path):
+    """An RNA design names its own bases, so residue 7 is a different component in the two
+    files and the preservation check misses every key. Per component, the chemistry is still
+    there to grade."""
+    cc = _chem_check()
+    moved = tmp_path / "moved.cif"
+    moved.write_text(LIGAND_CIF.replace("LIG B 2 . 2", "LIG B 9 . 9"))
+    assert cc.check(ligand_cif, moved)["verdict"] == "FAIL"
+    res = cc.check_designed(moved, ligand_cif)
+    assert res["verdict"] == "PASS", res["differences"]
+    assert res["components"] == ["LIG"] and res["atoms_checked"] == 5
+
+
+def test_a_wrong_charge_in_a_designed_component_still_fails(ligand_cif, tmp_path):
+    res = _chem_check().check_designed(_variant(tmp_path, "bad.cif", "S S1  LIG B 2 . 2 LIG B S1  2 1.0 +1",
+                                                "S S1  LIG B 2 . 2 LIG B S1  2 1.0 ?"), ligand_cif)
+    assert res["verdict"] == "FAIL"
+    assert any(d["key"] == ["LIG", "S1"] for d in res["differences"])
+
+
+def test_a_component_that_disagrees_with_itself_fails(tmp_path):
+    """Two instances of one component must carry the same chemistry, or collapsing them hides
+    the difference instead of grading it."""
+    second = ("HETATM N S1  LIG B 3 . 3 LIG B S1  7 1.0 +1 0.0 5.0 0.0 1\n"
+              "HETATM C C1  LIG B 3 . 3 LIG B C1  8 1.0 ?  2.0 5.0 0.0 1\n")
+    path = tmp_path / "two.cif"
+    path.write_text(LIGAND_CIF.rstrip().rsplit("#", 1)[0] + second + "#\n")
+    ref = tmp_path / "ref.cif"
+    ref.write_text(LIGAND_CIF)
+    res = _chem_check().check_designed(path, ref)
+    assert res["verdict"] == "FAIL"
+    assert any(d["key"] == ["LIG", "S1"] for d in res["differences"])
