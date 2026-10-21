@@ -29,6 +29,8 @@ ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail kn
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (lever trimul_t1w8): its error and time")
 ap.add_argument("--fid", default="", help="HiFi4/HiFi3/HiFi2/LoFi: run T1 at this fidelity instead of the trunk's")
+ap.add_argument("--save", default="", help="DIR: torch.save inc_{a,b,g} and t1_{a,b,g} of the --save-n call here, to locate wrong values offline")
+ap.add_argument("--save-n", type=int, default=0, help="the --ns entry (its first occurrence) whose outputs --save writes")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -171,6 +173,9 @@ for n in [int(s) for s in A.ns.split(",") if s]:
     try:
         outs = incumbent()
         inc = [ttnn.to_torch(o).reshape(ref[k].shape) for k, o in zip("abg", outs)]
+        if A.save and n == A.save_n:
+            Path(A.save).mkdir(parents=True, exist_ok=True)
+            torch.save({k: t for k, t in zip("abg", inc)}, f"{A.save}/inc_{n}.pt")
         for k, t in zip("abg", inc):
             rec[f"inc_{k}_rel_rms_f64"], rec[f"inc_{k}_max_abs"] = rel(t, ref[k])
         if m is not None:
@@ -190,6 +195,9 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         else:
             ttnn.synchronize_device(dev)
             host = [ttnn.to_torch(o) for o in outs]
+            if A.save and n == A.save_n:
+                torch.save({k: t.reshape(ref[k].shape) for k, t in zip("abg", host)}, f"{A.save}/t1_{n}.pt")
+                A.save_n = -1
             rec["t1_finite"] = all(bool(torch.isfinite(t).all()) for t in host)
             for k, t in zip("abg", host):
                 rec[f"t1_{k}_rel_rms_f64"], rec[f"t1_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
