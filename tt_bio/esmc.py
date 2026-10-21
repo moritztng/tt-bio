@@ -457,6 +457,10 @@ MM_STATS = [0, 0]
 # op's default: 300M proj 0.233 -> 0.197, fc1 half 0.495 -> 0.461, fc2 0.392 -> 0.382; 600M proj 0.268 -> 0.226, fc1
 # half 0.645 -> 0.587, fc2 0.470 -> 0.452; error against float64 equal to the default's. Off = the op's default.
 _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
+# K in blocks of 6 tiles where K divides and the projection widens (qkv, fc1). mm_cfg_sweep --kb on a Galaxy chip at
+# 1000 MHz, fp32 accumulation, ms a call: 300M qkv 0.487 -> 0.461, fc1 half 0.471 -> 0.425; 600M qkv 0.653 -> 0.613,
+# fc1 half 0.604 -> 0.591; rel_l2 vs float64 unchanged. Square and narrowing shapes (out proj, fc2) keep 4 / 2.
+_ESMC_MM_KB6 = env_flag("TT_BIO_ESMC_MM_KB6", False)
 # Under bf16 accumulation (--fast's block-fp8 weights) the qkv split runs fastest in 8 x 8 blocks: mm_cfg_sweep on a
 # Galaxy chip at 1000 MHz, 600M 0.540 -> 0.481 ms a call, 300M 0.419 -> 0.406, same rel_l2 vs float64.
 _ESMC_MM_CFG_BF16_ACC_8X8 = env_flag("TT_BIO_ESMC_MM_CFG_8X8", True)
@@ -576,8 +580,9 @@ def _mm_config(x, w, exact: bool = False):
     kt = int(w.shape[-2]) // 32
     bf16_acc = _mm_bf16_acc(w, exact)
     mn8 = bf16_acc and _ESMC_MM_CFG_BF16_ACC_8X8
+    kb6 = _ESMC_MM_KB6 and not bf16_acc and kt % 6 == 0 and int(w.shape[-1]) > int(w.shape[-2])
     return {"config": ttnn.MinimalMatmulConfig(
-        M_block_size=8 if mn8 else 16, K_block_size=4 if kt % 4 == 0 else 2, N_block_size=8 if mn8 else 4,
+        M_block_size=8 if mn8 else 16, K_block_size=6 if kb6 else 4 if kt % 4 == 0 else 2, N_block_size=8 if mn8 else 4,
         subblock_h=2, subblock_w=4 if bf16_acc else 2, compute_with_storage_grid_size=ttnn.CoreCoord(g.x, g.y))}
 
 

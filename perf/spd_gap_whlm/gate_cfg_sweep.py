@@ -26,6 +26,7 @@ def main() -> int:
     ap.add_argument("--modes", default="normal,fast")
     ap.add_argument("--full-sync", action="store_true", help="dst_full_sync_en for every arm: dest holds twice the "
                     "subblock tiles (8 fp32 / 16 bf16) but math and pack no longer overlap on dest halves")
+    ap.add_argument("--kb", default=None, help="comma list of K block sizes in tiles (default: the model's, 2 and 4)")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -84,7 +85,7 @@ def main() -> int:
             w1h, w2h = (ttnn.to_torch(w).double() for w in (wd1, wd2))
             ref = torch.nn.functional.silu(x.double() @ w1h) * (x.double() @ w2h)
             dmax = (4 if not fast or name == "6b" else 8) * (2 if args.full_sync else 1)   # dest tiles a subblock gets
-            for kb in sorted({base.K_block_size, 2, 4}):
+            for kb in sorted({int(k) for k in args.kb.split(",")} if args.kb else {base.K_block_size, 2, 4}):
                 if (d // 32) % kb:
                     continue
                 for nb in (4, 6, 8, 10, 12):
