@@ -96,7 +96,7 @@ def fold_seconds(model: str, rung: int, out_dir: Path) -> float | None:
 
 
 def one_rep(model: str, rung: int, protocol: str, card: str, work: Path,
-            timeout_s: int) -> dict:
+            timeout_s: int, dev: int) -> dict:
     out_dir = work / f"{model}_{rung}_{protocol}"
     shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -112,8 +112,13 @@ def one_rep(model: str, rung: int, protocol: str, card: str, work: Path,
         except subprocess.TimeoutExpired:
             rc, timed_out = None, True
     wall = time.monotonic() - t0
+    # tt-smi honours TT_VISIBLE_DEVICES, so with a card granted the sampler sees one board and
+    # index 0 is that board (perf/clocksample.py). The whole summary is kept beside it: a row
+    # whose `aiclk` is null has to be visibly unclocked rather than quietly read off a sibling.
+    summary = clk.summary()
     rep = {"wall_s": round(wall, 3), "rc": rc, "timed_out": timed_out,
-           "aiclk": clk.summary().get(0), "load": None, "runtime_s": None}
+           "dev": dev, "aiclk": summary.get(dev), "aiclk_all_boards": summary,
+           "load": None, "runtime_s": None}
     if clk.load:
         rep["load"] = round(statistics.median(clk.load), 3)
     if rc == 0:
@@ -141,7 +146,8 @@ def run(args) -> int:
             # AF2-IG has no diffusion rollout, so both protocols are the same fold: run it once.
             protocols = ["oracle"] if model == "af2ig" else args.protocols.split(",")
             for protocol in protocols:
-                reps = [one_rep(model, rung, protocol, args.card, work, args.timeout)
+                reps = [one_rep(model, rung, protocol, args.card, work, args.timeout,
+                                args.dev)
                         for _ in range(args.reps)]
                 times = [r["runtime_s"] for r in reps if r["runtime_s"] is not None]
                 clocks = [r["aiclk"]["median"] for r in reps if r.get("aiclk")]
@@ -149,7 +155,8 @@ def run(args) -> int:
                     "model": model, "rung_tokens": rung, "protocol": protocol,
                     "settings": {} if model == "af2ig" else (ORACLE if protocol == "oracle"
                                                              else LADDER),
-                    "fixture": str(path), "card": args.card, "host": os.uname().nodename,
+                    "fixture": str(path), "card": args.card, "clock_dev": args.dev,
+                    "host": os.uname().nodename,
                     "board": board, "commit": commit, "reps": reps,
                     "runtime_s_median": round(statistics.median(times), 3) if times else None,
                     # The clock each number was taken at. A row whose aiclk is null, or whose
@@ -178,6 +185,10 @@ def main() -> int:
                          "protocol every size_ladder_baseline cell was recorded at")
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--timeout", type=int, default=5400)
+    ap.add_argument("--dev", type=int, default=0,
+                    help="the leased card's index in the clock sampler's list. tt-smi honours "
+                         "TT_VISIBLE_DEVICES and reports the granted chip as 0, so 0 is right "
+                         "even on a four-card box; --card is a different numbering")
     ap.add_argument("--clock-floor", type=int, default=1200,
                     help="Blackhole: below this the card was throttled and the row is an artifact")
     ap.add_argument("--work", default=str(ROOT / "perf" / "rfd4" / "work"))
