@@ -451,3 +451,19 @@ def test_rasa_and_centroid_adherence_match_upstream(tmp_path):
     assert expected["rasa_adherence.buried_conditioning_adherence"] == "0.5156"
     assert expected["centroid_conditioning_adherence.centroid_conditioning_mae"] == "2.4999"
     _assert_row_matches(expected, rows["cond_generated.cif"], 37)
+
+
+def test_disco_refolding_matches_upstream(tmp_path):
+    """`max_ligand_centroid_distance` and the `disco` criterion on upstream's SAM binder design."""
+    golden = json.loads((GOLDENS / "upstream_disco.json").read_text())
+    rows = _run_cached(
+        tmp_path,
+        GOLDENS / "ligand" / "sam_generated.cif",
+        GOLDENS / "ligand" / "refold_sam_generated_fc57ca17",
+        "sam_generated_fc57ca17",
+        "design,disco_refolding",
+    )
+    expected = golden["rows"]["sam_generated.cif"]
+    assert expected["max_ligand_centroid_distance.ligand_centroid_distance"] == "0.0864"
+    assert expected["disco.pass"] == "1.0"
+    _assert_row_matches(expected, rows["sam_generated.cif"], 52)

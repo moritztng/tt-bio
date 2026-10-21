@@ -152,7 +152,6 @@ MOTIF = (
 #: a second refold from `ApoOnlyTransform`; the DISCO one needs `LigandCentroidDistanceMetric`.
 REFOLDING_NOT_PORTED = {
     "refolded_apo_holo_rmsd": {"apo_refolding"},
-    "max_ligand_centroid_distance": {"disco_refolding"},
 }  # fmt: skip
 
 #: `configs/metrics/pass_criteria/all_pass_criteria.yaml`: (name, gate tags, prohibited tags,
@@ -193,6 +192,10 @@ PASS_CRITERIA = (
         "refolded_motif_allatom_rmsd.rmsd": {"max": 1.5},
         "clash_metrics.frac_atoms_clashing_inter_residue_polymer_ligand_1p5A": {"max": 0},
     }),
+    ("disco", {"disco_refolding"}, set(), {
+        "refolded_backbone_rmsd.rmsd": {"max": 2.0},
+        "max_ligand_centroid_distance.ligand_centroid_distance": {"max": 2.0},
+    }),
     ("ame_no_ligand", {"ame_refolding"}, set(), {
         "refolded_backbone_rmsd.rmsd": {"max": 2.0},
         "refolded_motif_allatom_rmsd.rmsd": {"max": 1.5},
@@ -201,7 +204,6 @@ PASS_CRITERIA = (
 
 #: Pass criteria whose thresholds read a metric this port does not compute.
 PASS_NOT_PORTED = {
-    "disco": {"disco_refolding"},
     "developability": {"developability"},
 }
 
@@ -292,6 +294,9 @@ def refolding_metrics(design, refolds, tags, coi):
                 design.is_polymer[design_keep],
             )
             out.update({f"{name}.{k}": v for k, v in result.items()})
+        if tags is None or "disco_refolding" in tags:
+            result = ligand_centroid_distance(gt, gt_masks, pred, pred_masks)
+            out.update({f"max_ligand_centroid_distance.{k}": v for k, v in result.items()})
         for name, gate, mask in MOTIF:
             if not (tags is None or tags & gate):
                 continue
@@ -316,6 +321,46 @@ def design_motif_rmsd(design):
     gt = design.atoms.copy()
     gt.coord = design.coords_with_insertion.astype(np.float32)
     return motif_rmsd(gt, design.crd_src, design.crd_group, design.atoms, design.crd_src, design.is_polymer)
+
+
+def _ligand_molecules(atoms, is_ligand):
+    """`gt_structure_comparison._get_ligand_molecules`: centroid and residue-name set per bonded
+    ligand molecule, in molecule order."""
+    from tt_bio.rfd4.eval_symmetry import _molecules
+
+    lig = atoms[is_ligand]
+    if lig.array_length() == 0:
+        return [], []
+    molecules, _ = _molecules(lig, np.zeros(lig.array_length(), dtype=bool))
+    return (
+        [np.mean(lig.coord[m], axis=0) for m in molecules],
+        [frozenset(lig.res_name[m].tolist()) for m in molecules],
+    )
+
+
+def ligand_centroid_distance(gt, gt_masks, pred, pred_masks):
+    """`max_ligand_centroid_distance` (`LigandCentroidDistanceMetric`, aggregation max): the refold
+    is fit to the design on protein backbone, then each ligand molecule's centroid is compared.
+    NaN when either side has no ligand, the counts differ, or the residue-name sets are duplicated
+    or mismatched, as upstream; {} when the alignment fails."""
+    from biotite.structure import superimpose
+
+    g = gt_masks["is_protein_backbone"] & M._finite(gt)
+    p = pred_masks["is_protein_backbone"] & M._finite(pred)
+    if g.sum() != p.sum() or g.sum() == 0:
+        return {}
+    _, transform = superimpose(gt.coord[g], pred.coord[p])
+    moved = pred.copy()
+    moved.coord = transform.apply(pred.coord)
+    gt_centroids, gt_fps = _ligand_molecules(gt, gt_masks["is_ligand"])
+    pred_centroids, pred_fps = _ligand_molecules(moved, pred_masks["is_ligand"])
+    nan = {"ligand_centroid_distance": float("nan")}
+    if not gt_centroids or not pred_centroids or len(gt_centroids) != len(pred_centroids):
+        return nan
+    if len(set(gt_fps)) != len(gt_fps) or len(set(pred_fps)) != len(pred_fps) or gt_fps != pred_fps:
+        return nan
+    distances = [float(np.linalg.norm(a - b)) for a, b in zip(gt_centroids, pred_centroids)]
+    return {"ligand_centroid_distance": float(np.max(distances))}
 
 
 def motif_rmsd(gt, gt_mask, groups, pred, pred_mask, gt_is_polymer):
