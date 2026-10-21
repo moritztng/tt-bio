@@ -460,7 +460,8 @@ _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
 # K in blocks of 6 tiles where K divides and the projection widens (qkv, fc1). mm_cfg_sweep --kb on a Galaxy chip at
 # 1000 MHz, fp32 accumulation, ms a call: 300M qkv 0.487 -> 0.461, fc1 half 0.471 -> 0.425; 600M qkv 0.653 -> 0.613,
 # fc1 half 0.604 -> 0.591; rel_l2 vs float64 unchanged. Square and narrowing shapes (out proj, fc2) keep 4 / 2.
-# The same switch sets mm_gate's K block (the FFN gate: 600M 1.131 -> 1.055 ms a layer, see mm_gate.config).
+# The FFN gate (mm_gate) keeps K 2: K 6 there is 600M 1.131 -> 1.055 ms a layer alone, but in the model its circular
+# buffers clash with the FFN LayerNorm's L1 output (TT_THROW at the 600M page cell), and 300M gains nothing (0.833).
 _ESMC_MM_KB6 = env_flag("TT_BIO_ESMC_MM_KB6", False)
 # Under bf16 accumulation (--fast's block-fp8 weights) the qkv split runs fastest in 8 x 8 blocks: mm_cfg_sweep on a
 # Galaxy chip at 1000 MHz, 600M 0.540 -> 0.481 ms a call, 300M 0.419 -> 0.406, same rel_l2 vs float64.
@@ -1299,7 +1300,7 @@ class SwiGLUFFN(_MMLin, Module):
         grid = (int(g.x), int(g.y))
         ck = self.compute_kernel_config if large else self._mm_ck(w)
         cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid,
-                             not large and _mm_bf16_acc(w, self.mm_exact_acc), kb6=_ESMC_MM_KB6 and not large)
+                             not large and _mm_bf16_acc(w, self.mm_exact_acc))
         if cfg is None or not mm_gate.overlay_ok():
             MM_GATE_STATS[1] += 1
             return None
