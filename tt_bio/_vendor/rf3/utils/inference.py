@@ -19,7 +19,7 @@ from tt_bio._vendor.atomworks.io.tools.inference import (
     components_to_atom_array,
 )
 from tt_bio._vendor.atomworks.io.transforms.categories import category_to_dict
-from tt_bio._vendor.atomworks.io.utils.selection import AtomSelectionStack
+from tt_bio._vendor.atomworks.io.utils.query import AtomSelectionStack  # atomworks 3.0 moved it out of io.utils.selection
 from tt_bio._vendor.atomworks.ml.transforms.atom_array import add_global_token_id_annotation
 from biotite.structure import AtomArray
 from tt_bio._vendor.rf3.utils.io import (
@@ -175,7 +175,7 @@ class InferenceInput:
 
         parsed = parse_atom_array(
             atom_array,
-            build_assembly="_spoof",  # type: ignore[arg-type]  # recognized (deprecated) atomworks sentinel, absent from the public Literal
+            # build_assembly='_spoof' was a deprecated alias for 'all', which atomworks 3.0 always builds here
             hydrogen_policy="keep",
         )
 
@@ -244,7 +244,7 @@ class InferenceInput:
         # Use parse_atom_array
         parsed = parse_atom_array(
             atom_array,
-            build_assembly="_spoof",  # type: ignore[arg-type]  # recognized (deprecated) atomworks sentinel, absent from the public Literal
+            # build_assembly='_spoof' was a deprecated alias for 'all', which atomworks 3.0 always builds here
             hydrogen_policy="keep",
             extra_fields="all",
         )
