@@ -464,8 +464,14 @@ def route_opendde_weights(state_dict):
 # 101-104, 44 paired folds each (t1h): normal PASS, same-seed top pose median 0.572 A (A/A floor 1.907 A), CA-lDDT
 # -0.0013 [-0.0032, +0.0001], docking 25 -> 24; fast PASS, top pose median 0.624 A (floor 2.240 A), CA-lDDT -0.0001
 # [-0.0010, +0.0007], docking 26 -> 26. The 11-set (515-791 tokens) never reaches it.
+# Wormhole normal runs the trunk's matmuls at HiFi2 (trunk_hifi2, over the family's trunk_hifi3); it reaches the pair
+# transition too, whose ws_swiglu takes the caller's fidelity. Galaxy chip, 1000 MHz, separate-process ABBA, 4 warm folds
+# per arm (spd-m-opendde th2p, 2026-10-21): normal 608 127.1 -> 124.6 s, 288 -0.33 s. WH 11-set normal grade, shipped set
+# vs + trunk_hifi2, seeds 109-112, 44 paired folds (th2g): PASS, same-seed top pose median 0.216 A (A/A floor 1.330 A),
+# CA-lDDT +0.0006 [+0.0002, +0.0013], DockQ +0.0033 [+0.0004, +0.0068], docking 26 -> 26; the confidence head reads ipTM
+# -0.018 [-0.048, -0.002] and pLDDT -0.0014.
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL
-                 | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram"})
+                 | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
