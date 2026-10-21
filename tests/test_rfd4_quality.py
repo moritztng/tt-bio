@@ -43,6 +43,8 @@ def _rows(n: int, seed: int, rmsd_mu: float = 1.0, pass_rate: float = 0.7) -> li
             "oracle.overall_plddt": float(rng.normal(85, 4)),
             "clash_metrics.frac_atoms_clashing_1p5A": float(abs(rng.normal(0.001, 0.0005))),
             "unconditional.pass": float(rng.random() < pass_rate),
+            # upstream writes the presence column beside every pass criterion
+            "unconditional.all_metrics_present": 1.0,
             "amino_acid_composition.n_generated_unknown_residues": 0.0,
         })
     return out
@@ -285,7 +287,8 @@ def test_a_family_with_no_oracle_columns_is_not_a_pass(tmp_path):
     """The pass criteria and every refold RMSD come from the oracle: without it, nothing is graded."""
     rows_tt, rows_ref = _rows(40, 1), _rows(40, 2)
     for r in rows_tt + rows_ref:  # as if no oracle had run
-        for col in ("refolded_backbone_rmsd.rmsd", "oracle.overall_plddt", "unconditional.pass"):
+        for col in ("refolded_backbone_rmsd.rmsd", "oracle.overall_plddt", "unconditional.pass",
+                    "unconditional.all_metrics_present"):
             r[col] = ""
     tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
     out = tmp_path / "QUALITY.json"
@@ -519,3 +522,22 @@ def test_a_chain_extract_with_several_chains_is_not_a_chain_of_interest(tmp_path
     assert quality._chain_of_interest({"designed_chain_path": str(extract)}) is None
     assert quality._chain_of_interest({"designed_chain_path": str(tmp_path / "gone.cif")}) is None
     assert quality._chain_of_interest({}) is None
+
+
+def test_a_pass_criterion_with_no_inputs_is_not_a_clean_rate(tmp_path):
+    """Upstream writes pass=0 with all_metrics_present=0 when a criterion's inputs are absent
+    (observed on two VHH complexes, 2026-10-21). Reading only `.pass` makes a family that was
+    never evaluated look like one that failed honestly, and both arms agree, so the rate test
+    is happy. The presence column is the guard that says so."""
+    rows_tt, rows_ref = _rows(40, 1), _rows(40, 2)
+    for r in rows_tt + rows_ref:
+        r["unconditional.pass"] = 0.0
+        r["unconditional.all_metrics_present"] = 0.0
+    tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
+    out = tmp_path / "QUALITY.json"
+    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+                       "--permutations", str(FAST), "--out", str(out)])
+    feat = json.loads(out.read_text())["features"][FEATURE]
+    assert rc == 1 and feat["verdict"] == "FAIL"
+    assert "unconditional.all_metrics_present" in feat["failed"]
+    assert feat["metrics"]["unconditional.pass"]["pass"] is True  # the rate alone sees nothing wrong

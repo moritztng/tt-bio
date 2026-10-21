@@ -292,11 +292,12 @@ def _grade_guard(column: str, a: np.ndarray) -> dict:
     if a.size == 0:
         return {"kind": "guard", "missing": True, "n_tt": 0}
     mean = float(np.nanmean(a))
-    limit = bar.get("max_mean")
-    ok = True if limit is None else bool(mean <= limit + 1e-12)
+    hi, lo = bar.get("max_mean"), bar.get("min_mean")
+    ok = ((hi is None or mean <= hi + 1e-12) and (lo is None or mean >= lo - 1e-12))
+    bars = [f"mean <= {hi}"] * (hi is not None) + [f"mean >= {lo}"] * (lo is not None)
     return {
         "kind": "guard", "tt": round(mean, 6), "ref": None, "n_tt": int(a.size),
-        "bar": f"mean <= {limit}" if limit is not None else "none", "pass": ok,
+        "bar": " and ".join(bars) if bars else "none", "pass": bool(ok),
     }
 
 

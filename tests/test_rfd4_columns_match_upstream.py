@@ -31,7 +31,8 @@ pytestmark = pytest.mark.skipif(not UPSTREAM.exists(), reason="upstream referenc
 RMSD_METRICS_EMIT = {"rmsd"}
 # Written by the evaluate pipeline, not by any metric config.
 PIPELINE_COLUMNS = {"pre_oracle_pass", "chain_of_interest", "foldseek_cluster_id"}
-PASS_CRITERIA_EMIT = {"pass"}
+# `all_metrics_present` observed beside `pass` on a real CSV (antibody_names, 2026-10-21).
+PASS_CRITERIA_EMIT = {"pass", "all_metrics_present"}
 
 
 def _config_keys() -> dict[str, str]:

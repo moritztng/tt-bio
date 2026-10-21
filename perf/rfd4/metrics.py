@@ -145,6 +145,13 @@ SPECIFIC = {
         ("refolded_backbone_rmsd.rmsd", "dist", True),
     ],
 }
+# Every pass criterion is graded with its companion presence column, so a family cannot read as a
+# clean rate when upstream never had the inputs to decide it. Same oracle flag as the `.pass` it
+# accompanies: without an oracle both are absent and the family reads ORACLE_MISSING, not FAIL.
+for _entries in SPECIFIC.values():
+    _entries += [(c.replace(".pass", ".all_metrics_present"), "guard", needs_oracle)
+                 for c, kind, needs_oracle in _entries if kind == "rate" and c.endswith(".pass")]
+
 SPECIFIC["nanobody_cdr"] = SPECIFIC["antibody_cdr"]
 
 # A guard is a bar on the TT arm by itself: a reference arm that is equally broken must not
@@ -156,6 +163,13 @@ GUARDS = {
     # whole structure so the design is still graded, but every geom.* column then describes the
     # complex rather than the binder, which is not the measurement anyone asked for.
     "geom.chain_not_found": {"max_mean": 0.0},
+    # Upstream writes `<family>.all_metrics_present` beside `<family>.pass`, and when a pass
+    # criterion's inputs are absent it writes pass=0 with all_metrics_present=0: a design that was
+    # never evaluated is indistinguishable from one that failed, if you read only `.pass`.
+    # Observed 2026-10-21 on two VHH complexes scored at metrics_tags=[design,antibody,
+    # interchain_interactions], where both columns came back 0.0 for every design.
+    **{f"{family}.all_metrics_present": {"min_mean": 1.0}
+       for family in ("unconditional", "ppi", "antibody", "ame", "motif_scaffold", "sm_binder", "dna")},
 }
 
 # Designs that are all the same design are not 30 designs. Diversity is graded in quality.py
