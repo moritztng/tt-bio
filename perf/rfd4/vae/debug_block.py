@@ -56,6 +56,7 @@ def main() -> int:
     up = lambda t: ttnn.from_torch(t.float().contiguous(), dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     down = lambda t: ttnn.to_torch(t).double()  # noqa: E731
     bias = up(bias64.expand(B, AF.HEADS, Np, Np))
+    kmean = up((att / att.sum(-1, keepdim=True).clamp_min(1)).double()[:, None, :])
     H, DH, D = AF.HEADS, AF.DH, AF.D
     want = {int(i) for i in a.blocks.split(",")} if a.blocks else set(range(AF.LAYERS))
     tok = att  # [B, Np]
@@ -65,13 +66,15 @@ def main() -> int:
             t, r = t[tok], r[tok]
         return float((t - r).abs().max() / r.abs().max().clamp_min(1e-30))
 
-    def ref_block(L, x):
+    def ref_block(L, x, c=None):
         """float64 block returning its intermediates (heads layout as the device's)."""
         b_, n, _ = x.shape
         o = {}
         o["h"] = AF._ln(AF._ln(x) * L["ln1_w"] + L["ln1_b"], L["node_w"], L["node_b"])
         q, k, v = (o["h"] @ L["qkv_w"].T + L["qkv_b"]).chunk(3, -1)
         q, k = AF._ln(q, L["q_ln_w"], L["q_ln_b"]), AF._ln(k, L["k_ln_w"], L["k_ln_b"])
+        if c is not None:
+            k = k - c
         q, k, v = (t.reshape(b_, n, H, DH).transpose(1, 2) for t in (q, k, v))
         o["q"], o["k"], o["v"] = q, k, v
         o["s"] = q @ k.transpose(-1, -2) * DH ** -0.5 + bias64
@@ -91,15 +94,16 @@ def main() -> int:
     for i, (L, Ld) in enumerate(zip(f64["layers"], m.layers)):
         if i in want:
             xin = down(X)
-            r = ref_block(L, xin)
             Lb = dict(L, **{k: bf(L[k]) for k in ("qkv_w", "g_w", "o_w", "w1", "w2")})
-            rf = ref_block(Lb, xin)
             d = {}
             h1 = m._ln(X, Ld["ln1_w"], Ld["ln1_b"])
             h = m._ln(h1, Ld["node_w"], Ld["node_b"])
             d["h"] = down(h)
             q = m._ln(m._lin32(h, Ld["q_w"], Ld["q_b"]), Ld["q_ln_w"], Ld["q_ln_b"])
             k = m._ln(m._lin32(h, Ld["k_w"], Ld["k_b"]), Ld["k_ln_w"], Ld["k_ln_b"])
+            kc = ttnn.matmul(kmean, k, dtype=ttnn.float32, compute_kernel_config=ckc)
+            c64 = down(kc)  # the same constant on the reference side keeps "k" and "s" comparable
+            k = ttnn.subtract(k, kc)
             v = m._lin32(h, Ld["v_w"], Ld["v_b"])
             q, k, v = m._split_heads(ttnn.concat([q, k, v], dim=-1), H)
             d["q"], d["k"], d["v"] = down(q), down(k), down(v)
@@ -120,6 +124,7 @@ def main() -> int:
             ug = ttnn.multiply(m._lin32(t, Ld["w1a"]), m._lin32(t, Ld["w1g"], activation="silu"))
             d["ug"] = down(ug)
             d["out"] = down(ttnn.add(x2, m._lin32(ug, Ld["w2"])))
+            r, rf = ref_block(L, xin, c64), ref_block(Lb, xin, c64)
             for site in ("h", "q", "k", "v", "s", "p", "o", "og", "x2", "t", "ug", "out"):
                 if site in ("q", "k", "v", "s", "p"):
                     sel = lambda z: z.transpose(1, 2)  # noqa: E731  token axis to dim 1 for the row mask
@@ -129,7 +134,7 @@ def main() -> int:
                 else:
                     e_d, e_f = err(d[site], r[site]), err(rf[site], r[site])
                 print(f"block {i:2d} {site:4s} dev {e_d:.3e} floor {e_f:.3e} ratio {e_d / max(e_f, 1e-30):6.1f}", flush=True)
-        X = m._block(Ld, X, bias)
+        X = m._block(Ld, X, bias, kmean)
     xf = down(X)
     ref = x.clone()
     for L in f64["layers"]:

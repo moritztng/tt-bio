@@ -110,7 +110,7 @@ class AEHalf(Module):
             y = ttnn.add(y, b)
         return y
 
-    def _block(self, L, x, bias):
+    def _block(self, L, x, bias, kmean):
         ckc = self.compute_kernel_config
         h1 = self._ln(x, L["ln1_w"], L["ln1_b"])  # the folded adaLN
         h = self._ln(h1, L["node_w"], L["node_b"])
@@ -120,6 +120,11 @@ class AEHalf(Module):
         # (`nlp_create_qkv_heads`), never a reshape to [B, N, 12, 64]: 12 is not tile-aligned.
         q = self._ln(self._lin32(h, L["q_w"], L["q_b"]), L["q_ln_w"], L["q_ln_b"])
         k = self._ln(self._lin32(h, L["k_w"], L["k_b"]), L["k_ln_w"], L["k_ln_b"])
+        # Subtract the mean attended key. Softmax is invariant to a per-row constant and q.(k - c) is
+        # q.k - q.c for ANY c, so this is exact; it matters because the card's matmul keeps 10 mantissa
+        # bits of its result. The keys share a large common part: on a real batch block 0's scores reach
+        # |s| 824 with a row span of 5.2, so tf32 rounding alone moved them ~0.4; centred they reach 3.1.
+        k = ttnn.subtract(k, ttnn.matmul(kmean, k, dtype=ttnn.float32, compute_kernel_config=ckc))
         v = self._lin32(h, L["v_w"], L["v_b"])
         qkv = ttnn.concat([q, k, v], dim=-1)
         for t in (q, k, v):
@@ -167,10 +172,13 @@ class AEHalf(Module):
         dev = self.device
         bias = AF.key_bias(att, torch.float32).expand(B, AF.HEADS, Np, Np).contiguous()
         bias = ttnn.from_torch(bias, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+        kmean = (att / att.sum(-1, keepdim=True).clamp_min(1)).float()[:, None, :]  # [B, 1, Np]
+        kmean = ttnn.from_torch(kmean, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
         x = ttnn.from_torch(f, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
         for L in self.layers:
-            x = self._block(L, x, bias)
+            x = self._block(L, x, bias, kmean)
         ttnn.deallocate(bias)
+        ttnn.deallocate(kmean)
         a = self._ln(x)
         ttnn.deallocate(x)
         out = self._lin32(a, self.head_w, self.head_b)
