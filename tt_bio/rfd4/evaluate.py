@@ -72,6 +72,11 @@ INLINE = (
         lambda d, i: M.compute_sse_accuracy(d),
     ),
     ("hotspot_obedience", _gate(any_of=["hotspot_conditioning"]), lambda d, i: M.compute_hotspot_obedience(d)),
+    (
+        "design_motif_allatom_rmsd",
+        _gate(any_of=["3d_coordinate_conditioning", "unindexed", "internal_coordinate_conditioning"]),
+        lambda d, i: R.design_motif_rmsd(d),
+    ),
     ("sequence_similarity_to_input", _gate(any_of=["partial_diffusion"]), M.compute_sequence_similarity_to_input),
     ("ca_rmsd_to_input", _gate(any_of=["partial_diffusion"]), M.compute_ca_rmsd_to_input),
 )
@@ -83,9 +88,6 @@ NOT_PORTED = {
     "interchain_interactions": _gate(any_of=["interchain_interactions"]),
     "posebusters_metrics": _gate(any_of=["small_molecule_only"]),
     "chiral_accuracy": _gate(any_of=["has_small_molecule"]),
-    "design_motif_allatom_rmsd": _gate(
-        any_of=["3d_coordinate_conditioning", "unindexed", "internal_coordinate_conditioning"]
-    ),
     "design_unindexed_motif_allatom_rmsd": _gate(all_of=["unindexed"]),
     "unindexed_insertion_mapping": _gate(all_of=["unindexed"]),
     "contact_molecular_surface": _gate(any_of=["cms"]),

@@ -331,3 +331,19 @@ def test_motif_scaffold_refolding_matches_upstream_on_a_real_design(tmp_path):
     assert expected["refolded_motif_ca_rmsd.rmsd"] == "0.5486"
     assert expected["motif_scaffold.pass"] == "1.0"
     _assert_row_matches(expected, rows["pdl1_binder_0_generated.cif"], 53)
+
+
+def test_motif_family_tags_match_upstream_on_a_real_design(tmp_path):
+    """The campaign's motif family, `design,motif_scaffold_refolding,3d_coordinate_conditioning`,
+    which adds the inline `design_motif_allatom_rmsd` (the design against its own conditioning)."""
+    golden = json.loads((GOLDENS / "upstream_motif_family_real_binder.json").read_text())
+    rows = _run_cached(
+        tmp_path,
+        GOLDENS / "motif" / "pdl1_binder_0_generated.cif",
+        GOLDENS / "motif" / "refold_pdl1_binder_0_generated_479647c2",
+        "pdl1_binder_0_generated_479647c2",
+        "design,motif_scaffold_refolding,3d_coordinate_conditioning",
+    )
+    expected = golden["rows"]["pdl1_binder_0_generated.cif"]
+    assert expected["design_motif_allatom_rmsd.rmsd"] == "0.178"
+    _assert_row_matches(expected, rows["pdl1_binder_0_generated.cif"], 54)

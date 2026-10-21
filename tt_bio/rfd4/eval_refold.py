@@ -301,6 +301,15 @@ def refolding_metrics(design, refolds, tags, coi):
     return out
 
 
+def design_motif_rmsd(design):
+    """Inline `design_motif_allatom_rmsd` (`design_metrics.yaml:68-79`): the design scored against
+    its own conditioning, i.e. ground truth = the design with `coords-with-insertion` as its
+    coordinates, prediction = the design, both masked to `SA_CRDSRC`, per coordinate group."""
+    gt = design.atoms.copy()
+    gt.coord = design.coords_with_insertion.astype(np.float32)
+    return motif_rmsd(gt, design.crd_src, design.crd_group, design.atoms, design.crd_src, design.is_polymer)
+
+
 def motif_rmsd(gt, gt_mask, groups, pred, pred_mask, gt_is_polymer):
     """`StructureComparisonMetric._compute_per_group` with align and subset the same mask.
 
