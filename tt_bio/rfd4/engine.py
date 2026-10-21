@@ -104,7 +104,7 @@ class DesignEngine:
             spec = replace(spec, nsteps=nsteps)
 
         def trunk(s_init, z_init, conds, mask):
-            return self.trunk.run_bucketed(s_init, z_init, conds, mask, self._device)
+            return self.trunk.run_bucketed(s_init, z_init, conds, mask, self._device, pair=False)
 
         network = _network.FlowNetwork(self.glue, trunk, batch)
         chunked = _sampler.ChunkedNetwork(network, spec,
