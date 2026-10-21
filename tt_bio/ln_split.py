@@ -12,6 +12,7 @@ ttnn.layer_norm.
 
 from __future__ import annotations
 
+import math
 import struct
 from pathlib import Path
 
@@ -44,7 +45,7 @@ def _cb(idx, core_grid, tiles, dtype):
 
 def _vec_ok(v, k):
     return v is None or (v.dtype == ttnn.bfloat16 and v.layout == ttnn.TILE_LAYOUT and int(v.shape[-1]) == k
-                         and int(v.volume()) == k and not v.is_sharded())
+                         and math.prod(int(d) for d in v.shape) == k and not v.is_sharded())
 
 
 def _build(x, out, w, b, g, eps):

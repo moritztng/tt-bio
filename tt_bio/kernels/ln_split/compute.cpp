@@ -6,7 +6,7 @@
 // statistics over all KT tiles of the row from the G cores that share it. Two-pass as ttnn.layer_norm: the partial
 // row sum (x 1/K) goes to the writer, the G partials come back and their sum is the mean; then the same for the
 // biased variance of x - mean. Sums of partials are SFPU adds in fp32 DEST. Then (x - mean) * rstd [* gamma] [+ beta]
-// to c_2 (ln_prologue.hpp's stages).
+// to c_2 (ln_prologue.hpp's stages), rounded to nearest even before the bf16 pack.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -17,6 +17,7 @@
 #include "api/compute/reduce.h"
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
+#include "../trimul_gin_moved/sigmoid_poly.hpp"
 #include "../common/ln_prologue.hpp"
 
 constexpr uint32_t KC = get_compile_time_arg_val(0);
@@ -84,6 +85,7 @@ ALWI void finish(uint32_t in) {
         tile_regs_acquire();
         if constexpr (HAS_B) add_tiles_bcast_rows(in, cb_beta, i, i, 0);
         else copy_tile(in, i, 0);
+        round_bf16_rne_tile(0);   // the packer truncates; ttnn.layer_norm's output rounds
         tile_regs_commit();
         tile_regs_wait();
         pack_tile(0, cb_out);

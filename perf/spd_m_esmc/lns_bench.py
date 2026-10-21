@@ -32,11 +32,31 @@ def ms(fn, dev, n=50):
     return round(statistics.median(t), 4)
 
 
+def dev_ms(fn, dev, n=20):
+    """Device ms a call: n calls captured in one trace, replayed (no host dispatch in the clock)."""
+    for _ in range(2):
+        ttnn.deallocate(fn())
+    ttnn.synchronize_device(dev)
+    tid = ttnn.begin_trace_capture(dev, cq_id=0)
+    outs = [fn() for _ in range(n)]
+    ttnn.end_trace_capture(dev, tid, cq_id=0)
+    ttnn.execute_trace(dev, tid, cq_id=0, blocking=True)
+    t = []
+    for _ in range(5):
+        t0 = time.perf_counter()
+        ttnn.execute_trace(dev, tid, cq_id=0, blocking=True)
+        t.append((time.perf_counter() - t0) * 1000 / n)
+    ttnn.release_trace(dev, tid)
+    for o in outs:
+        ttnn.deallocate(o)
+    return round(statistics.median(t), 4)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
-    dev = get_device()
+    dev = get_device(trace="esmc")
     ck = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                           fp32_dest_acc_en=True, packer_l1_acc=False)
     torch.manual_seed(0)
@@ -62,11 +82,13 @@ def main() -> int:
             err = lambda a: round(float((a - ref).norm() / ref.norm()), 6)  # noqa: E731
             row["rel_l2_stock"] = err(stock)
             row["ms_stock"] = ms(lambda: ttnn.layer_norm(x, epsilon=1e-5, compute_kernel_config=ck, **kw), dev)
+            row["dev_ms_stock"] = dev_ms(lambda: ttnn.layer_norm(x, epsilon=1e-5, compute_kernel_config=ck, **kw), dev)
             if got is not None:
                 g = ttnn.to_torch(got).double()
                 row["rel_l2_split"] = err(g)
                 row["max_abs_split_vs_stock"] = round(float((g - stock).abs().max()), 5)
                 row["ms_split"] = ms(lambda: ln_split.layer_norm(x, w, b, 1e-5), dev)
+                row["dev_ms_split"] = dev_ms(lambda: ln_split.layer_norm(x, w, b, 1e-5), dev)
                 # repeat-launch consistency: the semaphores reset between launches
                 again = ttnn.to_torch(ln_split.layer_norm(x, w, b, 1e-5)).double()
                 row["repeat_equal"] = bool(torch.equal(again, g))
