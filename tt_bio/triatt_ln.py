@@ -31,6 +31,7 @@ so each group's bfp8 tiles form one run that ends on a DST block.
 
 from __future__ import annotations
 
+import math
 import struct
 from pathlib import Path
 
@@ -143,14 +144,21 @@ def b8_cols(g, nw, H, gate=False):
     """Per column group (first tile, bfp8 tiles, end tile) for bfp8 q, k, v (and the gate), or None.
 
     One group: q|k|v(|g) are its first tiles. Two groups split at 2H instead of nw, so group 0 is q|k (and
-    one v tile it computes but leaves to group 1) and group 1 is v(|g), then the bf16 rest: each group's
-    bfp8 run starts its row and ends on a DST block (or the group's end)."""
+    one v tile it computes bf16 but leaves to group 1) and group 1 is v(|g), then the bf16 rest. Each group's
+    bfp8 run starts its row and ends on a DST block."""
     nb = (4 if gate else 3) * H
     if g == 1:
         return [(0, nb, 4 * H + 1)] if nb % 4 == 0 else None
     if g == 2 and H % 4 == 0 and nw == 2 * H + 1:
-        return [(0, nw, 2 * H), (2 * H, nb - 2 * H, 4 * H + 1)]
+        return [(0, 2 * H, 2 * H), (2 * H, nb - 2 * H, 4 * H + 1)]
     return None
+
+
+def _cb_tiles(cols, nw):
+    """Tiles of c_2 (bfp8) and c_4 (bf16 rest) under `cols`: two rows of every group's chunk, since a ring
+    whose size is not a multiple of a core's reservation would run that reservation past its end."""
+    lcm = lambda v: math.lcm(*v) if v else 0   # noqa: E731
+    return 2 * lcm([q for _, q, _ in cols]), 2 * lcm([nw - q for _, q, _ in cols if nw > q])
 
 
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
@@ -166,6 +174,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     # column group c % g, and every group splits the same rows.
     split = split_rows(m // 16 if tr else m, gx * gy // g)
     nq = max(q for _, q, _ in cols) if cols else 0
+    c2, c4 = _cb_tiles(cols, nw) if cols else (2 * nw, 0)
     for c in range(gx * gy):
         r0, n = split[c // g]
         cx, cy = c % gx, c // gx
@@ -194,13 +203,13 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
         compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq),   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
-    cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * (nq or nw), outs[0].dtype),
+    cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, c2, outs[0].dtype),
            _cb(7, core_grid, tr * 16 * kt if tr else 2 * RB * kt), _cb(8, core_grid, kt), _cb(9, core_grid, kt),
            _cb(10, core_grid, 1)]
     if tr:
         cbs.append(_cb(3, core_grid, 16))   # the 32 half tiles of one channel tile
-    if nq and nw > min(q for _, q, _ in cols):
-        cbs.append(_cb(4, core_grid, 2 * (nw - min(q for _, q, _ in cols))))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
+    if c4:
+        cbs.append(_cb(4, core_grid, c4))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -239,9 +248,10 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     gate = lever("triatt_ln_b8g")   # the gate too: gated_out_proj reads a bfp8 g
     cols = b8_cols(plan[0], plan[1], H, gate) if lever("triatt_ln_b8") else None
     if cols and plan[0] > 1:
-        # the bf16 rest's c_4, which _plan did not price (the bfp8 c_2 shrinks, counted at full size here)
-        c4 = 2 * (plan[1] - min(q for _, q, _ in cols)) * MG.tile_bytes(ttnn.bfloat16)
-        if _cb_bytes(K // TILE, plan[1], plan[2]) + c4 > _lcf(x.device()):
+        # c_2 and c_4 against the bf16 c_2 that _plan priced
+        c2, c4 = _cb_tiles(cols, plan[1])
+        extra = (c2 - 2 * plan[1]) * MG.tile_bytes(ttnn.bfloat8_b) + c4 * MG.tile_bytes(ttnn.bfloat16)
+        if _cb_bytes(K // TILE, plan[1], plan[2]) + extra > _lcf(x.device()):
             cols = None
     nq = (4 if gate else 3) * H if cols else 0
     STATS[2] += bool(nq)

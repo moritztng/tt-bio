@@ -64,7 +64,7 @@ ALWI void project(uint32_t n0, uint32_t nq) {
     tile_regs_commit();
     tile_regs_wait();
     if constexpr (NQ) {
-        // nq is a multiple of SBW or NW, so a block never straddles the two buffers
+        // nq is a multiple of SBW, so a block never straddles the two buffers
         const uint32_t cb = n0 < nq ? out_cb : (uint32_t)tt::CBIndex::c_4;
         pack_reconfig_data_format(cb);
         for (uint32_t i = 0; i < W; ++i) pack_tile<true>(i, cb, n0 < nq ? n0 + i : n0 - nq + i);

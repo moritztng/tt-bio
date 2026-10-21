@@ -8,7 +8,7 @@
 // H = 0 (apb_ln, triatt_ln.ln_proj): the NW tiles go row-major to one [B, S, NW * 32] tensor.
 // A core of column group n0 (runtime arg 4) writes output tiles n0 .. n0 + NW - 1 of the NWF a row tile
 // carries; the ones past NWF are padding and are dropped, and with NQ so are those from runtime arg 6 on
-// (the next group's: a bfp8 split at 2H leaves group 0 one v tile it computes but does not own).
+// (the next group's: a bfp8 split at 2H leaves group 0 one v tile it computes bf16 but does not own).
 #include "api/dataflow/dataflow_api.h"
 
 // Row tile of the i-th row this core writes. Plain: r0 + i. TR (runtime arg 2, reader.cpp): r0 is the first

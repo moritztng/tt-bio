@@ -1,5 +1,5 @@
 """`triatt_ln.b8_cols`: every output tile is owned by exactly one column group, each group's bfp8 run starts its
-row and ends on a DST block (or the group's end), and the bfp8 tiles are exactly q|k|v (|g)."""
+row and ends on a DST block, each ring holds whole reservations of every group, and the bfp8 tiles are exactly q|k|v (|g)."""
 import pytest
 
 pytest.importorskip("ttnn")
@@ -15,12 +15,15 @@ def test_cols_cover_once(H, g, gate):
     assert cols is not None and len(cols) == g
     owner, b8 = [0] * nwf, set()
     for n0, nq, end in cols:
-        assert end - n0 <= nw and (nq % 4 == 0 or nq == nw)
+        assert end - n0 <= nw and nq % 4 == 0
         for n in range(n0, end):
             owner[n] += 1
         b8 |= set(range(n0, min(n0 + nq, end)))
     assert owner == [1] * nwf
     assert b8 == set(range((4 if gate else 3) * H))
+    c2, c4 = TL._cb_tiles(cols, nw)
+    for _, nq, _ in cols:   # every core's reservation divides its ring
+        assert c2 % nq == 0 and (nq == nw or c4 % (nw - nq) == 0)
 
 
 def test_declines():
