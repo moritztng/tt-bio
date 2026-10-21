@@ -4581,6 +4581,13 @@ class AtomDiffusion(Module):
         token_repr = None
         atom_coords_denoised = None
 
+        # Every step's `times`, as preconditioned_network_forward computes them: `dit_cond_steps` conditions
+        # several steps ahead.
+        set_schedule = getattr(self.score_model, "set_time_schedule", None) if self.use_tenstorrent else None
+        if set_schedule:
+            set_schedule([self.c_noise(torch.full((1,), sm.item() * (1 + g.item())))[0].item()
+                          for sm, _, g in sigmas_and_gammas])
+
         # gradually denoise
         _n_steps = len(sigmas_and_gammas)
         for step_idx, (sigma_tm, sigma_t, gamma) in enumerate(sigmas_and_gammas):
@@ -4792,6 +4799,8 @@ class AtomDiffusion(Module):
                 dump_fn(step_idx, atom_coords, atom_coords_denoised)
 
         _write_sample_digest(atom_coords, chunk_width)
+        if set_schedule:
+            set_schedule(None)
         return dict(sample_atom_coords=atom_coords, diff_token_repr=token_repr)
 
     def loss_weight(self, sigma):
