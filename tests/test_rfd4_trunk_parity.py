@@ -216,3 +216,26 @@ def test_pair_update(case):
     _grade("pair_update", got, ref, floor, pair)
     _grade("pair_update update", got - z * pair[..., None], ref - z * pair[..., None],
            floor - _bf16(z) * pair[..., None], pair)
+
+
+@pytest.mark.device
+@pytest.mark.parametrize("nlayers,cycles", [(4, 2), (24, 6)])
+def test_trunk_stack(nlayers, cycles):
+    """The stack with its recycles: `nlayers` blocks (pair update after every second but the last)
+    run `cycles` times, each cycle with its own conditioning. 24 x 6 is the release model's
+    deepest pass, the first band of the thinking_medium schedule."""
+    dev = T.get_device()
+    w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=11)
+    wb = {k: _bf16(v) for k, v in w.items()}
+    s0, z0, _, mask = REF.block_inputs(1, 128, DIM, DIM_PAIR, DIM_COND, lengths=[96], seed=12)
+    g = torch.Generator().manual_seed(13)
+    conds = [torch.randn(1, 128, DIM_COND, generator=g, dtype=torch.float64) for _ in range(cycles)]
+    ref_s, ref_z = REF.trunk(w, s0, z0, conds, mask, nlayers, n_heads=HEADS)
+    fl_s, fl_z = REF.trunk(wb, _bf16(s0), _bf16(z0), [_bf16(c) for c in conds], mask, nlayers,
+                           n_heads=HEADS, rnd=REF.bf16)
+    mod = TR.Trunk(_scope(w), TR.compute_kernel_config(), nlayers, HEADS)
+    masks = TR.trunk_masks(mask, dev)
+    s, z = mod(_dev(s0, dev), _dev(z0, dev), [_dev(c, dev) for c in conds], masks)
+    pair = mask[:, :, None] * mask[:, None, :]
+    _grade(f"trunk {nlayers}x{cycles} s", ttnn.to_torch(s).double(), ref_s, fl_s, mask)
+    _grade(f"trunk {nlayers}x{cycles} z", ttnn.to_torch(z).double(), ref_z, fl_z, pair)

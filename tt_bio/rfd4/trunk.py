@@ -357,6 +357,81 @@ class PairUpdate(Module):
         z = self._residual(z, self.tri_in(z, pair_mask), pair_mask_c)
         return self._residual(z, self._transition(z, pair_mask_c), pair_mask_c)
 
+
+def trunk_masks(mask, device, dtype=ttnn.bfloat16):
+    """The four device masks one trunk call reads, from a host [b, n] 0/1 token mask: the token
+    mask [b, n, 1], the attention's additive [b, 1, n, n] pair mask, and the pair mask as [b, n, n]
+    (triangle multiplication) and [b, n, n, 1] (residuals). Built once per stack call."""
+    m = mask.to(torch.float32)
+    pair = m[:, :, None] * m[:, None, :]
+    up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                   device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    return (up(m[..., None]), up(torch.where(pair.bool(), 0.0, NEG_INF)[:, None]), up(pair),
+            up(pair[..., None]))
+
+
+class Trunk(Module):
+    """`LocalLatentsTransformer._run_trunk` in inference: `nlayers` trunk blocks with a pair update
+    after every `every_n`-th one but the last, run once per recycle.
+
+    Each cycle starts from the initial states plus a projection of the previous cycle's,
+    s_init + W_s rms(s) and z_init + W_z rms(z). On the first cycle the previous states are zero, so
+    the projection is exactly zero (rms(0) = 0) and the cycle starts from the initial states as
+    they are; nothing the model computes is skipped.
+    """
+
+    def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
+                 dtype=None):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        self.nlayers = nlayers
+        self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype)
+                       for i in range(nlayers)]
+        self.pair_updates = {i: PairUpdate(self.scope(f"pair_update_layers.{i}"), ckc, dtype=self.dtype)
+                             for i in range(nlayers - 1) if i % every_n == 0}
+        ident = lambda x: x  # noqa: E731
+        self.s_norm = self.torch_to_tt("s_cycle_norm.weight", transform=ident, dtype=self.dtype)
+        self.s_proj = self.torch_to_tt("s_cycle_proj.weight", dtype=self.dtype)
+        self.z_norm = self.torch_to_tt("z_cycle_norm.weight", transform=ident, dtype=self.dtype)
+        self.z_proj = self.torch_to_tt("z_cycle_proj.weight", dtype=self.dtype)
+
+    def _recycle(self, init, prev, norm_w, proj_w):
+        h = _rms(prev, norm_w, self.compute_kernel_config)
+        p = self._lin(h, proj_w, dtype=self.dtype)
+        ttnn.deallocate(h)
+        out = ttnn.add(init, p)
+        ttnn.deallocate(p)
+        return out
+
+    def run_pass(self, s, z, cond, masks):
+        """One trunk pass. Consumes `s` and `z` (frees them) and returns the new pair."""
+        mask, bias_mask, pair_mask, pair_mask_c = masks
+        for i, block in enumerate(self.blocks):
+            s_new = block(s, z, cond, mask, bias_mask)
+            ttnn.deallocate(s)
+            s = s_new
+            pu = self.pair_updates.get(i)
+            if pu is not None:
+                z_new = pu(s, z, mask, pair_mask, pair_mask_c)
+                ttnn.deallocate(z)
+                z = z_new
+        return s, z
+
+    def __call__(self, s_init, z_init, conds, masks):
+        """`conds[k]` is cycle k's conditioning ([b, n, dim_cond]); upstream recomputes it each cycle
+        because it carries the remaining-pass count. Returns the final (s, z); the inputs survive."""
+        s = z = None
+        for c in conds:
+            if s is None:
+                s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
+            else:
+                s_in = self._recycle(s_init, s, self.s_norm, self.s_proj)
+                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj)
+                ttnn.deallocate(s)
+                ttnn.deallocate(z)
+            s, z = self.run_pass(s_in, z_in, c, masks)
+        return s, z
+
 def compute_kernel_config():
     """The config the rest of tt-bio's trunks run on: HiFi4, fp32 dest, packer L1 accumulate."""
     from ..rfd3.model import _default_compute_kernel_config
