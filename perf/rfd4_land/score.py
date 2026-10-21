@@ -57,6 +57,11 @@ def tm(P, Q):
     return best
 
 
+def seq(ca):
+    # 7ROA is author-numbered from 58, the prediction from 1: pair CAs by position, not res_id
+    return "".join(struc.info.one_letter_code(r) for r in ca.res_name)
+
+
 def ca_map(a):
     p = a[struc.filter_amino_acids(a) & (a.atom_name == "CA")]
     return {(c, int(r)): x for c, r, x in zip(p.chain_id, p.res_id, p.coord)}
@@ -66,7 +71,7 @@ xtal = {}
 for inp, p in XTAL.items():
     x = load(p)
     xp = x[struc.filter_amino_acids(x) & (x.atom_name == "CA")]
-    xtal[inp] = ({int(r): c for r, c in zip(xp.res_id, xp.coord)},
+    xtal[inp] = ((seq(xp), xp.coord),
                  {n: c for n, c in zip(x.atom_name[x.res_name == "SB3"], x.coord[x.res_name == "SB3"])})
 
 folds, top = {}, {}
@@ -86,11 +91,11 @@ for inp in INPUTS:
             top[(inp, arm, s)] = a
             xca, xlig = xtal[inp]
             pa = a[struc.filter_amino_acids(a) & (a.atom_name == "CA") & (a.chain_id == "A")]
-            common = [int(r) for r in pa.res_id if int(r) in xca]
-            P = np.array([pa.coord[pa.res_id == r][0] for r in common]); Q = np.array([xca[r] for r in common])
+            assert seq(pa) == xca[0], f"{run.name}: chain A sequence differs from the crystal's"
+            P, Q = pa.coord, xca[1]
             R, t = kabsch(P, Q)
             row.update(ranking_score=res["ranking_score"], ptm=res["ptm"], iptm=res.get("iptm"),
-                       plddt=res["plddt"], ca_rmsd_xtal=rmsd(P @ R + t, Q), tm_xtal=tm(P, Q), n_ca=len(common))
+                       plddt=res["plddt"], ca_rmsd_xtal=rmsd(P @ R + t, Q), tm_xtal=tm(P, Q), n_ca=len(P))
             if inp == "fkg_ligand":
                 la = a[a.res_name == "SB3"]
                 names = [n for n in la.atom_name if n in xlig]
