@@ -7,7 +7,12 @@ bf16 floor beside it.
 
 The continuous-output bar is the campaign's 0.05 (the trunk row's). device_parity.py's own 2e-2 sits
 barely above what bf16 weights alone cost: the float64 fold with only its matrices rounded to bf16
-already reads up to ~0.02 on the encoder latents.
+already reads up to ~0.022 on the real encoder batches.
+
+The synthetic batches (random features, gen_goldens.py) are out of distribution: bf16 weights alone put
+their encoder at 0.10 (n 250) and 0.15 (n 500). Those are graded on the floor only, as the trunk row
+grades its random-weight deep chain: the device may sit at most FLOOR_RATIO x the floor. Real inputs
+carry the absolute bar.
 """
 
 import argparse
@@ -17,6 +22,7 @@ from pathlib import Path
 
 BAR = {"max_rel_err": 0.05, "coord_rmsd_A": 0.05, "argmax_agree": 0.99, "tv_mean": 1e-2,
        "d_rmsd_A": 0.02, "d_seq_recovery": -0.01}
+FLOOR_RATIO = 2.0
 CONT = [("encoder", "mean"), ("encoder", "log_scale"), ("encoder", "z_latent"),
         ("decoder", "seq_logits"), ("decoder", "presence")]
 
@@ -43,10 +49,13 @@ def main() -> int:
         f = flo["cases"][case]
         shape = f"{c['batch']} x {c['n_tokens']} tokens (bucketed to 32), 768-d, 12 heads; released AE weights"
         for p in CONT:
-            modules.append({"name": f"{case} {'.'.join(p)}", "shape": shape, "ref": "float64",
-                            "rel_err": get(c, p + ("max_rel_err",)), "rel_l2": get(c, p + ("rel_l2",)),
-                            "bf16_floor": get(f, p + ("max_rel_err",)),
-                            "test": "perf/rfd4/vae/device_parity.py"})
+            m = {"name": f"{case} {'.'.join(p)}", "shape": shape, "ref": "float64",
+                 "rel_err": get(c, p + ("max_rel_err",)), "rel_l2": get(c, p + ("rel_l2",)),
+                 "bf16_floor": get(f, p + ("max_rel_err",)), "test": "perf/rfd4/vae/device_parity.py"}
+            if case.startswith("synthetic"):
+                m["graded_on"] = (f"floor only (random out-of-distribution features; bf16 weights alone read "
+                                  f"{m['bf16_floor']:.3g}): rel_err <= {FLOOR_RATIO} x bf16_floor")
+            modules.append(m)
         r, rf = c["decoder"]["residue"], f["decoder"]["residue"]
         modules.append({"name": f"{case} residue head (147-class)", "shape": shape, "ref": "float64",
                         "argmax_agree": r["argmax_agree"], "bf16_floor_argmax_agree": rf["argmax_agree"],
@@ -79,10 +88,13 @@ def main() -> int:
         clocks.append(c["aiclk"])
 
     cont = [m for m in modules if "rel_err" in m and "bf16_floor" in m]
-    worst = max(cont, key=lambda m: m["rel_err"])
+    barred = [m for m in cont if "graded_on" not in m]
+    worst = max(barred, key=lambda m: m["rel_err"])
+    floor_ok = all(m["rel_err"] <= FLOOR_RATIO * m["bf16_floor"] for m in cont if "graded_on" in m)
     rec = {
         "branch": a.branch, "modules": modules,
         "max_rel_err": worst["rel_err"], "max_rel_err_at": worst["name"],
+        "max_rel_err_over": "every real-input module against the bar; synthetic ones floor-only (graded_on)",
         "max_floor_ratio": max(m["rel_err"] / m["bf16_floor"] for m in cont if m["bf16_floor"] > 0),
         "coord_rmsd_A": max(m["rmsd_A"] for m in modules if m["name"].endswith("decoded coords")),
         "argmax_agree": min(m["argmax_agree"] for m in modules if m["name"].endswith("(147-class)")),
@@ -92,7 +104,7 @@ def main() -> int:
     real = [m for m in modules if m["name"].endswith("input structure")]
     rec["d_rmsd_A"] = max(m["d_rmsd_A"] for m in real) if real else None
     rec["d_seq_recovery"] = min(m["d_seq_recovery"] for m in real) if real else None
-    ok = (rec["max_rel_err"] <= BAR["max_rel_err"] and rec["coord_rmsd_A"] <= BAR["coord_rmsd_A"]
+    ok = floor_ok and (rec["max_rel_err"] <= BAR["max_rel_err"] and rec["coord_rmsd_A"] <= BAR["coord_rmsd_A"]
           and rec["argmax_agree"] >= BAR["argmax_agree"] and rec["tv_mean"] <= BAR["tv_mean"]
           and (not real or (rec["d_rmsd_A"] <= BAR["d_rmsd_A"] and rec["d_seq_recovery"] >= BAR["d_seq_recovery"])))
     rec["verdict"] = "PASS" if ok else "FAIL"

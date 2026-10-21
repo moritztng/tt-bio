@@ -2,9 +2,14 @@
 (latent + CA -> all-atom coordinates and 147-class residue logits).
 
 Each half is the plain 12-block transformer `ae_fold` reduces the checkpoint to. The device runs the
-feature projection, the blocks and the fused output head; the host builds the input features and
-does the head post-processing (`ae_fold.decode_heads` / `finish_decode`), so the residue masking,
-argmax and atom masks are upstream's own arithmetic in fp32.
+blocks and the fused output head; the host builds the input features, projects them to the 768-d
+stream in fp32, and does the head post-processing (`ae_fold.decode_heads` / `finish_decode`), so the
+residue masking, argmax and atom masks are upstream's own arithmetic in fp32.
+
+The input projection stays on the host because the card's matmul accumulates to about 2^-11 of the
+summed |terms|, and the features mix absolute CA coordinates (nm) with a unit-scale 32-d latent: on
+the device the coordinate terms swamp the latent's contribution. It is N x 214 x 768 (decoder) or
+N x 1587 x 768 (encoder), milliseconds on the host, and the upload shrinks to 768 columns.
 
 Precision: bf16 weights, an fp32 residual stream, fp32 attention scores with a HiFi4 fp32 softmax.
 The token axis buckets to 32 (`token_axis`); padded and in-context keys carry upstream's additive
@@ -43,9 +48,8 @@ class AEHalf(Module):
                                                        layout=ttnn.TILE_LAYOUT, device=dev)
         row = lambda t: w(t.reshape(1, -1), ttnn.float32)  # noqa: E731  (a linear's bias)
         vec = lambda t: w(t.reshape(-1), ttnn.float32)  # noqa: E731  (a layer norm's affine)
-        in_w = folded["in_w"]
-        self.n_feat = in_w.shape[1]
-        self.in_w = w(torch.nn.functional.pad(in_w.T, (0, 0, 0, _pad_to(self.n_feat) - self.n_feat)))
+        self.in_w = folded["in_w"].float().T.contiguous()  # host fp32, see the module docstring
+        self.n_feat = self.in_w.shape[0]
         self.layers = []
         for L in folded["layers"]:
             q_w, k_w, v_w = L["qkv_w"].chunk(3)
@@ -122,22 +126,19 @@ class AEHalf(Module):
     def __call__(self, feats: torch.Tensor, attend: torch.Tensor) -> torch.Tensor:
         """`feats` [B, N, n_feat], `attend` [B, N] bool -> raw head output [B, N, n_head] fp32 on host.
 
-        Pads the token axis to the 32-bucket and the feature axis to a tile; padded tokens are
-        masked keys, so the valid rows equal the unpadded forward."""
+        Pads the token axis to the 32-bucket; padded tokens are masked keys, so the valid rows equal
+        the unpadded forward."""
         B, N, F = feats.shape
         assert F == self.n_feat, (F, self.n_feat)
         Np = bucketed_width(N, TILE)
-        f = torch.zeros(B, Np, _pad_to(F), dtype=torch.float32)
-        f[:, :N, :F] = feats.float()
+        f = torch.zeros(B, Np, AF.D, dtype=torch.float32)
+        f[:, :N] = (feats.float() @ self.in_w) * attend[..., None]
         att = torch.zeros(B, Np, dtype=torch.bool)
         att[:, :N] = attend
         dev = self.device
         bias = AF.key_bias(att, torch.float32).expand(B, AF.HEADS, Np, Np).contiguous()
         bias = ttnn.from_torch(bias, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
         x = ttnn.from_torch(f, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
-        x0 = self._lin32(x, self.in_w)
-        ttnn.deallocate(x)
-        x = x0
         for L in self.layers:
             x = self._block(L, x, bias)
         ttnn.deallocate(bias)
