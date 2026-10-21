@@ -4519,14 +4519,16 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     \b
     binder-1:
       input: target.cif
-      contig: "A10-20, 30-40, A60-70"
+      contig: "60-60, /0, A17-131"
       conditions:
-        hotspot: {true: [{select: "sel('A/*/[54,56]')"}]}
+        C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}
+        C_HOT: {true: [{select: "sel('A/*/56/[CG,OH]')"}]}
 
     Each design is built into an annotated CIF under <out_dir>/inputs/ -- the model's
     actual input, kept because a design that comes out wrong is usually a selection that
-    matched the wrong atoms -- and then featurized and designed on the card, one annotated
-    CIF per design.
+    matched the wrong atoms -- then featurized and designed. --recipe sets the thinking
+    budget, --lora loads a fine-tune, and docs/rfd4-design.md has the conditions a spec
+    can set with what each family costs.
 
     A spec's designs fan across a fleet with --controller: every design becomes one job,
     each shipping the input this host built for it, and <out_dir>/metrics.json collects
