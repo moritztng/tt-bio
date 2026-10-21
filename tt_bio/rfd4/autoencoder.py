@@ -77,27 +77,31 @@ class AEHalf(Module):
         return ttnn.layer_norm(x, epsilon=AF.LN_EPS, weight=w, bias=b,
                                compute_kernel_config=self.compute_kernel_config)
 
-    def _heads(self, t, B, N):
-        t = ttnn.reshape(t, (B, N, AF.HEADS, AF.DH))
-        return ttnn.permute(t, (0, 2, 1, 3))
-
-    def _block(self, L, x, bias, B, N):
+    def _block(self, L, x, bias):
         ckc = self.compute_kernel_config
         h1 = self._ln(x, L["ln1_w"], L["ln1_b"])  # the folded adaLN
         h = self._ln(h1, L["node_w"], L["node_b"])
         ttnn.deallocate(h1)
+        # qk-LayerNorm runs on the full 768 inner dim, before the heads are split, so the three
+        # projections stay separate and are re-packed for `_split_heads` -- the tile-aware split
+        # (`nlp_create_qkv_heads`), never a reshape to [B, N, 12, 64]: 12 is not tile-aligned.
         q = self._ln(self._lin32(h, L["q_w"], L["q_b"]), L["q_ln_w"], L["q_ln_b"])
         k = self._ln(self._lin32(h, L["k_w"], L["k_b"]), L["k_ln_w"], L["k_ln_b"])
         v = self._lin32(h, L["v_w"], L["v_b"])
-        q, k, v = (self._heads(t, B, N) for t in (q, k, v))
-        s = ttnn.matmul(q, k, transpose_b=True, dtype=ttnn.float32, compute_kernel_config=ckc)
-        ttnn.deallocate(q); ttnn.deallocate(k)
+        qkv = ttnn.concat([q, k, v], dim=-1)
+        for t in (q, k, v):
+            ttnn.deallocate(t)
+        q, k, v = self._split_heads(qkv, AF.HEADS)
+        kt = ttnn.permute(k, (0, 1, 3, 2))
+        ttnn.deallocate(k)
+        s = ttnn.matmul(q, kt, dtype=ttnn.float32, compute_kernel_config=ckc)
+        ttnn.deallocate(q); ttnn.deallocate(kt)
         s = ttnn.add(ttnn.multiply(s, AF.DH ** -0.5), bias)
         p = ttnn.softmax(s, dim=-1, numeric_stable=True, compute_kernel_config=ckc)
         ttnn.deallocate(s)
         o = ttnn.matmul(p, v, dtype=ttnn.float32, compute_kernel_config=ckc)
         ttnn.deallocate(p); ttnn.deallocate(v)
-        o = ttnn.reshape(ttnn.permute(o, (0, 2, 1, 3)), (B, N, AF.D))
+        o = self._merge_heads(o)
         g = self._lin32(h, L["g_w"], L["g_b"], activation="sigmoid")
         ttnn.deallocate(h)
         og = ttnn.multiply(o, g)
@@ -135,7 +139,7 @@ class AEHalf(Module):
         ttnn.deallocate(x)
         x = x0
         for L in self.layers:
-            x = self._block(L, x, bias, B, Np)
+            x = self._block(L, x, bias)
         ttnn.deallocate(bias)
         a = self._ln(x)
         ttnn.deallocate(x)
