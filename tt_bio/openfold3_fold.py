@@ -143,7 +143,10 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres", "atom_l1"}
 # ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
 # 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.
-WH_FAST_LEVERS = FAST_LEVERS - {"ws_lofi"} | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32",
+# trimul_t2cm leaves Wormhole fast too: plain T2 + reblock_permute_back is faster there at the page cell. Galaxy chip at
+# 1000 MHz, 4 warm pairs after the compile pair, CIFs identical (t2cw, 2026-10-20): OpenFold3 -0.21 s, OpenBind-0
+# -0.17 s mean without it.
+WH_FAST_LEVERS = FAST_LEVERS - {"ws_lofi", "trimul_t2cm"} | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32",
                                   "triatt_ln_b8", "dit_l1", "atom_l1", "ws_psilu", "dit_mask8"}
 
 def kabsch_rmsd(pred_ca, gt_ca):

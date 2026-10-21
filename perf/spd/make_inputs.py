@@ -23,6 +23,7 @@ Writes <data>/inputs/<name>.yaml and merges every cache into <data>/msa:
                 target centred on its interface, MSA cropped by column window, reference renumbered to the crop
                 (perf/pfm_accuracy/set512.tsv). Routes that only exist at <= 512 tokens get a verdict here; the
                 11-set itself runs 546-791 tokens and never reaches them
+  <PDB>_256 x 11  the same crop at 256 tokens (--truth 256, set256.tsv): routes that switch below ~300 tokens
 
 Boltz-2 reads a complex's paired MSA as one `{seq_hash}.csv` per chain in its paired dir, not the a3m pair the
 other models read. For every input that pairs, the CSVs are written from the same paired and unpaired a3m with
@@ -42,6 +43,8 @@ ap.add_argument("--data", type=Path, default=Path("~/spd-data").expanduser())
 ap.add_argument("--acc", type=Path, default=Path("~/pfm-accuracy-data").expanduser())
 ap.add_argument("--boltz2-csv", action="store_true", help="only write the Boltz-2 CSVs for the inputs already here")
 ap.add_argument("--truth512", action="store_true", help="only (re)write the 512-token accuracy set from the 11-set here")
+ap.add_argument("--truth", type=int, default=None, metavar="TOKENS",
+                help="only (re)write the accuracy set cropped to TOKENS (set<TOKENS>.tsv), like --truth512")
 a = ap.parse_args()
 D = a.data
 MSA = D / "msa"
@@ -106,9 +109,10 @@ def truth512(tokens=512, contact=10.0):
         name = f"{pdb}_{tokens}"
         (MSA / f"{seq_hash(t)}.a3m").write_text(crop_a3m((MSA / f"{seq_hash(T)}.a3m").read_text(), n, start - 1))
         src, dst = paired_msa_dir(MSA, [T, Bs]), paired_msa_dir(MSA, [t, Bs])
-        dst.mkdir(parents=True, exist_ok=True)
-        (dst / f"{seq_hash(t)}.a3m").write_text(crop_a3m((src / f"{seq_hash(T)}.a3m").read_text(), n, start - 1))
-        shutil.copy(src / f"{seq_hash(Bs)}.a3m", dst / f"{seq_hash(Bs)}.a3m")
+        if src.is_dir():  # a data dir built without the paired search has none to crop
+            dst.mkdir(parents=True, exist_ok=True)
+            (dst / f"{seq_hash(t)}.a3m").write_text(crop_a3m((src / f"{seq_hash(T)}.a3m").read_text(), n, start - 1))
+            shutil.copy(src / f"{seq_hash(Bs)}.a3m", dst / f"{seq_hash(Bs)}.a3m")
         write_yaml(name, [("A", t), ("B", Bs)], f"{pdb} target {start}-{start + n - 1} (interface median "
                    f"{mid}, {len(iface)} contacts) + binder 1-{len(Bs)}, {tokens} tokens, MSA cropped by column")
         doc = gemmi.cif.read(str(D / "ref" / f"{pdb}.cif"))
@@ -150,8 +154,8 @@ def boltz2_csvs():
 if a.boltz2_csv:
     boltz2_csvs()
     raise SystemExit(0)
-if a.truth512:
-    truth512()
+if a.truth512 or a.truth:
+    truth512(a.truth or 512)
     boltz2_csvs()
     raise SystemExit(0)
 write_yaml("c730", [("A", A), ("B", B)], "complex730 (UniRef50_A0A2C9LWN7 crops 1-580 + 581-730), 730 tokens")
