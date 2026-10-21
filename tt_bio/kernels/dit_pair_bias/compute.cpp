@@ -11,6 +11,8 @@
 //   3. Each 2 KB page of c_3 tilized alone (block width 1: rows of 64 B) -> the output tile of head h.
 //   4. * SCALE and + the mask tile, both on the SFPU in the fp32 dest, packed bf16 for the writer.
 // The packer does the re-tiling that a tile-crossing permute or a face-row NOC gather would otherwise do.
+// DPB_STREAM (one head tile only): the unit's z rows arrive one row (KT tiles) at a time and are popped once used,
+// instead of all 32 rows held for reuse across head tiles. RFD4's [n, n, 384] pair needs it to fit L1.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM          // tilize.h guards tilize_block on these
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -38,7 +40,9 @@ void kernel_main() {
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t ib = (u / NT) % NT;
         const uint32_t nv = I - ib * 32 < 32 ? I - ib * 32 : 32;
+#ifndef DPB_STREAM
         cb_wait_front(cb_z, 32 * KT);
+#endif
         cb_wait_front(cb_m, 1);
         for (uint32_t hb = 0; hb < HT; ++hb) {
 #ifdef DPB_K1
@@ -52,9 +56,17 @@ void kernel_main() {
                 tile_regs_acquire();
                 if (il < nv) {
                     mm_init_short(cb_w, cb_z, 1);
+#ifdef DPB_STREAM
+                    cb_wait_front(cb_z, KT);
+                    for (uint32_t c = 0; c < KT; ++c) {
+                        matmul_tiles(cb_w, cb_z, c, c, c);
+                    }
+                    cb_pop_front(cb_z, KT);
+#else
                     for (uint32_t c = 0; c < KT; ++c) {
                         matmul_tiles(cb_w, cb_z, hb * KT + c, il * KT + c, c);
                     }
+#endif
                     add_binary_tile_init();
                     for (uint32_t c = 1; c < KT; ++c) {
                         add_binary_tile(0, c, 0);
@@ -71,6 +83,20 @@ void kernel_main() {
             cb_reserve_back(cb_rm, 32);
             for (uint32_t g = 0; g < 32 / SW; ++g) {
                 tile_regs_acquire();
+#ifdef DPB_STREAM
+                const uint32_t rows = nv > g * SW ? (nv - g * SW < SW ? nv - g * SW : SW) : 0;
+                if (rows) {
+                    cb_wait_front(cb_z, rows * KT);
+                }
+                for (uint32_t t = 0; t < rows; ++t) {
+                    for (uint32_t c = 0; c < KT; ++c) {
+                        matmul_tiles(cb_w, cb_z, c, t * KT + c, t);
+                    }
+                }
+                if (rows) {
+                    cb_pop_front(cb_z, rows * KT);
+                }
+#else
                 for (uint32_t t = 0; t < SW; ++t) {
                     const uint32_t il = g * SW + t;
                     if (il < nv) {
@@ -79,6 +105,7 @@ void kernel_main() {
                         }
                     }
                 }
+#endif
                 tile_regs_commit();
                 tile_regs_wait();
                 pack_untilize_dest<SW, 32>(cb_rm, 1, g);
@@ -137,7 +164,9 @@ void kernel_main() {
                 cb_pop_front(cb_t, 2);
             }
         }
+#ifndef DPB_STREAM
         cb_pop_front(cb_z, 32 * KT);
+#endif
         cb_pop_front(cb_m, 1);
     }
 }

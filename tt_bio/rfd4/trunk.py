@@ -23,6 +23,7 @@ import ttnn
 
 import torch
 
+from .. import dit_pair_bias as dpb
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
                            _sdpa_program_config_for_lengths, download, fused_sdpa, upload)
 
@@ -171,15 +172,36 @@ class TransitionADALN(Module):
         return out
 
 
-def pair_biases(zb, w, mask_scaled, ckc, dtype):
-    """[b, H, n, n] attention biases from the bf16 pair `zb` for every head whose folded projection
-    is a column of `w` ([pair, H], see `PairBiasAttention.bias_w_host`), plus `mask_scaled`, the
-    additive pair mask already times sqrt(head_dim) (or None).
+def bias_weights(w_host, device, dtype):
+    """The device forms of a folded [pair, H] bias projection (`PairBiasAttention.bias_w_host`):
+    `(w, wt)`, the [pair, H] matrix for the ttnn chain and W^T as [1, 1, H', pair] with zero rows up
+    to a tile multiple H', which `dit_pair_bias` reads."""
+    h = int(w_host.shape[1])
+    wt = torch.zeros(1, 1, -(-h // 32) * 32, int(w_host.shape[0]))
+    wt[0, 0, :h] = w_host.t()
+    put = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT, device=device)  # noqa: E731
+    return put(w_host), put(wt)
+
+
+def pair_biases(zb, w, mask_scaled, ckc, dtype, wt=None, n_out=1):
+    """`n_out` [b, H / n_out, n, n] attention biases from the bf16 pair `zb`, one per block, for
+    every head whose folded projection is a column of `w` ([pair, H], see
+    `PairBiasAttention.bias_w_host`), plus `mask_scaled`, the additive pair mask already times
+    sqrt(head_dim) (or None).
 
     One call serves every block that reads the same z: the trunk stacks the two blocks between
     pair updates into one [pair, 2 * heads] projection, so the RMSNorm over the whole pair tensor
-    and the permute run once per z instead of once per block."""
+    runs once per z instead of once per block.
+
+    With `wt` (`bias_weights`) the projection, the head-first permute, the mask add and the split
+    into blocks are one program, `dit_pair_bias`, instead of a linear, a permute that transposes
+    inside every tile, an add and a slice per block over the [b, H, n, n] stack."""
     zn = _rms(zb, None, ckc)
+    if (wt is not None and mask_scaled is not None and dtype == ttnn.bfloat16
+            and dpb.eligible(zn, wt, mask_scaled)):
+        out = dpb.dit_pair_bias(zn, wt, mask_scaled, 1.0, n_out=n_out, h_valid=int(w.shape[-1]))
+        ttnn.deallocate(zn)
+        return out if n_out > 1 else [out]
     bias = ttnn.linear(zn, w, compute_kernel_config=ckc, dtype=dtype, core_grid=CORE_GRID_MAIN)
     ttnn.deallocate(zn)
     out = ttnn.permute(bias, (0, 3, 1, 2))
@@ -188,7 +210,13 @@ def pair_biases(zb, w, mask_scaled, ckc, dtype):
         masked = ttnn.add(out, mask_scaled)
         ttnn.deallocate(out)
         out = masked
-    return out
+    if n_out == 1:
+        return [out]
+    b, hh, n, m = (int(d) for d in out.shape)
+    h = hh // n_out
+    outs = [ttnn.slice(out, (0, j * h, 0, 0), (b, (j + 1) * h, n, m)) for j in range(n_out)]
+    ttnn.deallocate(out)
+    return outs
 
 
 class PairBiasAttention(Module):
@@ -234,16 +262,16 @@ class PairBiasAttention(Module):
         #: [pair, heads] fp32: sqrt(head_dim) * diag(pair_norm.weight) to_bias.weight^T.
         self.bias_w_host = (self.weights["to_bias.weight"].float().t()
                             * self.weights["pair_norm.weight"].float()[:, None] * self.head_dim ** 0.5)
-        self._bias_w = None
+        self._bias_ws = None
 
     def pair_bias(self, z, pair_bias_mask):
         """This block's [b, heads, n, n] bias, pre-scaled, from the pair `z` and the unscaled
         additive mask. The trunk does not call this; it batches blocks through `pair_biases`."""
-        if self._bias_w is None:
-            self._bias_w = ttnn.from_torch(self.bias_w_host, dtype=self.dtype, layout=ttnn.TILE_LAYOUT,
-                                           device=self.device)
+        if self._bias_ws is None:
+            self._bias_ws = bias_weights(self.bias_w_host, self.device, self.dtype)
         ms = None if pair_bias_mask is None else ttnn.multiply(pair_bias_mask, self.head_dim ** 0.5)
-        out = pair_biases(z, self._bias_w, ms, self.compute_kernel_config, self.dtype)
+        w, wt = self._bias_ws
+        out, = pair_biases(z, w, ms, self.compute_kernel_config, self.dtype, wt=wt)
         if ms is not None:
             ttnn.deallocate(ms)
         return out
@@ -274,11 +302,14 @@ class PairBiasAttention(Module):
         # float64 on the parity case: the default call runs the scores at a lower fidelity and an
         # approximate exp, and this attention's output is a near-cancelling average over the whole
         # token axis, which magnifies both.
+        # `work` is batch x heads, so the q chunk is picked to fill the grid: at n 128 the capped
+        # chunk is the whole axis and the op ran 12 work units on a 110-core grid. A q chunk splits
+        # independent query rows, so the output does not move.
         n = int(q.shape[2])
         o = fused_sdpa(q, k, v, attn_mask=bias, scale=self.head_dim ** -0.5,
                        compute_kernel_config=ckc,
-                       program_config=_sdpa_program_config_for_lengths(n, n, site="rfd4_trunk",
-                                                                      d=self.head_dim))
+                       program_config=_sdpa_program_config_for_lengths(
+                           n, n, int(q.shape[0]) * self.n_heads, site="rfd4_trunk", d=self.head_dim))
         for t in (q, k, v) + ((bias,) if own else ()):
             ttnn.deallocate(t)
         om = self._merge_heads(o)
@@ -546,22 +577,15 @@ class Trunk(Module):
                 group = []
         mhas = [blk.mhba.mha for blk in self.blocks]
         self.n_heads, self.head_dim = n_heads, mhas[0].head_dim
-        self.bias_ws = [ttnn.from_torch(torch.cat([mhas[i].bias_w_host for i in g], dim=1), dtype=self.dtype,
-                                        layout=ttnn.TILE_LAYOUT, device=self.device)
+        self.bias_ws = [bias_weights(torch.cat([mhas[i].bias_w_host for i in g], dim=1), self.device, self.dtype)
                         for g in self.bias_groups]
         self._group_at = {g[0]: k for k, g in enumerate(self.bias_groups)}
 
     def _group_biases(self, k, zb, mask_scaled):
         """The pre-scaled [b, heads, n, n] pair bias of every block in `bias_groups[k]`."""
-        both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
-        g = self.bias_groups[k]
-        if len(g) == 1:
-            return [both]
-        b, _, n, m = (int(d) for d in both.shape)
-        h = self.n_heads
-        out = [ttnn.slice(both, (0, j * h, 0, 0), (b, (j + 1) * h, n, m)) for j in range(len(g))]
-        ttnn.deallocate(both)
-        return out
+        w, wt = self.bias_ws[k]
+        return pair_biases(zb, w, mask_scaled, self.compute_kernel_config, self.dtype, wt=wt,
+                           n_out=len(self.bias_groups[k]))
 
     def _recycle(self, init, prev, norm_w, proj_w):
         h = _rms(prev, norm_w, self.compute_kernel_config)

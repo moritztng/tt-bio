@@ -5,10 +5,40 @@
 // dit_pair_bias reader. W^T ([H, C] tiles, HT x KT) is read once into c_0 and stays. Per unit (b, ib, jb) the
 // z tiles (b, i, jb, :) of the unit's valid rows i go to c_1 at slot il * KT (always 32 * KT slots reserved, so
 // the CB never wraps mid-unit; rows past I are not read and compute skips them), and the padded mask tile
-// (ib, jb) to c_2. z's j axis is valid up to J; in the last j tile the rows j >= J are tile padding holding
+// (ib, jb) to c_2. Under DPB_STREAM the mask goes first and each row is pushed on its own (KT tiles). z's j axis is valid up to J; in the last j tile the rows j >= J are tile padding holding
 // whatever the op that wrote z left there, so they are zeroed in L1 and those columns come out as the mask's pad.
 // Common runtime args: z, W^T, mask addresses. Per-core runtime args: first unit, unit count.
 #include "api/dataflow/dataflow_api.h"
+
+// `rows` rows i of z (KT tiles each, rows NT * KT pages apart) into L1 at `zp`, then the rows j >= J of the last
+// j tile zeroed.
+template <uint32_t KT, uint32_t NT, uint32_t J, typename A>
+inline void read_rows(const A& sz, uint32_t page, uint32_t rows, uint32_t zp, uint32_t ts, bool last_j) {
+    const uint32_t base0 = zp;
+    for (uint32_t il = 0; il < rows; ++il, page += NT * KT) {
+        for (uint32_t c = 0; c < KT; ++c, zp += ts) {
+            noc_async_read_page(page + c, sz, zp);
+        }
+    }
+    noc_async_read_barrier();
+    if constexpr (J % 32 != 0) {
+        if (last_j) {
+            // row r of a tile: faces (r >> 4) * 2 and + 1, face row r & 15, 32 bytes each
+            for (uint32_t t = 0; t < rows * KT; ++t) {
+                const uint32_t base = base0 + t * ts;
+                for (uint32_t r = J % 32; r < 32; ++r) {
+                    const uint32_t off = (r >> 4) * 1024 + (r & 15) * 32;
+                    volatile tt_l1_ptr uint32_t* a = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(base + off);
+                    volatile tt_l1_ptr uint32_t* b2 = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(base + off + 512);
+                    for (uint32_t w = 0; w < 8; ++w) {
+                        a[w] = 0;
+                        b2[w] = 0;
+                    }
+                }
+            }
+        }
+    }
+}
 
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);   // c_pair / 32
@@ -41,35 +71,22 @@ void kernel_main() {
         const uint32_t ib = (u / NT) % NT;
         const uint32_t jb = u % NT;
         const uint32_t nv = I - ib * 32 < 32 ? I - ib * 32 : 32;
-        cb_reserve_back(cb_z, 32 * KT);
+        const uint32_t page0 = ((b * I + ib * 32) * NT + jb) * KT;
         cb_reserve_back(cb_m, 1);
-        uint32_t zp = get_write_ptr(cb_z);
-        uint32_t page = ((b * I + ib * 32) * NT + jb) * KT;
-        for (uint32_t il = 0; il < nv; ++il, page += NT * KT) {
-            for (uint32_t c = 0; c < KT; ++c, zp += ts) {
-                noc_async_read_page(page + c, sz, zp);
-            }
-        }
         noc_async_read_page((MB ? b * NT * NT : 0) + ib * NT + jb, sm, get_write_ptr(cb_m));
+#ifdef DPB_STREAM
         noc_async_read_barrier();
-        if constexpr (J % 32 != 0) {
-            if (jb == NT - 1) {
-                // row r of a tile: faces (r >> 4) * 2 and + 1, face row r & 15, 32 bytes each
-                for (uint32_t t = 0; t < nv * KT; ++t) {
-                    const uint32_t base = get_write_ptr(cb_z) + t * ts;
-                    for (uint32_t r = J % 32; r < 32; ++r) {
-                        const uint32_t off = (r >> 4) * 1024 + (r & 15) * 32;
-                        volatile tt_l1_ptr uint32_t* a = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(base + off);
-                        volatile tt_l1_ptr uint32_t* b2 = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(base + off + 512);
-                        for (uint32_t w = 0; w < 8; ++w) {
-                            a[w] = 0;
-                            b2[w] = 0;
-                        }
-                    }
-                }
-            }
+        cb_push_back(cb_m, 1);
+        for (uint32_t il = 0; il < nv; ++il) {
+            cb_reserve_back(cb_z, KT);
+            read_rows<KT, NT, J>(sz, page0 + il * NT * KT, 1, get_write_ptr(cb_z), ts, jb == NT - 1);
+            cb_push_back(cb_z, KT);
         }
+#else
+        cb_reserve_back(cb_z, 32 * KT);
+        read_rows<KT, NT, J>(sz, page0, nv, get_write_ptr(cb_z), ts, jb == NT - 1);
         cb_push_back(cb_z, 32 * KT);
         cb_push_back(cb_m, 1);
+#endif
     }
 }

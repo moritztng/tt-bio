@@ -10,6 +10,10 @@ rows i (tile i is [h x j]), packs the 32 results untilized as one 32-tile row so
 h's [i x j] block in row-major order, and tilizes each 2 KB row back into head h's output tile. The scale and the
 mask add run on the dest before the pack (kernels/dit_pair_bias). The mask comes in already padded to n x n with
 the pad value, so rows i >= I come out exactly as the pad.
+
+With one head tile (H <= 32) nothing reuses a row of z across head tiles, so when holding a unit's 32 rows would not
+fit L1, z streams through it a row at a time instead. That is what lets RFD4's c_z 384 pair in: the held rows alone
+would take 1.57 MB a core.
 """
 
 from __future__ import annotations
@@ -29,8 +33,13 @@ _L1_BUDGET = 1100 * 1024
 _CACHE: dict = {}
 
 
-def _l1_bytes(kt, ht) -> int:
-    return (ht * kt + 2 * 32 * kt + 2 + 32 + 32 + 2 * 32) * _TILE
+def _l1_bytes(kt, ht, stream=False) -> int:
+    return (ht * kt + (2 * _SW if stream else 2 * 32) * kt + 2 + 32 + 32 + 2 * 32) * _TILE
+
+
+def _stream(kt, ht) -> bool:
+    """Stream z a row at a time (DPB_STREAM): only with one head tile, and only when holding the rows would not fit."""
+    return ht == 1 and _l1_bytes(kt, ht) > _L1_BUDGET
 
 
 def eligible(z, wt, mask) -> bool:
@@ -45,11 +54,11 @@ def eligible(z, wt, mask) -> bool:
         return False
     n, c, h = zs[2], zs[3], ws[2]
     return (ws[3] == c and h % 32 == 0 and ms[2] == ms[3] == n and ms[1] == 1 and ms[0] in (1, zs[0])
-            and zs[1] <= n and _l1_bytes(c // 32, h // 32) <= _L1_BUDGET)
+            and zs[1] <= n and _l1_bytes(c // 32, h // 32, _stream(c // 32, h // 32)) <= _L1_BUDGET)
 
 
 def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, fidelity, raw=False, k1=True,
-           n_out=1):
+           n_out=1, h_valid=32):
     g = device.compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, units, 0)
 
@@ -57,7 +66,9 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=ttnn.bfloat16, page_size=_TILE)
         return ttnn.CBDescriptor(total_size=tiles * _TILE, core_ranges=grid, format_descriptors=[fmt])
 
-    cbs = [cb(W_CB, ht * kt), cb(Z_CB, 2 * 32 * kt), cb(M_CB, 2), cb(RM_CB, 32), cb(T_CB, 32), cb(OUT_CB, 2 * 32)]
+    stream = _stream(kt, ht)
+    cbs = [cb(W_CB, ht * kt), cb(Z_CB, (2 * _SW if stream else 2 * 32) * kt), cb(M_CB, 2), cb(RM_CB, 32),
+           cb(T_CB, 32), cb(OUT_CB, 2 * 32)]
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
     for group, per in ((cg1, work1), (cg2, work2)):
@@ -70,17 +81,20 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
     rct = [kt, ht, nt, rows, mb, cols]
     for t in (z, wt, mask):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
-    wct = [ht, nt, _SW, ht * 32 // n_out] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    wct = [ht, nt, _SW, h_valid // n_out, h_valid] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     sbits = struct.unpack("<I", struct.pack("<f", scale))[0]
     # Wormhole's fp32 dest writes -2/-4/-8 where a second K tile nearly cancels the first (tt_bio/dest_guard.py):
     # sum the K tiles on the SFPU there. Blackhole does not have the fault.
     defines = [("DPB_K1", "1")] if device.arch() == ttnn.Arch.WORMHOLE_B0 and kt <= 4 and k1 else []
     if raw:
         defines.append(("DPB_RAW", "1"))
+    if stream:
+        defines.append(("DPB_STREAM", "1"))
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 3,
+                                   compile_time_args=rct, defines=[("DPB_STREAM", "1")] if stream else [],
+                                   runtime_args=rd, common_runtime_args=[0] * 3,
                                    config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0] * n_out,
@@ -92,10 +106,12 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
     return [reader, writer, compute], cbs
 
 
-def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=False, k1=True, n_out=1):
+def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=False, k1=True, n_out=1, h_valid=None):
     """[B, H, n, n] bf16 = (z @ W) * scale + mask, head-first, for z [B, I, n, C], wt = W^T as [1, 1, H, C] and
     mask [1 or B, 1, n, n] already padded (rows i >= I take the mask alone). With `n_out` > 1 the heads come back
     as a list of n_out tensors [B, H / n_out, n, n], one per consumer, written in place of slicing the stack.
+    `h_valid` < H says the rows of W^T past it are zero padding up to the tile: they are not written, and the
+    outputs are [B, h_valid / n_out, n, n].
     `raw` (bench only) skips the scale and the mask: the head-first projection with zero padding. `k1=False`
     (bench only) keeps the K sum in the FPU on Wormhole too."""
     device = z.device()
@@ -105,13 +121,14 @@ def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=Fals
     kt, ht, nt = c // 32, h // 32, n // 32
     cols = int(z.shape[2])
     mb = int(int(mask.padded_shape[0]) == B and B > 1)
-    assert h % n_out == 0, (h, n_out)
-    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, h // n_out, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+    hv = h if h_valid is None else h_valid
+    assert hv <= h and hv % n_out == 0, (h, hv, n_out)
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, hv // n_out, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                            device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
-    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity, raw, k1, n_out)
+    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity, raw, k1, n_out, hv)
     if key not in _CACHE:
         _CACHE[key] = _build(z, wt, mask, outs[0], device, B * nt * nt, kt, ht, nt, rows, cols, mb, float(scale),
-                             fidelity, raw, k1, n_out)
+                             fidelity, raw, k1, n_out, hv)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [z.buffer_address(), wt.buffer_address(), mask.buffer_address()]
     kernels[1].common_runtime_args = [o.buffer_address() for o in outs]

@@ -5,6 +5,7 @@
 // dit_pair_bias writer. Per unit (b, ib, jb) and head tile hb, compute hands over the 32 tiles of heads
 // hb * 32 .. + 31 in head order. The heads are split over consecutive outputs of HO heads each ([B, HO, n, n], one
 // address per output in the common args): head h goes to page ((b * HO + h % HO) * NT + ib) * NT + jb of output h / HO.
+// Heads h >= HV are W^T's zero padding up to the tile and are not written.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -12,7 +13,8 @@ void kernel_main() {
     constexpr uint32_t NT = get_compile_time_arg_val(1);
     constexpr uint32_t SW = get_compile_time_arg_val(2);
     constexpr uint32_t HO = get_compile_time_arg_val(3);
-    constexpr auto o_args = TensorAccessorArgs<4>();
+    constexpr uint32_t HV = get_compile_time_arg_val(4);
+    constexpr auto o_args = TensorAccessorArgs<5>();
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
     constexpr uint32_t cb_out = 16;
@@ -26,6 +28,9 @@ void kernel_main() {
             uint32_t rd = get_read_ptr(cb_out);
             for (uint32_t t = 0; t < SW; ++t, rd += ts) {
                 const uint32_t h = h0 + t;
+                if (h >= HV) {
+                    continue;
+                }
                 const auto so = TensorAccessor(o_args, get_common_arg_val<uint32_t>(h / HO));
                 noc_async_write_page(((b * HO + h % HO) * NT + ib) * NT + jb, so, rd);
             }
