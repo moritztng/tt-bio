@@ -20,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 from biotite.structure import filter_amino_acids
-from biotite.structure.io.pdbx import CIFFile, get_structure, set_structure
+from biotite.structure.io.pdbx import CIFFile, get_structure
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -96,9 +96,16 @@ def main():
     design_dir.mkdir(parents=True, exist_ok=True)
     stem = f"{eid}_{args.oracle_name}"
 
-    cif = CIFFile()
-    set_structure(cif, perturbed(atoms, args.sigma))
-    cif.write(str(design_dir / f"{stem}_refolded.cif"))
+    # The refold keeps every column and conditioning loop of the design and changes only the
+    # coordinates, which is what upstream's own oracle writes: it builds the refold from the
+    # design's annotated atom array (`af3_oracle.py:733-752`). A refold written bare instead
+    # makes `is_chain_of_interest` ambiguous on the refold side and takes down every metric that
+    # reads it (`utils/chain.py:24`) -- the whole oracle row with them.
+    refolded = CIFFile.read(str(args.design))
+    moved = perturbed(atoms, args.sigma)
+    for axis, column in enumerate(("Cartn_x", "Cartn_y", "Cartn_z")):
+        refolded.block["atom_site"][column] = np.array([f"{v:.3f}" for v in moved.coord[:, axis]])
+    refolded.write(str(design_dir / f"{stem}_refolded.cif"))
     (design_dir / f"{stem}_confidences.json").write_text(json.dumps(confidences(atoms, coi), indent=2))
     print(eid)
     print(design_dir / f"{stem}_refolded.cif")

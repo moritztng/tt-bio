@@ -173,3 +173,50 @@ def test_unconditional_refolding_tag_matches_upstream(tmp_path):
             assert (got == want) if "" in (got, want) else float(got) == float(want), (column, got, want)
         compared += 1
     assert compared >= 45, f"expected the whole row compared, got {compared} columns"
+
+
+def test_ppi_refolding_tag_matches_upstream(tmp_path):
+    """The binder half: a two-chain design with a conditioned target, scored through `ppi_refolding`.
+
+    `perf/rfd4/eval_goldens/ppi/binder_generated.cif` is `clean_generated.cif` split at residue 50,
+    the second half moved clear and handed back as a fixed target (`perf/rfd4/make_ppi_fixture.py`),
+    which is what makes chain A the unambiguous chain of interest and `sa_mask('C_CRD')` non-empty.
+    Both arms read the same cached refold. The row covers what the unconditional tag cannot: the two
+    target-aligned binder RMSDs, the per-chain-pair oracle keys, the COI reductions, and a `ppi`
+    criterion that passes on all three of its thresholds.
+    """
+    import csv
+    import shutil
+
+    from tt_bio.rfd4.evaluate import evaluate
+
+    golden = json.loads((GOLDENS / "upstream_ppi_refolding.json").read_text())
+    inputs = tmp_path / "designs"
+    inputs.mkdir()
+    shutil.copy(GOLDENS / "ppi" / "binder_generated.cif", inputs / "binder_generated.cif")
+    out = tmp_path / "out"
+    (out / "evaluation_samples").mkdir(parents=True)
+    shutil.copytree(
+        GOLDENS / "ppi" / "refold_binder_generated_975e6ee5",
+        out / "evaluation_samples" / "binder_generated_975e6ee5",
+    )
+
+    csv_path = evaluate(inputs, "design,ppi_refolding", out)
+    rows = {r["designed_structure_path"].rsplit("/", 1)[-1]: r for r in csv.DictReader(open(csv_path))}
+    expected = golden["rows"]["binder_generated.cif"]
+    assert expected["refolded_target_backbone_aligned_binder_rmsd.rmsd"] == "1.3824"
+    assert expected["oracle_ppi.min_ipae_A_1_B_1"] == "0.4006"
+    assert expected["ppi.pass"] == "1.0"
+    compared = 0
+    for column, want in expected.items():
+        if column in ("example_id", "dataset_name", "designed_structure_path", "output_base_dir") or column.endswith(
+            ("refolded_structure_path", "confidence_json_path", "designed_chain_path")
+        ):
+            continue
+        got = rows["binder_generated.cif"][column]
+        if column in ("task", "metrics_tags", "chain_of_interest"):
+            assert got == want, (column, got, want)
+        else:
+            assert (got == want) if "" in (got, want) else float(got) == float(want), (column, got, want)
+        compared += 1
+    assert compared >= 53, f"expected the whole row compared, got {compared} columns"
