@@ -47,29 +47,31 @@ def _gate(any_of=(), all_of=(), none_of=()):
 # Inline metrics in upstream's config order (configs/metrics/inline_metrics/design_metrics.yaml),
 # each with its gate and its port.
 INLINE = (
-    ("amino_acid_composition", _gate(), M.compute_amino_acid_composition),
+    ("amino_acid_composition", _gate(), lambda d, i: M.compute_amino_acid_composition(d)),
     (
         "bond_length_metrics",
         _gate(any_of=["design"], none_of=["small_molecule_only", "structure_prediction"]),
-        lambda d: M.compute_bond_length_stats(d.atoms, d.is_polymer),
+        lambda d, i: M.compute_bond_length_stats(d.atoms, d.is_polymer),
     ),
     (
         "clash_metrics",
         _gate(any_of=["design", "structure_prediction"], none_of=["small_molecule_only"]),
-        lambda d: M.compute_clash_stats(d.atoms, d.is_polymer, d.is_crd),
+        lambda d, i: M.compute_clash_stats(d.atoms, d.is_polymer, d.is_crd),
     ),
-    ("sequence_adherence", _gate(any_of=["design"]), M.compute_sequence_adherence),
-    ("sequence_probability_adherence", _gate(any_of=["design"]), M.compute_sequence_probability_adherence),
+    ("sequence_adherence", _gate(any_of=["design"]), lambda d, i: M.compute_sequence_adherence(d)),
+    ("sequence_probability_adherence", _gate(any_of=["design"]), lambda d, i: M.compute_sequence_probability_adherence(d)),
     (
         "sse_distribution",
         _gate(any_of=["design"], none_of=["small_molecule_only", "structure_prediction"]),
-        M.compute_sse_distribution,
+        lambda d, i: M.compute_sse_distribution(d),
     ),
     (
         "sse_accuracy",
         _gate(any_of=["design"], none_of=["small_molecule_only", "structure_prediction"]),
-        M.compute_sse_accuracy,
+        lambda d, i: M.compute_sse_accuracy(d),
     ),
+    ("sequence_similarity_to_input", _gate(any_of=["partial_diffusion"]), M.compute_sequence_similarity_to_input),
+    ("ca_rmsd_to_input", _gate(any_of=["partial_diffusion"]), M.compute_ca_rmsd_to_input),
 )
 
 # Upstream inline metrics this port does not compute yet, with the tags that switch them on.
@@ -86,8 +88,6 @@ NOT_PORTED = {
     "design_unindexed_motif_allatom_rmsd": _gate(all_of=["unindexed"]),
     "unindexed_insertion_mapping": _gate(all_of=["unindexed"]),
     "contact_molecular_surface": _gate(any_of=["cms"]),
-    "sequence_similarity_to_input": _gate(any_of=["partial_diffusion"]),
-    "ca_rmsd_to_input": _gate(any_of=["partial_diffusion"]),
     "cath_metric": _gate(any_of=["cath"]),
     "structure_prediction_lddt": _gate(any_of=["structure_prediction"]),
     "sequence_developability": _gate(any_of=["developability"]),
@@ -157,12 +157,24 @@ def example_id(path, inputs):
     return f"{stem}_{hashlib.sha256(str(identity).encode()).hexdigest()[:8]}"
 
 
-def inline_metrics(design, tags):
+def input_structure(path):
+    """rfproteina `evaluate.py:58-62`: generation writes `<base>_input.cif` beside `<base>_generated.cif`."""
+    base = structure_stem(path)
+    if base.endswith("_generated"):
+        base = base[: -len("_generated")]
+    for suffix in _STRUCTURE_SUFFIXES:
+        candidate = path.parent / f"{base}_input{suffix}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def inline_metrics(design, tags, input_design=None):
     tagset = None if tags is None else set(tags)
     out = {}
     for name, gate, fn in INLINE:
         if gate(tagset):
-            out.update({f"{name}.{k}": v for k, v in fn(design).items()})
+            out.update({f"{name}.{k}": v for k, v in fn(design, input_design).items()})
     return out
 
 
@@ -224,7 +236,8 @@ def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njob
             "metrics_tags": ",".join(tags) if tags else "",
         }
         try:
-            metrics = inline_metrics(read_design(path), tags)
+            sidecar = input_structure(path)
+            metrics = inline_metrics(read_design(path), tags, read_design(sidecar) if sidecar else None)
         except Exception as exc:  # upstream drops the whole inline block for this design
             log.warning("Design metrics failed for %s: %s", eid, exc)
             metrics = {}

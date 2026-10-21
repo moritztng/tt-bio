@@ -368,3 +368,67 @@ def compute_sse_distribution(design) -> dict:
     coi, _ = chain_of_interest(design)
     coi_mask = token_valid & (atoms.chain_id[tokens] == coi)
     return {**_sse_fractions(token_sse[token_valid], ""), **_sse_fractions(token_sse[coi_mask], "_coi")}
+
+
+# --- structure comparison (StructureComparisonMetric, no per-group subdivision) -----------------
+
+PROTEIN_BACKBONE_ATOM_NAMES = ("N", "CA", "C", "O", "OXT")  # atomworks `constants.py:715`
+
+
+def _finite(atoms):
+    return np.isfinite(atoms.coord).all(axis=-1)
+
+
+def structure_comparison(gt, gt_align, gt_subset, pred, pred_align, pred_subset) -> dict:
+    """rfproteina `gt_structure_comparison.py:194-285`, one structure per side.
+
+    Each mask is applied to its own side and ANDed with finite coordinates there. Kabsch
+    (biotite `superimpose`, gt fixed) on the align atoms, applied to the whole prediction; then
+    positional RMSD over the subset atoms. A length mismatch on either step returns {} (no
+    column), an empty subset returns NaN, exactly as upstream. `gt_align=None` skips alignment."""
+    from biotite.structure import rmsd, superimpose
+
+    pred_coord = pred.coord.copy()
+    if gt_align is not None:
+        g = gt_align & _finite(gt)
+        p = pred_align & _finite(pred)
+        if g.sum() != p.sum() or g.sum() == 0:
+            return {}
+        _, transform = superimpose(gt.coord[g], pred.coord[p])
+        pred_coord = transform.apply(pred_coord)
+    g = gt_subset & _finite(gt)
+    p = pred_subset & np.isfinite(pred_coord).all(axis=-1)
+    if g.sum() != p.sum():
+        return {}
+    if g.sum() == 0:
+        return {"rmsd": float("nan")}
+    return {"rmsd": float(rmsd(gt.coord[g], pred_coord[p]))}
+
+
+def compute_ca_rmsd_to_input(design, input_design) -> dict:
+    """`ca_rmsd_to_input`, configs `design_metrics.yaml:109-115`: align and score on protein CA."""
+    if input_design is None:
+        raise ValueError("ca_rmsd_to_input needs the design's <stem>_input.cif")
+    g = input_design.is_protein & (input_design.atoms.atom_name == "CA")
+    p = design.is_protein & (design.atoms.atom_name == "CA")
+    return structure_comparison(input_design.atoms, g, g, design.atoms, p, p)
+
+
+def _protein_sequence(design):
+    atoms = design.atoms[design.is_protein]
+    if atoms.array_length() == 0:
+        return None
+    return atoms.res_name[residue_starts(atoms)]
+
+
+def compute_sequence_similarity_to_input(design, input_design) -> dict:
+    """`sequence_similarity_to_input`, rfproteina `design_metrics.py:282-318`."""
+    if input_design is None:
+        # upstream dereferences the missing ground truth and raises, which drops the design's
+        # whole inline block; NaN here would score a design upstream refuses to score
+        raise ValueError("sequence_similarity_to_input needs the design's <stem>_input.cif")
+    pred = _protein_sequence(design)
+    ref = _protein_sequence(input_design)
+    if pred is None or ref is None or len(pred) != len(ref):
+        return {"sequence_identity_to_input": float("nan")}
+    return {"sequence_identity_to_input": float(np.mean(pred == ref))}

@@ -108,3 +108,25 @@ def test_a_tag_that_needs_an_unported_metric_is_refused(tmp_path):
 
     with pytest.raises(NotImplementedError, match="hotspot_obedience"):
         evaluate(GOLDENS, "design,hotspot_conditioning", tmp_path)
+
+
+def test_partial_diffusion_tag_matches_upstream(tmp_path):
+    """ca_rmsd_to_input runs the same comparison core as every refolding RMSD (mask per side,
+    Kabsch on the align atoms, RMSD on the subset), so this pins that core too: 3.7611 A here."""
+    import csv
+    import shutil
+
+    from tt_bio.rfd4.evaluate import evaluate
+
+    golden = json.loads((GOLDENS / "upstream_partial_diffusion.json").read_text())
+    inputs = tmp_path / "pd"
+    shutil.copytree(GOLDENS / "partial_diffusion", inputs / "partial_diffusion")
+    out = evaluate(inputs, "partial_diffusion", tmp_path / "out")
+    rows = {r["designed_structure_path"].rsplit("/", 1)[-1]: r for r in csv.DictReader(open(out))}
+    assert golden["rows"]["pd_generated.cif"]["ca_rmsd_to_input.rmsd"] == "3.7611"
+    for design, expected in golden["rows"].items():
+        for column, want in expected.items():
+            if column == "example_id":
+                continue  # hashes the path relative to INPUTS, which differs between the two runs
+            got = rows[design][column]
+            assert (got == want) if "" in (got, want) else float(got) == float(want), (design, column, got, want)
