@@ -5866,20 +5866,29 @@ def _fp32_softmax_attention(
         # the bias is the same tensor in every block, so its fp32 copy is made once per call
         bias_f = (_fp32_softmax_bias(bias, scale_inv, bias_scale_inv)
                   if FP32_SOFTMAX_BIAS_HOIST else None)
+        # A bias with one leading row broadcasts over all of them. One with a row per q row
+        # (AF2's pair bias plus its per-row MSA mask) belongs to those rows, so a block takes its
+        # own: handing it the whole bias broadcast a 1-row block to 2 rows and the in-place add
+        # refused, which was BindCraft 2 at 864 tokens.
+        row_bias = int(bias.shape[0]) > 1
         try:
             for s in range(0, rows, blk):
                 e = min(s + blk, rows)
                 qs, ks, vs = q[s:e], k[s:e], v[s:e]
+                bs = bias[s:e] if row_bias and bias_f is None else bias
+                bfs = bias_f[s:e] if row_bias and bias_f is not None else bias_f
                 sh = shard_for(e - s)
                 FP32_SOFTMAX_STATS["l1_blocks"] += sh is not None
-                parts.append(_fp32_softmax_attention_block(qs, ks, vs, bias, scale_inv,
+                parts.append(_fp32_softmax_attention_block(qs, ks, vs, bs, scale_inv,
                                                            compute_kernel_config, out_dtype,
-                                                           bias_scale_inv, sh, l1_key, bias_f,
+                                                           bias_scale_inv, sh, l1_key, bfs,
                                                            free=free,
                                                            accurate_softmax=accurate_softmax,
                                                            host_f64=host_f64))
                 for t in (qs, ks, vs):
                     ttnn.deallocate(t)
+                if row_bias:
+                    ttnn.deallocate(bs if bias_f is None else bfs)
         except Exception:
             # A retry re-runs every block from zero, so the ones already done have to go back or
             # the second attempt starts against a device the first attempt filled.
