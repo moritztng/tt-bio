@@ -191,7 +191,16 @@ def grade_feature(
     if not (floor.get(feature) or {}):
         notes.append("no seed floor calibrated for this family")
 
-    if not graded:
+    # A pre-oracle filter the designs cannot satisfy fails every design, and upstream then skips
+    # every downstream metric. The arm looks like one graded column at a rate of 0 rather than
+    # like the empty CSV it is, so say what happened instead of grading the wreckage.
+    all_filtered = [name for name, arm in (("tt", tt), ("ref", ref))
+                    if (col := _column(arm, "pre_oracle_pass")).size and not col.any()]
+    if all_filtered:
+        notes.append(f"every design was rejected by a pre-oracle filter on the {', '.join(all_filtered)} "
+                     f"arm, so upstream computed no metric for it")
+
+    if not graded or all_filtered:
         result["verdict"] = "NO_DATA"
     elif failed:
         result["verdict"] = "FAIL"

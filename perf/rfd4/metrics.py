@@ -59,6 +59,12 @@ COMMON = [
     ("geom.radius_of_gyration", "dist", False),
     ("geom.frac_ca_bond_outlier", "dist", False),
     ("geom.ca_clash_frac", "dist", False),
+    # Emitted by the evaluate pipeline itself, not by a metric config: 1 if the design cleared
+    # every pre-oracle filter its tags activated. A filter a design cannot satisfy fails every
+    # design and upstream then skips ALL downstream metrics, so a CSV with no metric columns is
+    # usually this and not a missing config. Graded as a rate, because a port whose designs stop
+    # clearing the filters is worse even when every surviving metric looks fine.
+    ("pre_oracle_pass", "rate", False),
     ("amino_acid_composition.n_generated_unknown_residues", "guard", False),
     ("geom.n_nonfinite_coords", "guard", False),
 ]

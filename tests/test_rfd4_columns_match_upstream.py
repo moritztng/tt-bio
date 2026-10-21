@@ -29,6 +29,8 @@ pytestmark = pytest.mark.skipif(not UPSTREAM.exists(), reason="upstream referenc
 
 # Suffixes a metric class emits that are not derivable from a config key.
 RMSD_METRICS_EMIT = {"rmsd"}
+# Written by the evaluate pipeline, not by any metric config.
+PIPELINE_COLUMNS = {"pre_oracle_pass", "chain_of_interest", "foldseek_cluster_id"}
 PASS_CRITERIA_EMIT = {"pass"}
 
 
@@ -89,8 +91,8 @@ def test_every_graded_column_exists_upstream():
     keys, oracle_suffixes = _config_keys(), _oracle_suffixes()
     bad = []
     for col in sorted(_all_columns()):
-        if col.startswith("geom."):
-            continue  # the harness's own columns, labelled as such
+        if col.startswith("geom.") or col in PIPELINE_COLUMNS:
+            continue  # the harness's own columns, and the pipeline's
         prefix, _, suffix = col.partition(".")
         group = keys.get(prefix)
         if group is None:
@@ -149,7 +151,7 @@ def test_every_family_grades_only_columns_its_own_tags_activate():
     for family, tags in mspec.FEATURE_TAGS.items():
         tagset = set(tags)
         for column, _, _ in mspec.columns_for(family):
-            if column.startswith("geom."):
+            if column.startswith("geom.") or column in PIPELINE_COLUMNS:
                 continue
             gate = gates.get(column.split(".")[0])
             if gate and not _activates(gate, tagset):

@@ -384,3 +384,24 @@ def test_the_floor_watcher_refuses_arms_below_the_n_bar(tmp_path, monkeypatch, c
     assert ffr.main() == 0
     assert "the floor needs >= 30" in capsys.readouterr().out
     assert not out.exists()
+
+
+def test_an_arm_rejected_by_a_pre_oracle_filter_is_no_data(tmp_path):
+    """A filter the designs cannot satisfy fails all of them and upstream skips every metric.
+    Observed for real: adding `unindexed` and `3d_coordinate_conditioning` to the tags of a plain
+    monomer run took the CSV from 41 columns to 9, all metrics gone, pre_oracle_pass 0 throughout."""
+    rows_tt, rows_ref = _rows(40, 1), _rows(40, 2)
+    for r in rows_ref:
+        r["pre_oracle_pass"] = 1
+    for r in rows_tt:  # as upstream writes it when nothing cleared the filters
+        r["pre_oracle_pass"] = 0
+        for col in list(r):
+            if col not in ("designed_structure_path", "example_id", "pre_oracle_pass"):
+                r[col] = ""
+    tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
+    out = tmp_path / "QUALITY.json"
+    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+                       "--permutations", str(FAST), "--out", str(out)])
+    res = json.loads(out.read_text())["features"][FEATURE]
+    assert rc == 1 and res["verdict"] == "NO_DATA"
+    assert any("pre-oracle filter" in n for n in res["notes"])
