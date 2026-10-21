@@ -25,6 +25,8 @@ TRAJ_COLS = ["trajectory", "design", "length", "i_pTM", "pLDDT", "Timing", "hash
 CAND_COLS = ["design", "outcome", "i_pTM", "pLDDT", "Binder_RMSD", "Binder_Sequence", "hash"]
 
 AMINO = "ACDEFGHIKLMNPQRSTVWY"
+_pool_rng = random.Random(777)
+POOL = ["".join(_pool_rng.choice(AMINO) for _ in range(80)) for _ in range(200)]
 
 
 def _write(path, cols, rows):
@@ -38,7 +40,7 @@ def _write(path, cols, rows):
 
 def make_campaign(root, target, arm, seed, n=10, *, iptm=0.40, plddt=0.87, rmsd=1.5, spread=0.05, iterations=140,
                   accepted=0, terminated_every=4, nan_candidate=False, autotuned=False, identical_sequences=False,
-                  rng_seed=0):
+                  seq_pool=0, rng_seed=0):
     """One campaign_s<seed>/ tree in BindCraft 2's layout. Returns its arm directory."""
     rng = random.Random(rng_seed)
     arm_dir = os.path.join(root, target, f"{arm}_s{seed}")
@@ -72,7 +74,14 @@ def make_campaign(root, target, arm, seed, n=10, *, iptm=0.40, plddt=0.87, rmsd=
         if early:
             continue
         for k in range(10):
-            seq = "A" * 80 if identical_sequences else "".join(rng.choice(AMINO) for _ in range(80))
+            if identical_sequences:
+                seq = "A" * 80
+            elif seq_pool:
+                # A fixed pool shared by every arm, so a draw from it repeats sequences at a known rate the way
+                # real campaigns do. Same pool on both sides = same duplicate rate, which must not read as collapse.
+                seq = rng.choice(POOL[:seq_pool])
+            else:
+                seq = "".join(rng.choice(AMINO) for _ in range(80))
             bad = nan_candidate and i == 1 and k == 0
             cand_rows.append({
                 "design": f"{design}_candidate{k}", "hash": f"h{seed}{i:02d}",
@@ -202,6 +211,28 @@ def test_a_collapsed_arm_fails(tmp_path):
     assert g["collapse"]["collapsed"]
     assert g["verdict"] == "FAIL"
     assert any("collapse" in r for r in g["reasons"])
+
+
+def test_a_duplicate_rate_matching_the_reference_is_not_collapse(tmp_path):
+    """The stock GPU reference itself reads 0.901 distinct on PD-L1, so a fixed 0.9 cut fails arms that match it.
+
+    Regression for the 2026-10-21 grader defect: the headdev arm read 0.8986 distinct against the reference's
+    0.9010 (Fisher p = 1.0, the same duplicate rate) and was failed by the fixed cut alone.
+    """
+    ref = make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103), seq_pool=60)
+    arm = make_arm(str(tmp_path), "pdl1", "tt", seeds=(101, 102, 103), seq_pool=60, rng_offset=7)
+    c = Q.collapse_check(read_all(arm), read_all(ref))
+    assert c["distinct_sequence_fraction"] < 0.9 and c["ref_distinct_sequence_fraction"] < 0.9, c
+    assert not c["collapsed"], c["reasons"]
+    assert Q.grade(read_all(arm), read_all(ref), "tt")["verdict"] == "PASS"
+
+
+def test_a_duplicate_rate_worse_than_the_reference_is_collapse(tmp_path):
+    ref = make_arm(str(tmp_path), "pdl1", "ref", seeds=(101, 102, 103), seq_pool=200)
+    arm = make_arm(str(tmp_path), "pdl1", "tt", seeds=(101, 102, 103), seq_pool=8, rng_offset=7)
+    c = Q.collapse_check(read_all(arm), read_all(ref))
+    assert c["collapsed"] and c["distinct_p"] < Q.ALPHA, c
+    assert Q.grade(read_all(arm), read_all(ref), "tt")["verdict"] == "FAIL"
 
 
 def test_a_changed_iteration_count_is_caught(tmp_path):

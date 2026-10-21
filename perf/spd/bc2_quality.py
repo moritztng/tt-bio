@@ -43,6 +43,8 @@ ITERATIONS = "iterations"
 
 ALPHA = 0.05
 POWER = 0.80
+#: No-reference guardrail on distinct binder sequences; see `collapse_check` for why it is not 0.9.
+DISTINCT_FLOOR = 0.75
 PERM_N = 20000  # permutation resamples; tests lower it, nothing else should
 
 
@@ -329,11 +331,29 @@ def holm(results: list[dict], alpha: float = ALPHA) -> list[dict]:
 
 
 def collapse_check(trajectories: list[Trajectory], ref: list[Trajectory] | None = None) -> dict:
-    """Has the arm stopped exploring? Distinct binder sequences, and per-metric spread against the reference's."""
+    """Has the arm stopped exploring? Distinct binder sequences, and per-metric spread against the reference's.
+
+    Stock BindCraft 2 repeats sequences too: the GPU reference reads 0.901 distinct on PD-L1 (101 candidates) and
+    0.977 on dyn, so a fixed cut anywhere near 0.9 fails arms whose duplicate rate matches the reference's exactly,
+    and it fails them harder the more trajectories they complete (more candidates, more chances to repeat). Where
+    there is a reference, the test is therefore the arm's duplicate RATE against the reference's, by the same Fisher
+    exact the counted metrics use. DISTINCT_FLOOR is only the no-reference guardrail, and sits well under the lowest
+    stock value measured.
+    """
     seqs = [c.get("Binder_Sequence", "") for t in trajectories for c in t.candidates if c.get("Binder_Sequence")]
     distinct = len(set(seqs)) / len(seqs) if seqs else float("nan")
     out = {"candidates": len(seqs), "distinct_sequence_fraction": distinct, "collapsed": False, "reasons": []}
-    if seqs and distinct < 0.9:
+    rseqs = [c.get("Binder_Sequence", "") for t in (ref or []) for c in t.candidates if c.get("Binder_Sequence")]
+    if seqs and rseqs:
+        ref_distinct = len(set(rseqs)) / len(rseqs)
+        p = fisher_two_sided(len(seqs) - len(set(seqs)), len(set(seqs)),
+                             len(rseqs) - len(set(rseqs)), len(set(rseqs)))
+        out.update(ref_candidates=len(rseqs), ref_distinct_sequence_fraction=ref_distinct, distinct_p=p)
+        if distinct < ref_distinct and p < ALPHA:
+            out["collapsed"] = True
+            out["reasons"].append(f"{distinct:.0%} of {len(seqs)} candidate sequences are distinct against the "
+                                  f"reference's {ref_distinct:.0%} of {len(rseqs)} (Fisher p={p:.3g})")
+    elif seqs and distinct < DISTINCT_FLOOR:
         out["collapsed"] = True
         out["reasons"].append(f"only {distinct:.0%} of {len(seqs)} candidate sequences are distinct")
     if ref:
