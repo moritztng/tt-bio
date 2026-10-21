@@ -51,12 +51,57 @@ def _tensors(obj, depth=0):
     return out
 
 
+def reseed_at_featurize(seed: int) -> None:
+    """Seed the ambient streams at the entry of each example's featurization.
+
+    Upstream's featurizer draws from whatever the process stream holds when the DataLoader
+    reaches the example: `datapipes/pipeline.py` permutes the chain and molecule labels with
+    `np.random.permutation`, and `materialize_internal_coords` rotates each internal-coordinate
+    group with a torch draw. Both are training augmentations that also run at inference, and
+    neither is a function of the design seed: in a worker the numpy seed is
+    `_generate_state(base_seed, worker_id)` and `base_seed` comes off the main process's torch
+    stream after the model constructor has drawn from it.
+
+    tt-bio's `prepare_cif` seeds python, numpy and torch to the design seed at exactly this
+    point. This makes upstream do the same, which is the featurization-side counterpart of
+    `capture.py::reseed_at_sampler`. The DataLoader runs in-process so the seeding applies to
+    the stream the transforms actually read.
+    """
+    import torch.utils.data as D
+
+    class Seeded(D.Dataset):
+        def __init__(self, inner):
+            self.inner = inner
+
+        def __len__(self):
+            return len(self.inner)
+
+        def __getitem__(self, idx):
+            random.seed(seed)
+            np.random.seed(seed % 2**32)
+            torch.random.default_generator.manual_seed(seed)
+            return self.inner[idx]
+
+    base_loader_init = D.DataLoader.__init__
+
+    def loader_init(self, dataset, *args, **kwargs):
+        kwargs["num_workers"] = 0
+        kwargs.pop("prefetch_factor", None)
+        base_loader_init(self, Seeded(dataset), *args, **kwargs)
+
+    D.DataLoader.__init__ = loader_init
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--steps", type=int, default=2, help="dump the state after this many steps")
     ap.add_argument("--out", default="/home/moritz/rfd4-pair-runs/upstream/dump")
     ap.add_argument("--ckpt", default="nvidia/RFD4-Proteina")
+    ap.add_argument("--reseed-at-featurize", action="store_true",
+                    help="seed python/numpy/torch to --seed at the entry of each example's "
+                         "featurization, the way tt-bio's prepare_cif does, and run the "
+                         "dataloader in-process so that is the stream the transforms draw from")
     ap.add_argument("overrides", nargs="*")
     a = ap.parse_args()
     out = Path(a.out)
@@ -121,6 +166,8 @@ def main() -> int:
         full_simulation, sample_noise, simulation_step)
     model.predict_for_sampling = predict_for_sampling
     force_cpu_fp32_trainer()
+    if a.reseed_at_featurize:
+        reseed_at_featurize(a.seed)
 
     def caused_by_enough(exc):
         seen = set()
