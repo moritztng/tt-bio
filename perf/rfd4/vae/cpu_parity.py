@@ -27,6 +27,15 @@ def _load(name, path):
     return m
 
 
+def _trunk(AF, f, feats, attend):
+    mask = attend[..., None].to(feats.dtype)
+    x = (feats @ f["in_w"].T) * mask
+    bias = AF.key_bias(attend, feats.dtype)
+    for L in f["layers"]:
+        x = AF.layer_forward(L, x, bias, mask)
+    return x
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--goldens", required=True)
@@ -34,6 +43,10 @@ def main() -> int:
     ap.add_argument("--bf16-weights", action="store_true",
                     help="round the matrices the device holds in bf16 (in_w, block linears, head_w) and keep "
                          "everything else float64: the floor a bf16-weight port cannot go below")
+    ap.add_argument("--mixed", action="store_true",
+                    help="bf16-mixed, upstream's production precision: --bf16-weights plus every matmul input "
+                         "rounded to bf16 (fp32 accumulate, LayerNorm and softmax in full precision). A lenient "
+                         "model of autocast, so a lower bound on what a GPU's bf16-mixed run deviates")
     a = ap.parse_args()
     torch.set_default_dtype(torch.float64)
     AF = _load("ae_fold", ROOT / "tt_bio/rfd4/ae_fold.py")
@@ -42,6 +55,14 @@ def main() -> int:
 
     sd = torch.load(CF.CKPT, map_location="cpu", weights_only=False)["state_dict"]
     folded = {p: AF.fold(sd, p) for p in ("encoder", "decoder")}
+    if a.mixed:
+        a.bf16_weights = True
+        EM = _load("emulate", HERE.parent / "emulate.py")
+        r = EM.rounder("bf16")
+        AF.layer_forward = EM.mixed_layer(AF, r)
+        _ln = AF._ln
+        AF.trunk_forward = lambda f, feats, attend: _trunk(AF, f, r(feats), attend)  # noqa: E731
+        AF.heads_forward = lambda f, x: r(_ln(x)) @ f["head_w"].T + f["head_b"]  # noqa: E731
     if a.bf16_weights:
         bf = lambda t: t.to(torch.bfloat16).double()  # noqa: E731
         mats = ("qkv_w", "g_w", "o_w", "w1", "w2")
@@ -50,7 +71,7 @@ def main() -> int:
             for L in f["layers"]:
                 L.update({k: bf(L[k]) for k in mats})
     tab = AF.tables()
-    rec = {"bar": DP.BAR, "dtype": "float64", "bf16_weights": a.bf16_weights, "cases": {}}
+    rec = {"bar": DP.BAR, "dtype": "float64", "bf16_weights": a.bf16_weights, "mixed": a.mixed, "cases": {}}
     for path in sorted(Path(a.goldens).glob("*.pt")):
         g = torch.load(path, map_location="cpu", weights_only=False)
         batch = g["batch"]

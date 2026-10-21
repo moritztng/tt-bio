@@ -39,6 +39,27 @@ def rounder(kind):
     return tf32
 
 
+def mixed_layer(AF, r):
+    """`ae_fold.layer_forward` with every matmul input passed through `r` (LayerNorm, softmax and the
+    residual stream untouched): cpu_parity.py --mixed's model of bf16-mixed."""
+    H, DH, D = AF.HEADS, AF.DH, AF.D
+
+    def layer(L, x, bias, mask):
+        b_, n, _ = x.shape
+        h = r(AF._ln(AF._ln(x) * L["ln1_w"] + L["ln1_b"], L["node_w"], L["node_b"]))
+        q, k, v = (h @ L["qkv_w"].T + L["qkv_b"]).chunk(3, -1)
+        q, k = r(AF._ln(q, L["q_ln_w"], L["q_ln_b"])), r(AF._ln(k, L["k_ln_w"], L["k_ln_b"]))
+        q, k, v = (t.reshape(b_, n, H, DH).transpose(1, 2) for t in (q, k, r(v)))
+        p = r(torch.softmax(q @ k.transpose(-1, -2) * DH ** -0.5 + bias, -1))
+        o = (p @ v).transpose(1, 2).reshape(b_, n, D)
+        og = r(torch.sigmoid(h @ L["g_w"].T + L["g_b"]) * o)
+        x = (x + og @ L["o_w"].T + L["o_b"]) * mask
+        t = r(AF._ln(x) * L["ln2_w"] + L["ln2_b"])
+        u, gate = (t @ L["w1"].T).chunk(2, -1)
+        return (x + r(F.silu(gate) * u) @ L["w2"].T) * mask
+    return layer
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--goldens", required=True)
