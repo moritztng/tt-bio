@@ -38,9 +38,21 @@ BACKBONE = ("N", "CA", "C", "O")
 
 
 def load(path):
+    """Read a CIF, decompressing the `.cif.zst` form upstream ships its inputs in."""
+    import io
+
     import biotite.structure.io.pdbx as pdbx
 
-    return pdbx.get_structure(pdbx.CIFFile.read(path), model=1)
+    path = str(path)
+    if path.endswith(".zst"):
+        import zstandard
+
+        with open(path, "rb") as fh:
+            text = zstandard.ZstdDecompressor().stream_reader(fh).read().decode()
+        handle = io.StringIO(text)
+    else:
+        handle = path
+    return pdbx.get_structure(pdbx.CIFFile.read(handle), model=1)
 
 
 def keys(arr):
