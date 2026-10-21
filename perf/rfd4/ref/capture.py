@@ -295,6 +295,10 @@ def main() -> int:
     ap.add_argument("--records", default="/home/moritz/rfd4-goldens/records.jsonl")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--per-module", type=int, default=1)
+    ap.add_argument("--config-dir", default=None,
+                    help="compose from this config directory instead of upstream's configs/ "
+                         "(the antibody and nanobody examples ship their own config)")
+    ap.add_argument("--config-name", default="inference")
     ap.add_argument("--stop-after-captures", action="store_true",
                     help="end generation as soon as every hooked module has its golden "
                          "(module goldens only, no finished design)")
@@ -324,8 +328,20 @@ def main() -> int:
     print(f"[capture] hooked {n} modules for feature {a.feature}", flush=True)
     seed_everything(a.seed)
     force_cpu_fp32_trainer()
+    def run():
+        if a.config_dir is None:
+            rfd4.generate(model, overrides=list(a.overrides))
+            return
+        # Same path rfd4.generate takes, with the example's own config directory.
+        from hydra import compose, initialize_config_dir
+        from rfproteina.generate import run_generation
+
+        with initialize_config_dir(config_dir=a.config_dir, version_base="1.3"):
+            cfg = compose(config_name=a.config_name, overrides=list(a.overrides))
+        run_generation(cfg, model=model)
+
     try:
-        rfd4.generate(model, overrides=list(a.overrides))
+        run()
     except CapturesComplete:
         print("[capture] every hooked module captured, generation stopped early", flush=True)
     except BaseException as exc:  # Lightning wraps a hook exception

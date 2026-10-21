@@ -9,7 +9,10 @@ export HYDRA_FULL_ERROR=1
 export OMP_NUM_THREADS=${OMP_NUM_THREADS:-10}
 cd "$SRC"
 # CAPTURE_FLAGS passes capture.py's own flags, e.g. CAPTURE_FLAGS="--f64 --per-module 2"
+# SPEC "-" means the overrides carry the inputs (an example config supplies its own).
+INPUTS_ARG=()
+[ "$SPEC" = "-" ] || INPUTS_ARG=("inputs=$ROOT/specs/$SPEC")
 exec "$ROOT/venv/bin/python" "$ROOT/harness/capture.py" \
   --feature "$FEATURE" --seed "$SEED" ${CAPTURE_FLAGS:-} \
-  "inputs=$ROOT/specs/$SPEC" "out_dir=$ROOT/runs/$FEATURE" "seed=$SEED" \
+  "${INPUTS_ARG[@]}" "out_dir=$ROOT/runs/$FEATURE" "seed=$SEED" \
   num_replicates=1 batch_size=1 '~metrics' compile_lengths=null "$@"
