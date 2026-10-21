@@ -122,7 +122,9 @@ def test_transition(case):
     floor = REF.transition(wb, "transition.transition", _bf16(x), mask, REF.bf16)
     mod = TR.Transition(_scope(w, "transition.transition"), TR.compute_kernel_config())
     xt, zt, ct, mt, _ = _tt_inputs(case, dev)
-    got = ttnn.to_torch(mod(xt, mt)).double()
+    # The device Transition leaves the output unmasked (the adaptive scale after it masks), so it is
+    # graded on the real tokens, which is all `_grade` reads.
+    got = ttnn.to_torch(mod(xt)).double()
     _grade("transition", got, ref, floor, mask)
 
 

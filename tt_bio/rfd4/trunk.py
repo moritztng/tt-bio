@@ -10,6 +10,11 @@ Masks. The caller passes `mask` as a [b, n, 1] 0/1 tensor and `pair_bias_mask` a
 additive mask (0 where both tokens are real, -1e4 elsewhere, upstream's NEG_INF). Padding the token
 axis to a multiple of 32 (`tt_bio.token_axis`) is the caller's job: the pad tokens are masked
 tokens, which is exactly what upstream does to a short sequence in a batch.
+
+Every residual stream is kept masked: `Trunk` masks s and z once on entry and every update is
+masked before it is added, so (x + u) * mask, upstream's form, is x + u * mask here. With a 0/1
+mask the two are the same numbers, and the second never touches the fp32 residual twice. A block
+or pair update called on its own expects masked s and z, as the trunk hands it.
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ import ttnn
 import torch
 
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
-                           _sdpa_program_config_for_lengths, fused_sdpa)
+                           _sdpa_program_config_for_lengths, download, fused_sdpa, upload)
 
 EPS = 1e-5
 NEG_INF = -1e4
@@ -37,39 +42,60 @@ def _as(x, dtype):
     return x if x.dtype == dtype else ttnn.typecast(x, dtype)
 
 
-def _masked_residual(x, update, mask, res_dtype):
-    """(x + update) * mask in the residual stream's dtype; frees the update and the unmasked sum."""
+def _residual(x, update, res_dtype, mask=None):
+    """x + update * mask in the residual stream's dtype, freeing the update. `mask` is in the
+    update's dtype, so the masking runs at the sublayer's width; None when the sublayer masked its
+    own output already."""
+    if mask is not None:
+        masked = ttnn.multiply(update, mask)
+        ttnn.deallocate(update)
+        update = masked
     u = _as(update, res_dtype)
     if u is not update:
         ttnn.deallocate(update)
-    total = ttnn.add(x, u)
+    out = ttnn.add(x, u)
     ttnn.deallocate(u)
-    out = ttnn.multiply(total, mask)
-    ttnn.deallocate(total)
+    return out
+
+
+def _masked_copy(x, mask, dtype):
+    """x * mask in `dtype`, a new tensor; `x` survives."""
+    xd = _as(x, dtype)
+    out = ttnn.multiply(xd, mask)
+    if xd is not x:
+        ttnn.deallocate(xd)
     return out
 
 
 class AdaptiveNorm(Module):
     """`AdaptiveLayerNorm`: norm(x) * sigmoid(W_g norm_c(c) + b_g) + W_b norm_c(c), then mask.
 
-    `self.norm` has no elementwise weight; `norm_cond` does.
+    `self.norm` has no elementwise weight; `norm_cond` does, and it is folded into both
+    projections: W (w * rms0(c)) = (W diag(w)) rms0(c), where rms0 is the RMSNorm without a weight.
+    So every adaptive norm of a pass reads the same rms0(cond), which the trunk computes once
+    (`cn`) instead of 28 times (two per block).
     """
 
     def __init__(self, state_dict, ckc, dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
-        self.norm_cond_w = self.torch_to_tt("norm_cond.weight", transform=lambda x: x, dtype=self.dtype)
-        self.gamma_w = self.torch_to_tt("to_gamma.0.weight", dtype=self.dtype)
+        w = self.weights["norm_cond.weight"].to(torch.float32)
+        self.gamma_w = self.torch_to_tt("to_gamma.0.weight", transform=lambda m: (m.float() * w).t(),
+                                        dtype=self.dtype)
         self.gamma_b = self.torch_to_tt("to_gamma.0.bias", transform=lambda x: x, dtype=self.dtype)
-        self.beta_w = self.torch_to_tt("to_beta.weight", dtype=self.dtype)
+        self.beta_w = self.torch_to_tt("to_beta.weight", transform=lambda m: (m.float() * w).t(), dtype=self.dtype)
 
-    def __call__(self, x, cond, mask):
+    def __call__(self, x, cond, mask, cn=None):
+        """`cn` is rms0(cond) when the caller already has it."""
         ckc = self.compute_kernel_config
         xn = _rms(x, None, ckc)
-        cn = _rms(cond, self.norm_cond_w, ckc)
-        gamma = ttnn.sigmoid(self._lin(cn, self.gamma_w, bias=self.gamma_b, dtype=self.dtype))
+        own = cn is None
+        if own:
+            cn = _rms(cond, None, ckc)
+        gamma = self._lin(cn, self.gamma_w, bias=self.gamma_b, dtype=self.dtype, activation="sigmoid")
         beta = self._lin(cn, self.beta_w, dtype=self.dtype)
-        ttnn.deallocate(cn)
+        if own:
+            ttnn.deallocate(cn)
         out = ttnn.add(ttnn.multiply(xn, gamma), beta)
         ttnn.deallocate(xn)
         ttnn.deallocate(gamma)
@@ -79,7 +105,8 @@ class AdaptiveNorm(Module):
 
 class AdaptiveScale(Module):
     """`AdaptiveOutputScale`: x * sigmoid(W c + b) * mask. The bias trains to -2, so this gates
-    a freshly initialised block almost shut; at inference it is an ordinary per-channel gate."""
+    a freshly initialised block almost shut; at inference it is an ordinary per-channel gate. The
+    sigmoid runs in the matmul's epilogue."""
 
     def __init__(self, state_dict, ckc, dtype=None):
         super().__init__(state_dict, ckc)
@@ -88,19 +115,21 @@ class AdaptiveScale(Module):
         self.b = self.torch_to_tt("to_adaln_zero_gamma.0.bias", transform=lambda x: x, dtype=self.dtype)
 
     def __call__(self, x, cond, mask):
-        gamma = ttnn.sigmoid(self._lin(cond, self.w, bias=self.b, dtype=self.dtype))
+        gamma = self._lin(cond, self.w, bias=self.b, dtype=self.dtype, activation="sigmoid")
         out = ttnn.multiply(ttnn.multiply(x, gamma), mask)
         ttnn.deallocate(gamma)
         return out
 
 
 class Transition(Module):
-    """`Transition` with `layer_norm=False`: linear_out(silu(gates) * x) * mask, where x and gates
-    are the two halves of one [dim -> 2 * dim_inner] projection.
+    """`Transition` with `layer_norm=False`: linear_out(silu(gates) * x), where x and gates
+    are the two halves of one [dim -> 2 * dim_inner] projection. Upstream masks the output; here
+    the adaptive scale after it does, which multiplies by the same 0/1 mask.
 
     The projection is loaded as its two halves. Splitting a matmul over its OUTPUT columns gives
     each output element the same dot product in the same order, so this is the same arithmetic,
-    and it saves slicing a [b, n, 2 * dim_inner] tensor in DRAM on every call.
+    and it saves slicing a [b, n, 2 * dim_inner] tensor in DRAM on every call. The silu runs in the
+    gate matmul's epilogue. The output is not masked (see `AdaptiveScale`).
     """
 
     def __init__(self, state_dict, ckc, dtype=None):
@@ -111,19 +140,20 @@ class Transition(Module):
         self.fc_g = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[inner:].t(), dtype=self.dtype)
         self.out_w = self.torch_to_tt("linear_out.weight", dtype=self.dtype)
 
-    def __call__(self, x, mask):
+    def __call__(self, x):
         a = self._lin(x, self.fc_x, dtype=self.dtype)
-        g = self._lin(x, self.fc_g, dtype=self.dtype)
-        h = ttnn.multiply(ttnn.silu(g), a)
+        g = self._lin(x, self.fc_g, dtype=self.dtype, activation="silu")
+        h = ttnn.multiply(g, a)
         ttnn.deallocate(a)
         ttnn.deallocate(g)
         out = self._lin(h, self.out_w, dtype=self.dtype)
         ttnn.deallocate(h)
-        return ttnn.multiply(out, mask)
+        return out
 
 
 class TransitionADALN(Module):
-    """`TransitionADALN`: adaptive norm, transition, adaptive scale."""
+    """`TransitionADALN`: adaptive norm, transition, adaptive scale. The output is masked once, by
+    the scale; upstream's second mask on it multiplies by the same 0/1 values."""
 
     def __init__(self, state_dict, ckc, dtype=None):
         super().__init__(state_dict, ckc)
@@ -132,13 +162,33 @@ class TransitionADALN(Module):
         self.transition = Transition(self.scope("transition"), ckc, dtype=self.dtype)
         self.scale_output = AdaptiveScale(self.scope("scale_output"), ckc, dtype=self.dtype)
 
-    def __call__(self, x, cond, mask):
-        h = self.adaln(x, cond, mask)
-        t = self.transition(h, mask)
+    def __call__(self, x, cond, mask, cn=None):
+        h = self.adaln(x, cond, mask, cn)
+        t = self.transition(h)
         ttnn.deallocate(h)
         out = self.scale_output(t, cond, mask)
         ttnn.deallocate(t)
-        return ttnn.multiply(out, mask)
+        return out
+
+
+def pair_biases(zb, w, mask_scaled, ckc, dtype):
+    """[b, H, n, n] attention biases from the bf16 pair `zb` for every head whose folded projection
+    is a column of `w` ([pair, H], see `PairBiasAttention.bias_w_host`), plus `mask_scaled`, the
+    additive pair mask already times sqrt(head_dim) (or None).
+
+    One call serves every block that reads the same z: the trunk stacks the two blocks between
+    pair updates into one [pair, 2 * heads] projection, so the RMSNorm over the whole pair tensor
+    and the permute run once per z instead of once per block."""
+    zn = _rms(zb, None, ckc)
+    bias = ttnn.linear(zn, w, compute_kernel_config=ckc, dtype=dtype, core_grid=CORE_GRID_MAIN)
+    ttnn.deallocate(zn)
+    out = ttnn.permute(bias, (0, 3, 1, 2))
+    ttnn.deallocate(bias)
+    if mask_scaled is not None:
+        masked = ttnn.add(out, mask_scaled)
+        ttnn.deallocate(out)
+        out = masked
+    return out
 
 
 class PairBiasAttention(Module):
@@ -146,7 +196,17 @@ class PairBiasAttention(Module):
     axis, pair-bias from RMSNorm(z), sigmoid gate, output projection.
 
     The QK norms run on the packed [b, n, heads * dim_head] tensor, before the head split, which is
-    what upstream does -- normalising per head instead would be a different model.
+    what upstream does -- normalising per head instead would be a different model. The normed q, k
+    and v are then concatenated and split into heads by one tile-aware op, and the heads merged
+    back by another, instead of a reshape and a permute each.
+
+    Pair bias. ttnn's fused SDPA computes softmax((q.k + attn_mask) * scale), not
+    q.k * scale + attn_mask: the mask goes through the scale as well. A bias handed over unscaled
+    is silently shrunk by 1/sqrt(head_dim), which here costs rel_rms 0.69 against float64 and still
+    looks like a plausible attention. RFD3's atom attention pre-scales for the same reason
+    (`rfd3/model.py::_sdpa_bias`). Here the pre-scale and the pair norm's weight are both folded
+    into the bias projection (`bias_w_host`), so the bias is one matmul on rms0(z); the mask's
+    -1e4 fill is scaled with it by the caller and stays far below every real score.
     """
 
     def __init__(self, state_dict, ckc, n_heads: int, dtype=None):
@@ -171,57 +231,45 @@ class PairBiasAttention(Module):
         if self.qk_norm:
             self.q_norm_w = self.torch_to_tt("q_layer_norm.weight", transform=lambda x: x, dtype=self.dtype)
             self.k_norm_w = self.torch_to_tt("k_layer_norm.weight", transform=lambda x: x, dtype=self.dtype)
-        self.pair_norm_w = self.torch_to_tt("pair_norm.weight", transform=lambda x: x, dtype=self.dtype)
-        self.bias_w = self.torch_to_tt("to_bias.weight", dtype=self.dtype)
-
-    def _heads(self, t):
-        """[b, n, inner] -> [b, heads, n, head_dim]."""
-        b, n = int(t.shape[0]), int(t.shape[1])
-        t = ttnn.reshape(t, (b, n, self.n_heads, self.head_dim))
-        out = ttnn.permute(t, (0, 2, 1, 3))
-        ttnn.deallocate(t)
-        return out
+        #: [pair, heads] fp32: sqrt(head_dim) * diag(pair_norm.weight) to_bias.weight^T.
+        self.bias_w_host = (self.weights["to_bias.weight"].float().t()
+                            * self.weights["pair_norm.weight"].float()[:, None] * self.head_dim ** 0.5)
+        self._bias_w = None
 
     def pair_bias(self, z, pair_bias_mask):
-        """[b, heads, n, n] additive attention bias from the pair tensor, PRE-SCALED by
-        sqrt(head_dim).
+        """This block's [b, heads, n, n] bias, pre-scaled, from the pair `z` and the unscaled
+        additive mask. The trunk does not call this; it batches blocks through `pair_biases`."""
+        if self._bias_w is None:
+            self._bias_w = ttnn.from_torch(self.bias_w_host, dtype=self.dtype, layout=ttnn.TILE_LAYOUT,
+                                           device=self.device)
+        ms = None if pair_bias_mask is None else ttnn.multiply(pair_bias_mask, self.head_dim ** 0.5)
+        out = pair_biases(z, self._bias_w, ms, self.compute_kernel_config, self.dtype)
+        if ms is not None:
+            ttnn.deallocate(ms)
+        return out
 
-        ttnn's fused SDPA computes softmax((q.k + attn_mask) * scale), not q.k * scale + attn_mask:
-        the mask goes through the scale as well. A bias handed over unscaled is silently shrunk by
-        1/sqrt(head_dim), which here costs rel_rms 0.69 against float64 and still looks like a
-        plausible attention. RFD3's atom attention pre-scales for the same reason
-        (`rfd3/model.py::_sdpa_bias`). The mask's -1e4 fill is scaled with it and stays far below
-        every real score."""
-        ckc = self.compute_kernel_config
-        zn = _rms(z, self.pair_norm_w, ckc)
-        bias = ttnn.linear(zn, self.bias_w, compute_kernel_config=ckc, dtype=self.dtype,
-                           core_grid=CORE_GRID_MAIN)
-        ttnn.deallocate(zn)
-        out = ttnn.permute(bias, (0, 3, 1, 2))
-        ttnn.deallocate(bias)
-        if pair_bias_mask is not None:
-            masked = ttnn.add(out, pair_bias_mask)
-            ttnn.deallocate(out)
-            out = masked
-        scaled = ttnn.multiply(out, self.head_dim ** 0.5)
-        ttnn.deallocate(out)
-        return scaled
-
-    def __call__(self, x, z, pair_bias_mask):
+    def __call__(self, x, z, pair_bias_mask, bias=None):
+        """`bias` is this block's pre-scaled pair bias when the caller has it (it is then neither
+        recomputed nor freed); otherwise it is built from `z` and `pair_bias_mask`."""
         ckc = self.compute_kernel_config
         a = _rms(x, self.node_norm_w, ckc)
         q = self._lin(a, self.q_w, bias=self.q_b, dtype=self.dtype)
         k = self._lin(a, self.k_w, bias=self.k_b, dtype=self.dtype)
         v = self._lin(a, self.v_w, bias=self.v_b, dtype=self.dtype)
-        g = self._lin(a, self.g_w, bias=self.g_b, dtype=self.dtype)
+        g = self._lin(a, self.g_w, bias=self.g_b, dtype=self.dtype, activation="sigmoid")
         ttnn.deallocate(a)
         if self.qk_norm:
             qn, kn = _rms(q, self.q_norm_w, ckc), _rms(k, self.k_norm_w, ckc)
             ttnn.deallocate(q)
             ttnn.deallocate(k)
             q, k = qn, kn
-        q, k, v = self._heads(q), self._heads(k), self._heads(v)
-        bias = self.pair_bias(z, pair_bias_mask)
+        qkv = ttnn.concat([q, k, v], dim=-1)
+        for t in (q, k, v):
+            ttnn.deallocate(t)
+        q, k, v = self._split_heads(qkv, self.n_heads)
+        own = bias is None
+        if own:
+            bias = self.pair_bias(z, pair_bias_mask)
         # The kernel config and the exact exponential are worth 3.19e-2 -> 2.05e-2 rel_rms against
         # float64 on the parity case: the default call runs the scores at a lower fidelity and an
         # approximate exp, and this attention's output is a near-cancelling average over the whole
@@ -231,12 +279,12 @@ class PairBiasAttention(Module):
                        compute_kernel_config=ckc,
                        program_config=_sdpa_program_config_for_lengths(n, n, site="rfd4_trunk",
                                                                       d=self.head_dim))
-        for t in (q, k, v, bias):
+        for t in (q, k, v) + ((bias,) if own else ()):
             ttnn.deallocate(t)
-        o = ttnn.permute(o, (0, 2, 1, 3))
-        o = ttnn.reshape(o, (int(o.shape[0]), int(o.shape[1]), self.inner))
-        gated = ttnn.multiply(o, ttnn.sigmoid(g))
+        om = self._merge_heads(o)
         ttnn.deallocate(o)
+        gated = ttnn.multiply(om, g)
+        ttnn.deallocate(om)
         ttnn.deallocate(g)
         out = self._lin(gated, self.out_w, bias=self.out_b, dtype=self.dtype)
         ttnn.deallocate(gated)
@@ -244,7 +292,8 @@ class PairBiasAttention(Module):
 
 
 class AttnADALN(Module):
-    """`MultiHeadBiasedAttentionADALN_MM`: adaptive norm, pair-bias attention, adaptive scale."""
+    """`MultiHeadBiasedAttentionADALN_MM`: adaptive norm, pair-bias attention, adaptive scale. The
+    scale masks the output, so upstream's second mask is not repeated."""
 
     def __init__(self, state_dict, ckc, n_heads: int, dtype=None):
         super().__init__(state_dict, ckc)
@@ -253,13 +302,14 @@ class AttnADALN(Module):
         self.mha = PairBiasAttention(self.scope("mha"), ckc, n_heads, dtype=self.dtype)
         self.scale_output = AdaptiveScale(self.scope("scale_output"), ckc, dtype=self.dtype)
 
-    def __call__(self, x, z, cond, mask, pair_bias_mask):
-        h = self.adaln(x, cond, mask)
-        a = self.mha(h, z, pair_bias_mask)
+    def __call__(self, x, z, cond, mask, pair_bias_mask, cn=None, bias=None):
+        """`cn` and `bias` are the trunk's per-pass shares (see `TrunkBlock`)."""
+        h = self.adaln(x, cond, mask, cn)
+        a = self.mha(h, z, pair_bias_mask, bias)
         ttnn.deallocate(h)
         out = self.scale_output(a, cond, mask)
         ttnn.deallocate(a)
-        return ttnn.multiply(out, mask)
+        return out
 
 
 class TrunkBlock(Module):
@@ -273,20 +323,22 @@ class TrunkBlock(Module):
         self.mhba = AttnADALN(self.scope("mhba"), ckc, n_heads, dtype=self.dtype)
         self.transition = TransitionADALN(self.scope("transition"), ckc, dtype=self.dtype)
 
-    def __call__(self, x, z, cond, mask, pair_bias_mask, res_mask=None):
-        """`x` is the residual stream in `residual_dtype`; the sublayers read a `dtype` copy of it,
-        as autocast hands a matmul bf16 inputs. `res_mask` is the token mask in `residual_dtype`
-        (defaults to `mask`). Does not free `x`."""
-        res_mask = mask if res_mask is None else res_mask
-        x = ttnn.multiply(x, res_mask)
-        for sub in (lambda h: self.mhba(h, z, cond, mask, pair_bias_mask),
-                    lambda h: self.transition(h, cond, mask)):
+    def __call__(self, x, z, cond, mask, pair_bias_mask, res_mask=None, cn=None, bias=None):
+        """`x` is the masked residual stream in `residual_dtype`; the sublayers read a `dtype` copy
+        of it, as autocast hands a matmul bf16 inputs. Both sublayers mask their own output, so the
+        residual adds need no mask (`res_mask` is accepted for the old call shape and unused).
+        `cn` (rms0(cond)) and `bias` (this block's pre-scaled pair bias) are the trunk's per-pass
+        shares; without them the block builds its own. Does not free `x`."""
+        given = x
+        for sub in (lambda h: self.mhba(h, z, cond, mask, pair_bias_mask, cn, bias),
+                    lambda h: self.transition(h, cond, mask, cn)):
             h = _as(x, self.dtype)
             u = sub(h)
             if h is not x:
                 ttnn.deallocate(h)
-            x_new = _masked_residual(x, u, res_mask, self.residual_dtype)
-            ttnn.deallocate(x)
+            x_new = _residual(x, u, self.residual_dtype)
+            if x is not given:
+                ttnn.deallocate(x)
             x = x_new
         return x
 
@@ -350,18 +402,25 @@ class PairUpdate(Module):
         self.tr_b2 = self.torch_to_tt(f"{t}.linear_2.bias", transform=ident, dtype=self.dtype)
 
     def _write(self, x, mask):
-        """pi[b, j] * pj[b, i] (or pi[b, j] + pj[b, i]) for every pair (i, j): [b, n, n, pair]."""
+        """pi[b, j] * pj[b, i] (or pi[b, j] + pj[b, i]) for every pair (i, j): [b, n, n, pair].
+
+        The Hadamard write comes back masked: its factors are masked per token, which is the pair
+        mask's mi * mj, so the [n, n, pair] product never needs a mask of its own. Returns
+        `(update, masked)`."""
         ckc = self.compute_kernel_config
         h = ttnn.layer_norm(ttnn.multiply(x, mask), weight=self.ln_w, bias=self.ln_b, epsilon=EPS,
                             compute_kernel_config=ckc)
         pi = self._lin(h, self.xi_w, dtype=self.dtype)
         pj = self._lin(h, self.xj_w, dtype=self.dtype)
         ttnn.deallocate(h)
+        hadamard = self.pair_write == "hadamard"
+        if hadamard:
+            pi, pj = ttnn.multiply(pi, mask), ttnn.multiply(pj, mask)
         b, n, c = (int(d) for d in pi.shape)
         pi4 = ttnn.reshape(pi, (b, 1, n, c))
         pj4 = ttnn.reshape(pj, (b, n, 1, c))
-        op = ttnn.multiply if self.pair_write == "hadamard" else ttnn.add
-        return op(pj4, pi4)
+        op = ttnn.multiply if hadamard else ttnn.add
+        return op(pj4, pi4), hadamard
 
     def _transition(self, z, pair_mask_c):
         ckc = self.compute_kernel_config
@@ -373,24 +432,25 @@ class PairUpdate(Module):
         return ttnn.multiply(out, pair_mask_c)
 
     def __call__(self, x, z, mask, pair_mask, pair_mask_c, res_mask_c=None):
-        """`z` is the pair stream in `residual_dtype` (not freed); the four sublayers read a `dtype`
-        copy of it. `res_mask_c` is the [b, n, n, 1] pair mask in `residual_dtype`."""
-        res_mask_c = pair_mask_c if res_mask_c is None else res_mask_c
+        """`z` is the masked pair stream in `residual_dtype` (not freed); the triangle
+        multiplications and the transition read a `dtype` copy of it, the write reads only x.
+        The triangle updates are masked with `pair_mask_c` before they are added; the write and the
+        transition come back masked. `res_mask_c` is accepted for the old call shape and unused."""
         xs = _as(x, self.dtype)
-        subs = (lambda h: self._write(xs, mask), lambda h: self.tri_out(h, pair_mask),
-                lambda h: self.tri_in(h, pair_mask), lambda h: self._transition(h, pair_mask_c))
-        first = True
-        for sub in subs:
+        write, write_masked = self._write(xs, mask)
+        if xs is not x:
+            ttnn.deallocate(xs)
+        z = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c)
+        for sub, own_mask in ((lambda h: self.tri_out(h, pair_mask), False),
+                              (lambda h: self.tri_in(h, pair_mask), False),
+                              (lambda h: self._transition(h, pair_mask_c), True)):
             h = _as(z, self.dtype)
             u = sub(h)
             if h is not z:
                 ttnn.deallocate(h)
-            z_new = _masked_residual(z, u, res_mask_c, self.residual_dtype)
-            if not first:
-                ttnn.deallocate(z)
-            z, first = z_new, False
-        if xs is not x:
-            ttnn.deallocate(xs)
+            z_new = _residual(z, u, self.residual_dtype, None if own_mask else pair_mask_c)
+            ttnn.deallocate(z)
+            z = z_new
         return z
 
 
@@ -446,6 +506,32 @@ class Trunk(Module):
         self.s_proj = self.torch_to_tt("s_cycle_proj.weight", dtype=self.dtype)
         self.z_norm = self.torch_to_tt("z_cycle_norm.weight", transform=ident, dtype=self.dtype)
         self.z_proj = self.torch_to_tt("z_cycle_proj.weight", dtype=self.dtype)
+        # The blocks between two pair updates read the same z, so their pair biases are one
+        # stacked projection: [[0], [1, 2], [3, 4], ..., [23]] at every_n 2.
+        self.bias_groups, group = [], []
+        for i in range(nlayers):
+            group.append(i)
+            if i in self.pair_updates or i == nlayers - 1:
+                self.bias_groups.append(group)
+                group = []
+        mhas = [blk.mhba.mha for blk in self.blocks]
+        self.n_heads, self.head_dim = n_heads, mhas[0].head_dim
+        self.bias_ws = [ttnn.from_torch(torch.cat([mhas[i].bias_w_host for i in g], dim=1), dtype=self.dtype,
+                                        layout=ttnn.TILE_LAYOUT, device=self.device)
+                        for g in self.bias_groups]
+        self._group_at = {g[0]: k for k, g in enumerate(self.bias_groups)}
+
+    def _group_biases(self, k, zb, mask_scaled):
+        """The pre-scaled [b, heads, n, n] pair bias of every block in `bias_groups[k]`."""
+        both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
+        g = self.bias_groups[k]
+        if len(g) == 1:
+            return [both]
+        b, _, n, m = (int(d) for d in both.shape)
+        h = self.n_heads
+        out = [ttnn.slice(both, (0, j * h, 0, 0), (b, (j + 1) * h, n, m)) for j in range(len(g))]
+        ttnn.deallocate(both)
+        return out
 
     def _recycle(self, init, prev, norm_w, proj_w):
         h = _rms(prev, norm_w, self.compute_kernel_config)
@@ -464,9 +550,17 @@ class Trunk(Module):
     def run_pass(self, s, z, cond, masks):
         """One trunk pass. Consumes `s` and `z` (frees them) and returns the new pair."""
         mask, bias_mask, pair_mask, pair_mask_c, res_mask, res_pair_mask_c = masks
+        ckc = self.compute_kernel_config
+        cn = _rms(cond, None, ckc)  # every adaptive norm of the pass reads rms0(cond)
+        mask_scaled = None if bias_mask is None else ttnn.multiply(bias_mask, self.head_dim ** 0.5)
         zb = _as(z, self.dtype)  # the attention's pair bias reads z; cast once per pair update
+        biases = []
         for i, block in enumerate(self.blocks):
-            s_new = block(s, zb, cond, mask, bias_mask, res_mask)
+            if i in self._group_at:
+                biases = self._group_biases(self._group_at[i], zb, mask_scaled)
+            bias = biases.pop(0)
+            s_new = block(s, zb, cond, mask, bias_mask, res_mask, cn=cn, bias=bias)
+            ttnn.deallocate(bias)
             ttnn.deallocate(s)
             s = s_new
             pu = self.pair_updates.get(i)
@@ -479,14 +573,19 @@ class Trunk(Module):
                 zb = _as(z, self.dtype)
         if zb is not z:
             ttnn.deallocate(zb)
+        ttnn.deallocate(cn)
+        if mask_scaled is not None:
+            ttnn.deallocate(mask_scaled)
         return s, z
 
     def __call__(self, s_init, z_init, conds, masks):
         """`conds[k]` is cycle k's conditioning ([b, n, dim_cond]); upstream recomputes it each cycle
         because it carries the remaining-pass count. `masks` is `trunk_masks(...)` built with this
         trunk's residual dtype. Returns the final (s, z) in the residual dtype; the inputs survive."""
-        given = (s_init, z_init)
-        s_init, z_init = _as(s_init, self.residual_dtype), _as(z_init, self.residual_dtype)
+        res_mask, res_pair_mask_c = masks[4], masks[5]
+        # Masked once here, in the residual dtype; every update after this keeps them masked.
+        s_init = _masked_copy(s_init, res_mask, self.residual_dtype)
+        z_init = _masked_copy(z_init, res_pair_mask_c, self.residual_dtype)
         s = z = None
         for c in conds:
             if s is None:
@@ -497,14 +596,30 @@ class Trunk(Module):
                 ttnn.deallocate(s)
                 ttnn.deallocate(z)
             s, z = self.run_pass(s_in, z_in, c, masks)
-        for t, g in zip((s_init, z_init), given):
-            if t is not g:
-                ttnn.deallocate(t)
+        ttnn.deallocate(s_init)
+        ttnn.deallocate(z_init)
         return s, z
-    def run_bucketed(self, s_init, z_init, conds, mask, device):
+
+    def masks_for(self, mask, device):
+        """`trunk_masks` for a padded host [b, n] mask, kept on the device while the mask stays the
+        same: a design reads one mask on all of its sampler steps."""
+        cached = getattr(self, "_masks", None)
+        if cached is not None and cached[0] is device and torch.equal(cached[1], mask):
+            return cached[2]
+        if cached is not None and cached[0] is device:
+            for t in {id(t): t for t in cached[2]}.values():
+                if t.is_allocated():
+                    ttnn.deallocate(t)
+        masks = trunk_masks(mask, device, dtype=self.dtype, residual_dtype=self.residual_dtype)
+        self._masks = (device, mask.clone(), masks)
+        return masks
+
+    def run_bucketed(self, s_init, z_init, conds, mask, device, pair=True):
         """Host entry: s_init [b, N, token], z_init [b, N, N, pair], conds [b, N, cond] per cycle and the
         [b, N] 0/1 token mask as torch tensors. Pads the token axis to the fleet bucket
         (`token_axis.bucket_multiple("rfd4")`, 32), masks the padding, runs and slices back to N.
+        `pair=False` returns `(s, None)` and skips reading the [b, N, N, pair] fp32 pair back, which
+        the flow network, reading only s, does not need.
         Padded tokens are masked tokens, which upstream does to a short sequence in a batch
         (tests/test_rfd4_trunk_parity.py::test_padding_does_not_touch_the_real_tokens). rfd4 gets
         its `token_axis.TOKEN_AXIS` row when it ships as a CLI model; that table admits shipped
@@ -519,18 +634,17 @@ class Trunk(Module):
             return t
 
         def up(t, dtype):
-            return ttnn.from_torch(t.to(torch.float32).contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,
-                                   device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            return upload(t.to(torch.float32).contiguous(), dtype=dtype, device=device)
 
         m = pad(mask.to(torch.float32), [1])
-        masks = trunk_masks(m, device, dtype=self.dtype, residual_dtype=self.residual_dtype)
+        masks = self.masks_for(m, device)
         mc = m[..., None]
         s = up(pad(s_init.float(), [1]) * mc, self.residual_dtype)
         z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.residual_dtype)
         cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
         s_out, z_out = self(s, z, cs, masks)
-        out = ttnn.to_torch(s_out)[:, :n], ttnn.to_torch(z_out)[:, :n, :n]
-        for t in (s, z, s_out, z_out, *cs, *masks):
+        out = download(s_out)[:, :n], download(z_out)[:, :n, :n] if pair else None
+        for t in (s, z, s_out, z_out, *cs):
             if t.is_allocated():
                 ttnn.deallocate(t)
         return out
