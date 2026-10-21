@@ -1912,6 +1912,35 @@ def score(structure, pae, plddt, confidence, pae_cutoff, dist_cutoff):
     click.echo(json.dumps(out, indent=2))
 
 
+@cli.command("evaluate")
+@click.argument("inputs", type=click.Path(exists=True, file_okay=False))
+@click.option("--model", type=click.Choice(["rfd4"]), default="rfd4", show_default=True,
+              help="Whose evaluation to run. rfd4: RFD4-Proteina's `rfd4-evaluate`.")
+@click.option("--metrics_tags", required=True,
+              help="Comma-separated tags that switch metrics on, as upstream's `metrics_tags`, "
+                   "e.g. design or design,ppi_refolding. Score two arms with the same tags.")
+@click.option("--out_dir", required=True, type=click.Path(file_okay=False),
+              help="Writes evaluation_metrics/per_example_metrics.csv here.")
+@click.option("--task_csv", default=None, type=click.Path(exists=True, dir_okay=False),
+              help="CSV mapping designed_structure_path to task. Without it every task is 'all'.")
+@click.option("--job_id", default=None, type=int, help="Shard index, with --gen_njobs.")
+@click.option("--gen_njobs", default=1, show_default=True, type=int, help="Number of shards.")
+def evaluate_cmd(inputs, model, metrics_tags, out_dir, task_csv, job_id, gen_njobs):
+    """Score existing designs the way upstream does, with no device.
+
+    INPUTS is a directory of generated structures, searched recursively. The output is upstream's
+    per-design CSV, same column names and rounding, so it can be diffed against a run of
+    upstream's own tool. A tag that switches on a metric tt-bio does not compute yet is refused
+    rather than silently left out; see docs/rfd4-evaluate.md for what is covered."""
+    from tt_bio.rfd4.evaluate import evaluate
+    try:
+        path = evaluate(inputs, metrics_tags, out_dir, task_csv=task_csv, job_id=job_id,
+                        gen_njobs=gen_njobs)
+    except (ValueError, NotImplementedError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done — {path}")
+
+
 @cli.command("install-deps")
 def install_deps():
     """Install system dependencies that match the installed ttnn wheel."""
