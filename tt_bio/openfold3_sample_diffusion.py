@@ -445,7 +445,9 @@ class OF3SampleDiffusion:
         m_dev = up(m_np)
         mrow_dev = up((m_np / atom_mask_host.sum().clamp_min(1.0)).transpose(1, 2))  # [1, 1, NP]
         xl_bufs = [up(self._pad_atoms_host(xl_host[k], n_atom, NP)) for k in range(S)]
-        # Precomputed per-step inputs, uploaded once (fp32; ~0.5 MB of noise a step at 4,100 atoms).
+        # Precomputed per-step inputs, uploaded once. The noise is held dense, row-major
+        # [1, NP/32, 96] fp32 (48 KB a step at 4,100 atoms): a TILE [1, NP, 3] pads its 3 columns
+        # to 32, and 200 steps of that held ~320 MB at 1,568 tokens, enough to OOM the DiT.
         sc = [edm_step_scalars(float(t_list[i]), float(c_tau_list[i]), sd, step_scale)
               for i in range(T)]
         pre_sc = [[up(torch.tensor(v, dtype=torch.float64).reshape(1, 1, 1)) for v in row]
@@ -455,7 +457,9 @@ class OF3SampleDiffusion:
                    for i in range(T)]
         pre_smp = [[(up(rots_list[k][i].float().t().reshape(1, 3, 3)),
                      up(trans_list[k][i].float().reshape(1, 1, 3)),
-                     up(self._pad_atoms_host(noise_list[k][i].float(), n_atom, NP)))
+                     ttnn.from_torch(self._pad_atoms_host(noise_list[k][i].float(), n_atom, NP)
+                                     .reshape(1, NP // 32, 96).contiguous(), device=dev,
+                                     layout=ttnn.ROW_MAJOR_LAYOUT, dtype=f32))
                     for i in range(T)] for k in range(S)]
         # Staging buffers the captured step reads (refilled on the card before every replay).
         st_sc = [ttnn.clone(x) for x in pre_sc[0]]
@@ -474,7 +478,8 @@ class OF3SampleDiffusion:
             inv_s, c_skip, c_out, inv_t, h = st_sc
             xns, rls = [], []
             for k in range(S):
-                rt, tr, nz = st_smp[k]
+                rt, tr, nz_rm = st_smp[k]
+                nz = ttnn.to_layout(ttnn.reshape(nz_rm, (1, NP, 3)), ttnn.TILE_LAYOUT)
                 x = xl_bufs[k]
                 mean = _matmul_f32(mrow_dev, x, ckc)                         # [1, 1, 3]
                 xc = ttnn.subtract(x, mean)
@@ -485,7 +490,7 @@ class OF3SampleDiffusion:
                 xnm = ttnn.multiply(xn, m_dev)
                 rl = ttnn.multiply(xnm, inv_s)
                 rl_a = ttnn.typecast(rl, act) if act != f32 else rl
-                for y in (mean, xc, xr, xa, xam):
+                for y in (mean, xc, xr, xa, xam, nz):
                     ttnn.deallocate(y)
                 if rl_a is not rl:
                     ttnn.deallocate(rl)
