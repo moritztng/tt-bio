@@ -1947,6 +1947,10 @@ class DiffusionModule(_KeyedWeights):
 
         def gated(x, y, j, wk, bk):
             out = _T._win_addcmul(x, y, W(wide[2], j)) if wide else None
+            if out is None and _T.lever("dit_mod16") and x.dtype == ttnn.bfloat16:
+                g = ttnn.sigmoid(linb(s_t, wk, bk))
+                out = ttnn.addcmul(x, y, g, value=1.0)
+                ttnn.deallocate(g)
             if out is None:
                 out = gated_add(x, y, ttnn.sigmoid(linb(s_t, wk, bk)))
             return out
