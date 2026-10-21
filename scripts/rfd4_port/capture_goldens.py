@@ -27,14 +27,21 @@ SELF = Path(__file__).resolve()
 
 
 def discover():
-    """benchmark inputs as (family, src, dst) triples, newest-style suffixes only."""
+    """benchmark inputs as (family, src, dst) triples, newest-style suffixes only.
+
+    The output path mirrors the input's FULL relative path, not family + stem: 77 of the 391
+    inputs share a stem with a sibling under the same family (`ppi/ppi_all_atom/insulinr` and
+    `ppi/ppi_bb_only/insulinr`, most of mcsa), and keying on the stem had them overwrite each
+    other, silently losing a quarter of the corpus.
+    """
     jobs = []
     for p in sorted(BENCH.rglob("*.cif*")):
         if p.suffix not in (".zst", ".gz", ".cif"):
             continue
-        family = p.relative_to(BENCH).parts[0]
-        stem = p.name.split(".cif")[0]
-        jobs.append((family, str(p), str(OUT / family / f"{stem}.npz")))
+        rel = p.relative_to(BENCH)
+        family = rel.parts[0]
+        dst = OUT / rel.parent / (rel.name.split(".cif")[0] + ".npz")
+        jobs.append((family, str(p), str(dst)))
     return jobs
 
 
