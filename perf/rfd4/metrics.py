@@ -63,7 +63,9 @@ COMMON = [
 SPECIFIC = {
     "unconditional": [
         ("refolded_backbone_rmsd.rmsd", "dist", True),
-        ("oracle.plddt", "dist", True),
+        # There is no bare `plddt`: the oracle emits overall_plddt (whole prediction) and
+        # plddt_coi (chain of interest). A monomer's grade wants the whole prediction.
+        ("oracle.overall_plddt", "dist", True),
         ("unconditional.pass", "rate", True),
     ],
     "binder": [
