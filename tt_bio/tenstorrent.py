@@ -10723,9 +10723,13 @@ class TriangleMultiplication(Module):
                                 and gp_in_biases is None and not ops.taping()
                                 and x_norm_in.volume() // int(x_norm_in.shape[-1])
                                 * int(gp_in_chunks[0].shape[-1]) * n_it * 2 <= _INPROJ_SPLIT_MAX_BYTES):
+                            # DRAM even where the chunk loop runs in L1: every chunk's projection
+                            # is live at once (0.2 GB at 256 tokens), and the split exists only on
+                            # the dual-NOC path, which refuses an L1 destination.
                             w_all = self._gp_in_all(chunk_size, group)
                             pre_split = _in_proj_matmul(
-                                x_norm_in, w_all, self.compute_kernel_config, memory_config, None,
+                                x_norm_in, w_all, self.compute_kernel_config,
+                                ttnn.DRAM_MEMORY_CONFIG, None,
                                 split=[int(w_all.shape[-1]) // n_it] * n_it,
                                 dtype=ttnn.bfloat8_b if b8 else None) or []
                         if gp_in_fused is None and pre_split:
