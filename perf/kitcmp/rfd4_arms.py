@@ -119,7 +119,9 @@ def main():
     ap.add_argument("--final-warm", type=int, default=9)
     ap.add_argument("--reference", type=int, default=0, help="reference-design mode: N designs per feature family")
     ap.add_argument("--sweep-only", action="store_true",
-                    help="re-climb the batch of each size's winning arm from ARMS.json, without the screen")
+                    help="re-climb the batch of each size's top arms from ARMS.json, without the screen")
+    ap.add_argument("--arms", type=int, default=2,
+                    help="how many arms per size the extended climb re-ranks (default 2)")
     a = ap.parse_args()
 
     if a.sweep_only:
@@ -132,16 +134,34 @@ def main():
             ok = {k: v for k, v in prev.get("screen", {}).get(str(size), {}).items() if v["status"] == "ok"}
             if not ok or not time_left():
                 continue
-            arm = max(ok, key=lambda k: ok[k]["designs_s"])
-            was = prev.get("best", {}).get(str(size), {})
-            seed = was.get("sweep") if was.get("arm") == arm else None
-            sweep = climb(arm, size, max(3, a.screen_warm - 2), f"ext-{arm}", seed=seed)
-            okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
-            bb = max(okb, key=lambda b: okb[b]["designs_s"]) if okb else SCREEN_BATCH[size]
-            ext[str(size)] = {"arm": arm, "batch": bb, "sweep": {str(k): v for k, v in sweep.items()}}
-            if time_left():
-                ext[str(size)]["final"] = summarise(
-                    run(arm, size, bb, a.final_warm, ARMS[arm], tag=f"extfinal-{arm}"))
+            # The screen ranked every arm at ONE batch, and that batch left the card 22-50 % busy, so the
+            # ranking is a ranking of host overhead as much as of the arms. The most host-bound arm has the
+            # most to gain from a bigger batch, so re-rank the top --arms arms, each at its own best batch,
+            # rather than freezing NVIDIA's choice on the screen's winner.
+            ranked = sorted(ok, key=lambda k: ok[k]["designs_s"], reverse=True)[:max(1, a.arms)]
+            per_arm = {}
+            for arm in ranked:
+                if not time_left():
+                    break
+                was = prev.get("best", {}).get(str(size), {})
+                seed = was.get("sweep") if was.get("arm") == arm else None
+                sweep = climb(arm, size, max(3, a.screen_warm - 2), f"ext-{arm}", seed=seed)
+                okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
+                if not okb:
+                    per_arm[arm] = {"sweep": {str(k): v for k, v in sweep.items()}}
+                    continue
+                bb = max(okb, key=lambda b: okb[b]["designs_s"])
+                per_arm[arm] = {"batch": bb, "designs_s": okb[bb]["designs_s"],
+                                "sweep": {str(k): v for k, v in sweep.items()}}
+                (a.out / "ARMS-EXT.json").write_text(json.dumps(ext | {str(size): {"arms": per_arm}}, indent=2) + "\n")
+            rated = {k: v for k, v in per_arm.items() if v.get("designs_s")}
+            ext[str(size)] = {"arms": per_arm}
+            if rated:
+                win = max(rated, key=lambda k: rated[k]["designs_s"])
+                ext[str(size)] |= {"arm": win, "batch": rated[win]["batch"]}
+                if time_left():
+                    ext[str(size)]["final"] = summarise(
+                        run(win, size, rated[win]["batch"], a.final_warm, ARMS[win], tag=f"extfinal-{win}"))
             (a.out / "ARMS-EXT.json").write_text(json.dumps(ext, indent=2) + "\n")
         print(json.dumps(ext, indent=2))
         sys.exit(0)
