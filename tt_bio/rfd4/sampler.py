@@ -39,7 +39,6 @@ any chunk width, which is what makes the quality grade and the seed floor mean a
 from __future__ import annotations
 
 import hashlib
-import math
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Protocol, Sequence
 
@@ -514,6 +513,23 @@ def add_clean_prediction(m_out: dict, x_t, t: float):
     return m_out
 
 
+def _f32(x: float) -> torch.Tensor:
+    """A scalar as float32.
+
+    Every coefficient the step rule multiplies the state by is computed in float32, the dtype the
+    schedules are in, rather than in Python doubles: a chain like ``sqrt(2 g s dt)`` rounded once
+    at the end is up to an ulp away from the same chain in float32, which is enough to make a
+    seeded trajectory diverge from upstream's. Coefficients are host scalars either way, so this
+    costs nothing and keeps bit-exactness as a free regression signal.
+    """
+    return torch.tensor(x, dtype=torch.float32)
+
+
+def _brownian_scale(gt: float, sc_scale_noise: float, dt: float) -> float:
+    """``sqrt(2 g(t) * sc_scale_noise * dt)``, the injected-noise amplitude of one Euler step."""
+    return float(torch.sqrt(2 * _f32(gt) * sc_scale_noise * _f32(dt)))
+
+
 def simulation_step(m: ModalitySpec, x_t, v, *, t: float, dt: float, gt: float,
                     rng: DesignRng, emit_mask=None):
     """One Euler step of this modality, in upstream's arithmetic order.
@@ -532,6 +548,7 @@ def simulation_step(m: ModalitySpec, x_t, v, *, t: float, dt: float, gt: float,
         raise ValueError(f"gt must be >= 0, got {gt}")
 
     endpoint_score_scale = 1.5  # keeps the regular SDE's low-temperature ODE endpoint
+    noise_scale = _brownian_scale(gt, m.sc_scale_noise, dt)
 
     if m.sampling_mode == "vf":
         delta_x = v * dt
@@ -542,9 +559,9 @@ def simulation_step(m: ModalitySpec, x_t, v, *, t: float, dt: float, gt: float,
         else:
             score = vf_to_score(x_t, v, t)
             eps = rng.randn_like(x_t)
-            delta_x = (v + gt * score) * dt + math.sqrt(2 * gt * m.sc_scale_noise * dt) * eps
+            delta_x = (v + gt * score) * dt + noise_scale * eps
     else:
-        ratio = tsr_ratio(t, m.tsr_k, m.tsr_sigma)
+        ratio = float(tsr_ratio(_f32(t), m.tsr_k, m.tsr_sigma))
         if t == 0.0:
             delta_x = x_t * 0.0
         else:
@@ -555,7 +572,7 @@ def simulation_step(m: ModalitySpec, x_t, v, *, t: float, dt: float, gt: float,
                 delta_x = v_scaled * dt
             else:
                 eps = rng.randn_like(x_t)
-                delta_x = (v_scaled + gt * scaled_score) * dt + math.sqrt(2 * gt * m.sc_scale_noise * dt) * eps
+                delta_x = (v_scaled + gt * scaled_score) * dt + noise_scale * eps
 
     x_next = _masked(x_t + delta_x, emit_mask)
     if m.center_every_step:
@@ -713,6 +730,66 @@ class Network(Protocol):
     def __call__(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int,
                  step: int) -> dict[str, dict[str, Any]]:
         ...
+
+
+class ChunkedNetwork:
+    """Run a step's network call a few designs at a time, narrowing when DRAM refuses.
+
+    The whole sample axis goes through ``sample_chunks.denoise_in_chunks``, the same chunker
+    Boltz-2, Protenix, OpenDDE and PXDesign denoise through: a refused chunk halves the width,
+    drops whatever device state the width keyed, and reruns from its saved input.
+
+    Chunking cannot change a design. Every draw a design sees comes from its own generator, taken
+    on the host before the step runs, so the width decides how many designs are resident and
+    nothing else. ``tests/test_rfd4_sampler.py`` holds that to a bit-exact comparison across
+    widths; it is the property that lets the engine pick a width from free DRAM.
+
+    The modalities are concatenated along the channel axis for the chunker's single-tensor
+    interface and split again inside, which also means one device call per chunk rather than two.
+    """
+
+    def __init__(self, network: Network, spec: SamplingSpec = RELEASED, *,
+                 max_parallel_samples: int | None = 5, reset: Callable | None = None):
+        self.network = network
+        self.spec = spec
+        self.max_parallel_samples = max_parallel_samples
+        self.reset = reset
+        self.width: int | None = None
+
+    def __call__(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int, step: int):
+        from tt_bio.sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
+
+        modes = tuple(self.spec.data_modes)
+        dims = [x_t[mode].shape[-1] for mode in modes]
+        packed = torch.cat([x_t[mode] for mode in modes], dim=-1)
+        if self.width is None:
+            self.width = resolve_sample_chunk_width(packed.shape[0], self.max_parallel_samples)
+        extras: list[dict] = []
+
+        def run(chunk, width):
+            parts = torch.split(chunk, dims, dim=-1)
+            out = self.network({mode: part for mode, part in zip(modes, parts)}, t,
+                               recycle_depth=recycle_depth, step=step)
+            extras.append({k: v for k, v in out.items() if k not in modes})
+            fields = [out[mode] for mode in modes]
+            key = "v" if all("v" in f for f in fields) else "x_1"
+            return torch.cat([f[key] for f in fields], dim=-1), key
+
+        keys: list[str] = []
+
+        def run_tensor(chunk, width):
+            tensor, key = run(chunk, width)
+            keys.append(key)
+            return tensor
+
+        packed_out, self.width = denoise_in_chunks(packed, self.width, run_tensor,
+                                                   reset=self.reset, tag="rfd4")
+        parts = torch.split(packed_out, dims, dim=-1)
+        out = {mode: {keys[0]: part} for mode, part in zip(modes, parts)}
+        for head in {k for e in extras for k in e}:
+            pieces = [e[head] for e in extras if head in e]
+            out[head] = {k: torch.cat([p[k] for p in pieces], dim=0) for k in pieces[0]}
+        return out
 
 
 @dataclass
