@@ -57,7 +57,7 @@ def design_via_controller(spec: str | Path, out_dir: str | Path, *, controller_u
     """
     from tt_bio.host_controller import connect_controller
     from tt_bio.main import _write_job_outputs
-    from tt_bio.rfd4.io import DesignInput, prepare_examples
+    from tt_bio.rfd4.io import resolve_inputs
     from tt_bio.rfd4.run import check_backend
     from tt_bio.rfd4.sampler import recycle_strategy
 
@@ -65,17 +65,10 @@ def design_via_controller(spec: str | Path, out_dir: str | Path, *, controller_u
     if recipe is not None:
         recycle_strategy(recipe)  # refuse an unknown budget before the fleet is touched
 
-    spec = Path(spec).expanduser()
     out_dir = Path(out_dir).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    if annotated_cif:
-        if only:
-            raise ValueError("`only` selects designs from a spec file; an annotated CIF is "
-                             "one design's input already")
-        inputs = [DesignInput(spec.stem, spec)]
-    else:
-        inputs = prepare_examples(spec, out_dir / "inputs", only=only, validate=validate)
+    inputs = resolve_inputs(spec, out_dir / "inputs", only=only, validate=validate,
+                            annotated_cif=annotated_cif)
 
     client, online = connect_controller(controller_url)
     config: dict[str, Any] = {"kind": "design", "engine": "rfd4"}

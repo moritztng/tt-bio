@@ -63,7 +63,7 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
     ``on_write(path)`` as each output lands; the CLI prints its progress from both.
     """
     from tt_bio.rfd4.engine import get_engine
-    from tt_bio.rfd4.io import DesignInput, featurize, prepare_examples, write_design
+    from tt_bio.rfd4.io import featurize, resolve_inputs, write_design
 
     check_backend(backend)
     if engine is not None and (recipe is not None or adapter is not None):
@@ -74,16 +74,9 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
         recycle_strategy(recipe)  # an unknown name fails here, before any design is built
     if adapter is not None and not Path(adapter).expanduser().is_dir():
         raise ValueError(f"no LoRA adapter directory at {adapter}")
-    spec = Path(spec).expanduser()
     out_dir = Path(out_dir).expanduser()
-    if annotated_cif:
-        if only:
-            raise ValueError("`only` selects designs from a spec file; an annotated CIF is "
-                             "one design's input already")
-        inputs = [DesignInput(spec.stem, spec)]
-    else:
-        inputs = prepare_examples(spec, out_dir / "inputs", only=list(only) if only else None,
-                                  validate=validate)
+    inputs = resolve_inputs(spec, out_dir / "inputs", only=only, validate=validate,
+                            annotated_cif=annotated_cif)
 
     loaded = {k: v for k, v in (("recipe", recipe), ("adapter", adapter)) if v is not None}
     engine = engine if engine is not None else get_engine(**loaded)
