@@ -74,6 +74,7 @@ ALWI void finish(uint32_t in) {
     cb_wait_front(in, KC);
     pack_reconfig_data_format(cb_out);
     if constexpr (HAS_B) {
+        cb_wait_front(cb_beta, KC);
         reconfig_data_format(in, cb_beta);
         add_bcast_rows_init_short(in, cb_beta);
     } else {
@@ -99,8 +100,6 @@ void kernel_main() {
     binary_op_init_common(cb_x, cb_scaler, cb_p1);
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
-    if constexpr (HAS_W) cb_wait_front(cb_gamma, KC);
-    if constexpr (HAS_B) cb_wait_front(cb_beta, KC);
 
     ln_prologue::row_mean<LnCbs>(cb_x, cb_p1, false);         // partial sum / K
     sum_parts(cb_parts1, cb_mean);                        // mean
@@ -117,6 +116,7 @@ void kernel_main() {
     cb_pop_front(cb_xc, KC);
     cb_pop_front(cb_rstd, 1);
     if constexpr (HAS_W) {
+        cb_wait_front(cb_gamma, KC);   // read after x: the statistics do not wait for it
         cb_wait_front(cb_tmp, KC);
         ln_prologue::stage<LnCbs, ln_prologue::MUL_ROW, 4>(cb_tmp, cb_gamma, cb_xc);
         cb_pop_front(cb_tmp, KC);
