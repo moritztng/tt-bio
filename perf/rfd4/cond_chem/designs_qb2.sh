@@ -9,7 +9,7 @@ OUT=${1:?out-root}; shift
 SEEDS=${*:-0}
 WT=$(cd "$(dirname "$0")/../../.." && pwd)
 IN=$HOME/.coworker/state/rfd4/inputs
-PY=${PY:-python3}
+PY=${PY:-$HOME/tt-bio-dev/env/bin/python}
 
 # family                 annotated CIF            recipe
 FAMILIES=(
