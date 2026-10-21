@@ -79,6 +79,7 @@ dependencies = [
     # MSA utils only. pyarrow turned up only on the release venv (ttnn 0.68.0 /
     # torch 2.13.0) on qb1, because the dev env that found the first three already
     # had it transitively.
+    "filelock",       # atomworks ml/utils/io.py (rf3 data/pipelines.py); torch also pulls it
     "zstandard",      # atomworks io/utils/compression.py, ml/utils/io.py
     "beartype",       # rf3 data/ground_truth_template.py
     "jaxtyping",      # atomworks ml/conditions/annotator.py
@@ -121,7 +122,9 @@ include = ["tt_bio*"]
 # line per vendored tree: the enumerated form dropped tt_bio/_vendor/nesso/LICENSE
 # the moment Nesso-1 landed, which is a licensing hole, not just a gate red.
 # The glob lives on the "tt_bio" key below.
-"tt_bio._vendor.atomworks" = ["py.typed", "io/tools/*.smirks", "ml/datasets/*.md"]
+"tt_bio._vendor.atomworks" = ["py.typed", "io/tools/*.smirks", "ml/datasets/*.md",
+                              "experimental/protonation/*.json",
+                              "experimental/protonation/external/dimorphite_dl/*.smarts"]
 # runtime data files the package loads by path at import/featurize time — these
 # MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization

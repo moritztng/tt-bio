@@ -186,6 +186,7 @@ _UNDECLARED_OK = {
     "openbabel": "atomworks symmetry/rf2aa path, not reached by importing tt_bio.main or tt_bio.rf3",
     "py3Dmol": "atomworks notebook visualiser, not reached by importing tt_bio.main or tt_bio.rf3",
     "sympy": "atomworks conditions path, not reached by importing tt_bio.main or tt_bio.rf3",
+    "ase": "atomworks ASE/materials dataset loaders, not reached by RF3 or RFD4",
     "redis": "tt_bio/boltzgen/data/parse/a3m.py is unreferenced; tt_bio/data/parse.py is the live a3m parser",
     # Not third-party at all: a committed sibling module, reached by the sys.path.insert directly
     # above its import. `intree` below is built from the top level of tt_bio/ only, so a module one
