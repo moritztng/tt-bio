@@ -171,3 +171,140 @@ def block_inputs(b=1, n=128, dim=1024, dim_pair=384, dim_cond=256, lengths=None,
     for i, ln in enumerate(lengths or []):
         mask[i, ln:] = 0.0
     return x, z, cond, mask
+
+
+# --- pair update (PairReprUpdate, release settings: hadamard write, triangle multiplication on) ---
+
+def layer_norm(x, weight, bias, eps=EPS):
+    """openfold `LayerNorm` / `torch.nn.LayerNorm` (the pair update uses real LayerNorms, not
+    `make_norm`, so `norm_type` does not reach them)."""
+    mu = x.mean(-1, keepdim=True)
+    var = (x - mu).pow(2).mean(-1, keepdim=True)
+    out = (x - mu) * torch.rsqrt(var + eps) * weight
+    return out if bias is None else out + bias
+
+
+def _lin(x, w, p):
+    b = w.get(f"{p}.bias")
+    out = x @ w[f"{p}.weight"].T
+    return out if b is None else out + b
+
+
+def tri_mult(w, p, z, pair_mask, outgoing, rnd=ident):
+    """`TriangleMultiplicationOutgoing` / `Incoming` on the torch backend (the exact one).
+
+    outgoing: x[i, j] = sum_k a[i, k] b[j, k];  incoming: x[i, j] = sum_k a[k, i] b[k, j].
+    """
+    m = pair_mask[..., None]
+    zn = rnd(layer_norm(z, w[f"{p}.layer_norm_in.weight"], w.get(f"{p}.layer_norm_in.bias")))
+    a = rnd(rnd(_lin(zn, w, f"{p}.linear_a_p")) * rnd(torch.sigmoid(_lin(zn, w, f"{p}.linear_a_g"))) * m)
+    b = rnd(rnd(_lin(zn, w, f"{p}.linear_b_p")) * rnd(torch.sigmoid(_lin(zn, w, f"{p}.linear_b_g"))) * m)
+    eq = "bikc,bjkc->bijc" if outgoing else "bkic,bkjc->bijc"
+    x = rnd(torch.einsum(eq, a, b))
+    x = rnd(layer_norm(x, w[f"{p}.layer_norm_out.weight"], w.get(f"{p}.layer_norm_out.bias")))
+    x = rnd(_lin(x, w, f"{p}.linear_z"))
+    g = rnd(torch.sigmoid(_lin(zn, w, f"{p}.linear_g")))
+    return rnd(x * g)
+
+
+def pair_transition(w, p, z, pair_mask, rnd=ident):
+    """openfold `PairTransition`: LayerNorm, linear + relu, linear, mask."""
+    zn = rnd(layer_norm(z, w[f"{p}.layer_norm.weight"], w[f"{p}.layer_norm.bias"]))
+    h = rnd(torch.relu(_lin(zn, w, f"{p}.linear_1")))
+    return rnd(_lin(h, w, f"{p}.linear_2")) * pair_mask[..., None]
+
+
+def pair_update(w, p, x, z, mask, rnd=ident, pair_write="hadamard"):
+    """`PairReprUpdate.forward` with `use_tri_mult=True`."""
+    pm = mask[:, None, :] * mask[:, :, None]
+    x = x * mask[..., None]
+    h = rnd(layer_norm(x, w[f"{p}.layer_norm_in.weight"], w[f"{p}.layer_norm_in.bias"]))
+    pi, pj = rnd(h @ w[f"{p}.linear_x.weight"].T).chunk(2, dim=-1)
+    if pair_write == "hadamard":
+        z = rnd(z + rnd(pi[:, None, :, :] * pj[:, :, None, :]))
+    else:
+        z = rnd(z + pi[:, None, :, :] + pj[:, :, None, :])
+    z = z * pm[..., None]
+    z = rnd(z + tri_mult(w, f"{p}.tri_mult_out", z, pm, True, rnd)) * pm[..., None]
+    z = rnd(z + tri_mult(w, f"{p}.tri_mult_in", z, pm, False, rnd)) * pm[..., None]
+    z = rnd(z + pair_transition(w, f"{p}.transition_out", z, pm, rnd)) * pm[..., None]
+    return z
+
+
+def pair_update_weights(dim=1024, dim_pair=384, tri_c=256, expansion=2, tri_bias=False, seed=0,
+                        dtype=torch.float64, prefix=""):
+    """Upstream-keyed random weights for one `PairReprUpdate` (release: tri_mult_bias false)."""
+    g = torch.Generator().manual_seed(seed)
+    pre = f"{prefix}." if prefix else ""
+
+    def lin(out_f, in_f):
+        bound = 1.0 / math.sqrt(in_f)
+        return (torch.rand(out_f, in_f, generator=g, dtype=dtype) * 2 - 1) * bound
+
+    def norm(d):
+        return 1.0 + 0.1 * torch.randn(d, generator=g, dtype=dtype)
+
+    def small(d):
+        return 0.1 * torch.randn(d, generator=g, dtype=dtype)
+
+    w = {f"{pre}layer_norm_in.weight": norm(dim), f"{pre}layer_norm_in.bias": small(dim),
+         f"{pre}linear_x.weight": lin(2 * dim_pair, dim)}
+    for t in ("tri_mult_out", "tri_mult_in"):
+        p = f"{pre}{t}"
+        for name in ("linear_a_p", "linear_a_g", "linear_b_p", "linear_b_g"):
+            w[f"{p}.{name}.weight"] = lin(tri_c, dim_pair)
+            if tri_bias:
+                w[f"{p}.{name}.bias"] = small(tri_c)
+        w[f"{p}.linear_g.weight"] = lin(dim_pair, dim_pair)
+        w[f"{p}.linear_z.weight"] = lin(dim_pair, tri_c)
+        w[f"{p}.layer_norm_in.weight"] = norm(dim_pair)
+        w[f"{p}.layer_norm_out.weight"] = norm(tri_c)
+        if tri_bias:
+            for name, d in (("linear_g", dim_pair), ("linear_z", dim_pair), ("layer_norm_in", dim_pair),
+                            ("layer_norm_out", tri_c)):
+                w[f"{p}.{name}.bias"] = small(d)
+    p = f"{pre}transition_out"
+    w[f"{p}.layer_norm.weight"] = norm(dim_pair)
+    w[f"{p}.layer_norm.bias"] = small(dim_pair)
+    w[f"{p}.linear_1.weight"] = lin(expansion * dim_pair, dim_pair)
+    w[f"{p}.linear_1.bias"] = small(expansion * dim_pair)
+    w[f"{p}.linear_2.weight"] = lin(dim_pair, expansion * dim_pair)
+    w[f"{p}.linear_2.bias"] = small(dim_pair)
+    return w
+
+
+# --- the stack and its recycles (LocalLatentsTransformer._run_trunk) ---
+
+def trunk(w, s_init, z_init, conds, mask, nlayers, every_n=2, n_heads=16, rnd=ident):
+    """`_run_trunk` with recycling on, in inference: `len(conds)` cycles, cycle k reading `conds[k]`
+    (the caller's per-cycle conditioning, which carries `recycle_remaining`). Each cycle starts
+    from the initial states plus a projection of the previous cycle's (RMSNorm + bias-free linear;
+    zero on the first cycle because the previous state is zero)."""
+    s, z = torch.zeros_like(s_init), torch.zeros_like(z_init)
+    for c in conds:
+        z_in = rnd(z_init + rnd(rnd(rms_norm(z, w["z_cycle_norm.weight"])) @ w["z_cycle_proj.weight"].T))
+        s_in = rnd(s_init + rnd(rnd(rms_norm(s, w["s_cycle_norm.weight"])) @ w["s_cycle_proj.weight"].T))
+        s, z = s_in, z_in
+        for i in range(nlayers):
+            s = trunk_block(w, s, z, c, mask, n_heads, p=f"transformer_layers.{i}", rnd=rnd)
+            if i < nlayers - 1 and i % every_n == 0:
+                z = pair_update(w, f"pair_update_layers.{i}", s, z, mask, rnd)
+    return s, z
+
+
+def trunk_weights(nlayers, dim=1024, dim_pair=384, dim_cond=256, n_heads=16, tri_c=256, every_n=2,
+                  seed=0, dtype=torch.float64):
+    """Upstream-keyed random weights for a `nlayers`-deep trunk with its recycle projections."""
+    w = {}
+    for i in range(nlayers):
+        for k, v in block_weights(dim, dim_pair, dim_cond, n_heads, seed=seed + 2 * i, dtype=dtype).items():
+            w[f"transformer_layers.{i}.{k}"] = v
+        if i < nlayers - 1 and i % every_n == 0:
+            w.update(pair_update_weights(dim, dim_pair, tri_c, seed=seed + 2 * i + 1, dtype=dtype,
+                                         prefix=f"pair_update_layers.{i}"))
+    g = torch.Generator().manual_seed(seed + 10_000)
+    for name, d in (("s", dim), ("z", dim_pair)):
+        w[f"{name}_cycle_norm.weight"] = 1.0 + 0.1 * torch.randn(d, generator=g, dtype=dtype)
+        # trained, not zero: upstream initialises these to zero and training moves them
+        w[f"{name}_cycle_proj.weight"] = (torch.rand(d, d, generator=g, dtype=dtype) * 2 - 1) / math.sqrt(d)
+    return w

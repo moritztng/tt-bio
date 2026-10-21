@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import ttnn
 
-from ..tenstorrent import CORE_GRID_MAIN, Module, _sdpa_program_config_for_lengths, fused_sdpa
+import torch
+
+from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
+                           _sdpa_program_config_for_lengths, fused_sdpa)
 
 EPS = 1e-5
 NEG_INF = -1e4
@@ -262,6 +265,97 @@ class TrunkBlock(Module):
         ttnn.deallocate(t)
         return ttnn.multiply(x, mask)
 
+
+
+def _trimul_weights(scope) -> WeightScope:
+    """An openfold triangle multiplication's weights under the keys tt-bio's
+    `TriangleMultiplication` reads (Boltz's layout: packed [a; b] in-projections, norm_in/out,
+    p_out/g_out). The release checkpoint has no biases (`tri_mult_bias: false`); its LayerNorms
+    get zero biases, which is what a bias-free LayerNorm computes."""
+    w = scope.data
+    cat = lambda a, b: torch.cat([w[a], w[b]])  # noqa: E731
+    out = {
+        "norm_in.weight": w["layer_norm_in.weight"],
+        "norm_in.bias": w.get("layer_norm_in.bias", torch.zeros_like(w["layer_norm_in.weight"])),
+        "norm_out.weight": w["layer_norm_out.weight"],
+        "norm_out.bias": w.get("layer_norm_out.bias", torch.zeros_like(w["layer_norm_out.weight"])),
+        "p_in.weight": cat("linear_a_p.weight", "linear_b_p.weight"),
+        "g_in.weight": cat("linear_a_g.weight", "linear_b_g.weight"),
+        "p_out.weight": w["linear_z.weight"],
+        "g_out.weight": w["linear_g.weight"],
+    }
+    if "linear_a_p.bias" in w:
+        out["p_in.bias"] = cat("linear_a_p.bias", "linear_b_p.bias")
+        out["g_in.bias"] = cat("linear_a_g.bias", "linear_b_g.bias")
+    for src, dst in (("linear_z.bias", "p_out.bias"), ("linear_g.bias", "g_out.bias")):
+        if src in w:
+            out[dst] = w[src]
+    return WeightScope(out)
+
+
+class PairUpdate(Module):
+    """`PairReprUpdate` with the release settings: a Hadamard single-to-pair write, both triangle
+    multiplications (tt-bio's `TriangleMultiplication`, the one Boltz-2, OpenFold3 and AF2 run) and
+    the ReLU pair transition, each a masked residual.
+
+    `pair_mask` is the [b, n, n] outer product of the token mask, which the triangle
+    multiplication takes; `pair_mask_c` is the same mask as [b, n, n, 1] for the residual masks.
+    Build both once per stack call.
+    """
+
+    def __init__(self, state_dict, ckc, dtype=None, pair_write="hadamard"):
+        super().__init__(state_dict, ckc)
+        self.dtype = dtype or ttnn.bfloat16
+        self.pair_write = pair_write
+        ident = lambda x: x  # noqa: E731
+        self.ln_w = self.torch_to_tt("layer_norm_in.weight", transform=ident, dtype=self.dtype)
+        self.ln_b = self.torch_to_tt("layer_norm_in.bias", transform=ident, dtype=self.dtype)
+        p = self.weights["linear_x.weight"].shape[0] // 2
+        self.xi_w = self.torch_to_tt("linear_x.weight", transform=lambda w: w[:p].t(), dtype=self.dtype)
+        self.xj_w = self.torch_to_tt("linear_x.weight", transform=lambda w: w[p:].t(), dtype=self.dtype)
+        self.tri_out = TriangleMultiplication(False, _trimul_weights(self.scope("tri_mult_out")), ckc)
+        self.tri_in = TriangleMultiplication(True, _trimul_weights(self.scope("tri_mult_in")), ckc)
+        t = "transition_out"
+        self.tr_ln_w = self.torch_to_tt(f"{t}.layer_norm.weight", transform=ident, dtype=self.dtype)
+        self.tr_ln_b = self.torch_to_tt(f"{t}.layer_norm.bias", transform=ident, dtype=self.dtype)
+        self.tr_w1 = self.torch_to_tt(f"{t}.linear_1.weight", dtype=self.dtype)
+        self.tr_b1 = self.torch_to_tt(f"{t}.linear_1.bias", transform=ident, dtype=self.dtype)
+        self.tr_w2 = self.torch_to_tt(f"{t}.linear_2.weight", dtype=self.dtype)
+        self.tr_b2 = self.torch_to_tt(f"{t}.linear_2.bias", transform=ident, dtype=self.dtype)
+
+    def _write(self, x, mask):
+        """pi[b, j] * pj[b, i] (or pi[b, j] + pj[b, i]) for every pair (i, j): [b, n, n, pair]."""
+        ckc = self.compute_kernel_config
+        h = ttnn.layer_norm(ttnn.multiply(x, mask), weight=self.ln_w, bias=self.ln_b, epsilon=EPS,
+                            compute_kernel_config=ckc)
+        pi = self._lin(h, self.xi_w, dtype=self.dtype)
+        pj = self._lin(h, self.xj_w, dtype=self.dtype)
+        ttnn.deallocate(h)
+        b, n, c = (int(d) for d in pi.shape)
+        pi4 = ttnn.reshape(pi, (b, 1, n, c))
+        pj4 = ttnn.reshape(pj, (b, n, 1, c))
+        op = ttnn.multiply if self.pair_write == "hadamard" else ttnn.add
+        return op(pj4, pi4)
+
+    def _transition(self, z, pair_mask_c):
+        ckc = self.compute_kernel_config
+        zn = ttnn.layer_norm(z, weight=self.tr_ln_w, bias=self.tr_ln_b, epsilon=EPS, compute_kernel_config=ckc)
+        h = self._lin(zn, self.tr_w1, bias=self.tr_b1, dtype=self.dtype, activation="relu")
+        ttnn.deallocate(zn)
+        out = self._lin(h, self.tr_w2, bias=self.tr_b2, dtype=self.dtype)
+        ttnn.deallocate(h)
+        return ttnn.multiply(out, pair_mask_c)
+
+    def _residual(self, z, update, pair_mask_c):
+        out = ttnn.multiply(ttnn.add(z, update), pair_mask_c)
+        ttnn.deallocate(update)
+        return out
+
+    def __call__(self, x, z, mask, pair_mask, pair_mask_c):
+        z = self._residual(z, self._write(x, mask), pair_mask_c)
+        z = self._residual(z, self.tri_out(z, pair_mask), pair_mask_c)
+        z = self._residual(z, self.tri_in(z, pair_mask), pair_mask_c)
+        return self._residual(z, self._transition(z, pair_mask_c), pair_mask_c)
 
 def compute_kernel_config():
     """The config the rest of tt-bio's trunks run on: HiFi4, fp32 dest, packer L1 accumulate."""

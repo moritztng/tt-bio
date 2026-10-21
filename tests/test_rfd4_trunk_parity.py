@@ -192,3 +192,27 @@ def test_padding_does_not_touch_the_real_tokens():
     short = REF.trunk_block(w, x[:, :96], z[:, :96, :96], cond[:, :96], mask[:, :96], 4)
     assert torch.allclose(full[:, :96], short, atol=1e-12, rtol=1e-9)
     assert full[:, 96:].abs().max() == 0.0
+
+
+def _pair_masks(mask, dev):
+    pm = mask[:, :, None] * mask[:, None, :]
+    return _dev(pm, dev), _dev(pm[..., None], dev)
+
+
+@pytest.mark.device
+def test_pair_update(case):
+    """`PairReprUpdate`: Hadamard write, both triangle multiplications, pair transition."""
+    dev = T.get_device()
+    _, _, x, z, cond, mask = case
+    w = REF.pair_update_weights(DIM, DIM_PAIR, 256, seed=5, prefix="pu")
+    wb = {k: _bf16(v) for k, v in w.items()}
+    ref = REF.pair_update(w, "pu", x, z, mask)
+    floor = REF.pair_update(wb, "pu", _bf16(x), _bf16(z), mask, REF.bf16)
+    mod = TR.PairUpdate(_scope(w, "pu"), TR.compute_kernel_config())
+    xt, zt, ct, mt, _ = _tt_inputs(case, dev)
+    pm, pmc = _pair_masks(mask, dev)
+    got = ttnn.to_torch(mod(xt, zt, mt, pm, pmc)).double()
+    pair = (mask[:, :, None] * mask[:, None, :])
+    _grade("pair_update", got, ref, floor, pair)
+    _grade("pair_update update", got - z * pair[..., None], ref - z * pair[..., None],
+           floor - _bf16(z) * pair[..., None], pair)
