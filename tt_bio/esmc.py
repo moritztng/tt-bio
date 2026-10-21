@@ -243,8 +243,13 @@ _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC
 # qk_rope_heads writes q, k and v in block-fp8 (packed from its fp32 dest) and shsdpa reads them so: half the bytes
 # out of the one and into the other. shsdpa alone at the page shapes, Galaxy chip at 1000 MHz, trace replay, ms a call
 # (perf/shsdpa/bench.py --b8): 300M 0.306 -> 0.270, 600M 0.359 -> 0.327, 6B 0.162 -> 0.134; rel_rms vs float64 0.0265
-# -> 0.0268. Off until the page cell grades it.
-_ESMC_QKRH_BF8 = env_flag("TT_BIO_ESMC_QKRH_BF8", False)
+# -> 0.0268. Page cell (esmc_ab, traced, 3 rounds, Galaxy chip at 1000 MHz), off -> on medians, pcc vs fp32: 300M normal
+# 92.58 -> 90.66 ms (-0.000056), 600M normal 130.53 -> 129.39 (-0.000067), 6B normal 182.80 -> 180.98 (+0.000040).
+# --fast with bf16 accumulation fails its bar at 300M (0.000202 under normal, bar 0.0002), so only forwards that keep
+# fp32 accumulation take it. None = on for Wormhole; Blackhole until its own A/B says. Only shsdpa reads block-fp8 q, k,
+# v (a KeyPad mask), so ESMFold2 (lm_sdpa_stock) is untouched.
+_ESMC_QKRH_BF8 = (env_flag("TT_BIO_ESMC_QKRH_BF8", False)
+                  if os.environ.get("TT_BIO_ESMC_QKRH_BF8", "").strip() else None)
 # shsdpa writes its output with the heads already concatenated ([B, L, H * D]) instead of nlp_concat_heads after it:
 # only the writer's tile addresses change (sdpa_generic merged_out), so the output is bit-identical.
 _LM_SDPA_MERGED = env_flag("TT_BIO_LM_SDPA_MERGED", True)
@@ -585,6 +590,13 @@ def _mm_bf16_acc(w, exact: bool = False) -> bool:
     return w.dtype == ttnn.bfloat8_b and not exact if _ESMC_MM_BF16_ACC is None else _ESMC_MM_BF16_ACC
 
 
+def _qkrh_bf8(w, exact: bool) -> bool:
+    if _ESMC_QKRH_BF8 is not None:
+        return _ESMC_QKRH_BF8
+    from tt_bio import tenstorrent
+    return tenstorrent.is_wormhole() and not _mm_bf16_acc(w, exact)
+
+
 def _kb6_on() -> bool:
     if _ESMC_MM_KB6 is not None:
         return _ESMC_MM_KB6
@@ -825,7 +837,8 @@ class Attention(_MMLin, Module):
         else:
             q, k, v = self._qkv(x)
         heads = (qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin,
-                               out_dtype=ttnn.bfloat8_b if _ESMC_QKRH_BF8 else None) if _qkrh() else None)
+                               out_dtype=ttnn.bfloat8_b if isinstance(attn_mask, KeyPad)
+                               and _qkrh_bf8(self.out_weight, self.mm_exact_acc) else None) if _qkrh() else None)
         if heads is not None:
             for t in (q, k, v):
                 ttnn.deallocate(t)
