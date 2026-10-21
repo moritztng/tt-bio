@@ -36,8 +36,12 @@ FEATURE_TAGS = {
     "motif_scaffold": ["design", "motif_scaffold_refolding", "3d_coordinate_conditioning"],
     "small_molecule": ["design", "sm_binder_refolding", "interchain_interactions", "has_small_molecule"],
     "nucleic_acid": ["design", "dna_refolding"],
+    # `partial_diffusion` is what gates sequence_similarity_to_input and ca_rmsd_to_input, the
+    # comparisons against the structure that was partially diffused (sequence recovery, for an
+    # inverse-folding run). It gates no refold, so a family that grades a refold column must also
+    # carry a refolding tag -- without it the refold never runs and the column reads `missing`.
     "inverse_folding": ["design", "partial_diffusion"],
-    "partial_diffusion": ["design", "partial_diffusion"],
+    "partial_diffusion": ["design", "partial_diffusion", "unconditional_refolding"],
 }
 
 # Graded on every family: cheap, no oracle, and they are what a broken port breaks first.

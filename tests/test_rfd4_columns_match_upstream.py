@@ -116,3 +116,43 @@ def test_the_observed_self_test_csv_has_every_oracle_free_column_we_grade():
         have = set(next(csv.reader(fh)))
     want = {c for c, _, _ in mspec.COMMON if not c.startswith("geom.")}
     assert want <= have, f"graded but absent from a real CSV: {sorted(want - have)}"
+
+
+# Supplied by the refolding pipeline, not by the user's metrics_tags.
+ROUTING = ("is_refold:", "exists_refold:", "oracle:")
+
+
+def _gates() -> dict[str, dict]:
+    """metric config key -> its tag gate, as upstream's Metric.matches_tags reads it."""
+    root = UPSTREAM / "configs" / "metrics"
+    gates: dict[str, dict] = {}
+    for group in ("inline_metrics", "refolding_metrics", "refolding_oracles", "pass_criteria"):
+        for path in (root / group).glob("*.yaml"):
+            for key, val in (yaml.safe_load(path.read_text()) or {}).items():
+                if isinstance(val, dict) and "_target_" in val:
+                    gates[key] = {g: {t for t in (val.get(g) or []) if not t.startswith(ROUTING)}
+                                  for g in ("required_tags_all", "required_tags_any", "prohibited_tags")}
+    return gates
+
+
+def _activates(gate: dict, tags: set[str]) -> bool:
+    return (gate["required_tags_all"] <= tags
+            and (not gate["required_tags_any"] or gate["required_tags_any"] & tags)
+            and not (gate["prohibited_tags"] & tags))
+
+
+def test_every_family_grades_only_columns_its_own_tags_activate():
+    """A column upstream will not emit for this family's metrics_tags is a silent `missing`,
+    and a silently missing metric is a metric nobody grades."""
+    gates = _gates()
+    bad = []
+    for family, tags in mspec.FEATURE_TAGS.items():
+        tagset = set(tags)
+        for column, _, _ in mspec.columns_for(family):
+            if column.startswith("geom."):
+                continue
+            gate = gates.get(column.split(".")[0])
+            if gate and not _activates(gate, tagset):
+                bad.append(f"{family} ({', '.join(tags)}) grades {column}, which its tags do not activate: "
+                           f"{ {k: sorted(v) for k, v in gate.items() if v} }")
+    assert not bad, "columns a family's tags never produce:\n  " + "\n  ".join(bad)
