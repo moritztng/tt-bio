@@ -229,8 +229,15 @@ def _last_axis(y, dim: int):
     return rank - 1 if dim in (-1, rank - 1) else None
 
 
-def softmax_bw(y, g, dim=-1, config=None):
+def softmax_bw(y, g, dim=-1, config=None, refine=False):
     """The whole softmax backward `dx = y (g - sum_j g_j y_j)`, row-sum corrected.
+
+    `refine` runs it twice, the second time on `g - inner` (the backward is exactly invariant
+    to a per-row shift of `g`). The card reduces with TF32 operands, so on a one-hot row
+    (AF2's IPA, logits ~5,000, top-2 gap ~800) `g_max - inner` keeps ~5e-4 |g| of rounding
+    where float64 gets 0, and the large keys downstream amplify it: structure module d_act0
+    rel 2.24. Centring first squares that error, 3e-5 -> 1e-8 of |g| per one-hot head
+    (`perf/bc4_headdev/softmax_probe.py`). Costs one more product and two reductions.
 
     All three callers used to close `softmax_bw_inner` with the same two verbs of their own
     (`ttnn.multiply(y, ttnn.subtract(g, inner))`), which is the same duplication the inner
@@ -248,12 +255,14 @@ def softmax_bw(y, g, dim=-1, config=None):
         y32, g32 = ttnn.typecast(y, ttnn.float32), ttnn.typecast(g, ttnn.float32)
         # Recursion, not a second copy of the expression: `y32` is fp32, so this branch is not
         # taken twice and the arithmetic below stays the only definition of the backward.
-        dx32 = softmax_bw(y32, g32, dim=dim, config=config or precise_config())
+        dx32 = softmax_bw(y32, g32, dim=dim, config=config or precise_config(), refine=refine)
         ttnn.deallocate(y32)
         ttnn.deallocate(g32)
         dx = ttnn.typecast(dx32, g.dtype)
         ttnn.deallocate(dx32)
         return dx
+    if refine:
+        g = ttnn.subtract(g, softmax_bw_inner(y, g, dim=dim, config=config or precise_config()))
     ax = _last_axis(y, dim) if SOFTMAX_BW_FUSED else None
     if ax is not None:
         SOFTMAX_BW_RENORM_STATS["applied" if SOFTMAX_BW_RENORM else "declined"] += 1
@@ -1829,8 +1838,9 @@ def layer_norm(x: Tensor, gamma: Optional[Tensor] = None, beta: Optional[Tensor]
     return _tape(out_v, parents, make)
 
 
-def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
-    """Softmax over ``dim``. Backward is ``y * (dy - sum(dy * y))``, which needs only y."""
+def softmax(x: Tensor, dim: int = -1, *, config=None, refine=False) -> Tensor:
+    """Softmax over ``dim``. Backward is ``y * (dy - sum(dy * y))``, which needs only y;
+    ``refine`` as in `softmax_bw`."""
     cfg = config or precise_config()
     y0 = ttnn.softmax(x.value, dim=dim, compute_kernel_config=cfg)
     box = [y0]
@@ -1838,7 +1848,7 @@ def softmax(x: Tensor, dim: int = -1, *, config=None) -> Tensor:
     def make():
         def bw(g):
             y = box[0]                      # through the box: `free` may have moved it
-            x.add_grad(softmax_bw(y, g, dim=dim, config=cfg))
+            x.add_grad(softmax_bw(y, g, dim=dim, config=cfg, refine=refine))
         return bw
 
     out = _tape(y0, [x], make)
