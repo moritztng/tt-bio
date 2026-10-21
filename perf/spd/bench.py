@@ -100,8 +100,14 @@ def _reach():
     """Cumulative [served, declined] of the gated OPM paths. The TT_BIO_CAPACITY_CENSUS atexit dump never runs here
     (this script leaves through os._exit), so an A/B of a gated lever reads whether it fired from this record."""
     tt = sys.modules.get("tt_bio.tenstorrent")
-    return {k: list(getattr(tt, n)) for k, n in (("opm_small_depth", "OPM_SMALL_DEPTH_STATS"),
-                                                  ("opm_depth_join", "OPM_DEPTH_JOIN_STATS")) if hasattr(tt, n)}
+    out = {k: list(getattr(tt, n)) for k, n in (("opm_small_depth", "OPM_SMALL_DEPTH_STATS"),
+                                                 ("opm_depth_join", "OPM_DEPTH_JOIN_STATS")) if hasattr(tt, n)}
+    # The trimul T1 input side the same way: [served, declined] and the call-site decline reasons.
+    t1 = sys.modules.get("tt_bio.trimul_tail")
+    if t1 is not None and any(t1.T1_STATS):
+        out["trimul_t1"] = list(t1.T1_STATS)
+        out["trimul_t1_why"] = dict(t1.T1_WHY)
+    return out
 
 
 _LATCH_MODS = ("tt_bio.tenstorrent", "tt_bio.protenix", "tt_bio.triatt_qkv")
