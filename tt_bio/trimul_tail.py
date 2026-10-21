@@ -1703,7 +1703,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     w8 = bool(t1_w8(wpT, wgT, wgo))
     groups, il = t1_plan((int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE), w8)
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
-    b8 = bool(b8 or T1_B8) and il >= 16   # writer.cpp: whole faces
+    b8 = bool(b8 or T1_B8) and il == 32   # writer.cpp: whole tiles
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16

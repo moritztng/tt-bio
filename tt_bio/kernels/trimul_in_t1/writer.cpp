@@ -10,13 +10,10 @@
 // IL = 8 the unit's 8 rows of two faces (two 256 B writes).
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
-//   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes,
-//   128 the bfp8 gather's exponent stores, 256 its exponent loads (constant exponents).
+//   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
 // T1B8 (lever trimul_t1b8): a and b leave compute as bfp8 tiles. bfp8 keeps one exponent per 16-value face row,
 // the unit this gather moves, so the re-tiling is lossless: 16 mantissa bytes per face row by NOC as before, and
 // the face row's exponent byte by a core store (64 per tile; the NOC cannot move a single unaligned byte).
-// With IL = 16 a unit's rows are two whole faces of each output tile, whose 32 exponent bytes and 512
-// mantissa bytes are each contiguous in the bfp8 tile: two writes per tile, no byte shared with the other half.
 #ifndef ABL
 #define ABL 0
 #endif
@@ -41,7 +38,7 @@ void kernel_main() {
     constexpr uint32_t NTGT = get_compile_time_arg_val(7);  // g_out channel tiles in all
     constexpr uint32_t IL = get_compile_time_arg_val(8);    // row tiles per unit, 32, 16 or 8
     constexpr uint32_t H = 32 / IL;
-    static_assert(!T1B8 || IL >= 16, "the bfp8 gather moves whole faces");
+    static_assert(!T1B8 || IL == 32, "the bfp8 gather moves whole tiles");
     constexpr auto a_args = TensorAccessorArgs<9>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     constexpr auto g_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
@@ -117,45 +114,21 @@ void kernel_main() {
                 const uint32_t gbase = stage0 + grp * NB * TB;
                 if (dirty[grp]) noc_async_writes_flushed();
 #if T1B8
-                // The NB channels c0 .. c0 + NB - 1 are consecutive face rows of one source face, so their
-                // exponent bytes are adjacent: one aligned word load per source tile and face. Four consecutive
-                // rows of a destination tile have adjacent exponent bytes too, so they are stored as one word.
-                static_assert(NB == 1 || NB == 2 || NB == 4, "exponent bytes of a barrier group share one word");
-                static_assert(IL % 4 == 0, "four rows per exponent word");
-                // Every exponent word of the group is loaded and composed BEFORE the group issues a NOC read, and
-                // stored after its read barrier: a core load from L1 its own NOC reads are draining waits for them
-                // (2.2 ms of a 9.1 ms call at 512 tokens on Wormhole when interleaved), a load before them does not.
-                uint32_t e0[IL / 4][NB], e1[IL / 4][NB];
-                if constexpr (!(ABL & 32)) {
-                    const uint32_t sf = (c0 >> 4) * 2, sr0 = c0 & 15;
-                    const uint32_t ea0 = src + sf * 16 + sr0, sh = (ea0 & 3) * 8;
-                    for (uint32_t i4 = 0; i4 < IL; i4 += 4) {
-                        uint32_t lw[8];
-                        for (uint32_t k = 0; k < 4; ++k) {
-                            const uint32_t ea = ea0 + (i4 + k) * TB8;
-                            lw[2 * k] = (ABL & 256) ? 0x7f7f7f7fu : *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(ea & ~3u);
-                            lw[2 * k + 1] = (ABL & 256) ? 0x7f7f7f7fu
-                                                        : *reinterpret_cast<volatile tt_l1_ptr uint32_t*>((ea + 16) & ~3u);
-                        }
-                        for (uint32_t j = 0; j < NB; ++j) {
-                            uint32_t x0 = 0, x1 = 0;
-                            for (uint32_t k = 0; k < 4; ++k) {
-                                x0 |= ((lw[2 * k] >> (sh + 8 * j)) & 0xff) << (8 * k);
-                                x1 |= ((lw[2 * k + 1] >> (sh + 8 * j)) & 0xff) << (8 * k);
-                            }
-                            e0[i4 / 4][j] = x0;
-                            e1[i4 / 4][j] = x1;
-                        }
-                    }
-                    for (uint32_t il = 0; il < IL; ++il) {
-                        const uint32_t r = r0 + il, df = (r >> 4) * 2, dr = r & 15;
-                        for (uint32_t j = 0; j < NB; ++j) {
-                            // source row c0 + j of tile il: face sf (+1 for the right half), face row sr0 + j
-                            const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + (sr0 + j) * RB8;
-                            const uint32_t d0 = gbase + j * TB + EB + df * FB8 + dr * RB8;
-                            noc_async_read_one_packet_with_state(s0, d0);
-                            noc_async_read_one_packet_with_state(s0 + FB8, d0 + FB8);
-                        }
+                for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
+                    const uint32_t c = c0 + j;
+                    const uint32_t st = gbase + j * TB;
+                    // source row c of tile il: face (c >> 4) * 2 (+1 for the right half), face row c & 15
+                    const uint32_t sf = (c >> 4) * 2, sr = c & 15;
+                    volatile tt_l1_ptr uint8_t* se = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(src);
+                    volatile tt_l1_ptr uint8_t* de = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(st);
+                    for (uint32_t il = 0; il < 32; ++il) {
+                        const uint32_t df = (il >> 4) * 2, dr = il & 15;
+                        const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + sr * RB8;
+                        const uint32_t d0 = st + EB + df * FB8 + dr * RB8;
+                        noc_async_read_one_packet_with_state(s0, d0);
+                        noc_async_read_one_packet_with_state(s0 + FB8, d0 + FB8);
+                        de[df * 16 + dr] = se[il * TB8 + sf * 16 + sr];
+                        de[(df + 1) * 16 + dr] = se[il * TB8 + (sf + 1) * 16 + sr];
                     }
                 }
 #else
@@ -174,28 +147,11 @@ void kernel_main() {
                 }
 #endif
                 noc_async_read_barrier();
-#if T1B8
-                if constexpr (!(ABL & 32) && !(ABL & 128)) {
-                    for (uint32_t i4 = 0; i4 < IL; i4 += 4) {
-                        const uint32_t r = r0 + i4, df = (r >> 4) * 2, dr = r & 15;
-                        for (uint32_t j = 0; j < NB; ++j) {
-                            const uint32_t st = gbase + j * TB;
-                            *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(st + df * 16 + dr) = e0[i4 / 4][j];
-                            *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(st + (df + 1) * 16 + dr) = e1[i4 / 4][j];
-                        }
-                    }
-                }
-#endif
                 for (uint32_t j = 0; j < NB; ++j, page += SS) {
                     if constexpr (ABL & 64) continue;
                     const uint32_t st = gbase + j * TB;
-                    if constexpr (T1B8 && IL == 32) {
+                    if constexpr (T1B8) {
                         noc_async_write(st, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB8);
-                    } else if constexpr (T1B8) {
-                        const uint32_t e0 = (r0 >> 4) * 32, m0 = EB + (r0 >> 4) * 2 * FB8;
-                        const uint64_t dst = is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page);
-                        noc_async_write(st + e0, dst + e0, 32);
-                        noc_async_write(st + m0, dst + m0, 2 * FB8);
                     } else {
                         const uint64_t dst = is_a ? oa.get_noc_addr(page, off0) : ob.get_noc_addr(page, off0);
                         noc_async_write(st + off0, dst, wlen);
