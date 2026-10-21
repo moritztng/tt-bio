@@ -54,9 +54,11 @@ from tt_bio import esmfold2 as E, esmfold2_runtime as R
 fix = ROOT / "perf" / "size512" / "fixtures"
 a3m = a.a3m or fix / f"cdk2x2_{a.size}.a3m"
 tag = "" if a.a3m is None else "_" + a3m.stem
+t_build = time.perf_counter()
 one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}{tag}", fix / f"cdk2x2_{a.size}.yaml",
                               a3m, fast=a.fast)[:2]
-res = {"model": a.model, "fast": a.fast, "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
+build_s = round(time.perf_counter() - t_build, 3)  # weights load + device upload, what a model swap pays first
+res = {"build_s": build_s, "model": a.model, "fast": a.fast, "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
 
 # (owner, attribute, label). FoldingTrunkModel serves both the folding trunk and the LM encoder's pair
 # blocks; the label splits them by block count.
@@ -113,7 +115,7 @@ def staged(tag):
 if a.cold_stages:
     staged("cold_stages")
 else:
-    one_fold()  # cold
+    t0 = time.perf_counter(); one_fold(); res["cold_s"] = round(time.perf_counter() - t0, 3)  # + program compile
 if a.plain:
     from tt_bio import bmm_res
     bres, bres_mm = collections.Counter(), bmm_res.matmul
