@@ -4293,7 +4293,8 @@ def _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent, coupl
 
 
 def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
-                  annotated_cif: bool, validate: bool, sampling: dict | None = None) -> None:
+                  annotated_cif: bool, validate: bool, sampling: dict | None = None,
+                  recipe: str = "thinking_medium", tsr_k: float | None = None) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
 
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
@@ -4322,7 +4323,10 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
     sampling = sampling or {}
     click.echo(f"{len(designs)} design(s) from {Path(inputs).name}, seed {seed}"
                + (f", {_rfd4_mode(sampling)}" if sampling else ""))
-    engine = rfd4.get_engine()
+    try:
+        engine = rfd4.get_engine(recipe=recipe, tsr_k=tsr_k)
+    except ValueError as e:
+        raise click.UsageError(str(e))
     for design in designs:
         features, atom_array = rfd4.featurize(design.cif, seed=seed)
         tokens = int(features["padding_mask"].shape[-1])
@@ -4416,6 +4420,16 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
               help="rfd4 only. Skip the pre-save checks on each built structure. They are the "
                    "slow part of preparing a large spec and they are what catches a selection "
                    "that matched nothing.")
+@click.option("--recipe", default="thinking_medium", show_default=True,
+              help="rfd4 only. Recycle schedule, which is how much thinking each design gets: "
+                   "thinking_low|thinking_medium|thinking_high, or a "
+                   "{low,medium,high}/{flat,front_loaded,midpeak} preset. Upstream uses "
+                   "medium/front_loaded for binders, medium/midpeak for enzymes and motifs, "
+                   "high/front_loaded for VHH and medium/flat for inverse folding.")
+@click.option("--tsr_k", default=None, type=float,
+              help="rfd4 only. Sequence temperature (upstream's local_latents tsr_k, default 4). "
+                   "Lower is hotter and gives more sequence diversity; mostly used with "
+                   "--inverse_folding.")
 @click.option("--partial", "partial_fraction", default=None, type=click.FloatRange(0, 1, min_open=True),
               help="rfd4 only. Partial diffusion: re-noise INPUTS part-way and run that fraction "
                    "of the step schedule, to refine or diversify a design you already have. "
@@ -4483,8 +4497,8 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
                spec_subset, from_pdb, batch_size, n_step, nsteps, annotated_cif, no_validate,
-               partial_fraction, partial_t_backbone, partial_t_latent, couple_partial_t,
-               inverse_folding, host_threads,
+               recipe, tsr_k, partial_fraction, partial_t_backbone, partial_t_latent,
+               couple_partial_t, inverse_folding, host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log,
                controller, run_id, owner):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
@@ -4566,7 +4580,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
                            ("--n_step", "n_step"),
                            ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
-                           ("--no_validate", "no_validate"), ("--partial", "partial_fraction"),
+                           ("--no_validate", "no_validate"), ("--recipe", "recipe"),
+                           ("--tsr_k", "tsr_k"), ("--partial", "partial_fraction"),
                            ("--partial_t_backbone", "partial_t_backbone"),
                            ("--partial_t_latent", "partial_t_latent"),
                            ("--couple_partial_t", "couple_partial_t"),
@@ -4620,7 +4635,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
                            ("--devices", "devices"),
                            ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
-                           ("--no_validate", "no_validate"), ("--partial", "partial_fraction"),
+                           ("--no_validate", "no_validate"), ("--recipe", "recipe"),
+                           ("--tsr_k", "tsr_k"), ("--partial", "partial_fraction"),
                            ("--partial_t_backbone", "partial_t_backbone"),
                            ("--partial_t_latent", "partial_t_latent"),
                            ("--couple_partial_t", "couple_partial_t"),
@@ -4669,7 +4685,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                       num_designs if num_designs is not None else 1,
                       nsteps, seed, spec_subset, annotated_cif, not no_validate,
                       _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent,
-                                     couple_partial_t, inverse_folding))
+                                     couple_partial_t, inverse_folding),
+                      recipe=recipe, tsr_k=tsr_k)
         return
 
     # --model rfd3
@@ -4679,7 +4696,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                        ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
                        ("--log", "log"), ("--n_step", "n_step"),
                        ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
-                       ("--no_validate", "no_validate"), ("--partial", "partial_fraction"),
+                       ("--no_validate", "no_validate"), ("--recipe", "recipe"),
+                           ("--tsr_k", "tsr_k"), ("--partial", "partial_fraction"),
                            ("--partial_t_backbone", "partial_t_backbone"),
                            ("--partial_t_latent", "partial_t_latent"),
                            ("--couple_partial_t", "couple_partial_t"),

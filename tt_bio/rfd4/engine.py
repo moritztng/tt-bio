@@ -53,12 +53,14 @@ class DesignEngine:
     """RFD4 on Tenstorrent: the sampler driving the trunk and the autoencoder on one card.
 
     The weights are loaded once and stay on the device, so a second design on the same engine
-    pays no load. `recipe` names a shipped recycle strategy (`thinking_low|medium|high`); the
-    step count comes from the recipe unless the caller overrides it.
+    pays no load. `recipe` names a shipped recycle strategy (any of `sampler.RECYCLE_SCHEDULES`:
+    the three `thinking_*` aliases, and `{low,medium,high}/{flat,front_loaded,midpeak}`); the
+    step count comes from the recipe unless the caller overrides it. `tsr_k` is the sequence
+    temperature, upstream's `local_latents.simulation_step_params.tsr_k`: lower is hotter.
     """
 
     def __init__(self, weights: str | Path = DEFAULT_WEIGHTS, *, recipe: str = "thinking_medium",
-                 max_parallel_samples: int | None = 5):
+                 tsr_k: float | None = None, max_parallel_samples: int | None = 5):
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
@@ -70,6 +72,10 @@ class DesignEngine:
         state, config = _network.load_checkpoint(path)
         cfg = config["nn"]
         self.spec = _sampler.recycle_strategy(recipe)
+        if tsr_k is not None:
+            latents = self.spec.modalities[_sampler.LOCAL_LATENTS]
+            self.spec = replace(self.spec, modalities=dict(self.spec.modalities,
+                                                           **{_sampler.LOCAL_LATENTS: replace(latents, tsr_k=tsr_k)}))
         self.config = config
         self.glue = _network.FlowGlue(state, config)
         from tt_bio.tenstorrent import WeightScope
