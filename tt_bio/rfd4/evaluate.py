@@ -102,12 +102,17 @@ NOT_PORTED = {
 PRE_ORACLE_FILTERS = (
     ("unknown_residue_filter", _gate(), {"amino_acid_composition.n_generated_unknown_residues": 0}),
     ("sequence_adherence_filter", _gate(any_of=["design"]), {"sequence_adherence.n_violations": 0}),
+    # Reads `motif_rmsd.rmsd`, a key no upstream metric writes, so the tag always fails a design there.
+    ("motif_rmsd_filter", _gate(all_of=["motif_rmsd_filter"]), {"motif_rmsd.rmsd": 1.0}),
+    (
+        "ligand_clash_filter",
+        _gate(all_of=["ligand_clash_filter"], none_of=["no_ligand"]),
+        {"clash_metrics.frac_atoms_clashing_inter_residue_polymer_ligand_1p5A": 0},
+    ),
 )
 PRE_ORACLE_NOT_PORTED = {
     "unindexed_insertion_mapping_filter": _gate(all_of=["unindexed"]),
     "insertion_rmsd_filter": _gate(all_of=["unindexed", "insertion_rmsd_filter"]),
-    "motif_rmsd_filter": _gate(all_of=["motif_rmsd_filter"]),
-    "ligand_clash_filter": _gate(all_of=["ligand_clash_filter"], none_of=["no_ligand"]),
 }
 
 # Tags that switch on a refolding oracle. The oracle itself is not run here: `eval_refold` reads

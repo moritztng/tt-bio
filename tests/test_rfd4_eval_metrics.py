@@ -406,3 +406,27 @@ def test_dna_refolding_matches_upstream(tmp_path):
     assert expected["refolded_target_aligned_binder_rmsd.rmsd"] == "0.5162"
     assert expected["dna.pass"] == "1.0"
     _assert_row_matches(expected, rows["dna_generated.cif"], 56)
+
+
+@pytest.mark.parametrize(
+    "golden_name, design, refold, eid, tags, pre_oracle, min_compared",
+    [
+        (
+            "upstream_ligand_clash_filter.json", "ligand/sam_generated.cif", "ligand/refold_sam_generated_fc57ca17",
+            "sam_generated_fc57ca17", "design,sm_binder_refolding,ligand_clash_filter", "1.0", 52,
+        ),
+        # `motif_rmsd.rmsd` is written by no upstream metric, so this filter fails every design.
+        (
+            "upstream_motif_rmsd_filter.json", "motif/pdl1_binder_0_generated.cif",
+            "motif/refold_pdl1_binder_0_generated_479647c2", "pdl1_binder_0_generated_479647c2",
+            "design,motif_scaffold_refolding,motif_rmsd_filter", "0.0", 35,
+        ),
+    ],
+)
+def test_tag_gated_filters_match_upstream(tmp_path, golden_name, design, refold, eid, tags, pre_oracle, min_compared):
+    golden = json.loads((GOLDENS / golden_name).read_text())
+    rows = _run_cached(tmp_path, GOLDENS / design, GOLDENS / refold, eid, tags)
+    name = design.rsplit("/", 1)[-1]
+    expected = golden["rows"][name]
+    assert expected["pre_oracle_pass"] == pre_oracle
+    _assert_row_matches(expected, rows[name], min_compared)
