@@ -950,8 +950,13 @@ class AF2MaskedOuterProductMean(OuterProductMean):
                         core_grid=CORE_GRID_MAIN)
         A = ttnn.permute(ttnn.reshape(T, (c_z, S * D, I)), (2, 0, 1))
         bt = ttnn.reshape(ttnn.permute(b, (0, 2, 1)), (S * D, J))
-        out = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config)
-        out = ttnn.permute(out, (0, 2, 1))
+        # ttnn plans a matmul on a.shape[-2] alone, so [I, c_z, S*D] ran as a 4-tile-tall product
+        # repeated I times. [1, I * c_z, S*D] is the same tiles in the same order, planned as one
+        # product I * c_z tall; rank 3 keeps the tape's VJP on its `_flat2d`/`_via2d` path.
+        A = ttnn.reshape(A, (1, I * c_z, S * D))
+        out = ttnn.matmul(A, bt, compute_kernel_config=self.compute_kernel_config,
+                          core_grid=CORE_GRID_MAIN)
+        out = ttnn.permute(ttnn.reshape(out, (I, c_z, J)), (0, 2, 1))
         out = ttnn.add(out, self.o_bias)
         return ttnn.reshape(out, (1, *tuple(out.shape)))
 
