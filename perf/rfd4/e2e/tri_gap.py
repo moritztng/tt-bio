@@ -2,7 +2,7 @@
 modules called standalone, in one process on one card.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/e2e/tri_gap.py --spec <spec.yaml> --weights <bundle> \
-        --out <file.json> [--arms default,cap128,cap64,lever:trimul_bres]
+        --out <file.json> [--arms default,cap128,cap64,lever:trimul_bres,set:reblock_permute.L1_N_MIN=32]
 
 1. Cold design: counts every L1/circular-buffer clash the trimul catches (`_record_trimul_clash`) and
    times the first trimul calls, which pay the clash, the refused program and the narrower compile.
@@ -10,7 +10,8 @@ modules called standalone, in one process on one card.
    distribution, and the call's operands as the trunk passes them (shape, dtype, layout, memory).
 3. Standalone: the same module objects on a bf16 z of that shape with the trunk's real pair mask,
    per call, median and max over --repeats.
-4. Arms, standalone: each named chunk cap or lever set, per call, and the update's bits against the
+4. Arms, standalone: each named chunk cap, lever set, or `set:` override of tt_bio module globals
+   (`set:mod.ATTR=literal[+mod.ATTR=literal]`, restored after the arm), per call, and the update's bits against the
    default arm (`torch.equal`), so a width or placement arm that moves a bit is caught here.
 
 AICLK is sampled on a thread throughout and printed per leg.
@@ -18,6 +19,8 @@ AICLK is sampled on a thread throughout and printed per leg.
 from __future__ import annotations
 
 import argparse
+import ast
+import importlib
 import json
 import os
 import statistics
@@ -179,11 +182,18 @@ def main():
     ref = {}
     arms = {}
     for arm in a.arms.split(","):
-        cap, lev = 0, frozenset()
+        cap, lev, saved = 0, frozenset(), []
         if arm.startswith("cap"):
             cap = int(arm[3:])
         elif arm.startswith("lever:"):
             lev = T.parse_levers(arm[6:].replace("+", ","))
+        elif arm.startswith("set:"):
+            for kv in arm[4:].split("+"):
+                k, v = kv.split("=", 1)
+                modname, attr = k.rsplit(".", 1)
+                tgt = importlib.import_module(f"tt_bio.{modname}")
+                saved.append((tgt, attr, getattr(tgt, attr)))
+                setattr(tgt, attr, ast.literal_eval(v))
         T._TRIMUL_CHUNK_CAP = cap
         res = {}
         with clocksample.during(period=0.5) as clk, T.levers(lev):
@@ -212,10 +222,15 @@ def main():
                             "bit_identical_to_default": eq, "max_abs_diff": d}
         res["aiclk"] = clk.summary()
         res["clash_table"] = {str(k): v for k, v in T._TRIMUL_CHUNK_CLASH.items()}
+        from tt_bio import reblock_permute as RP
+        res["reblock_rejects"] = sorted({k[0] for k in RP.REJECTS})
+        RP.REJECTS.clear()
         res["load"] = os.getloadavg()[0]
         arms[arm] = res
         print(json.dumps({arm: res}), flush=True)
         T._TRIMUL_CHUNK_CAP = 0
+        for tgt, attr, v in saved:
+            setattr(tgt, attr, v)
     out["standalone"] = arms
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     json.dump(out, open(a.out, "w"), indent=2)
