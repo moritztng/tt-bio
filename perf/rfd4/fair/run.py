@@ -24,6 +24,9 @@ Clock and contention are sampled DURING each batch, on threads, never once at a 
 * Foreign device holders: any other pid with a /dev/tenstorrent node open, from /proc/*/fd. A lease
   file does not see a short-lived process per arm; an open fd does. Any one marks it `contended`.
 
+`sha` and `tree_dirty` describe the tree `tt_bio` is imported from (PYTHONPATH), so this harness
+can drive a pristine checkout of main without being part of it.
+
 A line with a `discard` reason stays in runs.jsonl for the record and never reaches the evidence
 file (`verdict.py`): a contended or under-clocked run is discarded, not averaged.
 """
@@ -134,8 +137,10 @@ def _median(xs):
 
 
 def git(*args):
+    """git in the tree tt_bio is imported from: that is the code being measured, not this harness."""
+    import tt_bio
     return subprocess.run(["git", *args], capture_output=True, text=True,
-                          cwd=Path(__file__).resolve().parent).stdout.strip()
+                          cwd=Path(tt_bio.__file__).resolve().parent).stdout.strip()
 
 
 def main():
