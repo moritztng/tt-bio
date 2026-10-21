@@ -10,17 +10,13 @@ until grep -q CAPTURE_ALL_DONE "$ROOT/logs/capture_all.log" 2>/dev/null; do slee
 
 run () { local f=$1; shift; echo "=== $f $(date -u +%FT%TZ)"; timeout 7200 "$R" "$f" "$@" 2>&1 | tail -30; echo "--- $f rc=$?"; }
 
-export CAPTURE_FLAGS="--per-class 4 --per-module 1 --sampler-steps 3 --stop-after-captures"
-run rna          rna.yaml          7 recycle_strategy=medium/flat
-run assembly     assembly_ppi.yaml 8 recycle_strategy=medium/front_loaded
-
 # The nanobody and partial-diffusion examples carry their own Hydra config.
-export CAPTURE_FLAGS="--per-class 4 --per-module 1 --sampler-steps 3 --stop-after-captures --config-dir $AB --config-name vhh"
+export CAPTURE_FLAGS="--per-class 4 --per-module 1 --sampler-steps 3 --config-dir $AB --config-name vhh"
 run nanobody_cdr - 9 "inputs=$AB/structures/vhh/mzb1_7AAH__h-NbBCII10_cdr123.cif.zst"
-export CAPTURE_FLAGS="--per-class 4 --per-module 1 --sampler-steps 3 --stop-after-captures --config-dir $AB --config-name partial"
+export CAPTURE_FLAGS="--per-class 4 --per-module 1 --sampler-steps 3 --config-dir $AB --config-name partial"
 run partial_diffusion - 10 "inputs=$AB/structures/vhh/mzb1_7AAH__h-NbBCII10_cdr123.cif.zst"
 
 # float64 reference for the modules whose bar is in doubt, same inputs, one small case.
-export CAPTURE_FLAGS="--per-class 2 --per-module 1 --sampler-steps 1 --stop-after-captures --f64"
+export CAPTURE_FLAGS="--per-class 2 --per-module 1 --sampler-steps 1 --stop-after-steps 2 --f64"
 run f64_unconditional unconditional_128.yaml 0 recycle_strategy=medium/flat
 echo "CAPTURE_REST_DONE $(date -u +%FT%TZ)"

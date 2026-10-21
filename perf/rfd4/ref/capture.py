@@ -114,6 +114,7 @@ class Capturer:
         self.f64 = f64
         self.stop_when_done = stop_when_done
         self.sampler_done = True  # set False by wrap_sampler while steps are still owed
+        self.overrides: list[str] = []
         self.counts: dict[str, int] = {}
         self.sampled: dict[str, list[str]] = {}
         self.handles: list = []
@@ -154,6 +155,7 @@ class Capturer:
             "feature": self.feature, "module": module, "cls": cls, "call": call,
             "seed": self.seed, "upstream_sha": self.sha, "dtype": "float32", "device": "cpu",
             "path": str(path), "bytes": path.stat().st_size, "sha256": _sha256(path),
+            "overrides": self.overrides,
             "in_args": None, "in_kwargs": _describe(payload.get("batch")),
             "out": _describe(payload.get("output")), "f64": False, "f64_error": None,
             "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -214,6 +216,7 @@ class Capturer:
                 "out": _describe(output),
                 "f64": bool(self.f64 and f64_err is None),
                 "f64_error": f64_err,
+                "overrides": self.overrides,
                 "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             }
             with self.records.open("a") as fh:
@@ -225,7 +228,7 @@ class Capturer:
         return hook
 
 
-def wrap_sampler(cap: "Capturer", model, steps: int) -> None:
+def wrap_sampler(cap: "Capturer", model, steps: int, stop_after: int = 0) -> None:
     """Record the first `steps` sampler steps: the batch going into the trunk and what comes back.
 
     `Proteina.predict_for_sampling` is the per-step entry point; wrapping it gives the sampler
@@ -242,6 +245,8 @@ def wrap_sampler(cap: "Capturer", model, steps: int) -> None:
         state["i"] = i + 1
         if i + 1 >= steps:
             cap.sampler_done = True
+        if stop_after and i + 1 >= stop_after:
+            raise CapturesComplete
         if i < steps:
             cap.save_blob(
                 f"sampler_step{i}__{mode}",
@@ -295,6 +300,10 @@ def main() -> int:
     ap.add_argument("--records", default="/home/moritz/rfd4-goldens/records.jsonl")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--per-module", type=int, default=1)
+    ap.add_argument("--stop-after-steps", type=int, default=0,
+                    help="end generation after N sampler steps (module and sampler goldens only; "
+                         "the autoencoder decoder runs at the end of a trajectory, so a run that "
+                         "needs the decoder golden must finish the design)")
     ap.add_argument("--config-dir", default=None,
                     help="compose from this config directory instead of upstream's configs/ "
                          "(the antibody and nanobody examples ship their own config)")
@@ -313,6 +322,7 @@ def main() -> int:
     ap.add_argument("overrides", nargs="*", help="hydra overrides for rfd4.generate")
     a = ap.parse_args()
 
+    overrides = list(a.overrides)
     sha = os.environ.get("RFD4_SHA", "2db07bb444d91695f8c10e6acb7648e9297f9221")
     torch.set_default_dtype(torch.float32)
     seed_everything(a.seed)
@@ -323,21 +333,22 @@ def main() -> int:
     cap = Capturer(Path(a.out), a.feature, a.seed, sha, a.classes.split(","),
                    a.per_module, Path(a.records), f64=a.f64,
                    stop_when_done=a.stop_after_captures)
+    cap.overrides = overrides
     n = cap.attach(model, per_class=a.per_class)
-    wrap_sampler(cap, model, a.sampler_steps)
+    wrap_sampler(cap, model, a.sampler_steps, stop_after=a.stop_after_steps)
     print(f"[capture] hooked {n} modules for feature {a.feature}", flush=True)
     seed_everything(a.seed)
     force_cpu_fp32_trainer()
     def run():
         if a.config_dir is None:
-            rfd4.generate(model, overrides=list(a.overrides))
+            rfd4.generate(model, overrides=overrides)
             return
         # Same path rfd4.generate takes, with the example's own config directory.
         from hydra import compose, initialize_config_dir
         from rfproteina.generate import run_generation
 
         with initialize_config_dir(config_dir=a.config_dir, version_base="1.3"):
-            cfg = compose(config_name=a.config_name, overrides=list(a.overrides))
+            cfg = compose(config_name=a.config_name, overrides=overrides)
         run_generation(cfg, model=model)
 
     try:
