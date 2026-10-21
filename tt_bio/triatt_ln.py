@@ -112,6 +112,11 @@ def _cb_bytes(kt, nw, tr):
     return bf * MG.tile_bytes(ttnn.bfloat16) + (4 + 2 * kt) * MG.tile_bytes(ttnn.float32)
 
 
+def _lcf(dev):
+    lcf = ttnn.get_memory_view(dev, ttnn.BufferType.L1).largest_contiguous_bytes_free_per_bank
+    return min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+
+
 def _plan(kt, nw, tr, dev, ncores):
     """(G, columns a group, TR units in c_7) for the fewest column groups whose CBs fit, or None.
 
@@ -119,8 +124,7 @@ def _plan(kt, nw, tr, dev, ncores):
     actually free now: the CBs sit below every live L1 buffer, so the largest free block is what
     they may take. At 8 heads x 32 (w 33 tiles wide, Protenix-v2) and K 256 one unit needs 1.12 MB
     of a 1.40 MB Wormhole bank, which a fixed fraction of the bank refused."""
-    lcf = ttnn.get_memory_view(dev, ttnn.BufferType.L1).largest_contiguous_bytes_free_per_bank
-    lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+    lcf = _lcf(dev)
     for g in (1, 2, 4):
         if ncores % g:
             continue
@@ -234,6 +238,11 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     # bfp8 q, k, v: each group's bfp8 run must start its row and end on a DST block (b8_cols)
     gate = lever("triatt_ln_b8g")   # the gate too: gated_out_proj reads a bfp8 g
     cols = b8_cols(plan[0], plan[1], H, gate) if lever("triatt_ln_b8") else None
+    if cols and plan[0] > 1:
+        # the bf16 rest's c_4, which _plan did not price (the bfp8 c_2 shrinks, counted at full size here)
+        c4 = 2 * (plan[1] - min(q for _, q, _ in cols)) * MG.tile_bytes(ttnn.bfloat16)
+        if _cb_bytes(K // TILE, plan[1], plan[2]) + c4 > _lcf(x.device()):
+            cols = None
     nq = (4 if gate else 3) * H if cols else 0
     STATS[2] += bool(nq)
     hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
