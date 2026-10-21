@@ -99,18 +99,21 @@ def main():
             free(warm)
         ms = {}
         for width in (1, B):
-            # Device ms per call at each width, so a sublayer that costs more per design batched shows.
-            fresh = [inputs(list(range(width))) for _ in range(5)]
-            ttnn.synchronize_device(dev)
-            t0 = time.perf_counter()
-            outs = [fn(x) for x in fresh]
-            ttnn.synchronize_device(dev)
-            ms[width] = (time.perf_counter() - t0) / len(fresh) * 1e3
-            for x, out in zip(fresh, outs):
+            # Device ms per call at each width, one input alive at a time (five batched inputs at
+            # once crowd the trimul out of L1), median of five.
+            calls = []
+            for _ in range(5):
+                x = inputs(list(range(width)))
+                ttnn.synchronize_device(dev)
+                t0 = time.perf_counter()
+                out = fn(x)
+                ttnn.synchronize_device(dev)
+                calls.append((time.perf_counter() - t0) * 1e3)
                 free(x)
                 for t in (out if isinstance(out, tuple) else (out,)):
                     if t.is_allocated():
                         ttnn.deallocate(t)
+            ms[width] = sorted(calls)[2]
         batched, single, again = inputs(list(range(B))), [inputs([k]) for k in range(B)], inputs([0])
         got = fn(batched)
         got = [host(t) for t in got] if isinstance(got, tuple) else [host(got)]
