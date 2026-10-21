@@ -4452,7 +4452,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
 @torch.no_grad()
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
-               spec_subset, from_pdb, batch_size, n_step, nsteps, annotated_cif, no_validate,
+               spec_subset, from_pdb, batch_size, n_step, nsteps, recipe, annotated_cif, no_validate,
                host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log,
                controller, run_id, owner):

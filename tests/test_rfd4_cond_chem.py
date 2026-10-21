@@ -233,3 +233,70 @@ def test_hydrogens_are_counted_not_compared(ligand_cif, tmp_path):
     assert res["verdict"] == "PASS", res["differences"]
     assert res["hydrogens_dropped"] == {"input": 1, "generated": 0}
     assert cc.check(src, ligand_cif, hydrogens=True)["verdict"] == "FAIL"
+
+
+# ---- the serving path: `tt-bio design --model rfd4 --annotated_cif`, no card ----
+
+#: Built here, not shipped by upstream: 3AVE chain C, the 8-residue biantennary complex N-glycan
+#: of IgG1 Fc (NAG-NAG-BMA-MAN-NAG-MAN-NAG-FUC), with 80 designed residues around it. None of
+#: RFD4's own 391 benchmark inputs contains a sugar. Coordinates are from the PDB entry.
+GLYCAN_CIF = REPO / "tests" / "fixtures" / "rfd4_glycan_binder.cif"
+
+
+def _writer_probe():
+    path = REPO / "perf" / "rfd4" / "cond_chem" / "writer_probe.py"
+    spec = importlib.util.spec_from_file_location("rfd4_writer_probe", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class _StandInEngine:
+    """The engine boundary, without a card. Returns the right shapes and nothing meaningful."""
+
+    def __init__(self, recipe):
+        self.recipe = recipe
+
+    def design(self, features, *, num_designs, nsteps, seed, **kw):
+        return _writer_probe().stand_in_design(features)
+
+
+
+def test_the_cli_designs_a_glycan_input_and_keeps_its_chemistry(tmp_path, monkeypatch):
+    """End to end through `tt-bio design --model rfd4 --annotated_cif`, with the card replaced
+    at the engine boundary: the CLI has to featurize a sugar-bearing input, write a CIF, and
+    bring every glycan atom and bond through unchanged.
+
+    The glycan families have no upstream recipe, so this is also the check that the CLI's
+    `--recipe` reaches the engine.
+    """
+    from click.testing import CliRunner
+
+    from tt_bio import rfd4
+    from tt_bio.main import cli
+
+    seen = {}
+
+    def fake_get_engine(name="auto", **kwargs):
+        seen.update(kwargs)
+        return _StandInEngine(kwargs.get("recipe"))
+
+    monkeypatch.setattr(rfd4, "get_engine", fake_get_engine)
+    out = tmp_path / "designs"
+    result = CliRunner().invoke(cli, [
+        "design", str(GLYCAN_CIF), "--model", "rfd4", "--annotated_cif",
+        "--recipe", "medium/midpeak", "--seed", "0", "--out_dir", str(out),
+    ])
+    assert result.exit_code == 0, result.output
+    assert seen.get("recipe") == "medium/midpeak", "the CLI did not pass --recipe to the engine"
+    assert "88 tokens" in result.output, result.output
+
+    written = out / "rfd4_glycan_binder_generated.cif"
+    assert written.exists(), sorted(p.name for p in out.iterdir())
+
+    res = _chem_check().check(GLYCAN_CIF, written)
+    assert res["verdict"] == "PASS", res["differences"]
+    assert res["components"] == ["BMA", "FUC", "MAN", "NAG"]
+    assert res["atoms_checked"] == 99 and res["bonds_checked"] == 101
+    # atom37 is heavy-atom only, so the input's hydrogens are gone and that is the encoding.
+    assert res["hydrogens_dropped"] == {"input": 93, "generated": 0}
