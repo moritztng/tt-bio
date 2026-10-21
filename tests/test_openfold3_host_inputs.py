@@ -69,3 +69,17 @@ def test_the_full_pae_never_needed_a_file(host_inputs):
     src = inspect.getsource(_WorkerState._predict_openfold3_one)
     assert "result.confidence" in src
     assert 'confs[order[0]]' in src
+
+
+def test_the_serving_path_goes_through_both_extracted_callables():
+    """If a future edit inlines either half back into the method, the oracle and the service
+    start drifting silently. Cheaper to fail here."""
+    import inspect
+
+    from tt_bio.worker import _WorkerState
+
+    src = inspect.getsource(_WorkerState._predict_openfold3_one)
+    assert "openfold3_host_inputs(" in src
+    assert "openfold3_device_fold(" in src
+    assert "build_openfold3_features(" not in src      # the host half left the method
+    assert "run_input_atom_encoder(" not in src        # so did the device half

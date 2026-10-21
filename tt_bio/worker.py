@@ -1016,6 +1016,86 @@ def openfold3_host_inputs(path: Path, cfg: dict[str, Any], *, model_name: str = 
         template_feat=template_feat, template_slots=template_slots, relpos=relpos, seed=seed)
 
 
+def openfold3_device_fold(model, host: "OpenFold3HostInputs", *, sampling_steps: int,
+                          diffusion_samples: int = 1, distogram: bool = False,
+                          progress_fn=None, max_parallel_samples=None):
+    """The device half: input atom encoder, ref-atom embedding, then the fold.
+
+    Lifted out of `_WorkerState._predict_openfold3_one` alongside `openfold3_host_inputs`, so
+    RFD4's beam-search oracle folds a candidate through the serving path's own code rather than a
+    second copy. `model` is an open `OpenFold3`; this is the half that needs a card.
+
+    The result carries the full confidence dict per sample -- pae, plddt_atom, ptm, iptm,
+    pair_chains_iptm -- in memory. `write_pae` only mirrors it to disk, so an oracle never needs a
+    per-candidate file round trip to read a PAE.
+    """
+    import numpy as np
+    import torch as _torch
+
+    from tt_bio.envflags import env_flag
+    from tt_bio.openfold3_host_prep import (
+        DEVICE_REF_ATOM, ref_atom_embed, ref_atom_embed_device,
+        input_atom_transformer, run_input_atom_encoder)
+    from tt_bio.openfold3_weights import _sub
+
+    dev = model.device
+    if getattr(model, "input_atom_transformer", None) is None:
+        model.input_atom_transformer = input_atom_transformer(model.ckc, model.sd)
+    ai = run_input_atom_encoder(dev, model.ckc, model.sd, host.features, host.aux,
+                                model.input_atom_transformer)
+    s_input = _torch.cat(
+        [ai, host.features["restype"], host.features["profile"],
+         host.features["deletion_mean"].unsqueeze(-1)], dim=-1)
+    rafe_sd = _sub(
+        model.sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder")
+    if env_flag(DEVICE_REF_ATOM, False):
+        cl0, plm0 = None, None
+        cl0_d, plm0_d = ref_atom_embed_device(
+            model.ckc, rafe_sd, host.features, host.aux["atom_mask"], n_pad=host.aux["NP"])
+    else:
+        cl0_d, plm0_d = None, None
+        cl0, plm0 = ref_atom_embed(rafe_sd, host.features)
+    dm_aux_host = dict(
+        cl0=cl0, plm0=plm0, cl0_d=cl0_d, plm0_d=plm0_d, atom_mask=host.aux["atom_mask"],
+        atom_to_token_index=host.aux["atom_to_token_index"],
+        npe_q_indices=host.aux["npe_q_indices"], npe_k_indices=host.aux["npe_k_indices"],
+        zij_mask=host.aux["zij_mask"], key_block_idxs=host.aux["key_block_idxs"],
+        invalid_mask=host.aux["invalid_mask"], mask_trunked=host.aux["mask_trunked"],
+        atom_to_token_mean=host.aux["atom_to_token_mean"], nb=host.aux["nb"], NP=host.aux["NP"])
+    ca_mask = host.aux["ca_mask"]
+    atom_to_token = host.aux["atom_to_token_index"].long()
+    polymer_token = (host.features["is_protein"] | host.features["is_rna"]
+                     | host.features["is_dna"]).bool()
+    confidence_aux = dict(
+        representative_atom_indices=_torch.from_numpy(
+            np.flatnonzero(ca_mask.numpy())).long(),
+        max_atom_per_token_mask=host.aux["max_atom_per_token_mask"],
+        atom_array=host.features["atom_array"], asym_id=host.features["asym_id"],
+        atom_to_token_index=atom_to_token, atom_mask=host.features["atom_mask"].bool(),
+        polymer_mask=polymer_token[atom_to_token],
+        repr_batch={k: host.features[k] for k in (
+            "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
+            "start_atom_index", "atom_mask", "token_mask")},
+        # `get_token_frame_atoms` reads the representative-atom features plus the two
+        # that place an atom in a chain, which is how it rejects a frame whose three
+        # atoms straddle one.
+        frame_batch={k: host.features[k] for k in (
+            "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
+            "start_atom_index", "atom_mask", "token_mask",
+            "num_atoms_per_token", "asym_id")})
+
+    return model.fold(
+        template_feat=host.template_feat, template_slots=host.template_slots,
+        msa_feat=host.msa_feat, s_input=s_input,
+        relpos=host.relpos, token_bonds=host.features["token_bonds"],
+        token_mask=host.features["token_mask"], dm_aux_host=dm_aux_host,
+        n_atom=host.aux["n_atom"], n_token=host.aux["n_token"],
+        no_rollout_steps=int(sampling_steps), seed=int(host.seed),
+        no_samples=int(diffusion_samples), confidence_aux_host=confidence_aux,
+        progress_fn=progress_fn, max_parallel_samples=max_parallel_samples,
+        distogram=bool(distogram))
+
+
 class _WorkerState:
     """Holds the loaded model and per-run helpers."""
 
@@ -1986,79 +2066,15 @@ class _WorkerState:
 
         host = openfold3_host_inputs(path, cfg, model_name=cfg.get("model", "openfold3"),
                                      levers=tuple(getattr(self.model, "_levers", ())))
-        model = cfg.get("model", "openfold3")
         chains, of3_query, features = host.chains, host.of3_query, host.features
-        msa_feat, aux = host.msa_feat, host.aux
-        template_feat, template_slots, relpos = host.template_feat, host.template_slots, host.relpos
-        seed = host.seed
-        import numpy as np
-        import torch as _torch
-
-        from tt_bio.envflags import env_flag
-        from tt_bio.openfold3_host_prep import (
-            DEVICE_REF_ATOM, ref_atom_embed, ref_atom_embed_device,
-            input_atom_transformer, run_input_atom_encoder)
-        from tt_bio.openfold3_weights import _sub
-
-
-        model = self.model
-        dev = model.device
-        if getattr(model, "input_atom_transformer", None) is None:
-            model.input_atom_transformer = input_atom_transformer(model.ckc, model.sd)
-        ai = run_input_atom_encoder(dev, model.ckc, model.sd, features, aux,
-                                    model.input_atom_transformer)
-        s_input = _torch.cat(
-            [ai, features["restype"], features["profile"],
-             features["deletion_mean"].unsqueeze(-1)], dim=-1)
-        rafe_sd = _sub(
-            model.sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder")
-        if env_flag(DEVICE_REF_ATOM, False):
-            cl0, plm0 = None, None
-            cl0_d, plm0_d = ref_atom_embed_device(
-                model.ckc, rafe_sd, features, aux["atom_mask"], n_pad=aux["NP"])
-        else:
-            cl0_d, plm0_d = None, None
-            cl0, plm0 = ref_atom_embed(rafe_sd, features)
-        dm_aux_host = dict(
-            cl0=cl0, plm0=plm0, cl0_d=cl0_d, plm0_d=plm0_d, atom_mask=aux["atom_mask"],
-            atom_to_token_index=aux["atom_to_token_index"],
-            npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
-            zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
-            invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
-            atom_to_token_mean=aux["atom_to_token_mean"], nb=aux["nb"], NP=aux["NP"])
-        ca_mask = aux["ca_mask"]
-        atom_to_token = aux["atom_to_token_index"].long()
-        polymer_token = (features["is_protein"] | features["is_rna"]
-                         | features["is_dna"]).bool()
-        confidence_aux = dict(
-            representative_atom_indices=_torch.from_numpy(
-                np.flatnonzero(ca_mask.numpy())).long(),
-            max_atom_per_token_mask=aux["max_atom_per_token_mask"],
-            atom_array=features["atom_array"], asym_id=features["asym_id"],
-            atom_to_token_index=atom_to_token, atom_mask=features["atom_mask"].bool(),
-            polymer_mask=polymer_token[atom_to_token],
-            repr_batch={k: features[k] for k in (
-                "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
-                "start_atom_index", "atom_mask", "token_mask")},
-            # `get_token_frame_atoms` reads the representative-atom features plus the two
-            # that place an atom in a chain, which is how it rejects a frame whose three
-            # atoms straddle one.
-            frame_batch={k: features[k] for k in (
-                "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
-                "start_atom_index", "atom_mask", "token_mask",
-                "num_atoms_per_token", "asym_id")})
+        msa_feat = host.msa_feat
 
         n_sample = int(cfg["diffusion_samples"])
-        result = model.fold(
-            template_feat=template_feat, template_slots=template_slots,
-            msa_feat=msa_feat, s_input=s_input,
-            relpos=relpos, token_bonds=features["token_bonds"],
-            token_mask=features["token_mask"], dm_aux_host=dm_aux_host,
-            n_atom=aux["n_atom"], n_token=aux["n_token"],
-            no_rollout_steps=int(cfg["sampling_steps"]), seed=seed,
-            no_samples=n_sample, confidence_aux_host=confidence_aux,
-            progress_fn=report_progress, max_parallel_samples=cfg.get("max_parallel_samples"),
-            distogram=bool(cfg.get("write_pae")))
+        result = openfold3_device_fold(
+            self.model, host, sampling_steps=int(cfg["sampling_steps"]),
+            diffusion_samples=n_sample, distogram=bool(cfg.get("write_pae")),
+            progress_fn=report_progress,
+            max_parallel_samples=cfg.get("max_parallel_samples"))
 
         confs = result.confidence
         order = sorted(range(len(confs)),
