@@ -340,3 +340,47 @@ def test_diversity_is_tested_against_the_reference_not_a_ratio_bar():
     # every design identical is a broken port whatever the reference did
     dead = quality._grade_diversity({"n": 30, "n_unique_sequences": 1}, {"n": 30, "n_unique_sequences": 1})
     assert dead["pass"] is False and dead["collapsed"] is True
+
+
+def test_the_floor_watcher_calibrates_from_the_reference_index(tmp_path, monkeypatch):
+    """rfd4-fair-gpu's two-seed reference arms become the floor without this row being relaunched."""
+    import floor_from_reference as ffr
+
+    seeds = {}
+    for seed in ("1234", "5678"):
+        root = _write_arm(tmp_path, f"ref_{seed}", _rows(40, int(seed)))
+        seeds[seed] = str(root)
+    index = tmp_path / "reference-designs.json"
+    index.write_text(json.dumps({FEATURE: {"recipe": "thinking_medium bf16",
+                                           "session": "vast:57063695", "seeds": seeds}}))
+    out = tmp_path / "QUALITY.json"
+    monkeypatch.setattr(ffr, "INDEX", index)
+    monkeypatch.setattr(quality, "QUALITY_JSON", out)
+
+    assert ffr.main() == 0
+    floor = json.loads(out.read_text())["seed_floor"][FEATURE]
+    assert floor["_source"] == "thinking_medium bf16 | vast:57063695 | seeds 1234/5678"
+    assert floor["_n"] == [40, 40]
+    assert "refolded_backbone_rmsd.rmsd" in floor
+
+    # idempotent: a second tick on the same index entry does not recalibrate
+    before = out.read_text()
+    assert ffr.main() == 0 and out.read_text() == before
+
+    # and a family with one seed arm is reported, not silently skipped
+    index.write_text(json.dumps({"binder": {"seeds": {"1234": seeds["1234"]}}}))
+    ffr.main()
+
+
+def test_the_floor_watcher_refuses_arms_below_the_n_bar(tmp_path, monkeypatch, capsys):
+    import floor_from_reference as ffr
+
+    seeds = {s: str(_write_arm(tmp_path, f"small_{s}", _rows(10, int(s)))) for s in ("1", "2")}
+    index = tmp_path / "reference-designs.json"
+    index.write_text(json.dumps({FEATURE: {"seeds": seeds}}))
+    out = tmp_path / "QUALITY.json"
+    monkeypatch.setattr(ffr, "INDEX", index)
+    monkeypatch.setattr(quality, "QUALITY_JSON", out)
+    assert ffr.main() == 0
+    assert "the floor needs >= 30" in capsys.readouterr().out
+    assert not out.exists()
