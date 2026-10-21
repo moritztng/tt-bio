@@ -29,9 +29,13 @@ STATS = [0, 0]
 
 def plan(mt, kt, ncores):
     """Column groups a row tile for `mt` row tiles of `kt` column tiles on `ncores` cores: the largest divisor of
-    `kt` with mt * G <= ncores, or None when fewer than two fit (then ttnn.layer_norm spreads as wide)."""
+    `kt` with mt * G <= ncores, or None. Pays only for G >= 4 on rows of >= 64 tiles (lns4, .110, device ms
+    stock -> split: [544, 2560] G 4 0.110 -> 0.085, [256, 2560] G 8 0.106 -> 0.060, [1024, 2560] G 2 0.116 ->
+    0.151, [544, 1152] G 4 0.055 -> 0.050): each tile op on the fp32 intermediates costs ~3x ttnn's."""
+    if kt < 64:
+        return None
     best = None
-    for g in range(2, kt + 1):
+    for g in range(4, kt + 1):
         if kt % g == 0 and mt * g <= ncores:
             best = g
     return best
