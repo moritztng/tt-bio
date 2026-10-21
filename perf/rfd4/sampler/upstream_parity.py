@@ -382,23 +382,69 @@ def leg_rng():
     return rows
 
 
+def leg_float64():
+    """The parts whose own accuracy, not just their agreement with upstream, is worth knowing.
+
+    Upstream runs the schedules and the step rule in float32, so matching it exactly says nothing
+    about how far float32 is from the real schedule. These two run the same maths in float64 and
+    report the gap. Both are reported against a 1e-5 bar: they are a property of upstream's own
+    choice of dtype, so a failure here would be a reason to carry float64 schedules on device, not
+    a reason to reject the port.
+    """
+    rows = []
+    for mode, p1, k, sigma in (("log", 2.0, 16.0, 3.0), ("power", 2.0, 4.0, 12.0)):
+        f32 = S.schedule_times(mode, 60, p1=p1, tsr_safe=True, tail_steps=10, tail_step_multiplier=2)
+        f64 = S.schedule_times(mode, 60, p1=p1, tsr_safe=True, tail_steps=10,
+                               tail_step_multiplier=2).double()
+        # Recompute in double from the same definition rather than casting the float32 result.
+        if mode == "log":
+            t = 1.0 - torch.logspace(-p1, 1e-3, 101, dtype=torch.float64).flip(0)
+            t = t - (t.min() - 1e-3)
+            f64 = (t / t.max())[torch.tensor([*range(0, 80, 2), *range(80, 101)])]
+        else:
+            t = torch.linspace((1e-3) ** (1 / p1), 1, 101, dtype=torch.float64) ** p1
+            f64 = t[torch.tensor([*range(0, 80, 2), *range(80, 101)])]
+        rows.append({"name": f"float64:schedule:{mode}", "rel_err": rel_err(f32, f64), "ref": "float64"})
+
+        # The vf_tsr step rule against its closed form, ((1 - r) / t) x_t + r v, in float64.
+        g = torch.Generator().manual_seed(3)
+        x = torch.randn(2, 16, 3, generator=g)
+        v = torch.randn(2, 16, 3, generator=g)
+        m = S.replace(S.RELEASED.modalities["bb_ca"], tsr_k=k, tsr_sigma=sigma)
+        for t_val, dt in ((0.5, 0.01), (0.97, 0.005), (0.01, 0.02)):
+            rng = S.DesignRng(1, 2, mode="per_design")
+            got = S.simulation_step(m, x, v, t=t_val, dt=dt, gt=0.0, rng=rng)
+            r = float(S.tsr_ratio(torch.tensor(t_val, dtype=torch.float64), k, sigma))
+            ref = (x.double() + dt * (((1 - r) / t_val) * x.double() + r * v.double()))
+            rows.append({"name": f"float64:step:k={k}:t={t_val}", "rel_err": rel_err(got, ref),
+                         "ref": "float64"})
+    return rows
+
+
 def main():
     legs = {"schedules": leg_schedules, "recycle": leg_recycle, "full": leg_full,
-            "partial": leg_partial, "rng": leg_rng}
+            "partial": leg_partial, "rng": leg_rng, "float64": leg_float64}
+    bars = {"float64": 1e-5}
     only = sys.argv[1:] or list(legs)
     modules = []
     for name in only:
         rows = legs[name]()
         modules.extend(rows)
+        bar = bars.get(name, 0.0)
         worst = max(r["rel_err"] for r in rows)
-        print(f"{name:10s} {len(rows):3d} checks  max rel_err {worst:.3e}")
         for r in rows:
-            if r["rel_err"] > 1e-6:
-                print(f"    {r['name']}: {r['rel_err']:.3e}")
-    out = {"modules": modules, "max_rel_err": max(r["rel_err"] for r in modules)}
-    print(json.dumps({"max_rel_err": out["max_rel_err"], "checks": len(modules)}))
+            r["bar"] = bar
+        print(f"{name:10s} {len(rows):3d} checks  max rel_err {worst:.3e}  bar {bar:.0e}")
+        for r in rows:
+            if r["rel_err"] > bar:
+                print(f"    OVER BAR {r['name']}: {r['rel_err']:.3e}")
+    exact = [r for r in modules if r["bar"] == 0.0]
+    out = {"modules": modules, "max_rel_err": max(r["rel_err"] for r in exact),
+           "max_rel_err_float64_legs": max((r["rel_err"] for r in modules if r["bar"] > 0), default=0.0),
+           "checks": len(modules)}
+    print(json.dumps({k: v for k, v in out.items() if k != "modules"}))
     Path(REPO / "perf/rfd4/sampler/parity_raw.json").write_text(json.dumps(out, indent=1))
-    return 0 if out["max_rel_err"] <= 1e-6 else 1
+    return 0 if all(r["rel_err"] <= r["bar"] for r in modules) else 1
 
 
 if __name__ == "__main__":

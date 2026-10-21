@@ -325,8 +325,15 @@ def sample_schedule(spec: SamplingSpec, nsteps: int) -> tuple[dict[str, torch.Te
 
 
 def design_seed(seed: int, design_index: int) -> int:
-    """A design's own seed. Hashed rather than ``seed + i`` so neighbouring designs do not share
-    a stream prefix, and stable across runs, machines and batch sizes."""
+    """A design's own seed, stable across runs, machines and batch sizes.
+
+    RFD3 derives its per-design seed as ``seed + design_idx`` (``rfd3/design.py:401``) and the
+    generator-per-design plumbing here is the same shape as its. The derivation is not: under
+    ``seed + i``, design *i* of seed 7 is design *i - 1* of seed 8, so two arms seeded a few apart
+    share most of their designs. The quality grade compares arms over >= 30 designs and reads a
+    seed floor off them, and that aliasing would quietly correlate the arms it compares, so the
+    index is hashed in instead.
+    """
     digest = hashlib.sha256(f"rfd4:{int(seed)}:{int(design_index)}".encode()).digest()
     return int.from_bytes(digest[:8], "little")
 
