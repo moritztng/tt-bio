@@ -93,7 +93,9 @@ def swap_chains(atoms, first, second):
 def confidences(atoms, chain_of_interest):
     """A plausible AF3 summary for this design, reduced by the same code the TT oracle uses."""
     rng = np.random.default_rng(SEED + 1)
-    ca = atoms[filter_amino_acids(atoms) & (atoms.atom_name == "CA")]
+    # One token per residue on a protein chain (its CA), one per heavy atom elsewhere, as AF3 tokenises.
+    amino = filter_amino_acids(atoms)
+    ca = atoms[(amino & (atoms.atom_name == "CA")) | (~amino & (atoms.element != "H"))]
     n = ca.array_length()
     chains = [f"{c}_1" for c in ca.chain_id]
     plddt = np.clip(rng.normal(0.88, 0.06, n), 0.0, 1.0)

@@ -369,3 +369,22 @@ def test_enzyme_family_criteria_match_upstream(tmp_path, golden_name, tags, crit
     expected = golden["rows"]["pdl1_binder_0_generated.cif"]
     assert expected[f"{criterion}.pass"] == "1.0"
     _assert_row_matches(expected, rows["pdl1_binder_0_generated.cif"], 55)
+
+
+def test_sm_binder_refolding_matches_upstream(tmp_path):
+    """The ligand RMSD and the `sm_binder` criterion on upstream's own SAM binder design
+    (`tests/data/sam_binder_generated_minimized.cif`), with hydrogens and 86 flipped protein pairs.
+    The refold's confidences give the ligand one token per heavy atom, so the COI reductions are
+    defined and the criterion takes its determinate (failing, iptm 79 < 80) branch."""
+    golden = json.loads((GOLDENS / "upstream_sm_binder.json").read_text())
+    rows = _run_cached(
+        tmp_path,
+        GOLDENS / "ligand" / "sam_generated.cif",
+        GOLDENS / "ligand" / "refold_sam_generated_fc57ca17",
+        "sam_generated_fc57ca17",
+        "design,sm_binder_refolding",
+    )
+    expected = golden["rows"]["sam_generated.cif"]
+    assert expected["refolded_backbone_aligned_ligand_rmsd.rmsd"] == "0.5159"
+    assert expected["sm_binder.all_metrics_present"] == "1.0"
+    _assert_row_matches(expected, rows["sam_generated.cif"], 52)
