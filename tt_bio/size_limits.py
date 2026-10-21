@@ -1027,6 +1027,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "size. scRMSD through the full pipeline is what settles whether the clashes "
                 "matter; until it lands, read this row as a fit, not as a quality claim"),
     },
+    "rfd4": {
+        "blackhole": _unmeasured(
+            "nobody has walked a ladder. Designs on record are 128 tokens (thinking_medium, warm "
+            "17.96 s at AICLK 1350 MHz on a qb2 p300c chip, state/rfd4/census/e2e-128.json) and a "
+            "329-token antibody condition (ws:rfd4-cond-protein); ws:rfd4-size walks 256 and 512. "
+            "Nothing has failed, so there is no size to refuse", counts=DESIGN_TOTAL),
+    },
     "esmc-300m": {
         "wormhole_b0": Ceiling(
             residues=69632, pass_at=69632, fail_at=73728, binds=MEMORY, mechanism=DRAM,
