@@ -285,6 +285,13 @@ if a.model == "bindcraft2":
                                             ("mpnn_weights", "JAPANFOLD_BC2_MPNN_WEIGHTS")) if os.environ.get(v)}
     predictor_kw = {**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {}),
                     **({"structure": a.structure == "card"} if a.structure else {})}
+
+    def stamp(build):
+        """What the round armed and whether the structure module ran on card, so a leg names its own stack."""
+        sm = build.structure
+        log(ev="predictor", fast={k: str(v) for k, v in (build.fast or {}).items()},
+            structure_calls=dict(sm.calls) if sm is not None else None)
+
     if a.trajectories != "1":
         # Interleaved trajectories run on their own threads, so the per-rep hooks above (which
         # take the latest trajectory as the running one) do not apply. Time the whole campaign
@@ -292,8 +299,10 @@ if a.model == "bindcraft2":
         n = a.trajectories if a.trajectories == "auto" else int(a.trajectories)
         t0, err = time.monotonic(), None
         try:
-            with bc2.campaign_predictor(**predictor_kw):
+            with bc2.campaign_predictor(**predictor_kw) as build:
+                stamp(build)
                 bc2.run_campaign(settings, str(project), trajectories_per_card=n, **weights)
+                stamp(build)
         except Exception:
             err = traceback.format_exc()[-3000:]
         wall = time.monotonic() - t0
@@ -324,8 +333,10 @@ if a.model == "bindcraft2":
     campaign.run_trajectory = design
     try:
         # the card's trunk pool reads the same AF2 params the campaign does, not tt-bio's weights cache
-        with bc2.campaign_predictor(**predictor_kw):
+        with bc2.campaign_predictor(**predictor_kw) as build:
+            stamp(build)
             bc2.run_campaign(settings, str(project), trajectories_per_card=1, **weights)
+            stamp(build)
     except Exception:
         if traj:
             traj[-1]["err"] = traceback.format_exc()[-3000:]
