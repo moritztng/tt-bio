@@ -89,6 +89,13 @@ def main():
     rows = []
     for name, fn in subs.items():
         # Fresh inputs per sublayer: some sublayers free what they read.
+        # Warm both widths first, so the measured batched call is never the process's first call
+        # of this op: a first call that compiles (or is refused and retried) is not a batch effect.
+        for warm in (inputs(list(range(B))), inputs([0])):
+            out = fn(warm)
+            for t in (out if isinstance(out, tuple) else (out,)):
+                ttnn.deallocate(t)
+            free(warm)
         batched, single, again = inputs(list(range(B))), [inputs([k]) for k in range(B)], inputs([0])
         got = fn(batched)
         got = [host(t) for t in got] if isinstance(got, tuple) else [host(got)]
