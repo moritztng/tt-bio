@@ -73,15 +73,23 @@ def time_left(margin=600):
     return time.time() < a.deadline - margin
 
 
-def climb(arm, size, warm, tag):
+def climb(arm, size, warm, tag, seed=None):
     """Double the batch until the card pushes back. Returns {batch: summary}.
 
     Stops on the first rung that fails (OOM is the expected failure) or after two rungs that do not beat the
     best rate by more than 2 %, so a card with headroom keeps climbing and one without stops paying for it.
+    `seed` carries rungs an earlier sweep on this same box already measured, so extending a capped ladder
+    pays only for the rungs above it.
     """
+    seed = {int(k): v for k, v in (seed or {}).items()}
     sweep, best_rate, stall, b = {}, 0.0, 0, 1
     while b <= SWEEP_CEIL[size] and time_left():
-        s = summarise(run(arm, size, b, warm, ARMS[arm], tag=tag))
+        if b in seed:
+            s = seed[b]
+            print(f"climb {arm}@{size}: b{b} reused from this box's earlier sweep ({s.get('status')})",
+                  flush=True)
+        else:
+            s = summarise(run(arm, size, b, warm, ARMS[arm], tag=tag))
         sweep[b] = s
         if s["status"] != "ok":
             print(f"climb {arm}@{size}: b{b} failed ({s.get('error')}) -- that is the ceiling", flush=True)
@@ -95,8 +103,8 @@ def climb(arm, size, warm, tag):
                 break
         b *= 2
     else:
-        if b > SWEEP_CEIL[size]:
-            print(f"climb {arm}@{size}: hit the configured ceiling b{SWEEP_CEIL[size]} still improving "
+        if b > SWEEP_CEIL[size] and stall == 0:
+            print(f"climb {arm}@{size}: hit the configured ceiling b{SWEEP_CEIL[size]} while still gaining "
                   f"-- the ceiling, not the card, bounded this", flush=True)
     return sweep
 
@@ -125,7 +133,9 @@ def main():
             if not ok or not time_left():
                 continue
             arm = max(ok, key=lambda k: ok[k]["designs_s"])
-            sweep = climb(arm, size, max(3, a.screen_warm - 2), f"ext-{arm}")
+            was = prev.get("best", {}).get(str(size), {})
+            seed = was.get("sweep") if was.get("arm") == arm else None
+            sweep = climb(arm, size, max(3, a.screen_warm - 2), f"ext-{arm}", seed=seed)
             okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
             bb = max(okb, key=lambda b: okb[b]["designs_s"]) if okb else SCREEN_BATCH[size]
             ext[str(size)] = {"arm": arm, "batch": bb, "sweep": {str(k): v for k, v in sweep.items()}}
