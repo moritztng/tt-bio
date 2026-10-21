@@ -259,3 +259,22 @@ def test_only_the_generated_cif_counts_as_a_design(tmp_path):
     _helix_cif(plain / "a.cif", n=12)
     _helix_cif(plain / "b_refolded.cif", n=12)
     assert quality.load_arm(plain)["n_designs_parsed"] == 1
+
+
+def test_a_family_with_no_oracle_columns_is_not_a_pass(tmp_path):
+    """The pass criteria and every refold RMSD come from the oracle: without it, nothing is graded."""
+    rows_tt, rows_ref = _rows(40, 1), _rows(40, 2)
+    for r in rows_tt + rows_ref:  # as if no oracle had run
+        for col in ("refolded_backbone_rmsd.rmsd", "oracle.plddt", "unconditional.pass"):
+            r[col] = ""
+    tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
+    out = tmp_path / "QUALITY.json"
+    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+                       "--permutations", str(FAST), "--out", str(out)])
+    doc = json.loads(out.read_text())
+    assert rc == 1 and doc["features"][FEATURE]["verdict"] == "ORACLE_MISSING"
+    assert "refolded_backbone_rmsd.rmsd" in doc["features"][FEATURE]["missing_oracle_metrics"]
+
+    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+                       "--allow-no-oracle", "--permutations", str(FAST), "--out", str(out)])
+    assert rc == 0 and json.loads(out.read_text())["features"][FEATURE]["verdict"] == "PASS"

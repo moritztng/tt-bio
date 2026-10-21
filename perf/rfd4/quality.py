@@ -123,7 +123,9 @@ def _num(v: str):
 
 
 def _column(arm: dict, name: str) -> np.ndarray:
-    vals = [r[name] for r in arm["rows"] if isinstance(r.get(name), float)]
+    """Finite values of one column. An empty CSV cell parses as NaN, which is not a measurement:
+    a column that is NaN on every design is the same as a column upstream never wrote."""
+    vals = [r[name] for r in arm["rows"] if isinstance(r.get(name), float) and math.isfinite(r[name])]
     return np.array(vals, dtype=float)
 
 
@@ -139,6 +141,7 @@ def grade_feature(
     floor: dict,
     n_min: int = mspec.N_MIN,
     permutations: int = stats.DEFAULT_PERMUTATIONS,
+    allow_no_oracle: bool = False,
 ) -> dict:
     result: dict = {"n": min(tt["n"], ref["n"]), "n_tt": tt["n"], "n_ref": ref["n"], "metrics": {}}
     notes: list[str] = []
@@ -155,16 +158,24 @@ def grade_feature(
     result["diversity"] = _grade_diversity(tt, ref)
     graded = [m for m in result["metrics"].values() if not m.get("missing")]
     result["n_graded_metrics"] = len(graded)
+    missing_oracle = [c for c, m in result["metrics"].items() if m.get("missing") and m.get("oracle")]
+    result["missing_oracle_metrics"] = missing_oracle
     failed = [c for c, m in result["metrics"].items() if m.get("pass") is False]
     if result["diversity"].get("pass") is False:
         failed.append("diversity")
     result["failed"] = failed
     if not graded:
         result["verdict"] = "NO_DATA"
-    elif notes and any("n below" in n for n in notes):
+    elif failed:
+        result["verdict"] = "FAIL"
+    elif any("n below" in n for n in notes):
         result["verdict"] = "INSUFFICIENT_N"
+    elif missing_oracle and not allow_no_oracle:
+        # The pass criteria and every refold RMSD come from the oracle. A family graded on its
+        # oracle-free columns alone has not been graded, and must not read as a PASS.
+        result["verdict"] = "ORACLE_MISSING"
     else:
-        result["verdict"] = "FAIL" if failed else "PASS"
+        result["verdict"] = "PASS"
     result["notes"] = notes
     return result
 
@@ -300,6 +311,8 @@ def main(argv=None) -> int:
     g.add_argument("--chain", default=None, help="chain of interest for the geom.* columns")
     g.add_argument("--n-min", type=int, default=mspec.N_MIN)
     g.add_argument("--permutations", type=int, default=stats.DEFAULT_PERMUTATIONS)
+    g.add_argument("--allow-no-oracle", action="store_true",
+                   help="grade on the oracle-free columns only; the family can then PASS without a refold")
     g.add_argument("--label", default=None, help="what the TT arm is (a lever name, a sha)")
     g.add_argument("--out", default=str(QUALITY_JSON))
 
@@ -332,7 +345,9 @@ def main(argv=None) -> int:
         return 0
 
     tt, ref = load_arm(args.tt, args.chain), load_arm(args.ref, args.chain)
-    res = grade_feature(args.feature, tt, ref, doc.get("seed_floor") or {}, args.n_min, args.permutations)
+    res = grade_feature(args.feature, tt, ref, doc.get("seed_floor") or {}, args.n_min,
+                        args.permutations, args.allow_no_oracle)
+    res["allow_no_oracle"] = args.allow_no_oracle
     res["label"] = args.label
     res["tags"] = mspec.FEATURE_TAGS.get(args.feature)
     doc.setdefault("features", {})[args.feature] = res
