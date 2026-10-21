@@ -4300,15 +4300,13 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
     for design in designs:
         features, atom_array = rfd4.featurize(design.cif, seed=seed)
         tokens = int(features["padding_mask"].shape[-1])
-        click.echo(f"  {design.example_id}: {tokens} tokens ← {design.cif}")
-        try:
-            output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed)
-        except NotImplementedError as e:
-            # The model is the other row's work. Say so once, as a message, and leave the
-            # prepared inputs in place rather than printing a traceback over them.
-            raise click.ClickException(str(e))
-        rfd4.write_design(output, features, atom_array,
-                          out_dir / f"{design.example_id}_generated.cif")
+        click.echo(f"  {design.example_id}: {tokens} tokens <- {design.cif}")
+        output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed)
+        for row in range(num_designs):
+            suffix = "" if num_designs == 1 else f"_{row}"
+            path = rfd4.write_design(output, features, atom_array,
+                                     out_dir / f"{design.example_id}{suffix}_generated.cif", row=row)
+            click.echo(f"    -> {path}")
 
 
 @cli.command("design")

@@ -70,16 +70,19 @@ def test_unknown_design_is_named(tmp_path):
         prepare_examples(spec, tmp_path / "out", only=["nope"])
 
 
-def test_engine_stub_says_what_it_prepared():
-    """Until the model lands the run must stop with the shape of the work, not a shrug."""
+def test_preprocess_adds_the_two_derived_keys():
+    """The network reads coords in nm and the atom37 mask under its own name
+    (`Proteina.preprocess_batch_for_generation`); featurize gives Angstroms."""
     import torch
 
-    from tt_bio.rfd4 import get_engine
+    from tt_bio.rfd4.engine import preprocess
 
-    engine = get_engine()
-    features = {"padding_mask": torch.ones((1, 225), dtype=torch.bool)}
-    with pytest.raises(NotImplementedError, match="225 tokens"):
-        engine.design(features, num_designs=2, nsteps=60, seed=0)
+    features = {"coords": torch.full((1, 4, 37, 3), 10.0),
+                "atom37_mask": torch.ones((1, 4, 37), dtype=torch.bool)}
+    batch = preprocess(features)
+    assert torch.equal(batch["coords_nm"], torch.ones((1, 4, 37, 3)))
+    assert batch["coord_mask"] is features["atom37_mask"]
+    assert "coords" in batch, "preprocess adds keys, it does not consume the features"
 
 
 def test_engine_names_are_not_guessed():
