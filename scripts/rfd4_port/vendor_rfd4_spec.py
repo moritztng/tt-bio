@@ -33,6 +33,11 @@ PIN_FILE = Path("/home/moritz/.coworker/state/rfd4/UPSTREAM.json")
 EXTRA_ROOTS = (
     "rfproteina.inference_utils.condition_spec",
     "rfproteina.inference_utils.contig_spec",
+    # the flow network's host-side glue: feature/cond factories, pair init, cond transitions
+    "rfproteina.nn.feature_factory",
+    "rfproteina.nn.modules.pair_rep_initial",
+    "rfproteina.nn.modules.seq_transition_af3",
+    "rfproteina.model_masks",
 )
 #: `from rfproteina import x` / `from rfproteina.utils import x` import a MODULE OBJECT, which
 #: upstream's rewrite (it matches `from rfproteina... import ` and maps the module path) leaves
