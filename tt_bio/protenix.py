@@ -183,7 +183,13 @@ OPM_B8CFG_FAST = frozenset({"opm_b8cfg"})
 # cdk2x2 512 x 1 on a p300 chip at 1350 MHz, 4 paired warm folds in one process (bhab5): steady 28.85 -> 25.49 s median, -3.19 s.
 # ws_psilu rides along bit-identically: pair SwiGLU kernel at N 512 c 256 4.08 -> 3.26 ms (wsk), and the fold's CIFs are
 # identical with it on and off, steady warm pairs +0.39 / -0.76 / -0.78 s (psf, p300 at 1325 MHz mean).
-BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu"}) | TRIATT_LN_B8_FAST
+# trimul_t1_dram: below 352 tokens T1 declined every call on the L1 path (0 served, 3384 declined per 256-token fold); on the
+# DRAM path it serves. Never fires at 512. Blackhole 256-token fast grade vs the set above (spd-m-protenix gt1bhf, 2026-10-21),
+# 44 paired folds over 4 seeds, PASS: same-seed top pose median 1.118 A vs the 4.872 A A/A floor, CA-lDDT +0.0008 [-0.0012,
+# +0.0034], DockQ -0.012 [-0.028, -0.001], docking 22/44 -> 22/44. Separate processes on a p300 chip at 1350 MHz (bht1d):
+# warm 12.47 / 11.87 / 12.05 / 12.11 -> 9.85 / 9.74 / 9.95 s.
+BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_t1w8", "trimul_bres_bh", "ws_psilu",
+                        "trimul_t1_dram"}) | TRIATT_LN_B8_FAST
 # dit_shoist and trimul_t1w8 (T1's resident weights bfp8, c_z 256 in one launch) in Protenix-v2's Wormhole normal set.
 # Wormhole 512-token normal grade, shipped Protenix-v2 Wormhole normal set vs + both, 44 paired folds (spd-m-protenix
 # gstn, 2026-10-20), PASS: same-seed top pose median 0.221 A vs the 0.6 A bar (1.145 A A/A floor), CA-lDDT +0.0002
