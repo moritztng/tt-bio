@@ -140,9 +140,67 @@ def check(input_cif, generated_cif, comps=None, hydrogens=False):
     }
 
 
+def per_component(block, comps=None, hydrogens=False):
+    """``{(comp, atom): (element, charge)}``, collapsed over every instance of the component.
+
+    The preservation check above is keyed by residue number, which only means something for a
+    component the design HOLDS. When the design picks the residue itself -- an RNA design names
+    its own bases -- residue 7 is a different component in the two files and every key misses.
+    What is still gradeable there is the chemistry of each component the design chose: a U it
+    wrote must be a real U. Instances are collapsed, and a component whose atom disagrees with
+    itself between two instances of the same file is itself a failure.
+    """
+    cat = block["atom_site"]
+    comp, atom = _col(cat, "label_comp_id"), _col(cat, "label_atom_id")
+    elem, charge = _col(cat, "type_symbol"), _col(cat, "pdbx_formal_charge")
+    out, inconsistent = {}, []
+    for i in range(len(comp)):
+        c = comp[i]
+        if (c not in comps if comps is not None else not is_chemistry(c)):
+            continue
+        if not hydrogens and elem[i] in ("H", "D"):
+            continue
+        k = (c, atom[i])
+        v = (elem[i], _charge(charge[i] if charge is not None else "?"))
+        if k in out and out[k] != v:
+            inconsistent.append({"table": "atom_site", "key": list(k), "input": out[k], "generated": v})
+        out[k] = v
+    return out, inconsistent
+
+
+def check_designed(generated_cif, reference_cif, comps=None, hydrogens=False):
+    """Grade the chemistry a design CHOSE, against upstream's design of the same input."""
+    got, ref = read_block(generated_cif), read_block(reference_cif)
+    atoms_got, incoherent = per_component(got, comps, hydrogens)
+    atoms_ref, _ = per_component(ref, comps, hydrogens)
+    bonds_got, bonds_ref = bond_chemistry(got, comps), bond_chemistry(ref, comps)
+    comps_got = {k[0] for k in atoms_got}
+    comps_ref = {k[0] for k in atoms_ref}
+    shared = comps_got & comps_ref
+    keep = lambda t: {k: v for k, v in t.items() if k[0] in shared}
+    bad = (incoherent
+           + diff(keep(atoms_ref), keep(atoms_got), "atom_site")
+           + diff(keep(bonds_ref), keep(bonds_got), "chem_comp_bond"))
+    return {
+        "mode": "designed-vs-reference",
+        "generated": str(generated_cif),
+        "reference": str(reference_cif),
+        "components": sorted(comps_got),
+        "components_only_here": sorted(comps_got - comps_ref),
+        "components_only_in_reference": sorted(comps_ref - comps_got),
+        "atoms_checked": len(keep(atoms_got)),
+        "bonds_checked": len(keep(bonds_got)),
+        "charged_atoms": sorted([list(k) + [v[1]] for k, v in atoms_got.items() if v[1] not in (0, "0")]),
+        "differences": bad,
+        "verdict": "PASS" if not bad and shared else ("EMPTY" if not shared else "FAIL"),
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", required=True, help="the annotated CIF the model read")
+    ap.add_argument("--input", help="the annotated CIF the model read")
+    ap.add_argument("--reference", help="upstream's design of the same input; grades the chemistry "
+                                        "the design CHOSE instead of the chemistry it held")
     ap.add_argument("--generated", required=True, help="the design the model wrote")
     ap.add_argument("--comps", default=None,
                     help="comma-separated component ids to grade; default is every non-protein one")
@@ -151,7 +209,10 @@ def main():
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     comps = frozenset(a.comps.split(",")) if a.comps else None
-    res = check(a.input, a.generated, comps, a.with_hydrogens)
+    if not a.input and not a.reference:
+        ap.error("need --input (held chemistry) or --reference (designed chemistry)")
+    res = (check_designed(a.generated, a.reference, comps, a.with_hydrogens) if a.reference
+           else check(a.input, a.generated, comps, a.with_hydrogens))
     text = json.dumps(res, indent=2)
     if a.out:
         with open(a.out, "w") as fh:
