@@ -41,7 +41,14 @@ a = ap.parse_args()
 
 
 def run(arm, size, batch, warm, overrides, tag=None, spec=None, extra=()):
-    """One rfd4_gpu.py process. Returns its warm records."""
+    """One rfd4_gpu.py process. Returns its warm records.
+
+    A compiled arm compiles only the bucket it runs: the shipped `compile_lengths` is 15 buckets from 128 to
+    1024, and compiling 14 shapes a run never uses would inflate its cold line without changing a warm one.
+    Both sides still pad to the same bucket, so this is the same work, measured without the dead weight.
+    """
+    if not any(o.startswith(("compile_lengths=", "inference_backend=")) for o in list(overrides) + list(extra)):
+        overrides = list(overrides) + [f"compile_lengths=[{size}]"]
     out = a.out / (tag or arm) / f"{size}-b{batch}"
     out.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, str(HERE / "rfd4_gpu.py"), "--spec", str(spec or a.inputs / f"pdl1-{size}.yaml"),
