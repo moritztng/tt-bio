@@ -31,6 +31,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--goldens", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--bf16-weights", action="store_true",
+                    help="round the matrices the device holds in bf16 (in_w, block linears, head_w) and keep "
+                         "everything else float64: the floor a bf16-weight port cannot go below")
     a = ap.parse_args()
     torch.set_default_dtype(torch.float64)
     AF = _load("ae_fold", ROOT / "tt_bio/rfd4/ae_fold.py")
@@ -39,8 +42,15 @@ def main() -> int:
 
     sd = torch.load(CF.CKPT, map_location="cpu", weights_only=False)["state_dict"]
     folded = {p: AF.fold(sd, p) for p in ("encoder", "decoder")}
+    if a.bf16_weights:
+        bf = lambda t: t.to(torch.bfloat16).double()  # noqa: E731
+        mats = ("qkv_w", "g_w", "o_w", "w1", "w2")
+        for f in folded.values():
+            f["in_w"], f["head_w"] = bf(f["in_w"]), bf(f["head_w"])
+            for L in f["layers"]:
+                L.update({k: bf(L[k]) for k in mats})
     tab = AF.tables()
-    rec = {"bar": DP.BAR, "dtype": "float64", "cases": {}}
+    rec = {"bar": DP.BAR, "dtype": "float64", "bf16_weights": a.bf16_weights, "cases": {}}
     for path in sorted(Path(a.goldens).glob("*.pt")):
         g = torch.load(path, map_location="cpu", weights_only=False)
         batch = g["batch"]
