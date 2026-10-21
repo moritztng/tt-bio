@@ -6391,6 +6391,21 @@ def _atom_l1(shape, dtype) -> "ttnn.MemoryConfig | None":
     return ttnn.L1_MEMORY_CONFIG if fits else None
 
 
+_LIN_L1 = [False]
+
+
+@contextlib.contextmanager
+def atom_l1_linears():
+    """atom_l1 for a whole step whose linears feed short-lived intermediates (ESMFold2's denoise): inside it every
+    `Module._lin` that names no memory_config writes L1 where `_atom_l1` admits the output, and the elementwise ops
+    follow their first input. A step-invariant cache built inside must pass DRAM explicitly."""
+    prev, _LIN_L1[0] = _LIN_L1[0], lever("atom_l1")
+    try:
+        yield
+    finally:
+        _LIN_L1[0] = prev
+
+
 def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     """`headroom` copies of `nbytes` fit across the grid's banks with `reserve_per_core` spare.
 
@@ -9362,6 +9377,10 @@ class Module:
         """Shared linear projection on this module's kernel config and core grid."""
         if kw.get("activation") == "sigmoid":
             kw["activation"] = mm_sigmoid(self.compute_kernel_config)
+        if _LIN_L1[0] and "memory_config" not in kw:
+            mc = _atom_l1(tuple(x.shape)[:-1] + (int(w.shape[-1]),), x.dtype)
+            if mc is not None:
+                kw["memory_config"] = mc
         return ops.linear(x, w, bias=bias, compute_kernel_config=self.compute_kernel_config,
                           dtype=_dtype(ttnn.bfloat16) if dtype is None else dtype,
                           core_grid=CORE_GRID_MAIN, **kw)
