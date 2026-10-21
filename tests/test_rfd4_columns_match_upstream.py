@@ -107,17 +107,29 @@ def test_every_graded_column_exists_upstream():
     assert not bad, "columns upstream never writes:\n  " + "\n  ".join(bad)
 
 
-def test_the_observed_self_test_csv_has_every_oracle_free_column_we_grade():
-    """The self-test's own evaluate CSV is the ground truth for the `design`-tag columns."""
+# A real `rfd4-evaluate` CSV per family, and the family whose oracle-free columns it must carry.
+# This is the only check that covers a column's SUFFIX: the config gates above know which metric
+# runs, not which columns it writes, so a name like `helix_fraction_coi` is only ever proved by a
+# CSV that has it.
+OBSERVED = {
+    "unconditional": "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/eval0"
+                     "/evaluation_metrics/per_example_metrics.csv",
+    "binder": "/home/moritz/.coworker/artifacts/rfd4-quality/binder_names/eval"
+              "/evaluation_metrics/per_example_metrics.csv",
+}
+
+
+@pytest.mark.parametrize("family", sorted(OBSERVED))
+def test_an_observed_csv_has_every_oracle_free_column_that_family_grades(family):
     import csv
-    csv_path = pathlib.Path("/home/moritz/.coworker/artifacts/rfd4-quality/selftest/eval0"
-                            "/evaluation_metrics/per_example_metrics.csv")
+    csv_path = pathlib.Path(OBSERVED[family])
     if not csv_path.exists():
-        pytest.skip("self-test evaluate CSV not on this host")
+        pytest.skip(f"no observed {family} CSV on this host")
     with csv_path.open() as fh:
         have = set(next(csv.reader(fh)))
-    want = {c for c, _, _ in mspec.COMMON if not c.startswith("geom.")}
-    assert want <= have, f"graded but absent from a real CSV: {sorted(want - have)}"
+    want = {c for c, _, needs_oracle in mspec.columns_for(family)
+            if not needs_oracle and not c.startswith("geom.")}
+    assert want <= have, f"graded but absent from a real {family} CSV: {sorted(want - have)}"
 
 
 # Supplied by the refolding pipeline, not by the user's metrics_tags.

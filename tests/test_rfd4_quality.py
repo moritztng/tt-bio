@@ -484,3 +484,38 @@ def test_an_unmatched_chain_id_keeps_the_design_and_flags_it(tmp_path):
     cif = _two_chain_cif(tmp_path / "ex_generated.cif", binder_n=10, target_n=20)
     geom = geometry.design_geometry(cif, chain="Z")
     assert geom["geom.n_ca"] == 30 and geom["geom.chain_not_found"] == 1.0
+
+
+def test_the_chain_of_interest_falls_back_to_upstreams_chain_extract(tmp_path):
+    """`chain_of_interest` came back EMPTY on both real evaluate runs (a monomer and a PD-L1
+    binder, 2026-10-21). Reading only that column grades a complex on the whole assembly and
+    nothing says so. `designed_chain_path` is the column upstream actually fills."""
+    d = tmp_path / "run" / "inference_samples" / "ex"
+    d.mkdir(parents=True)
+    design = _two_chain_cif(d / "ex_generated.cif", binder_n=10, target_n=200)
+    # upstream's extract: the chain of interest alone, keeping its label_asym_id
+    extract = tmp_path / "chains" / "ex_generated_chain.cif"
+    extract.parent.mkdir(parents=True)
+    extract.write_text("\n".join(
+        l for l in design.read_text().splitlines() if not l.startswith("ATOM") or " B " in l[:40]
+    ) + "\n")
+    m = tmp_path / "run" / "evaluation_metrics"
+    m.mkdir(parents=True)
+    with (m / "per_example_metrics.csv").open("w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=[
+            "designed_structure_path", "chain_of_interest", "designed_chain_path"])
+        w.writeheader()
+        w.writerow({"designed_structure_path": str(design), "chain_of_interest": "",
+                    "designed_chain_path": str(extract)})
+    arm = quality.load_arm(tmp_path / "run")
+    assert arm["rows"][0]["geom.n_ca"] == 200  # chain B, not the 210-atom complex
+    assert arm["rows"][0]["geom.chain_not_found"] == 0.0
+
+
+def test_a_chain_extract_with_several_chains_is_not_a_chain_of_interest(tmp_path):
+    """Then there is no single designed chain and the whole structure is the right scope."""
+    extract = tmp_path / "ex_generated_chain.cif"
+    _two_chain_cif(extract, binder_n=4, target_n=4)
+    assert quality._chain_of_interest({"designed_chain_path": str(extract)}) is None
+    assert quality._chain_of_interest({"designed_chain_path": str(tmp_path / "gone.cif")}) is None
+    assert quality._chain_of_interest({}) is None

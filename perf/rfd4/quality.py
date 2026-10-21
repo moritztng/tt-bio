@@ -125,10 +125,32 @@ def load_arm(path, chain: str | None = None) -> dict:
 
 
 def _chain_of_interest(row: dict | None) -> str | None:
-    """Upstream writes `chain_of_interest` per design, empty when it is ambiguous (a monomer has
-    no chain of interest, and the whole structure is the right scope there)."""
-    value = (row or {}).get("chain_of_interest")
-    return value.strip() or None if isinstance(value, str) else None
+    """Which chain a design's geometry and sequence describe, per design.
+
+    Upstream writes a `chain_of_interest` column, but it came back EMPTY in both real
+    `rfd4-evaluate` runs this harness has seen (a monomer and a PD-L1 binder, 2026-10-21), so
+    reading only that column grades a complex on the whole assembly and nothing says so.
+    `designed_chain_path` is the one that is actually filled: upstream extracts the chain of
+    interest to its own CIF per design. On the binder run that extract is 341 atoms with
+    `label_asym_id` B, exactly the 341 atoms of chain B in the full design, which is also the
+    evidence that upstream's chain id and the `label_asym_id` the geometry selects on are the
+    same namespace.
+
+    Several chains in the extract, or no extract, means no single chain of interest: the whole
+    structure is then the right scope (it is, for a monomer).
+    """
+    row = row or {}
+    value = row.get("chain_of_interest")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    path = row.get("designed_chain_path")
+    if not isinstance(path, str) or not path:
+        return None
+    chain_cif = pathlib.Path(path)
+    if not chain_cif.exists():
+        return None
+    chains = set(geometry.parse_atom_site(chain_cif).get("label_asym_id", []))
+    return chains.pop() if len(chains) == 1 else None
 
 
 def _match_row(rows: dict[str, dict], cif: pathlib.Path) -> str | None:

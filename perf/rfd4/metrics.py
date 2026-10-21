@@ -29,7 +29,7 @@ from __future__ import annotations
 # why the harness fails a family whose columns are absent rather than treating them as "no data".
 FEATURE_TAGS = {
     "unconditional": ["design", "unconditional_refolding"],
-    "binder": ["design", "ppi_refolding", "hotspot_conditioning"],
+    "binder": ["design", "ppi_refolding", "hotspot_conditioning", "interchain_interactions"],
     "antibody_cdr": ["design", "antibody"],
     "nanobody_cdr": ["design", "antibody"],
     "enzyme": ["design", "ame_refolding", "motif_scaffold_refolding"],
@@ -53,9 +53,14 @@ COMMON = [
     ("bond_length_metrics.bond_length.frac_unreasonable", "dist", False),
     ("amino_acid_composition.ala_fraction", "dist", False),
     ("amino_acid_composition.gly_fraction", "dist", False),
-    ("sse_distribution.helix_fraction", "dist", False),
-    ("sse_distribution.sheet_fraction", "dist", False),
-    ("sse_distribution.num_ss_elements", "dist", False),
+    # Upstream emits each sse column twice: bare (the whole assembly) and `_coi` (the chain of
+    # interest). The `_coi` one is graded on every family, not only on complexes: for a complex
+    # it describes the designed chain, which is the thing the port changes, and for a monomer
+    # upstream fills it from the whole structure anyway (observed equal on the self-test CSV).
+    # One column set, right in both cases.
+    ("sse_distribution.helix_fraction_coi", "dist", False),
+    ("sse_distribution.sheet_fraction_coi", "dist", False),
+    ("sse_distribution.num_ss_elements_coi", "dist", False),
     ("geom.radius_of_gyration", "dist", False),
     ("geom.frac_ca_bond_outlier", "dist", False),
     ("geom.ca_clash_frac", "dist", False),
@@ -85,6 +90,13 @@ SPECIFIC = {
         ("oracle_ppi.min_ipae_coi", "dist", True),
         ("refolded_target_backbone_aligned_binder_rmsd.rmsd", "dist", True),
         ("hotspot_obedience.hotspot_obedience", "dist", False),
+        # The only interface metrics that need no oracle: upstream counts the contacts across the
+        # interface of the chain of interest. Column names observed on a real conditioned run
+        # (artifacts/rfd4-quality/binder_names, metrics_tags=[design,hotspot_conditioning,
+        # interchain_interactions]), not read off the docs.
+        ("interchain_interactions.hbond_atom_count_coi", "dist", False),
+        ("interchain_interactions.hydrophobic_atom_count_coi", "dist", False),
+        ("interchain_interactions.saltbridge_residue_count_coi", "dist", False),
         ("ppi.pass", "rate", True),
     ],
     "antibody_cdr": [
@@ -113,6 +125,8 @@ SPECIFIC = {
         ("refolded_backbone_rmsd.rmsd", "dist", True),
         ("refolded_backbone_aligned_ligand_rmsd.rmsd", "dist", True),
         ("chiral_accuracy.tetrahedral_percent_correct_chirality", "dist", False),
+        ("interchain_interactions.hbond_atom_count_coi", "dist", False),
+        ("interchain_interactions.hydrophobic_atom_count_coi", "dist", False),
         ("sm_binder.pass", "rate", True),
     ],
     "nucleic_acid": [
