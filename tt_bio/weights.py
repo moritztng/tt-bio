@@ -1464,7 +1464,8 @@ def unmanaged(root: str | Path | None = None) -> list[tuple[Path, int]]:
         return []
     claimed = {p.resolve() for k in ARTIFACTS for p in artifact_paths(k, root)}
     claimed |= {(base / a.subdir).resolve() for a in _ROWS if a.subdir}
-    keep = {"msa", "msa_db", "msa_server_cache", "demo_msa", "of3_template_structures", ".cache"}
+    keep = {"msa", "msa_db", "msa_server_cache", "demo_msa", "of3_template_structures", ".cache",
+            "tiles"}  # tiles: device-format weight copies (esmc.esmc6b_tile_dir), rebuilt on demand
     out = []
     for entry in base.iterdir():
         if entry.name in keep or entry.name.startswith(".") or entry.resolve() in claimed:

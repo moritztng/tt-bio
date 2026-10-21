@@ -30,8 +30,9 @@ def test_dict_weight_cache_dumps_then_loads_without_weights(monkeypatch):
     assert T._weight_cache is None
 
 
-@pytest.mark.parametrize("wormhole", [True, False])
-def test_adapter_reloads_from_its_tiles_on_wormhole(monkeypatch, wormhole):
+@pytest.mark.parametrize("wormhole,tile_dir", [(True, None), (False, None), (True, "/c"), (False, "/c")])
+def test_adapter_reloads_from_its_tiles_on_wormhole(monkeypatch, wormhole, tile_dir):
+    """With a persistent tile cache every load reads it; without one Wormhole keeps the tiles in RAM."""
     from tt_bio import esmfold2_runtime as rt
     from tt_bio import tenstorrent as T
 
@@ -39,9 +40,9 @@ def test_adapter_reloads_from_its_tiles_on_wormhole(monkeypatch, wormhole):
 
     class LM:
         @classmethod
-        def from_pretrained(cls, repo):
+        def from_pretrained(cls, repo, tile_dir=None):
             wc = T._weight_cache
-            calls.append(("pretrained", wc and wc["mode"]))
+            calls.append(("pretrained", wc and wc["mode"], tile_dir))
             if wc:
                 wc["dir"][0] = "tile"
             return cls()
@@ -53,14 +54,92 @@ def test_adapter_reloads_from_its_tiles_on_wormhole(monkeypatch, wormhole):
     monkeypatch.setattr(rt, "ESMCLanguageModel", LM)
     monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(rt, "dram_peak", lambda *a: None)
+    monkeypatch.setattr(rt, "fetch", lambda k: "/snap")
+    monkeypatch.setattr(rt, "esmc6b_tile_dir", lambda name, snap: tile_dir)
     a = rt._ESMCAdapter("biohub/ESMC-6B")
     a.preload()
     a.lm = None  # what the release after a fold leaves
     a.preload()
-    if wormhole:
-        assert calls == [("pretrained", "dump"), ("load", "load", {0: "tile"}, {})]
+    if tile_dir:
+        assert calls == [("pretrained", None, "/c")] * 2 and a._tiles is None
+    elif wormhole:
+        assert calls == [("pretrained", "dump", False), ("load", "load", {0: "tile"}, {})]
     else:
-        assert calls == [("pretrained", None), ("pretrained", None)] and a._tiles is None
+        assert calls == [("pretrained", None, False)] * 2 and a._tiles is None
+
+
+def _fake_tiles(monkeypatch):
+    """Host tiles as tuples and a tensorbin as a dict entry under the name torch_to_tt publishes."""
+    import os
+    from tt_bio import tenstorrent as T
+    disk, tmp = {}, f".{os.getpid()}.tmp.tensorbin"
+
+    def dump(p, h):
+        disk[p[:-len(tmp)]] = h
+        open(p, "w").close()
+
+    monkeypatch.setattr(T.ttnn, "from_torch", lambda x, **k: ("host", x))
+    monkeypatch.setattr(T.ttnn, "to_device", lambda h, d: ("dev", h))
+    monkeypatch.setattr(T.ttnn, "dump_tensor", dump)
+    monkeypatch.setattr(T.ttnn, "load_tensor", lambda p: disk[p])
+    m = object.__new__(T.Module)
+    m.device = "chip"
+    return T, m
+
+
+def test_tile_cache_builds_once_then_loads_without_weights(tmp_path, monkeypatch):
+    T, m = _fake_tiles(monkeypatch)
+    keys, runs = ("a", "b"), []
+
+    def build():
+        runs.append("build")
+        m.weights = {"a": 1, "b": 2}
+        return [m.torch_to_tt(k, transform=lambda x: x * 10) for k in keys]
+
+    def load():
+        runs.append("load")
+        m.weights = {}
+        return [m.torch_to_tt(k) for k in keys]
+
+    first = T.tile_cached(str(tmp_path), build, load)
+    again = T.tile_cached(str(tmp_path), build, load)
+    assert runs == ["build", "load"] and again == first == [("dev", ("host", 10)), ("dev", ("host", 20))]
+    assert T._weight_cache is None
+
+
+def test_tile_cache_from_another_construction_is_rebuilt(tmp_path, monkeypatch):
+    T, m = _fake_tiles(monkeypatch)
+    runs = []
+
+    def make(keys):
+        def build():
+            runs.append(("build", keys))
+            m.weights = {k: 1 for k in keys}
+            return [m.torch_to_tt(k, transform=lambda x: x) for k in keys]
+
+        def load():
+            runs.append(("load", keys))
+            m.weights = {}
+            return [m.torch_to_tt(k) for k in keys]
+        return build, load
+
+    T.tile_cached(str(tmp_path), *make(("a", "b")))
+    T.tile_cached(str(tmp_path), *make(("a", "c")))  # same call count, a different weight second
+    T.tile_cached(str(tmp_path), *make(("a", "c")))
+    assert runs == [("build", ("a", "b")), ("load", ("a", "c")), ("build", ("a", "c")), ("load", ("a", "c"))]
+
+
+def test_tile_cache_failed_build_leaves_no_done(tmp_path, monkeypatch):
+    T, m = _fake_tiles(monkeypatch)
+
+    def build():
+        m.weights = {"a": 1}
+        m.torch_to_tt("a", transform=lambda x: x)
+        raise KeyError("b")
+
+    with pytest.raises(KeyError):
+        T.tile_cached(str(tmp_path), build, lambda: None)
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".lock"]
 
 
 def test_wh_lm_release_rule_counts_drawn_rows():

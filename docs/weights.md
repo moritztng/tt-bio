@@ -52,6 +52,13 @@ per run. Neither touches the hub cache.
 
 A full set of weights is about 86 GiB per host.
 
+ESMFold2, ESMFold2-Fast and ESMC-6B also keep a device-format copy of the ESMC-6B weights
+under `tiles/` in the tt-bio cache, written on the first load (about 6.4 GiB in block-fp8).
+Every later load reads it back instead of converting the checkpoint again, which takes a
+Wormhole host about 100 s. The copy is keyed to the tt-bio and ttnn versions, so an upgrade
+writes a new one and a copy nobody has loaded for a week is removed. It is skipped when the
+disk has less than half the checkpoint plus 10 GiB free, and deleting `tiles/` is always safe.
+
 One artifact is deliberately outside the registry: the ESM-2 650M encoder (2.4 GiB) that
 `tt-bio affinity --model nesso1` uses to embed its protein. `transformers` fetches it into
 the hub cache on first use, so `TT_BIO_CACHE` still moves it, but it will show up under
