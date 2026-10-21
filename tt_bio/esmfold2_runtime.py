@@ -1632,7 +1632,11 @@ _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+lm_qk_chain"
 # it. In-process A/B, 512 aa --fast, repeat 3, Galaxy chip at 1000 MHz (wps6): ESMFold2 25.32 -> 24.54 s, ESMFold2-Fast
 # 15.07 -> 14.57 s, -Fast 256 aa 5.32 -> 5.22 s; normal mode (wpsn) ESMFold2 25.78 -> 25.07 s, -Fast 15.25 -> 14.81 s.
 # Wormhole only: on Blackhole -Fast 512 aa --fast reads +0.15 s at 1350 MHz.
-_WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu"
+# atom_l1 writes the denoise step's linears to L1 where `_atom_l1` admits the output (placement only, so CIFs are
+# identical with and without it). In-process A/B, repeat 3, Galaxy chip at 1000 MHz on every sample (wl1), warm pairs:
+# ESMFold2-Fast 512 aa --fast -0.30 / -0.47 s, normal -0.17 / -0.13 s, 1024 aa --fast -0.38 / -0.40 s; ESMFold2 512 aa
+# normal -0.21 / -0.16 s.
+_WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu+atom_l1"
 # dit_qkvf runs the token DiT's attention as one `_sdpa32_fused` program off a folded q|k|v projection. Fast bar on
 # Wormhole against the WH fast set without it, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-bet-ditpersist dsg): ESMFold2-Fast CA-lDDT -0.0002 [-0.0006, +0.0003], top-pose median 0.55 A vs 1.46 A
