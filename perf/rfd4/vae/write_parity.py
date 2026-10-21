@@ -36,7 +36,7 @@ def get(d, path):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", required=True)
-    ap.add_argument("--floor", required=True, help="the grading floor: cpu_parity.py --mixed (upstream's bf16-mixed)")
+    ap.add_argument("--floor", required=True, help="the grading floor: upstream_mixed.py (upstream's bf16-mixed)")
     ap.add_argument("--weights-floor", default="", help="optional cpu_parity.py --bf16-weights, recorded beside it")
     ap.add_argument("--out", required=True)
     ap.add_argument("--row", required=True)
@@ -120,9 +120,11 @@ def main() -> int:
     rec["goldens"] = ("upstream AE (sha 2db07bb4) in float64 on CPU: 3 synthetic mixed batches (n 96/250/500, B=2) "
                       "and 9 real encoder batches captured inside upstream's own partial-diffusion runs "
                       "(perf/rfd4/vae/gen_goldens.py, capture_real.py)")
-    rec["floor"] = ("bf16_floor is upstream's bf16-mixed precision modelled in float64 (cpu_parity.py --mixed: bf16 "
-                    "weights and matmul inputs, full-precision LayerNorm/softmax/residual), a lower bound on a GPU "
-                    "bf16-mixed run's deviation; bf16_weight_floor rounds only the weights")
+    rec["floor"] = ("bf16_floor is upstream's own AE at its production precision (fp32 weights under "
+                    "torch.autocast bf16, SDPA attention; perf/rfd4/vae/upstream_mixed.py) graded against the same "
+                    "float64 goldens; bf16_weight_floor is the float64 fold with only its matrices rounded")
+    rec["perf_note"] = ("encode/decode wall s at AICLK 1350 MHz, B as cased; decode ~0.06-0.07 s at 128-256 tokens, "
+                        "about 2x the pre-split ~0.03 s: the common-mode split reads back 4 small [B,1,768] rows per block")
     rec["sha"] = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True,
                                 cwd=Path(__file__).parent).stdout.strip()
     Path(a.out).write_text(json.dumps(rec, indent=1) + "\n")
