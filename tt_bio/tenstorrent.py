@@ -2118,8 +2118,9 @@ def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
     from . import ops
     if seq_len in _TRIMUL_DRAM_SHAPES or ops.taping():
         return ttnn.DRAM_MEMORY_CONFIG
-    if seq_len >= _trimul_tail.MIN_N and lever("trimul_t1_dram") and (
-            _trimul_tail.T1 or lever("trimul_t1")):
+    # t1_any, not trimul_t1 alone: OpenDDE and Protenix turn T1 on per plan (trimul_t1_c384 / _c256),
+    # and gating on the master lever kept their sub-352 trimuls in L1, where T1 declines every call.
+    if seq_len >= _trimul_tail.MIN_N and lever("trimul_t1_dram") and _trimul_tail.t1_any():
         return ttnn.DRAM_MEMORY_CONFIG
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
 
