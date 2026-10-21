@@ -88,6 +88,12 @@ class DesignEngine:
         self.max_parallel_samples = max_parallel_samples
         self._device = self.autoencoder.dev["decoder"].device
 
+    @classmethod
+    def from_pretrained(cls, weights: str | Path = DEFAULT_WEIGHTS, **kwargs) -> "DesignEngine":
+        """Load the released bundle onto a card. Upstream spells this
+        ``rfd4.Proteina.from_pretrained``; the arguments and the default checkpoint are the same."""
+        return cls(weights, **kwargs)
+
     def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int,
                rng: str = "per_design") -> DesignOutput:
         """`rng="per_design"` gives every design its own stream (`sampler.DesignRng`).

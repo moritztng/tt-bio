@@ -4275,42 +4275,28 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
     annotated CIF per design, which is kept beside the output because it IS the model's
     input, and a design that came out wrong is usually a spec that selected the wrong
-    atoms.
+    atoms. `tt_bio.rfd4.design()` is this same call from Python.
     """
     from tt_bio import rfd4
 
-    out_dir = Path(out_dir or "./designs")
     only = [s.strip() for s in spec_subset.split(",") if s.strip()] if spec_subset else None
+    if annotated_cif and only:
+        raise click.UsageError("--spec selects designs from a spec file; "
+                               "--annotated_cif takes the CIF itself")
+    click.echo(f"{Path(inputs).name}, seed {seed}")
+    out_dir = Path(out_dir or "./designs")
     try:
-        if annotated_cif:
-            if only:
-                raise click.UsageError("--spec selects designs from a spec file; "
-                                       "--annotated_cif takes the CIF itself")
-            designs = [rfd4.DesignInput(Path(inputs).stem, Path(inputs))]
-        else:
-            designs = rfd4.prepare_examples(inputs, out_dir / "inputs",
-                                            only=only, validate=validate)
+        written = rfd4.design(inputs, out_dir, num_designs=num_designs,
+                              nsteps=nsteps, seed=seed, only=only, validate=validate,
+                              annotated_cif=annotated_cif,
+                              on_design=lambda example_id, tokens, cif: click.echo(
+                                  f"  {example_id}: {tokens} tokens <- {cif}"),
+                              on_write=lambda path: click.echo(f"    -> {path}"))
     except NotImplementedError as e:
         raise click.ClickException(str(e))
     except (ValueError, KeyError, FileNotFoundError) as e:
         raise click.ClickException(f"{type(e).__name__}: {e}")
-
-    click.echo(f"Designing {len(designs)} spec(s) × {num_designs} design(s) from "
-               f"{Path(inputs).name} → {out_dir}, seed {seed}")
-    engine = rfd4.get_engine()
-    written = 0
-    for design in designs:
-        features, atom_array = rfd4.featurize(design.cif, seed=seed)
-        tokens = int(features["padding_mask"].shape[-1])
-        click.echo(f"  {design.example_id}: {tokens} tokens <- {design.cif}")
-        output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed)
-        for row in range(num_designs):
-            suffix = "" if num_designs == 1 else f"_{row}"
-            path = rfd4.write_design(output, features, atom_array,
-                                     out_dir / f"{design.example_id}{suffix}_generated.cif", row=row)
-            click.echo(f"    -> {path}")
-            written += 1
-    click.echo(f"Done — {written} design(s) → {out_dir}")
+    click.echo(f"Done — {len(written)} design(s) → {out_dir}")
 
 
 @cli.command("design")
