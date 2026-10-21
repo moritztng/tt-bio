@@ -64,9 +64,9 @@ Before each RMSD the design's identical chains, and its chemically equivalent at
 oxygens of an aspartate, the ring edges of a phenylalanine), are matched to the refold the way
 upstream matches them. A refold is therefore not penalised for a labelling it cannot know.
 
-Tags that switch on anything else (apo/holo, unindexed metrics, CATH,
-Rosetta developability, antibody contacts) are refused with the list of what is missing, rather
-than producing a shorter CSV that looks complete.
+Tags that switch on anything else (apo/holo, interchain interactions, chiral accuracy,
+unindexed metrics, CATH, Rosetta developability, antibody contacts) are refused with the list of
+what is missing, rather than producing a shorter CSV that looks complete.
 
 ## Behaviour kept from upstream on purpose
 
