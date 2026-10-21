@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import shutil
 import statistics
 import subprocess
@@ -53,18 +52,11 @@ AF2IG_FIXTURE = ROOT / "perf" / "rfd4" / "inputs" / "af2ig_{rung}" / "input.yaml
 
 
 def fixture(model: str, rung: int) -> Path:
-    if model == "af2ig":
-        path = Path(str(AF2IG_FIXTURE).format(rung=rung))
-        if path.exists():
-            # The YAML carries an absolute path to its PDB, which is wrong in any checkout but
-            # the one that built it. Repoint it at this tree before the CLI copies it to scratch.
-            text = path.read_text()
-            fixed = re.sub(r"(?m)^(\s*file:\s*).*$", r"\g<1>" + str(path.parent / "complex.pdb"),
-                           text)
-            if fixed != text:
-                path.write_text(fixed)
-        return path
-    return Path(str(COFOLD_FIXTURE).format(rung=rung))
+    """The YAML the CLI folds. AF2-IG's names its PDB relative to itself, which
+    `tt_bio/af2ig_input.py` resolves against the YAML's own directory, so the fixture is portable
+    across checkouts and nothing has to be rewritten here."""
+    family = AF2IG_FIXTURE if model == "af2ig" else COFOLD_FIXTURE
+    return Path(str(family).format(rung=rung))
 
 
 def fold_command(model: str, rung: int, protocol: str, out_dir: Path) -> list[str]:

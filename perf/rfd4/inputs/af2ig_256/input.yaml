@@ -1,5 +1,5 @@
 target:
-  file: /home/moritz/.coworker/wt/rfd4-beam/perf/rfd4/inputs/af2ig_256/complex.pdb
+  file: complex.pdb
   chain: A
 binder:
   sequence: AGVENVTELKKNFNRHLHFTLVKDRNVATPRDYYFALAHTVRDHLVGRWIRTQQHYYEKDPKRIYYLSLEFYMGRTLQNT
