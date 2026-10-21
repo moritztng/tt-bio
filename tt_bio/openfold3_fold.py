@@ -140,6 +140,9 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # --fast folds (m8w, 2026-10-20): OpenFold3 -0.11 s, OpenBind-0 -0.06 s mean. Graded on the 11-complex fast set,
 # paired seeds (m8g): PASS on both models (DockQ -0.003 / -0.005, CIs span zero). Blackhole within noise (OpenFold3
 # median -0.04 s, m8b2), so Wormhole fast only.
+# Wormhole normal keeps the pre-nwg set: the nwg set (fast trunk kernels in normal mode, 512-token page fold
+# 25.2 -> 20.0 s) runs out of DRAM at 1568 tokens on both OpenFold3 and OpenBind-0 (nsw, 2026-10-21), so it waits for
+# the fix on wk/spd-m-of3.
 WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres", "atom_l1"}
 # ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
 # 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.

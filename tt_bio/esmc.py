@@ -240,6 +240,19 @@ _ESMC_QK_L1 = env_flag("TT_BIO_ESMC_QK_L1", True)
 # The lm_qk_chain lever keeps the chain (ESMFold2's Wormhole normal set and Blackhole, esmfold2_runtime).
 # Blackhole (p150a, 1350 MHz, one load, page cell, esmc_ab eb1): 300M 66.4 -> 62.5 ms, 600M 102.7 -> 95.8, 6B 159.8 -> 137.8.
 _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC_QKRH", "").strip() else None)
+# qk_rope_heads writes q, k and v in block-fp8 (packed from its fp32 dest) and shsdpa reads them so: half the bytes
+# out of the one and into the other. shsdpa alone at the page shapes, Galaxy chip at 1000 MHz, trace replay, ms a call
+# (perf/shsdpa/bench.py --b8): 300M 0.306 -> 0.270, 600M 0.359 -> 0.327, 6B 0.162 -> 0.134; rel_rms vs float64 0.0265
+# -> 0.0268. Page cell (esmc_ab, traced, 3 rounds, Galaxy chip at 1000 MHz), off -> on medians, pcc vs fp32: 300M normal
+# 92.58 -> 90.66 ms (-0.000056), 600M normal 130.53 -> 129.39 (-0.000067), 6B normal 182.80 -> 180.98 (+0.000040).
+# Wormhole --fast with bf16 accumulation fails its bar at 300M (0.000202 under normal, bar 0.0002), so on Wormhole only
+# forwards that keep fp32 accumulation take it. Blackhole (p300 chip, 1350 MHz, eager, 3 rounds, off -> on medians, pcc
+# vs fp32): 300M fast 49.80 -> 48.50 ms (-0.000004), 600M fast 76.20 -> 74.52 (+0.000022), 6B 122 both arms; normal
+# 300M / 600M under host noise (batch minima 51.6 -> 51.4, 81.2 -> 79.5), pcc -0.000025 / 0.0; fast drops vs normal
+# 0.000159 / 0.000126, so Blackhole takes it in both modes. None = that default. Only shsdpa reads block-fp8 q, k, v
+# (a KeyPad mask), so ESMFold2 (lm_sdpa_stock) is untouched.
+_ESMC_QKRH_BF8 = (env_flag("TT_BIO_ESMC_QKRH_BF8", False)
+                  if os.environ.get("TT_BIO_ESMC_QKRH_BF8", "").strip() else None)
 # shsdpa writes its output with the heads already concatenated ([B, L, H * D]) instead of nlp_concat_heads after it:
 # only the writer's tile addresses change (sdpa_generic merged_out), so the output is bit-identical.
 _LM_SDPA_MERGED = env_flag("TT_BIO_LM_SDPA_MERGED", True)
@@ -381,17 +394,18 @@ def lm_sdpa(q, k, v, attn_mask, scale: float, merge: bool = False, ckc=None, out
     few-k-chunk program the device refuses (its circular buffers clash with L1 tensors) runs at the k64 config from
     then on. `merge` returns the heads concatenated, [B, L, H * D]: shsdpa writes that layout itself (_LM_SDPA_MERGED),
     the stock op is followed by nlp_concat_heads. `ckc` overrides shsdpa's kernel config (fidelity, approx, fp32 dest,
-    full sync); None keeps its HiFi2. `out_dtype` narrows the merged shsdpa output (packed from its fp32 dest); every
-    other path returns q's dtype."""
+    full sync); None keeps its HiFi2. `out_dtype` narrows the merged shsdpa output (packed from its fp32 dest), which
+    is bf16 for block-fp8 q, k, v (_ESMC_QKRH_BF8); every other path returns q's dtype."""
     if isinstance(attn_mask, KeyPad):
         # Interleaved DRAM or L1 (SaProt's RoPE leaves q, k in L1): the reader addresses each through its own accessor.
-        if int(q.shape[-1]) % 32 == 0 and all(t.dtype == ttnn.bfloat16 and not t.is_sharded() for t in (q, k, v)):
+        if int(q.shape[-1]) % 32 == 0 and all(t.dtype in (ttnn.bfloat16, ttnn.bfloat8_b) and not t.is_sharded()
+                                              for t in (q, k, v)):
             from tt_bio import shsdpa
             SHSDPA_STATS[0] += 1
             if merge and _LM_SDPA_MERGED:
                 return ttnn.squeeze(shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2, merged=True,
-                                                out_dtype=out_dtype), 1)
-            o = shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2)
+                                                out_dtype=out_dtype or ttnn.bfloat16), 1)
+            o = shsdpa.sdpa(q, k, v, scale, attn_mask, ckc=ckc or shsdpa.HIFI2, out_dtype=ttnn.bfloat16)
             return _concat_heads(o) if merge else o
         SHSDPA_STATS[1] += 1
         # A head dim off the tile, or q/k/v not bf16 interleaved: the stock op over the full mask, its rows the same.
@@ -577,6 +591,13 @@ def _mm_bf16_acc(w, exact: bool = False) -> bool:
     """bf16 dest accumulation on a block-fp8 minimal_matmul: a --fast choice. ``exact`` marks block-fp8 weights
     serving a normal-mode forward (the ESMC-6B embed on Wormhole), which keeps fp32 accumulation."""
     return w.dtype == ttnn.bfloat8_b and not exact if _ESMC_MM_BF16_ACC is None else _ESMC_MM_BF16_ACC
+
+
+def _qkrh_bf8(w, exact: bool) -> bool:
+    if _ESMC_QKRH_BF8 is not None:
+        return _ESMC_QKRH_BF8
+    from tt_bio import tenstorrent
+    return not (tenstorrent.is_wormhole() and _mm_bf16_acc(w, exact))
 
 
 def _kb6_on() -> bool:
@@ -818,7 +839,9 @@ class Attention(_MMLin, Module):
                 q, k, v = self._qkv(x)
         else:
             q, k, v = self._qkv(x)
-        heads = qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin) if _qkrh() else None
+        heads = (qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin,
+                               out_dtype=ttnn.bfloat8_b if isinstance(attn_mask, KeyPad)
+                               and _qkrh_bf8(self.out_weight, self.mm_exact_acc) else None) if _qkrh() else None)
         if heads is not None:
             for t in (q, k, v):
                 ttnn.deallocate(t)

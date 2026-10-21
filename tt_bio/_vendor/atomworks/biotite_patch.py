@@ -11,6 +11,7 @@ References:
 import functools
 from collections.abc import Callable
 
+import biotite
 import biotite.structure as struc
 import numpy as np
 from biotite.structure import Atom, AtomArray, AtomArrayStack
@@ -347,6 +348,38 @@ def _concatenate() -> None:
     struc.concatenate = concatenate
 
 
+@apply_if_version_lt(biotite.__version__, "1.3.0")
+def _backport_biotite_1_3() -> None:
+    """Give biotite 1.2.0 (the newest on Python 3.10) the three 1.3+ behaviours atomworks uses:
+    ``get_all_residue_positions``, ``BondList.convert_bond_type``, and ``coord()`` accepting
+    AtomArray subclasses such as ``AtomArrayPlus`` (1.2 checks the exact type)."""
+    import sys
+
+    def get_all_residue_positions(array):
+        starts = struc.residues.get_residue_starts(array, add_exclusive_stop=True)
+        return np.repeat(np.arange(len(starts) - 1), np.diff(starts))
+
+    def convert_bond_type(self, original_bond_type, new_bond_type):
+        mask = self._bonds[:, 2] == original_bond_type
+        self._bonds[mask, 2] = new_bond_type
+
+    original_coord = struc.atoms.coord
+
+    def coord(item):
+        if isinstance(item, (Atom, AtomArray, AtomArrayStack)):
+            return item.coord
+        return original_coord(item)
+
+    struc.get_all_residue_positions = get_all_residue_positions
+    struc.BondList.convert_bond_type = convert_bond_type
+    # every biotite module holding the 1.2 function by reference (celllist binds it as to_coord)
+    for name, module in list(sys.modules.items()):
+        if name.startswith("biotite."):
+            for attr, value in list(vars(module).items()):
+                if value is original_coord:
+                    setattr(module, attr, coord)
+
+
 def _update_set_inter_residue_bonds() -> None:
     """Patch ``_set_inter_residue_bonds`` to add custom ``transformation_id`` fields to struct_conn."""
     import biotite.structure.io.pdbx.convert as pdbx_convert
@@ -419,6 +452,7 @@ def monkey_patch_biotite() -> None:
     _enable_lean_atom_array_repr()
     _enable_segment_slices_in_atom_arrays()
     _update_get_residue_starts()
+    _backport_biotite_1_3()
     _update_array()
     _concatenate()
     _update_set_inter_residue_bonds()

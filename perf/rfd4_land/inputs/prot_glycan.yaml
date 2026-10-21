@@ -1,0 +1,14 @@
+version: 1
+# 7ROA with one N-acetylglucosamine on the N-x-S sequon (Asn50, ...NVN50IS...).
+# The covalent N-glycosidic bond is the case atomworks 3.0 re-charges (ASN ND2 +1 -> 0).
+sequences:
+  - protein:
+      id: A
+      sequence: QLEDSEVEAVAKGLEEMYANGVTEDNFKNYVKNNFAQQEISSVEEELNVNISDSCVANKIKDEFFAMISISAIVKAAQKKAWKELAVTVLRFAKANGLKTNAIIVAGQLALWAVQCG
+  - ligand:
+      id: B
+      ccd: NAG
+constraints:
+  - bond:
+      atom1: [A, 50, ND2]
+      atom2: [B, 1, C1]

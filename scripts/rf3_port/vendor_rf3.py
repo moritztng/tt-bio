@@ -5,11 +5,12 @@ Three upstream pieces, all BSD:
 
 - ``atomworks`` (PyPI 3.0.4; 2.2.1 until RFD4) -- the AF3 transform pipeline, shared
   by RF3 and RFD4. Vendored rather than pip-depended on because it declares
-  ``requires-python >=3.11`` and pins ``biotite`` exactly, while tt-bio runs 3.10
-  with biotite only capped. Both are conservative metadata: with the shims below it
-  runs on 3.10, and RF3's featurizer stays bit-exact on its ten committed fixtures
-  (``tests/test_rf3_featurizer.py``). RFD4's prep package is vendored on top of it
-  by ``scripts/rfd4_port/vendor_rfd4_prep.py``, which reuses this module.
+  ``requires-python >=3.11`` and pins ``biotite==1.6.0``, while tt-bio also runs 3.10,
+  where the newest biotite is 1.2.0. With the shims below and the biotite 1.2 backport
+  in ``atomworks_local.patch`` it runs on 3.10, and RF3's featurizer stays bit-exact
+  on its ten committed fixtures (``tests/test_rf3_featurizer.py``). RFD4's prep
+  package is vendored on top of it by ``scripts/rfd4_port/vendor_rfd4_prep.py``,
+  which reuses this module.
 - ``rf3`` (RosettaCommons/foundry, models/rf3) -- the RF3-specific host transforms
   and input-spec plumbing, plus the torch reference model the ttnn port is scored
   against. Inference only: no losses, no trainers, no Lightning.

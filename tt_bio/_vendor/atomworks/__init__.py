@@ -17,24 +17,6 @@ except ImportError:
     __version__ = "unknown"
 
 
-# Hard-enforce biotite version compatibility by importing biotite directly.
-# Atomworks monkey-patches several private biotite internals that are sensitive to exact version alignment
-_REQUIRED_BIOTITE_VERSION = "1.6.0"
-try:
-    import biotite as _biotite_check
-except ImportError:
-    raise ImportError(
-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, but biotite is not installed.\n"
-        f"    pip install 'biotite=={_REQUIRED_BIOTITE_VERSION}'"
-    ) from None
-if _biotite_check.__version__ != _REQUIRED_BIOTITE_VERSION:
-    raise ImportError(
-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, "
-        f"but biotite {_biotite_check.__version__!r} is installed.\n"
-        f"    pip install 'biotite=={_REQUIRED_BIOTITE_VERSION}'"
-    )
-del _biotite_check
-
 # Global logging configuration
 logger = logging.getLogger("atomworks")
 _log_level = os.environ.get("ATOMWORKS_LOG_LEVEL", "WARNING").upper()
@@ -43,15 +25,16 @@ logger.setLevel(_log_level)
 # Ensure that deprecation warnings are not repeated
 warnings.filterwarnings("once", category=DeprecationWarning)
 
-# Enforce strict biotite version — atomworks patches biotite internals
+# Enforce a supported biotite version — atomworks patches biotite internals
 import biotite  # noqa: E402
 
-_REQUIRED_BIOTITE_VERSION = "1.6.0"
-if biotite.__version__ != _REQUIRED_BIOTITE_VERSION:
+# Upstream pins biotite 1.6.0, which needs Python >= 3.11. On Python 3.10 the newest biotite is
+# 1.2.0; biotite_patch backports the three 1.6 behaviours atomworks relies on that 1.2.0 lacks.
+_SUPPORTED_BIOTITE_VERSIONS = ("1.2.0", "1.6.0")
+if biotite.__version__ not in _SUPPORTED_BIOTITE_VERSIONS:
     raise RuntimeError(
-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, "
-        f"but found biotite=={biotite.__version__}. "
-        f"Install the correct version: pip install biotite=={_REQUIRED_BIOTITE_VERSION}"
+        f"atomworks supports biotite {' or '.join(_SUPPORTED_BIOTITE_VERSIONS)}, "
+        f"but found biotite=={biotite.__version__}."
     )
 
 # Apply monkey patching to extend AtomArray functionality
