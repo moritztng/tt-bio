@@ -77,3 +77,34 @@ def test_an_empty_bond_category_is_nan_not_zero():
         "bond_length_metrics.bond_length.frac_unreasonable.between_chain.nonpolymer_to_polymer",
     ):
         assert np.isnan(ours[column])
+
+
+def test_evaluate_writes_upstreams_design_csv(tmp_path):
+    """The runner end to end: every column upstream wrote for tag `design`, cell for cell."""
+    import csv
+    import shutil
+
+    from tt_bio.rfd4.evaluate import evaluate
+
+    inputs = tmp_path / "designs"
+    inputs.mkdir()
+    for name in UPSTREAM["rows"]:
+        shutil.copy(GOLDENS / name, inputs / name)
+    out = evaluate(inputs, "[design]", tmp_path / "out")
+    rows = {r["designed_structure_path"].rsplit("/", 1)[-1]: r for r in csv.DictReader(open(out))}
+    for design, expected in UPSTREAM["rows"].items():
+        ours = rows[design]
+        for column, want in expected.items():
+            assert column in ours, f"{design}: {column} missing"
+            got = ours[column]
+            if want in ("", None) or got == "":
+                assert got == (want or ""), f"{design} {column}: {got!r} vs {want!r}"
+            else:
+                assert float(got) == float(want), f"{design} {column}: {got!r} vs {want!r}"
+
+
+def test_a_tag_that_needs_an_unported_metric_is_refused(tmp_path):
+    from tt_bio.rfd4.evaluate import evaluate
+
+    with pytest.raises(NotImplementedError, match="hotspot_obedience"):
+        evaluate(GOLDENS, "design,hotspot_conditioning", tmp_path)
