@@ -1,7 +1,11 @@
-"""Where a 128-token RFD4 design's time goes, by op family, on one Blackhole card.
+"""Where an RFD4 design's time goes, by op family, on one Blackhole card, at any size and recipe.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/e2e/census.py --spec <spec.yaml> --weights <bundle> \
-        --out state/rfd4/census/e2e-128.json
+        --out state/rfd4/census/e2e-128.json [--recipe high/front_loaded] [--designs 2 --width 2]
+
+The trunk's own token width is read off the device tensor on every call (`token_axis`), so the
+bucket is checked rather than assumed, and loading, the compiling first design and the warm one
+are timed apart so a CLI wall that holds all three can be taken to pieces.
 
 **Instrument, and what it cannot do.** The device profiler is the right tool for per-op device time,
 and it is not available here: the ttnn wheel on qb2 is not a Tracy-enabled build, so
@@ -21,7 +25,7 @@ to compare with a census taken before that). What neither timer catches (residua
 masking, dtype casts, the recycle projections) falls out as `unattributed` by subtraction rather than
 being quietly dropped.
 
-FLOPs per family are ARCH.md section 8's model at n=128, so the measured share can be put beside the
+FLOPs per family are ARCH.md section 8's model at the device width, so the measured share can be put beside the
 91-98 % of FLOPs that document claims for the pair track.
 """
 from __future__ import annotations
@@ -107,7 +111,7 @@ def instrument(engine, dev):
     return undo
 
 
-#: ARCH.md section 8, per trunk pass at n=128, in GFLOP. The pair block numbers are that document's
+#: ARCH.md section 8, per trunk pass at width n, in GFLOP. The pair block numbers are that document's
 #: own arithmetic (tri-mult in-projection 12.9 x2, pair transition 19.3, linear_g 4.8 x2,
 #: linear_z 3.2 x2 = 61 GFLOP per pair block, 7 blocks), split here by family.
 def arch_gflops(n: int, nlayers: int, n_pair: int) -> dict:
@@ -135,10 +139,16 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--work", default="/home/ttuser/rfd4-e2e-runs/census")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--recipe", default="thinking_medium")
+    ap.add_argument("--designs", type=int, default=1, help="designs per leg; s/design is leg / designs")
+    ap.add_argument("--width", type=int, default=1, help="max_parallel_samples")
+    ap.add_argument("--no-instrument", action="store_true", help="time the legs only, no family split")
     a = ap.parse_args()
 
     from tt_bio import rfd4
     from tt_bio.rfd4 import engine as E
+    from tt_bio.rfd4 import sampler as S
+    from tt_bio.rfd4 import trunk as TR
 
     work = Path(a.work)
     work.mkdir(parents=True, exist_ok=True)
@@ -146,13 +156,32 @@ def main():
     features, _ = rfd4.featurize(designs[0].cif, seed=a.seed)
     n = int(features["padding_mask"].shape[-1])
 
-    engine = E.DesignEngine(a.weights, recipe="thinking_medium")
+    t0 = time.perf_counter()
+    engine = E.DesignEngine(a.weights, recipe=a.recipe, max_parallel_samples=a.width)
+    load_s = time.perf_counter() - t0
     dev = engine._device
     nlayers = engine.config["nn"]["nlayers"]
     n_pair = len(engine.trunk.pair_updates)
 
-    # Leg 1: compile, thrown away. Leg 2: the warm, uninstrumented truth about total time.
-    engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng="upstream")
+    # The shape the trunk actually runs at, from the device tensor, on every call.
+    widths: dict[tuple, int] = defaultdict(int)
+    call = TR.Trunk.__call__
+
+    def seen(self, s_init, *args, **kwargs):
+        widths[tuple(s_init.shape)] += 1
+        return call(self, s_init, *args, **kwargs)
+
+    TR.Trunk.__call__ = seen
+
+    def leg():
+        engine.design(features, num_designs=a.designs, nsteps=engine.spec.nsteps, seed=a.seed,
+                      rng="upstream")
+
+    # Leg 1: compile, timed and thrown away. Leg 2: the warm, uninstrumented truth about total time.
+    with clocksample.during(period=1.0) as clk0:
+        t0 = time.perf_counter()
+        leg()
+        cold_s = time.perf_counter() - t0
     trunk_s = []
     inner = engine.trunk.run_bucketed
 
@@ -165,22 +194,40 @@ def main():
     engine.trunk.run_bucketed = timed_trunk
     with clocksample.during(period=1.0) as clk:
         t0 = time.perf_counter()
-        engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng="upstream")
+        leg()
         warm_s = time.perf_counter() - t0
     warm_trunk_s, warm_aiclk = sum(trunk_s), clk.summary()
+    passes = S.trunk_passes(engine.spec)
+    width = sorted({shape[1] for shape in widths})
+    token_axis = {"n_tokens": n, "device_widths": width,
+                  "device_shapes": {"x".join(map(str, k)): v for k, v in widths.items()},
+                  "multiple_of_32": all(w % 32 == 0 for w in width),
+                  "pad_tokens": [w - n for w in width]}
+    phases = {"load_s": round(load_s, 3), "cold_design_s": round(cold_s / a.designs, 3),
+              "compile_s": round((cold_s - warm_s) / a.designs, 3),
+              "warm_design_s": round(warm_s / a.designs, 3),
+              "cold_aiclk": clk0.summary(), "designs_per_leg": a.designs, "width": a.width,
+              "cli_equivalent_s_per_design": round((load_s + cold_s) / a.designs, 3)}
+    if a.no_instrument:
+        out = {"size": n, "recipe": a.recipe, "steps": engine.spec.nsteps, "trunk_passes": passes,
+               "token_axis": token_axis, "phases": phases, "warm_aiclk": warm_aiclk,
+               "warm_trunk_s_per_design": round(warm_trunk_s / a.designs, 3)}
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+        json.dump(out, open(a.out, "w"), indent=2)
+        print(json.dumps(out, indent=2))
+        return
 
     # Leg 3: the same design with every family synced on both sides.
     undo = instrument(engine, dev)
     trunk_s.clear()
     with clocksample.during(period=1.0) as clk2:
         t0 = time.perf_counter()
-        engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng="upstream")
+        leg()
         instr_s = time.perf_counter() - t0
     undo()
     instr_trunk_s = sum(trunk_s)
 
-    gf = arch_gflops(n, nlayers, n_pair)
-    passes = engine.spec.nsteps * 3  # thinking_medium: 180 passes over 60 steps
+    gf = arch_gflops(width[-1], nlayers, n_pair)
     attributed = sum(TIMES.values())
     pair_fams = ("pair_write", "tri_mult_out", "tri_mult_in", "pair_transition")
     token_fams = ("attention", "pair_bias", "token_transition")
@@ -188,7 +235,7 @@ def main():
 
     families = {}
     for fam, s in sorted(TIMES.items(), key=lambda kv: -kv[1]):
-        total_gf = gf.get(fam, 0.0) * passes
+        total_gf = gf.get(fam, 0.0) * passes * a.designs
         families[fam] = {"device_s": round(s, 3), "calls": COUNTS[fam],
                          "share_of_trunk": round(s / instr_trunk_s, 4),
                          "ms_per_call": round(s / COUNTS[fam] * 1e3, 3),
@@ -204,8 +251,9 @@ def main():
     token_t = sum(TIMES[f] for f in token_fams)
     pair_gf = sum(gf[f] for f in pair_fams)
     out = {
-        "size": n, "recipe": "thinking_medium", "steps": engine.spec.nsteps, "trunk_passes": passes,
-        "nlayers": nlayers, "pair_updates_per_pass": n_pair, "batch": 1, "designs": 1,
+        "size": n, "recipe": a.recipe, "steps": engine.spec.nsteps, "trunk_passes": passes,
+        "nlayers": nlayers, "pair_updates_per_pass": n_pair, "batch": a.width, "designs": a.designs,
+        "token_axis": token_axis, "phases": phases,
         "instrument": ("synced host timers per family; the ttnn wheel here is not a Tracy build, so "
                        "the device profiler (TT_METAL_DEVICE_PROFILER=1) cannot run on this host"),
         "warm_uninstrumented": {"design_s": round(warm_s, 3), "trunk_s": round(warm_trunk_s, 3),
@@ -223,7 +271,7 @@ def main():
                       "share_of_flops": round((pass_gf - pair_gf) / pass_gf, 4)}},
         "flops": {"tflop_per_pass": round(pass_gf / 1e3, 4),
                   "tflop_per_design": round(pass_gf * passes / 1e3, 1),
-                  "achieved_tflops_warm": round(pass_gf * passes / 1e3 / warm_trunk_s, 2),
+                  "achieved_tflops_warm": round(pass_gf * passes * a.designs / 1e3 / warm_trunk_s, 2),
                   "arch_claim": "ARCH.md section 8: 0.496 TFLOP/pass and 89.3 TFLOP/design at n=128"},
         "bytes": {"weights_per_pass_mb": 350.1, "weights_per_design_gb": round(350.1 * passes / 1e3, 1),
                   "dram_roof_gb_s": 435.2, "sustained_gb_s": 391,
