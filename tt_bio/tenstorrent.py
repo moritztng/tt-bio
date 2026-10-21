@@ -791,12 +791,11 @@ _FAST_MODE = False
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
 #                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
+#   dit_step_mm     the token DiT's step linears (`DitLowp.linear`) on minimal_matmul with the blocks measured at Protenix-v2's
+#                   shapes (`_DIT_STEP_MM`, Wormhole): 1.12-1.18x (fp32 accumulation, K block 1) and 1.04-1.35x (bfp8 HiFi2), lower
+#                   float64 error than the site at every shape (spd-m-protenix dms). Other shapes keep their program.
 #   dit_shard       the token DiT's conditioned transition (Boltz-2) with its three [N, 2D] hidden products
 #                   block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and the gate after it as before.
-#   dit_fc123g      under dit_shard, the three hidden products and both multiplies as one fc12g pass over the
-#                   interleaved [gates | swish | a_to_b] weight (`_dit_transition_sharded`, kernels/fc12g).
-#   adaln_l1        a windowed adaLN (addcmul_at modulation) writes its LayerNorm output to L1 interleaved, not DRAM
-#                   (`_adaln_norm`). Placement only.
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -815,8 +814,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_fc123g",
-            "adaln_l1")
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -835,8 +833,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bp
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_fc123g",
-                             "adaln_l1"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -3005,10 +3002,32 @@ class DitLowp(NamedTuple):
     qkv: object     # q/k/v when the attention is `_sdpa32` (else `out`)
 
     def linear(self, x, w, bias=None, *, dtype, activation=None):
+        y = _dit_step_mm(x, w, bias, self, dtype, activation) if lever("dit_step_mm") else None
+        if y is not None:
+            return y
         if self.k1:
             return k1_linear(x, w, bias, compute_kernel_config=self.ckc, dtype=dtype, activation=activation)
         return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype, core_grid=CORE_GRID_MAIN,
                            compute_kernel_config=silu_ckc(self.ckc) if activation == "silu" else self.ckc)
+
+
+# minimal_matmul blocks (M, K, N, subblock h, w) by (fp32 accumulation, K tiles, N tiles), fastest at 512 rows on a
+# Wormhole 8 x 9 grid (spd-m-protenix dms). K block 1 under fp32 accumulation: wider K blocks return wrong elements there.
+_DIT_STEP_MM = {(True, 24, 96): (4, 1, 16, 1, 4), (True, 24, 48): (4, 1, 8, 1, 4), (True, 48, 24): (2, 1, 4, 1, 4),
+                (True, 24, 24): (2, 1, 4, 1, 4), (False, 24, 96): (2, 4, 16, 2, 4), (False, 24, 48): (2, 4, 8, 2, 4),
+                (False, 48, 24): (2, 4, 4, 2, 4), (False, 24, 24): (2, 4, 4, 2, 4)}
+def _dit_step_mm(x, w, bias, lp, dtype, activation):
+    """`DitLowp.linear` on minimal_matmul (`dit_step_mm`), or None where no block was measured (a fused activation
+    was not)."""
+    blk = (_DIT_STEP_MM.get((lp.k1, int(w.padded_shape[-2]) // 32, int(w.padded_shape[-1]) // 32))
+           if is_wormhole() and activation is None else None)
+    if blk is None:
+        return None
+    m, k, n, sh, sw = blk
+    gx, gy = COMPUTE_GRID_MAIN
+    cfg = ttnn.MinimalMatmulConfig(M_block_size=m, K_block_size=k, N_block_size=n, subblock_h=sh, subblock_w=sw,
+                                   compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
+    return ttnn.experimental.minimal_matmul(x, w, bias_tensor=bias, compute_kernel_config=lp.ckc, dtype=dtype, config=cfg)
 
 
 def dit_lowp(dit_dtype, ckc):
@@ -4534,7 +4553,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_fc123g", "adaln_l1")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -6478,8 +6497,15 @@ _TRIMUL_IBW_FULL_REFUSED: set = set()
 # 1000 MHz, perf/spd/af2_trimul_bmm_sweep.py, both deferred transposes, operands in L1 as the
 # untaped trunk runs them): [1,64,195,195]^2 0.40 -> 0.098 ms, [1,128,195,195]^2 0.80 -> 0.20 ms,
 # [1,64,224,224]^2 0.167 -> 0.103 ms; in DRAM (the taped path) 0.19 -> 0.155 and 0.37 -> 0.29 ms.
-# Blackhole stays off until measured there. None = arch default.
+# MEASURED on Blackhole (qb2 p300c chip 1, AICLK median 1350, bc4-bet-gates, the same sweep over
+# N 160-320, C 64 and 128, all three transposes, DRAM and L1): `torch.equal` to the multicast plan in
+# every cell; [1,128,224,224]^2 0.25 -> 0.11 ms in DRAM and 0.23 -> 0.09 ms in L1, 256 tokens 0.30
+# -> 0.13-0.15 ms, and no faster at 288 and 320 (within 4 %, slower in four of twelve cells).
+# None = the default: taken up to `_TRIMUL_PER_CHANNEL_MAX_ST` on both archs.
 _TRIMUL_PER_CHANNEL = env_flag("TT_BIO_TRIMUL_PER_CHANNEL", None)
+# 8 tiles (256 tokens) is where Wormhole's 8x9 grid stops giving every core one output tile, and
+# where the plan stops winning on Blackhole's 11x10.
+_TRIMUL_PER_CHANNEL_MAX_ST = 8
 # Sequence tiles whose per-channel plan clashed with live L1: they keep the multicast plan.
 _TRIMUL_PER_CHANNEL_REFUSED: set = set()
 # With the operands in L1 the plan is taken up to 7 sequence tiles (224 tokens), the window it was
@@ -6496,7 +6522,7 @@ _TRIMUL_PER_CHANNEL_L1_MAX_ST = 7
 
 
 def set_trimul_per_channel(on) -> object:
-    """A/B switch for the harness (None = arch default). Returns the previous value."""
+    """A/B switch for the harness (None = the default). Returns the previous value."""
     global _TRIMUL_PER_CHANNEL
     prev, _TRIMUL_PER_CHANNEL = _TRIMUL_PER_CHANNEL, on
     _triangle_mul_program_config.cache_clear()
@@ -6637,7 +6663,8 @@ def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False, sub: tu
                                                extra_tiles=transposed(in0_block_w)) > budget:
         in0_block_w = max(d for d in range(in0_block_w - 1, 0, -1) if seq_len_tiles % d == 0)
     if (per_core_M == per_core_N == 1 and seq_len_tiles not in _TRIMUL_PER_CHANNEL_REFUSED
-            and (is_wormhole() if _TRIMUL_PER_CHANNEL is None else _TRIMUL_PER_CHANNEL)
+            and (seq_len_tiles <= _TRIMUL_PER_CHANNEL_MAX_ST if _TRIMUL_PER_CHANNEL is None
+                 else _TRIMUL_PER_CHANNEL)
             and not (l1_operands and seq_len_tiles > _TRIMUL_PER_CHANNEL_L1_MAX_ST)
             and _matmul_cb_bytes(in0_block_w, seq_len_tiles, seq_len_tiles, 2,
                                  extra_tiles=2 * in0_block_w * seq_len_tiles) <= budget):
@@ -13480,7 +13507,7 @@ def _fc12g_subblock(pm, pn):
 
 def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden, products=2, defines=None):
     """silu(x @ w1) * (x @ w2) into a [pm x pn]-sharded tensor, one 2D-mcast pass over `w12` (`swiglu_fc12g`), or
-    with `products=3` silu(x @ w1) * (x @ w2) * (x @ w3) (`dit_fc123g`), each core column's in1 block its w1, w2
+    with `products=3` silu(x @ w1) * (x @ w2) * (x @ w3), each core column's in1 block its w1, w2
     (and w3) columns in turn (`_fc12_interleave`).
 
     A subblock fits an fp32 dest half (4 tiles); a product wider than that spans several subblocks of one row
@@ -13571,19 +13598,11 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
-_DIT_FC123G_IN1_BYTES = 900 * 1024
-_DIT_FC123G_REFUSED: set = set()
-
-
-def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
+def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
     """`b_to_a((silu(a w_gt) * (a w_sw)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
     the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
     is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
-    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1).
-
-    `w3` (w_gt, w_sw and w_ab interleaved per core column, `_fc12_interleave`) computes the hidden product in one
-    fc12g pass (`dit_fc123g`): no hidden tensors and no separate multiplies (ditparts.py: the three linears and two
-    multiplies 157.6 us of the 209.9 us block, the one-pass [768, 4608] linear 113.2)."""
+    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
     xs = [int(d) for d in a.padded_shape]
     mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
     nt, ct = int(w_sw.shape[-1]) // 32, int(w_ba.shape[-1]) // 32
@@ -13603,30 +13622,11 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
     bw = _transition_kb("fc1", kt)
     hid = []
     try:
-        # fc12g streams K in `bw` blocks, its in1 CB two blocks of three products: 576 KiB of bf16 at 512 x 1
-        # (K block 8 tiles, pn 6), beside 144 KiB of fp32 partials. Its fp32 multiplies need a dest tile past the
-        # subblock. A shape it cannot build (5 samples: pm 10 clashes in L1) falls back to the three linears below,
-        # and only that shape: dit_shard itself stays on.
-        b = None
-        if (w3 is not None and key not in _DIT_FC123G_REFUSED and gx == 8 and prod(_fc12g_subblock(pm, pn)) < 4
-                and 2 * 3 * pn * bw * 2048 <= _DIT_FC123G_IN1_BYTES):
-            try:
-                b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3,
-                           defines={"FC12G_MUL_SFPU": "1"})
-            except Exception as e:  # noqa: BLE001
-                _DIT_FC123G_REFUSED.add(key)
-                _latch("dit_fc123g", "refused", e)
-        if b is not None:
-            hid.append(b)
-            _latch("dit_fc123g", "served")
-        else:
-            if w3 is not None:
-                _latch("dit_fc123g", "declined")
-            for w in (w_sw, w_gt, w_ab):
-                hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc,
-                                       memory_config=mc, dtype=a.dtype))
-            b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
-            b = ttnn.multiply_(b, hid[2])
+        for w in (w_sw, w_gt, w_ab):
+            hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
+                                   dtype=a.dtype))
+        b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+        b = ttnn.multiply_(b, hid[2])
         out = ttnn.linear(b, w_ba, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=a.dtype,
                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: the interleaved path from then on
@@ -15370,24 +15370,6 @@ class Miniformer(Module):
         return s, z
 
 
-_ADALN_L1_BYTES = 4 << 20
-
-
-def _adaln_norm(a, ckc, windowed):
-    """The adaLN's parameter-free LayerNorm. Under `adaln_l1` the normalised activation of a windowed
-    (`addcmul_at`) adaLN goes to L1 interleaved: the modulation reads it straight back, so its DRAM write and
-    read are pure traffic (adaln_ln.py, Wormhole 512 x 1 fp32: LN 41.7 us, LN + addcmul_at 79.5 us)."""
-    if (windowed and lever("adaln_l1") and a.memory_config().buffer_type == ttnn.BufferType.DRAM
-            and prod(int(d) for d in a.padded_shape) * (4 if a.dtype == ttnn.float32 else 2) <= _ADALN_L1_BYTES):
-        try:
-            out = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc, memory_config=ttnn.L1_MEMORY_CONFIG)
-            _latch("adaln_l1", "served")
-            return out
-        except Exception as e:  # noqa: BLE001  an L1 clash: this call in DRAM
-            _latch("adaln_l1", "refused", e)
-    return ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ckc)
-
-
 class AdaLN(Module):
     def __init__(
         self,
@@ -15476,8 +15458,9 @@ class AdaLN(Module):
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
-        a = _adaln_norm(a, self.compute_kernel_config,
-                        isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin))
+        a = ttnn.layer_norm(
+            a, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config
+        )
         own = s_terms is None
         if own:
             s_terms = self.s_terms(s, large_seq_len)
@@ -15551,18 +15534,6 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_weight = self.torch_to_tt("output_projection.0.weight")
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
-    def _w123(self):
-        """gates | swish | a_to_b interleaved for the fc12g kernel's three-product pass, built on first use; None
-        unless `dit_fc123g` is on (and silu_f32, whose PACK-thread silu the kernel runs)."""
-        if not (lever("dit_fc123g") and lever("silu_f32")):
-            return None
-        if getattr(self, "_w3", None) is None:
-            swish, gates = torch.chunk(self.weights["swish_gate.0.weight"], chunks=2, dim=0)
-            self._w3 = ttnn.from_torch(
-                _fc12_interleave(gates.t(), swish.t(), self.weights["a_to_b.weight"].t(), gx=8),
-                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.a_to_b_weight.dtype)
-        return self._w3
-
     def __call__(
         self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None, residual=None
     ) -> ttnn.Tensor:
@@ -15573,7 +15544,7 @@ class ConditionedTransitionBlock(Module):
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
         b_a = (_dit_transition_sharded(a, self.swish_weight, self.gates_weight, self.a_to_b_weight,
-                                       self.b_to_a_weight, self.compute_kernel_config, self._w123())
+                                       self.b_to_a_weight, self.compute_kernel_config)
                if lever("dit_shard") and not self.atom_level and self.a_to_b_gate else None)
         if b_a is not None:
             ttnn.deallocate(a)

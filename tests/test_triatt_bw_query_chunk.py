@@ -85,3 +85,24 @@ def test_the_kernels_loop_over_query_chunks():
 def test_cb_table_covers_the_kernels():
     for qt in (None, 1, 2):
         T.check_cb_coverage(T.plan(64, 4, 768, 32, GRID, q_chunk_tiles=qt))
+
+
+def test_v2_takes_the_whole_query_on_blackhole_only():
+    """BW_V2 has no chunked form and no Wormhole grade; where it runs, it must not cost the
+    whole-query plan a chunk."""
+    for grid in (GRID, (11, 10), (13, 10), (8, 8)):
+        for n in range(224, 1025, 32):
+            plain = T.plan(64, 4, n, 32, grid)
+            for wh in (False, True):
+                p = T.serving_plan(64, 4, n, 32, grid, wormhole=wh)
+                assert p["v2"] == (not wh and p["Qt"] == p["Nt"]), (grid, n, wh)
+                if T.fits_l1(plain, wh):
+                    assert p["Qt"] == p["Nt"], (grid, n, wh)
+    assert T.serving_plan(64, 4, 288, 32, (11, 10), wormhole=False)["v2"]
+
+
+def test_v2_cb_table_covers_the_kernel():
+    p = T.plan(64, 4, 288, 32, GRID, v2=True)
+    assert p["v2"]
+    T.check_cb_coverage(p)
+    assert not T.plan(64, 4, 768, 32, GRID, q_chunk_tiles=2, v2=True)["v2"]
