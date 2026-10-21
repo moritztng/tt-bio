@@ -106,8 +106,8 @@ def test_evaluate_writes_upstreams_design_csv(tmp_path):
 def test_a_tag_that_needs_an_unported_metric_is_refused(tmp_path):
     from tt_bio.rfd4.evaluate import evaluate
 
-    with pytest.raises(NotImplementedError, match="rasa_adherence"):
-        evaluate(GOLDENS, "design,rasa_conditioning", tmp_path)
+    with pytest.raises(NotImplementedError, match="interchain_interactions"):
+        evaluate(GOLDENS, "design,interchain_interactions", tmp_path)
 
 
 def test_partial_diffusion_tag_matches_upstream(tmp_path):
