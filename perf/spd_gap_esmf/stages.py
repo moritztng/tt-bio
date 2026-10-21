@@ -36,6 +36,7 @@ ap.add_argument("--a3m", type=Path, help="fold this alignment instead of the pag
 ap.add_argument("--draw", action="store_true", help="split the diffusion step by module (nested syncs)")
 ap.add_argument("--plain", action="store_true", help="cold + plain fold only; also counts the einsums bmm_res served")
 ap.add_argument("--build-profile", action="store_true", help="cProfile the build (weights load + upload) into --out.build.txt")
+ap.add_argument("--cold-profile", action="store_true", help="cProfile the cold fold (compile + first run) into --out.cold.txt")
 ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
 a = ap.parse_args()
 
@@ -123,7 +124,14 @@ def staged(tag):
 if a.cold_stages:
     staged("cold_stages")
 else:
+    cpr = cProfile.Profile() if a.cold_profile else None
+    cpr and cpr.enable()
     t0 = time.perf_counter(); one_fold(); res["cold_s"] = round(time.perf_counter() - t0, 3)  # + program compile
+    cpr and cpr.disable()
+    if cpr:
+        with open(f"{a.out}.cold.txt", "w") as f:
+            for key in ("cumulative", "tottime"):
+                pstats.Stats(cpr, stream=f).sort_stats(key).print_stats(60)  # what a fresh process pays past the build
 if a.plain:
     from tt_bio import bmm_res
     bres, bres_mm = collections.Counter(), bmm_res.matmul
