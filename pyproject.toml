@@ -24,14 +24,13 @@ dependencies = [
     "pyyaml",
     "omegaconf",  # only needed to unpickle DictConfig objects baked into upstream ckpts
     "biopython",
-    # <1.7: biotite 1.7.1 dropped `BondList._bonds` and moved `connect_via_residue_names`
-    # out of `biotite.structure.bonds`. The vendored AtomWorks tree RF3 featurizes through
-    # (NOTICE #7) reaches both, so with biotite unbounded a clean `pip install tt-bio`
-    # resolved 1.7.1 and every `--model rf3` fold died at import before opening a card.
-    # 1.2.0 through 1.6.0 are clean on both, checked one version at a time; there is no
-    # published 1.7.0, so this excludes exactly 1.7.1. Lifting the bound means porting the
-    # vendored tree off two biotite private internals and re-certifying RF3 featurization.
-    "biotite<1.7",
+    # The vendored AtomWorks tree (NOTICE #7) patches biotite internals and accepts exactly
+    # these two releases. 1.6.0 is what upstream pins, and it needs Python >= 3.11. 1.2.0 is
+    # the newest biotite on 3.10; tt_bio/_vendor/atomworks/biotite_patch.py backports the
+    # three 1.3+ behaviours AtomWorks uses, gated on the biotite version, and RF3 features
+    # are bit-identical between the two. 1.7.1 dropped `BondList._bonds`.
+    "biotite==1.2.0; python_version < '3.11'",
+    "biotite==1.6.0; python_version >= '3.11'",
     "matplotlib",
     "scipy",
     "numba",
