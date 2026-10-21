@@ -85,6 +85,10 @@ if x.get("actual_status")=="running":
     R $H:/root/kc/rfd4/ $OUT/rfd4/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
     st=$(timeout 30 $S 'ls /root/kc/rfd4/RFD4-DONE' 2>/dev/null)
     [ -n "$st" ] && END=done
+    # box_rfd4.sh writes RFD4-FAILED when the import gate trips or no arm produced a warm batch. Name it, so a
+    # session that measured nothing never reads as "done" in this log (session 1, 2026-10-21).
+    f=$(timeout 30 $S 'cat /root/kc/rfd4/RFD4-FAILED 2>/dev/null' 2>/dev/null)
+    [ -n "$f" ] && END="FAILED ($f)"
     [ -z "$st" ] && [ "$(state $I)" != running ] && END=stopped
     [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-420))") ] && END=${END:-cap}
     [ -n "$END" ] && break
