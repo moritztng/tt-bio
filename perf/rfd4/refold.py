@@ -117,6 +117,10 @@ def main(argv=None) -> int:
     print(f"{len(todo)} design(s) to refold into {samples}", flush=True)
     if not todo:
         return 0
+    # Before the oracle loads 2.3 GB of weights, not after: an unwritable record path cost a
+    # full model load and left nothing behind.
+    if args.record:
+        pathlib.Path(args.record).parent.mkdir(parents=True, exist_ok=True)
 
     oracle = OpenFold3Oracle(msa_dir=args.msa_dir, template_structures=args.templates,
                              name=key, oracle_name=oracle_name, recycles=args.recycles,
