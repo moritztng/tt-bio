@@ -119,6 +119,18 @@ class Capturer:
         self.sampled: dict[str, list[str]] = {}
         self.handles: list = []
 
+    def attach_names(self, model: torch.nn.Module, suffixes: list[str]) -> int:
+        """Hook modules by qualified-name suffix, for the parts that are a bare nn.Sequential
+        and so cannot be selected by class: the decoder's residue head (logit_linear),
+        structure head (struct_linear) and atom-presence head (atom_presence_linear)."""
+        n = 0
+        for name, mod in model.named_modules():
+            if any(name.endswith(s) for s in suffixes):
+                self.handles.append(mod.register_forward_hook(self._make_hook(name), with_kwargs=True))
+                self.sampled.setdefault(type(mod).__name__, []).append(name)
+                n += 1
+        return n
+
     def attach(self, model: torch.nn.Module, per_class: int = 0) -> int:
         """Hook the selected classes. `per_class` > 0 samples that many module instances
         evenly across each class's ordered list (a 26-block stack costs ~9 MB a block, so
@@ -318,6 +330,9 @@ def main() -> int:
     ap.add_argument("--f64", action="store_true",
                     help="also run each hooked module on the same inputs in float64 and store that output")
     ap.add_argument("--classes", default=",".join(DEFAULT_CLASSES))
+    ap.add_argument("--module-names", default="",
+                    help="comma-separated qualified-name suffixes to hook in addition to --classes "
+                         "(for nn.Sequential heads that have no class of their own)")
     ap.add_argument("--ckpt", default="nvidia/RFD4-Proteina")
     ap.add_argument("overrides", nargs="*", help="hydra overrides for rfd4.generate")
     a = ap.parse_args()
@@ -335,6 +350,8 @@ def main() -> int:
                    stop_when_done=a.stop_after_captures)
     cap.overrides = overrides
     n = cap.attach(model, per_class=a.per_class)
+    if a.module_names:
+        n += cap.attach_names(model, [x for x in a.module_names.split(",") if x])
     wrap_sampler(cap, model, a.sampler_steps, stop_after=a.stop_after_steps)
     print(f"[capture] hooked {n} modules for feature {a.feature}", flush=True)
     seed_everything(a.seed)
