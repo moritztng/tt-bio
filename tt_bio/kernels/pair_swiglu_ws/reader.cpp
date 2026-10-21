@@ -96,14 +96,18 @@ void kernel_main() {
     const uint32_t t12 = get_tile_size(cb_w12), t3 = get_tile_size(cb_w3), tx = get_tile_size(cb_x);
     cb_reserve_back(cb_w12, KT * W12);
     uint32_t w = get_write_ptr(cb_w12);
+#ifndef WS_NO_WREAD  // time attribution only (perf/bc4_swiglu/relu_probe.py)
     for (uint32_t p = 0; p < KT * W12; ++p, w += t12) {
         noc_async_read_page(p, s12, w);
     }
+#endif
     cb_reserve_back(cb_w3, NH * CT);
     w = get_write_ptr(cb_w3);
+#ifndef WS_NO_WREAD
     for (uint32_t p = 0; p < NH * CT; ++p, w += t3) {
         noc_async_read_page(p, s3, w);
     }
+#endif
 #ifdef WS_LN
     constexpr uint32_t cb_gamma = 8, cb_beta = 9, cb_scaler = 10, cb_eps = 11;
     generate_reduce_scaler(cb_scaler, SCALER);

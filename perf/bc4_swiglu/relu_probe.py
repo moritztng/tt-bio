@@ -14,6 +14,7 @@ ap.add_argument("--n", type=int, default=224)
 ap.add_argument("--shapes", default="128x512,64x128")
 ap.add_argument("--calls", type=int, default=50)
 ap.add_argument("--reps", type=int, default=7)
+ap.add_argument("--drops", default="", help="comma list of WS_NO_ ablations, only these")
 ap.add_argument("--quick", action="store_true", help="production arm only")
 ap.add_argument("--out", required=True)
 A = ap.parse_args()
@@ -101,7 +102,11 @@ for shape in A.shapes.split(","):
             continue
         arms = [("HiFi2", dict(fid=ttnn.MathFidelity.HiFi2)), ("LoFi", dict(fid=ttnn.MathFidelity.LoFi)),
                 ("no_ln", dict(ln=None))]
-        for drop in ("FC12", "FC3", "FC12+FC3", "XREAD", "WRITE", "XREAD+WRITE", "FC12+FC3+XREAD+WRITE"):
+        drops = A.drops.split(",") if A.drops else ("FC12", "FC3", "FC12+FC3", "XREAD", "WRITE", "XREAD+WRITE",
+                                                    "FC12+FC3+XREAD+WRITE", "WREAD", "WREAD+FC12+FC3")
+        if A.drops:
+            arms = []
+        for drop in drops:
             arms.append(("no_" + drop.lower(), dict(d=tuple(("WS_NO_" + k, "1") for k in drop.split("+")))))
         arms.append(("no_ln_no_fc12+fc3", dict(ln=None, d=(("WS_NO_FC12", "1"), ("WS_NO_FC3", "1")))))
         for arm, kw in arms:
