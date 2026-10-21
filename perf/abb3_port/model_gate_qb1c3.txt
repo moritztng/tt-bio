@@ -1,6 +1,6 @@
 # The 8-block ABodyBuilder3 model against tt_bio/abodybuilder3_reference.py in float64,
 # re-recorded on the BCP merge tree.
-RECORDED-AT: 9b16e86a7ed0c1579b28676ca204414a5526e237 scripts/abb3_port/model_gate.py
+RECORDED-AT: a2b7938f110fc096f62811e70ad172dafeb34c3f scripts/abb3_port/model_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (the fused layer-norm backward, lnbw).
 # Replaces the record taken at 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw
@@ -93,6 +93,11 @@ RECORDED-AT: 9b16e86a7ed0c1579b28676ca204414a5526e237 scripts/abb3_port/model_ga
 # RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 9b16e86a7, 20:14-20:21Z 2026-10-18,
 # qb2:0, p300c, the gate's wheel venv with the tree on PYTHONPATH. Every ok/FAIL row and every gradient
 # row is identical to the 4ba29781f record, which still FAILs angles at 5.11e-02 (sigma 0.3, 256 tokens).
+# NO TIMING CLAIM.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at a2b7938f1, 04:26-04:38Z 2026-10-21,
+# qb2:0, p300c, the gate's wheel venv with the tree on PYTHONPATH. Every ok/FAIL row and every gradient
+# row is identical to the 9b16e86a7 record, which still FAILs angles at 5.11e-02 (sigma 0.3, 256 tokens).
 # NO TIMING CLAIM.
 #
 === sigma=0.05, 64 tokens ===

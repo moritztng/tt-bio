@@ -3601,24 +3601,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-10-15",
+      "recorded": "2026-10-21",
       "host": "tt-quietbox2",
-      "commit": "4ba29781f",
+      "commit": "a2b7938f1",
       "host_threads": 5,
       "models": {
         "openbind": {
           "grid": "11x10",
-          "recorded": "2026-10-15",
+          "recorded": "2026-10-21",
           "host": "tt-quietbox2",
-          "commit": "4ba29781f",
+          "commit": "a2b7938f1",
           "host_threads": 5,
           "runtime_s": {
-            "256": 7.4,
-            "512": 12.4,
-            "640": 16.8,
-            "768": 23.2,
-            "896": 30.5,
-            "1024": 39.1
+            "256": 4.4,
+            "512": 9.0,
+            "640": 15.3,
+            "768": 18.5,
+            "896": 25.1,
+            "1024": 32.7
           },
           "levers": {
             "256": {
@@ -3742,10 +3742,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=2": 16,
+                  "act_memcfg_pair": 16,
                   "k_tiles=4": 424
                 },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 440 calls on k_tiles=4 x424, act_memcfg_pair x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -4113,12 +4113,9 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 440,
-                "declined": 1,
-                "frac": 0.9977324263038548,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 1
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -4746,11 +4743,11 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 440,
-                "declined": 4,
-                "frac": 0.990990990990991,
+                "declined": 3,
+                "frac": 0.9932279909706546,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 4
+                  "l1_budget": 3
                 }
               },
               "SDPA_WIDE_K": {
@@ -5375,11 +5372,11 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 440,
-                "declined": 5,
-                "frac": 0.9887640449438202,
+                "declined": 4,
+                "frac": 0.990990990990991,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 5
+                  "l1_budget": 4
                 }
               },
               "SDPA_WIDE_K": {
@@ -5529,35 +5526,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              7.2,
-              7.4,
-              6.8,
-              7.7,
-              7.5
+              5.1,
+              4.3,
+              4.5,
+              4.4,
+              4.4
             ],
             "512": [
-              12.3,
-              13.6,
-              12.4,
-              12.9,
-              12.0
+              9.0,
+              9.2,
+              9.0,
+              9.0,
+              9.4
             ],
             "640": [
-              16.8
+              15.3
             ],
             "768": [
-              23.2
+              18.5
             ],
             "896": [
-              30.5
+              25.1
             ],
             "1024": [
-              39.1
+              32.7
             ]
           },
           "aiclk": {
             "256": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5567,101 +5564,101 @@
                 1350,
                 1350
               ],
-              "n": 35
+              "n": 26
             },
             "512": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350,
                 1350,
-                1343,
+                1350,
                 1350,
                 1350
               ],
-              "n": 40
+              "n": 30
             },
             "640": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 8
-            },
-            "768": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 10
-            },
-            "896": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1343
               ],
-              "n": 11
+              "n": 7
             },
-            "1024": {
-              "card": "3",
+            "768": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1318
+              ],
+              "n": 8
+            },
+            "896": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1331
               ],
-              "n": 13
+              "n": 9
+            },
+            "1024": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1337
+              ],
+              "n": 10
             }
           },
           "load": {
             "256": {
-              "max": 0.84,
+              "max": 0.34,
               "rep_median": [
-                0.71,
-                0.71,
-                0.79,
-                0.78,
-                0.8
+                0.32,
+                0.29,
+                0.27,
+                0.27,
+                0.26
               ]
             },
             "512": {
-              "max": 0.78,
+              "max": 0.32,
               "rep_median": [
-                0.77,
-                0.71,
-                0.71,
-                0.7,
-                0.77
+                0.32,
+                0.29,
+                0.25,
+                0.23,
+                0.21
               ]
             },
             "640": {
-              "max": 0.78,
+              "max": 0.3,
               "rep_median": [
-                0.74
+                0.27
               ]
             },
             "768": {
-              "max": 0.73,
+              "max": 0.27,
               "rep_median": [
-                0.72
+                0.26
               ]
             },
             "896": {
-              "max": 0.82,
+              "max": 0.27,
               "rep_median": [
-                0.8
+                0.25
               ]
             },
             "1024": {
-              "max": 0.93,
+              "max": 0.34,
               "rep_median": [
-                0.89
+                0.27
               ]
             }
           },
@@ -5670,30 +5667,30 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 107.8689,
-              "radius_of_gyration_A": 83.767,
-              "plddt_mean": 0.292047,
+              "ca_ca_median_A": 109.572,
+              "radius_of_gyration_A": 83.742,
+              "plddt_mean": 0.292102,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 107.869 A outside [3.6, 4.0]",
+                "median CA-CA 109.572 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 83.8 A outside [9.0, 45.2]"
+                "radius of gyration 83.7 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0195,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 110.5412,
-              "radius_of_gyration_A": 86.873,
-              "plddt_mean": 0.281568,
+              "ca_ca_median_A": 111.4543,
+              "radius_of_gyration_A": 86.937,
+              "plddt_mean": 0.282608,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 110.541 A outside [3.6, 4.0]",
+                "median CA-CA 111.454 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 86.9 A outside [11.8, 58.9]"
               ]
@@ -5704,15 +5701,15 @@
               "n_ca": 640,
               "clash_frac": 0.0219,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 105.8717,
-              "radius_of_gyration_A": 86.195,
-              "plddt_mean": 0.280785,
+              "ca_ca_median_A": 105.4586,
+              "radius_of_gyration_A": 86.117,
+              "plddt_mean": 0.281112,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.872 A outside [3.6, 4.0]",
+                "median CA-CA 105.459 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 86.2 A outside [12.8, 64.1]"
+                "radius of gyration 86.1 A outside [12.8, 64.1]"
               ]
             },
             "768": {
@@ -5766,52 +5763,52 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0496,
+          "sigma_runtime_512": 0.0196,
           "exponents": {
             "256->512": {
-              "k": 0.745,
+              "k": 1.032,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.545,
-              "tol": 0.519
+              "k": 1.777,
+              "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0467,
-            "512": 0.0496
+            "256": 0.0707,
+            "512": 0.0196
           },
           "exponents_measured": {
-            "256->512": 0.745,
-            "512->640": 1.361,
-            "640->768": 1.77,
-            "768->896": 1.775,
-            "896->1024": 1.86
+            "256->512": 1.032,
+            "512->640": 2.378,
+            "640->768": 1.042,
+            "768->896": 1.979,
+            "896->1024": 1.981
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-15",
-      "host": "UF-EV-A4-GWH01",
-      "commit": "4ba29781f",
+      "recorded": "2026-10-21",
+      "host": "UF-EV-A5-GWH02",
+      "commit": "a2b7938f1",
       "host_threads": 2,
       "models": {
         "openbind": {
           "grid": "8x9",
-          "recorded": "2026-10-15",
-          "host": "UF-EV-A4-GWH01",
-          "commit": "4ba29781f",
+          "recorded": "2026-10-21",
+          "host": "UF-EV-A5-GWH02",
+          "commit": "a2b7938f1",
           "host_threads": 2,
           "runtime_s": {
-            "256": 9.0,
-            "512": 20.4,
-            "640": 30.1,
-            "768": 43.6,
-            "896": 56.8,
-            "1024": 73.6,
-            "1280": 156.9,
-            "1536": 251.1
+            "256": 11.7,
+            "512": 20.1,
+            "640": 31.5,
+            "768": 44.1,
+            "896": 55.4,
+            "1024": 75.1,
+            "1280": 159.5,
+            "1536": 256.1
           },
           "levers": {
             "256": {
@@ -6298,12 +6295,9 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 440,
-                "declined": 2,
-                "frac": 0.995475113122172,
-                "how": "stats",
-                "rejects": {
-                  "l1_budget": 2
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
@@ -6513,7 +6507,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 441,
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6554,26 +6548,22 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 441,
+                "declined": 440,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,2)": 1,
                   "k_tiles=2:(2,1)": 16,
                   "k_tiles=4:(4,4)": 424
                 },
-                "reason": "declines all 441 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16, k_tiles=2:(2,2) x1: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1282 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
+                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1282 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 1
-                },
-                "reason": "declines all 1 calls on k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6606,14 +6596,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 882,
+                "served": 880,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 882,
+                "served": 880,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -8375,112 +8365,79 @@
           },
           "runtime_reps_s": {
             "256": [
-              9.0,
-              8.9,
-              9.0,
-              9.0,
-              9.0
+              11.7,
+              9.3,
+              10.2,
+              15.1,
+              17.2
             ],
             "512": [
-              20.3,
-              20.5,
+              20.1,
               20.4,
-              20.4,
-              20.5
+              20.0,
+              20.0,
+              20.3
             ],
             "640": [
-              30.1,
-              30.1,
-              30.0
+              29.8,
+              31.5,
+              40.0
             ],
             "768": [
-              43.8,
-              43.6,
-              43.4
+              44.1,
+              47.9,
+              42.3
             ],
             "896": [
-              56.8,
-              56.6,
-              56.8
+              67.9,
+              55.4,
+              54.9
             ],
             "1024": [
-              73.9,
-              73.2,
-              73.6
+              76.5,
+              75.1,
+              71.8
             ],
             "1280": [
-              155.9,
-              156.9,
-              156.9
+              154.7,
+              159.5,
+              168.5
             ],
             "1536": [
-              250.1,
-              252.5,
-              251.1
+              261.4,
+              256.1,
+              252.2
             ]
           },
           "aiclk": {
             "256": {
-              "card": "6",
+              "card": "7",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
                 1000,
-                1000,
-                1000,
-                1000
-              ],
-              "n": 35
-            },
-            "512": {
-              "card": "6",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000,
-                1000,
-                1000
-              ],
-              "n": 45
-            },
-            "640": {
-              "card": "6",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000
-              ],
-              "n": 33
-            },
-            "768": {
-              "card": "6",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
                 1000,
                 1000,
                 1000
               ],
               "n": 39
             },
-            "896": {
-              "card": "6",
+            "512": {
+              "card": "7",
               "min": 500,
               "max": 1000,
               "rep_median": [
+                1000,
+                1000,
                 1000,
                 1000,
                 1000
               ],
               "n": 48
             },
-            "1024": {
-              "card": "6",
+            "640": {
+              "card": "7",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8488,10 +8445,43 @@
                 1000,
                 1000
               ],
-              "n": 57
+              "n": 46
+            },
+            "768": {
+              "card": "7",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 55
+            },
+            "896": {
+              "card": "7",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 50
+            },
+            "1024": {
+              "card": "7",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 60
             },
             "1280": {
-              "card": "6",
+              "card": "7",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8499,10 +8489,10 @@
                 1000,
                 1000
               ],
-              "n": 103
+              "n": 105
             },
             "1536": {
-              "card": "6",
+              "card": "7",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8510,76 +8500,76 @@
                 1000,
                 1000
               ],
-              "n": 153
+              "n": 161
             }
           },
           "load": {
             "256": {
-              "max": 0.57,
+              "max": 0.49,
               "rep_median": [
-                0.55,
-                0.52,
-                0.49,
-                0.5,
-                0.5
+                0.48,
+                0.47,
+                0.45,
+                0.45,
+                0.45
               ]
             },
             "512": {
-              "max": 0.53,
+              "max": 0.57,
               "rep_median": [
                 0.49,
-                0.51,
-                0.52,
-                0.52,
-                0.49
+                0.48,
+                0.49,
+                0.5,
+                0.54
               ]
             },
             "640": {
-              "max": 0.53,
+              "max": 0.59,
               "rep_median": [
-                0.52,
-                0.51,
-                0.51
+                0.53,
+                0.49,
+                0.48
               ]
             },
             "768": {
-              "max": 0.57,
+              "max": 0.59,
               "rep_median": [
-                0.55,
-                0.52,
-                0.52
+                0.49,
+                0.47,
+                0.48
               ]
             },
             "896": {
-              "max": 0.54,
+              "max": 0.6,
               "rep_median": [
-                0.53,
-                0.5,
-                0.5
+                0.59,
+                0.47,
+                0.46
               ]
             },
             "1024": {
               "max": 0.58,
               "rep_median": [
-                0.53,
-                0.53,
-                0.55
+                0.51,
+                0.46,
+                0.51
               ]
             },
             "1280": {
-              "max": 0.78,
+              "max": 0.66,
               "rep_median": [
-                0.64,
-                0.63,
-                0.66
+                0.61,
+                0.49,
+                0.53
               ]
             },
             "1536": {
-              "max": 1.36,
+              "max": 0.62,
               "rep_median": [
-                1.22,
-                1.13,
-                1.19
+                0.51,
+                0.52,
+                0.56
               ]
             }
           },
@@ -8588,32 +8578,32 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 109.5203,
-              "radius_of_gyration_A": 83.775,
-              "plddt_mean": 0.292632,
+              "ca_ca_median_A": 106.8729,
+              "radius_of_gyration_A": 83.48,
+              "plddt_mean": 0.291679,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 109.520 A outside [3.6, 4.0]",
+                "median CA-CA 106.873 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 83.8 A outside [9.0, 45.2]"
+                "radius of gyration 83.5 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0195,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 110.6613,
-              "radius_of_gyration_A": 86.826,
-              "plddt_mean": 0.282671,
+              "ca_ca_median_A": 111.3125,
+              "radius_of_gyration_A": 86.957,
+              "plddt_mean": 0.281872,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 110.661 A outside [3.6, 4.0]",
+                "median CA-CA 111.313 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 86.8 A outside [11.8, 58.9]"
+                "radius of gyration 87.0 A outside [11.8, 58.9]"
               ]
             },
             "640": {
@@ -8654,14 +8644,14 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.019,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 109.129,
-              "radius_of_gyration_A": 87.371,
-              "plddt_mean": 0.270923,
+              "ca_ca_median_A": 108.2957,
+              "radius_of_gyration_A": 87.374,
+              "plddt_mean": 0.271036,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 109.129 A outside [3.6, 4.0]",
+                "median CA-CA 108.296 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 87.4 A outside [14.6, 72.8]"
               ]
@@ -8670,33 +8660,33 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0273,
+              "clash_frac": 0.0254,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 103.7642,
-              "radius_of_gyration_A": 84.725,
-              "plddt_mean": 0.283313,
+              "ca_ca_median_A": 104.1859,
+              "radius_of_gyration_A": 84.85,
+              "plddt_mean": 0.28288,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 103.764 A outside [3.6, 4.0]",
+                "median CA-CA 104.186 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 84.7 A outside [15.3, 76.6]"
+                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 84.9 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0336,
+              "clash_frac": 0.0383,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 104.2931,
-              "radius_of_gyration_A": 85.868,
-              "plddt_mean": 0.281721,
+              "ca_ca_median_A": 103.7666,
+              "radius_of_gyration_A": 85.875,
+              "plddt_mean": 0.282162,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 104.293 A outside [3.6, 4.0]",
+                "median CA-CA 103.767 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.4% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 85.9 A outside [16.7, 83.4]"
               ]
             },
@@ -8704,43 +8694,43 @@
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0553,
+              "clash_frac": 0.0579,
               "chain_break_frac": 0.9993,
-              "ca_ca_median_A": 105.8442,
-              "radius_of_gyration_A": 85.163,
-              "plddt_mean": 0.292125,
+              "ca_ca_median_A": 105.5801,
+              "radius_of_gyration_A": 85.201,
+              "plddt_mean": 0.292551,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.844 A outside [3.6, 4.0]",
+                "median CA-CA 105.580 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "5.5% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.8% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
-          "reps": 1,
-          "sigma_runtime_512": 0.0041,
+          "reps": 3,
+          "sigma_runtime_512": 0.009,
           "exponents": {
             "256->512": {
-              "k": 1.181,
-              "tol": 0.5
+              "k": 0.781,
+              "tol": 0.659
             },
             "512->768": {
-              "k": 1.873,
+              "k": 1.938,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.005,
-            "512": 0.0041
+            "256": 0.2636,
+            "512": 0.009
           },
           "exponents_measured": {
-            "256->512": 1.181,
-            "512->640": 1.743,
-            "640->768": 2.032,
-            "768->896": 1.716,
-            "896->1024": 1.94,
-            "1024->1280": 3.392,
-            "1280->1536": 2.579
+            "256->512": 0.781,
+            "512->640": 2.013,
+            "640->768": 1.845,
+            "768->896": 1.48,
+            "896->1024": 2.278,
+            "1024->1280": 3.376,
+            "1280->1536": 2.597
           }
         }
       }
