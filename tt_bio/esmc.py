@@ -2201,7 +2201,7 @@ def esmc6b_tile_dir(name: str, snapshot) -> str | None:
     """The persistent host tile cache for this 6B build, or None when its disk is too full.
 
     Keyed by everything that decides the tiles: the checkpoint, the stored dtype (block-fp8
-    or bf16), the code that builds and tiles the module, the ttnn version and the
+    or bf16), the code that builds and tiles the module, the ttnn build and the
     TT_BIO_ESMC* switches. A key nobody loaded for a week is pruned when a new one is written.
     """
     import hashlib
@@ -2214,7 +2214,9 @@ def esmc6b_tile_dir(name: str, snapshot) -> str | None:
     for f in (Path(__file__), Path(_tt.__file__)):
         h.update(f.read_bytes())
     env = sorted((k, v) for k, v in os.environ.items() if k.startswith("TT_BIO_ESMC"))
-    h.update(repr((str(snap), ttnn.__version__, _tt._FAST_MODE, _tt.is_wormhole(), env)).encode())
+    # ttnn has no __version__; its native library identifies the build, wheel or source.
+    lib = [(f.name, f.stat().st_size, f.stat().st_mtime_ns) for f in sorted(Path(ttnn.__file__).parent.glob("_ttnn*.so"))]
+    h.update(repr((str(snap), lib, _tt._FAST_MODE, _tt.is_wormhole(), env)).encode())
     root = _w.cache_root() / "tiles"
     tdir = root / f"{name}-{h.hexdigest()[:16]}"
     if (tdir / ".done").exists():

@@ -157,3 +157,17 @@ def test_wh_lm_release_rule_counts_drawn_rows():
     assert wh_releases_lm(chains(769, 64), max_depth=1024)  # pair track headroom
     assert wh_releases_lm(chains(512, 4096))  # no subsampling: every row is an encoder row
     assert not wh_releases_lm(chains(1088, 0)) and wh_releases_lm(chains(1089, 0))
+
+
+def test_esmc6b_tile_dir_keys_on_the_real_ttnn(tmp_path, monkeypatch):
+    """The key reads the installed ttnn, not a fake: a missing attribute crashed every load (wtc)."""
+    from tt_bio import esmc
+
+    snap = tmp_path / "snap"
+    snap.mkdir()
+    (snap / "model.safetensors").write_bytes(b"0" * 64)
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path / "cache"))
+    first = esmc.esmc6b_tile_dir("esmc-6b", snap)
+    assert first and first == esmc.esmc6b_tile_dir("esmc-6b", snap)
+    monkeypatch.setenv("TT_BIO_ESMC_PROBE", "1")
+    assert esmc.esmc6b_tile_dir("esmc-6b", snap) != first
