@@ -855,7 +855,8 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bp
 # trimul_t1, trimul_t2 and adaln_mod join the shared set on the Protenix-v1 Wormhole 11-set fast grade against it
 # without them, 44 paired folds: PASS, same-seed top pose median 0.900 A (seed floor 2.190 A), CA-lDDT +0.0006
 # [-0.0010, +0.0023], docking 24 -> 24/44 (spd-fastmode gv1, AICLK 1000). Protenix-v2 and OpenDDE fold bit-identical
-# with and without them (spd-fastmode t12x). trimul_t1_dram stays Nesso-1 only.
+# with and without them (spd-fastmode t12x). trimul_t1_dram stays out of the shared set; Nesso-1 and OpenDDE
+# Wormhole take it per model.
 # transition_ws is fast-only. Wormhole 11-set fast grade, each model's fast set vs the same set + transition_ws,
 # same chip, 44 paired folds (spd-integrate gtw, 2026-10-12), PASS on all six; same-seed top pose median against
 # the A/A seed floor: Protenix-v2 0.32 / 1.24 A, OpenFold3 0.61 / 0.81, Boltz-2 1.33 / 1.88, OpenDDE 0.54 / 1.47,
