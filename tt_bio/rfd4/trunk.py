@@ -370,6 +370,36 @@ def _trimul_weights(scope) -> WeightScope:
     return WeightScope(out)
 
 
+def _per_design(tri, z, pair_mask):
+    """A triangle multiplication on each design of a [b, n, n, c] pair stack in turn.
+
+    The op prices its fused path (T1) on the whole leading axis, so at n = 128 a batch of four is
+    refused it and runs the chunked channel loop instead: 42 ops for 10, slower, and a different
+    rounding, so a design came out depending on its batch. One design at a time keeps every design
+    on the path it takes alone, bit for bit."""
+    b = int(z.shape[0])
+    if b == 1:
+        return tri(z, pair_mask)
+    n, c = int(z.shape[1]), int(z.shape[-1])
+    outs = []
+    for k in range(b):
+        zk = ttnn.slice(z, [k, 0, 0, 0], [k + 1, n, n, c])
+        mk = ttnn.slice(pair_mask, [k, 0, 0], [k + 1, n, n])
+        out = tri(zk, mk)
+        ttnn.deallocate(zk)
+        ttnn.deallocate(mk)
+        if out.memory_config().buffer_type == ttnn.BufferType.L1:
+            # An L1 result left there would sit under the next design's circular buffers: the
+            # trimul would clash, retry narrower and stay on the slower path for every design.
+            out_dram = ttnn.to_memory_config(out, ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(out)
+            out = out_dram
+        outs.append(out)
+    out = ttnn.concat(outs, dim=0)
+    for t in outs:
+        ttnn.deallocate(t)
+    return out
+
 class PairUpdate(Module):
     """`PairReprUpdate` with the release settings: a Hadamard single-to-pair write, both triangle
     multiplications (tt-bio's `TriangleMultiplication`, the one Boltz-2, OpenFold3 and AF2 run) and
@@ -441,8 +471,8 @@ class PairUpdate(Module):
         if xs is not x:
             ttnn.deallocate(xs)
         z = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c)
-        for sub, own_mask in ((lambda h: self.tri_out(h, pair_mask), False),
-                              (lambda h: self.tri_in(h, pair_mask), False),
+        for sub, own_mask in ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
+                              (lambda h: _per_design(self.tri_in, h, pair_mask), False),
                               (lambda h: self._transition(h, pair_mask_c), True)):
             h = _as(z, self.dtype)
             u = sub(h)

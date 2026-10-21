@@ -58,7 +58,7 @@ class DesignEngine:
     """
 
     def __init__(self, weights: str | Path = DEFAULT_WEIGHTS, *, recipe: str = "thinking_medium",
-                 max_parallel_samples: int | None = 5):
+                 max_parallel_samples: int | None = 1):
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
@@ -81,6 +81,10 @@ class DesignEngine:
         # The bundle stores the AE under `autoencoder.`; it is byte-identical to the AE's own
         # checkpoint (699/699 tensors), which is what the AE was graded on.
         self.autoencoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("decoder",))
+        # One design per device step. At 128 tokens the pair stack already fills the grid, so
+        # the trunk took 13 % and 14 % longer per design at width 2 and 4, and the auto config of the
+        # transition's 768->3072 linear is not batch-invariant, so a batched design is not
+        # bit-identical to the same design alone (perf/rfd4/batch/sweep.py, 2026-10-21).
         self.max_parallel_samples = max_parallel_samples
         self._device = self.autoencoder.dev["decoder"].device
 
@@ -114,8 +118,11 @@ class DesignEngine:
         out = _sampler.generate(spec, chunked, n_designs=num_designs, n_tokens=n_tokens,
                                 seed=seed, rng_mode=rng, emit_masks=compute_flow_emit_masks(batch),
                                 groups=_groups(batch), coord_cond_mask=batch.get("coord_cond_mask"))
-        logger.info("rfd4: %d designs, %d steps, %d trunk passes", num_designs, nsteps,
-                    out.trunk_passes)
+        #: The sample width the trajectory finished at: `max_parallel_samples`, or less where DRAM
+        #: refused a chunk and the chunker halved it. A throughput number quotes this, not the cap.
+        self.chunk_width = chunked.width
+        logger.info("rfd4: %d designs, %d steps, %d trunk passes, %d at a time", num_designs, nsteps,
+                    out.trunk_passes, chunked.width)
 
         decoded = self.decode(batch, out, num_designs=num_designs)
         return DesignOutput(coords_nm=decoded["coors_nm"], residue_type=decoded["residue_type"],

@@ -90,3 +90,23 @@ def test_engine_names_are_not_guessed():
 
     with pytest.raises(ValueError, match="unknown RFD4 engine"):
         get_engine("ttnn")
+
+
+def test_every_design_of_a_batch_writes(tmp_path, monkeypatch):
+    """The features are one input shared by every design (a leading axis of 1), and
+    write_cif indexes them by row like the output; row 1 of a 2-design batch must write."""
+    import torch
+
+    from tt_bio._vendor.rfd4_prep import processing
+    from tt_bio.rfd4 import write_design
+    from tt_bio.rfd4.engine import DesignOutput
+
+    seen = []
+    monkeypatch.setattr(processing, "write_cif",
+                        lambda out, f, aa, path, row=0: seen.append(f["padding_mask"][row].sum()) or str(path))
+    output = DesignOutput(coords_nm=torch.zeros(2, 4, 37, 3), residue_type=torch.zeros(2, 4),
+                          atom_mask=torch.ones(2, 4, 37), insertion_logits=torch.zeros(2, 4, 1))
+    features = {"padding_mask": torch.ones(1, 4, dtype=torch.bool)}
+    for row in range(2):
+        write_design(output, features, None, tmp_path / f"d{row}.cif", row=row)
+    assert [int(x) for x in seen] == [4, 4]
