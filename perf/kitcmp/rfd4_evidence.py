@@ -75,6 +75,10 @@ smi = load_smi(a.session / "smi.csv")
 
 lines, dropped = [], []
 for f in sorted(a.session.rglob("runs.jsonl")):
+    # The phase that wrote the line: "final-compile-cueq", "ext-compile-cueq", "nw16-compile-cueq",
+    # "reference/binder". rfd4_arms.py puts every run under <tag>/<size>-b<batch>/runs.jsonl, so the tag is
+    # the run directory's parent, relative to the session root.
+    tag = str(f.parent.parent.relative_to(a.session))
     for raw in f.read_text().splitlines():
         if not raw.strip():
             continue
@@ -83,6 +87,7 @@ for f in sorted(a.session.rglob("runs.jsonl")):
         except ValueError:
             dropped.append({"file": str(f), "raw": raw[:120], "why": "not JSON"})
             continue
+        r["tag"] = tag
         r.update(window(smi, r.get("t"), r.get("wall_s")))
         lines.append(r)
 
@@ -93,30 +98,38 @@ for r in lines:
     if r.get("status") == "FAILED" or not r.get("designs") or not r.get("wall_s", 0) > 0:
         dropped.append({"arm": r.get("arm"), "size": r.get("size"), "why": r.get("error", "no designs or wall_s")})
         continue
-    warm.setdefault((r["size"], r["arm"], r["batch"]), []).append(r["designs"] / r["wall_s"])
-    load.setdefault((r["size"], r["arm"], r["batch"]), []).append(r)
+    # A speed number is the PD-L1 binder at a gated size (PROTOCOL.md). The reference families run at
+    # size=256 batch=8 under the same arm, so keying a cell on (size, arm, batch) alone pooled ten different
+    # molecules into the published 256 rate. They stay in the evidence file; they are not a speed cell.
+    if r["tag"].startswith("reference/"):
+        continue
+    # num_workers is part of the configuration, not of the phase: the sweep measures the same arm and batch
+    # at 4/16/48, so a cell keyed without it would average three different recipes into one rate.
+    nw = next((o.split("=", 1)[1] for o in r.get("overrides", []) if o.startswith("num_workers=")), "default")
+    r["num_workers"] = nw
+    warm.setdefault((r["size"], r["arm"], r["batch"], nw), []).append(r["designs"] / r["wall_s"])
+    load.setdefault((r["size"], r["arm"], r["batch"], nw), []).append(r)
 
-print(f"{len(lines)} lines, {len(warm)} (size, arm, batch) cells, {len(dropped)} dropped\n")
-print("| size | arm | batch | n | designs/s (median) | spread | clock (MHz, busy) | util med/peak | busy % | peak W |")
-print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+print(f"{len(lines)} lines, {len(warm)} (size, arm, batch, workers) speed cells, {len(dropped)} dropped\n")
+print("| size | arm | batch | workers | n | designs/s (median) | spread | clock (MHz, busy) | util med/peak | busy % | peak W |")
+print("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
 best = {}
-for (size, arm, batch), rates in sorted(warm.items()):
+for (size, arm, batch, nw), rates in sorted(warm.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2], str(kv[0][3]))):
     rates.sort()
     med = statistics.median(rates)
-    w = load.get((size, arm, batch), [])
+    w = load.get((size, arm, batch, nw), [])
     g = lambda k: [r[k] for r in w if r.get(k) is not None]
     mhz, um, up, bp, pw = g("sm_mhz_busy_median"), g("util_pct_median"), g("util_pct_peak"), g("busy_pct"), g("power_w_peak")
-    print(f"| {size} | {arm} | {batch} | {len(rates)} | {med:.4f} | {rates[0]:.4f}-{rates[-1]:.4f} "
-          f"| {statistics.median(mhz):.0f} | {statistics.median(um):.0f}/{max(up):.0f} % "
-          f"| {statistics.median(bp):.0f} | {max(pw):.0f} |" if mhz and um and up and bp and pw else
-          f"| {size} | {arm} | {batch} | {len(rates)} | {med:.4f} | {rates[0]:.4f}-{rates[-1]:.4f} "
-          f"| no smi window | | | |")
+    head = f"| {size} | {arm} | {batch} | {nw} | {len(rates)} | {med:.4f} | {rates[0]:.4f}-{rates[-1]:.4f} "
+    print(head + (f"| {statistics.median(mhz):.0f} | {statistics.median(um):.0f}/{max(up):.0f} % "
+                  f"| {statistics.median(bp):.0f} | {max(pw):.0f} |" if mhz and um and up and bp and pw
+                  else "| no smi window | | | |"))
     if len(rates) >= 5 and med > best.get(size, (0,))[0]:   # protocol: >= 5 warm batches to be the chosen arm
-        best[size] = (med, arm, batch, len(rates), rates[0], rates[-1])
+        best[size] = (med, arm, batch, len(rates), rates[0], rates[-1], nw)
 
 print("\nchosen per size (>= 5 warm batches):")
-for size, (med, arm, batch, n, lo, hi) in sorted(best.items()):
-    print(f"  {size}: {med:.4f} designs/s  arm={arm} batch={batch} n={n} spread {lo:.4f}-{hi:.4f}")
+for size, (med, arm, batch, n, lo, hi, nw) in sorted(best.items()):
+    print(f"  {size}: {med:.4f} designs/s  arm={arm} batch={batch} num_workers={nw} n={n} spread {lo:.4f}-{hi:.4f}")
 
 if a.tt and a.tt.exists():
     tt = json.loads(a.tt.read_text())
@@ -136,7 +149,13 @@ if a.write:
     row = json.loads((STATE / "rows" / "rfd4-fair-gpu.json").read_text())
     row["arms"] = sorted({r["arm"] for r in lines if r.get("arm")})
     row["designs_per_s"] = {str(s): round(v[0], 4) for s, v in best.items()}
-    row["best_arm"] = max(best.values(), key=lambda v: v[0])[1] if best else None
+    # Per size, because the arms do not agree across sizes and the fastest absolute rate is always the
+    # smallest size's. `best_arm` is the one arm the session published and generated its reference designs
+    # from: ARMS.json's cross-size choice.
+    row["best_arm_per_size"] = {str(s): {"arm": v[1], "batch": v[2], "num_workers": v[6]}
+                                for s, v in best.items()}
+    arms_json = a.session / "ARMS.json"
+    row["best_arm"] = json.loads(arms_json.read_text()).get("best_arm") if arms_json.exists() else None
     (STATE / "rows" / "rfd4-fair-gpu.json").write_text(json.dumps(row, indent=2) + "\n")
     print(f"\nwrote {ev} ({len(lines)} lines) and rows/rfd4-fair-gpu.json")
 if dropped:
