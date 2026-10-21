@@ -187,7 +187,9 @@ class FlowNetwork:
     `trunk` is `(s_init, z_init, conds, mask) -> (s, z)`, where `conds` carries one conditioning
     tensor per recycle because upstream rebuilds it each cycle from the remaining-pass count. The
     device trunk (`tt_bio.rfd4.trunk.Trunk.run_bucketed`) and a host reference have the same shape,
-    so a parity test and a real design run the same code around them.
+    so a parity test and a real design run the same code around them. A trunk that also has
+    `launch(...)` and `collect(pending)` is enqueued by :meth:`launch` and read by :meth:`finish`,
+    which is what lets `sampler.run_lanes` keep the host busy while the card runs.
 
     The batch the glue reads is the featurized example (`tt_bio.rfd4.io.featurize`) with this
     step's noisy state written in, exactly as upstream's sampler writes `x_t` and `t` into the
@@ -204,6 +206,12 @@ class FlowNetwork:
 
     def __call__(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int,
                  step: int) -> dict[str, dict[str, Any]]:
+        return self.finish(self.launch(self.prepare(x_t, t, recycle_depth=recycle_depth, step=step)))
+
+    # The call in three stages, for `sampler.run_lanes`: the host builds the trunk's inputs, the
+    # trunk is enqueued, and the heads read its output once it is back.
+
+    def prepare(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int, step: int):
         n_designs = next(iter(x_t.values())).shape[0]
         batch = dict(self.batch)
         batch["x_t"] = dict(x_t)
@@ -218,8 +226,19 @@ class FlowNetwork:
             for cycle in range(1, depth):
                 conds.append(self.glue.conditioning(batch, depth - cycle - 1) if condition
                              else conds[0])
-            s, _z = self.trunk(s_init, z_init, conds, batch["padding_mask"].float())
-            self.passes += depth
+        return batch, depth, (s_init, z_init, conds, batch["padding_mask"].float())
+
+    def launch(self, prepared):
+        """Start the trunk. A trunk with a `launch` only enqueues here; a plain callable runs."""
+        batch, depth, inputs = prepared
+        launch = getattr(self.trunk, "launch", None)
+        return batch, depth, launch(*inputs) if launch else self.trunk(*inputs)
+
+    def finish(self, launched) -> dict[str, dict[str, Any]]:
+        batch, depth, pending = launched
+        s, _z = self.trunk.collect(pending) if hasattr(self.trunk, "collect") else pending
+        self.passes += depth
+        with torch.no_grad():
             return self.glue.heads(s, batch)
 
 
