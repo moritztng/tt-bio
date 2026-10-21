@@ -753,6 +753,11 @@ def _join_slices(parts, shape):
     are one concat in axis order, with zeros only where no slice was read. Anything else is
     padded slice by slice. Both give the same numbers, since a padded zero adds nothing.
     """
+    if len(parts) == 1:
+        # One slice is one pad, not a concat with zeros: BindCraft 2's [224, 4, 224, 16] head
+        # gradient took 2.9 ms as a concat on a p300c, 4 calls an iteration (`_pad_slice`).
+        (s, e, g), = parts
+        return [_pad_slice(g, s, e, shape)]
     cuts = {tuple(ax for ax in range(len(shape)) if (s[ax], e[ax]) != (0, shape[ax]))
             for s, e, _ in parts}
     if len(cuts) == 1 and len(next(iter(cuts))) == 1:

@@ -18,7 +18,7 @@ ap.add_argument("--bc2", type=Path, default=Path("~/bcx_e2e/bc2").expanduser())
 ap.add_argument("--binder", type=int, default=80)
 ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--iters", type=int, default=6)
-ap.add_argument("--off", action="store_true", help="split-K off and the stock (1,2,0) permute VJP")
+ap.add_argument("--off", action="store_true", help="main's path: split-K off, stock (1,2,0) permute VJP, lone-slice concat")
 ap.add_argument("--no-split", action="store_true", help="split-K off, permute VJP lever on")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
@@ -44,6 +44,15 @@ if a.off or a.no_split:
 if a.off:
     _pb = tt._permute_back
     tt._permute_back = lambda g, inv: ttnn.permute(g, inv) if list(inv) == [1, 2, 0] else _pb(g, inv)
+    _js = ag._join_slices
+
+    def _stock_join(parts, shape):  # main's path: a lone slice from 0 on one axis was a concat with zeros
+        (s, e, g), *rest = parts
+        cut = [ax for ax in range(len(shape)) if (s[ax], e[ax]) != (0, shape[ax])]
+        if rest or any(s) or len(cut) != 1:
+            return _js(parts, shape)
+        return [ttnn.concat([g, ag._zeros_like_along(g, cut[0], shape[cut[0]] - e[cut[0]])], dim=cut[0])]
+    ag._join_slices = _stock_join
 
 st = dict(n=0)
 _join = ag._join_slices
