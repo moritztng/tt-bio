@@ -663,8 +663,8 @@ class Trunk(Module):
         n = int(mask.shape[1])
         npad = token_axis.pad_amount(n, token_axis.bucket_multiple("rfd4")) if token_axis.bucket_enabled() else 0
 
-        def pad(t, dims):
-            for d in dims:
+        def pad(t, dims):  # npad is 0 whenever N is already a multiple of 32: no copy then
+            for d in dims if npad else ():
                 t = torch.nn.functional.pad(t, [0, 0] * (t.dim() - 1 - d) + [0, npad])
             return t
 
