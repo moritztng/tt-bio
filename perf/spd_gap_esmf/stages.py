@@ -35,6 +35,7 @@ ap.add_argument("--ops", action="store_true", help="per-op synchronized census i
 ap.add_argument("--a3m", type=Path, help="fold this alignment instead of the page fixture's (e.g. one deeper than max_depth)")
 ap.add_argument("--draw", action="store_true", help="split the diffusion step by module (nested syncs)")
 ap.add_argument("--plain", action="store_true", help="cold + plain fold only; also counts the einsums bmm_res served")
+ap.add_argument("--build-profile", action="store_true", help="cProfile the build (weights load + upload) into --out.build.txt")
 ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
 a = ap.parse_args()
 
@@ -54,10 +55,17 @@ from tt_bio import esmfold2 as E, esmfold2_runtime as R
 fix = ROOT / "perf" / "size512" / "fixtures"
 a3m = a.a3m or fix / f"cdk2x2_{a.size}.a3m"
 tag = "" if a.a3m is None else "_" + a3m.stem
+bpr = cProfile.Profile() if a.build_profile else None
 t_build = time.perf_counter()
+bpr and bpr.enable()
 one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}{tag}", fix / f"cdk2x2_{a.size}.yaml",
                               a3m, fast=a.fast)[:2]
-build_s = round(time.perf_counter() - t_build, 3)  # weights load + device upload, what a model swap pays first
+bpr and bpr.disable()
+build_s = round(time.perf_counter() - t_build, 3)
+if bpr:
+    with open(f"{a.out}.build.txt", "w") as f:
+        for key in ("cumulative", "tottime"):
+            pstats.Stats(bpr, stream=f).sort_stats(key).print_stats(60)  # weights load + device upload, what a model swap pays first
 res = {"build_s": build_s, "model": a.model, "fast": a.fast, "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
 
 # (owner, attribute, label). FoldingTrunkModel serves both the folding trunk and the LM encoder's pair
