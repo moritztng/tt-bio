@@ -300,3 +300,91 @@ def test_the_cli_designs_a_glycan_input_and_keeps_its_chemistry(tmp_path, monkey
     assert res["atoms_checked"] == 99 and res["bonds_checked"] == 101
     # atom37 is heavy-atom only, so the input's hydrogens are gone and that is the encoding.
     assert res["hydrogens_dropped"] == {"input": 93, "generated": 0}
+
+# ---- the structural grader: which chain is the design? ----
+#
+# `perf/rfd4/e2e/grade.py` grades the protein families by taking the designed chain to be the
+# shortest chain holding an atom named `CA`. Neither half of that survives these four families,
+# and the two ways it breaks are the two tests below.
+
+
+def _grade_chem():
+    path = REPO / "perf" / "rfd4" / "cond_chem" / "grade_chem.py"
+    spec = importlib.util.spec_from_file_location("rfd4_grade_chem", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _chain(chain_id, res_name, atom_names, res_id_start=1, one_residue=False):
+    import biotite.structure as struc
+    import numpy as np
+
+    atoms = []
+    for i, name in enumerate(atom_names):
+        a = struc.Atom(
+            [float(i), 0.0, 0.0],
+            chain_id=chain_id,
+            res_id=res_id_start if one_residue else res_id_start + i,
+            res_name=res_name,
+            atom_name=name,
+            element=name[0],
+            hetero=False,
+        )
+        atoms.append(a)
+    return struc.array(atoms)
+
+
+def _joined(*parts):
+    import functools
+
+    return functools.reduce(lambda a, b: a + b, parts)
+
+
+def test_a_ligand_atom_named_ca_does_not_make_the_ligand_the_design():
+    """SAM really does carry an atom named `CA`. Taking the shortest CA-bearing chain grades the
+    27-atom ligand as the design and the 150-residue design as the target, which is a wrong
+    number rather than a crash."""
+    gc = _grade_chem()
+    protein = _chain("A", "ALA", ["CA"] * 12)
+    ligand = _chain("B", "SAM", ["CA", "N", "O", "S"], one_residue=True)
+    designed, kind, anchors, kinds = gc.selections(_joined(protein, ligand))
+    assert (designed, kind) == ("A", "protein")
+    assert anchors == ["B"]
+    assert kinds["B"] == "other"
+
+
+def test_a_dna_condition_is_a_frame_even_though_it_has_no_ca():
+    """A DNA/RNA chain has no `CA` at all, so a CA-only reading of a DNA-binder design finds no
+    target to superpose on and dies on an empty concatenate."""
+    gc = _grade_chem()
+    dna_a = _chain("A", "DA", ["C1'"] * 9)
+    dna_b = _chain("B", "DT", ["C1'"] * 10)
+    protein = _chain("C", "GLY", ["CA"] * 14)
+    designed, kind, anchors, kinds = gc.selections(_joined(dna_a, dna_b, protein))
+    assert (designed, kind) == ("C", "protein")
+    assert anchors == ["A", "B"]
+    assert kinds["A"] == kinds["B"] == "nucleic"
+
+
+def test_rna_design_has_no_condition_so_it_is_graded_on_its_own_frame():
+    """Pseudoknot design conditions on secondary structure, not on a held structure: nothing is
+    anchored, so the grade is a shape comparison and has to say so rather than invent a frame."""
+    gc = _grade_chem()
+    rna = _chain("A", "G", ["C1'"] * 20)
+    sel = gc.selections(rna)
+    designed, kind, anchors, _ = sel
+    assert (designed, kind, anchors) == ("A", "nucleic", [])
+    grade = gc.compare(rna, rna, *sel)
+    assert grade["frame"].startswith("self")
+    assert grade["rmsd_a"] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_grading_a_design_against_itself_is_zero():
+    gc = _grade_chem()
+    structure = _joined(_chain("A", "ALA", ["CA"] * 12), _chain("B", "SAM", ["N", "O"], one_residue=True))
+    sel = gc.selections(structure)
+    grade = gc.compare(structure, structure, *sel)
+    assert grade["rmsd_a"] == pytest.approx(0.0, abs=1e-6)
+    assert grade["anchor_rmsd_a"] == pytest.approx(0.0, abs=1e-6)
+    assert grade["designed_residues"] == 12
