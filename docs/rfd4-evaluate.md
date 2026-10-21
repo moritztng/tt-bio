@@ -41,10 +41,27 @@ The `design` tag is complete and matches upstream to all four published decimals
 * the `unknown_residue_filter` and `sequence_adherence_filter` pre-oracle filters, as
   `pre_oracle_pass`.
 
-Tags that switch on anything else (refolding through a structure-prediction oracle, the pass
-criteria that read it, hotspot, motif and partial-diffusion metrics, CATH, Rosetta developability,
-antibody contacts) are refused with the list of what is missing, rather than producing a shorter
-CSV that looks complete.
+The `partial_diffusion` tag adds `ca_rmsd_to_input` and `sequence_similarity_to_input`, both read
+against the `<name>_input.cif` written beside the design.
+
+## Refolding
+
+`--metrics_tags design,unconditional_refolding` (or `ppi_refolding`) adds the refolding RMSDs, the
+oracle's confidence columns and the pass criteria that read them. This command folds nothing: it
+reads the refold the oracle already wrote under
+
+```
+<out_dir>/evaluation_samples/<example_id>/<example_id>_<oracle>_refolded.cif
+<out_dir>/evaluation_samples/<example_id>/<example_id>_<oracle>_confidences.json
+```
+
+which is the same cache upstream resumes from, so scoring the same `out_dir` a second time costs
+nothing and a refold from any oracle is scored identically. A design with no refold there is named
+in the error rather than written out with the columns missing.
+
+Tags that switch on anything else (motif RMSDs, apo/holo, hotspot and unindexed metrics, CATH,
+Rosetta developability, antibody contacts) are refused with the list of what is missing, rather
+than producing a shorter CSV that looks complete.
 
 ## Behaviour kept from upstream on purpose
 
