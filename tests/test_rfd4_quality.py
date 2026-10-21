@@ -130,10 +130,29 @@ def test_sequence_of_reads_residue_identities(tmp_path):
 
 
 # ----------------------------------------------------------------------------- the grade
+def _calibrate(tmp_path, out, feature=None):
+    """The real workflow: the floor is measured before any grade is taken."""
+    a = _write_arm(tmp_path, "floor_a", _rows(40, 11))
+    b = _write_arm(tmp_path, "floor_b", _rows(40, 12))
+    assert quality.main(["floor", "--feature", feature or FEATURE, "--a", str(a), "--b", str(b),
+                         "--permutations", str(FAST), "--out", str(out)]) == 0
+
+
+def test_a_grade_without_a_measured_seed_floor_is_not_a_pass(tmp_path):
+    """Every bar is quoted beside the floor, so a family with no floor has no justified bar."""
+    tt = _write_arm(tmp_path, "tt", _rows(40, 1))
+    ref = _write_arm(tmp_path, "ref", _rows(40, 2))
+    out = tmp_path / "QUALITY.json"
+    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+                       "--permutations", str(FAST), "--out", str(out)])
+    assert rc == 1 and json.loads(out.read_text())["features"][FEATURE]["verdict"] == "NO_FLOOR"
+
+
 def test_two_seeds_of_the_same_distribution_pass(tmp_path):
     tt = _write_arm(tmp_path, "tt", _rows(40, 1))
     ref = _write_arm(tmp_path, "ref", _rows(40, 2))
     out = tmp_path / "QUALITY.json"
+    _calibrate(tmp_path, out)
     rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
@@ -212,6 +231,7 @@ def test_too_few_designs_is_not_a_pass(tmp_path):
 def test_grading_one_feature_leaves_the_others_alone(tmp_path):
     out = tmp_path / "QUALITY.json"
     tt, ref = _write_arm(tmp_path, "tt", _rows(40, 1)), _write_arm(tmp_path, "ref", _rows(40, 2))
+    _calibrate(tmp_path, out)
     quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                   "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
@@ -276,7 +296,8 @@ def test_a_family_with_no_oracle_columns_is_not_a_pass(tmp_path):
     assert "refolded_backbone_rmsd.rmsd" in doc["features"][FEATURE]["missing_oracle_metrics"]
 
     rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
-                       "--allow-no-oracle", "--permutations", str(FAST), "--out", str(out)])
+                       "--allow-no-oracle", "--allow-no-floor",
+                       "--permutations", str(FAST), "--out", str(out)])
     assert rc == 0 and json.loads(out.read_text())["features"][FEATURE]["verdict"] == "PASS"
 
 

@@ -161,6 +161,7 @@ def grade_feature(
     n_min: int = mspec.N_MIN,
     permutations: int = stats.DEFAULT_PERMUTATIONS,
     allow_no_oracle: bool = False,
+    allow_no_floor: bool = False,
 ) -> dict:
     result: dict = {"n": min(tt["n"], ref["n"]), "n_tt": tt["n"], "n_ref": ref["n"], "metrics": {}}
     notes: list[str] = []
@@ -183,6 +184,13 @@ def grade_feature(
     if result["diversity"].get("pass") is False:
         failed.append("diversity")
     result["failed"] = failed
+    # The floor is what says a move is smaller than the reference's own seed noise. Without one
+    # measured for THIS family, a p-value has nothing to be read against and the charter's
+    # discipline (quote the deviation beside the floor) cannot be met.
+    result["seed_floor_source"] = (floor.get(feature) or {}).get("_source")
+    if not (floor.get(feature) or {}):
+        notes.append("no seed floor calibrated for this family")
+
     if not graded:
         result["verdict"] = "NO_DATA"
     elif failed:
@@ -193,6 +201,8 @@ def grade_feature(
         # The pass criteria and every refold RMSD come from the oracle. A family graded on its
         # oracle-free columns alone has not been graded, and must not read as a PASS.
         result["verdict"] = "ORACLE_MISSING"
+    elif not (floor.get(feature) or {}) and not allow_no_floor:
+        result["verdict"] = "NO_FLOOR"
     else:
         result["verdict"] = "PASS"
     result["notes"] = notes
@@ -273,9 +283,16 @@ def _grade_diversity(tt: dict, ref: dict) -> dict:
 
 
 # --------------------------------------------------------------------------- the seed floor
-def calibrate_floor(feature: str, a: dict, b: dict, permutations: int = stats.DEFAULT_PERMUTATIONS) -> dict:
-    """How far the metrics move when only the seed changes. Same arithmetic as the grade."""
-    floor: dict = {}
+def calibrate_floor(feature: str, a: dict, b: dict, permutations: int = stats.DEFAULT_PERMUTATIONS,
+                    source: str | None = None) -> dict:
+    """How far the metrics move when only the seed changes. Same arithmetic as the grade.
+
+    `source` names the arms the floor was measured on and is carried into every grade that reads
+    it: a floor measured on a reduced CPU recipe does not license a bar on a released-recipe run.
+    """
+    floor: dict = {"_source": source or f"{a['root']} vs {b['root']}",
+                   "_measured": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                   "_n": [a["n"], b["n"]]}
     for column, kind, _ in mspec.columns_for(feature):
         x, y = _column(a, column), _column(b, column)
         if x.size == 0 or y.size == 0:
@@ -345,6 +362,8 @@ def main(argv=None) -> int:
     g.add_argument("--permutations", type=int, default=stats.DEFAULT_PERMUTATIONS)
     g.add_argument("--allow-no-oracle", action="store_true",
                    help="grade on the oracle-free columns only; the family can then PASS without a refold")
+    g.add_argument("--allow-no-floor", action="store_true",
+                   help="grade without a calibrated seed floor; every bar is then the bare p-value")
     g.add_argument("--label", default=None, help="what the TT arm is (a lever name, a sha)")
     g.add_argument("--out", default=str(QUALITY_JSON))
 
@@ -354,6 +373,8 @@ def main(argv=None) -> int:
     f.add_argument("--b", required=True)
     f.add_argument("--chain", default=None)
     f.add_argument("--permutations", type=int, default=stats.DEFAULT_PERMUTATIONS)
+    f.add_argument("--source", default=None,
+                   help="what the two seed arms are (recipe, host, session) -- every grade quotes it")
     f.add_argument("--out", default=str(QUALITY_JSON))
 
     s = sub.add_parser("show", help="print the current verdict")
@@ -370,16 +391,19 @@ def main(argv=None) -> int:
 
     if args.cmd == "floor":
         a, b = load_arm(args.a, args.chain), load_arm(args.b, args.chain)
-        doc.setdefault("seed_floor", {})[args.feature] = calibrate_floor(args.feature, a, b, args.permutations)
+        doc.setdefault("seed_floor", {})[args.feature] = calibrate_floor(
+            args.feature, a, b, args.permutations, args.source)
         doc.setdefault("paths", {}).setdefault(args.feature, {})["seed_floor_arms"] = [_arm_summary(a), _arm_summary(b)]
         write_doc(doc, out)
-        print(f"seed floor for {args.feature}: {len(doc['seed_floor'][args.feature])} metrics -> {out}")
+        n_cols = sum(1 for k in doc["seed_floor"][args.feature] if not k.startswith("_"))
+        print(f"seed floor for {args.feature}: {n_cols} metrics -> {out}")
         return 0
 
     tt, ref = load_arm(args.tt, args.chain), load_arm(args.ref, args.chain)
     res = grade_feature(args.feature, tt, ref, doc.get("seed_floor") or {}, args.n_min,
-                        args.permutations, args.allow_no_oracle)
+                        args.permutations, args.allow_no_oracle, args.allow_no_floor)
     res["allow_no_oracle"] = args.allow_no_oracle
+    res["allow_no_floor"] = args.allow_no_floor
     res["label"] = args.label
     res["tags"] = mspec.FEATURE_TAGS.get(args.feature)
     doc.setdefault("features", {})[args.feature] = res
