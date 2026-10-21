@@ -5,7 +5,13 @@ sampler actually makes: the glue, the recycle loop and the heads, at a recycle d
 where the conditioning is rebuilt per cycle from the remaining-pass count and the states come
 back through the zero-initialised cycle projections.
 
-The trunk here is upstream's own layers on the host, so what is being graded is tt-bio's wiring
+It does not come out bit-exact, and the reason is measured rather than tolerated: upstream's pair
+norm is a `CompiledRMSNorm`, ours the eager one, which puts z_init one fp32 ULP apart on identical
+weights and input (s_init and the conditioning are bit-identical). Three recycles turn that into
+2.5e-7 at the heads, four orders below the bf16 floor the device is graded on, so the bar here is
+1e-5 relative.
+
+The trunk is upstream's own layers on the host, so what is being graded is tt-bio's wiring
 (`FlowNetwork`), not the device port: `tests/test_rfd4_trunk_parity.py` grades the device trunk
 against the same weights, and the two together cover the network.
 
@@ -36,13 +42,13 @@ def host_trunk(nn):
     """
     def run(s_init, z_init, conds, mask):
         seq_mask = mask.bool()
-        s = z = None
+        s, z = torch.zeros_like(s_init), torch.zeros_like(z_init)
         for cond in conds:
-            if s is None:
-                s_in, z_in = s_init, z_init
-            else:
-                s_in = s_init + nn.s_cycle_proj(nn.s_cycle_norm(s))
-                z_in = (z_init + nn.z_cycle_proj(nn.z_cycle_norm(z))).contiguous()
+            # Upstream runs the projections on every cycle, including the first, where they are
+            # exactly zero. The .contiguous() is upstream's: SDPA reads the pair bias from z, and
+            # the layout it reads it in changes the last bits of the result.
+            z_in = (z_init + nn.z_cycle_proj(nn.z_cycle_norm(z))).contiguous()
+            s_in = s_init + nn.s_cycle_proj(nn.s_cycle_norm(s))
             s, z = s_in, z_in
             for i in range(nn.nlayers):
                 s = nn.transformer_layers[i](s, z, cond, seq_mask)
@@ -97,10 +103,11 @@ def main():
                                       "rel": float(d.max() / want.double().abs().max()),
                                       "exact": bool(torch.equal(got, want)),
                                       "shape": list(got.shape)}
-    out = {"spec": a.spec, "seed": a.seed, "recycle_depth": a.depth, "tokens": n,
+    rel = max(v["rel"] for v in results.values())
+    out = {"spec": a.spec, "seed": a.seed, "recycle_depth": a.depth, "tokens": n, "bar_rel": 1e-5,
            "trunk": "upstream host layers (the device trunk is graded by tests/test_rfd4_trunk_parity.py)",
            "heads": results,
-           "verdict": "PASS" if all(v["exact"] for v in results.values()) else "CHECK"}
+           "verdict": "PASS" if rel < 1e-5 else "FAIL"}
     json.dump(out, open(a.out, "w"), indent=2)
     print(json.dumps(out, indent=2))
 

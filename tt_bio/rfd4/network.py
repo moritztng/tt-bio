@@ -64,15 +64,27 @@ def merge_lora(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
 
 
 def load_checkpoint(path: str | Path) -> tuple[dict[str, torch.Tensor], dict]:
-    """`(state_dict, config)` from the released bundle, LoRA merged.
+    """`(state_dict, config)` from the released bundle, with the trunk's LoRA already merged.
 
-    `path` is the bundle directory (the HF snapshot) or the flow checkpoint itself; the config
-    is read from the bundle's `config.json`, which is what upstream builds the model from.
+    The bundle ships the same weights twice: `model.safetensors`, NVIDIA's own export with the
+    adapters already folded in, and `flow_checkpoints/rfd4_proteina_flow-ema.ckpt`, the training
+    checkpoint that still carries them. The export is preferred, because merging ourselves lands
+    within one fp32 ULP of it on the 28 adapted projections and over 14 layers and 6 recycles that
+    ULP grows into a 2.5e-7 difference in the model's output. Taking upstream's own numbers keeps
+    a design bit-comparable with upstream's.
+
+    `path` is the bundle directory or a checkpoint file; the config comes from the bundle's
+    `config.json`, which is what upstream builds the model from.
     """
     path = Path(path).expanduser()
     if path.is_dir():
-        ckpt = path / "flow_checkpoints" / "rfd4_proteina_flow-ema.ckpt"
         config = json.loads((path / "config.json").read_text())
+        export = path / "model.safetensors"
+        if export.is_file():
+            from safetensors.torch import load_file
+
+            return load_file(str(export)), config["config"]
+        ckpt = path / "flow_checkpoints" / "rfd4_proteina_flow-ema.ckpt"
     else:
         ckpt = path
         config = json.loads((path.parent.parent / "config.json").read_text())
