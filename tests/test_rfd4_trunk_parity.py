@@ -263,3 +263,24 @@ def test_trunk_stack(nlayers, cycles, mode):
     m = pair.bool()
     print(f"trunk {nlayers}x{cycles} {mode} z vs its bf16 floor: rel_rms {_rel_rms(got_z[m], fl_z[m]):.3e}, "
           f"s vs floor {_rel_rms(got_s[mask.bool()], fl_s[mask.bool()]):.3e}")
+
+
+@pytest.mark.device
+def test_trunk_run_bucketed_ragged_length():
+    """`Trunk.run_bucketed` on a ragged 100-token input: it pads to the 32 bucket (128) itself, and the
+    answer is graded against float64 run at 100 tokens with no padding at all."""
+    dev = T.get_device()
+    nlayers, cycles = 4, 2
+    w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=21)
+    wb = {k: _bf16(v) for k, v in w.items()}
+    s0, z0, _, mask = REF.block_inputs(1, 100, DIM, DIM_PAIR, DIM_COND, seed=22)
+    g = torch.Generator().manual_seed(23)
+    conds = [torch.randn(1, 100, DIM_COND, generator=g, dtype=torch.float64) for _ in range(cycles)]
+    ref_s, ref_z = REF.trunk(w, s0, z0, conds, mask, nlayers, n_heads=HEADS)
+    fl_s, fl_z = REF.trunk(wb, s0, z0, conds, mask, nlayers, n_heads=HEADS, rnd=REF.bf16_mixed)
+    mod = TR.Trunk(_scope(w), TR.compute_kernel_config(), nlayers, HEADS, residual_dtype=ttnn.float32)
+    s, z = mod.run_bucketed(s0, z0, conds, mask, dev)
+    assert tuple(s.shape) == (1, 100, DIM) and tuple(z.shape) == (1, 100, 100, DIM_PAIR)
+    pair = mask[:, :, None] * mask[:, None, :]
+    _grade("run_bucketed 100->128 s", s.double(), ref_s, fl_s, mask)
+    _grade("run_bucketed 100->128 z", z.double(), ref_z, fl_z, pair)

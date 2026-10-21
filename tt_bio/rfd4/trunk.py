@@ -501,6 +501,40 @@ class Trunk(Module):
             if t is not g:
                 ttnn.deallocate(t)
         return s, z
+    def run_bucketed(self, s_init, z_init, conds, mask, device):
+        """Host entry: s_init [b, N, token], z_init [b, N, N, pair], conds [b, N, cond] per cycle and the
+        [b, N] 0/1 token mask as torch tensors. Pads the token axis to the fleet bucket
+        (`token_axis.bucket_multiple("rfd4")`, 32), masks the padding, runs and slices back to N.
+        Padded tokens are masked tokens, which upstream does to a short sequence in a batch
+        (tests/test_rfd4_trunk_parity.py::test_padding_does_not_touch_the_real_tokens). rfd4 gets
+        its `token_axis.TOKEN_AXIS` row when it ships as a CLI model; that table admits shipped
+        models only."""
+        from .. import token_axis
+        n = int(mask.shape[1])
+        npad = token_axis.pad_amount(n, token_axis.bucket_multiple("rfd4")) if token_axis.bucket_enabled() else 0
+
+        def pad(t, dims):
+            for d in dims:
+                t = torch.nn.functional.pad(t, [0, 0] * (t.dim() - 1 - d) + [0, npad])
+            return t
+
+        def up(t, dtype):
+            return ttnn.from_torch(t.to(torch.float32).contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,
+                                   device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+        m = pad(mask.to(torch.float32), [1])
+        masks = trunk_masks(m, device, dtype=self.dtype, residual_dtype=self.residual_dtype)
+        mc = m[..., None]
+        s = up(pad(s_init.float(), [1]) * mc, self.residual_dtype)
+        z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.residual_dtype)
+        cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
+        s_out, z_out = self(s, z, cs, masks)
+        out = ttnn.to_torch(s_out)[:, :n], ttnn.to_torch(z_out)[:, :n, :n]
+        for t in (s, z, s_out, z_out, *cs, *masks):
+            if t.is_allocated():
+                ttnn.deallocate(t)
+        return out
+
 
 def compute_kernel_config():
     """The config the rest of tt-bio's trunks run on: HiFi4, fp32 dest, packer L1 accumulate."""
