@@ -155,6 +155,20 @@ A design is reproducible from its seed, featurization included. Note that featur
 that: a contig with a variable-length segment samples its length per seed, so the same spec at two
 seeds is two different designs with two different token counts.
 
+## Fine-tuned weights
+
+A LoRA fine-tune loads on top of the released weights and is merged once at load, so it costs
+nothing per design:
+
+```python
+engine = rfd4.DesignEngine.from_pretrained("nvidia/RFD4-Proteina", adapter="my-lora/")
+```
+
+`adapter` is a PEFT directory (`adapter_config.json` plus `adapter_model.safetensors`); its rank
+and alpha come from that config. An adapter naming a layer the checkpoint does not have is
+refused rather than silently skipped. Training an adapter is not something tt-bio does; it runs
+one you already have.
+
 ## Checkpoint
 
 The `nvidia/RFD4-Proteina` bundle downloads from HuggingFace on first use and carries both the flow
