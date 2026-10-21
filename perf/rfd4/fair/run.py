@@ -89,15 +89,19 @@ class Contention:
                 continue
         return out
 
-    def _run(self):
+    def _sample(self):
         box, own, t = self._box_busy(), self._own_busy(), time.monotonic()
+        if t > self._last[2]:
+            self.cores.append(max(0.0, (box - self._last[0]) - (own - self._last[1])) / self._hz / (t - self._last[2]))
+        self._last = (box, own, t)
+        self.holders |= self.device_holders()
+
+    def _run(self):
         while not self._stop.wait(self._period):
-            box2, own2, t2 = self._box_busy(), self._own_busy(), time.monotonic()
-            self.cores.append(max(0.0, (box2 - box) - (own2 - own)) / self._hz / (t2 - t))
-            box, own, t = box2, own2, t2
-            self.holders |= self.device_holders()
+            self._sample()
 
     def __enter__(self):
+        self._last = (self._box_busy(), self._own_busy(), time.monotonic())
         self.holders |= self.device_holders()
         self._t = threading.Thread(target=self._run, daemon=True)
         self._t.start()
@@ -106,6 +110,7 @@ class Contention:
     def __exit__(self, *exc):
         self._stop.set()
         self._t.join(timeout=10)
+        self._sample()  # the tail since the last tick, so a short batch is never unsampled
         return False
 
     def summary(self):
