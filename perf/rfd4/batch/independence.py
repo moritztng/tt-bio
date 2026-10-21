@@ -6,7 +6,9 @@
 Each trunk sublayer gets B different inputs stacked on the sample axis, then the same B inputs one
 at a time, and the outputs are compared bit for bit. Every sublayer sees identical inputs on both
 sides, so a mismatch names the sublayer whose kernels reduce differently at width B, not one that
-merely inherited a difference. The last line runs a whole trunk pass the same way.
+merely inherited a difference. Design 0 also runs alone a second time: a sublayer that is not
+repeatable at width 1 is nondeterministic, which is a different finding from batch dependence.
+The last line runs a whole trunk pass the same way.
 """
 import argparse
 import json
@@ -69,7 +71,7 @@ def main():
         "attn.scale_output": lambda x: blk.mhba.scale_output(x["s16"], x["c"], x["masks"][0]),
         "transition_adaln": lambda x: blk.transition(x["s16"], x["c"], x["masks"][0]),
         "trunk_block": lambda x: blk(x["s32"], x["z16"], x["c"], x["masks"][0], x["masks"][1], x["masks"][4]),
-        "pair.write": lambda x: pu._write(x["s16"], x["masks"][0]),
+        "pair.write": lambda x: pu._write(x["s16"], x["masks"][0])[0],
         "pair.tri_mult_out": lambda x: pu.tri_out(x["z16"], x["masks"][2]),
         "pair.tri_mult_in": lambda x: pu.tri_in(x["z16"], x["masks"][2]),
         "pair.transition": lambda x: pu._transition(x["z16"], x["masks"][3]),
@@ -87,20 +89,24 @@ def main():
     rows = []
     for name, fn in subs.items():
         # Fresh inputs per sublayer: some sublayers free what they read.
-        batched, single = inputs(list(range(B))), [inputs([k]) for k in range(B)]
+        batched, single, again = inputs(list(range(B))), [inputs([k]) for k in range(B)], inputs([0])
         got = fn(batched)
         got = [host(t) for t in got] if isinstance(got, tuple) else [host(got)]
         ref = [fn(x) for x in single]
         ref = [[host(t) for t in r] if isinstance(r, tuple) else [host(r)] for r in ref]
+        rep = fn(again)
+        rep = [host(t) for t in rep] if isinstance(rep, tuple) else [host(rep)]
+        repeatable = all(torch.equal(x, y) for x, y in zip(rep, ref[0]))
         exact, worst = True, 0.0
         for k in range(B):
             for o, gk in enumerate(got):
                 rk = ref[k][o][0]
                 exact &= bool(torch.equal(gk[k], rk))
                 worst = max(worst, float((gk[k] - rk).abs().max() / rk.abs().max().clamp_min(1e-30)))
-        for x in (batched, *single):
+        for x in (batched, *single, again):
             free(x)
-        row = {"sublayer": name, "batch": B, "bit_exact": exact, "max_rel_dev": worst}
+        row = {"sublayer": name, "batch": B, "bit_exact": exact, "max_rel_dev": worst,
+               "single_repeatable": repeatable}
         rows.append(row)
         print(json.dumps(row), flush=True)
     Path(a.out).write_text(json.dumps({"n": n, "batch": B, "rows": rows}, indent=1))
