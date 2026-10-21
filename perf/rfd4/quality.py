@@ -61,8 +61,17 @@ def _find_designs(root: pathlib.Path) -> list[pathlib.Path]:
         found += sorted(root.rglob(pattern))
     if not found:  # a plain directory of CIFs, not an rfd4-generate output tree
         for pattern in ("*.cif", "*.cif.zst"):
-            found += sorted(p for p in root.rglob(pattern) if "_input" not in p.name)
+            found += sorted(p for p in root.rglob(pattern) if not _is_sidecar(p))
     return found
+
+
+# Upstream's naming (docs/reference/output-format.md): the design is `_generated`, everything
+# else beside it is the input copy, a refold, a chain extract or a trajectory frame.
+SIDECAR = ("_input", "_refolded", "_chain", "trajectories")
+
+
+def _is_sidecar(path: pathlib.Path) -> bool:
+    return any(s in path.name for s in SIDECAR) or "trajectories" in path.parts
 
 
 def load_arm(path: str | pathlib.Path, chain: str | None = None) -> dict:

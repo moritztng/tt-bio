@@ -241,3 +241,21 @@ def test_every_feature_family_has_a_metric_set_and_tags():
         assert any(k == "rate" or needs for _, k, needs in mspec.columns_for(feature)) or feature in {
             "inverse_folding"
         }
+
+
+def test_only_the_generated_cif_counts_as_a_design(tmp_path):
+    """Upstream writes the input copy, refolds and chain extracts next to the design."""
+    d = tmp_path / "run" / "inference_samples" / "ex"
+    d.mkdir(parents=True)
+    for name in ("ex_generated.cif", "ex_input.cif", "ex_af2_refolded.cif", "ex_chain.cif"):
+        _helix_cif(d / name, n=12)
+    (d / "trajectories").mkdir()
+    _helix_cif(d / "trajectories" / "frame0.cif", n=12)
+    arm = quality.load_arm(tmp_path / "run")
+    assert arm["n_designs_parsed"] == 1
+
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    _helix_cif(plain / "a.cif", n=12)
+    _helix_cif(plain / "b_refolded.cif", n=12)
+    assert quality.load_arm(plain)["n_designs_parsed"] == 1
