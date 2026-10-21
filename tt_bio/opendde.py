@@ -572,10 +572,13 @@ class OpenDDE:
         self.expander = StructuralTokenExpander(
             routed["expander"], compute_kernel_config, c_s=C["c_s"], c_z=C["c_z"],
             c_s_inputs=C["c_s_inputs"], n_roles=C["n_roles"], pair_chunk_size=C["pair_chunk_size"])
+        # refiner_trunk_ckc: the refiner is a pairformer too, so under the lever it takes the trunk's config.
+        refiner_ckc = (_T.trunk_compute_kernel_config(compute_kernel_config) if _T.lever("refiner_trunk_ckc")
+                       else compute_kernel_config)
         self.refiner = Pairformer(
             routed["refiner_blocks"], C["c_z"] // C["refiner_tri_heads"], C["refiner_tri_heads"],
             C["c_s"] // C["refiner_att_heads"], C["refiner_att_heads"], True,
-            routed["refiner"], compute_kernel_config, gated_move=True,
+            routed["refiner"], refiner_ckc, gated_move=True,
             accurate_softmax=accurate_softmax_site("opendde.refiner", default=True))
 
     @classmethod
