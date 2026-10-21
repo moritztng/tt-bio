@@ -40,7 +40,7 @@ constexpr uint32_t cb_parts2 = tt::CBIndex::c_18;
 constexpr uint32_t cb_var = tt::CBIndex::c_19;
 constexpr uint32_t cb_rstd = tt::CBIndex::c_20;
 
-struct C {
+struct LnCbs {
     static constexpr uint32_t Kt = KC, x = cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler, eps = cb_eps,
         mean = cb_mean, var = cb_var, rstd = cb_rstd, xc = cb_xc, tmp = cb_tmp;
 };
@@ -100,23 +100,23 @@ void kernel_main() {
     if constexpr (HAS_W) cb_wait_front(cb_gamma, KC);
     if constexpr (HAS_B) cb_wait_front(cb_beta, KC);
 
-    ln_prologue::row_mean<C>(cb_x, cb_p1, false);         // partial sum / K
+    ln_prologue::row_mean<LnCbs>(cb_x, cb_p1, false);         // partial sum / K
     sum_parts(cb_parts1, cb_mean);                        // mean
     cb_wait_front(cb_mean, 1);
-    ln_prologue::stage<C, ln_prologue::SUB_COL>(cb_x, cb_mean, cb_xc);
+    ln_prologue::stage<LnCbs, ln_prologue::SUB_COL>(cb_x, cb_mean, cb_xc);
     cb_pop_front(cb_x, KC);
     cb_pop_front(cb_mean, 1);
     cb_wait_front(cb_xc, KC);
-    ln_prologue::stage<C, ln_prologue::MUL>(cb_xc, cb_xc, cb_tmp);
-    ln_prologue::row_mean<C>(cb_tmp, cb_p2, true);        // partial sum (x - mean)^2 / K
+    ln_prologue::stage<LnCbs, ln_prologue::MUL>(cb_xc, cb_xc, cb_tmp);
+    ln_prologue::row_mean<LnCbs>(cb_tmp, cb_p2, true);        // partial sum (x - mean)^2 / K
     sum_parts(cb_parts2, cb_var);                         // biased variance
-    ln_prologue::rstd<C>();
-    ln_prologue::stage<C, ln_prologue::MUL_COL>(cb_xc, cb_rstd, cb_tmp);
+    ln_prologue::rstd<LnCbs>();
+    ln_prologue::stage<LnCbs, ln_prologue::MUL_COL>(cb_xc, cb_rstd, cb_tmp);
     cb_pop_front(cb_xc, KC);
     cb_pop_front(cb_rstd, 1);
     if constexpr (HAS_W) {
         cb_wait_front(cb_tmp, KC);
-        ln_prologue::stage<C, ln_prologue::MUL_ROW>(cb_tmp, cb_gamma, cb_xc);
+        ln_prologue::stage<LnCbs, ln_prologue::MUL_ROW>(cb_tmp, cb_gamma, cb_xc);
         cb_pop_front(cb_tmp, KC);
         finish(cb_xc);
     } else {
