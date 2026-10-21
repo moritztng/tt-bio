@@ -129,13 +129,17 @@ void kernel_main() {
                     const uint32_t sf = (c0 >> 4) * 2, sr0 = c0 & 15;
                     for (uint32_t i4 = 0; i4 < IL; i4 += 4) {
                         for (uint32_t j = 0; j < NB; ++j) e0[i4 / 4][j] = e1[i4 / 4][j] = 0;
+                        // The core stalls on a load's first use, not its issue: issue all eight before using one.
+                        const uint32_t ea0 = src + i4 * TB8 + sf * 16 + sr0, sh = (ea0 & 3) * 8;
+                        uint32_t lw[8];
+                        for (uint32_t k = 0; k < 4; ++k) {
+                            lw[2 * k] = *reinterpret_cast<volatile tt_l1_ptr uint32_t*>((ea0 + k * TB8) & ~3u);
+                            lw[2 * k + 1] = *reinterpret_cast<volatile tt_l1_ptr uint32_t*>((ea0 + k * TB8 + 16) & ~3u);
+                        }
                         for (uint32_t k = 0; k < 4; ++k) {
                             const uint32_t il = i4 + k, r = r0 + il;
                             const uint32_t df = (r >> 4) * 2, dr = r & 15;
-                            const uint32_t ea = src + il * TB8 + sf * 16 + sr0;
-                            const uint32_t sh = (ea & 3) * 8;
-                            const uint32_t w0 = *reinterpret_cast<volatile tt_l1_ptr uint32_t*>(ea & ~3u) >> sh;
-                            const uint32_t w1 = *reinterpret_cast<volatile tt_l1_ptr uint32_t*>((ea + 16) & ~3u) >> sh;
+                            const uint32_t w0 = lw[2 * k] >> sh, w1 = lw[2 * k + 1] >> sh;
                             for (uint32_t j = 0; j < NB; ++j) {
                                 // source row c0 + j of tile il: face sf (+1 for the right half), face row sr0 + j
                                 const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + (sr0 + j) * RB8;
