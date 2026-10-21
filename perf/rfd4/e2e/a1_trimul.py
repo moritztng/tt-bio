@@ -82,17 +82,33 @@ def main():
                 ttnn.deallocate(z)
                 ttnn.deallocate(pm)
     aiclk = clk.summary()
-    slow = [r for r in rows if r["op"] == "tri_mult_out" and r["n"] == 256 and r["max_s"] > 0.1]
+    by = {(r["op"], r["n"]): r for r in rows}
+    # Two different claims live in these numbers and must not be collapsed. The rate claim is the
+    # median against the incoming control at the same size; the tail claim is the worst call.
+    rate_slow = [r for r in rows if r["op"] == "tri_mult_out"
+                 and r["median_s"] > 3 * by[("tri_mult_in", r["n"])]["median_s"]]
+    stalls = [r for r in rows if r["max_s"] > 5 * r["median_s"]]
+    if rate_slow:
+        verdict, reading = "RATE", (
+            "outgoing really is slower per call than incoming at the same shape: a path difference "
+            "in a module Boltz-2 and OpenFold3 also run, and a throughput bug in all three")
+    elif stalls:
+        verdict, reading = "TAIL", (
+            "the steady-state rate is normal and matches the incoming control; what is real is a "
+            "sporadic stall of hundreds of milliseconds on a call that is not the first, so the "
+            "original 8.136 s was one stall averaged over five calls, not a 2000x path. It is a "
+            "tail-latency defect, not a throughput one -- but TriangleMultiplication is tt-bio's "
+            "shared module, so a one-second stall lands in Boltz-2 and OpenFold3 latency too")
+    else:
+        verdict, reading = "NOT REPRODUCED", (
+            "every repeat is fast and no call stalls: the 8.136 s was contention on a shared chip, "
+            "the ceiling's triangle number stands and nothing is owed")
     out = {"anomaly": "A1", "claim": "tri_mult_out n=256 = 8.136 s vs 4.0 ms for tri_mult_in",
            "method": f"{a.repeats} repeats after a discarded warmup, synchronised per call, idle chip",
            "aiclk": aiclk, "rows": rows,
-           "verdict": "REPRODUCED" if slow else "NOT REPRODUCED",
-           "reading": ("a shipped TriangleMultiplication really is ~2000x slow at this one shape; it is "
-                       "tt-bio's shared module, so Boltz-2 and OpenFold3 carry the same bug and the fleet "
-                       "needs to hear about it now")
-                      if slow else
-                      ("every repeat is fast, so the 8.136 s was contention on a shared chip, not a path: "
-                       "the ceiling's triangle number stands and nothing is owed")}
+           "stalled": [{"op": r["op"], "n": r["n"], "max_s": r["max_s"], "median_s": r["median_s"]}
+                       for r in stalls],
+           "verdict": verdict, "reading": reading}
     json.dump(out, open(a.out, "w"), indent=2)
     print(json.dumps({k: out[k] for k in ("verdict", "aiclk", "reading")}, indent=2))
 
