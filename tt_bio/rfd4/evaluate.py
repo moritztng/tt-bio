@@ -71,6 +71,12 @@ INLINE = (
         _gate(any_of=["design"], none_of=["small_molecule_only", "structure_prediction"]),
         lambda d, i: M.compute_sse_accuracy(d),
     ),
+    ("rasa_adherence", _gate(any_of=["rasa_conditioning"]), lambda d, i: M.compute_rasa_adherence(d)),
+    (
+        "centroid_conditioning_adherence",
+        _gate(any_of=["centroid_conditioning"]),
+        lambda d, i: M.compute_centroid_conditioning_adherence(d),
+    ),
     ("hotspot_obedience", _gate(any_of=["hotspot_conditioning"]), lambda d, i: M.compute_hotspot_obedience(d)),
     (
         "design_motif_allatom_rmsd",
@@ -83,8 +89,6 @@ INLINE = (
 
 # Upstream inline metrics this port does not compute yet, with the tags that switch them on.
 NOT_PORTED = {
-    "rasa_adherence": _gate(any_of=["rasa_conditioning"]),
-    "centroid_conditioning_adherence": _gate(any_of=["centroid_conditioning"]),
     "interchain_interactions": _gate(any_of=["interchain_interactions"]),
     "posebusters_metrics": _gate(any_of=["small_molecule_only"]),
     "chiral_accuracy": _gate(any_of=["has_small_molecule"]),

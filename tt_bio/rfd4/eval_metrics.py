@@ -467,3 +467,110 @@ def compute_hotspot_obedience(design, max_hotspot_distance=4.5) -> dict:
         distance = np.linalg.norm(binder[None, :, :] - hotspots[:, None, :], axis=-1)
         obeyed += int(np.any(distance < max_hotspot_distance, axis=1).sum())
     return {"hotspot_obedience": float(obeyed / hot.sum())}
+
+
+#: atomworks `ml/transforms/sasa.py` `_ELEMENT_VDW_RADII`: Alvarez (2013) radii for elements biotite
+#: lacks, consulted before biotite's `vdw_radius_single`.
+ELEMENT_VDW_RADII = {
+    "SC": 2.58,
+    "TI": 2.46,
+    "V": 2.42,
+    "CR": 2.45,
+    "Y": 2.75,
+    "ZR": 2.52,
+    "NB": 2.56,
+    "TC": 2.44,
+    "RH": 2.44,
+    "PD": 2.15,
+    "AG": 2.53,
+    "CD": 2.49,
+    "LA": 2.98,
+    "CE": 2.88,
+    "PR": 2.92,
+    "ND": 2.95,
+    "SM": 2.90,
+    "EU": 2.87,
+    "GD": 2.83,
+    "TB": 2.79,
+    "DY": 2.87,
+    "HO": 2.81,
+    "ER": 2.83,
+    "TM": 2.79,
+    "YB": 2.80,
+    "LU": 2.74,
+    "HF": 2.63,
+    "TA": 2.53,
+    "RE": 2.49,
+    "OS": 2.48,
+    "IR": 2.41,
+    "HG": 2.45,
+    "AC": 2.80,
+    "TH": 2.93,
+    "PA": 2.88,
+    "U": 2.71,
+    "NP": 2.82,
+    "PU": 2.81,
+    "AM": 2.83,
+    "CM": 3.05,
+    "BK": 3.40,
+    "CF": 3.05,
+    "ES": 2.70,
+}
+RASA_NAMES = {"1": "buried", "2": "intermediate", "3": "exposed"}
+_RASA_ENUM = {"BURIED": "1", "INTERMEDIATE": "2", "EXPOSED": "3", "UNSPECIFIED": "0"}
+
+
+def atomwise_rasa(atoms, probe_radius=1.4, point_number=100):
+    """atomworks `calculate_atomwise_rasa(..., atom_radii="element")`: Shrake-Rupley SASA over the
+    atoms with finite coordinates, ions included, divided by the isolated atom's sphere area."""
+    import biotite.structure as struc
+    from biotite.structure.info import vdw_radius_single
+
+    rasa = np.full(atoms.array_length(), np.nan)
+    valid = np.isfinite(atoms.coord).all(axis=-1)
+    if not valid.any():
+        return rasa
+    sub = atoms[valid]
+    lookup = {}
+    for element in np.unique(sub.element):
+        radius = ELEMENT_VDW_RADII.get(element) or vdw_radius_single(element)
+        if radius is None:
+            raise ValueError(f"No VdW radius for element {element!r}")
+        lookup[element] = radius
+    radii = np.array([lookup[e] for e in sub.element], dtype=np.float32)
+    sasa = struc.sasa(sub, probe_radius=probe_radius, vdw_radii=radii, point_number=point_number, ignore_ions=False)
+    rasa[valid] = sasa / (4 * np.pi * (radii + probe_radius) ** 2)
+    return rasa
+
+
+def compute_rasa_adherence(design, point_number=100) -> dict:
+    """`rasa_adherence` (`rasa_metrics.py:13-79`): bin the design's own RASA on the training grid
+    (buried < 0.02 <= intermediate <= 0.1 < exposed) and score each conditioned bin."""
+    rasa = np.rint(atomwise_rasa(design.atoms, point_number=point_number) * point_number) / point_number
+    bins = np.digitize(rasa, [0.0, 0.02, np.nextafter(0.1, np.inf)], right=False)
+    if (bins == 0).any():
+        raise ValueError("Negative RASA value was detected. This indicates an error.")
+    generated = np.where(np.isnan(rasa), "0", np.array(["0", "1", "2", "3"])[np.minimum(bins, 3)])
+    conditioned = np.array([_RASA_ENUM.get(v.upper(), v) for v in design.rasa])
+    out = {}
+    for value, name in RASA_NAMES.items():
+        expected = conditioned == value
+        key = f"{name}_conditioning_adherence"
+        out[key] = float((generated[expected] == value).mean()) if expected.any() else float("nan")
+    return out
+
+
+def compute_centroid_conditioning_adherence(design) -> dict:
+    """`centroid_conditioning_adherence` (`centroid_metrics.py:12-49`): per generated chain with a
+    centroid target, the distance from its actual centroid; mean over chains, NaN if none."""
+    chains = design.atoms.chain_id
+    target = design.centroid
+    generated = np.isfinite(target).any(axis=1) & ~design.is_crd
+    distances = []
+    for chain in np.unique(chains[generated]):
+        on_chain = chains == chain
+        actual = np.nanmean(design.atoms.coord[on_chain], axis=0)
+        distances.append(np.linalg.norm(actual - target[on_chain][0]))
+    if not distances:
+        return {"centroid_conditioning_mae": float("nan")}
+    return {"centroid_conditioning_mae": float(np.mean(distances))}

@@ -33,6 +33,7 @@ _OPTIONAL_COLUMNS = (
     "condition_secondary-structure_1_residue",
     "condition_hotspot_1_atom",
     "annotation_src-coordinate-conditioned-region_1_atom",
+    "condition_rasa-binned_1_atom",
     *(f"condition_sequence-probability-{t}_1_residue" for t in SEQUENCE_PROBABILITY_TOKENS),
 )
 
@@ -51,6 +52,8 @@ class Design:
     hotspot: np.ndarray = None  # C_HOT per atom, False where unconditioned
     crd_src: np.ndarray = None  # SA_CRDSRC: the atom's coordinates came from conditioning
     coords_with_insertion: np.ndarray = None  # SA_CWI (n_atoms, 3), NaN where not conditioned
+    rasa: np.ndarray = None  # C_RAS RasaEnum ints, 0 where unconditioned
+    centroid: np.ndarray = None  # C_CENTROID (n_atoms, 3), NaN where unconditioned
 
 
 def _atom_site_columns(block):
@@ -138,6 +141,8 @@ def read_design(path) -> Design:
         hotspot=_as_bool(ann("condition_hotspot_1_atom", "False")),
         crd_src=ann("annotation_src-coordinate-conditioned-region_1_atom", ".").astype(str) != ".",
         coords_with_insertion=_per_atom_loop(block, "annotation_coords-with-insertion_1_atom", n, 3),
+        rasa=ann("condition_rasa-binned_1_atom", "0").astype(str),
+        centroid=_per_atom_loop(block, "condition_ChainCentroid_1_atom", n, 3),
         c_sec=(
             atoms.get_annotation("condition_secondary-structure_1_residue").astype(float).astype(int)
             if "condition_secondary-structure_1_residue" in extra

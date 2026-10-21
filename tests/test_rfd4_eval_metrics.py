@@ -430,3 +430,24 @@ def test_tag_gated_filters_match_upstream(tmp_path, golden_name, design, refold,
     expected = golden["rows"][name]
     assert expected["pre_oracle_pass"] == pre_oracle
     _assert_row_matches(expected, rows[name], min_compared)
+
+
+def test_rasa_and_centroid_adherence_match_upstream(tmp_path):
+    """`rasa_adherence` (Shrake-Rupley with atomworks' element radii, binned on the training grid)
+    and `centroid_conditioning_adherence`, on the 80-aa design with 209 RASA-conditioned atoms and a
+    centroid target 2.5 A off (`perf/rfd4/make_condition_fixture.py`)."""
+    import csv
+    import shutil
+
+    from tt_bio.rfd4.evaluate import evaluate
+
+    golden = json.loads((GOLDENS / "upstream_rasa_centroid.json").read_text())
+    inputs = tmp_path / "designs"
+    inputs.mkdir()
+    shutil.copy(GOLDENS / "conditioning" / "cond_generated.cif", inputs / "cond_generated.cif")
+    csv_path = evaluate(inputs, "design,rasa_conditioning,centroid_conditioning", tmp_path / "out")
+    rows = {r["designed_structure_path"].rsplit("/", 1)[-1]: r for r in csv.DictReader(open(csv_path))}
+    expected = golden["rows"]["cond_generated.cif"]
+    assert expected["rasa_adherence.buried_conditioning_adherence"] == "0.5156"
+    assert expected["centroid_conditioning_adherence.centroid_conditioning_mae"] == "2.4999"
+    _assert_row_matches(expected, rows["cond_generated.cif"], 37)
