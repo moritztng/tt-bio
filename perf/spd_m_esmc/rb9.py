@@ -86,6 +86,18 @@ def main() -> int:
     seq = Path("scripts/gpu_vs_tt/fixtures/prot512.seq").read_text().strip()
     out["batch_tokens_7"] = timed(lambda: esmc._batch_tokens([seq] * 7), dev, args.rounds)
     out["batch_tokens_7_ragged"] = timed(lambda: esmc._batch_tokens([seq[:-i] for i in range(1, 8)]), dev, args.rounds)
+    # the eager forward's uploads, in call order (forward -> _dispatch -> _forward_eager -> module)
+    ids, lens, mask, kv = esmc._batch_tokens([seq[:-i] for i in range(7)])
+    synced = lambda f: (lambda: (f(), ttnn.synchronize_device(dev)))
+    out["key_lens"] = timed(lambda: esmc._key_lens(mask), dev, args.rounds)
+    kl = esmc._key_lens(mask)
+    out["up_tokens"] = timed(synced(lambda: ttnn.from_torch(ids.to(torch.int32), device=dev, layout=ttnn.ROW_MAJOR_LAYOUT,
+                                                           dtype=ttnn.uint32)), dev, args.rounds)
+    out["up_keypad"] = timed(synced(lambda: esmc._lm_mask(mask, kl, dev)), dev, args.rounds)
+    out["up_kv"] = timed(synced(lambda: ttnn.from_torch(kv.to(torch.bfloat16), device=dev, layout=ttnn.TILE_LAYOUT,
+                                                       dtype=ttnn.bfloat16)), dev, args.rounds)
+    for hd in (64, 128):
+        out[f"rope_tables_544_{hd}"] = timed(synced(lambda: esmc.rope_tables(544, hd, device=dev)), dev, args.rounds)
     Path(args.out).write_text(json.dumps(out, indent=1) + "\n")
     print(json.dumps(out))
     return 0

@@ -2611,8 +2611,8 @@ def _trunk_forward(model, seq: str, return_logits: bool):
         lg, em = model(tokens)              # [1, L+2, 64], [1, L+2, d]
         emb = em[0]
         if return_logits:
-            logits = lg[0][1:-1].numpy().astype(np.float32)
-    emb = emb.numpy().astype(np.float32)
+            logits = lg[0][1:-1].numpy().astype(np.float32, copy=False)
+    emb = emb.numpy().astype(np.float32, copy=False)
     return emb[1:-1], emb[0], logits
 
 
@@ -2730,9 +2730,10 @@ def embed_sequences(model, sequences: dict[str, str], *, return_logits: bool = F
         logits_b, emb_b = model(input_ids, attn_mask, key_valid, want_logits=return_logits)  # [B,Lb,64] | None, [B,Lb,d]
         for row, (sid, seq) in enumerate(batch):
             li = lens[row]
-            emb = emb_b[row, :li].numpy().astype(np.float32)
+            # Views of the float32 readback: a second copy of every row cost 0.8 ms of a 90 ms page batch (rb9).
+            emb = emb_b[row, :li].numpy().astype(np.float32, copy=False)
             per_residue, cls = emb[1:-1], emb[0]
-            logits = (logits_b[row, 1:li - 1].numpy().astype(np.float32)
+            logits = (logits_b[row, 1:li - 1].numpy().astype(np.float32, copy=False)
                       if return_logits else None)
             pooled = cls if pool == "cls" else _POOLERS[pool](per_residue)
             by_id[sid] = ESMCEmbedding(sid, seq, per_residue,
