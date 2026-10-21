@@ -454,13 +454,19 @@ def route_opendde_weights(state_dict):
 # cdk2x2 x 1 at 1000 MHz: normal 512 -0.56 s, 576 -1.59 s.
 # Wormhole normal also takes trimul_bres (protenix.BRES_NORMAL), bit-exact: Galaxy chip, cdk2x2 x 1, 1000 MHz, paired
 # warm folds (spd-m-opendde bnab, 2026-10-19), CIFs identical on and off, 512 -0.72 s (3 of 3 pairs), 576 -0.94 s.
-NORMAL_LEVERS = _FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad"}
+# Both Wormhole modes take inproj_split: the trimul projects all its channel chunks in one split call instead of one
+# call per chunk, so the pair tensor is read once. Bit-exact (same full-K contraction per output tile; CIFs identical
+# on and off). Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde isp2, 2026-10-21): normal 256
+# 42.9 -> 36.6 s, fast 256 35.6 -> 33.6 s; 288 is null (the lever does not reach its trimuls).
+NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL
+                 | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
-WH_FAST_LEVERS = FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad"} | TRIATT_LN | TRIATT_K1
+WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split"}
+                  | TRIATT_LN | TRIATT_K1)
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
