@@ -69,6 +69,14 @@ def main() -> int:
         if r_ref is not None:
             c["recon"] = {"upstream": r_ref, "mixed": r_up, "d_rmsd_A": r_up["all_atom_rmsd_A"] - r_ref["all_atom_rmsd_A"],
                           "d_seq_recovery": r_up["seq_recovery"] - r_ref["seq_recovery"]}
+        # Common-mode check: the shift of every class pair's logit gap, production minus float64, over the
+        # emitted tokens of the dominant token type (a coin-flip population flips on its sign).
+        em0, tt0 = g["decoder"]["emit_mask"][0], batch["token_type"][0]
+        t = int(tt0[em0].mode().values)
+        m = em0 & (tt0 == t)
+        cls = tab["allowed"][t].nonzero().flatten()
+        dl = (d["seq_logits"][0].double() - g["decoder"]["seq_logits"][0].double())[m][:, cls]
+        c["logit_shift"] = {"token_type": t, "classes": cls.tolist(), "mean": dl.mean(0).tolist(), "std": dl.std(0).tolist()}
         rec["cases"][g["case"]] = c
         r = c["decoder"]["residue"]
         print(g["case"], "enc", max(v["max_rel_err"] for v in c["encoder"].values()), "lg",
