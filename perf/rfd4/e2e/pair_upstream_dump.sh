@@ -8,12 +8,13 @@ STEPS=${2:-2}
 WT=/home/moritz/.coworker/wt/rfd4-pair
 ROOT=/home/moritz/rfd4-ref-env; SRC=$ROOT/src/RFD4-Proteina
 OUT=/home/moritz/rfd4-pair-runs/upstream/${TAG:-seed$SEED}
-export PROJECT_ROOT=$SRC HYDRA_FULL_ERROR=1 OMP_NUM_THREADS=6
+INPUT=${INPUT:-/home/moritz/.coworker/state/rfd4/inputs/pdl1-128.yaml}
+export PROJECT_ROOT=$SRC HYDRA_FULL_ERROR=1 OMP_NUM_THREADS=${THREADS:-6}
 export PYTHONPATH=$WT/perf/rfd4/e2e:$WT/perf/rfd4/ref
 mkdir -p "$OUT"
 cd "$SRC"
 nice -n 19 "$ROOT/venv/bin/python" "$WT/perf/rfd4/e2e/pair_upstream_dump.py" \
   --seed "$SEED" --steps "$STEPS" --out "$OUT" ${EXTRA:-} \
-  "inputs=/home/moritz/.coworker/state/rfd4/inputs/pdl1-128.yaml" "out_dir=$OUT/designs" "seed=$SEED" \
+  "inputs=$INPUT" "out_dir=$OUT/designs" "seed=$SEED" \
   num_replicates=1 batch_size=1 '~metrics' compile_lengths=null
 echo "rc=$? end $(date -u +%FT%TZ)"
