@@ -385,9 +385,16 @@ def _per_design(tri, z, pair_mask):
     for k in range(b):
         zk = ttnn.slice(z, [k, 0, 0, 0], [k + 1, n, n, c])
         mk = ttnn.slice(pair_mask, [k, 0, 0], [k + 1, n, n])
-        outs.append(tri(zk, mk))
+        out = tri(zk, mk)
         ttnn.deallocate(zk)
         ttnn.deallocate(mk)
+        if out.memory_config().buffer_type == ttnn.BufferType.L1:
+            # An L1 result left there would sit under the next design's circular buffers: the
+            # trimul would clash, retry narrower and stay on the slower path for every design.
+            out_dram = ttnn.to_memory_config(out, ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(out)
+            out = out_dram
+        outs.append(out)
     out = ttnn.concat(outs, dim=0)
     for t in outs:
         ttnn.deallocate(t)

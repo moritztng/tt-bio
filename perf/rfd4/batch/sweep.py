@@ -22,6 +22,7 @@ import argparse
 import json
 import math
 import os
+import statistics
 import sys
 import time
 from pathlib import Path
@@ -116,7 +117,7 @@ def main():
                "wall_s": round(wall, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
                "trunk_s": round(sum(trunk_s), 3), "host_s": round(t_design - sum(trunk_s), 3),
                "designs_per_s": round(n / wall, 5), "s_per_design": round(wall / n, 3),
-               "aiclk": summ, "aiclk_mhz": mhz,
+               "aiclk": summ, "aiclk_mhz": mhz, "loadavg_1m": round(os.getloadavg()[0], 1),
                "clock_artifact": bool(mhz is None or mhz < CLOCK_FLOOR_MHZ)}
         emit(rec)
         return rec, output
@@ -140,6 +141,8 @@ def main():
         dps = max(r["designs_per_s"] for r in recs)
         rung = {"batch": width, "width_achieved": min(r["width_achieved"] for r in recs), "designs": n,
                 "designs_per_s": dps, "designs_per_s_reps": [r["designs_per_s"] for r in recs],
+                "designs_per_s_median": round(statistics.median(r["designs_per_s"] for r in recs), 5),
+                "loadavg_1m": [r["loadavg_1m"] for r in recs],
                 "aiclk_mhz": [r["aiclk_mhz"] for r in recs],
                 "clock_artifact": any(r["clock_artifact"] for r in recs),
                 "trunk_s": [r["trunk_s"] for r in recs], "host_s": [r["host_s"] for r in recs],
