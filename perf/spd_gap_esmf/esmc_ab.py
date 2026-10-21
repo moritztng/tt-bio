@@ -55,7 +55,8 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=7)
     ap.add_argument("--rounds", type=int, default=2)
     ap.add_argument("--on-value", type=json.loads, default=None,
-                    help="value the on arm sets (default True), a JSON literal: an int switch, or a list for a tuple one")
+                    help="value the on arm sets (default True), a JSON literal: an int switch, a list for a tuple one, or a "
+                         "fidelity name for a MathFidelity attribute")
     ap.add_argument("--block-attr", default=None,
                     help="dotted attribute on every transformer Block (e.g. attn.qk_l1): off arm = as loaded, on = True")
     ap.add_argument("--arm", action="append", default=[],
@@ -100,7 +101,10 @@ def main() -> int:
         assert battr, "no transformer blocks found"
     boff = [getattr(o, n) for o, n in battr]
     cur = getattr(alt_mod, attr) if not (a.fidelity or a.block_attr) else None
-    off_value = False if cur is None else type(cur)()   # tri-state switches (None = per-arch default) read off as False
+    if isinstance(cur, ttnn.MathFidelity):   # a module's fidelity (qk_rope_heads.FIDELITY): off = as shipped, --on-value '"HiFi2"'
+        off_value, a.on_value = cur, getattr(ttnn.MathFidelity, a.on_value)
+    else:   # tri-state switches (None = per-arch default) read off as False
+        off_value = False if cur is None else type(cur)()
     arms = [(n, [(importlib.import_module(m), t) for m, t in (x.rsplit(".", 1) for x in v.split(","))])
             for n, v in (s.split("=", 1) for s in a.arm)]
     sw = {(m, t): (False if getattr(m, t) is None else type(getattr(m, t))()) for _, ms in arms for m, t in ms}
