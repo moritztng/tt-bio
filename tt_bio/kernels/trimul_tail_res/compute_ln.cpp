@@ -48,6 +48,12 @@ constexpr uint32_t CP = get_compile_time_arg_val(8);
 // push its CB as is, so the stage's time drops out while the reader and writer move the same bytes.
 // 1 LayerNorm, 2 the p GEMM, 4 the gate GEMM + sigmoid (GATE), 8 the epilogue, 16 the epilogue's sigmoid (not GATE).
 constexpr uint32_t ABL = get_compile_time_arg_val(9);
+// GSIG (define, lever trimul_t1_gsig): g arrives as sigmoid(g) from T1, so the epilogue multiplies by it as is.
+#ifdef GSIG
+constexpr bool G_IS_SIG = true;
+#else
+constexpr bool G_IS_SIG = false;
+#endif
 // EXTRA (MOVED only, 0 for every caller before AF2): 1 a bias on p, 2 a bias on the GATE g, each as Nt
 // tiles with the bias row in all 32 rows (c_19, p first), copied into DST before the K accumulation;
 // 4 the update times a per-row dropout mask (Nt tiles per block in c_20, shared by the block's rows),
@@ -317,7 +323,7 @@ void kernel_main() {
             reconfig_data_format_srca(cb_g);
             copy_tile_to_dst_init_short(cb_g);
             for (uint32_t i = 0; i < 4; ++i) copy_tile(cb_g, t0 + i, i);
-            if constexpr (!GATE && !(ABL & 16)) {
+            if constexpr (!GATE && !G_IS_SIG && !(ABL & 16)) {
                 for (uint32_t i = 0; i < 4; ++i) {
                     if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                     else sigmoid_bf16_tile(i);
