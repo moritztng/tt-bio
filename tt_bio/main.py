@@ -4321,12 +4321,18 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
         raise click.ClickException(f"{type(e).__name__}: {e}")
 
     sampling = sampling or {}
-    click.echo(f"{len(designs)} design(s) from {Path(inputs).name}, seed {seed}"
-               + (f", {_rfd4_mode(sampling)}" if sampling else ""))
+    # Resolve the recipe and the sampling arguments before the card comes up: upstream's mutual
+    # exclusions are host arithmetic, and finding one out after a weight load is a wasted minute.
+    from tt_bio.rfd4 import sampler as _sampler
+
     try:
-        engine = rfd4.get_engine(recipe=recipe, tsr_k=tsr_k)
+        _sampler.resolve_partial_start(_sampler.recycle_strategy(recipe), **sampling)
     except ValueError as e:
         raise click.UsageError(str(e))
+
+    click.echo(f"{len(designs)} design(s) from {Path(inputs).name}, seed {seed}"
+               + (f", {_rfd4_mode(sampling)}" if sampling else ""))
+    engine = rfd4.get_engine(recipe=recipe, tsr_k=tsr_k)
     for design in designs:
         features, atom_array = rfd4.featurize(design.cif, seed=seed)
         tokens = int(features["padding_mask"].shape[-1])
