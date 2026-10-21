@@ -807,3 +807,42 @@ def test_a_chip_lending_japanfold_box_is_a_pool_sized_by_its_lent_chips(tmp_path
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path)}, check=True)
     assert json.loads(r.stdout)["paused"] is True
+
+
+LEAD = """row: spd-a
+experiments:
+  - name: ok
+    axes: {seed: ["1", "2"]}
+    done: ["/tmp/x/{seed}/done"]
+    command: echo {seed}
+  - name: hiprio
+    prio: 1
+    done: ["/tmp/y"]
+    command: echo y
+"""
+
+
+def test_a_bad_grid_file_skips_alone_and_prio_clamps(tmp_path):
+    (tmp_path / "a.yaml").write_text(LEAD)
+    (tmp_path / "b.yaml").write_text("row: [unclosed\n")
+    (tmp_path / "c.yaml").write_text("experiments: []\n")   # no row
+    warned = []
+    cs = feed.cells(tmp_path, log=warned.append)
+    prio = {c["key"]: int(c["name"].split("-")[0]) for c in cs}
+    assert sorted(prio) == ["spd-a/hiprio/x", "spd-a/ok/1", "spd-a/ok/2"]
+    assert prio["spd-a/hiprio/x"] == 3
+    assert sum(w.startswith("skip ") for w in warned) == 2, warned
+    lead = {c["key"]: int(c["name"].split("-")[0]) for c in feed.cells(tmp_path, log=lambda m: None, lead={"spd-a"})}
+    assert lead["spd-a/hiprio/x"] == 2
+
+
+def test_lead_rows_are_live_rows_dedicated_to_a_directive(tmp_path):
+    (tmp_path / "state/spd/steer").mkdir(parents=True); (tmp_path / "state/concluded").mkdir()
+    (tmp_path / "state/spd/steer/config.json").write_text(json.dumps(
+        {"groups": {"protenix": ["protenix-v2"], "esmc": ["esmc-300m"]}, "directives": {"protenix": {"x": 5}}}))
+    (tmp_path / "state/spd/OWNERS.tsv").write_text(
+        "# slug kind models\nspd-m-protenix\tcell\tprotenix-v2\nspd-bet-old\tbet\tprotenix-v2\n"
+        "spd-shared\tcell\tprotenix-v2,esmc-300m\nspd-m-esmc\tcell\tesmc-300m\n")
+    (tmp_path / "state/concluded/spd-bet-old").touch()
+    assert feed.lead_rows(tmp_path) == {"spd-m-protenix"}
+    assert feed.lead_rows(tmp_path / "missing") == set()
