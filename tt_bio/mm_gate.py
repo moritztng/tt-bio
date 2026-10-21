@@ -49,18 +49,20 @@ def plan(x, n2: int, cfg, grid):
     return None
 
 
-def config(x, n2: int, kt: int, grid, bf16_acc: bool):
+def config(x, n2: int, kt: int, grid, bf16_acc: bool, kb6: bool = False):
     """The block config (M, K, N, subblock_h, subblock_w) for x @ [K, n2], or None where no N block fits `plan`.
     perf/spd_gap_whlm/gate_cfg_sweep.py (Galaxy chip, 1000 MHz, 3808 rows): this rule is the sweep's best or within
     2 % of it on ESMC 300M/600M, normal and --fast. N is the largest plan-valid block up to 12 tiles, the subblock
     the widest divisor of it that fits a dest half, K 4 tiles under bf16 accumulation where K divides.
     M is 8 tiles unless a core's share of the rows is smaller: the ESMC-6B's 544 rows (17 tiles over 8 grid rows)
-    run best at M 2 and K 4 (--shapes 6b: 0.706 ms against 0.834 at M 4 and 0.956 at M 8)."""
+    run best at M 2 and K 4 (--shapes 6b: 0.706 ms against 0.834 at M 4 and 0.956 at M 8).
+    `kb6` takes K in blocks of 6 under fp32 accumulation where K divides: gate_cfg_sweep --kb 2,3,4,6 (Galaxy chip,
+    1000 MHz, HiFi3) 600M 1.131 -> 1.055 ms, 300M 0.833 -> 0.828, rel_l2 vs float64 unchanged."""
     dmax = 8 if bf16_acc else 4
     rows = x.volume() // int(x.shape[-1])
     per_core = -(-(rows // TILE) // (grid[0] if rows > n2 else grid[1]))
     mb = min(8, 1 << (per_core.bit_length() - 1))
-    kb = 4 if kt % 4 == 0 and (bf16_acc or mb <= 2) else 2
+    kb = 4 if kt % 4 == 0 and (bf16_acc or mb <= 2) else 6 if kb6 and not bf16_acc and kt % 6 == 0 else 2
     for nb in (12, 10, 8, 6, 4):
         cfg = (mb, kb, nb, 1, 1)
         if plan(x, n2, cfg, grid) is None:
