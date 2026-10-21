@@ -112,7 +112,11 @@ def write_design(output, features: dict, atom_array, path: str | Path, *, row: i
     is never overwritten and a reader never sees a half-written file.
     """
     from tt_bio._vendor.rfd4_prep.processing import write_cif
+    from tt_bio.rfd4.network import _broadcast_batch
 
+    # `features` is the one input every design shares (a leading axis of 1), and write_cif
+    # indexes it by `row` like the output, so it gets the output's design axis first.
+    features = _broadcast_batch(features, output.coords_nm.shape[0])
     path = Path(path).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
     return Path(write_cif(output, features, atom_array, path, row=row))
