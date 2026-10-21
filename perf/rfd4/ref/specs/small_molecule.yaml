@@ -1,0 +1,3 @@
+sam_binder:
+  input: data/benchmarks/small_molecule_binder/sm_binder/SAM.cif.zst
+  input_as_annotated_cif: true

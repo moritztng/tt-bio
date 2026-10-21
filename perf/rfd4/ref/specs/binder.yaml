@@ -1,0 +1,7 @@
+pdl1_binder:
+  input: docs/examples/inputs/5o45_cropped.cif.zst
+  contig: "50-120, /0, A17-131"
+  conditions:
+    C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}
+    C_SEQ: {true: [{select: "sel('A')"}]}
+    C_HOT: {true: [{select: "sel('A/*/56/[CG,OH]')"}, {select: "sel('A/*/115/[CG,SD]')"}, {select: "sel('A/*/123/[CD2,OH]')"}]}

@@ -1,0 +1,3 @@
+inv_fold_2kl8:
+  input: data/benchmarks/motif_scaffolding/motif_data_aa/2kl8_aa.cif.zst
+  input_as_annotated_cif: true

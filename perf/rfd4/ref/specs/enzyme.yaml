@@ -1,0 +1,3 @@
+mcsa_site:
+  input: data/benchmarks/mcsa/mcsa_37/M0040_13pk.cif.zst
+  input_as_annotated_cif: true

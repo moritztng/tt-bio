@@ -1,0 +1,3 @@
+motif_1qjg:
+  input: data/benchmarks/motif_scaffolding/motif_indexed/1QJG_AA.cif.zst
+  input_as_annotated_cif: true

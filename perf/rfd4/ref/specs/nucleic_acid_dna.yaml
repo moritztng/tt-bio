@@ -1,0 +1,3 @@
+dna_binder:
+  input: data/benchmarks/dna_binder/dna_binder_denovo_val/7m5w_structure_context.cif.zst
+  input_as_annotated_cif: true
