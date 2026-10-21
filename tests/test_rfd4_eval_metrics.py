@@ -130,3 +130,46 @@ def test_partial_diffusion_tag_matches_upstream(tmp_path):
                 continue  # hashes the path relative to INPUTS, which differs between the two runs
             got = rows[design][column]
             assert (got == want) if "" in (got, want) else float(got) == float(want), (design, column, got, want)
+
+
+def test_unconditional_refolding_tag_matches_upstream(tmp_path):
+    """The oracle-bound half, off the refold cache upstream itself resumes from.
+
+    `perf/rfd4/eval_goldens/refold/` is that cache for `clean_generated.cif`: a refold (the design
+    rotated, translated and jittered, `perf/rfd4/make_refold_fixture.py`) and the confidences
+    `tt_bio/rfd4/oracle.py` reduces for it. Upstream scored exactly these files in the reference
+    venv with `metrics_tags=[design,unconditional_refolding]`, no AF3 anywhere, and
+    `upstream_unconditional_refolding.json` is what it wrote.
+    """
+    import csv
+    import shutil
+
+    from tt_bio.rfd4.evaluate import evaluate
+
+    golden = json.loads((GOLDENS / "upstream_unconditional_refolding.json").read_text())
+    inputs = tmp_path / "designs"
+    inputs.mkdir()
+    shutil.copy(GOLDENS / "clean_generated.cif", inputs / "clean_generated.cif")
+    out = tmp_path / "out"
+    shutil.copytree(GOLDENS / "refold", out / "evaluation_samples")
+
+    csv_path = evaluate(inputs, "design,unconditional_refolding", out)
+    rows = {r["designed_structure_path"].rsplit("/", 1)[-1]: r for r in csv.DictReader(open(csv_path))}
+    expected = golden["rows"]["clean_generated.cif"]
+    # 1.5663 A against a 1.5 A bar: the criterion's failing branch, and a refold-dependent number
+    # that a wrong alignment or a wrong backbone mask cannot reproduce by accident.
+    assert expected["refolded_backbone_rmsd.rmsd"] == "1.5663"
+    assert expected["unconditional.pass"] == "0.0"
+    compared = 0
+    for column, want in expected.items():
+        if column in ("example_id", "dataset_name", "designed_structure_path", "output_base_dir") or column.endswith(
+            ("refolded_structure_path", "confidence_json_path", "designed_chain_path")
+        ):
+            continue  # provenance: names the out_dir, which differs between the two runs
+        got = rows["clean_generated.cif"][column]
+        if column in ("task", "metrics_tags", "chain_of_interest"):
+            assert got == want, (column, got, want)  # chain_of_interest is the chain iid, `A_1`
+        else:
+            assert (got == want) if "" in (got, want) else float(got) == float(want), (column, got, want)
+        compared += 1
+    assert compared >= 45, f"expected the whole row compared, got {compared} columns"
