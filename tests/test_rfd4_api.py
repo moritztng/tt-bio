@@ -159,3 +159,29 @@ def test_the_recipe_reaches_the_engine_that_is_loaded(host, monkeypatch):
                         lambda **kw: loaded.update(kw) or StubEngine())
     rfd4.design(host.spec, host.out, recipe="medium/midpeak")
     assert loaded == {"recipe": "medium/midpeak"}
+
+
+def test_bioir_is_declined_by_name_and_says_why(host):
+    """Upstream's second backend is CUDA-only. A user who asks for it gets the reason, not a
+    silent fall back to something else."""
+    with pytest.raises(ValueError, match="NVIDIA BioNeMo-IR"):
+        rfd4.design(host.spec, host.out, backend="bioir", engine=StubEngine())
+
+
+def test_an_unknown_backend_names_the_ones_that_exist(host):
+    with pytest.raises(ValueError, match=r"unknown inference backend 'cuda'.*bioir.*native"):
+        rfd4.design(host.spec, host.out, backend="cuda", engine=StubEngine())
+
+
+def test_the_cli_declines_bioir_without_opening_a_device(host, monkeypatch, tmp_path):
+    from click.testing import CliRunner
+
+    from tt_bio.main import cli
+
+    monkeypatch.setattr(rfd4.engine, "get_engine",
+                        lambda *a, **k: pytest.fail("a device was opened for a declined backend"))
+    host.spec.write_text("a: {}\n")
+    result = CliRunner().invoke(cli, ["design", str(host.spec), "--model", "rfd4",
+                                      "--out_dir", str(host.out), "--backend", "bioir"])
+    assert result.exit_code != 0
+    assert "BioNeMo-IR" in result.output and "native" in result.output

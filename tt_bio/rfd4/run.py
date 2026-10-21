@@ -26,8 +26,20 @@ logger = logging.getLogger(__name__)
 __all__ = ["design"]
 
 
+#: Upstream's `inference_backend`. `native` is the model itself, which is what tt-bio ports.
+#: `bioir` runs the whole workflow through NVIDIA's BioNeMo-IR with a CUDA-graph-captured trunk, so
+#: it is a property of the GPU it was written for, not a backend a port can offer.
+BACKENDS = {
+    "native": None,
+    "bioir": "inference_backend=bioir is NVIDIA BioNeMo-IR, which captures the trunk as a CUDA "
+             "graph and runs only on NVIDIA GPUs. tt-bio runs RFD4 natively on Tenstorrent; use "
+             "backend='native' (the default). The same designs come out either way.",
+}
+
+
 def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: int = 1,
-           recipe: str | None = None, nsteps: int | None = None, seed: int = 0,
+           backend: str = "native", recipe: str | None = None, nsteps: int | None = None,
+           seed: int = 0,
            only: Sequence[str] | None = None,
            validate: bool = True, annotated_cif: bool = False, engine: Any = None,
            on_design: Callable[[str, int, Path], None] | None = None,
@@ -45,6 +57,10 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
     from tt_bio.rfd4.engine import get_engine
     from tt_bio.rfd4.io import DesignInput, featurize, prepare_examples, write_design
 
+    if backend not in BACKENDS:
+        raise ValueError(f"unknown inference backend {backend!r}; have {sorted(BACKENDS)}")
+    if BACKENDS[backend]:
+        raise ValueError(BACKENDS[backend])
     if recipe is not None:
         from tt_bio.rfd4.sampler import recycle_strategy
 

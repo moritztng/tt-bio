@@ -155,6 +155,13 @@ A design is reproducible from its seed, featurization included. Note that featur
 that: a contig with a variable-length segment samples its length per seed, so the same spec at two
 seeds is two different designs with two different token counts.
 
+## Backends
+
+Upstream has two: `native`, the model, and `bioir`, which runs the whole workflow through NVIDIA's
+BioNeMo-IR with the trunk captured as a CUDA graph. tt-bio runs `native` on Tenstorrent.
+`--backend bioir` is declined with that reason rather than quietly ignored; it produces the same
+designs on hardware tt-bio does not target.
+
 ## Fine-tuned weights
 
 A LoRA fine-tune loads on top of the released weights and is merged once at load, so it costs

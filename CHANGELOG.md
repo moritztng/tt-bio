@@ -17,6 +17,11 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   design spec to annotated-CIF designs with the same arguments and defaults as `tt-bio design --model
   rfd4`, which now runs that same call. `rfd4.DesignEngine.from_pretrained()` keeps the weights on the
   card across a sweep. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4 loads a LoRA fine-tune.** `rfd4.DesignEngine(adapter=...)` merges a PEFT adapter directory
+  into the weights at load, so it costs nothing per design. Merging the released bundle's own
+  adapter onto its own base reproduces NVIDIA's merged checkpoint to 3e-08.
+- **`--backend` on `--model rfd4`.** `native` runs the model; `bioir` is declined with the reason
+  (it is NVIDIA BioNeMo-IR, CUDA-only) instead of being ignored.
 - **`--recipe` picks RFD4's thinking budget.** Upstream runs each design family at its own recycle
   schedule, and only the released `thinking_medium` was reachable from the CLI; all twelve are now.
   An unknown name is refused before a spec is built or a device is opened.
