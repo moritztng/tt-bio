@@ -32,6 +32,24 @@ def ident(t):
     return t
 
 
+def f32(t):
+    return t.float().double()
+
+
+def bf16_mixed(t):
+    """bf16 at every op boundary but fp32 on the residual streams: what `precision: bf16-mixed`
+    (the release inference config) keeps, since autocast leaves the residual adds in fp32."""
+    return bf16(t)
+
+
+bf16_mixed.residual = f32
+
+
+def _res(rnd):
+    """The rounding a residual add sees: `rnd.residual` when the mode keeps a wider stream."""
+    return getattr(rnd, "residual", rnd)
+
+
 def rms_norm(x, weight, eps=EPS):
     out = x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + eps)
     return out if weight is None else out * weight
@@ -109,8 +127,9 @@ def trunk_block(w, x, z, cond, mask, n_heads=16, p="", rnd=ident):
     pair_mask = mask[:, :, None].bool() & mask[:, None, :].bool()
     pre = f"{p}." if p else ""
     x = x * mask[..., None]
-    x = rnd(attn_adaln(w, f"{pre}mhba", x, z, cond, mask, pair_mask, n_heads, rnd) + x) * mask[..., None]
-    x = rnd(transition_adaln(w, f"{pre}transition", x, cond, mask, rnd) + x) * mask[..., None]
+    res = _res(rnd)
+    x = res(attn_adaln(w, f"{pre}mhba", x, z, cond, mask, pair_mask, n_heads, rnd) + x) * mask[..., None]
+    x = res(transition_adaln(w, f"{pre}transition", x, cond, mask, rnd) + x) * mask[..., None]
     return x * mask[..., None]
 
 
@@ -217,17 +236,18 @@ def pair_transition(w, p, z, pair_mask, rnd=ident):
 def pair_update(w, p, x, z, mask, rnd=ident, pair_write="hadamard"):
     """`PairReprUpdate.forward` with `use_tri_mult=True`."""
     pm = mask[:, None, :] * mask[:, :, None]
+    res = _res(rnd)
     x = x * mask[..., None]
     h = rnd(layer_norm(x, w[f"{p}.layer_norm_in.weight"], w[f"{p}.layer_norm_in.bias"]))
     pi, pj = rnd(h @ w[f"{p}.linear_x.weight"].T).chunk(2, dim=-1)
     if pair_write == "hadamard":
-        z = rnd(z + rnd(pi[:, None, :, :] * pj[:, :, None, :]))
+        z = res(z + rnd(pi[:, None, :, :] * pj[:, :, None, :]))
     else:
-        z = rnd(z + pi[:, None, :, :] + pj[:, :, None, :])
+        z = res(z + rnd(pi[:, None, :, :] + pj[:, :, None, :]))
     z = z * pm[..., None]
-    z = rnd(z + tri_mult(w, f"{p}.tri_mult_out", z, pm, True, rnd)) * pm[..., None]
-    z = rnd(z + tri_mult(w, f"{p}.tri_mult_in", z, pm, False, rnd)) * pm[..., None]
-    z = rnd(z + pair_transition(w, f"{p}.transition_out", z, pm, rnd)) * pm[..., None]
+    z = res(z + tri_mult(w, f"{p}.tri_mult_out", z, pm, True, rnd)) * pm[..., None]
+    z = res(z + tri_mult(w, f"{p}.tri_mult_in", z, pm, False, rnd)) * pm[..., None]
+    z = res(z + pair_transition(w, f"{p}.transition_out", z, pm, rnd)) * pm[..., None]
     return z
 
 
@@ -282,8 +302,8 @@ def trunk(w, s_init, z_init, conds, mask, nlayers, every_n=2, n_heads=16, rnd=id
     zero on the first cycle because the previous state is zero)."""
     s, z = torch.zeros_like(s_init), torch.zeros_like(z_init)
     for c in conds:
-        z_in = rnd(z_init + rnd(rnd(rms_norm(z, w["z_cycle_norm.weight"])) @ w["z_cycle_proj.weight"].T))
-        s_in = rnd(s_init + rnd(rnd(rms_norm(s, w["s_cycle_norm.weight"])) @ w["s_cycle_proj.weight"].T))
+        z_in = _res(rnd)(z_init + rnd(rnd(rms_norm(z, w["z_cycle_norm.weight"])) @ w["z_cycle_proj.weight"].T))
+        s_in = _res(rnd)(s_init + rnd(rnd(rms_norm(s, w["s_cycle_norm.weight"])) @ w["s_cycle_proj.weight"].T))
         s, z = s_in, z_in
         for i in range(nlayers):
             s = trunk_block(w, s, z, c, mask, n_heads, p=f"transformer_layers.{i}", rnd=rnd)

@@ -218,12 +218,24 @@ def test_pair_update(case):
            floor - _bf16(z) * pair[..., None], pair)
 
 
+#: Residual-stream modes: all bf16, and the release config's `bf16-mixed` (fp32 residual streams).
+_MODES = {"bf16": (None, REF.bf16), "mixed": (ttnn.float32, REF.bf16_mixed)}
+
+
 @pytest.mark.device
-@pytest.mark.parametrize("nlayers,cycles", [(4, 2), (24, 6)])
-def test_trunk_stack(nlayers, cycles):
+@pytest.mark.parametrize("nlayers,cycles,mode", [(4, 2, "bf16"), (4, 2, "mixed"), (24, 6, "mixed")],
+                         ids=["4x2-bf16", "4x2-mixed", "24x6-mixed"])
+def test_trunk_stack(nlayers, cycles, mode):
     """The stack with its recycles: `nlayers` blocks (pair update after every second but the last)
     run `cycles` times, each cycle with its own conditioning. 24 x 6 is the release model's
-    deepest pass, the first band of the thinking_medium schedule."""
+    deepest pass, the first band of the thinking_medium schedule.
+
+    The deep case runs with fp32 residual streams, which is what the release inference config
+    (`precision: bf16-mixed`) runs on a GPU. All-bf16 streams sit at their own bf16 floor there too,
+    but that floor is 0.42 from float64 on z after 72 pair updates: a precision mode upstream
+    does not use, so it is not the bar.
+    """
+    res_dtype, rnd = _MODES[mode]
     dev = T.get_device()
     w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=11)
     wb = {k: _bf16(v) for k, v in w.items()}
@@ -232,10 +244,10 @@ def test_trunk_stack(nlayers, cycles):
     conds = [torch.randn(1, 128, DIM_COND, generator=g, dtype=torch.float64) for _ in range(cycles)]
     ref_s, ref_z = REF.trunk(w, s0, z0, conds, mask, nlayers, n_heads=HEADS)
     fl_s, fl_z = REF.trunk(wb, _bf16(s0), _bf16(z0), [_bf16(c) for c in conds], mask, nlayers,
-                           n_heads=HEADS, rnd=REF.bf16)
-    mod = TR.Trunk(_scope(w), TR.compute_kernel_config(), nlayers, HEADS)
-    masks = TR.trunk_masks(mask, dev)
+                           n_heads=HEADS, rnd=rnd)
+    mod = TR.Trunk(_scope(w), TR.compute_kernel_config(), nlayers, HEADS, residual_dtype=res_dtype)
+    masks = TR.trunk_masks(mask, dev, residual_dtype=res_dtype)
     s, z = mod(_dev(s0, dev), _dev(z0, dev), [_dev(c, dev) for c in conds], masks)
     pair = mask[:, :, None] * mask[:, None, :]
-    _grade(f"trunk {nlayers}x{cycles} s", ttnn.to_torch(s).double(), ref_s, fl_s, mask)
-    _grade(f"trunk {nlayers}x{cycles} z", ttnn.to_torch(z).double(), ref_z, fl_z, pair)
+    _grade(f"trunk {nlayers}x{cycles} {mode} s", ttnn.to_torch(s).double(), ref_s, fl_s, mask)
+    _grade(f"trunk {nlayers}x{cycles} {mode} z", ttnn.to_torch(z).double(), ref_z, fl_z, pair)
