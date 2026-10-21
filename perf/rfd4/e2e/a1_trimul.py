@@ -47,7 +47,9 @@ def main():
     sys.path.insert(0, "perf")
     import clocksample
 
-    dev = ttnn.open_device(device_id=0)
+    # `get_device` is the only correct opener on a p300: it takes the host-local card lease and
+    # knows the custom mesh descriptor a bare `open_device` refuses without.
+    dev = T.get_device()
     weights = REF.pair_update_weights(1024, 384, 256, seed=0, prefix="p")
     scope = T.WeightScope({k: v.float() for k, v in weights.items()}).child("p")
     rows = []
@@ -93,7 +95,7 @@ def main():
                        "the ceiling's triangle number stands and nothing is owed")}
     json.dump(out, open(a.out, "w"), indent=2)
     print(json.dumps({k: out[k] for k in ("verdict", "aiclk", "reading")}, indent=2))
-    ttnn.close_device(dev)
+
 
 
 if __name__ == "__main__":
