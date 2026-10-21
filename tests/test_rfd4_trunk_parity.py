@@ -232,9 +232,9 @@ def test_trunk_stack(nlayers, cycles, mode):
     first band of the thinking_medium schedule (6 recycles).
 
     The deep case runs with fp32 residual streams, which is what the release inference config
-    (`precision: bf16-mixed`) runs on a GPU. All-bf16 streams sit at their own bf16 floor there too,
-    but that floor is 0.42 from float64 on z after 72 pair updates: a precision mode upstream
-    does not use, so it is not the bar.
+    (`precision: bf16-mixed`) runs on a GPU. On these random weights its z is graded on the floor
+    alone (see below); `test_rfd4_trunk_golden.py::test_released_trunk_14x6_recycles` is the same
+    stack on the released weights, graded on the bar.
     """
     res_dtype, rnd = _MODES[mode]
     dev = T.get_device()
@@ -255,8 +255,10 @@ def test_trunk_stack(nlayers, cycles, mode):
     # Deep z is graded on its floor alone. The floor runs bf16 WEIGHTS, as a bf16-mixed GPU does at
     # every matmul, and the recycles compound that change of model: on the host, bf16 weights
     # alone move z 8.4e-3 after one cycle and 2.1e-2 after two, while a 1e-6 nudge to z0 stays at
-    # 1e-6 and bf16 activations stay at 6e-3. 0.42 from float64 is what this precision reaches
-    # with these random weights, the GPU's included; the bar is being at that floor.
+    # 1e-6 and bf16 activations stay at 6e-3 (measured at 24 x 6, token 1024, where the floor
+    # reached 0.42). At the release dims, 14 x 6, the floor is 0.13 from float64 and the card
+    # 0.12: what this precision reaches with these random weights, the GPU's included. On the
+    # released weights the same stack stays under the 0.05 bar.
     deep = nlayers * cycles > 8  # 14 x 6
     _grade(f"trunk {nlayers}x{cycles} {mode} z", got_z, ref_z, fl_z, pair,
            bar=None if deep else BAR, pcc_bar=0.85 if deep else PCC_BAR)
