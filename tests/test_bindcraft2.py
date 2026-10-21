@@ -2170,10 +2170,10 @@ def test_auto_runs_lean_where_fast_was_measured_to_refuse_on_a_p150a():
 
 def test_offload_on_a_p150a_is_capped_where_it_was_measured_to_refuse():
     """The law puts offload at 1568 on a p150a, and 1568 was measured to refuse on fragmentation.
-    Nothing may offer 1568 as fitting, and the axis under it is quoted as unmeasured."""
+    Nothing may offer 1568 as fitting, and 1536, which completed three rounds, is the measured top."""
     card = bindcraft2.P150A_DRAM_BYTES
     top, refuses = bindcraft2._MEASURED_MODE_LADDERS["p150a"]["offload"]
-    assert bindcraft2.mode_ceiling("offload", card) == (refuses - 32, refuses - 32 == top)
+    assert bindcraft2.mode_ceiling("offload", card) == (1536, True)
     assert bindcraft2.memory_mode("auto", top, card) == "offload"
     assert bindcraft2.max_tokens("offload", card) < refuses
 

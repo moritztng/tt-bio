@@ -421,13 +421,14 @@ _MEASURED_MODE_LADDERS = {
     # fast is held below its lowest refusal, where 576, 608, 640 and 672 all completed. Measured
     # on pc card 0, 2026-10-01, `rel012-verify-bh`. Lean completes every axis up to 1184, the
     # law's own top, so 1184 is a floor and nothing above it was run in lean. Offload completes
-    # 1248 to 1504 and refuses 1568 on fragmentation (4.87 GB free, largest block 144 MB against
-    # 157 MB a bank), where the law said 1568 fits. pc's 30 GB host could not run offload at all;
+    # 1248 to 1536 (1440, 1504 and 1536 three rounds each) and refuses 1568 twice on
+    # fragmentation (4.87 GB free, largest block 144 MB against 157 MB a bank), where the law
+    # said 1568 fits. pc's 30 GB host could not run offload at all;
     # these are qb2 card 2 (a p300c chip, a p150a's DRAM, 249 GB host), 2026-10-21, `bc4-bigtok`.
     "p150a": {
         "fast": (672, 704),
         "lean": (1184, None),
-        "offload": (1504, 1568),
+        "offload": (1536, 1568),
     },
 }
 
