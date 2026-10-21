@@ -57,6 +57,9 @@ ap.add_argument("--dump", type=int, default=0,
 ap.add_argument("--gc-freeze", type=int, default=0,
                 help="gc.freeze() at the start of this call (0 = never): the host objects alive by then, "
                      "trunks and weights, leave the cyclic collector's generation-2 walk")
+ap.add_argument("--gc-census", type=int, default=0,
+                help="at the start of this call write gc_census.json: tracked objects per generation and the "
+                     "types that fill generation 2, then time one full collection (0 = never)")
 ap.add_argument("--profile", type=int, default=3,
                 help="run this (uninstrumented) gradient call under cProfile; 0 = off")
 a = ap.parse_args()
@@ -292,8 +295,24 @@ def dump(out, path):
     np.savez(path, **{f"leaf_{i}": np.asarray(a, dtype=np.float64) for i, a in enumerate(arrays(out))})
 
 
+def gc_census(path):
+    """What a generation-2 pass walks: tracked objects per generation, the 40 commonest types in
+    generation 2 by module.qualname, and the wall of one full collection taken right after."""
+    gens = [gc.get_objects(generation=g) for g in range(3)]
+    types = collections.Counter(f"{type(o).__module__}.{type(o).__qualname__}" for o in gens[2])
+    doc = dict(n=state["n"], per_gen=[len(g) for g in gens], frozen=gc.get_freeze_count(),
+               gen2_types=types.most_common(40))
+    del gens
+    t = time.monotonic()
+    doc["collected"] = gc.collect()
+    doc["full_collect_s"] = round(time.monotonic() - t, 4)
+    path.write_text(json.dumps(doc, indent=1))
+
+
 def sequence_gradients(self, *args, **kwargs):
     state["n"] += 1
+    if state["n"] == a.gc_census:
+        gc_census(a.out / "gc_census.json")
     if state["n"] == a.gc_freeze:
         gc.freeze()
     loads0, load1 = state["loads"], loadavg()
