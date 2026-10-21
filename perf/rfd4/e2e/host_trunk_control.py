@@ -36,6 +36,19 @@ def upstream_ca(path):
     return {c: ca[ca.chain_id == c].coord for c in np.unique(ca.chain_id)}
 
 
+def _reading(features: str, rmsd: float) -> str:
+    """What the measured RMSD says, which depends on whose features the run used."""
+    if features == "upstream":
+        return ("the sampler, the RNG order and the wiring pair: with the featurizer's randomized "
+                "tensors held equal this reproduces upstream's design" if rmsd < 0.5 else
+                "a divergence that survives equal features, so it is downstream of the featurizer")
+    return ("bf16 on the card: the port is sound and the single-design Angstrom grade cannot see it"
+            if rmsd < 1.0 else
+            "the featurizer's randomized chain labels and internal-coordinate frame, which are not "
+            "a function of the seed on upstream's side -- see state/rfd4/PAIR.md, and rerun with "
+            "--features upstream to pair")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--spec", required=True)
@@ -106,10 +119,7 @@ def main():
            "trunk": "upstream's own host fp32 layers", "sampler": "tt-bio, rng_mode=upstream",
            "binder_ca_rmsd_a": round(rmsd, 3), "target_ca_rmsd_a": round(tgt, 3),
            "device_run_rmsd_a": 3.315,
-           "reading": ("bf16 on the card: the port is sound and the single-design Angstrom grade "
-                       "cannot see it" if rmsd < 1.0 else
-                       "the pairing itself, not precision: our noise draws are not upstream's, and "
-                       "that is a bug in the sampler or the RNG order")}
+           "reading": _reading(a.features, rmsd)}
     json.dump(res, open(a.out, "w"), indent=2)
     print(json.dumps(res, indent=2))
 
