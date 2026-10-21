@@ -92,15 +92,20 @@ class OpenFold3Oracle:
 
         from tt_bio.openfold3_fold import OpenFold3
         from tt_bio.tenstorrent import get_device
-        from tt_bio.worker import _of3_state_dict
+        from tt_bio.worker import _ensure_local_artifacts, _of3_state_dict
 
         dev = get_device()
         ckc = ttnn.init_device_compute_kernel_config(
             dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
             fp32_dest_acc_en=True, packer_l1_acc=True)
+        # The checkpoint resolves the way a served fold resolves it: `_ensure_local_artifacts`
+        # honours the env overrides, verifies the cache and re-fetches only what is missing, and
+        # it is what fills the `of3_ckpt` key `_of3_state_dict` reads. Building the cfg by hand
+        # left that key absent, so the oracle could not load weights at all.
         cfg = {"model": self.model_id}
         if self.ckpt:
-            cfg["openfold3_ckpt"] = self.ckpt
+            cfg["checkpoint"] = self.ckpt
+        _ensure_local_artifacts(cfg)
         # The trunk runs recycles+1 cycles, as --recycling_steps counts recycles.
         self.model = OpenFold3(_of3_state_dict(cfg), ckc, num_cycles=int(self.recycles) + 1)
 
