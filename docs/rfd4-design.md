@@ -7,6 +7,16 @@ independent ttnn reimplementation and uses RFD4's own host code for input prepar
 writing, vendored under `tt_bio/_vendor/rfd4_prep/`, so a spec means here exactly what it means
 upstream.
 
+## Install
+
+```bash
+pip install 'tt-bio[tenstorrent]'
+```
+
+One wheel, no container: RFD4's host package is vendored, so the only extra is the Tenstorrent
+runtime. Upstream's `cuda12`/`cuda13` extras and its Dockerfile package NVIDIA hardware and have no
+counterpart here. The weights download on first use.
+
 ## Basic usage
 
 ```bash
