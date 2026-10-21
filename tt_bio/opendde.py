@@ -472,8 +472,15 @@ def route_opendde_weights(state_dict):
 # -0.018 [-0.048, -0.002] and pLDDT -0.0014. Wormhole fast takes it too: fast 608 -2.27 s (-1.9 %, th2p), 288 -0.21 s. WH
 # 11-set fast grade vs the shipped fast set, 44 paired folds: PASS, same-seed top pose median 0.340 A (A/A floor 1.482 A),
 # CA-lDDT +0.0003 [-0.0006, +0.0013], DockQ -0.0004 [-0.0051, +0.0042], docking 26 -> 26; iRMSD +0.49 A [+0.01, +1.17].
+# Wormhole normal runs the pair transition on bfp8 weights in one hidden chunk (transition_b8 + ws_b8_plain), as fast does:
+# trunk_hifi2 showed the four-chunk HiFi3 schedule, not its fidelity, was the cost. Galaxy chip, 1000 MHz, separate-process
+# ABBA, 2 warm folds per arm (spd-m-opendde tbp, 2026-10-21): normal 608 122.2 -> 115.7 s (-5.3 %), 288 32.2 -> 30.4 s
+# (-5.7 %). WH 11-set normal grade, shipped set vs + both, seeds 109-112, 44 paired folds (tbg): PASS, same-seed top pose
+# median 0.190 A (A/A floor 1.236 A), CA-lDDT -0.0003 [-0.0011, +0.0002], DockQ +0.0015 [-0.0023, +0.0057], iRMSD +0.058
+# [-0.498, +0.662], docking 26 -> 26.
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL
-                 | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2"})
+                 | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
+                    "transition_b8", "ws_b8_plain"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
