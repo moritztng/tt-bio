@@ -49,10 +49,11 @@ void kernel_main() {
     noc_semaphore_set(p2, 0);
 
     constexpr uint32_t out_cb = tt::CBIndex::c_2;
-    const uint32_t tb = get_tile_size(out_cb);
-    cb_wait_front(out_cb, KC);
-    uint32_t src = get_read_ptr(out_cb);
-    for (uint32_t t = 0; t < KC; ++t, src += tb) noc_async_write_page(r * KT + k0 + t, o, src);
+    for (uint32_t t = 0; t < KC; ++t) {
+        cb_wait_front(out_cb, 1);
+        noc_async_write_page(r * KT + k0 + t, o, get_read_ptr(out_cb));
+        noc_async_writes_flushed();
+        cb_pop_front(out_cb, 1);
+    }
     noc_async_write_barrier();
-    cb_pop_front(out_cb, KC);
 }

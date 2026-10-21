@@ -72,7 +72,6 @@ ALWI void sum_parts(uint32_t in, uint32_t out) {
 // `in` (KC tiles, popped) + beta, or a copy of it, packed to c_2.
 ALWI void finish(uint32_t in) {
     cb_wait_front(in, KC);
-    cb_reserve_back(cb_out, KC);
     pack_reconfig_data_format(cb_out);
     if constexpr (HAS_B) {
         reconfig_data_format(in, cb_beta);
@@ -81,7 +80,8 @@ ALWI void finish(uint32_t in) {
         reconfig_data_format_srca(in);
         copy_tile_to_dst_init_short(in);
     }
-    for (uint32_t i = 0; i < KC; ++i) {
+    for (uint32_t i = 0; i < KC; ++i) {   // one tile at a time, so the writer's DRAM writes overlap this stage
+        cb_reserve_back(cb_out, 1);
         tile_regs_acquire();
         if constexpr (HAS_B) add_tiles_bcast_rows(in, cb_beta, i, i, 0);
         else copy_tile(in, i, 0);
@@ -90,8 +90,8 @@ ALWI void finish(uint32_t in) {
         tile_regs_wait();
         pack_tile(0, cb_out);
         tile_regs_release();
+        cb_push_back(cb_out, 1);
     }
-    cb_push_back(cb_out, KC);
     cb_pop_front(in, KC);
 }
 
