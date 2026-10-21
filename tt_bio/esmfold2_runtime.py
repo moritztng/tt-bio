@@ -1628,7 +1628,10 @@ _WH_NORMAL_EXTRA = "+transition_ws+ws_resid+ef2_lm_combine+lm_qk_chain"
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
 # ef2_atom_rope is exact (rotate_half as a +-1 permutation matmul): ESMFold2-Fast 512 aa --fast CIF identical with and
 # without it, warm fold 16.53 -> 16.26 s mean of 3 pairs (Galaxy chip, 1000 MHz, spd-gap-whesmf wrp2).
-_WH_EXTRA = "+lm_gate_ng+ef2_atom_rope"
+# ws_psilu runs the pair SwiGLU's silu on the packer thread, overlapping the matmuls: CIFs identical with and without
+# it. In-process A/B, 512 aa --fast, repeat 3, Galaxy chip at 1000 MHz (wps6): ESMFold2 25.32 -> 24.54 s, ESMFold2-Fast
+# 15.07 -> 14.57 s, -Fast 256 aa 5.32 -> 5.22 s.
+_WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu"
 # dit_qkvf runs the token DiT's attention as one `_sdpa32_fused` program off a folded q|k|v projection. Fast bar on
 # Wormhole against the WH fast set without it, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-bet-ditpersist dsg): ESMFold2-Fast CA-lDDT -0.0002 [-0.0006, +0.0003], top-pose median 0.55 A vs 1.46 A
