@@ -1086,7 +1086,7 @@ def _matmul(a, b, **kw):
     """
     kw = _mm_layout.plan(a, b, kw)
     if not kw.get("transpose_a") or a.dtype == b.dtype:
-        return ttnn.matmul(a, b, **kw)
+        return _split_k(a, b, kw) or ttnn.matmul(a, b, **kw)
     MIXED_TRANSPOSE_A["promoted"] += 1
     tmp = []
     if a.dtype != ttnn.float32:
@@ -1095,9 +1095,67 @@ def _matmul(a, b, **kw):
     if b.dtype != ttnn.float32:
         b = ttnn.typecast(b, ttnn.float32)
         tmp.append(b)
-    out = ttnn.matmul(a, b, **kw)
+    out = _split_k(a, b, kw) or ttnn.matmul(a, b, **kw)
     for t in tmp:
         ttnn.deallocate(t)
+    return out
+
+
+# A 2-D ``a^T @ b`` whose output is at most this many tiles and whose contraction is at least
+# `SPLIT_K_MIN_KT` tiles runs as K chunks on separate cores (`_split_k`).
+SPLIT_K_OUT_TILES = 32
+SPLIT_K_MIN_KT = 64
+# At most this many chunks, a constant rather than the core count so that the grouping, and so
+# the bits, are the same on every card.
+SPLIT_K_CHUNKS = 64
+SPLIT_K_STATS = {"served": 0}
+
+
+def _split_k(a, b, kw):
+    """``a^T @ b`` over a long K with a small output, as a batch of K chunks summed in fp32, or
+    None to leave the call to ``ttnn.matmul``.
+
+    ttnn plans a 2-D product over its OUTPUT tiles, so a reduction over every token into a
+    [64, 224] result runs on 14 cores, each contracting the whole axis: BindCraft 2's masked
+    outer product backward, ``[28672, 64]^T @ [28672, 224]``, took 604 us at 27 GB/s and
+    ``[8192, 64]^T @ [8192, 224]`` 173 us, 0.037 device s/it together on a p300c
+    (`bets/unnamed` u2). Splitting K by whole tiles is a view, each chunk is one batch element of
+    `bmm_program_config`'s reuse plan, so the chunks land on separate cores, and the partials
+    stay fp32 into one sum. The same contraction, grouped by chunk instead of by K block.
+    """
+    if (not kw.get("transpose_a") or kw.get("transpose_b") or kw.get("program_config") is not None
+            or set(kw) - {"transpose_a", "transpose_b", "program_config", "compute_kernel_config",
+                          "dtype", "memory_config"}
+            or len(a.shape) != 2 or len(b.shape) != 2 or a.layout != ttnn.TILE_LAYOUT
+            or b.layout != ttnn.TILE_LAYOUT or a.is_sharded() or b.is_sharded()):
+        return None
+    K, M, N = int(a.shape[0]), int(a.shape[1]), int(b.shape[1])
+    if K % ttnn.TILE_SIZE or M % ttnn.TILE_SIZE or N % ttnn.TILE_SIZE:
+        return None
+    Kt = K // ttnn.TILE_SIZE
+    if (M // ttnn.TILE_SIZE) * (N // ttnn.TILE_SIZE) > SPLIT_K_OUT_TILES or Kt < SPLIT_K_MIN_KT:
+        return None
+    P = max(d for d in range(1, min(Kt // 2, SPLIT_K_CHUNKS) + 1) if Kt % d == 0)
+    if P < 4:
+        return None
+    a3 = ttnn.reshape(a, [P, K // P, M])
+    b3 = ttnn.reshape(b, [P, K // P, N])
+    cfg = kw.get("compute_kernel_config")
+    plan = bmm_program_config(a3, b3, True, dtype=ttnn.float32, compute_kernel_config=cfg)
+    if plan is None:
+        return None
+    parts = ttnn.matmul(a3, b3, transpose_a=True, program_config=plan, dtype=ttnn.float32,
+                        compute_kernel_config=cfg)
+    out = ttnn.sum(parts, dim=0)
+    ttnn.deallocate(parts)
+    out = ttnn.reshape(out, [M, N])
+    dtype = kw.get("dtype") or a.dtype
+    if dtype != ttnn.float32:
+        out = ttnn.typecast(out, dtype)
+    mc = kw.get("memory_config")
+    if mc is not None and mc != out.memory_config():
+        out = ttnn.to_memory_config(out, mc)
+    SPLIT_K_STATS["served"] += 1
     return out
 
 
