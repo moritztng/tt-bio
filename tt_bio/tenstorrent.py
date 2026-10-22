@@ -702,7 +702,7 @@ _FAST_MODE = False
 #   pair_mm         pair-track linears on minimal_matmul with pair_mm's block table (ReLU at pack); the lever form of
 #                   TT_BIO_PAIR_MM for a model that names it in its own set (AF2 on Wormhole)
 #   pair_mm_tr      under pair_mm, also serve the 384 <-> 768 pair-transition keys swept for RFD4 (bf16 and bfp8);
-#                   without it those linears keep ttnn's plan (RFD4's --fast set)
+#                   without it those linears keep ttnn's plan (in RFD4's default set only)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
