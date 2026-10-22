@@ -1,0 +1,12 @@
+start sha 0c65577ac base pair_bias_rms,pair_block,pair_mm,pair_mm_tr,pair_tail,pair_write_res,transition_b8,trimul_gin,trimul_gin_hifi2,trimul_gin_w8,trimul_t1,trimul_t1_dram,trimul_t1_psig,trimul_t1w8 2026-10-22T22:23:51Z load 5.89
+module-128 rc=0 2026-10-22T22:23:58Z load 5.51
+stack-128 rc=0 2026-10-22T22:24:07Z load 5.71
+module-96 rc=0 2026-10-22T22:24:13Z load 5.85
+stack-96 rc=0 2026-10-22T22:24:21Z load 5.70
+design-base rc=0 2026-10-22T22:27:56Z load 4.97
+design-small rc=0 2026-10-22T22:31:26Z load 5.09
+design-base2 rc=0 2026-10-22T22:35:04Z load 4.83
+spread rc=0 2026-10-22T22:35:14Z load 4.63
+spread-aa rc=0 2026-10-22T22:35:25Z load 4.54
+quality rc=0 2026-10-22T22:35:26Z load 4.54
+ALLDONE 2026-10-22T22:35:26Z load 4.54
