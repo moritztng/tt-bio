@@ -826,6 +826,9 @@ _FAST_MODE = False
 #                   float64 0.0116 -> 0.0101 (state/rfd4/bets/pairblock.md)
 #   pair_tail       RFD4's triangle output tail (LayerNorm, p_out, sigmoid gate) and its residual add into the float32
 #                   pair stream as one T2 program (`trimul_tail.fused_tail_ln(copy=)`), with no padded token. Unmeasured.
+#   pair_tail_small pair_tail below trimul_tail.MIN_N (160), where T1 declines: the incumbent chain keeps the input side
+#                   and computes g_out, T2's float32-stream form takes LayerNorm, p_out, gate and the residual write
+#                   (state/rfd4/bets/tri128.md)
 #   pair_bias_rms   RFD4's pair biases (RMSNorm of the pair, the stacked bias projection, head-first layout, the split per
 #                   block) as one `dit_pair_bias.rms_pair_bias` program, with no padded token (state/rfd4/bets/pairbias.md)
 #   pair_write_res  RFD4's Hadamard pair write and its residual add into the float32 pair stream as one
@@ -846,7 +849,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-           "pair_bias_rms", "pair_write_res", "dit_cond_steps")
+           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "pair_tail_small")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -11421,6 +11424,16 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        if (stream32 is not None and g_out_fused is None and x_norm_in is not None and H < _trimul_tail.MIN_N
+                and not x_normed and not add_to_input and self.p_out_bias is None and self.g_out_bias is None
+                and not ops.taping() and lever("pair_tail_small")):
+            # Below T1's floor the chain keeps the input side; g_out is the same projection the tail below
+            # would compute, and T2's float32-stream form then takes the rest of the tail with the residual.
+            g_out_fused = _trimul_tail.t2_operand(_trimul_out_proj(
+                x_norm_in, self.g_out_weight, self.compute_kernel_config, None))
+            x = _trimul_tail.t2_operand(x)
+            ttnn.deallocate(x_norm_in)
+            x_norm_in = None
         if (stream32 is not None and g_out_fused is not None and not x_normed and not add_to_input
                 and self.p_out_bias is None and not ops.taping()):
             t2m_flush()
