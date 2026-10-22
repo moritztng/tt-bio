@@ -40,10 +40,6 @@ NEG_INF = -1e4
 #: one of them multiplies by 1.0 or adds 0.0. `TT_BIO_RFD4_ELIDE_MASKS=0` builds them anyway.
 ELIDE_FULL_MASKS = env_flag("TT_BIO_RFD4_ELIDE_MASKS", True)
 
-#: Probe only, off: a bfloat16 pair stream under an fp32 token stream (`Trunk(pair_residual_dtype=)`
-#: when the caller does not say). Halves the bytes of every pair residual write; a precision change.
-PAIR_BF16 = env_flag("TT_BIO_RFD4_PAIR_BF16", False)
-
 
 def _rms(x, w, ckc):
     """RMSNorm, with or without the elementwise weight (`elementwise_affine=False` upstream)."""
@@ -596,10 +592,10 @@ class Trunk(Module):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
-        self.pair_residual_dtype = pair_residual_dtype or (
-            ttnn.bfloat16 if PAIR_BF16 else self.residual_dtype)
         self.nlayers = nlayers
         self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
+        self.pair_residual_dtype = pair_residual_dtype or (
+            ttnn.bfloat16 if "pair_bf16" in self._levers else self.residual_dtype)
         with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
             self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
                                       residual_dtype=self.residual_dtype)
