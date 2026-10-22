@@ -6,7 +6,7 @@ from typing import Literal
 
 import torch
 
-from .nn_modules_norm import make_norm
+from .nn_modules_norm import is_identity_mask, make_norm
 
 # Code adapted from Lucidrain's implementation of AF3
 # https://github.com/lucidrains/alphafold3-pytorch
@@ -39,6 +39,8 @@ class AdaptiveLayerNorm(torch.nn.Module):
             gamma = gamma.reshape(broadcast_shape)
             beta = beta.reshape(broadcast_shape)
         out = normed * gamma + beta
+        if is_identity_mask(mask, out):
+            return out
         return out * mask[..., None]
 
 

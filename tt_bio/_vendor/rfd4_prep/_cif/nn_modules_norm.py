@@ -44,6 +44,13 @@ def set_norm_type(norm_type: str | None) -> None:
     logger.info(f"Score-network norm type: {_NORM_TYPE!r}")
 
 
+def is_identity_mask(mask: torch.Tensor, x: torch.Tensor) -> bool:
+    """True when ``x * mask`` returns ``x`` bit for bit: every entry is 1 and the product keeps
+    ``x``'s dtype. A design without padding is the common case, and there each pair-sized multiply
+    by the mask is a full pass over the pair for nothing."""
+    return torch.result_type(x, mask) == x.dtype and bool((mask == 1).all())
+
+
 def make_norm(
     normalized_shape: int,
     *,

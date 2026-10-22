@@ -146,11 +146,15 @@ class DesignEngine:
         starts the trajectory from the input structure rather than from pure noise, which needs
         the clean state `x_1` and so the AE's encoder.
         """
+        import gc
+
         import torch
 
         from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
+        from tt_bio.sample_chunks import resolve_sample_chunk_width
+        from tt_bio.size_limits import is_alloc_refusal
 
         from tt_bio.rfd4.replicates import apply_transforms
 
@@ -165,9 +169,6 @@ class DesignEngine:
             logger.info("rfd4: %d steps instead of the recipe's %d", nsteps, spec.nsteps)
             spec = replace(spec, nsteps=nsteps)
 
-        def trunk(s_init, z_init, conds, mask):
-            return self.trunk.run_bucketed(s_init, z_init, conds, mask, self._device, pair=False)
-
         start = _sampler.resolve_partial_start(
             spec, partial_t_backbone=partial_t_backbone, partial_t_latent=partial_t_latent,
             couple_partial_t=couple_partial_t,
@@ -175,21 +176,36 @@ class DesignEngine:
             inverse_folding=inverse_folding, inverse_folding_method=inverse_folding_method)
         x_1 = self.clean_sample(batch, num_designs=num_designs, seed=seed) if start.is_partial else None
 
-        network = _network.FlowNetwork(self.glue, trunk, batch)
-        chunked = _sampler.ChunkedNetwork(network, spec,
-                                          max_parallel_samples=self.max_parallel_samples)
-        if rng == "upstream":
-            torch.manual_seed(seed)
-        out = _sampler.generate(spec, chunked, n_designs=num_designs, n_tokens=n_tokens,
-                                seed=seed, rng_mode=rng, emit_masks=compute_flow_emit_masks(batch),
-                                groups=_groups(batch), coord_cond_mask=batch.get("coord_cond_mask"),
-                                start=start, x_1=x_1, guidance=guidance,
-                                save_trajectory_every=save_trajectory_every)
-        #: The sample width the trajectory finished at: `max_parallel_samples`, or less where DRAM
-        #: refused a chunk and the chunker halved it. A throughput number quotes this, not the cap.
-        self.chunk_width = chunked.width
+        network = _network.FlowNetwork(self.glue, _CardTrunk(self.trunk, self._device), batch)
+        args = dict(n_designs=num_designs, n_tokens=n_tokens, seed=seed, rng_mode=rng,
+                    emit_masks=compute_flow_emit_masks(batch), groups=_groups(batch),
+                    coord_cond_mask=batch.get("coord_cond_mask"), start=start, x_1=x_1,
+                    guidance=guidance, save_trajectory_every=save_trajectory_every)
+        out = None
+        width = resolve_sample_chunk_width(num_designs, self.max_parallel_samples)
+        if rng == "per_design" and guidance is None and width < num_designs:
+            # The chunks ChunkedNetwork would run one after another, run as interleaved lanes:
+            # same designs, but the host prepares one chunk while the card runs another.
+            # Guidance sees the whole batch, so it stays on the chunker.
+            try:
+                out = _sampler.generate(spec, network, lane_width=width, **args)
+                self.chunk_width = width
+            except Exception as exc:  # noqa: BLE001 -- only a DRAM refusal falls through
+                if not is_alloc_refusal(exc):
+                    raise
+                logger.info("rfd4: %d-wide lanes refused DRAM, narrowing in chunks instead", width)
+            if out is None:  # the refused call's device tensors go before the chunker allocates
+                gc.collect()
+        if out is None:
+            if rng == "upstream":
+                torch.manual_seed(seed)
+            chunked = _sampler.ChunkedNetwork(network, spec, max_parallel_samples=self.max_parallel_samples)
+            out = _sampler.generate(spec, chunked, **args)
+            #: The sample width the trajectory finished at: `max_parallel_samples`, or less where DRAM
+            #: refused a chunk and the chunker halved it. A throughput number quotes this, not the cap.
+            self.chunk_width = chunked.width
         logger.info("rfd4: %d designs, %d steps, %d trunk passes, %d at a time%s", num_designs,
-                    start.nsteps or nsteps, out.trunk_passes, chunked.width,
+                    start.nsteps or nsteps, out.trunk_passes, self.chunk_width,
                     f", from t={start.t}" if start.is_partial else "")
 
         decoded = self.decode(batch, out, num_designs=num_designs)
@@ -263,6 +279,22 @@ class DesignEngine:
         coords_nm[..., 1, :] = torch.where(no_latent[..., None], out.x["bb_ca"], coords_nm[..., 1, :])
         residue_type = torch.where(emit, residue_type, torch.full_like(residue_type, -1))
         return {"coors_nm": coords_nm, "residue_type": residue_type, "atom_mask": atom_mask}
+
+
+class _CardTrunk:
+    """The trunk on one card, as `FlowNetwork` calls it: `launch` enqueues, `collect` reads s."""
+
+    def __init__(self, trunk, device):
+        self.trunk, self.device = trunk, device
+
+    def __call__(self, s_init, z_init, conds, mask):
+        return self.collect(self.launch(s_init, z_init, conds, mask))
+
+    def launch(self, s_init, z_init, conds, mask):
+        return self.trunk.launch(s_init, z_init, conds, mask, self.device, pair=False)
+
+    def collect(self, pending):
+        return self.trunk.collect(pending)
 
 
 def preprocess(features: dict) -> dict:
