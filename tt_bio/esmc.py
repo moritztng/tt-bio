@@ -253,6 +253,10 @@ _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC
 # (a KeyPad mask), so ESMFold2 (lm_sdpa_stock) is untouched.
 _ESMC_QKRH_BF8 = (env_flag("TT_BIO_ESMC_QKRH_BF8", False)
                   if os.environ.get("TT_BIO_ESMC_QKRH_BF8", "").strip() else None)
+# With _ESMC_QKRH_BF8 on, q stays bf16 and only k and v go block-fp8 (qk_rope_heads q_dtype). A/B pending (qkv8):
+# Wormhole --fast with bf16 accumulation is the target, where block-fp8 q, k and v together miss the bar at 300M.
+_ESMC_QKRH_Q_BF16 = (env_flag("TT_BIO_ESMC_QKRH_Q_BF16", False)
+                     if os.environ.get("TT_BIO_ESMC_QKRH_Q_BF16", "").strip() else None)
 # ln_split (tt_bio/ln_split.py): the per-layer LayerNorms of a forward with few tile rows (the 6B at one sequence: 17 of
 # 72 Wormhole cores busy in ttnn.layer_norm) split each row tile over G cores. [544, 2560] device ms a call (.110,
 # trace replay): weight+bias 0.109 -> 0.085, weight 0.091 -> 0.073. Not bit-exact (rel_l2 vs float64 0.0032 against
@@ -865,9 +869,10 @@ class Attention(_MMLin, Module):
                 q, k, v = self._qkv(x)
         else:
             q, k, v = self._qkv(x)
+        bf8 = isinstance(attn_mask, KeyPad) and _qkrh_bf8(self.out_weight, self.mm_exact_acc)
         heads = (qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin,
-                               out_dtype=ttnn.bfloat8_b if isinstance(attn_mask, KeyPad)
-                               and _qkrh_bf8(self.out_weight, self.mm_exact_acc) else None) if _qkrh() else None)
+                               out_dtype=ttnn.bfloat8_b if bf8 else None,
+                               q_dtype=ttnn.bfloat16 if bf8 and _ESMC_QKRH_Q_BF16 else None) if _qkrh() else None)
         if heads is not None:
             for t in (q, k, v):
                 ttnn.deallocate(t)

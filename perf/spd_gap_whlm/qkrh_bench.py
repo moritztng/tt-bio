@@ -24,7 +24,7 @@ def main() -> int:
     ap.add_argument("--inner", type=int, default=10)
     ap.add_argument("--fidelity", default="HiFi4", help="qk_rope_heads.FIDELITY arms")
     ap.add_argument("--block", default="1,4", help="qk_rope_heads.BLOCK arms (tiles a dest acquire)")
-    ap.add_argument("--bf8", action="store_true", help="add arm qkrh_bf8: block-fp8 q, k, v out (v graded vs float64)")
+    ap.add_argument("--bf8", action="store_true", help="add arms qkrh_bf8 (block-fp8 q, k, v out) and qkrh_kv8 (bf16 q, block-fp8 k, v); v graded vs float64")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -74,6 +74,9 @@ def main() -> int:
         def fused_bf8():
             return QR.qk_rope_heads(q, k, v, gq_tt, gk_tt, cos, sin, out_dtype=ttnn.bfloat8_b)
 
+        def fused_kv8():   # bf16 q beside block-fp8 k, v (q_dtype)
+            return QR.qk_rope_heads(q, k, v, gq_tt, gk_tt, cos, sin, out_dtype=ttnn.bfloat8_b, q_dtype=ttnn.bfloat16)
+
         def rope_only():   # the same program and bytes with the norm compiled out: what the LayerNorm costs
             return QR.rope_heads_packed(qkv_packed, cos, sin)
 
@@ -84,7 +87,7 @@ def main() -> int:
         blocks, first = args.block.split(","), {}
         arms = [("chain", chain, None, "1")]
         arms += [(f"qkrh_{f}_b{b}", fused, f, b) for f in args.fidelity.split(",") for b in blocks]
-        arms += [("qkrh_bf8", fused_bf8, None, "4")] if args.bf8 else []
+        arms += [("qkrh_bf8", fused_bf8, None, "4"), ("qkrh_kv8", fused_kv8, None, "4")] if args.bf8 else []
         arms += [(f"rope_only_b{b}", rope_only, None, b) for b in blocks] + [("copy", copy, None, "1")]
         for arm, fn, fid, blk in arms:
             QR.FIDELITY = getattr(ttnn.MathFidelity, fid or "HiFi4")
@@ -106,7 +109,7 @@ def main() -> int:
                 got = [ttnn.to_torch(t).double().reshape(B, H, S, hd) for t in o]
                 rec[arm] = {"q": err(got[0], ref_q), "k": err(got[1], ref_k),
                             "v_exact": bool(torch.equal(got[2], ref_v))}
-                if arm == "qkrh_bf8":
+                if arm in ("qkrh_bf8", "qkrh_kv8"):
                     rec[arm]["v"] = err(got[2], ref_v)
                 elif arm != "chain":
                     flat = torch.cat([g.flatten() for g in got[:2]])
