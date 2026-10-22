@@ -15,6 +15,9 @@ Every residual stream is kept masked: `Trunk` masks s and z once on entry and ev
 masked before it is added, so (x + u) * mask, upstream's form, is x + u * mask here. With a 0/1
 mask the two are the same numbers, and the second never touches the fp32 residual twice. A block
 or pair update called on its own expects masked s and z, as the trunk hands it.
+
+A mask of all ones (no padded token, which is every design whose length is a multiple of 32) is
+passed as None and every multiply by it is skipped: x * 1 is x, bit for bit (`trunk_masks`).
 """
 
 from __future__ import annotations
@@ -24,11 +27,16 @@ import ttnn
 import torch
 
 from .. import rne_add
+from ..envflags import env_flag
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
                            _sdpa_program_config_for_lengths, download, fused_sdpa, upload)
 
 EPS = 1e-5
 NEG_INF = -1e4
+
+#: `trunk_masks` hands back None for the masks of a call with no padded token. Bit-identical: every
+#: one of them multiplies by 1.0 or adds 0.0. `TT_BIO_RFD4_ELIDE_MASKS=0` builds them anyway.
+ELIDE_FULL_MASKS = env_flag("TT_BIO_RFD4_ELIDE_MASKS", True)
 
 
 def _rms(x, w, ckc):
@@ -41,6 +49,11 @@ def _rms(x, w, ckc):
 def _as(x, dtype):
     """`x` in `dtype`: the same handle when it already is, else a typecast copy the caller frees."""
     return x if x.dtype == dtype else ttnn.typecast(x, dtype)
+
+
+def _mul_mask(x, mask):
+    """x * mask as a new tensor, or `x` itself when the mask is None (all ones)."""
+    return x if mask is None else ttnn.multiply(x, mask)
 
 
 def _residual(x, update, res_dtype, mask=None, low=None):
@@ -68,6 +81,8 @@ def _residual(x, update, res_dtype, mask=None, low=None):
 
 def _masked_copy(x, mask, dtype):
     """x * mask in `dtype`, a new tensor; `x` survives."""
+    if mask is None:
+        return ttnn.clone(x) if x.dtype == dtype else ttnn.typecast(x, dtype)
     xd = _as(x, dtype)
     out = ttnn.multiply(xd, mask)
     if xd is not x:
@@ -108,7 +123,7 @@ class AdaptiveNorm(Module):
         ttnn.deallocate(xn)
         ttnn.deallocate(gamma)
         ttnn.deallocate(beta)
-        return ttnn.multiply(out, mask)
+        return _mul_mask(out, mask)
 
 
 class AdaptiveScale(Module):
@@ -124,7 +139,7 @@ class AdaptiveScale(Module):
 
     def __call__(self, x, cond, mask):
         gamma = self._lin(cond, self.w, bias=self.b, dtype=self.dtype, activation="sigmoid")
-        out = ttnn.multiply(ttnn.multiply(x, gamma), mask)
+        out = _mul_mask(ttnn.multiply(x, gamma), mask)
         ttnn.deallocate(gamma)
         return out
 
@@ -449,13 +464,13 @@ class PairUpdate(Module):
         mask's mi * mj, so the [n, n, pair] product never needs a mask of its own. Returns
         `(update, masked)`."""
         ckc = self.compute_kernel_config
-        h = ttnn.layer_norm(ttnn.multiply(x, mask), weight=self.ln_w, bias=self.ln_b, epsilon=EPS,
+        h = ttnn.layer_norm(_mul_mask(x, mask), weight=self.ln_w, bias=self.ln_b, epsilon=EPS,
                             compute_kernel_config=ckc)
         pi = self._lin(h, self.xi_w, dtype=self.dtype)
         pj = self._lin(h, self.xj_w, dtype=self.dtype)
         ttnn.deallocate(h)
         hadamard = self.pair_write == "hadamard"
-        if hadamard:
+        if hadamard and mask is not None:
             pi, pj = ttnn.multiply(pi, mask), ttnn.multiply(pj, mask)
         b, n, c = (int(d) for d in pi.shape)
         pi4 = ttnn.reshape(pi, (b, 1, n, c))
@@ -470,7 +485,7 @@ class PairUpdate(Module):
         ttnn.deallocate(zn)
         out = self._lin(h, self.tr_w2, bias=self.tr_b2, dtype=self.dtype)
         ttnn.deallocate(h)
-        return ttnn.multiply(out, pair_mask_c)
+        return _mul_mask(out, pair_mask_c)
 
     def __call__(self, x, z, mask, pair_mask, pair_mask_c, res_mask_c=None):
         """`z` is the masked pair stream in `residual_dtype` (not freed); the triangle
@@ -504,16 +519,22 @@ class PairUpdate(Module):
         return z, zb
 
 
-def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
+def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=None):
     """The device masks one trunk call reads, from a host [b, n] 0/1 token mask: the token mask
     [b, n, 1], the attention's additive [b, 1, n, n] pair mask, the pair mask as [b, n, n]
     (triangle multiplication) and [b, n, n, 1], then the token and [b, n, n, 1] pair masks again in
     `residual_dtype` for the residual streams (the same handles when that is `dtype`). Built once
-    per stack call."""
+    per stack call.
+
+    With no padded token (`elide`, default `ELIDE_FULL_MASKS`) every mask but the triangle's is
+    None: multiplying by ones and adding zeros changes no bit, and at 512 tokens those ops are
+    ~20 ms of a 441 ms pass. The triangle multiplication keeps its mask (its paths differ by it)."""
     m = mask.to(torch.float32)
     pair = m[:, :, None] * m[:, None, :]
     up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,  # noqa: E731
                                    device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    if (ELIDE_FULL_MASKS if elide is None else elide) and bool((m == 1).all()):
+        return None, None, up(pair), None, None, None
     tok, pair_c = up(m[..., None]), up(pair[..., None])
     res = residual_dtype or dtype
     if res == dtype:
@@ -656,7 +677,7 @@ class Trunk(Module):
         if cached is not None and cached[0] is device and torch.equal(cached[1], mask):
             return cached[2]
         if cached is not None and cached[0] is device:
-            for t in {id(t): t for t in cached[2]}.values():
+            for t in {id(t): t for t in cached[2] if t is not None}.values():
                 if t.is_allocated():
                     ttnn.deallocate(t)
         masks = trunk_masks(mask, device, dtype=self.dtype, residual_dtype=self.residual_dtype)
