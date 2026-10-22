@@ -90,6 +90,11 @@ void kernel_main() {
     cb_wait_front(cb_eps, 1);
     for (uint32_t u = first; u < first + count; ++u) {   // the q / k units; v is the reader's and the writer's
         [[maybe_unused]] const uint32_t t = u / R;   // 0 q, 1 k
+#ifdef QKRH_Q_CB
+        const uint32_t co = t == 0 ? 23 : cb_out;   // q in its own dtype (bf16 beside block-fp8 k)
+#else
+        constexpr uint32_t co = cb_out;
+#endif
 #if defined(QKRH_NO_LN)
         constexpr uint32_t src = cb_x;   // RoPE straight from the input row
 #elif defined(QKRH_RELOAD)
@@ -110,9 +115,9 @@ void kernel_main() {
         cb_wait_front(cb_sin, 1);
 #if defined(QKRH_SFPU)
         reconfig_data_format(src, cb_cos);
-        pack_reconfig_data_format(cb_out);
+        pack_reconfig_data_format(co);
         for (uint32_t a = 0; a < KT; a += 2) {   // one head a dest acquire: a cos, b cos, b sin, a sin
-            cb_reserve_back(cb_out, 2);
+            cb_reserve_back(co, 2);
             tile_regs_acquire();
             mul_tiles_init(src, cb_cos);
             mul_tiles(src, cb_cos, a, 0, 0);
@@ -126,10 +131,10 @@ void kernel_main() {
             add_binary_tile(1, 3, 1);
             tile_regs_commit();
             tile_regs_wait();
-            pack_tile(0, cb_out);
-            pack_tile(1, cb_out);
+            pack_tile(0, co);
+            pack_tile(1, co);
             tile_regs_release();
-            cb_push_back(cb_out, 2);
+            cb_push_back(co, 2);
         }
 #else
         for (uint32_t h0 = 0; h0 < KT / 2; h0 += HG) {   // HG heads (2 HG tiles) a dest acquire
@@ -148,9 +153,9 @@ void kernel_main() {
 
             // dest j < n: b_j sin (for out a_j), dest n + j: a_j sin (for out b_j); packed a_0, b_0, a_1, b_1, ...
             cb_wait_front(cb_p, 2 * n);
-            cb_reserve_back(cb_out, 2 * n);
+            cb_reserve_back(co, 2 * n);
             reconfig_data_format(src, cb_sin);
-            pack_reconfig_data_format(cb_out);
+            pack_reconfig_data_format(co);
             mul_tiles_init(src, cb_sin);
             tile_regs_acquire();
             for (uint32_t j = 0; j < n; ++j) {
@@ -169,11 +174,11 @@ void kernel_main() {
             tile_regs_commit();
             tile_regs_wait();
             for (uint32_t j = 0; j < n; ++j) {
-                pack_tile(j, cb_out);
-                pack_tile(n + j, cb_out);
+                pack_tile(j, co);
+                pack_tile(n + j, co);
             }
             tile_regs_release();
-            cb_push_back(cb_out, 2 * n);
+            cb_push_back(co, 2 * n);
             cb_pop_front(cb_p, 2 * n);
         }
 #endif
