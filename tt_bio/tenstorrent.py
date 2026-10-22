@@ -685,9 +685,6 @@ _FAST_MODE = False
 #   trimul_t1_psig  T1's gate sigmoid runs on the packer thread's SFPU, overlapping the next [a|b] matmul block on the
 #                   FPU. Same instructions on the same values: bit-identical outputs. N 512 c_z 256 on a Galaxy chip at
 #                   1000 MHz (t1sig): 6.84 -> 6.41 ms/call bf16 weights, 6.27 -> 5.86 bfp8, equal to skipping the sigmoid
-#   trimul_t1_gsig  T1 writes sigmoid(g_out) (packer SFPU, fp32 dest, behind the g_out matmul) and every tail reading it
-#                   skips its own sigmoid of the bf16 g_out, which cost 1.10 of 3.52 ms per T2 call (N 512, WH, tsig).
-#                   Rounds sigmoid(fp32 g) instead of sigmoid(bf16 g): moves the digest, needs a grade
 #   trimul_bres     the trimul einsum by `bmm_res` (b[c] resident in L1, whole channels per core) where it fits:
 #                   a, b and out cross DRAM once. Bit-exact with ttnn.matmul in ESMFold2 folds (byte-identical coords
 #                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8).
@@ -825,7 +822,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
-          "trimul_t1_2g", "trimul_t1_psig", "trimul_t1_gsig")
+          "trimul_t1_2g", "trimul_t1_psig")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -845,7 +842,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bp
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
-                             "trimul_t1_psig", "trimul_t1_gsig"})
+                             "trimul_t1_psig"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10517,8 +10514,6 @@ class TriangleMultiplication(Module):
         fuse_gout = t1 is None and _TRIMUL_FUSED_GOUT and self._gout_eligible(
             x_norm_in, H, n_pairs, group, memory_config, row_norm)
         g_out_fused = None if t1 is None else t1[2]
-        # trimul_t1_gsig: T1's g_out is already sigmoid(g_out); every tail below multiplies by it as is.
-        g_sig = t1 is not None and _trimul_tail.t1_gsig()
         seq_len_tiles = (H + 31) // 32
         program_config = _triangle_mul_program_config(
             seq_len_tiles, _trimul_ibw_full(), _trimul_subblock(), not large_seq)
@@ -11230,8 +11225,7 @@ class TriangleMultiplication(Module):
             else:
                 fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
                     x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
-                    x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                    gsig=g_sig)
+                    x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
             if fused is not None:
                 TRIMUL_GOUT_STATS[0] += 1
                 ttnn.deallocate(x_cm)
@@ -11294,16 +11288,15 @@ class TriangleMultiplication(Module):
                        x_norm_in if t2_gate else g_out_fused, x_in,
                        _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
             t2_wg = self.g_out_weight if t2_gate else None
-            t2_sig = g_sig and not t2_gate
             fused = None
             if t2m_pending is not None:
-                fused = _trimul_tail.fused_tail_ln(x, *t2_args, wg=t2_wg, moved=t2m_pending[:2], gsig=t2_sig)
+                fused = _trimul_tail.fused_tail_ln(x, *t2_args, wg=t2_wg, moved=t2m_pending[:2])
                 if fused is not None:
                     ttnn.deallocate(t2m_pending[0])
                     t2m_pending = None
             t2m_flush()
             if fused is None:
-                fused = _trimul_tail.fused_tail_ln(x, *t2_args, wg=t2_wg, gsig=t2_sig)
+                fused = _trimul_tail.fused_tail_ln(x, *t2_args, wg=t2_wg)
             if fused is not None:
                 ttnn.deallocate(x)
                 if x_norm_in is not None:      # None under T1
@@ -11377,7 +11370,7 @@ class TriangleMultiplication(Module):
         if x_norm_in is not None:          # None under T1, which leaves g_out_fused
             ttnn.deallocate(x_norm_in)
         x = ttnn.multiply_(
-            p_out, g_out, input_tensor_b_activations=[] if g_sig else [ttnn.UnaryOpType.SIGMOID]
+            p_out, g_out, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]
         )
         return x
 
