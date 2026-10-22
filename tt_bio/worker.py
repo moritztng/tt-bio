@@ -938,7 +938,7 @@ class _WorkerState:
                 fp32_dest_acc_en=True, packer_l1_acc=True)
             sd = _of3_state_dict(cfg)
             # CLI --recycling_steps counts recycles; the trunk runs recycles+1 cycles.
-            self.model = OpenFold3(sd, ckc, num_cycles=_recycles(cfg, 3) + 1)
+            self.model = OpenFold3(sd, ckc, num_cycles=_recycles(cfg, 3) + 1, model=model_id)
         elif model_id == "rf3":
             import ttnn
 
