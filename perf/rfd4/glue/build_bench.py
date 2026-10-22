@@ -6,6 +6,9 @@ Variants of the step after the gather, z = x * s * (w gamma) + beta (x = const +
 * `ship`: the shipped `PairOnCard.__call__`
 * `flat`: the same ops on the [1, 1, n*n, pair] view, so the per-channel operands are plain row broadcasts
 * `addcmul`: beta + y * wg as one ternary op
+* gathers, timed alone and checked bit for bit against W_x[bin]: `parts` (shipped: three bf16 embeddings, widened and
+  added), `f32` (one embedding of the fp32 table), `u32` (the fp32 table's bits as uint32, gathered, bitcast back),
+  `onehot` (below)
 * `onehot*`: the gather as one matmul, onehot(bin) x [hi; mid; lo] with K = 3 x 32, fp32 accumulation; each output is
   the three bf16 parts summed in the fp32 dest, which is the fp32 weight exactly (pair.split_bf16)
 The census (call_prof) has the per-op device times; this has the wall a step pays, host uploads included.
@@ -73,6 +76,50 @@ def main():
         ttnn.deallocate(oh)
         return ttnn.reshape(rows, (1, n, n, c))
 
+    def emb_rows(table, dtype, bitcast):
+        tab = ttnn.from_torch(table, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=dtype)
+
+        def rows(bins):
+            idx = ttnn.from_torch(bins.reshape(1, n * n).to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
+                                  dtype=ttnn.uint32)
+            r = ttnn.embedding(idx, tab, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            ttnn.deallocate(idx)
+            if bitcast:
+                r2 = ttnn.bitcast(r, ttnn.float32)
+                ttnn.deallocate(r)
+                r = r2
+            return ttnn.reshape(r, (1, n, n, c))
+        return rows
+
+    w32 = split.w_step.float().contiguous()
+    gathers = {"parts": b.rows, "onehot": onehot_rows}
+    for name, mk in (("f32", lambda: emb_rows(w32, ttnn.float32, False)),
+                     ("u32", lambda: emb_rows(w32.view(torch.int32), ttnn.uint32, True))):
+        try:
+            gathers[name] = mk()
+        except Exception as e:
+            print(name, "table refused", type(e).__name__, str(e)[:200], flush=True)
+    want = w32[p.bins]
+    rec_g = {}
+    for name, fn in gathers.items():
+        try:
+            r = fn(p.bins)
+            got = ttnn.to_torch(r).float().reshape(want.shape)
+            ttnn.deallocate(r)
+            ms = []
+            for _ in range(a.reps):
+                ttnn.synchronize_device(dev)
+                t = time.perf_counter()
+                r = fn(p.bins)
+                ttnn.synchronize_device(dev)
+                ms.append(1e3 * (time.perf_counter() - t))
+                ttnn.deallocate(r)
+            rec_g[name] = {"exact": bool(torch.equal(got, want)), "max_abs": float((got - want).abs().max()),
+                           "median_ms": round(statistics.median(ms), 3)}
+        except Exception as e:
+            rec_g[name] = {"error": f"{type(e).__name__}: {str(e)[:300]}"}
+        print("gather", name, rec_g[name], flush=True)
+
     def affine(flat, ternary, gather=None):
         def build():
             cst = b._constant(p.constant, 0)
@@ -102,7 +149,11 @@ def main():
     variants = {"ship": lambda: b(p, 0), "flat": affine(True, False), "addcmul": affine(False, True),
                 "flat_addcmul": affine(True, True), "onehot": affine(False, False, onehot_rows),
                 "onehot_flat_addcmul": affine(True, True, onehot_rows)}
-    rec = {"n": n, "reps": a.reps, "variants": {}}
+    for gname in ("f32", "u32"):
+        if rec_g.get(gname, {}).get("exact"):
+            variants[gname] = affine(False, False, gathers[gname])
+            variants[gname + "_flat_addcmul"] = affine(True, True, gathers[gname])
+    rec = {"n": n, "reps": a.reps, "gathers": rec_g, "variants": {}}
     with clocksample.during(period=0.5) as clk:
         for name, fn in variants.items():
             try:
