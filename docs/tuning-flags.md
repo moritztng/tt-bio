@@ -910,8 +910,8 @@ and 1.24x at 256. The pair-bias and pair-write programs are a further 1.10x at 5
 bond outliers and clashes unchanged. The triangle multiplication's input kernel runs as one launch with block-fp8
 resident weights at HiFi2 and its gate sigmoid on the packer (`trimul_t1_psig`, `trimul_gin_hifi2`, `trimul_t1w8`):
 a further 1.09x at 512 tokens (40.6 to 37.2 s, 1318 MHz) and 1.08-1.13x from 160 to 640 tokens, paired on one
-chip; on 10 seed-matched 512-token designs the designed chain moves 6.1 A median against a 38.9 A seed-to-seed
-spread. `pair_tail` and `pair_write_res` need the fp32 pair stream, so
+chip; on 31 seed-matched 512-token designs the designed chain moves 7.3 A median against a 38.2 A seed-to-seed
+spread, with radius of gyration, bond outliers and clashes unchanged. `pair_tail` and `pair_write_res` need the fp32 pair stream, so
 `TT_BIO_RFD4_PAIR_BF16=1` (the pair stream in bf16) turns them off and was slower before the pair-bias and pair-write programs, 46.4 s against 44.1 s. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 

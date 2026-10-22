@@ -137,19 +137,19 @@ a sugar tree arrives with its glycosidic bonds intact.
 
 ## Design families and what they cost
 
-Measured on one Blackhole p300 chip at 1337-1350 MHz AICLK (sampled during the design), at the full
+Measured on one Blackhole p300 chip at 1325-1350 MHz AICLK (sampled during the design), at the full
 recipe: every step, every recycle. Each run made two designs with the kernels already compiled;
 s/design is the run's wall time over two, so model load is included.
 
 | family | tokens | recipe | s/design |
 |---|---:|---|---:|
 | motif scaffolding | 82 | `medium/midpeak` | 9.2 |
-| unconditional monomer | 100 | `thinking_medium` | 11.6 |
-| structure prediction | 138 | `thinking_medium` | 16.4 |
-| enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 24.2 |
-| binder against a protein target | 225 | `medium/front_loaded` | 26.1 |
-| nanobody CDRs | 224 | `high/front_loaded` | 27.5 |
-| antibody CDRs (Fab) | 329 | `high/front_loaded` | 66.5 |
+| unconditional monomer | 100 | `thinking_medium` | 11.7 |
+| structure prediction | 138 | `thinking_medium` | 14.0 |
+| enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 16.3 |
+| binder against a protein target | 225 | `medium/front_loaded` | 21.7 |
+| nanobody CDRs | 224 | `high/front_loaded` | 21.8 |
+| antibody CDRs (Fab) | 329 | `high/front_loaded` | 63.7 |
 
 Cost grows with the token count and with the recipe, not with `--num_designs`: designs are
 independent trajectories.
