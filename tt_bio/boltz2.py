@@ -135,8 +135,11 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres"}
 # (gob2, 2026-10-22), PASS: top pose median 1.323 A (floor 2.280 A), CA-lDDT +0.0003 [-0.0006, +0.0011], docking 24 -> 24;
 # 512-token folds (1000 MHz) -0.13 s paired median on 39 folds past the first-fold compile, up to -1 s on the deeper MSAs
 # (9LV4, 9W8A); the 35-row page fixture contracts two K tiles, so it gains nothing there.
+# dit_cond_steps (the token DiT conditioning of 4096 // tokens steps as one tall linear): Galaxy chip 512 x 1 (1000 MHz)
+# -0.36 s paired median, 10/12 pairs faster, CIFs bit-identical in all 12 pairs (cs3, 2026-10-22), so no grade.
 WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1",
-                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev", "opm_b8cfg"}
+                                "atom_l1", "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev", "opm_b8cfg",
+                                "dit_cond_steps"}
 # On Blackhole ie_dev reads p300c 512 x 1 fast -0.25 s paired median (5/5 warm pairs, AICLK ~1350; iebh) and passes the
 # same 44-fold fast grade (giebh, 2026-10-21): top pose median 1.106 A (floor 2.438 A), CA-lDDT +0.0001 [-0.0006, +0.0007],
 # docking 24 -> 24.
