@@ -41,7 +41,8 @@ import torch.nn.functional as F
 from tt_bio import esmfold2 as E
 from tt_bio.envflags import env_flag
 from tt_bio.token_axis import pad_amount
-from tt_bio.esmc import ESMCLanguageModel
+from tt_bio.esmc import ESMCLanguageModel, esmc6b_tile_dir
+from tt_bio.weights import fetch
 from tt_bio.tenstorrent import dram_peak, is_wormhole
 
 
@@ -68,7 +69,8 @@ class _ESMCAdapter:
         self.lm = None  # loaded lazily on first fold
         # Host tiles of the 6B's weights, kept on Wormhole where fold_complex may release the LM
         # after a fold: the reload uploads them (seconds) instead of re-reading and re-tiling the
-        # checkpoint, which cost a warm 1024 aa ESMFold2 fold 96 of its 201 s. ~6.3 GB host RAM.
+        # checkpoint, which cost a warm 1024 aa ESMFold2 fold 96 of its 201 s. ~6.3 GB host RAM,
+        # used only when the persistent tile cache is unavailable.
         self._tiles = None
         # Under LM_COMBINE the 6B returns this shim's layer-combined state, one layer instead of 81.
         self._shim = shim
@@ -84,16 +86,19 @@ class _ESMCAdapter:
             prev = tenstorrent._FAST_MODE
             tenstorrent.set_fast_mode(self._fast)
             try:
+                # The persistent tile cache makes a load seconds; without one (disk too full),
+                # Wormhole keeps the host tiles in RAM for the reload after a release.
+                tile_dir = esmc6b_tile_dir("esmc-6b", fetch("esmc-6b"))
                 if self._tiles:
                     with tenstorrent.weight_cache(self._tiles, "load"):
                         self.lm = ESMCLanguageModel()
                         self.lm.load_state_dict({}, strict=False)
-                elif is_wormhole():
+                elif tile_dir or not is_wormhole():
+                    self.lm = ESMCLanguageModel.from_pretrained(self._repo, tile_dir=tile_dir or False)
+                else:
                     self._tiles = {}
                     with tenstorrent.weight_cache(self._tiles, "dump"):
-                        self.lm = ESMCLanguageModel.from_pretrained(self._repo)
-                else:
-                    self.lm = ESMCLanguageModel.from_pretrained(self._repo)
+                        self.lm = ESMCLanguageModel.from_pretrained(self._repo, tile_dir=False)
             finally:
                 tenstorrent.set_fast_mode(prev)
             dram_peak("esmfold2/lm-loaded")
@@ -1666,8 +1671,9 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu+atom_l1"
 # Fast-bar grade wgw8g (same chip, WH --fast set vs + this, 4 seeds x 5 samples): -Fast 11 complexes CA-lDDT +0.0008
 # [-0.0002, +0.0022], docking 23 -> 24 of 44; ESMFold2 10 complexes +0.0028 [-0.0000, +0.0073], docking 28 -> 27 of 40.
 _WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8"
-# lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere).
-_LM_SDPA_STOCK = "+lm_sdpa_stock"
+# lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere);
+# lm_ln_stock its ttnn.layer_norm where ESMC runs ln_split (esmc._ln).
+_LM_STOCK = "+lm_sdpa_stock+lm_ln_stock"
 # The ESMC language model on Blackhole as ESMFold2 folded it before ESMC took the Wormhole LM path there: graded on
 # ESMC's embeddings only, not on a fold yet.
 _BH_LM_KEEP = "+lm_qk_chain+lm_gate_ng+lm_k64+lm_linear"
@@ -1686,7 +1692,7 @@ def fold_levers(fast: bool) -> str:
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     else:
         levers += _BH_LM_KEEP
-    return levers + _LM_SDPA_STOCK
+    return levers + _LM_STOCK
 
 
 def fold_scope(fast: bool):

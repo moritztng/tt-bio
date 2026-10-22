@@ -418,12 +418,17 @@ _MEASURED_MODE_LADDERS = {
     # and 832 fill the card in the backward, 768 fragments in the forward with 2.2 GB free), while
     # lean serves 768, 800, 832, 864 and 896. Fast is not monotone in the axis on this card: 736
     # and 864 each completed once in fast. A ladder with a refusal under it is not a ceiling, so
-    # fast is held below its lowest refusal, where 576, 608, 640 and 672 all completed. No
-    # `offload` row: on pc every offload rung was killed by the HOST for want of RAM, which is
-    # not a device answer. Measured on pc card 0, 2026-10-01, `rel012-verify-bh`.
+    # fast is held below its lowest refusal, where 576, 608, 640 and 672 all completed. Measured
+    # on pc card 0, 2026-10-01, `rel012-verify-bh`. Lean completes every axis up to 1184, the
+    # law's own top, so 1184 is a floor and nothing above it was run in lean. Offload completes
+    # 1248 to 1536 (1440, 1504 and 1536 three rounds each) and refuses 1568 twice on
+    # fragmentation (4.87 GB free, largest block 144 MB against 157 MB a bank), where the law
+    # said 1568 fits. pc's 30 GB host could not run offload at all;
+    # these are qb2 card 2 (a p300c chip, a p150a's DRAM, 249 GB host), 2026-10-21, `bc4-bigtok`.
     "p150a": {
         "fast": (672, 704),
-        "lean": (896, None),
+        "lean": (1184, None),
+        "offload": (1536, 1568),
     },
 }
 

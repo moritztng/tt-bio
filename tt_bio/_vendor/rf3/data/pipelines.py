@@ -469,13 +469,10 @@ def build_af3_transform_pipeline(
             pad_token=af3_sequence_encoding.token_to_idx["<G>"],  # type: ignore[arg-type]
             add_residue_is_paired_feature=add_residue_is_paired_feature,
         ),
-        ConditionalRoute(
-            condition_func=lambda data: data.get("is_inference", False),
-            transform_map={
-                True: AddAF3TokenBondFeatures(np.inf),
-                False: AddAF3TokenBondFeatures(),
-            },
-        ),
+        # tt-bio: atomworks 3.0 moved the bond distance cutoff out of this transform and into
+        # parsing (`filter_bonds_by_distance`). RF3 passed `np.inf` here at inference, i.e. no
+        # cutoff, and tt-bio only runs inference, so the transform takes no argument.
+        AddAF3TokenBondFeatures(),
     ]
 
     if add_cyclic_bonds:

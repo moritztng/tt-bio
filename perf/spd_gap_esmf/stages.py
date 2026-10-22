@@ -35,6 +35,7 @@ ap.add_argument("--ops", action="store_true", help="per-op synchronized census i
 ap.add_argument("--a3m", type=Path, help="fold this alignment instead of the page fixture's (e.g. one deeper than max_depth)")
 ap.add_argument("--draw", action="store_true", help="split the diffusion step by module (nested syncs)")
 ap.add_argument("--plain", action="store_true", help="cold + plain fold only; also counts the einsums bmm_res served")
+ap.add_argument("--build-profile", action="store_true", help="cProfile the build (weights load + upload) into --out.build.txt")
 ap.add_argument("--cold-stages", action="store_true", help="split the cold fold by stage too (WH: warm reads slower than cold)")
 a = ap.parse_args()
 
@@ -54,9 +55,18 @@ from tt_bio import esmfold2 as E, esmfold2_runtime as R
 fix = ROOT / "perf" / "size512" / "fixtures"
 a3m = a.a3m or fix / f"cdk2x2_{a.size}.a3m"
 tag = "" if a.a3m is None else "_" + a3m.stem
+bpr = cProfile.Profile() if a.build_profile else None
+t_build = time.perf_counter()
+bpr and bpr.enable()
 one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}{tag}", fix / f"cdk2x2_{a.size}.yaml",
                               a3m, fast=a.fast)[:2]
-res = {"model": a.model, "fast": a.fast, "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
+bpr and bpr.disable()
+build_s = round(time.perf_counter() - t_build, 3)
+if bpr:
+    with open(f"{a.out}.build.txt", "w") as f:
+        for key in ("cumulative", "tottime"):
+            pstats.Stats(bpr, stream=f).sort_stats(key).print_stats(60)  # weights load + device upload, what a model swap pays first
+res = {"build_s": build_s, "model": a.model, "fast": a.fast, "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
 
 # (owner, attribute, label). FoldingTrunkModel serves both the folding trunk and the LM encoder's pair
 # blocks; the label splits them by block count.
@@ -113,7 +123,7 @@ def staged(tag):
 if a.cold_stages:
     staged("cold_stages")
 else:
-    one_fold()  # cold
+    t0 = time.perf_counter(); one_fold(); res["cold_s"] = round(time.perf_counter() - t0, 3)  # + program compile
 if a.plain:
     from tt_bio import bmm_res
     bres, bres_mm = collections.Counter(), bmm_res.matmul
@@ -124,6 +134,8 @@ if a.plain:
     bmm_res.matmul = counted
 t0 = time.perf_counter(); s, m = one_fold(); res["plain_s"] = round(time.perf_counter() - t0, 3)
 res["plain_fold_s"] = round(s, 3); res["plddt"] = m.get("plddt"); res["ptm"] = m.get("ptm")
+import hashlib
+res["cif_sha"] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16] for p in Path(meta["struct_dir"]).rglob("*.cif")}
 print("plain", res["plain_s"], flush=True)
 if a.plain:
     res["bmm_res"] = dict(bres); a.out.write_text(json.dumps(res, indent=1)); print(res["bmm_res"], flush=True)

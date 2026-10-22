@@ -27,6 +27,7 @@ HIDDEN = 128     # trimul latent width for ESMFold2 and Protenix-v2
 def grid(monkeypatch):
     monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", GRID)
     monkeypatch.setattr(T, "_FAST_MODE", False)
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", False)  # a Wormhole host sets it at device open
 
 
 def _budget() -> float:
@@ -150,6 +151,7 @@ def test_clash_memo_keeps_the_minimum(grid, clean_memos):
 
 def test_memo_is_keyed_per_shape_and_grid(monkeypatch, clean_memos):
     """A clash on one grid or shape says nothing about another: no cross-talk."""
+    monkeypatch.setattr(T, "_IS_SMALL_GRID", False)
     monkeypatch.setattr(T, "COMPUTE_GRID_MAIN", (11, 10))
     T._record_trimul_clash(140, 256, 1, 256)
     assert T._trimul_chunk_size(140, 256, 1) == 128      # same key: clamped

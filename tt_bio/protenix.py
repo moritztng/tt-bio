@@ -209,7 +209,7 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # trimul_t1_2g: T1 may hold 2 GiB of outputs, so it also serves c_z 256 from ~900 to 1152 tokens, where every call declined.
 # Never fires at 512. 1024 tokens, warm, in-process A/B x2: Wormhole (1000 MHz) 257.8 / 259.1 -> 218.9 / 217.2 s, pLDDT 0.786 ->
 # 0.788; Blackhole p300 (1275-1350 MHz) 124.7 / 121.7 -> 116.9 / 102.9 s. Op error at 768 and 1024 vs float64 matches the
-# incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037, 12 single-element outliers each at 768). No OOM at 1152 on a 12 GiB Wormhole chip.
+# incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037 at HiFi4). No OOM at 1152 on a 12 GiB Wormhole chip.
 WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram",
                           "trimul_t1_2g"})
 # Protenix-v2's Blackhole normal set: dit_shoist + transition_b8 + ws_b8_plain, graded as one stack. Blackhole 512-token normal
@@ -229,33 +229,21 @@ BH_V2_NORMAL = frozenset({"dit_shoist", "transition_b8", "ws_b8_plain", "trimul_
 # (1.386 A floor), docking 37 -> 37, CA-lDDT +0.0013 and pLDDT +0.0010. Same A/B (stx): median -0.27 s normal, -0.16 s fast.
 # Blackhole is ungraded for both.
 DIT_MM_WH = frozenset({"dit_shoist_mm", "dit_step_mm"})
+# trimul_t1_psig: T1's gate sigmoid on the packer thread, overlapping the next matmul block. Bit-identical by construction
+# (same sigmoid_poly on the same values; in_t1 f64 errors equal at N 512), so it needs no grade. Op on a Galaxy chip at
+# 1000 MHz (t1sig): 6.84 -> 6.41 ms/call, 6.27 -> 5.86 with bfp8 weights. Wormhole both modes; Blackhole unmeasured.
+T1_PSIG_WH = frozenset({"trimul_t1_psig"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
-
-
-_TEMPLATE_KEYS = ("template_aatype", "template_distogram", "template_pseudo_beta_mask", "template_unit_vector",
-                  "template_backbone_frame_mask")
-
-
-def template_sources(feat):
-    """For each template slot, the first slot whose features equal it (itself when none does).
-
-    Equal slots give bit-identical template-embedder outputs, so `Trunk._template` computes each once and re-adds
-    it in slot order. Without real templates that is 2 of the 4 dummy slots: slot 0 is the gap token, slots 1-3
-    are ALA over zero geometry (`protenix_data.dummy_template_features`)."""
-    src = []
-    for t in range(feat["template_aatype"].shape[0] if "template_aatype" in feat else 0):
-        src.append(next((u for u in sorted(set(src)) if all(torch.equal(feat[k][u], feat[k][t]) for k in _TEMPLATE_KEYS)), t))
-    return src
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1` and `DIT_MM_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1`, `DIT_MM_WH` and `T1_PSIG_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
-    wh_both = TRIATT_LN | TRIATT_K1 | DIT_MM_WH if v2 and wh else frozenset()
+    wh_both = TRIATT_LN | TRIATT_K1 | DIT_MM_WH | T1_PSIG_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL
@@ -3519,10 +3507,8 @@ class Trunk(_KeyedWeights):
         w = state_dict.get("layernorm_z_cycle.weight")
         return int(w.shape[0]) if w is not None else None
 
-    def _template(self, z3, tpl_a, src, pmask_tt=None, attn_tt=None):
-        # tpl_a: one device tensor per distinct template, each already `linear_no_bias_a(at)`; src[t] is the
-        # first slot whose features equal slot t's (`template_sources`), so a repeated slot re-adds that
-        # slot's output in its own place in the sum: the fold is bit-identical to computing every slot.
+    def _template(self, z3, tpl_a, N, nt, pmask_tt=None, attn_tt=None):
+        # tpl_a: nt device tensors, each already `linear_no_bias_a(at)` for one template.
         # The projection is cycle-invariant, so the caller hoists it out of the recycling
         # loop (see Trunk.__call__); passing the raw host feature concat here is a bug.
         # nt template projections read this whole normed pair tensor to write two tiles of
@@ -3536,24 +3522,20 @@ class Trunk(_KeyedWeights):
         zn = self._ln(z3, "template_embedder.layernorm_z.weight",
                       "template_embedder.layernorm_z.bias", l1=True)
         vs = []
-        for ta in tpl_a:
-            a = host_unpark(ta)
+        for t in range(nt):
+            a = host_unpark(tpl_a[t])
             vs.append(ttnn.add(a, self._lin(zn, "template_embedder.linear_no_bias_z.weight"),
                                memory_config=ttnn.DRAM_MEMORY_CONFIG))
-            if a is not ta:
+            if a is not tpl_a[t]:
                 ttnn.deallocate(a)
         ttnn.deallocate(zn)
-        slot = {t: i for i, t in enumerate(sorted(set(src)))}
-        out, u = {}, None
-        for t in range(nt := len(src)):
-            if src[t] == t:
-                v = vs[slot[t]]
-                for pl in self.TPL:
-                    v = pl(None, v, pmask_tt, attn_tt, attn_tt)[1]
-                out[t] = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
-            v = out[src[t]]
+        u = None
+        for t in range(nt):
+            v = vs[t]
+            for pl in self.TPL:
+                v = pl(None, v, pmask_tt, attn_tt, attn_tt)[1]
+            v = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
             u = v if u is None else ttnn.add(u, v)
-        del out
         u = ttnn.multiply(u, 1.0 / (1e-7 + nt))
         # z + linear_u(relu(u)), the embedder's residual. Per pair position, so after DRAM refuses
         # the single pass it runs in row blocks and the old z is freed at the join: at 1536 tokens
@@ -3751,9 +3733,8 @@ class Trunk(_KeyedWeights):
         # -1 == -1 is True in the pad-by-pad block, and pm is what covers that.
         pm = torch.ones(N, N) if not pad else (m1[0][:, None] * m1[0][None, :])
         nt = feat["template_aatype"].shape[0] if "template_aatype" in feat else 0
-        tpl_src = template_sources(feat)
         te_at = []
-        for t in sorted(set(tpl_src)):
+        for t in range(nt):
             dg = feat["template_distogram"][t] * mc[..., None] * pm[..., None]
             pb = (feat["template_pseudo_beta_mask"][t] * mc * pm).unsqueeze(-1)
             aa = F.one_hot(feat["template_aatype"][t].long(), 32).float()
@@ -3774,7 +3755,7 @@ class Trunk(_KeyedWeights):
                   else None)
         return dict(N=N, pad=pad, feat=feat, relp=self._host_cast(relp), relp_g=relp_g,
                     token_bonds=self._host_cast(token_bonds.unsqueeze(-1)),
-                    pm_pad=pm_pad, at_pad=at_pad, nt=nt, tpl_src=tpl_src,
+                    pm_pad=pm_pad, at_pad=at_pad, nt=nt,
                     te_at=[self._host_cast(t.unsqueeze(0)) for t in te_at], ms=ms)
 
     def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
@@ -3901,7 +3882,7 @@ class Trunk(_KeyedWeights):
             # where upstream adds nothing. Inert for protenix-v2 and opendde, which both ship
             # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
             if nt > 0 and self.TPL:
-                z3 = self._template(z3, tpl_a, host["tpl_src"], pmask_tt, attn_tt)
+                z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
             z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, rows)
             if rows is not None and not ops.taping():
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's

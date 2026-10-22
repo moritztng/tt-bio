@@ -79,6 +79,15 @@ def test_key_lens_reads_pure_key_padding_only(monkeypatch):
     assert esmc._key_lens(_pad_mask([544, 300], 544)) is None
 
 
+def test_batch_tokens_mask_is_a_view_of_one_row(monkeypatch):
+    monkeypatch.setattr(esmc, "_ESMC_SHSDPA", True)
+    ids, lens, m, kv = esmc._batch_tokens(["ACDEFGHIK" * 50, "MKV" * 20])
+    assert m.stride(1) == 0 and torch.equal(m, _pad_mask(lens, m.shape[-1]))
+    assert esmc._key_lens(m) == lens
+    with pytest.raises(RuntimeError):
+        m[0, :, 3:] = float("-inf")              # a slice write would alias every query row
+
+
 @pytest.mark.parametrize("wormhole", [True, False])
 def test_shsdpa_default_on_both_arches(wormhole, monkeypatch):
     from tt_bio import tenstorrent

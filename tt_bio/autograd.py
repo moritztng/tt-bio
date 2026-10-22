@@ -474,7 +474,7 @@ class Tensor:
         if not self.evictable or not self.value.is_allocated():
             return
         if self.shares is not None:
-            self._free_shared()
+            self._free_shared(release=True)
             return
         if not self.pinned and (self.node is not None or not self.requires_grad):
             ttnn.deallocate(self.value)
@@ -516,8 +516,9 @@ class Tensor:
         if self.box is not None:
             self.box[0] = self.value
 
-    def _free_shared(self) -> None:
-        """`free` for a buffer several taped tensors are views of, decided for all of them.
+    def _free_shared(self, release: bool = False) -> None:
+        """`free` (`release`) or `evict` for a buffer several taped tensors are views of, decided
+        for all of them.
 
         A ttnn shape op can hand back a view (`_tape` explains), and a view pair used to be
         marked non-evictable outright, because releasing or evicting either one alone kills the
@@ -534,11 +535,20 @@ class Tensor:
         released once, refused if a member is a leaf (its placement is the module's tuning, as in
         `_evict_read_parents`). Either way a member that holds its buffer for the other reason,
         `evictable` False for a closure that reads its output by raw handle, refuses both.
+
+        A release asks what `free` asks of a lone tensor: does any backward read the bytes, and
+        is any member a leaf. Requiring a gradient is not reading a value, and every intermediate
+        in the middle of the graph requires one, so testing it here kept every dead view group
+        of a KEPT tape on the card. BindCraft 2's masked outer product mean reshapes its matmul
+        output, and from 7353c9aef that held one [N, N, 128] pair tensor per resident Evoformer
+        block: 0.50 GB at 224 tokens and 40 blocks, which is what refused the backward at 47.
         """
         group = _members(self.shares)
         if any(not t.evictable for t in group):
             return
-        if not any(t.pinned or t.requires_grad for t in group):
+        if not any(t.pinned for t in group) and (
+                not any(t.requires_grad for t in group)
+                or (release and all(t.node is not None or not t.requires_grad for t in group))):
             ttnn.deallocate(self.value)
             return
         if any(t.node is None for t in group):
