@@ -989,20 +989,16 @@ def _designs(spec: SamplingSpec, *, n_designs: int, n_tokens: int, seed: int,
     rng = DesignRng(seed, n_designs, mode=rng_mode, device=device, dtype=dtype, first=first)
 
     if not start.is_partial:
-        depths = recycle_depths(spec, spec.nsteps)
-        ts, gt = sample_schedule(spec, spec.nsteps)
+        ts, gt, depths, nsteps = _schedule(spec, start)
         x = sample_noise(spec, n_tokens, rng, emit_masks=emit_masks, coord_cond_mask=coord_cond_mask,
                          groups=groups, training=False)
-        return trajectory(spec, x=x, ts=ts, gt=gt, nsteps=spec.nsteps, depths=depths,
+        return trajectory(spec, x=x, ts=ts, gt=gt, nsteps=nsteps, depths=depths,
                           rng=rng, emit_masks=emit_masks, coord_cond_mask=coord_cond_mask,
                           groups=groups, **kwargs)
 
     if x_1 is None:
         raise ValueError("a partial start needs x_1, the clean structure to corrupt")
-    nsteps = start.nsteps or spec.nsteps
-    depths = recycle_depths(spec, nsteps, full_nsteps=spec.nsteps)
-    ts, gt = partial_schedule(spec, start, nsteps,
-                              full_nsteps=spec.nsteps if start.from_fraction else None)
+    ts, gt, depths, nsteps = _schedule(spec, start)
 
     t_vec = {mode: torch.full((n_designs,), start.t[mode], dtype=dtype, device=device)
              for mode in spec.data_modes}
@@ -1016,6 +1012,25 @@ def _designs(spec: SamplingSpec, *, n_designs: int, n_tokens: int, seed: int,
                       emit_masks=emit_masks, resample_target_backbone=inverse,
                       target_backbone=x_1[BB_CA] if inverse else None,
                       coord_cond_mask=coord_cond_mask, groups=groups, **kwargs)
+
+
+def _schedule(spec: SamplingSpec, start: PartialStart):
+    """``(ts, gt, depths, nsteps)`` of a trajectory from ``start``: the times, the noise injection
+    and the recycle depth of every step."""
+    if not start.is_partial:
+        return (*sample_schedule(spec, spec.nsteps), recycle_depths(spec, spec.nsteps), spec.nsteps)
+    nsteps = start.nsteps or spec.nsteps
+    ts, gt = partial_schedule(spec, start, nsteps, full_nsteps=spec.nsteps if start.from_fraction else None)
+    return ts, gt, recycle_depths(spec, nsteps, full_nsteps=spec.nsteps), nsteps
+
+
+def step_plan(spec: SamplingSpec, start: PartialStart | None = None) -> list[tuple[dict[str, float], int]]:
+    """Per step, the ``(t, recycle_depth)`` a trajectory from ``start`` asks its network for.
+
+    These do not depend on the state, so a network can prepare what reads only them (the
+    conditioning) for the next step while the card runs this one (`network.FlowNetwork`)."""
+    ts, _gt, depths, nsteps = _schedule(spec, start or PartialStart())
+    return [({mode: float(ts[mode][k]) for mode in spec.data_modes}, depths[k]) for k in range(nsteps)]
 
 
 def _drive(steps, network: Network) -> SamplerOutput:
