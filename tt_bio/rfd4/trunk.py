@@ -619,8 +619,11 @@ NORMAL_LEVERS = frozenset({"trimul_t1"})
 #: 15.4 -> 13.9 ms a call at 512 tokens and inert (bit-identical) at 128 (state/rfd4/bets/bfp8.md).
 #: `pair_block` runs the pair transition and its residual write as one program with bfp8 weights where it
 #: serves (the composed levers above are its fallback): 6.20 -> 3.85 ms a call at 512 tokens, error vs float64
-#: 0.0116 -> 0.0101 (state/rfd4/bets/pairblock.md).
-FAST_LEVERS = NORMAL_LEVERS | {"pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8", "pair_block"}
+#: 0.0116 -> 0.0101. `pair_tail` runs the triangle multiplication's output layer_norm, p_out, gate and residual add
+#: into the float32 stream as one program from 160 tokens (needs trimul_t1). In the trunk, against the levers
+#: before both: 57.96 -> 44.10 s/design at 512 tokens, 16.84 -> 13.56 at 256 (state/rfd4/bets/pairblock.md).
+FAST_LEVERS = NORMAL_LEVERS | {"pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8", "pair_block",
+                               "pair_tail"}
 
 
 class Trunk(Module):
