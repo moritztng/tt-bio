@@ -690,7 +690,7 @@ def _build_gin_move(x, wpT, wgT, outs, grid, ckc, mask, cto=0, ctt=None):
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def gin_moved(x, wpT, wgT, ckc, grid, mask=None, memory_config=None):
+def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
     """`a, b` of the gated in-projection, already channel-moved: [B, C, S, S] each, for
     `[a | b] = (x @ Wp) * sigmoid(x @ Wg)` with `wpT`, `wgT` the transposed [2C, K] weights, and
     `a` times the pair mask when `mask` is given. None where `gin_moved_ok` declines.
@@ -709,14 +709,13 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None, memory_config=None):
     n = len(wps)
     S, Cs = shp[-2], int(wps[0].shape[-2]) // 2
     device = x.device()
-    mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, n * Cs, S, S]), ttnn.bfloat16,
-                                           ttnn.TILE_LAYOUT, device, mc)
+                                           ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
             for _ in range(2)]
     for s_, (wp, wg) in enumerate(zip(wps, wgs)):
         key = ("gin_move", str(x.padded_shape), str(wp.padded_shape), str(wp.dtype), tuple(grid),
                tuple(str(c) for c in ckc), mask is not None, GIN_MOVE_ABL, GIN_MOVE_NB, _sigpoly(), RNE,
-               s_, n, _gin_fuse(mask is not None), str(mc.buffer_type))
+               s_, n, _gin_fuse(mask is not None))
         entry = _CACHE.get(key)
         if entry is None:
             entry = _CACHE[key] = _build_gin_move(x, wp, wg, outs, grid, ckc, mask,

@@ -384,10 +384,11 @@ def _per_design(tri, z, pair_mask):
     outs = []
     for k in range(b):
         zk = ttnn.slice(z, [k, 0, 0, 0], [k + 1, n, n, c])
-        mk = ttnn.slice(pair_mask, [k, 0, 0], [k + 1, n, n])
+        mk = None if pair_mask is None else ttnn.slice(pair_mask, [k, 0, 0], [k + 1, n, n])
         out = tri(zk, mk)
         ttnn.deallocate(zk)
-        ttnn.deallocate(mk)
+        if mk is not None:
+            ttnn.deallocate(mk)
         if out.memory_config().buffer_type == ttnn.BufferType.L1:
             # An L1 result left there would sit under the next design's circular buffers: the
             # trimul would clash, retry narrower and stay on the slower path for every design.
@@ -489,7 +490,12 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
     [b, n, 1], the attention's additive [b, 1, n, n] pair mask, the pair mask as [b, n, n]
     (triangle multiplication) and [b, n, n, 1], then the token and [b, n, n, 1] pair masks again in
     `residual_dtype` for the residual streams (the same handles when that is `dtype`). Built once
-    per stack call."""
+    per stack call.
+
+    The triangle multiplication's mask is None when every token is real (no padding, every design
+    of a batch the same length): it only multiplies operand `a` by the pair mask, and multiplying by
+    1 changes no bit, so the op is skipped rather than run. 0.76 ms a call at 512 tokens, 0.027 at
+    128 (perf/rfd4/tri2/bench.py `mask:none`, bit-identical)."""
     m = mask.to(torch.float32)
     pair = m[:, :, None] * m[:, None, :]
     up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,  # noqa: E731
@@ -500,8 +506,8 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
         res_tok, res_pair_c = tok, pair_c
     else:
         res_tok, res_pair_c = ttnn.typecast(tok, res), ttnn.typecast(pair_c, res)
-    return (tok, up(torch.where(pair.bool(), 0.0, NEG_INF)[:, None]), up(pair), pair_c, res_tok,
-            res_pair_c)
+    return (tok, up(torch.where(pair.bool(), 0.0, NEG_INF)[:, None]), None if bool(m.all()) else up(pair),
+            pair_c, res_tok, res_pair_c)
 
 
 class Trunk(Module):
@@ -637,7 +643,7 @@ class Trunk(Module):
         if cached is not None and cached[0] is device and torch.equal(cached[1], mask):
             return cached[2]
         if cached is not None and cached[0] is device:
-            for t in {id(t): t for t in cached[2]}.values():
+            for t in {id(t): t for t in cached[2] if t is not None}.values():
                 if t.is_allocated():
                     ttnn.deallocate(t)
         masks = trunk_masks(mask, device, dtype=self.dtype, residual_dtype=self.residual_dtype)

@@ -6,7 +6,8 @@ channel-loop branch served the call.
         [--n 128] [--arms "default|lever:trimul_gin;set:tenstorrent.TRIMUL_GIN_L1=True"]
 
 An arm is `default` or `;`-joined parts: `lever:a+b` (a lever set), `set:mod.ATTR=literal+mod.B=1`
-(tt_bio module globals, restored after the arm). Arms are separated by `|`.
+(tt_bio module globals, restored after the arm), `mask:none` (no pair mask; the reference is unmasked
+either way). Arms are separated by `|`.
 """
 import argparse
 import ast
@@ -39,9 +40,11 @@ def reference(z, w, ending):
 
 
 def parse_arm(arm):
-    lev, saved = "", []
+    lev, saved, mask = "", [], True
     for part in arm.split(";"):
-        if part.startswith("lever:"):
+        if part == "mask:none":
+            mask = False
+        elif part.startswith("lever:"):
             lev = part[6:].replace("+", ",")
         elif part.startswith("set:"):
             for kv in part[4:].split("+"):
@@ -50,7 +53,7 @@ def parse_arm(arm):
                 tgt = importlib.import_module(f"tt_bio.{modname}")
                 saved.append((tgt, attr, getattr(tgt, attr)))
                 setattr(tgt, attr, ast.literal_eval(v))
-    return lev, saved
+    return lev, saved, mask
 
 
 def main():
@@ -86,14 +89,14 @@ def main():
             ref = reference(z.double(), w64, ending)
             base_out = None
             for arm in a.arms.split("|"):
-                lev, saved = parse_arm(arm)
+                lev, saved, use_mask = parse_arm(arm)
                 try:
                     with T.lever_scope(lev):
                         tri = T.TriangleMultiplication(ending, _trimul_weights(T.WeightScope(
                             state).child(name)), compute_kernel_config())
                         T.TRIMUL_MM_TRANSPOSE_STATS.clear()
                         g0 = list(TT.GIN_MOVE_STATS)
-                        out = tri(zt, mt)
+                        out = tri(zt, mt if use_mask else None)
                         got = ttnn.to_torch(out).double().reshape(ref.shape)
                         ttnn.deallocate(out)
                         branch = dict(T.TRIMUL_MM_TRANSPOSE_STATS)
@@ -102,7 +105,7 @@ def main():
                         for _ in range(a.reps + 3):
                             ttnn.synchronize_device(dev)
                             t0 = time.perf_counter()
-                            o = tri(zt, mt)
+                            o = tri(zt, mt if use_mask else None)
                             ttnn.synchronize_device(dev)
                             ts.append(time.perf_counter() - t0)
                             ttnn.deallocate(o)
