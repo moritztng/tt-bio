@@ -212,13 +212,13 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037 at HiFi4). No OOM at 1152 on a 12 GiB Wormhole chip.
 WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram",
                           "trimul_t1_2g"})
-# Protenix-v2's Blackhole normal set: dit_shoist + transition_b8 + ws_b8_plain, graded as one stack. Blackhole 512-token normal
-# grade vs the shipped Blackhole normal set (spd-m-protenix gsbn, 2026-10-21), 44 paired folds over 4 seeds on a p300 at
-# 1312-1350 MHz, PASS: same-seed top pose median 0.602 A vs the 1.311 A A/A floor, CA-lDDT -0.0004 [-0.0045, +0.0038], docking
-# 36/44 -> 36/44, every interval covers 0. dit_shoist alone read 0.049 A but its lrmsd interval excluded 0 (+0.69 [+0.004, +1.76]),
-# so it ships only inside the stack. Separate processes on one p300 chip at 1300-1350 MHz (bhab10): transition_b8 + ws_b8_plain
-# 28.57 / 28.28 -> 27.37 / 27.26 / 27.08 / 27.22 s warm; dit_shoist in-process x3 (bhab12) +0.1 s, inside the noise.
-BH_V2_NORMAL = frozenset({"dit_shoist", "transition_b8", "ws_b8_plain", "trimul_t1_2g"})
+# Protenix-v2's Blackhole normal set is trimul_t1_2g alone. The graded dit_shoist + transition_b8 + ws_b8_plain stack
+# (spd-m-protenix gsbn, 0.602 A vs the 1.311 A A/A floor, ~-1.2 s at 512) is out: transition_b8 makes the answer depend
+# on the core grid. Release gate rel-624358ec2 l1-budget on qb2, protenix-v2 fkg: native 4d8f5ebe != 8x8 39109461 with
+# the base set plus transition_b8, one digest 09614098 across all three legs without it. bfp8 shares an exponent per
+# block and the grid moves the block boundaries (the triatt_b8 precedent, 3b1155aa6), so a p150a and a p300c would give
+# two users different structures. The stack was graded as one, so it leaves as one; it stays available per run.
+BH_V2_NORMAL = frozenset({"trimul_t1_2g"})
 # dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
 # float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
 # mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A

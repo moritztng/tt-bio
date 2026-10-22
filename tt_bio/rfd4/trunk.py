@@ -568,12 +568,14 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: set. `trimul_t1` runs the triangle multiplication's input layer_norm, gated projections and channel moves as
 #: one kernel from 160 tokens (it declines below, where the trimul runs from L1): 15.0 -> 11.3 ms a call at 512
 #: tokens, same float64 error (state/rfd4/bets/tri2.md).
-NORMAL_LEVERS = frozenset({"trimul_t1"})
-#: `--fast` adds the precision levers. `pair_mm` + `pair_mm_tr` put the pair transition on minimal_matmul
-#: (bf16, same float64 error, not the same bits); `transition_b8` makes its weights and hidden bfp8;
-#: `trimul_gin` + `trimul_gin_w8` give the triangle multiplication's in-projection bfp8 resident weights,
-#: 15.4 -> 13.9 ms a call at 512 tokens and inert (bit-identical) at 128 (state/rfd4/bets/bfp8.md).
-FAST_LEVERS = NORMAL_LEVERS | {"pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"}
+#: `pair_mm` + `pair_mm_tr` put the pair transition on minimal_matmul (bf16, same float64 error, not the same
+#: bits); `transition_b8` makes its weights and hidden bfp8; `trimul_gin` + `trimul_gin_w8` give the triangle
+#: multiplication's in-projection bfp8 resident weights (state/rfd4/bets/bfp8.md). Default since a 30-design grade
+#: at 512 tokens: designed-chain CA RMSD 2.1 A median (max 11.4) against a 52.5 A seed floor, oracle-free binder
+#: grade PASS (state/rfd4/LAND4.md).
+NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"})
+#: `--fast` has nothing graded beyond the default yet.
+FAST_LEVERS = NORMAL_LEVERS
 
 
 class Trunk(Module):
@@ -734,9 +736,10 @@ class Trunk(Module):
         models only."""
         return self.collect(self.launch(s_init, z_init, conds, mask, device, pair=pair))
 
-    def launch(self, s_init, z_init, conds, mask, device, pair=True):
+    def launch(self, s_init, z_init, conds, mask, device, pair=True, z_builder=None):
         """`run_bucketed` up to the readback: uploads the inputs and enqueues the trunk, without
-        waiting for the card. `collect` reads the result."""
+        waiting for the card. `collect` reads the result. With `z_builder`, `z_init` is what it builds
+        the padded fp32 pair from on the card (`tt_bio.rfd4.pair.PairOnCard`), not a host tensor."""
         from .. import token_axis
         n = int(mask.shape[1])
         npad = token_axis.pad_amount(n, token_axis.bucket_multiple("rfd4")) if token_axis.bucket_enabled() else 0
@@ -753,7 +756,10 @@ class Trunk(Module):
         masks = self.masks_for(m, device)
         mc = m[..., None]
         s = up(pad(s_init.float(), [1]) * mc, self.residual_dtype)
-        z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.pair_residual_dtype)
+        if z_builder is not None:
+            z = z_builder(z_init, npad)  # masked on entry to the trunk, like the uploaded one
+        else:
+            z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.pair_residual_dtype)
         cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
         # A call during which a device refusal taught the process a new plan ran part of itself
         # on the old one; run it again, so a process's first design equals its repeats. Every

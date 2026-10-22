@@ -171,7 +171,7 @@ def test_an_unknown_recipe_is_named_not_guessed(tmp_path, engine):
     result = CliRunner().invoke(cli, ["design", "--model", "rfd4", str(cif), "--annotated_cif",
                                       "--out_dir", str(tmp_path), "--recipe", "thinking_hard"])
     assert result.exit_code != 0
-    assert "unknown recycle strategy" in result.output
+    assert "Invalid value for '--recipe'" in result.output and "thinking_hard" in result.output
 
 
 # ---- one test per family, through the CLI --------------------------------------------
