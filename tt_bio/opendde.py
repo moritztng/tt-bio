@@ -478,7 +478,15 @@ def route_opendde_weights(state_dict):
 # (-5.7 %). WH 11-set normal grade, shipped set vs + both, seeds 109-112, 44 paired folds (tbg): PASS, same-seed top pose
 # median 0.190 A (A/A floor 1.236 A), CA-lDDT -0.0003 [-0.0011, +0.0002], DockQ +0.0015 [-0.0023, +0.0057], iRMSD +0.058
 # [-0.498, +0.662], docking 26 -> 26.
-NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL
+# Both Wormhole modes keep the diffusion-conditioned pair on the chip (pz_device: one device LN feeds the bf16 DiT and the
+# atom z term, no host round trip) and run the bf16 AdaLN modulation and the DiT's gated residuals as one addcmul each
+# (dit_mod16). Galaxy chip, separate-process, 3 on / 3 off warm folds, AICLK 1000 MHz (spd-m-opendde dsm / dsmf,
+# 2026-10-22): normal 608 -2.05 s (-1.7 %), fast 608 119.67 -> 117.59 s (-1.7 %). WH 11-set grades, seeds 109-112, 44
+# paired folds each (dsg): fast vs main 7c42f9778 PASS, same-seed top pose median 0.267 A (A/A floor 1.482 A), CA-lDDT
+# +0.0012 [+0.0006, +0.0018], docking 26 -> 26; normal PASS, top pose median 0.248 A (floor 1.410 A), CA-lDDT +0.0016
+# [+0.0003, +0.0037], DockQ +0.0138 [-0.0101, +0.0547], docking 26 -> 27. Blackhole is ungraded.
+DIT_SEAM = frozenset({"pz_device", "dit_mod16"})
+NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
@@ -486,13 +494,7 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
-# Wormhole fast keeps the diffusion-conditioned pair on the chip (pz_device: one device LN feeds the bf16 DiT and the atom
-# z term, no host round trip) and runs the bf16 AdaLN modulation and the DiT's gated residuals as one addcmul each
-# (dit_mod16). Galaxy chip, separate-process, 3 on / 3 off warm folds, AICLK 1000 MHz (spd-m-opendde dsmf, 2026-10-22):
-# 608 tokens 119.67 -> 117.59 s (-1.7 %). WH 11-set fast grade vs main 7c42f9778, seeds 109-112, 44 paired folds (dsg):
-# PASS, same-seed top pose median 0.267 A (A/A floor 1.482 A), CA-lDDT +0.0012 [+0.0006, +0.0018], DockQ -0.0005
-# [-0.0040, +0.0025], docking 26 -> 26. Blackhole is ungraded.
-DIT_SEAM = frozenset({"pz_device", "dit_mod16"})
+# Wormhole fast takes DIT_SEAM too (above).
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
                                    "trimul_t1_dram"}
                   | TRIATT_LN | TRIATT_K1 | DIT_SEAM)
