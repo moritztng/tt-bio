@@ -88,7 +88,7 @@ def main():
 
     up = lambda t, dt: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     masks = TR.trunk_masks(mask, dev, residual_dtype=ttnn.float32)
-    s, z = up(s0, ttnn.float32), up(z0, ttnn.float32)
+    s, z = up(s0, ttnn.float32), up(z0, trunk.pair_residual_dtype)
     conds = [up(c, ttnn.bfloat16) for c in c0]
     sync = lambda: ttnn.synchronize_device(dev)  # noqa: E731
 
@@ -116,12 +116,13 @@ def main():
     rec = {"n": n, "nlayers": cfg["nlayers"], "tt_bio": str(Path(TR.__file__).resolve().parents[2])}
     # Is a mixed fp32 + bf16 add the fp32 add of the widened bf16? If so the residual's typecast
     # can go; if the unpacker narrows the fp32 operand instead, it cannot.
-    zb = ttnn.typecast(z, ttnn.bfloat16)
+    zf = up(z0, ttnn.float32)
+    zb = ttnn.typecast(zf, ttnn.bfloat16)
     wide = ttnn.typecast(zb, ttnn.float32)
-    ref, mixed = ttnn.add(z, wide), ttnn.add(z, zb, dtype=ttnn.float32)
+    ref, mixed = ttnn.add(zf, wide), ttnn.add(zf, zb, dtype=ttnn.float32)
     rec["mixed_add_exact"] = bool(torch.equal(ttnn.to_torch(ref), ttnn.to_torch(mixed)))
     rec["mixed_add_max_abs"] = float((ttnn.to_torch(ref) - ttnn.to_torch(mixed)).abs().max())
-    free((zb, wide, ref, mixed))
+    free((zf, zb, wide, ref, mixed))
     with clocksample.during(period=0.5) as clk:
         free(one_pass())  # compile
         free(one_call())

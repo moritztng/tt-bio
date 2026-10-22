@@ -52,6 +52,7 @@ def main():
                          "to upstream's at the same seed; see state/rfd4/PAIR.md")
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
+    ap.add_argument("--reseed", action="store_true", help="design i runs at seed+i: a seed floor from one session")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -114,20 +115,21 @@ def main():
     time_trunk(engine.trunk, trunk_s)
 
     for i in range(a.designs):
+        seed = a.seed + i if a.reseed else a.seed
         trunk_s.clear()
         with clocksample.during(period=1.0) as clk:
             t0 = time.perf_counter()
-            output = engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng=a.rng)
+            output = engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=seed, rng=a.rng)
             t_design = time.perf_counter() - t0
             t1 = time.perf_counter()
             path = rfd4.write_design(output, features, atom_array,
-                                     out / f"{designs[0].example_id}_s{a.seed}_r{i}_generated.cif")
+                                     out / f"{designs[0].example_id}_s{seed}_r{i}_generated.cif")
             t_write = time.perf_counter() - t1
         summ = clk.summary()
         mhz = _median_mhz(summ)
         emit({"kind": "compile" if i == 0 else "warm", "size": n_tokens, "designs": 1, "batch": 1,
               "recipe": a.recipe, "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
-              "trunk_passes": int(sum(_depths(engine))), "seed": a.seed, "rng": a.rng,
+              "trunk_passes": int(sum(_depths(engine))), "seed": seed, "rng": a.rng,
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
               "trunk_s": round(sum(trunk_s), 3) if trunk_s else None,
               "host_s": round(t_design - sum(trunk_s), 3) if trunk_s else None,
