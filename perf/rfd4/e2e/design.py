@@ -75,18 +75,40 @@ def main():
           "featurize_s": round(t_feat, 2), "aiclk": clk.summary()})
 
     # Time the trunk calls from inside the network so the host share is measured, not inferred.
-    # The patch is by name: a tree that reaches the trunk another way leaves trunk_s empty, and then
-    # the design is fine and only the instrument failed. Say which, rather than dying in the writer.
+    # A tree with `launch`/`collect` (step chunks as interleaved lanes) enqueues a call and reads it
+    # back later, so a call spans launch entry to collect exit, and trunk_s is the union of the spans:
+    # host work overlapped with an in-flight call is trunk time, not host time. A tree without them
+    # goes through `run_bucketed`. If neither is called the design is fine and only the instrument
+    # failed; say which, rather than dying in the writer.
     trunk_s = []
-    inner = engine.trunk.run_bucketed
+    tr = engine.trunk
+    if hasattr(tr, "launch"):
+        launch, collect = tr.launch, tr.collect
+        started = {}
 
-    def timed(*args, **kwargs):
-        t = time.perf_counter()
-        r = inner(*args, **kwargs)
-        trunk_s.append(time.perf_counter() - t)
-        return r
+        def timed_launch(*args, **kwargs):
+            t = time.perf_counter()
+            pending = launch(*args, **kwargs)
+            started[id(pending)] = t
+            return pending
 
-    engine.trunk.run_bucketed = timed
+        def timed_collect(pending):
+            t = started.pop(id(pending))
+            r = collect(pending)
+            trunk_s.append((t, time.perf_counter()))
+            return r
+
+        tr.launch, tr.collect = timed_launch, timed_collect
+    else:
+        inner = tr.run_bucketed
+
+        def timed(*args, **kwargs):
+            t = time.perf_counter()
+            r = inner(*args, **kwargs)
+            trunk_s.append((t, time.perf_counter()))
+            return r
+
+        tr.run_bucketed = timed
 
     for i in range(a.designs):
         trunk_s.clear()
@@ -98,15 +120,17 @@ def main():
             path = rfd4.write_design(output, features, atom_array,
                                      out / f"{designs[0].example_id}_s{a.seed}_r{i}_generated.cif")
             t_write = time.perf_counter() - t1
+        calls = [e - b for b, e in trunk_s]
+        busy = _union(trunk_s)
         summ = clk.summary()
         mhz = _median_mhz(summ)
         emit({"kind": "compile" if i == 0 else "warm", "size": n_tokens, "designs": 1, "batch": 1,
               "recipe": "thinking_medium", "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
               "trunk_passes": int(sum(_depths(engine))), "seed": a.seed, "rng": a.rng,
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
-              "trunk_s": round(sum(trunk_s), 3) if trunk_s else None,
-              "host_s": round(t_design - sum(trunk_s), 3) if trunk_s else None,
-              "trunk_call_s": ({"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)}
+              "trunk_s": round(busy, 3) if trunk_s else None,
+              "host_s": round(t_design - busy, 3) if trunk_s else None,
+              "trunk_call_s": ({"min": round(min(calls), 4), "max": round(max(calls), 4)}
                                if trunk_s else None),
               "instrument_attached": bool(trunk_s),
               "aiclk": summ, "aiclk_mhz": mhz, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
@@ -116,6 +140,16 @@ def main():
                   "the design itself completed and wrote %s. Re-point the patch before reading any "
                   "trunk_s from this tree." % path, flush=True)
             raise SystemExit(3)
+
+
+def _union(spans):
+    """Seconds covered by at least one (start, end) span."""
+    total, edge = 0.0, float("-inf")
+    for b, e in sorted(spans):
+        if e > edge:
+            total += e - max(b, edge)
+            edge = e
+    return total
 
 
 def _depths(engine):
