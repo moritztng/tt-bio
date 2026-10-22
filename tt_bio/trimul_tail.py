@@ -1042,7 +1042,7 @@ def _extra_bits(ex):
     return sum(b for b, t in zip((1, 2, 4, 8), ex or (None,) * 4) if t is not None)
 
 
-def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None, ex=None, fold=False):
+def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None, ex=None, fold=False, gsig=False):
     """T2's program. `wg`: the GATE form. `moved` (T2m, and T2CM with c_off 0): see `fused_tail_ln`.
     `ex` (moved only) = (bp, bg, mask, out), see `fused_tail_ln_cm`. `fold`: T2_FOLD, `wp` and `ln_b`
     already Wc and the bias tiles."""
@@ -1121,6 +1121,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
         kernel_source=str(d / "compute_ln.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, Mb, sbw, _sigpoly(), RNE, int(gate), int(moved is not None),
                            0 if moved is None else Cp, T2_ABL, EXTRA, int(fold)],
+        defines=[("GSIG", "1")] if gsig else [],
         runtime_args=cp,
         # fp32 DEST always: the LayerNorm statistics are packed to fp32 CBs and the 4-tile
         # epilogue fits half-sync fp32 DEST. The fidelity stays the caller's, so the GEMM is
@@ -1189,13 +1190,14 @@ def _lever(name):
     return lever(name)
 
 
-def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, moved=None):
+def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, moved=None, gsig=False):
     """`resid += (layer_norm(x; ln_w, ln_b, eps) @ wp) * sigmoid(g)` in one kernel (with `wg`:
     `* sigmoid(g @ wg)`, g the trimul's input norm), `resid`
     written in place and returned (the caller's `_add_input` then sees `u is x`). None when T2 is
     off or does not cover the call; nothing has been touched then. `x` is not deallocated.
     `moved` = (x_chunk, c_off) is T2m: x's channels from c_off on are still in the einsum's
-    channel-major chunk and are read from there (`x` holds only [0, c_off), and its shape)."""
+    channel-major chunk and are read from there (`x` holds only [0, c_off), and its shape).
+    `gsig`: g is already sigmoid(g) (T1 under trimul_t1_gsig), so the epilogue multiplies by it as is."""
     from . import ops
     if ops.taping() or dest_guard.exposed_args(ckc):
         T2_STATS[1] += 1
@@ -1232,11 +1234,11 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
-           None if moved is None else (spec(moved[0]), moved[1], P), fold)
+           None if moved is None else (spec(moved[0]), moved[1], P), fold, gsig)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg,
-                                        None if moved is None else (moved[0], moved[1], P), fold=fold)
+                                        None if moved is None else (moved[0], moved[1], P), fold=fold, gsig=gsig)
     reader, writer, _ = entry["kernels"]
     wg_ = wg if wg is not None else wp
     if moved is None:
@@ -1375,7 +1377,7 @@ T2CM_MIN_P = 0
 
 
 def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, bp=None, bg=None,
-                     mask=None, out=None, prev=None):
+                     mask=None, out=None, prev=None, gsig=False):
     """`fused_tail_ln` on the channel-major [1, K, S, S] x: `resid += (layer_norm(x) @ wp) *
     sigmoid(g)` with x[0, i, j, c] = xcm[0, c, i, j], `resid` written in place and returned. None when
     T2CM is off or does not cover the call; nothing has been touched then. `xcm` is not deallocated.
@@ -1385,7 +1387,8 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     `bias_rows` builds them; `mask` a per-row dropout mask [.., S, N] (shared over i), multiplying the
     update before the add; `out` a separate destination, so `resid` stays as it was (the checkpointed
     forward keeps it as its saved input). `prev` = (x, c_off): xcm holds only channels c_off.., the
-    earlier ones are already in x [1, S, S, K] (T2m's split, for a channel loop of several chunks)."""
+    earlier ones are already in x [1, S, S, K] (T2m's split, for a channel loop of several chunks).
+    `gsig` as in `fused_tail_ln`."""
     ex = (bp, bg, mask, out)
     why = t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc, wg, ex, prev, own_switch=out is not None)
     if why is not None:
@@ -1403,12 +1406,12 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, P, gate,
-           tuple(None if t is None else spec(t) for t in ex), c_off)
+           tuple(None if t is None else spec(t) for t in ex), c_off, gsig)
     entry = _CACHE.get(key)
     if entry is None:
         # x is only read for the channels before c_off, so with c_off 0 xcm stands in for it.
         entry = _CACHE[key] = _build_t2(xcm, ln_w, ln_b, wp, g, resid, grid, ckc, _t2_block(kt, nt),
-                                        eps, wg=wg, moved=(xcm, c_off, P), ex=ex)
+                                        eps, wg=wg, moved=(xcm, c_off, P), ex=ex, gsig=gsig)
     reader, writer, _ = entry["kernels"]
     a, addr = xcm.buffer_address(), lambda t, d: (t if t is not None else d).buffer_address()  # noqa: E731
     reader.common_runtime_args = [a, a if prev is None else prev[0].buffer_address(), wp.buffer_address(), addr(wg, wp), ln_w.buffer_address(),
@@ -1448,12 +1451,28 @@ T1_KEYS = set(T1_PLANS)
 T1_PLANS_W8 = {(8, 16, 8): (1, 16), (12, 24, 12): (2, 8)}
 
 
+def _t1_psig():
+    """T1's gate sigmoid on the packer thread's SFPU (lever trimul_t1_psig): the same sigmoid_poly on the same
+    values, so a, b and g_out are bit-identical, but it overlaps the FPU's next [a|b] matmul block instead of
+    following it. Needs the polynomial sigmoid; off under RNE bit 1, which rounds DST on the math thread first."""
+    return bool((T1_PSIG or _lever("trimul_t1_psig")) and _sigpoly() and not RNE & 2)
+
+
+def t1_gsig():
+    """Whether T1's g_out leaves as sigmoid(g_out) (lever trimul_t1_gsig): the polynomial sigmoid on the packer
+    thread's SFPU, from the fp32 dest, behind the g_out matmul. Every tail that reads it then skips its own
+    sigmoid of the bf16 g_out (`gsig=True`), which cost 1.10 of 3.52 ms per T2 call at N 512 on WH."""
+    return bool((T1_GSIG or _lever("trimul_t1_gsig")) and _sigpoly())
+
+
 def t1_plan(key, w8=False):
     """(channel groups, row tiles per unit) for a (kt, ct2, ntg) key; `w8`: the weights are bfp8."""
     return (w8 and T1_PLANS_W8.get(key)) or T1_PLANS.get(key, (1, 32))
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
+T1_PSIG = 0                       # bench knob for lever trimul_t1_psig (kernels/trimul_in_t1 T1_PSIG)
+T1_GSIG = 0                       # bench knob for lever trimul_t1_gsig (kernels/trimul_in_t1 T1_GSIG)
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
 # Plans with channel groups normalise z once: the first launch stores xn (bf16, z's layout) beside its outputs
@@ -1654,6 +1673,10 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     d = KERNEL_DIR.parent / "trimul_in_t1"
     m = mask if mask is not None else x
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
+    if _t1_psig():
+        abl.append(("T1_PSIG", "1"))
+    if t1_gsig():
+        abl.append(("T1_GSIG", "1"))
     xout, pre = [("T1XOUT", "1")] if ln1 == 1 else [], [("T1PRE", "1")] if ln1 == 2 else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
@@ -1716,7 +1739,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, b8, il, w8)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), t1_gsig(), b8, il, w8)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
