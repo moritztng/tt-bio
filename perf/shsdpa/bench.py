@@ -132,8 +132,10 @@ if "esmc" in a.shape:
                    ttnn.MathFidelity.HiFi4 if d.pop("HIFI4", 0) else ttnn.MathFidelity.HiFi2)
             ckc = (fid, not d.pop("NOAPPROX", 0), bool(d.pop("FP32", 0)), bool(d.pop("FULLSYNC", 0)))
             xa = bool(d.pop("EXPA", 0))
+            ops = (bq, bk, bv) if a.b8 else (eq, ek, ev)   # --b8: the protos take block-fp8 q/k/v, as e_b8 does
             ARMS[nm] = ("esmc", lambda qc=qc, kc=kc, spl=spl, d=(d or None), ckc=ckc, xa=xa, pad=P.key_pad(lens, S, dev, kc):
-                        P.sdpa(eq, ek, ev, sc, pad, q_chunk=qc, k_chunk=kc, split=spl, defines=d, ckc=ckc, exp_approx=xa))
+                        P.sdpa(*ops, sc, pad, q_chunk=qc, k_chunk=kc, split=spl, defines=d, ckc=ckc, exp_approx=xa,
+                               out_dtype=ttnn.bfloat16))
     except ImportError:
         pass
 
