@@ -522,8 +522,8 @@ WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "
 # [-0.0005, +0.0003], docking 26 -> 26.
 # Wormhole fast also takes triatt_k1 (protenix.TRIATT_K1). 512-token truth set, WH_FAST_LEVERS vs + triatt_k1, 4 seeds,
 # 44 paired folds, every digest moved (spd-gap-small gk1os, 2026-10-18): PASS, same-seed top pose median 0.450 A vs the
-# 1.902 A A/A floor. cdk2x2 512 x 1 at 1000 MHz, 5 paired warm folds (k1o): fast 93.77 -> 92.44 s. Normal stays off:
-# its grade FAILs on iRMSD, +0.068 A [+0.014, +0.146] (43 paired folds, docking 31 -> 31), though normal reads -1.67 s.
+# 1.902 A A/A floor. cdk2x2 512 x 1 at 1000 MHz, 5 paired warm folds (k1o): fast 93.77 -> 92.44 s. Normal
+# took it later, once k1q had moved 512 to one k (NORMAL_LEVERS, above).
 # Wormhole fast also takes ws_resid2: the transition's last hidden chunk adds z and the chain's partial sum in its fp32
 # dest, so the residual add_ pass goes. Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde rr2ab,
 # 2026-10-18): fast 512 -1.03 s, fast 576 -1.36 s. WH 11-set fast grade vs the shipped fast set, seeds 109-112, 44
