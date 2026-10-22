@@ -36,6 +36,7 @@ from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 
 import clocksample  # noqa: E402
+from rfd4.trunk_clock import time_trunk  # noqa: E402
 
 CLOCK_FLOOR_MHZ = 1200
 MIN_GAIN = 0.02
@@ -82,15 +83,7 @@ def main():
           "featurize_s": round(t_feat, 2), "aiclk": clk.summary()})
 
     trunk_s = []
-    inner = engine.trunk.run_bucketed
-
-    def timed(*args, **kwargs):
-        t = time.perf_counter()
-        r = inner(*args, **kwargs)
-        trunk_s.append(time.perf_counter() - t)
-        return r
-
-    engine.trunk.run_bucketed = timed
+    time_trunk(engine.trunk, trunk_s)
     passes = int(sum(sampler.recycle_depths(engine.spec, engine.spec.nsteps)))
 
     def call(width, n, kind, rep, write=True):

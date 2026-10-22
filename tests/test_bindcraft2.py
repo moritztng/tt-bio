@@ -272,7 +272,7 @@ def _campaign_factory_trunks(monkeypatch, **kwargs):
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
     design.extra_msa = None
-    design.template = None
+    design.template = design.structure = None
     design.exact = True
     design.fast = None
 
@@ -1464,7 +1464,7 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
         return object()
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
-    design.extra_msa = design.template = None
+    design.extra_msa = design.template = design.structure = None
     design.exact = True
     design.fast = None
 

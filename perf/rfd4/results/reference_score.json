@@ -1,0 +1,23 @@
+{
+  "rung_tokens": 128,
+  "backend": "reference",
+  "recycles": 3,
+  "params": "/home/moritz/bcx_shipped/af2_params/params_model_1_ptm.npz",
+  "load_s": 8.9,
+  "fold_s": 138.2,
+  "note": "CPU correctness instrument, not a timing",
+  "metrics": {
+    "oracle_ppi.overall_plddt": 57.26889288425446,
+    "oracle_ppi.overall_pae": 18.984044245449695,
+    "oracle_ppi.overall_ptm": 38.76,
+    "oracle_ppi.overall_iptm": 6.1,
+    "oracle_ppi.min_ipae_A_B": 18.095601081848145,
+    "oracle_ppi.iptm_A_B": 6.0999,
+    "oracle_ppi.plddt_coi": 60.53318574428559,
+    "oracle_ppi.ptm_coi": 51.734700000000004,
+    "oracle_ppi.pae_coi": 11.780368076907472,
+    "oracle_ppi.ipae_coi": 26.714896445721386,
+    "oracle_ppi.min_ipae_coi": 18.095601081848145,
+    "oracle_ppi.iptm_coi": 6.0999
+  }
+}

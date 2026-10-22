@@ -44,6 +44,7 @@ ensure_p300_mesh_descriptor()
 import ttnn  # noqa: E402
 
 import clocksample  # noqa: E402
+from rfd4.trunk_clock import time_trunk  # noqa: E402
 
 TIMES: dict[str, float] = defaultdict(float)
 COUNTS: dict[str, int] = defaultdict(int)
@@ -160,15 +161,7 @@ def main():
     # Leg 1: compile, thrown away. Leg 2: the warm, uninstrumented truth about total time.
     engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng="upstream")
     trunk_s = []
-    inner = engine.trunk.run_bucketed
-
-    def timed_trunk(*args, **kwargs):
-        t = time.perf_counter()
-        r = inner(*args, **kwargs)
-        trunk_s.append(time.perf_counter() - t)
-        return r
-
-    engine.trunk.run_bucketed = timed_trunk
+    time_trunk(engine.trunk, trunk_s)
     with clocksample.during(period=1.0) as clk:
         t0 = time.perf_counter()
         engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng="upstream")
