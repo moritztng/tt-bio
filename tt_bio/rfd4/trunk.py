@@ -715,8 +715,10 @@ class Trunk(Module):
         z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.residual_dtype)
         cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
         # A call during which a device refusal taught the process a new plan ran part of itself
-        # on the old one; run it again, so a process's first design equals its repeats.
-        while True:
+        # on the old one; run it again, so a process's first design equals its repeats. Every
+        # refusal site remembers its plan, so the count settles; the cap only bounds a site that
+        # someday does not.
+        for _ in range(3):
             learned = refusals_learned()
             s_out, z_out = self(s, z, cs, masks)
             if refusals_learned() == learned:

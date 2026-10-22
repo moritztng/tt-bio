@@ -6092,6 +6092,8 @@ _PT_ROW_MAJOR = os.environ.get(
 # so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
 # per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
 _TRANSPOSE_L1_REFUSED: set = set()
+#: `_gated_rowblocked` shapes whose L1 row blocks the device refused; they take the whole-tensor path.
+_GATED_ROWBLOCK_REFUSED: set = set()
 # Shape classes whose DRAM row-major transpose route was refused; they permute tiled after.
 _PT_ROW_MAJOR_REFUSED: set = set()
 
@@ -10405,6 +10407,9 @@ class TriangleMultiplication(Module):
         if not R or R % _reblock.TILE_H or H % R:
             return None, None
         cw = int((x_in if x_norm_in is None else x_norm_in).shape[-1])
+        key = (H, cw, slice_c, R, x_norm_in is None, str(memory_config.buffer_type))
+        if key in _GATED_ROWBLOCK_REFUSED:
+            return None, None
         a = b = None
         try:
             for s_off in range(0, H, R):
@@ -10441,6 +10446,9 @@ class TriangleMultiplication(Module):
             # let the caller run the whole-tensor projection. Report it first, so the `critical`
             # text tt-metal already wrote to fd 2 is attributed to this site instead of reading
             # like the cause of death of a fold that went on to finish.
+            # Remember it, as every other refusal site does: the budget miss repeats on every call
+            # at this shape, and a refusal that is not remembered moves `refusals_learned` each time.
+            _GATED_ROWBLOCK_REFUSED.add(key)
             report_l1_refusal("reblock_gated_inproj", exc)
             for t in (a, b):
                 if t is not None:

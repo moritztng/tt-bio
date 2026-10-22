@@ -73,3 +73,10 @@ def test_a_settled_call_runs_once(fake_device):
     tr = _Trunk(learn_on=set())
     _launch(tr)
     assert tr.calls == 1
+
+
+def test_a_count_that_never_settles_is_capped(fake_device):
+    tr = _Trunk(learn_on=set(range(1, 100)))
+    _, _, (s_out, _), _ = _launch(tr)
+    assert tr.calls == 3 and s_out.tag == ("s", 3)
+
