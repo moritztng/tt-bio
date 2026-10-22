@@ -640,9 +640,12 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: (state/rfd4/LAND6.md). `trimul_t1_dram`: from 160 to 352 tokens the trimul ran from L1, where T1 and pair_tail
 #: decline; on the DRAM path they serve. Paired trunk pass at 1350 MHz: 192 tokens 67.6 -> 61.2 ms, 224 105.3 -> 62.9,
 #: 320 182.4 -> 109.8; 256 already ran on DRAM, 128 is below T1's floor (state/rfd4/bets/small.md).
+#: `trimul_t1_psig` + `trimul_gin_hifi2` + `trimul_t1w8` run T1 as one launch at c_z 384 (bfp8 resident weights,
+#: HiFi2, the gate sigmoid on the packer): paired trunk 40.6 -> 37.2 s a design at 512 tokens, 1.08-1.13x from 160
+#: to 640 tokens (state/rfd4/bets/tri4.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
-                           "pair_write_res"})
+                           "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8"})
 #: `--fast` has nothing graded beyond the default.
 FAST_LEVERS = NORMAL_LEVERS
 
