@@ -35,6 +35,8 @@ RES_CB = 20               # bf16, 2 row tiles of the residual fc3 adds into (`re
 B1_CB, B3_CB = 21, 22     # bf16, `pair_relu`'s biases as row-replicated tiles
 DY_CB = 23                # bf16, 2 row tiles of `pair_relu_bw`'s cotangent
 RES2_CB = 24              # bf16, the second residual (`resid2`), as deep as RES_CB
+OUTB_CB = 25              # bf16, `pair_relu`'s copy of its float32 residual sum (`resid` float32)
+_NUM_CBS = 64             # unpack_to_dest_mode is indexed by CB id
 _TILE = 32 * 32 * 2
 _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 # Bytes of a core's L1 the program may take: weights plus its streaming CBs. A Wormhole core has 1464 KiB,
@@ -150,7 +152,13 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         defines = tuple(defines) + (("WS_RELU", "1"),)
     if ("WS_L1ACC", "1") in defines:
         cbs.append(cb(ACC_CB, _SW, ttnn.float32))
-    if ("WS_RESID", "1") in defines:
+    res32 = ("WS_RES32", "1") in defines
+    if res32:
+        # One row tile deep each: the float32 residual, the float32 sum and its bf16 copy. The normed x and the hidden,
+        # which compute alone fills and drains, go single-buffered to pay for them (same L1 as without).
+        cbs = [cb(X_CB, kt, x.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(HID_CB, nh), cb(OUT_CB, ct, ttnn.float32),
+               cb(OUTB_CB, ct), cb(RES_CB, ct, ttnn.float32)] + cbs[4:]
+    elif ("WS_RESID", "1") in defines:
         base = (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln is not None else 0)
                 + (_SW * 2 * _TILE if ("WS_L1ACC", "1") in defines else 0))
         depth = _res_depth(base, ct, 1 + (resid2 is not None)) * ct
@@ -158,7 +166,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     scaler = eps_bits = 0
     if ln is not None:
         import struct
-        cbs[0] = cb(X_CB, 2 * kt)   # the normalised x the matmuls read, bf16
+        cbs[0] = cb(X_CB, kt if res32 else 2 * kt)   # the normalised x the matmuls read, bf16
         cbs += [cb(XRAW_CB, 2 * kt), cb(GAMMA_CB, kt), cb(BETA_CB, kt), cb(SCALER_CB, 1)]
         cbs += [cb(i, kt if n is None else n, ttnn.float32) for i, n in LN_F32_CBS]
         inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
@@ -188,18 +196,24 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
               + (() if resid2 is None else (resid2,)) + (() if bias is None else bias)):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [ct] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
+    if res32:
+        wct += list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 9 + mc_args,
                                    defines=list(defines), config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
+                                   compile_time_args=wct, runtime_args=wr, common_runtime_args=[0, 0],
                                    defines=list(defines), config=ttnn.WriterConfigDescriptor())
+    ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True)
+    if res32:   # the float32 residual straight to dest: through srcA it would lose 13 mantissa bits
+        modes = [ttnn.UnpackToDestMode.Default] * _NUM_CBS
+        modes[RES_CB] = ttnn.UnpackToDestMode.UnpackToDestFp32
+        ccfg.unpack_to_dest_mode = modes
     compute = ttnn.KernelDescriptor(
         kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid, compile_time_args=[kt, nh, ct, silu_poly],
-        runtime_args=cp, defines=list(defines), config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity,
-                                                             fp32_dest_acc_en=True))
+        runtime_args=cp, defines=list(defines), config=ccfg)
     return [reader, writer, compute], cbs, sems, mc_args
 
 
@@ -244,15 +258,21 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
 
 
 @ops.fused_kernel("pair_relu")
-def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None):
+def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None):
     """AF2's Transition after its norm, `relu(x @ w1 + b1) @ w2 + b2`, for a bf16 TILE `x` [..., C]; a new bf16 DRAM
     tensor [..., C_out]. Weights as `relu_weights` returns them. `ln` = (gamma, beta, eps) runs the LayerNorm in the
     kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products.
+
+    `resid` (float32, x's shape): the residual stream x is the bf16 copy of. The result is added to it in the fp32 dest
+    (one float32 rounding, the update never rounded to bf16) and written back over `resid`, and the sum's bf16 copy
+    over `x`; returns `(resid, x)`. Each row tile of x is read before its sum is written, by the same core.
 
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
     (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
     if ops.declines_under_tape("pair_relu"):
         return None
+    if resid is not None:
+        return _run(x, w1, w2, fidelity, (("WS_RESID", "1"), ("WS_RES32", "1")), SILU_POLY, ln, resid, (b1, b2)), x
     return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
 
 
@@ -266,9 +286,10 @@ def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch
     return up(w1, dtype), up(b1.reshape(1, -1).expand(32, -1)), up(w2, dtype), up(b2.reshape(1, -1).expand(32, -1))
 
 
-def relu_eligible(x, w1, w2, ln=()) -> bool:
+def relu_eligible(x, w1, w2, ln=(), resid=None) -> bool:
     """What `pair_relu` serves: bf16 TILE interleaved x, bf16 or bfp8 weights (both the same), hidden a multiple of 4
-    tiles, output width at most 4 tiles or a multiple of 4, and everything resident inside `_L1_BUDGET`."""
+    tiles, output width at most 4 tiles or a multiple of 4, and everything resident inside `_L1_BUDGET`. `resid` (float32
+    TILE interleaved DRAM, x's padded shape) as `pair_relu` takes it, in the same L1."""
     if x.dtype != ttnn.bfloat16 or w1.dtype != w2.dtype or w1.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
         return False
     for t in (x, w1, w2):
@@ -279,6 +300,13 @@ def relu_eligible(x, w1, w2, ln=()) -> bool:
             and (ct <= 4 or ct % 4 == 0)):
         return False
     if ln and not all(_ln_vec_ok(v, 32 * kt) for v in ln):
+        return False
+    if resid is not None and not (
+            resid.dtype == ttnn.float32 and resid.layout == ttnn.TILE_LAYOUT and ct == kt
+            and resid.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
+            and resid.memory_config().buffer_type == ttnn.BufferType.DRAM
+            and x.memory_config().buffer_type == ttnn.BufferType.DRAM
+            and [int(d) for d in resid.padded_shape] == [int(d) for d in x.padded_shape]):
         return False
     return ((kt * nh + nh * ct) * _tile_bytes(w1.dtype) + (nh + ct + 2 * kt + 2 * nh + 2 * ct) * _TILE
             + (ln_bytes(kt) if ln else 0) <= _L1_BUDGET)
@@ -320,7 +348,7 @@ def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=Fals
     kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b,
                                       out.buffer_address(), b1, b3, 0 if resid2 is None else resid2.buffer_address()
                                       ] + mc_args
-    kernels[1].common_runtime_args = [out.buffer_address()]
+    kernels[1].common_runtime_args = [out.buffer_address(), x.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=sems, cbs=cbs)
     return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + ([] if bias is None else list(bias))
                            + ([] if resid2 is None else [resid2]) + [out], pd)

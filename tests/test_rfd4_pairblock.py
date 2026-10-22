@@ -57,3 +57,32 @@ def test_pair_block_transition(length, hifi2):
     print(f"\npair_block length {length} hifi2 {hifi2}: rel_rms {err:.3e} vs float64, pcc {pcc:.6f}")
     assert err < BAR and pcc > PCC_BAR
     assert bool((got[~real] == 0).all())
+
+
+@pytest.mark.device
+def test_pair_block_residual_in_place():
+    """With every token real the transition's residual write is in the same program: z (float32) + update, written
+    over z, and its bf16 copy written over the input. Graded on the update against float64 (bar 0.05) and the copy
+    against the float32 result's own bf16 rounding."""
+    dev = T.get_device()
+    w = REF.pair_update_weights(768, 384, 256, seed=5, prefix="pu")
+    _, z, _, _ = REF.block_inputs(1, 128, 768, 384, 256, seed=1)
+    z32 = z.to(torch.float32)
+    zb = REF.bf16(z32.double())
+    ref = _transition64(w, zb)
+    with T.lever_scope(frozenset({"pair_block"})):
+        mod = TR.PairUpdate(T.WeightScope({k: v.to(torch.float32) for k, v in w.items()}).child("pu"),
+                            TR.compute_kernel_config())
+        zt = ttnn.from_torch(z32, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
+                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        zbt = _dev(zb, dev)
+        both = mod._transition_block(zbt, resid=zt)
+    assert both is not None and both[0] is zt and both[1] is zbt
+    z_new = ttnn.to_torch(zt).double().reshape(ref.shape)
+    zb_new = ttnn.to_torch(zbt).double().reshape(ref.shape)
+    upd = z_new - z32.double()
+    err = ((upd - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()).item()
+    same = (zb_new == z_new.to(torch.bfloat16).double()).double().mean().item()
+    print(f"\npair_block residual: update rel_rms {err:.3e} vs float64, bf16 copy equal to rounding {same:.6f}")
+    assert err < BAR
+    assert same > 0.999

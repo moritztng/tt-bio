@@ -473,16 +473,18 @@ class PairUpdate(Module):
         op = ttnn.multiply if hadamard else ttnn.add
         return op(pj4, pi4), hadamard
 
-    def _transition_block(self, z):
+    def _transition_block(self, z, resid=None):
         """`pair_block`: LayerNorm, fc1 + bias, ReLU, fc2 + bias as one program, unmasked; None where it does not
-        serve. The hidden stays in the core's L1 and no normalised copy of z is written."""
+        serve. The hidden stays in the core's L1 and no normalised copy of z is written. With `resid` (the float32
+        stream `z` is the bf16 copy of) the update is added to it in the same program, both written in place:
+        returns `(resid, z)`."""
         from .. import pair_swiglu_ws
         w1, b1, w2, b2 = self.tr_ws
         ln = (self.tr_ln_w, self.tr_ln_b)
-        if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln):
+        if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln, resid=resid):
             return None
         fid = ttnn.MathFidelity.HiFi2 if lever("pair_block_hifi2") else self.compute_kernel_config.math_fidelity
-        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,))
+        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid)
 
     def _transition(self, z, pair_mask_c, padded=True):
         """The masked transition update. With no padded token (`padded` False) the mask is all ones and the
@@ -524,6 +526,12 @@ class PairUpdate(Module):
         for sub, own_mask in ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
                               (lambda h: _per_design(self.tri_in, h, pair_mask), False),
                               (lambda h: self._transition(h, pair_mask_c, pair_mask is not None), True)):
+            if own_mask and pair_mask is None and self.tr_ws is not None and zb is not z:
+                # the transition with no padded token: its residual write rides the same program, in place
+                both = self._transition_block(zb, resid=z)
+                if both is not None:
+                    z, zb = both
+                    continue
             u = sub(zb)
             if zb is not z:
                 ttnn.deallocate(zb)
