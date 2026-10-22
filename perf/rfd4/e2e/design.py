@@ -139,7 +139,7 @@ def main():
               "trunk_call_s": ({"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)}
                                if trunk_s else None),
               "instrument_attached": bool(trunk_s),
-              "aiclk": summ, "aiclk_mhz": mhz, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
+              "aiclk": summ, "aiclk_mhz": mhz, "load1": os.getloadavg()[0], "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
               "cif": str(path)})
         if not trunk_s:
             print("INSTRUMENT: engine.trunk.run_bucketed was never called through the timing patch; "
