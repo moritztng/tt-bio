@@ -610,20 +610,18 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: tokens, same float64 error (state/rfd4/bets/tri2.md).
 #: `pair_mm` + `pair_mm_tr` put the pair transition on minimal_matmul (bf16, same float64 error, not the same
 #: bits); `transition_b8` makes its weights and hidden bfp8; `trimul_gin` + `trimul_gin_w8` give the triangle
-#: multiplication's in-projection bfp8 resident weights (state/rfd4/bets/bfp8.md). Default since a 30-design grade
-#: at 512 tokens: designed-chain CA RMSD 2.1 A median (max 11.4) against a 52.5 A seed floor, oracle-free binder
-#: grade PASS (state/rfd4/LAND4.md). `pair_bf16` keeps the pair stream in bf16 between pair updates (the token
-#: stream stays fp32): module error 8.3e-3 against float64 on a 0.05 bar, and on top of the bfp8 levers 57.7 -> 48.4 s
-#: of trunk at 512 tokens. Graded as that stack, 30 seed-matched 512-token designs against the fp32-stream default:
-#: CA RMSD 5.7 A median (max 30.2) against a 37.2 A seed floor, oracle-free binder grade PASS (state/rfd4/LAND5.md).
+#: multiplication's in-projection bfp8 resident weights (state/rfd4/bets/bfp8.md). `pair_block` runs the pair
+#: transition and its residual write as one program with bfp8 weights where it serves (the composed levers are its
+#: fallback): 6.20 -> 3.85 ms a call at 512 tokens, error vs float64 0.0116 -> 0.0101. `pair_tail` runs the triangle
+#: multiplication's output layer_norm, p_out, gate and residual add into the float32 pair stream as one program from
+#: 160 tokens (needs trimul_t1; state/rfd4/bets/pairblock.md). Both fuse into the float32 stream, so they replace
+#: `pair_bf16` (the pair stream in bf16 between updates, still a lever): the trunk of a 512-token design takes
+#: 44.1 s against 48.6 s with pair_bf16 and the bfp8 levers, 13.6 against 14.5 s at 256 (state/rfd4/LAND6.md).
+#: Graded as one stack, 30 seed-matched 512-token designs: STACK_GRADE.
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
-                           "pair_bf16"})
-#: `--fast` adds `pair_block`, the pair transition and its residual write as one program with bfp8 weights where it
-#: serves (the composed levers above are its fallback): 6.20 -> 3.85 ms a call at 512 tokens, error vs float64
-#: 0.0116 -> 0.0101; and `pair_tail`, the triangle multiplication's output layer_norm, p_out, gate and residual add
-#: into the float32 stream as one program from 160 tokens (needs trimul_t1). In the trunk, against the default:
-#: 57.96 -> 44.10 s/design at 512 tokens, 16.84 -> 13.56 at 256 (state/rfd4/bets/pairblock.md).
-FAST_LEVERS = NORMAL_LEVERS | {"pair_block", "pair_tail"}
+                           "pair_block", "pair_tail"})
+#: `--fast` has nothing graded beyond the default.
+FAST_LEVERS = NORMAL_LEVERS
 
 
 class Trunk(Module):
@@ -637,8 +635,8 @@ class Trunk(Module):
 
     `residual_dtype=ttnn.float32` keeps s and z in fp32 between sublayers, as the release
     inference config's `precision: bf16-mixed` does on a GPU (autocast runs the matmuls in bf16
-    and leaves the residual adds in fp32). The `pair_bf16` lever (default) narrows only the pair
-    stream to bf16, which stays inside the parity bar; an all-bf16 trunk (token stream too) drifts far
+    and leaves the residual adds in fp32). The `pair_bf16` lever narrows only the pair stream to
+    bf16, which stays inside the parity bar; an all-bf16 trunk (token stream too) drifts far
     from float64 over 6 recycles x 12 pair updates even when every op is at its bf16 floor.
     """
 
