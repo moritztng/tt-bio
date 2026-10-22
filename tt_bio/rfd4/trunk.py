@@ -737,9 +737,10 @@ class Trunk(Module):
         models only."""
         return self.collect(self.launch(s_init, z_init, conds, mask, device, pair=pair))
 
-    def launch(self, s_init, z_init, conds, mask, device, pair=True):
+    def launch(self, s_init, z_init, conds, mask, device, pair=True, z_builder=None):
         """`run_bucketed` up to the readback: uploads the inputs and enqueues the trunk, without
-        waiting for the card. `collect` reads the result."""
+        waiting for the card. `collect` reads the result. With `z_builder`, `z_init` is what it builds
+        the padded fp32 pair from on the card (`tt_bio.rfd4.pair.PairOnCard`), not a host tensor."""
         from .. import token_axis
         n = int(mask.shape[1])
         npad = token_axis.pad_amount(n, token_axis.bucket_multiple("rfd4")) if token_axis.bucket_enabled() else 0
@@ -756,7 +757,10 @@ class Trunk(Module):
         masks = self.masks_for(m, device)
         mc = m[..., None]
         s = up(pad(s_init.float(), [1]) * mc, self.residual_dtype)
-        z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.pair_residual_dtype)
+        if z_builder is not None:
+            z = z_builder(z_init, npad)  # masked on entry to the trunk, like the uploaded one
+        else:
+            z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.pair_residual_dtype)
         cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
         # A call during which a device refusal taught the process a new plan ran part of itself
         # on the old one; run it again, so a process's first design equals its repeats. Every

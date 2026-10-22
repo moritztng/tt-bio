@@ -98,6 +98,10 @@ class DesignEngine:
         # bit-identical to the same design alone (perf/rfd4/batch/sweep.py, 2026-10-21).
         self.max_parallel_samples = max_parallel_samples
         self._device = self.autoencoder.dev["decoder"].device
+        from tt_bio.rfd4.pair import PairOnCard
+
+        self.pair = (None if self.glue.pair_split is None
+                     else PairOnCard(self.glue.pair_split, self._device))
         self._weights = path
         self._encoder = None
 
@@ -176,7 +180,7 @@ class DesignEngine:
             inverse_folding=inverse_folding, inverse_folding_method=inverse_folding_method)
         x_1 = self.clean_sample(batch, num_designs=num_designs, seed=seed) if start.is_partial else None
 
-        network = _network.FlowNetwork(self.glue, _CardTrunk(self.trunk, self._device), batch)
+        network = _network.FlowNetwork(self.glue, _CardTrunk(self.trunk, self._device, self.pair), batch)
         args = dict(n_designs=num_designs, n_tokens=n_tokens, seed=seed, rng_mode=rng,
                     emit_masks=compute_flow_emit_masks(batch), groups=_groups(batch),
                     coord_cond_mask=batch.get("coord_cond_mask"), start=start, x_1=x_1,
@@ -208,6 +212,8 @@ class DesignEngine:
                     start.nsteps or nsteps, out.trunk_passes, self.chunk_width,
                     f", from t={start.t}" if start.is_partial else "")
 
+        if self.pair is not None:
+            self.pair.release()  # the design's constant pair projection
         decoded = self.decode(batch, out, num_designs=num_designs)
         return DesignOutput(coords_nm=decoded["coors_nm"], residue_type=decoded["residue_type"],
                             atom_mask=decoded["atom_mask"],
@@ -282,16 +288,19 @@ class DesignEngine:
 
 
 class _CardTrunk:
-    """The trunk on one card, as `FlowNetwork` calls it: `launch` enqueues, `collect` reads s."""
+    """The trunk on one card, as `FlowNetwork` calls it: `launch` enqueues, `collect` reads s.
+    With a `PairOnCard` it also builds z_init on the card."""
 
-    def __init__(self, trunk, device):
-        self.trunk, self.device = trunk, device
+    def __init__(self, trunk, device, pair=None):
+        self.trunk, self.device, self.pair = trunk, device, pair
+        self.builds_pair = pair is not None
 
     def __call__(self, s_init, z_init, conds, mask):
         return self.collect(self.launch(s_init, z_init, conds, mask))
 
     def launch(self, s_init, z_init, conds, mask):
-        return self.trunk.launch(s_init, z_init, conds, mask, self.device, pair=False)
+        return self.trunk.launch(s_init, z_init, conds, mask, self.device, pair=False,
+                                 z_builder=self.pair)
 
     def collect(self, pending):
         return self.trunk.collect(pending)

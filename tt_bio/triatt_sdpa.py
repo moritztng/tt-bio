@@ -263,6 +263,11 @@ def per_core_cost(p, q_chunk: int, seq: int) -> int:
 # at 736 keeps 2-wide subblocks, and q256 k768 measured 17.39 ms against q256 k384's 20.01 ms on
 # the same chip (perf/spd_attn/opbench.py), the rescale gone and only one padded tile computed.
 _PADDED_CHUNK_TILES = (16, 12, 8, 6, 4)
+# Lever `triatt_q10`: the q side also offers 10 tiles, ranked only against the k chunk today's ranking picks, so the
+# output bits cannot move (q_chunk only moves rows between cores). At 608 (19 tiles) q320 pads the axis to 640 where
+# q256 pads it to 768, and on the 8x9 Galaxy grid both light all 72 cores: [608, 12, 608, 32] gated at k640 reads
+# 20.58 ms against 23.46 ms, torch.equal, 1000 MHz (spd-m-opendde q608, perf/spd_m_opendde/ta608q.py, 2026-10-22).
+_PADDED_Q_TILES = _PADDED_CHUNK_TILES + (10,)
 
 
 def _one_k_chunk(seq: int) -> int:
@@ -280,22 +285,34 @@ def _one_k_chunk(seq: int) -> int:
 REF_CORES_WH = 72
 
 
-@lru_cache(maxsize=None)
 def fused_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
                 padded: bool = False, batch: int = 0) -> tuple:
     """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq`, best first: the pairs at
     the Wormhole reference grid's first k chunk lead (see `REF_CORES_WH`), the rest follow in cost order.
     """
+    from .tenstorrent import lever
+    return _fused_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch, padded and lever("triatt_q10"))
+
+
+@lru_cache(maxsize=None)
+def _fused_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch, q10) -> tuple:
     ranked = _ranked_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch)
-    if cores >= REF_CORES_WH or not ranked:
+    if cores < REF_CORES_WH and ranked:
+        kref = next(iter(_ranked_pairs(seq, heads, head_dim, REF_CORES_WH, mask_dtype, padded, batch)), (0, 0))[1]
+        ranked = tuple(p for p in ranked if p[1] == kref) + tuple(p for p in ranked if p[1] != kref)
+    if not (q10 and ranked):
         return ranked
-    kref = next(iter(_ranked_pairs(seq, heads, head_dim, REF_CORES_WH, mask_dtype, padded, batch)), (0, 0))[1]
-    return tuple(p for p in ranked if p[1] == kref) + tuple(p for p in ranked if p[1] != kref)
+    lead = tuple(p for p in _ranked_pairs(seq, heads, head_dim, cores, mask_dtype, padded, batch, _PADDED_Q_TILES)
+                 if p[1] == ranked[0][1])
+    return lead + tuple(p for p in ranked if p not in lead)
+
+
+fused_pairs.cache_clear = _fused_pairs.cache_clear
 
 
 @lru_cache(maxsize=None)
 def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=None,
-                  padded: bool = False, batch: int = 0) -> tuple:
+                  padded: bool = False, batch: int = 0, q_tiles: tuple = _PADDED_CHUNK_TILES) -> tuple:
     """(q_chunk, k_chunk) pairs this kernel can serve at padded length `seq` on `cores`, cheapest first.
 
     Its two constraints pull in opposite directions, and neither is on the stock op's ladder:
@@ -332,10 +349,10 @@ def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=No
     cores only wins once the batch each core loops over is the real one.
     """
     out = []
-    chunks = (tuple(t * SG.TILE for t in _PADDED_CHUNK_TILES if t * SG.TILE < seq) if padded
-              else SG.chunk_divisors(seq))
+    widths = lambda tiles: tuple(t * SG.TILE for t in tiles if t * SG.TILE < seq)
+    chunks = widths(_PADDED_CHUNK_TILES) if padded else SG.chunk_divisors(seq)
     for kc in (chunks + (_one_k_chunk(seq),) if padded else chunks):
-        for qc in chunks:
+        for qc in (widths(q_tiles) if padded else chunks):
             q_pf = q_parallel_factor(seq, heads, qc, cores, cap=0)
             # `plan` reads the grid only as a core count here, and its split assert is against
             # that count -- so the grid has to carry the caller's `cores`, not the module default.
