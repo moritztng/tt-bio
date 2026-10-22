@@ -3551,7 +3551,9 @@ class Trunk(_KeyedWeights):
         out, u = {}, None
         for t in range(nt := len(src)):
             if src[t] == t:
-                v = vs[slot[t]]
+                # Let go of the input once its blocks take it. Held to the residual below, the inputs left the
+                # 1536-token OpenDDE trunk on Wormhole no 144 MiB/bank run for the c_z projection's join (cycle 1).
+                v, vs[slot[t]] = vs[slot[t]], None
                 for pl in self.TPL:
                     v = pl(None, v, pmask_tt, attn_tt, attn_tt)[1]
                 out[t] = self._ln(v, "template_embedder.layernorm_v.weight", "template_embedder.layernorm_v.bias")
