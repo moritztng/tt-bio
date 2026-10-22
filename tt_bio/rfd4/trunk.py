@@ -23,6 +23,7 @@ import ttnn
 
 import torch
 
+from .. import rne_add
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
                            _sdpa_program_config_for_lengths, download, fused_sdpa, upload)
 
@@ -42,20 +43,27 @@ def _as(x, dtype):
     return x if x.dtype == dtype else ttnn.typecast(x, dtype)
 
 
-def _residual(x, update, res_dtype, mask=None):
+def _residual(x, update, res_dtype, mask=None, low=None):
     """x + update * mask in the residual stream's dtype, freeing the update. `mask` is in the
     update's dtype, so the masking runs at the sublayer's width; None when the sublayer masked its
-    own output already."""
+    own output already. With `low` (the sublayers' dtype) it returns `(out, _as(out, low))`, the
+    residual and the copy the next sublayer reads; for a float32 stream and a bfloat16 update that
+    is one kernel writing both (`rne_add.residual_dual`, bit-identical to add then cast)."""
     if mask is not None:
         masked = ttnn.multiply(update, mask)
         ttnn.deallocate(update)
         update = masked
+    if low is not None:
+        both = rne_add.residual_dual(x, update) if low == ttnn.bfloat16 else None
+        if both is not None:
+            ttnn.deallocate(update)
+            return both
     u = _as(update, res_dtype)
     if u is not update:
         ttnn.deallocate(update)
     out = ttnn.add(x, u)
     ttnn.deallocate(u)
-    return out
+    return out if low is None else (out, _as(out, low))
 
 
 def _masked_copy(x, mask, dtype):
@@ -329,14 +337,17 @@ class TrunkBlock(Module):
         residual adds need no mask (`res_mask` is accepted for the old call shape and unused).
         `cn` (rms0(cond)) and `bias` (this block's pre-scaled pair bias) are the trunk's per-pass
         shares; without them the block builds its own. Does not free `x`."""
-        given = x
-        for sub in (lambda h: self.mhba(h, z, cond, mask, pair_bias_mask, cn, bias),
-                    lambda h: self.transition(h, cond, mask, cn)):
-            h = _as(x, self.dtype)
+        given, h = x, _as(x, self.dtype)
+        subs = (lambda h: self.mhba(h, z, cond, mask, pair_bias_mask, cn, bias),
+                lambda h: self.transition(h, cond, mask, cn))
+        for k, sub in enumerate(subs):
             u = sub(h)
             if h is not x:
                 ttnn.deallocate(h)
-            x_new = _residual(x, u, self.residual_dtype)
+            if k + 1 < len(subs):
+                x_new, h = _residual(x, u, self.residual_dtype, low=self.dtype)
+            else:
+                x_new = _residual(x, u, self.residual_dtype)
             if x is not given:
                 ttnn.deallocate(x)
             x = x_new
@@ -466,22 +477,31 @@ class PairUpdate(Module):
         multiplications and the transition read a `dtype` copy of it, the write reads only x.
         The triangle updates are masked with `pair_mask_c` before they are added; the write and the
         transition come back masked. `res_mask_c` is accepted for the old call shape and unused."""
+        z, zb = self.run(x, z, mask, pair_mask, pair_mask_c)
+        if zb is not z:
+            ttnn.deallocate(zb)
+        return z
+
+    def run(self, x, z, mask, pair_mask, pair_mask_c):
+        """`__call__`, returning `(z, zb)`: the new pair and its `dtype` copy, which every residual
+        write produces alongside the pair and the trunk's next pair bias reads."""
         xs = _as(x, self.dtype)
         write, write_masked = self._write(xs, mask)
         if xs is not x:
             ttnn.deallocate(xs)
-        z = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c)
+        z, zb = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c,
+                          low=self.dtype)
         for sub, own_mask in ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
                               (lambda h: _per_design(self.tri_in, h, pair_mask), False),
                               (lambda h: self._transition(h, pair_mask_c), True)):
-            h = _as(z, self.dtype)
-            u = sub(h)
-            if h is not z:
-                ttnn.deallocate(h)
-            z_new = _residual(z, u, self.residual_dtype, None if own_mask else pair_mask_c)
+            u = sub(zb)
+            if zb is not z:
+                ttnn.deallocate(zb)
+            z_new, zb = _residual(z, u, self.residual_dtype, None if own_mask else pair_mask_c,
+                                  low=self.dtype)
             ttnn.deallocate(z)
             z = z_new
-        return z
+        return z, zb
 
 
 def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
@@ -595,12 +615,11 @@ class Trunk(Module):
             s = s_new
             pu = self.pair_updates.get(i)
             if pu is not None:
-                z_new = pu(s, z, mask, pair_mask, pair_mask_c, res_pair_mask_c)
+                z_new, zb_new = pu.run(s, z, mask, pair_mask, pair_mask_c)
                 if zb is not z:
                     ttnn.deallocate(zb)
                 ttnn.deallocate(z)
-                z = z_new
-                zb = _as(z, self.dtype)
+                z, zb = z_new, zb_new
         if zb is not z:
             ttnn.deallocate(zb)
         ttnn.deallocate(cn)
