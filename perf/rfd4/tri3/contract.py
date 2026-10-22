@@ -65,7 +65,8 @@ def main():
     ap.add_argument("--reps", type=int, default=8)
     ap.add_argument("--dirs", default="out,in")
     ap.add_argument("--arms", default="mm|mm;fid=hifi2|mm;fid=lofi|mm;in=b8|mm;in=b8;fid=hifi2|mm;in=b8;fid=lofi"
-                                      "|mm;out=b8|mm;in=b8;out=b8;fid=lofi|mmfull|plain|bres")
+                                      "|mm;out=b8|mm;in=b8;out=b8;fid=lofi|mmfull|plain"
+                                      "|bres|bres;fid=hifi2|bres;fid=lofi|bres;in=b8|bres;in=b8;fid=lofi")
     a = ap.parse_args()
 
     from tt_bio import bmm_res
