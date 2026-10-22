@@ -186,6 +186,14 @@ SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
 # backbones against a target structure, conditioned on a distogram of the target only.
 DESIGN_MODELS = ("boltzgen", "rfd3", "pxdesign", "rfd4")
 
+# `design --model rfd4 --recipe`: RFD4's shipped recycle schedules, which are its thinking
+# budget. Spelled out here rather than imported so `--help` does not pull in torch;
+# test_rfd4_cond_chem keeps the list equal to `tt_bio.rfd4.sampler.RECYCLE_SCHEDULES`.
+_RFD4_RECIPES = ("high/flat", "high/front_loaded", "high/midpeak",
+                 "low/flat", "low/front_loaded", "low/midpeak",
+                 "medium/flat", "medium/front_loaded", "medium/midpeak",
+                 "thinking_high", "thinking_low", "thinking_medium")
+
 # `affinity --model`: scalar-output affinity predictors. Separate from PREDICT_MODELS
 # because these fold nothing — no coordinates, no PAE, no confidence — so they do not
 # ride the structure-writing scheduler path predict uses.
@@ -4459,14 +4467,16 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
                    "adapter_model.safetensors) merged into the weights at load, so a fine-tune "
                    "costs nothing per design. Local runs only: an adapter is not shipped to "
                    "fleet workers.")
-@click.option("--recipe", default=None,
+@click.option("--recipe", default=None, type=click.Choice(_RFD4_RECIPES),
               help="rfd4 only. Thinking budget: how many trunk passes the trajectory spends and "
                    "where. `thinking_low|medium|high` are the released recipes (medium is the "
                    "default, 180 passes); `low|medium|high` crossed with "
-                   "`flat|front_loaded|midpeak` are upstream's per-family schedules: upstream "
-                   "uses medium/front_loaded for binders, medium/midpeak for enzymes and motifs, "
-                   "high/front_loaded for VHH and medium/flat for inverse folding. More passes "
-                   "is more accuracy and more time.")
+                   "`flat|front_loaded|midpeak` are upstream's per-family schedules, and "
+                   "upstream prescribes one per design task: medium/front_loaded for protein "
+                   "binders, medium/midpeak for enzymes, motifs and small-molecule binders, "
+                   "high/front_loaded for VHH, medium/flat for inverse folding and "
+                   "medium/front_loaded for DNA binders. More passes is more accuracy and more "
+                   "time.")
 @click.option("--nsteps", default=60, show_default=True, type=click.IntRange(min=1),
               help="rfd4 only. Flow-matching integration steps (upstream's `generation.args."
                    "nsteps` default).")

@@ -1,0 +1,514 @@
+data_glycan_binder.cif
+#
+_entry.id       glycan_binder.cif
+_entry.author   moritz
+_entry.date     2026-10-21
+_entry.time     19:48:54
+#
+loop_
+_entity.id 
+_entity.type 
+_entity.pdbx_description 
+0 polymer  .
+1 branched .
+#
+_entity_poly.entity_id                      0
+_entity_poly.type                           polypeptide(L)
+_entity_poly.nstd_linkage                   no
+_entity_poly.nstd_monomer                   yes
+_entity_poly.pdbx_seq_one_letter_code       X
+_entity_poly.pdbx_seq_one_letter_code_can   X
+_entity_poly.pdbx_strand_id                 A
+_entity_poly.pdbx_target_identifier         ?
+#
+_entity_poly_seq.entity_id   0
+_entity_poly_seq.hetero      n
+_entity_poly_seq.mon_id      80-80
+_entity_poly_seq.num         1
+#
+loop_
+_chem_comp.id 
+_chem_comp.name 
+_chem_comp.type 
+_chem_comp.formula 
+_chem_comp.mon_nstd_parent_comp_id 
+_chem_comp.pdbx_synonyms 
+_chem_comp.formula_weight 
+80-80 80-80 NON-POLYMER                   ? ? ? ?
+BMA   BMA   'D-SACCHARIDE, BETA LINKING'  ? ? ? ?
+FUC   FUC   'L-SACCHARIDE, ALPHA LINKING' ? ? ? ?
+MAN   MAN   'D-SACCHARIDE, ALPHA LINKING' ? ? ? ?
+NAG   NAG   'D-SACCHARIDE, BETA LINKING'  ? ? ? ?
+#
+loop_
+_struct_conn.id 
+_struct_conn.conn_type_id 
+_struct_conn.pdbx_value_order 
+_struct_conn.ptnr1_label_asym_id 
+_struct_conn.ptnr2_label_asym_id 
+_struct_conn.ptnr1_label_comp_id 
+_struct_conn.ptnr2_label_comp_id 
+_struct_conn.ptnr1_label_seq_id 
+_struct_conn.ptnr2_label_seq_id 
+_struct_conn.ptnr1_label_atom_id 
+_struct_conn.ptnr2_label_atom_id 
+_struct_conn.pdbx_ptnr1_PDB_ins_code 
+_struct_conn.pdbx_ptnr2_PDB_ins_code 
+_struct_conn.ptnr1_transformation_id 
+_struct_conn.ptnr2_transformation_id 
+1 covale sing C C NAG NAG 1 2 O4 C1 . . 1 1
+2 covale sing C C NAG FUC 1 8 O6 C1 . . 1 1
+3 covale sing C C NAG BMA 2 3 O4 C1 . . 1 1
+4 covale sing C C BMA MAN 3 4 O3 C1 . . 1 1
+5 covale sing C C BMA MAN 3 6 O6 C1 . . 1 1
+6 covale sing C C MAN NAG 4 5 O2 C1 . . 1 1
+7 covale sing C C MAN NAG 6 7 O2 C1 . . 1 1
+#
+loop_
+_chem_comp_bond.comp_id 
+_chem_comp_bond.atom_id_1 
+_chem_comp_bond.atom_id_2 
+_chem_comp_bond.value_order 
+_chem_comp_bond.pdbx_aromatic_flag 
+BMA C1 C2  SING N
+BMA C1 O1  SING N
+BMA C1 O5  SING N
+BMA C1 H1  SING N
+BMA C2 C3  SING N
+BMA C2 O2  SING N
+BMA C2 H2  SING N
+BMA C3 C4  SING N
+BMA C3 O3  SING N
+BMA C3 H3  SING N
+BMA C4 C5  SING N
+BMA C4 O4  SING N
+BMA C4 H4  SING N
+BMA C5 C6  SING N
+BMA C5 O5  SING N
+BMA C5 H5  SING N
+BMA C6 O6  SING N
+BMA C6 H61 SING N
+BMA C6 H62 SING N
+BMA O1 HO1 SING N
+BMA O2 HO2 SING N
+BMA O3 HO3 SING N
+BMA O4 HO4 SING N
+BMA O6 HO6 SING N
+FUC C1 C2  SING N
+FUC C1 O1  SING N
+FUC C1 O5  SING N
+FUC C1 H1  SING N
+FUC C2 C3  SING N
+FUC C2 O2  SING N
+FUC C2 H2  SING N
+FUC C3 C4  SING N
+FUC C3 O3  SING N
+FUC C3 H3  SING N
+FUC C4 C5  SING N
+FUC C4 O4  SING N
+FUC C4 H4  SING N
+FUC C5 C6  SING N
+FUC C5 O5  SING N
+FUC C5 H5  SING N
+FUC C6 H61 SING N
+FUC C6 H62 SING N
+FUC C6 H63 SING N
+FUC O1 HO1 SING N
+FUC O2 HO2 SING N
+FUC O3 HO3 SING N
+FUC O4 HO4 SING N
+MAN C1 C2  SING N
+MAN C1 O1  SING N
+MAN C1 O5  SING N
+MAN C1 H1  SING N
+MAN C2 C3  SING N
+MAN C2 O2  SING N
+MAN C2 H2  SING N
+MAN C3 C4  SING N
+MAN C3 O3  SING N
+MAN C3 H3  SING N
+MAN C4 C5  SING N
+MAN C4 O4  SING N
+MAN C4 H4  SING N
+MAN C5 C6  SING N
+MAN C5 O5  SING N
+MAN C5 H5  SING N
+MAN C6 O6  SING N
+MAN C6 H61 SING N
+MAN C6 H62 SING N
+MAN O1 HO1 SING N
+MAN O2 HO2 SING N
+MAN O3 HO3 SING N
+MAN O4 HO4 SING N
+MAN O6 HO6 SING N
+NAG C1 C2  SING N
+NAG C1 O1  SING N
+NAG C1 O5  SING N
+NAG C1 H1  SING N
+NAG C2 C3  SING N
+NAG C2 N2  SING N
+NAG C2 H2  SING N
+NAG C3 C4  SING N
+NAG C3 O3  SING N
+NAG C3 H3  SING N
+NAG C4 C5  SING N
+NAG C4 O4  SING N
+NAG C4 H4  SING N
+NAG C5 C6  SING N
+NAG C5 O5  SING N
+NAG C5 H5  SING N
+NAG C6 O6  SING N
+NAG C6 H61 SING N
+NAG C6 H62 SING N
+NAG C7 C8  SING N
+NAG C7 N2  SING N
+NAG C7 O7  DOUB N
+NAG C8 H81 SING N
+NAG C8 H82 SING N
+NAG C8 H83 SING N
+NAG N2 HN2 SING N
+NAG O1 HO1 SING N
+NAG O3 HO3 SING N
+NAG O4 HO4 SING N
+NAG O6 HO6 SING N
+#
+loop_
+_atom_site.group_PDB 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.auth_seq_id 
+_atom_site.auth_comp_id 
+_atom_site.auth_asym_id 
+_atom_site.auth_atom_id 
+_atom_site.B_iso_or_equiv 
+_atom_site.occupancy 
+_atom_site.pdbx_formal_charge 
+_atom_site.annotation_expsegmin_1_residue 
+_atom_site.annotation_expsegmax_1_residue 
+_atom_site.condition_CoordinateGroup_1_atom 
+_atom_site.atom_array_index 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.pdbx_PDB_model_num 
+_atom_site.id 
+HETATM X UNK . 80-80 A 0 1 . 1 80-80 A UNK nan   0.0 ? 80 80 -1 0   nan    nan    nan    1 1
+HETATM C C1  . NAG   C 1 1 . 1 NAG   C C1  43.11 1.0 ? -1 -1 1  1   0.532  13.398 68.094 1 2
+HETATM C C2  . NAG   C 1 1 . 1 NAG   C C2  41.63 1.0 ? -1 -1 1  2   0.582  11.903 67.711 1 3
+HETATM C C3  . NAG   C 1 1 . 1 NAG   C C3  42.23 1.0 ? -1 -1 1  3   1.606  11.623 66.595 1 4
+HETATM C C4  . NAG   C 1 1 . 1 NAG   C C4  42.36 1.0 ? -1 -1 1  4   1.453  12.597 65.419 1 5
+HETATM C C5  . NAG   C 1 1 . 1 NAG   C C5  42.58 1.0 ? -1 -1 1  5   1.475  14.019 65.994 1 6
+HETATM C C6  . NAG   C 1 1 . 1 NAG   C C6  43.63 1.0 ? -1 -1 1  6   1.377  15.059 64.897 1 7
+HETATM C C7  . NAG   C 1 1 . 1 NAG   C C7  43.11 1.0 ? -1 -1 1  7   0.101  10.362 69.579 1 8
+HETATM C C8  . NAG   C 1 1 . 1 NAG   C C8  42.41 1.0 ? -1 -1 1  8   0.626  9.632  70.779 1 9
+HETATM N N2  . NAG   C 1 1 . 1 NAG   C N2  41.62 1.0 ? -1 -1 1  9   0.952  11.103 68.865 1 10
+HETATM O O3  . NAG   C 1 1 . 1 NAG   C O3  43.22 1.0 ? -1 -1 1  10  1.502  10.279 66.166 1 11
+HETATM O O4  . NAG   C 1 1 . 1 NAG   C O4  41.93 1.0 ? -1 -1 1  11  2.556  12.554 64.533 1 12
+HETATM O O5  . NAG   C 1 1 . 1 NAG   C O5  42.33 1.0 ? -1 -1 1  12  0.449  14.217 66.945 1 13
+HETATM O O6  . NAG   C 1 1 . 1 NAG   C O6  47.2  1.0 ? -1 -1 1  13  0.188  14.793 64.196 1 14
+HETATM O O7  . NAG   C 1 1 . 1 NAG   C O7  45.06 1.0 ? -1 -1 1  14  -1.085 10.255 69.304 1 15
+HETATM H H1  . NAG   C 1 1 . 1 NAG   C H1  nan   0.0 ? -1 -1 1  15  nan    nan    nan    1 16
+HETATM H H2  . NAG   C 1 1 . 1 NAG   C H2  nan   0.0 ? -1 -1 1  16  nan    nan    nan    1 17
+HETATM H H3  . NAG   C 1 1 . 1 NAG   C H3  nan   0.0 ? -1 -1 1  17  nan    nan    nan    1 18
+HETATM H H4  . NAG   C 1 1 . 1 NAG   C H4  nan   0.0 ? -1 -1 1  18  nan    nan    nan    1 19
+HETATM H H5  . NAG   C 1 1 . 1 NAG   C H5  nan   0.0 ? -1 -1 1  19  nan    nan    nan    1 20
+HETATM H H61 . NAG   C 1 1 . 1 NAG   C H61 nan   0.0 ? -1 -1 1  20  nan    nan    nan    1 21
+HETATM H H62 . NAG   C 1 1 . 1 NAG   C H62 nan   0.0 ? -1 -1 1  21  nan    nan    nan    1 22
+HETATM H H81 . NAG   C 1 1 . 1 NAG   C H81 nan   0.0 ? -1 -1 1  22  nan    nan    nan    1 23
+HETATM H H82 . NAG   C 1 1 . 1 NAG   C H82 nan   0.0 ? -1 -1 1  23  nan    nan    nan    1 24
+HETATM H H83 . NAG   C 1 1 . 1 NAG   C H83 nan   0.0 ? -1 -1 1  24  nan    nan    nan    1 25
+HETATM H HN2 . NAG   C 1 1 . 1 NAG   C HN2 nan   0.0 ? -1 -1 1  25  nan    nan    nan    1 26
+HETATM H HO3 . NAG   C 1 1 . 1 NAG   C HO3 nan   0.0 ? -1 -1 1  26  nan    nan    nan    1 27
+HETATM C C1  . NAG   C 1 2 . 2 NAG   C C1  40.57 1.0 ? -1 -1 1  27  2.494  11.596 63.492 1 28
+HETATM C C2  . NAG   C 1 2 . 2 NAG   C C2  38.73 1.0 ? -1 -1 1  28  3.212  12.093 62.224 1 29
+HETATM C C3  . NAG   C 1 2 . 2 NAG   C C3  39.93 1.0 ? -1 -1 1  29  3.207  11.028 61.114 1 30
+HETATM C C4  . NAG   C 1 2 . 2 NAG   C C4  41.53 1.0 ? -1 -1 1  30  3.631  9.655  61.65  1 31
+HETATM C C5  . NAG   C 1 2 . 2 NAG   C C5  43.17 1.0 ? -1 -1 1  31  2.932  9.344  62.977 1 32
+HETATM C C6  . NAG   C 1 2 . 2 NAG   C C6  44.32 1.0 ? -1 -1 1  32  3.453  8.038  63.569 1 33
+HETATM C C7  . NAG   C 1 2 . 2 NAG   C C7  38.72 1.0 ? -1 -1 1  33  3.29   14.397 61.466 1 34
+HETATM C C8  . NAG   C 1 2 . 2 NAG   C C8  39.75 1.0 ? -1 -1 1  34  2.439  15.473 60.884 1 35
+HETATM N N2  . NAG   C 1 2 . 2 NAG   C N2  37.27 1.0 ? -1 -1 1  35  2.615  13.293 61.693 1 36
+HETATM O O3  . NAG   C 1 2 . 2 NAG   C O3  37.03 1.0 ? -1 -1 1  36  4.085  11.428 60.066 1 37
+HETATM O O4  . NAG   C 1 2 . 2 NAG   C O4  42.27 1.0 ? -1 -1 1  37  3.3    8.604  60.751 1 38
+HETATM O O5  . NAG   C 1 2 . 2 NAG   C O5  44.24 1.0 ? -1 -1 1  38  3.108  10.399 63.922 1 39
+HETATM O O6  . NAG   C 1 2 . 2 NAG   C O6  46.9  1.0 ? -1 -1 1  39  2.652  7.735  64.697 1 40
+HETATM O O7  . NAG   C 1 2 . 2 NAG   C O7  40.7  1.0 ? -1 -1 1  40  4.503  14.565 61.74  1 41
+HETATM H H1  . NAG   C 1 2 . 2 NAG   C H1  nan   0.0 ? -1 -1 1  41  nan    nan    nan    1 42
+HETATM H H2  . NAG   C 1 2 . 2 NAG   C H2  nan   0.0 ? -1 -1 1  42  nan    nan    nan    1 43
+HETATM H H3  . NAG   C 1 2 . 2 NAG   C H3  nan   0.0 ? -1 -1 1  43  nan    nan    nan    1 44
+HETATM H H4  . NAG   C 1 2 . 2 NAG   C H4  nan   0.0 ? -1 -1 1  44  nan    nan    nan    1 45
+HETATM H H5  . NAG   C 1 2 . 2 NAG   C H5  nan   0.0 ? -1 -1 1  45  nan    nan    nan    1 46
+HETATM H H61 . NAG   C 1 2 . 2 NAG   C H61 nan   0.0 ? -1 -1 1  46  nan    nan    nan    1 47
+HETATM H H62 . NAG   C 1 2 . 2 NAG   C H62 nan   0.0 ? -1 -1 1  47  nan    nan    nan    1 48
+HETATM H H81 . NAG   C 1 2 . 2 NAG   C H81 nan   0.0 ? -1 -1 1  48  nan    nan    nan    1 49
+HETATM H H82 . NAG   C 1 2 . 2 NAG   C H82 nan   0.0 ? -1 -1 1  49  nan    nan    nan    1 50
+HETATM H H83 . NAG   C 1 2 . 2 NAG   C H83 nan   0.0 ? -1 -1 1  50  nan    nan    nan    1 51
+HETATM H HN2 . NAG   C 1 2 . 2 NAG   C HN2 nan   0.0 ? -1 -1 1  51  nan    nan    nan    1 52
+HETATM H HO3 . NAG   C 1 2 . 2 NAG   C HO3 nan   0.0 ? -1 -1 1  52  nan    nan    nan    1 53
+HETATM H HO6 . NAG   C 1 2 . 2 NAG   C HO6 nan   0.0 ? -1 -1 1  53  nan    nan    nan    1 54
+HETATM C C1  . BMA   C 1 3 . 3 BMA   C C1  41.93 1.0 ? -1 -1 1  54  4.331  8.382  59.81  1 55
+HETATM C C2  . BMA   C 1 3 . 3 BMA   C C2  41.93 1.0 ? -1 -1 1  55  4.398  6.899  59.499 1 56
+HETATM C C3  . BMA   C 1 3 . 3 BMA   C C3  43.41 1.0 ? -1 -1 1  56  5.391  6.666  58.347 1 57
+HETATM C C4  . BMA   C 1 3 . 3 BMA   C C4  43.0  1.0 ? -1 -1 1  57  5.128  7.516  57.118 1 58
+HETATM C C5  . BMA   C 1 3 . 3 BMA   C C5  42.02 1.0 ? -1 -1 1  58  5.022  8.961  57.54  1 59
+HETATM C C6  . BMA   C 1 3 . 3 BMA   C C6  40.97 1.0 ? -1 -1 1  59  4.625  9.825  56.359 1 60
+HETATM O O2  . BMA   C 1 3 . 3 BMA   C O2  40.26 1.0 ? -1 -1 1  60  3.078  6.42   59.161 1 61
+HETATM O O3  . BMA   C 1 3 . 3 BMA   C O3  45.84 1.0 ? -1 -1 1  61  5.264  5.354  57.848 1 62
+HETATM O O4  . BMA   C 1 3 . 3 BMA   C O4  43.27 1.0 ? -1 -1 1  62  6.229  7.345  56.207 1 63
+HETATM O O5  . BMA   C 1 3 . 3 BMA   C O5  42.55 1.0 ? -1 -1 1  63  4.091  9.155  58.626 1 64
+HETATM O O6  . BMA   C 1 3 . 3 BMA   C O6  42.43 1.0 ? -1 -1 1  64  4.69   11.139 56.914 1 65
+HETATM H H1  . BMA   C 1 3 . 3 BMA   C H1  nan   0.0 ? -1 -1 1  65  nan    nan    nan    1 66
+HETATM H H2  . BMA   C 1 3 . 3 BMA   C H2  nan   0.0 ? -1 -1 1  66  nan    nan    nan    1 67
+HETATM H H3  . BMA   C 1 3 . 3 BMA   C H3  nan   0.0 ? -1 -1 1  67  nan    nan    nan    1 68
+HETATM H H4  . BMA   C 1 3 . 3 BMA   C H4  nan   0.0 ? -1 -1 1  68  nan    nan    nan    1 69
+HETATM H H5  . BMA   C 1 3 . 3 BMA   C H5  nan   0.0 ? -1 -1 1  69  nan    nan    nan    1 70
+HETATM H H61 . BMA   C 1 3 . 3 BMA   C H61 nan   0.0 ? -1 -1 1  70  nan    nan    nan    1 71
+HETATM H H62 . BMA   C 1 3 . 3 BMA   C H62 nan   0.0 ? -1 -1 1  71  nan    nan    nan    1 72
+HETATM H HO2 . BMA   C 1 3 . 3 BMA   C HO2 nan   0.0 ? -1 -1 1  72  nan    nan    nan    1 73
+HETATM H HO4 . BMA   C 1 3 . 3 BMA   C HO4 nan   0.0 ? -1 -1 1  73  nan    nan    nan    1 74
+HETATM C C1  . MAN   C 1 4 . 4 MAN   C C1  52.56 1.0 ? -1 -1 1  74  6.371  4.522  58.217 1 75
+HETATM C C2  . MAN   C 1 4 . 4 MAN   C C2  59.95 1.0 ? -1 -1 1  75  6.268  3.335  57.26  1 76
+HETATM C C3  . MAN   C 1 4 . 4 MAN   C C3  56.62 1.0 ? -1 -1 1  76  4.982  2.588  57.558 1 77
+HETATM C C4  . MAN   C 1 4 . 4 MAN   C C4  55.26 1.0 ? -1 -1 1  77  5.045  2.055  58.979 1 78
+HETATM C C5  . MAN   C 1 4 . 4 MAN   C C5  52.32 1.0 ? -1 -1 1  78  5.233  3.236  59.932 1 79
+HETATM C C6  . MAN   C 1 4 . 4 MAN   C C6  53.92 1.0 ? -1 -1 1  79  5.477  2.818  61.366 1 80
+HETATM O O2  . MAN   C 1 4 . 4 MAN   C O2  68.44 1.0 ? -1 -1 1  80  7.351  2.436  57.393 1 81
+HETATM O O3  . MAN   C 1 4 . 4 MAN   C O3  58.95 1.0 ? -1 -1 1  81  4.864  1.542  56.64  1 82
+HETATM O O4  . MAN   C 1 4 . 4 MAN   C O4  50.82 1.0 ? -1 -1 1  82  3.856  1.365  59.254 1 83
+HETATM O O5  . MAN   C 1 4 . 4 MAN   C O5  54.12 1.0 ? -1 -1 1  83  6.313  4.085  59.568 1 84
+HETATM O O6  . MAN   C 1 4 . 4 MAN   C O6  52.95 1.0 ? -1 -1 1  84  5.424  4.022  62.104 1 85
+HETATM H H1  . MAN   C 1 4 . 4 MAN   C H1  nan   0.0 ? -1 -1 1  85  nan    nan    nan    1 86
+HETATM H H2  . MAN   C 1 4 . 4 MAN   C H2  nan   0.0 ? -1 -1 1  86  nan    nan    nan    1 87
+HETATM H H3  . MAN   C 1 4 . 4 MAN   C H3  nan   0.0 ? -1 -1 1  87  nan    nan    nan    1 88
+HETATM H H4  . MAN   C 1 4 . 4 MAN   C H4  nan   0.0 ? -1 -1 1  88  nan    nan    nan    1 89
+HETATM H H5  . MAN   C 1 4 . 4 MAN   C H5  nan   0.0 ? -1 -1 1  89  nan    nan    nan    1 90
+HETATM H H61 . MAN   C 1 4 . 4 MAN   C H61 nan   0.0 ? -1 -1 1  90  nan    nan    nan    1 91
+HETATM H H62 . MAN   C 1 4 . 4 MAN   C H62 nan   0.0 ? -1 -1 1  91  nan    nan    nan    1 92
+HETATM H HO3 . MAN   C 1 4 . 4 MAN   C HO3 nan   0.0 ? -1 -1 1  92  nan    nan    nan    1 93
+HETATM H HO4 . MAN   C 1 4 . 4 MAN   C HO4 nan   0.0 ? -1 -1 1  93  nan    nan    nan    1 94
+HETATM H HO6 . MAN   C 1 4 . 4 MAN   C HO6 nan   0.0 ? -1 -1 1  94  nan    nan    nan    1 95
+HETATM C C1  . NAG   C 1 5 . 5 NAG   C C1  76.04 1.0 ? -1 -1 1  95  8.451  2.882  56.593 1 96
+HETATM C C2  . NAG   C 1 5 . 5 NAG   C C2  79.63 1.0 ? -1 -1 1  96  9.714  2.306  57.231 1 97
+HETATM C C3  . NAG   C 1 5 . 5 NAG   C C3  82.76 1.0 ? -1 -1 1  97  10.923 2.518  56.32  1 98
+HETATM C C4  . NAG   C 1 5 . 5 NAG   C C4  84.46 1.0 ? -1 -1 1  98  10.639 2.099  54.876 1 99
+HETATM C C5  . NAG   C 1 5 . 5 NAG   C C5  83.69 1.0 ? -1 -1 1  99  9.364  2.778  54.356 1 100
+HETATM C C6  . NAG   C 1 5 . 5 NAG   C C6  85.23 1.0 ? -1 -1 1  100 9.021  2.331  52.927 1 101
+HETATM C C7  . NAG   C 1 5 . 5 NAG   C C7  81.19 1.0 ? -1 -1 1  101 10.277 2.295  59.636 1 102
+HETATM C C8  . NAG   C 1 5 . 5 NAG   C C8  81.62 1.0 ? -1 -1 1  102 11.755 2.059  59.87  1 103
+HETATM N N2  . NAG   C 1 5 . 5 NAG   C N2  79.69 1.0 ? -1 -1 1  103 9.931  2.949  58.522 1 104
+HETATM O O3  . NAG   C 1 5 . 5 NAG   C O3  84.15 1.0 ? -1 -1 1  104 12.037 1.811  56.823 1 105
+HETATM O O4  . NAG   C 1 5 . 5 NAG   C O4  86.33 1.0 ? -1 -1 1  105 11.752 2.45   54.078 1 106
+HETATM O O5  . NAG   C 1 5 . 5 NAG   C O5  81.4  1.0 ? -1 -1 1  106 8.267  2.53   55.23  1 107
+HETATM O O6  . NAG   C 1 5 . 5 NAG   C O6  85.34 1.0 ? -1 -1 1  107 8.215  1.169  52.915 1 108
+HETATM O O7  . NAG   C 1 5 . 5 NAG   C O7  80.11 1.0 ? -1 -1 1  108 9.442  1.904  60.46  1 109
+HETATM H H1  . NAG   C 1 5 . 5 NAG   C H1  nan   0.0 ? -1 -1 1  109 nan    nan    nan    1 110
+HETATM H H2  . NAG   C 1 5 . 5 NAG   C H2  nan   0.0 ? -1 -1 1  110 nan    nan    nan    1 111
+HETATM H H3  . NAG   C 1 5 . 5 NAG   C H3  nan   0.0 ? -1 -1 1  111 nan    nan    nan    1 112
+HETATM H H4  . NAG   C 1 5 . 5 NAG   C H4  nan   0.0 ? -1 -1 1  112 nan    nan    nan    1 113
+HETATM H H5  . NAG   C 1 5 . 5 NAG   C H5  nan   0.0 ? -1 -1 1  113 nan    nan    nan    1 114
+HETATM H H61 . NAG   C 1 5 . 5 NAG   C H61 nan   0.0 ? -1 -1 1  114 nan    nan    nan    1 115
+HETATM H H62 . NAG   C 1 5 . 5 NAG   C H62 nan   0.0 ? -1 -1 1  115 nan    nan    nan    1 116
+HETATM H H81 . NAG   C 1 5 . 5 NAG   C H81 nan   0.0 ? -1 -1 1  116 nan    nan    nan    1 117
+HETATM H H82 . NAG   C 1 5 . 5 NAG   C H82 nan   0.0 ? -1 -1 1  117 nan    nan    nan    1 118
+HETATM H H83 . NAG   C 1 5 . 5 NAG   C H83 nan   0.0 ? -1 -1 1  118 nan    nan    nan    1 119
+HETATM H HN2 . NAG   C 1 5 . 5 NAG   C HN2 nan   0.0 ? -1 -1 1  119 nan    nan    nan    1 120
+HETATM H HO3 . NAG   C 1 5 . 5 NAG   C HO3 nan   0.0 ? -1 -1 1  120 nan    nan    nan    1 121
+HETATM H HO4 . NAG   C 1 5 . 5 NAG   C HO4 nan   0.0 ? -1 -1 1  121 nan    nan    nan    1 122
+HETATM H HO6 . NAG   C 1 5 . 5 NAG   C HO6 nan   0.0 ? -1 -1 1  122 nan    nan    nan    1 123
+HETATM C C1  . MAN   C 1 6 . 6 MAN   C C1  45.1  1.0 ? -1 -1 1  123 4.536  12.106 55.879 1 124
+HETATM C C2  . MAN   C 1 6 . 6 MAN   C C2  46.18 1.0 ? -1 -1 1  124 4.985  13.446 56.422 1 125
+HETATM C C3  . MAN   C 1 6 . 6 MAN   C C3  45.69 1.0 ? -1 -1 1  125 3.911  13.987 57.394 1 126
+HETATM C C4  . MAN   C 1 6 . 6 MAN   C C4  47.59 1.0 ? -1 -1 1  126 2.508  14.054 56.77  1 127
+HETATM C C5  . MAN   C 1 6 . 6 MAN   C C5  48.81 1.0 ? -1 -1 1  127 2.171  12.659 56.237 1 128
+HETATM C C6  . MAN   C 1 6 . 6 MAN   C C6  51.72 1.0 ? -1 -1 1  128 0.857  12.622 55.464 1 129
+HETATM O O2  . MAN   C 1 6 . 6 MAN   C O2  46.1  1.0 ? -1 -1 1  129 5.093  14.336 55.347 1 130
+HETATM O O3  . MAN   C 1 6 . 6 MAN   C O3  44.91 1.0 ? -1 -1 1  130 4.302  15.25  57.87  1 131
+HETATM O O4  . MAN   C 1 6 . 6 MAN   C O4  49.59 1.0 ? -1 -1 1  131 1.525  14.502 57.696 1 132
+HETATM O O5  . MAN   C 1 6 . 6 MAN   C O5  49.04 1.0 ? -1 -1 1  132 3.209  12.206 55.362 1 133
+HETATM O O6  . MAN   C 1 6 . 6 MAN   C O6  55.9  1.0 ? -1 -1 1  133 0.706  11.34  54.885 1 134
+HETATM H H1  . MAN   C 1 6 . 6 MAN   C H1  nan   0.0 ? -1 -1 1  134 nan    nan    nan    1 135
+HETATM H H2  . MAN   C 1 6 . 6 MAN   C H2  nan   0.0 ? -1 -1 1  135 nan    nan    nan    1 136
+HETATM H H3  . MAN   C 1 6 . 6 MAN   C H3  nan   0.0 ? -1 -1 1  136 nan    nan    nan    1 137
+HETATM H H4  . MAN   C 1 6 . 6 MAN   C H4  nan   0.0 ? -1 -1 1  137 nan    nan    nan    1 138
+HETATM H H5  . MAN   C 1 6 . 6 MAN   C H5  nan   0.0 ? -1 -1 1  138 nan    nan    nan    1 139
+HETATM H H61 . MAN   C 1 6 . 6 MAN   C H61 nan   0.0 ? -1 -1 1  139 nan    nan    nan    1 140
+HETATM H H62 . MAN   C 1 6 . 6 MAN   C H62 nan   0.0 ? -1 -1 1  140 nan    nan    nan    1 141
+HETATM H HO3 . MAN   C 1 6 . 6 MAN   C HO3 nan   0.0 ? -1 -1 1  141 nan    nan    nan    1 142
+HETATM H HO4 . MAN   C 1 6 . 6 MAN   C HO4 nan   0.0 ? -1 -1 1  142 nan    nan    nan    1 143
+HETATM H HO6 . MAN   C 1 6 . 6 MAN   C HO6 nan   0.0 ? -1 -1 1  143 nan    nan    nan    1 144
+HETATM C C1  . NAG   C 1 7 . 7 NAG   C C1  43.65 1.0 ? -1 -1 1  144 6.278  14.223 54.577 1 145
+HETATM C C2  . NAG   C 1 7 . 7 NAG   C C2  45.56 1.0 ? -1 -1 1  145 5.959  14.573 53.127 1 146
+HETATM C C3  . NAG   C 1 7 . 7 NAG   C C3  43.59 1.0 ? -1 -1 1  146 7.293  14.663 52.354 1 147
+HETATM C C4  . NAG   C 1 7 . 7 NAG   C C4  42.56 1.0 ? -1 -1 1  147 8.317  15.568 53.086 1 148
+HETATM C C5  . NAG   C 1 7 . 7 NAG   C C5  41.41 1.0 ? -1 -1 1  148 8.46   15.03  54.501 1 149
+HETATM C C6  . NAG   C 1 7 . 7 NAG   C C6  39.95 1.0 ? -1 -1 1  149 9.449  15.765 55.393 1 150
+HETATM C C7  . NAG   C 1 7 . 7 NAG   C C7  50.11 1.0 ? -1 -1 1  150 3.751  13.814 52.369 1 151
+HETATM C C8  . NAG   C 1 7 . 7 NAG   C C8  47.89 1.0 ? -1 -1 1  151 2.964  12.68  51.762 1 152
+HETATM N N2  . NAG   C 1 7 . 7 NAG   C N2  46.21 1.0 ? -1 -1 1  152 5.051  13.592 52.557 1 153
+HETATM O O3  . NAG   C 1 7 . 7 NAG   C O3  46.47 1.0 ? -1 -1 1  153 7.002  15.092 51.052 1 154
+HETATM O O4  . NAG   C 1 7 . 7 NAG   C O4  38.96 1.0 ? -1 -1 1  154 9.621  15.707 52.51  1 155
+HETATM O O5  . NAG   C 1 7 . 7 NAG   C O5  43.01 1.0 ? -1 -1 1  155 7.206  15.15  55.082 1 156
+HETATM O O6  . NAG   C 1 7 . 7 NAG   C O6  37.5  1.0 ? -1 -1 1  156 8.916  17.025 55.676 1 157
+HETATM O O7  . NAG   C 1 7 . 7 NAG   C O7  52.36 1.0 ? -1 -1 1  157 3.19   14.88  52.674 1 158
+HETATM H H1  . NAG   C 1 7 . 7 NAG   C H1  nan   0.0 ? -1 -1 1  158 nan    nan    nan    1 159
+HETATM H H2  . NAG   C 1 7 . 7 NAG   C H2  nan   0.0 ? -1 -1 1  159 nan    nan    nan    1 160
+HETATM H H3  . NAG   C 1 7 . 7 NAG   C H3  nan   0.0 ? -1 -1 1  160 nan    nan    nan    1 161
+HETATM H H4  . NAG   C 1 7 . 7 NAG   C H4  nan   0.0 ? -1 -1 1  161 nan    nan    nan    1 162
+HETATM H H5  . NAG   C 1 7 . 7 NAG   C H5  nan   0.0 ? -1 -1 1  162 nan    nan    nan    1 163
+HETATM H H61 . NAG   C 1 7 . 7 NAG   C H61 nan   0.0 ? -1 -1 1  163 nan    nan    nan    1 164
+HETATM H H62 . NAG   C 1 7 . 7 NAG   C H62 nan   0.0 ? -1 -1 1  164 nan    nan    nan    1 165
+HETATM H H81 . NAG   C 1 7 . 7 NAG   C H81 nan   0.0 ? -1 -1 1  165 nan    nan    nan    1 166
+HETATM H H82 . NAG   C 1 7 . 7 NAG   C H82 nan   0.0 ? -1 -1 1  166 nan    nan    nan    1 167
+HETATM H H83 . NAG   C 1 7 . 7 NAG   C H83 nan   0.0 ? -1 -1 1  167 nan    nan    nan    1 168
+HETATM H HN2 . NAG   C 1 7 . 7 NAG   C HN2 nan   0.0 ? -1 -1 1  168 nan    nan    nan    1 169
+HETATM H HO3 . NAG   C 1 7 . 7 NAG   C HO3 nan   0.0 ? -1 -1 1  169 nan    nan    nan    1 170
+HETATM H HO4 . NAG   C 1 7 . 7 NAG   C HO4 nan   0.0 ? -1 -1 1  170 nan    nan    nan    1 171
+HETATM H HO6 . NAG   C 1 7 . 7 NAG   C HO6 nan   0.0 ? -1 -1 1  171 nan    nan    nan    1 172
+HETATM C C1  . FUC   C 1 8 . 8 FUC   C C1  49.57 1.0 ? -1 -1 1  172 -0.527 16.023 63.989 1 173
+HETATM C C2  . FUC   C 1 8 . 8 FUC   C C2  48.57 1.0 ? -1 -1 1  173 -1.614 15.895 62.92  1 174
+HETATM C C3  . FUC   C 1 8 . 8 FUC   C C3  52.58 1.0 ? -1 -1 1  174 -2.672 14.923 63.443 1 175
+HETATM C C4  . FUC   C 1 8 . 8 FUC   C C4  52.72 1.0 ? -1 -1 1  175 -3.248 15.4   64.801 1 176
+HETATM C C5  . FUC   C 1 8 . 8 FUC   C C5  51.92 1.0 ? -1 -1 1  176 -2.112 15.656 65.79  1 177
+HETATM C C6  . FUC   C 1 8 . 8 FUC   C C6  47.24 1.0 ? -1 -1 1  177 -2.553 16.238 67.129 1 178
+HETATM O O2  . FUC   C 1 8 . 8 FUC   C O2  49.54 1.0 ? -1 -1 1  178 -1.124 15.53  61.641 1 179
+HETATM O O3  . FUC   C 1 8 . 8 FUC   C O3  56.62 1.0 ? -1 -1 1  179 -3.666 14.746 62.452 1 180
+HETATM O O4  . FUC   C 1 8 . 8 FUC   C O4  56.16 1.0 ? -1 -1 1  180 -3.964 16.612 64.699 1 181
+HETATM O O5  . FUC   C 1 8 . 8 FUC   C O5  49.84 1.0 ? -1 -1 1  181 -1.112 16.497 65.209 1 182
+HETATM H H1  . FUC   C 1 8 . 8 FUC   C H1  nan   0.0 ? -1 -1 1  182 nan    nan    nan    1 183
+HETATM H H2  . FUC   C 1 8 . 8 FUC   C H2  nan   0.0 ? -1 -1 1  183 nan    nan    nan    1 184
+HETATM H H3  . FUC   C 1 8 . 8 FUC   C H3  nan   0.0 ? -1 -1 1  184 nan    nan    nan    1 185
+HETATM H H4  . FUC   C 1 8 . 8 FUC   C H4  nan   0.0 ? -1 -1 1  185 nan    nan    nan    1 186
+HETATM H H5  . FUC   C 1 8 . 8 FUC   C H5  nan   0.0 ? -1 -1 1  186 nan    nan    nan    1 187
+HETATM H H61 . FUC   C 1 8 . 8 FUC   C H61 nan   0.0 ? -1 -1 1  187 nan    nan    nan    1 188
+HETATM H H62 . FUC   C 1 8 . 8 FUC   C H62 nan   0.0 ? -1 -1 1  188 nan    nan    nan    1 189
+HETATM H H63 . FUC   C 1 8 . 8 FUC   C H63 nan   0.0 ? -1 -1 1  189 nan    nan    nan    1 190
+HETATM H HO2 . FUC   C 1 8 . 8 FUC   C HO2 nan   0.0 ? -1 -1 1  190 nan    nan    nan    1 191
+HETATM H HO3 . FUC   C 1 8 . 8 FUC   C HO3 nan   0.0 ? -1 -1 1  191 nan    nan    nan    1 192
+HETATM H HO4 . FUC   C 1 8 . 8 FUC   C HO4 nan   0.0 ? -1 -1 1  192 nan    nan    nan    1 193
+#
+_cell.length_a      49.419
+_cell.length_b      78.471
+_cell.length_c      143.758
+_cell.angle_alpha   90.0
+_cell.angle_beta    90.0
+_cell.angle_gamma   90.0
+#
+loop_
+_chem_comp_atom.comp_id 
+_chem_comp_atom.atom_id 
+_chem_comp_atom.type_symbol 
+_chem_comp_atom.charge 
+_chem_comp_atom.pdbx_aromatic_flag 
+_chem_comp_atom.pdbx_leaving_atom_flag 
+_chem_comp_atom.pdbx_model_Cartn_x_ideal 
+_chem_comp_atom.pdbx_model_Cartn_y_ideal 
+_chem_comp_atom.pdbx_model_Cartn_z_ideal 
+BMA   C1  C 0 N N -1.4420000314712524   -0.578000009059906    -0.5040000081062317
+BMA   C2  C 0 N N -0.49300000071525574  -0.1940000057220459   -1.6419999599456787
+BMA   C3  C 0 N N 0.9449999928474426    -0.5149999856948853   -1.2230000495910645
+BMA   C4  C 0 N N 1.2269999980926514    0.1679999977350235    0.11900000274181366
+BMA   C5  C 0 N N 0.14900000393390656   -0.24400000274181366  1.1239999532699585
+BMA   C6  C 0 N N 0.44200000166893005   0.4050000011920929    2.4779999256134033
+BMA   O1  O 0 N Y -2.7890000343322754   -0.3109999895095825   -0.8989999890327454
+BMA   O2  O 0 N N -0.6140000224113464   1.2020000219345093    -1.9149999618530273
+BMA   O3  O 0 N N 1.8530000448226929    -0.027000000700354576 -2.2130000591278076
+BMA   O4  O 0 N N 2.509999990463257     -0.23499999940395355  0.6010000109672546
+BMA   O5  O 0 N N -1.1299999952316284   0.1809999942779541    0.6610000133514404
+BMA   O6  O 0 N N -0.5609999895095825   0.017999999225139618  3.4189999103546143
+BMA   H1  H 0 N N -1.3329999446868896   -1.6399999856948853   -0.2840000092983246
+BMA   H2  H 0 N N -0.7480000257492065   -0.7630000114440918   -2.5369999408721924
+BMA   H3  H 0 N N 1.062999963760376     -1.593000054359436    -1.1180000305175781
+BMA   H4  H 0 N N 1.2109999656677246    1.25                  -0.010999999940395355
+BMA   H5  H 0 N N 0.15199999511241913   -1.3279999494552612   1.2339999675750732
+BMA   H61 H 0 N N 0.4390000104904175    1.4889999628067017    2.36899995803833
+BMA   H62 H 0 N N 1.4179999828338623    0.07800000160932541   2.8350000381469727
+BMA   HO1 H 0 N Y -3.3540000915527344   -0.5699999928474426   -0.1589999943971634
+BMA   HO2 H 0 N Y -1.534000039100647    1.3600000143051147    -2.1670000553131104
+BMA   HO3 H 0 N Y 1.6299999952316284    -0.4740000069141388   -3.0409998893737793
+BMA   HO4 H 0 N Y 3.1570000648498535    0.03500000014901161   -0.06400000303983688
+BMA   HO6 H 0 N Y -0.3400000035762787   0.44699999690055847   4.25600004196167
+FUC   C1  C 0 N N 1.409999966621399     0.46799999475479126   -0.4099999964237213
+FUC   C2  C 0 N N 0.11999999731779099   0.5130000114440918    -1.2330000400543213
+FUC   C3  C 0 N N -0.8309999704360962   -0.5759999752044678   -0.7279999852180481
+FUC   C4  C 0 N N -1.0160000324249268   -0.4020000100135803   0.7829999923706055
+FUC   C5  C 0 N N 0.35899999737739563   -0.3790000081062317   1.4539999961853027
+FUC   C6  C 0 N N 0.1850000023841858    -0.2409999966621399   2.9670000076293945
+FUC   O1  O 0 N Y 2.006999969482422     -0.8230000138282776   -0.5350000262260437
+FUC   O2  O 0 N N 0.42399999499320984   0.2840000092983246    -2.609999895095825
+FUC   O3  O 0 N N -2.0940001010894775   -0.4519999921321869   -1.3849999904632568
+FUC   O4  O 0 N N -1.7000000476837158   0.8240000009536743    1.0440000295639038
+FUC   O5  O 0 N N 1.1160000562667847    0.7239999771118164    0.9610000252723694
+FUC   H1  H 0 N N 2.1010000705718994    1.225000023841858     -0.7799999713897705
+FUC   H2  H 0 N N -0.3499999940395355   1.4889999628067017    -1.121000051498413
+FUC   H3  H 0 N N -0.4059999883174896   -1.5579999685287476   -0.9350000023841858
+FUC   H4  H 0 N N -1.5980000495910645   -1.2350000143051147   1.1779999732971191
+FUC   H5  H 0 N N 0.8859999775886536    -1.3070000410079956   1.2319999933242798
+FUC   H61 H 0 N N 1.1640000343322754    -0.22599999606609344  3.446000099182129
+FUC   H62 H 0 N N -0.3409999907016754   0.6859999895095825    3.190000057220459
+FUC   H63 H 0 N N -0.39100000262260437  -1.0850000381469727   3.3450000286102295
+FUC   HO1 H 0 N Y 2.818000078201294     -0.8080000281333923   -0.00800000037997961
+FUC   HO2 H 0 N Y 1.0290000438690186    0.9860000014305115    -2.884000062942505
+FUC   HO3 H 0 N Y -1.9279999732971191   -0.5550000071525574   -2.3320000171661377
+FUC   HO4 H 0 N Y -1.7940000295639038   0.8930000066757202    2.003999948501587
+MAN   C1  C 0 N N -1.6920000314712524   -0.15600000321865082  -0.3160000145435333
+MAN   C2  C 0 N N -0.878000020980835    0.09099999815225601   -1.5880000591278076
+MAN   C3  C 0 N N 0.5350000262260437    -0.46700000762939453  -1.3910000324249268
+MAN   C4  C 0 N N 1.1260000467300415    0.1340000033378601    -0.11100000143051147
+MAN   C5  C 0 N N 0.1599999964237213    -0.11699999868869781  1.0479999780654907
+MAN   C6  C 0 N N 0.7570000290870667    0.4480000138282776    2.3389999866485596
+MAN   O1  O 0 N Y -1.7350000143051147   -1.5579999685287476   -0.04600000008940697
+MAN   O2  O 0 N N -0.8080000281333923   1.49399995803833      -1.8450000286102295
+MAN   O3  O 0 N N 1.350000023841858     -0.11299999803304672  -2.510999917984009
+MAN   O4  O 0 N N 2.384000062942505     -0.4819999933242798   0.17000000178813934
+MAN   O5  O 0 N N -1.0870000123977661   0.5199999809265137    0.7839999794960022
+MAN   O6  O 0 N N -0.1420000046491623   0.210999995470047     3.4230000972747803
+MAN   H1  H 0 N N -2.7070000171661377   0.2160000056028366    -0.4569999873638153
+MAN   H2  H 0 N N -1.3539999723434448   -0.4099999964237213   -2.430000066757202
+MAN   H3  H 0 N N 0.4909999966621399    -1.5520000457763672   -1.2999999523162842
+MAN   H4  H 0 N N 1.2669999599456787    1.2070000171661377    -0.24400000274181366
+MAN   H5  H 0 N N 0.0020000000949949026 -1.1890000104904175   1.1619999408721924
+MAN   H61 H 0 N N 0.9150000214576721    1.5210000276565552    2.2260000705718994
+MAN   H62 H 0 N N 1.7100000381469727    -0.039000000804662704 2.5429999828338623
+MAN   HO1 H 0 N Y -2.259999990463257    -1.6720000505447388   0.7570000290870667
+MAN   HO2 H 0 N Y -1.7170000076293945   1.8040000200271606    -1.9550000429153442
+MAN   HO3 H 0 N Y 0.9340000152587891    -0.5009999871253967   -3.2929999828338623
+MAN   HO4 H 0 N Y 2.9579999446868896    -0.3050000071525574   -0.5870000123977661
+MAN   HO6 H 0 N Y 0.27000001072883606   0.5820000171661377    4.215000152587891
+NAG   C1  C 0 N N 0.1850000023841858    1.0820000171661377    -0.42100000381469727
+NAG   C2  C 0 N N 0.7900000214576721    -0.2199999988079071   0.1120000034570694
+NAG   C3  C 0 N N -0.12399999797344208  -1.3899999856948853   -0.26499998569488525
+NAG   C4  C 0 N N -1.5260000228881836   -1.128999948501587    0.2939999997615814
+NAG   C5  C 0 N N -2.0420000553131104   0.2070000022649765    -0.2460000067949295
+NAG   C6  C 0 N N -3.4170000553131104   0.5040000081062317    0.35499998927116394
+NAG   C7  C 0 N N 3.197000026702881     0.15700000524520874   0.07599999755620956
+NAG   C8  C 0 N N 4.559000015258789     -0.052000001072883606 -0.5329999923706055
+NAG   N2  N 0 N N 2.114000082015991     -0.421999990940094    -0.47999998927116394
+NAG   O1  O 0 N Y 1.003000020980835     2.184999942779541     -0.024000000208616257
+NAG   O3  O 0 N N 0.39500001072883606   -2.5999999046325684   0.29100000858306885
+NAG   O4  O 0 N N -2.4049999713897705   -2.180000066757202    -0.11400000005960464
+NAG   O5  O 0 N N -1.1299999952316284   1.2480000257492065    0.11299999803304672
+NAG   O6  O 0 N N -3.9489998817443848   1.690999984741211     -0.23600000143051147
+NAG   O7  O 0 N N 3.0739998817443848    0.8450000286102295    1.0670000314712524
+NAG   H1  H 0 N N 0.13300000131130219   1.0399999618530273    -1.5089999437332153
+NAG   H2  H 0 N N 0.8790000081062317    -0.16300000250339508  1.1970000267028809
+NAG   H3  H 0 N N -0.17399999499320984  -1.4780000448226929   -1.350000023841858
+NAG   H4  H 0 N N -1.4830000400543213   -1.090999960899353    1.3819999694824219
+NAG   H5  H 0 N N -2.122999906539917    0.15399999916553497   -1.3320000171661377
+NAG   H61 H 0 N N -4.0879998207092285   -0.3330000042915344   0.15700000524520874
+NAG   H62 H 0 N N -3.319999933242798    0.6449999809265137    1.430999994277954
+NAG   H81 H 0 N N 4.559999942779541     0.3199999928474426    -1.5579999685287476
+NAG   H82 H 0 N N 5.304999828338623     0.49000000953674316   0.05000000074505806
+NAG   H83 H 0 N N 4.798999786376953     -1.1150000095367432   -0.5320000052452087
+NAG   HN2 H 0 N N 2.2119998931884766    -0.9729999899864197   -1.2730000019073486
+NAG   HO1 H 0 N Y 0.6790000200271606    3.0439999103546143    -0.328000009059906
+NAG   HO3 H 0 N Y -0.13500000536441803  -3.384000062942505    0.09099999815225601
+NAG   HO4 H 0 N Y -3.312000036239624    -2.0789999961853027   0.20600000023841858
+NAG   HO6 H 0 N Y -4.822000026702881    1.940000057220459     0.0989999994635582
+80-80 UNK X 0 N N nan                   nan                   nan
+#
