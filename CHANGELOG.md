@@ -6,6 +6,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Added
+- **RFD4-Proteina (`tt-bio design --model rfd4`).** Binder and motif-scaffold design through a latent
+  flow, at the shipped `thinking_medium` budget (60 steps, 180 trunk passes). Input is a design YAML
+  with contig strings and conditioning blocks, the grammar `rfd3` uses; each design is a CIF in the
+  input's frame. `--nsteps` changes the integration steps (a different model, not a faster one),
+  `--annotated_cif` designs from an annotated CIF instead of a spec, and `--no_validate` skips the
+  per-structure checks when building a large spec. A 128-token binder design takes 13.2 s on one
+  Blackhole p300 chip at 1350 MHz. See the [README](README.md#design).
 - **An RFD4 design can be watched, steered and scored against off-targets.** `tt-bio design
   --model rfd4 --save_trajectory_every N` writes every Nth step as `<design>_trajectory.cif`,
   CA only, one model per saved step. At the API level `engine.design` takes per-replicate
