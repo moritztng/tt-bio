@@ -3,7 +3,7 @@
 
 move_ab.py found `_join_slices` wrong (not bit-equal) for a leading-gap join and for two width-16 parts,
 both plain ttnn.concat paths that predate this branch. Per piece order, this prints which output columns
-match which input, and the same join done by a front ttnn.pad, so the fix is a measured one.
+match which input, and the same concat in row-major layout (tile ttnn.pad refuses front padding).
     python perf/bc4_move/concat_diag.py out.json
 """
 import json, pathlib, sys
@@ -40,9 +40,8 @@ def main():
         ref = torch.cat(ts, -1)
         o = ttnn.to_torch(ttnn.concat([up(t) for t in ts], dim=3)).reshape(ref.shape)
         out[label] = {"bit_equal": bool(torch.equal(o, ref)), "blocks": where(o, named)}
-    o = ttnn.to_torch(ttnn.pad(up(a), [(0, 0), (0, 0), (0, 0), (16, 0)], 0.0))
-    out["front_pad a"] = {"bit_equal": bool(torch.equal(o.reshape(2, 4, 64, 32), torch.cat([z, a], -1))),
-                          "shape": list(o.shape)}
+        o = ttnn.to_torch(ttnn.concat([ttnn.to_layout(up(t), ttnn.ROW_MAJOR_LAYOUT) for t in ts], dim=3))
+        out[label + " row-major"] = {"bit_equal": bool(torch.equal(o.reshape(ref.shape), ref))}
     print(json.dumps(out, indent=1))
     pathlib.Path(sys.argv[1]).write_text(json.dumps(out, indent=1))
 
