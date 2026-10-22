@@ -234,3 +234,29 @@ def test_the_cli_submits_rather_than_designing_locally(monkeypatch, tmp_path):
     assert seen["controller_url"] == "http://c" and seen["num_designs"] == 4
     assert (seen["seed"], seen["recipe"], seen["run_id"], seen["owner"]) == (3, "high/flat",
                                                                             "job-9", "abc")
+
+
+@pytest.mark.parametrize("fast", [True, False])
+def test_the_cli_fast_flag_reaches_rfd4(monkeypatch, tmp_path, fast):
+    """`--fast` is RFD4's lever set, not an ignored flag: set before the engine builds locally, and
+    carried in a fleet run's config."""
+    from click.testing import CliRunner
+
+    from tt_bio import tenstorrent
+    from tt_bio.main import cli
+    from tt_bio.rfd4 import fleet as fleet_mod
+
+    seen = {}
+    monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
+    monkeypatch.setattr("tt_bio.rfd4.design",
+                        lambda *a, **k: seen.update(local=tenstorrent._FAST_MODE) or [])
+    monkeypatch.setattr(fleet_mod, "design_via_controller",
+                        lambda spec, out_dir, **kw: seen.update(fleet=kw["fast"]) or [])
+    spec = tmp_path / "spec.yaml"
+    spec.write_text("a: {}\n")
+    args = ["design", str(spec), "--model", "rfd4", "--out_dir", str(tmp_path / "out")] + (["--fast"] if fast else [])
+    for extra in ([], ["--controller", "http://c"]):
+        result = CliRunner().invoke(cli, args + extra)
+        assert result.exit_code == 0, result.output
+        assert "does not use --fast" not in result.output
+    assert seen == {"local": fast, "fleet": fast}
