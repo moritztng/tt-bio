@@ -48,6 +48,10 @@ def main():
     ap.add_argument("--designs", type=int, default=2, help="sequential single designs; the first is the compile")
     ap.add_argument("--seeds", type=int, nargs="+",
                     help="one design per seed after a compile design at the first (a paired multi-seed grade)")
+    ap.add_argument("--upstream-seams", default=None,
+                    help="an upstream seam dump (perf/rfd4/cond_chem/seams.sh). Transplants the "
+                         "featurizer's three ambient-stream draws so the design can be compared "
+                         "to upstream's at the same seed; see state/rfd4/PAIR.md")
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
     ap.add_argument("--reseed", action="store_true", help="design i runs at seed+i: a seed floor from one session")
@@ -112,15 +116,7 @@ def main():
     trunk_s = []
     time_trunk(engine.trunk, trunk_s)
 
-    def timed(*args, **kwargs):
-        t = time.perf_counter()
-        r = inner(*args, **kwargs)
-        trunk_s.append(time.perf_counter() - t)
-        return r
-
-    engine.trunk.run_bucketed = timed
-
-    seeds = [a.seeds[0]] + a.seeds if a.seeds else [a.seed] * a.designs
+    seeds = [a.seeds[0]] + a.seeds if a.seeds else [a.seed + i if a.reseed else a.seed for i in range(a.designs)]
     for i, seed in enumerate(seeds):
         trunk_s.clear()
         with clocksample.during(period=1.0) as clk:
@@ -134,17 +130,17 @@ def main():
         summ = clk.summary()
         mhz = _median_mhz(summ)
         emit({"kind": "compile" if i == 0 else "warm", "size": n_tokens, "designs": 1, "batch": 1,
-              "recipe": "thinking_medium", "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
+              "recipe": a.recipe, "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
               "trunk_passes": int(sum(_depths(engine))), "seed": seed, "rng": a.rng,
               "levers": sorted(engine.trunk._levers) if hasattr(engine.trunk, "_levers") else None,
               "pair_mm_served_declined": list(_pair_mm_stats()),
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
-              # Empty when the engine runs its steps as interleaved lanes (launch/collect): the
-              # host then works while the card does, so there is no trunk-only interval to time.
               "trunk_s": round(sum(trunk_s), 3) if trunk_s else None,
               "host_s": round(t_design - sum(trunk_s), 3) if trunk_s else None,
-              "trunk_call_s": {"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)} if trunk_s else None,
-              "aiclk": summ, "aiclk_mhz": mhz, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
+              "trunk_call_s": ({"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)}
+                               if trunk_s else None),
+              "instrument_attached": bool(trunk_s),
+              "aiclk": summ, "aiclk_mhz": mhz, "load1": os.getloadavg()[0], "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
               "cif": str(path)})
         if not trunk_s:
             print("INSTRUMENT: engine.trunk.run_bucketed was never called through the timing patch; "
