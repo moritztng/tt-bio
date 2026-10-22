@@ -302,8 +302,11 @@ if a.model == "bindcraft2":
     predictor_kw = {**({"checkpoints": weights["af2_weights"]} if "af2_weights" in weights else {}),
                     **({"structure": a.structure == "card"} if a.structure else {})}
 
+    ready = []
+
     def stamp(build):
         """What the round armed and whether the structure module ran on card, so a leg names its own stack."""
+        ready.append(time.monotonic())
         sm = build.structure
         log(ev="predictor", fast={k: str(v) for k, v in (build.fast or {}).items()},
             structure_calls=dict(sm.calls) if sm is not None else None)
@@ -326,7 +329,7 @@ if a.model == "bindcraft2":
         iters = sum(p["iterations"] or 0 for p in per)
         nodes = opened_nodes() or opened
         log(ev="campaign", trajectories_per_card=n, wall_s=wall, trajectories=per, iterations=iters,
-            wall_per_iter=wall / iters if iters else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
+            wall_per_iter=wall / iters if iters else None, setup_s=ready[0] - t0 if ready else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
             loadavg=[load0, os.getloadavg()], err=err, **HEAD)
         end()
     traj = bc2_traj.hook(campaign, project, emit)
@@ -360,7 +363,7 @@ if a.model == "bindcraft2":
     iters = sum(p["iterations"] or 0 for p in per)
     nodes = opened_nodes() or opened
     log(ev="campaign", trajectories_per_card=1, wall_s=wall, trajectories=per, iterations=iters,
-        wall_per_iter=wall / iters if iters else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
+        wall_per_iter=wall / iters if iters else None, setup_s=ready[0] - t0 if ready else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
         loadavg=[load0, os.getloadavg()], err=None, **HEAD)
     end()
 
