@@ -24,6 +24,7 @@ import argparse
 import collections
 import json
 import os
+import re
 import socket
 import statistics
 import subprocess
@@ -41,8 +42,8 @@ ap.add_argument("--bc2", type=Path, default=Path("~/bcx_e2e/bc2").expanduser())
 ap.add_argument("--binder", type=int, default=80)
 ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--at", type=int, default=4)
-ap.add_argument("--burst", type=int, default=10)
-ap.add_argument("--reps", type=int, default=7)
+ap.add_argument("--burst", type=int, default=20)
+ap.add_argument("--reps", type=int, default=9)
 ap.add_argument("--min-calls", type=float, default=1.0)
 a = ap.parse_args()
 sys.path.insert(0, str(a.bc2))
@@ -75,10 +76,17 @@ def _sampler():
 threading.Thread(target=_sampler, daemon=True).start()
 
 
+def canon(v):
+    if hasattr(v, "math_fidelity"):
+        return "cfg:" + ",".join(str(getattr(v, k, "")) for k in ("math_fidelity", "fp32_dest_acc_en",
+                                                                   "packer_l1_acc", "math_approx_mode"))
+    return re.sub(r"0x[0-9a-fA-F]+", "", repr(v))
+
+
 def sig(site, x, y, bias, kw):
     def t(v):
         return None if v is None else (tuple(int(d) for d in v.shape), str(v.dtype))
-    return json.dumps([site, t(x), t(y), t(bias), sorted((k, repr(v)) for k, v in kw.items())])
+    return json.dumps([site, t(x), t(y), t(bias), sorted((k, canon(v)) for k, v in kw.items())])
 
 
 def clone(v):
@@ -203,7 +211,7 @@ def timed(f):
     ttnn.release_trace(dev, tid)
     for o in outs:
         free(o)
-    return dict(dev_ms=round(statistics.median(ms), 5), dev_spread=round(max(ms) - min(ms), 5),
+    return dict(dev_ms=round(statistics.median(ms), 5), dev_min=round(min(ms), 5), dev_spread=round(max(ms) - min(ms), 5),
                 sync_ms=round(statistics.median(sync), 5))
 
 

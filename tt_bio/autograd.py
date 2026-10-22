@@ -1103,6 +1103,10 @@ def _matmul(a, b, **kw):
     `sampler.dc.w_lin_*` gradients. The narrower operand is promoted to fp32, which is exact,
     and nothing changes where the dtypes already agree.
     """
+    if kw.get("transpose_a"):
+        out = _matmul_split_k(a, b, kw)
+        if out is not None:
+            return out
     kw = _mm_layout.plan(a, b, kw)
     if not kw.get("transpose_a") or a.dtype == b.dtype:
         return ttnn.matmul(a, b, **kw)
@@ -1117,6 +1121,67 @@ def _matmul(a, b, **kw):
     out = ttnn.matmul(a, b, **kw)
     for t in tmp:
         ttnn.deallocate(t)
+    return out
+
+
+#: Split-K for a deep, narrow ``a^T @ b`` (a flattened weight gradient). On by default.
+MM_SPLIT_K = env_flag("TT_BIO_MM_SPLIT_K", True)
+SPLIT_K = {"served": 0}
+
+
+def _split_k_slabs(a, b, kw):
+    """How many K slabs to cut ``a^T @ b`` into, or None to leave the call alone.
+
+    BindCraft 2's backward issues ``[28672,64]^T @ [28672,224]`` and ``[8192,64]^T @ [8192,224]``.
+    Their output is 2 x 7 tiles, so ttnn runs them on 14 cores that each walk all of K: 0.605 and
+    0.175 ms on a p300c against byte roofs of 0.042 and 0.012, 30 ms of every gradient iteration.
+    Cut into S slabs the same product is a batched ``[S,K/S,M]^T @ [S,K/S,N]`` with S times the
+    output tiles, summed over S in fp32: 0.098 and 0.058 ms at S=16 (`perf/bc4_mm2/splitk.py`).
+    S is the smallest divisor of Kt that gives at least two output tiles per core, so every
+    core has work and each slab still holds 8 or more K tiles.
+    """
+    if (not MM_SPLIT_K or kw.get("transpose_b") or set(kw) - {"transpose_a", "transpose_b",
+                                                               "compute_kernel_config", "dtype"}
+            or len(a.shape) != 2 or len(b.shape) != 2 or a.dtype != b.dtype):
+        return None
+    K, M, N = int(a.shape[0]), int(a.shape[1]), int(b.shape[1])
+    if K % ttnn.TILE_SIZE or M % ttnn.TILE_SIZE or N % ttnn.TILE_SIZE or int(b.shape[0]) != K:
+        return None
+    from .tenstorrent import COMPUTE_GRID_MAIN
+    cores = int(COMPUTE_GRID_MAIN[0]) * int(COMPUTE_GRID_MAIN[1])
+    kt, tiles = K // ttnn.TILE_SIZE, (M // ttnn.TILE_SIZE) * (N // ttnn.TILE_SIZE)
+    if tiles >= cores:
+        return None
+    for s in range(2, kt // 8 + 1):
+        if kt % s == 0 and s * tiles >= 2 * cores:
+            return s
+    return None
+
+
+def _matmul_split_k(a, b, kw):
+    """``a^T @ b`` as S partial products summed in fp32, or None where `_split_k_slabs` declines."""
+    s = _split_k_slabs(a, b, kw)
+    if s is None:
+        return None
+    K, M, N = int(a.shape[0]), int(a.shape[1]), int(b.shape[1])
+    cfg = kw.get("compute_kernel_config")
+    a3 = ttnn.reshape(a, [s, K // s, M])
+    b3 = ttnn.reshape(b, [s, K // s, N])
+    plan = bmm_program_config(a3, b3, True, False, dtype=ttnn.float32, compute_kernel_config=cfg)
+    if plan is None:
+        return None
+    part = ttnn.matmul(a3, b3, transpose_a=True, dtype=ttnn.float32, compute_kernel_config=cfg,
+                       program_config=plan)
+    out = ttnn.sum(part, dim=0, compute_kernel_config=cfg)
+    ttnn.deallocate(part)
+    if tuple(out.shape) != (M, N):
+        out = ttnn.reshape(out, [M, N])
+    want = kw.get("dtype") or a.dtype
+    if out.dtype != want:
+        cast = ttnn.typecast(out, want)
+        ttnn.deallocate(out)
+        out = cast
+    SPLIT_K["served"] += 1
     return out
 
 
