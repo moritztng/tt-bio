@@ -683,6 +683,8 @@ _FAST_MODE = False
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
+#   trimul_t1_small with trimul_t1, T1 / T2 serve from 128 tokens (trimul_tail.SMALL_MIN_N) and take the DRAM path
+#                   there, as trimul_t1_dram does from 160 (RFD4's 128-token design)
 #   trimul_t1_2g    T1 may hold 2 GiB of outputs (a, b, g_out) instead of the fused projection's 1 GiB cap, so it
 #                   serves c_z 256 above ~900 tokens (1.5 GiB at 1024), where every call declined on "route"
 #   trimul_t1_psig  T1's gate sigmoid runs on the packer thread's SFPU, overlapping the next [a|b] matmul block on the
@@ -831,7 +833,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
           "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "dit_bpad", "conf_bins", "trimul_t1", "trimul_t2",
-          "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
+          "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram", "trimul_t1_small",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_relpos_lookup",
@@ -902,7 +904,8 @@ UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_sp
 # fold, paired: Galaxy chip (1000 MHz) OpenDDE -3.8 s, Protenix-v2 -0.9 s; p150a (1350 MHz) -1.6 / -0.5 s.
 # Protenix-v1 (shared set) graded the same way, PASS (spd-fastmode wr1): top pose 0.744 A vs a 2.366 A floor, CA-lDDT
 # +0.0020 [-0.0004, +0.0051], docking 24 -> 24 of 44.
-FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1_dram", "trimul_t2g"}
+FAST_LEVERS = (frozenset(LEVERS) - {"lofi", "triatt_b8", "triatt_bias_b8", "trimul_t1_dram", "trimul_t1_small",
+                                       "trimul_t2g"}
                - UNGRADED_LEVERS)
 # trimul_ibw + trimul_tail: Wormhole 11-set grade PASS, 44 paired folds, same-seed top pose median
 # 0.204 A against the 0.60 A bar (A/A seed floor 0.807 A), every paired CI covers 0 or sits on the
@@ -2156,7 +2159,8 @@ def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
         return ttnn.DRAM_MEMORY_CONFIG
     # t1_any, not trimul_t1 alone: OpenDDE and Protenix turn T1 on per plan (trimul_t1_c384 / _c256),
     # and gating on the master lever kept their sub-352 trimuls in L1, where T1 declines every call.
-    if seq_len >= _trimul_tail.MIN_N and lever("trimul_t1_dram") and _trimul_tail.t1_any():
+    if (seq_len >= _trimul_tail.min_n() and (lever("trimul_t1_dram") or lever("trimul_t1_small"))
+            and _trimul_tail.t1_any()):
         return ttnn.DRAM_MEMORY_CONFIG
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
 
@@ -10129,7 +10133,7 @@ class TriangleMultiplication(Module):
         the mask past the move, no biases, no tape. Every decline is counted in T1_STATS[1].
         """
         TT1 = _trimul_tail
-        if not TT1.t1_any() or H < TT1.MIN_N:
+        if not TT1.t1_any() or H < TT1.min_n():
             return None
         mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         why = next((k for k, bad in (

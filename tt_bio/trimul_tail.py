@@ -1461,6 +1461,9 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
 # Blackhole), so both kernels decline there.
 T1 = False
 MIN_N = 160
+#: Under `trimul_t1_small` T1 and T2 serve from this many tokens instead (RFD4: c_z 384 at 128, where the
+#: incumbent L1 route runs ~1.05 ms a call, state/rfd4/bets/small.md).
+SMALL_MIN_N = 128
 T1_STATS = [0, 0]                 # served, declined
 T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
 # (kt, ct2, ntg) -> (channel groups, row tiles per unit). c_z 128 (openfold3, boltz2) is one launch of
@@ -1605,6 +1608,12 @@ def t1_mask_ok(mask, x):
             and tuple(int(d) for d in mask.shape) == (B, shp[-2], shp[-2])
             and mask.dtype == ttnn.bfloat16 and mask.layout == ttnn.TILE_LAYOUT
             and mask.memory_config() == ttnn.DRAM_MEMORY_CONFIG)
+
+
+def min_n() -> int:
+    """Fewest tokens T1 (and the T2 tails that ride on it) will serve at."""
+    from .tenstorrent import lever
+    return SMALL_MIN_N if lever("trimul_t1_small") else MIN_N
 
 
 def t1_any() -> bool:
