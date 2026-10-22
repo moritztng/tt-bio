@@ -523,16 +523,26 @@ class PairUpdate(Module):
             ttnn.deallocate(xs)
         z, zb = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c,
                           low=self.dtype)
-        for sub, own_mask in ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
-                              (lambda h: _per_design(self.tri_in, h, pair_mask), False),
-                              (lambda h: self._transition(h, pair_mask_c, pair_mask is not None), True)):
+        subs = ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
+                (lambda h: _per_design(self.tri_in, h, pair_mask), False),
+                (lambda h: self._transition(h, pair_mask_c, pair_mask is not None), True))
+        for sub, own_mask in subs:
+            u = None
+            if not own_mask and pair_mask is None and zb is not z and int(z.shape[0]) == 1 and lever("pair_tail"):
+                # no padded token: the triangle's output tail adds into the float32 stream in the same program,
+                # z and zb written in place
+                tri = self.tri_out if sub is subs[0][0] else self.tri_in
+                u = tri(zb, None, stream32=z)
+                if tri.took_residual:
+                    continue
             if own_mask and pair_mask is None and self.tr_ws is not None and zb is not z:
                 # the transition with no padded token: its residual write rides the same program, in place
                 both = self._transition_block(zb, resid=z)
                 if both is not None:
                     z, zb = both
                     continue
-            u = sub(zb)
+            if u is None:
+                u = sub(zb)
             if zb is not z:
                 ttnn.deallocate(zb)
             z_new, zb = _residual(z, u, self.residual_dtype, None if own_mask else pair_mask_c,

@@ -86,3 +86,37 @@ def test_pair_block_residual_in_place():
     print(f"\npair_block residual: update rel_rms {err:.3e} vs float64, bf16 copy equal to rounding {same:.6f}")
     assert err < BAR
     assert same > 0.999
+
+
+@pytest.mark.device
+@pytest.mark.parametrize("outgoing", [True, False], ids=["out", "in"])
+def test_pair_tail_residual_in_place(outgoing):
+    """`pair_tail`: the triangle multiplication's output tail and its residual add into the float32 stream as one
+    T2 program (T2_RES32), z and its bf16 copy written in place. 256 tokens, where trimul_t1 leaves the g_out T2
+    reads. Graded on the update against float64 (bar 0.05) and the copy against the float32 sum's own rounding."""
+    dev = T.get_device()
+    n = 256
+    w = REF.pair_update_weights(768, 384, 256, seed=5, prefix="pu")
+    _, z, _, _ = REF.block_inputs(1, n, 768, 384, 256, seed=1)
+    z32 = z.to(torch.float32)
+    zb = REF.bf16(z32.double())
+    name = "tri_mult_out" if outgoing else "tri_mult_in"
+    ref = REF.tri_mult({k: v.double() for k, v in w.items()}, f"pu.{name}", zb, torch.ones(1, n, n, dtype=torch.float64),
+                       outgoing)
+    with T.lever_scope(frozenset({"trimul_t1", "pair_tail"})):
+        mod = TR.PairUpdate(T.WeightScope({k: v.to(torch.float32) for k, v in w.items()}).child("pu"),
+                            TR.compute_kernel_config())
+        tri = mod.tri_out if outgoing else mod.tri_in
+        zt = ttnn.from_torch(z32, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
+                             memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        zbt = _dev(zb, dev)
+        got = tri(zbt, None, stream32=zt)
+    assert tri.took_residual and got is zt
+    z_new = ttnn.to_torch(zt).double().reshape(ref.shape)
+    zb_new = ttnn.to_torch(zbt).double().reshape(ref.shape)
+    upd = z_new - z32.double()
+    err = ((upd - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()).item()
+    same = (zb_new == z_new.to(torch.bfloat16).double()).double().mean().item()
+    print(f"\npair_tail {name}: update rel_rms {err:.3e} vs float64, bf16 copy equal to rounding {same:.6f}")
+    assert err < BAR
+    assert same > 0.999

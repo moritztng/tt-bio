@@ -814,6 +814,8 @@ _FAST_MODE = False
 #                   the core. 512 tokens 6.20 -> 3.85 ms a call against the fast set's composed path, error vs
 #                   float64 0.0116 -> 0.0101 (state/rfd4/bets/pairblock.md)
 #   pair_block_hifi2  with pair_block, its matmuls at HiFi2: 3.85 -> 2.43 ms at 512 tokens, error 0.0148
+#   pair_tail       RFD4's triangle output tail (LayerNorm, p_out, sigmoid gate) and its residual add into the float32
+#                   pair stream as one T2 program (`trimul_tail.fused_tail_ln(copy=)`), with no padded token. Unmeasured.
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -829,7 +831,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
-          "trimul_t1_2g", "trimul_t1_psig", "pair_block", "pair_block_hifi2")
+          "trimul_t1_2g", "trimul_t1_psig", "pair_block", "pair_block_hifi2", "pair_tail")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -850,7 +852,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bp
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
-                             "trimul_t1_psig", "pair_block", "pair_block_hifi2"})
+                             "trimul_t1_psig", "pair_block", "pair_block_hifi2", "pair_tail"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10466,20 +10468,26 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
-                 add_to_input: bool = False, fused_residual=None) -> ttnn.Tensor:
+                 add_to_input: bool = False, fused_residual=None, stream32=None) -> ttnn.Tensor:
         """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`).
 
         `fused_residual` = (dropout mask or None,) is AF2's offer: where T2CM serves the tail it
         returns `x + mask * update` in a new tensor and sets `took_residual`; `x` is left to the
-        caller. Anywhere else the bare update comes back as without it."""
+        caller. Anywhere else the bare update comes back as without it.
+
+        `stream32` (RFD4, float32, x's shape) is the residual stream `x` is the bf16 copy of. Where T2's
+        float32 form serves the tail (`trimul_tail.fused_tail_ln(copy=)`) the update is added to it in the
+        same program, the sum written over `stream32` and its bf16 copy over `x`; `stream32` comes back and
+        `took_residual` is set. Anywhere else the bare update, as without it."""
         self.took_residual = False
         u = host_acc_after_refusal(
             ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
-                "triangle multiplication", lambda: self._multiply(x, mask, add_to_input, fused_residual)))
+                "triangle multiplication", lambda: self._multiply(x, mask, add_to_input, fused_residual,
+                                                                  stream32)))
         return _add_input(x, u) if add_to_input else u
 
     def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None,
-                  add_to_input: bool = False, fused_residual=None) -> ttnn.Tensor:
+                  add_to_input: bool = False, fused_residual=None, stream32=None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
@@ -11359,6 +11367,17 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        if (stream32 is not None and g_out_fused is not None and not x_normed and not add_to_input
+                and self.p_out_bias is None and not ops.taping()):
+            t2m_flush()
+            fused = _trimul_tail.fused_tail_ln(
+                x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused, stream32,
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN), copy=x_in)
+            if fused is not None:
+                ttnn.deallocate(x)
+                ttnn.deallocate(g_out_fused)
+                self.took_residual = True
+                return fused
         t2_gate = (g_out_fused is None and x_norm_in is not None and self.g_out_bias is None
                    and (_trimul_tail.T2 or lever("trimul_t2g")))
         if (self._t2_serves(g_out_fused, x_norm_in, H, add_to_input) and not x_normed
