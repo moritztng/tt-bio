@@ -1,5 +1,6 @@
 #!/bin/bash
-# run1: lever O (outer_residual streams z alone) vs main. orz.py standalone per tree (digests must match), then
+# run1: levers O (outer_residual streams z alone) and T1 (pair_relu's z / output in fc3 groups) vs main. orz.py and
+# relu.py (with attribution arms) standalone per tree, digests must match; then
 # pass_bench.py depth-3 trunk call at 512 and 256, 30 reps, interleaved main/branch, call outputs dumped for identity.
 #   bash perf/rfd4/ptrans/run1.sh <chip> <outdir> [rounds]     (takes ~/spd_qb2_chip<chip>.lock itself)
 set -u
@@ -20,6 +21,9 @@ for r in $(seq 1 "$ROUNDS"); do
     (cd "$tree" && PYTHONPATH=$tree timeout 900 "$PY" "$WT/perf/rfd4/ptrans/orz.py" --out "$R/orz-$arm$r.json" \
       > "$R/orz-$arm$r.log" 2>&1)
     stamp "orz-$arm$r rc=$?"
+    (cd "$tree" && PYTHONPATH=$tree timeout 900 "$PY" "$WT/perf/rfd4/ptrans/relu.py" --attr --out "$R/relu-$arm$r.json" \
+      > "$R/relu-$arm$r.log" 2>&1)
+    stamp "relu-$arm$r rc=$?"
   done
 done
 for n in ${SIZES:-512 256}; do
