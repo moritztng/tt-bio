@@ -130,3 +130,32 @@ def test_a_card_with_no_baseline_is_seeded_not_failed(monkeypatch, tmp_path, cap
     assert cell["value"] == 0.88 and "under host load" in cell["note"]
     assert m.cmd_gate(Namespace(**vars(args))) == 0
     assert "GATE PASS" in capsys.readouterr().out
+
+def test_reference_run_writes_a_readonly_hardlinked_baseline_in_place(tmp_path):
+    """The Galaxy dedupe hardlinks identical files across trees and makes them read-only. An old
+    reference's in-place write must succeed on a private copy and leave the other link alone."""
+    import os
+    ref = tmp_path / "ref"
+    (ref / "scripts").mkdir(parents=True)
+    (ref / "docs").mkdir()
+    (ref / "scripts" / "perf_regression.py").write_text(
+        "import pathlib\npathlib.Path('docs/perf_baselines.json').write_text('{\"new\": 1}')\n")
+    other = tmp_path / "other.json"
+    other.write_text('{"old": 1}')
+    os.link(other, ref / "docs" / "perf_baselines.json")
+    other.chmod(0o444)
+    m = _module()
+    m._measure_reference(Namespace(against=ref, model=None))
+    assert json.loads(m.BASELINE_FILE.read_text()) == {"new": 1}
+    assert json.loads(other.read_text()) == {"old": 1}
+
+
+def test_save_baselines_replaces_a_readonly_file(tmp_path):
+    m = _module()
+    f = tmp_path / "docs" / "perf_baselines.json"
+    f.parent.mkdir()
+    f.write_text("{}")
+    f.chmod(0o444)
+    m.BASELINE_FILE = f
+    m.save_baselines({"cards": {}})
+    assert json.loads(f.read_text()) == {"cards": {}}
