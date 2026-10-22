@@ -92,10 +92,13 @@ def _residual(x, update, res_dtype, mask=None, low=None):
     return out if low is None else (out, _as(out, low))
 
 
-def _masked_copy(x, mask, dtype):
-    """x * mask in `dtype`, a new tensor; `x` survives."""
+def _masked_copy(x, mask, dtype, alias=False):
+    """x * mask in `dtype`, a new tensor; `x` survives. With `alias`, `x` itself when there is nothing to do,
+    for a caller that only reads the result and frees it only if it is not `x`."""
     if mask is None:
-        return ttnn.clone(x) if x.dtype == dtype else ttnn.typecast(x, dtype)
+        if x.dtype == dtype:
+            return x if alias else ttnn.clone(x)
+        return ttnn.typecast(x, dtype)
     xd = _as(x, dtype)
     out = ttnn.multiply(xd, mask)
     if xd is not x:
@@ -718,13 +721,17 @@ class Trunk(Module):
         ttnn.deallocate(both)
         return out
 
-    def _recycle(self, init, prev, norm_w, proj_w, res_dtype):
+    def _recycle(self, init, prev, norm_w, proj_w, res_dtype, low=None):
+        """init + proj(norm(prev)) in `res_dtype`. With `low` (a float32 stream) it returns `(out, out in low)`
+        from one residual write, the copy the next pass's pair bias reads, instead of an add and a cast."""
         h = _rms(prev, norm_w, self.compute_kernel_config)
         hb = _as(h, self.dtype)
         if hb is not h:
             ttnn.deallocate(h)
         p = self._lin(hb, proj_w, dtype=self.dtype)
         ttnn.deallocate(hb)
+        if low is not None:
+            return _residual(init, p, res_dtype, low=low)
         pr = _as(p, res_dtype)
         if pr is not p:
             ttnn.deallocate(p)
@@ -732,13 +739,15 @@ class Trunk(Module):
         ttnn.deallocate(pr)
         return out
 
-    def run_pass(self, s, z, cond, masks):
-        """One trunk pass. Consumes `s` and `z` (frees them) and returns the new pair."""
+    def run_pass(self, s, z, cond, masks, zb=None):
+        """One trunk pass. Consumes `s` and `z` (frees them) and returns the new pair. `zb`, when given, is
+        z's `dtype` copy, made by whoever wrote z, and is consumed too."""
         mask, bias_mask, pair_mask, pair_mask_c, res_mask, res_pair_mask_c = masks
         ckc = self.compute_kernel_config
         cn = _rms(cond, None, ckc)  # every adaptive norm of the pass reads rms0(cond)
         mask_scaled = None if bias_mask is None else ttnn.multiply(bias_mask, self.head_dim ** 0.5)
-        zb = _as(z, self.dtype)  # the attention's pair bias reads z; cast once per pair update
+        if zb is None:
+            zb = _as(z, self.dtype)  # the attention's pair bias reads z; cast once per pair update
         biases = []
         for i, block in enumerate(self.blocks):
             if i in self._group_at:
@@ -770,21 +779,29 @@ class Trunk(Module):
         res_mask = masks[4]
         zd = self.pair_residual_dtype
         res_pair_mask_c = masks[5] if zd == self.residual_dtype else masks[3]
-        # Masked once here, in the residual dtype; every update after this keeps them masked.
-        s_init = _masked_copy(s_init, res_mask, self.residual_dtype)
-        z_init = _masked_copy(z_init, res_pair_mask_c, zd)
+        # Masked once here, in the residual dtype; every update after this keeps them masked. With no mask
+        # and the right dtype the input is read as it is: nothing writes to it, so no copy is needed.
+        inputs = s_init, z_init
+        s_init = _masked_copy(s_init, res_mask, self.residual_dtype, alias=True)
+        z_init = _masked_copy(z_init, res_pair_mask_c, zd, alias=True)
+        # a float32 pair stream takes its recycle as one dual write, which also gives the next pass its bf16 copy
+        low = self.dtype if zd == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
         s = z = None
         for c in conds:
+            zb = None
             if s is None:
                 s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
             else:
                 s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
-                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd)
+                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd, low=low)
+                if low is not None:
+                    z_in, zb = z_in
                 ttnn.deallocate(s)
                 ttnn.deallocate(z)
-            s, z = self.run_pass(s_in, z_in, c, masks)
-        ttnn.deallocate(s_init)
-        ttnn.deallocate(z_init)
+            s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
+        for t, given in zip((s_init, z_init), inputs):
+            if t is not given:
+                ttnn.deallocate(t)
         return s, z
 
     def masks_for(self, mask, device):
