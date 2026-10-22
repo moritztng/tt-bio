@@ -39,6 +39,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--designs", type=int, default=3)
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"))
+    ap.add_argument("--dram", type=int, nargs="*", default=[],
+                    help="token counts whose trimul starts on the DRAM path, as if a clash had already moved them")
     a = ap.parse_args()
 
     from tt_bio import rfd4, tenstorrent as T
@@ -48,16 +50,30 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     designs = rfd4.prepare_examples(a.spec, out / "inputs")
     features, atom_array = rfd4.featurize(designs[0].cif, seed=a.seed)
+    T._TRIMUL_DRAM_SHAPES.update(a.dram)
     engine = E.DesignEngine(a.weights)
+    # The trimul's residency per invocation, in order, for the first trunk call of each design.
+    paths, pick = [], T._triangle_mul_memory_config
+
+    def traced(seq_len):
+        mc = pick(seq_len)
+        paths.append("dram" if mc.buffer_type == T.ttnn.BufferType.DRAM else "l1")
+        return mc
+
+    T._triangle_mul_memory_config = traced
     trunk = engine.trunk
     launch, collect = trunk.launch, trunk.collect
-    calls, first = [], {}
+    calls, first, first_paths = [], {}, []
 
     def memo():
         return {k: repr(getattr(T, k)) for k in dir(T)
                 if k.isupper() and isinstance(getattr(T, k), (dict, set, list)) and len(getattr(T, k)) < 200}
 
     def rec_launch(s_init, z_init, conds, mask, device, pair=True):
+        if not calls:
+            paths.clear()
+        elif len(calls) == 1:
+            first_paths.append(list(paths))
         calls.append({"in": [digest(s_init), digest(z_init), [digest(c) for c in conds], digest(mask)],
                       "pair": pair})
         if "args" not in first:
@@ -92,7 +108,9 @@ def main():
         return None
 
     report = {"spec": a.spec, "seed": a.seed, "rng": a.rng, "coords": cifs,
-              "calls_per_design": [len(c) for c in per_design],
+              "dram_preset": a.dram, "calls_per_design": [len(c) for c in per_design],
+              "first_call_trimul_paths": [{p: c.count(p) for p in set(c)} | {"order": "".join(x[0] for x in c)}
+                                          for c in first_paths],
               "first_input_diff_vs_r0": [first_diff(per_design[0], c, "in") for c in per_design[1:]],
               "first_output_diff_vs_r0": [first_diff(per_design[0], c, "out") for c in per_design[1:]],
               "first_output_diff_r1_vs_rest": [first_diff(per_design[1], c, "out") for c in per_design[2:]],

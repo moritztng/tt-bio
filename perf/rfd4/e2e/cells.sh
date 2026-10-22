@@ -14,10 +14,14 @@ for leg in ${LEGS:-probe256 d128 d256 d512 b256}; do
   case $leg in
     probe*) n=${leg#probe}; timeout 2400 $PY perf/rfd4/e2e/first_call.py --spec $IN/pdl1-$n.yaml --weights $W \
               --out $R/$leg --designs 3 --rng ${RNG:-upstream} ;;
+    pdram*) n=${leg#pdram}; timeout 2400 $PY perf/rfd4/e2e/first_call.py --spec $IN/pdl1-$n.yaml --weights $W \
+              --out $R/$leg --designs 3 --rng ${RNG:-upstream} --dram $n ;;
     d*) n=${leg#d}; timeout 3600 $PY perf/rfd4/e2e/design.py --spec $IN/pdl1-$n.yaml --weights $W \
               --out $R/$leg --designs 4 --rng upstream ;;
     b*) n=${leg#b}; timeout 3600 $PY perf/rfd4/batch/sweep.py --spec $IN/pdl1-$n.yaml --weights $W \
               --out $R/$leg --ladder 1,2 --designs 2 --reps 1 ;;
+    suites) timeout 3000 $PY -m pytest -q -p no:cacheprovider --junitxml=$R/suites.xml tests/test_rfd4_trunk_parity.py \
+              tests/test_rfd4_trunk_golden.py tests/test_rfd4_sampler.py tests/test_rfd4_identity_mask.py tests/test_rfd4_first_call.py ;;
   esac > $R/$leg.log 2>&1
   stamp "$leg rc=$?"
 done
