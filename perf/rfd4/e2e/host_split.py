@@ -6,7 +6,8 @@
 `design.py` splits a design into trunk and host. This splits the host further, with synced timers:
 
 * glue_s: upstream's feature factories, conditioning transitions and heads (`FlowGlue`), per step
-* prep_s: `run_bucketed` minus the trunk's device time: padding, masking, upload, the s readback
+* prep_s: `launch` + `collect` minus the trunk's device time: padding, masking, upload (or the
+  pair built on the card), the s readback
 * device_s: `Trunk.__call__`, synchronized before and after, so it is the card's time alone
 * sampler_s: everything else inside `engine.design` before decode (the integrator, chunking)
 * decode_s, write_s: the autoencoder's decoder and upstream's CIF writer
@@ -83,9 +84,13 @@ def main():
     g = engine.glue
     g.init_repr_factory.forward = timed("glue_init_s", g.init_repr_factory.forward)
     g.pair_repr_builder.forward = timed("glue_pair_s", g.pair_repr_builder.forward)
+    if g.pair_split is not None:  # the card builds the pair; the host part is these two
+        g.pair_split.inputs = timed("glue_pair_s", g.pair_split.inputs)
+        g.pair_split.constant = timed("glue_pair_s", g.pair_split.constant)
     g.conditioning = timed("glue_cond_s", g.conditioning)
     g.heads = timed("glue_heads_s", g.heads)
-    engine.trunk.launch = timed("bucketed_s", engine.trunk.launch)  # run_bucketed = collect(launch(...))
+    # run_bucketed is collect(launch(...)); the engine calls the two halves directly.
+    engine.trunk.launch = timed("bucketed_s", engine.trunk.launch)
     engine.trunk.collect = timed("bucketed_s", engine.trunk.collect)
     call = Trunk.__call__
     Trunk.__call__ = timed("device_s", lambda self, *x, **k: call(self, *x, **k), sync=True)
