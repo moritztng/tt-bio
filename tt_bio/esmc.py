@@ -256,8 +256,8 @@ _ESMC_QKRH_BF8 = (env_flag("TT_BIO_ESMC_QKRH_BF8", False)
 # ln_split (tt_bio/ln_split.py): the per-layer LayerNorms of a forward with few tile rows (the 6B at one sequence: 17 of
 # 72 Wormhole cores busy in ttnn.layer_norm) split each row tile over G cores. [544, 2560] device ms a call (.110,
 # trace replay): weight+bias 0.109 -> 0.085, weight 0.091 -> 0.073. Not bit-exact (rel_l2 vs float64 0.0032 against
-# 0.0019). Declines where ttnn spreads as wide (300M/600M page batches). 6B page cell, Wormhole 1000 MHz, 3 A/Bs of 3
-# rounds: normal -3.4 / -2.7 / -1.9 ms of ~180 (pcc vs fp32 +0.000014 / -0.000046), fast -1.2 ms (-0.000019). None = on
+# 0.0019). Declines where ttnn spreads as wide (300M/600M page batches). 6B page cell, Wormhole 1000 MHz, 4 A/Bs of 3
+# rounds: normal -3.4 / -2.7 / -1.9 / -3.0 ms of ~180 (pcc vs fp32 +0.000014 / -0.000046), fast -1.2 / -2.9 ms. None = on
 # for Wormhole; ESMFold2 keeps ttnn.layer_norm (lm_ln_stock) until a fold grades it; Blackhole is not measured.
 _ESMC_LN_SPLIT = (env_flag("TT_BIO_ESMC_LN_SPLIT", False)
                   if os.environ.get("TT_BIO_ESMC_LN_SPLIT", "").strip() else None)
