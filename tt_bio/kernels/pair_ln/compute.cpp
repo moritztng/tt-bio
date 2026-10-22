@@ -22,7 +22,7 @@
 #include "api/compute/eltwise_unary/rsqrt.h"
 
 constexpr uint32_t Ct = get_compile_time_arg_val(0);
-constexpr uint32_t EPS = get_compile_time_arg_val(1);   // float32 bits
+constexpr uint32_t EPS_BITS = get_compile_time_arg_val(1);   // float32 bits
 constexpr uint32_t ABL = get_compile_time_arg_val(2);   // 1: copy x to y (movement only). Diagnostic.
 constexpr uint32_t G = 2;                               // xc tiles per DEST group (plus their squares)
 constexpr uint32_t GY = 4;                              // y tiles per DEST group
@@ -104,7 +104,7 @@ void kernel_main() {
         tile_regs_acquire();
         row_sum(cb_sq);
         binop_with_scalar_tile_init();
-        add_unary_tile(0, EPS);
+        add_unary_tile(0, EPS_BITS);
         rsqrt_tile_init();
         rsqrt_tile(0);
         tile_regs_commit();
