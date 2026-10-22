@@ -171,8 +171,14 @@ biases and writing the pair update as one program each is a further 1.10x at 512
 designs with radius of gyration, bond outliers and clashes unchanged. It is not bit-exact against
 fp32 numerics: on 30 seed-matched 512-token binder designs the designed chain moved 7.2 A median (23.9 A at
 most) while a different seed moves it 37.2 A, and radius of gyration, bond outliers and clashes were
-unchanged. `--fast` adds nothing further for RFD4. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics
+unchanged. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics
 ([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
+
+`--fast` adds one thing: from 288 tokens the triangle contraction runs on a kernel that keeps one operand
+resident per channel, at reduced matmul precision. On a Blackhole chip that takes the trunk of a
+512-token design about 4 % below the default and a 384-token one about 7 %; at 256 tokens and below
+ttnn's own plan is faster and `--fast` changes nothing. Over 8 seed-matched 512-token designs the
+designed chain moved 2.3 A median against the default, while a different seed moves it 38 A.
 
 ## Many designs at once
 

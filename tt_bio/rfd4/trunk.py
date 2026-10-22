@@ -643,8 +643,11 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res"})
-#: `--fast` has nothing graded beyond the default.
-FAST_LEVERS = NORMAL_LEVERS
+#: `--fast` adds `trimul_bres` + `trimul_bres_hifi2`: the triangle contraction on bmm_res (b[c] resident, whole
+#: channels per core) at HiFi2 where ttnn's plan is the 2D multicast one (from 288 tokens on Blackhole). Measured on
+#: top of pair_block + pair_tail: 27.46 -> 25.58 s/design at 384 tokens, 43.60 -> 42.01 at 512, nothing at 256;
+#: designed-chain CA RMSD 2.3 A median against a 38.3 A seed floor at 512, 8 seeds (state/rfd4/bets/tri3.md).
+FAST_LEVERS = NORMAL_LEVERS | {"trimul_bres", "trimul_bres_hifi2"}
 
 
 class Trunk(Module):
