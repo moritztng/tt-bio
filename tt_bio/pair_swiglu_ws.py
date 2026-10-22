@@ -256,18 +256,20 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
 
 
-def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch.Tensor, device):
-    """(w1, b1, w2, b2) for `pair_relu` from torch [in, out] matrices and [out] biases: bf16 TILE tensors, each bias
-    repeated over the 32 rows of its tiles (dest is seeded with whole tiles)."""
-    up = lambda t: ttnn.from_torch(t.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,  # noqa: E731
-                                   device=device)
-    return up(w1), up(b1.reshape(1, -1).expand(32, -1)), up(w2), up(b2.reshape(1, -1).expand(32, -1))
+def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch.Tensor, device,
+                 dtype=ttnn.bfloat16):
+    """(w1, b1, w2, b2) for `pair_relu` from torch [in, out] matrices and [out] biases: TILE tensors, the matrices in
+    `dtype` (bfloat16, or bfloat8_b where bf16 would not fit L1: RFD4's c_z 384, hidden 768), the biases bf16 and
+    repeated over the 32 rows of their tiles (dest is seeded with whole tiles)."""
+    up = lambda t, d=ttnn.bfloat16: ttnn.from_torch(t.contiguous(), dtype=d, layout=ttnn.TILE_LAYOUT,  # noqa: E731
+                                                    device=device)
+    return up(w1, dtype), up(b1.reshape(1, -1).expand(32, -1)), up(w2, dtype), up(b2.reshape(1, -1).expand(32, -1))
 
 
 def relu_eligible(x, w1, w2, ln=()) -> bool:
-    """What `pair_relu` serves: bf16 TILE interleaved x and weights, hidden a multiple of 4 tiles, output width at most
-    4 tiles or a multiple of 4, and everything resident inside `_L1_BUDGET`."""
-    if x.dtype != ttnn.bfloat16 or w1.dtype != ttnn.bfloat16 or w2.dtype != ttnn.bfloat16:
+    """What `pair_relu` serves: bf16 TILE interleaved x, bf16 or bfp8 weights (both the same), hidden a multiple of 4
+    tiles, output width at most 4 tiles or a multiple of 4, and everything resident inside `_L1_BUDGET`."""
+    if x.dtype != ttnn.bfloat16 or w1.dtype != w2.dtype or w1.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
         return False
     for t in (x, w1, w2):
         if t.layout != ttnn.TILE_LAYOUT or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
@@ -278,8 +280,8 @@ def relu_eligible(x, w1, w2, ln=()) -> bool:
         return False
     if ln and not all(_ln_vec_ok(v, 32 * kt) for v in ln):
         return False
-    return ((kt * nh + nh * ct + nh + ct + 2 * kt + 2 * nh + 2 * ct) * _TILE + (ln_bytes(kt) if ln else 0)
-            <= _L1_BUDGET)
+    return ((kt * nh + nh * ct) * _tile_bytes(w1.dtype) + (nh + ct + 2 * kt + 2 * nh + 2 * ct) * _TILE
+            + (ln_bytes(kt) if ln else 0) <= _L1_BUDGET)
 
 
 def pair_relu_bw(x, dy, w12, b1, w3, fidelity=ttnn.MathFidelity.HiFi4, ln=None):
