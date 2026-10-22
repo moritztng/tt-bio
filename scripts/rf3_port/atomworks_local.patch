@@ -301,3 +301,110 @@
  # TODO: This is dangerous: revert once the underlying problem in rdkit is fixed
  # RDKit Issue(https://github.com/rdkit/rdkit/discussions/7289)
  class _AllowSubprocessForDeamonicProcess:
+--- __init__.py
++++ __init__.py
+@@ -17,24 +17,6 @@
+     __version__ = "unknown"
+ 
+ 
+-# Hard-enforce biotite version compatibility by importing biotite directly.
+-# Atomworks monkey-patches several private biotite internals that are sensitive to exact version alignment
+-_REQUIRED_BIOTITE_VERSION = "1.6.0"
+-try:
+-    import biotite as _biotite_check
+-except ImportError:
+-    raise ImportError(
+-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, but biotite is not installed.\n"
+-        f"    pip install 'biotite=={_REQUIRED_BIOTITE_VERSION}'"
+-    ) from None
+-if _biotite_check.__version__ != _REQUIRED_BIOTITE_VERSION:
+-    raise ImportError(
+-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, "
+-        f"but biotite {_biotite_check.__version__!r} is installed.\n"
+-        f"    pip install 'biotite=={_REQUIRED_BIOTITE_VERSION}'"
+-    )
+-del _biotite_check
+-
+ # Global logging configuration
+ logger = logging.getLogger("atomworks")
+ _log_level = os.environ.get("ATOMWORKS_LOG_LEVEL", "WARNING").upper()
+@@ -43,15 +25,16 @@
+ # Ensure that deprecation warnings are not repeated
+ warnings.filterwarnings("once", category=DeprecationWarning)
+ 
+-# Enforce strict biotite version — atomworks patches biotite internals
++# Enforce a supported biotite version — atomworks patches biotite internals
+ import biotite  # noqa: E402
+ 
+-_REQUIRED_BIOTITE_VERSION = "1.6.0"
+-if biotite.__version__ != _REQUIRED_BIOTITE_VERSION:
++# Upstream pins biotite 1.6.0, which needs Python >= 3.11. On Python 3.10 the newest biotite is
++# 1.2.0; biotite_patch backports the three 1.6 behaviours atomworks relies on that 1.2.0 lacks.
++_SUPPORTED_BIOTITE_VERSIONS = ("1.2.0", "1.6.0")
++if biotite.__version__ not in _SUPPORTED_BIOTITE_VERSIONS:
+     raise RuntimeError(
+-        f"atomworks requires biotite=={_REQUIRED_BIOTITE_VERSION}, "
+-        f"but found biotite=={biotite.__version__}. "
+-        f"Install the correct version: pip install biotite=={_REQUIRED_BIOTITE_VERSION}"
++        f"atomworks supports biotite {' or '.join(_SUPPORTED_BIOTITE_VERSIONS)}, "
++        f"but found biotite=={biotite.__version__}."
+     )
+ 
+ # Apply monkey patching to extend AtomArray functionality
+--- biotite_patch.py
++++ biotite_patch.py
+@@ -11,6 +11,7 @@
+ import functools
+ from collections.abc import Callable
+ 
++import biotite
+ import biotite.structure as struc
+ import numpy as np
+ from biotite.structure import Atom, AtomArray, AtomArrayStack
+@@ -347,6 +348,38 @@
+     struc.concatenate = concatenate
+ 
+ 
++@apply_if_version_lt(biotite.__version__, "1.3.0")
++def _backport_biotite_1_3() -> None:
++    """Give biotite 1.2.0 (the newest on Python 3.10) the three 1.3+ behaviours atomworks uses:
++    ``get_all_residue_positions``, ``BondList.convert_bond_type``, and ``coord()`` accepting
++    AtomArray subclasses such as ``AtomArrayPlus`` (1.2 checks the exact type)."""
++    import sys
++
++    def get_all_residue_positions(array):
++        starts = struc.residues.get_residue_starts(array, add_exclusive_stop=True)
++        return np.repeat(np.arange(len(starts) - 1), np.diff(starts))
++
++    def convert_bond_type(self, original_bond_type, new_bond_type):
++        mask = self._bonds[:, 2] == original_bond_type
++        self._bonds[mask, 2] = new_bond_type
++
++    original_coord = struc.atoms.coord
++
++    def coord(item):
++        if isinstance(item, (Atom, AtomArray, AtomArrayStack)):
++            return item.coord
++        return original_coord(item)
++
++    struc.get_all_residue_positions = get_all_residue_positions
++    struc.BondList.convert_bond_type = convert_bond_type
++    # every biotite module holding the 1.2 function by reference (celllist binds it as to_coord)
++    for name, module in list(sys.modules.items()):
++        if name.startswith("biotite."):
++            for attr, value in list(vars(module).items()):
++                if value is original_coord:
++                    setattr(module, attr, coord)
++
++
+ def _update_set_inter_residue_bonds() -> None:
+     """Patch ``_set_inter_residue_bonds`` to add custom ``transformation_id`` fields to struct_conn."""
+     import biotite.structure.io.pdbx.convert as pdbx_convert
+@@ -419,6 +452,7 @@
+     _enable_lean_atom_array_repr()
+     _enable_segment_slices_in_atom_arrays()
+     _update_get_residue_starts()
++    _backport_biotite_1_3()
+     _update_array()
+     _concatenate()
+     _update_set_inter_residue_bonds()

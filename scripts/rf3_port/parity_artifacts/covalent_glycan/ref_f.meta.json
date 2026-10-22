@@ -26,6 +26,16 @@
       "__type__": "<class 'numpy.ndarray'>"
     }
   },
+  "__reference_updates__": [
+    {
+      "atom": 11,
+      "date": "2026-10-21",
+      "from": 1,
+      "key": "feats/ref_charge",
+      "to": 0,
+      "why": "atomworks 3.0 removes the leaving hydrogen when it forms the N-glycosidic bond, so the glycosylated ASN ND2 is a neutral secondary amide N; 2.2.1 left it at +1. Upstream RF3 runs atomworks 3.0 today. Every other key of this capture is unchanged."
+    }
+  ],
   "__seed__": 42,
   "__zero_stub_keys__": {
     "feats/atom_level_embedding": {

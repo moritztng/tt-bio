@@ -200,13 +200,18 @@ def _as_bool(mask, num_designs: int):
 
 
 def _resolve_weights(weights: str | Path) -> Path:
-    """The released bundle's directory, downloading it on first use."""
+    """The released bundle's directory, downloading it on first use.
+
+    The default goes through the weights registry (pinned revision, `TT_BIO_RFD4` override,
+    `tt-bio weights` sees it). Another hub id is snapshotted whole, at its HF_REVISIONS pin if any."""
+    from tt_bio import weights as _w
+
     path = Path(str(weights)).expanduser()
     if path.exists():
         return path
-    from huggingface_hub import snapshot_download
-
-    return Path(snapshot_download(str(weights)))
+    if str(weights) == DEFAULT_WEIGHTS:
+        return _w.fetch("rfd4")
+    return _w.fetch_hf_repo(str(weights))
 
 
 def get_engine(name: str = "auto", **kwargs) -> Engine:

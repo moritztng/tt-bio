@@ -4283,7 +4283,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
     annotated CIF per design, which is kept beside the output because it IS the model's
     input, and a design that came out wrong is usually a spec that selected the wrong
-    atoms. The model itself is not on Tenstorrent yet, so a run stops at the engine.
+    atoms.
     """
     from tt_bio import rfd4
 
@@ -4303,8 +4303,10 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
     except (ValueError, KeyError, FileNotFoundError) as e:
         raise click.ClickException(f"{type(e).__name__}: {e}")
 
-    click.echo(f"{len(designs)} design(s) from {Path(inputs).name}, seed {seed}")
+    click.echo(f"Designing {len(designs)} spec(s) × {num_designs} design(s) from "
+               f"{Path(inputs).name} → {out_dir}, seed {seed}")
     engine = rfd4.get_engine(recipe=recipe)
+    written = 0
     for design in designs:
         features, atom_array = rfd4.featurize(design.cif, seed=seed)
         tokens = int(features["padding_mask"].shape[-1])
@@ -4315,6 +4317,8 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
             path = rfd4.write_design(output, features, atom_array,
                                      out_dir / f"{design.example_id}{suffix}_generated.cif", row=row)
             click.echo(f"    -> {path}")
+            written += 1
+    click.echo(f"Done — {written} design(s) → {out_dir}")
 
 
 @cli.command("design")
@@ -4327,7 +4331,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
                    "backbones against a target structure, conditioned on a distogram of the "
                    "target. rfd4: RFD4-Proteina, all-atom flow matching over the same design "
                    "spec RFD4 itself takes (motifs, hotspots, burial, hydrogen bonds, contigs); "
-                   "host side only so far, see below. Options marked for a model apply to that "
+                   "see below. Options marked for a model apply to that "
                    "model only.")
 @click.option("--out_dir", default=None,
               help="Output directory. Default: ./<input name>/ (boltzgen, writes "
@@ -4512,11 +4516,10 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
 
     Each design is built into an annotated CIF under <out_dir>/inputs/ -- the model's
     actual input, kept because a design that comes out wrong is usually a selection that
-    matched the wrong atoms -- and then featurized. The RFD4 model is not on Tenstorrent
-    yet, so a run prepares its inputs and stops at the engine with a message; the spec
-    surface, the features and the writer are exact against upstream today.
+    matched the wrong atoms -- and then featurized and designed on the card, one annotated
+    CIF per design.
 
-    boltzgen, rfd3 and pxdesign auto-download their checkpoints on first use.
+    boltzgen, rfd3, pxdesign and rfd4 auto-download their checkpoints on first use.
     """
     # rfd3 and pxdesign carry measured ceilings in DIFFERENT denominators (motif+designed vs
     # target residues); size_limits sizes each spec in its own and refuses before any device open.

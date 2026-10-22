@@ -210,6 +210,9 @@ EXEMPT = {
     "rfd3":     "design, not a fold: sized on DESIGN_TOTAL (motif plus designed) from a contig "
                 "spec, so the 1536-token fixture here is not a valid input. Its wall is "
                 "fragmentation rather than capacity and wants its own cell.",
+    "rfd4":     "design, not a fold: its input is an RFD4 condition spec (contig plus conditions), "
+                "so this gate's polymer sequence fixture is not a valid input. Sized on "
+                "DESIGN_TOTAL like rfd3, and it wants a design cell of its own.",
     "pxdesign": "design, not a fold: sized on DESIGN_TARGET from a target STRUCTURE, so it needs a "
                 "1536-residue PDB rather than a sequence. The shipped ladder's own fixture source "
                 "(1DP0 chain A, 1011 residues) cannot reach the bar either.",

@@ -172,10 +172,21 @@ LOG = open(a.out / "bench.jsonl", "a")
 REPO = Path(__file__).resolve().parents[2]
 
 
+ERRED = []  # records that carried an err: every rep is still written, then the run exits 1
+
+
 def log(**kw):
     kw["t_unix"] = time.time()
+    if kw.get("err"):
+        ERRED.append(kw.get("ev"))
     line = json.dumps(kw, default=str)
     LOG.write(line + "\n"); LOG.flush(); print(line, flush=True)
+
+
+def end():
+    """Close the log and leave. A crashed rep is a recorded result, but not a run that passed."""
+    log(ev="end", errored=len(ERRED))
+    os._exit(1 if ERRED else 0)
 
 
 def git(*args):
@@ -325,8 +336,7 @@ if a.model == "bindcraft2":
         log(ev="campaign", trajectories_per_card=n, wall_s=wall, trajectories=per, iterations=iters,
             wall_per_iter=wall / iters if iters else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
             err=err, **HEAD)
-        log(ev="end")
-        os._exit(0)
+        end()
     traj = bc2_traj.hook(campaign, project, emit)
     real_design = campaign.run_trajectory
 
@@ -350,8 +360,7 @@ if a.model == "bindcraft2":
             log(ev="crash", err=traceback.format_exc()[-3000:], **HEAD)
     if traj:
         emit(len(traj) - 1)
-    log(ev="end")
-    os._exit(0)
+    end()
 
 INPUTS = []
 for name in a.inputs.split(","):
@@ -577,5 +586,4 @@ for i_in, (name, y) in enumerate(INPUTS):
                      if k in metrics},
             samples_conf=[{k: v for k, v in r.items() if not isinstance(v, dict)} for r in metrics.get("all_runs", [])],
             struct_dir=str(sdir), latches=_latches(), reach=_reach(), refused=_refused(), **HEAD)
-log(ev="end")
-os._exit(0)
+end()

@@ -47,6 +47,10 @@ FIXES = (
     ("_cif/encoding.py", 'files("rfd4_proteina_prep")', f'files("{vr.VENDOR_NS}.{NAME}")'),
 )
 
+#: Training-time design-task transforms. Nothing on the prep path imports them, and the second
+#: needs ``assertpy`` at import, which tt-bio does not depend on, so they are not vendored.
+EXCLUDE = ("transforms_design_task.py", "transforms_utils_ppi_utils.py")
+
 
 def rewrite(text: str) -> str:
     text = vr.rewrite_imports(text, pkgs=("atomworks",))
@@ -70,7 +74,7 @@ def main() -> int:
 
     src = Path(a.src)
     shutil.rmtree(dst, ignore_errors=True)
-    shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", *EXCLUDE))
     for lic in ("LICENSE", "THIRD_PARTY_LICENSES.txt"):
         shutil.copy2(src.parents[1] / lic, dst / lic)
 

@@ -89,7 +89,10 @@ MIT-licensed and credited in the top-level LICENSE.
                   Python 3.11+ constructs replaced so the package runs on 3.10,
                   which is tt-bio's deployed runtime: `enum.StrEnum` via
                   tt_bio/_vendor/atomworks/_compat.py, `typing.Never` via
-                  typing_extensions, and one 3.12-only f-string. Reference
+                  typing_extensions, and one 3.12-only f-string. On biotite 1.2.0,
+                  the newest release for Python 3.10, biotite_patch.py backports
+                  the three biotite 1.3+ behaviours AtomWorks uses, and the version
+                  check accepts 1.2.0 as well as upstream's 1.6.0. Reference
                   conformers are generated in a small helper process
                   (ml/transforms/conformer_helper.py). The whole change set is
                   reproduced by scripts/rf3_port/vendor_rf3.py.
