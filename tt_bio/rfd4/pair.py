@@ -165,8 +165,8 @@ class PairSplit:
         nc = ada.norm_cond(self.builder.cond_factory(batch))
         return ada.to_gamma(nc).float(), ada.to_beta(nc).float()
 
-    def inputs(self, batch: dict, constant: PairConstant) -> PairInputs:
-        gamma, beta = self.modulation(batch)
+    def inputs(self, batch: dict, constant: PairConstant, modulation=None) -> PairInputs:
+        gamma, beta = self.modulation(batch) if modulation is None else modulation
         bins = self.bins(batch)
         scale = torch.take_along_dim(constant.scales, bins[..., None], -1).squeeze(-1)
         return PairInputs(constant, bins, scale, gamma, beta)
