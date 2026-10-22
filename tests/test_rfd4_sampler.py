@@ -261,3 +261,38 @@ def test_inverse_folding_returns_the_input_backbone_and_designs_the_latents():
     expected = x_1[S.BB_CA] * m[S.BB_CA][..., None]
     assert torch.allclose(out.x[S.BB_CA], expected), "the backbone is fixed, that is what folding backwards means"
     assert float(out.x[S.LOCAL_LATENTS].abs().max()) > 0
+
+
+# ------------------------------------------------------------------ trajectory saving
+
+
+def test_save_trajectory_every_snapshots_on_the_cadence_and_always_the_last_step():
+    out = run(short(24), save_trajectory_every=5)
+    steps = [snap["step"] for snap in out.trajectory]
+    assert steps == [0, 5, 10, 15, 20, 23], "the final step is written whatever the cadence"
+    for snap in out.trajectory:
+        assert set(snap["x_1"]) == set(S.RELEASED.data_modes)
+        assert snap["x_1"][S.BB_CA].shape == (3, 48, 3)
+        assert "x_t" not in snap, "the noisy state is opt-in"
+
+
+def test_no_trajectory_is_kept_unless_it_is_asked_for():
+    assert run(short(24)).trajectory == []
+
+
+def test_dump_noisy_trajectories_adds_the_noisy_state_beside_the_clean_prediction():
+    out = run(short(20), save_trajectory_every=4, dump_noisy_trajectories=True)
+    final = out.trajectory[-1]
+    assert final["step"] == 19
+    for mode in S.RELEASED.data_modes:
+        assert final["x_t"][mode].shape == final["x_1"][mode].shape
+        # x_t is the state the step landed on, x_1 the clean prediction it was made from: at a
+        # mid-trajectory step those are not the same tensor.
+        assert not torch.equal(final["x_t"][mode], final["x_1"][mode])
+
+
+def test_a_snapshot_is_the_state_the_trajectory_actually_ended_on():
+    out = run(short(20), save_trajectory_every=19, dump_noisy_trajectories=True)
+    for mode in S.RELEASED.data_modes:
+        assert torch.equal(out.trajectory[-1]["x_t"][mode], out.x[mode])
+        assert torch.equal(out.trajectory[-1]["x_1"][mode], out.x_1_pred[mode])
