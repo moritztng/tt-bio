@@ -10801,6 +10801,7 @@ class TriangleMultiplication(Module):
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         pre_split = None
+        a_chunk = b_chunk = None
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
             try:
@@ -11206,6 +11207,15 @@ class TriangleMultiplication(Module):
                 break
             except RuntimeError as e:
                 msg = str(e)
+                # The refused attempt's channel operands are this call's own tensors. Free them
+                # now: the traceback keeps them referenced, and an L1 `a` left alive sits under
+                # the retried in-projection's circular buffers. At 576 tokens on Wormhole it did
+                # (`a` at 909312, the in-projection's CBs ending at 1152288), the retry and the
+                # host-join retry around it threw the same clash, and every fold died.
+                for _t in (a_chunk, b_chunk):
+                    if isinstance(_t, ttnn.Tensor) and _t.is_allocated():
+                        ttnn.deallocate(_t)
+                a_chunk = b_chunk = None
                 # TT_BIO_OF3L1_TMA's own refusal, first: an L1 "Out of Memory" would otherwise
                 # read as the DRAM refusal below (`_dram_oom` matches the allocator's wording,
                 # not the buffer type) and narrow the in-projection group for good, and an L1
