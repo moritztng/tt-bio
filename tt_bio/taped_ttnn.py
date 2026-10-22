@@ -865,7 +865,13 @@ def _permute_back(g, inv):
     the pair (1.00 / 0.33 at 195 tokens, 0.64 / 0.18 at 64 channels), torch.equal in every case.
     That is BindCraft 2's trimul gradient, 208 calls an iteration. ``[0, 3, 1, 2]`` keeps the
     permute, the faster of the two there (0.27 / 0.36 ms).
+
+    The same rotation at rank 3 goes the same way: ttnn pads a rank-3 permute to rank 4, so the
+    joined OPM's ``(1, 2, 0)`` on [224, 128, 64] is this kernel's case too. It ran the stock
+    permute at 359 us a call against 71 us for its own forward, 17 ms of BindCraft 2's iteration
+    (`state/bc4/bets/unnamed/raw/u2-devprof.json.gz`).
     """
+    inv = list(inv)
     if REBLOCK_PERMUTE_BW:
         from . import reblock_permute as R
         mc = g.memory_config()
@@ -873,9 +879,10 @@ def _permute_back(g, inv):
             return R.reblock_permute_back(g, mc)
         if inv == [0, 3, 1, 2] and R.eligible(g, mc):
             return R.reblock_permute(g, mc)
-    if list(inv) == [0, 2, 3, 1]:
-        mid = ttnn.transpose(g, 1, 2)
-        out = ttnn.transpose(mid, 2, 3)
+    r = len(inv)
+    if r in (3, 4) and inv == list(range(r - 3)) + [r - 2, r - 1, r - 3]:
+        mid = ttnn.transpose(g, r - 3, r - 2)
+        out = ttnn.transpose(mid, r - 2, r - 1)
         ttnn.deallocate(mid)
         return out
     return ttnn.permute(g, inv)

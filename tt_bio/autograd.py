@@ -787,9 +787,13 @@ def _join_slices(parts, shape):
                     blocks.append(_zeros_like_along(g, ax, s[ax] - at))
                 blocks.append(g)
                 at = e[ax]
-            if at < shape[ax]:
-                blocks.append(_zeros_like_along(blocks[-1], ax, shape[ax] - at))
-            return [blocks[0] if len(blocks) == 1 else ttnn.concat(blocks, dim=ax)]
+            # The zeros after the last slice are a back pad, which is `_pad_slice`'s fast case:
+            # the subtile attention's `o[..., :16]` reached this concat as a single part and
+            # paid 394 us a call for it (`state/bc4/bets/unnamed/raw/u2-devprof.json.gz`).
+            joined = blocks[0] if len(blocks) == 1 else ttnn.concat(blocks, dim=ax)
+            cut = list(shape)
+            cut[ax] = at
+            return [_pad_slice(joined, [0] * len(shape), cut, shape)]
     return [_pad_slice(g, s, e, shape) for s, e, g in parts]
 
 
