@@ -13,7 +13,7 @@ mkdir -p $R
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d' ' -f1 /proc/loadavg)" >> $R/done; }
 exec 9>$HOME/spd_qb2_chip$C.lock
 flock -w 10800 9 || { stamp "no lock"; exit 3; }
-export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-small PYTHONPATH=$T:$T/perf
+export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=${LEASE_CARDS:-$C} TT_BIO_LEASE_HOLDER=worker:rfd4-perf-small PYTHONPATH=$T:$T/perf
 cd $T
 stamp start
 for n in 128 192; do
