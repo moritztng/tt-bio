@@ -25,7 +25,8 @@ import torch
 
 from .. import rne_add
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
-                           _sdpa_program_config_for_lengths, download, fused_sdpa, upload)
+                           _sdpa_program_config_for_lengths, download, fused_sdpa, lever_scope, model_levers,
+                           under_lever_scope, upload)
 
 EPS = 1e-5
 NEG_INF = -1e4
@@ -395,10 +396,11 @@ def _per_design(tri, z, pair_mask):
     outs = []
     for k in range(b):
         zk = ttnn.slice(z, [k, 0, 0, 0], [k + 1, n, n, c])
-        mk = ttnn.slice(pair_mask, [k, 0, 0], [k + 1, n, n])
+        mk = None if pair_mask is None else ttnn.slice(pair_mask, [k, 0, 0], [k + 1, n, n])
         out = tri(zk, mk)
         ttnn.deallocate(zk)
-        ttnn.deallocate(mk)
+        if mk is not None:
+            ttnn.deallocate(mk)
         if out.memory_config().buffer_type == ttnn.BufferType.L1:
             # An L1 result left there would sit under the next design's circular buffers: the
             # trimul would clash, retry narrower and stay on the slower path for every design.
@@ -509,7 +511,12 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
     [b, n, 1], the attention's additive [b, 1, n, n] pair mask, the pair mask as [b, n, n]
     (triangle multiplication) and [b, n, n, 1], then the token and [b, n, n, 1] pair masks again in
     `residual_dtype` for the residual streams (the same handles when that is `dtype`). Built once
-    per stack call."""
+    per stack call.
+
+    The triangle multiplication's mask is None when every token is real (no padding, every design
+    of a batch the same length): it only multiplies operand `a` by the pair mask, and multiplying by
+    1 changes no bit, so the op is skipped rather than run. 0.76 ms a call at 512 tokens, 0.027 at
+    128 (perf/rfd4/tri2/bench.py `mask:none`, bit-identical)."""
     m = mask.to(torch.float32)
     pair = m[:, :, None] * m[:, None, :]
     up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,  # noqa: E731
@@ -520,8 +527,16 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
         res_tok, res_pair_c = tok, pair_c
     else:
         res_tok, res_pair_c = ttnn.typecast(tok, res), ttnn.typecast(pair_c, res)
-    return (tok, up(torch.where(pair.bool(), 0.0, NEG_INF)[:, None]), up(pair), pair_c, res_tok,
-            res_pair_c)
+    return (tok, up(torch.where(pair.bool(), 0.0, NEG_INF)[:, None]), None if bool(m.all()) else up(pair),
+            pair_c, res_tok, res_pair_c)
+
+
+#: RFD4's levers per mode (`tenstorrent.model_levers`); TT_BIO_LEVERS overrides both when a harness grades a
+#: set. `trimul_t1` runs the triangle multiplication's input layer_norm, gated projections and channel moves as
+#: one kernel from 160 tokens (it declines below, where the trimul runs from L1): 15.0 -> 11.3 ms a call at 512
+#: tokens, same float64 error (state/rfd4/bets/tri2.md).
+NORMAL_LEVERS = frozenset({"trimul_t1"})
+FAST_LEVERS = NORMAL_LEVERS
 
 
 class Trunk(Module):
@@ -545,12 +560,14 @@ class Trunk(Module):
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.nlayers = nlayers
-        self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
-                                  residual_dtype=self.residual_dtype)
-                       for i in range(nlayers)]
-        self.pair_updates = {i: PairUpdate(self.scope(f"pair_update_layers.{i}"), ckc, dtype=self.dtype,
-                                           residual_dtype=self.residual_dtype)
-                             for i in range(nlayers - 1) if i % every_n == 0}
+        self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
+        with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
+            self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
+                                      residual_dtype=self.residual_dtype)
+                           for i in range(nlayers)]
+            self.pair_updates = {i: PairUpdate(self.scope(f"pair_update_layers.{i}"), ckc, dtype=self.dtype,
+                                               residual_dtype=self.residual_dtype)
+                                 for i in range(nlayers - 1) if i % every_n == 0}
         ident = lambda x: x  # noqa: E731
         self.s_norm = self.torch_to_tt("s_cycle_norm.weight", transform=ident, dtype=self.dtype)
         self.s_proj = self.torch_to_tt("s_cycle_proj.weight", dtype=self.dtype)
@@ -627,6 +644,7 @@ class Trunk(Module):
             ttnn.deallocate(mask_scaled)
         return s, z
 
+    @under_lever_scope
     def __call__(self, s_init, z_init, conds, masks):
         """`conds[k]` is cycle k's conditioning ([b, n, dim_cond]); upstream recomputes it each cycle
         because it carries the remaining-pass count. `masks` is `trunk_masks(...)` built with this
@@ -656,7 +674,7 @@ class Trunk(Module):
         if cached is not None and cached[0] is device and torch.equal(cached[1], mask):
             return cached[2]
         if cached is not None and cached[0] is device:
-            for t in {id(t): t for t in cached[2]}.values():
+            for t in {id(t): t for t in cached[2] if t is not None}.values():
                 if t.is_allocated():
                     ttnn.deallocate(t)
         masks = trunk_masks(mask, device, dtype=self.dtype, residual_dtype=self.residual_dtype)

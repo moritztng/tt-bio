@@ -1440,7 +1440,9 @@ T1_WHY = {}                       # decline reason -> calls (tenstorrent._t1_in)
 # whole 32-row units. c_z 256 (protenix-v2, opendde, esmfold2) holds twice the weights and twice the
 # normalised rows per unit, ~1.9 MB of CBs a core; as two channel groups of 16-row units it is ~1.0 MB,
 # at the price of reading z twice (5 pair passes instead of the incumbent's 14).
-T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8)}
+# RFD4 (c_z 384, hidden 256) fits two channel groups of 8-row units in 1.15 MB: 15.0 -> 11.3 ms a call at
+# 512 tokens and 3.8 -> 3.5 at 256 on a p300 chip, 1350 MHz; (4, 16) and (4, 8) ran 13.0 / 14.1 ms (tri2 t1-512).
+T1_PLANS = {(4, 8, 4): (1, 32), (8, 16, 8): (2, 16), (12, 24, 12): (3, 8), (12, 16, 12): (2, 8)}
 T1_KEYS = set(T1_PLANS)
 # The plans when the resident weights are bfp8 (lever trimul_t1w8): half the weight bytes per core, so c_z 384
 # fits its [a | b] and g_out weights in two channel groups instead of three, one launch and one xn pass fewer.

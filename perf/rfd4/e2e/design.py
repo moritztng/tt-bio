@@ -75,6 +75,8 @@ def main():
           "featurize_s": round(t_feat, 2), "aiclk": clk.summary()})
 
     # Time the trunk calls from inside the network so the host share is measured, not inferred.
+    # The patch is by name: a tree that reaches the trunk another way leaves trunk_s empty, and then
+    # the design is fine and only the instrument failed. Say which, rather than dying in the writer.
     trunk_s = []
     inner = engine.trunk.run_bucketed
 
@@ -102,10 +104,18 @@ def main():
               "recipe": "thinking_medium", "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
               "trunk_passes": int(sum(_depths(engine))), "seed": a.seed, "rng": a.rng,
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
-              "trunk_s": round(sum(trunk_s), 3), "host_s": round(t_design - sum(trunk_s), 3),
-              "trunk_call_s": {"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)},
+              "trunk_s": round(sum(trunk_s), 3) if trunk_s else None,
+              "host_s": round(t_design - sum(trunk_s), 3) if trunk_s else None,
+              "trunk_call_s": ({"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)}
+                               if trunk_s else None),
+              "instrument_attached": bool(trunk_s),
               "aiclk": summ, "aiclk_mhz": mhz, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
               "cif": str(path)})
+        if not trunk_s:
+            print("INSTRUMENT: engine.trunk.run_bucketed was never called through the timing patch; "
+                  "the design itself completed and wrote %s. Re-point the patch before reading any "
+                  "trunk_s from this tree." % path, flush=True)
+            raise SystemExit(3)
 
 
 def _depths(engine):
