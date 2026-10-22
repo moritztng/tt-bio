@@ -18371,17 +18371,18 @@ class DiffusionModule(TorchWrapper):
         if not lever("dit_cond_steps"):
             return None
         why = ("no schedule" if not sched else f"{times.numel()} times" if times.numel() != 1
-               else "fp32 token path" if self.module.token_transformer_fp32 else None if tt.steps_ok() else "steps_ok")
+               else "fp32 token path" if self.module.token_transformer_fp32 else None if tt.steps_ok() else "no adaLN addcmul")
         if why:
             _latch("dit_cond_steps", "declined", why)
             return None
         s_trunk = self._cache_get("s_trunk")
         # G x n rows a linear: where a Wormhole linear at K 768 is past its fixed cost (matlim: M 4096 runs
-        # 344 us against 8 x 64.6 at M 512), and G x 113 MB of terms at 512 tokens.
+        # 344 us against 8 x 64.6 at M 512), and G x 113 MB of terms at 512 tokens. Past 1024 tokens G < 4 and each
+        # step's linear is already past that cost, so there is nothing to amortize (cs3x: 1536 x 1, G 2, +2.1 s).
         G = _DIT_COND_STEPS_ROWS // int(s_trunk.shape[-2])
         t = float(times.reshape(-1)[0])
         k = next((i for i, x in enumerate(sched) if x == t), None)
-        if k is None or G < 2:
+        if k is None or G < 4:
             _latch("dit_cond_steps", "declined", f"times {t} not in the schedule" if k is None else f"G {G}")
             return None
         k0 = k - k % G
