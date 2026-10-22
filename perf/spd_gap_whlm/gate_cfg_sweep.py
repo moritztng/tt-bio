@@ -23,8 +23,7 @@ def main() -> int:
     ap.add_argument("--shapes", default="300m,600m")
     ap.add_argument("--fidelity", default=None, help="one MathFidelity for every arm (the 300M/600M model runs HiFi3); "
                     "default HiFi2 --fast, HiFi4 normal and for the 6B")
-    ap.add_argument("--modes", default="normal,fast", help="also mixed (bf16 weights, 16-bit dest, fp32 K-block "
-                    "accumulator) and bf16acc (bf16 weights, 16-bit dest and accumulator)")
+    ap.add_argument("--modes", default="normal,fast")
     ap.add_argument("--full-sync", action="store_true", help="dst_full_sync_en for every arm: dest holds twice the "
                     "subblock tiles (8 fp32 / 16 bf16) but math and pack no longer overlap on dest halves")
     ap.add_argument("--kb", default=None, help="comma list of K block sizes in tiles (default: the model's, 2 and 4)")
@@ -47,20 +46,18 @@ def main() -> int:
         w2 = (torch.randn(d, ff, generator=gen) * d ** -0.5).to(torch.bfloat16)
         for mode in args.modes.split(","):
             fast = mode == "fast"
-            dest16 = fast or mode in ("mixed", "bf16acc")
-            interm = True if mode == "mixed" else None
             wdt = ttnn.bfloat8_b if fast else ttnn.bfloat16
             ck = ttnn.init_device_compute_kernel_config(
                 dev.arch(), math_fidelity=getattr(ttnn.MathFidelity, args.fidelity) if args.fidelity else
                 ttnn.MathFidelity.HiFi2 if fast and name != "6b" else ttnn.MathFidelity.HiFi4,
-                math_approx_mode=False, fp32_dest_acc_en=not dest16 or name == "6b", packer_l1_acc=True,   # the 6B keeps HiFi4
+                math_approx_mode=False, fp32_dest_acc_en=not fast or name == "6b", packer_l1_acc=True,   # the 6B keeps HiFi4
                 dst_full_sync_en=args.full_sync)
             xd = ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
             wd1, wd2 = (ttnn.from_torch(w, layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt) for w in (w1, w2))
             base = esmc._mm_config(xd, wd1)["config"]   # 6b: only its K block seeds the sweep
             mmc = ttnn.MinimalMatmulConfig(M_block_size=base.M_block_size, K_block_size=base.K_block_size,
                                            N_block_size=base.N_block_size, subblock_h=base.subblock_h,
-                                           subblock_w=4 if dest16 else base.subblock_w,
+                                           subblock_w=4 if fast else base.subblock_w,
                                            compute_with_storage_grid_size=ttnn.CoreCoord(*grid))
 
             def today_6b():
@@ -87,7 +84,7 @@ def main() -> int:
             rec = {"shape": name, "mode": mode, "fidelity": str(ck.math_fidelity), "full_sync": args.full_sync, "today_ms": ts[len(ts) // 2], "configs": []}
             w1h, w2h = (ttnn.to_torch(w).double() for w in (wd1, wd2))
             ref = torch.nn.functional.silu(x.double() @ w1h) * (x.double() @ w2h)
-            dmax = (4 if not dest16 or name == "6b" else 8) * (2 if args.full_sync else 1)   # dest tiles a subblock gets
+            dmax = (4 if not fast or name == "6b" else 8) * (2 if args.full_sync else 1)   # dest tiles a subblock gets
             for kb in sorted({int(k) for k in args.kb.split(",")} if args.kb else {base.K_block_size, 2, 4}):
                 if (d // 32) % kb:
                     continue
@@ -104,8 +101,7 @@ def main() -> int:
                                 if wd12 is None:
                                     wd12 = ttnn.from_torch(mm_gate.interleave(w1, w2, nb // 2 * 32),
                                                            layout=ttnn.TILE_LAYOUT, device=dev, dtype=wdt)
-                                fn = lambda cfg=cfg, w=wd12: mm_gate.gated(xd, w, cfg, ck, grid, pack_sfpu=True,
-                                                                                interm_fp32=interm)
+                                fn = lambda cfg=cfg, w=wd12: mm_gate.gated(xd, w, cfg, ck, grid, pack_sfpu=True)
                                 try:
                                     o = fn()
                                     e = err(ttnn.to_torch(o).double().reshape(ref.shape), ref)

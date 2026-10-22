@@ -230,7 +230,7 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
-          noc_mode=None, n_widths=None, bias=None, extra=(), interm_fp32=None):
+          noc_mode=None, n_widths=None, bias=None, extra=()):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -255,9 +255,6 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
 
     ``extra`` are more tensors a patched DM kernel reads (mm_rope's cos / sin): their accessors follow the bias's in
     the compile-time args, their addresses come just before the outputs' in the runtime args.
-
-    ``interm_fp32`` sets the K-block accumulator's format on its own (None: fp32 exactly when dest is): a 16-bit dest
-    with an fp32 accumulator rounds each K block's partial to bf16 once and sums the partials in fp32 in L1.
 
     ``noc_mode`` is for a DM kernel that issues transactions on the NOC it was NOT configured
     with. Under the default ``DM_DEDICATED_NOC`` the firmware only runs ``noc_local_state_init``
@@ -308,7 +305,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     out_tile_size = tile_bytes(out.dtype)
     in2_tile_size = tile_bytes(bias.dtype) if bias is not None else in1_tile_size   # no bias: in1's format
     in3_tile_size = in1_tile_size          # no all-gather fusion, same fallback
-    interm_fmt = ttnn.float32 if (fp32_dest_acc_en if interm_fp32 is None else interm_fp32) else ttnn.bfloat16
+    interm_fmt = ttnn.float32 if fp32_dest_acc_en else ttnn.bfloat16
     interm_tile_size = tile_bytes(interm_fmt)
 
     transpose = M > N
