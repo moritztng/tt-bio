@@ -26,6 +26,7 @@ import ttnn
 
 import torch
 
+from .. import dit_pair_bias
 from .. import ops
 from .. import rne_add
 from ..envflags import env_flag
@@ -676,11 +677,19 @@ class Trunk(Module):
                                         layout=ttnn.TILE_LAYOUT, device=self.device)
                         for g in self.bias_groups]
         self._group_at = {g[0]: k for k, g in enumerate(self.bias_groups)}
+        # pair_bias_rms: each group's biases as one program from zb (RMSNorm, projection, head-first layout, split)
+        self.bias_wts = None
+        if "pair_bias_rms" in self._levers:
+            self.bias_wts = [dit_pair_bias.rms_weight([mhas[i].bias_w_host for i in g], self.device)
+                             for g in self.bias_groups]
 
     def _group_biases(self, k, zb, mask_scaled):
         """The pre-scaled [b, heads, n, n] pair bias of every block in `bias_groups[k]`."""
-        both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
         g = self.bias_groups[k]
+        if self.bias_wts is not None and mask_scaled is None and dit_pair_bias.rms_eligible(zb, self.bias_wts[k]):
+            return dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
+                                               fidelity=self.compute_kernel_config.math_fidelity)
+        both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
         if len(g) == 1:
             return [both]
         b, _, n, m = (int(d) for d in both.shape)
