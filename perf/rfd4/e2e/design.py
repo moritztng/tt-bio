@@ -105,11 +105,18 @@ def main():
               "recipe": "thinking_medium", "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
               "trunk_passes": int(sum(_depths(engine))), "seed": seed, "rng": a.rng,
               "levers": sorted(engine.trunk._levers) if hasattr(engine.trunk, "_levers") else None,
+              "pair_mm_served_declined": list(_pair_mm_stats()),
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
               "trunk_s": round(sum(trunk_s), 3), "host_s": round(t_design - sum(trunk_s), 3),
               "trunk_call_s": {"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)},
               "aiclk": summ, "aiclk_mhz": mhz, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
               "cif": str(path)})
+
+
+def _pair_mm_stats():
+    """pair_mm's cumulative (served, declined): a lever only counts if the run says it was reached."""
+    from tt_bio import pair_mm
+    return pair_mm.STATS
 
 
 def _depths(engine):
