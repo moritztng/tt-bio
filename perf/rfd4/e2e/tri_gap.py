@@ -39,6 +39,7 @@ ensure_p300_mesh_descriptor()
 import ttnn  # noqa: E402
 
 import clocksample  # noqa: E402
+from rfd4.trunk_clock import time_trunk  # noqa: E402
 
 N_FLOP = lambda n: 2 * n * n * (4 * 384 * 256 + 256 * 384 + 384 * 384) + 2 * 256 * n ** 3  # noqa: E731
 
@@ -131,15 +132,7 @@ def main():
             setattr(pu, attr, timed)
 
     trunk_s = []
-    inner = engine.trunk.run_bucketed
-
-    def timed_trunk(*args, **kw):
-        t = time.perf_counter()
-        r = inner(*args, **kw)
-        trunk_s.append(time.perf_counter() - t)
-        return r
-
-    engine.trunk.run_bucketed = timed_trunk
+    time_trunk(engine.trunk, trunk_s)
     run = lambda: engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng="upstream")  # noqa
 
     # Leg 1: cold. The first calls carry compile and any clash retry; time them per call.

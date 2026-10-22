@@ -32,6 +32,7 @@ from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 
 import clocksample  # noqa: E402
+from rfd4.trunk_clock import time_trunk  # noqa: E402
 
 CLOCK_FLOOR_MHZ = 1200
 
@@ -108,15 +109,7 @@ def main():
 
     # Time the trunk calls from inside the network so the host share is measured, not inferred.
     trunk_s = []
-    inner = engine.trunk.run_bucketed
-
-    def timed(*args, **kwargs):
-        t = time.perf_counter()
-        r = inner(*args, **kwargs)
-        trunk_s.append(time.perf_counter() - t)
-        return r
-
-    engine.trunk.run_bucketed = timed
+    time_trunk(engine.trunk, trunk_s)
 
     for i in range(a.designs):
         trunk_s.clear()
