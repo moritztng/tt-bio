@@ -1,8 +1,9 @@
 """Seed floor against same-seed deviation for a resid_abab.sh run made with `--rng per_design`.
 
-    python perf/rfd4/e2e/resid_spread.py <abab dir> [--base elide] [--arm pairbf16] [--out <json>]
+    python perf/rfd4/e2e/resid_spread.py <abab dir> [--base elide] [--arm pairbf16] [--first 1] [--out <json>]
 
-Each leg holds designs r0..rK, one seed each. The floor is every pair of different seeds in the base
+Each leg holds designs r0..rK, one seed each (design.py --reseed). r0 is the compile design and is
+skipped by default: at 256 it does not repeat the warm design of the same seed. The floor is every pair of different seeds in the base
 leg (what a re-roll costs you anyway); the deviation is the arms rk against the bases rk, same seed.
 """
 import argparse
@@ -25,14 +26,15 @@ def main():
     ap.add_argument("abab")
     ap.add_argument("--base", default="elide")
     ap.add_argument("--arm", default="pairbf16")
+    ap.add_argument("--first", type=int, default=1, help="first design index graded")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     out = {}
     for base in sorted(Path(a.abab).glob(f"*-{a.base}1")):
         size = base.name.split("-")[0]
         arm = base.with_name(f"{size}-{a.arm}1")
-        cifs = lambda leg: {int(p.name.split("_r")[1].split("_")[0]): p
-                            for p in leg.glob("*_r*_generated.cif")}
+        cifs = lambda leg: {i: p for p in leg.glob("*_r*_generated.cif")
+                            if (i := int(p.name.split("_r")[1].split("_")[0])) >= a.first}
         b, m = cifs(base), (cifs(arm) if arm.exists() else {})
         designed, targets = designed_and_target(load(str(b[min(b)])))
         rmsd = lambda x, y: compare(load(str(x)), load(str(y)), designed, targets)["designed_ca_rmsd_a"]
