@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import ttnn
 
 from tt_bio.rfd4.oracle import OracleRequest, extract_confidence_metrics, prefix, summary_confidences
 from tt_bio.rfd4.oracle_af2ig import _pair_matrix, chain_sequence, residue_view
@@ -88,8 +89,6 @@ class OpenFold3Oracle:
     def setup(self) -> None:
         if self.model is not None:
             return
-        import ttnn
-
         from tt_bio.openfold3_fold import OpenFold3
         from tt_bio.tenstorrent import get_device
         from tt_bio.worker import _ensure_local_artifacts, _of3_state_dict
