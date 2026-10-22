@@ -167,6 +167,8 @@ def test_esmc6b_tile_dir_keys_on_the_real_ttnn(tmp_path, monkeypatch):
     snap.mkdir()
     (snap / "model.safetensors").write_bytes(b"0" * 64)
     monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path / "cache"))
+    # The key is under test, not this host's disk: below 10 GB free the cache is off (None).
+    monkeypatch.setattr(esmc.shutil, "disk_usage", lambda _p: type("U", (), {"free": 1 << 50})())
     first = esmc.esmc6b_tile_dir("esmc-6b", snap)
     assert first and first == esmc.esmc6b_tile_dir("esmc-6b", snap)
     monkeypatch.setenv("TT_BIO_ESMC_PROBE", "1")
