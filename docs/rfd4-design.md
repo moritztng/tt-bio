@@ -137,18 +137,19 @@ a sugar tree arrives with its glycosidic bonds intact.
 
 ## Design families and what they cost
 
-Measured on one Blackhole p300 chip at 1350 MHz AICLK (sampled during the design), at the full
-recipe: every step, every recycle.
+Measured on one Blackhole p300 chip at 1337-1350 MHz AICLK (sampled during the design), at the full
+recipe: every step, every recycle. Each run made two designs with the kernels already compiled;
+s/design is the run's wall time over two, so model load is included.
 
 | family | tokens | recipe | s/design |
 |---|---:|---|---:|
-| motif scaffolding | 82 | `medium/midpeak` | 25.7 |
-| structure prediction | 138 | `thinking_medium` | 53.4 |
-| enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 61.2 |
-| unconditional monomer | 100 | `thinking_medium` | 66.9 |
-| binder against a protein target | 225 | `medium/front_loaded` | 73.8 |
-| nanobody CDRs | 224 | `high/front_loaded` | 80.0 |
-| antibody CDRs (Fab) | 329 | `high/front_loaded` | 231.0 |
+| motif scaffolding | 82 | `medium/midpeak` | 9.2 |
+| unconditional monomer | 100 | `thinking_medium` | 11.6 |
+| structure prediction | 138 | `thinking_medium` | 16.4 |
+| enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 24.2 |
+| binder against a protein target | 225 | `medium/front_loaded` | 26.1 |
+| nanobody CDRs | 224 | `high/front_loaded` | 27.5 |
+| antibody CDRs (Fab) | 329 | `high/front_loaded` | 66.5 |
 
 Cost grows with the token count and with the recipe, not with `--num_designs`: designs are
 independent trajectories.
@@ -165,7 +166,9 @@ seeds is two different designs with two different token counts.
 The trunk's pair transition and the triangle multiplication's input projection run with block-fp8
 weights and a bf16 matmul kernel by default, and the pair transition and the triangle multiplication's
 output each run as one program with their residual add into the fp32 pair representation. Together that
-takes the trunk of a 512-token design from 64.3 to 44.1 s on a Blackhole chip. It is not bit-exact against
+takes the trunk of a 512-token design from 64.3 to 44.1 s on a Blackhole chip. Forming each block's pair
+biases and writing the pair update as one program each is a further 1.10x at 512 tokens, graded on 31
+designs with radius of gyration, bond outliers and clashes unchanged. It is not bit-exact against
 fp32 numerics: on 30 seed-matched 512-token binder designs the designed chain moved 7.2 A median (23.9 A at
 most) while a different seed moves it 37.2 A, and radius of gyration, bond outliers and clashes were
 unchanged. `--fast` adds nothing further for RFD4. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics
