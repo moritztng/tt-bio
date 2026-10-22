@@ -676,6 +676,18 @@ class OF3DiffusionTransformer(Module):
         # width here and marking padded keys -1e9 in mask_bias closes the leak; valid
         # positions are unaffected (padded queries' outputs are stripped at readout,
         # padded keys are masked out of every valid query's softmax).
+        # dit_tok16: a bf16 stack inside an fp32 module. a and s are cast every call, the token mask once a
+        # rollout, z only while the blocks still have to build their rollout-cached pair biases from it.
+        out_dtype = a.dtype
+        z_cast = None
+        if out_dtype != self._act_dtype:
+            a, s = (ttnn.typecast(x, self._act_dtype) for x in (a, s))
+            tok_mask_col = _cached(cache, (id(self), "tmc_cast"),
+                                   lambda: ttnn.typecast(tok_mask_col, self._act_dtype))
+            if cache is None or (id(self), "z_cast") not in cache:
+                z = z_cast = ttnn.typecast(z, self._act_dtype)
+                if cache is not None:
+                    cache[(id(self), "z_cast")] = ()   # a marker the rollout's free walks past
         N = token_mask.shape[-1]
         S = a.shape[0]
         padded_N = bucketed_width(N, TILE)
@@ -711,14 +723,16 @@ class OF3DiffusionTransformer(Module):
                     tok_ones=self._tok_ones.get(rows, False))
         for t in s16 or ():
             ttnn.deallocate(t)
+        if z_cast is not None:
+            ttnn.deallocate(z_cast)
         if l1:
             ttnn.deallocate(s_d)
             if x is not a_d:
                 ttnn.deallocate(a_d)
             x, x_l1 = ttnn.to_memory_config(x, ttnn.DRAM_MEMORY_CONFIG), x
             ttnn.deallocate(x_l1)
-        if rows == N:
-            return x
-        x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
-        x = ttnn.slice(x, [0, 0, 0], [S, N, C_A])
-        return ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+        if rows != N:
+            x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)
+            x = ttnn.slice(x, [0, 0, 0], [S, N, C_A])
+            x = ttnn.to_layout(x, ttnn.TILE_LAYOUT)
+        return x if x.dtype == out_dtype else ttnn.typecast(x, out_dtype)

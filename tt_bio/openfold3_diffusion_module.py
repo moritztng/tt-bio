@@ -39,7 +39,8 @@ import math
 import ttnn
 
 from . import ops
-from .tenstorrent import (Module, CORE_GRID_MAIN, _dtype, _cached, pad_dim, pair_row_blocks,
+from . import tenstorrent as _T
+from .tenstorrent import (Module, CORE_GRID_MAIN, _dtype, _cached, device_dtype_override, pad_dim, pair_row_blocks,
                           row_block_after_refusal, stack_samples)
 from .openfold3_atom_transformer import OF3AtomTransformer
 from .openfold3_diffusion_transformer import OF3DiffusionTransformer
@@ -302,8 +303,11 @@ class OF3DiffusionModule(Module):
             _sub(enc, "noisy_position_embedder"), compute_kernel_config)
         self.enc_at = OF3AtomTransformer(_sub(enc, "atom_transformer"),
                                          compute_kernel_config)
-        self.dit = OF3DiffusionTransformer(_sub(self._w, "diffusion_transformer"),
-                                           compute_kernel_config)
+        # dit_tok16: an fp32 module keeps its atom side fp32 and builds the token transformer bf16.
+        tok_dtype = ttnn.bfloat16 if _T.lever("dit_tok16") else self._act_dtype
+        with device_dtype_override(tok_dtype):
+            self.dit = OF3DiffusionTransformer(_sub(self._w, "diffusion_transformer"),
+                                               compute_kernel_config)
         self.dec = OF3AtomAttentionDecoder(_sub(self._w, "atom_attn_dec"),
                                            compute_kernel_config)
 
