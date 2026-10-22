@@ -97,3 +97,16 @@ def test_gated_fill_off_restores_256(monkeypatch):
     monkeypatch.setattr(R, "DRAM_FILL_GATED", False)
     dev, D = _Dev(11, 10), R.ttnn.DRAM_MEMORY_CONFIG
     assert not R.eligible_gated(_XW(dev, 224), 128, D) and R.eligible_gated(_XW(dev, 256), 128, D)
+
+
+@pytest.mark.parametrize("n, c, opens", [
+    (128, 256, True), (128, 128, True), (96, 256, True), (192, 64, True), (256, 32, True),  # measured wins
+    (128, 64, False), (160, 64, False), (224, 32, False), (96, 128, False),                  # measured losses
+])
+def test_gated_l1_opens_by_slice_size_on_110_cores(n, c, opens):
+    assert R.eligible_gated(_XW(_Dev(11, 10), n, c), c, R.ttnn.L1_MEMORY_CONFIG) is opens
+
+
+def test_gated_l1_size_rule_only_on_the_measured_grid():
+    for grid in ((8, 9), (13, 10)):
+        assert not R.eligible_gated(_XW(_Dev(*grid), 128, 256), 256, R.ttnn.L1_MEMORY_CONFIG)
