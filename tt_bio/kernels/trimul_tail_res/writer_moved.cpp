@@ -8,7 +8,6 @@
 // z into c_7, then writes the previous block's output from c_2 into z in place. Reading block b
 // before writing block b - 1 keeps the double-buffered inputs one block ahead of compute; z of a
 // row is always read before this same core writes it, and no other core touches the row.
-// T2_RES32 (RFD4's pair_tail_cm): z and c_2 are float32, and c_21, the sum's bf16 copy, goes to `o`.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -40,7 +39,6 @@ void kernel_main() {
     const uint32_t first_unit = get_arg_val<uint32_t>(0);
     const uint32_t num_units = get_arg_val<uint32_t>(1);
     const uint32_t tb = get_tile_size(z_cb);
-    const uint32_t tg = get_tile_size(g_cb);
 
     // first row tile of block b of this core; its rows follow St apart
     auto block_m = [&](uint32_t b) -> uint32_t {
@@ -61,7 +59,7 @@ void kernel_main() {
             for (uint32_t t = 0; t < Nt; ++t, wm += tb) noc_async_read_page(jt * Nt + t, mk, wm);
         }
         for (uint32_t r = 0; r < Mb; ++r, m += St) {
-            for (uint32_t t = 0; t < gt; ++t, wg += tg) noc_async_read_page(m * gt + t, g, wg);
+            for (uint32_t t = 0; t < gt; ++t, wg += tb) noc_async_read_page(m * gt + t, g, wg);
             for (uint32_t t = 0; t < Nt; ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz);
         }
         noc_async_read_barrier();
@@ -72,27 +70,14 @@ void kernel_main() {
     auto write_block = [&](uint32_t m) {
         cb_wait_front(out_cb, Mb * Nt);
         uint32_t r = get_read_ptr(out_cb);
-#ifdef T2_RES32
-        constexpr uint32_t copy_cb = tt::CBIndex::c_21;
-        const uint32_t tc = get_tile_size(copy_cb);
-        cb_wait_front(copy_cb, Mb * Nt);
-        uint32_t rc = get_read_ptr(copy_cb);
-#endif
         for (uint32_t k = 0; k < Mb; ++k, m += St) {
             for (uint32_t t = 0; t < Nt; ++t, r += tb) {
                 if constexpr (EXTRA & 8) noc_async_write_page(m * Nt + t, o, r);
                 else noc_async_write_page(m * Nt + t, z, r);
-#ifdef T2_RES32
-                noc_async_write_page(m * Nt + t, o, rc);
-                rc += tc;
-#endif
             }
         }
         noc_async_writes_flushed();
         cb_pop_front(out_cb, Mb * Nt);
-#ifdef T2_RES32
-        cb_pop_front(copy_cb, Mb * Nt);
-#endif
     };
 
     const uint32_t nblocks = num_units * BPU;
