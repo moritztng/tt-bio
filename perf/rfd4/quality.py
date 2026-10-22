@@ -403,7 +403,7 @@ def overall_verdict(doc: dict) -> str:
 
 def write_doc(doc: dict, path: pathlib.Path) -> None:
     doc["verdict"] = overall_verdict(doc)
-    doc["updated"] = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    doc["updated"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(doc, indent=1, sort_keys=False, allow_nan=True) + "\n")
 
