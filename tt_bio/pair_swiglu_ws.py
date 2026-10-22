@@ -272,7 +272,9 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     if ops.declines_under_tape("pair_relu"):
         return None
     if resid is not None:
-        return _run(x, w1, w2, fidelity, (("WS_RESID", "1"), ("WS_RES32", "1")), SILU_POLY, ln, resid, (b1, b2)), x
+        # generic_op hands back a new handle over resid's buffer; the caller keeps its own two
+        _run(x, w1, w2, fidelity, (("WS_RESID", "1"), ("WS_RES32", "1")), SILU_POLY, ln, resid, (b1, b2))
+        return resid, x
     return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
 
 
