@@ -69,6 +69,7 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     # The legacy LM gate multiply is graded on ESMC's embeddings only; ESMFold2 keeps binary_ng.
     assert "lm_gate_ng" in normal_set and "lm_gate_ng" in fast_set
     assert "lm_sdpa_stock" in normal_set and "lm_sdpa_stock" in fast_set
+    assert "lm_ln_stock" in normal_set and "lm_ln_stock" in fast_set
     assert all((n in s) is not wormhole for n in ("lm_k64", "lm_linear") for s in (normal_set, fast_set))
     # The fused token-DiT attention (dsg) and its hoisted conditioning (dsq2) passed the fast bar on Wormhole only.
     assert ("dit_qkvf" in fast_set) is wormhole and "dit_qkvf" not in normal_set

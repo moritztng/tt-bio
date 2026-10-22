@@ -256,14 +256,20 @@ _ESMC_QKRH_BF8 = (env_flag("TT_BIO_ESMC_QKRH_BF8", False)
 # ln_split (tt_bio/ln_split.py): the per-layer LayerNorms of a forward with few tile rows (the 6B at one sequence: 17 of
 # 72 Wormhole cores busy in ttnn.layer_norm) split each row tile over G cores. [544, 2560] device ms a call (.110,
 # trace replay): weight+bias 0.109 -> 0.085, weight 0.091 -> 0.073. Not bit-exact (rel_l2 vs float64 0.0032 against
-# 0.0019). Declines where ttnn spreads as wide (300M/600M page batches). None = off until the page cell grades it.
+# 0.0019). Declines where ttnn spreads as wide (300M/600M page batches). 6B page cell, Wormhole 1000 MHz, 3 A/Bs of 3
+# rounds: normal -3.4 / -2.7 / -1.9 ms of ~180 (pcc vs fp32 +0.000014 / -0.000046), fast -1.2 ms (-0.000019). None = on
+# for Wormhole; ESMFold2 keeps ttnn.layer_norm (lm_ln_stock) until a fold grades it; Blackhole is not measured.
 _ESMC_LN_SPLIT = (env_flag("TT_BIO_ESMC_LN_SPLIT", False)
                   if os.environ.get("TT_BIO_ESMC_LN_SPLIT", "").strip() else None)
 
 
 def _ln(x, weight, bias, ck, memory_config=None):
     """ttnn.layer_norm(x, weight, bias, eps 1e-5), through ln_split when it is on and serves the shape."""
-    if _ESMC_LN_SPLIT:
+    on = _ESMC_LN_SPLIT
+    if on is None:
+        from tt_bio import tenstorrent
+        on = tenstorrent.is_wormhole() and not tenstorrent.lever("lm_ln_stock")
+    if on:
         from tt_bio import ln_split
         y = ln_split.layer_norm(x, weight, bias, 1e-5, memory_config)
         if y is not None:

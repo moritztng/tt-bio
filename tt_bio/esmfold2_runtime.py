@@ -1666,8 +1666,9 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu+atom_l1"
 # Fast-bar grade wgw8g (same chip, WH --fast set vs + this, 4 seeds x 5 samples): -Fast 11 complexes CA-lDDT +0.0008
 # [-0.0002, +0.0022], docking 23 -> 24 of 44; ESMFold2 10 complexes +0.0028 [-0.0000, +0.0073], docking 28 -> 27 of 40.
 _WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8"
-# lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere).
-_LM_SDPA_STOCK = "+lm_sdpa_stock"
+# lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere);
+# lm_ln_stock its ttnn.layer_norm where ESMC runs ln_split (esmc._ln).
+_LM_STOCK = "+lm_sdpa_stock+lm_ln_stock"
 # The ESMC language model on Blackhole as ESMFold2 folded it before ESMC took the Wormhole LM path there: graded on
 # ESMC's embeddings only, not on a fold yet.
 _BH_LM_KEEP = "+lm_qk_chain+lm_gate_ng+lm_k64+lm_linear"
@@ -1686,7 +1687,7 @@ def fold_levers(fast: bool) -> str:
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     else:
         levers += _BH_LM_KEEP
-    return levers + _LM_SDPA_STOCK
+    return levers + _LM_STOCK
 
 
 def fold_scope(fast: bool):
