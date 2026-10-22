@@ -95,7 +95,7 @@ def _build(x, out, w, b, g, eps):
                                             fp32_dest_acc_en=True))
     bf, f32 = ttnn.bfloat16, ttnn.float32
     cbs = [_cb(2, grid, kc, bf), _cb(7, grid, kc, bf), _cb(10, grid, 1, bf)]
-    cbs += [_cb(i, grid, kc, bf) for i, v in ((8, w), (9, b)) if v is not None]
+    cbs += [_cb(i, grid, kc, bf) for i, v in ((8, w), (9, b), (21, w), (22, b)) if v is not None]
     cbs += [_cb(i, grid, t, f32) for i, t in ((11, 1), (12, 1), (13, g), (14, 1), (15, 1), (18, g), (19, 1), (20, 1))]
     cbs += [_cb(i, grid, kc, IM_DTYPE) for i in (16, 17)]
     sems = [ttnn.SemaphoreDescriptor(id=i, core_ranges=grid, initial_value=0) for i in (0, 1)]

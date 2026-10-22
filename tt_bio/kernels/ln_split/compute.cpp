@@ -41,6 +41,8 @@ constexpr uint32_t cb_tmp = tt::CBIndex::c_17;
 constexpr uint32_t cb_parts2 = tt::CBIndex::c_18;
 constexpr uint32_t cb_var = tt::CBIndex::c_19;
 constexpr uint32_t cb_rstd = tt::CBIndex::c_20;
+constexpr uint32_t cb_gfull = tt::CBIndex::c_21;   // gamma / beta down all rows
+constexpr uint32_t cb_bfull = tt::CBIndex::c_22;
 
 struct LnCbs {
     static constexpr uint32_t Kt = KC, x = cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler, eps = cb_eps,
@@ -97,44 +99,49 @@ ALWI void center_and_square() {
     cb_push_back(cb_tmp, KC);
 }
 
-// out = xc * rstd [* gamma] [+ beta], two tiles a DEST acquire, one rounded pack: rstd broadcast along the row and
-// gamma / beta down the column by the unpacker, the products and sum on the SFPU in fp32. Was three FPU stages, each a
-// pack and a tf32 re-read of the last stage's fp32 output.
-// UNTESTED (e7823c9f0's version hung a chip: full init inside an acquire). Open hazard: unary_bcast() picks
-// unpack-to-dest by itself for any fp32 CB, so the fp32 rstd under reconfigure_unary_bcast's B2D COL setup mismatches.
+// Row 0 of each of the KC tiles of `in` (gamma / beta) copied down all 32 rows into `out`: the SFPU has no row
+// broadcast. One tile an acquire, the full init outside them (it re-inits the DEST sync).
+ALWI void bcast_rows_to(uint32_t in, uint32_t out) {
+    cb_wait_front(in, KC);
+    unary_bcast_init<BroadcastType::ROW>(in, out);
+    cb_reserve_back(out, KC);
+    for (uint32_t i = 0; i < KC; ++i) {
+        tile_regs_acquire();
+        unary_bcast<BroadcastType::ROW>(in, i, 0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(0, out);
+        tile_regs_release();
+    }
+    cb_push_back(out, KC);
+    cb_wait_front(out, KC);
+}
+
+// out = xc * rstd [* gamma] [+ beta], two tiles a DEST acquire, one rounded pack: xc * rstd on the FPU as
+// ttnn.layer_norm does, the affine on the SFPU in fp32 against the row-broadcast gamma / beta. Was three FPU stages,
+// each a pack and a tf32 re-read of the last stage's fp32 output.
 ALWI void normalize_out() {
-    using BT = BroadcastType;
-    if constexpr (HAS_W) cb_wait_front(cb_gamma, KC);   // read after x: the statistics do not wait for it
-    if constexpr (HAS_B) cb_wait_front(cb_beta, KC);
-    constexpr uint32_t cb_last = HAS_B ? cb_beta : HAS_W ? cb_gamma : cb_xc;
-    // The full init (it re-inits the DEST sync) once, outside any acquire; inside, only reconfigure_unary_bcast.
-    unary_bcast_init<BT::COL>(cb_rstd, cb_out);
+    pack_reconfig_data_format(cb_out);
     for (uint32_t i0 = 0; i0 < KC; i0 += 2) {
         const uint32_t n = KC - i0 < 2 ? KC - i0 : 2;
         cb_reserve_back(cb_out, n);
         tile_regs_acquire();
-        if (i0) reconfigure_unary_bcast<(HAS_W || HAS_B) ? BT::ROW : BT::NONE, BT::COL>(cb_last, cb_rstd, cb_out, cb_out);
-        unary_bcast<BT::COL>(cb_rstd, 0, 2);
-        reconfigure_unary_bcast<BT::COL, BT::NONE>(cb_rstd, cb_xc, cb_out, cb_out);
-        for (uint32_t j = 0; j < n; ++j) unary_bcast<BT::NONE>(cb_xc, i0 + j, j);
-        mul_binary_tile_init();
-        for (uint32_t j = 0; j < n; ++j) mul_binary_tile(j, 2, j);
+        reconfig_data_format(cb_xc, cb_rstd);
+        mul_bcast_cols_init_short(cb_xc, cb_rstd);
+        for (uint32_t j = 0; j < n; ++j) mul_tiles_bcast_cols(cb_xc, cb_rstd, i0 + j, 0, j);
         if constexpr (HAS_W) {
-            reconfigure_unary_bcast<BT::NONE, BT::ROW>(cb_xc, cb_gamma, cb_out, cb_out);
-            for (uint32_t j = 0; j < n; ++j) {
-                unary_bcast<BT::ROW>(cb_gamma, i0 + j, 3);
-                mul_binary_tile_init();
-                mul_binary_tile(j, 3, j);
-            }
+            reconfig_data_format_srca(cb_gfull);
+            copy_tile_to_dst_init_short(cb_gfull);
+            for (uint32_t j = 0; j < n; ++j) copy_tile(cb_gfull, i0 + j, 2 + j);
+            mul_binary_tile_init();
+            for (uint32_t j = 0; j < n; ++j) mul_binary_tile(j, 2 + j, j);
         }
         if constexpr (HAS_B) {
-            if constexpr (HAS_W) reconfigure_unary_bcast<BT::ROW, BT::ROW>(cb_gamma, cb_beta, cb_out, cb_out);
-            else reconfigure_unary_bcast<BT::NONE, BT::ROW>(cb_xc, cb_beta, cb_out, cb_out);
-            for (uint32_t j = 0; j < n; ++j) {
-                unary_bcast<BT::ROW>(cb_beta, i0 + j, 3);
-                add_binary_tile_init();
-                add_binary_tile(j, 3, j);
-            }
+            reconfig_data_format_srca(cb_bfull);
+            copy_tile_to_dst_init_short(cb_bfull);
+            for (uint32_t j = 0; j < n; ++j) copy_tile(cb_bfull, i0 + j, 2 + j);
+            add_binary_tile_init();
+            for (uint32_t j = 0; j < n; ++j) add_binary_tile(j, 2 + j, j);
         }
         for (uint32_t j = 0; j < n; ++j) round_bf16_rne_tile(j);   // the packer truncates; ttnn.layer_norm's output rounds
         tile_regs_commit();
@@ -160,6 +167,8 @@ void kernel_main() {
     ln_prologue::row_mean<LnCbs>(cb_tmp, cb_p2, true);        // partial sum (x - mean)^2 / K
     sum_parts(cb_parts2, cb_var);                         // biased variance
     ln_prologue::rstd<LnCbs>();
+    if constexpr (HAS_W) bcast_rows_to(cb_gamma, cb_gfull);   // gamma / beta are read after x
+    if constexpr (HAS_B) bcast_rows_to(cb_beta, cb_bfull);
     normalize_out();
     cb_pop_front(cb_xc, KC);
     cb_pop_front(cb_rstd, 1);
