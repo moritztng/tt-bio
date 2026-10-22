@@ -153,3 +153,22 @@ def test_the_card_builds_the_pair(case, npad):
     # after it is fp32 elementwise. Its design-level effect is graded on seeds (perf/rfd4/glue/run4.sh).
     assert rel_rms < 3e-4
     card.release()
+
+
+@pytest.mark.device
+@pytest.mark.parametrize("n", [128, 160, 512])
+def test_the_scale_column_only_moves_values(n):
+    from tt_bio import tenstorrent as T
+    from tt_bio.rfd4.pair import PairOnCard
+
+    import ttnn
+
+    card = PairOnCard.__new__(PairOnCard)
+    card.device = T.get_device()
+    g = torch.Generator().manual_seed(n)
+    # fp32 values across the exponent range, so a transpose through a narrower format would show
+    scale = torch.randn(1, n, n, generator=g) * torch.logspace(-6, 6, n)
+    col = card.scale_column(scale)
+    assert list(col.shape) == [1, n, n, 1]
+    assert torch.equal(ttnn.to_torch(col), scale[..., None])
+    ttnn.deallocate(col)

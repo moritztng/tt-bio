@@ -219,8 +219,6 @@ class PairOnCard:
     def __call__(self, p: PairInputs, npad: int):
         import ttnn
 
-        from ..tenstorrent import upload
-
         const = self._constant(p.constant, npad)
         bins, scale = p.bins, p.scale
         if npad:
@@ -230,7 +228,7 @@ class PairOnCard:
         x = ttnn.add(rows, const)
         ttnn.deallocate(rows)
         # z = x * r1 r2 * (w gamma) + beta; r1 r2 is the host's per-pair scale.
-        s = upload(scale[..., None].float().contiguous(), dtype=ttnn.float32, device=self.device)
+        s = self.scale_column(scale)
         wg = (self.split.ln_weight.double() * p.gamma.double()).float()
         wg, beta = (ttnn.from_torch(v[:, None, None], layout=ttnn.TILE_LAYOUT, device=self.device,
                                     dtype=ttnn.float32) for v in (wg, p.beta))
@@ -243,6 +241,24 @@ class PairOnCard:
         for t in (x, wg, beta):
             ttnn.deallocate(t)
         return z
+
+    def scale_column(self, scale: torch.Tensor):
+        """`scale[..., None]`, [b, n, n, 1] fp32 TILE on the card, for a broadcast over the pair channels.
+
+        Uploaded as it lies, the [b, n, n, 1] row-major tensor is one 4-byte page per pair, 262144
+        of them at 512, and the card's pair build sat 9.4 ms a step waiting for it. As [b, n, 1, n]
+        a page is a whole row of pairs; the card tilizes it and swaps the last two axes, which only
+        moves values."""
+        import ttnn
+
+        b, n = int(scale.shape[0]), int(scale.shape[1])
+        rm = ttnn.from_torch(scale.reshape(b, n, 1, n).float().contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
+                             device=self.device, dtype=ttnn.float32)
+        rows = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
+        ttnn.deallocate(rm)
+        col = ttnn.transpose(rows, -2, -1)
+        ttnn.deallocate(rows)
+        return col
 
     def rows(self, bins: torch.Tensor):
         """`W_x[bins]` on the card, [b, n, n, pair] fp32, the fp32 weight rows to ~1e-4."""
