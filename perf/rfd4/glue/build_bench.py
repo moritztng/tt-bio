@@ -6,6 +6,8 @@ Variants of the step after the gather, z = x * s * (w gamma) + beta (x = const +
 * `ship`: the shipped `PairOnCard.__call__`
 * `flat`: the same ops on the [1, 1, n*n, pair] view, so the per-channel operands are plain row broadcasts
 * `addcmul`: beta + y * wg as one ternary op
+* `onehot*`: the gather as one matmul, onehot(bin) x [hi; mid; lo] with K = 3 x 32, fp32 accumulation; each output is
+  the three bf16 parts summed in the fp32 dest, which is the fp32 weight exactly (pair.split_bf16)
 The census (call_prof) has the per-op device times; this has the wall a step pays, host uploads included.
 """
 import argparse
@@ -51,10 +53,30 @@ def main():
                      torch.randn(1, c, generator=g), torch.randn(1, c, generator=g))
     ref = split.assemble(p)
 
-    def affine(flat, ternary):
+    from tt_bio.rfd4.trunk import compute_kernel_config
+    assert nb <= 32
+    eye = torch.zeros(nb, 96)
+    wst = torch.zeros(96, c)
+    for k, part in enumerate(P.split_bf16(split.w_step).float()):
+        eye[torch.arange(nb), 32 * k + torch.arange(nb)] = 1.0
+        wst[32 * k:32 * k + nb] = part
+    eye_d = ttnn.from_torch(eye.bfloat16(), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    wst_d = ttnn.from_torch(wst.bfloat16(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    ckc = compute_kernel_config()
+
+    def onehot_rows(bins):
+        idx = ttnn.from_torch(bins.reshape(1, n * n).to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT, device=dev,
+                              dtype=ttnn.uint32)
+        oh = ttnn.embedding(idx, eye_d, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(idx)
+        rows = ttnn.matmul(oh, wst_d, dtype=ttnn.float32, compute_kernel_config=ckc)
+        ttnn.deallocate(oh)
+        return ttnn.reshape(rows, (1, n, n, c))
+
+    def affine(flat, ternary, gather=None):
         def build():
             cst = b._constant(p.constant, 0)
-            rows = b.rows(p.bins)
+            rows = (gather or b.rows)(p.bins)
             x = ttnn.add(rows, cst)
             ttnn.deallocate(rows)
             s = upload(p.scale[..., None].float().contiguous(), dtype=ttnn.float32, device=dev)
@@ -78,7 +100,8 @@ def main():
         return build
 
     variants = {"ship": lambda: b(p, 0), "flat": affine(True, False), "addcmul": affine(False, True),
-                "flat_addcmul": affine(True, True)}
+                "flat_addcmul": affine(True, True), "onehot": affine(False, False, onehot_rows),
+                "onehot_flat_addcmul": affine(True, True, onehot_rows)}
     rec = {"n": n, "reps": a.reps, "variants": {}}
     with clocksample.during(period=0.5) as clk:
         for name, fn in variants.items():
