@@ -636,8 +636,10 @@ class ESM2Attention(_SaprotLin, Module):
         from tt_bio import mm_rope, tenstorrent
         d = int(self.weights["qkv.weight"].shape[-1])
         hit = _PROGS.get((tenstorrent.is_wormhole(), d, 3 * d))
-        ncols = self.device.compute_with_storage_grid_size().x
-        if hit is None or hit[0] != "mm" or mm_rope.layout(3 * d // 32, ncols, hit[1][2]) is None:
+        if hit is None or hit[0] != "mm":
+            return None
+        ncols = mm_rope.cols(3 * d // 32, self.device.compute_with_storage_grid_size().x, hit[1][2])
+        if ncols is None:
             return None
         dev = lambda x, dt: ttnn.from_torch(x.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
         return (dev(mm_rope.permute(self.weights["qkv.weight"].t(), ncols, hit[1][2]), _dtype()),
@@ -660,7 +662,8 @@ class ESM2Attention(_SaprotLin, Module):
         c = prog[1]
         g = c.compute_with_storage_grid_size
         cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
-        return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (g.x, g.y), ck)
+        nc = mm_rope.cols(int(self.qkv_rope[0].padded_shape[-1]) // 32, g.x, cfg[2])
+        return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (nc, g.y), ck)
 
     def _half_rope(self, x):
         """(rope(q), rope(k), v) [B, H, L, 32] from one half-pair mm_rope matmul, or None where it is off or declines."""

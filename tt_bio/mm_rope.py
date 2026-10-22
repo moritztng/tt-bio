@@ -25,6 +25,12 @@ def layout(n_tiles: int, ncols: int, n_block: int):
     return n_tiles // ncols, 2 * kt // ncols, 2 * kt
 
 
+def cols(n_tiles: int, ncols: int, n_block: int):
+    """The widest in1 core count <= `ncols` that `layout` accepts, or None. Blackhole's 11 / 13 columns split no qkv of
+    whole 64-dim heads (650M: 120 tiles), so it runs 10 and leaves a column idle; Wormhole's 8 is kept."""
+    return next((c for c in range(ncols, 0, -1) if layout(n_tiles, c, n_block) is not None), None)
+
+
 def permute(w: torch.Tensor, ncols: int, n_block: int) -> torch.Tensor:
     """The [.., 3 D] qkv weight (or [1, 3 D] bias) with its 32-column tiles in the kernel's per-core order."""
     n_tiles = w.shape[-1] // 32
