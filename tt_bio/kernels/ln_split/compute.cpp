@@ -97,35 +97,41 @@ ALWI void center_and_square() {
     cb_push_back(cb_tmp, KC);
 }
 
-// out = xc * rstd [* gamma] [+ beta], two tiles a DEST acquire, one rounded pack. Every operand reaches DEST whole:
-// the fp32 xc and rstd by unpack-to-dest (unary_bcast does that for fp32 CBs; srcA / srcB would cut them to tf32),
-// rstd broadcast along the row and gamma / beta down the column by the unpacker, the products and sum on the SFPU in
-// fp32. Was three FPU stages, each a pack and a tf32 re-read of the last stage's fp32 output.
+// out = xc * rstd [* gamma] [+ beta], two tiles a DEST acquire, one rounded pack: rstd broadcast along the row and
+// gamma / beta down the column by the unpacker, the products and sum on the SFPU in fp32. Was three FPU stages, each a
+// pack and a tf32 re-read of the last stage's fp32 output.
+// UNTESTED (e7823c9f0's version hung a chip: full init inside an acquire). Open hazard: unary_bcast() picks
+// unpack-to-dest by itself for any fp32 CB, so the fp32 rstd under reconfigure_unary_bcast's B2D COL setup mismatches.
 ALWI void normalize_out() {
+    using BT = BroadcastType;
     if constexpr (HAS_W) cb_wait_front(cb_gamma, KC);   // read after x: the statistics do not wait for it
     if constexpr (HAS_B) cb_wait_front(cb_beta, KC);
+    constexpr uint32_t cb_last = HAS_B ? cb_beta : HAS_W ? cb_gamma : cb_xc;
+    // The full init (it re-inits the DEST sync) once, outside any acquire; inside, only reconfigure_unary_bcast.
+    unary_bcast_init<BT::COL>(cb_rstd, cb_out);
     for (uint32_t i0 = 0; i0 < KC; i0 += 2) {
         const uint32_t n = KC - i0 < 2 ? KC - i0 : 2;
         cb_reserve_back(cb_out, n);
         tile_regs_acquire();
-        unary_bcast_init<BroadcastType::COL>(cb_rstd, cb_out);
-        unary_bcast<BroadcastType::COL>(cb_rstd, 0, 2);
-        unary_bcast_init<BroadcastType::NONE>(cb_xc, cb_out);
-        for (uint32_t j = 0; j < n; ++j) unary_bcast<BroadcastType::NONE>(cb_xc, i0 + j, j);
+        if (i0) reconfigure_unary_bcast<(HAS_W || HAS_B) ? BT::ROW : BT::NONE, BT::COL>(cb_last, cb_rstd, cb_out, cb_out);
+        unary_bcast<BT::COL>(cb_rstd, 0, 2);
+        reconfigure_unary_bcast<BT::COL, BT::NONE>(cb_rstd, cb_xc, cb_out, cb_out);
+        for (uint32_t j = 0; j < n; ++j) unary_bcast<BT::NONE>(cb_xc, i0 + j, j);
         mul_binary_tile_init();
         for (uint32_t j = 0; j < n; ++j) mul_binary_tile(j, 2, j);
         if constexpr (HAS_W) {
+            reconfigure_unary_bcast<BT::NONE, BT::ROW>(cb_xc, cb_gamma, cb_out, cb_out);
             for (uint32_t j = 0; j < n; ++j) {
-                unary_bcast_init<BroadcastType::ROW>(cb_gamma, cb_out);
-                unary_bcast<BroadcastType::ROW>(cb_gamma, i0 + j, 3);
+                unary_bcast<BT::ROW>(cb_gamma, i0 + j, 3);
                 mul_binary_tile_init();
                 mul_binary_tile(j, 3, j);
             }
         }
         if constexpr (HAS_B) {
+            if constexpr (HAS_W) reconfigure_unary_bcast<BT::ROW, BT::ROW>(cb_gamma, cb_beta, cb_out, cb_out);
+            else reconfigure_unary_bcast<BT::NONE, BT::ROW>(cb_xc, cb_beta, cb_out, cb_out);
             for (uint32_t j = 0; j < n; ++j) {
-                unary_bcast_init<BroadcastType::ROW>(cb_beta, cb_out);
-                unary_bcast<BroadcastType::ROW>(cb_beta, i0 + j, 3);
+                unary_bcast<BT::ROW>(cb_beta, i0 + j, 3);
                 add_binary_tile_init();
                 add_binary_tile(j, 3, j);
             }
