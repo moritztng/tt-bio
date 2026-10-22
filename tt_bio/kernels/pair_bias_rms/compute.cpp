@@ -3,14 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // pair_bias_rms: attention pair biases straight from the pair tensor, RMSNorm included, head-first,
-//   out[b, h, i, j] = (z[b, i, j, :] @ W[:, h]) * rsqrt(mean_c z[b, i, j, c]^2 + EPS),
+//   out[b, h, i, j] = (z[b, i, j, :] @ W[:, h]) * rsqrt(mean_c z[b, i, j, c]^2 + eps),
 // for 32 heads (one head tile). dit_pair_bias's layout trick (kernels/dit_pair_bias/compute.cpp) with the norm
 // folded in: the norm is a per-(i, j) scale, so it can follow the projection. Per unit (b, ib, jb), two rows i
 // at a time:
 //   1. sq = z(i, jb)^2, elementwise, packed bf16.
 //   2. P_i = W^T @ z(i, jb)^T into dest t, S_i = ONES @ sq^T into dest t + 2. Tile P_i is [h x j]; every row of
 //      S_i holds sum_c z[i, j, c]^2 for its column j, so it lines up with P_i elementwise.
-//   3. P_i *= rsqrt(S_i / C + EPS) on the SFPU in the fp32 dest, then the pair packed untilized into one 32-tile
+//   3. P_i *= rsqrt(S_i / C + eps) on the SFPU in the fp32 dest, then the pair packed untilized into one 32-tile
 //      row of c_3 as in dit_pair_bias, and each 2 KB row tilized into head h's output tile.
 // z streams through c_1 two rows at a time; nothing of a unit stays resident but the 32 untilized rows.
 #include <cstdint>
@@ -27,7 +27,7 @@
 
 constexpr uint32_t KT = get_compile_time_arg_val(0);
 constexpr uint32_t INV_C = get_compile_time_arg_val(1);   // fp32 bits of 1 / C
-constexpr uint32_t EPS = get_compile_time_arg_val(2);     // fp32 bits
+constexpr uint32_t EPS_BITS = get_compile_time_arg_val(2);  // fp32 bits of eps (EPS is an LLK macro)
 constexpr uint32_t ROWS = 2;  // rows i per dest acquire: P in 0..1, S in 2..3
 constexpr uint32_t cb_w = 0, cb_z = 1, cb_one = 2, cb_rm = 3, cb_sq = 4, cb_out = 16;
 
@@ -75,7 +75,7 @@ void kernel_main() {
             binop_with_scalar_tile_init();
             for (uint32_t t = 0; t < ROWS; ++t) {
                 mul_unary_tile(ROWS + t, INV_C);
-                add_unary_tile(ROWS + t, EPS);
+                add_unary_tile(ROWS + t, EPS_BITS);
             }
             rsqrt_tile_init();
             for (uint32_t t = 0; t < ROWS; ++t) {
