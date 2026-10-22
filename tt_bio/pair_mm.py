@@ -49,6 +49,18 @@ _BLOCK = {
     (12, 4): (8, 4, 1, 4, 1),
     (16, 4): (8, 8, 1, 4, 1),
     (32, 4): (8, 8, 2, 2, 2),
+    # RFD4's pair transition (384 -> 768 -> 384), mm_sweep at [1, 128, 128, K] on Blackhole, AICLK 1350:
+    # fc1 0.402 -> 0.226 ms, fc2 0.283 -> 0.190 ms against ttnn.linear, float64 error unchanged
+    # (perf/rfd4/bfp8/mm_sweep.py).
+    (12, 24): (8, 4, 4, 1, 4),
+    (24, 12): (4, 4, 2, 2, 2),
+}
+#: The same keys with a bfloat8_b operand (RFD4's `transition_b8`): fc1 reads a bf16 x and bfp8
+#: weights and writes bfp8 (0.255 -> 0.146 ms against ttnn.linear's bfp8 call), fc2 reads both
+#: bfp8 (0.193 -> 0.140 ms). Only shapes swept in bfp8 take one; any other bfp8 call declines.
+_BLOCK_B8 = {
+    (12, 24): (8, 6, 4, 1, 4),
+    (24, 12): (4, 6, 2, 2, 2),
 }
 
 #: (calls served, calls declined), cumulative; sample at a round boundary.
@@ -79,9 +91,11 @@ def forget() -> None:
 
 def config(x, w, transpose_b: bool = False):
     """The block config for ``x @ op(w)``, or None if this call is not in the swept class."""
-    if (x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16 or len(w.shape) != 2
+    dts = (x.dtype, w.dtype)
+    if (not set(dts) <= {ttnn.bfloat16, ttnn.bfloat8_b} or len(w.shape) != 2
             or x.layout != ttnn.TILE_LAYOUT or w.layout != ttnn.TILE_LAYOUT):
         return None
+    table = _BLOCK if dts == (ttnn.bfloat16, ttnn.bfloat16) else _BLOCK_B8
     shape = [int(d) for d in x.shape]      # ttnn.Shape does not support slicing
     K, N = (int(w.shape[1]), int(w.shape[0])) if transpose_b else (int(w.shape[0]), int(w.shape[1]))
     if shape[-1] != K or K % 32 or N % 32:
@@ -89,7 +103,7 @@ def config(x, w, transpose_b: bool = False):
     rows = 1
     for d in shape[:-1]:
         rows *= d
-    blk = _BLOCK.get((K // 32, N // 32))
+    blk = table.get((K // 32, N // 32))
     if blk is None or rows < MIN_ROWS:
         return None
     # A ragged pair grid (AF2-IG at 195 x 195) is tiles padded per row, which minimal_matmul runs
@@ -181,6 +195,7 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
         return None
     cfg = config(x, w, transpose_b)
     if (bias is None and activation is None and dtype in (None, ttnn.bfloat16)
+            and x.dtype == ttnn.bfloat16 and w.dtype == ttnn.bfloat16
             and (cfg is not None or _narrow(x, w, transpose_b)) and _wormhole()):
         from . import pair_linear
         out = pair_linear.matmul(x, _transposed(w) if transpose_b else w, compute_kernel_config)

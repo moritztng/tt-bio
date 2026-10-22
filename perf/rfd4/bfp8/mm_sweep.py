@@ -10,7 +10,6 @@ sites.py does (row sample, checkpoint layer 0 weights). The fidelity is HiFi4 on
 and HiFi2 where both operands are bfp8 (`bfp8_fidelity`, the same bits).
 """
 import argparse
-import itertools
 import json
 import sys
 import time
@@ -38,14 +37,15 @@ ARMS = [  # name, x dtype, w dtype, out dtype, fidelity
 
 
 def blocks(kt, nt, rows_t):
-    for M, Kb, Nb in itertools.product((4, 8, 16), (2, 3, 4, 6, 8, 12), (1, 2, 3, 4, 6, 8)):
-        if kt % Kb or nt % Nb or rows_t % M:
-            continue
-        for sh, sw in ((4, 1), (2, 2), (1, 4), (2, 1), (1, 2), (8, 1), (1, 8), (4, 2), (2, 4)):
-            # fp32 dest: 4 tiles per subblock at most (8 when the kernel runs half-sync is not assumed)
-            if M % sh or Nb % sw or sh * sw > 4:
-                continue
-            yield M, Kb, Nb, sh, sw
+    """The block family pair_mm was swept over (perf/bcp_evo/mm_pair_bench.py), known to run on
+    Blackhole. A wider grid (M 16, K block 2 or 3, more subblocks) hung the card inside
+    minimal_matmul on 10-22."""
+    for M in (4, 8):
+        for Kb in sorted({min(kt, 8), min(kt, 4), min(kt, 6)}):
+            for Nb, sh, sw in ((1, 4, 1), (2, 2, 2), (4, 1, 4)):
+                if kt % Kb or nt % Nb or rows_t % M:
+                    continue
+                yield M, Kb, Nb, sh, sw
 
 
 def main():
@@ -130,6 +130,7 @@ def main():
                             input_tensor=xt, weight_tensor=wt, bias_tensor=bt, compute_kernel_config=c,
                             fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.RELU) if act else None,
                             dtype=dt[od], config=cfg)
+                        print("try", name, arm, blk, flush=True)   # a hang names its config
                         try:
                             ms = timed(mm, 4)
                         except RuntimeError:

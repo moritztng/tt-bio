@@ -4269,7 +4269,7 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 
 
 def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
-                  annotated_cif: bool, validate: bool) -> None:
+                  annotated_cif: bool, validate: bool, fast: bool = False) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
 
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
@@ -4297,6 +4297,9 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
 
     click.echo(f"Designing {len(designs)} spec(s) × {num_designs} design(s) from "
                f"{Path(inputs).name} → {out_dir}, seed {seed}")
+    from tt_bio.tenstorrent import set_fast_mode
+
+    set_fast_mode(fast)   # the trunk picks its lever set (rfd4.trunk.FAST_LEVERS) when it is built
     engine = rfd4.get_engine()
     written = 0
     for design in designs:
@@ -4415,8 +4418,9 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
               help="boltzgen only. Reuse existing results in --out_dir and generate only as "
                    "many new designs as --num_designs still needs.")
 @click.option("--fast", is_flag=True,
-              help="boltzgen and rfd3. Faster, slightly lower-precision kernels (boltzgen: "
-                   "block-fp8 for some operations; rfd3: fused atom attention).")
+              help="boltzgen, rfd3 and rfd4. Faster, slightly lower-precision kernels (boltzgen: "
+                   "block-fp8 for some operations; rfd3: fused atom attention; rfd4: block-fp8 "
+                   "pair transition).")
 @click.option("--diffusion_trace", is_flag=True,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
                    "DiT device stream (lossless; collapses per-step host dispatch). Opt-in; "
@@ -4602,7 +4606,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     if model == "rfd4":
         for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
                            ("--config", "configs"), ("--budget", "budget"),
-                           ("--reuse", "reuse"), ("--fast", "fast"),
+                           ("--reuse", "reuse"),
                            ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
                            ("--log", "log"), ("--checkpoint", "checkpoint"),
                            ("--golden_dir", "golden_dir"), ("--num_timesteps", "num_timesteps"),
@@ -4615,7 +4619,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                 click.secho(f"Note: --model rfd4 does not use {flag}; ignoring.", fg="yellow")
         _run_rfd4_cli(Path(inputs), out_dir,
                       num_designs if num_designs is not None else 1,
-                      nsteps, seed, spec_subset, annotated_cif, not no_validate)
+                      nsteps, seed, spec_subset, annotated_cif, not no_validate, fast)
         return
 
     # --model rfd3

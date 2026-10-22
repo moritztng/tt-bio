@@ -23,8 +23,10 @@ import ttnn
 
 import torch
 
+from .. import ops
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
-                           _sdpa_program_config_for_lengths, download, fused_sdpa, upload)
+                           _sdpa_program_config_for_lengths, bfp8_fidelity, download, fused_sdpa, lever,
+                           lever_scope, model_levers, under_lever_scope, upload)
 
 EPS = 1e-5
 NEG_INF = -1e4
@@ -424,11 +426,16 @@ class PairUpdate(Module):
         self.tri_out = TriangleMultiplication(False, _trimul_weights(self.scope("tri_mult_out")), ckc)
         self.tri_in = TriangleMultiplication(True, _trimul_weights(self.scope("tri_mult_in")), ckc)
         t = "transition_out"
+        # transition_b8: both weights and the hidden activation in bfp8. The linears write their
+        # output, so the hidden's bytes are most of their time (fc1 at 128 tokens 0.407 -> 0.240 ms,
+        # perf/rfd4/bfp8/sites.py); fc2 then reads two bfp8 operands at HiFi2, the same bits.
+        b8 = lever("transition_b8")
+        self.tr_hidden_dtype = ttnn.bfloat8_b if b8 else self.dtype
         self.tr_ln_w = self.torch_to_tt(f"{t}.layer_norm.weight", transform=ident, dtype=self.dtype)
         self.tr_ln_b = self.torch_to_tt(f"{t}.layer_norm.bias", transform=ident, dtype=self.dtype)
-        self.tr_w1 = self.torch_to_tt(f"{t}.linear_1.weight", dtype=self.dtype)
+        self.tr_w1 = self.torch_to_tt(f"{t}.linear_1.weight", dtype=self.tr_hidden_dtype)
         self.tr_b1 = self.torch_to_tt(f"{t}.linear_1.bias", transform=ident, dtype=self.dtype)
-        self.tr_w2 = self.torch_to_tt(f"{t}.linear_2.weight", dtype=self.dtype)
+        self.tr_w2 = self.torch_to_tt(f"{t}.linear_2.weight", dtype=self.tr_hidden_dtype)
         self.tr_b2 = self.torch_to_tt(f"{t}.linear_2.bias", transform=ident, dtype=self.dtype)
 
     def _write(self, x, mask):
@@ -455,9 +462,10 @@ class PairUpdate(Module):
     def _transition(self, z, pair_mask_c):
         ckc = self.compute_kernel_config
         zn = ttnn.layer_norm(z, weight=self.tr_ln_w, bias=self.tr_ln_b, epsilon=EPS, compute_kernel_config=ckc)
-        h = self._lin(zn, self.tr_w1, bias=self.tr_b1, dtype=self.dtype, activation="relu")
+        h = self._lin(zn, self.tr_w1, bias=self.tr_b1, dtype=self.tr_hidden_dtype, activation="relu")
         ttnn.deallocate(zn)
-        out = self._lin(h, self.tr_w2, bias=self.tr_b2, dtype=self.dtype)
+        out = ops.linear(h, self.tr_w2, bias=self.tr_b2, compute_kernel_config=bfp8_fidelity(ckc, h, self.tr_w2),
+                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(h)
         return ttnn.multiply(out, pair_mask_c)
 
@@ -504,6 +512,14 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
             res_pair_c)
 
 
+#: RFD4's precision levers per mode (`tenstorrent.model_levers`): the default design runs none, `--fast`
+#: runs FAST_LEVERS. TT_BIO_LEVERS overrides both when a harness grades a set. `pair_mm` puts the pair
+#: transition on minimal_matmul (bf16, same float64 error, not the same bits); `transition_b8` makes its
+#: weights and hidden bfp8.
+NORMAL_LEVERS = frozenset()
+FAST_LEVERS = frozenset({"pair_mm", "transition_b8"})
+
+
 class Trunk(Module):
     """`LocalLatentsTransformer._run_trunk` in inference: `nlayers` trunk blocks with a pair update
     after every `every_n`-th one but the last, run once per recycle.
@@ -525,12 +541,14 @@ class Trunk(Module):
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.nlayers = nlayers
-        self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
-                                  residual_dtype=self.residual_dtype)
-                       for i in range(nlayers)]
-        self.pair_updates = {i: PairUpdate(self.scope(f"pair_update_layers.{i}"), ckc, dtype=self.dtype,
-                                           residual_dtype=self.residual_dtype)
-                             for i in range(nlayers - 1) if i % every_n == 0}
+        self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
+        with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
+            self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
+                                      residual_dtype=self.residual_dtype)
+                           for i in range(nlayers)]
+            self.pair_updates = {i: PairUpdate(self.scope(f"pair_update_layers.{i}"), ckc, dtype=self.dtype,
+                                               residual_dtype=self.residual_dtype)
+                                 for i in range(nlayers - 1) if i % every_n == 0}
         ident = lambda x: x  # noqa: E731
         self.s_norm = self.torch_to_tt("s_cycle_norm.weight", transform=ident, dtype=self.dtype)
         self.s_proj = self.torch_to_tt("s_cycle_proj.weight", dtype=self.dtype)
@@ -608,6 +626,7 @@ class Trunk(Module):
             ttnn.deallocate(mask_scaled)
         return s, z
 
+    @under_lever_scope
     def __call__(self, s_init, z_init, conds, masks):
         """`conds[k]` is cycle k's conditioning ([b, n, dim_cond]); upstream recomputes it each cycle
         because it carries the remaining-pass count. `masks` is `trunk_masks(...)` built with this
