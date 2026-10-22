@@ -54,6 +54,7 @@ def main():
                          "to upstream's at the same seed; see state/rfd4/PAIR.md")
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
+    ap.add_argument("--reseed", action="store_true", help="design i runs at seed+i: a seed floor from one session")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -115,7 +116,7 @@ def main():
     trunk_s = []
     time_trunk(engine.trunk, trunk_s)
 
-    seeds = [a.seeds[0]] + a.seeds if a.seeds else [a.seed] * a.designs
+    seeds = [a.seeds[0]] + a.seeds if a.seeds else [a.seed + i if a.reseed else a.seed for i in range(a.designs)]
     for i, seed in enumerate(seeds):
         trunk_s.clear()
         with clocksample.during(period=1.0) as clk:
