@@ -20,7 +20,7 @@ import argparse, json, os, statistics, time, types
 
 ap = argparse.ArgumentParser()
 ap.add_argument("out"); ap.add_argument("--seq", type=int, default=608)
-ap.add_argument("--pair", nargs="+", default=["224x640", "192x640", "128x640", "320x640", "224x320"]); ap.add_argument("--heads", type=int, default=12)
+ap.add_argument("--pair", nargs="*", default=["224x640", "192x640", "128x640", "320x640", "224x320"]); ap.add_argument("--heads", type=int, default=12)
 ap.add_argument("--model", default="opendde", choices=("opendde", "protenix"))
 ap.add_argument("--qsweep", action="store_true")
 ap.add_argument("--ncall", type=int, default=6); ap.add_argument("--reps", type=int, default=5)
