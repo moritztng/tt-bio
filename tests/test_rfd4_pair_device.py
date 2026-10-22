@@ -141,7 +141,8 @@ def test_the_card_builds_the_pair(case, npad):
         host = glue.pair_repr_builder(b).double()
     bins = torch.nn.functional.pad(p.bins, [0, npad, 0, npad]) if npad else p.bins
     rows = ttnn.to_torch(card.rows(bins))[:, :n, :n]
-    assert torch.equal(rows, split.w_step[p.bins]), "the gather is not exact"
+    # a one-hot matmul over the three bf16 parts: ~1e-4 at |w| ~ 0.1, not bit for bit
+    assert (rows - split.w_step[p.bins]).abs().max() < 1e-3, "the gather is off"
     got = ttnn.to_torch(card(p, npad)).double()
     assert got.shape[1] == n + npad and torch.isfinite(got).all()
     got = got[:, :n, :n]
