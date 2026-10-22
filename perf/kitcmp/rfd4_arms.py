@@ -85,7 +85,7 @@ def time_left(margin=600):
     return time.time() < a.deadline - margin
 
 
-def climb(arm, size, warm, tag, seed=None, on_rung=None):
+def climb(arm, size, warm, tag, seed=None, on_rung=None, start=1):
     """Double the batch until the card pushes back. Returns {batch: summary}.
 
     Stops on the first rung that fails (OOM is the expected failure) or after two rungs that do not beat the
@@ -96,7 +96,7 @@ def climb(arm, size, warm, tag, seed=None, on_rung=None):
     result file was written once per arm.
     """
     seed = {int(k): v for k, v in (seed or {}).items()}
-    sweep, best_rate, stall, b = {}, 0.0, 0, 1
+    sweep, best_rate, stall, b = {}, 0.0, 0, start
     while b <= SWEEP_CEIL[size] and time_left():
         if b in seed:
             s = seed[b]
@@ -187,6 +187,10 @@ def main():
     ap.add_argument("--reference-arm", help="arm to generate reference designs with (default: ARMS.json best_arm). "
                                             "The extended climb can re-rank, and reference designs must come "
                                             "from the arm actually published, not the screen's winner.")
+    ap.add_argument("--cells", default="",
+                    help="size:arm:start_batch,... climb each cell from start_batch on THIS box, no reuse of "
+                         "another box's rungs. Session 5's mode: the published ladders stopped on a configured "
+                         "ceiling, and a rung measured on a different card cannot extend one measured here.")
     ap.add_argument("--sweep-only", action="store_true",
                     help="re-climb the batch of each size's top arms from ARMS.json, without the screen")
     ap.add_argument("--src", type=Path, default=Path("/root/rfd4"),
@@ -227,6 +231,45 @@ def main():
                     out[str(size)]["final"] = summarise(run(arm, size, batch, a.final_warm, ARMS[arm],
                                                             tag=f"nwfinal-{arm}", extra=[f"num_workers={bw}"]))
             (a.out / "ARMS-WORKERS.json").write_text(json.dumps(out, indent=2) + "\n")
+        print(json.dumps(out, indent=2))
+        sys.exit(0)
+
+    if a.cells:
+        # One ladder per cell, each starting where the previous session's ladder was cut off, every rung
+        # written as it lands. The stall rule is the only stop: a rung that buys under 2 % twice, or one the
+        # card refuses. Nothing is reused from an earlier box -- rates from two different cards do not
+        # belong in one ladder.
+        cells = [c.split(":") for c in a.cells.split(",") if c]
+        out = {}
+        for size, arm, b0 in [(int(s), m, int(b)) for s, m, b in cells]:
+            if not time_left():
+                print(f"cells: out of time before {arm}@{size} b{b0}", flush=True)
+                break
+            per_size = out.setdefault(str(size), {"arms": {}})
+
+            def keep(sw, arm=arm, per_size=per_size):
+                per_size["arms"][arm] = {"sweep": {str(k): v for k, v in sw.items()}, "partial": True}
+                (a.out / "ARMS-CELLS.json").write_text(json.dumps(out, indent=2) + "\n")
+
+            sweep = climb(arm, size, max(5, a.screen_warm - 2), f"s5-{arm}", start=b0, on_rung=keep)
+            okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
+            rec = {"sweep": {str(k): v for k, v in sweep.items()}, "start": b0}
+            if okb:
+                bb = max(okb, key=lambda b: okb[b]["designs_s"])
+                rec |= {"batch": bb, "designs_s": okb[bb]["designs_s"]}
+            per_size["arms"][arm] = rec
+            (a.out / "ARMS-CELLS.json").write_text(json.dumps(out, indent=2) + "\n")
+
+        for size, per_size in out.items():
+            rated = {k: v for k, v in per_size["arms"].items() if v.get("designs_s")}
+            if not rated:
+                continue
+            win = max(rated, key=lambda k: rated[k]["designs_s"])
+            per_size |= {"arm": win, "batch": rated[win]["batch"]}
+            if time_left():
+                per_size["final"] = summarise(run(win, int(size), rated[win]["batch"], a.final_warm,
+                                                  ARMS[win], tag=f"s5final-{win}"))
+            (a.out / "ARMS-CELLS.json").write_text(json.dumps(out, indent=2) + "\n")
         print(json.dumps(out, indent=2))
         sys.exit(0)
 

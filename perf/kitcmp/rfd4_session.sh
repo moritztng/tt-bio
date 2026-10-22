@@ -12,6 +12,8 @@ L=${1:?usage: rfd4_session.sh <label> <cap_h> [query] [attempts]} CAP_H=${2:?cap
 # market is thin enough that one filter empties it); 0.90 keeps the junk out without emptying the list.
 Q=${3:-'gpu_name=B200 num_gpus=1 cuda_max_good>=13.0 inet_down>=200 reliability>=0.90 dph<=7'}
 MINW=${MINW:-990} MAXW=${MAXW:-1010} SLUG=${SLUG:-rfd4-b200}
+# Which script runs on the box. Session 5 (D-fairgpu-06) runs box_rfd4_s5.sh: the unfinished ladders only.
+BOX=${BOX:-box_rfd4.sh}
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
 HOLD=/home/moritz/.coworker/state/vast-holder; S4=/home/moritz/.coworker/state/rfd4
 K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=${VAST_FLOOR_USD:-1}
@@ -26,6 +28,8 @@ state(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | pyth
 print(next((x.get("intended_status") or "" for x in json.load(sys.stdin)["instances"] if x["id"]==int(sys.argv[1])), "gone"))' $1; }
 destroy(){ curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$1/" >/dev/null; sleep 10
   local n; n=$(gone); log "DESTROYED $1 ($2); instances left: $n"; rm -f $HOLD/$1
+  # The reaper only ever touches ids listed in OWNED, so an id that is gone must leave the list.
+  sed -i "/^$1\$/d" $S4/gpu/OWNED 2>/dev/null
   sed -i "s|^$1  $CAP_H  $SLUG$|#$1 DESTROYED $(date -u +%FT%TZ) ($2), confirmed instances=$n|" $B; }
 next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'import json,sys
 t=sys.argv[1].split()
@@ -45,6 +49,10 @@ for _ in $(seq $NMAX); do
   I=$($V create instance $O --image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04 --disk ${DISK:-150} --ssh --direct --label $SLUG-$L --raw 2>&1 | grep -oP "new_contract['\"]:\s*\K[0-9]+")
   [ -z "$I" ] && { sed -i '$d' $B; log "offer $O: create failed"; continue; }
   mkdir -p $HOLD; echo $$ > $HOLD/$I; sed -i "\$s|.*|$I  $CAP_H  $SLUG|" $B
+  # Arm the reaper in the same breath as the rental. Session 4 was armed by hand after launch, which is a
+  # window in which a killed session leaves a $8.61/h box running with no owner and no timer.
+  mkdir -p $S4/gpu; echo "$I" >> $S4/gpu/OWNED
+  python3 -c "print(int($(date +%s) + $CAP_H*3600 + 1500))" > $S4/gpu/KEEP-UNTIL
   echo "# ^ $SLUG $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/rfd4_session.sh" >> $B
   T0=$(date +%s); log "created $I on offer $O"; S=""
   while [ $(( $(date +%s) - T0 )) -lt 720 ]; do
@@ -73,12 +81,12 @@ if x.get("actual_status")=="running":
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$HOST
   $S 'mkdir -p /root/kc' &&
-    R $P/rfd4_gpu.py $P/rfd4_arms.py $P/box_rfd4.sh $H:/root/kc/ &&
+    R $P/rfd4_gpu.py $P/rfd4_arms.py $P/$BOX $H:/root/kc/ &&
     R $S4/inputs/ $H:/root/kc/inputs/ && echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
     { destroy $I "push failed"; continue; }
-  timeout 60 $S -f "cd /root/kc && setsid nohup bash box_rfd4.sh $CAP_H > box_rfd4.log 2>&1 < /dev/null &" ||
+  timeout 60 $S -f "cd /root/kc && setsid nohup bash $BOX $CAP_H > box_rfd4.log 2>&1 < /dev/null &" ||
     { destroy $I "launch failed"; continue; }
-  log "$I running box_rfd4.sh"
+  log "$I running $BOX"
   END=""
   while :; do
     sleep 180

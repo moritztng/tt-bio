@@ -40,7 +40,7 @@ def fake_run(arm, size, batch, warm, overrides, tag=None, spec=None, extra=()):
 def setup(tmp, arms=2):
     M.a = types.SimpleNamespace(out=Path(tmp), inputs=Path(tmp), deadline=2 ** 31 - 1,
                                 screen_warm=5, final_warm=9, arms=arms, reference=0,
-                                reference_arm=None, sweep_only=False)
+                                reference_arm=None, sweep_only=False, cells="")
     M.run = fake_run
     M.ARMS = {k: [] for k in RATES}
     return M.a
@@ -110,6 +110,46 @@ def test_extended_climb_reuses_every_arms_measured_rungs():
         repaid = [(a, b) for a, b in ran if str(b) in rungs]
         assert not repaid, repaid
     print(f"ok: the extended climb reused {len(rungs)} measured rungs for BOTH arms, re-paying none")
+
+
+def test_cells_start_where_the_last_box_stopped_and_keep_every_rung():
+    """Session 5's mode: climb from a named rung, write the ladder after each rung, re-pay nothing below it.
+
+    Session 4's climbs all stopped on a configured ceiling while still gaining, and its extension lost six
+    measured 256 rungs when a phase deadline killed it mid-rung, because the result file was written once per
+    arm. So: the ladder starts at the rung given, never at b1, and ARMS-CELLS.json exists after rung one.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp)
+        setup(tmp)
+        M.a.cells = "256:native-compile:8"
+        ran, seen = [], []
+        real = M.climb
+
+        def spy(sw):
+            seen.append(json.loads((out / "ARMS-CELLS.json").read_text()))
+
+        M.run = lambda arm, size, batch, warm, ov, **kw: (ran.append((arm, batch)) or
+                                                          fake_run(arm, size, batch, warm, ov, **kw))
+        argv = sys.argv
+        sys.argv = ["rfd4_arms.py", "--inputs", tmp, "--out", tmp, "--deadline", str(2 ** 31 - 1),
+                    "--cells", "256:native-compile:8"]
+        try:
+            M.main()
+        except SystemExit as e:
+            assert e.code == 0, e.code
+        finally:
+            sys.argv = argv
+        climbed = [b for a, b in ran if a == "native-compile" and not isinstance(b, str)]
+        assert min(climbed) == 8, f"ladder started below its given rung: {climbed}"
+        assert 16 in climbed and 32 in climbed, climbed
+        assert 64 in climbed, f"the ladder must probe past the OOM rung to find it: {climbed}"
+        res = json.loads((out / "ARMS-CELLS.json").read_text())
+        arm = res["256"]["arms"]["native-compile"]
+        assert arm["start"] == 8 and arm["batch"] == 32, arm
+        assert set(arm["sweep"]) == {"8", "16", "32", "64"}, arm["sweep"]
+        assert res["256"]["arm"] == "native-compile" and "final" in res["256"]
+    print("ok: a --cells ladder starts at its given rung, stops on the card, and keeps every rung")
 
 
 def test_chosen_arm_is_the_one_the_climb_ranked():
@@ -229,4 +269,5 @@ if __name__ == "__main__":
     test_extended_climb_reuses_every_arms_measured_rungs()
     test_chosen_arm_is_the_one_the_climb_ranked()
     test_partial_arms_json_names_a_supported_arm()
+    test_cells_start_where_the_last_box_stopped_and_keep_every_rung()
     print("all ok")
