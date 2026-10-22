@@ -491,7 +491,12 @@ DIT_SEAM = frozenset({"pz_device", "dit_mod16"})
 # 2 paired warm folds, AICLK 1000 MHz, CIFs identical (spd-m-opendde q10ab, 2026-10-22): normal 608 115.76 -> 112.51 s
 # (-2.8 %), fast 608 115.72 -> 112.63 s (-2.7 %). Bit-exact, so no grade. Blackhole is unmeasured.
 TRIATT_Q10 = frozenset({"triatt_q10"})
-NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10
+# Wormhole normal also takes triatt_k1, as fast does: since k1q the one-k pick is offered in both modes, and normal still
+# chunked k at 320 (k64), 576 (k192) and 640 (k160). Per call at 1000 MHz, float64 rel_rms (spd-m-opendde k1op, 2026-10-22):
+# 320 6.24 -> 4.09 ms (0.0289 -> 0.0265), 576 19.84 -> 17.21 ms (0.0275 -> 0.0266), 640 28.74 -> 22.71 ms (0.0279 ->
+# 0.0269), so it is faster and closer to float64 at every size it reaches. Galaxy chip, 2 paired warm folds (k1n): normal
+# 640 133.10 -> 126.80 s (-4.7 %), 576 111.85 -> 109.76 s. The 10-18 normal grade (512-token set, before k1q) FAILed on iRMSD.
+NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
