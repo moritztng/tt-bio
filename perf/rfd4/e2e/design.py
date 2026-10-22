@@ -42,6 +42,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--designs", type=int, default=2, help="sequential single designs; the first is the compile")
+    ap.add_argument("--seeds", type=int, nargs="+",
+                    help="one design per seed after a compile design at the first (a paired multi-seed grade)")
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
     a = ap.parse_args()
@@ -88,21 +90,24 @@ def main():
 
     engine.trunk.run_bucketed = timed
 
-    for i in range(a.designs):
+    seeds = [a.seeds[0]] + a.seeds if a.seeds else [a.seed] * a.designs
+    for i, seed in enumerate(seeds):
         trunk_s.clear()
         with clocksample.during(period=1.0) as clk:
             t0 = time.perf_counter()
-            output = engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=a.seed, rng=a.rng)
+            output = engine.design(features, num_designs=1, nsteps=engine.spec.nsteps, seed=seed, rng=a.rng)
             t_design = time.perf_counter() - t0
             t1 = time.perf_counter()
             path = rfd4.write_design(output, features, atom_array,
-                                     out / f"{designs[0].example_id}_s{a.seed}_r{i}_generated.cif")
+                                     out / f"{designs[0].example_id}_s{seed}_r{i}_generated.cif")
             t_write = time.perf_counter() - t1
         summ = clk.summary()
         mhz = _median_mhz(summ)
         emit({"kind": "compile" if i == 0 else "warm", "size": n_tokens, "designs": 1, "batch": 1,
               "recipe": "thinking_medium", "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
-              "trunk_passes": int(sum(_depths(engine))), "seed": a.seed, "rng": a.rng,
+              "trunk_passes": int(sum(_depths(engine))), "seed": seed, "rng": a.rng,
+              "levers": sorted(engine.trunk._levers) if hasattr(engine.trunk, "_levers") else None,
+              "pair_mm_served_declined": list(_pair_mm_stats()),
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
               "trunk_s": round(sum(trunk_s), 3) if trunk_s else None,
               "host_s": round(t_design - sum(trunk_s), 3) if trunk_s else None,
@@ -116,6 +121,12 @@ def main():
                   "the design itself completed and wrote %s. Re-point the patch before reading any "
                   "trunk_s from this tree." % path, flush=True)
             raise SystemExit(3)
+
+
+def _pair_mm_stats():
+    """pair_mm's cumulative (served, declined): a lever only counts if the run says it was reached."""
+    from tt_bio import pair_mm
+    return pair_mm.STATS
 
 
 def _depths(engine):

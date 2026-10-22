@@ -95,6 +95,9 @@ def test_the_recipe_rides_in_the_run_config_and_a_bad_one_never_reaches_the_flee
                                 nsteps=40, verbose=False)
     assert client.payload["config"]["recipe"] == "high/flat"
     assert client.payload["config"]["nsteps"] == 40
+    assert "fast" not in client.payload["config"]
+    fleet.design_via_controller(spec, out, controller_url="http://c", fast=True, verbose=False)
+    assert client.payload["config"]["fast"] is True
 
     client.payload = None
     with pytest.raises(ValueError, match="unknown recycle strategy"):
@@ -191,6 +194,22 @@ def test_a_held_engine_is_dropped_before_a_predict_model_loads(monkeypatch):
     monkeypatch.setattr(worker_mod, "_RFD4_ENGINE", ("high/flat", object()))
     worker_mod._free_rfd4_engine()
     assert worker_mod._RFD4_ENGINE == (None, None)
+
+
+def test_fast_keys_the_held_engine_and_is_set_before_it_builds(monkeypatch):
+    """`--fast` picks the trunk's lever set when the engine is built, so a run that changes it
+    gets a new engine built under it, and a run that keeps it reuses the held one."""
+    from tt_bio import rfd4, tenstorrent
+    from tt_bio import worker as worker_mod
+
+    built = []
+    monkeypatch.setattr(worker_mod, "_RFD4_ENGINE", (None, None))
+    monkeypatch.setattr(rfd4, "get_engine", lambda **kw: built.append(tenstorrent._FAST_MODE) or object())
+    monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
+    a = worker_mod._rfd4_engine({"engine": "rfd4"})
+    assert worker_mod._rfd4_engine({"engine": "rfd4"}) is a
+    b = worker_mod._rfd4_engine({"engine": "rfd4", "fast": True})
+    assert b is not a and built == [False, True]
 
 
 def test_the_cli_submits_rather_than_designing_locally(monkeypatch, tmp_path):

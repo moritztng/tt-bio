@@ -23,9 +23,10 @@ import ttnn
 
 import torch
 
+from .. import ops
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
-                           _sdpa_program_config_for_lengths, download, fused_sdpa, lever_scope, model_levers,
-                           under_lever_scope, upload)
+                           _sdpa_program_config_for_lengths, bfp8_fidelity, download, fused_sdpa, lever,
+                           lever_scope, model_levers, under_lever_scope, upload)
 
 EPS = 1e-5
 NEG_INF = -1e4
@@ -426,11 +427,16 @@ class PairUpdate(Module):
         self.tri_out = TriangleMultiplication(False, _trimul_weights(self.scope("tri_mult_out")), ckc)
         self.tri_in = TriangleMultiplication(True, _trimul_weights(self.scope("tri_mult_in")), ckc)
         t = "transition_out"
+        # transition_b8: both weights and the hidden activation in bfp8. The linears write their
+        # output, so the hidden's bytes are most of their time (fc1 at 128 tokens 0.407 -> 0.240 ms,
+        # perf/rfd4/bfp8/sites.py); fc2 then reads two bfp8 operands at HiFi2, the same bits.
+        b8 = lever("transition_b8")
+        self.tr_hidden_dtype = ttnn.bfloat8_b if b8 else self.dtype
         self.tr_ln_w = self.torch_to_tt(f"{t}.layer_norm.weight", transform=ident, dtype=self.dtype)
         self.tr_ln_b = self.torch_to_tt(f"{t}.layer_norm.bias", transform=ident, dtype=self.dtype)
-        self.tr_w1 = self.torch_to_tt(f"{t}.linear_1.weight", dtype=self.dtype)
+        self.tr_w1 = self.torch_to_tt(f"{t}.linear_1.weight", dtype=self.tr_hidden_dtype)
         self.tr_b1 = self.torch_to_tt(f"{t}.linear_1.bias", transform=ident, dtype=self.dtype)
-        self.tr_w2 = self.torch_to_tt(f"{t}.linear_2.weight", dtype=self.dtype)
+        self.tr_w2 = self.torch_to_tt(f"{t}.linear_2.weight", dtype=self.tr_hidden_dtype)
         self.tr_b2 = self.torch_to_tt(f"{t}.linear_2.bias", transform=ident, dtype=self.dtype)
 
     def _write(self, x, mask):
@@ -457,9 +463,10 @@ class PairUpdate(Module):
     def _transition(self, z, pair_mask_c):
         ckc = self.compute_kernel_config
         zn = ttnn.layer_norm(z, weight=self.tr_ln_w, bias=self.tr_ln_b, epsilon=EPS, compute_kernel_config=ckc)
-        h = self._lin(zn, self.tr_w1, bias=self.tr_b1, dtype=self.dtype, activation="relu")
+        h = self._lin(zn, self.tr_w1, bias=self.tr_b1, dtype=self.tr_hidden_dtype, activation="relu")
         ttnn.deallocate(zn)
-        out = self._lin(h, self.tr_w2, bias=self.tr_b2, dtype=self.dtype)
+        out = ops.linear(h, self.tr_w2, bias=self.tr_b2, compute_kernel_config=bfp8_fidelity(ckc, h, self.tr_w2),
+                         dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         ttnn.deallocate(h)
         return ttnn.multiply(out, pair_mask_c)
 
@@ -516,7 +523,11 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
 #: one kernel from 160 tokens (it declines below, where the trimul runs from L1): 15.0 -> 11.3 ms a call at 512
 #: tokens, same float64 error (state/rfd4/bets/tri2.md).
 NORMAL_LEVERS = frozenset({"trimul_t1"})
-FAST_LEVERS = NORMAL_LEVERS
+#: `--fast` adds the precision levers. `pair_mm` + `pair_mm_tr` put the pair transition on minimal_matmul
+#: (bf16, same float64 error, not the same bits); `transition_b8` makes its weights and hidden bfp8;
+#: `trimul_gin` + `trimul_gin_w8` give the triangle multiplication's in-projection bfp8 resident weights,
+#: 15.4 -> 13.9 ms a call at 512 tokens and inert (bit-identical) at 128 (state/rfd4/bets/bfp8.md).
+FAST_LEVERS = NORMAL_LEVERS | {"pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"}
 
 
 class Trunk(Module):
