@@ -107,6 +107,9 @@ def test_pair_tail_residual_in_place(outgoing):
         mod = TR.PairUpdate(T.WeightScope({k: v.to(torch.float32) for k, v in w.items()}).child("pu"),
                             TR.compute_kernel_config())
         tri = mod.tri_out if outgoing else mod.tri_in
+        # A process's first trimul at a shape can meet an L1 clash and retry without T1 for that call only, and
+        # without T1's g_out the tail is not offered. The trunk pays that once at warmup; so does the test.
+        tri(_dev(zb, dev), None)
         zt = ttnn.from_torch(z32, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
         zbt = _dev(zb, dev)
