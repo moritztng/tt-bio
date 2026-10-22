@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 #: The token length a design is padded to is decided by the engine, not here;
 #: prepare_cif pads to the example's own length and fills absent schema keys.
-__all__ = ["DesignInput", "featurize", "load_spec", "prepare_examples", "write_design"]
+__all__ = ["DesignInput", "featurize", "load_spec", "prepare_examples", "resolve_inputs",
+           "write_design"]
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,23 @@ def prepare_examples(spec_path: str | Path, out_dir: str | Path, *,
                                  spec_dir=spec_path.parent, validate=validate)
         out.append(DesignInput(example_id, cif, example))
     return out
+
+
+def resolve_inputs(spec: str | Path, out_dir: str | Path, *, only=None, validate: bool = True,
+                   annotated_cif: bool = False) -> list[DesignInput]:
+    """The designs ``spec`` asks for, each as an annotated CIF on disk.
+
+    ``annotated_cif`` means ``spec`` IS one design's prepared input, so nothing is built. Both the
+    local and the fleet path come through here, so a spec is read and validated the same way
+    whichever one runs it.
+    """
+    spec = Path(spec).expanduser()
+    if not annotated_cif:
+        return prepare_examples(spec, out_dir, only=list(only) if only else None, validate=validate)
+    if only:
+        raise ValueError("`only` selects designs from a spec file; an annotated CIF is "
+                         "one design's input already")
+    return [DesignInput(spec.stem, spec)]
 
 
 def featurize(cif: str | Path, *, seed: int, device=None, path_length_cutoff: int = 64):

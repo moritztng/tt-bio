@@ -90,6 +90,10 @@ dependencies = [
     # it means the reference's contraction order, and so its float results, match
     # upstream exactly.
     "opt_einsum",
+    # RFD4's vendored host package (NOTICE #9) asserts its PPI-crop arguments with assertpy
+    # at module level in _cif/transforms_utils_ppi_utils.py, which the design-task transform
+    # imports, so every `tt-bio design --model rfd4` run needs it on a clean install.
+    "assertpy",
     # ttnn is NOT here on purpose: it only publishes wheels for TT-supported
     # platforms, and the Boltz-2 CPU/GPU path + CLI must install and run without
     # it (issue #6). It lives in the `tenstorrent` extra below.

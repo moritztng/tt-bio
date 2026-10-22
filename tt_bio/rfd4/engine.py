@@ -58,7 +58,7 @@ class DesignEngine:
     """
 
     def __init__(self, weights: str | Path = DEFAULT_WEIGHTS, *, recipe: str = "thinking_medium",
-                 max_parallel_samples: int | None = 1):
+                 adapter: str | Path | None = None, max_parallel_samples: int | None = 1):
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
@@ -67,7 +67,7 @@ class DesignEngine:
         import ttnn
 
         path = _resolve_weights(weights)
-        state, config = _network.load_checkpoint(path)
+        state, config = _network.load_checkpoint(path, adapter=adapter)
         cfg = config["nn"]
         self.spec = _sampler.recycle_strategy(recipe)
         self.config = config
@@ -87,6 +87,12 @@ class DesignEngine:
         # bit-identical to the same design alone (perf/rfd4/batch/sweep.py, 2026-10-21).
         self.max_parallel_samples = max_parallel_samples
         self._device = self.autoencoder.dev["decoder"].device
+
+    @classmethod
+    def from_pretrained(cls, weights: str | Path = DEFAULT_WEIGHTS, **kwargs) -> "DesignEngine":
+        """Load the released bundle onto a card. Upstream spells this
+        ``rfd4.Proteina.from_pretrained``; the arguments and the default checkpoint are the same."""
+        return cls(weights, **kwargs)
 
     def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int,
                rng: str = "per_design") -> DesignOutput:

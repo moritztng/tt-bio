@@ -4268,49 +4268,57 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    f"over {r['conditioned_tokens']} conditioned tokens")
 
 
-def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
-                  annotated_cif: bool, validate: bool) -> None:
+def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nsteps, seed, spec_subset,
+                  annotated_cif: bool, validate: bool, controller: str | None = None,
+                  run_id: str | None = None, owner: str | None = None) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
 
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
     annotated CIF per design, which is kept beside the output because it IS the model's
     input, and a design that came out wrong is usually a spec that selected the wrong
-    atoms.
+    atoms. `tt_bio.rfd4.design()` is this same call from Python.
     """
     from tt_bio import rfd4
 
-    out_dir = Path(out_dir or "./designs")
     only = [s.strip() for s in spec_subset.split(",") if s.strip()] if spec_subset else None
+    if annotated_cif and only:
+        raise click.UsageError("--spec selects designs from a spec file; "
+                               "--annotated_cif takes the CIF itself")
+    click.echo(f"{Path(inputs).name}, seed {seed}")
+    out_dir = Path(out_dir or "./designs")
+    if controller and lora:
+        raise click.UsageError(
+            "--lora is a local run: the adapter is not shipped to fleet workers. Merge it into a "
+            "checkpoint the workers can load, or drop --controller.")
+    if controller:
+        # Every design in the spec, times --num_designs, becomes one fleet job. The inputs are
+        # built here so a worker needs no view of this filesystem (tt_bio/rfd4/fleet.py).
+        from tt_bio.rfd4.fleet import design_via_controller
+
+        try:
+            design_via_controller(inputs, out_dir,
+                                  controller_url=controller, num_designs=num_designs,
+                                  backend=backend,
+                                  recipe=recipe, nsteps=nsteps, seed=seed, only=only,
+                                  validate=validate, annotated_cif=annotated_cif,
+                                  run_id=run_id, owner=owner)
+        except NotImplementedError as e:
+            raise click.ClickException(str(e))
+        except (ValueError, KeyError, FileNotFoundError) as e:
+            raise click.ClickException(f"{type(e).__name__}: {e}")
+        return
     try:
-        if annotated_cif:
-            if only:
-                raise click.UsageError("--spec selects designs from a spec file; "
-                                       "--annotated_cif takes the CIF itself")
-            designs = [rfd4.DesignInput(Path(inputs).stem, Path(inputs))]
-        else:
-            designs = rfd4.prepare_examples(inputs, out_dir / "inputs",
-                                            only=only, validate=validate)
+        written = rfd4.design(inputs, out_dir, num_designs=num_designs, backend=backend,
+                              recipe=recipe, adapter=lora, nsteps=nsteps, seed=seed,
+                              only=only, validate=validate, annotated_cif=annotated_cif,
+                              on_design=lambda example_id, tokens, cif: click.echo(
+                                  f"  {example_id}: {tokens} tokens <- {cif}"),
+                              on_write=lambda path: click.echo(f"    -> {path}"))
     except NotImplementedError as e:
         raise click.ClickException(str(e))
     except (ValueError, KeyError, FileNotFoundError) as e:
         raise click.ClickException(f"{type(e).__name__}: {e}")
-
-    click.echo(f"Designing {len(designs)} spec(s) × {num_designs} design(s) from "
-               f"{Path(inputs).name} → {out_dir}, seed {seed}")
-    engine = rfd4.get_engine()
-    written = 0
-    for design in designs:
-        features, atom_array = rfd4.featurize(design.cif, seed=seed)
-        tokens = int(features["padding_mask"].shape[-1])
-        click.echo(f"  {design.example_id}: {tokens} tokens <- {design.cif}")
-        output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed)
-        for row in range(num_designs):
-            suffix = "" if num_designs == 1 else f"_{row}"
-            path = rfd4.write_design(output, features, atom_array,
-                                     out_dir / f"{design.example_id}{suffix}_generated.cif", row=row)
-            click.echo(f"    -> {path}")
-            written += 1
-    click.echo(f"Done — {written} design(s) → {out_dir}")
+    click.echo(f"Done — {len(written)} design(s) → {out_dir}")
 
 
 @cli.command("design")
@@ -4379,6 +4387,21 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
               help="pxdesign only. Diffusion denoising steps. 400 is what an upstream run "
                    "uses; lower is a fast smoke and moves the coordinates.")
 # ---- rfd4-scoped options ----
+@click.option("--backend", default="native", show_default=True,
+              help="rfd4 only. Inference backend, upstream's `inference_backend`. `native` runs "
+                   "the model on Tenstorrent. `bioir` is NVIDIA BioNeMo-IR and is declined here; "
+                   "it is CUDA-only and produces the same designs.")
+@click.option("--lora", "lora", default=None, type=click.Path(exists=True, file_okay=False),
+              help="rfd4 only. A PEFT LoRA adapter directory (adapter_config.json plus "
+                   "adapter_model.safetensors) merged into the weights at load, so a fine-tune "
+                   "costs nothing per design. Local runs only: an adapter is not shipped to "
+                   "fleet workers.")
+@click.option("--recipe", default=None,
+              help="rfd4 only. Thinking budget: how many trunk passes the trajectory spends and "
+                   "where. `thinking_low|medium|high` are the released recipes (medium is the "
+                   "default, 180 passes); `low|medium|high` crossed with "
+                   "`flat|front_loaded|midpeak` are upstream's per-family schedules. More passes "
+                   "is more accuracy and more time.")
 @click.option("--nsteps", default=60, show_default=True, type=click.IntRange(min=1),
               help="rfd4 only. Flow-matching integration steps (upstream's `generation.args."
                    "nsteps` default).")
@@ -4430,7 +4453,9 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
               help="Submit to an existing controller at URL (e.g. http://HOST:8765) instead of "
                    "running locally; compute comes from that cluster's workers. boltzgen: the "
                    "pipeline's own fleet path (merge + filter here). rfd3: one shard per spec, "
-                   "each worker runs its shard in-process on its own card and ships CIFs back.")
+                   "each worker runs its shard in-process on its own card and ships CIFs back. "
+                   "rfd4: one job per design (spec entries times --num_designs), each carrying "
+                   "its own prepared input, with a metrics.json collecting what landed.")
 @click.option("--run-id", "run_id", default=None,
               help="Use this run id on the controller (lets the submitter cancel the run later). "
                    "Requires --controller.")
@@ -4440,8 +4465,8 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
 @torch.no_grad()
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
-               spec_subset, from_pdb, batch_size, n_step, nsteps, annotated_cif, no_validate,
-               host_threads,
+               spec_subset, from_pdb, batch_size, n_step, backend, recipe, lora, nsteps,
+               annotated_cif, no_validate, host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log,
                controller, run_id, owner):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
@@ -4494,16 +4519,22 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     \b
     binder-1:
       input: target.cif
-      contig: "A10-20, 30-40, A60-70"
+      contig: "60-60, /0, A17-131"
       conditions:
-        hotspot: {true: [{select: "sel('A/*/[54,56]')"}]}
+        C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}
+        C_HOT: {true: [{select: "sel('A/*/56/[CG,OH]')"}]}
 
     Each design is built into an annotated CIF under <out_dir>/inputs/ -- the model's
     actual input, kept because a design that comes out wrong is usually a selection that
-    matched the wrong atoms -- and then featurized and designed on the card, one annotated
-    CIF per design.
+    matched the wrong atoms -- then featurized and designed. --recipe sets the thinking
+    budget, --lora loads a fine-tune, and docs/rfd4-design.md has the conditions a spec
+    can set with what each family costs.
 
-    boltzgen, rfd3, pxdesign and rfd4 auto-download their checkpoints on first use.
+    A spec's designs fan across a fleet with --controller: every design becomes one job,
+    each shipping the input this host built for it, and <out_dir>/metrics.json collects
+    what landed. That is tt-bio's answer to upstream's SLURM --njobs sweeps.
+
+    All four models auto-download their checkpoints on first use.
     """
     # rfd3 and pxdesign carry measured ceilings in DIFFERENT denominators (motif+designed vs
     # target residues); size_limits sizes each spec in its own and refuses before any device open.
@@ -4521,7 +4552,9 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
                            ("--n_step", "n_step"),
-                           ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                           ("--backend", "backend"), ("--recipe", "recipe"), ("--lora", "lora"),
+                           ("--nsteps", "nsteps"),
+                           ("--annotated_cif", "annotated_cif"),
                            ("--no_validate", "no_validate")):
             if _explicit(name):
                 click.secho(f"Note: --model boltzgen does not use {flag}; ignoring.", fg="yellow")
@@ -4571,7 +4604,9 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
                            ("--devices", "devices"),
-                           ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                           ("--backend", "backend"), ("--recipe", "recipe"), ("--lora", "lora"),
+                           ("--nsteps", "nsteps"),
+                           ("--annotated_cif", "annotated_cif"),
                            ("--no_validate", "no_validate")):
             if _explicit(name):
                 click.secho(f"Note: --model pxdesign does not use {flag}; ignoring.", fg="yellow")
@@ -4609,13 +4644,14 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--from_pdb", "from_pdb"), ("--batch_size", "batch_size"),
                            ("--host_threads", "host_threads"), ("--n_step", "n_step"),
-                           ("--devices", "devices"), ("--cache", "cache"),
-                           ("--controller", "controller")):
+                           ("--devices", "devices"), ("--cache", "cache")):
             if _explicit(name):
                 click.secho(f"Note: --model rfd4 does not use {flag}; ignoring.", fg="yellow")
         _run_rfd4_cli(Path(inputs), out_dir,
                       num_designs if num_designs is not None else 1,
-                      nsteps, seed, spec_subset, annotated_cif, not no_validate)
+                      backend, recipe, lora, nsteps, seed, spec_subset, annotated_cif,
+                      not no_validate,
+                      controller=controller, run_id=run_id, owner=owner)
         return
 
     # --model rfd3
@@ -4624,7 +4660,9 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                        ("--reuse", "reuse"),
                        ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
                        ("--log", "log"), ("--n_step", "n_step"),
-                       ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                       ("--backend", "backend"), ("--recipe", "recipe"), ("--lora", "lora"),
+                       ("--nsteps", "nsteps"),
+                       ("--annotated_cif", "annotated_cif"),
                        ("--no_validate", "no_validate")):
         if _explicit(name):
             click.secho(f"Note: --model rfd3 does not use {flag}; ignoring.", fg="yellow")
