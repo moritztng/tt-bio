@@ -829,6 +829,8 @@ _FAST_MODE = False
 #   pair_tail_small pair_tail below trimul_tail.MIN_N (160), where T1 declines: the incumbent chain keeps the input side
 #                   and computes g_out, T2's float32-stream form takes LayerNorm, p_out, gate and the residual write
 #                   (state/rfd4/bets/tri128.md)
+#   trimul_xn_l1    the triangle multiplication's input layer_norm writes L1 below trimul_tail.MIN_N, where the
+#                   in-projection and g_out read it (state/rfd4/bets/tri128.md)
 #   pair_bias_rms   RFD4's pair biases (RMSNorm of the pair, the stacked bias projection, head-first layout, the split per
 #                   block) as one `dit_pair_bias.rms_pair_bias` program, with no padded token (state/rfd4/bets/pairbias.md)
 #   pair_write_res  RFD4's Hadamard pair write and its residual add into the float32 pair stream as one
@@ -849,7 +851,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "pair_tail_small")
+           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "pair_tail_small", "trimul_xn_l1")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -10572,13 +10574,24 @@ class TriangleMultiplication(Module):
         if not row_norm and t1 is None:
             from tt_bio.size_limits import is_alloc_refusal
             try:
-                x_norm_in = ttnn.layer_norm(
+                # `trimul_xn_l1`: below T1's floor the input norm is read twice (in-projection, g_out) and
+                # never leaves the call, so it can live in L1 (12.6 MB at 128 tokens, c_z 384).
+                xn_l1 = (H < _trimul_tail.MIN_N and lever("trimul_xn_l1")
+                         and _l1_fits(_padded_bytes(shp, 2), 1.0, _PAIR_L1_CONSUMER_RESERVE))
+                ln_in = lambda **mc: ttnn.layer_norm(  # noqa: E731
                     x,
                     weight=self.in_norm_weight,
                     bias=self.in_norm_bias,
                     epsilon=1e-5,
                     compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
+                    **mc,
                 )
+                try:
+                    x_norm_in = ln_in(memory_config=ttnn.L1_MEMORY_CONFIG) if xn_l1 else ln_in()
+                except RuntimeError as exc:
+                    if not (xn_l1 and is_alloc_refusal(exc)):
+                        raise
+                    x_norm_in = ln_in()
             except RuntimeError as exc:
                 if not is_alloc_refusal(exc):
                     raise
