@@ -25,7 +25,7 @@ ap.add_argument("--no-mask", action="store_true")
 ap.add_argument("--ln1-ab", action="store_true", help="also run T1 with T1_LN1 off: bit-equality of a, b, g_out and its time")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes, 512 gate sigmoid)")
-ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS, SIGPOLY, T1_PSIG, T1_GSIG)")
+ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS, SIGPOLY, T1_PSIG)")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (lever trimul_t1w8): its error and time")
 ap.add_argument("--fid", default="", help="HiFi4/HiFi3/HiFi2/LoFi: run T1 at this fidelity instead of the trunk's")
@@ -50,7 +50,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG", "T1_GSIG"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
@@ -146,8 +146,6 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         a_ref = a_ref * m.to(d)[..., None]
     ref = {"a": a_ref.permute(0, 3, 1, 2), "b": (pi[..., h:] * torch.sigmoid(gi[..., h:])).permute(0, 3, 1, 2),
            "g": zn @ w["g_out"].to(d).t()}
-    # T1_GSIG: T1's g_out leaves as sigmoid(g_out), so T1 and its w8 form are read against that.
-    rt = dict(ref, g=torch.sigmoid(ref["g"])) if TT.T1_GSIG else ref
     P = n * n * C * 2
 
     def incumbent():
@@ -180,8 +178,6 @@ for n in [int(s) for s in A.ns.split(",") if s]:
             torch.save({k: t for k, t in zip("abg", inc)}, f"{A.save}/inc_{n}.pt")
         for k, t in zip("abg", inc):
             rec[f"inc_{k}_rel_rms_f64"], rec[f"inc_{k}_max_abs"] = rel(t, ref[k])
-        if TT.T1_GSIG:   # the incumbent's bf16 g through an exact sigmoid: the floor T1_GSIG's g is held to
-            rec["inc_gsig_rel_rms_f64"], rec["inc_gsig_max_abs"] = rel(torch.sigmoid(inc[2].to(d)), rt["g"])
         if m is not None:
             il_ = TT.T1_PLANS.get((C // 32, 2 * h // 32, C // 32), (1, 32))[1]
             bi = bad_units(inc[0], ref["a"], il_)
@@ -204,7 +200,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 A.save_n = -1
             rec["t1_finite"] = all(bool(torch.isfinite(t).all()) for t in host)
             for k, t in zip("abg", host):
-                rec[f"t1_{k}_rel_rms_f64"], rec[f"t1_{k}_max_abs"] = rel(t.reshape(ref[k].shape), rt[k])
+                rec[f"t1_{k}_rel_rms_f64"], rec[f"t1_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
             if m is not None:
                 il = TT.T1_PLANS.get((C // 32, 2 * h // 32, C // 32), (1, 32))[1]
                 bu = bad_units(host[0].reshape(ref["a"].shape), ref["a"], il)
@@ -250,7 +246,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                     for k, o in zip("abg", outs):
                         t = ttnn.to_torch(o)
                         rec[f"w8_{k}_finite"] = bool(torch.isfinite(t).all())
-                        rec[f"w8_{k}_rel_rms_f64"], rec[f"w8_{k}_max_abs"] = rel(t.reshape(ref[k].shape), rt[k])
+                        rec[f"w8_{k}_rel_rms_f64"], rec[f"w8_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
                     free(outs)
                     rec["w8_ms"] = timed(lambda: free(t1w()), A.reps)
                     for m_ in [int(v) for v in A.abl.split(",") if v]:
