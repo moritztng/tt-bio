@@ -46,6 +46,7 @@ def test_a_pinned_count_is_clamped_to_the_stack():
     assert B.resident_blocks("lean", 224, WH, requested="8") == 8
     assert B.resident_blocks("fast", 224, WH, requested="99") == B.EVOFORMER_BLOCKS
     assert B.resident_blocks("fast", 224, WH, requested="0") == 0
+    assert B.resident_blocks("fast", 224, BH, slot="t1", requested="23") == 23
 
 
 def test_the_structure_module_on_card_comes_off_the_room():

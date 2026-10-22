@@ -9,6 +9,10 @@ load average at the start and end of the call, other_load = CPU of every process
 during the call (PROTOCOL rule 6 as amended 2026-10-19: admissible only if no such process exceeds 5 % of a core;
 loadavg cannot tell BindCraft 2's own host JAX from a contender). `emit(i)` fires for trajectory i once the next one starts; the caller
 emits the last one itself. Seconds per iteration = design_s / iterations (`s_per_iter`).
+
+Several trajectories in flight on one card (`run_campaign(trajectories_per_card=N)`) each run on their own thread, so
+the running trajectory is tracked per thread: `emit(i)` fires when that thread starts its next one, iterations are the
+rows of the trajectory's own losses.csv, and `n` is the order the calls started in (`design` names the trajectory).
 """
 import contextlib, csv, os, threading, time
 
@@ -82,15 +86,26 @@ def s_per_iter(tr):
     return tr["design_s"] / tr["iterations"] if tr.get("iterations") and tr.get("design_s") else None
 
 
-def table_row(project, n):
-    """Trajectory n's row of BindCraft 2's trajectory table, and the campaign's accepted count so far."""
+def table_row(project, n, design=None):
+    """Trajectory n's row of BindCraft 2's trajectory table (the row named `design`, when given), and the campaign's
+    accepted count so far."""
     from bindcraft.campaign_output import TRAJECTORY_STAGE, accepted_table, stage_table
     rows, acc = [], 0
     with contextlib.suppress(OSError):
         rows = list(csv.DictReader(open(stage_table(str(project), TRAJECTORY_STAGE))))
     with contextlib.suppress(OSError):
         acc = sum(1 for _ in csv.DictReader(open(accepted_table(str(project)))))
-    return next((r for r in rows if r.get("trajectory") == str(n)), {}), acc
+    match = (lambda r: r.get("design") == design) if design else (lambda r: r.get("trajectory") == str(n))
+    return next((r for r in rows if match(r)), {}), acc
+
+
+def own_rows(directory):
+    """Rows of the losses.csv in one trajectory's folder, None if it has none (yet, or zipped)."""
+    import glob
+    L = glob.glob(os.path.join(directory, "*_losses.csv"))
+    with contextlib.suppress(OSError):
+        return sum(1 for _ in csv.DictReader(open(L[0]))) if L else None
+    return None
 
 
 def campaign_trajectories(project):
@@ -113,21 +128,35 @@ def campaign_trajectories(project):
     return per
 
 
+class Trajectories(list):
+    flush = None  # set by `hook`: emit every trajectory not emitted yet
+
+
 def hook(campaign, project, emit):
-    traj = []
+    traj, cur, lock = Trajectories(), threading.local(), threading.Lock()
     real_design, real_validate = campaign.run_trajectory, campaign.redesign_and_validate_binders
 
+    def done(i):
+        with lock:
+            if not traj[i].get("emitted"):
+                traj[i]["emitted"] = True
+                emit(i)
+
     def design(*args, **kw):
-        if traj:
-            emit(len(traj) - 1)
-        tr = dict(n=len(traj) + 1, t0=time.monotonic(), t0w=time.time(), rows0=loss_rows(project),
-                  la0=os.getloadavg()[0], other=OtherLoad())
-        traj.append(tr)
+        if getattr(cur, "i", None) is not None:
+            done(cur.i)
+        d = kw.get("trajectory_directory")
+        with lock:
+            tr = dict(n=len(traj) + 1, design=os.path.basename(d) if d else None, t0=time.monotonic(), t0w=time.time(),
+                      rows0=loss_rows(project), la0=os.getloadavg()[0], other=OtherLoad())
+            traj.append(tr)
+            cur.i = len(traj) - 1
         try:
             return real_design(*args, **kw)
         finally:
             tr["design_s"] = time.monotonic() - tr["t0"]
-            tr["iterations"] = loss_rows(project) - tr["rows0"]
+            own = own_rows(d) if d else None
+            tr["iterations"] = own if own is not None else loss_rows(project) - tr["rows0"]
             tr["loadavg"] = [round(tr["la0"], 2), round(os.getloadavg()[0], 2)]
             tr["other_load"] = tr.pop("other").stop()
 
@@ -136,7 +165,13 @@ def hook(campaign, project, emit):
         try:
             return real_validate(*args, **kw)
         finally:
-            traj[-1]["validate_s"] = time.monotonic() - t0
+            traj[cur.i]["validate_s"] = time.monotonic() - t0
+
+    def flush():
+        """Emit every trajectory not emitted yet: the last one per thread never sees a successor start."""
+        for i in range(len(traj)):
+            done(i)
 
     campaign.run_trajectory, campaign.redesign_and_validate_binders = design, validate
+    traj.flush = flush
     return traj

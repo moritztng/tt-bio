@@ -287,9 +287,10 @@ if a.model == "bindcraft2":
 
     def emit(i):
         tr = traj[i]
-        row, acc = bc2_traj.table_row(project, tr["n"])
+        row, acc = bc2_traj.table_row(project, tr["n"], tr.get("design"))
         nodes = opened_nodes() or opened
-        log(ev="rep", input=f"pdl1_b{blen}", seed=a.seed, trajectory=tr["n"], kind="cold" if i == 0 else "warm",
+        log(ev="rep", input=f"pdl1_b{blen}", seed=a.seed, trajectory=tr["n"], design=tr.get("design"),
+            kind="cold" if i == 0 else "warm",
             design_s=tr.get("design_s"), validate_s=tr.get("validate_s"), traj_s=time.monotonic() - tr["t0"],
             fold_s=tr.get("design_s"), iterations=tr.get("iterations"), s_per_iter=bc2_traj.s_per_iter(tr),
             loadavg=tr.get("loadavg"), other_load=tr.get("other_load"), aiclk=clock(tr["t0"], tr["t0"] + (tr.get("design_s") or 0), nodes),
@@ -311,10 +312,10 @@ if a.model == "bindcraft2":
         log(ev="predictor", fast={k: str(v) for k, v in (build.fast or {}).items()},
             structure_calls=dict(sm.calls) if sm is not None else None)
 
+    traj = bc2_traj.hook(campaign, project, emit)
     if a.trajectories != "1":
-        # Interleaved trajectories run on their own threads, so the per-rep hooks above (which
-        # take the latest trajectory as the running one) do not apply. Time the whole campaign
-        # and read each trajectory's iterations and BindCraft 2's own design timing from its CSVs.
+        # Interleaved trajectories run on their own threads; the hook tracks the running one per thread, so
+        # every trajectory still gets its rep record. The campaign line times the whole campaign.
         n = a.trajectories if a.trajectories == "auto" else int(a.trajectories)
         t0, err, load0 = time.monotonic(), None, os.getloadavg()
         try:
@@ -325,6 +326,7 @@ if a.model == "bindcraft2":
         except Exception:
             err = traceback.format_exc()[-3000:]
         wall = time.monotonic() - t0
+        traj.flush()
         per = bc2_traj.campaign_trajectories(project)
         iters = sum(p["iterations"] or 0 for p in per)
         nodes = opened_nodes() or opened
@@ -332,7 +334,6 @@ if a.model == "bindcraft2":
             wall_per_iter=wall / iters if iters else None, setup_s=ready[0] - t0 if ready else None, aiclk=clock(t0, t0 + wall, nodes), nodes=nodes,
             loadavg=[load0, os.getloadavg()], err=err, **HEAD)
         end()
-    traj = bc2_traj.hook(campaign, project, emit)
     real_design = campaign.run_trajectory
 
     def design(*args, **kw):
@@ -354,8 +355,7 @@ if a.model == "bindcraft2":
             traj[-1]["err"] = traceback.format_exc()[-3000:]
         else:
             log(ev="crash", err=traceback.format_exc()[-3000:], **HEAD)
-    if traj:
-        emit(len(traj) - 1)
+    traj.flush()
     # The campaign summary the interleaved path writes, written here too: a concurrency A/B compares campaign
     # iterations per wall second (PROTOCOL rule 5), so its N=1 leg needs the same line, not a wall reconstructed
     # from two record timestamps.
