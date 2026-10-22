@@ -4,7 +4,7 @@
 #
 #   perf/rfd4/bfp8/abab.sh <card> <branch-tree> <main-tree> <out-dir> [sizes...]
 #
-# Per size: main, branch at its default set, pair_mm, fast (pair_mm,transition_b8), main again (drift).
+# Per size: main, branch at its default set, pair_mm, fast (rfd4.trunk.FAST_LEVERS), main again (drift).
 # Each leg is one process: a compile design, then one warm design per seed. AICLK is sampled inside
 # every design (design.py). The default leg must come out bit-identical to main.
 set -u
@@ -31,7 +31,7 @@ for n in $sizes; do
     leg "$n" main "$mtree" - $seeds
     leg "$n" default "$tree" - $seeds
     leg "$n" pair_mm "$tree" pair_mm $seeds
-    leg "$n" fast "$tree" pair_mm,transition_b8 $seeds
+    leg "$n" fast "$tree" pair_mm,transition_b8,trimul_gin,trimul_gin_w8 $seeds
     leg "$n" main2 "$mtree" - 0 1
 done
 stamp end

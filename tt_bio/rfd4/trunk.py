@@ -515,9 +515,11 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
 #: RFD4's precision levers per mode (`tenstorrent.model_levers`): the default design runs none, `--fast`
 #: runs FAST_LEVERS. TT_BIO_LEVERS overrides both when a harness grades a set. `pair_mm` puts the pair
 #: transition on minimal_matmul (bf16, same float64 error, not the same bits); `transition_b8` makes its
-#: weights and hidden bfp8.
+#: weights and hidden bfp8; `trimul_gin` + `trimul_gin_w8` give the triangle multiplication's in-projection
+#: bfp8 resident weights, 15.4 -> 13.9 ms a call at 512 tokens and inert (bit-identical) at 128
+#: (perf/rfd4/bfp8/trimul_levers.py).
 NORMAL_LEVERS = frozenset()
-FAST_LEVERS = frozenset({"pair_mm", "transition_b8"})
+FAST_LEVERS = frozenset({"pair_mm", "transition_b8", "trimul_gin", "trimul_gin_w8"})
 
 
 class Trunk(Module):
