@@ -393,6 +393,17 @@ L1_N_MAX = int(os.environ.get("TT_BIO_REBLOCK_L1_N_MAX", "352"))
 # out/af2igwh_rj_322104346). 0.68 moves no other grid listed here (64, 110 or 130 cores).
 L1_GROUPS_PER_CORE = float(os.environ.get("TT_BIO_REBLOCK_L1_GROUPS_PER_CORE", "0.68"))
 
+# The gated move on L1 below that window, by size of the move rather than by N. The gated kernel
+# replaces the four-way split, two `p * sigmoid(g)` and two plain moves, so it wins wherever that
+# chain costs more than the kernel's own floor (~0.22 ms for the pair on 110 cores), and the chain
+# scales with the slice's N*N*C elements. Measured on qb2 card 1 (11x10, 1350 MHz), split against
+# gated on an L1 projection, every point torch.equal (perf/rfd4/e2e/gated_window.py): the win starts
+# at 2**21 elements -- 128^2 x 128 1.09x, 256^2 x 32 1.06x, 192^2 x 64 1.17x, 96^2 x 256 1.17x,
+# 128^2 x 256 1.32x (RFD4's trimul) -- and every point below it loses (160^2 x 64 0.93x, 224^2 x 32
+# 0.91x, 128^2 x 64 0.72x). Keyed by grid core count because only the 110-core grid is measured;
+# other grids keep the N window above.
+GATED_L1_MIN_ELEMS = {110: 2 ** 21}
+
 # The DRAM legs take the same grid-fill rule below their N=256 edge. 256 was measured on 110- and
 # 130-core Blackhole grids, where the rule needs Nt=10 and so moves nothing; on a 72-core Wormhole
 # chip a DRAM -> DRAM move wins at Nt=7: forward [1, N, N, 128] 1.31x at N=195 and 1.33x at N=224,
@@ -421,17 +432,27 @@ def _dram_open(x, N: int) -> bool:
     return DRAM_FILL and ((N >= DRAM_N_ALIGNED_MIN and N % TILE_H == 0) or _l1_fills_grid(x, N))
 
 
-def _l1_fills_grid(x, N: int) -> bool:
-    """Whether an N x N move's Nt*Nt groups reach L1_GROUPS_PER_CORE per core of x's grid."""
-    if not L1_GROUPS_PER_CORE:
-        return False
+def _grid_cores(x) -> int:
     device = x.device()
     key = device.id()
     if key not in _GRID_CORES:
         g = device.compute_with_storage_grid_size()
         _GRID_CORES[key] = g.x * g.y
+    return _GRID_CORES[key]
+
+
+def _gated_l1_big(xw, N: int, slice_c: int) -> bool:
+    """Whether one gated slice reaches `GATED_L1_MIN_ELEMS` on xw's grid (never on an unmeasured grid)."""
+    floor = GATED_L1_MIN_ELEMS.get(_grid_cores(xw))
+    return floor is not None and N * N * slice_c >= floor
+
+
+def _l1_fills_grid(x, N: int) -> bool:
+    """Whether an N x N move's Nt*Nt groups reach L1_GROUPS_PER_CORE per core of x's grid."""
+    if not L1_GROUPS_PER_CORE:
+        return False
     nt = (N + TILE_H - 1) // TILE_H
-    return nt * nt >= L1_GROUPS_PER_CORE * _GRID_CORES[key]
+    return nt * nt >= L1_GROUPS_PER_CORE * _grid_cores(x)
 
 
 def eligible(x, memory_config, taped_ok: bool = False) -> bool:
@@ -1121,7 +1142,7 @@ def eligible_gated(xw, slice_c, memory_config) -> bool:
     bt = memory_config.buffer_type
     if not ((bt == ttnn.BufferType.DRAM and (N >= 256 or (DRAM_FILL_GATED and _dram_open(xw, N))))
             or (bt == ttnn.BufferType.L1 and N <= L1_N_MAX
-                and (N >= L1_N_MIN or _l1_fills_grid(xw, N)))):
+                and (N >= L1_N_MIN or _l1_fills_grid(xw, N) or _gated_l1_big(xw, N, slice_c)))):
         return _reject(f"gated_window_{bt}", shape)
     return True
 
