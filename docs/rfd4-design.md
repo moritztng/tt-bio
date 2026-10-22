@@ -167,8 +167,14 @@ weights and a bf16 matmul kernel by default. That takes about 6 s off the trunk 
 design on a Blackhole chip and very little at 128 tokens. It is not bit-exact against fp32-weight
 numerics, but on 30 seed-matched 512-token binder designs the designed chain moved 2.1 A median (11.4 A
 at most) while a different seed moves it 52.5 A, and radius of gyration, bond outliers and clashes were
-unchanged. `--fast` adds nothing further for RFD4. `TT_BIO_LEVERS=trimul_t1` restores the previous
-numerics ([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
+unchanged. `TT_BIO_LEVERS=trimul_t1` restores the previous numerics
+([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
+
+`--fast` runs the pair transition and the triangle multiplication's output layers as single fused
+programs and, from 288 tokens, the triangle contraction at reduced matmul precision. On a Blackhole
+chip that takes the trunk of a 512-token design about 24 % below the default and a 256-token one about
+18 % below it. Over 8 seed-matched designs per size the designed chain moved 2.4 A median at 512 tokens
+and 2.6 A at 256 against the default, while a different seed moves it 38 A and 24 A.
 
 ## Many designs at once
 
