@@ -18,9 +18,10 @@ the bin index with upstream's own `norm` + `bucketize` (so the bins are upstream
 AdaLN's gamma and beta, which are per design ([b, 384]); the card does the rest.
 
 The card's gather is exact. `ttnn.embedding` only moves bf16, so each fp32 weight row is split
-into three bf16 parts whose sum is the fp32 value, and the gather is a one-hot against the three
-stacked parts in one bf16 matmul with an fp32 accumulator: one non-zero product per part, three
-exact adds (`tests/test_rfd4_pair_device.py`).
+into three bf16 parts whose sum is the fp32 value; the card gathers each part (a row copy), widens
+it to fp32 and adds the three (`tests/test_rfd4_pair_device.py`). A one-hot matmul against the
+stacked parts looks equivalent but is not: with the parts stacked along K the card's accumulation
+keeps only about bf16's precision, ~1e-4 off at |w| ~ 0.1.
 """
 from __future__ import annotations
 
@@ -144,17 +145,8 @@ class PairOnCard:
         import ttnn
 
         self.split, self.device, self.ckc = split, device, ckc
-        nb = split.nbins
-        self.k = -(-nb // 32) * 32  # one-hot width per part, a tile multiple
-        parts = torch.zeros(3, self.k, split.w_step.shape[1], dtype=torch.bfloat16)
-        parts[:, :nb] = split_bf16(split.w_step)
-        self.w3 = ttnn.from_torch(parts.reshape(3 * self.k, -1), layout=ttnn.TILE_LAYOUT,
-                                  device=device, dtype=ttnn.bfloat16)
-        eye3 = torch.zeros(self.k, 3 * self.k, dtype=torch.bfloat16)  # row b: e_b in every part
-        for j in range(3):
-            eye3[:, j * self.k:(j + 1) * self.k] = torch.eye(self.k)
-        self.eye3 = ttnn.from_torch(eye3, layout=ttnn.ROW_MAJOR_LAYOUT, device=device,
-                                    dtype=ttnn.bfloat16)
+        self.parts = [ttnn.from_torch(w, layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+                      for w in split_bf16(split.w_step)]
         self.ln_w = ttnn.from_torch(split.ln_weight, layout=ttnn.TILE_LAYOUT, device=device,
                                     dtype=ttnn.float32)
         self._const = None  # (host tensor, npad, its padded copy on the card)
@@ -200,14 +192,20 @@ class PairOnCard:
         b, n = int(bins.shape[0]), int(bins.shape[1])
         idx = ttnn.from_torch(bins.reshape(1, b * n * n).to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
                               device=self.device, dtype=ttnn.uint32)
-        oh = ttnn.embedding(idx, self.eye3, layout=ttnn.ROW_MAJOR_LAYOUT,
-                            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        rows = None
+        for w in self.parts:
+            r = ttnn.embedding(idx, w, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+            r32 = ttnn.typecast(r, ttnn.float32)
+            ttnn.deallocate(r)
+            if rows is None:
+                rows = r32
+            else:
+                acc = ttnn.add(rows, r32)
+                ttnn.deallocate(rows)
+                ttnn.deallocate(r32)
+                rows = acc
         ttnn.deallocate(idx)
-        oh_t = ttnn.to_layout(ttnn.reshape(oh, (b, n, n, 3 * self.k)), ttnn.TILE_LAYOUT)
-        ttnn.deallocate(oh)
-        rows = ttnn.matmul(oh_t, self.w3, dtype=ttnn.float32, compute_kernel_config=self.ckc)
-        ttnn.deallocate(oh_t)
-        return rows
+        return ttnn.reshape(rows, (b, n, n, rows.shape[-1]))
 
     def release(self):
         if self._const is not None and self._const[2].is_allocated():
