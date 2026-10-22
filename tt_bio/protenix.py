@@ -219,9 +219,10 @@ WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_p
 # block and the grid moves the block boundaries (the triatt_b8 precedent, 3b1155aa6), so a p150a and a p300c would give
 # two users different structures. The stack was graded as one, so it leaves as one; it stays available per run.
 # trimul_t1w8 + ws_psilu: Blackhole 512-token normal grade vs that set with the stack still in (spd-m-protenix gt1wbhn,
-# 2026-10-22), 38 paired folds over 4 seeds, PASS: same-seed top pose median 0.339 A vs the 0.6 A bar (1.417 A A/A floor),
-# CA-lDDT +0.0007 [-0.0034, +0.0048], docking 31/38 -> 31/38, every interval covers 0. Same chip, p300 at 1331-1350 MHz
-# median: 21 of 22 quiet cold pairs faster, median -1.54 s on ~43 s (5 samples). ws_psilu is bit-identical by construction.
+# 2026-10-22), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.331 A vs the 0.6 A bar (1.410 A A/A floor),
+# CA-lDDT +0.0001 [-0.0035, +0.0033], docking 36/44 -> 36/44, every interval covers 0. On today's base (gt1wg, p300 chip
+# 2, 1325-1343 MHz median, separate processes x2) warm folds are -0.75 to -1.74 s on ~45 s and each arm's digest repeats
+# across processes. ws_psilu is bit-identical by construction.
 BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu"})
 # dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
 # float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
