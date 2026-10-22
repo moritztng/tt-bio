@@ -76,10 +76,6 @@ def key_pad(lens, S: int, device=None, k_chunk: int | None = None):
 # units-per-busiest-core x (q tiles per unit + 2): the 2 is the per-unit fixed cost a small q chunk pays.
 UNIT_COST_TILES = 2
 
-# Break a cost tie toward fewer q splits (B7 H20 S544: 7,10,1 over 7,5,2 reads 0.332 vs 0.352 ms a call on WH,
-# spd-m-esmc qc1). Off until a page A/B grades it.
-_PLAN_QPF_TIE = False
-
 
 def plan(B, H, S, cores, k_chunk=None, max_qt=None):
     """(q_chunk, (batch_pf, head_pf, q_pf)) minimising the busiest core's cost, padding included, q chunks of at most
@@ -97,7 +93,8 @@ def plan(B, H, S, cores, k_chunk=None, max_qt=None):
                 if qpf < 1:
                     break
                 units = -(-B // bpf) * -(-H // hpf) * -(-nq // qpf)
-                cost = (units * (qt + UNIT_COST_TILES),) + ((qpf,) if _PLAN_QPF_TIE else ()) + (bpf * hpf * qpf,)
+                # A cost tie goes to fewer q splits (B7 H20 S544 on WH: 7,10,1 runs 0.332 ms a call, 7,5,2 0.352).
+                cost = (units * (qt + UNIT_COST_TILES), qpf, bpf * hpf * qpf)
                 if best is None or cost < best[0]:
                     best = (cost, qt * 32, (bpf, hpf, qpf))
     return best[1], best[2]
