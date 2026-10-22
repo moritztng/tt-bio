@@ -80,40 +80,47 @@ out["aiclk"] = dict(median=chip_clk[len(chip_clk) // 2] if chip_clk else None, m
 out["load1"] = [round(min(c["load"] for c in win), 2), round(max(c["load"] for c in win), 2)] if win else None
 
 
-# ---- py-spy: classify each thread's samples by state
+# ---- py-spy. Seams run on jax host-callback threads (a pool, "Dummy-N"), so states are pooled over
+# them; at N=2 each slot owns half by symmetry. Fractions are of wall time (sampler ticks), so in the
+# --gil window the total is the fraction of wall that some trajectory thread holds the GIL.
 def classify(stack):
-    s = stack
-    if re.search(r"take_gil|PyEval_RestoreThread|PyEval_AcquireThread|PyGILState_Ensure", s.split(";")[-1]) or \
-            re.search(r"(take_gil|PyGILState_Ensure|PyEval_RestoreThread)[^;]*(;[^;]*){0,4}$", s):
+    fr = stack.split(";")
+    leaf, tail = fr[-1], ";".join(fr[-5:])
+    if re.search(r"take_gil|PyEval_RestoreThread|PyEval_AcquireThread|PyGILState_Ensure", tail):
         return "gil_wait"
-    if "held_for" in s and re.search(r"acquire|lock_PyThread|PyThread_acquire|sem_|futex", s.split("held_for", 1)[1]):
+    if "held_for (tt_bio/duotraj.py" in stack and ".py:" not in leaf and \
+            re.search(r"lock|acquire|futex|sem_|pthread_cond", tail):
         return "card_door"
-    if re.search(r"synchronize|Finish|finish\b|wait_for_completion|_sync \(|sync \(tt_bio|read_buffer|to_torch|"
-                 r"EnqueueReadBuffer|read_from_device|cpu \(ttnn|fabric|poll", s):
+    if re.search(r"synchroniz|Finish|wait_for_completion|read_buffer|EnqueueReadBuffer|read_from_device|"
+                 r"to_torch|sync \(tt_bio", stack):
         return "device_wait"
-    if re.search(r"ttnn|tt_metal|tt::|_ttnn", s):
-        return "ttnn_dispatch"
-    if re.search(r"xla::cpu|XlaCpu|Eigen|tsl::|xla::|jaxlib|pjrt|PjRt", s):
+    if re.search(r"xla::|XlaCpu|Eigen|tsl::|jaxlib|PjRt", tail):
         return "xla_cpu"
-    if re.search(r"pthread_cond_wait|futex|epoll|poll|select|sleep|sem_wait|nanosleep", s.split(";")[-1]):
+    if ".py:" not in leaf and re.search(r"ttnn|tt_metal|tt::|_ttnncpp|libtt_metal", stack):
+        return "ttnn_native"
+    if re.search(r"pthread_cond|futex|epoll|nanosleep|sem_wait", leaf):
         return "idle"
-    return "python_other"
+    return "python"
 
 
 def spy_read(f):
     th = collections.defaultdict(collections.Counter)
     for line in open(f):
-        line = line.rstrip("\n")
-        if not line:
-            continue
-        stack, _, n = line.rpartition(" ")
-        frames = stack.split(";")
-        th[frames[0]][classify(stack)] += int(n)
+        stack, _, n = line.rstrip("\n").rpartition(" ")
+        if stack:
+            th[stack.split(";")[0]][classify(stack)] += int(n)
     return th
 
 
+idle = spy_read(R / "spy_idle.txt") if (R / "spy_idle.txt").exists() else {}
+ticks = max((sum(v.values()) for v in idle.values()), default=0)
 for w in ("idle", "gil"):
     f = R / f"spy_{w}.txt"
-    if f.exists():
-        out[f"spy_{w}"] = {k: dict(v.most_common()) for k, v in spy_read(f).items() if sum(v.values()) > 20}
+    if f.exists() and ticks:
+        pool = collections.Counter()
+        for k, v in spy_read(f).items():
+            if "Dummy" in k:
+                pool.update(v)
+        out[f"spy_{w}"] = dict(ticks=ticks, pooled_frac={k: round(v / ticks, 3) for k, v in pool.most_common()},
+                               total=round(sum(pool.values()) / ticks, 3))
 print(json.dumps(out, indent=1))
