@@ -765,19 +765,16 @@ class OpenDDE:
         })
         # The structural pair's only consumer, so the conditioning frees it (confidence runs
         # on the residue axis): at Ns=2113 it is 3.2 GiB the confidence pairformer needs back.
-        pair_z = P._diffusion_pair_cond(z_st, relp_struct).reshape(Ns, Ns, -1)
+        pz = P._diffusion_pair_cond(z_st, relp_struct, device=P._pz_device())
         dram_peak("structural pair conditioned")
         a2s = ifd["atom_to_structural_token_idx"]
         S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
-        p_lm = p_lm + P._plm_z_term(pair_z, a2s, nb, nq, nk)
+        z_term, pz_cond = P._pair_z_seam(pz, Ns, a2s, nb, nq, nk)
+        p_lm = p_lm + z_term
 
-        cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "pair_z": pair_z, "c_l": c_l,
+        cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "c_l": c_l,
                 "p_lm": p_lm, "S": S_struct, "mask_trunked": mt.float(),
-                "structural_pair_attn_bias": structural_attn_bias}
-        if P.diffusion.device_dit:
-            cond["dit_z"] = P.diffusion._dit_z_device(pair_z)
-        else:
-            cond["dit_biases"] = P.diffusion._dit_pair_biases(pair_z)
+                "structural_pair_attn_bias": structural_attn_bias, **pz_cond}
         # Multiplicity batching (see Protenix.fold): one batched trajectory when
         # P.diffusion.supports_multiplicity is on; else the per-sample loop (bit-exact).
         if n_sample > 1 and getattr(P.diffusion, "supports_multiplicity", False):
