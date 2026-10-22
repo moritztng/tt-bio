@@ -45,6 +45,8 @@ ap.add_argument("--at", type=int, default=4)
 ap.add_argument("--burst", type=int, default=20)
 ap.add_argument("--reps", type=int, default=9)
 ap.add_argument("--min-calls", type=float, default=1.0)
+ap.add_argument("--min-m", type=int, default=0, help="time only signatures with at least this many rows")
+ap.add_argument("--fast", action="store_true", help="base, pair_linear and minimal_matmul arms only")
 a = ap.parse_args()
 sys.path.insert(0, str(a.bc2))
 
@@ -283,13 +285,23 @@ def bench():
                 batch *= d
         flop = 2 * batch * M * K * N
         row["mkn"] = [batch, M, K, N, ta, tb]
+        if M < a.min_m:
+            continue
         ref = reference(r) if x.dtype != ttnn.float32 or flop < 5e9 else None
         arm(row, "base", call_for(r), ref, flop)
         if n < a.min_calls or x.dtype != ttnn.bfloat16 or y.dtype != ttnn.bfloat16:
             continue
-        arm(row, "hifi2", call_for(r, fid=ttnn.MathFidelity.HiFi2), ref, flop)
-        arm(row, "bfp8", call_for(r, out_dtype=ttnn.bfloat8_b), ref, flop)
-        arm(row, "hifi2_bfp8", call_for(r, fid=ttnn.MathFidelity.HiFi2, out_dtype=ttnn.bfloat8_b), ref, flop)
+        if not a.fast:
+            arm(row, "hifi2", call_for(r, fid=ttnn.MathFidelity.HiFi2), ref, flop)
+            arm(row, "bfp8", call_for(r, out_dtype=ttnn.bfloat8_b), ref, flop)
+            arm(row, "hifi2_bfp8", call_for(r, fid=ttnn.MathFidelity.HiFi2, out_dtype=ttnn.bfloat8_b), ref, flop)
+        # pair_linear (weight resident in L1, Wormhole-only in the model) on a narrow bias-free call
+        if (not ta and len(sy) == 2 and M >= 4096 and min(K, N) < 32 and r["bias"] is None
+                and r["kw"].get("activation") in (None,)):
+            from tt_bio import pair_linear as PL
+            wl = ttnn.clone(ttnn.transpose(y, -2, -1) if tb else y, memory_config=DRAM)
+            arm(row, "pl", lambda: PL.matmul(x, wl, with_cfg(kw)), ref, flop)
+            free(wl)
         # minimal_matmul on the flattened rows, pair-sized calls against a 2-D weight only
         if ta or len(sy) != 2 or M < 4096 or K % 32 or N % 32 or r["kw"].get("activation") not in (None,):
             continue

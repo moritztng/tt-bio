@@ -12,6 +12,6 @@ export JAPANFOLD_BC2_AF2_WEIGHTS=$HOME/bcx_e2e/af2_params TT_BIO_LEASE_TIMEOUT=7
 export JAPANFOLD_BC2_MPNN_WEIGHTS=$HOME/bcx_e2e/bc2/bindcraft/weights/proteinmpnn/weights_neutral
 export PYTHONPATH=$WT
 unset LD_LIBRARY_PATH
-flock -w 60 "$HOME/spd_qb2_chip$C.lock" timeout "${TMO:-2400}" "$HOME/bcx_e2e_venv/bin/python3" \
+flock -w "${LOCKW:-60}" "$HOME/spd_qb2_chip$C.lock" timeout "${TMO:-2400}" "$HOME/bcx_e2e_venv/bin/python3" \
     "$SCRIPT" --out "$OUT/out.json" "$@" > "$OUT/log" 2>&1
 echo "rc=$? $(date -u +%FT%TZ) $(cat /proc/loadavg)" > "$OUT/done"
