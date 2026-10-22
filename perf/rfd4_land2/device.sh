@@ -40,4 +40,18 @@ echo "design128 rc=$?" >> $R/done
 MINE=$R/design128/pdl1_binder_128_s0_r1_generated.cif
 $V12 perf/rfd4_land/cif_compare.py "$MINE" "$MAINREF" --json $R/cmp-128-vs-main.json
 $V12 perf/rfd4_land/cif_compare.py "$MINE" "$E2EREF" --json $R/cmp-128-vs-e2e.json
+
+# The same 128-token spec through the user path, `tt-bio design --model rfd4`, on this tree and on
+# main (MAIN_TREE, a checkout of origin/main) at one seed: the designs must be the same atoms.
+MAIN_TREE=${MAIN_TREE:-/home/ttuser/scratch/rfd4-land2/mainref}
+for leg in land:$WT main:$MAIN_TREE; do
+  name=${leg%%:*}; T=${leg#*:}
+  (cd "$T" && PYTHONPATH=$T timeout 1500 $V12 -m tt_bio.main design --model rfd4 \
+     /home/ttuser/rfd4-inputs/pdl1-128.yaml --out_dir $R/cli_$name --seed 0 --num_designs 1) \
+     > $R/cli_$name.log 2>&1
+  echo "cli_$name rc=$?" >> $R/done
+done
+for f in $(cd $R/cli_main && find . -name "*.cif" | sort); do
+  $V12 perf/rfd4_land/cif_compare.py "$R/cli_land/$f" "$R/cli_main/$f" --json "$R/cmp-cli-$(basename $f).json"
+done
 echo ALLDONE >> $R/done
