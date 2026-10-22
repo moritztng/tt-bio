@@ -920,19 +920,9 @@ T2_WIDE_KEYS = {(12, 12)}
 # RFD4's (8, 12) (hidden 256 -> c_z 384) at the same block, only in the float32-stream form (`copy`, T2_RES32),
 # whose caller (the rfd4 trunk's `pair_tail` lever) gates it: no other model's T2 eligibility changes.
 T2_RES32_KEYS = {(8, 12)}
-# T2 reads x and g through TensorAccessors, so an interleaved L1 operand needs no kernel change. Off, `t2_operand`
-# moves an L1 operand to DRAM, the layout every T2 caller has always given it. Bench knob (tri128 arm B); the residual
-# stream and its copy stay DRAM either way.
-T2_L1_IN = False
-
-
-def t2_operand(t):
-    """`t` as T2 takes it: as it is where it is DRAM or `T2_L1_IN` allows L1, else a DRAM copy (`t` freed)."""
-    if t.memory_config() == ttnn.DRAM_MEMORY_CONFIG or (T2_L1_IN and t.memory_config() == ttnn.L1_MEMORY_CONFIG):
-        return t
-    d = ttnn.to_memory_config(t, ttnn.DRAM_MEMORY_CONFIG)
-    ttnn.deallocate(t)
-    return d
+# T2 reads x and g through TensorAccessors, so interleaved L1 operands need no kernel change. Accepted under
+# RFD4's `pair_tail_small`, whose chain leaves both in L1 below MIN_N; the residual stream and its copy stay DRAM.
+# A DRAM copy of the two instead lost (0.98x a trunk pass at 128 tokens, state/rfd4/bets/tri128.md).
 T2_BLOCK = {(12, 12): (2, 12, 1, 2, 1), (8, 12): (2, 12, 1, 2, 1)}
 
 
@@ -1001,7 +991,7 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None):
         if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG and not (
-                T2_L1_IN and (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG):
+                (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG and lever("pair_tail_small")):
             return "memcfg"
     return _t2_shape_why([int(d) for d in x.shape], [int(d) for d in x.padded_shape],
                          ln_w, ln_b, wp, g, resid, wg, res32=copy is not None)

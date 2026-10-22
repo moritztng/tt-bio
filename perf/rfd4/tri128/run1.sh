@@ -1,8 +1,7 @@
 #!/bin/bash
-# rfd4-perf-tri128 device pass 1: pair_tail_small at 128 and 96 tokens, paired traced trunk passes against main's
-# default set (30 reps, AICLK sampled during by stack_ab). Arm B: T2 reads its x and g operands from L1 instead of a
-# DRAM copy (trimul_tail.T2_L1_IN).
-#   run1.sh <chip> <tree> <out>     tree = an exported checkout of wk/rfd4-perf-tri128
+# rfd4-perf-tri128 device pass 1 (as run, tree b99ea4ee0): pair_tail_small at 128 and 96 tokens, paired traced trunk
+# passes against main's default set, 30 reps. Arm a: T2's x and g copied to DRAM; arm b: read from L1 (the knob
+# trimul_tail.T2_L1_IN of that tree, which is now what the lever does). Results in state/rfd4/bets/tri128.md s.6.
 set -u
 C=$1; T=$2; R=$3
 PY=$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python
@@ -24,6 +23,4 @@ for n in 128 96; do
     --base $BASE --levers $BASE,pair_tail_small > $R/b-$n.log 2>&1
   stamp "b-$n rc=$?"
 done
-TT_BIO_LEVERS=$BASE,pair_tail_small bash perf/rfd4/e2e/elt_prof.sh $R/census-a $C --n 128 > $R/census-a.log 2>&1
-stamp "census-a rc=$?"
 stamp ALLDONE

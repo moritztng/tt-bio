@@ -11429,9 +11429,7 @@ class TriangleMultiplication(Module):
                 and not ops.taping() and lever("pair_tail_small")):
             # Below T1's floor the chain keeps the input side; g_out is the same projection the tail below
             # would compute, and T2's float32-stream form then takes the rest of the tail with the residual.
-            g_out_fused = _trimul_tail.t2_operand(_trimul_out_proj(
-                x_norm_in, self.g_out_weight, self.compute_kernel_config, None))
-            x = _trimul_tail.t2_operand(x)
+            g_out_fused = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config, None)
             ttnn.deallocate(x_norm_in)
             x_norm_in = None
         if (stream32 is not None and g_out_fused is not None and not x_normed and not add_to_input
