@@ -21,8 +21,9 @@ passes is a different model, not a faster one.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from collections.abc import Callable, Sequence
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,9 @@ class DesignOutput:
     residue_type: object
     atom_mask: object
     insertion_logits: object
+    #: Saved trajectory snapshots, empty unless the run asked for them
+    #: (`tt_bio.rfd4.trajectory.write_trajectory` puts them on disk).
+    trajectory: list = field(default_factory=list)
 
 
 @runtime_checkable
@@ -53,12 +57,15 @@ class DesignEngine:
     """RFD4 on Tenstorrent: the sampler driving the trunk and the autoencoder on one card.
 
     The weights are loaded once and stay on the device, so a second design on the same engine
-    pays no load. `recipe` names a shipped recycle strategy (`thinking_low|medium|high`); the
-    step count comes from the recipe unless the caller overrides it.
+    pays no load. `recipe` names a shipped recycle strategy (any of `sampler.RECYCLE_SCHEDULES`:
+    the three `thinking_*` aliases, and `{low,medium,high}/{flat,front_loaded,midpeak}`); the
+    step count comes from the recipe unless the caller overrides it. `tsr_k` is the sequence
+    temperature, upstream's `local_latents.simulation_step_params.tsr_k`: lower is hotter.
     """
 
     def __init__(self, weights: str | Path = DEFAULT_WEIGHTS, *, recipe: str = "thinking_medium",
-                 adapter: str | Path | None = None, max_parallel_samples: int | None = 1):
+                 tsr_k: float | None = None, adapter: str | Path | None = None,
+                 max_parallel_samples: int | None = 1):
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
@@ -70,6 +77,10 @@ class DesignEngine:
         state, config = _network.load_checkpoint(path, adapter=adapter)
         cfg = config["nn"]
         self.spec = _sampler.recycle_strategy(recipe)
+        if tsr_k is not None:
+            latents = self.spec.modalities[_sampler.LOCAL_LATENTS]
+            self.spec = replace(self.spec, modalities=dict(self.spec.modalities,
+                                                           **{_sampler.LOCAL_LATENTS: replace(latents, tsr_k=tsr_k)}))
         self.config = config
         self.glue = _network.FlowGlue(state, config)
         from tt_bio.tenstorrent import WeightScope
@@ -91,6 +102,26 @@ class DesignEngine:
 
         self.pair = (None if self.glue.pair_split is None
                      else PairOnCard(self.glue.pair_split, self._device))
+        self._weights = path
+        self._encoder = None
+
+    @property
+    def encoder(self):
+        """The AE's encoder, brought up on first use.
+
+        Only partial diffusion and inverse folding need it, and they are the minority of runs, so
+        a generation from pure noise pays neither the host memory nor the device bring-up. The
+        cost of asking later is one re-read of the bundle.
+        """
+        if self._encoder is None:
+            from tt_bio.rfd4 import network as _network
+            from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
+
+            # No adapter here: a LoRA adapts the trunk (`nn.`), and the encoder is the
+            # `autoencoder.` half of the same bundle.
+            state, _ = _network.load_checkpoint(self._weights)
+            self._encoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("encoder",))
+        return self._encoder
 
     @classmethod
     def from_pretrained(cls, weights: str | Path = DEFAULT_WEIGHTS, **kwargs) -> "DesignEngine":
@@ -99,10 +130,26 @@ class DesignEngine:
         return cls(weights, **kwargs)
 
     def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int,
-               rng: str = "per_design") -> DesignOutput:
+               rng: str = "per_design", partial_t_backbone: float | None = None,
+               partial_t_latent: float | None = None, couple_partial_t: bool = False,
+               partial_trajectory_fraction_steps: float | None = None,
+               inverse_folding: bool = False,
+               inverse_folding_method: str = "resampled_forward_marginal",
+               transforms: "Sequence[Callable]" = (), guidance=None,
+               save_trajectory_every: int = 0) -> DesignOutput:
         """`rng="per_design"` gives every design its own stream (`sampler.DesignRng`).
         `rng="upstream"` seeds the global stream with `seed` and draws in upstream's order, which
-        is how a design is compared one to one against upstream's run of the same seed."""
+        is how a design is compared one to one against upstream's run of the same seed.
+
+        `transforms` are per-replicate sampling transforms (`tt_bio.rfd4.replicates`): each one
+        runs once per design, so a batch can cover a surface instead of repeating one condition.
+        `guidance` is a metric-gradient callable (`tt_bio.rfd4.guidance`).
+
+        The partial-diffusion and inverse-folding arguments are upstream's, with upstream's
+        meanings and upstream's mutual exclusions (`sampler.resolve_partial_start`). Any of them
+        starts the trajectory from the input structure rather than from pure noise, which needs
+        the clean state `x_1` and so the AE's encoder.
+        """
         import gc
 
         import torch
@@ -113,7 +160,12 @@ class DesignEngine:
         from tt_bio.sample_chunks import resolve_sample_chunk_width
         from tt_bio.size_limits import is_alloc_refusal
 
+        from tt_bio.rfd4.replicates import apply_transforms
+
         batch = preprocess(features)
+        if transforms:
+            batch = apply_transforms(batch, num_designs=num_designs, transforms=transforms,
+                                     seed=seed)
         n_tokens = batch["padding_mask"].shape[1]
         spec = self.spec
         if nsteps != spec.nsteps:
@@ -121,15 +173,24 @@ class DesignEngine:
             logger.info("rfd4: %d steps instead of the recipe's %d", nsteps, spec.nsteps)
             spec = replace(spec, nsteps=nsteps)
 
+        start = _sampler.resolve_partial_start(
+            spec, partial_t_backbone=partial_t_backbone, partial_t_latent=partial_t_latent,
+            couple_partial_t=couple_partial_t,
+            partial_trajectory_fraction_steps=partial_trajectory_fraction_steps,
+            inverse_folding=inverse_folding, inverse_folding_method=inverse_folding_method)
+        x_1 = self.clean_sample(batch, num_designs=num_designs, seed=seed) if start.is_partial else None
+
         network = _network.FlowNetwork(self.glue, _CardTrunk(self.trunk, self._device, self.pair), batch)
         args = dict(n_designs=num_designs, n_tokens=n_tokens, seed=seed, rng_mode=rng,
                     emit_masks=compute_flow_emit_masks(batch), groups=_groups(batch),
-                    coord_cond_mask=batch.get("coord_cond_mask"))
+                    coord_cond_mask=batch.get("coord_cond_mask"), start=start, x_1=x_1,
+                    guidance=guidance, save_trajectory_every=save_trajectory_every)
         out = None
         width = resolve_sample_chunk_width(num_designs, self.max_parallel_samples)
-        if rng == "per_design" and width < num_designs:
+        if rng == "per_design" and guidance is None and width < num_designs:
             # The chunks ChunkedNetwork would run one after another, run as interleaved lanes:
             # same designs, but the host prepares one chunk while the card runs another.
+            # Guidance sees the whole batch, so it stays on the chunker.
             try:
                 out = _sampler.generate(spec, network, lane_width=width, **args)
                 self.chunk_width = width
@@ -147,15 +208,38 @@ class DesignEngine:
             #: The sample width the trajectory finished at: `max_parallel_samples`, or less where DRAM
             #: refused a chunk and the chunker halved it. A throughput number quotes this, not the cap.
             self.chunk_width = chunked.width
-        logger.info("rfd4: %d designs, %d steps, %d trunk passes, %d at a time", num_designs, nsteps,
-                    out.trunk_passes, self.chunk_width)
+        logger.info("rfd4: %d designs, %d steps, %d trunk passes, %d at a time%s", num_designs,
+                    start.nsteps or nsteps, out.trunk_passes, self.chunk_width,
+                    f", from t={start.t}" if start.is_partial else "")
 
         if self.pair is not None:
             self.pair.release()  # the design's constant pair projection
         decoded = self.decode(batch, out, num_designs=num_designs)
         return DesignOutput(coords_nm=decoded["coors_nm"], residue_type=decoded["residue_type"],
                             atom_mask=decoded["atom_mask"],
-                            insertion_logits=out.insertion_logits)
+                            insertion_logits=out.insertion_logits,
+                            trajectory=out.trajectory)
+
+    def clean_sample(self, batch: dict, *, num_designs: int, seed: int) -> dict:
+        """`Proteina.add_clean_samples`: the input structure as the flow's clean state `x_1`.
+
+        The backbone is the CA slot of the input coordinates. The latents are the AE encoder's
+        draw, `mean + eps * exp(log_scale)` — upstream's encode is stochastic, so a parent
+        structure does not have one latent, it has a distribution, and every design gets its own
+        draw from it. The draw is seeded off the design seed, so a run reproduces.
+        """
+        import torch
+
+        from tt_bio.rfd4 import network as _network
+        from tt_bio.rfd4.sampler import BB_CA, LOCAL_LATENTS
+
+        wide = _network._broadcast_batch(dict(batch), num_designs)
+        encoded = self.encoder.encode(wide, noise=None)
+        gen = torch.Generator().manual_seed(seed)
+        eps = torch.randn(encoded["log_scale"].shape, generator=gen,
+                          dtype=encoded["log_scale"].dtype)
+        latents = (encoded["mean"] + eps * torch.exp(encoded["log_scale"])) * encoded["emit_mask"][..., None]
+        return {BB_CA: wide["coords_nm"][:, :, 1, :], LOCAL_LATENTS: latents}
 
     def decode(self, batch: dict, out, *, num_designs: int) -> dict:
         """The autoencoder's decoder on the final latents, then upstream's assembly of the result.

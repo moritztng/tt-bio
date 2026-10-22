@@ -432,6 +432,8 @@ SPECS_EXEMPT: dict[str, str] = {
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                    "checkpoint, embed shape identical to saprot-650m)",
+    "rfd4": "not yet seeded -- TODO: measure and add a SPECS entry (design kind, "
+            "same designs/s protocol as rfd3) once the port is graded on card",
 }
 
 
@@ -515,7 +517,16 @@ def load_baselines() -> dict:
 
 def save_baselines(data: dict) -> None:
     BASELINE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    BASELINE_FILE.write_text(json.dumps(data, indent=2) + "\n")
+    _replace_text(BASELINE_FILE, json.dumps(data, indent=2) + "\n")
+
+
+def _replace_text(path: Path, text: str) -> None:
+    """Write `path` as a new file renamed over the old one. The Galaxy hosts hardlink identical
+    files across checkouts and make them read-only, so an in-place write either fails (EACCES)
+    or, if it got through, would land in every checkout sharing the inode."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
 
 
 def _sysfs_subsystem_device(device_id: str) -> str | None:
@@ -1850,6 +1861,11 @@ def _measure_reference(args) -> None:
     for m in args.model or []:
         argv += ["--model", m]
     print(f"A/B reference: {tree}", flush=True)
+    # The reference is an older release whose save_baselines writes in place (v0.21.0 hit EACCES
+    # on a deduplicated tree, gate rel-624358ec2): give it a private, writable copy first.
+    ref_file = tree / "docs" / "perf_baselines.json"
+    if ref_file.exists():
+        _replace_text(ref_file, ref_file.read_text())
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(
         [str(tree)] + [q for q in os.environ.get("PYTHONPATH", "").split(os.pathsep)
                        if q and Path(q).resolve() != REPO_ROOT.resolve()])}

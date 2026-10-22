@@ -128,6 +128,11 @@ def write_design(output, features: dict, atom_array, path: str | Path, *, row: i
     Coordinates come back in nanometres and are converted, the design is realigned onto
     the input's frame, and the file is published by link into place, so an existing path
     is never overwritten and a reader never sees a half-written file.
+
+    `features` is one example and `output` is `num_designs` of it, so the writer's row index
+    runs past the features' single row. Upstream repeats the features per design before it
+    writes; we hand the writer the same view instead of carrying `num_designs` copies of every
+    feature through the engine.
     """
     from tt_bio._vendor.rfd4_prep.processing import write_cif
     from tt_bio.rfd4.network import _broadcast_batch

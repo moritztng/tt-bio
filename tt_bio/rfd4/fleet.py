@@ -47,7 +47,7 @@ def design_via_controller(spec: str | Path, out_dir: str | Path, *, controller_u
                           recipe: str | None = None,
                           nsteps: int | None = None, seed: int = 0,
                           only: list[str] | None = None, validate: bool = True,
-                          annotated_cif: bool = False, run_id: str | None = None,
+                          annotated_cif: bool = False, fast: bool = False, run_id: str | None = None,
                           owner: str | None = None, verbose: bool = True) -> list[dict]:
     """Fleet twin of :func:`tt_bio.rfd4.design`. Returns one row per design written.
 
@@ -76,6 +76,8 @@ def design_via_controller(spec: str | Path, out_dir: str | Path, *, controller_u
         config["recipe"] = recipe
     if nsteps is not None:
         config["nsteps"] = int(nsteps)
+    if fast:
+        config["fast"] = True
 
     jobs = _jobs(inputs, int(num_designs), int(seed))
     run_payload = {"data": "rfd4-design", "out_dir": str(out_dir), "result_dir": str(out_dir),

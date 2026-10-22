@@ -95,6 +95,9 @@ def test_the_recipe_rides_in_the_run_config_and_a_bad_one_never_reaches_the_flee
                                 nsteps=40, verbose=False)
     assert client.payload["config"]["recipe"] == "high/flat"
     assert client.payload["config"]["nsteps"] == 40
+    assert "fast" not in client.payload["config"]
+    fleet.design_via_controller(spec, out, controller_url="http://c", fast=True, verbose=False)
+    assert client.payload["config"]["fast"] is True
 
     client.payload = None
     with pytest.raises(ValueError, match="unknown recycle strategy"):
@@ -193,6 +196,22 @@ def test_a_held_engine_is_dropped_before_a_predict_model_loads(monkeypatch):
     assert worker_mod._RFD4_ENGINE == (None, None)
 
 
+def test_fast_keys_the_held_engine_and_is_set_before_it_builds(monkeypatch):
+    """`--fast` picks the trunk's lever set when the engine is built, so a run that changes it
+    gets a new engine built under it, and a run that keeps it reuses the held one."""
+    from tt_bio import rfd4, tenstorrent
+    from tt_bio import worker as worker_mod
+
+    built = []
+    monkeypatch.setattr(worker_mod, "_RFD4_ENGINE", (None, None))
+    monkeypatch.setattr(rfd4, "get_engine", lambda **kw: built.append(tenstorrent._FAST_MODE) or object())
+    monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
+    a = worker_mod._rfd4_engine({"engine": "rfd4"})
+    assert worker_mod._rfd4_engine({"engine": "rfd4"}) is a
+    b = worker_mod._rfd4_engine({"engine": "rfd4", "fast": True})
+    assert b is not a and built == [False, True]
+
+
 def test_the_cli_submits_rather_than_designing_locally(monkeypatch, tmp_path):
     from click.testing import CliRunner
 
@@ -215,3 +234,29 @@ def test_the_cli_submits_rather_than_designing_locally(monkeypatch, tmp_path):
     assert seen["controller_url"] == "http://c" and seen["num_designs"] == 4
     assert (seen["seed"], seen["recipe"], seen["run_id"], seen["owner"]) == (3, "high/flat",
                                                                             "job-9", "abc")
+
+
+@pytest.mark.parametrize("fast", [True, False])
+def test_the_cli_fast_flag_reaches_rfd4(monkeypatch, tmp_path, fast):
+    """`--fast` is RFD4's lever set, not an ignored flag: set before the engine builds locally, and
+    carried in a fleet run's config."""
+    from click.testing import CliRunner
+
+    from tt_bio import tenstorrent
+    from tt_bio.main import cli
+    from tt_bio.rfd4 import fleet as fleet_mod
+
+    seen = {}
+    monkeypatch.setattr(tenstorrent, "_FAST_MODE", False)
+    monkeypatch.setattr("tt_bio.rfd4.design",
+                        lambda *a, **k: seen.update(local=tenstorrent._FAST_MODE) or [])
+    monkeypatch.setattr(fleet_mod, "design_via_controller",
+                        lambda spec, out_dir, **kw: seen.update(fleet=kw["fast"]) or [])
+    spec = tmp_path / "spec.yaml"
+    spec.write_text("a: {}\n")
+    args = ["design", str(spec), "--model", "rfd4", "--out_dir", str(tmp_path / "out")] + (["--fast"] if fast else [])
+    for extra in ([], ["--controller", "http://c"]):
+        result = CliRunner().invoke(cli, args + extra)
+        assert result.exit_code == 0, result.output
+        assert "does not use --fast" not in result.output
+    assert seen == {"local": fast, "fleet": fast}

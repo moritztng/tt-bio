@@ -94,6 +94,8 @@ class SamplingSpec:
     nsteps: int = 60
     n_recycle_schedule: tuple[tuple[int, int], ...] | None = ((5, 6), (10, 5), (5, 4), (10, 3), (20, 2), (10, 1))
     n_recycle: int = 0
+    #: Classifier-free guidance weight. 1.0 is off and is the only value the release supports;
+    #: see :func:`check_guidance_w`.
     guidance_w: float = 1.0
 
     @property
@@ -919,6 +921,26 @@ def _noised_target_backbone(spec: SamplingSpec, target_backbone, t: float, rng: 
                        rng=rng, coord_cond_mask=coord_cond_mask, groups=groups)[BB_CA]
 
 
+def check_guidance_w(spec: SamplingSpec) -> None:
+    """Classifier-free guidance is off in the release, and cannot be turned on from it.
+
+    `v_guided = w * v + (1 - w) * v_ucond` needs a second, unconditional network call, and
+    upstream builds that call by dropping `cath_code` / `x_motif` from the batch
+    (`rfproteina/proteina.py::predict_for_sampling`, which asserts one of them is present).
+    The released RFD4 pipeline carries neither: CATH arrives as the `condition_cath-label`
+    palette entry and the motif as coordinate conditioning, so upstream's own unconditional
+    branch cannot run on a release batch, and its BioIR backend rejects `guidance_w` outright.
+    A weight other than 1.0 is therefore refused here rather than silently ignored.
+    """
+    if spec.guidance_w != 1.0:
+        raise ValueError(
+            f"guidance_w={spec.guidance_w}: classifier-free guidance is not available on the "
+            "released RFD4 checkpoint. Upstream's unconditional pass drops cath_code/x_motif, "
+            "and the release conditions through the condition palette instead, so there is no "
+            "unconditional model to blend with. Use metric gradient guidance "
+            "(tt_bio.rfd4.guidance) for a steered run.")
+
+
 def generate(spec: SamplingSpec, network: Network, *, n_designs: int, n_tokens: int, seed: int,
              emit_masks: dict[str, torch.Tensor | None], rng_mode: str = "per_design",
              start: PartialStart | None = None, x_1: dict[str, Any] | None = None,
@@ -937,6 +959,7 @@ def generate(spec: SamplingSpec, network: Network, *, n_designs: int, n_tokens: 
     the designs are the same; it needs ``rng_mode="per_design"``, because under ``"upstream"`` a
     design's noise depends on the order the whole batch is drawn in.
     """
+    check_guidance_w(spec)
     common = dict(n_tokens=n_tokens, seed=seed, rng_mode=rng_mode, start=start or PartialStart(),
                   device=device, dtype=dtype, **kwargs)
     if lane_width is None or lane_width >= n_designs:

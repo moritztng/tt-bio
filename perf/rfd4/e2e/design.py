@@ -1,11 +1,12 @@
 """One RFD4 design end to end on a card, timed, with the clock sampled during it.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/e2e/design.py --spec <spec.yaml> --weights <bundle> \
-        --out <dir> [--seed 0] [--designs 2]
+        --out <dir> [--seed 0] [--designs 2] [--recipe thinking_medium]
 
-The recipe is the released `thinking_medium`, 60 steps and 180 trunk passes, and nothing here can
-shorten it: the engine takes its step count from the recipe and the sampler refuses a depth list of
-the wrong length. Each design writes its CIF and one JSON line to `<out>/runs.jsonl`:
+`--cif` takes an annotated CIF instead of a spec, which is the form the condition-family
+benchmarks ship in. `--recipe` picks the recycle schedule, because RFD4 prescribes a different
+one per design task. Every schedule is 60 steps and nothing here can shorten it: the engine takes
+its step count from the recipe and the sampler refuses a depth list of the wrong length. Each design writes its CIF and one JSON line to `<out>/runs.jsonl`:
 
 * `kind: cold` is the engine build (device open, weight upload), reported apart, never amortised.
 * The first design pays kernel compilation; it is recorded but is not the warm number.
@@ -31,13 +32,16 @@ from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 
 import clocksample  # noqa: E402
+from rfd4.trunk_clock import time_trunk  # noqa: E402
 
 CLOCK_FLOOR_MHZ = 1200
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--spec", required=True)
+    ap.add_argument("--spec", help="design spec; mutually exclusive with --cif")
+    ap.add_argument("--cif", help="an annotated CIF, featurized directly")
+    ap.add_argument("--recipe", default="thinking_medium")
     ap.add_argument("--weights", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
@@ -46,6 +50,7 @@ def main():
                     help="one design per seed after a compile design at the first (a paired multi-seed grade)")
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
+    ap.add_argument("--reseed", action="store_true", help="design i runs at seed+i: a seed floor from one session")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -63,22 +68,49 @@ def main():
         log.flush()
         print(json.dumps(rec), flush=True)
 
+    if bool(a.spec) == bool(a.cif):
+        ap.error("pass exactly one of --spec and --cif")
     t0 = time.perf_counter()
-    designs = rfd4.prepare_examples(a.spec, out / "inputs")
+    if a.cif:
+        designs = [rfd4.DesignInput(Path(a.cif).stem, Path(a.cif))]
+    else:
+        designs = rfd4.prepare_examples(a.spec, out / "inputs")
     features, atom_array = rfd4.featurize(designs[0].cif, seed=a.seed)
     t_feat = time.perf_counter() - t0
     n_tokens = int(features["padding_mask"].shape[-1])
 
+    if a.upstream_seams:
+        # The same substitution host_trunk_control.py --features upstream makes, one layer up:
+        # engine.design() builds the batch itself, so the hook goes on preprocess.
+        import torch
+        up = torch.load(a.upstream_seams, weights_only=False)["batch"]
+        keys = ("chain_iid", "molecule_iid", "condition_InternalCoordinate_1_atom")
+        inner_pre = E.preprocess
+
+        def transplanted(feats):
+            batch = inner_pre(feats)
+            for key in keys:
+                src = next((v for k, v in up.items() if k == key or k.endswith("." + key)), None)
+                if src is None:
+                    raise KeyError(f"{a.upstream_seams} has no {key}")
+                batch[key] = src.to(batch[key].dtype)
+            return batch
+
+        E.preprocess = transplanted
+        emit({"kind": "transplant", "seams": a.upstream_seams, "keys": list(keys)})
+
     with clocksample.during() as clk:
         t0 = time.perf_counter()
-        engine = E.DesignEngine(a.weights, recipe="thinking_medium")
+        engine = E.DesignEngine(a.weights, recipe=a.recipe)
         t_build = time.perf_counter() - t0
     emit({"kind": "cold", "what": "engine build (device open + weight upload)", "wall_s": round(t_build, 2),
           "featurize_s": round(t_feat, 2), "aiclk": clk.summary()})
 
     # Time the trunk calls from inside the network so the host share is measured, not inferred.
+    # The patch is by name: a tree that reaches the trunk another way leaves trunk_s empty, and then
+    # the design is fine and only the instrument failed. Say which, rather than dying in the writer.
     trunk_s = []
-    inner = engine.trunk.run_bucketed
+    time_trunk(engine.trunk, trunk_s)
 
     def timed(*args, **kwargs):
         t = time.perf_counter()
@@ -114,6 +146,11 @@ def main():
               "trunk_call_s": {"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)} if trunk_s else None,
               "aiclk": summ, "aiclk_mhz": mhz, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
               "cif": str(path)})
+        if not trunk_s:
+            print("INSTRUMENT: engine.trunk.run_bucketed was never called through the timing patch; "
+                  "the design itself completed and wrote %s. Re-point the patch before reading any "
+                  "trunk_s from this tree." % path, flush=True)
+            raise SystemExit(3)
 
 
 def _pair_mm_stats():

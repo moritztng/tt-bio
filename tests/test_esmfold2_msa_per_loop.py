@@ -71,21 +71,28 @@ def test_lm_dropout_is_upstreams_training_mode_dropout_and_follows_the_seed():
     assert abs(float((a == 0).float().mean()) - 0.25) < 0.02
 
 
-def _unpack(w):
-    """`_pack_keep`'s inverse on the host, as `_unpack_keep_dev` does it on the device."""
+def _unpack(w, rows):
+    """`_unpack_keep_dev` on the host: 16-bit words or `_fold_words`' pairs back to `rows` rows."""
     from tt_bio.esmfold2_runtime import _KEEP_BITS
 
     assert w.dtype == torch.int32
-    return torch.cat([(w >> j) & 1 for j in range(_KEEP_BITS)], dim=1).to(torch.bfloat16)
+    halves = rows // (_KEEP_BITS * w.shape[1])
+    return torch.cat([(w >> (j + k * _KEEP_BITS)) & 1 for j in range(_KEEP_BITS) for k in range(halves)],
+                     dim=1).to(torch.bfloat16)
 
 
 def test_packed_keep_round_trips_rows_in_order():
-    from tt_bio.esmfold2_runtime import _pack_keep
+    from tt_bio.esmfold2_runtime import _fold_words, _pack_keep
 
-    keep = torch.rand(1, 96, 40, 8) >= 0.25
+    keep = torch.rand(1, 96, 40, 8) >= 0.25  # 6 words a column: folds to 3
     w = _pack_keep(keep)
     assert w.shape == (1, 6, 40, 8) and int(w.max()) < 2 ** 16
-    assert torch.equal(_unpack(w), keep.to(torch.bfloat16))
+    assert torch.equal(_unpack(w, 96), keep.to(torch.bfloat16))
+    f = _fold_words(w)
+    assert f.shape == (1, 3, 40, 8) and int(f.min()) < 0  # bit 31 set somewhere: the sign bit carries a row
+    assert torch.equal(_unpack(f, 96), keep.to(torch.bfloat16))
+    odd = _pack_keep(torch.rand(1, 48, 4, 2) >= 0.5)
+    assert _fold_words(odd) is odd
 
 
 def test_prefetched_keep_masks_follow_the_seed_and_keep_one_minus_p():
@@ -94,7 +101,7 @@ def test_prefetched_keep_masks_follow_the_seed_and_keep_one_minus_p():
     def draws(seed):
         torch.manual_seed(seed)
         d = _KeepDraws((1, 64, 64, 8), 0.25, 3)
-        return [_unpack(d.take()) for _ in range(3)]
+        return [_unpack(d.take(), 64) for _ in range(3)]
 
     a, b, c = draws(5), draws(5), draws(6)
     assert all(torch.equal(x, y) for x, y in zip(a, b))
@@ -111,7 +118,7 @@ def test_packed_keep_draw_keeps_one_minus_p_per_bit_for_dyadic_p():
     assert _dyadic(0.25) == (1, 2) and _dyadic(0.375) == (3, 3)
     assert _dyadic(0.1) is None and _dyadic(0.0) is None and _dyadic(1.0) is None
     for p in (0.25, 0.375, 0.5):
-        m = _unpack(_draw_packed_keep((1, 256, 64, 32), p, torch.Generator().manual_seed(3)))
+        m = _unpack(_draw_packed_keep((1, 256, 64, 32), p, torch.Generator().manual_seed(3)), 256)
         assert m.shape == (1, 256, 64, 32) and set(m.unique().tolist()) == {0.0, 1.0}
         assert abs(float(m.float().mean()) - (1 - p)) < 0.005
         # every bit position of the word carries the same law (no row block biased)
