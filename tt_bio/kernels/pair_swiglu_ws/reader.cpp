@@ -12,6 +12,8 @@
 // Under WS_RESID the residual's row tile (CT pages) follows each x row tile into c_20, and under WS_RESID2 the second
 // residual's into c_24 (common runtime arg 8).
 //
+// Under WS_RES32 the residual is float32 (its pages are 4 KB; `tr` is c_20's page size either way).
+//
 // Under WS_RELU c_1 holds w1 alone ([KT, NH] tiles) and the row-replicated biases are read once into c_21 (b1, NH
 // tiles) and c_22 (b3, CT tiles). Under WS_RELU_BW b1 is read the same way and the cotangent dy's row tile (KT pages)
 // follows each x row tile into c_23.
@@ -69,8 +71,12 @@ void kernel_main() {
 #endif
 #endif
 #if defined(WS_RELU) || defined(WS_RELU_BW)
-    // the bias accessors follow the last tensor the reader already takes (WS_RELU is never combined with WS_RESID)
-#ifdef WS_LN
+    // the bias accessors follow the last tensor the reader already takes (the residuals under WS_RES32)
+#if defined(WS_RESID2)
+    constexpr uint32_t TAIL = r2_args.next_compile_time_args_offset();
+#elif defined(WS_RESID)
+    constexpr uint32_t TAIL = r_args.next_compile_time_args_offset();
+#elif defined(WS_LN)
     constexpr uint32_t TAIL = b_args.next_compile_time_args_offset();
 #else
     constexpr uint32_t TAIL = w3_args.next_compile_time_args_offset();
@@ -191,6 +197,8 @@ void kernel_main() {
         }
 #endif
 #ifdef WS_RESID
+        noc_async_read_barrier();
+        cb_push_back(cb_x, KT);
         cb_reserve_back(cb_res, CT);
         uint32_t wr = get_write_ptr(cb_res);
         for (uint32_t c = 0; c < CT; ++c, wr += tr) {
@@ -205,7 +213,9 @@ void kernel_main() {
 #endif
 #endif
         noc_async_read_barrier();
+#ifndef WS_RESID
         cb_push_back(cb_x, KT);
+#endif
 #ifdef WS_RELU_BW
         cb_push_back(cb_dy, KT);
 #endif

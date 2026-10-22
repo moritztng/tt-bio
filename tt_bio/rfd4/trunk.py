@@ -453,6 +453,14 @@ class PairUpdate(Module):
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.pair_write = pair_write
+        # pair_block: the transition's weights for one `pair_relu` program, bfp8 (in bf16 they would not fit L1)
+        self.tr_ws = None
+        if lever("pair_block"):
+            from .. import pair_swiglu_ws
+            g = lambda k: self.weights[f"transition_out.{k}"].float()  # noqa: E731
+            self.tr_ws = pair_swiglu_ws.relu_weights(g("linear_1.weight").t(), g("linear_1.bias"),
+                                                     g("linear_2.weight").t(), g("linear_2.bias"), self.device,
+                                                     dtype=ttnn.bfloat8_b)
         ident = lambda x: x  # noqa: E731
         self.ln_w = self.torch_to_tt("layer_norm_in.weight", transform=ident, dtype=self.dtype)
         self.ln_b = self.torch_to_tt("layer_norm_in.bias", transform=ident, dtype=self.dtype)
@@ -495,8 +503,28 @@ class PairUpdate(Module):
         op = ttnn.multiply if hadamard else ttnn.add
         return op(pj4, pi4), hadamard
 
+    def _transition_block(self, z, resid=None):
+        """`pair_block`: LayerNorm, fc1 + bias, ReLU, fc2 + bias as one program, unmasked; None where it does not
+        serve. The hidden stays in the core's L1 and no normalised copy of z is written. With `resid` (the float32
+        stream `z` is the bf16 copy of) the update is added to it in the same program, both written in place:
+        returns `(resid, z)`."""
+        from .. import pair_swiglu_ws
+        w1, b1, w2, b2 = self.tr_ws
+        ln = (self.tr_ln_w, self.tr_ln_b)
+        if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln, resid=resid):
+            return None
+        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
+                                        ln=ln + (EPS,), resid=resid)
+
     def _transition(self, z, pair_mask_c):
+        """The masked transition update."""
         ckc = self.compute_kernel_config
+        out = None if self.tr_ws is None else self._transition_block(z)
+        if out is not None:
+            masked = _mul_mask(out, pair_mask_c)
+            if masked is not out:
+                ttnn.deallocate(out)
+            return masked
         zn = ttnn.layer_norm(z, weight=self.tr_ln_w, bias=self.tr_ln_b, epsilon=EPS, compute_kernel_config=ckc)
         h = self._lin(zn, self.tr_w1, bias=self.tr_b1, dtype=self.tr_hidden_dtype, activation="relu")
         ttnn.deallocate(zn)
@@ -524,10 +552,26 @@ class PairUpdate(Module):
             ttnn.deallocate(xs)
         z, zb = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c,
                           low=self.dtype)
-        for sub, own_mask in ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
-                              (lambda h: _per_design(self.tri_in, h, pair_mask), False),
-                              (lambda h: self._transition(h, pair_mask_c), True)):
-            u = sub(zb)
+        subs = ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
+                (lambda h: _per_design(self.tri_in, h, pair_mask), False),
+                (lambda h: self._transition(h, pair_mask_c), True))
+        for sub, own_mask in subs:
+            u = None
+            if not own_mask and pair_mask is None and zb is not z and int(z.shape[0]) == 1 and lever("pair_tail"):
+                # no padded token: the triangle's output tail adds into the float32 stream in the same program,
+                # z and zb written in place
+                tri = self.tri_out if sub is subs[0][0] else self.tri_in
+                u = tri(zb, None, stream32=z)
+                if tri.took_residual:
+                    continue
+            if own_mask and pair_mask is None and self.tr_ws is not None and zb is not z:
+                # the transition with no padded token: its residual write rides the same program, in place
+                both = self._transition_block(zb, resid=z)
+                if both is not None:
+                    z, zb = both
+                    continue
+            if u is None:
+                u = sub(zb)
             if zb is not z:
                 ttnn.deallocate(zb)
             z_new, zb = _residual(z, u, self.residual_dtype, None if own_mask else pair_mask_c,
@@ -572,9 +616,15 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: bits); `transition_b8` makes its weights and hidden bfp8; `trimul_gin` + `trimul_gin_w8` give the triangle
 #: multiplication's in-projection bfp8 resident weights (state/rfd4/bets/bfp8.md). Default since a 30-design grade
 #: at 512 tokens: designed-chain CA RMSD 2.1 A median (max 11.4) against a 52.5 A seed floor, oracle-free binder
-#: grade PASS (state/rfd4/LAND4.md).
-NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"})
-#: `--fast` has nothing graded beyond the default yet.
+#: grade PASS (state/rfd4/LAND4.md). `pair_block` runs the pair transition and its residual write as one program with
+#: bfp8 weights where it serves (the composed levers are its fallback): 6.20 -> 3.85 ms a call at 512 tokens, error vs
+#: float64 0.0116 -> 0.0101. `pair_tail` runs the triangle multiplication's output layer_norm, p_out, gate and residual
+#: add into the float32 pair stream as one program from 160 tokens (needs trimul_t1; state/rfd4/bets/pairblock.md).
+#: Default since the whole stack (these levers plus the pair built on the card) was graded as one at 512 tokens
+#: (state/rfd4/LAND6.md).
+NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
+                           "pair_block", "pair_tail"})
+#: `--fast` has nothing graded beyond the default.
 FAST_LEVERS = NORMAL_LEVERS
 
 
