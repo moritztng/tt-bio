@@ -86,11 +86,12 @@ out["load1"] = [round(min(c["load"] for c in win), 2), round(max(c["load"] for c
 def classify(stack):
     fr = stack.split(";")
     leaf, tail = fr[-1], ";".join(fr[-5:])
-    if re.search(r"take_gil|PyEval_RestoreThread|PyEval_AcquireThread|PyGILState_Ensure", tail):
-        return "gil_wait"
-    if "held_for (tt_bio/duotraj.py" in stack and ".py:" not in leaf and \
-            re.search(r"lock|acquire|futex|sem_|pthread_cond", tail):
+    # the card door is DeviceGate's RLock (PyThread_acquire_lock); CPython's take_gil is stripped
+    # from the binary and shows as a bare pthread_cond_timedwait under whatever wanted the GIL back
+    if "PyThread_acquire_lock" in tail:
         return "card_door"
+    if re.search(r"take_gil|PyEval_RestoreThread|PyGILState_Ensure|pthread_cond_timedwait", tail):
+        return "gil_wait"
     if re.search(r"synchroniz|Finish|wait_for_completion|read_buffer|EnqueueReadBuffer|read_from_device|"
                  r"to_torch|sync \(tt_bio", stack):
         return "device_wait"
