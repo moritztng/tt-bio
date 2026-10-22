@@ -26,7 +26,9 @@ import ttnn
 
 import torch
 
+from .. import dit_pair_bias
 from .. import ops
+from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
@@ -482,21 +484,26 @@ class PairUpdate(Module):
         self.tr_w2 = self.torch_to_tt(f"{t}.linear_2.weight", dtype=self.tr_hidden_dtype)
         self.tr_b2 = self.torch_to_tt(f"{t}.linear_2.bias", transform=ident, dtype=self.dtype)
 
-    def _write(self, x, mask):
-        """pi[b, j] * pj[b, i] (or pi[b, j] + pj[b, i]) for every pair (i, j): [b, n, n, pair].
-
-        The Hadamard write comes back masked: its factors are masked per token, which is the pair
-        mask's mi * mj, so the [n, n, pair] product never needs a mask of its own. Returns
-        `(update, masked)`."""
+    def _factors(self, x, mask):
+        """The write's per-token factors pi, pj [b, n, pair], masked per token for the Hadamard write."""
         ckc = self.compute_kernel_config
         h = ttnn.layer_norm(_mul_mask(x, mask), weight=self.ln_w, bias=self.ln_b, epsilon=EPS,
                             compute_kernel_config=ckc)
         pi = self._lin(h, self.xi_w, dtype=self.dtype)
         pj = self._lin(h, self.xj_w, dtype=self.dtype)
         ttnn.deallocate(h)
-        hadamard = self.pair_write == "hadamard"
-        if hadamard and mask is not None:
+        if self.pair_write == "hadamard" and mask is not None:
             pi, pj = ttnn.multiply(pi, mask), ttnn.multiply(pj, mask)
+        return pi, pj
+
+    def _write(self, x, mask):
+        """pi[b, j] * pj[b, i] (or pi[b, j] + pj[b, i]) for every pair (i, j): [b, n, n, pair].
+
+        The Hadamard write comes back masked: its factors are masked per token, which is the pair
+        mask's mi * mj, so the [n, n, pair] product never needs a mask of its own. Returns
+        `(update, masked)`."""
+        pi, pj = self._factors(x, mask)
+        hadamard = self.pair_write == "hadamard"
         b, n, c = (int(d) for d in pi.shape)
         pi4 = ttnn.reshape(pi, (b, 1, n, c))
         pj4 = ttnn.reshape(pj, (b, n, 1, c))
@@ -547,11 +554,20 @@ class PairUpdate(Module):
         """`__call__`, returning `(z, zb)`: the new pair and its `dtype` copy, which every residual
         write produces alongside the pair and the trunk's next pair bias reads."""
         xs = _as(x, self.dtype)
-        write, write_masked = self._write(xs, mask)
+        both = None
+        if lever("pair_write_res") and self.pair_write == "hadamard" and mask is None and z.dtype == ttnn.float32:
+            # no padded token: the Hadamard product is formed and added to the float32 stream in one program
+            pi, pj = self._factors(xs, mask)
+            b, n, c = (int(d) for d in pj.shape)
+            both = outer_residual.outer_residual(z, pi, ttnn.reshape(pj, (b, n, 1, c)))
+        if both is not None:
+            z, zb = both
+        else:
+            write, write_masked = self._write(xs, mask)
+            z, zb = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c,
+                              low=self.dtype)
         if xs is not x:
             ttnn.deallocate(xs)
-        z, zb = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c,
-                          low=self.dtype)
         subs = ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
                 (lambda h: _per_design(self.tri_in, h, pair_mask), False),
                 (lambda h: self._transition(h, pair_mask_c), True))
@@ -625,7 +641,8 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: decline; on the DRAM path they serve. Paired trunk pass at 1350 MHz: 192 tokens 67.6 -> 61.2 ms, 224 105.3 -> 62.9,
 #: 320 182.4 -> 109.8; 256 already ran on DRAM, 128 is below T1's floor (state/rfd4/bets/small.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
-                           "pair_block", "pair_tail", "trimul_t1_dram"})
+                           "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
+                           "pair_write_res"})
 #: `--fast` has nothing graded beyond the default.
 FAST_LEVERS = NORMAL_LEVERS
 
@@ -680,11 +697,19 @@ class Trunk(Module):
                                         layout=ttnn.TILE_LAYOUT, device=self.device)
                         for g in self.bias_groups]
         self._group_at = {g[0]: k for k, g in enumerate(self.bias_groups)}
+        # pair_bias_rms: each group's biases as one program from zb (RMSNorm, projection, head-first layout, split)
+        self.bias_wts = None
+        if "pair_bias_rms" in self._levers:
+            self.bias_wts = [dit_pair_bias.rms_weight([mhas[i].bias_w_host for i in g], self.device)
+                             for g in self.bias_groups]
 
     def _group_biases(self, k, zb, mask_scaled):
         """The pre-scaled [b, heads, n, n] pair bias of every block in `bias_groups[k]`."""
-        both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
         g = self.bias_groups[k]
+        if self.bias_wts is not None and mask_scaled is None and dit_pair_bias.rms_eligible(zb, self.bias_wts[k]):
+            return dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
+                                               fidelity=self.compute_kernel_config.math_fidelity)
+        both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
         if len(g) == 1:
             return [both]
         b, _, n, m = (int(d) for d in both.shape)
