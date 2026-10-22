@@ -2,7 +2,8 @@
 False) against one read multicast to the grid (True). The call is the shipped one (transition_b8 + ws_b8_plain):
 c_z 384, hidden 1536, bfp8 weights in three hidden chunks chained as ws_swiglu's resid2 path (ws_chain + ws_resid2),
 HiFi2, the residual added in place by the last chunk. Outputs must be torch.equal;
-timing interleaved off, on over --reps rounds of --calls back-to-back calls, AICLK sampled per row.
+timing interleaved off, on over --reps rounds of --calls back-to-back calls. AICLK: run it under run_cell.sh and read aiclk.tsv for
+the node in nodes.txt (TT_VISIBLE_DEVICES is a logical id, not the sysfs node, so the bench does not sample it).
 
 usage: TT_VISIBLE_DEVICES=<chip> python perf/spd_m_opendde/wmc_ab.py --out x.jsonl
 """
@@ -24,14 +25,12 @@ from tt_bio import tenstorrent as T, pair_swiglu_ws as W
 
 dev = T.get_device()
 DR = ttnn.DRAM_MEMORY_CONFIG
-CHIP = os.environ.get("TT_VISIBLE_DEVICES", "0")
 FID = ttnn.MathFidelity.HiFi2
 C, H = 384, 1536
 out = open(A.out, "a")
 
 
 def emit(rec):
-    rec["aiclk"] = int(open(f"/sys/class/tenstorrent/tenstorrent!{CHIP}/tt_aiclk").read().split()[0])
     rec["load"] = os.getloadavg()[0]
     print(json.dumps(rec), flush=True)
     out.write(json.dumps(rec) + "\n")
