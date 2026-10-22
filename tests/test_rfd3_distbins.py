@@ -42,3 +42,14 @@ def test_bins_leaves_numbas_thread_pool_unlaunched():
     R = torch.randn(2, 64, 3)
     distbins.bins(R, torch.linspace(1.0 / 16, 30.0 / 16, 64))
     assert not parallel._is_initialized
+
+
+def test_threaded_rows_equal_one_thread(monkeypatch):
+    """Row ranges split across threads give the same bins as one serial pass (B*N not a multiple of the split)."""
+    g = torch.Generator().manual_seed(7)
+    R = (torch.cumsum(torch.randn(3, 301, 3, generator=g) * 2.2, 1) / 16.0).float()
+    edges = torch.linspace(1.0 / 16, 30.0 / 16, 64)
+    many = distbins.bins(R, edges)
+    monkeypatch.setattr(distbins, "_MAX_THREADS", 1)
+    assert torch.equal(many, distbins.bins(R, edges))
+    assert torch.equal(many, _ref(R, edges))

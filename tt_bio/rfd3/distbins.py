@@ -5,31 +5,36 @@ the real float32 edges. It does not reproduce torch.linalg.norm's rounding, so a
 edge (a few hundred of 469k at 685 tokens) is recomputed with torch.linalg.norm + torch.bucketize on the gathered
 pairs, which gives the same bits as the full call. Pairs past the last edge, 77-81 % of them, cost one compare.
 
-The kernel is serial on purpose. A parallel=True kernel makes numba launch its OpenMP pool at one thread per logical
-core whatever torch was given, and that pool's spinning threads then slow every later torch CPU op in the process
-about 20x: on qb1 one call turned rfd3's 0.1 s DiT weight fold into 2.1 s, +3 s a design, and sent the tfg tests
-sharing a pytest process past the gate's timeout. Serial it is 3 ms against torch's 2 ms at 685 tokens on a busy
-host and faster at larger B x N, where the parallel kernel was slower than both.
+The kernel is not parallel=True. That makes numba launch its OpenMP pool at one thread per logical core whatever
+torch was given, and the pool's spinning threads then slow every later torch CPU op in the process about 20x: on qb1
+one call turned rfd3's 0.1 s DiT weight fold into 2.1 s, +3 s a design. Fully serial it cost WH +11.6 s a design
+instead (Galaxy, 1000 MHz, RFD3 page cell 57.0 -> 68.6 s). So it is a nogil kernel over row ranges, run on a few
+Python threads that block (not spin) between calls; every row is computed exactly as before, so the bits are too.
 """
 
 from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
 
 import numba
 import numpy as np
 import torch
 
 _TOL = 1e-5
+_MAX_THREADS = 8
+_ROWS_PER_THREAD = 128
+_pool = None
 
 
-@numba.njit(cache=True)
-def _kernel(R, edges, tol, out, flag):
-    B, N = R.shape[0], R.shape[1]
+@numba.njit(cache=True, nogil=True)
+def _kernel(R, edges, tol, out, flag, r0, r1):
+    N = R.shape[1]
     E = edges.shape[0]
     lo = edges[0]
     inv = np.float32((E - 1) / (edges[E - 1] - edges[0]))
     far = edges[E - 1] + tol[E - 1]
-    nflag = np.zeros(B * N, np.int64)
-    for bi in range(B * N):
+    nflag = 0
+    for bi in range(r0, r1):
         b, i = bi // N, bi % N
         c = 0
         for j in range(N):
@@ -50,8 +55,8 @@ def _kernel(R, edges, tol, out, flag):
             out[b, i, j] = k
             flag[b, i, j] = f
             c += f
-        nflag[bi] = c
-    return nflag.sum()
+        nflag += c
+    return nflag
 
 
 def bins(R_L: torch.Tensor, edges: torch.Tensor) -> torch.Tensor:
@@ -61,7 +66,17 @@ def bins(R_L: torch.Tensor, edges: torch.Tensor) -> torch.Tensor:
     B, N = R.shape[:2]
     out = np.empty((B, N, N), np.int32)
     flag = np.empty((B, N, N), np.bool_)
-    n = _kernel(R.numpy(), e, (np.abs(e) * _TOL).astype(np.float32), out, flag)
+    args = (R.numpy(), e, (np.abs(e) * _TOL).astype(np.float32), out, flag)
+    rows = B * N
+    t = max(1, min(_MAX_THREADS, torch.get_num_threads(), rows // _ROWS_PER_THREAD))
+    if t == 1:
+        n = _kernel(*args, 0, rows)
+    else:
+        global _pool
+        if _pool is None:
+            _pool = ThreadPoolExecutor(_MAX_THREADS, thread_name_prefix="rfd3-distbins")
+        cut = [rows * k // t for k in range(t + 1)]
+        n = sum(_pool.map(lambda k: _kernel(*args, cut[k], cut[k + 1]), range(t)))
     out = torch.from_numpy(out)
     if n:
         b, i, j = torch.from_numpy(flag).nonzero(as_tuple=True)
