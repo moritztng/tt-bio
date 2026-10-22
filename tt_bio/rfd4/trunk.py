@@ -621,9 +621,11 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: float64 0.0116 -> 0.0101. `pair_tail` runs the triangle multiplication's output layer_norm, p_out, gate and residual
 #: add into the float32 pair stream as one program from 160 tokens (needs trimul_t1; state/rfd4/bets/pairblock.md).
 #: Default since the whole stack (these levers plus the pair built on the card) was graded as one at 512 tokens
-#: (state/rfd4/LAND6.md).
+#: (state/rfd4/LAND6.md). `trimul_t1_dram`: from 160 to 352 tokens the trimul ran from L1, where T1 and pair_tail
+#: decline; on the DRAM path they serve. Paired trunk pass at 1350 MHz: 192 tokens 67.6 -> 61.2 ms, 224 105.3 -> 62.9,
+#: 320 182.4 -> 109.8; 256 already ran on DRAM, 128 is below T1's floor (state/rfd4/bets/small.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
-                           "pair_block", "pair_tail"})
+                           "pair_block", "pair_tail", "trimul_t1_dram"})
 #: `--fast` has nothing graded beyond the default.
 FAST_LEVERS = NORMAL_LEVERS
 
