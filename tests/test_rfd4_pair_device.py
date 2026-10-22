@@ -148,7 +148,8 @@ def test_the_card_builds_the_pair(case, npad):
     err, host_err = (got - ref).abs(), (host - ref).abs()
     rel_rms = float(((got - ref).pow(2).mean() / ref.pow(2).mean()).sqrt())
     print(f"npad {npad}: card max {err.max():.3e} rel_rms {rel_rms:.3e}; host fp32 max {host_err.max():.3e}")
-    # The trunk reads this pair in bf16 (rel 2^-9 = 2e-3) on every consumer; the card's fp32 norms
-    # must sit well inside that.
-    assert rel_rms < 1e-4
+    # The trunk reads this pair in bf16 (rel 2^-9 = 2e-3) on every consumer; the card's norms must sit
+    # well inside that. Their floor is ttnn.sum unpacking fp32 to tf32 (rel ~2.7e-4 on a sum of
+    # squares, measured 2.1e-4 here); a 1/c scaler in bf16 (the ttnn.mean/rms_norm path) reads 1.3e-3.
+    assert rel_rms < 5e-4
     card.release()
