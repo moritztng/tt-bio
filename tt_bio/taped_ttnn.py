@@ -1349,7 +1349,8 @@ def _weight_vjp(a, b, g, cfg):
     calls in the same order, so the two are bit-identical."""
     if a.requires_grad:
         a.add_grad(_reduce_to(
-            _via2d(g, lambda v: ag.bmm(v, b.value, False, True, compute_kernel_config=cfg)),
+            _via2d(g, lambda v: ag._pair_mm_or(
+                v, b.value, True, lambda: ag.bmm(v, b.value, False, True, compute_kernel_config=cfg), cfg)),
             a.value.shape))
     if b.requires_grad:
         b.add_grad(_reduce_to(_matmul(_flat2d(a.value), _flat2d(g), transpose_a=True,
