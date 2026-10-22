@@ -2,7 +2,7 @@
 # rfd4-perf-tri128 device pass 2: pair_tail_small (T2 reading L1 operands) at 128 and 96 tokens.
 #   run2.sh <chip> <tree> <out> [designs per arm, default 31]
 # 1. module: both triangle calls on the float32 stream, ms a call incl. the residual write, update vs float64
-# 2. trunk: paired traced passes vs main's default set, 30 reps (stack_ab)
+# 2. trunk: paired traced passes vs the default set without pair_tail_small, 30 reps (stack_ab)
 # 3. designs at 128 (PD-L1 + 13-residue binder, per_design rng): default, lever, default again (A/A); r0 is the
 #    compile and is excluded; then the seed-matched CA shift vs the seed floor and the oracle-free binder grade
 set -u
@@ -16,7 +16,7 @@ exec 9>$HOME/spd_qb2_chip$C.lock
 flock -w 10800 9 || { stamp "no lock"; exit 3; }
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=${LEASE_CARDS:-$C} TT_BIO_LEASE_HOLDER=worker:rfd4-perf-tri128 PYTHONPATH=$T:$T/perf
 cd $T
-BASE=$($PY -c "from tt_bio.rfd4.trunk import NORMAL_LEVERS as L; print(','.join(sorted(L)))")
+BASE=$($PY -c "from tt_bio.rfd4.trunk import NORMAL_LEVERS as L; print(','.join(sorted(L - {'pair_tail_small'})))")
 stamp "start sha $(cat $T/SHA 2>/dev/null) base $BASE"
 for n in 128 96; do
   timeout 1800 $PY perf/rfd4/tri128/module.py --weights $W --out $R/module-$n.json --n $n \
