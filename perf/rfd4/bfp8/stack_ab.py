@@ -3,7 +3,7 @@ default lever set and one on another, each trunk pass captured as a trace and th
 alternately (A B A B ...), so host load and clock drift land on both arms alike.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/bfp8/stack_ab.py --weights <bundle> --out <file.json> \
-        [--n 128] [--reps 40] [--levers pair_mm,transition_b8,trimul_gin,trimul_gin_w8]
+        [--n 128] [--reps 40] [--base LEVERS] [--levers LEVERS]
 
 A design runs 180 passes (60 network calls x 3), so `trunk_s_per_design` is 180 x the median pass.
 Inputs are seeded normals at the released widths (pass time does not depend on values); the two
@@ -38,12 +38,15 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--n", type=int, default=128)
     ap.add_argument("--reps", type=int, default=40)
-    ap.add_argument("--levers", default="pair_mm,transition_b8,trimul_gin,trimul_gin_w8")
+    ap.add_argument("--base", default=None, help="lever set of the base arm (default rfd4.trunk.NORMAL_LEVERS)")
+    ap.add_argument("--levers", default=None, help="lever set of the stack arm (default rfd4.trunk.FAST_LEVERS)")
     a = ap.parse_args()
 
     from tt_bio import tenstorrent as T
     from tt_bio.rfd4 import network as N
     from tt_bio.rfd4 import trunk as TR
+    base = ",".join(sorted(TR.NORMAL_LEVERS)) if a.base is None else a.base
+    stack = ",".join(sorted(TR.FAST_LEVERS)) if a.levers is None else a.levers
 
     dev = T.get_device(trace="rf3")
     state, config = N.load_checkpoint(a.weights)
@@ -59,7 +62,7 @@ def main():
         finally:
             os.environ.pop("TT_BIO_LEVERS", None)
 
-    arms = {"base": build(""), "stack": build(a.levers)}
+    arms = {"base": build(base), "stack": build(stack)}
     n, tok, pair, dc = a.n, cfg["token_dim"], cfg["pair_repr_dim"], cfg["dim_cond"]
     g = torch.Generator().manual_seed(0)
     s0, z0 = torch.randn(1, n, tok, generator=g), torch.randn(1, n, n, pair, generator=g)

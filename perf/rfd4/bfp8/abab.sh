@@ -25,13 +25,15 @@ leg() {  # leg <size> <name> <code-tree> <levers or -> <seeds...>
         --seeds "$@") >"$out/$n/$name.log" 2>&1
     stamp "$n $name rc=$? warm=$(grep -c '"kind": "warm"' "$out/$n/$name/runs.jsonl" 2>/dev/null)"
 }
+sets() { (cd "$tree" && PYTHONPATH="$tree" "$py" -c "from tt_bio.rfd4 import trunk as T; print(','.join(sorted(T.$1)))"); }
+normal=$(sets NORMAL_LEVERS) fast=$(sets FAST_LEVERS)
 for n in $sizes; do
     mkdir -p "$out/$n"
     if [ "$n" -le 128 ]; then seeds=$(seq 0 9); else seeds=$(seq 0 7); fi
     leg "$n" main "$mtree" - $seeds
     leg "$n" default "$tree" - $seeds
-    leg "$n" pair_mm "$tree" pair_mm $seeds
-    leg "$n" fast "$tree" pair_mm,transition_b8,trimul_gin,trimul_gin_w8 $seeds
+    leg "$n" pair_mm "$tree" "$normal,pair_mm,pair_mm_tr" $seeds
+    leg "$n" fast "$tree" "$fast" $seeds
     leg "$n" main2 "$mtree" - 0 1
 done
 stamp end
