@@ -38,6 +38,10 @@ NEG_INF = -1e4
 #: one of them multiplies by 1.0 or adds 0.0. `TT_BIO_RFD4_ELIDE_MASKS=0` builds them anyway.
 ELIDE_FULL_MASKS = env_flag("TT_BIO_RFD4_ELIDE_MASKS", True)
 
+#: Probe only, off: a bfloat16 pair stream under an fp32 token stream (`Trunk(pair_residual_dtype=)`
+#: when the caller does not say). Halves the bytes of every pair residual write; a precision change.
+PAIR_BF16 = env_flag("TT_BIO_RFD4_PAIR_BF16", False)
+
 
 def _rms(x, w, ckc):
     """RMSNorm, with or without the elementwise weight (`elementwise_affine=False` upstream)."""
@@ -71,6 +75,11 @@ def _residual(x, update, res_dtype, mask=None, low=None):
         if both is not None:
             ttnn.deallocate(update)
             return both
+    if res_dtype == ttnn.bfloat16 and rne_add.eligible(x, update, None):
+        # A bfloat16 stream: the sum rounded once to even, which ttnn.add does not do.
+        out = rne_add.rne_add(x, update)
+        ttnn.deallocate(update)
+        return out if low is None else (out, out)
     u = _as(update, res_dtype)
     if u is not update:
         ttnn.deallocate(update)
@@ -561,16 +570,18 @@ class Trunk(Module):
     """
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
-                 dtype=None, residual_dtype=None):
+                 dtype=None, residual_dtype=None, pair_residual_dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
+        self.pair_residual_dtype = pair_residual_dtype or (
+            ttnn.bfloat16 if PAIR_BF16 else self.residual_dtype)
         self.nlayers = nlayers
         self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
                                   residual_dtype=self.residual_dtype)
                        for i in range(nlayers)]
         self.pair_updates = {i: PairUpdate(self.scope(f"pair_update_layers.{i}"), ckc, dtype=self.dtype,
-                                           residual_dtype=self.residual_dtype)
+                                           residual_dtype=self.pair_residual_dtype)
                              for i in range(nlayers - 1) if i % every_n == 0}
         ident = lambda x: x  # noqa: E731
         self.s_norm = self.torch_to_tt("s_cycle_norm.weight", transform=ident, dtype=self.dtype)
@@ -604,14 +615,14 @@ class Trunk(Module):
         ttnn.deallocate(both)
         return out
 
-    def _recycle(self, init, prev, norm_w, proj_w):
+    def _recycle(self, init, prev, norm_w, proj_w, res_dtype):
         h = _rms(prev, norm_w, self.compute_kernel_config)
         hb = _as(h, self.dtype)
         if hb is not h:
             ttnn.deallocate(h)
         p = self._lin(hb, proj_w, dtype=self.dtype)
         ttnn.deallocate(hb)
-        pr = _as(p, self.residual_dtype)
+        pr = _as(p, res_dtype)
         if pr is not p:
             ttnn.deallocate(p)
         out = ttnn.add(init, pr)
@@ -652,17 +663,19 @@ class Trunk(Module):
         """`conds[k]` is cycle k's conditioning ([b, n, dim_cond]); upstream recomputes it each cycle
         because it carries the remaining-pass count. `masks` is `trunk_masks(...)` built with this
         trunk's residual dtype. Returns the final (s, z) in the residual dtype; the inputs survive."""
-        res_mask, res_pair_mask_c = masks[4], masks[5]
+        res_mask = masks[4]
+        zd = self.pair_residual_dtype
+        res_pair_mask_c = masks[5] if zd == self.residual_dtype else masks[3]
         # Masked once here, in the residual dtype; every update after this keeps them masked.
         s_init = _masked_copy(s_init, res_mask, self.residual_dtype)
-        z_init = _masked_copy(z_init, res_pair_mask_c, self.residual_dtype)
+        z_init = _masked_copy(z_init, res_pair_mask_c, zd)
         s = z = None
         for c in conds:
             if s is None:
                 s_in, z_in = ttnn.clone(s_init), ttnn.clone(z_init)
             else:
-                s_in = self._recycle(s_init, s, self.s_norm, self.s_proj)
-                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj)
+                s_in = self._recycle(s_init, s, self.s_norm, self.s_proj, self.residual_dtype)
+                z_in = self._recycle(z_init, z, self.z_norm, self.z_proj, zd)
                 ttnn.deallocate(s)
                 ttnn.deallocate(z)
             s, z = self.run_pass(s_in, z_in, c, masks)
@@ -710,7 +723,7 @@ class Trunk(Module):
         masks = self.masks_for(m, device)
         mc = m[..., None]
         s = up(pad(s_init.float(), [1]) * mc, self.residual_dtype)
-        z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.residual_dtype)
+        z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.pair_residual_dtype)
         cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
         s_out, z_out = self(s, z, cs, masks)
         out = download(s_out)[:, :n], download(z_out)[:, :n, :n] if pair else None
