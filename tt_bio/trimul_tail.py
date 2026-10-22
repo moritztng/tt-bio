@@ -1448,12 +1448,20 @@ T1_KEYS = set(T1_PLANS)
 T1_PLANS_W8 = {(8, 16, 8): (1, 16), (12, 24, 12): (2, 8)}
 
 
+def _t1_psig():
+    """T1's gate sigmoid on the packer thread's SFPU (lever trimul_t1_psig): the same sigmoid_poly on the same
+    values, so a, b and g_out are bit-identical, but it overlaps the FPU's next [a|b] matmul block instead of
+    following it. Needs the polynomial sigmoid; off under RNE bit 1, which rounds DST on the math thread first."""
+    return bool((T1_PSIG or _lever("trimul_t1_psig")) and _sigpoly() and not RNE & 2)
+
+
 def t1_plan(key, w8=False):
     """(channel groups, row tiles per unit) for a (kt, ct2, ntg) key; `w8`: the weights are bfp8."""
     return (w8 and T1_PLANS_W8.get(key)) or T1_PLANS.get(key, (1, 32))
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
+T1_PSIG = 0                       # bench knob for lever trimul_t1_psig (kernels/trimul_in_t1 T1_PSIG)
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
 # Plans with channel groups normalise z once: the first launch stores xn (bf16, z's layout) beside its outputs
@@ -1654,6 +1662,8 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
     d = KERNEL_DIR.parent / "trimul_in_t1"
     m = mask if mask is not None else x
     abl = [("ABL", str(T1_ABL))] if T1_ABL else []
+    if _t1_psig():
+        abl.append(("T1_PSIG", "1"))
     xout, pre = [("T1XOUT", "1")] if ln1 == 1 else [], [("T1PRE", "1")] if ln1 == 2 else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
@@ -1716,7 +1726,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
-           T1_RB, T1_SBW, T1_ABL, b8, il, w8)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2

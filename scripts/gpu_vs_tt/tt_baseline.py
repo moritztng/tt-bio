@@ -167,7 +167,13 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
     assert rows[1] == seq, f"{a3m} query row does not match {target}'s sequence"
     msa_dir.mkdir(parents=True, exist_ok=True)
     h = hashlib.sha256(seq.encode()).hexdigest()[:16]
-    (msa_dir / f"{h}.a3m").write_text(text)
+    # A seeded tree may be deduped into read-only hardlinks shared with other trees: leave an
+    # identical file alone, and replace a different one by rename so no other tree sees the write.
+    dst = msa_dir / f"{h}.a3m"
+    if not dst.exists() or dst.read_text() != text:
+        tmp = dst.with_name(f"{dst.name}.{os.getpid()}.tmp")
+        tmp.write_text(text)
+        tmp.replace(dst)
     return text.count(">")
 
 

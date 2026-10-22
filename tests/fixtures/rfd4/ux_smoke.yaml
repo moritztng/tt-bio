@@ -1,0 +1,9 @@
+# A 39-token RFD4 condition spec for the UX regression leg: Trp-cage's 10 N-terminal
+# residues held by coordinate conditioning, 20-30 designed around them. The structure is
+# the boltz2 parity fixture already committed, not a second copy of it. Small on purpose:
+# this gates CLI plumbing (progress lines, the written CIF), not accuracy or perf.
+ux_smoke:
+  input: ../../../docs/implementation-parity-data/ref-fixtures/boltz2/trpcage/nomsa_200step_1sample_3recycle_bf16/seed0/structures/trpcage_no_msa.cif
+  contig: "A1-10, 20-30"
+  conditions:
+    C_CRDGRP: {1: [{select: "sel('A/*/[1-10]/[N,CA,C,O]')"}]}

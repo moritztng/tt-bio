@@ -1195,13 +1195,14 @@ def embed_sequences(model, sequences, *, return_logits=False, pool="mean", batch
         if all(li == Lb for li in lens):
             attn_mask = key_valid = embed_mask = None
         else:
-            attn_mask = torch.zeros(B, Lb, Lb, dtype=torch.float32)
+            key_row = torch.zeros(B, 1, Lb, dtype=torch.float32)
             key_valid = torch.ones(B, 1, Lb, 1, dtype=torch.float32)
             embed_mask = torch.ones(B, Lb, 1, dtype=torch.float32)
             for i, li in enumerate(lens):
-                attn_mask[i, :, li:] = float("-inf")
+                key_row[i, :, li:] = float("-inf")
                 key_valid[i, :, li:, :] = 0.0
                 embed_mask[i, li:, :] = 0.0
+            attn_mask = key_row.expand(B, Lb, Lb)   # one row per batch, as esmc._batch_tokens
         logits_b, emb_b = model(input_ids, attn_mask, key_valid, embed_mask, return_logits)
         for row, (sid, (aa, struc)) in enumerate(batch):
             li = lens[row]
