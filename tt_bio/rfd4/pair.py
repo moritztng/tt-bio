@@ -200,6 +200,9 @@ class PairOnCard:
                                       dtype=ttnn.bfloat16)
         self.stacked = ttnn.from_torch(stacked.bfloat16(), layout=ttnn.TILE_LAYOUT, device=device,
                                        dtype=ttnn.bfloat16)
+        # W_x itself, float32 row-major, for `tt_bio.pair_build`'s exact gather
+        self.table = ttnn.from_torch(split.w_step.float().contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT, device=device,
+                                     dtype=ttnn.float32)
         self._const = None  # (host PairConstant, npad, its padded projection on the card)
 
     def _constant(self, c: PairConstant, npad: int):
@@ -219,16 +222,21 @@ class PairOnCard:
     def __call__(self, p: PairInputs, npad: int):
         import ttnn
 
+        from ..tenstorrent import upload
+
         const = self._constant(p.constant, npad)
         bins, scale = p.bins, p.scale
         if npad:
             bins = torch.nn.functional.pad(bins, [0, npad, 0, npad])
             scale = torch.nn.functional.pad(scale, [0, npad, 0, npad])
+        z = self.one_program(const, bins, scale, p.gamma, p.beta)
+        if z is not None:
+            return z
         rows = self.rows(bins)
         x = ttnn.add(rows, const)
         ttnn.deallocate(rows)
         # z = x * r1 r2 * (w gamma) + beta; r1 r2 is the host's per-pair scale.
-        s = self.scale_column(scale)
+        s = upload(scale[..., None].float().contiguous(), dtype=ttnn.float32, device=self.device)
         wg = (self.split.ln_weight.double() * p.gamma.double()).float()
         wg, beta = (ttnn.from_torch(v[:, None, None], layout=ttnn.TILE_LAYOUT, device=self.device,
                                     dtype=ttnn.float32) for v in (wg, p.beta))
@@ -242,23 +250,24 @@ class PairOnCard:
             ttnn.deallocate(t)
         return z
 
-    def scale_column(self, scale: torch.Tensor):
-        """`scale[..., None]`, [b, n, n, 1] fp32 TILE on the card, for a broadcast over the pair channels.
-
-        Uploaded as it lies, the [b, n, n, 1] row-major tensor is one 4-byte page per pair, 262144
-        of them at 512, and the card's pair build sat 9.4 ms a step waiting for it. As [b, n, 1, n]
-        a page is a whole row of pairs; the card tilizes it and swaps the last two axes, which only
-        moves values."""
+    def one_program(self, const, bins: torch.Tensor, scale: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor):
+        """The same z as the ttnn ops below, as one program (`tt_bio.pair_build`), or None where it declines.
+        Its gather is exact, so z sits closer to float64 than the one-hot matmul's."""
         import ttnn
 
-        b, n = int(scale.shape[0]), int(scale.shape[1])
-        rm = ttnn.from_torch(scale.reshape(b, n, 1, n).float().contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
-                             device=self.device, dtype=ttnn.float32)
-        rows = ttnn.to_layout(rm, ttnn.TILE_LAYOUT)
-        ttnn.deallocate(rm)
-        col = ttnn.transpose(rows, -2, -1)
-        ttnn.deallocate(rows)
-        return col
+        from ..pair_build import pair_build
+
+        b, n, c = int(bins.shape[0]), int(bins.shape[1]), int(self.table.shape[1])
+        rm = dict(layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
+        bins_tt = ttnn.from_torch(bins.reshape(b * n, n).to(torch.int32), dtype=ttnn.uint32, **rm)
+        scale_tt = ttnn.from_torch(scale.reshape(b * n, n).float().contiguous(), dtype=ttnn.float32, **rm)
+        wg = (self.split.ln_weight.double() * gamma.double()).float()
+        wg_tt, beta_tt = (ttnn.from_torch(v.float()[:, None, :].expand(b, 32, c).contiguous(), layout=ttnn.TILE_LAYOUT,
+                                          device=self.device, dtype=ttnn.float32) for v in (wg, beta))
+        z = pair_build(const, self.table, bins_tt, scale_tt, wg_tt, beta_tt)
+        for t in (bins_tt, scale_tt, wg_tt, beta_tt):
+            ttnn.deallocate(t)
+        return z
 
     def rows(self, bins: torch.Tensor):
         """`W_x[bins]` on the card, [b, n, n, pair] fp32, the fp32 weight rows to ~1e-4."""

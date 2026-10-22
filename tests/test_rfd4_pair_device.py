@@ -156,19 +156,34 @@ def test_the_card_builds_the_pair(case, npad):
 
 
 @pytest.mark.device
-@pytest.mark.parametrize("n", [128, 160, 512])
-def test_the_scale_column_only_moves_values(n):
-    from tt_bio import tenstorrent as T
-    from tt_bio.rfd4.pair import PairOnCard
-
+@pytest.mark.parametrize("b, n", [(1, 128), (2, 64), (1, 512)])
+def test_one_program_is_the_float32_ops_with_an_exact_gather(b, n):
+    """`tt_bio.pair_build` against the same four float32 ops on the host, in the same order."""
     import ttnn
 
-    card = PairOnCard.__new__(PairOnCard)
-    card.device = T.get_device()
+    from tt_bio import tenstorrent as T
+    from tt_bio.pair_build import pair_build
+
+    dev = T.get_device()
     g = torch.Generator().manual_seed(n)
-    # fp32 values across the exponent range, so a transpose through a narrower format would show
-    scale = torch.randn(1, n, n, generator=g) * torch.logspace(-6, 6, n)
-    col = card.scale_column(scale)
-    assert list(col.shape) == [1, n, n, 1]
-    assert torch.equal(ttnn.to_torch(col), scale[..., None])
-    ttnn.deallocate(col)
+    c, nb = 384, 30
+    const = torch.randn(b, n, n, c, generator=g)
+    table = torch.randn(nb, c, generator=g) * torch.logspace(-4, 1, c)
+    bins = torch.randint(0, nb, (b, n, n), generator=g)
+    scale = torch.rand(b, n, n, generator=g) * 4
+    wg, beta = torch.randn(b, c, generator=g), torch.randn(b, c, generator=g)
+    rm = dict(layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+    tile = dict(layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.float32)
+    z = pair_build(ttnn.from_torch(const, **tile), ttnn.from_torch(table, dtype=ttnn.float32, **rm),
+                   ttnn.from_torch(bins.reshape(b * n, n).to(torch.int32), dtype=ttnn.uint32, **rm),
+                   ttnn.from_torch(scale.reshape(b * n, n), dtype=ttnn.float32, **rm),
+                   ttnn.from_torch(wg[:, None].expand(b, 32, c).contiguous(), **tile),
+                   ttnn.from_torch(beta[:, None].expand(b, 32, c).contiguous(), **tile))
+    assert z is not None, "pair_build declined"
+    got = ttnn.to_torch(z)
+    want = ((const + table[bins]) * scale[..., None]) * wg[:, None, None] + beta[:, None, None]
+    exact = float((got == want).float().mean())
+    err = float(((got - want).abs() / want.abs().clamp_min(1e-30)).max())
+    print(f"b {b} n {n}: bit-equal {exact:.6f}, max rel err {err:.3e}")
+    # the gather moves bits; the four ops are float32 on the SFPU, within an ulp of IEEE's
+    assert err < 1e-6
