@@ -10694,7 +10694,21 @@ class TriangleMultiplication(Module):
         _mask_moved_memo: dict = {}
         mask_key = _trimul_chunk_key(H, self._hidden, batch)
 
-        def mask_moved(transposed: bool):
+        def consumer_reserve(transpose_a: bool) -> int:
+            # L1 per core the channel matmul's static CBs take. `trimul_bres` plans a fixed ~1.2 MB
+            # for b[c] where it will take the matmul, so an L1 tensor that lives across that call
+            # (`a`, the moved mask) has to fit beside THAT, not beside the generic reserve. Priced
+            # here, the choice is static: a throw + DRAM retry once per trimul shape and process
+            # used to decide it, and caught throws track the OF3 / OpenBind hangs.
+            if (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
+                    and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
+                ht = -(-H // 32)
+                return max(_PAIR_L1_CONSUMER_RESERVE, _bmm_res.cb_bytes(
+                    ht, ht, _dtype(), _dtype(), transpose_a,
+                    _bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config))))
+            return _PAIR_L1_CONSUMER_RESERVE
+
+        def mask_moved(transposed: bool, reserve: int):
             if transposed not in _mask_moved_memo:
                 # This `unsqueeze` keeps the last axis tile-wide, so it is a metadata VIEW over
                 # the caller's buffer and must never be deallocated here: the pair mask is built
@@ -10707,11 +10721,11 @@ class TriangleMultiplication(Module):
                 # block, so moving 0.52 MB on chip removes a whole pair tensor's worth of DRAM
                 # reads. The transpose takes the destination directly; the untransposed view is
                 # the caller's buffer, so it needs a copy of its own. Both are this call's to
-                # free and go when the memo does. `_PAIR_L1_CONSUMER_RESERVE` keeps the matmul's
-                # per-core circular buffers clear underneath it.
+                # free and go when the memo does. `reserve` keeps the matmul's per-core circular
+                # buffers clear underneath it.
                 l1 = (_TRIMUL_MASK_L1 and mask_key not in _TRIMUL_MASK_DRAM_SHAPES
                       and _l1_fits(_padded_bytes(m.shape, 4 if m.dtype == ttnn.float32 else 2),
-                                   1.0, _PAIR_L1_CONSUMER_RESERVE))
+                                   1.0, reserve))
                 if transposed:
                     m = (ttnn.transpose(m, -2, -1, memory_config=ttnn.L1_MEMORY_CONFIG)
                          if l1 else ttnn.transpose(m, -2, -1))
@@ -10986,18 +11000,7 @@ class TriangleMultiplication(Module):
                             # channel loop with `a` back in DRAM WITHOUT narrowing anything.
                             a_mc = memory_config
                             if _OF3L1_TMA:
-                                # `trimul_bres` plans a fixed ~1.2 MB of CBs per core for b[c], so
-                                # where it will take the matmul, `a` has to fit beside THAT, not
-                                # beside the generic reserve. Pricing it here decides statically
-                                # what used to be a TT_THROW + DRAM retry once per trimul shape and
-                                # process on every Wormhole fold at 512 aa.
-                                tma_reserve = _PAIR_L1_CONSUMER_RESERVE
-                                if (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
-                                        and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
-                                    ht = -(-H // 32)
-                                    tma_reserve = max(tma_reserve, _bmm_res.cb_bytes(
-                                        ht, ht, _dtype(), _dtype(), defer and perm_a == (0, 3, 2, 1),
-                                        _bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config))))
+                                tma_reserve = consumer_reserve(defer and perm_a == (0, 3, 2, 1))
                                 if (not ops.taping() and tma_key not in _OF3L1_REFUSED
                                         and n_pairs // group == 1
                                         and (perm_a != (0, 3, 2, 1) or defer)
@@ -11058,7 +11061,8 @@ class TriangleMultiplication(Module):
                         # into a fresh tensor and deallocate -- same bytes, one more allocation.
                         # `a` is transposed iff it was not left for the matmul to transpose.
                         a_chunk = ttnn.multiply_(
-                            a_chunk, mask_moved(perm_a == (0, 3, 2, 1) and not defer_a))
+                            a_chunk, mask_moved(perm_a == (0, 3, 2, 1) and not defer_a,
+                                                consumer_reserve(defer_a)))
                     _st = (branch, "defer" if (defer_a or defer_b) else "keep")
                     TRIMUL_MM_TRANSPOSE_STATS[_st] = TRIMUL_MM_TRANSPOSE_STATS.get(_st, 0) + 1
                     # `trimul_bres`: b[c] resident in L1, every operand read from DRAM once (bmm_res),
