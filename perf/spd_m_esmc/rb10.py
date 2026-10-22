@@ -47,20 +47,23 @@ def main() -> int:
         base = ttnn.from_torch(ref, device=dev, layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.bfloat16)
         for k in KS:
             key = f"k{k}_page{k * h * 2}"
-            try:
-                t = ttnn.from_torch(ref.reshape(rows // k, k * h), device=dev, layout=ttnn.ROW_MAJOR_LAYOUT,
-                                    dtype=ttnn.bfloat16)
-                r[key] = timed(lambda: ttnn.from_device(t), dev, args.rounds)
-                rs = ttnn.reshape(base, (rows // k, k * h))
-                r[key + "_reshape_dev"] = timed(
-                    lambda: ttnn.deallocate(ttnn.reshape(base, (rows // k, k * h))), dev, args.rounds)
-                r[key + "_via_reshape"] = timed(lambda: ttnn.from_device(rs), dev, args.rounds)
-                r[key + "_exact"] = bool(torch.equal(ttnn.to_torch(ttnn.from_device(rs)).reshape(rows, h), ref))
-                ttnn.deallocate(t)
-                ttnn.deallocate(rs)
-            except Exception as exc:  # noqa: BLE001 - a refused page size is a result
-                r[key] = repr(exc)[:200]
-            print(name, key, r.get(key), r.get(key + "_via_reshape"), r.get(key + "_reshape_dev"), flush=True)
+            # A row-major reshape is a view over base's buffer: never deallocate it (that frees base).
+            steps = {
+                "": lambda: ttnn.from_device(t),
+                "_via_reshape": lambda: ttnn.from_device(ttnn.reshape(base, (rows // k, k * h))),
+                "_repage_dev": lambda: ttnn.deallocate(ttnn.clone(ttnn.reshape(base, (rows // k, k * h)))),
+            }
+            t = ttnn.from_torch(ref.reshape(rows // k, k * h), device=dev, layout=ttnn.ROW_MAJOR_LAYOUT,
+                                dtype=ttnn.bfloat16)
+            for suffix, fn in steps.items():
+                try:
+                    r[key + suffix] = timed(fn, dev, args.rounds)
+                except Exception as exc:  # noqa: BLE001 - a refused page size is a result
+                    r[key + suffix] = repr(exc)[:200]
+            r[key + "_exact"] = bool(torch.equal(ttnn.to_torch(ttnn.from_device(t)).reshape(rows, h), ref))
+            r[key + "_page_bytes"] = t.buffer_page_size() if hasattr(t, "buffer_page_size") else None
+            ttnn.deallocate(t)
+            print(name, key, {s_: r[key + s_] for s_ in steps}, flush=True)
         ttnn.deallocate(base)
         out[name] = r
     Path(args.out).write_text(json.dumps(out, indent=1) + "\n")
