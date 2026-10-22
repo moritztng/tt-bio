@@ -59,6 +59,11 @@ Wormhole host about 100 s. The copy is keyed to the tt-bio and ttnn versions, so
 writes a new one and a copy nobody has loaded for a week is removed. It is skipped when the
 disk has less than half the checkpoint plus 10 GiB free, and deleting `tiles/` is always safe.
 
+ESMFold2 and NESSO-1 read their CCD molecule pickle through an index under `ccd/` in the
+tt-bio cache (about the size of the pickle, 0.4 GiB), built on first use. It lets a fold read
+the few molecules it needs instead of unpickling all 50,000, which saves about 4 s per process.
+Deleting `ccd/` is safe; it is rebuilt on the next fold.
+
 One artifact is deliberately outside the registry: the ESM-2 650M encoder (2.4 GiB) that
 `tt-bio affinity --model nesso1` uses to embed its protein. `transformers` fetches it into
 the hub cache on first use, so `TT_BIO_CACHE` still moves it, but it will show up under
