@@ -1,0 +1,59 @@
+{
+ "n": 512,
+ "levers": {
+  "base": [
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_gin",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram"
+  ],
+  "stack": [
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_psig",
+   "trimul_t1w8"
+  ]
+ },
+ "tt_bio": "/home/ttuser/.coworker/wt/rfd4-perf-tri4",
+ "load_start": 6.85400390625,
+ "z_rel_rms_stack_vs_base": 0.05097835060609242,
+ "base": {
+  "pass_ms_median": 223.869,
+  "pass_ms_min": 221.987,
+  "trunk_s_per_design": 40.296
+ },
+ "stack": {
+  "pass_ms_median": 205.609,
+  "pass_ms_min": 204.746,
+  "trunk_s_per_design": 37.01
+ },
+ "paired_speedup_median": 1.0891,
+ "reps": 30,
+ "load_end": 6.59033203125,
+ "aiclk": {
+  "0": {
+   "min": 1268,
+   "max": 1350,
+   "median": 1318,
+   "n": 5
+  }
+ }
+}

@@ -270,9 +270,12 @@ def test_trunk_stack(nlayers, cycles, mode):
 
 
 @pytest.mark.device
-def test_full_mask_elision_is_bit_identical():
+def test_full_mask_elision_is_bit_identical(monkeypatch):
     """With no padded token `trunk_masks` hands back None for every mask (the triangle's is None either
-    way) and the trunk skips those multiplies. That has to be the identity, bit for bit, on both streams."""
+    way) and the trunk skips those multiplies. That has to be the identity, bit for bit, on both streams.
+    pair_bias_rms and pair_write_res serve only the unmasked trunk with a different program, so they are
+    off here; their accuracy is graded on their own."""
+    monkeypatch.setenv("TT_BIO_LEVERS", ",".join(sorted(TR.NORMAL_LEVERS - {"pair_bias_rms", "pair_write_res"})))
     dev = T.get_device()
     nlayers, cycles = 4, 2
     w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=31)
