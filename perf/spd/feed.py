@@ -97,7 +97,11 @@ def ok(p):
     if any(c in p for c in "*?["):
         return any(ok(q) for q in glob.glob(p))
     # a result file must be non-empty; a marker (`touch $O/done`, `touch $O/$arm.done`) is empty by design
+    # bench.py writes a "start" record before the device opens, so a bench.jsonl is done only once it holds a rep
     b = os.path.basename(p)
+    if b == "bench.jsonl" and os.path.isfile(p):
+        with open(p, "rb") as f:
+            return b'"ev": "rep"' in f.read()
     return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in b or b.endswith(".done"))
             or os.path.isdir(p) and bool(os.listdir(p)))
 for p in A["paths"]:
