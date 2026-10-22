@@ -21,7 +21,7 @@ passes is a different model, not a faster one.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from collections.abc import Callable, Sequence
 from typing import Any, Protocol, runtime_checkable
@@ -40,6 +40,9 @@ class DesignOutput:
     residue_type: object
     atom_mask: object
     insertion_logits: object
+    #: Saved trajectory snapshots, empty unless the run asked for them
+    #: (`tt_bio.rfd4.trajectory.write_trajectory` puts them on disk).
+    trajectory: list = field(default_factory=list)
 
 
 @runtime_checkable
@@ -119,7 +122,8 @@ class DesignEngine:
                partial_trajectory_fraction_steps: float | None = None,
                inverse_folding: bool = False,
                inverse_folding_method: str = "resampled_forward_marginal",
-               transforms: "Sequence[Callable]" = (), guidance=None) -> DesignOutput:
+               transforms: "Sequence[Callable]" = (), guidance=None,
+               save_trajectory_every: int = 0) -> DesignOutput:
         """`rng="per_design"` gives every design its own stream (`sampler.DesignRng`).
         `rng="upstream"` seeds the global stream with `seed` and draws in upstream's order, which
         is how a design is compared one to one against upstream's run of the same seed.
@@ -170,7 +174,8 @@ class DesignEngine:
         out = _sampler.generate(spec, chunked, n_designs=num_designs, n_tokens=n_tokens,
                                 seed=seed, rng_mode=rng, emit_masks=compute_flow_emit_masks(batch),
                                 groups=_groups(batch), coord_cond_mask=batch.get("coord_cond_mask"),
-                                start=start, x_1=x_1, guidance=guidance)
+                                start=start, x_1=x_1, guidance=guidance,
+                                save_trajectory_every=save_trajectory_every)
         #: The sample width the trajectory finished at: `max_parallel_samples`, or less where DRAM
         #: refused a chunk and the chunker halved it. A throughput number quotes this, not the cap.
         self.chunk_width = chunked.width
@@ -181,7 +186,8 @@ class DesignEngine:
         decoded = self.decode(batch, out, num_designs=num_designs)
         return DesignOutput(coords_nm=decoded["coors_nm"], residue_type=decoded["residue_type"],
                             atom_mask=decoded["atom_mask"],
-                            insertion_logits=out.insertion_logits)
+                            insertion_logits=out.insertion_logits,
+                            trajectory=out.trajectory)
 
     def clean_sample(self, batch: dict, *, num_designs: int, seed: int) -> dict:
         """`Proteina.add_clean_samples`: the input structure as the flow's clean state `x_1`.

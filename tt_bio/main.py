@@ -4323,7 +4323,8 @@ def _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent, coupl
 
 def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
                   annotated_cif: bool, validate: bool, sampling: dict | None = None,
-                  recipe: str = "thinking_medium", tsr_k: float | None = None) -> None:
+                  recipe: str = "thinking_medium", tsr_k: float | None = None,
+                  save_trajectory_every: int = 0) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
 
     The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
@@ -4370,7 +4371,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
         click.echo(f"  {design.example_id}: {tokens} tokens <- {design.cif}")
         try:
             output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed,
-                                   **sampling)
+                                   save_trajectory_every=save_trajectory_every, **sampling)
         except ValueError as e:
             raise click.UsageError(str(e))
         for row in range(num_designs):
@@ -4378,6 +4379,13 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
             path = rfd4.write_design(output, features, atom_array,
                                      out_dir / f"{design.example_id}{suffix}_generated.cif", row=row)
             click.echo(f"    -> {path}")
+            if output.trajectory:
+                from tt_bio.rfd4.trajectory import write_trajectory
+
+                frames = write_trajectory(
+                    output.trajectory, features,
+                    out_dir / f"{design.example_id}{suffix}_trajectory.cif", row=row)
+                click.echo(f"    -> {frames} ({len(output.trajectory)} frames)")
             written += 1
     click.echo(f"Done — {written} design(s) → {out_dir}")
 
@@ -4485,6 +4493,10 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
 @click.option("--inverse_folding", is_flag=True,
               help="rfd4 only. Keep INPUTS' backbone exactly as given and design only the "
                    "sequence. Excludes the partial-diffusion options.")
+@click.option("--save_trajectory_every", default=0, type=int, show_default=True,
+              help="rfd4 only. Write every Nth step of each design's trajectory to "
+                   "<out_dir>/<design>_trajectory.cif, CA only, one model per saved step. "
+                   "0 writes none.")
 @click.option("--host_threads", default=None, type=int,
               help="rfd3 only. Total host CPU threads this process may use, split across its "
                    "cards. Defaults to every core, which is right when this is the only tt-bio "
@@ -4613,6 +4625,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     if model == "boltzgen":
         for flag, name in (("--checkpoint", "checkpoint"), ("--golden_dir", "golden_dir"),
                            ("--num_timesteps", "num_timesteps"),
+                           ("--save_trajectory_every", "save_trajectory_every"),
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
@@ -4668,6 +4681,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
                            ("--log", "log"), ("--checkpoint", "checkpoint"),
                            ("--golden_dir", "golden_dir"), ("--num_timesteps", "num_timesteps"),
+                           ("--save_trajectory_every", "save_trajectory_every"),
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
@@ -4724,7 +4738,8 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                       nsteps, seed, spec_subset, annotated_cif, not no_validate,
                       _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent,
                                      couple_partial_t, inverse_folding),
-                      recipe=recipe, tsr_k=tsr_k)
+                      recipe=recipe, tsr_k=tsr_k,
+                      save_trajectory_every=save_trajectory_every)
         return
 
     # --model rfd3
