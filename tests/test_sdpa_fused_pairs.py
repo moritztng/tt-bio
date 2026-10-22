@@ -186,3 +186,22 @@ def test_the_padded_route_is_offered_once_and_only_before_a_stock_rung():
     assert src.count("o = padded()") == 2
     first_stock = src.index("fused_sdpa(")
     assert src.index("o = padded()") < first_stock
+
+
+@pytest.mark.parametrize("cores", (64, 72, 110, 130))
+@pytest.mark.parametrize("seq", (288, 544, 576, 608, 736, 800, 928, 1184))
+def test_triatt_q10_keeps_the_k_chunk_and_offers_q320_at_608(seq, cores):
+    import tt_bio.tenstorrent as T
+    _clear_pair_memos()
+    try:
+        for heads in (4, 8, 12, 16):
+            off = TS.fused_pairs(seq, heads, HEAD_DIM, cores, padded=True)
+            with T.levers({"triatt_q10"}):
+                on = TS.fused_pairs(seq, heads, HEAD_DIM, cores, padded=True)
+            assert set(off) <= set(on) and (not off or on[0][1] == off[0][1])
+        if (seq, cores) == (608, 72):
+            assert TS.fused_pairs(608, 12, HEAD_DIM, 72, padded=True)[0] == (256, 640)
+            with T.levers({"triatt_q10"}):
+                assert TS.fused_pairs(608, 12, HEAD_DIM, 72, padded=True)[0] == (320, 640)
+    finally:
+        _clear_pair_memos()
