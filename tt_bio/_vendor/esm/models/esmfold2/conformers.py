@@ -1,6 +1,7 @@
 # Vendored from github.com/Biohub/esm @ b6b0e88 (MIT, Copyright 2026 Chan Zuckerberg
 # Biohub, Inc.; see tt_bio/_vendor/esm/LICENSE). Modified: absolute `esm.` imports
-# rewritten to `tt_bio._vendor.esm.` for in-tree vendoring.
+# rewritten to `tt_bio._vendor.esm.` for in-tree vendoring; load_ccd reads
+# ccd.pkl through tt_bio.ccd.CcdMols.
 """CCD conformer loading utilities.
 
 Loads idealized conformer coordinates from a CCD pickle file containing RDKit molecules.
@@ -10,7 +11,6 @@ Conformer priority follows AF3 Section 2.8: Computed > Ideal > first available.
 from __future__ import annotations
 
 import os
-import pickle
 from pathlib import Path
 
 import numpy as np
@@ -70,11 +70,10 @@ def load_ccd(cache_dir: Path | str | None = None) -> dict:
         )
 
     print(f"Loading CCD dictionary from {pkl_path}")
-    with open(pkl_path, "rb") as f:
-        _CCD_MOLECULES = pickle.load(f)
+    # tt-bio: a per-code index instead of unpickling all 50k mols (4 s a process).
+    from tt_bio.ccd import CcdMols
 
-    if _CCD_MOLECULES is None:
-        _CCD_MOLECULES = {}
+    _CCD_MOLECULES = CcdMols(pkl_path)
 
     return _CCD_MOLECULES
 
