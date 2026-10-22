@@ -10,9 +10,10 @@ is one matmul deep and runs once per sampler step, not once per trunk pass:
     heads                             latents 32, CA 3, sequence 147, insertion bilinear
 
 Those four are upstream's own modules, vendored under `tt_bio._vendor.rfd4_prep._cif`, so the
-features the trunk reads are built by NVIDIA's code rather than a transcription of it. The census
-(`state/rfd4/census/census.json`) prices them at under 2 % of a design, and the pair feature build
-is a gather, so a device port of the glue would buy nothing and could only introduce drift.
+features the trunk reads are built by NVIDIA's code rather than a transcription of it. The pair
+builder is the exception: its passes over a [b, n, n, 384] fp32 tensor grow as n^2 and are the
+largest host cost of a long design, so on a card it is split into a per-design constant and a
+per-step gather and built there (`tt_bio.rfd4.pair`). The rest is a few ms a step.
 
 :class:`FlowNetwork` is the :class:`tt_bio.rfd4.sampler.Network` the sampler drives: one call per
 step, it owns the recycle loop, and the trunk it calls is injected. Pass the device trunk for a
@@ -188,6 +189,15 @@ class FlowGlue(torch.nn.Module):
         self.load_state_dict(_sub(state_dict, "nn."), strict=False)
         self.eval()
         self.requires_grad_(False)
+        from .pair import PairSplit
+
+        #: The pair builder split into what a design fixes and what a step moves, which is what lets
+        #: the card build the pair (`tt_bio.rfd4.pair`). None for a config it does not cover.
+        try:
+            self.pair_split = PairSplit(self.pair_repr_builder)
+        except ValueError as exc:
+            logger.info("rfd4: the pair is built on the host: %s", exc)
+            self.pair_split = None
 
     # -- the three pieces a step needs, each called once per network call ------------------
 
@@ -197,11 +207,14 @@ class FlowGlue(torch.nn.Module):
         c = self.cond_factory({**batch, "recycle_remaining": recycle_remaining})
         return self.transition_c_2(self.transition_c_1(c, mask), mask)
 
-    def initial_states(self, batch: dict) -> tuple[torch.Tensor, torch.Tensor]:
-        """`(s_init, z_init)` for this step's noisy state."""
+    def initial_states(self, batch: dict, pair_constant: torch.Tensor | None = None):
+        """`(s_init, z_init)` for this step's noisy state. Given the design's `pair_split.constant`,
+        `z_init` is the `PairInputs` the card builds the pair from instead of the host tensor."""
         mask = batch["padding_mask"]
         s_init = self.init_repr_factory(batch) * mask[..., None]
-        return s_init, self.pair_repr_builder(batch)
+        if pair_constant is None:
+            return s_init, self.pair_repr_builder(batch)
+        return s_init, self.pair_split.inputs(batch, pair_constant)
 
     def heads(self, s: torch.Tensor, batch: dict) -> dict[str, dict[str, torch.Tensor]]:
         """The four readouts. `emit_masks` decide which tokens a modality may move."""
@@ -243,6 +256,10 @@ class FlowNetwork:
         self.batch = batch
         self.condition_on_recycle_remaining = condition_on_recycle_remaining
         self.passes = 0
+        #: A trunk with `builds_pair` builds z_init on the card; the host then only computes the
+        #: design's constant pair projection, once (`tt_bio.rfd4.pair`).
+        self.pair_on_card = bool(getattr(trunk, "builds_pair", False)) and glue.pair_split is not None
+        self._pair_constant = None
 
     def __call__(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int,
                  step: int) -> dict[str, dict[str, Any]]:
@@ -261,7 +278,9 @@ class FlowNetwork:
         depth = max(1, int(recycle_depth))
         condition = self.condition_on_recycle_remaining and self.glue.condition_on_recycle_remaining
         with torch.no_grad():
-            s_init, z_init = self.glue.initial_states(batch)
+            if self.pair_on_card and self._pair_constant is None:
+                self._pair_constant = self.glue.pair_split.constant(self.batch)
+            s_init, z_init = self.glue.initial_states(batch, self._pair_constant)
             conds = [self.glue.conditioning(batch, None)]
             for cycle in range(1, depth):
                 conds.append(self.glue.conditioning(batch, depth - cycle - 1) if condition
