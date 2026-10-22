@@ -43,7 +43,7 @@ from tt_bio.envflags import env_flag
 from tt_bio.token_axis import pad_amount
 from tt_bio.esmc import ESMCLanguageModel, esmc6b_tile_dir
 from tt_bio.weights import fetch
-from tt_bio.tenstorrent import dram_peak, is_wormhole
+from tt_bio.tenstorrent import dram_peak, is_wormhole, pair_lookup_device
 
 
 # The ESMFold2 host-side reference (featurization + mmCIF assembly) and the
@@ -478,7 +478,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n, tm_per_bin):
     one = torch.ones_like(centres)
     v_pde = up(centres, one)
     for k in range(int(bins.shape[0])):
-        et = ftw._from_torch(head.dist_bin_pairwise_embed(bins[k:k + 1]).float())
+        et = pair_lookup_device(bins[k], head.dist_bin_pairwise_embed.weight.detach(), ftw.tt_device)
         p = ttnn.add(p0, et)
         ttnn.deallocate(et)
         x = ttnn.clone(p)  # the trunk consumes its input; the residual needs p
