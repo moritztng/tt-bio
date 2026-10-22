@@ -1796,6 +1796,9 @@ def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) 
 # faster, at any batch: ESMFold2 160 / 224 / 256 aa -19 / -41 / -40 %, OpenDDE 256 -33 %, Boltz-2 256 -5..-15 %,
 # OpenFold3 256 -6 %, 192 and 288 neutral, while 96 aa is 14-20 % slower on DRAM and 128 aa within -1..+5 %
 # (xmodel_ab, 1000 MHz, tdx). Graded on ESMFold2 and -Fast, both modes (tdg).
+# Wormhole only: it was measured there, and it can change the arithmetic, not only the memory config. A T1 plan
+# (trimul_t1_c256 / _c384) declines in L1 and serves in DRAM, so on a small Blackhole grid (the release gate's forced
+# 8x8, Protenix-v2 fkg) this threshold moved the fold off the native grid's digest: 09614098 vs dc08cebd.
 SMALL_GRID_TRIMUL_L1_MAX_SEQ = 128
 SMALL_GRID_TRIMUL_BUDGET_SCALE = 1.0
 
@@ -2108,7 +2111,7 @@ def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryCo
 
 def _trimul_l1_max_seq() -> int:
     """Longest sequence whose trimul chunks still live in L1."""
-    if _IS_SMALL_GRID and SMALL_GRID_TRIMUL_L1_MAX_SEQ:
+    if _IS_SMALL_GRID and SMALL_GRID_TRIMUL_L1_MAX_SEQ and is_wormhole():
         return SMALL_GRID_TRIMUL_L1_MAX_SEQ
     if _FAST_MODE:
         return (
