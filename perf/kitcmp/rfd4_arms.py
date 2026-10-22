@@ -32,10 +32,11 @@ SCREEN_BATCH = {128: 8, 256: 4, 512: 2}
 # A fixed ladder stopping at 16/8/4 is not "its best": at 512 x b2 the B200 held 8.5 GiB of ~180 GiB and the
 # rate was still climbing at the top rung, so the ladder would have set NVIDIA's number instead of the card.
 # Double until the card actually pushes back -- a failed/OOM rung, or two rungs that buy nothing.
-SWEEP_CEIL = {128: 512, 256: 256, 512: 64}
-# Session 4's 128 climb ended ON the old ceiling (b128) still gaining 4.7 % a rung, so that rate was our cost
-# guard's number, not the card's. The real stop is the stall rule above -- two rungs that buy under 2 % -- and
-# these values only bound what one stuck size may spend.
+SWEEP_CEIL = {128: 2048, 256: 512, 512: 256}
+# Every session-4 climb ended ON its ceiling while still gaining (128 +2.8 %, 256 +2.1 %, 512 +2.4 % on the
+# last doubling), so those rates were our cost guard's number and not the card's, and all three errors ran in
+# OUR favour. Raised for session 5 (D-fairgpu-06). The real stop is the stall rule above -- two rungs that buy
+# under 2 % -- and these values only bound what one stuck size may spend.
 # Reference designs are reproducible from this seed plus the batch index; rfd4-quality needs the
 # upstream set and the TT set to be the same draw, so it is pinned here rather than per-run.
 REF_SEED = 1234
@@ -84,13 +85,15 @@ def time_left(margin=600):
     return time.time() < a.deadline - margin
 
 
-def climb(arm, size, warm, tag, seed=None):
+def climb(arm, size, warm, tag, seed=None, on_rung=None):
     """Double the batch until the card pushes back. Returns {batch: summary}.
 
     Stops on the first rung that fails (OOM is the expected failure) or after two rungs that do not beat the
     best rate by more than 2 %, so a card with headroom keeps climbing and one without stops paying for it.
     `seed` carries rungs an earlier sweep on this same box already measured, so extending a capped ladder
-    pays only for the rungs above it.
+    pays only for the rungs above it. `on_rung` is called with the ladder so far after every rung: a phase
+    deadline kills this process mid-rung, and on 2026-10-21 that lost all six measured 256 rungs because the
+    result file was written once per arm.
     """
     seed = {int(k): v for k, v in (seed or {}).items()}
     sweep, best_rate, stall, b = {}, 0.0, 0, 1
@@ -102,6 +105,8 @@ def climb(arm, size, warm, tag, seed=None):
         else:
             s = summarise(run(arm, size, b, warm, ARMS[arm], tag=tag))
         sweep[b] = s
+        if on_rung:
+            on_rung(sweep)
         if s["status"] != "ok":
             print(f"climb {arm}@{size}: b{b} failed ({s.get('error')}) -- that is the ceiling", flush=True)
             break
@@ -250,7 +255,12 @@ def main():
                 # runner-up's whole ladder from b1 (42 rungs across the three sizes, 2026-10-21).
                 was = prev.get("best", {}).get(str(size), {})
                 seed = (was.get("climbed", {}).get(arm) or {}).get("sweep")
-                sweep = climb(arm, size, max(3, a.screen_warm - 2), f"ext-{arm}", seed=seed)
+                def keep(sw, arm=arm, per_arm=per_arm, size=size):
+                    partial = per_arm | {arm: {"sweep": {str(k): v for k, v in sw.items()}, "partial": True}}
+                    (a.out / "ARMS-EXT.json").write_text(
+                        json.dumps(ext | {str(size): {"arms": partial}}, indent=2) + "\n")
+
+                sweep = climb(arm, size, max(3, a.screen_warm - 2), f"ext-{arm}", seed=seed, on_rung=keep)
                 okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
                 if not okb:
                     per_arm[arm] = {"sweep": {str(k): v for k, v in sweep.items()}}
