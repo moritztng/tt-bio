@@ -5,14 +5,15 @@
 #
 #   perf/rfd4/e2e/pairdev_seeds.sh <card> <branch-tree> <base-tree> <out-dir>
 #
-# Uses the seed-capable design.py / grade_seeds.py / quality.py of the harness trees named below
-# (RFD4_HARNESS, RFD4_QHARNESS) against each tree's own engine (PYTHONPATH). Holds the chip lock.
+# Both arms run the branch tree's design.py (RFD4_HARNESS overrides) against each tree's own engine
+# (PYTHONPATH); grade_seeds.py and quality.py come from RFD4_GRADE / RFD4_QHARNESS. ABAB=0 skips the
+# 256 timing legs. Holds the chip lock.
 set -u
 card=$1 tree=$2 btree=$3 out=$4
 py=${RFD4_PY:-$HOME/tt-bio-dev/env/bin/python}
-h=${RFD4_HARNESS:-$HOME/rfd4-tri2-runs/harness}/perf/rfd4
+h=${RFD4_HARNESS:-$tree}/perf/rfd4
 q=${RFD4_QHARNESS:-$HOME/rfd4-tri2-runs/qharness}/perf/rfd4
-g=${RFD4_GRADE:-$HOME/.coworker/wt/rfd4-perf-bfp8/perf/rfd4/bfp8/grade_seeds.py}
+g=${RFD4_GRADE:-$tree/artifacts/pairdev/tools/bfp8/grade_seeds.py}
 mkdir -p "$out"
 export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=${TT_BIO_LEASE_HOLDER:-worker:rfd4-perf-pairdev}
 exec 9>"$HOME/spd_qb2_chip$card.lock"
@@ -24,7 +25,7 @@ stamp "start branch=$(git -C "$tree" log --oneline -1 | cut -c1-60) base=$(git -
     >"$out/pair_device.log" 2>&1
 stamp "pair_device rc=$? $(tail -1 "$out/pair_device.log")"
 
-for r in 1 2; do  # 256 time, interleaved
+for r in $([ "${ABAB:-1}" = 0 ] || echo 1 2); do  # 256 time, interleaved
     for arm in base pair; do
         t=$([ $arm = base ] && echo "$btree" || echo "$tree")
         (cd "$t" && PYTHONPATH=$PWD timeout 1800 "$py" perf/rfd4/e2e/host_split.py --spec ~/rfd4-inputs/pdl1-256.yaml \
