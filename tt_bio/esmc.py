@@ -613,6 +613,12 @@ def _lin6b_program(x, w):
         per_core_M=pm, per_core_N=pn, transpose_mcast=False, fused_activation=None, fuse_batch=True)
 
 
+# The FFN gate (mm_gate) under fp32 accumulation with a 16-bit dest and the K-block accumulator still in fp32 L1: each
+# K block's partial rounds to bf16 once, the partials sum in fp32, and the 16-bit dest takes 2 x 4 subblocks. Off: an
+# A/B candidate for the normal mode on Wormhole (bf16 accumulation alone fails the normal bar by ~0.00001).
+_ESMC_GATE_MIXED = env_flag("TT_BIO_ESMC_GATE_MIXED", False)
+
+
 def _mm_bf16_acc(w, exact: bool = False) -> bool:
     """bf16 dest accumulation on a block-fp8 minimal_matmul: a --fast choice. ``exact`` marks block-fp8 weights
     serving a normal-mode forward (the ESMC-6B embed on Wormhole), which keeps fp32 accumulation."""
@@ -1358,8 +1364,12 @@ class SwiGLUFFN(_MMLin, Module):
         g = x_norm.device().compute_with_storage_grid_size()
         grid = (int(g.x), int(g.y))
         ck = self.compute_kernel_config if large else self._mm_ck(w)
-        cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid,
-                             not large and _mm_bf16_acc(w, self.mm_exact_acc))
+        bf16_acc = not large and _mm_bf16_acc(w, self.mm_exact_acc)
+        mixed = _ESMC_GATE_MIXED and not large and not bf16_acc and ck.fp32_dest_acc_en
+        if mixed:
+            ck = type(ck)(math_fidelity=ck.math_fidelity, math_approx_mode=ck.math_approx_mode,
+                          fp32_dest_acc_en=False, packer_l1_acc=ck.packer_l1_acc)
+        cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid, bf16_acc or mixed)
         if cfg is None or not mm_gate.overlay_ok():
             MM_GATE_STATS[1] += 1
             return None
@@ -1368,7 +1378,7 @@ class SwiGLUFFN(_MMLin, Module):
             w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.fc1_b_weight), group)
             self._w12 = ttnn.from_torch(w12, dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=x_norm.device())
             self._w12_group = group
-        out = mm_gate.gated(x_norm, self._w12, cfg, ck, grid, pack_sfpu=True)
+        out = mm_gate.gated(x_norm, self._w12, cfg, ck, grid, pack_sfpu=True, interm_fp32=True if mixed else None)
         MM_GATE_STATS[0 if out is not None else 1] += 1
         return out
 

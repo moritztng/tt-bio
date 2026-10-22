@@ -76,12 +76,12 @@ def overlay_ok() -> bool:
     return "silu_f32" in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(",")
 
 
-def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=False):
+def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=False, interm_fp32=None):
     """silu(x @ W1) * (x @ W2) for the interleaved `w12`, [.., N] in DRAM, or None when `plan` declines.
     `cfg` is minimal_matmul's (M_block, K_block, N_block, subblock_h, subblock_w) in tiles; the interleave
     group must be N_block / 2 tiles. `probe` (benchmarks only, wrong output) drops the epilogue's silu (1) or silu
     and multiply (2), to time its parts. `pack_sfpu` runs the epilogue's silu and multiply on the PACK thread (the
-    silu is calculate_silu_f32 there only under the silu_f32 metal overlay)."""
+    silu is calculate_silu_f32 there only under the silu_f32 metal overlay). `interm_fp32`: `mm_generic.build`'s."""
     n2 = int(w12.shape[-1])
     why = plan(x, n2, cfg, grid)
     if why is not None:
@@ -92,11 +92,11 @@ def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=Fa
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     ck = MG.ckc_args(ckc)
-    key = (spec(x), spec(w12), spec(out), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), probe, pack_sfpu)
+    key = (spec(x), spec(w12), spec(out), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), probe, pack_sfpu, interm_fp32)
     entry = _CACHE.get(key)
     if entry is None:
         entry = MG.build(dev, x, w12, [out], (tuple(cfg), tuple(grid)), ck, defines={"MM_GATED": 1},
-                         kernel_dir=KERNEL_DIR)
+                         kernel_dir=KERNEL_DIR, interm_fp32=interm_fp32)
         compute = entry["kernels"][4]
         compute.kernel_source = str(KERNEL_DIR / "compute.cpp")
         compute.defines = ([("MM_GATED", "1")] + ([("MM_GATE_PROBE", str(probe))] if probe else [])
