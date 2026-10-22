@@ -24,7 +24,7 @@ import ttnn
 import torch
 
 from .. import rne_add
-from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
+from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope, refusals_learned,
                            _sdpa_program_config_for_lengths, download, fused_sdpa, lever_scope, model_levers,
                            under_lever_scope, upload)
 
@@ -714,7 +714,17 @@ class Trunk(Module):
         s = up(pad(s_init.float(), [1]) * mc, self.residual_dtype)
         z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.residual_dtype)
         cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
-        s_out, z_out = self(s, z, cs, masks)
+        # A call during which a device refusal taught the process a new plan ran part of itself
+        # on the old one; run it again, so a process's first design equals its repeats. Every
+        # refusal site remembers its plan, so the count settles; the cap only bounds a site that
+        # someday does not.
+        for _ in range(3):
+            learned = refusals_learned()
+            s_out, z_out = self(s, z, cs, masks)
+            if refusals_learned() == learned:
+                break
+            ttnn.deallocate(s_out)
+            ttnn.deallocate(z_out)
         return n, pair, (s_out, z_out), (s, z, *cs)
 
     def collect(self, pending):

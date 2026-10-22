@@ -4730,8 +4730,30 @@ def absorb_l1_refusal(where: str, exc: BaseException) -> None:
         raise exc
 
 
+#: Plans this process has learned from a device refusal and keeps for the rest of its life: an L1
+#: clash, a DRAM out-of-memory. A learned plan is not always the same arithmetic (the trimul's DRAM
+#: path rounds differently from its L1 path), so a forward during which this moved ran its earlier
+#: ops on the plan it then abandoned, and its output is not the one every later call gives. At
+#: 256 tokens on a p300c, RFD4's first trimul fit in L1 and its second clashed, so the first design
+#: of a process landed 2.65 A from every repeat at the same seed. A caller that wants output
+#: independent of process history re-runs such a forward (`refusals_learned`).
+_REFUSALS_LEARNED = [0]
+
+
+def learned_from_refusal() -> None:
+    """Count one plan learned from a device refusal. Called wherever such a plan is recorded."""
+    _REFUSALS_LEARNED[0] += 1
+
+
+def refusals_learned() -> int:
+    """How many plans this process has learned from device refusals so far. Compare before and
+    after a forward: unequal means the forward mixed two plans and should be run again."""
+    return _REFUSALS_LEARNED[0]
+
+
 def note_l1_clash(where: str, msg: object) -> dict | None:
     """Record a clash census under `where` and return it. Safe to call from an except block."""
+    learned_from_refusal()
     seen = _CB_OVERFLOW_RE.search(str(msg))
     if seen and not _L1_TOP_SEEN:
         _L1_TOP_SEEN.append(int(seen.group(6)))
@@ -6070,6 +6092,8 @@ _PT_ROW_MAJOR = os.environ.get(
 # so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
 # per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
 _TRANSPOSE_L1_REFUSED: set = set()
+#: `_gated_rowblocked` shapes whose L1 row blocks the device refused; they take the whole-tensor path.
+_GATED_ROWBLOCK_REFUSED: set = set()
 # Shape classes whose DRAM row-major transpose route was refused; they permute tiled after.
 _PT_ROW_MAJOR_REFUSED: set = set()
 
@@ -10383,6 +10407,9 @@ class TriangleMultiplication(Module):
         if not R or R % _reblock.TILE_H or H % R:
             return None, None
         cw = int((x_in if x_norm_in is None else x_norm_in).shape[-1])
+        key = (H, cw, slice_c, R, x_norm_in is None, str(memory_config.buffer_type))
+        if key in _GATED_ROWBLOCK_REFUSED:
+            return None, None
         a = b = None
         try:
             for s_off in range(0, H, R):
@@ -10419,6 +10446,9 @@ class TriangleMultiplication(Module):
             # let the caller run the whole-tensor projection. Report it first, so the `critical`
             # text tt-metal already wrote to fd 2 is attributed to this site instead of reading
             # like the cause of death of a fold that went on to finish.
+            # Remember it, as every other refusal site does: the budget miss repeats on every call
+            # at this shape, and a refusal that is not remembered moves `refusals_learned` each time.
+            _GATED_ROWBLOCK_REFUSED.add(key)
             report_l1_refusal("reblock_gated_inproj", exc)
             for t in (a, b):
                 if t is not None:
@@ -11158,6 +11188,7 @@ class TriangleMultiplication(Module):
                 if (not oom and not mask_clash and not ibw_clash and not pc_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
+                learned_from_refusal()
                 if t1 is not None:
                     # T1's a and b may already be consumed, so the retry takes the incumbent route
                     # from a fresh input norm; its g_out goes with g_out_fused below.
@@ -11401,6 +11432,7 @@ class TriangleMultiplication(Module):
             if g_out_fused is not None:
                 ttnn.deallocate(g_out_fused)
             _TRIMUL_TAIL_ROWS_SHAPES.add(tail_key)
+            learned_from_refusal()
             TRIMUL_TAIL_ROWS_STATS[0] += 1
             print(f"[tt-bio] trimul DRAM refused the whole-tensor output norm at "
                   f"{'x'.join(map(str, shp))}: re-running the tail in {PAIR_ROW_BLOCK}-row "
