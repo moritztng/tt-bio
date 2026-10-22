@@ -30,6 +30,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **`--recipe` picks RFD4's thinking budget.** Upstream runs each design family at its own recycle
   schedule, and only the released `thinking_medium` was reachable from the CLI; all twelve are now.
   An unknown name is refused before a spec is built or a device is opened.
+- **An RFD4 design can be watched, steered and scored against off-targets.** `tt-bio design
+  --model rfd4 --save_trajectory_every N` writes every Nth step as `<design>_trajectory.cif`,
+  CA only, one model per saved step. At the API level `engine.design` takes per-replicate
+  sampling transforms (`tt_bio.rfd4.replicates`, so a batch covers a target's surface rather
+  than repeating one patch of it) and metric gradient guidance (`tt_bio.rfd4.guidance`), and
+  `tt_bio.rfd4.pre_oracle` folds one design against listed off-targets with the variants' scores
+  namespaced apart. Upstream's classifier-free guidance weight and its dependency-bound
+  evaluate metrics (tmol, PyRosetta, Foldseek) are refused by name with the reason, instead of
+  being silently ignored. See [rfd4-steering](docs/rfd4-steering.md).
 
 ### Fixed
 - **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating

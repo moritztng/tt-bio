@@ -47,9 +47,11 @@ def check_backend(backend: str) -> None:
 
 def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: int = 1,
            backend: str = "native", recipe: str | None = None, adapter: str | Path | None = None,
-           nsteps: int | None = None, seed: int = 0,
+           tsr_k: float | None = None, nsteps: int | None = None, seed: int = 0,
            only: Sequence[str] | None = None,
            validate: bool = True, annotated_cif: bool = False, engine: Any = None,
+           sampling: dict | None = None, transforms: Sequence[Callable] = (), guidance=None,
+           save_trajectory_every: int = 0,
            on_design: Callable[[str, int, Path], None] | None = None,
            on_write: Callable[[Path], None] | None = None) -> list[Path]:
     """Design from ``spec``, write one annotated CIF per design, return their paths.
@@ -59,6 +61,11 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
     many designs each of them produces. ``nsteps`` defaults to the engine recipe's step count,
     and a given ``seed`` reproduces a run exactly, featurization included.
 
+    ``sampling`` holds upstream's partial-diffusion and inverse-folding arguments
+    (``tt_bio.rfd4.sampler.resolve_partial_start``), ``transforms`` the per-replicate sampling
+    transforms and ``guidance`` a metric-gradient callable. ``save_trajectory_every`` writes a
+    CA-only multi-model CIF beside each design.
+
     ``on_design(example_id, tokens, cif)`` is called as each design's input is featurized and
     ``on_write(path)`` as each output lands; the CLI prints its progress from both.
     """
@@ -66,19 +73,27 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
     from tt_bio.rfd4.io import featurize, resolve_inputs, write_design
 
     check_backend(backend)
-    if engine is not None and (recipe is not None or adapter is not None):
-        raise ValueError("an engine already carries its recipe and adapter; pass one or the other")
-    if recipe is not None:
-        from tt_bio.rfd4.sampler import recycle_strategy
+    if engine is not None and (recipe is not None or adapter is not None or tsr_k is not None):
+        raise ValueError("an engine already carries its recipe and adapter, and its sequence "
+                         "temperature; pass one or the other")
+    sampling = dict(sampling or {})
+    if recipe is not None or sampling:
+        from tt_bio.rfd4.sampler import recycle_strategy, resolve_partial_start
 
-        recycle_strategy(recipe)  # an unknown name fails here, before any design is built
+        # An unknown recipe, and upstream's mutual exclusions between the sampling arguments,
+        # are host arithmetic: settle them before a card comes up and a bundle is read.
+        strategy = (getattr(engine, "spec", None) if engine is not None else None) \
+            or recycle_strategy(recipe if recipe is not None else "thinking_medium")
+        if sampling:
+            resolve_partial_start(strategy, **sampling)
     if adapter is not None and not Path(adapter).expanduser().is_dir():
         raise ValueError(f"no LoRA adapter directory at {adapter}")
     out_dir = Path(out_dir).expanduser()
     inputs = resolve_inputs(spec, out_dir / "inputs", only=only, validate=validate,
                             annotated_cif=annotated_cif)
 
-    loaded = {k: v for k, v in (("recipe", recipe), ("adapter", adapter)) if v is not None}
+    loaded = {k: v for k, v in (("recipe", recipe), ("adapter", adapter), ("tsr_k", tsr_k))
+              if v is not None}
     engine = engine if engine is not None else get_engine(**loaded)
     if nsteps is None:
         nsteps = getattr(getattr(engine, "spec", None), "nsteps", 60)
@@ -89,7 +104,12 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
         if on_design is not None:
             on_design(design_input.example_id, int(features["padding_mask"].shape[-1]),
                       design_input.cif)
-        output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed)
+        # Only what was asked for: an engine that offers neither steering nor trajectories is
+        # still a valid engine for a default run.
+        steering = {k: v for k, v in (("transforms", transforms), ("guidance", guidance),
+                                      ("save_trajectory_every", save_trajectory_every)) if v}
+        output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed,
+                               **steering, **sampling)
         for row in range(num_designs):
             suffix = "" if num_designs == 1 else f"_{row}"
             path = write_design(output, features, atom_array,
@@ -98,4 +118,12 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
             if on_write is not None:
                 on_write(path)
             written.append(path)
+            if getattr(output, "trajectory", None):
+                from tt_bio.rfd4.trajectory import write_trajectory
+
+                frames = write_trajectory(
+                    output.trajectory, features,
+                    out_dir / f"{design_input.example_id}{suffix}_trajectory.cif", row=row)
+                if on_write is not None:
+                    on_write(frames)
     return written

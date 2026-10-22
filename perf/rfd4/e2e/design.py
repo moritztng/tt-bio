@@ -1,11 +1,12 @@
 """One RFD4 design end to end on a card, timed, with the clock sampled during it.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/e2e/design.py --spec <spec.yaml> --weights <bundle> \
-        --out <dir> [--seed 0] [--designs 2]
+        --out <dir> [--seed 0] [--designs 2] [--recipe thinking_medium]
 
-The recipe is the released `thinking_medium`, 60 steps and 180 trunk passes, and nothing here can
-shorten it: the engine takes its step count from the recipe and the sampler refuses a depth list of
-the wrong length. Each design writes its CIF and one JSON line to `<out>/runs.jsonl`:
+`--cif` takes an annotated CIF instead of a spec, which is the form the condition-family
+benchmarks ship in. `--recipe` picks the recycle schedule, because RFD4 prescribes a different
+one per design task. Every schedule is 60 steps and nothing here can shorten it: the engine takes
+its step count from the recipe and the sampler refuses a depth list of the wrong length. Each design writes its CIF and one JSON line to `<out>/runs.jsonl`:
 
 * `kind: cold` is the engine build (device open, weight upload), reported apart, never amortised.
 * The first design pays kernel compilation; it is recorded but is not the warm number.
@@ -31,17 +32,24 @@ from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 
 import clocksample  # noqa: E402
+from rfd4.trunk_clock import time_trunk  # noqa: E402
 
 CLOCK_FLOOR_MHZ = 1200
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--spec", required=True)
+    ap.add_argument("--spec", help="design spec; mutually exclusive with --cif")
+    ap.add_argument("--cif", help="an annotated CIF, featurized directly")
+    ap.add_argument("--recipe", default="thinking_medium")
     ap.add_argument("--weights", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--designs", type=int, default=2, help="sequential single designs; the first is the compile")
+    ap.add_argument("--upstream-seams", default=None,
+                    help="an upstream seam dump (perf/rfd4/cond_chem/seams.sh). Transplants the "
+                         "featurizer's three ambient-stream draws so the design can be compared "
+                         "to upstream's at the same seed; see state/rfd4/PAIR.md")
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
     a = ap.parse_args()
@@ -61,54 +69,49 @@ def main():
         log.flush()
         print(json.dumps(rec), flush=True)
 
+    if bool(a.spec) == bool(a.cif):
+        ap.error("pass exactly one of --spec and --cif")
     t0 = time.perf_counter()
-    designs = rfd4.prepare_examples(a.spec, out / "inputs")
+    if a.cif:
+        designs = [rfd4.DesignInput(Path(a.cif).stem, Path(a.cif))]
+    else:
+        designs = rfd4.prepare_examples(a.spec, out / "inputs")
     features, atom_array = rfd4.featurize(designs[0].cif, seed=a.seed)
     t_feat = time.perf_counter() - t0
     n_tokens = int(features["padding_mask"].shape[-1])
 
+    if a.upstream_seams:
+        # The same substitution host_trunk_control.py --features upstream makes, one layer up:
+        # engine.design() builds the batch itself, so the hook goes on preprocess.
+        import torch
+        up = torch.load(a.upstream_seams, weights_only=False)["batch"]
+        keys = ("chain_iid", "molecule_iid", "condition_InternalCoordinate_1_atom")
+        inner_pre = E.preprocess
+
+        def transplanted(feats):
+            batch = inner_pre(feats)
+            for key in keys:
+                src = next((v for k, v in up.items() if k == key or k.endswith("." + key)), None)
+                if src is None:
+                    raise KeyError(f"{a.upstream_seams} has no {key}")
+                batch[key] = src.to(batch[key].dtype)
+            return batch
+
+        E.preprocess = transplanted
+        emit({"kind": "transplant", "seams": a.upstream_seams, "keys": list(keys)})
+
     with clocksample.during() as clk:
         t0 = time.perf_counter()
-        engine = E.DesignEngine(a.weights, recipe="thinking_medium")
+        engine = E.DesignEngine(a.weights, recipe=a.recipe)
         t_build = time.perf_counter() - t0
     emit({"kind": "cold", "what": "engine build (device open + weight upload)", "wall_s": round(t_build, 2),
           "featurize_s": round(t_feat, 2), "aiclk": clk.summary()})
 
     # Time the trunk calls from inside the network so the host share is measured, not inferred.
-    # A tree with `launch`/`collect` (step chunks as interleaved lanes) enqueues a call and reads it
-    # back later, so a call spans launch entry to collect exit, and trunk_s is the union of the spans:
-    # host work overlapped with an in-flight call is trunk time, not host time. A tree without them
-    # goes through `run_bucketed`. If neither is called the design is fine and only the instrument
-    # failed; say which, rather than dying in the writer.
+    # The patch is by name: a tree that reaches the trunk another way leaves trunk_s empty, and then
+    # the design is fine and only the instrument failed. Say which, rather than dying in the writer.
     trunk_s = []
-    tr = engine.trunk
-    if hasattr(tr, "launch"):
-        launch, collect = tr.launch, tr.collect
-        started = {}
-
-        def timed_launch(*args, **kwargs):
-            t = time.perf_counter()
-            pending = launch(*args, **kwargs)
-            started[id(pending)] = t
-            return pending
-
-        def timed_collect(pending):
-            t = started.pop(id(pending))
-            r = collect(pending)
-            trunk_s.append((t, time.perf_counter()))
-            return r
-
-        tr.launch, tr.collect = timed_launch, timed_collect
-    else:
-        inner = tr.run_bucketed
-
-        def timed(*args, **kwargs):
-            t = time.perf_counter()
-            r = inner(*args, **kwargs)
-            trunk_s.append((t, time.perf_counter()))
-            return r
-
-        tr.run_bucketed = timed
+    time_trunk(engine.trunk, trunk_s)
 
     for i in range(a.designs):
         trunk_s.clear()
@@ -120,17 +123,15 @@ def main():
             path = rfd4.write_design(output, features, atom_array,
                                      out / f"{designs[0].example_id}_s{a.seed}_r{i}_generated.cif")
             t_write = time.perf_counter() - t1
-        calls = [e - b for b, e in trunk_s]
-        busy = _union(trunk_s)
         summ = clk.summary()
         mhz = _median_mhz(summ)
         emit({"kind": "compile" if i == 0 else "warm", "size": n_tokens, "designs": 1, "batch": 1,
-              "recipe": "thinking_medium", "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
+              "recipe": a.recipe, "steps": engine.spec.nsteps, "network_calls": len(trunk_s),
               "trunk_passes": int(sum(_depths(engine))), "seed": a.seed, "rng": a.rng,
               "wall_s": round(t_design + t_write, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
-              "trunk_s": round(busy, 3) if trunk_s else None,
-              "host_s": round(t_design - busy, 3) if trunk_s else None,
-              "trunk_call_s": ({"min": round(min(calls), 4), "max": round(max(calls), 4)}
+              "trunk_s": round(sum(trunk_s), 3) if trunk_s else None,
+              "host_s": round(t_design - sum(trunk_s), 3) if trunk_s else None,
+              "trunk_call_s": ({"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)}
                                if trunk_s else None),
               "instrument_attached": bool(trunk_s),
               "aiclk": summ, "aiclk_mhz": mhz, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
@@ -140,16 +141,6 @@ def main():
                   "the design itself completed and wrote %s. Re-point the patch before reading any "
                   "trunk_s from this tree." % path, flush=True)
             raise SystemExit(3)
-
-
-def _union(spans):
-    """Seconds covered by at least one (start, end) span."""
-    total, edge = 0.0, float("-inf")
-    for b, e in sorted(spans):
-        if e > edge:
-            total += e - max(b, edge)
-            edge = e
-    return total
 
 
 def _depths(engine):

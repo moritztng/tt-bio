@@ -85,7 +85,8 @@ def main():
     g.pair_repr_builder.forward = timed("glue_pair_s", g.pair_repr_builder.forward)
     g.conditioning = timed("glue_cond_s", g.conditioning)
     g.heads = timed("glue_heads_s", g.heads)
-    engine.trunk.run_bucketed = timed("bucketed_s", engine.trunk.run_bucketed)
+    engine.trunk.launch = timed("bucketed_s", engine.trunk.launch)  # run_bucketed = collect(launch(...))
+    engine.trunk.collect = timed("bucketed_s", engine.trunk.collect)
     call = Trunk.__call__
     Trunk.__call__ = timed("device_s", lambda self, *x, **k: call(self, *x, **k), sync=True)
     engine.decode = timed("decode_s", engine.decode)
