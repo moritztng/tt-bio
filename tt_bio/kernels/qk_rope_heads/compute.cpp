@@ -43,6 +43,74 @@ struct Ln {
 constexpr uint32_t BLK = QKRH_BLK;
 constexpr uint32_t HG = QKRH_HG;
 
+#if defined(QKRH_FUSE) || defined(QKRH_FOLD)
+#define QKRH_G32 1
+#endif
+
+#ifdef QKRH_FOLD
+// QKRH_FOLD: the LayerNorm as two passes over the row instead of five. One dest acquire per two tiles holds xc = x - mean,
+// its square (SFPU, fp32) and xc * gamma (gamma pre-broadcast to 32 rows, dest reused as srcB); xc^2 goes to C::tmp for
+// the variance and xc * gamma to C::xc for the RoPE. rstd is a per-row scale and the RoPE is linear, so it is folded
+// into this row's cos / sin tiles (fold_rstd) rather than applied to every tile.
+template <class C>
+ALWI void ln_fold() {
+    using namespace ln_prologue;
+    row_mean<C>(C::x, C::mean, false);
+    cb_wait_front(C::mean, 1);
+    pack_reconfig_data_format(C::xc);
+    cb_reserve_back(C::xc, C::Kt);
+    cb_reserve_back(C::tmp, C::Kt);
+    for (uint32_t i0 = 0; i0 < C::Kt; i0 += 2) {
+        const uint32_t n = C::Kt - i0 < 2 ? C::Kt - i0 : 2;
+        reconfig_data_format(C::x, C::mean);
+        sub_bcast_cols_init_short(C::x, C::mean);
+        tile_regs_acquire();
+        for (uint32_t j = 0; j < n; ++j) sub_tiles_bcast_cols(C::x, C::mean, i0 + j, 0, j);
+        mul_binary_tile_init();
+        for (uint32_t j = 0; j < n; ++j) mul_binary_tile(j, j, 2 + j);
+        reconfig_data_format_srca(C::x, C::gamma);
+        binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(C::gamma);
+        for (uint32_t j = 0; j < n; ++j) {
+            binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(C::gamma, i0 + j, j);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) {
+            pack_tile(j, C::xc);
+            pack_tile(2 + j, C::tmp);
+        }
+        tile_regs_release();
+    }
+    cb_push_back(C::xc, C::Kt);
+    cb_push_back(C::tmp, C::Kt);
+    cb_pop_front(C::x, C::Kt);
+    cb_pop_front(C::mean, 1);
+    row_mean<C>(C::tmp, C::var, true);
+    rstd<C>();
+}
+
+// cos * rstd, sin * rstd (row broadcast of the column rstd) into the fp32 tiles at the front of c_25 / c_26.
+template <class C>
+ALWI void fold_rstd(uint32_t cos, uint32_t sin, uint32_t cos_r, uint32_t sin_r) {
+    reconfig_data_format(cos, C::rstd);
+    pack_reconfig_data_format(cos_r);
+    mul_bcast_cols_init_short(cos, C::rstd);
+    cb_reserve_back(cos_r, 1);
+    cb_reserve_back(sin_r, 1);
+    tile_regs_acquire();
+    mul_tiles_bcast_cols(cos, C::rstd, 0, 0, 0);
+    mul_tiles_bcast_cols(sin, C::rstd, 0, 0, 1);
+    tile_regs_commit();
+    tile_regs_wait();
+    pack_tile(0, cos_r);
+    pack_tile(1, sin_r);
+    tile_regs_release();
+    cb_push_back(cos_r, 1);
+    cb_push_back(sin_r, 1);
+    cb_pop_front(C::rstd, 1);
+}
+#endif
+
 #ifdef QKRH_FUSE
 // QKRH_FUSE: C::gamma holds gamma broadcast to all 32 rows of its tiles (bcast_rows below), so xc * rstd * gamma is
 // one dest pass, the gamma product reusing dest as srcB (the same 19-bit operand an fp32 CB unpacks to), into C::tmp.
@@ -70,7 +138,9 @@ ALWI void norm_gamma() {
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
 }
+#endif
 
+#ifdef QKRH_G32
 // KT tiles of a [1, D] gamma (row 0 live) -> the same with row 0 copied to all 32 rows, once per core.
 ALWI void bcast_rows(uint32_t in, uint32_t out) {
     cb_wait_front(in, KT);
@@ -125,13 +195,18 @@ void kernel_main() {
 #else
     constexpr uint32_t v_count = 0;
 #endif
-    constexpr uint32_t cb_x = 5, cb_cos = 6, cb_sin = 7, cb_gq = 8, cb_scaler = 10, cb_eps = 11, cb_out = 16,
+#ifdef QKRH_FOLD
+    constexpr uint32_t cb_cos6 = 6, cb_sin7 = 7, cb_cos = 25, cb_sin = 26;
+#else
+    constexpr uint32_t cb_cos = 6, cb_sin = 7;
+#endif
+    constexpr uint32_t cb_x = 5, cb_gq = 8, cb_scaler = 10, cb_eps = 11, cb_out = 16,
                        cb_n = 17, cb_p = 20;
     [[maybe_unused]] constexpr uint32_t cb_gk = 15;
     if (count + v_count == 0) {
         return;
     }
-#ifdef QKRH_FUSE
+#ifdef QKRH_G32
     constexpr uint32_t cb_g32q = 23, cb_g32k = 24;
     if (count) {
         bcast_rows(cb_gq, cb_g32q);
@@ -159,16 +234,27 @@ void kernel_main() {
         ln_no_beta<Ln<cb_gq>>();
         cb_pop_front(cb_gq, KT);
 #else
-#ifdef QKRH_FUSE
+#if defined(QKRH_FUSE)
         constexpr uint32_t src = 18;   // norm_gamma's output, Ln::tmp
 #else
         constexpr uint32_t src = cb_n;
 #endif
+#ifdef QKRH_FOLD
+        if (t == 0) {
+            ln_fold<Ln<cb_g32q>>();
+        } else {
+            ln_fold<Ln<cb_g32k>>();
+        }
+        cb_wait_front(cb_cos6, 1);
+        cb_wait_front(cb_sin7, 1);
+        fold_rstd<Ln<cb_g32q>>(cb_cos6, cb_sin7, cb_cos, cb_sin);
+#else
         if (t == 0) {
             ln_no_beta<Ln<cb_g32q>>();
         } else {
             ln_no_beta<Ln<cb_g32k>>();
         }
+#endif
 #endif
         cb_wait_front(src, KT);
         cb_wait_front(cb_cos, 1);
@@ -245,6 +331,10 @@ void kernel_main() {
         cb_pop_front(src, KT);
         cb_pop_front(cb_cos, 1);
         cb_pop_front(cb_sin, 1);
+#ifdef QKRH_FOLD
+        cb_pop_front(cb_cos6, 1);
+        cb_pop_front(cb_sin7, 1);
+#endif
     }
 #ifdef QKRH_V_PACK
     constexpr uint32_t VC = get_compile_time_arg_val(2), cb_v = 21, cb_vo = 22, DST = 4;
