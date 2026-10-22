@@ -40,10 +40,6 @@ NEG_INF = -1e4
 #: one of them multiplies by 1.0 or adds 0.0. `TT_BIO_RFD4_ELIDE_MASKS=0` builds them anyway.
 ELIDE_FULL_MASKS = env_flag("TT_BIO_RFD4_ELIDE_MASKS", True)
 
-#: Probe only, off: a bfloat16 pair stream under an fp32 token stream (`Trunk(pair_residual_dtype=)`
-#: when the caller does not say). Halves the bytes of every pair residual write; a precision change.
-PAIR_BF16 = env_flag("TT_BIO_RFD4_PAIR_BF16", False)
-
 
 def _rms(x, w, ckc):
     """RMSNorm, with or without the elementwise weight (`elementwise_affine=False` upstream)."""
@@ -616,8 +612,12 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: bits); `transition_b8` makes its weights and hidden bfp8; `trimul_gin` + `trimul_gin_w8` give the triangle
 #: multiplication's in-projection bfp8 resident weights (state/rfd4/bets/bfp8.md). Default since a 30-design grade
 #: at 512 tokens: designed-chain CA RMSD 2.1 A median (max 11.4) against a 52.5 A seed floor, oracle-free binder
-#: grade PASS (state/rfd4/LAND4.md).
-NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"})
+#: grade PASS (state/rfd4/LAND4.md). `pair_bf16` keeps the pair stream in bf16 between pair updates (the token
+#: stream stays fp32): module error 8.3e-3 against float64 on a 0.05 bar, and on top of the bfp8 levers 57.7 -> 48.4 s
+#: of trunk at 512 tokens. Graded as that stack, 30 seed-matched 512-token designs against the fp32-stream default:
+#: CA RMSD 5.7 A median (max 30.2) against a 37.2 A seed floor, oracle-free binder grade PASS (state/rfd4/LAND5.md).
+NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
+                           "pair_bf16"})
 #: `--fast` adds `pair_block`, the pair transition and its residual write as one program with bfp8 weights where it
 #: serves (the composed levers above are its fallback): 6.20 -> 3.85 ms a call at 512 tokens, error vs float64
 #: 0.0116 -> 0.0101; and `pair_tail`, the triangle multiplication's output layer_norm, p_out, gate and residual add
@@ -637,8 +637,9 @@ class Trunk(Module):
 
     `residual_dtype=ttnn.float32` keeps s and z in fp32 between sublayers, as the release
     inference config's `precision: bf16-mixed` does on a GPU (autocast runs the matmuls in bf16
-    and leaves the residual adds in fp32). Over 6 recycles x 12 pair updates an all-bf16 pair stream
-    drifts far from float64 even when every op is at its bf16 floor; see the parity test.
+    and leaves the residual adds in fp32). The `pair_bf16` lever (default) narrows only the pair
+    stream to bf16, which stays inside the parity bar; an all-bf16 trunk (token stream too) drifts far
+    from float64 over 6 recycles x 12 pair updates even when every op is at its bf16 floor.
     """
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
@@ -646,10 +647,10 @@ class Trunk(Module):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
-        self.pair_residual_dtype = pair_residual_dtype or (
-            ttnn.bfloat16 if PAIR_BF16 else self.residual_dtype)
         self.nlayers = nlayers
         self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
+        self.pair_residual_dtype = pair_residual_dtype or (
+            ttnn.bfloat16 if "pair_bf16" in self._levers else self.residual_dtype)
         with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
             self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
                                       residual_dtype=self.residual_dtype)

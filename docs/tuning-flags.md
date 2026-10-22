@@ -898,10 +898,11 @@ docking success is 24 of 44 on both. On the 730-token fold at 1000 MHz it takes 
 A lever graded only on Protenix-v2 does not reach Boltz-2.
 
 **RFD4** runs its trunk's pair transition and triangle-multiplication input projection with block-fp8
-weights and a bf16 matmul kernel by default (`rfd4.trunk.NORMAL_LEVERS`). On 30 seed-matched 512-token
-binder designs the designed chain moves 2.1 A median against a 52.5 A seed-to-seed spread, with radius of
-gyration, bond outliers and clashes unchanged; the trunk takes 57.9 instead of 64.3 s a design on a
-Blackhole chip at 1331 MHz. `TT_BIO_LEVERS=trimul_t1` restores the previous numerics. The pair-transition
+weights and a bf16 matmul kernel, and keeps the pair stream in bf16 between pair updates, by default
+(`rfd4.trunk.NORMAL_LEVERS`). On 30 seed-matched 512-token binder designs against fp32 numerics the
+designed chain moves 5.7 A median against a 37.2 A seed-to-seed spread, with radius of gyration, bond
+outliers and clashes unchanged; the trunk takes 48.4 instead of 64.3 s a design on a Blackhole chip at
+1331-1343 MHz. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition
 matmul keys are reached only through RFD4's set, so no other model's linear changes kernel.
 
 Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off
