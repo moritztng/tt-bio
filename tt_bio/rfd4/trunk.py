@@ -568,12 +568,14 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: set. `trimul_t1` runs the triangle multiplication's input layer_norm, gated projections and channel moves as
 #: one kernel from 160 tokens (it declines below, where the trimul runs from L1): 15.0 -> 11.3 ms a call at 512
 #: tokens, same float64 error (state/rfd4/bets/tri2.md).
-NORMAL_LEVERS = frozenset({"trimul_t1"})
-#: `--fast` adds the precision levers. `pair_mm` + `pair_mm_tr` put the pair transition on minimal_matmul
-#: (bf16, same float64 error, not the same bits); `transition_b8` makes its weights and hidden bfp8;
-#: `trimul_gin` + `trimul_gin_w8` give the triangle multiplication's in-projection bfp8 resident weights,
-#: 15.4 -> 13.9 ms a call at 512 tokens and inert (bit-identical) at 128 (state/rfd4/bets/bfp8.md).
-FAST_LEVERS = NORMAL_LEVERS | {"pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"}
+#: `pair_mm` + `pair_mm_tr` put the pair transition on minimal_matmul (bf16, same float64 error, not the same
+#: bits); `transition_b8` makes its weights and hidden bfp8; `trimul_gin` + `trimul_gin_w8` give the triangle
+#: multiplication's in-projection bfp8 resident weights (state/rfd4/bets/bfp8.md). Default since a 30-design grade
+#: at 512 tokens: designed-chain CA RMSD 2.1 A median (max 11.4) against a 52.5 A seed floor, oracle-free binder
+#: grade PASS (state/rfd4/LAND4.md).
+NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"})
+#: `--fast` has nothing graded beyond the default yet.
+FAST_LEVERS = NORMAL_LEVERS
 
 
 class Trunk(Module):

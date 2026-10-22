@@ -160,6 +160,16 @@ A design is reproducible from its seed, featurization included. Note that featur
 that: a contig with a variable-length segment samples its length per seed, so the same spec at two
 seeds is two different designs with two different token counts.
 
+## Precision
+
+The trunk's pair transition and the triangle multiplication's input projection run with block-fp8
+weights and a bf16 matmul kernel by default. That takes about 6 s off the trunk of a 512-token
+design on a Blackhole chip and very little at 128 tokens. It is not bit-exact against fp32-weight
+numerics, but on 30 seed-matched 512-token binder designs the designed chain moved 2.1 A median (11.4 A
+at most) while a different seed moves it 52.5 A, and radius of gyration, bond outliers and clashes were
+unchanged. `--fast` adds nothing further for RFD4. `TT_BIO_LEVERS=trimul_t1` restores the previous
+numerics ([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
+
 ## Many designs at once
 
 A spec can hold any number of designs and `--num_designs` multiplies them. Locally they run one
