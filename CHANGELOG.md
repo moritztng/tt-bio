@@ -21,7 +21,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `tt_bio.rfd4.pre_oracle` folds one design against listed off-targets with the variants' scores
   namespaced apart. Upstream's classifier-free guidance weight and its dependency-bound
   evaluate metrics (tmol, PyRosetta, Foldseek) are refused by name with the reason, instead of
-  being silently ignored. See [rfd4-design](docs/rfd4-design.md).
+  being silently ignored. See [rfd4-steering](docs/rfd4-steering.md).
 
 ### Fixed
 - **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating

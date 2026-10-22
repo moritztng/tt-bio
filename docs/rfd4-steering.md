@@ -1,8 +1,9 @@
 # Steering an RFD4 design run
 
-`tt-bio design --model rfd4` runs the shipped recipe and writes one CIF per design. This page is
-the rest of the surface: the trajectory, the per-design conditions, guidance, and the two things
-upstream offers that tt-bio refuses rather than approximates.
+`tt-bio design --model rfd4` runs the shipped recipe and writes one CIF per design; the
+[README](../README.md#design) has the input grammar and the thinking budget. This page is the
+rest of the surface: the trajectory, the per-design conditions, guidance, and the things upstream
+offers that tt-bio refuses rather than approximates.
 
 ## Watching the trajectory
 
