@@ -205,6 +205,7 @@ def test_mm_config_blocks_8x8_under_bf16_acc(wdtype, bf16_acc, on, monkeypatch):
     """--fast's bf16-accumulated block-fp8 projections take 8 x 8 blocks; every other minimal_matmul keeps 16 x 4."""
     monkeypatch.setattr(esmc, "_ESMC_MM_CFG", True)
     monkeypatch.setattr(esmc, "_ESMC_MM_CFG_BF16_ACC_8X8", on)
+    monkeypatch.setattr(esmc, "_ESMC_MM_KB6", False)  # K 6 is Wormhole's default since 1c4b96533; not what this pins
     monkeypatch.setattr(esmc.ttnn, "MinimalMatmulConfig", lambda **kw: kw, raising=False)
     x = types.SimpleNamespace(device=lambda: types.SimpleNamespace(
         compute_with_storage_grid_size=lambda: types.SimpleNamespace(x=8, y=9)))

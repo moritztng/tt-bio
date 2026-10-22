@@ -41,8 +41,9 @@ import torch.nn.functional as F
 from tt_bio import esmfold2 as E
 from tt_bio.envflags import env_flag
 from tt_bio.token_axis import pad_amount
-from tt_bio.esmc import ESMCLanguageModel
-from tt_bio.tenstorrent import dram_peak, is_wormhole
+from tt_bio.esmc import ESMCLanguageModel, esmc6b_tile_dir
+from tt_bio.weights import fetch
+from tt_bio.tenstorrent import dram_peak, is_wormhole, pair_lookup_device
 
 
 # The ESMFold2 host-side reference (featurization + mmCIF assembly) and the
@@ -68,7 +69,8 @@ class _ESMCAdapter:
         self.lm = None  # loaded lazily on first fold
         # Host tiles of the 6B's weights, kept on Wormhole where fold_complex may release the LM
         # after a fold: the reload uploads them (seconds) instead of re-reading and re-tiling the
-        # checkpoint, which cost a warm 1024 aa ESMFold2 fold 96 of its 201 s. ~6.3 GB host RAM.
+        # checkpoint, which cost a warm 1024 aa ESMFold2 fold 96 of its 201 s. ~6.3 GB host RAM,
+        # used only when the persistent tile cache is unavailable.
         self._tiles = None
         # Under LM_COMBINE the 6B returns this shim's layer-combined state, one layer instead of 81.
         self._shim = shim
@@ -84,16 +86,19 @@ class _ESMCAdapter:
             prev = tenstorrent._FAST_MODE
             tenstorrent.set_fast_mode(self._fast)
             try:
+                # The persistent tile cache makes a load seconds; without one (disk too full),
+                # Wormhole keeps the host tiles in RAM for the reload after a release.
+                tile_dir = esmc6b_tile_dir("esmc-6b", fetch("esmc-6b"))
                 if self._tiles:
                     with tenstorrent.weight_cache(self._tiles, "load"):
                         self.lm = ESMCLanguageModel()
                         self.lm.load_state_dict({}, strict=False)
-                elif is_wormhole():
+                elif tile_dir or not is_wormhole():
+                    self.lm = ESMCLanguageModel.from_pretrained(self._repo, tile_dir=tile_dir or False)
+                else:
                     self._tiles = {}
                     with tenstorrent.weight_cache(self._tiles, "dump"):
-                        self.lm = ESMCLanguageModel.from_pretrained(self._repo)
-                else:
-                    self.lm = ESMCLanguageModel.from_pretrained(self._repo)
+                        self.lm = ESMCLanguageModel.from_pretrained(self._repo, tile_dir=False)
             finally:
                 tenstorrent.set_fast_mode(prev)
             dram_peak("esmfold2/lm-loaded")
@@ -473,7 +478,7 @@ def _conf_pair_dev(head, ftw, z, s_n, relpos, bonds, bins, mask, n, tm_per_bin):
     one = torch.ones_like(centres)
     v_pde = up(centres, one)
     for k in range(int(bins.shape[0])):
-        et = ftw._from_torch(head.dist_bin_pairwise_embed(bins[k:k + 1]).float())
+        et = pair_lookup_device(bins[k], head.dist_bin_pairwise_embed.weight.detach(), ftw.tt_device)
         p = ttnn.add(p0, et)
         ttnn.deallocate(et)
         x = ttnn.clone(p)  # the trunk consumes its input; the residual needs p
@@ -650,8 +655,8 @@ def _msa_per_loop(kw, total_steps, max_depth, col_rate):
     return loops
 
 
-# The device keep mask crosses PCIe as bits: 16 rows of the pair per int32 word, 16 MB a loop at 512 aa
-# instead of the 128 MB bf16 mask (2.2 s of uploads per fold, p300c). Same mask, same output.
+# The device keep mask crosses PCIe as bits: 32 rows of the pair per int32 word (`_fold_words`), 8 MB a loop
+# at 512 aa instead of the 128 MB bf16 mask (2.2 s of uploads per fold, p300c). Same mask, same output.
 _PACKED_KEEP = True
 _KEEP_BITS = 16
 # A dyadic dropout p draws the packed words directly (`_draw_packed_keep`); off = the float draw.
@@ -704,23 +709,37 @@ def _draw_packed_keep(shape, p, gen):
     return ~lt & full
 
 
-def _unpack_keep_dev(w, device):
-    """`_pack_keep`'s words to the bf16 0/1 mask on the device."""
+def _fold_words(w):
+    """`_pack_keep`'s 16-bit words two to an int32: word row g holds rows g (low half) and g + n/2 (high half).
+
+    The draw keeps its 16-bit stream, so the mask is the same; only half the bytes cross PCIe (0.88 s of
+    uploads a fold at 1024 aa on Wormhole). An odd word count stays as it is.
+    """
+    if w.shape[1] % 2:
+        return w
+    h = w.shape[1] // 2
+    return w[:, :h] | (w[:, h:] << _KEEP_BITS)
+
+
+def _unpack_keep_dev(w, device, rows):
+    """`_pack_keep`'s words (or `_fold_words`' pairs of them) to the bf16 0/1 mask of `rows` rows on the device."""
     import ttnn
     from tt_bio.tenstorrent import upload
 
     wt = upload(w, dtype=ttnn.int32, device=device)
-    rows = []
+    halves = rows // (_KEEP_BITS * w.shape[1])
+    out = []
     for j in range(_KEEP_BITS):
-        s = ttnn.bitwise_right_shift(wt, j) if j else wt
-        b = ttnn.bitwise_and(s, 1)
-        if j:
-            ttnn.deallocate(s)
-        rows.append(ttnn.typecast(b, ttnn.bfloat16))
-        ttnn.deallocate(b)
+        for k in range(halves):  # bit j of the low, then the high half: rows in order
+            s = ttnn.bitwise_right_shift(wt, j + k * _KEEP_BITS) if j or k else wt
+            b = ttnn.bitwise_and(s, 1)
+            if j or k:
+                ttnn.deallocate(s)
+            out.append(ttnn.typecast(b, ttnn.bfloat16))
+            ttnn.deallocate(b)
     ttnn.deallocate(wt)
-    m = ttnn.concat(rows, dim=1)
-    for r in rows:
+    m = ttnn.concat(out, dim=1)
+    for r in out:
         ttnn.deallocate(r)
     return m
 
@@ -735,7 +754,7 @@ def _lm_dropout(lm_z, p, keep=None):
     The keep mask comes from the global torch RNG, which `fold()` seeds, so the draw follows the
     seed and not the card. A device-resident pair is masked on the device: the 0/1 mask is exact
     in bf16, the 1/(1-p) scale is applied after it rather than baked into the mask. `keep` is an
-    already drawn host mask (`_KeepDraws`): int32 words from `_pack_keep`, or bf16 0/1.
+    already drawn host mask (`_KeepDraws`): int32 words from `_fold_words`, or bf16 0/1.
     """
     if not isinstance(lm_z, _DevPair):
         return lm_z * torch.empty(lm_z.shape).bernoulli_(1.0 - p).to(lm_z.dtype) / (1.0 - p)
@@ -745,9 +764,9 @@ def _lm_dropout(lm_z, p, keep=None):
     if keep is None:
         keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p).to(torch.bfloat16)
         if _packable(keep.shape):
-            keep = _pack_keep(keep.bool())
+            keep = _fold_words(_pack_keep(keep.bool()))
     if keep.dtype == torch.int32:
-        m = _unpack_keep_dev(keep, t.device())
+        m = _unpack_keep_dev(keep, t.device(), int(t.shape[1]))
     else:
         # Uploaded row-major and tiled on the device: a tile-layout from_torch tilizes the pair-sized
         # mask on the host, 0.24 s a loop at 512 aa (cProfile, p300c), with the device waiting.
@@ -780,9 +799,9 @@ class _KeepDraws:
 
     def _draw(self):
         if E.gate(_BIT_DRAW, "ef2_bit_draw") and _packable(self.shape) and _dyadic(self.p):
-            return _draw_packed_keep(self.shape, self.p, self.gen)
+            return _fold_words(_draw_packed_keep(self.shape, self.p, self.gen))
         keep = torch.rand(self.shape, generator=self.gen) >= self.p
-        return _pack_keep(keep) if _packable(self.shape) else keep.to(torch.bfloat16)
+        return _fold_words(_pack_keep(keep)) if _packable(self.shape) else keep.to(torch.bfloat16)
 
     def take(self):
         keep = self.nxt.result()

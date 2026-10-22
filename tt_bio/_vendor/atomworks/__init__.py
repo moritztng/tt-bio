@@ -16,6 +16,7 @@ try:
 except ImportError:
     __version__ = "unknown"
 
+
 # Global logging configuration
 logger = logging.getLogger("atomworks")
 _log_level = os.environ.get("ATOMWORKS_LOG_LEVEL", "WARNING").upper()
@@ -24,15 +25,38 @@ logger.setLevel(_log_level)
 # Ensure that deprecation warnings are not repeated
 warnings.filterwarnings("once", category=DeprecationWarning)
 
+# Enforce a supported biotite version — atomworks patches biotite internals
+import biotite  # noqa: E402
+
+# Upstream pins biotite 1.6.0, which needs Python >= 3.11. On Python 3.10 the newest biotite is
+# 1.2.0; biotite_patch backports the three 1.6 behaviours atomworks relies on that 1.2.0 lacks.
+_SUPPORTED_BIOTITE_VERSIONS = ("1.2.0", "1.6.0")
+if biotite.__version__ not in _SUPPORTED_BIOTITE_VERSIONS:
+    raise RuntimeError(
+        f"atomworks supports biotite {' or '.join(_SUPPORTED_BIOTITE_VERSIONS)}, "
+        f"but found biotite=={biotite.__version__}."
+    )
+
 # Apply monkey patching to extend AtomArray functionality
 from tt_bio._vendor.atomworks.biotite_patch import monkey_patch_biotite  # noqa: E402
 
 monkey_patch_biotite()
 
 
-# Import version information
-# Import subpackages
-from . import io, ml  # noqa: E402
+# Import subpackages; also import annotators and Conditions to ensure they're registered
+from tt_bio._vendor.atomworks.io.utils import annotator as _annotator_io  # noqa: E402
+from tt_bio._vendor.atomworks.io.utils.standard_annotations import definitions as _standard_annotation_definitions  # noqa: E402
+
+from . import io  # noqa: E402
+
+# Make atomworks.ml an optional import
+try:
+    from tt_bio._vendor.atomworks.ml.conditions import definitions as _condition_definitions
+    from tt_bio._vendor.atomworks.ml.utils import annotator as _annotator_ml
+
+    from . import ml
+except ImportError:
+    pass
 
 # Re-export key functionality from subpackages for convenience
 # This maintains backward compatibility and provides a clean top-level API

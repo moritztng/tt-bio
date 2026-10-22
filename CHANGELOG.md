@@ -5,6 +5,53 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+- **RFD4-Proteina (`tt-bio design --model rfd4`).** Binders, motif scaffolds, enzymes around a
+  ligand, antibody and nanobody CDRs and unconditional monomers, designed through a latent flow at
+  the shipped `thinking_medium` budget (60 steps, 180 trunk passes). Input is a design YAML with
+  contig strings and conditioning blocks, the grammar `rfd3` uses; each design is a CIF in the
+  input's frame. `--nsteps` changes the integration steps (a different model, not a faster one),
+  `--annotated_cif` designs from an annotated CIF instead of a spec, and `--no_validate` skips the
+  per-structure checks when building a large spec. A 128-token binder design takes 13.2 s on one
+  Blackhole p300 chip at 1350 MHz. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4-Proteina designs from Python in one call.** `tt_bio.rfd4.design(spec, out_dir, ...)` takes a
+  design spec to annotated-CIF designs with the same arguments and defaults as `tt-bio design --model
+  rfd4`, which now runs that same call. `rfd4.DesignEngine.from_pretrained()` keeps the weights on the
+  card across a sweep. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4 designs fan across the fleet.** `tt-bio design --model rfd4 --controller URL` makes one job
+  per design, each carrying the input the submitting host prepared, and writes a `metrics.json`
+  with every design that landed. See [rfd4-design](docs/rfd4-design.md).
+- **RFD4 loads a LoRA fine-tune.** `rfd4.DesignEngine(adapter=...)` merges a PEFT adapter directory
+  into the weights at load, so it costs nothing per design. Merging the released bundle's own
+  adapter onto its own base reproduces NVIDIA's merged checkpoint to 3e-08. `--lora DIR` on the
+  CLI; local runs only, and asking for it with `--controller` says so.
+- **`--backend` on `--model rfd4`.** `native` runs the model; `bioir` is declined with the reason
+  (it is NVIDIA BioNeMo-IR, CUDA-only) instead of being ignored.
+- **`--recipe` picks RFD4's thinking budget.** Upstream runs each design family at its own recycle
+  schedule, and only the released `thinking_medium` was reachable from the CLI; all twelve are now.
+  An unknown name is refused before a spec is built or a device is opened.
+- **An RFD4 design can be watched, steered and scored against off-targets.** `tt-bio design
+  --model rfd4 --save_trajectory_every N` writes every Nth step as `<design>_trajectory.cif`,
+  CA only, one model per saved step. At the API level `engine.design` takes per-replicate
+  sampling transforms (`tt_bio.rfd4.replicates`, so a batch covers a target's surface rather
+  than repeating one patch of it) and metric gradient guidance (`tt_bio.rfd4.guidance`), and
+  `tt_bio.rfd4.pre_oracle` folds one design against listed off-targets with the variants' scores
+  namespaced apart. Upstream's classifier-free guidance weight and its dependency-bound
+  evaluate metrics (tmol, PyRosetta, Foldseek) are refused by name with the reason, instead of
+  being silently ignored. See [rfd4-steering](docs/rfd4-steering.md).
+- **An RFD4 run can start from a structure instead of noise.** `tt-bio design --model rfd4`
+  takes `--partial` (re-noise the input part-way and run that fraction of the schedule, upstream's
+  antibody refinement is 0.42), `--partial_t_backbone` and `--partial_t_latent` for explicit
+  corruption times, `--couple_partial_t` to derive the time you did not give, and
+  `--inverse_folding` to hold the backbone and design only the sequence. `--tsr_k` sets the
+  sequence temperature, which is what inverse folding is tuned with. Upstream's mutual exclusions
+  are enforced and these are local runs, refused with `--controller`. See
+  [rfd4-steering](docs/rfd4-steering.md).
+- **`tt-bio evaluate --model rfd4` scores designs you already have, with no device.** It writes
+  upstream's `per_example_metrics.csv`, same column names and rounding. `--metrics_tags` picks the
+  metrics, `--task_csv` maps each structure to a task, and `--job_id` with `--gen_njobs` splits the
+  inputs into shards. See [rfd4-evaluate](docs/rfd4-evaluate.md).
+
 ### Fixed
 - **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating
   on the same job, the controller fails it with an error saying so instead of handing it to a third

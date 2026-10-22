@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 import traceback
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -812,6 +813,289 @@ def _rng_state_preserved():
         torch.random.set_rng_state(states[2])
 
 
+@dataclass
+class OpenFold3HostInputs:
+    """Everything `OpenFold3.fold` needs that is computed on the host, plus what reading the
+    result back needs. No device is touched to build it: measured 3.9 s for a 22-token
+    single-sequence query on pc with no card."""
+
+    features: dict
+    of3_query: Any
+    chains: list
+    msa_feat: Any
+    aux: dict
+    template_feat: Any
+    template_slots: Any
+    relpos: Any
+    seed: int
+
+
+def openfold3_host_inputs(path: Path, cfg: dict[str, Any], *, model_name: str = "openfold3",
+                          levers: tuple = ()) -> "OpenFold3HostInputs":
+    """Query -> MSA -> features -> block aux, template slots and relpos.
+
+    Lifted verbatim out of `_WorkerState._predict_openfold3_one`, which now calls it, so the
+    serving path and RFD4's beam-search oracle featurize a candidate through the same code
+    rather than through two copies that drift. Everything here runs on the host, which is why
+    it can be tested on a box with no card; the device half (input atom encoder, ref-atom
+    embedding, the fold itself) stays in the caller, which owns the model.
+    """
+    from tt_bio.esmfold2 import report_progress
+    from tt_bio.main import _read_bio_chains, _read_bio_constraints, _read_cyclic
+
+    model = model_name
+    chains = _read_bio_chains(path)
+    if not chains:
+        raise RuntimeError("no protein/nucleic-acid sequences")
+    check_capabilities(path, chains, model,
+                       output_format=cfg.get("output_format"))
+    tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
+    msa_dir = Path(cfg["msa_dir"])
+
+    _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA", "ligand": "LIGAND"}
+
+    def _query_chain(cid, cseq, spec, mt, mods):
+        """One upstream Chain dict. Ligands take smiles/ccd_codes and NO sequence.
+
+        `_read_bio_chains` hands a ligand its spec in the sequence slot, using the
+        same "CCD_<code>" convention the boltz2 and protenix paths already parse:
+        a CCD code becomes ccd_codes=[code], anything else is treated as SMILES.
+        Upstream keys off exactly these two fields (inference_query_format.Chain),
+        and a LIGAND chain with `sequence` set is not a thing upstream builds.
+
+        `modifications:` becomes non_canonical_residues, upstream's own {res_id: CCD}
+        field: structure_with_ref_mols_from_sequence builds that position from
+        atom_array_from_ccd_code instead of the standard residue, so the modified
+        residue's real atoms reach the featurizer. The field existed all along and this
+        port hardcoded it None, which is why the row was refused.
+        """
+        chain = {"molecule_type": _MT[mt], "chain_ids": [cid],
+                 "non_canonical_residues": ({m["position"]: str(m["ccd"]).upper()
+                                             for m in mods} if mods else None),
+                 "paired_msa_file_paths": None,
+                 "template_alignment_file_path": None,
+                 "template_entry_chain_ids": None,
+                 "sdf_file_path": None}
+        if mt == "ligand":
+            ccd = cseq[4:].strip() if cseq.upper().startswith("CCD_") else None
+            chain.update(sequence=None, smiles=None if ccd else cseq.strip(),
+                         ccd_codes=[ccd] if ccd else None,
+                         main_msa_file_paths=None)
+            return chain
+        if spec == EMPTY_MSA:
+            from tt_bio.openfold3_data import query_only_msa
+            msa_paths = [str(query_only_msa(msa_dir, cseq))]
+        elif spec and Path(spec).expanduser().exists():
+            msa_paths = [str(Path(spec).expanduser())]
+        else:
+            msa_paths = None
+        chain.update(sequence=cseq, smiles=None, ccd_codes=None,
+                     main_msa_file_paths=msa_paths)
+        chain["template_alignment_file_path"] = tmpl_map.get(cid)
+        return chain
+
+    query = {
+        "query_name": path.stem, "use_msas": True, "use_paired_msas": False,
+        "use_main_msas": True, "covalent_bonds": None,
+        "chains": [_query_chain(cid, cseq, spec, mt, mods)
+                   for cid, cseq, spec, mt, mods in chains],
+    }
+
+    import json as _json
+    import tempfile
+
+    import numpy as np
+    import torch as _torch
+
+    from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
+        InferenceQuerySet,
+    )
+    from tt_bio.openfold3_data import (
+        build_openfold3_features, make_openfold3_msa_features)
+    from tt_bio.envflags import env_flag
+    from tt_bio.openfold3_host_prep import (
+        RELPOS_CODES, derive_block_aux, derive_relpos, derived_template_slots,
+        derive_relpos_codes)
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+        _json.dump({"queries": {path.stem: query}}, fh)
+        qpath = fh.name
+    seed = int(cfg.get("seed") or 0)
+    _torch.manual_seed(0)
+    np.random.seed(0)
+    # The vendored featurizer draws its RDKit conformer seed from python"s
+    # unseeded `random` (conformer.py: "we set a random seed here"), which made
+    # ref_pos — and therefore the whole fold — nondeterministic across
+    # processes even at fixed --seed. Pin it to the fold seed.
+    import random as _pyrandom
+    _pyrandom.seed(seed)
+    from tt_bio._vendor.openfold3.core.data.primitives.structure import query as _of3_query
+    _of3_query.REF_MOL_MEMO = "ref_memo" in tuple(levers)
+    iqs = InferenceQuerySet.from_json(qpath)
+    of3_query = next(iter(iqs.queries.values()))
+    # The MSA stage delegates to the shared resolver: it exposes the cached
+    # hash-named ColabFold a3m under the canonical source basename OF3's parser
+    # filters on (a raw hash-named path parses to ZERO chains and dies on an
+    # IndexError deep in the vendored pipeline), and preserves user-specified
+    # per-chain MSA paths.
+    want_msa = _msa_source(cfg)
+    from tt_bio.openfold3_data import (
+        attach_openfold3_paired_msas, normalize_openfold3_msa_paths,
+        resolve_openfold3_msas)
+    # A YAML `msa:` path is used verbatim by the vendored parser, which filters by
+    # file STEM and drops anything non-canonical -- so `msa: ./my.a3m` died on an
+    # IndexError. Relink it under the canonical name first; bytes unchanged.
+    of3_query = normalize_openfold3_msa_paths(
+        of3_query, msa_dir, openbind=(model == "openbind"))
+    if want_msa:
+        report_progress("msa")
+    of3_query = resolve_openfold3_msas(
+        of3_query, msa_dir, target_id=path.stem,
+        msa_db_path=cfg.get("msa_db_path"),
+        use_envdb=cfg.get("use_envdb", False),
+        msa_server_url=cfg.get("msa_server_url"),
+        msa_pairing_strategy=cfg.get("msa_pairing_strategy"),
+        msa_server_username=cfg.get("msa_server_username"),
+        msa_server_password=cfg.get("msa_server_password"),
+        api_key=cfg.get("api_key_value"),
+        msa_endpoint=cfg.get("msa_endpoint"),
+        fetch=bool(want_msa))
+    if want_msa:
+        missing = [c.chain_ids for c in of3_query.chains
+                   if c.molecule_type.name == "PROTEIN" and not c.main_msa_file_paths]
+        if missing:
+            raise RuntimeError(
+                f"MSA was requested but none resolved for protein chain(s) {missing} "
+                "-- refusing to silently fold single-sequence.")
+    # OpenBind only. preview2 runs upstream on 0.4.x, whose create_paired_from_precomputed
+    # never sets n_rows_paired_subsampled, so the featurizer drops the paired block
+    # (primitives/featurization/msa.py:112) and upstream folds a heteromer unpaired;
+    # 0.5.0 (PR #373) keeps it. Keyed on the checkpoint like the other 0.5.0 MSA fixes.
+    # Feeding preview2 the rows anyway cost 0.06 DockQ on 8WT4, worse on 6 of 6 seeds.
+    if model == "openbind" and (paired := _paired_msa(path, chains, msa_dir, cfg)) is not None:
+        of3_query = attach_openfold3_paired_msas(of3_query, msa_dir, paired)
+    if cfg.get("single_sequence"):
+        # --single_sequence is upstream's no-MSA mode, not an MSA-stack
+        # disable: upstream substitutes a one-row alignment holding the
+        # query sequence and keeps use_msas on
+        # (augment_main_msa_with_query_sequence). Folding the same chain
+        # with the stack off instead costs 1.50 A CA-RMSD on ubiquitin
+        # (2.34 A against the 1.8 A ceiling, vs 0.84 A one-row).
+        from tt_bio.openfold3_data import (
+            augment_openfold3_msas_with_query_sequence,
+        )
+        of3_query = augment_openfold3_msas_with_query_sequence(of3_query, msa_dir)
+    if not any(c.main_msa_file_paths for c in of3_query.chains):
+        of3_query.use_msas = False
+        of3_query.use_main_msas = False
+    report_progress("prep")
+    if tmpl_map:
+        _prefetch_template_structures(
+            tmpl_map, Path(cfg["template_structures"]))
+    features = build_openfold3_features(
+        of3_query,
+        template_structures_directory=cfg["template_structures"],
+        openbind=(model == "openbind"),
+        bonds=_read_bio_constraints(path), cyclic=_read_cyclic(path))
+    # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
+    # CPU reference folds the full featurized MSA, so any lower cap is an input
+    # divergence (measured on 9BK6: the 1024-row subsample cost chain A
+    # 11.1 vs 7.6 A Ca-RMSD). --max_msa_seqs is the flag for it and wins over the
+    # OF3_MAX_MSA_SEQS env escape hatch; neither set means no extra subsampling.
+    msa_feat = make_openfold3_msa_features(
+        features,
+        max_sequences=int(cfg.get("msa_cap") or cfg.get("of3_max_msa_seqs") or 16384),
+        seed=0)
+    aux = derive_block_aux(features)
+    template_feat, template_slots = derived_template_slots(features)
+    relpos = (derive_relpos_codes(features) if env_flag(RELPOS_CODES, True)
+              else derive_relpos(features))
+
+    return OpenFold3HostInputs(
+        features=features, of3_query=of3_query, chains=chains, msa_feat=msa_feat, aux=aux,
+        template_feat=template_feat, template_slots=template_slots, relpos=relpos, seed=seed)
+
+
+def openfold3_device_fold(model, host: "OpenFold3HostInputs", *, sampling_steps: int,
+                          diffusion_samples: int = 1, distogram: bool = False,
+                          progress_fn=None, max_parallel_samples=None):
+    """The device half: input atom encoder, ref-atom embedding, then the fold.
+
+    Lifted out of `_WorkerState._predict_openfold3_one` alongside `openfold3_host_inputs`, so
+    RFD4's beam-search oracle folds a candidate through the serving path's own code rather than a
+    second copy. `model` is an open `OpenFold3`; this is the half that needs a card.
+
+    The result carries the full confidence dict per sample -- pae, plddt_atom, ptm, iptm,
+    pair_chains_iptm -- in memory. `write_pae` only mirrors it to disk, so an oracle never needs a
+    per-candidate file round trip to read a PAE.
+    """
+    import numpy as np
+    import torch as _torch
+
+    from tt_bio.envflags import env_flag
+    from tt_bio.openfold3_host_prep import (
+        DEVICE_REF_ATOM, ref_atom_embed, ref_atom_embed_device,
+        input_atom_transformer, run_input_atom_encoder)
+    from tt_bio.openfold3_weights import _sub
+
+    dev = model.device
+    if getattr(model, "input_atom_transformer", None) is None:
+        model.input_atom_transformer = input_atom_transformer(model.ckc, model.sd)
+    ai = run_input_atom_encoder(dev, model.ckc, model.sd, host.features, host.aux,
+                                model.input_atom_transformer)
+    s_input = _torch.cat(
+        [ai, host.features["restype"], host.features["profile"],
+         host.features["deletion_mean"].unsqueeze(-1)], dim=-1)
+    rafe_sd = _sub(
+        model.sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder")
+    if env_flag(DEVICE_REF_ATOM, False):
+        cl0, plm0 = None, None
+        cl0_d, plm0_d = ref_atom_embed_device(
+            model.ckc, rafe_sd, host.features, host.aux["atom_mask"], n_pad=host.aux["NP"])
+    else:
+        cl0_d, plm0_d = None, None
+        cl0, plm0 = ref_atom_embed(rafe_sd, host.features)
+    dm_aux_host = dict(
+        cl0=cl0, plm0=plm0, cl0_d=cl0_d, plm0_d=plm0_d, atom_mask=host.aux["atom_mask"],
+        atom_to_token_index=host.aux["atom_to_token_index"],
+        npe_q_indices=host.aux["npe_q_indices"], npe_k_indices=host.aux["npe_k_indices"],
+        zij_mask=host.aux["zij_mask"], key_block_idxs=host.aux["key_block_idxs"],
+        invalid_mask=host.aux["invalid_mask"], mask_trunked=host.aux["mask_trunked"],
+        atom_to_token_mean=host.aux["atom_to_token_mean"], nb=host.aux["nb"], NP=host.aux["NP"])
+    ca_mask = host.aux["ca_mask"]
+    atom_to_token = host.aux["atom_to_token_index"].long()
+    polymer_token = (host.features["is_protein"] | host.features["is_rna"]
+                     | host.features["is_dna"]).bool()
+    confidence_aux = dict(
+        representative_atom_indices=_torch.from_numpy(
+            np.flatnonzero(ca_mask.numpy())).long(),
+        max_atom_per_token_mask=host.aux["max_atom_per_token_mask"],
+        atom_array=host.features["atom_array"], asym_id=host.features["asym_id"],
+        atom_to_token_index=atom_to_token, atom_mask=host.features["atom_mask"].bool(),
+        polymer_mask=polymer_token[atom_to_token],
+        repr_batch={k: host.features[k] for k in (
+            "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
+            "start_atom_index", "atom_mask", "token_mask")},
+        # `get_token_frame_atoms` reads the representative-atom features plus the two
+        # that place an atom in a chain, which is how it rejects a frame whose three
+        # atoms straddle one.
+        frame_batch={k: host.features[k] for k in (
+            "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
+            "start_atom_index", "atom_mask", "token_mask",
+            "num_atoms_per_token", "asym_id")})
+
+    return model.fold(
+        template_feat=host.template_feat, template_slots=host.template_slots,
+        msa_feat=host.msa_feat, s_input=s_input,
+        relpos=host.relpos, token_bonds=host.features["token_bonds"],
+        token_mask=host.features["token_mask"], dm_aux_host=dm_aux_host,
+        n_atom=host.aux["n_atom"], n_token=host.aux["n_token"],
+        no_rollout_steps=int(sampling_steps), seed=int(host.seed),
+        no_samples=int(diffusion_samples), confidence_aux_host=confidence_aux,
+        progress_fn=progress_fn, max_parallel_samples=max_parallel_samples,
+        distogram=bool(distogram))
+
+
 class _WorkerState:
     """Holds the loaded model and per-run helpers."""
 
@@ -938,7 +1222,7 @@ class _WorkerState:
                 fp32_dest_acc_en=True, packer_l1_acc=True)
             sd = _of3_state_dict(cfg)
             # CLI --recycling_steps counts recycles; the trunk runs recycles+1 cycles.
-            self.model = OpenFold3(sd, ckc, num_cycles=_recycles(cfg, 3) + 1)
+            self.model = OpenFold3(sd, ckc, num_cycles=_recycles(cfg, 3) + 1, model=model_id)
         elif model_id == "rf3":
             import ttnn
 
@@ -1779,237 +2063,18 @@ class _WorkerState:
         import types
 
         from tt_bio.esmfold2 import report_progress
-        from tt_bio.main import _read_bio_chains, _read_bio_constraints, _read_cyclic
 
-        model = cfg.get("model", "openfold3")
-        chains = _read_bio_chains(path)
-        if not chains:
-            raise RuntimeError("no protein/nucleic-acid sequences")
-        check_capabilities(path, chains, model,
-                           output_format=cfg.get("output_format"))
-        tmpl_map = _template_map(path, model, chains, cfg["template_structures"])
-        msa_dir = Path(cfg["msa_dir"])
-
-        _MT = {"protein": "PROTEIN", "rna": "RNA", "dna": "DNA", "ligand": "LIGAND"}
-
-        def _query_chain(cid, cseq, spec, mt, mods):
-            """One upstream Chain dict. Ligands take smiles/ccd_codes and NO sequence.
-
-            `_read_bio_chains` hands a ligand its spec in the sequence slot, using the
-            same "CCD_<code>" convention the boltz2 and protenix paths already parse:
-            a CCD code becomes ccd_codes=[code], anything else is treated as SMILES.
-            Upstream keys off exactly these two fields (inference_query_format.Chain),
-            and a LIGAND chain with `sequence` set is not a thing upstream builds.
-
-            `modifications:` becomes non_canonical_residues, upstream's own {res_id: CCD}
-            field: structure_with_ref_mols_from_sequence builds that position from
-            atom_array_from_ccd_code instead of the standard residue, so the modified
-            residue's real atoms reach the featurizer. The field existed all along and this
-            port hardcoded it None, which is why the row was refused.
-            """
-            chain = {"molecule_type": _MT[mt], "chain_ids": [cid],
-                     "non_canonical_residues": ({m["position"]: str(m["ccd"]).upper()
-                                                 for m in mods} if mods else None),
-                     "paired_msa_file_paths": None,
-                     "template_alignment_file_path": None,
-                     "template_entry_chain_ids": None,
-                     "sdf_file_path": None}
-            if mt == "ligand":
-                ccd = cseq[4:].strip() if cseq.upper().startswith("CCD_") else None
-                chain.update(sequence=None, smiles=None if ccd else cseq.strip(),
-                             ccd_codes=[ccd] if ccd else None,
-                             main_msa_file_paths=None)
-                return chain
-            if spec == EMPTY_MSA:
-                from tt_bio.openfold3_data import query_only_msa
-                msa_paths = [str(query_only_msa(msa_dir, cseq))]
-            elif spec and Path(spec).expanduser().exists():
-                msa_paths = [str(Path(spec).expanduser())]
-            else:
-                msa_paths = None
-            chain.update(sequence=cseq, smiles=None, ccd_codes=None,
-                         main_msa_file_paths=msa_paths)
-            chain["template_alignment_file_path"] = tmpl_map.get(cid)
-            return chain
-
-        query = {
-            "query_name": path.stem, "use_msas": True, "use_paired_msas": False,
-            "use_main_msas": True, "covalent_bonds": None,
-            "chains": [_query_chain(cid, cseq, spec, mt, mods)
-                       for cid, cseq, spec, mt, mods in chains],
-        }
-
-        import json as _json
-        import tempfile
-
-        import numpy as np
-        import torch as _torch
-
-        from tt_bio._vendor.openfold3.projects.of3_all_atom.config.inference_query_format import (
-            InferenceQuerySet,
-        )
-        from tt_bio.openfold3_data import (
-            build_openfold3_features, make_openfold3_msa_features)
-        from tt_bio.envflags import env_flag
-        from tt_bio.openfold3_host_prep import (
-            DEVICE_REF_ATOM, RELPOS_CODES, derive_block_aux, derive_relpos, derived_template_slots,
-            derive_relpos_codes,
-            ref_atom_embed, ref_atom_embed_device,
-            input_atom_transformer, run_input_atom_encoder)
-        from tt_bio.openfold3_weights import _sub
-
-        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
-            _json.dump({"queries": {path.stem: query}}, fh)
-            qpath = fh.name
-        seed = int(cfg.get("seed") or 0)
-        _torch.manual_seed(0)
-        np.random.seed(0)
-        # The vendored featurizer draws its RDKit conformer seed from python"s
-        # unseeded `random` (conformer.py: "we set a random seed here"), which made
-        # ref_pos — and therefore the whole fold — nondeterministic across
-        # processes even at fixed --seed. Pin it to the fold seed.
-        import random as _pyrandom
-        _pyrandom.seed(seed)
-        from tt_bio._vendor.openfold3.core.data.primitives.structure import query as _of3_query
-        _of3_query.REF_MOL_MEMO = "ref_memo" in getattr(self.model, "_levers", ())
-        iqs = InferenceQuerySet.from_json(qpath)
-        of3_query = next(iter(iqs.queries.values()))
-        # The MSA stage delegates to the shared resolver: it exposes the cached
-        # hash-named ColabFold a3m under the canonical source basename OF3's parser
-        # filters on (a raw hash-named path parses to ZERO chains and dies on an
-        # IndexError deep in the vendored pipeline), and preserves user-specified
-        # per-chain MSA paths.
-        want_msa = _msa_source(cfg)
-        from tt_bio.openfold3_data import (
-            attach_openfold3_paired_msas, normalize_openfold3_msa_paths,
-            resolve_openfold3_msas)
-        # A YAML `msa:` path is used verbatim by the vendored parser, which filters by
-        # file STEM and drops anything non-canonical -- so `msa: ./my.a3m` died on an
-        # IndexError. Relink it under the canonical name first; bytes unchanged.
-        of3_query = normalize_openfold3_msa_paths(
-            of3_query, msa_dir, openbind=(model == "openbind"))
-        if want_msa:
-            report_progress("msa")
-        of3_query = resolve_openfold3_msas(
-            of3_query, msa_dir, target_id=path.stem,
-            msa_db_path=cfg.get("msa_db_path"),
-            use_envdb=cfg.get("use_envdb", False),
-            msa_server_url=cfg.get("msa_server_url"),
-            msa_pairing_strategy=cfg.get("msa_pairing_strategy"),
-            msa_server_username=cfg.get("msa_server_username"),
-            msa_server_password=cfg.get("msa_server_password"),
-            api_key=cfg.get("api_key_value"),
-            msa_endpoint=cfg.get("msa_endpoint"),
-            fetch=bool(want_msa))
-        if want_msa:
-            missing = [c.chain_ids for c in of3_query.chains
-                       if c.molecule_type.name == "PROTEIN" and not c.main_msa_file_paths]
-            if missing:
-                raise RuntimeError(
-                    f"MSA was requested but none resolved for protein chain(s) {missing} "
-                    "-- refusing to silently fold single-sequence.")
-        # OpenBind only. preview2 runs upstream on 0.4.x, whose create_paired_from_precomputed
-        # never sets n_rows_paired_subsampled, so the featurizer drops the paired block
-        # (primitives/featurization/msa.py:112) and upstream folds a heteromer unpaired;
-        # 0.5.0 (PR #373) keeps it. Keyed on the checkpoint like the other 0.5.0 MSA fixes.
-        # Feeding preview2 the rows anyway cost 0.06 DockQ on 8WT4, worse on 6 of 6 seeds.
-        if model == "openbind" and (paired := _paired_msa(path, chains, msa_dir, cfg)) is not None:
-            of3_query = attach_openfold3_paired_msas(of3_query, msa_dir, paired)
-        if cfg.get("single_sequence"):
-            # --single_sequence is upstream's no-MSA mode, not an MSA-stack
-            # disable: upstream substitutes a one-row alignment holding the
-            # query sequence and keeps use_msas on
-            # (augment_main_msa_with_query_sequence). Folding the same chain
-            # with the stack off instead costs 1.50 A CA-RMSD on ubiquitin
-            # (2.34 A against the 1.8 A ceiling, vs 0.84 A one-row).
-            from tt_bio.openfold3_data import (
-                augment_openfold3_msas_with_query_sequence,
-            )
-            of3_query = augment_openfold3_msas_with_query_sequence(of3_query, msa_dir)
-        if not any(c.main_msa_file_paths for c in of3_query.chains):
-            of3_query.use_msas = False
-            of3_query.use_main_msas = False
-        report_progress("prep")
-        if tmpl_map:
-            _prefetch_template_structures(
-                tmpl_map, Path(cfg["template_structures"]))
-        features = build_openfold3_features(
-            of3_query,
-            template_structures_directory=cfg["template_structures"],
-            openbind=(model == "openbind"),
-            bonds=_read_bio_constraints(path), cyclic=_read_cyclic(path))
-        # Default = the featurizer max_rows (16384), i.e. NO extra subsampling: the
-        # CPU reference folds the full featurized MSA, so any lower cap is an input
-        # divergence (measured on 9BK6: the 1024-row subsample cost chain A
-        # 11.1 vs 7.6 A Ca-RMSD). --max_msa_seqs is the flag for it and wins over the
-        # OF3_MAX_MSA_SEQS env escape hatch; neither set means no extra subsampling.
-        msa_feat = make_openfold3_msa_features(
-            features,
-            max_sequences=int(cfg.get("msa_cap") or cfg.get("of3_max_msa_seqs") or 16384),
-            seed=0)
-        aux = derive_block_aux(features)
-        template_feat, template_slots = derived_template_slots(features)
-        relpos = (derive_relpos_codes(features) if env_flag(RELPOS_CODES, True)
-                  else derive_relpos(features))
-
-        model = self.model
-        dev = model.device
-        if getattr(model, "input_atom_transformer", None) is None:
-            model.input_atom_transformer = input_atom_transformer(model.ckc, model.sd)
-        ai = run_input_atom_encoder(dev, model.ckc, model.sd, features, aux,
-                                    model.input_atom_transformer)
-        s_input = _torch.cat(
-            [ai, features["restype"], features["profile"],
-             features["deletion_mean"].unsqueeze(-1)], dim=-1)
-        rafe_sd = _sub(
-            model.sd, "diffusion_module.atom_attn_enc.ref_atom_feature_embedder")
-        if env_flag(DEVICE_REF_ATOM, False):
-            cl0, plm0 = None, None
-            cl0_d, plm0_d = ref_atom_embed_device(
-                model.ckc, rafe_sd, features, aux["atom_mask"], n_pad=aux["NP"])
-        else:
-            cl0_d, plm0_d = None, None
-            cl0, plm0 = ref_atom_embed(rafe_sd, features)
-        dm_aux_host = dict(
-            cl0=cl0, plm0=plm0, cl0_d=cl0_d, plm0_d=plm0_d, atom_mask=aux["atom_mask"],
-            atom_to_token_index=aux["atom_to_token_index"],
-            npe_q_indices=aux["npe_q_indices"], npe_k_indices=aux["npe_k_indices"],
-            zij_mask=aux["zij_mask"], key_block_idxs=aux["key_block_idxs"],
-            invalid_mask=aux["invalid_mask"], mask_trunked=aux["mask_trunked"],
-            atom_to_token_mean=aux["atom_to_token_mean"], nb=aux["nb"], NP=aux["NP"])
-        ca_mask = aux["ca_mask"]
-        atom_to_token = aux["atom_to_token_index"].long()
-        polymer_token = (features["is_protein"] | features["is_rna"]
-                         | features["is_dna"]).bool()
-        confidence_aux = dict(
-            representative_atom_indices=_torch.from_numpy(
-                np.flatnonzero(ca_mask.numpy())).long(),
-            max_atom_per_token_mask=aux["max_atom_per_token_mask"],
-            atom_array=features["atom_array"], asym_id=features["asym_id"],
-            atom_to_token_index=atom_to_token, atom_mask=features["atom_mask"].bool(),
-            polymer_mask=polymer_token[atom_to_token],
-            repr_batch={k: features[k] for k in (
-                "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
-                "start_atom_index", "atom_mask", "token_mask")},
-            # `get_token_frame_atoms` reads the representative-atom features plus the two
-            # that place an atom in a chain, which is how it rejects a frame whose three
-            # atoms straddle one.
-            frame_batch={k: features[k] for k in (
-                "is_protein", "is_dna", "is_rna", "is_atomized", "restype",
-                "start_atom_index", "atom_mask", "token_mask",
-                "num_atoms_per_token", "asym_id")})
+        host = openfold3_host_inputs(path, cfg, model_name=cfg.get("model", "openfold3"),
+                                     levers=tuple(getattr(self.model, "_levers", ())))
+        chains, of3_query, features = host.chains, host.of3_query, host.features
+        msa_feat = host.msa_feat
 
         n_sample = int(cfg["diffusion_samples"])
-        result = model.fold(
-            template_feat=template_feat, template_slots=template_slots,
-            msa_feat=msa_feat, s_input=s_input,
-            relpos=relpos, token_bonds=features["token_bonds"],
-            token_mask=features["token_mask"], dm_aux_host=dm_aux_host,
-            n_atom=aux["n_atom"], n_token=aux["n_token"],
-            no_rollout_steps=int(cfg["sampling_steps"]), seed=seed,
-            no_samples=n_sample, confidence_aux_host=confidence_aux,
-            progress_fn=report_progress, max_parallel_samples=cfg.get("max_parallel_samples"),
-            distogram=bool(cfg.get("write_pae")))
+        result = openfold3_device_fold(
+            self.model, host, sampling_steps=int(cfg["sampling_steps"]),
+            diffusion_samples=n_sample, distogram=bool(cfg.get("write_pae")),
+            progress_fn=report_progress,
+            max_parallel_samples=cfg.get("max_parallel_samples"))
 
         confs = result.confidence
         order = sorted(range(len(confs)),
@@ -2358,12 +2423,16 @@ def run_worker_loop(
             if cfg.get("kind") == "design":
                 state.free_model()
                 shard = {"rfd3": _execute_rfd3_job_inprocess,
-                         "pxdesign": _execute_pxdesign_job_inprocess}.get(
+                         "pxdesign": _execute_pxdesign_job_inprocess,
+                         "rfd4": _execute_rfd4_job_inprocess}.get(
                              cfg.get("engine"), _execute_design_job_inprocess)
                 for job in jobs:
                     shard(client, run_id, worker_id, worker_info, meta, job, cfg)
                 continue
 
+            # A design engine held from an earlier design run would otherwise keep RFD4's
+            # weights in DRAM while this worker loads a predict model onto the same chip.
+            _free_rfd4_engine()
             _ensure_local_artifacts(cfg)
 
             try:
@@ -2843,6 +2912,121 @@ def _execute_pxdesign_job_inprocess(
         )
     except Exception:
         traceback.print_exc()
+
+
+def _execute_rfd4_job_inprocess(
+    client: ControllerClient,
+    run_id: str,
+    worker_id: str,
+    worker_info: dict[str, Any],
+    meta: dict[str, Any],
+    job: dict[str, Any],
+    cfg: dict[str, Any],
+) -> None:
+    """Run one RFD4 design IN-PROCESS on this worker's persistent device.
+
+    A shard is ONE design: the payload carries the annotated CIF the submitter built, a stem and
+    a seed, so the worker needs neither the spec nor the structures it names. The engine is kept
+    on this worker across shards (``_RFD4_ENGINE``) — loading the bundle costs more than a small
+    design, and a cold device open per shard is what deadlocked the UMD init path on the RFD3
+    path, so the engine is built on the chip this worker already holds.
+    """
+    import threading
+    job_id = job["id"]
+    t0 = time.time()
+
+    def emit(event: str, **kw):
+        try:
+            client.event(run_id, worker_id, {"event": event, **meta, **kw})
+        except Exception:
+            pass
+
+    workdir = Path(tempfile.mkdtemp(prefix=f"tt-bio-rfd4-{job_id}-"))
+    out_dir = workdir / "out"
+    row: dict[str, Any] = {"id": job_id, "status": "failed"}
+    outputs: dict[str, str] = {}
+    emit("start", name=job.get("name") or job_id)
+
+    # The sampler reports nothing until a design finishes, so relay a heartbeat; without it
+    # the orchestrator's stall watchdog reads a long design as a hang.
+    stop = threading.Event()
+
+    def _beat():
+        while not stop.wait(15.0):
+            emit("progress", name=job.get("name") or job_id,
+                 elapsed_s=round(time.time() - t0, 1))
+
+    beat = threading.Thread(target=_beat, daemon=True)
+    beat.start()
+    try:
+        from tt_bio import rfd4
+
+        data = json.loads(base64.b64decode(job.get("input_b64", "")).decode("utf-8"))
+        stem = str(data.get("stem") or job_id)
+        seed = int(data.get("seed") or 0)
+        row["name"] = stem
+        row["example_id"] = data.get("example_id")
+        if not data.get("cif"):
+            raise RuntimeError("design shard shipped no annotated CIF")
+        cif = workdir / f"{stem}.cif"
+        cif.write_text(str(data["cif"]))
+
+        engine = _rfd4_engine(cfg)
+        tokens: list[int] = []
+        rfd4.design(cif, out_dir, num_designs=1, nsteps=cfg.get("nsteps"), seed=seed,
+                    annotated_cif=True, engine=engine,
+                    on_design=lambda _id, n, _cif: tokens.append(n))
+        row.update({"status": "ok", "tokens": tokens[0] if tokens else None,
+                    "runtime_s": round(time.time() - t0, 1)})
+        outputs = _read_outputs(out_dir, _shared_outputs_dir(cfg))
+    except Exception as exc:
+        traceback.print_exc()
+        row["error"] = _err_text(exc)
+    finally:
+        stop.set()
+        shutil.rmtree(workdir, ignore_errors=True)
+        gc.collect()  # drop host refs; the engine and the chip stay
+
+    try:
+        client.complete(
+            run_id, worker_id, row,
+            {**meta, "event": "done", "name": row.get("name") or job_id,
+             "status": row["status"], "time": round(time.time() - t0, 1),
+             "error": row.get("error", ""), "row": row},
+            outputs=outputs or None,
+        )
+    except Exception:
+        traceback.print_exc()
+
+
+#: ((recipe, fast), engine) — the RFD4 engine this worker holds, reused across shards of a run.
+_RFD4_ENGINE: tuple[Any, Any] = (None, None)
+
+
+def _free_rfd4_engine() -> None:
+    """Drop this worker's RFD4 engine, if it holds one. Called before a predict model loads."""
+    global _RFD4_ENGINE
+    if _RFD4_ENGINE[1] is not None:
+        _RFD4_ENGINE = (None, None)
+        gc.collect()
+
+
+def _rfd4_engine(cfg: dict[str, Any]):
+    """This worker's RFD4 engine, loading it on first use and on a recipe or `--fast` change.
+
+    The recipe and the lever set (`--fast`) are what a run can change that the loaded engine
+    carries, so they key the cache; everything else per design (seed, steps, the input) is an argument.
+    """
+    global _RFD4_ENGINE
+    recipe, fast = cfg.get("recipe"), bool(cfg.get("fast"))
+    if _RFD4_ENGINE[0] != (recipe, fast) or _RFD4_ENGINE[1] is None:
+        from tt_bio.rfd4 import get_engine
+        from tt_bio.tenstorrent import set_fast_mode
+
+        _RFD4_ENGINE = (None, None)
+        set_fast_mode(fast)   # read once, when the trunk picks its lever set
+        _RFD4_ENGINE = ((recipe, fast), get_engine(**({"recipe": recipe} if recipe else {})))
+    return _RFD4_ENGINE[1]
 
 
 def _forward_design_progress(path: Path, pos: int, emit) -> int:

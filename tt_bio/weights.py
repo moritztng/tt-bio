@@ -99,6 +99,7 @@ class Artifact:
     repo: str | None = None              # HF repo id
     revision: str | None = None          # HF tag/commit to pin; None means the repo default
     filename: str | None = None          # path within the repo, or the flat file's name
+    allow: tuple[str, ...] = ()          # hub paths to snapshot; empty takes the whole repo
     url: str | None = None               # direct download, tried after the hub
     sha256: str | None = None            # of the finished file, when we have verified one
     subdir: str = ""                     # cache-relative dir for flat files
@@ -197,6 +198,7 @@ NESSO_REVISION = "v1.0.0"      # not `main`: main carries only a config.json
 # row loses its pin or a new unpinned third-party repo is added.
 ESMFOLD2_REPO = "biohub/ESMFold2"
 ESMFOLD2_FAST_REPO = "biohub/ESMFold2-Fast"
+RFD4_REPO = "nvidia/RFD4-Proteina"
 HF_REVISIONS = {
     ESMFOLD2_REPO: "8fc3ff471022fdce52c77030685eb775de0c00a3",
     ESMFOLD2_FAST_REPO: "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
@@ -208,6 +210,7 @@ HF_REVISIONS = {
     "westlake-repl/SaProt_650M_AF2": "d9b9ad00ef61c0990e611b2b43f2231c7de24b38",
     "westlake-repl/SaProt_1.3B_AF2": "314b94aee8eece41e5d52e0413f7df1cd00d3325",
     NESSO_REPO: NESSO_REVISION,
+    RFD4_REPO: "48377e45eb25a4fce8d2aff56c1a659b726d2106",
 }
 
 # Repo owners whose pushes we control, so their rows track the default branch.
@@ -327,6 +330,11 @@ _ROWS: tuple[Artifact, ...] = (
     # measured 7.28 GiB rather than measured. Nothing depends on it being exact.
     Artifact("saprot-1.3b", ("saprot-1.3b",), "hf-repo", "MIT",
              repo="westlake-repl/SaProt_1.3B_AF2", approx_bytes=15000000000),
+
+    # -- RFD4-Proteina: the repo also ships AF2, OpenFold3 and container images (~100 GB);
+    # the engine reads the config and NVIDIA's adapter-folded export, nothing else.
+    Artifact("rfd4", ("rfd4",), "hf-repo", "BSD-3-Clause (Institute for Protein Design)",
+             repo=RFD4_REPO, allow=("config.json", "model.safetensors"), approx_bytes=1742667866),
 
     # -- OpenDDE --------------------------------------------------------------
     Artifact("opendde", ("opendde",), "hf-repo", "Apache-2.0 (Aureka Research)",
@@ -977,7 +985,7 @@ def fetch_file(sources: tuple[str, ...], dest: Path, *, sha256: str | None = Non
 
 
 def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | None = None,
-                  force: bool = False, quiet: bool = False) -> Path:
+                  allow: tuple[str, ...] = (), force: bool = False, quiet: bool = False) -> Path:
     """Snapshot a whole HF repo into the hub cache and return the snapshot dir.
 
     ``revision`` pins a tag or commit, and defaults to the repo's ``HF_REVISIONS``
@@ -985,6 +993,9 @@ def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | 
     reaches here with a bare repo id) is pinned too. It is not cosmetic for a repo whose
     default branch is not the released tree: ``recursionpharma/nesso`` keeps ``main`` and
     ``v1.0.0`` on different commits, and ``main`` holds only a ``config.json``.
+
+    ``allow`` limits the snapshot to those paths, for a repo that carries far more than we
+    load: ``nvidia/RFD4-Proteina`` is ~100 GB and the engine reads 1.7 GB of it.
 
     The hub cache is already written blob-at-a-time through ``.incomplete`` staging, so
     the destination cannot hold a partial blob. What it does not do is notice a blob
@@ -994,12 +1005,15 @@ def fetch_hf_repo(repo_id: str, *, filename: str | None = None, revision: str | 
     from huggingface_hub import snapshot_download
 
     revision = revision or hf_revision(repo_id)
-    snap = Path(snapshot_download(repo_id, revision=revision, force_download=force))
+    patterns = list(allow) or None
+    snap = Path(snapshot_download(repo_id, revision=revision, allow_patterns=patterns,
+                                  force_download=force))
     if filename:
         target = snap / filename
         if not target.exists() or not artifact_intact(target):
             _echo(f"Cached {repo_id}:{filename} is incomplete/corrupt, re-downloading", quiet)
-            snap = Path(snapshot_download(repo_id, revision=revision, force_download=True))
+            snap = Path(snapshot_download(repo_id, revision=revision, allow_patterns=patterns,
+                                          force_download=True))
     return snap
 
 
@@ -1297,7 +1311,7 @@ def _fetch_locked(art, *, root, force: bool, quiet: bool) -> Path:
     """The downloading half of `fetch`, run under that artifact's lock."""
     if art.source == "hf-repo":
         snap = fetch_hf_repo(art.repo, filename=art.filename, revision=art.revision,
-                             force=force, quiet=quiet)
+                             allow=art.allow, force=force, quiet=quiet)
         return snap / art.filename if art.filename else snap
 
     if art.source != "file":
@@ -1464,7 +1478,8 @@ def unmanaged(root: str | Path | None = None) -> list[tuple[Path, int]]:
         return []
     claimed = {p.resolve() for k in ARTIFACTS for p in artifact_paths(k, root)}
     claimed |= {(base / a.subdir).resolve() for a in _ROWS if a.subdir}
-    keep = {"msa", "msa_db", "msa_server_cache", "demo_msa", "of3_template_structures", ".cache"}
+    keep = {"msa", "msa_db", "msa_server_cache", "demo_msa", "of3_template_structures", ".cache",
+            "tiles"}  # tiles: device-format weight copies (esmc.esmc6b_tile_dir), rebuilt on demand
     out = []
     for entry in base.iterdir():
         if entry.name in keep or entry.name.startswith(".") or entry.resolve() in claimed:

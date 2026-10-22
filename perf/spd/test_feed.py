@@ -846,3 +846,20 @@ def test_lead_rows_are_live_rows_dedicated_to_a_directive(tmp_path):
     (tmp_path / "state/concluded/spd-bet-old").touch()
     assert feed.lead_rows(tmp_path) == {"spd-m-protenix"}
     assert feed.lead_rows(tmp_path / "missing") == set()
+
+
+def test_bench_jsonl_is_done_only_with_a_rep(tmp_path):
+    """An arm that crashed at device open leaves a bench.jsonl holding only its "start" record: not done."""
+    src = feed.PROBE[feed.PROBE.index("def ok(p):"):feed.PROBE.index('for p in A["paths"]')]
+    ns = {"os": os, "glob": __import__("glob")}
+    exec(src, ns)
+    ok = ns["ok"]
+    b = tmp_path / "w" / "bench.jsonl"
+    b.parent.mkdir()
+    assert not ok(str(b))
+    b.write_text(json.dumps({"ev": "start", "argv": []}) + "\n" + json.dumps({"ev": "device_open", "s": 1.0}) + "\n")
+    assert not ok(str(b)) and not ok(str(tmp_path / "*" / "bench.jsonl"))
+    b.write_text(b.read_text() + json.dumps({"ev": "rep", "input": "x", "fold_s": 2.0}) + "\n")
+    assert ok(str(b)) and ok(str(tmp_path / "*" / "bench.jsonl"))
+    (tmp_path / "ok").touch()
+    assert ok(str(tmp_path / "ok")), "an empty marker is still done"

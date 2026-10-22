@@ -474,7 +474,7 @@ class Tensor:
         if not self.evictable or not self.value.is_allocated():
             return
         if self.shares is not None:
-            self._free_shared()
+            self._free_shared(release=True)
             return
         if not self.pinned and (self.node is not None or not self.requires_grad):
             ttnn.deallocate(self.value)
@@ -516,8 +516,9 @@ class Tensor:
         if self.box is not None:
             self.box[0] = self.value
 
-    def _free_shared(self) -> None:
-        """`free` for a buffer several taped tensors are views of, decided for all of them.
+    def _free_shared(self, release: bool = False) -> None:
+        """`free` (`release`) or `evict` for a buffer several taped tensors are views of, decided
+        for all of them.
 
         A ttnn shape op can hand back a view (`_tape` explains), and a view pair used to be
         marked non-evictable outright, because releasing or evicting either one alone kills the
@@ -534,11 +535,20 @@ class Tensor:
         released once, refused if a member is a leaf (its placement is the module's tuning, as in
         `_evict_read_parents`). Either way a member that holds its buffer for the other reason,
         `evictable` False for a closure that reads its output by raw handle, refuses both.
+
+        A release asks what `free` asks of a lone tensor: does any backward read the bytes, and
+        is any member a leaf. Requiring a gradient is not reading a value, and every intermediate
+        in the middle of the graph requires one, so testing it here kept every dead view group
+        of a KEPT tape on the card. BindCraft 2's masked outer product mean reshapes its matmul
+        output, and from 7353c9aef that held one [N, N, 128] pair tensor per resident Evoformer
+        block: 0.50 GB at 224 tokens and 40 blocks, which is what refused the backward at 47.
         """
         group = _members(self.shares)
         if any(not t.evictable for t in group):
             return
-        if not any(t.pinned or t.requires_grad for t in group):
+        if not any(t.pinned for t in group) and (
+                not any(t.requires_grad for t in group)
+                or (release and all(t.node is not None or not t.requires_grad for t in group))):
             ttnn.deallocate(self.value)
             return
         if any(t.node is None for t in group):
@@ -762,6 +772,11 @@ def _join_slices(parts, shape):
     are one concat in axis order, with zeros only where no slice was read. Anything else is
     padded slice by slice. Both give the same numbers, since a padded zero adds nothing.
     """
+    if len(parts) == 1:
+        # One slice is one pad, not a concat with zeros: BindCraft 2's [224, 4, 224, 16] head
+        # gradient took 2.9 ms as a concat on a p300c, 4 calls an iteration (`_pad_slice`).
+        (s, e, g), = parts
+        return [_pad_slice(g, s, e, shape)]
     cuts = {tuple(ax for ax in range(len(shape)) if (s[ax], e[ax]) != (0, shape[ax]))
             for s, e, _ in parts}
     if len(cuts) == 1 and len(next(iter(cuts))) == 1:
@@ -1095,7 +1110,7 @@ def _matmul(a, b, **kw):
     """
     kw = _mm_layout.plan(a, b, kw)
     if not kw.get("transpose_a") or a.dtype == b.dtype:
-        return ttnn.matmul(a, b, **kw)
+        return _split_k(a, b, kw) or ttnn.matmul(a, b, **kw)
     MIXED_TRANSPOSE_A["promoted"] += 1
     tmp = []
     if a.dtype != ttnn.float32:
@@ -1104,9 +1119,79 @@ def _matmul(a, b, **kw):
     if b.dtype != ttnn.float32:
         b = ttnn.typecast(b, ttnn.float32)
         tmp.append(b)
-    out = ttnn.matmul(a, b, **kw)
+    out = _split_k(a, b, kw) or ttnn.matmul(a, b, **kw)
     for t in tmp:
         ttnn.deallocate(t)
+    return out
+
+
+# A 2-D ``a^T @ b`` whose output is at most this many tiles and whose contraction is at least
+# `SPLIT_K_MIN_KT` tiles runs as K chunks on separate cores (`_split_k`).
+SPLIT_K_OUT_TILES = 32
+SPLIT_K_MIN_KT = 64
+# At most this many chunks, a constant rather than the core count so that the grouping, and so
+# the bits, are the same on every card.
+SPLIT_K_CHUNKS = 64
+SPLIT_K_STATS = {"served": 0}
+
+
+def _split_k(a, b, kw):
+    """``a^T @ b`` over a long K with a small output, as a batch of K chunks summed in fp32, or
+    None to leave the call to ``ttnn.matmul``.
+
+    ttnn plans a 2-D product over its OUTPUT tiles, so a reduction over every token into a
+    [64, 224] result runs on 14 cores, each contracting the whole axis: BindCraft 2's masked
+    outer product backward, ``[28672, 64]^T @ [28672, 224]``, took 604 us at 27 GB/s and
+    ``[8192, 64]^T @ [8192, 224]`` 173 us, 0.037 device s/it together on a p300c
+    (`bets/unnamed` u2). Splitting K by whole tiles is a view, each chunk is one batch element of
+    `bmm_program_config`'s reuse plan, so the chunks land on separate cores, and the partials
+    stay fp32 through a pairwise tree of adds. The same contraction, grouped by chunk instead of
+    by K block.
+    """
+    if (not kw.get("transpose_a") or kw.get("transpose_b") or kw.get("program_config") is not None
+            or set(kw) - {"transpose_a", "transpose_b", "program_config", "compute_kernel_config",
+                          "dtype", "memory_config"}
+            or len(a.shape) != 2 or len(b.shape) != 2 or a.layout != ttnn.TILE_LAYOUT
+            or b.layout != ttnn.TILE_LAYOUT or a.is_sharded() or b.is_sharded()):
+        return None
+    K, M, N = int(a.shape[0]), int(a.shape[1]), int(b.shape[1])
+    if K % ttnn.TILE_SIZE or M % ttnn.TILE_SIZE or N % ttnn.TILE_SIZE:
+        return None
+    Kt = K // ttnn.TILE_SIZE
+    if (M // ttnn.TILE_SIZE) * (N // ttnn.TILE_SIZE) > SPLIT_K_OUT_TILES or Kt < SPLIT_K_MIN_KT:
+        return None
+    P = 1
+    while P * 2 <= min(Kt // 2, SPLIT_K_CHUNKS) and Kt % (P * 2) == 0:
+        P *= 2
+    if P < 4:
+        return None
+    a3 = ttnn.reshape(a, [P, K // P, M])
+    b3 = ttnn.reshape(b, [P, K // P, N])
+    cfg = kw.get("compute_kernel_config")
+    plan = bmm_program_config(a3, b3, True, dtype=ttnn.float32, compute_kernel_config=cfg)
+    if plan is None:
+        return None
+    parts = ttnn.matmul(a3, b3, transpose_a=True, program_config=plan, dtype=ttnn.float32,
+                        compute_kernel_config=cfg)
+    # Halve with fp32 adds, not ttnn.sum: a reduction feeds the FPU, which reads fp32 as tf32, and
+    # took rel L2 against float64 from the partials' 4.1e-4 to 1.0e-3 (stock 4.9e-4). P is a power of two.
+    out = parts
+    while P > 1:
+        P //= 2
+        lo = ttnn.slice(out, [0, 0, 0], [P, M, N])
+        hi = ttnn.slice(out, [P, 0, 0], [2 * P, M, N])
+        ttnn.deallocate(out)
+        out = ttnn.add(lo, hi, dtype=ttnn.float32)
+        ttnn.deallocate(lo)
+        ttnn.deallocate(hi)
+    out = ttnn.reshape(out, [M, N])
+    dtype = kw.get("dtype") or a.dtype
+    if dtype != ttnn.float32:
+        out = ttnn.typecast(out, dtype)
+    mc = kw.get("memory_config")
+    if mc is not None and mc != out.memory_config():
+        out = ttnn.to_memory_config(out, mc)
+    SPLIT_K_STATS["served"] += 1
     return out
 
 

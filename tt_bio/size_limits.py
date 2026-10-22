@@ -1027,6 +1027,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                 "size. scRMSD through the full pipeline is what settles whether the clashes "
                 "matter; until it lands, read this row as a fit, not as a quality claim"),
     },
+    "rfd4": {
+        "blackhole": _unmeasured(
+            "nobody has walked a ladder. Designs on record are 128 tokens (thinking_medium, warm "
+            "17.96 s at AICLK 1350 MHz on a qb2 p300c chip, state/rfd4/census/e2e-128.json) and a "
+            "329-token antibody condition (ws:rfd4-cond-protein); ws:rfd4-size walks 256 and 512. "
+            "Nothing has failed, so there is no size to refuse", counts=DESIGN_TOTAL),
+    },
     "esmc-300m": {
         "wormhole_b0": Ceiling(
             residues=69632, pass_at=69632, fail_at=73728, binds=MEMORY, mechanism=DRAM,
@@ -1947,8 +1954,59 @@ _DESIGN_SUFFIXES = (".json", ".yml", ".yaml")
 # model", and adding a third denominator silently gave every embed model the design suffix list, so
 # `.fasta` inputs were skipped and an oversized sequence was admitted. A proxy that happens to hold
 # for two cases is not a rule, and it fails silently in the permissive direction.
+def scan_rfd4_total(text: str, path=None) -> int:
+    """Held + designed residues in one RFD4 condition spec (DESIGN_TOTAL). 0 if it cannot be sized.
+
+    Same rule as ``scan_rfd3_total`` and for the same reason: the contig decides the size, not the
+    pasted structure, and the count comes from RFD4's OWN contig parser rather than a second copy
+    of the grammar. A variable-length segment (``20-30``) is counted at its MAXIMUM, because the
+    length is drawn per design and a guard that sized the minimum would pass an input the run then
+    exceeds.
+    """
+    try:
+        import json
+
+        import yaml
+
+        from ._vendor.rfd4_prep._cif.inference_utils_contig_spec import (
+            ExpandableSegment, PreservedSegment, _partition_and_assign_chain_ids,
+        )
+    except Exception:
+        return 0
+    try:
+        data = yaml.safe_load(text)
+    except Exception:
+        try:
+            data = json.loads(text)
+        except Exception:
+            return 0
+    if not isinstance(data, dict):
+        return 0
+    # One top-level key per design, run one after another, so the cap applies to the LARGEST.
+    largest = 0
+    for spec in data.values():
+        if not isinstance(spec, dict):
+            continue
+        contig = spec.get("contig")
+        if not isinstance(contig, str) or not contig.strip():
+            continue
+        try:
+            n = 0
+            for run in _partition_and_assign_chain_ids(contig):
+                for tok in run.tokens:
+                    if isinstance(tok, PreservedSegment):
+                        n += tok.end - tok.start + 1
+                    elif isinstance(tok, ExpandableSegment):
+                        n += tok.seg_max
+        except Exception:
+            continue
+        largest = max(largest, n)
+    return largest
+
+
 _SIZERS: dict[str, tuple] = {
     "rfd3": (DESIGN_TOTAL, scan_rfd3_total, _DESIGN_SUFFIXES),
+    "rfd4": (DESIGN_TOTAL, scan_rfd4_total, _DESIGN_SUFFIXES),
     "pxdesign": (DESIGN_TARGET, scan_pxdesign_target, _DESIGN_SUFFIXES),
     "boltzgen": (TARGET_ATOMS, scan_boltzgen_target_atoms, _DESIGN_SUFFIXES),
     # Every embed / saprot model: independent sequences, so the longest one binds, not their sum.

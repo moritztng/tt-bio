@@ -2210,40 +2210,51 @@ def load_esmc6b_shared(cache_dir: str, *, name: str = "esmc-6b", fast: bool = Fa
     parallel across the independent PCIe links. Bit-exact vs the single-card path:
     a loaded tile is exactly what from_torch would have produced.
     """
-    import fcntl
-
-    from tt_bio import weights as _w
-
     import tt_bio.tenstorrent as _tt
 
     _tt.set_fast_mode(_6b_weights_b8(fast))   # the stored weights; the forward runs in `fast`
     try:
-        snap = _w.fetch("esmc-6b")
-        os.makedirs(cache_dir, exist_ok=True)
-        done = os.path.join(cache_dir, ".done")
-        lockf = open(os.path.join(cache_dir, ".lock"), "w")
-        fcntl.flock(lockf, fcntl.LOCK_EX)  # one builder; peers wait here until .done
-        try:
-            if not os.path.exists(done):
-                sd = load_esmc6b_state_dict(snap)
-                _t = _time.perf_counter()
-                with _tt.weight_cache(cache_dir, "dump"):
-                    model = ESMCLanguageModel(name=name)
-                    model.load_state_dict(sd, strict=False)
-                open(done, "w").close()
-                _tlog(f"cache_build {_time.perf_counter()-_t:.2f}s")
-                return _embed_6b_mode(model, fast)
-        finally:
-            fcntl.flock(lockf, fcntl.LOCK_UN)
-            lockf.close()
         _t = _time.perf_counter()
-        with _tt.weight_cache(cache_dir, "load"):
-            model = ESMCLanguageModel(name=name)
-            model.load_state_dict({}, strict=False)  # weights come from the tile cache
+        model = ESMCLanguageModel.from_pretrained(name=name, tile_dir=cache_dir)
         _tlog(f"cache_load {_time.perf_counter()-_t:.2f}s")
         return _embed_6b_mode(model, fast)
     finally:
         _tt.set_fast_mode(fast)
+
+
+def esmc6b_tile_dir(name: str, snapshot) -> str | None:
+    """The persistent host tile cache for this 6B build, or None when its disk is too full.
+
+    Keyed by everything that decides the tiles: the checkpoint, the stored dtype (block-fp8
+    or bf16), the code that builds and tiles the module, the ttnn build and the
+    TT_BIO_ESMC* switches. A key nobody loaded for a week is pruned when a new one is written.
+    """
+    import hashlib
+
+    import tt_bio.tenstorrent as _tt
+    from tt_bio import weights as _w
+
+    snap = Path(snapshot).resolve()
+    h = hashlib.sha256()
+    for f in (Path(__file__), Path(_tt.__file__)):
+        h.update(f.read_bytes())
+    env = sorted((k, v) for k, v in os.environ.items() if k.startswith("TT_BIO_ESMC"))
+    # ttnn has no __version__; its native library identifies the build, wheel or source.
+    lib = [(f.name, f.stat().st_size, f.stat().st_mtime_ns) for f in sorted(Path(ttnn.__file__).parent.glob("_ttnn*.so"))]
+    h.update(repr((str(snap), lib, _tt._FAST_MODE, _tt.is_wormhole(), env)).encode())
+    root = _w.cache_root() / "tiles"
+    tdir = root / f"{name}-{h.hexdigest()[:16]}"
+    if (tdir / ".done").exists():
+        os.utime(tdir / ".done")
+        return str(tdir)
+    root.mkdir(parents=True, exist_ok=True)
+    for old in root.glob(f"{name}-*"):
+        done = old / ".done"
+        if old != tdir and done.exists() and _time.time() - done.stat().st_mtime > 7 * 86400:
+            shutil.rmtree(old, ignore_errors=True)
+    # The tiles take at most half the fp32 checkpoint (bf16); keep 10 GB free beside them.
+    need = sum(f.stat().st_size for f in snap.glob("*.safetensors")) // 2 + (10 << 30)
+    return str(tdir) if shutil.disk_usage(root).free > need else None
 
 
 class ESMCHiddenStatesModel(Module):
@@ -2342,13 +2353,29 @@ class ESMCLanguageModel(TorchWrapper):
         self.n_layers = cfg["n_layers"]
 
     @classmethod
-    def from_pretrained(cls, repo_id: str = "biohub/ESMC-6B", name: str = "esmc-6b") -> "ESMCLanguageModel":
+    def from_pretrained(cls, repo_id: str = "biohub/ESMC-6B", name: str = "esmc-6b",
+                        tile_dir: str | bool | None = None) -> "ESMCLanguageModel":
+        """Weights from the host tile cache in ``tile_dir`` (None: a persistent one under the
+        cache root, see ``esmc6b_tile_dir``; False: none), written on first use. Without a cache
+        every load tiles the 6B on host: ~100 s on a Wormhole host, against seconds from it."""
         from tt_bio import weights as _w
+        from tt_bio import tenstorrent as _tt
 
         snap = _w.fetch(name) if name in _w.ARTIFACTS else _w.fetch_hf_repo(repo_id)
-        model = cls(name=name)
-        model.load_state_dict(load_esmc6b_state_dict(snap), strict=False)
-        return model
+
+        def build():
+            model = cls(name=name)
+            model.load_state_dict(load_esmc6b_state_dict(snap), strict=False)
+            return model
+
+        def load():
+            model = cls(name=name)
+            model.load_state_dict({}, strict=False)  # every weight comes from the tile cache
+            return model
+
+        if tile_dir is None:
+            tile_dir = esmc6b_tile_dir(name, snap)
+        return _tt.tile_cached(tile_dir, build, load) if tile_dir else build()
 
     def _create_module(self, weights: WeightScope) -> ESMCHiddenStatesModel:
         return ESMCHiddenStatesModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)

@@ -211,3 +211,38 @@ def test_a_taped_tensor_is_left_to_the_tape_shim(monkeypatch):
     _armed_wh(monkeypatch, served)
     x = autograd.Tensor.__new__(autograd.Tensor)
     assert pair_mm.matmul(x, _t((128, 4))) is None and served == []
+
+
+# RFD4's pair transition at 128 tokens: fc1 [.., 384] x [384, 768], fc2 [.., 768] x [768, 384].
+_TRANSITION = [((1, 128, 128, 384), (384, 768)), ((1, 128, 128, 768), (768, 384))]
+
+
+@pytest.mark.parametrize("x,w", _TRANSITION)
+def test_transition_keys_need_their_own_lever(x, w):
+    """Arming pair_mm (AF2 on Wormhole, a BindCraft 2 round) leaves a 384 <-> 768 linear on ttnn's plan;
+    only `pair_mm_tr` (RFD4's --fast set) reaches the keys, in bf16 and in bfloat8_b."""
+    from tt_bio import tenstorrent
+    b8 = ttnn.bfloat8_b
+    with tenstorrent.levers("pair_mm"):
+        assert pair_mm.config(_t(x), _t(w)) is None
+        assert pair_mm.config(_t(x), _t(w, b8)) is None
+    with tenstorrent.levers("pair_mm,pair_mm_tr"):
+        assert pair_mm.config(_t(x), _t(w)) is not None
+        assert pair_mm.config(_t(x, b8), _t(w, b8)) is not None
+        assert pair_mm.config(_t((1, 128, 128, 128), b8), _t((128, 128), b8)) is None  # no other bfp8 key
+
+
+@pytest.mark.parametrize("x,w", _TRANSITION)
+def test_shared_linear_dispatch_unchanged_without_the_lever(monkeypatch, x, w):
+    """The shared pair linear (`_pair_proj_linear`) with pair_mm armed by the process flag: a 384 <-> 768
+    call stays on ttnn.linear unless the lever set names pair_mm_tr."""
+    from tt_bio import tenstorrent
+    monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR_WH", False)
+    monkeypatch.setattr(tenstorrent, "_PAIR_PROJ_MM", False)
+    monkeypatch.setattr(tenstorrent, "_pair_proj_config", lambda *a, **k: None)
+    monkeypatch.setattr(tenstorrent.ttnn, "linear", lambda *a, **k: "linear")
+    monkeypatch.setattr(ttnn.experimental, "minimal_matmul", lambda **kw: "mm")
+    assert tenstorrent._pair_proj_linear(_t(x), _t(w), None, ttnn.bfloat16) == "linear"
+    with tenstorrent.levers("pair_mm_tr"):
+        assert tenstorrent._pair_proj_linear(_t(x), _t(w), None, ttnn.bfloat16) == "mm"

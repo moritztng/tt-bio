@@ -1,0 +1,127 @@
+{
+  "backend": "tt",
+  "host": "qb2",
+  "board_type": "p300c",
+  "recycles": 3,
+  "params": "/home/ttuser/.boltz/af2/params/params_model_1_ptm.npz",
+  "rungs": [
+    128,
+    256,
+    512
+  ],
+  "load_s": 1.7,
+  "fold_s_by_rung": {
+    "128": 1.6,
+    "256": 2.99,
+    "512": 9.72
+  },
+  "repeat_fold_s": 1.1,
+  "keys_by_rung": {
+    "128": [
+      "oracle_ppi.ipae_coi",
+      "oracle_ppi.iptm_A_B",
+      "oracle_ppi.iptm_coi",
+      "oracle_ppi.min_ipae_A_B",
+      "oracle_ppi.min_ipae_coi",
+      "oracle_ppi.overall_iptm",
+      "oracle_ppi.overall_pae",
+      "oracle_ppi.overall_plddt",
+      "oracle_ppi.overall_ptm",
+      "oracle_ppi.pae_coi",
+      "oracle_ppi.plddt_coi",
+      "oracle_ppi.ptm_coi"
+    ],
+    "256": [
+      "oracle_ppi.ipae_coi",
+      "oracle_ppi.iptm_A_B",
+      "oracle_ppi.iptm_coi",
+      "oracle_ppi.min_ipae_A_B",
+      "oracle_ppi.min_ipae_coi",
+      "oracle_ppi.overall_iptm",
+      "oracle_ppi.overall_pae",
+      "oracle_ppi.overall_plddt",
+      "oracle_ppi.overall_ptm",
+      "oracle_ppi.pae_coi",
+      "oracle_ppi.plddt_coi",
+      "oracle_ppi.ptm_coi"
+    ],
+    "512": [
+      "oracle_ppi.ipae_coi",
+      "oracle_ppi.iptm_A_B",
+      "oracle_ppi.iptm_coi",
+      "oracle_ppi.min_ipae_A_B",
+      "oracle_ppi.min_ipae_coi",
+      "oracle_ppi.overall_iptm",
+      "oracle_ppi.overall_pae",
+      "oracle_ppi.overall_plddt",
+      "oracle_ppi.overall_ptm",
+      "oracle_ppi.pae_coi",
+      "oracle_ppi.plddt_coi",
+      "oracle_ppi.ptm_coi"
+    ]
+  },
+  "n_keys_by_rung": {
+    "128": 12,
+    "256": 12,
+    "512": 12
+  },
+  "metrics_by_rung": {
+    "128": {
+      "oracle_ppi.overall_plddt": 56.843409433960915,
+      "oracle_ppi.overall_pae": 19.011863110898048,
+      "oracle_ppi.overall_ptm": 38.59,
+      "oracle_ppi.overall_iptm": 6.12,
+      "oracle_ppi.min_ipae_A_B": 18.181800842285156,
+      "oracle_ppi.iptm_A_B": 6.1227,
+      "oracle_ppi.plddt_coi": 60.240200233459475,
+      "oracle_ppi.ptm_coi": 51.4727,
+      "oracle_ppi.pae_coi": 11.825879326327703,
+      "oracle_ppi.ipae_coi": 26.689157288645703,
+      "oracle_ppi.min_ipae_coi": 18.181800842285156,
+      "oracle_ppi.iptm_coi": 6.1227
+    },
+    "256": {
+      "oracle_ppi.overall_plddt": 65.489681430161,
+      "oracle_ppi.overall_pae": 15.160925500078065,
+      "oracle_ppi.overall_ptm": 60.84,
+      "oracle_ppi.overall_iptm": 32.73,
+      "oracle_ppi.min_ipae_A_B": 3.1043461561203003,
+      "oracle_ppi.iptm_A_B": 32.725300000000004,
+      "oracle_ppi.plddt_coi": 55.00673289299011,
+      "oracle_ppi.ptm_coi": 54.63249999999999,
+      "oracle_ppi.pae_coi": 11.317316279197112,
+      "oracle_ppi.ipae_coi": 21.43050725935027,
+      "oracle_ppi.min_ipae_coi": 3.1043461561203003,
+      "oracle_ppi.iptm_coi": 32.725300000000004
+    },
+    "512": {
+      "oracle_ppi.overall_plddt": 83.19492733851075,
+      "oracle_ppi.overall_pae": 11.897130273363814,
+      "oracle_ppi.overall_ptm": 76.67,
+      "oracle_ppi.overall_iptm": 19.15,
+      "oracle_ppi.min_ipae_A_B": 15.970608711242676,
+      "oracle_ppi.iptm_A_B": 19.1486,
+      "oracle_ppi.plddt_coi": 60.84249060153961,
+      "oracle_ppi.ptm_coi": 55.886100000000006,
+      "oracle_ppi.pae_coi": 9.970945279169827,
+      "oracle_ppi.ipae_coi": 26.96478584999288,
+      "oracle_ppi.min_ipae_coi": 15.970608711242676,
+      "oracle_ppi.iptm_coi": 19.1486
+    }
+  },
+  "determinism": {
+    "rung": 128,
+    "bit_identical": true,
+    "drift": {}
+  },
+  "clock": {
+    "0": {
+      "min": 800,
+      "max": 1350,
+      "median": 1350,
+      "n": 8
+    }
+  },
+  "clock_line": "CLOCK: dev0 min 800 / median 1350 / max 1350 MHz over 8 samples, polled DURING the work",
+  "protocol_note": "one setup for the whole batch; recycles+1 trunk passes per fold. NOT the matched oracle protocol -- see perf/rfd4/oracle_cost.py"
+}

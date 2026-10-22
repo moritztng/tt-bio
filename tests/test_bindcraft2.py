@@ -272,7 +272,7 @@ def _campaign_factory_trunks(monkeypatch, **kwargs):
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
     design.extra_msa = None
-    design.template = None
+    design.template = design.structure = None
     design.exact = True
     design.fast = None
 
@@ -1464,7 +1464,7 @@ def test_each_interleaved_trajectory_gets_its_own_design_model(monkeypatch):
         return object()
 
     design.trunk, design.pool, design.evoformer = "device", object(), object()
-    design.extra_msa = design.template = None
+    design.extra_msa = design.template = design.structure = None
     design.exact = True
     design.fast = None
 
@@ -2164,10 +2164,18 @@ def test_auto_runs_lean_where_fast_was_measured_to_refuse_on_a_p150a():
         assert bindcraft2.memory_mode("auto", padded, card) == "fast", padded
     for padded in (704, 736, 768, 800, 832, 864, 896):
         assert bindcraft2.memory_mode("auto", padded, card) == "lean", padded
-    # The 896 lean served is a floor under lean, not its ceiling, so lean is not capped there.
-    assert bindcraft2.max_tokens("lean", card) >= 896
-    # No offload row: every offload rung on the measuring box was killed by host RAM.
-    assert "offload" not in bindcraft2._MEASURED_MODE_LADDERS["p150a"]
+    # The 1184 lean served is a floor under lean, not its ceiling, so lean is not capped there.
+    assert bindcraft2.max_tokens("lean", card) >= 1184
+
+
+def test_offload_on_a_p150a_is_capped_where_it_was_measured_to_refuse():
+    """The law puts offload at 1568 on a p150a, and 1568 was measured to refuse on fragmentation.
+    Nothing may offer 1568 as fitting, and 1536, which completed three rounds, is the measured top."""
+    card = bindcraft2.P150A_DRAM_BYTES
+    top, refuses = bindcraft2._MEASURED_MODE_LADDERS["p150a"]["offload"]
+    assert bindcraft2.mode_ceiling("offload", card) == (1536, True)
+    assert bindcraft2.memory_mode("auto", top, card) == "offload"
+    assert bindcraft2.max_tokens("offload", card) < refuses
 
 
 def test_a_measured_refusal_caps_the_memory_law_everywhere_it_is_quoted():
