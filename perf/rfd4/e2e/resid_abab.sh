@@ -11,9 +11,11 @@ weights=${RFD4_WEIGHTS:-$HOME/rfd4-bundle}
 mkdir -p "$out"
 export TT_VISIBLE_DEVICES=$card TT_BIO_LEASE_CARDS=$card TT_BIO_LEASE_HOLDER=worker:$(basename "$wt")
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)"; }
-exec 9>"$HOME/spd_qb2_chip$card.lock"
-stamp "wait flock chip$card"
-flock -w 21600 9 || { stamp "flock timeout"; exit 3; }
+if [ -z "${RESID_FLOCK_HELD:-}" ]; then   # a chain that already holds the chip flock sets it
+    exec 9>"$HOME/spd_qb2_chip$card.lock"
+    stamp "wait flock chip$card"
+    flock -w 21600 9 || { stamp "flock timeout"; exit 3; }
+fi
 while fuser "/dev/tenstorrent/$card" >/dev/null 2>&1; do sleep 20; done
 cd "$wt"
 stamp "start $(git log --oneline -1)"
