@@ -616,14 +616,16 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: bits); `transition_b8` makes its weights and hidden bfp8; `trimul_gin` + `trimul_gin_w8` give the triangle
 #: multiplication's in-projection bfp8 resident weights (state/rfd4/bets/bfp8.md). Default since a 30-design grade
 #: at 512 tokens: designed-chain CA RMSD 2.1 A median (max 11.4) against a 52.5 A seed floor, oracle-free binder
-#: grade PASS (state/rfd4/LAND4.md).
-NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"})
-#: `--fast` adds `pair_block`, the pair transition and its residual write as one program with bfp8 weights where it
-#: serves (the composed levers above are its fallback): 6.20 -> 3.85 ms a call at 512 tokens, error vs float64
-#: 0.0116 -> 0.0101; and `pair_tail`, the triangle multiplication's output layer_norm, p_out, gate and residual add
-#: into the float32 stream as one program from 160 tokens (needs trimul_t1). In the trunk, against the default:
-#: 57.96 -> 44.10 s/design at 512 tokens, 16.84 -> 13.56 at 256 (state/rfd4/bets/pairblock.md).
-FAST_LEVERS = NORMAL_LEVERS | {"pair_block", "pair_tail"}
+#: grade PASS (state/rfd4/LAND4.md). `pair_block` runs the pair transition and its residual write as one program with
+#: bfp8 weights where it serves (the composed levers are its fallback): 6.20 -> 3.85 ms a call at 512 tokens, error vs
+#: float64 0.0116 -> 0.0101. `pair_tail` runs the triangle multiplication's output layer_norm, p_out, gate and residual
+#: add into the float32 pair stream as one program from 160 tokens (needs trimul_t1; state/rfd4/bets/pairblock.md).
+#: Default since the whole stack (these levers plus the pair built on the card) was graded as one at 512 tokens
+#: (state/rfd4/LAND6.md).
+NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
+                           "pair_block", "pair_tail"})
+#: `--fast` has nothing graded beyond the default.
+FAST_LEVERS = NORMAL_LEVERS
 
 
 class Trunk(Module):
