@@ -63,6 +63,10 @@ on its own:
 tt-bio design prepared.cif --model rfd4 --annotated_cif
 ```
 
+Building each input runs checks on the structure before it is saved, and they are what catches a
+selection that matched nothing. On a large spec they are also the slow part of preparation;
+`--no_validate` skips them once a spec is known to be right.
+
 ## From Python
 
 The same call, same defaults:
@@ -139,8 +143,6 @@ recipe: every step, every recycle.
 | family | tokens | recipe | s/design |
 |---|---:|---|---:|
 | motif scaffolding | 82 | `medium/midpeak` | 25.7 |
-| inverse folding | 59 | `medium/flat` | 25.5 |
-| partial diffusion | 225 | `medium/front_loaded` | 33.6 |
 | structure prediction | 138 | `thinking_medium` | 53.4 |
 | enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 61.2 |
 | unconditional monomer | 100 | `thinking_medium` | 66.9 |
@@ -150,6 +152,9 @@ recipe: every step, every recycle.
 
 Cost grows with the token count and with the recipe, not with `--num_designs`: designs are
 independent trajectories.
+
+Partial diffusion and inverse folding, which start from an input structure instead of noise, are
+not on the CLI yet.
 
 A design is reproducible from its seed, featurization included. Note that featurization is part of
 that: a contig with a variable-length segment samples its length per seed, so the same spec at two
