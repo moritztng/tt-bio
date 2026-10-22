@@ -94,6 +94,11 @@ def main() -> int:
                     # repeat-launch consistency: the semaphores reset between launches
                     again = ttnn.to_torch(ln_split.layer_norm(x, w, b, 1e-5)).double()
                     row[f"repeat_equal_{im}"] = bool(torch.equal(again, g))
+                    # L1 interleaved out (the attention LN under --fast on the 6B): the same values
+                    l1 = ln_split.layer_norm(x, w, b, 1e-5, ttnn.L1_MEMORY_CONFIG)
+                    row[f"l1_equal_{im}"] = l1 is not None and bool(torch.equal(ttnn.to_torch(l1).double(), g))
+                    if l1 is not None:
+                        ttnn.deallocate(l1)
             rows.append(row)
             print(json.dumps(row), flush=True)
     Path(args.out).write_text(json.dumps(rows, indent=1) + "\n")
