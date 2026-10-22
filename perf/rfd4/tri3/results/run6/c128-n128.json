@@ -1,0 +1,58 @@
+{
+ "rows": [
+  {
+   "n": 128,
+   "dir": "out",
+   "arm": "mm",
+   "ms": 0.0573,
+   "p10_ms": 0.0547,
+   "tflops": 9.4,
+   "reps": 123,
+   "rel_rms_vs_f64": 0.002892331473856327,
+   "max_abs_vs_first": 0.0
+  },
+  {
+   "n": 128,
+   "dir": "out",
+   "arm": "bres",
+   "ms": 0.097,
+   "p10_ms": 0.0837,
+   "tflops": 5.5,
+   "reps": 123,
+   "rel_rms_vs_f64": 0.002892331473856327,
+   "max_abs_vs_first": 0.0
+  },
+  {
+   "n": 128,
+   "dir": "in",
+   "arm": "mm",
+   "ms": 0.0577,
+   "p10_ms": 0.0554,
+   "tflops": 9.3,
+   "reps": 123,
+   "rel_rms_vs_f64": 0.0028887568450621814,
+   "max_abs_vs_first": 0.0
+  },
+  {
+   "n": 128,
+   "dir": "in",
+   "arm": "bres",
+   "ms": 0.0983,
+   "p10_ms": 0.0893,
+   "tflops": 5.5,
+   "reps": 123,
+   "rel_rms_vs_f64": 0.0028887568450621814,
+   "max_abs_vs_first": 0.0
+  }
+ ],
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 1
+  }
+ },
+ "program_config": "MatmulMultiCoreReuseProgramConfig(compute_with_storage_grid_size=(x=11,y=10),in0_block_w=4,out_subblock_h=1,out_subblock_w=1,per_core_M=4,per_core_N=4)",
+ "script": "perf/rfd4/tri3/contract.py"
+}

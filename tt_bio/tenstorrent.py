@@ -575,6 +575,9 @@ _FAST_MODE = False
 #   trimul_bres_b8  with trimul_bres, a bf16 b[c] is held in L1 as bfp8 where bf16 would split N (bmm_res.BRES_B8):
 #                   at 1024 tokens a[c] is read once instead of twice. Rounds b to bfp8, the einsum input trimul_b8in
 #                   meant to give it before gin_moved (which writes bf16) took the in-projection
+#   trimul_bres_hifi2 with trimul_bres, bmm_res runs the einsum at HiFi2. At c_z 256 on Blackhole, AICLK 1350, a
+#                   call drops 15-20 % at 448-704 tokens (512: 1.42 -> 1.20 ms outgoing) and the einsum's rel RMS vs
+#                   float64 goes 0.0029 -> 0.0050 (perf/rfd4/tri3/contract.py, state/rfd4/bets/tri3.md)
 #   trimul_bres_bh  trimul_bres takes its fp32-dest copy under acc_off on Blackhole too (Wormhole always does), so
 #                   bmm_res fires in Blackhole --fast sets
 #   atom_sdpa       the bf16 atom attention (superset window) on one fused SDPA, bf16 mask
@@ -820,6 +823,16 @@ _FAST_MODE = False
 #   pz_device       the diffusion-conditioned pair stays on the chip (`Protenix._pair_z_seam`): one device LN feeds the
 #                   bf16 token DiT and the atom encoder's 16-wide z term, which is all that is downloaded, instead of
 #                   an fp32 download, two host LNs and a re-upload. Device LN and a bf16 W_z, so outputs move.
+#   pair_block      RFD4's pair transition (LayerNorm, fc1 + bias, ReLU, fc2 + bias) as one `pair_relu` program with
+#                   bfp8 weights, the only form whose weights fit L1 at c_z 384 / hidden 768; the hidden never leaves
+#                   the core. 512 tokens 6.20 -> 3.85 ms a call against the fast set's composed path, error vs
+#                   float64 0.0116 -> 0.0101 (state/rfd4/bets/pairblock.md)
+#   pair_tail       RFD4's triangle output tail (LayerNorm, p_out, sigmoid gate) and its residual add into the float32
+#                   pair stream as one T2 program (`trimul_tail.fused_tail_ln(copy=)`), with no padded token. Unmeasured.
+#   pair_bias_rms   RFD4's pair biases (RMSNorm of the pair, the stacked bias projection, head-first layout, the split per
+#                   block) as one `dit_pair_bias.rms_pair_bias` program, with no padded token (state/rfd4/bets/pairbias.md)
+#   pair_write_res  RFD4's Hadamard pair write and its residual add into the float32 pair stream as one
+#                   `outer_residual` program, with no padded token (state/rfd4/bets/pairbias.md)
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -835,11 +848,14 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
-          "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "dit_cond_steps")
+          "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
+           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
+# RFD4's own set (rfd4.trunk.FAST_LEVERS) names pair_block, pair_tail, pair_bias_rms and pair_write_res, graded on
+# RFD4's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
@@ -855,7 +871,8 @@ UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_sp
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
-                             "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10"})
+                             "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
+                             "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -1788,6 +1805,9 @@ def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) 
 # faster, at any batch: ESMFold2 160 / 224 / 256 aa -19 / -41 / -40 %, OpenDDE 256 -33 %, Boltz-2 256 -5..-15 %,
 # OpenFold3 256 -6 %, 192 and 288 neutral, while 96 aa is 14-20 % slower on DRAM and 128 aa within -1..+5 %
 # (xmodel_ab, 1000 MHz, tdx). Graded on ESMFold2 and -Fast, both modes (tdg).
+# Wormhole only: it was measured there, and it can change the arithmetic, not only the memory config. A T1 plan
+# (trimul_t1_c256 / _c384) declines in L1 and serves in DRAM, so on a small Blackhole grid (the release gate's forced
+# 8x8, Protenix-v2 fkg) this threshold moved the fold off the native grid's digest: 09614098 vs dc08cebd.
 SMALL_GRID_TRIMUL_L1_MAX_SEQ = 128
 SMALL_GRID_TRIMUL_BUDGET_SCALE = 1.0
 
@@ -2100,7 +2120,7 @@ def _adaln_memory_config(atom_level: bool, large_seq_len: bool) -> ttnn.MemoryCo
 
 def _trimul_l1_max_seq() -> int:
     """Longest sequence whose trimul chunks still live in L1."""
-    if _IS_SMALL_GRID and SMALL_GRID_TRIMUL_L1_MAX_SEQ:
+    if _IS_SMALL_GRID and SMALL_GRID_TRIMUL_L1_MAX_SEQ and is_wormhole():
         return SMALL_GRID_TRIMUL_L1_MAX_SEQ
     if _FAST_MODE:
         return (
@@ -6615,10 +6635,11 @@ def set_trimul_per_channel(on) -> object:
 _TRIMUL_EINSUM_FID = os.environ.get("TT_BIO_TRIMUL_EINSUM_FID", "").lower()
 
 
-def _trimul_einsum_ckc(base):
-    if not _TRIMUL_EINSUM_FID:
+def _trimul_einsum_ckc(base, fid=None):
+    fid = fid or _TRIMUL_EINSUM_FID
+    if not fid:
         return base
-    cfg = type(base)(math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[_TRIMUL_EINSUM_FID]),
+    cfg = type(base)(math_fidelity=getattr(ttnn.MathFidelity, _MATH_FIDELITIES[fid]),
                      math_approx_mode=base.math_approx_mode, fp32_dest_acc_en=base.fp32_dest_acc_en,
                      packer_l1_acc=base.packer_l1_acc)
     cfg.dst_full_sync_en = base.dst_full_sync_en
@@ -6638,6 +6659,22 @@ def _bres_ckc(cfg):
     out.dst_full_sync_en = cfg.dst_full_sync_en
     out.throttle_level = cfg.throttle_level
     return out
+
+
+def _trimul_bres_ckc(base):
+    """The einsum's config as bmm_res takes it: HiFi2 under `trimul_bres_hifi2` unless the harness pins a fidelity."""
+    hifi2 = lever("trimul_bres_hifi2") and not _TRIMUL_EINSUM_FID
+    return _bres_ckc(_trimul_einsum_ckc(base, "hifi2" if hifi2 else None))
+
+
+def _trimul_bres_serves(out_mc, program_config) -> bool:
+    """Whether `trimul_bres` takes the einsum (bmm_res may still decline on fit). On Blackhole it leaves the call to
+    ttnn.matmul where ttnn's own plan already holds whole channels per core (`MatmulMultiCoreReuseProgramConfig`,
+    256 tokens on the 11x10 grid): 0.30 ms a call there against bmm_res's 0.37. Under the 2D multicast plan, 288 to
+    704 tokens, bmm_res takes 0.64-1.03x ttnn's time at HiFi4 (perf/rfd4/tri3/contract.py, AICLK 1350)."""
+    return (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
+            and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
+            and (is_wormhole() or not isinstance(program_config, ttnn.MatmulMultiCoreReuseProgramConfig)))
 
 
 def set_trimul_einsum_fid(fid: str) -> str:
@@ -10504,20 +10541,26 @@ class TriangleMultiplication(Module):
         self._gp_in_biases(chunk_size, group)
 
     def __call__(self, x: ttnn.Tensor, mask: ttnn.Tensor | None = None,
-                 add_to_input: bool = False, fused_residual=None) -> ttnn.Tensor:
+                 add_to_input: bool = False, fused_residual=None, stream32=None) -> ttnn.Tensor:
         """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`).
 
         `fused_residual` = (dropout mask or None,) is AF2's offer: where T2CM serves the tail it
         returns `x + mask * update` in a new tensor and sets `took_residual`; `x` is left to the
-        caller. Anywhere else the bare update comes back as without it."""
+        caller. Anywhere else the bare update comes back as without it.
+
+        `stream32` (RFD4, float32, x's shape) is the residual stream `x` is the bf16 copy of. Where T2's
+        float32 form serves the tail (`trimul_tail.fused_tail_ln(copy=)`) the update is added to it in the
+        same program, the sum written over `stream32` and its bf16 copy over `x`; `stream32` comes back and
+        `took_residual` is set. Anywhere else the bare update, as without it."""
         self.took_residual = False
         u = host_acc_after_refusal(
             ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
-                "triangle multiplication", lambda: self._multiply(x, mask, add_to_input, fused_residual)))
+                "triangle multiplication", lambda: self._multiply(x, mask, add_to_input, fused_residual,
+                                                                  stream32)))
         return _add_input(x, u) if add_to_input else u
 
     def _multiply(self, x: ttnn.Tensor, mask: ttnn.Tensor | None,
-                  add_to_input: bool = False, fused_residual=None) -> ttnn.Tensor:
+                  add_to_input: bool = False, fused_residual=None, stream32=None) -> ttnn.Tensor:
         x_in = x  # keep the pair tensor reachable for the row-blocked tail below
         shp = [int(d) for d in x.shape]
         H = shp[1]
@@ -10966,12 +11009,11 @@ class TriangleMultiplication(Module):
                                 # what used to be a TT_THROW + DRAM retry once per trimul shape and
                                 # process on every Wormhole fold at 512 aa.
                                 tma_reserve = _PAIR_L1_CONSUMER_RESERVE
-                                if (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
-                                        and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
+                                if _trimul_bres_serves(out_mc, program_config):
                                     ht = -(-H // 32)
                                     tma_reserve = max(tma_reserve, _bmm_res.cb_bytes(
                                         ht, ht, _dtype(), _dtype(), defer and perm_a == (0, 3, 2, 1),
-                                        _bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config))))
+                                        _trimul_bres_ckc(self.compute_kernel_config)))
                                 if (not ops.taping() and tma_key not in _OF3L1_REFUSED
                                         and n_pairs // group == 1
                                         and (perm_a != (0, 3, 2, 1) or defer)
@@ -11039,11 +11081,10 @@ class TriangleMultiplication(Module):
                     # taking the deferred transpose as ttnn.matmul would; it declines (None) where b[c]
                     # does not fit or a layout is not its own.
                     x_chunk = None
-                    if (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
-                            and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED):
+                    if _trimul_bres_serves(out_mc, program_config):
                         x_chunk = _bmm_res.matmul(
                             a_chunk, b_chunk,
-                            compute_kernel_config=_bres_ckc(_trimul_einsum_ckc(self.compute_kernel_config)),
+                            compute_kernel_config=_trimul_bres_ckc(self.compute_kernel_config),
                             transpose_a=defer_a, transpose_b=defer_b, b8=lever("trimul_bres_b8"))
                     if x_chunk is None:
                         x_chunk = ttnn.matmul(
@@ -11398,6 +11439,17 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        if (stream32 is not None and g_out_fused is not None and not x_normed and not add_to_input
+                and self.p_out_bias is None and not ops.taping()):
+            t2m_flush()
+            fused = _trimul_tail.fused_tail_ln(
+                x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused, stream32,
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN), copy=x_in)
+            if fused is not None:
+                ttnn.deallocate(x)
+                ttnn.deallocate(g_out_fused)
+                self.took_residual = True
+                return fused
         t2_gate = (g_out_fused is None and x_norm_in is not None and self.g_out_bias is None
                    and (_trimul_tail.T2 or lever("trimul_t2g")))
         if (self._t2_serves(g_out_fused, x_norm_in, H, add_to_input) and not x_normed

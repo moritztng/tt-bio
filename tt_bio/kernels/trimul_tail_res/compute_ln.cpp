@@ -80,6 +80,17 @@ constexpr uint32_t cb_prev = tt::CBIndex::c_18;  // MOVED: the CP earlier channe
 constexpr uint32_t cb_bias = tt::CBIndex::c_19;  // EXTRA 1 / 2: row-replicated bias tiles, resident
 constexpr uint32_t cb_mask = tt::CBIndex::c_20;  // EXTRA 4: the block's Nt mask tiles
 constexpr uint32_t NBIAS = (EXTRA & 1) + ((EXTRA >> 1) & 1);
+// T2_RES32 (RFD4's float32 pair stream; not with FOLD or EXTRA): z (c_7) is float32, unpacked straight to DST
+// (UnpackToDestFp32, set by the host) beside the update and added by the SFPU, so z + update is one float32
+// rounding; the sum is packed float32 to c_2 (written over z) and bfloat16 to c_21 (over the trimul's input, the
+// copy the next sublayer reads). Two tiles a group, the update in DST 0-1 and z in 2-3.
+#ifdef T2_RES32
+constexpr uint32_t cb_copy = tt::CBIndex::c_21;
+constexpr uint32_t G = 2;
+static_assert(!FOLD && !EXTRA, "T2_RES32 is the plain or GATE form");
+#else
+constexpr uint32_t G = 4;
+#endif
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
@@ -291,11 +302,17 @@ void kernel_main() {
         cb_wait_front(cb_z, blk);
         if constexpr (EXTRA & 4) cb_wait_front(cb_mask, Nt);
         cb_reserve_back(cb_out, blk);
+#ifdef T2_RES32
+        cb_reserve_back(cb_copy, blk);
+#endif
         sigmoid_tile_init();
         pack_reconfig_data_format(cb_out);
         if constexpr (FOLD) cb_wait_front(cb_rstd, Mb);
-        for (uint32_t t0 = 0; t0 < ((ABL & 8) ? 0 : blk); t0 += 4) {
+        for (uint32_t t0 = 0; t0 < ((ABL & 8) ? 0 : blk); t0 += G) {
             tile_regs_acquire();
+#ifdef T2_RES32
+            sigmoid_tile_init();    // the SFPU add below reprograms it
+#endif
             if constexpr (FOLD) {
                 // DST = p * rstd + bias, then * g below in the same DST (g is already a sigmoid under GATE).
                 reconfig_data_format(cb_p, cb_rstd);
@@ -316,9 +333,9 @@ void kernel_main() {
             } else {
             reconfig_data_format_srca(cb_g);
             copy_tile_to_dst_init_short(cb_g);
-            for (uint32_t i = 0; i < 4; ++i) copy_tile(cb_g, t0 + i, i);
+            for (uint32_t i = 0; i < G; ++i) copy_tile(cb_g, t0 + i, i);
             if constexpr (!GATE && !(ABL & 16)) {
-                for (uint32_t i = 0; i < 4; ++i) {
+                for (uint32_t i = 0; i < G; ++i) {
                     if constexpr (SIGPOLY) sigmoid_poly_tile<SIGPOLY>(i);
                     else sigmoid_bf16_tile(i);
                 }
@@ -326,38 +343,56 @@ void kernel_main() {
             reconfig_data_format(cb_p, cb_p);
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                 cb_p);
-            for (uint32_t i = 0; i < 4; ++i)
+            for (uint32_t i = 0; i < G; ++i)
                 binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                     cb_p, t0 + i, i);
             }
             if constexpr (FOLD) reconfig_data_format(cb_z, cb_z);
             if constexpr (RNE & 4) {
-                for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
+                for (uint32_t i = 0; i < G; ++i) round_bf16_rne_tile(i);
             }
             if constexpr (EXTRA & 4) {
                 binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                     cb_mask);
-                for (uint32_t i = 0; i < 4; ++i)
+                for (uint32_t i = 0; i < G; ++i)
                     binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                         cb_mask, (t0 + i) % Nt, i);
                 if constexpr (RNE & 4) {
-                    for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
+                    for (uint32_t i = 0; i < G; ++i) round_bf16_rne_tile(i);
                 }
             }
+#ifdef T2_RES32
+            reconfig_data_format_srca(cb_z);
+            copy_tile_to_dst_init_short(cb_z);
+            for (uint32_t i = 0; i < G; ++i) copy_tile(cb_z, t0 + i, G + i);
+            add_binary_tile_init();
+            for (uint32_t i = 0; i < G; ++i) add_binary_tile(i, G + i, i);
+#else
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
                 cb_z);
-            for (uint32_t i = 0; i < 4; ++i)
+            for (uint32_t i = 0; i < G; ++i)
                 binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
                     cb_z, t0 + i, i);
             if constexpr (RNE & 1) {
-                for (uint32_t i = 0; i < 4; ++i) round_bf16_rne_tile(i);
+                for (uint32_t i = 0; i < G; ++i) round_bf16_rne_tile(i);
             }
+#endif
             tile_regs_commit();
             tile_regs_wait();
+#ifdef T2_RES32
+            pack_reconfig_data_format(cb_out);
+            for (uint32_t i = 0; i < G; ++i) pack_tile(i, cb_out);
+            pack_reconfig_data_format(cb_copy);
+            for (uint32_t i = 0; i < G; ++i) pack_tile(i, cb_copy);
+#else
             for (uint32_t i = 0; i < 4; ++i) pack_tile(i, cb_out);
+#endif
             tile_regs_release();
         }
         cb_push_back(cb_out, blk);
+#ifdef T2_RES32
+        cb_push_back(cb_copy, blk);
+#endif
         cb_pop_front(cb_p, blk);
         cb_pop_front(cb_g, blk);
         cb_pop_front(cb_z, blk);
