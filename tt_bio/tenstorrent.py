@@ -3011,7 +3011,7 @@ _SDPA32_PAD_MASK = -1e4
 _SDPA32_CKC = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
-def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None):
+def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None, memory_config=None):
     """`x @ w (+ bias)` accumulated in fp32 dest and written at `dtype`, any operand formats.
 
     The matmul of the `dit_mm16` and `atom_k1` levers. On Wormhole the program takes one K tile
@@ -3034,10 +3034,10 @@ def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None)
         pc = _k1_program(prod(shp[:-1]) // 32, shp[-1] // 32, int(w.padded_shape[-1]) // 32,
                          g.x, g.y, activation, tiles)
     if pc is None:
-        return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype,
+        return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype, memory_config=memory_config,
                            compute_kernel_config=compute_kernel_config, core_grid=CORE_GRID_MAIN)
     return ttnn.linear(x, w, bias=bias, dtype=dtype, compute_kernel_config=compute_kernel_config,
-                       program_config=pc)
+                       program_config=pc, memory_config=memory_config)
 
 
 class DitLowp(NamedTuple):
@@ -3050,13 +3050,15 @@ class DitLowp(NamedTuple):
     k1: bool        # fp32 accumulation: k1_linear's program
     qkv: object     # q/k/v when the attention is `_sdpa32` (else `out`)
 
-    def linear(self, x, w, bias=None, *, dtype, activation=None):
-        y = _dit_step_mm(x, w, bias, self, dtype, activation) if lever("dit_step_mm") else None
+    def linear(self, x, w, bias=None, *, dtype, activation=None, memory_config=None):
+        y = _dit_step_mm(x, w, bias, self, dtype, activation, memory_config) if lever("dit_step_mm") else None
         if y is not None:
             return y
         if self.k1:
-            return k1_linear(x, w, bias, compute_kernel_config=self.ckc, dtype=dtype, activation=activation)
+            return k1_linear(x, w, bias, compute_kernel_config=self.ckc, dtype=dtype, activation=activation,
+                             memory_config=memory_config)
         return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype, core_grid=CORE_GRID_MAIN,
+                           memory_config=memory_config,
                            compute_kernel_config=silu_ckc(self.ckc) if activation == "silu" else self.ckc)
 
 
@@ -3065,7 +3067,7 @@ class DitLowp(NamedTuple):
 _DIT_STEP_MM = {(True, 24, 96): (4, 1, 16, 1, 4), (True, 24, 48): (4, 1, 8, 1, 4), (True, 48, 24): (2, 1, 4, 1, 4),
                 (True, 24, 24): (2, 1, 4, 1, 4), (False, 24, 96): (2, 4, 16, 2, 4), (False, 24, 48): (2, 4, 8, 2, 4),
                 (False, 48, 24): (2, 4, 4, 2, 4), (False, 24, 24): (2, 4, 4, 2, 4)}
-def _dit_step_mm(x, w, bias, lp, dtype, activation):
+def _dit_step_mm(x, w, bias, lp, dtype, activation, memory_config=None):
     """`DitLowp.linear` on minimal_matmul (`dit_step_mm`), or None where no block was measured (a fused activation
     was not)."""
     blk = (_DIT_STEP_MM.get((lp.k1, int(w.padded_shape[-2]) // 32, int(w.padded_shape[-1]) // 32))
@@ -3076,7 +3078,8 @@ def _dit_step_mm(x, w, bias, lp, dtype, activation):
     gx, gy = COMPUTE_GRID_MAIN
     cfg = ttnn.MinimalMatmulConfig(M_block_size=m, K_block_size=k, N_block_size=n, subblock_h=sh, subblock_w=sw,
                                    compute_with_storage_grid_size=ttnn.CoreCoord(gx, gy))
-    return ttnn.experimental.minimal_matmul(x, w, bias_tensor=bias, compute_kernel_config=lp.ckc, dtype=dtype, config=cfg)
+    return ttnn.experimental.minimal_matmul(x, w, bias_tensor=bias, compute_kernel_config=lp.ckc, dtype=dtype, config=cfg,
+                                            memory_config=memory_config)
 
 
 def dit_lowp(dit_dtype, ckc):
@@ -15573,7 +15576,7 @@ class AdaLN(Module):
         self.s_scale_bias = self.torch_to_tt("s_scale.bias", dtype=dtype)
         self.s_bias_weight = self.torch_to_tt("s_bias.weight", dtype=dtype)
 
-    def s_terms(self, s: ttnn.Tensor, large_seq_len: bool = False):
+    def s_terms(self, s: ttnn.Tensor, large_seq_len: bool = False, memory_config=None):
         """``(s_scale, s_bias)``: the conditioning half, a pure function of ``s``.
 
         Split out so a caller whose ``s`` is a loop invariant computes it once instead of
@@ -15588,7 +15591,7 @@ class AdaLN(Module):
         # pins 12 x 1.83 MB of L1 for the whole rollout, which throws `Statically allocated
         # circular buffers ... clash with L1 buffers` in the confidence stack downstream.
         s_src = s
-        memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
+        memory_config = memory_config or _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             s = ttnn.to_memory_config(s, memory_config=memory_config)
         s = ttnn.layer_norm(
@@ -15636,10 +15639,12 @@ class AdaLN(Module):
                 self.weights["s_bias.weight"].t() * g)
 
     def __call__(self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False,
-                 s_terms=None, dtype=None) -> ttnn.Tensor:
+                 s_terms=None, dtype=None, memory_config=None) -> ttnn.Tensor:
         """`dtype`: write the modulated output at this dtype (the norm and the modulation run at
-        the input's); the `dit_mm16` lever takes it bf16 for the linears that read it."""
-        memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
+        the input's); the `dit_mm16` lever takes it bf16 for the linears that read it. `memory_config`:
+        where the conditioning terms and the output are written (OpenFold3's dit_l1), else DRAM."""
+        out_mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
+        memory_config = memory_config or _adaln_memory_config(self.atom_level, large_seq_len)
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
         a = ttnn.layer_norm(
@@ -15647,7 +15652,7 @@ class AdaLN(Module):
         )
         own = s_terms is None
         if own:
-            s_terms = self.s_terms(s, large_seq_len)
+            s_terms = self.s_terms(s, large_seq_len, memory_config)
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         if isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin):
@@ -15688,7 +15693,7 @@ class AdaLN(Module):
         if own:                     # a cached pair belongs to the caller
             ttnn.deallocate(s_scale)
             ttnn.deallocate(s_bias)
-        a = ttnn.to_memory_config(a, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        a = ttnn.to_memory_config(a, memory_config=out_mc)
         return a
 
 
