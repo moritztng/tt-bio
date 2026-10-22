@@ -34,7 +34,7 @@ class _Trunk(trunk_mod.Trunk):
     """The real `launch`, with the device forward replaced by one that learns a plan on its first call."""
 
     def __init__(self, learn_on):
-        self.dtype = self.residual_dtype = None
+        self.dtype = self.residual_dtype = self.pair_residual_dtype = None
         self.learn_on, self.calls, self.outs = set(learn_on), 0, []
 
     def masks_for(self, mask, device):
