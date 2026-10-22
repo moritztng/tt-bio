@@ -8,7 +8,11 @@ S=$1; MAIN=$2; HERE=$(cd "$(dirname "$0")" && pwd); LAND=$(cd "$HERE/../.." && p
 V=$HOME/scratch/shipflow
 mkdir -p "$S/tests"
 cd "$LAND"
-FILES=$(grep -lE "atomworks|rf3" tests/*.py | tr '\n' ' ')
+# RFD4's host-side suites are in here too: it is the other consumer of the vendored atomworks,
+# so a vendoring change that only breaks RFD4 has to fail this sweep rather than a later one. Its
+# trunk/golden/autoencoder suites are @pytest.mark.device and belong to the device step, not here.
+FILES=$( (grep -lE "atomworks|rf3" tests/*.py; ls tests/test_rfd4_io.py tests/test_rfd4_sampler.py) \
+         | sort -u | tr '\n' ' ')
 for tree in ${TREES:-land main}; do
   T=$LAND; [ $tree = main ] && T=$MAIN
   for py in 310 312; do

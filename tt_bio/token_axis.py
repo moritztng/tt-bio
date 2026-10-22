@@ -244,6 +244,17 @@ TOKEN_AXIS = {
         "The two routes a padded token could reach a real one are the DiT attention keys, "
         "closed by the structural_pair_attn_bias slot, and S, closed by zero columns",
     ),
+    "rfd4": (
+        BUCKETED, TOKEN_BUCKET,
+        "tt_bio/rfd4/trunk.py::Trunk.run_bucketed, the one host entry to the device trunk; the "
+        "autoencoder's own token pad is tt_bio/rfd4/autoencoder.py::AEHalf.__call__, which "
+        "pads to the tile",
+        "pad + mask + slice back. Padded tokens are masked tokens, the same thing upstream does to "
+        "the short sequence in a batch, so the pad goes through the model's own mask path rather "
+        "than a bias added for it. tests/test_rfd4_trunk_parity.py::"
+        "test_padding_does_not_touch_the_real_tokens pins the real rows unchanged under padding "
+        "and ::test_trunk_run_bucketed_ragged_length runs a ragged length end to end",
+    ),
     # AF2-IG runs RAGGED, and it is the one row here whose bucket is not a mechanical change.
     # Where it reduces: both triangle attentions and the MSA row attention go through
     # `tenstorrent._fp32_softmax_attention` (af2.py sets `fp32_softmax=True` on all three), the
