@@ -649,6 +649,9 @@ _FAST_MODE = False
 #                   multiply then add: the activation is read and written once. Boltz-2's hoisted token-DiT
 #                   AdaLN (`_B2_ADALN_ADDCMUL`) does the same in any dtype, the sigmoid in the scale matmul,
 #                   and so does its DiT's gated residual, `a + s_o * b`.
+#   dit_mod16       adaln_mod for bf16 AdaLNs too, and the Protenix-family token DiT's gated residuals
+#                   `x + y * sigmoid(g)` as one addcmul: the activation read and written once, one bf16
+#                   rounding fewer than the multiply-then-add chain (so not bit-exact against it)
 #   swiglu_fc12g    inside transition_shard, silu(x w1) * (x w2) as ONE matmul over [w1_j | w2_j] with the silu
 #                   and the gate multiply in the compute kernel (kernels/fc12g): no fc1/fc2 tensors, no
 #                   multiply op; the gate multiplies fc2 in dest rather than its stored copy. Needs silu_f32.
@@ -698,6 +701,8 @@ _FAST_MODE = False
 #                   `_sdpa32` writing bf16 (`_DiTBlock._call_fused`). Each fused product skips one bf16 rounding
 #   pair_mm         pair-track linears on minimal_matmul with pair_mm's block table (ReLU at pack); the lever form of
 #                   TT_BIO_PAIR_MM for a model that names it in its own set (AF2 on Wormhole)
+#   pair_mm_tr      under pair_mm, also serve the 384 <-> 768 pair-transition keys swept for RFD4 (bf16 and bfp8);
+#                   without it those linears keep ttnn's plan (RFD4's --fast set)
 #   conf_bins       OpenFold3's pae / pde heads reduce softmax(logits) to their bin-vector products on the card
 #                   in fp32 (pTM, ipTM, the chain readings, the PAE / PDE matrices), so the [N, N, 64] logits
 #                   never cross to the host
@@ -809,11 +814,13 @@ _FAST_MODE = False
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
 #                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
+#   pz_device       the diffusion-conditioned pair stays on the chip (`Protenix._pair_z_seam`): one device LN feeds the
+#                   bf16 token DiT and the atom encoder's 16-wide z term, which is all that is downloaded, instead of
+#                   an fp32 download, two host LNs and a re-upload. Device LN and a bf16 W_z, so outputs move.
 #   pair_block      RFD4's pair transition (LayerNorm, fc1 + bias, ReLU, fc2 + bias) as one `pair_relu` program with
 #                   bfp8 weights, the only form whose weights fit L1 at c_z 384 / hidden 768; the hidden never leaves
 #                   the core. 512 tokens 6.20 -> 3.85 ms a call against the fast set's composed path, error vs
 #                   float64 0.0116 -> 0.0101 (state/rfd4/bets/pairblock.md)
-#   pair_block_hifi2  with pair_block, its matmuls at HiFi2: 3.85 -> 2.43 ms at 512 tokens, error 0.0148
 #   pair_tail       RFD4's triangle output tail (LayerNorm, p_out, sigmoid gate) and its residual add into the float32
 #                   pair stream as one T2 program (`trimul_tail.fused_tail_ln(copy=)`), with no padded token. Unmeasured.
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -831,17 +838,17 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
-          "trimul_t1_2g", "trimul_t1_psig", "pair_block", "pair_block_hifi2", "pair_tail")
+          "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "pair_block", "pair_tail")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# RFD4's own set (rfd4.trunk.FAST_LEVERS) names pair_block, graded on RFD4's designs; pair_block_hifi2 awaits its grade.
+# RFD4's own set (rfd4.trunk.FAST_LEVERS) names pair_block, graded on RFD4's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
@@ -852,7 +859,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bp
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
-                             "trimul_t1_psig", "pair_block", "pair_block_hifi2", "pair_tail"})
+                             "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "pair_block", "pair_tail"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -4738,8 +4745,30 @@ def absorb_l1_refusal(where: str, exc: BaseException) -> None:
         raise exc
 
 
+#: Plans this process has learned from a device refusal and keeps for the rest of its life: an L1
+#: clash, a DRAM out-of-memory. A learned plan is not always the same arithmetic (the trimul's DRAM
+#: path rounds differently from its L1 path), so a forward during which this moved ran its earlier
+#: ops on the plan it then abandoned, and its output is not the one every later call gives. At
+#: 256 tokens on a p300c, RFD4's first trimul fit in L1 and its second clashed, so the first design
+#: of a process landed 2.65 A from every repeat at the same seed. A caller that wants output
+#: independent of process history re-runs such a forward (`refusals_learned`).
+_REFUSALS_LEARNED = [0]
+
+
+def learned_from_refusal() -> None:
+    """Count one plan learned from a device refusal. Called wherever such a plan is recorded."""
+    _REFUSALS_LEARNED[0] += 1
+
+
+def refusals_learned() -> int:
+    """How many plans this process has learned from device refusals so far. Compare before and
+    after a forward: unequal means the forward mixed two plans and should be run again."""
+    return _REFUSALS_LEARNED[0]
+
+
 def note_l1_clash(where: str, msg: object) -> dict | None:
     """Record a clash census under `where` and return it. Safe to call from an except block."""
+    learned_from_refusal()
     seen = _CB_OVERFLOW_RE.search(str(msg))
     if seen and not _L1_TOP_SEEN:
         _L1_TOP_SEEN.append(int(seen.group(6)))
@@ -6078,6 +6107,8 @@ _PT_ROW_MAJOR = os.environ.get(
 # so the honest test is the allocation itself; remembering the refusal keeps it to one attempt
 # per class per process, the same pattern `_L1_OUT_REFUSED` uses for the projections.
 _TRANSPOSE_L1_REFUSED: set = set()
+#: `_gated_rowblocked` shapes whose L1 row blocks the device refused; they take the whole-tensor path.
+_GATED_ROWBLOCK_REFUSED: set = set()
 # Shape classes whose DRAM row-major transpose route was refused; they permute tiled after.
 _PT_ROW_MAJOR_REFUSED: set = set()
 
@@ -10391,6 +10422,9 @@ class TriangleMultiplication(Module):
         if not R or R % _reblock.TILE_H or H % R:
             return None, None
         cw = int((x_in if x_norm_in is None else x_norm_in).shape[-1])
+        key = (H, cw, slice_c, R, x_norm_in is None, str(memory_config.buffer_type))
+        if key in _GATED_ROWBLOCK_REFUSED:
+            return None, None
         a = b = None
         try:
             for s_off in range(0, H, R):
@@ -10427,6 +10461,9 @@ class TriangleMultiplication(Module):
             # let the caller run the whole-tensor projection. Report it first, so the `critical`
             # text tt-metal already wrote to fd 2 is attributed to this site instead of reading
             # like the cause of death of a fold that went on to finish.
+            # Remember it, as every other refusal site does: the budget miss repeats on every call
+            # at this shape, and a refusal that is not remembered moves `refusals_learned` each time.
+            _GATED_ROWBLOCK_REFUSED.add(key)
             report_l1_refusal("reblock_gated_inproj", exc)
             for t in (a, b):
                 if t is not None:
@@ -11172,6 +11209,7 @@ class TriangleMultiplication(Module):
                 if (not oom and not mask_clash and not ibw_clash and not pc_clash and not tma_retry
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
+                learned_from_refusal()
                 if t1 is not None:
                     # T1's a and b may already be consumed, so the retry takes the incumbent route
                     # from a fresh input norm; its g_out goes with g_out_fused below.
@@ -11426,6 +11464,7 @@ class TriangleMultiplication(Module):
             if g_out_fused is not None:
                 ttnn.deallocate(g_out_fused)
             _TRIMUL_TAIL_ROWS_SHAPES.add(tail_key)
+            learned_from_refusal()
             TRIMUL_TAIL_ROWS_STATS[0] += 1
             print(f"[tt-bio] trimul DRAM refused the whole-tensor output norm at "
                   f"{'x'.join(map(str, shp))}: re-running the tail in {PAIR_ROW_BLOCK}-row "
@@ -15609,7 +15648,8 @@ class AdaLN(Module):
             out = ttnn.addcmul(s_bias, a, s_scale, value=1.0, **kw)
             ttnn.deallocate(a)
             a = out
-        elif lever("adaln_mod") and a.dtype == ttnn.float32:
+        elif ((lever("adaln_mod") and a.dtype == ttnn.float32)
+              or (lever("dit_mod16") and a.dtype == ttnn.bfloat16)):
             # One addcmul reads and writes the [M, rows, C] activation once; the sigmoid runs on
             # the [1, rows, C] scale. addcmul takes no dtype, so a narrower output is preallocated.
             # Wormhole [5, 768, 768] to bf16: 329 -> 265 us (perf/spd_difflin/mod_check.py).

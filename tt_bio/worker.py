@@ -2999,8 +2999,8 @@ def _execute_rfd4_job_inprocess(
         traceback.print_exc()
 
 
-#: (recipe, engine) — the RFD4 engine this worker holds, reused across shards of a run.
-_RFD4_ENGINE: tuple[str | None, Any] = (None, None)
+#: ((recipe, fast), engine) — the RFD4 engine this worker holds, reused across shards of a run.
+_RFD4_ENGINE: tuple[Any, Any] = (None, None)
 
 
 def _free_rfd4_engine() -> None:
@@ -3012,17 +3012,20 @@ def _free_rfd4_engine() -> None:
 
 
 def _rfd4_engine(cfg: dict[str, Any]):
-    """This worker's RFD4 engine, loading it on first use and on a recipe change.
+    """This worker's RFD4 engine, loading it on first use and on a recipe or `--fast` change.
 
-    The recipe is the one thing a run can change that the loaded engine carries, so it keys the
-    cache; everything else per design (seed, steps, the input) is an argument.
+    The recipe and the lever set (`--fast`) are what a run can change that the loaded engine
+    carries, so they key the cache; everything else per design (seed, steps, the input) is an argument.
     """
     global _RFD4_ENGINE
-    recipe = cfg.get("recipe")
-    if _RFD4_ENGINE[0] != recipe or _RFD4_ENGINE[1] is None:
+    recipe, fast = cfg.get("recipe"), bool(cfg.get("fast"))
+    if _RFD4_ENGINE[0] != (recipe, fast) or _RFD4_ENGINE[1] is None:
         from tt_bio.rfd4 import get_engine
+        from tt_bio.tenstorrent import set_fast_mode
 
-        _RFD4_ENGINE = (recipe, get_engine(**({"recipe": recipe} if recipe else {})))
+        _RFD4_ENGINE = (None, None)
+        set_fast_mode(fast)   # read once, when the trunk picks its lever set
+        _RFD4_ENGINE = ((recipe, fast), get_engine(**({"recipe": recipe} if recipe else {})))
     return _RFD4_ENGINE[1]
 
 

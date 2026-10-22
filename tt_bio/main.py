@@ -4330,8 +4330,8 @@ def _rfd4_sampling(partial_fraction, partial_t_backbone, partial_t_latent, coupl
 
 
 def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nsteps, seed,
-                  spec_subset, annotated_cif: bool, validate: bool, controller: str | None = None,
-                  run_id: str | None = None, owner: str | None = None,
+                  spec_subset, annotated_cif: bool, validate: bool, fast: bool = False,
+                  controller: str | None = None, run_id: str | None = None, owner: str | None = None,
                   sampling: dict | None = None, tsr_k: float | None = None,
                   save_trajectory_every: int = 0) -> None:
     """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
@@ -4369,13 +4369,16 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
                                   controller_url=controller, num_designs=num_designs,
                                   backend=backend,
                                   recipe=recipe, nsteps=nsteps, seed=seed, only=only,
-                                  validate=validate, annotated_cif=annotated_cif,
+                                  validate=validate, annotated_cif=annotated_cif, fast=fast,
                                   run_id=run_id, owner=owner)
         except NotImplementedError as e:
             raise click.ClickException(str(e))
         except (ValueError, KeyError, FileNotFoundError) as e:
             raise click.ClickException(f"{type(e).__name__}: {e}")
         return
+    from tt_bio.tenstorrent import set_fast_mode
+
+    set_fast_mode(fast)   # the trunk picks its lever set (rfd4.trunk.FAST_LEVERS) when it is built
     try:
         written = rfd4.design(inputs, out_dir, num_designs=num_designs, backend=backend,
                               recipe=recipe, adapter=lora, tsr_k=tsr_k, nsteps=nsteps, seed=seed,
@@ -4537,8 +4540,9 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
               help="boltzgen only. Reuse existing results in --out_dir and generate only as "
                    "many new designs as --num_designs still needs.")
 @click.option("--fast", is_flag=True,
-              help="boltzgen and rfd3. Faster, slightly lower-precision kernels (boltzgen: "
-                   "block-fp8 for some operations; rfd3: fused atom attention).")
+              help="boltzgen, rfd3 and rfd4. Faster, slightly lower-precision kernels (boltzgen: "
+                   "block-fp8 for some operations; rfd3: fused atom attention; rfd4: block-fp8 "
+                   "pair-track matmuls).")
 @click.option("--diffusion_trace", is_flag=True,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
                    "DiT device stream (lossless; collapses per-step host dispatch). Opt-in; "
@@ -4748,7 +4752,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     if model == "rfd4":
         for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
                            ("--config", "configs"), ("--budget", "budget"),
-                           ("--reuse", "reuse"), ("--fast", "fast"),
+                           ("--reuse", "reuse"),
                            ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
                            ("--log", "log"), ("--checkpoint", "checkpoint"),
                            ("--golden_dir", "golden_dir"), ("--num_timesteps", "num_timesteps"),
@@ -4761,7 +4765,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         _run_rfd4_cli(Path(inputs), out_dir,
                       num_designs if num_designs is not None else 1,
                       backend, recipe, lora, nsteps, seed, spec_subset, annotated_cif,
-                      not no_validate,
+                      not no_validate, fast,
                       controller=controller, run_id=run_id, owner=owner,
                       sampling=_rfd4_sampling(partial_fraction, partial_t_backbone,
                                               partial_t_latent, couple_partial_t,

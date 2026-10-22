@@ -33,28 +33,26 @@ def _transition64(w, z):
 
 
 @pytest.mark.device
-@pytest.mark.parametrize("hifi2", [False, True], ids=["trunk-fidelity", "hifi2"])
 @pytest.mark.parametrize("length", [96, 128], ids=["padded", "full"])
-def test_pair_block_transition(length, hifi2):
+def test_pair_block_transition(length):
     dev = T.get_device()
     w = REF.pair_update_weights(768, 384, 256, seed=5, prefix="pu")
     _, z, _, mask = REF.block_inputs(1, 128, 768, 384, 256, lengths=[length], seed=1)
     pair = mask[:, :, None] * mask[:, None, :]
     zb = REF.bf16(z * pair[..., None])          # the trunk hands the transition a masked bf16 stream
     ref = _transition64(w, zb) * pair[..., None]
-    levers = frozenset({"pair_block"} | ({"pair_block_hifi2"} if hifi2 else set()))
-    with T.lever_scope(levers):
+    with T.lever_scope(frozenset({"pair_block"})):
         mod = TR.PairUpdate(T.WeightScope({k: v.to(torch.float32) for k, v in w.items()}).child("pu"),
                             TR.compute_kernel_config())
         assert mod.tr_ws is not None
         zt, pmc = _dev(zb, dev), _dev(pair[..., None], dev)
-        out = mod._transition(zt, pmc, length < 128)
+        out = mod._transition(zt, pmc if length < 128 else None)
     got = ttnn.to_torch(out).double().reshape(ref.shape)
     real = pair.bool()
     g, r = got[real], ref[real]
     err = ((g - r).pow(2).mean().sqrt() / r.pow(2).mean().sqrt()).item()
     pcc = torch.corrcoef(torch.stack([g.flatten(), r.flatten()]))[0, 1].item()
-    print(f"\npair_block length {length} hifi2 {hifi2}: rel_rms {err:.3e} vs float64, pcc {pcc:.6f}")
+    print(f"\npair_block length {length}: rel_rms {err:.3e} vs float64, pcc {pcc:.6f}")
     assert err < BAR and pcc > PCC_BAR
     assert bool((got[~real] == 0).all())
 
