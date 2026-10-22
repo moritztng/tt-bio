@@ -907,7 +907,15 @@ outliers and clashes unchanged. The trunk takes 44.1 s a 512-token design on a B
 against 57.9 s without the two fused programs and 64.3 s in fp32; the fused programs are 1.05x at 128 tokens
 and 1.24x at 256. The pair-bias and pair-write programs are a further 1.10x at 512 tokens (43.6 to 39.8 s,
 1337 MHz) and 1.06x at 256 in a paired measurement on one chip, graded on 31 designs with radius of gyration,
-bond outliers and clashes unchanged. `pair_tail` and `pair_write_res` need the fp32 pair stream, so
+bond outliers and clashes unchanged. The triangle multiplication's input kernel runs as one launch with block-fp8
+resident weights at HiFi2 and its gate sigmoid on the packer (`trimul_t1_psig`, `trimul_gin_hifi2`, `trimul_t1w8`):
+a further 1.09x at 512 tokens (40.6 to 37.2 s, 1318 MHz) and 1.08-1.13x from 160 to 640 tokens, paired on one
+chip; on 31 seed-matched 512-token designs the designed chain moves 7.3 A median against a 38.2 A seed-to-seed
+spread, with radius of gyration, bond outliers and clashes unchanged. Below 160 tokens, where that input kernel does
+not run, the output program still serves (`pair_tail_small`): 1.05x on the trunk at 128 tokens and 1.02x at 96, and a
+128-token design takes 5.40 s instead of 5.66 s (1347-1350 MHz). On 30 seed-matched 128-token designs the designed
+chain moves 0.03 A median against a 5.4 A seed-to-seed spread, with radius of gyration, bond outliers and clashes
+unchanged. `pair_tail`, `pair_tail_small` and `pair_write_res` need the fp32 pair stream, so
 `TT_BIO_RFD4_PAIR_BF16=1` (the pair stream in bf16) turns them off and was slower before the pair-bias and pair-write programs, 46.4 s against 44.1 s. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 

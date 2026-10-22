@@ -137,19 +137,19 @@ a sugar tree arrives with its glycosidic bonds intact.
 
 ## Design families and what they cost
 
-Measured on one Blackhole p300 chip at 1337-1350 MHz AICLK (sampled during the design), at the full
+Measured on one Blackhole p300 chip at 1325-1350 MHz AICLK (sampled during the design), at the full
 recipe: every step, every recycle. Each run made two designs with the kernels already compiled;
 s/design is the run's wall time over two, so model load is included.
 
 | family | tokens | recipe | s/design |
 |---|---:|---|---:|
 | motif scaffolding | 82 | `medium/midpeak` | 9.2 |
-| unconditional monomer | 100 | `thinking_medium` | 11.6 |
-| structure prediction | 138 | `thinking_medium` | 16.4 |
-| enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 24.2 |
-| binder against a protein target | 225 | `medium/front_loaded` | 26.1 |
-| nanobody CDRs | 224 | `high/front_loaded` | 27.5 |
-| antibody CDRs (Fab) | 329 | `high/front_loaded` | 66.5 |
+| unconditional monomer | 100 | `thinking_medium` | 11.7 |
+| structure prediction | 138 | `thinking_medium` | 14.0 |
+| enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 16.3 |
+| binder against a protein target | 225 | `medium/front_loaded` | 21.7 |
+| nanobody CDRs | 224 | `high/front_loaded` | 21.8 |
+| antibody CDRs (Fab) | 329 | `high/front_loaded` | 63.7 |
 
 Cost grows with the token count and with the recipe, not with `--num_designs`: designs are
 independent trajectories.
@@ -168,11 +168,19 @@ weights and a bf16 matmul kernel by default, and the pair transition and the tri
 output each run as one program with their residual add into the fp32 pair representation. Together that
 takes the trunk of a 512-token design from 64.3 to 44.1 s on a Blackhole chip. Forming each block's pair
 biases and writing the pair update as one program each is a further 1.10x at 512 tokens, graded on 31
-designs with radius of gyration, bond outliers and clashes unchanged. It is not bit-exact against
+designs with radius of gyration, bond outliers and clashes unchanged. Running the triangle multiplication's
+input kernel as one launch, with block-fp8 weights at HiFi2, takes the 512-token trunk from 40.6 to 37.2 s
+(1.09x, 1.08-1.13x from 160 to 640 tokens). It is not bit-exact against
 fp32 numerics: on 30 seed-matched 512-token binder designs the designed chain moved 7.2 A median (23.9 A at
 most) while a different seed moves it 37.2 A, and radius of gyration, bond outliers and clashes were
-unchanged. `--fast` adds nothing further for RFD4. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics
+unchanged. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics
 ([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
+
+`--fast` adds one thing: from 288 tokens the triangle contraction runs on a kernel that keeps one operand
+resident per channel, at reduced matmul precision. On a Blackhole chip that takes the trunk of a
+512-token design about 4 % below the default and a 384-token one about 7 %; at 256 tokens and below
+ttnn's own plan is faster and `--fast` changes nothing. Over 8 seed-matched 512-token designs the
+designed chain moved 2.3 A median against the default, while a different seed moves it 38 A.
 
 ## Many designs at once
 
