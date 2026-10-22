@@ -53,8 +53,21 @@ def instrument(trunk):
                             (T.Trunk, "run_pass", "pass")):
         setattr(cls, meth, _bracket(getattr(cls, meth), name))
     for pu in trunk.pair_updates.values():
-        pu.tri_out = _bracket(pu.tri_out, "tri_mult_out")
-        pu.tri_in = _bracket(pu.tri_in, "tri_mult_in")
+        pu.tri_out = _Bracketed(pu.tri_out, "tri_mult_out")
+        pu.tri_in = _Bracketed(pu.tri_in, "tri_mult_in")
+
+
+class _Bracketed:
+    """A module whose calls are bracketed; attributes (pair_tail reads took_residual) pass through."""
+
+    def __init__(self, mod, name):
+        self._mod, self._call = mod, _bracket(mod.__call__, name)
+
+    def __call__(self, *a, **k):
+        return self._call(*a, **k)
+
+    def __getattr__(self, k):
+        return getattr(self._mod, k)
 
 
 def main():
