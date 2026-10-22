@@ -42,6 +42,10 @@ BLOCK = 4
 #: -> +0.00006, q rel_l2 2.72e-3 -> 2.09e-3, 0.29 ms either way. ESMC page pcc vs fp32: 300M normal +0.000011, 600M
 #: normal +0.000029, --fast -0.000002, time flat. None = on for Wormhole (Blackhole not graded yet); read at build time.
 SFPU = None
+#: xc * rstd * gamma in one dest pass (QKRH_FUSE): gamma is broadcast to all 32 rows once per core (two more KT-tile
+#: CBs), so the gamma product reuses dest instead of a pack and unpack of KT fp32 tiles. Resident-gamma plans only
+#: (not QKRH_RELOAD, the 6B). Read at build time, part of the key; A/B pending.
+FUSE = False
 #: [calls served, declined], read by the A/B harness.
 STATS = [0, 0]
 
@@ -105,10 +109,13 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloa
     vpack = od != ttnn.bfloat16
     reload, xb = _plan(kt, vpack)
     reload = reload and ln
+    fuse = FUSE and ln and not reload and _l1_bytes(kt, reload, xb) + (2 * vc * _TILE if vpack else 0) + 2 * kt * _TILE <= _L1_BUDGET
     cbs = [cb(5, xb * kt), cb(6, 2), cb(7, 2), cb(8, kt), cb(10, 1), cb(16, 8, od), cb(21, 2 * vc),
            cb(11, 1, f32), cb(12, 1, f32), cb(13, 1, f32), cb(14, 1, f32), cb(17, kt, f32), cb(18, kt, f32),
            cb(20, 4, f32)] + ([] if reload else [cb(15, kt)]) + ([cb(22, 2 * vc, od)] if vpack else [])
+    cbs += [cb(23, kt), cb(24, kt)] if fuse else []
     defines = ([("QKRH_RELOAD", "1")] if reload else []) + ([] if ln else [("QKRH_NO_LN", "1")])
+    defines += [("QKRH_FUSE", "1")] if fuse else []
     hg = 2 if BLOCK >= 4 and kt // 2 % 2 == 0 else 1   # whole groups only: c_20 / c_16 never wrap mid-reservation
     defines += [("QKRH_BLK", str(max(1, BLOCK))), ("QKRH_HG", str(hg))]
     defines += [("QKRH_SFPU", "1")] if _sfpu() else []
@@ -175,7 +182,7 @@ def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed, out_dtype=None):
                                            ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     # without a LayerNorm the gamma slots are never read; cos stands in so every accessor has a tensor
     tensors = [q, k, v, q_gamma if ln else cos, k_gamma if ln else cos, cos, sin] + outs
-    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, _sfpu(), str(od), tuple(t.memory_config().buffer_type for t in tensors[:7]))
+    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, _sfpu(), FUSE, str(od), tuple(t.memory_config().buffer_type for t in tensors[:7]))
     if key not in _CACHE:
         _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln, od)
     kernels, cbs = _CACHE[key]

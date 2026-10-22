@@ -25,6 +25,7 @@ def main() -> int:
     ap.add_argument("--fidelity", default="HiFi4", help="qk_rope_heads.FIDELITY arms")
     ap.add_argument("--block", default="1,4", help="qk_rope_heads.BLOCK arms (tiles a dest acquire)")
     ap.add_argument("--bf8", action="store_true", help="add arm qkrh_bf8: block-fp8 q, k, v out (v graded vs float64)")
+    ap.add_argument("--fuse", action="store_true", help="add arms qkrh_fuse / qkrh_bf8_fuse: qk_rope_heads.FUSE on")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
@@ -85,10 +86,12 @@ def main() -> int:
         arms = [("chain", chain, None, "1")]
         arms += [(f"qkrh_{f}_b{b}", fused, f, b) for f in args.fidelity.split(",") for b in blocks]
         arms += [("qkrh_bf8", fused_bf8, None, "4")] if args.bf8 else []
+        arms += [("qkrh_fuse", fused, None, "4")] + ([("qkrh_bf8_fuse", fused_bf8, None, "4")] if args.bf8 else []) if args.fuse else []
         arms += [(f"rope_only_b{b}", rope_only, None, b) for b in blocks] + [("copy", copy, None, "1")]
         for arm, fn, fid, blk in arms:
             QR.FIDELITY = getattr(ttnn.MathFidelity, fid or "HiFi4")
             QR.BLOCK = int(blk)
+            QR.FUSE = arm.endswith("_fuse")
             try:
                 if arm.startswith(("rope_only", "copy")):
                     o = fn()
@@ -106,7 +109,7 @@ def main() -> int:
                 got = [ttnn.to_torch(t).double().reshape(B, H, S, hd) for t in o]
                 rec[arm] = {"q": err(got[0], ref_q), "k": err(got[1], ref_k),
                             "v_exact": bool(torch.equal(got[2], ref_v))}
-                if arm == "qkrh_bf8":
+                if arm.startswith("qkrh_bf8"):
                     rec[arm]["v"] = err(got[2], ref_v)
                 elif arm != "chain":
                     flat = torch.cat([g.flatten() for g in got[:2]])
@@ -116,7 +119,7 @@ def main() -> int:
                 rec[arm]["ms"] = timed(lambda fn=fn: [ttnn.deallocate(t) for t in fn()], dev, args.repeat, args.inner)
             except Exception as exc:   # a kernel that fails to build or run is a result here, not a crash
                 rec[arm] = {"error": str(exc).splitlines()[0][:300]}
-        QR.FIDELITY, QR.BLOCK = ttnn.MathFidelity.HiFi4, 1
+        QR.FIDELITY, QR.BLOCK, QR.FUSE = ttnn.MathFidelity.HiFi4, 1, False
         ttnn.deallocate(qkv_packed)
         print(json.dumps(rec), flush=True)
         out.write(json.dumps(rec) + "\n")

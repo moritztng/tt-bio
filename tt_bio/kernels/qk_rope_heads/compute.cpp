@@ -16,6 +16,7 @@
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
 
 #include "api/compute/compute_kernel_api.h"
+#include "api/compute/bcast.h"
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/reconfig_data_format.h"
@@ -42,6 +43,53 @@ struct Ln {
 constexpr uint32_t BLK = QKRH_BLK;
 constexpr uint32_t HG = QKRH_HG;
 
+#ifdef QKRH_FUSE
+// QKRH_FUSE: C::gamma holds gamma broadcast to all 32 rows of its tiles (bcast_rows below), so xc * rstd * gamma is
+// one dest pass, the gamma product reusing dest as srcB (the same 19-bit operand an fp32 CB unpacks to), into C::tmp.
+template <class C>
+ALWI void norm_gamma() {
+    pack_reconfig_data_format(C::tmp);
+    cb_reserve_back(C::tmp, C::Kt);
+    for (uint32_t i0 = 0; i0 < C::Kt; i0 += BLK) {
+        const uint32_t n = C::Kt - i0 < BLK ? C::Kt - i0 : BLK;
+        reconfig_data_format(C::xc, C::rstd);
+        mul_bcast_cols_init_short(C::xc, C::rstd);
+        tile_regs_acquire();
+        for (uint32_t j = 0; j < n; ++j) mul_tiles_bcast_cols(C::xc, C::rstd, i0 + j, 0, j);
+        reconfig_data_format_srca(C::xc, C::gamma);
+        binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(C::gamma);
+        for (uint32_t j = 0; j < n; ++j) {
+            binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(C::gamma, i0 + j, j);
+        }
+        tile_regs_commit();
+        tile_regs_wait();
+        for (uint32_t j = 0; j < n; ++j) pack_tile(j, C::tmp);
+        tile_regs_release();
+    }
+    cb_push_back(C::tmp, C::Kt);
+    cb_pop_front(C::xc, C::Kt);
+    cb_pop_front(C::rstd, 1);
+}
+
+// KT tiles of a [1, D] gamma (row 0 live) -> the same with row 0 copied to all 32 rows, once per core.
+ALWI void bcast_rows(uint32_t in, uint32_t out) {
+    cb_wait_front(in, KT);
+    unary_bcast_init<BroadcastType::ROW>(in, out);
+    cb_reserve_back(out, KT);
+    for (uint32_t i = 0; i < KT; ++i) {
+        tile_regs_acquire();
+        unary_bcast<BroadcastType::ROW>(in, i, 0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(0, out);
+        tile_regs_release();
+    }
+    cb_push_back(out, KT);
+    unary_bcast_uninit<BroadcastType::ROW>(in);
+    cb_pop_front(in, KT);
+}
+#endif
+
 // LayerNorm(x) * gamma, no beta (skipped under QKRH_NO_LN, where the RoPE reads c_5 directly), Kt tiles of C::x (popped) into C::xc (pushed), fp32.
 template <class C>
 ALWI void ln_no_beta() {
@@ -56,12 +104,16 @@ ALWI void ln_no_beta() {
     row_mean<C>(C::tmp, C::var, true);
     rstd<C>();
     cb_wait_front(C::xc, C::Kt);
+#ifdef QKRH_FUSE
+    norm_gamma<C>();
+#else
     stage<C, MUL_COL, BLK>(C::xc, C::rstd, C::tmp);
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
     cb_wait_front(C::tmp, C::Kt);
     stage<C, MUL_ROW, BLK>(C::tmp, C::gamma, C::xc);
     cb_pop_front(C::tmp, C::Kt);
+#endif
 }
 
 void kernel_main() {
@@ -79,11 +131,20 @@ void kernel_main() {
     if (count + v_count == 0) {
         return;
     }
+#ifdef QKRH_FUSE
+    constexpr uint32_t cb_g32q = 23, cb_g32k = 24;
+    if (count) {
+        bcast_rows(cb_gq, cb_g32q);
+        bcast_rows(cb_gk, cb_g32k);
+    }
+#else
+    constexpr uint32_t cb_g32q = cb_gq, cb_g32k = cb_gk;
+#endif
     binary_op_init_common(cb_x, cb_gq, cb_n);
 #if !defined(QKRH_RELOAD) && !defined(QKRH_NO_LN)
     if (count) {
-        cb_wait_front(cb_gq, KT);
-        cb_wait_front(cb_gk, KT);
+        cb_wait_front(cb_g32q, KT);
+        cb_wait_front(cb_g32k, KT);
     }
 #endif
     cb_wait_front(cb_scaler, 1);
@@ -98,11 +159,15 @@ void kernel_main() {
         ln_no_beta<Ln<cb_gq>>();
         cb_pop_front(cb_gq, KT);
 #else
+#ifdef QKRH_FUSE
+        constexpr uint32_t src = 18;   // norm_gamma's output, Ln::tmp
+#else
         constexpr uint32_t src = cb_n;
+#endif
         if (t == 0) {
-            ln_no_beta<Ln<cb_gq>>();
+            ln_no_beta<Ln<cb_g32q>>();
         } else {
-            ln_no_beta<Ln<cb_gk>>();
+            ln_no_beta<Ln<cb_g32k>>();
         }
 #endif
         cb_wait_front(src, KT);
