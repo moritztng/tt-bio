@@ -42,6 +42,13 @@ _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 _L1_BUDGET = 1100 * 1024
 
 
+# One core reads the weights from DRAM and multicasts them to the grid, where every core would otherwise read all of them
+# (110 x 256 KB a call for AF2's c_z 128 transition: 0.069 of its 0.33 ms on a p300c). Same bytes in the same CBs.
+# Only where the program fills the whole grid rectangle. None is Blackhole only, where it is torch.equal to the per-core
+# read (perf/bc4_swiglu/mcast_ab.py on wk/bc4-bet-swiglu); Wormhole is not graded yet. True/False force it, for A/B.
+WEIGHTS_MCAST = None
+
+
 SILU_POLY = 2  # ws5 on WH 1000 MHz: c_z 128 fast 5.64 -> 4.77 ms, c_z 256 13.08 -> 11.28, rel_rms to float64 unchanged
 
 
@@ -157,15 +164,25 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         scaler = (inv << 16) | inv          # 1/K as a packed bf16 pair, exact for K a power of two
         eps_bits = struct.unpack("<I", struct.pack("<f", float(ln[2])))[0]
         defines = tuple(defines) + (("WS_LN", "1"),)
+    on = device.arch() == ttnn.Arch.BLACKHOLE if WEIGHTS_MCAST is None else WEIGHTS_MCAST
+    mcast = on and num_cores == g.x * g.y and num_cores > 1
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
     for group, per in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [first, per]
+                    cp[cx][cy] = wr[cx][cy] = [first, per]
+                    rd[cx][cy] = [first, per, int(cx == 0 and cy == 0)]
                     first += per
     assert first == mt, (first, mt)
+    mc_args, sems = [], []
+    if mcast:
+        phys = lambda x, y: device.worker_core_from_logical_core(ttnn.CoreCoord(x, y))  # noqa: E731
+        lo, hi = phys(0, 0), phys(g.x - 1, g.y - 1)
+        mc_args = [lo.x, lo.y, hi.x, hi.y, num_cores, (lo.x << 16) | lo.y]
+        sems = [ttnn.SemaphoreDescriptor(id=i, core_ranges=grid, initial_value=0) for i in (0, 1)]
+        defines = tuple(defines) + (("WS_MCAST", "1"),)
     rct = [kt, nh, ct, scaler, eps_bits]
     for t in ((x, w12, w3) + (() if ln is None else ln[:2]) + ((out,) if ("WS_RESID", "1") in defines else ())
               + (() if resid2 is None else (resid2,)) + (() if bias is None else bias)):
@@ -174,7 +191,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 9,
+                                   compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 9 + mc_args,
                                    defines=list(defines), config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
@@ -183,7 +200,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid, compile_time_args=[kt, nh, ct, silu_poly],
         runtime_args=cp, defines=list(defines), config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity,
                                                              fp32_dest_acc_en=True))
-    return [reader, writer, compute], cbs
+    return [reader, writer, compute], cbs, sems, mc_args
 
 
 def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None, ln=None, l1acc=False,
@@ -291,16 +308,17 @@ def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=Fals
         ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
         ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity, w12.dtype, x.dtype,
-           tuple(defines), silu_poly, None if ln is None else float(ln[2]), bias is not None, bw)
+           tuple(defines), silu_poly, None if ln is None else float(ln[2]), bias is not None, bw, WEIGHTS_MCAST)
     if key not in _CACHE:
         _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias, bw,
                              resid2)
-    kernels, cbs = _CACHE[key]
+    kernels, cbs, sems, mc_args = _CACHE[key]
     g, b = (0, 0) if ln is None else (ln[0].buffer_address(), ln[1].buffer_address())
     b1, b3 = (0, 0) if bias is None else (bias[0].buffer_address(), bias[1].buffer_address())
     kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b,
-                                      out.buffer_address(), b1, b3, 0 if resid2 is None else resid2.buffer_address()]
+                                      out.buffer_address(), b1, b3, 0 if resid2 is None else resid2.buffer_address()
+                                      ] + mc_args
     kernels[1].common_runtime_args = [out.buffer_address()]
-    pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
+    pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=sems, cbs=cbs)
     return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + ([] if bias is None else list(bias))
                            + ([] if resid2 is None else [resid2]) + [out], pd)
