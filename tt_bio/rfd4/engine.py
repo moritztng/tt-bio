@@ -180,7 +180,8 @@ class DesignEngine:
             inverse_folding=inverse_folding, inverse_folding_method=inverse_folding_method)
         x_1 = self.clean_sample(batch, num_designs=num_designs, seed=seed) if start.is_partial else None
 
-        network = _network.FlowNetwork(self.glue, _CardTrunk(self.trunk, self._device, self.pair), batch)
+        network = _network.FlowNetwork(self.glue, _CardTrunk(self.trunk, self._device, self.pair), batch,
+                                       plan=_sampler.step_plan(spec, start))
         args = dict(n_designs=num_designs, n_tokens=n_tokens, seed=seed, rng_mode=rng,
                     emit_masks=compute_flow_emit_masks(batch), groups=_groups(batch),
                     coord_cond_mask=batch.get("coord_cond_mask"), start=start, x_1=x_1,

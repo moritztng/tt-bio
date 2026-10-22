@@ -273,6 +273,9 @@ _PROGS_HIFI2 = {
 # program's (rel_l2 4.68e-3); normal (8,8,8,1,4) 1.75e-3 against 1.82e-3. Wormhole only (the key below).
 _SAPROT_FC1_MM = env_flag("TT_BIO_SAPROT_FC1_MM", True)
 _FC1_MM = {False: (8, 8, 8, 1, 4), True: (4, 8, 8, 1, 4)}   # by hifi2
+# The same program on Blackhole, where fc1 runs the 2D pick (ls121 p300c census at 1350 MHz, 650M --fast: fc1 0.58 ms a call
+# against fc2's minimal_matmul 0.28 ms at equal FLOPs). Off until graded (ls122, with gelu_f32).
+_SAPROT_FC1_MM_BH = env_flag("TT_BIO_SAPROT_FC1_MM_BH", False)
 # Off drops the out-block entries (WH fc1) back to the linear's own pick.
 _SAPROT_OUT_SPLIT = env_flag("TT_BIO_SAPROT_OUT_SPLIT", True)
 _PROG_ROWS = (3072, 4096)   # page batch 7 x 544 = 3808 rows: the shape the table was measured at
@@ -341,7 +344,7 @@ def _saprot_prog(x, w, act, hifi2=False):
     rows = x.volume() // k
     key = (tenstorrent.is_wormhole(), k, n)
     hit = (_PROGS_HIFI2.get(key) if hifi2 else None) or _PROGS.get(key)
-    if _SAPROT_FC1_MM and key == (True, 1280, 5120):
+    if _SAPROT_FC1_MM and (k, n) == (1280, 5120) and (key[0] or _SAPROT_FC1_MM_BH):
         hit = ("mm", _FC1_MM[hifi2])
     if hit is None or not _PROG_ROWS[0] <= rows <= _PROG_ROWS[1] or act not in (None, "gelu", "gelu_approx"):
         return None
