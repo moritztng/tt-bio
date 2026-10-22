@@ -147,8 +147,8 @@ class PairOnCard:
         self.split, self.device, self.ckc = split, device, ckc
         self.parts = [ttnn.from_torch(w, layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
                       for w in split_bf16(split.w_step)]
-        self.ln_w = ttnn.from_torch(split.ln_weight, layout=ttnn.TILE_LAYOUT, device=device,
-                                    dtype=ttnn.float32)
+        w2 = (split.ln_weight.double() ** 2).float().reshape(1, -1)
+        self.ln_w2 = ttnn.from_torch(w2, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.float32)
         self._const = None  # (host tensor, npad, its padded copy on the card)
 
     def _constant(self, c: torch.Tensor, npad: int):
@@ -173,15 +173,35 @@ class PairOnCard:
         rows = self.rows(bins)
         x = ttnn.add(rows, const)
         ttnn.deallocate(rows)
-        y = ttnn.rms_norm(x, weight=self.ln_w, epsilon=self.split.eps, compute_kernel_config=ckc)
+        # Both RMSNorms and the AdaLN folded into one scale per pixel:
+        #   z = x * r1 * r2 * (w * gamma) + beta,  r1 = rsqrt(sum(x^2)/c + eps1),
+        #   r2 = rsqrt(r1^2 * sum(x^2 w^2)/c + eps2).
+        # ttnn's mean and rms_norm scale their reduction by 1/c in bf16 (1/384 is 0.4 % off), so
+        # the reductions are unit-scaler sums and 1/c is applied in fp32.
+        c = int(x.shape[-1])
+        sq = ttnn.multiply(x, x)
+        s1 = ttnn.sum(sq, dim=-1, keepdim=True, compute_kernel_config=ckc)
+        sqw = ttnn.multiply(sq, self.ln_w2)
+        ttnn.deallocate(sq)
+        s2 = ttnn.sum(sqw, dim=-1, keepdim=True, compute_kernel_config=ckc)
+        ttnn.deallocate(sqw)
+        r1 = ttnn.rsqrt(ttnn.add(ttnn.multiply(s1, 1.0 / c), self.split.eps))
+        r1sq = ttnn.multiply(r1, r1)
+        m2 = ttnn.multiply(ttnn.multiply(s2, 1.0 / c), r1sq)
+        r2 = ttnn.rsqrt(ttnn.add(m2, self.split.builder.adaln.norm.eps))
+        scale = ttnn.multiply(r1, r2)
+        for t in (s1, s2, r1, r1sq, m2, r2):
+            ttnn.deallocate(t)
+        wg = (self.split.ln_weight.double() * p.gamma.double()).float()
+        wg, beta = (ttnn.from_torch(v[:, None, None], layout=ttnn.TILE_LAYOUT, device=self.device,
+                                    dtype=ttnn.float32) for v in (wg, p.beta))
+        y = ttnn.multiply(x, scale)
         ttnn.deallocate(x)
-        x = ttnn.rms_norm(y, epsilon=self.split.builder.adaln.norm.eps, compute_kernel_config=ckc)
+        ttnn.deallocate(scale)
+        x = ttnn.multiply(y, wg)
         ttnn.deallocate(y)
-        gamma, beta = (ttnn.from_torch(v[:, None, None], layout=ttnn.TILE_LAYOUT, device=self.device,
-                                       dtype=ttnn.float32) for v in (p.gamma, p.beta))
-        y = ttnn.multiply(x, gamma)
-        z = ttnn.add(y, beta)
-        for t in (x, y, gamma, beta):
+        z = ttnn.add(x, beta)
+        for t in (x, wg, beta):
             ttnn.deallocate(t)
         return z
 
