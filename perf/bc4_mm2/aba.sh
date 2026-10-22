@@ -16,7 +16,7 @@ trap 'kill $CLKP 2>/dev/null' EXIT
 for arm in A:0 B:1 A2:0; do
   n=${arm%%:*}; v=${arm#*:}
   echo "$(date -u +%FT%TZ) $n TT_BIO_MM_SPLIT_K=$v start load $(cut -d' ' -f1 /proc/loadavg)" >> "$D/chain.log"
-  TT_BIO_MM_SPLIT_K=$v flock -w 600 "$HOME/spd_qb2_chip$C.lock" timeout 5400 "$HOME/bcx_e2e_venv/bin/python" \
+  TT_BIO_MM_SPLIT_K=$v flock -w ${WAIT:-10800} "$HOME/spd_qb2_chip$C.lock" timeout 5400 "$HOME/bcx_e2e_venv/bin/python" \
       perf/spd/bench.py --out "$D/$n" --chip "$C" --model bindcraft2 --bc2 "$HOME/bcx_e2e/bc2" --seed 101 \
       --warm "$WARM" --inputs 80 > "$D/$n.log" 2>&1
   echo "$(date -u +%FT%TZ) $n rc=$?" >> "$D/chain.log"
