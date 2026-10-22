@@ -6,7 +6,7 @@
 // round-to-nearest-even of DST to bf16 ahead of a pack.
 #pragma once
 
-#if defined(TRISC_MATH) || (defined(TRISC_PACK) && defined(WS_PACK_SILU))
+#if defined(TRISC_MATH) || (defined(TRISC_PACK) && (defined(WS_PACK_SILU) || defined(T1_PSIG)))
 #include "llk_math_eltwise_unary_sfpu_params.h"
 #include "sfpi.h"
 
@@ -122,7 +122,7 @@ inline void _round_bf16_rne_() {
 }
 }  // namespace sfpu
 }  // namespace ckernel
-#endif  // TRISC_MATH, or TRISC_PACK under WS_PACK_SILU
+#endif  // TRISC_MATH, or TRISC_PACK under WS_PACK_SILU / T1_PSIG
 
 // V is the kernels' SIGPOLY compile-time arg: 1 the degree-8 polynomial, 2 the degree-6 one.
 template <uint32_t V = 1>
@@ -143,7 +143,14 @@ ALWI void silu_poly6_tile(uint32_t idst) { silu_poly_v_tile<2>(idst); }
 
 // silu_poly_v_tile issued by the packer thread, on the dest half the packer holds; the caller points the SFPU at that
 // half first (pair_swiglu_ws's WS_PACK_SILU, as kernels/fc12g). Same instructions on the same values: bit-identical.
-#ifdef WS_PACK_SILU
+#if defined(WS_PACK_SILU) || defined(T1_PSIG)
+template <uint32_t V = 1>
+ALWI void sigmoid_poly_tile_pack(uint32_t idst) {
+    PACK((ckernel::sfpu::_sig_init_<V>()));
+    PACK((_llk_math_eltwise_unary_sfpu_params_<false>(
+        []() __attribute__((always_inline)) { ckernel::sfpu::_sig_rows_<V, false>(); }, idst, (int)VectorMode::RC)));
+}
+
 template <uint32_t V = 2>
 ALWI void silu_poly_v_tile_pack(uint32_t idst) {
     PACK((ckernel::sfpu::_sig_init_<V>()));

@@ -91,7 +91,12 @@ class RecordingEngine:
 def engine(monkeypatch):
     from tt_bio import rfd4
 
+    from tt_bio.rfd4 import engine as _engine
+
     recorder = RecordingEngine()
+    # The CLI reaches the engine through `tt_bio.rfd4.run`, which imports `get_engine` from the
+    # engine module at call time, so that is the name that has to be the recorder.
+    monkeypatch.setattr(_engine, "get_engine", lambda *a, **k: recorder)
     monkeypatch.setattr(rfd4, "get_engine", lambda *a, **k: recorder)
     return recorder
 

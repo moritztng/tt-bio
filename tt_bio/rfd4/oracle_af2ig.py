@@ -117,7 +117,7 @@ class AF2IGOracle:
 
     def teardown(self) -> None:
         # The weights go; the device stays open, because closing and reopening a chip per
-        # consumer is what deadlocks the UMD device-init path (tt_bio/worker.py:861).
+        # consumer is what deadlocks the UMD device-init path (see `device_lease.device_init_lock`).
         self.model = None
 
     def fold_batch(self, jobs: list[OracleRequest]) -> list[dict]:

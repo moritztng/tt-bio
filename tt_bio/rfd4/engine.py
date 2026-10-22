@@ -64,7 +64,8 @@ class DesignEngine:
     """
 
     def __init__(self, weights: str | Path = DEFAULT_WEIGHTS, *, recipe: str = "thinking_medium",
-                 tsr_k: float | None = None, max_parallel_samples: int | None = 1):
+                 tsr_k: float | None = None, adapter: str | Path | None = None,
+                 max_parallel_samples: int | None = 1):
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
@@ -73,7 +74,7 @@ class DesignEngine:
         import ttnn
 
         path = _resolve_weights(weights)
-        state, config = _network.load_checkpoint(path)
+        state, config = _network.load_checkpoint(path, adapter=adapter)
         cfg = config["nn"]
         self.spec = _sampler.recycle_strategy(recipe)
         if tsr_k is not None:
@@ -112,9 +113,17 @@ class DesignEngine:
             from tt_bio.rfd4 import network as _network
             from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
 
+            # No adapter here: a LoRA adapts the trunk (`nn.`), and the encoder is the
+            # `autoencoder.` half of the same bundle.
             state, _ = _network.load_checkpoint(self._weights)
             self._encoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("encoder",))
         return self._encoder
+
+    @classmethod
+    def from_pretrained(cls, weights: str | Path = DEFAULT_WEIGHTS, **kwargs) -> "DesignEngine":
+        """Load the released bundle onto a card. Upstream spells this
+        ``rfd4.Proteina.from_pretrained``; the arguments and the default checkpoint are the same."""
+        return cls(weights, **kwargs)
 
     def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int,
                rng: str = "per_design", partial_t_backbone: float | None = None,
