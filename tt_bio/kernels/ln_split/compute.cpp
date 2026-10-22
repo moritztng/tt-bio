@@ -158,4 +158,3 @@ void kernel_main() {
     cb_pop_front(cb_xc, KC);
     cb_pop_front(cb_rstd, 1);
 }
-}
