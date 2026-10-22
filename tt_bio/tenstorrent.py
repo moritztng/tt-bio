@@ -17566,7 +17566,14 @@ class Diffusion(Module):
         self.release_steps()
         self._condition_once(s_trunk, s_inputs, c)
         s = self._conditioning(times)
-        self._steps = {"s_to_a": self._s_to_a(s), "cond": self.token_transformer.cond_steps(s)}
+        # One [G * n, K] matrix, not a [G, n, K] batch: a batched linear gets no M amortization on Wormhole
+        # (cen16: 558 us at G 8 against 8 x 74.5, matlim: 344 us as 4096 rows). On tile-aligned rows both
+        # reshapes are views.
+        G, n, d = (int(x) for x in s.shape)
+        s = ttnn.reshape(s, (1, G * n, d))
+        stack = lambda t: ttnn.reshape(t, (G, n, int(t.shape[-1])))  # noqa: E731
+        self._steps = {"s_to_a": stack(self._s_to_a(s)),
+                       "cond": [tuple(map(stack, parts)) for parts in self.token_transformer.cond_steps(s)]}
         ttnn.deallocate(s)
 
     def release_steps(self):
