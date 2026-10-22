@@ -25,7 +25,7 @@ import torch
 
 from .. import rne_add
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
-                           _sdpa_program_config_for_lengths, download, fused_sdpa, lever_scope, model_levers,
+                           _sdpa_program_config_for_lengths, download, fused_sdpa, lever, lever_scope, model_levers,
                            under_lever_scope, upload)
 
 EPS = 1e-5
@@ -428,6 +428,14 @@ class PairUpdate(Module):
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
         self.pair_write = pair_write
+        # pair_block: the transition's weights for one `pair_relu` program, bfp8 (in bf16 they would not fit L1)
+        self.tr_ws = None
+        if lever("pair_block"):
+            from .. import pair_swiglu_ws
+            g = lambda k: self.weights[f"transition_out.{k}"].float()  # noqa: E731
+            self.tr_ws = pair_swiglu_ws.relu_weights(g("linear_1.weight").t(), g("linear_1.bias"),
+                                                     g("linear_2.weight").t(), g("linear_2.bias"), self.device,
+                                                     dtype=ttnn.bfloat8_b)
         ident = lambda x: x  # noqa: E731
         self.ln_w = self.torch_to_tt("layer_norm_in.weight", transform=ident, dtype=self.dtype)
         self.ln_b = self.torch_to_tt("layer_norm_in.bias", transform=ident, dtype=self.dtype)
@@ -465,8 +473,28 @@ class PairUpdate(Module):
         op = ttnn.multiply if hadamard else ttnn.add
         return op(pj4, pi4), hadamard
 
-    def _transition(self, z, pair_mask_c):
+    def _transition_block(self, z):
+        """`pair_block`: LayerNorm, fc1 + bias, ReLU, fc2 + bias as one program, unmasked; None where it does not
+        serve. The hidden stays in the core's L1 and no normalised copy of z is written."""
+        from .. import pair_swiglu_ws
+        w1, b1, w2, b2 = self.tr_ws
+        ln = (self.tr_ln_w, self.tr_ln_b)
+        if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln):
+            return None
+        fid = ttnn.MathFidelity.HiFi2 if lever("pair_block_hifi2") else self.compute_kernel_config.math_fidelity
+        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,))
+
+    def _transition(self, z, pair_mask_c, padded=True):
+        """The masked transition update. With no padded token (`padded` False) the mask is all ones and the
+        fused program's output is returned as is."""
         ckc = self.compute_kernel_config
+        out = None if self.tr_ws is None else self._transition_block(z)
+        if out is not None:
+            if not padded:
+                return out
+            masked = ttnn.multiply(out, pair_mask_c)
+            ttnn.deallocate(out)
+            return masked
         zn = ttnn.layer_norm(z, weight=self.tr_ln_w, bias=self.tr_ln_b, epsilon=EPS, compute_kernel_config=ckc)
         h = self._lin(zn, self.tr_w1, bias=self.tr_b1, dtype=self.dtype, activation="relu")
         ttnn.deallocate(zn)
@@ -495,7 +523,7 @@ class PairUpdate(Module):
                           low=self.dtype)
         for sub, own_mask in ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
                               (lambda h: _per_design(self.tri_in, h, pair_mask), False),
-                              (lambda h: self._transition(h, pair_mask_c), True)):
+                              (lambda h: self._transition(h, pair_mask_c, pair_mask is not None), True)):
             u = sub(zb)
             if zb is not z:
                 ttnn.deallocate(zb)
@@ -536,7 +564,9 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None):
 #: one kernel from 160 tokens (it declines below, where the trimul runs from L1): 15.0 -> 11.3 ms a call at 512
 #: tokens, same float64 error (state/rfd4/bets/tri2.md).
 NORMAL_LEVERS = frozenset({"trimul_t1"})
-FAST_LEVERS = NORMAL_LEVERS
+#: `--fast` adds `pair_block`: the pair transition as one program with bfp8 weights, 11.1 -> 3.85 ms a call at 512
+#: tokens, error vs float64 0.0040 -> 0.0101 (state/rfd4/bets/pairblock.md).
+FAST_LEVERS = NORMAL_LEVERS | {"pair_block"}
 
 
 class Trunk(Module):
