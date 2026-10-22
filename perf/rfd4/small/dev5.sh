@@ -1,11 +1,11 @@
 #!/bin/bash
 # rfd4-perf-small device pass 5: re-measure docs/rfd4-design.md's cost table on this tree, CAND vs the default
 # (CAND + trimul_t1_dram), family by family with the two arms back to back. Same commands as perf/rfd4/cond/runs.jsonl:
-# 2 designs, seed 0, s/design = wall / 2 (compile included), CLOCK line from the CLI, load1 per leg.
+# 2 designs, seed 0, s/design = wall / 2 (compile included), AICLK and load1 sampled during each leg (clocked.py).
 #   dev5.sh <chip> <tree> <out> <inputs dir> [families]
 set -u
 C=$1; T=$2; R=$3; IN=$4
-FAMS=${5:-binder128 motif_scaffold structure_prediction_folding enzyme unconditional binder nanobody_cdr antibody_cdr}
+FAMS=${5:-motif_scaffold structure_prediction_folding enzyme unconditional binder nanobody_cdr antibody_cdr}
 PY=$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python
 CAND=trimul_t1,pair_mm,pair_mm_tr,transition_b8,trimul_gin,trimul_gin_w8,pair_block,pair_tail
 S=$T/perf/rfd4/cond/specs
@@ -25,13 +25,12 @@ args() {
 }
 exec 9>$HOME/spd_qb2_chip$C.lock
 flock -w 10800 9 || { echo "no lock $(date -u +%FT%TZ)" >> $R/done; exit 3; }
-export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=${LEASE_CARDS:-$C} TT_BIO_LEASE_HOLDER=worker:rfd4-perf-small PYTHONPATH=$T
+export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=${LEASE_CARDS:-$C} TT_BIO_LEASE_HOLDER=worker:rfd4-perf-small PYTHONPATH=$T:$T/perf
 cd $T
 for f in $FAMS; do for arm in cand dflt; do
-  L=$(cut -d" " -f1 /proc/loadavg); t0=$(date +%s.%N)
   if [ $arm = cand ]; then export TT_BIO_LEVERS=$CAND; else unset TT_BIO_LEVERS; fi
-  timeout 2400 $PY -m tt_bio.main design --model rfd4 $(args $f) --out_dir $R/$f-$arm --seed 0 --num_designs 2 > $R/$f-$arm.log 2>&1
-  rc=$?; w=$(python3 -c "import time;print(round(time.time()-$t0,2))")
-  echo "{\"family\": \"$f\", \"arm\": \"$arm\", \"rc\": $rc, \"wall_s\": $w, \"s_per_design\": $(python3 -c "print(round($w/2,2))"), \"load1_before\": $L, \"load1_after\": $(cut -d' ' -f1 /proc/loadavg), \"clock\": \"$(grep -m1 '^CLOCK' $R/$f-$arm.log)\", \"tokens\": \"$(grep -m1 -o '[0-9]* tokens' $R/$f-$arm.log)\"}" >> $R/runs.jsonl
+  j=$(timeout 2400 $PY perf/rfd4/small/clocked.py $R/$f-$arm.log $PY -m tt_bio.main design --model rfd4 $(args $f) \
+      --out_dir $R/$f-$arm --seed 0 --num_designs 2)
+  echo "{\"family\": \"$f\", \"arm\": \"$arm\", \"tokens\": \"$(grep -m1 -o '[0-9]* tokens' $R/$f-$arm.log)\", \"r\": ${j:-null}}" >> $R/runs.jsonl
 done; done
 echo "ALLDONE $(date -u +%FT%TZ)" >> $R/done
