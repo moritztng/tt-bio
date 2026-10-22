@@ -1712,9 +1712,12 @@ def matmul(a: Tensor, b: Tensor, *, transpose_a: bool = False, transpose_b: bool
             if a.requires_grad:
                 if not transpose_a:
                     # dA = g @ op(b)^T
-                    a.add_grad(_reduce_to(rows(g, lambda v: bmm(v, b.value, False, not transpose_b,
-                                                                compute_kernel_config=cfg)),
-                                          ashape))
+                    def da(v):
+                        def plain():
+                            return bmm(v, b.value, False, not transpose_b, compute_kernel_config=cfg)
+                        return (_pair_mm_or(v, b.value, not transpose_b, plain, cfg)
+                                if len(bshape) == 2 else plain())
+                    a.add_grad(_reduce_to(rows(g, da), ashape))
                 else:
                     # A entered as A^T, so dA = (dA_eff)^T = op(b) @ g^T
                     a.add_grad(_reduce_to(bmm(b.value, g, transpose_b, True,
