@@ -432,6 +432,8 @@ SPECS_EXEMPT: dict[str, str] = {
                   "checkpoint, embed shape identical to saprot-650m)",
     "saprot-1.3b": "not yet seeded -- TODO: measure and add a SPECS entry (own "
                    "checkpoint, embed shape identical to saprot-650m)",
+    "rfd4": "not yet seeded -- TODO: measure and add a SPECS entry (design kind, "
+            "same designs/s protocol as rfd3) once the port is graded on card",
 }
 
 
