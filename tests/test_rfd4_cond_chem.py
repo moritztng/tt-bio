@@ -425,3 +425,19 @@ def test_a_component_that_disagrees_with_itself_fails(tmp_path):
     res = _chem_check().check_designed(path, ref)
     assert res["verdict"] == "FAIL"
     assert any(d["key"] == ["LIG", "S1"] for d in res["differences"])
+
+
+def test_a_diffused_ligand_can_be_dropped_as_a_frame():
+    """The sm_binder recipe does not hold its ligand: upstream's own two seeds move SAM's 27
+    heavy atoms 1.44 A internally, and both sit ~5 A from the input conformer. Fitting on it
+    grades against a frame that does not exist, so `--frame self` drops the anchor."""
+    gc = _grade_chem()
+    protein = _chain("A", "ALA", ["CA"] * 12)
+    ligand = _chain("B", "SAM", ["CA", "N", "O", "S"], one_residue=True)
+    joined = _joined(protein, ligand)
+    assert gc.selections(joined, frame="condition")[2] == ["B"]
+    designed, kind, anchors, kinds = gc.selections(joined, frame="self")
+    assert (designed, kind, anchors) == ("A", "protein", [])
+    grade = gc.compare(joined, joined, designed, kind, anchors, kinds)
+    assert grade["frame"].startswith("self")
+    assert grade["anchor_rmsd_a"] is None

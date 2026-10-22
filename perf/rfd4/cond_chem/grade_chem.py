@@ -97,7 +97,7 @@ def paired(a, b):
     return np.array([a[k] for k in keys]), np.array([b[k] for k in keys]), keys
 
 
-def selections(ref, designed_override=None):
+def selections(ref, designed_override=None, frame="condition"):
     kinds = chain_kinds(ref)
     if designed_override is not None:
         designed = designed_override
@@ -106,7 +106,7 @@ def selections(ref, designed_override=None):
         kind = kinds[designed]
     else:
         designed, kind = pick_designed(ref, kinds)
-    anchors = [c for c in kinds if c != designed]
+    anchors = [] if frame == "self" else [c for c in kinds if c != designed]
     return designed, kind, anchors, kinds
 
 
@@ -153,11 +153,15 @@ def main():
     ap.add_argument("--floor", required=True, help="upstream's design at another seed")
     ap.add_argument("--designed", default=None, help="override the designed chain id")
     ap.add_argument("--bar", type=float, default=0.60)
+    ap.add_argument("--frame", choices=("condition", "self"), default="condition",
+                    help="'self' when no chain is actually held: the sm_binder recipe DIFFUSES "
+                         "its ligand (upstream's own two seeds move SAM 1.44 A internally), so "
+                         "using it as the fit frame grades against a frame that does not exist")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
     ours, up, floor = load(a.ours), load(a.upstream), load(a.floor)
-    designed, kind, anchors, kinds = selections(up, a.designed)
+    designed, kind, anchors, kinds = selections(up, a.designed, a.frame)
     sel = (designed, kind, anchors, kinds)
 
     main_grade = compare(ours, up, *sel)
