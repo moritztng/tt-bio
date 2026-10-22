@@ -568,8 +568,12 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: bits); `transition_b8` makes its weights and hidden bfp8; `trimul_gin` + `trimul_gin_w8` give the triangle
 #: multiplication's in-projection bfp8 resident weights (state/rfd4/bets/bfp8.md). Default since a 30-design grade
 #: at 512 tokens: designed-chain CA RMSD 2.1 A median (max 11.4) against a 52.5 A seed floor, oracle-free binder
-#: grade PASS (state/rfd4/LAND4.md).
-NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8"})
+#: grade PASS (state/rfd4/LAND4.md). `pair_bf16` keeps the pair stream in bf16 between pair updates (the token
+#: stream stays fp32): module error 8.3e-3 against float64 on a 0.05 bar, and on top of the bfp8 levers 57.7 -> 48.4 s
+#: of trunk at 512 tokens. Graded as that stack, 30 seed-matched 512-token designs against the fp32-stream default:
+#: CA RMSD 5.7 A median (max 30.2) against a 37.2 A seed floor, oracle-free binder grade PASS (state/rfd4/LAND5.md).
+NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
+                           "pair_bf16"})
 #: `--fast` has nothing graded beyond the default yet.
 FAST_LEVERS = NORMAL_LEVERS
 
@@ -585,8 +589,9 @@ class Trunk(Module):
 
     `residual_dtype=ttnn.float32` keeps s and z in fp32 between sublayers, as the release
     inference config's `precision: bf16-mixed` does on a GPU (autocast runs the matmuls in bf16
-    and leaves the residual adds in fp32). Over 6 recycles x 12 pair updates an all-bf16 pair stream
-    drifts far from float64 even when every op is at its bf16 floor; see the parity test.
+    and leaves the residual adds in fp32). The `pair_bf16` lever (default) narrows only the pair
+    stream to bf16, which stays inside the parity bar; an all-bf16 trunk (token stream too) drifts far
+    from float64 over 6 recycles x 12 pair updates even when every op is at its bf16 floor.
     """
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
