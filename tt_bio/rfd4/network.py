@@ -207,7 +207,7 @@ class FlowGlue(torch.nn.Module):
         c = self.cond_factory({**batch, "recycle_remaining": recycle_remaining})
         return self.transition_c_2(self.transition_c_1(c, mask), mask)
 
-    def initial_states(self, batch: dict, pair_constant: torch.Tensor | None = None):
+    def initial_states(self, batch: dict, pair_constant=None):
         """`(s_init, z_init)` for this step's noisy state. Given the design's `pair_split.constant`,
         `z_init` is the `PairInputs` the card builds the pair from instead of the host tensor."""
         mask = batch["padding_mask"]

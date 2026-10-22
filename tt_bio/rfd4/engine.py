@@ -90,7 +90,7 @@ class DesignEngine:
         from tt_bio.rfd4.pair import PairOnCard
 
         self.pair = (None if self.glue.pair_split is None
-                     else PairOnCard(self.glue.pair_split, self._device, compute_kernel_config()))
+                     else PairOnCard(self.glue.pair_split, self._device))
 
     @classmethod
     def from_pretrained(cls, weights: str | Path = DEFAULT_WEIGHTS, **kwargs) -> "DesignEngine":

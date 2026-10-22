@@ -102,8 +102,9 @@ def test_the_split_is_upstreams_builder(case):
 def test_the_constant_does_not_move_with_the_step(case):
     glue, batch = case
     split = glue.pair_split
-    assert torch.equal(split.constant(_step(batch, 0, 0.1)), split.constant(_step(batch, 1, 0.9)))
-    assert torch.equal(split.constant(batch), split.constant(_step(batch, 0, 0.1)))
+    for a, b in ((_step(batch, 0, 0.1), _step(batch, 1, 0.9)), (batch, _step(batch, 0, 0.1))):
+        ca, cb = split.constant(a), split.constant(b)
+        assert torch.equal(ca.proj, cb.proj) and torch.equal(ca.scales, cb.scales)
 
 
 @needs_bundle
@@ -126,12 +127,11 @@ def test_the_card_builds_the_pair(case, npad):
 
     from tt_bio import tenstorrent as T
     from tt_bio.rfd4.pair import PairOnCard
-    from tt_bio.rfd4.trunk import compute_kernel_config
 
     glue, batch = case
     split = glue.pair_split
     dev = T.get_device()
-    card = PairOnCard(split, dev, compute_kernel_config())
+    card = PairOnCard(split, dev)
     constant = split.constant(batch)
     n = batch["padding_mask"].shape[1]
     b = _step(batch, 0, 0.6)
@@ -148,8 +148,7 @@ def test_the_card_builds_the_pair(case, npad):
     err, host_err = (got - ref).abs(), (host - ref).abs()
     rel_rms = float(((got - ref).pow(2).mean() / ref.pow(2).mean()).sqrt())
     print(f"npad {npad}: card max {err.max():.3e} rel_rms {rel_rms:.3e}; host fp32 max {host_err.max():.3e}")
-    # The trunk reads this pair in bf16 (rel 2^-9 = 2e-3) on every consumer; the card's norms must sit
-    # well inside that. Their floor is ttnn.sum unpacking fp32 to tf32 (rel ~2.7e-4 on a sum of
-    # squares, measured 2.1e-4 here); a 1/c scaler in bf16 (the ttnn.mean/rms_norm path) reads 1.3e-3.
-    assert rel_rms < 5e-4
+    # The card adds and multiplies in fp32 and reduces nothing, so it should sit near fp32's own
+    # error, like the host. A reduction on the card (ttnn.sum unpacks to tf32) read 2.1e-4 here.
+    assert rel_rms < 1e-4
     card.release()

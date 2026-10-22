@@ -17,6 +17,18 @@ kept on the card, and `W_x[bin]` picks one of 30 weight rows per pair. Each step
 the bin index with upstream's own `norm` + `bucketize` (so the bins are upstream's bins) and the
 AdaLN's gamma and beta, which are per design ([b, 384]); the card does the rest.
 
+Both norms are folded into one scale per pair, and the card does no reduction. With 30 bins a
+pair's `x = C + W_x[k]` takes one of 30 values, and both norms' statistics are quadratic in it:
+
+    sum(x^2)     = |C|^2     + 2 C.W_k         + |W_k|^2
+    sum(x^2 w^2) = |C w|^2   + 2 C.(W_k w^2)   + |W_k w|^2
+
+so the host tabulates `r1 * r2` for every pair and bin once a design, in float64, and each step
+picks one entry per pair. The card then only computes `(C + W_x[bin]) * scale * (w gamma) + beta`,
+elementwise in fp32. On the card the two sums cost +14 ms a step at 512 and were not accurate
+enough: `ttnn.sum` unpacks fp32 to tf32, rel 2.7e-4 on a sum of squares, and that moved designs
+at 512 by 2.1 A against the 0.6 A bar.
+
 The card's gather is exact. `ttnn.embedding` only moves bf16, so each fp32 weight row is split
 into three bf16 parts whose sum is the fp32 value; the card gathers each part (a row copy), widens
 it to fp32 and adds the three (`tests/test_rfd4_pair_device.py`). A one-hot matmul against the
@@ -51,13 +63,23 @@ def split_bf16(w: torch.Tensor) -> torch.Tensor:
 
 
 @dataclass
-class PairInputs:
-    """What the card needs for one step's pair: the design's constant projection (the same object
-    on every step of a design, which is how the card knows it already holds it), the step's bin
-    index and the AdaLN's per-design scale and shift."""
+class PairConstant:
+    """What a design fixes: the constant features' projection and, per pair and bin, the scale
+    both RMSNorms apply to `proj + W_x[bin]`."""
 
-    constant: torch.Tensor  # [1 or b, n, n, pair] fp32
+    proj: torch.Tensor  # [1 or b, n, n, pair] fp32
+    scales: torch.Tensor  # [1 or b, n, n, nbins] fp32, computed in float64
+
+
+@dataclass
+class PairInputs:
+    """What the card needs for one step's pair: the design's constant (the same object on every
+    step of a design, which is how the card knows it already holds it), the step's bin index and
+    its norm scale, and the AdaLN's per-design scale and shift."""
+
+    constant: PairConstant
     bins: torch.Tensor  # [b, n, n] int64, 0..nbins-1
+    scale: torch.Tensor  # [b, n, n] fp32
     gamma: torch.Tensor  # [b, pair] fp32
     beta: torch.Tensor  # [b, pair] fp32
 
@@ -91,13 +113,18 @@ class PairSplit:
         self.ln_weight = factory.ln_out.weight.detach().float()
         self.eps = factory.ln_out.eps
         self.builder = builder
+        w = self.w_step.double()
+        w2 = self.ln_weight.double() ** 2
+        self._cross = torch.cat([w, w * w2]).t().contiguous()  # [pair, 2 nbins]
+        self._sq = torch.stack([torch.ones_like(w2), w2], 1)  # [pair, 2]
+        self._wsq = torch.stack([(w * w).sum(-1), (w * w * w2).sum(-1)])  # [2, nbins]
 
     @property
     def nbins(self) -> int:
         return int(self.w_step.shape[0])
 
-    def constant(self, batch: dict) -> torch.Tensor:
-        """`[b, n, n, pair]` fp32: the projection of every feature but the step's."""
+    def constant(self, batch: dict) -> PairConstant:
+        """The projection of every feature but the step's, and its norm scales."""
         n = batch["padding_mask"].shape[-1]
         parts = []
         for creator in self.const_creators:
@@ -105,8 +132,25 @@ class PairSplit:
             if f.ndim == 2:  # per-example features broadcast over the pair, as FeatureFactory does
                 f = f.reshape(f.shape[0], 1, 1, -1).expand(-1, n, n, -1)
             parts.append(f.float())
-        feats = torch.cat(parts, dim=-1)
-        return feats @ self.w_const.t()
+        proj = torch.cat(parts, dim=-1) @ self.w_const.t()
+        return PairConstant(proj, self.scales(proj))
+
+    def scales(self, proj: torch.Tensor, rows: int = 4096) -> torch.Tensor:
+        """`[..., nbins]` fp32: `r1 * r2` of `proj + W_x[k]` for every bin k, in float64.
+        `r1 = rsqrt(mean(x^2) + eps1)` is the first RMSNorm's, `r2 = rsqrt(r1^2 mean(x^2 w^2) +
+        eps2)` the AdaLN's, which sees the first norm's output `x r1 w`."""
+        c, nb = proj.shape[-1], self.nbins
+        flat = proj.reshape(-1, c)
+        out = torch.empty(flat.shape[0], nb)
+        for i in range(0, flat.shape[0], rows):  # slices that stay in cache; 800 MB whole at 512
+            x = flat[i:i + rows].double()
+            cross = x @ self._cross
+            sq = (x * x) @ self._sq
+            r1sq = 1.0 / ((sq[:, :1] + 2 * cross[:, :nb] + self._wsq[0]) / c + self.eps)
+            s2 = sq[:, 1:] + 2 * cross[:, nb:] + self._wsq[1]
+            r2sq = 1.0 / (r1sq * s2 / c + self.builder.adaln.norm.eps)
+            out[i:i + rows] = (r1sq * r2sq).sqrt().float()
+        return out.reshape(*proj.shape[:-1], nb)
 
     def bins(self, batch: dict) -> torch.Tensor:
         """`[b, n, n]` int64: `bin_pairwise_distances`' bucket index, without its one-hot."""
@@ -121,18 +165,18 @@ class PairSplit:
         nc = ada.norm_cond(self.builder.cond_factory(batch))
         return ada.to_gamma(nc).float(), ada.to_beta(nc).float()
 
-    def inputs(self, batch: dict, constant: torch.Tensor) -> PairInputs:
+    def inputs(self, batch: dict, constant: PairConstant) -> PairInputs:
         gamma, beta = self.modulation(batch)
-        return PairInputs(constant, self.bins(batch), gamma, beta)
+        bins = self.bins(batch)
+        scale = torch.take_along_dim(constant.scales, bins[..., None], -1).squeeze(-1)
+        return PairInputs(constant, bins, scale, gamma, beta)
 
     def assemble(self, p: PairInputs) -> torch.Tensor:
-        """The host form of what the card computes, in the inputs' dtype (float64 for a reference).
-        Unmasked: the trunk masks its pair on entry."""
-        dt = p.constant.dtype
-        x = p.constant + self.w_step.to(dt)[p.bins]
-        x = torch.nn.functional.rms_norm(x, (x.shape[-1],), self.ln_weight.to(dt), self.eps)
-        x = torch.nn.functional.rms_norm(x, (x.shape[-1],), None, self.builder.adaln.norm.eps)
-        return x * p.gamma.to(dt)[:, None, None] + p.beta.to(dt)[:, None, None]
+        """The host form of what the card computes, in float64. Unmasked: the trunk masks its
+        pair on entry."""
+        x = p.constant.proj.double() + self.w_step.double()[p.bins]
+        wg = self.ln_weight.double() * p.gamma.double()
+        return x * p.scale.double()[..., None] * wg[:, None, None] + p.beta.double()[:, None, None]
 
 
 class PairOnCard:
@@ -141,17 +185,15 @@ class PairOnCard:
     Holds the split weights for as long as the engine lives and one design's constant
     projection for as long as that design runs."""
 
-    def __init__(self, split: PairSplit, device, ckc):
+    def __init__(self, split: PairSplit, device):
         import ttnn
 
-        self.split, self.device, self.ckc = split, device, ckc
+        self.split, self.device = split, device
         self.parts = [ttnn.from_torch(w, layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
                       for w in split_bf16(split.w_step)]
-        w2 = (split.ln_weight.double() ** 2).float().reshape(1, -1)
-        self.ln_w2 = ttnn.from_torch(w2, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.float32)
-        self._const = None  # (host tensor, npad, its padded copy on the card)
+        self._const = None  # (host PairConstant, npad, its padded projection on the card)
 
-    def _constant(self, c: torch.Tensor, npad: int):
+    def _constant(self, c: PairConstant, npad: int):
         """The design's constant projection on the card, uploaded on its first step only."""
         import ttnn
 
@@ -160,44 +202,32 @@ class PairOnCard:
         if self._const is not None and self._const[0] is c and self._const[1] == npad:
             return self._const[2]
         self.release()
-        padded = torch.nn.functional.pad(c, [0, 0, 0, npad, 0, npad]) if npad else c
+        proj = c.proj
+        padded = torch.nn.functional.pad(proj, [0, 0, 0, npad, 0, npad]) if npad else proj
         self._const = (c, npad, upload(padded.float().contiguous(), dtype=ttnn.float32, device=self.device))
         return self._const[2]
 
     def __call__(self, p: PairInputs, npad: int):
         import ttnn
 
-        ckc = self.ckc
+        from ..tenstorrent import upload
+
         const = self._constant(p.constant, npad)
-        bins = torch.nn.functional.pad(p.bins, [0, npad, 0, npad]) if npad else p.bins
+        bins, scale = p.bins, p.scale
+        if npad:
+            bins = torch.nn.functional.pad(bins, [0, npad, 0, npad])
+            scale = torch.nn.functional.pad(scale, [0, npad, 0, npad])
         rows = self.rows(bins)
         x = ttnn.add(rows, const)
         ttnn.deallocate(rows)
-        # Both RMSNorms and the AdaLN folded into one scale per pixel:
-        #   z = x * r1 * r2 * (w * gamma) + beta,  r1 = rsqrt(sum(x^2)/c + eps1),
-        #   r2 = rsqrt(r1^2 * sum(x^2 w^2)/c + eps2).
-        # ttnn's mean and rms_norm scale their reduction by 1/c in bf16 (1/384 is 0.4 % off), so
-        # the reductions are unit-scaler sums and 1/c is applied in fp32.
-        c = int(x.shape[-1])
-        sq = ttnn.multiply(x, x)
-        s1 = ttnn.sum(sq, dim=-1, keepdim=True, compute_kernel_config=ckc)
-        sqw = ttnn.multiply(sq, self.ln_w2)
-        ttnn.deallocate(sq)
-        s2 = ttnn.sum(sqw, dim=-1, keepdim=True, compute_kernel_config=ckc)
-        ttnn.deallocate(sqw)
-        r1 = ttnn.rsqrt(ttnn.add(ttnn.multiply(s1, 1.0 / c), self.split.eps))
-        r1sq = ttnn.multiply(r1, r1)
-        m2 = ttnn.multiply(ttnn.multiply(s2, 1.0 / c), r1sq)
-        r2 = ttnn.rsqrt(ttnn.add(m2, self.split.builder.adaln.norm.eps))
-        scale = ttnn.multiply(r1, r2)
-        for t in (s1, s2, r1, r1sq, m2, r2):
-            ttnn.deallocate(t)
+        # z = x * r1 r2 * (w gamma) + beta; r1 r2 is the host's per-pair scale.
+        s = upload(scale[..., None].float().contiguous(), dtype=ttnn.float32, device=self.device)
         wg = (self.split.ln_weight.double() * p.gamma.double()).float()
         wg, beta = (ttnn.from_torch(v[:, None, None], layout=ttnn.TILE_LAYOUT, device=self.device,
                                     dtype=ttnn.float32) for v in (wg, p.beta))
-        y = ttnn.multiply(x, scale)
+        y = ttnn.multiply(x, s)
         ttnn.deallocate(x)
-        ttnn.deallocate(scale)
+        ttnn.deallocate(s)
         x = ttnn.multiply(y, wg)
         ttnn.deallocate(y)
         z = ttnn.add(x, beta)
