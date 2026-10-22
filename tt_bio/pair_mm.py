@@ -25,8 +25,9 @@ from .envflags import env_flag
 
 #: The lever. Default OFF and release-gated; armed by `bindcraft2.fast_round()`.
 PAIR_MM_FUSED = env_flag("TT_BIO_PAIR_MM", False)
-#: On Wormhole, serve the bias-free, activation-free calls from `pair_linear` (weight resident in L1) first.
-PAIR_LINEAR_WH = env_flag("TT_BIO_PAIR_LINEAR", True)
+#: Serve the bias-free, activation-free calls from `pair_linear` (weight resident in L1) first: the
+#: narrow class (`_narrow`) on every chip, the swept class on Wormhole.
+PAIR_LINEAR = env_flag("TT_BIO_PAIR_LINEAR", True)
 
 def armed() -> bool:
     """The process flag (a BindCraft 2 round), or the `pair_mm` lever of the model folding now."""
@@ -108,8 +109,10 @@ def config(x, w, transpose_b: bool = False):
 
 def _narrow(x, w, transpose_b: bool = False) -> bool:
     """A pair-sized call whose K or N is below one tile (AF2's pair-bias projection [.., 128] x [128, 4] and
-    its dX [.., 4] x [4, 128]): outside minimal_matmul's class, served by `pair_linear` on Wormhole,
-    2.9x and 3.2x over ttnn.linear at [1,224,224,128] on .107."""
+    its dX [.., 4] x [4, 128]): outside minimal_matmul's class, served by `pair_linear`. Over ttnn.linear at
+    [1,224,224,128] that is 2.9x and 3.2x on a Wormhole chip (.107); on a p300c at 1350 MHz the forward
+    0.059 -> 0.043 ms and the dX [50176, 4|8] x [4|8, 128] 0.122 -> 0.053 ms, float64 rel L2 unchanged
+    (perf/bc4_mm2/probe_pm.py, bench.py)."""
     if (x.dtype != ttnn.bfloat16 or w.dtype != ttnn.bfloat16 or len(w.shape) != 2
             or x.layout != ttnn.TILE_LAYOUT or w.layout != ttnn.TILE_LAYOUT):
         return False
@@ -121,11 +124,11 @@ def _narrow(x, w, transpose_b: bool = False) -> bool:
     return shape[-1] == K and rows >= MIN_ROWS and min(K, N) < 32 and max(K, N) % 32 == 0
 
 
-def _wormhole() -> bool:
-    if not PAIR_LINEAR_WH:
+def _pair_linear(narrow: bool) -> bool:
+    if not PAIR_LINEAR:
         return False
     from .tenstorrent import is_wormhole
-    return is_wormhole()
+    return narrow or is_wormhole()
 
 
 def _decline(x, w, transpose_b, why):
@@ -147,8 +150,13 @@ def or_linear(linear, x, w, bias=None, *, activation=None, compute_kernel_config
     `ops.linear` takes it, and so does the tape shim's ``ttnn.linear``: the shipped pair modules
     call ``ttnn.linear`` directly, so a BindCraft 2 round's checkpoint forward and recompute
     reached the lever only through the shim (936 [1,224,224,128] x [128,128] calls a round).
+    A ``program_config`` only says how ttnn should run the product, so `matmul` may run it its
+    own way, unless the config carries a fused activation. `tenstorrent._pair_proj_linear` passes
+    one with every taped call, and on Blackhole that left all 1919 of a gradient iteration's pair
+    projections on ttnn.linear (perf/bc4_mm2/shapes.py).
     """
-    if set(kw) <= {"memory_config"} and armed():
+    plain = getattr(kw.get("program_config"), "fused_activation", None) is None
+    if set(kw) <= {"memory_config", "program_config"} and plain and armed():
         out = matmul(x, w, bias, compute_kernel_config, dtype,
                      memory_config=kw.get("memory_config"), activation=activation)
         if out is not None:
@@ -181,7 +189,8 @@ def matmul(x, w, bias=None, compute_kernel_config=None, dtype=None, transpose_b:
         return None
     cfg = config(x, w, transpose_b)
     if (bias is None and activation is None and dtype in (None, ttnn.bfloat16)
-            and (cfg is not None or _narrow(x, w, transpose_b)) and _wormhole()):
+            and (cfg is not None or _narrow(x, w, transpose_b))
+            and _pair_linear(cfg is None)):
         from . import pair_linear
         out = pair_linear.matmul(x, _transposed(w) if transpose_b else w, compute_kernel_config)
         if out is not None:

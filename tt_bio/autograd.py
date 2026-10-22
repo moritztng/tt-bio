@@ -1770,8 +1770,9 @@ def linear(x: Tensor, w: Tensor, b: Optional[Tensor] = None, *, dtype=None, core
     def make():
         def bw(g):
             if x.requires_grad:
-                x.add_grad(_via2d(g, lambda v: _matmul(v, w.value, transpose_b=True,
-                                                      compute_kernel_config=bwcfg)))
+                x.add_grad(_via2d(g, lambda v: _pair_mm_or(
+                    v, w.value, True, lambda: _matmul(v, w.value, transpose_b=True,
+                                                      compute_kernel_config=bwcfg), bwcfg)))
             if w.requires_grad:
                 # dW = X^T @ dY, summed over every leading dim, so flatten both first:
                 # a batched matmul would give one dW per batch instead of their sum.

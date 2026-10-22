@@ -1,12 +1,12 @@
-"""``x [.., K] @ w [K, N]`` with the weight resident in L1 on every core, for Wormhole's pair projections.
+"""``x [.., K] @ w [K, N]`` with the weight resident in L1 on every core, for the pair projections.
 
 On a Wormhole chip minimal_matmul puts N on the 9-core grid axis when M > N, so a 4-tile N leaves 5 of 9 core rows
 computing padding and the projection is compute-bound on 32 of 72 cores. Here every core loads the whole weight into
 L1 once and streams whole 32-row tiles of x through it (pair_swiglu_ws's machinery with one matmul, its writer
 shared), so all cores work and x is read from DRAM once. Measured on a Wormhole chip at [1,224,224,K] (.107,
 perf/spd/pair_linear_gate.py): N=128 0.187 -> 0.141 ms, the [..,384] x [384,128] dX 0.566 -> 0.276, N=384/512 1.1x,
-bit-identical to minimal_matmul (one fp32 dest pass over K). On Blackhole minimal_matmul is as fast or faster, so
-`pair_mm` asks this only on Wormhole.
+bit-identical to minimal_matmul (one fp32 dest pass over K). On Blackhole minimal_matmul is close at the swept
+widths, so `pair_mm` asks this there only for a K or N under one tile, which minimal_matmul cannot take.
 
 `matmul` returns the product or None, and None means the caller keeps its own path.
 """

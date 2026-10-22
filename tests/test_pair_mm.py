@@ -92,7 +92,7 @@ def test_armed_by_fast_round():
 
 def test_relu_rides_the_pack_and_other_activations_decline(monkeypatch):
     monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
-    monkeypatch.setattr(pair_mm, "PAIR_LINEAR_WH", False)   # on a Wormhole host the plain call takes pair_linear
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR", False)   # on a Wormhole host the plain call takes pair_linear
     seen = {}
     monkeypatch.setattr(ttnn.experimental, "minimal_matmul",
                         lambda **kw: seen.update(kw) or "out")
@@ -136,7 +136,10 @@ def test_shim_linear_asks_pair_mm_first(monkeypatch, armed):
     x, w = _t((1, 224, 224, 128)), _t((128, 128))
     assert linear(x, w, bias=None, dtype=ttnn.bfloat16, core_grid=None,
                   memory_config=ttnn.DRAM_MEMORY_CONFIG) == ("pair_mm" if armed else "linear")
-    assert linear(x, w, program_config=object()) == "linear"
+    plain = types.SimpleNamespace(fused_activation=None)
+    assert linear(x, w, program_config=plain) == ("pair_mm" if armed else "linear")
+    fused = types.SimpleNamespace(fused_activation="silu")
+    assert linear(x, w, program_config=fused) == "linear"
 
 
 @pytest.mark.parametrize("armed", [True, False])
@@ -155,7 +158,7 @@ def test_pair_proj_linear_asks_pair_mm(monkeypatch, armed):
 def _armed_wh(monkeypatch, served):
     from tt_bio import pair_linear, tenstorrent
     monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
-    monkeypatch.setattr(pair_mm, "PAIR_LINEAR_WH", True)
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR", True)
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: True)
     monkeypatch.setattr(pair_linear, "matmul", lambda x, w, ckc: served.append((x, w)) or "pl")
     monkeypatch.setattr(ttnn.experimental, "minimal_matmul", lambda **kw: "mm")
@@ -196,10 +199,16 @@ def test_wormhole_narrow_pair_bias_calls_take_pair_linear(monkeypatch, x, w, tb)
     assert pair_mm.matmul(_t(x), _t(w), transpose_b=tb) == "pl" and len(served) == 1
 
 
-def test_narrow_calls_decline_off_wormhole(monkeypatch):
-    from tt_bio import tenstorrent
+def test_off_wormhole_only_the_narrow_class_takes_pair_linear(monkeypatch):
+    from tt_bio import pair_linear, tenstorrent
+    served = []
     monkeypatch.setattr(pair_mm, "PAIR_MM_FUSED", True)
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: False)
+    monkeypatch.setattr(pair_linear, "matmul", lambda x, w, ckc: served.append((x, w)) or "pl")
+    monkeypatch.setattr(ttnn.experimental, "minimal_matmul", lambda **kw: "mm")
+    assert pair_mm.matmul(_t((1, 224, 224, 128)), _t((128, 4))) == "pl"
+    assert pair_mm.matmul(_t((1, 288, 288, 128)), _t((128, 128))) == "mm" and len(served) == 1
+    monkeypatch.setattr(pair_mm, "PAIR_LINEAR", False)
     assert pair_mm.matmul(_t((1, 224, 224, 128)), _t((128, 4))) is None
     assert not pair_mm._narrow(_t((1, 24, 24, 128)), _t((128, 4)))   # too few rows
 
