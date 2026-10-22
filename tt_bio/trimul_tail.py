@@ -1341,7 +1341,8 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, pre
         if why is not None:
             return why
     K = c_off + xs[1]
-    why = _t2_shape_why([1, xs[2], xs[3], K], [1, xps[2], xps[3], K], ln_w, ln_b, wp, g, resid, wg)
+    why = _t2_shape_why([1, xs[2], xs[3], K], [1, xps[2], xps[3], K], ln_w, ln_b, wp, g, resid, wg,
+                        res32=copy is not None)
     if why is not None:
         return why
     N = int(wp.shape[-1])
