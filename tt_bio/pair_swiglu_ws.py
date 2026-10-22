@@ -44,9 +44,10 @@ _L1_BUDGET = 1100 * 1024
 
 # One core reads the weights from DRAM and multicasts them to the grid, where every core would otherwise read all of them
 # (110 x 256 KB a call for AF2's c_z 128 transition: 0.069 of its 0.33 ms on a p300c). Same bytes in the same CBs.
-# Only where the program fills the whole grid rectangle. None is Blackhole only, where it is torch.equal to the per-core
-# read (perf/bc4_swiglu/mcast_ab.py on wk/bc4-bet-swiglu); Wormhole is not graded yet. True/False force it, for A/B.
-WEIGHTS_MCAST = None
+# Only where the program fills the whole grid rectangle. torch.equal to the per-core read on both arches (Blackhole:
+# perf/bc4_swiglu/mcast_ab.py on wk/bc4-bet-swiglu; Wormhole: perf/spd_m_opendde/wmc_ab.py, OpenDDE's c_z 384 transition
+# 20.95 -> 20.05 ms at 640 tokens, 6.18 -> 5.26 ms at 320, 1000 MHz). False forces the per-core read, for A/B.
+WEIGHTS_MCAST = True
 
 
 SILU_POLY = 2  # ws5 on WH 1000 MHz: c_z 128 fast 5.64 -> 4.77 ms, c_z 256 13.08 -> 11.28, rel_rms to float64 unchanged
@@ -164,8 +165,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         scaler = (inv << 16) | inv          # 1/K as a packed bf16 pair, exact for K a power of two
         eps_bits = struct.unpack("<I", struct.pack("<f", float(ln[2])))[0]
         defines = tuple(defines) + (("WS_LN", "1"),)
-    on = device.arch() == ttnn.Arch.BLACKHOLE if WEIGHTS_MCAST is None else WEIGHTS_MCAST
-    mcast = on and num_cores == g.x * g.y and num_cores > 1
+    mcast = WEIGHTS_MCAST and num_cores == g.x * g.y and num_cores > 1
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
     for group, per in ((cg1, work1), (cg2, work2)):
