@@ -86,7 +86,7 @@ def card(slot="", tag=""):
             yield
         finally:
             depth.n = 0
-            emit("card", slot=slot, tag=tag, th=threading.current_thread().name,
+            emit("card", slot=slot, tag=tag, th=threading.current_thread().name, tid=threading.get_native_id(),
                  t_req=round(t_req, 4), t_acq=round(t_acq, 4), t_rel=round(now(), 4))
 
 
@@ -122,7 +122,7 @@ def sequence_gradients(self, *args, **kwargs):
         return real_grads(self, *args, **kwargs)
     finally:
         t1 = now()
-        emit("rounds", slot=slot, th=threading.current_thread().name, t0=round(t0, 4), t1=round(t1, 4))
+        emit("rounds", slot=slot, th=threading.current_thread().name, tid=threading.get_native_id(), t0=round(t0, 4), t1=round(t1, 4))
         with lock:
             rounds[slot] = rounds.get(slot, 0) + 1
             go = (a.spy > 0 and not spy.get("started") and len(rounds) >= a.n
