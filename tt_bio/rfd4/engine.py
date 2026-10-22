@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, replace
 from pathlib import Path
+from collections.abc import Callable, Sequence
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -117,10 +118,15 @@ class DesignEngine:
                partial_t_latent: float | None = None, couple_partial_t: bool = False,
                partial_trajectory_fraction_steps: float | None = None,
                inverse_folding: bool = False,
-               inverse_folding_method: str = "resampled_forward_marginal") -> DesignOutput:
+               inverse_folding_method: str = "resampled_forward_marginal",
+               transforms: "Sequence[Callable]" = (), guidance=None) -> DesignOutput:
         """`rng="per_design"` gives every design its own stream (`sampler.DesignRng`).
         `rng="upstream"` seeds the global stream with `seed` and draws in upstream's order, which
         is how a design is compared one to one against upstream's run of the same seed.
+
+        `transforms` are per-replicate sampling transforms (`tt_bio.rfd4.replicates`): each one
+        runs once per design, so a batch can cover a surface instead of repeating one condition.
+        `guidance` is a metric-gradient callable (`tt_bio.rfd4.guidance`).
 
         The partial-diffusion and inverse-folding arguments are upstream's, with upstream's
         meanings and upstream's mutual exclusions (`sampler.resolve_partial_start`). Any of them
@@ -133,7 +139,12 @@ class DesignEngine:
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
 
+        from tt_bio.rfd4.replicates import apply_transforms
+
         batch = preprocess(features)
+        if transforms:
+            batch = apply_transforms(batch, num_designs=num_designs, transforms=transforms,
+                                     seed=seed)
         n_tokens = batch["padding_mask"].shape[1]
         spec = self.spec
         if nsteps != spec.nsteps:
@@ -159,7 +170,7 @@ class DesignEngine:
         out = _sampler.generate(spec, chunked, n_designs=num_designs, n_tokens=n_tokens,
                                 seed=seed, rng_mode=rng, emit_masks=compute_flow_emit_masks(batch),
                                 groups=_groups(batch), coord_cond_mask=batch.get("coord_cond_mask"),
-                                start=start, x_1=x_1)
+                                start=start, x_1=x_1, guidance=guidance)
         #: The sample width the trajectory finished at: `max_parallel_samples`, or less where DRAM
         #: refused a chunk and the chunker halved it. A throughput number quotes this, not the cap.
         self.chunk_width = chunked.width
