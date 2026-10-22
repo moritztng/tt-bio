@@ -639,7 +639,7 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: Default since the whole stack (these levers plus the pair built on the card) was graded as one at 512 tokens
 #: (state/rfd4/LAND6.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
-                           "pair_block", "pair_tail"})
+                           "pair_block", "pair_tail", "pair_bias_rms", "pair_write_res"})
 #: `--fast` has nothing graded beyond the default.
 FAST_LEVERS = NORMAL_LEVERS
 
