@@ -4285,6 +4285,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
         raise click.UsageError("--spec selects designs from a spec file; "
                                "--annotated_cif takes the CIF itself")
     click.echo(f"{Path(inputs).name}, seed {seed}")
+    out_dir = Path(out_dir or "./designs")
     if controller and lora:
         raise click.UsageError(
             "--lora is a local run: the adapter is not shipped to fleet workers. Merge it into a "
@@ -4295,7 +4296,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
         from tt_bio.rfd4.fleet import design_via_controller
 
         try:
-            design_via_controller(inputs, Path(out_dir or "./designs"),
+            design_via_controller(inputs, out_dir,
                                   controller_url=controller, num_designs=num_designs,
                                   backend=backend,
                                   recipe=recipe, nsteps=nsteps, seed=seed, only=only,
@@ -4307,10 +4308,9 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
             raise click.ClickException(f"{type(e).__name__}: {e}")
         return
     try:
-        written = rfd4.design(inputs, out_dir, num_designs=num_designs,
-                              backend=backend, recipe=recipe, adapter=lora, nsteps=nsteps, seed=seed,
-                              only=only, validate=validate,
-                              annotated_cif=annotated_cif,
+        written = rfd4.design(inputs, out_dir, num_designs=num_designs, backend=backend,
+                              recipe=recipe, adapter=lora, nsteps=nsteps, seed=seed,
+                              only=only, validate=validate, annotated_cif=annotated_cif,
                               on_design=lambda example_id, tokens, cif: click.echo(
                                   f"  {example_id}: {tokens} tokens <- {cif}"),
                               on_write=lambda path: click.echo(f"    -> {path}"))
