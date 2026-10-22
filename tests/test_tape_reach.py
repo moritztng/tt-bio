@@ -55,6 +55,9 @@ ALLOWED = {
     # twice. It defers the import for the same `pin_card()` reason as `bindcraft2.py`, which
     # imports it.
     "af2_structure.py",
+    # The RFD4 engine is inference only and nothing tapes it; it defers the import so the
+    # package imports without the wheel, and reads only `ttnn.float32` from it.
+    "rfd4/engine.py",
     # A kernel-source patcher, not a model path.
     "kernels/trimul_tail/patch_trimul_tail.py",
     # `bindcraft2.py` defers the import because `pin_card()` has to set TT_VISIBLE_DEVICES

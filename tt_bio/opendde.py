@@ -469,16 +469,29 @@ def route_opendde_weights(state_dict):
 # per arm (spd-m-opendde th2p, 2026-10-21): normal 608 127.1 -> 124.6 s, 288 -0.33 s. WH 11-set normal grade, shipped set
 # vs + trunk_hifi2, seeds 109-112, 44 paired folds (th2g): PASS, same-seed top pose median 0.216 A (A/A floor 1.330 A),
 # CA-lDDT +0.0006 [+0.0002, +0.0013], DockQ +0.0033 [+0.0004, +0.0068], docking 26 -> 26; the confidence head reads ipTM
-# -0.018 [-0.048, -0.002] and pLDDT -0.0014. Wormhole fast takes it too: fast 608 -2.27 s (-1.9 %, th2p), 288 -0.21 s. WH
-# 11-set fast grade vs the shipped fast set, 44 paired folds: PASS, same-seed top pose median 0.340 A (A/A floor 1.482 A),
-# CA-lDDT +0.0003 [-0.0006, +0.0013], DockQ -0.0004 [-0.0051, +0.0042], docking 26 -> 26; iRMSD +0.49 A [+0.01, +1.17].
+# -0.018 [-0.048, -0.002] and pLDDT -0.0014. Wormhole fast does not take it: it graded PASS (608 -2.27 s, -1.9 %), but
+# with it the 608 fast set hung the device in 5 of 15 processes on Galaxy chips, without it 0 of 11 (spd-m-opendde hgd,
+# 2026-10-22). Normal has not hung at 608 with it.
 # Wormhole normal runs the pair transition on bfp8 weights in one hidden chunk (transition_b8 + ws_b8_plain), as fast does:
 # trunk_hifi2 showed the four-chunk HiFi3 schedule, not its fidelity, was the cost. Galaxy chip, 1000 MHz, separate-process
 # ABBA, 2 warm folds per arm (spd-m-opendde tbp, 2026-10-21): normal 608 122.2 -> 115.7 s (-5.3 %), 288 32.2 -> 30.4 s
 # (-5.7 %). WH 11-set normal grade, shipped set vs + both, seeds 109-112, 44 paired folds (tbg): PASS, same-seed top pose
 # median 0.190 A (A/A floor 1.236 A), CA-lDDT -0.0003 [-0.0011, +0.0002], DockQ +0.0015 [-0.0023, +0.0057], iRMSD +0.058
 # [-0.498, +0.662], docking 26 -> 26.
-NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL
+# Both Wormhole modes keep the diffusion-conditioned pair on the chip (pz_device: one device LN feeds the bf16 DiT and the
+# atom z term, no host round trip) and run the bf16 AdaLN modulation and the DiT's gated residuals as one addcmul each
+# (dit_mod16). Galaxy chip, separate-process, 3 on / 3 off warm folds, AICLK 1000 MHz (spd-m-opendde dsm / dsmf,
+# 2026-10-22): normal 608 -2.05 s (-1.7 %), fast 608 119.67 -> 117.59 s (-1.7 %). WH 11-set grades, seeds 109-112, 44
+# paired folds each (dsg): fast vs main 7c42f9778 PASS, same-seed top pose median 0.267 A (A/A floor 1.482 A), CA-lDDT
+# +0.0012 [+0.0006, +0.0018], docking 26 -> 26; normal PASS, top pose median 0.248 A (floor 1.410 A), CA-lDDT +0.0016
+# [+0.0003, +0.0037], DockQ +0.0138 [-0.0101, +0.0547], docking 26 -> 27. Blackhole is ungraded.
+DIT_SEAM = frozenset({"pz_device", "dit_mod16"})
+# Both Wormhole modes let padded triangle attention take a 10-tile q chunk at the k chunk the ranking already picks
+# (triatt_q10): at 608 tokens q320 x k640 replaces q256 x k640, 23.46 -> 20.58 ms per call, torch.equal. Galaxy chip,
+# 2 paired warm folds, AICLK 1000 MHz, CIFs identical (spd-m-opendde q10ab, 2026-10-22): normal 608 115.76 -> 112.51 s
+# (-2.8 %), fast 608 115.72 -> 112.63 s (-2.7 %). Bit-exact, so no grade. Blackhole is unmeasured.
+TRIATT_Q10 = frozenset({"triatt_q10"})
+NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
@@ -486,9 +499,10 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
+# Wormhole fast takes DIT_SEAM too (above).
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
-                                   "trimul_t1_dram", "trunk_hifi2"}
-                  | TRIATT_LN | TRIATT_K1)
+                                   "trimul_t1_dram"}
+                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10)
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
@@ -765,19 +779,16 @@ class OpenDDE:
         })
         # The structural pair's only consumer, so the conditioning frees it (confidence runs
         # on the residue axis): at Ns=2113 it is 3.2 GiB the confidence pairformer needs back.
-        pair_z = P._diffusion_pair_cond(z_st, relp_struct).reshape(Ns, Ns, -1)
+        pz = P._diffusion_pair_cond(z_st, relp_struct, device=P._pz_device())
         dram_peak("structural pair conditioned")
         a2s = ifd["atom_to_structural_token_idx"]
         S_struct = torch.zeros(N, Ns); S_struct[torch.arange(N), a2s] = 1.0
-        p_lm = p_lm + P._plm_z_term(pair_z, a2s, nb, nq, nk)
+        z_term, pz_cond = P._pair_z_seam(pz, Ns, a2s, nb, nq, nk)
+        p_lm = p_lm + z_term
 
-        cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "pair_z": pair_z, "c_l": c_l,
+        cond = {"s_trunk": s_struct, "s_inputs": s_inputs_struct, "c_l": c_l,
                 "p_lm": p_lm, "S": S_struct, "mask_trunked": mt.float(),
-                "structural_pair_attn_bias": structural_attn_bias}
-        if P.diffusion.device_dit:
-            cond["dit_z"] = P.diffusion._dit_z_device(pair_z)
-        else:
-            cond["dit_biases"] = P.diffusion._dit_pair_biases(pair_z)
+                "structural_pair_attn_bias": structural_attn_bias, **pz_cond}
         # Multiplicity batching (see Protenix.fold): one batched trajectory when
         # P.diffusion.supports_multiplicity is on; else the per-sample loop (bit-exact).
         if n_sample > 1 and getattr(P.diffusion, "supports_multiplicity", False):

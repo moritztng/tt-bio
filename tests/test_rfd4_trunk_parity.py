@@ -270,6 +270,27 @@ def test_trunk_stack(nlayers, cycles, mode):
 
 
 @pytest.mark.device
+def test_full_mask_elision_is_bit_identical():
+    """With no padded token `trunk_masks` hands back None for every mask (the triangle's is None either
+    way) and the trunk skips those multiplies. That has to be the identity, bit for bit, on both streams."""
+    dev = T.get_device()
+    nlayers, cycles = 4, 2
+    w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=31)
+    s0, z0, _, mask = REF.block_inputs(1, 128, DIM, DIM_PAIR, DIM_COND, seed=32)
+    assert bool((mask == 1).all())
+    g = torch.Generator().manual_seed(33)
+    conds = [torch.randn(1, 128, DIM_COND, generator=g, dtype=torch.float64) for _ in range(cycles)]
+    mod = TR.Trunk(_scope(w), TR.compute_kernel_config(), nlayers, HEADS, residual_dtype=ttnn.float32)
+    outs = []
+    for elide in (False, True):
+        masks = TR.trunk_masks(mask, dev, residual_dtype=ttnn.float32, elide=elide)
+        assert (masks[0] is None) == elide and masks[2] is None
+        s, z = mod(_dev(s0, dev, ttnn.float32), _dev(z0, dev, ttnn.float32), [_dev(c, dev) for c in conds], masks)
+        outs.append((ttnn.to_torch(s), ttnn.to_torch(z)))
+    assert torch.equal(outs[0][0], outs[1][0]) and torch.equal(outs[0][1], outs[1][1])
+
+
+@pytest.mark.device
 def test_trunk_run_bucketed_ragged_length():
     """`Trunk.run_bucketed` on a ragged 100-token input: it pads to the 32 bucket (128) itself, and the
     answer is graded against float64 run at 100 tokens with no padding at all."""

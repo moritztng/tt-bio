@@ -4,7 +4,8 @@
 
 // trimul tail, weights resident: writes this core's output rows, one block of Mb x Nt tiles.
 // With SPLIT = 2 the Nt columns go to two tensors of Nt / 2 columns each (the gated in-projection's
-// a and b); SPLIT = 1 passes the same tensor twice.
+// a and b); SPLIT = 1 passes the same tensor twice. T2_RES32 (SPLIT 1): c_2 is the float32 sum, written to o0,
+// and c_21 its bfloat16 copy, written to the same pages of o1.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -35,8 +36,18 @@ void kernel_main() {
                 for (uint32_t c = 0; c < Ns; ++c, r += tb) noc_async_write_page(row + c, o1, r);
             }
         }
+#ifdef T2_RES32
+        constexpr uint32_t copy_cb = tt::CBIndex::c_21;
+        const uint32_t tc = get_tile_size(copy_cb);
+        cb_wait_front(copy_cb, Mb * Nt);
+        uint32_t rc = get_read_ptr(copy_cb);
+        for (uint32_t t = 0; t < (NOWRITE ? 0 : Mb * Nt); ++t, rc += tc) noc_async_write_page(m * Nt + t, o1, rc);
+#endif
         noc_async_writes_flushed();
         cb_pop_front(out_cb, Mb * Nt);
+#ifdef T2_RES32
+        cb_pop_front(copy_cb, Mb * Nt);
+#endif
     }
     noc_async_write_barrier();
 }

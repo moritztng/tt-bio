@@ -1,0 +1,29 @@
+{
+  "command": "rfd4-evaluate inputs=<dir holding partial_diffusion/> metrics_tags=[partial_diffusion] out_dir=<dir>",
+  "note": "pd_generated.cif is the clashing fixture, pd_input.cif the clean design, so ca_rmsd_to_input measures the residue 40-60 displacement after a CA Kabsch. pd_input.cif has no sidecar of its own and upstream drops its whole inline block.",
+  "rows": {
+    "pd_generated.cif": {
+      "amino_acid_composition.ala_fraction": "0.03",
+      "amino_acid_composition.gly_fraction": "0.0",
+      "amino_acid_composition.n_generated_unknown_residues": "0.0",
+      "amino_acid_composition.n_standard_residues": "100.0",
+      "amino_acid_composition.val_fraction": "0.03",
+      "ca_rmsd_to_input.rmsd": "3.7611",
+      "example_id": "pd_generated_d77015db",
+      "pre_oracle_pass": "1.0",
+      "sequence_similarity_to_input.sequence_identity_to_input": "1.0"
+    },
+    "pd_input.cif": {
+      "amino_acid_composition.ala_fraction": "",
+      "amino_acid_composition.gly_fraction": "",
+      "amino_acid_composition.n_generated_unknown_residues": "",
+      "amino_acid_composition.n_standard_residues": "",
+      "amino_acid_composition.val_fraction": "",
+      "ca_rmsd_to_input.rmsd": "",
+      "example_id": "pd_input_b9bedd2c",
+      "pre_oracle_pass": "0.0",
+      "sequence_similarity_to_input.sequence_identity_to_input": ""
+    }
+  },
+  "upstream_sha": "2db07bb444d91695f8c10e6acb7648e9297f9221"
+}
