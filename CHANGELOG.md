@@ -39,6 +39,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   namespaced apart. Upstream's classifier-free guidance weight and its dependency-bound
   evaluate metrics (tmol, PyRosetta, Foldseek) are refused by name with the reason, instead of
   being silently ignored. See [rfd4-steering](docs/rfd4-steering.md).
+- **An RFD4 run can start from a structure instead of noise.** `tt-bio design --model rfd4`
+  takes `--partial` (re-noise the input part-way and run that fraction of the schedule, upstream's
+  antibody refinement is 0.42), `--partial_t_backbone` and `--partial_t_latent` for explicit
+  corruption times, `--couple_partial_t` to derive the time you did not give, and
+  `--inverse_folding` to hold the backbone and design only the sequence. `--tsr_k` sets the
+  sequence temperature, which is what inverse folding is tuned with. Upstream's mutual exclusions
+  are enforced and these are local runs, refused with `--controller`. See
+  [rfd4-steering](docs/rfd4-steering.md).
+- **`tt-bio evaluate --model rfd4` scores designs you already have, with no device.** It writes
+  upstream's `per_example_metrics.csv`, same column names and rounding. `--metrics_tags` picks the
+  metrics, `--task_csv` maps each structure to a task, and `--job_id` with `--gen_njobs` splits the
+  inputs into shards. See [rfd4-evaluate](docs/rfd4-evaluate.md).
 
 ### Fixed
 - **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating

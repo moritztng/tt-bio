@@ -18,6 +18,28 @@ It is CA-only because the all-atom form would run the decoder on every frame, wh
 the card time of a run by the number of saved steps, and because upstream's other format (XTC)
 needs mdtraj, which tt-bio does not ship.
 
+## Starting from a structure instead of noise
+
+A run normally starts from noise. These options start it from `INPUTS` instead, which must be a
+generated annotated CIF so the conditioning travels with it.
+
+| flag | what it does |
+| --- | --- |
+| `--partial N` | Partial diffusion: re-noise INPUTS part-way and run that fraction of the step schedule, to refine or diversify a design you already have. 0.42 is upstream's antibody refinement setting (25 of 60 steps). INPUTS should be a generated annotated CIF, which carries its own conditioning. |
+| `--partial_t_backbone N` | Partial diffusion by explicit corruption time for the backbone, instead of --partial. Give --partial_t_latent too, or --couple_partial_t. |
+| `--partial_t_latent N` | The same for the sequence latents. |
+| `--couple_partial_t` | Derive the modality time you did not give from the one you did, by step index on a dense schedule. |
+| `--inverse_folding` | Keep INPUTS' backbone exactly as given and design only the sequence. Excludes the partial-diffusion options. |
+| `--tsr_k N` | Sequence temperature (upstream's local_latents tsr_k, default 4). Lower is hotter and gives more sequence diversity; mostly used with --inverse_folding. |
+
+The combinations are upstream's. `--partial` and the explicit `--partial_t_*` times are mutually
+exclusive; one `--partial_t_*` on its own needs either the other one or `--couple_partial_t`;
+`--inverse_folding` excludes all of them. A resolved start time of 1.0 or more is refused, because
+t=1 is the clean state and the score conversion divides by 1-t. tt-bio reports the mode it
+resolved to on the run's first line.
+
+These are a local run: asking for any of them together with `--controller` is refused.
+
 ## A different condition per design
 
 A batch of designs normally shares one input: same contig, same hotspots, only the noise differs.
