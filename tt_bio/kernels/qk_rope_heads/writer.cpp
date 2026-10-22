@@ -6,8 +6,16 @@
 // [B, L, D] input is tile s = c % 2 of head h = c / 2 at row tile lt, i.e. page ((b * H + h) * LT + lt) * 2 + s of
 // the [B, H, L, 64] output. q and k come from the compute kernel two tiles (one head) at a time in c_16, v straight
 // from the reader, VC tiles at a time, in c_21 (in c_22 from the compute kernel's packer under QKRH_V_PACK).
+// A CB slot is popped once its writes have left L1 (flushed); the one barrier for their DRAM acks is at the end:
+// a barrier per head was ~60 NOC round trips a core a call.
 // Common runtime args: q, k, v output addresses. Per core: as the reader.
 #include "api/dataflow/dataflow_api.h"
+
+#ifdef QKRH_WRITE_BARRIER
+#define QKRH_SLOT_DONE() noc_async_write_barrier()
+#else
+#define QKRH_SLOT_DONE() noc_async_writes_flushed()
+#endif
 
 void kernel_main() {
     const uint32_t qk_first = get_arg_val<uint32_t>(0);
@@ -42,7 +50,7 @@ void kernel_main() {
                 for (uint32_t c = c0; c < c0 + VC; ++c, rd += tv) {
                     noc_async_write_page(base + (c / 2) * LT * 2 + c % 2, sv, rd);
                 }
-                noc_async_write_barrier();
+                QKRH_SLOT_DONE();
                 cb_pop_front(cb_v, VC);
             }
             continue;
@@ -58,8 +66,9 @@ void kernel_main() {
                 noc_async_write_page(p, sk, rd);
                 noc_async_write_page(p + 1, sk, rd + to);
             }
-            noc_async_write_barrier();
+            QKRH_SLOT_DONE();
             cb_pop_front(cb_out, 2);
         }
     }
+    noc_async_write_barrier();
 }

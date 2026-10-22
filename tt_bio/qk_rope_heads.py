@@ -42,6 +42,9 @@ BLOCK = 4
 #: -> +0.00006, q rel_l2 2.72e-3 -> 2.09e-3, 0.29 ms either way. ESMC page pcc vs fp32: 300M normal +0.000011, 600M
 #: normal +0.000029, --fast -0.000002, time flat. None = on for Wormhole (Blackhole not graded yet); read at build time.
 SFPU = None
+#: The writer frees an output CB slot once its writes have left L1 and waits for the DRAM acks once, at the end. False:
+#: a write barrier per head (two tiles), the old program; read at build time, part of the key.
+WRITE_FLUSH = True
 #: [calls served, declined], read by the A/B harness.
 STATS = [0, 0]
 
@@ -113,6 +116,7 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloa
     defines += [("QKRH_BLK", str(max(1, BLOCK))), ("QKRH_HG", str(hg))]
     defines += [("QKRH_SFPU", "1")] if _sfpu() else []
     defines += [("QKRH_V_PACK", "1")] if vpack else []
+    defines += [] if WRITE_FLUSH else [("QKRH_WRITE_BARRIER", "1")]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -175,7 +179,7 @@ def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed, out_dtype=None):
                                            ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
     # without a LayerNorm the gamma slots are never read; cos stands in so every accessor has a tensor
     tensors = [q, k, v, q_gamma if ln else cos, k_gamma if ln else cos, cos, sin] + outs
-    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, _sfpu(), str(od), tuple(t.memory_config().buffer_type for t in tensors[:7]))
+    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, _sfpu(), WRITE_FLUSH, str(od), tuple(t.memory_config().buffer_type for t in tensors[:7]))
     if key not in _CACHE:
         _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln, od)
     kernels, cbs = _CACHE[key]
