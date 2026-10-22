@@ -387,9 +387,13 @@ class _DiTBlock(Module):
         return self.lp.linear(x, w, bias, dtype=dtype, activation=activation)
 
     def _z_bias(self, z):
-        """linear_z(LN_z(z)), per pair position."""
-        zn = ttnn.layer_norm(z, weight=self.ln_z_w, epsilon=1e-5,
+        """linear_z(LN_z(z)), per pair position. A bf16 stack in an fp32 module (dit_tok16) casts z here, per
+        block (and per row block on a refusal), so no second whole pair outlives one bias."""
+        zc = z if z.dtype == self._act_dtype else ttnn.typecast(z, self._act_dtype)
+        zn = ttnn.layer_norm(zc, weight=self.ln_z_w, epsilon=1e-5,
                              compute_kernel_config=self.compute_kernel_config)
+        if zc is not z:
+            ttnn.deallocate(zc)
         zb = self._lin(zn, self.w_lin_z)
         ttnn.deallocate(zn)
         return zb
@@ -677,17 +681,12 @@ class OF3DiffusionTransformer(Module):
         # positions are unaffected (padded queries' outputs are stripped at readout,
         # padded keys are masked out of every valid query's softmax).
         # dit_tok16: a bf16 stack inside an fp32 module. a and s are cast every call, the token mask once a
-        # rollout, z only while the blocks still have to build their rollout-cached pair biases from it.
+        # rollout; z stays fp32 and each block casts it while building its rollout-cached pair bias (_z_bias).
         out_dtype = a.dtype
-        z_cast = None
         if out_dtype != self._act_dtype:
             a, s = (ttnn.typecast(x, self._act_dtype) for x in (a, s))
             tok_mask_col = _cached(cache, (id(self), "tmc_cast"),
                                    lambda: ttnn.typecast(tok_mask_col, self._act_dtype))
-            if cache is None or (id(self), "z_cast") not in cache:
-                z = z_cast = ttnn.typecast(z, self._act_dtype)
-                if cache is not None:
-                    cache[(id(self), "z_cast")] = ()   # a marker the rollout's free walks past
         N = token_mask.shape[-1]
         S = a.shape[0]
         padded_N = bucketed_width(N, TILE)
@@ -723,8 +722,6 @@ class OF3DiffusionTransformer(Module):
                     tok_ones=self._tok_ones.get(rows, False))
         for t in s16 or ():
             ttnn.deallocate(t)
-        if z_cast is not None:
-            ttnn.deallocate(z_cast)
         if l1:
             ttnn.deallocate(s_d)
             if x is not a_d:
