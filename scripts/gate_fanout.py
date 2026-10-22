@@ -201,6 +201,8 @@ REBOOTED = "rebooted under the leg"
 #: queued before the lend was booked is taken back and handed to another worker.
 LEND_AT = "~/spd/galaxy/LEND-AT"
 LEND_READ_S = 300
+REQUEUED = "requeued"     # run_in_pool's note for an attempt the pool put back after a chip recall
+REQUEUE_GRACE_S = 3       # the pool requeues right after the job exits; give it that long before reading rc
 WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
 #: glx_elastic gives a lent Galaxy back to JapanFold by SIGINTing every pool job and touching the pool's
 #: RETURNED. .107 went back at 07:34Z on 2026-10-16, 35 min into the WH legs of gate 5e250928a, and 14 of
@@ -1596,14 +1598,24 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
             RUNNING.pop(rdir, None)
             f.write(f"# taken back: {host.name}'s pool is lent or paused past this leg's cap\n")
             return WITHDRAWN
+        # A chip the agent recalls is SIGINTed under the leg, which still writes an rc; the pool then copies the
+        # job back into the queue within milliseconds, so a queued job no older than the rc is a requeue, not a
+        # verdict (file times tick per jiffy, hence "no older"). rel-f2fd17ff3, 10-22 21:22Z: ladder:openbind
+        # recorded FAIL from a recalled attempt while its rerun went unread.
+        rc_f = f"{q(rdir)}/rc"
         try:
-            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; cat {q(rdir)}/rc 2>/dev/null",
+            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; [ -s {rc_f} ] && sleep {REQUEUE_GRACE_S} && "
+                         f"if [ -e {q(job)} ] && ! [ {rc_f} -nt {q(job)} ]; then rm -f {rc_f}; echo {REQUEUED}; else cat {rc_f}; fi",
                          capture_output=True, timeout=120)
         except subprocess.TimeoutExpired:
             continue        # a busy sshd; the job runs on regardless, ask again
         if r.returncode == 255:
             continue        # the connection, not the job
         boot, started, rc = (r.stdout.split("\n") + ["", ""])[:3]
+        if rc.strip() == REQUEUED:
+            f.write(f"# {REQUEUED}: {host.name} recalled the chip under this attempt; waiting for the rerun\n")
+            f.flush()
+            continue
         if rc.strip():
             rc = int(rc)
             break
