@@ -14,9 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-import pickle
 import warnings
-from collections.abc import Mapping
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +26,7 @@ from safetensors.torch import save_file
 
 from tt_bio._vendor.nesso.data.types import Manifest, Record
 from tt_bio.cache import cached, staged
+from tt_bio.ccd import CcdMols
 from tt_bio.weights import NESSO_REPO, NESSO_REVISION
 
 # RDKit drops atom properties when UNPICKLING too, not just when pickling, so this has
@@ -199,63 +198,11 @@ def run_esm(
     return len(missing)
 
 
-class CcdMols(Mapping):
-    """``ccd.pkl`` as a mapping that only unpickles the whole file when it has to.
+def standard_mols(ccd: CcdMols) -> dict:
+    """The standard residues, the only part of the CCD the featurizer reads."""
+    from tt_bio._vendor.nesso.data.inference import STANDARD_AA
 
-    The file is 413 MB and takes 5 s to unpickle, and a protein with a SMILES ligand reads
-    nothing from it but the standard residues. Those are kept in a small sidecar pickle
-    derived from ccd.pkl on first use (keyed on the file's path, size and mtime), and the
-    full dict is loaded, once per process, only for a code outside that set. The sidecar
-    holds the same mols re-pickled under the same RDKit pickle options the full load
-    reads them with, so a caller gets the same objects either way.
-    """
-
-    _full: dict[Path, dict] = {}
-
-    def __init__(self, ccd_pkl: Path):
-        from tt_bio._vendor.nesso.data.inference import STANDARD_AA
-        from tt_bio.weights import cache_root
-
-        self.path = Path(ccd_pkl).resolve()
-        self.covered = frozenset(STANDARD_AA)
-        st = self.path.stat()
-        key = hashlib.sha256(f"{self.path}:{st.st_size}:{st.st_mtime_ns}".encode()).hexdigest()[:16]
-        side = cache_root() / "nesso1" / f"ccd-standard-{key}.pkl"
-        if cached(side):
-            with side.open("rb") as f:
-                self.sub = pickle.load(f)  # noqa: S301 - our own derived file
-        else:
-            full = self.full()
-            self.sub = {k: full[k] for k in sorted(self.covered) if k in full}
-            side.parent.mkdir(parents=True, exist_ok=True)
-            with staged(side) as tmp, open(tmp, "wb") as f:
-                pickle.dump(self.sub, f)
-
-    def full(self) -> dict:
-        if self.path not in self._full:
-            from tt_bio._vendor.nesso.data.yaml_input import load_ccd_mol_dict
-
-            self._full[self.path] = load_ccd_mol_dict(self.path)
-        return self._full[self.path]
-
-    def _src(self, code) -> dict:
-        return self.sub if code in self.covered else self.full()
-
-    def __contains__(self, code) -> bool:
-        return code in self._src(code)
-
-    def __getitem__(self, code):
-        return self._src(code)[code]
-
-    def __iter__(self):
-        return iter(self.full())
-
-    def __len__(self) -> int:
-        return len(self.full())
-
-    def standard(self) -> dict:
-        """The standard residues, the only part of the CCD the featurizer reads."""
-        return dict(self.sub)
+    return {k: ccd[k] for k in STANDARD_AA if k in ccd}
 
 
 _CCD: CcdMols | None = None
@@ -323,7 +270,7 @@ def build_dataset(paths: Paths, manifest: Manifest, ccd_pkl: Path, max_dist: flo
         manifest=manifest,
         target_dir=paths.processed,
         ligand_dir=paths.mol_dir,
-        standard_aa_mols=CcdMols(ccd_pkl).standard(),
+        standard_aa_mols=standard_mols(CcdMols(ccd_pkl)),
         use_esm_all_layers=False,
         num_dist_bins=64,
         min_dist=2.0,

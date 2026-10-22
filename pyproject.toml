@@ -24,14 +24,13 @@ dependencies = [
     "pyyaml",
     "omegaconf",  # only needed to unpickle DictConfig objects baked into upstream ckpts
     "biopython",
-    # <1.7: biotite 1.7.1 dropped `BondList._bonds` and moved `connect_via_residue_names`
-    # out of `biotite.structure.bonds`. The vendored AtomWorks tree RF3 featurizes through
-    # (NOTICE #7) reaches both, so with biotite unbounded a clean `pip install tt-bio`
-    # resolved 1.7.1 and every `--model rf3` fold died at import before opening a card.
-    # 1.2.0 through 1.6.0 are clean on both, checked one version at a time; there is no
-    # published 1.7.0, so this excludes exactly 1.7.1. Lifting the bound means porting the
-    # vendored tree off two biotite private internals and re-certifying RF3 featurization.
-    "biotite<1.7",
+    # The vendored AtomWorks tree (NOTICE #7) patches biotite internals and accepts exactly
+    # these two releases. 1.6.0 is what upstream pins, and it needs Python >= 3.11. 1.2.0 is
+    # the newest biotite on 3.10; tt_bio/_vendor/atomworks/biotite_patch.py backports the
+    # three 1.3+ behaviours AtomWorks uses, gated on the biotite version, and RF3 features
+    # are bit-identical between the two. 1.7.1 dropped `BondList._bonds`.
+    "biotite==1.2.0; python_version < '3.11'",
+    "biotite==1.6.0; python_version >= '3.11'",
     "matplotlib",
     "scipy",
     "numba",
@@ -80,6 +79,7 @@ dependencies = [
     # MSA utils only. pyarrow turned up only on the release venv (ttnn 0.68.0 /
     # torch 2.13.0) on qb1, because the dev env that found the first three already
     # had it transitively.
+    "filelock",       # atomworks ml/utils/io.py (rf3 data/pipelines.py); torch also pulls it
     "zstandard",      # atomworks io/utils/compression.py, ml/utils/io.py
     "beartype",       # rf3 data/ground_truth_template.py
     "jaxtyping",      # atomworks ml/conditions/annotator.py
@@ -90,6 +90,10 @@ dependencies = [
     # it means the reference's contraction order, and so its float results, match
     # upstream exactly.
     "opt_einsum",
+    # RFD4's vendored host package (NOTICE #9) asserts its PPI-crop arguments with assertpy
+    # at module level in _cif/transforms_utils_ppi_utils.py, which the design-task transform
+    # imports, so every `tt-bio design --model rfd4` run needs it on a clean install.
+    "assertpy",
     # ttnn is NOT here on purpose: it only publishes wheels for TT-supported
     # platforms, and the Boltz-2 CPU/GPU path + CLI must install and run without
     # it (issue #6). It lives in the `tenstorrent` extra below.
@@ -122,7 +126,10 @@ include = ["tt_bio*"]
 # line per vendored tree: the enumerated form dropped tt_bio/_vendor/nesso/LICENSE
 # the moment Nesso-1 landed, which is a licensing hole, not just a gate red.
 # The glob lives on the "tt_bio" key below.
-"tt_bio._vendor.atomworks" = ["py.typed", "io/tools/*.smirks", "ml/datasets/*.md"]
+"tt_bio._vendor.atomworks" = ["py.typed", "io/tools/*.smirks", "ml/datasets/*.md",
+                              "experimental/protonation/*.json",
+                              "experimental/protonation/external/dimorphite_dl/*.smarts"]
+"tt_bio._vendor.rfd4_prep" = ["resources/*.yaml", "THIRD_PARTY_LICENSES.txt"]
 # runtime data files the package loads by path at import/featurize time — these
 # MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization

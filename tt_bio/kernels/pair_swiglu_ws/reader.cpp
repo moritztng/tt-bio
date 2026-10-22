@@ -16,7 +16,9 @@
 // tiles) and c_22 (b3, CT tiles). Under WS_RELU_BW b1 is read the same way and the cotangent dy's row tile (KT pages)
 // follows each x row tile into c_23.
 //
-// Common runtime args: x, w12, w3, gamma, beta, residual, b1, b3 (WS_RELU_BW: dy) addresses. Per-core runtime args: first row tile, row tile count.
+// Common runtime args: x, w12, w3, gamma, beta, residual, b1, b3 (WS_RELU_BW: dy), resid2 addresses, then under WS_MCAST
+// the grid's NOC corners x0, y0, x1, y1, its core count and the sender (x << 16 | y). Per-core runtime args: first row
+// tile, row tile count, sender.
 #include "api/dataflow/dataflow_api.h"
 #ifdef WS_LN
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
@@ -95,15 +97,45 @@ void kernel_main() {
     // Weights in page order: w12 is [KT, W12] tiles, w3 is [NH, CT].
     const uint32_t t12 = get_tile_size(cb_w12), t3 = get_tile_size(cb_w3), tx = get_tile_size(cb_x);
     cb_reserve_back(cb_w12, KT * W12);
-    uint32_t w = get_write_ptr(cb_w12);
-    for (uint32_t p = 0; p < KT * W12; ++p, w += t12) {
-        noc_async_read_page(p, s12, w);
-    }
     cb_reserve_back(cb_w3, NH * CT);
-    w = get_write_ptr(cb_w3);
-    for (uint32_t p = 0; p < NH * CT; ++p, w += t3) {
-        noc_async_read_page(p, s3, w);
+    const uint32_t a12 = get_write_ptr(cb_w12), a3 = get_write_ptr(cb_w3);
+#ifdef WS_MCAST
+    // Every core needs every weight tile, so one core (per-core arg 2 set) reads them from DRAM and multicasts both
+    // CBs to the grid rectangle (common args 9..12, NOC coordinates) instead of each core pulling the same pages.
+    // Receivers count themselves ready on the sender's semaphore 0; the sender then writes the weights and sets
+    // semaphore 1 on every core, ordered behind the data on the same path.
+    const uint32_t ncores = get_common_arg_val<uint32_t>(13), sender_xy = get_common_arg_val<uint32_t>(14);
+    volatile tt_l1_ptr uint32_t* ready = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
+    volatile tt_l1_ptr uint32_t* valid = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(1));
+    if (get_arg_val<uint32_t>(2)) {
+#endif
+        uint32_t wp = a12;
+        for (uint32_t p = 0; p < KT * W12; ++p, wp += t12) {
+            noc_async_read_page(p, s12, wp);
+        }
+        wp = a3;
+        for (uint32_t p = 0; p < NH * CT; ++p, wp += t3) {
+            noc_async_read_page(p, s3, wp);
+        }
+#ifdef WS_MCAST
+        noc_async_read_barrier();
+        const uint32_t x0 = get_common_arg_val<uint32_t>(9), y0 = get_common_arg_val<uint32_t>(10);
+        const uint32_t x1 = get_common_arg_val<uint32_t>(11), y1 = get_common_arg_val<uint32_t>(12);
+        const uint64_t m = noc_index == 0 ? get_noc_multicast_addr(x0, y0, x1, y1, 0)
+                                          : get_noc_multicast_addr(x1, y1, x0, y0, 0);
+        noc_semaphore_wait(ready, ncores - 1);
+        noc_semaphore_set(ready, 0);
+        noc_async_write_multicast(a12, m | a12, KT * W12 * t12, ncores - 1);
+        noc_async_write_multicast(a3, m | a3, NH * CT * t3, ncores - 1, true);
+        *valid = 1;
+        noc_semaphore_set_multicast(get_semaphore(1), m | get_semaphore(1), ncores - 1);
+        noc_async_write_barrier();
+    } else {
+        noc_semaphore_inc(get_noc_addr(sender_xy >> 16, sender_xy & 0xffff, get_semaphore(0)), 1);
+        noc_semaphore_wait(valid, 1);
     }
+#endif
+    uint32_t w;
 #ifdef WS_LN
     constexpr uint32_t cb_gamma = 8, cb_beta = 9, cb_scaler = 10, cb_eps = 11;
     generate_reduce_scaler(cb_scaler, SCALER);

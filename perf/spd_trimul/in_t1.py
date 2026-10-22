@@ -24,11 +24,13 @@ ap.add_argument("--hidden", type=int, default=128)
 ap.add_argument("--no-mask", action="store_true")
 ap.add_argument("--ln1-ab", action="store_true", help="also run T1 with T1_LN1 off: bit-equality of a, b, g_out and its time")
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
-                " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes)")
-ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS)")
+                " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes, 512 gate sigmoid)")
+ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS, SIGPOLY, T1_PSIG)")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (lever trimul_t1w8): its error and time")
 ap.add_argument("--fid", default="", help="HiFi4/HiFi3/HiFi2/LoFi: run T1 at this fidelity instead of the trunk's")
+ap.add_argument("--save", default="", help="DIR: torch.save inc_{a,b,g} and t1_{a,b,g} of the --save-n call here, to locate wrong values offline")
+ap.add_argument("--save-n", type=int, default=0, help="the --ns entry (its first occurrence) whose outputs --save writes")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -48,7 +50,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
@@ -170,8 +172,16 @@ for n in [int(s) for s in A.ns.split(",") if s]:
 
     try:
         outs = incumbent()
-        for k, o in zip("abg", outs):
-            rec[f"inc_{k}_rel_rms_f64"], rec[f"inc_{k}_max_abs"] = rel(ttnn.to_torch(o).reshape(ref[k].shape), ref[k])
+        inc = [ttnn.to_torch(o).reshape(ref[k].shape) for k, o in zip("abg", outs)]
+        if A.save and n == A.save_n:
+            Path(A.save).mkdir(parents=True, exist_ok=True)
+            torch.save({k: t for k, t in zip("abg", inc)}, f"{A.save}/inc_{n}.pt")
+        for k, t in zip("abg", inc):
+            rec[f"inc_{k}_rel_rms_f64"], rec[f"inc_{k}_max_abs"] = rel(t, ref[k])
+        if m is not None:
+            il_ = TT.T1_PLANS.get((C // 32, 2 * h // 32, C // 32), (1, 32))[1]
+            bi = bad_units(inc[0], ref["a"], il_)
+            rec["inc_a_bad_units"], rec["inc_a_bad_first"] = len(bi), bi[:24]
         free(outs)
         rec["inc_ms"] = timed(lambda: free(incumbent()), A.reps)
     except Exception as e:                                                    # noqa: BLE001
@@ -185,6 +195,9 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         else:
             ttnn.synchronize_device(dev)
             host = [ttnn.to_torch(o) for o in outs]
+            if A.save and n == A.save_n:
+                torch.save({k: t.reshape(ref[k].shape) for k, t in zip("abg", host)}, f"{A.save}/t1_{n}.pt")
+                A.save_n = -1
             rec["t1_finite"] = all(bool(torch.isfinite(t).all()) for t in host)
             for k, t in zip("abg", host):
                 rec[f"t1_{k}_rel_rms_f64"], rec[f"t1_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
@@ -193,6 +206,17 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 bu = bad_units(host[0].reshape(ref["a"].shape), ref["a"], il)
                 rec["a_bad_units"], rec["a_bad_first"] = len(bu), bu[:24]   # [u, xt, h, yt, core, pos, units on core]
                 rec["a_bad_map"] = unit_map(host[0].reshape(ref["a"].shape), ref["a"], il, bu[:3])
+                # The 6 worst elements of T1's a: (c, i, j), reference, T1, incumbent, mask, z row mean/std.
+                ea = (host[0].reshape(ref["a"].shape).double() - ref["a"]).abs()
+                worst = []
+                for f in ea.flatten().topk(6).indices.tolist():
+                    _, c_, i_, j_ = torch.unravel_index(torch.tensor(f), ea.shape)
+                    zr = z[0, i_, j_].double()
+                    worst.append([int(c_), int(i_), int(j_), round(float(ref["a"][0, c_, i_, j_]), 4),
+                                  round(float(host[0].reshape(ref["a"].shape)[0, c_, i_, j_]), 4),
+                                  round(float(inc[0][0, c_, i_, j_]), 4), float(m[0, i_, j_]),
+                                  round(float(zr.mean()), 3), round(float(zr.std()), 3)])
+                rec["a_worst"] = worst
             free(outs)
             rec["t1_ms"] = timed(lambda: free(t1()), A.reps)
             rec["t1_GBps"] = round(4 * P / rec["t1_ms"] / 1e6, 1)

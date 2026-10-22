@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture(autouse=True)
 def _private_cache(tmp_path, monkeypatch):
-    """CcdMols writes its sidecar under the cache root; keep it out of the user's."""
+    """CcdMols writes its index under the cache root; keep it out of the user's."""
     monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path / "cache"))
 
 
@@ -35,12 +35,11 @@ def _mol_key(m):
     return (Chem.MolToMolBlock(m), [sorted(a.GetPropsAsDict().items()) for a in m.GetAtoms()])
 
 
-def test_ccd_sidecar_serves_the_same_mols_as_the_full_pickle(tmp_path):
+def test_ccd_index_serves_the_same_mols_as_the_full_pickle(tmp_path):
     """build_dataset used to unpickle all of ccd.pkl a second time to keep 21 mols, and
-    preprocess unpickled it once more: 10 s of a 20 s featurisation. CcdMols serves the
-    standard residues from a derived sidecar. They must be the mols the full load gives,
-    on the first (sidecar written) and second (sidecar read) construction alike, and a
-    code outside the standard set must still come from the full pickle."""
+    preprocess unpickled it once more: 10 s of a 20 s featurisation. CcdMols serves each
+    code from a derived index. Every mol must be the one the full load gives, on the
+    first (index written) and second (index read) construction alike."""
     import pickle
 
     import tt_bio.nesso1_input as NI
@@ -51,13 +50,11 @@ def test_ccd_sidecar_serves_the_same_mols_as_the_full_pickle(tmp_path):
     extra = tmp_path / "ccd.pkl"
     with extra.open("wb") as f:
         pickle.dump({**full, "XYZ": full["ALA"]}, f)
-    for writes_sidecar in (True, False):
-        NI.CcdMols._full.clear()
+    for _ in range(2):
         mols = NI.CcdMols(extra)
-        std = mols.standard()
+        std = NI.standard_mols(mols)
         assert sorted(std) == sorted(k for k in STANDARD_AA if k in full)
         assert all(_mol_key(std[k]) == _mol_key(full[k]) for k in std)
-        assert bool(NI.CcdMols._full) == writes_sidecar, "only writing the sidecar reads ccd.pkl"
     assert "XYZ" in mols and _mol_key(mols["XYZ"]) == _mol_key(full["ALA"])
     assert "NOPE" not in mols
 

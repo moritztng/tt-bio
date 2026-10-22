@@ -1,0 +1,340 @@
+{
+  "unconditional": {
+    "family": "unconditional",
+    "input": "/home/ttuser/.coworker/wt/rfd4-cond-protein/perf/rfd4/cond/inputs/monomer-short.cif.zst",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/unconditional/monomer-short.cif_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/unconditional/monomer-short.cif_1_generated.cif"
+    ],
+    "recipe": "thinking_medium",
+    "tokens": 100,
+    "s_per_design": 66.93,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "nothing",
+    "held_reference": "none",
+    "held": {},
+    "designed_residues": 100,
+    "seed_floor_ca_rmsd_a": 15.678545883225192,
+    "seed_floor_sequence_identity": 0.23,
+    "checks": {
+      "clock_real": true,
+      "two_seeds_differ": true
+    },
+    "verdict": "PASS"
+  },
+  "binder": {
+    "family": "binder",
+    "input": "/home/ttuser/rfd4-cond-runs/binder/inputs/pdl1_binder.cif",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/binder/pdl1_binder_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/binder/pdl1_binder_1_generated.cif"
+    ],
+    "recipe": "medium/front_loaded",
+    "tokens": 225,
+    "s_per_design": 73.77,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "spec",
+    "held_reference": "spec_internal_coordinate",
+    "held": {
+      "spec_internal_coordinate": {
+        "fitted_rmsd_a": 0.17142480468449095,
+        "atoms": 460,
+        "residues": 115,
+        "fitted_ca_rmsd_a": 0.1510036971406992
+      },
+      "input_structure": {
+        "fitted_rmsd_a": 0.6417924429184201,
+        "atoms": 909,
+        "residues": 115,
+        "fitted_ca_rmsd_a": 0.15100370431823815
+      }
+    },
+    "designed_residues": 110,
+    "seed_floor_ca_rmsd_a": 19.40054789304823,
+    "seed_floor_sequence_identity": 0.3181818181818182,
+    "checks": {
+      "clock_real": true,
+      "held_within_1a": true,
+      "two_seeds_differ": true
+    },
+    "verdict": "PASS"
+  },
+  "antibody_cdr": {
+    "family": "antibody_cdr",
+    "input": "/home/ttuser/rfd4-cond-runs/antibody_cdr/inputs/fab5g9_tissuefactor_cdr.cif",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/antibody_cdr/fab5g9_tissuefactor_cdr_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/antibody_cdr/fab5g9_tissuefactor_cdr_1_generated.cif"
+    ],
+    "recipe": "high/front_loaded",
+    "tokens": 329,
+    "s_per_design": 231.02,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "spec",
+    "held_reference": "spec_internal_coordinate",
+    "held": {
+      "spec_internal_coordinate": {
+        "fitted_rmsd_a": 0.29545984127953573,
+        "atoms": 424,
+        "residues": 106,
+        "fitted_ca_rmsd_a": 0.26205054818801543
+      },
+      "input_structure": {
+        "fitted_rmsd_a": 18.031568197156115,
+        "atoms": 2143,
+        "residues": 114,
+        "fitted_ca_rmsd_a": 17.58700563741711
+      }
+    },
+    "designed_residues": 223,
+    "seed_floor_ca_rmsd_a": 33.08975247347357,
+    "seed_floor_sequence_identity": 0.8609865470852018,
+    "checks": {
+      "clock_real": true,
+      "held_within_1a": true,
+      "two_seeds_differ": true
+    },
+    "verdict": "PASS"
+  },
+  "nanobody_cdr": {
+    "family": "nanobody_cdr",
+    "input": "/home/ttuser/.coworker/wt/rfd4-cond-protein/perf/rfd4/cond/inputs/mzb1_7AAH__VHH_caplacizumab_cdr123.cif.zst",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/nanobody_cdr/mzb1_7AAH__VHH_caplacizumab_cdr123.cif_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/nanobody_cdr/mzb1_7AAH__VHH_caplacizumab_cdr123.cif_1_generated.cif"
+    ],
+    "recipe": "high/front_loaded",
+    "tokens": 224,
+    "s_per_design": 79.96,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "spec",
+    "held_reference": "spec_coordinate",
+    "held": {
+      "spec_coordinate": {
+        "fitted_rmsd_a": 0.08506094304105537,
+        "atoms": 400,
+        "residues": 100,
+        "fitted_ca_rmsd_a": 0.05911871475730455
+      },
+      "spec_internal_coordinate": {
+        "fitted_rmsd_a": 0.14152067866797893,
+        "atoms": 332,
+        "residues": 83,
+        "fitted_ca_rmsd_a": 0.12313719380958904
+      },
+      "input_structure": {
+        "fitted_rmsd_a": 13.889982302445379,
+        "atoms": 1439,
+        "residues": 127,
+        "fitted_ca_rmsd_a": 13.819748868838401
+      }
+    },
+    "designed_residues": 124,
+    "seed_floor_ca_rmsd_a": 29.902477113716497,
+    "seed_floor_sequence_identity": 0.8306451612903226,
+    "checks": {
+      "clock_real": true,
+      "held_within_1a": true,
+      "two_seeds_differ": true
+    },
+    "verdict": "PASS"
+  },
+  "enzyme": {
+    "family": "enzyme",
+    "input": "/home/ttuser/.coworker/wt/rfd4-cond-protein/perf/rfd4/cond/inputs/M0040_13pk.cif.zst",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/enzyme/M0040_13pk.cif_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/enzyme/M0040_13pk.cif_1_generated.cif"
+    ],
+    "recipe": "medium/midpeak",
+    "tokens": 223,
+    "s_per_design": 61.17,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "spec",
+    "held_reference": "spec_coordinate",
+    "held": {
+      "spec_coordinate": {
+        "fitted_rmsd_a": 0.09196810991308534,
+        "atoms": 22,
+        "residues": 3
+      },
+      "input_structure": {
+        "fitted_rmsd_a": 2.7867514949670866,
+        "atoms": 39,
+        "residues": 3
+      }
+    },
+    "designed_residues": 180,
+    "seed_floor_ca_rmsd_a": 15.761990505658819,
+    "seed_floor_sequence_identity": 0.05555555555555555,
+    "checks": {
+      "clock_real": true,
+      "held_within_1a": true,
+      "two_seeds_differ": true
+    },
+    "verdict": "PASS"
+  },
+  "motif_scaffold": {
+    "family": "motif_scaffold",
+    "input": "/home/ttuser/.coworker/wt/rfd4-cond-protein/perf/rfd4/cond/inputs/1QJG_AA.cif.zst",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/motif_scaffold/1QJG_AA.cif_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/motif_scaffold/1QJG_AA.cif_1_generated.cif"
+    ],
+    "recipe": "medium/midpeak",
+    "tokens": 82,
+    "s_per_design": 25.7,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "spec",
+    "held_reference": "spec_coordinate",
+    "held": {
+      "spec_coordinate": {
+        "fitted_rmsd_a": 0.08168089513375754,
+        "atoms": 28,
+        "residues": 3,
+        "fitted_ca_rmsd_a": 0.01755521029239688
+      },
+      "input_structure": {
+        "fitted_rmsd_a": 0.08168088174180199,
+        "atoms": 28,
+        "residues": 3,
+        "fitted_ca_rmsd_a": 0.017555192210621778
+      }
+    },
+    "designed_residues": 79,
+    "seed_floor_ca_rmsd_a": 9.185630723085735,
+    "seed_floor_sequence_identity": 0.14634146341463414,
+    "checks": {
+      "clock_real": true,
+      "held_within_1a": true,
+      "two_seeds_differ": true
+    },
+    "verdict": "PASS"
+  },
+  "structure_prediction_folding": {
+    "family": "structure_prediction_folding",
+    "input": "/home/ttuser/rfd4-cond-runs/structure_prediction_folding/inputs/fold_7hiy.cif",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/structure_prediction_folding/fold_7hiy_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/structure_prediction_folding/fold_7hiy_1_generated.cif"
+    ],
+    "recipe": "thinking_medium",
+    "tokens": 138,
+    "s_per_design": 53.4,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "prediction_target",
+    "held_reference": "input_structure",
+    "held": {
+      "input_structure": {
+        "fitted_rmsd_a": 1.5339786347192794,
+        "atoms": 982,
+        "residues": 127,
+        "fitted_ca_rmsd_a": 0.8393323515874915
+      }
+    },
+    "designed_residues": 126,
+    "seed_floor_ca_rmsd_a": 10.331464029928222,
+    "seed_floor_sequence_identity": 1.0,
+    "accuracy_per_seed": [
+      {
+        "fitted_rmsd_a": 1.5339786347192794,
+        "atoms": 982,
+        "residues": 127,
+        "fitted_ca_rmsd_a": 0.8393323515874915
+      },
+      {
+        "fitted_rmsd_a": 10.955544188693633,
+        "atoms": 982,
+        "residues": 127,
+        "fitted_ca_rmsd_a": 10.550716312485358
+      }
+    ],
+    "checks": {
+      "clock_real": true,
+      "two_seeds_differ": true
+    },
+    "verdict": "PASS"
+  },
+  "inverse_folding": {
+    "family": "inverse_folding",
+    "input": "/home/ttuser/.coworker/wt/rfd4-cond-protein/perf/rfd4/cond/inputs/2kl8_aa.cif.zst",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/inverse_folding/2kl8_aa.cif_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/inverse_folding/2kl8_aa.cif_1_generated.cif"
+    ],
+    "recipe": "medium/flat",
+    "tokens": 59,
+    "s_per_design": 25.54,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "sampler",
+    "held_reference": "input_structure",
+    "held": {
+      "input_structure": {
+        "fitted_rmsd_a": 0.6871609550920602,
+        "atoms": 351,
+        "residues": 59,
+        "fitted_ca_rmsd_a": 3.5357994129697644e-07
+      }
+    },
+    "designed_residues": 0,
+    "seed_floor_ca_rmsd_a": 3.5357994129697644e-07,
+    "seed_floor_sequence_identity": 0.3389830508474576,
+    "checks": {
+      "clock_real": true,
+      "held_within_1a": true,
+      "two_seeds_differ_in_sequence": true
+    },
+    "verdict": "PASS"
+  },
+  "partial_diffusion": {
+    "family": "partial_diffusion",
+    "input": "/home/ttuser/rfd4-cond-runs/binder/pdl1_binder_0_generated.cif",
+    "designs": [
+      "/home/ttuser/rfd4-cond-runs/partial_diffusion/pdl1_binder_0_generated_0_generated.cif",
+      "/home/ttuser/rfd4-cond-runs/partial_diffusion/pdl1_binder_0_generated_1_generated.cif"
+    ],
+    "recipe": "medium/front_loaded",
+    "tokens": 225,
+    "s_per_design": 33.59,
+    "aiclk_mhz": 1350,
+    "clock_artifact": false,
+    "held_by": "spec",
+    "held_reference": "spec_internal_coordinate",
+    "held": {
+      "spec_internal_coordinate": {
+        "fitted_rmsd_a": 0.16300985751771652,
+        "atoms": 460,
+        "residues": 115,
+        "fitted_ca_rmsd_a": 0.1410449761091951
+      },
+      "input_structure": {
+        "fitted_rmsd_a": 0.3447137700192757,
+        "atoms": 1731,
+        "residues": 115,
+        "fitted_ca_rmsd_a": 0.17618518431297633
+      }
+    },
+    "designed_residues": 110,
+    "seed_floor_ca_rmsd_a": 0.40052755631033554,
+    "seed_floor_sequence_identity": 0.9454545454545454,
+    "partial_start_t": {
+      "bb_ca": 0.97,
+      "local_latents": 0.5034
+    },
+    "partial_steps_remaining": 25,
+    "checks": {
+      "clock_real": true,
+      "held_within_1a": true,
+      "two_seeds_differ_after_restart": true
+    },
+    "verdict": "PASS"
+  }
+}

@@ -59,3 +59,22 @@ def test_the_structure_module_on_card_comes_off_the_room():
     pair = 256 * 224 ** 2
     room = BH * B._MODE_USABLE - B._MODE_BASE_BYTES - B._RESIDENT_ROUND_PAIR_TENSORS * pair
     assert beside * B._RESIDENT_BLOCK_PAIR_TENSORS * pair + S.device_bytes(224) <= room
+
+
+def test_the_default_at_224_on_a_blackhole_chip():
+    # PD-L1 (195 residues) pads to 224, a size users run today. With the structure module on the
+    # card beside the tape the law gives 47 blocks, and the main tree of 2026-10-21 refused its
+    # first backward there: masked OPM's reshape left one dead [224, 224, 128] view per resident
+    # block on the card (+0.50 GB at 40 blocks), on top of 0.27 GB of slack. The tape now
+    # releases dead view groups, and 40 blocks peak at 25.44 GB over the first two gradient
+    # calls on qb2 chip 2 (was 27.44 GB). This pins what `auto` offers there, so a change to
+    # the law that moves it has to be measured again at 224.
+    from tt_bio import af2_structure as S
+    card = 34_225_520_128  # a p300c chip's DRAM as the allocator reports it
+    assert B._measured_board(card)[2] == "p150a"
+    k = B.resident_blocks("fast", 224, card, requested="auto", beside=S.device_bytes(224))
+    assert k == 47
+    pair = 256 * 224 ** 2
+    peak = (B._MODE_BASE_BYTES + B._RESIDENT_ROUND_PAIR_TENSORS * pair + S.device_bytes(224)
+            + k * B._RESIDENT_BLOCK_PAIR_TENSORS * pair)
+    assert peak <= card * B._MODE_USABLE

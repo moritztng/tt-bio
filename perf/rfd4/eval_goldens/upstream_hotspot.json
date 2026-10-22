@@ -1,0 +1,52 @@
+{
+ "rows": {
+  "hotspot_generated.cif": {
+   "amino_acid_composition.ala_fraction": "0.03",
+   "amino_acid_composition.gly_fraction": "0.0",
+   "amino_acid_composition.n_generated_unknown_residues": "0.0",
+   "amino_acid_composition.n_standard_residues": "100.0",
+   "amino_acid_composition.val_fraction": "0.03",
+   "bond_length_metrics.bond_length.frac_unreasonable": "0.0",
+   "bond_length_metrics.bond_length.frac_unreasonable.between_chain.nonpolymer_to_polymer": "",
+   "bond_length_metrics.bond_length.frac_unreasonable.between_chain.polymer_polymer": "",
+   "bond_length_metrics.bond_length.frac_unreasonable.between_residue.within_chain": "0.0",
+   "bond_length_metrics.bond_length.frac_unreasonable.within_residue": "0.0",
+   "chain_of_interest": "",
+   "clash_metrics.frac_atoms_clashing_1p5A": "0.0025",
+   "clash_metrics.frac_atoms_clashing_inter_residue_ligand_ligand_1p5A": "0.0",
+   "clash_metrics.frac_atoms_clashing_inter_residue_polymer_ligand_1p5A": "0.0",
+   "clash_metrics.frac_atoms_clashing_inter_residue_polymer_polymer_1p5A": "0.0025",
+   "clash_metrics.frac_atoms_clashing_intra_residue_ligand_1p5A": "0.0",
+   "clash_metrics.frac_atoms_clashing_intra_residue_polymer_1p5A": "0.0",
+   "dataset_name": "hot",
+   "designed_chain_path": "/home/moritz/rfd4-eval-work/out_hot/evaluation_samples/foldseek_input_chains/7f5d1618/all/hotspot_generated_afaa6382_chain.cif",
+   "designed_structure_path": "/home/moritz/rfd4-eval-work/hot/hotspot_generated.cif",
+   "example_id": "hotspot_generated_afaa6382",
+   "hotspot_obedience.hotspot_obedience": "0.1881",
+   "metrics_tags": "design,hotspot_conditioning",
+   "output_base_dir": "/home/moritz/rfd4-eval-work/out_hot/evaluation_samples",
+   "pre_oracle_pass": "1.0",
+   "sequence_adherence.n_violations": "0.0",
+   "sequence_adherence.sequence_adherence": "",
+   "sequence_probability_adherence.n_one_conditions": "0.0",
+   "sequence_probability_adherence.n_one_violations": "0.0",
+   "sequence_probability_adherence.n_zero_conditions": "0.0",
+   "sequence_probability_adherence.n_zero_violations": "0.0",
+   "sequence_probability_adherence.one_adherence": "",
+   "sequence_probability_adherence.zero_adherence": "",
+   "sse_distribution.helix_fraction": "0.86",
+   "sse_distribution.helix_fraction_coi": "0.84",
+   "sse_distribution.loop_fraction": "0.14",
+   "sse_distribution.loop_fraction_coi": "0.16",
+   "sse_distribution.num_ss_elements": "11.0",
+   "sse_distribution.num_ss_elements_coi": "6.0",
+   "sse_distribution.sheet_fraction": "0.0",
+   "sse_distribution.sheet_fraction_coi": "0.0",
+   "task": "all"
+  }
+ },
+ "tags": [
+  "design",
+  "hotspot_conditioning"
+ ]
+}

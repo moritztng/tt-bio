@@ -185,6 +185,16 @@ DESIGN_LEGS: dict[str, dict] = {
         design_line=r"^\s*\S+\.cif:\s+\d+ residues,\s+\d+ atoms; target fit ",
         timeout=1200,   # 0.52 GiB ckpt + first-kernel compile + 8 steps
     ),
+    "rfd4": dict(
+        # 39 tokens: Trp-cage's 10 N-terminal residues held, 20-30 designed around them.
+        # The structure is the committed boltz2 parity fixture, referenced rather than copied.
+        spec=REPO_ROOT / "tests" / "fixtures" / "rfd4" / "ux_smoke.yaml",
+        args=["--nsteps", "8"],   # the recipe's default is 60; 8 is a UX smoke
+        pass_devices=False,   # rfd4 is batch-1 and reads its card from TT_VISIBLE_DEVICES
+        # "  <example_id>: N tokens <- <path>.cif"
+        design_line=r"^\s*\S+:\s+\d+ tokens <- \S+\.cif",
+        timeout=1800,   # 1.7 GiB bundle + first-kernel compile + 8 steps
+    ),
 }
 
 # `tt-bio affinity` — the scalar-output affinity predictors, which fold nothing:
