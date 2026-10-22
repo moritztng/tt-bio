@@ -6504,6 +6504,9 @@ _TRIMUL_INPROJ_B8 = env_flag("TT_BIO_TRIMUL_INPROJ_B8", False)
 # spd-trimul A/B: the in-projection and its two gates as one `trimul_tail` call per channel chunk
 # (`_gp_in_gated`), so the projection is never written whole and the gated moves become plain ones.
 _TRIMUL_GATED_INPROJ = env_flag("TT_BIO_TRIMUL_GATED_INPROJ", False)
+# rfd4-perf-tri2: the gated in-projection on the L1 channel route too (below SEQ_LEN where the chunk
+# memory is L1), with gin_moved writing a and b into L1. Under measurement.
+TRIMUL_GIN_L1 = False
 # `trimul_tail.gin_ragged` for a biased in-projection on a pair grid that is not whole tiles (AF2
 # at 195): projection, gate and channel move in one program instead of a biased matmul into L1 and
 # two gated moves. Default on for Wormhole: AF2-IG WH fold 5.04 -> 4.77 s, ipTM within 0.002
@@ -10768,7 +10771,7 @@ class TriangleMultiplication(Module):
                             and (not _FAST_MODE or lever("trimul_gin_b8")) and not _TRIMUL_RAW_CHANNEL_MOVES
                             and (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)
                             and (mask is None or mask_moved_ok)
-                            and memory_config.buffer_type == ttnn.BufferType.DRAM):
+                            and (memory_config.buffer_type == ttnn.BufferType.DRAM or TRIMUL_GIN_L1)):
                         # The projection and both gates in one trimul_tail call: p and g of the same
                         # x, each activation block read once for both passes, a and b written as
                         # two tensors. Only the plain channel moves are left.
@@ -10792,7 +10795,8 @@ class TriangleMultiplication(Module):
                                     x_norm_in, wpT[0], mask)
                                 ab = _trimul_tail.gin_moved(x_norm_in, wpT, wgT, ckc,
                                                             tuple(COMPUTE_GRID_MAIN),
-                                                            mask=mask if fold else None)
+                                                            mask=mask if fold else None,
+                                                            memory_config=memory_config)
                             if ab is not None:
                                 a_chunk, b_chunk = ab
                                 a_masked = fold
