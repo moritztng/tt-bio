@@ -1474,7 +1474,9 @@ T1_KEYS = set(T1_PLANS)
 # The plans when the resident weights are bfp8 (lever trimul_t1w8): half the weight bytes per core, so c_z 384
 # fits its [a | b] and g_out weights in two channel groups instead of three, one launch and one xn pass fewer.
 # c_z 256 fits ONE launch of 16-row units (1072 KB of CBs, what its two bf16 groups take now): z is read once.
-T1_PLANS_W8 = {(8, 16, 8): (1, 16), (12, 24, 12): (2, 8)}
+# RFD4's c_z 384 / hidden 256 fits one launch of 8-row units, so xn is never written and read back: 512 tokens on
+# a p300c chip at 1350 MHz, 11.1 -> 10.6 ms a call (16-row units: 13.9 ms; state/rfd4/bets/tri4.md).
+T1_PLANS_W8 = {(8, 16, 8): (1, 16), (12, 24, 12): (2, 8), (12, 16, 12): (1, 8)}
 
 
 def _t1_psig():
