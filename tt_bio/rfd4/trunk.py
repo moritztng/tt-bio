@@ -647,7 +647,7 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: HiFi2, the gate sigmoid on the packer): paired trunk 40.6 -> 37.2 s a design at 512 tokens, 1.08-1.13x from 160
 #: to 640 tokens (state/rfd4/bets/tri4.md). `pair_tail_small` brings pair_tail below 160 tokens, where T1 declines:
 #: the chain keeps the input side and pair_tail reads its two operands from L1. Paired trunk pass at 1350 MHz: 128
-#: tokens 28.67 -> 27.29 ms, 96 tokens 20.85 -> 20.36 ms; 30 designs at 128 PASS the binder grade (state/rfd4/bets/tri128.md).
+#: tokens 28.58 -> 27.19 ms, 96 tokens 20.83 -> 20.34 ms; 30 designs at 128 PASS the binder grade (state/rfd4/bets/tri128.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small"})
