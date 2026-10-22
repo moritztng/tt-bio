@@ -805,6 +805,9 @@ _FAST_MODE = False
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
 #                   OpenFold3's superset atom attention honours it too: stream, q/kv frame, heads, output and transition.
+#   dit_cond_steps  Boltz-2's token DiT conditioning (s, s_to_a and the 72 adaLN / gate projections a step) for
+#                   several diffusion steps at once: the schedule fixes every step's noise level before sampling and
+#                   none of it reads the coordinates. Untraced folds only (the trace replays one step's buffers).
 #   dit_step_mm     the token DiT's step linears (`DitLowp.linear`) on minimal_matmul with the blocks measured at Protenix-v2's
 #                   shapes (`_DIT_STEP_MM`, Wormhole): 1.12-1.18x (fp32 accumulation, K block 1) and 1.04-1.35x (bfp8 HiFi2), lower
 #                   float64 error than the site at every shape (spd-m-protenix dms). Other shapes keep their program.
@@ -838,7 +841,8 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
-          "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail")
+          "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
+          "dit_cond_steps")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -2645,21 +2649,22 @@ class _SigTerms(tuple):
 
 class _ColWin(tuple):
     """`dit_shoist`: columns `[off, off + width)` of a wide conditioning tensor, which `addcmul_at` reads in
-    place; `cut()` slices them out where the kernel declines."""
+    place; `cut()` slices them out where the kernel declines. `row`, when set, is the diffusion step's block of
+    a tensor that stacks several steps on its leading dim (`dit_cond_steps`)."""
     __slots__ = ()
 
-    def __new__(cls, t, off, width):
-        return super().__new__(cls, (t, off, width))
+    def __new__(cls, t, off, width, row=None):
+        return super().__new__(cls, (t, off, width, row))
 
     def cut(self):
-        t, off, width = self
-        return t[..., off:off + width]
+        t, off, width, row = self
+        return t[..., off:off + width] if row is None else t[row:row + 1, ..., off:off + width]
 
 
 def _win_addcmul(x, y, win):
     """`x + y * win` with `win` read in place, or None where `addcmul_at` declines."""
-    t, off, width = win
-    return _addcmul_at(x, y, t, width, z_off=off)
+    t, off, width, row = win
+    return _addcmul_at(x, y, t, width, z_off=off, z_row=row)
 # Every diffusion sample of a fold sees the same noise level and the same trunk output, so the
 # token conditioning `s` and everything the DiT derives from it (the hoisted AdaLN and gate
 # projections, the conditioner transitions, s_to_a) are the same row for each sample. With the
@@ -2667,6 +2672,8 @@ def _win_addcmul(x, y, win):
 # per-sample `a` broadcast it: the same values, computed once instead of once per sample.
 # Boltz-2 c730, 5 samples, Wormhole: 157.95 -> 152.07 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
 _DIT_SHARED_COND = env_flag("TT_BIO_DIT_SHARED_COND", True)
+#: dit_cond_steps: rows a stacked conditioning linear runs (G steps x tokens).
+_DIT_COND_STEPS_ROWS = 4096
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -4586,7 +4593,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_cond_steps")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -15635,8 +15642,9 @@ class AdaLN(Module):
             # A memoised pair belongs to the memo and must survive this call.
             own = self._s_memo is not s_terms
         if isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin):
-            (sc_t, sc_off, width), (sh_t, sh_off, _) = s_terms
-            out = _addcmul_at(sh_t, a, sc_t, width, x_off=sh_off, z_off=sc_off, out_dtype=dtype)
+            (sc_t, sc_off, width, sc_row), (sh_t, sh_off, _, sh_row) = s_terms
+            out = _addcmul_at(sh_t, a, sc_t, width, x_off=sh_off, z_off=sc_off, out_dtype=dtype,
+                              x_row=sh_row, z_row=sc_row)
             if out is not None:
                 ttnn.deallocate(a)
                 return out
@@ -16030,6 +16038,22 @@ class DiffusionTransformer(Module):
             self._cond_wc = parts
         return self._cond_wc
 
+    def steps_ok(self):
+        """`dit_cond_steps` reaches this stack: the token DiT with the adaLN modulation as one addcmul."""
+        return _B2_DIT_COND_HOIST and not self.atom_level and (_B2_ADALN_ADDCMUL or lever("adaln_mod"))
+
+    def cond_steps(self, s):
+        """`dit_cond_jcat`'s three [768, 1536] projections a layer on `s` stacked over steps: `(sigmoid scales,
+        shifts, sigmoid gates)` a layer, each [G, n, 1536] with the attention half first."""
+        s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
+        ckc = self.compute_kernel_config
+        lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
+            x, w, bias=b, compute_kernel_config=ckc, activation=mm_sigmoid(ckc) if act else None)
+        out = [(lin(s_hat, sw, sb, True), lin(s_hat, bw), lin(s, ow, ob, True))
+               for sw, sb, bw, ow, ob in self._cond_weights_cat()]
+        ttnn.deallocate(s_hat)
+        return out
+
     def _peak_tag(self, a):
         # The DRAM census tag for one layer. The leading dim is the diffusion sample chunk,
         # which is what makes the sample axis visible to TT_BIO_DRAM_PEAK at all.
@@ -16042,13 +16066,17 @@ class DiffusionTransformer(Module):
         z: ttnn.Tensor,
         keys_indexing: "ttnn.Tensor | _AtomShiftGather | None" = None,
         large_seq_len: bool = False,
+        steps=None,
     ) -> ttnn.Tensor:
+        """`steps`: `(cond_steps(s) of several steps, this step's row block)`, read in place instead of `s`."""
         # L8. One layer_norm and two concatenated matmuls in place of the 24 layers' own 144
         # projections and 48 layer_norms. Read at call time so an interleaved A/B can flip it.
         cond_all = jit = None
         jcat = False
         shoist = lever("dit_shoist") and (_B2_ADALN_ADDCMUL or lever("adaln_mod"))
-        if (_B2_DIT_COND_HOIST and not self.atom_level and lever("dit_cond_jit") and not shoist
+        if steps is not None:
+            pass  # the terms arrive computed, as row blocks of several steps
+        elif (_B2_DIT_COND_HOIST and not self.atom_level and lever("dit_cond_jit") and not shoist
                 and (_B2_ADALN_ADDCMUL or lever("adaln_mod"))):
             # dit_cond_jit: the same terms as the hoisted block below, each projected right before
             # its layer. On a Wormhole chip the three wide linears run at a quarter of the roof and
@@ -16096,6 +16124,11 @@ class DiffusionTransformer(Module):
             return pair((parts[0], parts[1])), parts
 
         def bundle(i):
+            if steps is not None:
+                (sc, sh, so), row = steps[0][i], steps[1]
+                w = lambda t, j: _ColWin(t, j * d, d, row)  # noqa: E731
+                return (_SigTerms((w(sc, 0), w(sh, 0))), w(so, 0),
+                        _SigTerms((w(sc, 1), w(sh, 1))), w(so, 1)), ()
             if jit is not None:
                 s_hat, wp = jit
                 ckc = self.compute_kernel_config
@@ -17474,25 +17507,11 @@ class Diffusion(Module):
             "atom_attention_decoder.atom_feat_to_atom_pos_update.1.weight"
         )
 
-    def __call__(
-        self,
-        r: ttnn.Tensor,
-        times: ttnn.Tensor,
-        s_inputs: ttnn.Tensor,
-        s_trunk: ttnn.Tensor,
-        q: ttnn.Tensor,
-        c: ttnn.Tensor,
-        bias_encoder: ttnn.Tensor,
-        bias_token: ttnn.Tensor,
-        bias_decoder: ttnn.Tensor,
-        keys_indexing: "ttnn.Tensor | _AtomShiftGather",
-        atom_to_token: ttnn.Tensor,
-        atom_to_token_normed: ttnn.Tensor,
-        large_seq_len: bool = False,
-    ) -> ttnn.Tensor:
-        B, N, D = q.shape
-        NW = N // ATOM_WINDOW
+    def _condition_once(self, s_trunk, s_inputs, c):
+        """The rollout-invariant half of the single conditioning, and `c` cut into atom windows."""
         if self._s_conditioned is None:
+            B, N, _ = c.shape
+            NW = N // ATOM_WINDOW
             s = ttnn.concat([s_trunk, s_inputs], dim=-1)
             s = ttnn.layer_norm(
                 s,
@@ -17510,37 +17529,10 @@ class Diffusion(Module):
             )
             ttnn.deallocate(s)
             self._c_reshaped = ttnn.reshape(c, (B, NW, ATOM_WINDOW, -1))
-        r_to_q = ttnn.linear(
-            r,
-            self.r_to_q_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            core_grid=CORE_GRID_MAIN,
-        )
-        q = ttnn.add(q, r_to_q)
-        ttnn.deallocate(r_to_q)
-        q = ttnn.reshape(q, (B, NW, ATOM_WINDOW, -1))
-        q = self.encoder(
-            q,
-            self._c_reshaped,
-            bias_encoder,
-            keys_indexing,
-            large_seq_len=large_seq_len,
-        )
-        q = ttnn.reshape(q, (B, NW * ATOM_WINDOW, D))
-        a = ttnn.linear(
-            q,
-            self.atom_to_token_weight,
-            compute_kernel_config=self.compute_kernel_config,
-            activation="relu",
-            core_grid=CORE_GRID_MAIN,
-        )
-        a = ttnn.matmul(
-            a,
-            atom_to_token_normed,
-            transpose_a=True,
-            compute_kernel_config=self.compute_kernel_config,
-        )
-        a = ttnn.permute(a, (0, 2, 1))
+
+    def _conditioning(self, times):
+        """`s` for `times` ([B], or [G] steps at once): the fourier embedding and the two conditioner transitions on
+        top of the invariant half."""
         times = ttnn.unsqueeze(times, 1)
         fourier = ttnn.linear(
             times,
@@ -17573,6 +17565,9 @@ class Diffusion(Module):
         s_update = self.conditioner_transition_1(s)
         s = ttnn.add(s, s_update)
         ttnn.deallocate(s_update)
+        return s
+
+    def _s_to_a(self, s):
         s_to_a = ttnn.layer_norm(
             s,
             weight=self.s_to_a_norm_weight,
@@ -17586,6 +17581,91 @@ class Diffusion(Module):
             compute_kernel_config=self.compute_kernel_config,
             core_grid=CORE_GRID_MAIN,
         )
+        return s_to_a
+
+    def cond_steps(self, times, s_trunk, s_inputs, c):
+        """`dit_cond_steps`: every step's conditioning for `times` ([G] noise levels, one sample's row block each),
+        stacked on the leading dim: `s_to_a` and the token DiT's per-layer terms. The schedule fixes the noise levels
+        before sampling starts and nothing here reads the coordinates, so G steps' 72 projections run as 72 linears
+        of G x 512 rows instead of G x 72 of 512, where a Wormhole linear pays ~24 us of fixed cost each (matlim)."""
+        self.release_steps()
+        self._condition_once(s_trunk, s_inputs, c)
+        s = self._conditioning(times)
+        # One [G * n, K] matrix, not a [G, n, K] batch: a batched linear gets no M amortization on Wormhole
+        # (cen16: 558 us at G 8 against 8 x 74.5, matlim: 344 us as 4096 rows). On tile-aligned rows both
+        # reshapes are views.
+        G, n, d = (int(x) for x in s.shape)
+        s = ttnn.reshape(s, (1, G * n, d))
+        stack = lambda t: ttnn.reshape(t, (G, n, int(t.shape[-1])))  # noqa: E731
+        self._steps = {"s_to_a": stack(self._s_to_a(s)),
+                       "cond": [tuple(map(stack, parts)) for parts in self.token_transformer.cond_steps(s)]}
+        ttnn.deallocate(s)
+
+    def release_steps(self):
+        chunk, self._steps = getattr(self, "_steps", None), None
+        if chunk is not None:
+            ttnn.deallocate(chunk["s_to_a"])
+            for t in (t for parts in chunk["cond"] for t in parts):
+                ttnn.deallocate(t)
+
+    def __call__(
+        self,
+        r: ttnn.Tensor,
+        times: ttnn.Tensor,
+        s_inputs: ttnn.Tensor,
+        s_trunk: ttnn.Tensor,
+        q: ttnn.Tensor,
+        c: ttnn.Tensor,
+        bias_encoder: ttnn.Tensor,
+        bias_token: ttnn.Tensor,
+        bias_decoder: ttnn.Tensor,
+        keys_indexing: "ttnn.Tensor | _AtomShiftGather",
+        atom_to_token: ttnn.Tensor,
+        atom_to_token_normed: ttnn.Tensor,
+        large_seq_len: bool = False,
+        step: "int | None" = None,
+    ) -> ttnn.Tensor:
+        """`step`: this step's row block of the conditioning `cond_steps` computed ahead (`dit_cond_steps`)."""
+        B, N, D = q.shape
+        NW = N // ATOM_WINDOW
+        self._condition_once(s_trunk, s_inputs, c)
+        r_to_q = ttnn.linear(
+            r,
+            self.r_to_q_weight,
+            compute_kernel_config=self.compute_kernel_config,
+            core_grid=CORE_GRID_MAIN,
+        )
+        q = ttnn.add(q, r_to_q)
+        ttnn.deallocate(r_to_q)
+        q = ttnn.reshape(q, (B, NW, ATOM_WINDOW, -1))
+        q = self.encoder(
+            q,
+            self._c_reshaped,
+            bias_encoder,
+            keys_indexing,
+            large_seq_len=large_seq_len,
+        )
+        q = ttnn.reshape(q, (B, NW * ATOM_WINDOW, D))
+        a = ttnn.linear(
+            q,
+            self.atom_to_token_weight,
+            compute_kernel_config=self.compute_kernel_config,
+            activation="relu",
+            core_grid=CORE_GRID_MAIN,
+        )
+        a = ttnn.matmul(
+            a,
+            atom_to_token_normed,
+            transpose_a=True,
+            compute_kernel_config=self.compute_kernel_config,
+        )
+        a = ttnn.permute(a, (0, 2, 1))
+        if step is not None:
+            chunk = self._steps
+            s, s_to_a = None, chunk["s_to_a"][step:step + 1]
+        else:
+            s = self._conditioning(times)
+            s_to_a = self._s_to_a(s)
         a = ttnn.add(a, s_to_a)
         ttnn.deallocate(s_to_a)
         if self.token_transformer_fp32:
@@ -17600,9 +17680,12 @@ class Diffusion(Module):
             )
             for tensor in (a_fp32, s_fp32, bias_fp32):
                 ttnn.deallocate(tensor)
+        elif step is not None:
+            a = self.token_transformer(a, None, bias_token, steps=(chunk["cond"], step))
         else:
             a = self.token_transformer(a, s, bias_token)
-        ttnn.deallocate(s)
+        if s is not None:
+            ttnn.deallocate(s)
         a = ttnn.layer_norm(
             a,
             weight=self.a_norm_weight,
@@ -18297,8 +18380,46 @@ class DiffusionModule(TorchWrapper):
         ttnn.deallocate(bias)
         return parts
 
+    def set_time_schedule(self, times):
+        """The rollout's noise levels, as the `times` each step will pass (host floats), or None after it. With them
+        `dit_cond_steps` computes the conditioning of several steps ahead; a step whose `times` is not in the list
+        computes its own."""
+        self._time_schedule = None if times is None else [float(t) for t in times]
+        self._steps_k0 = None
+        if self.module is not None:
+            self.module.release_steps()
+
+    def _cond_step(self, times: torch.Tensor):
+        """This step's row block of the conditioning computed ahead (`dit_cond_steps`), or None."""
+        sched = getattr(self, "_time_schedule", None)
+        tt = self.module.token_transformer
+        if not lever("dit_cond_steps"):
+            return None
+        why = ("no schedule" if not sched else f"{times.numel()} times" if times.numel() != 1
+               else "fp32 token path" if self.module.token_transformer_fp32 else None if tt.steps_ok() else "no adaLN addcmul")
+        if why:
+            _latch("dit_cond_steps", "declined", why)
+            return None
+        s_trunk = self._cache_get("s_trunk")
+        # G x n rows a linear: where a Wormhole linear at K 768 is past its fixed cost (matlim: M 4096 runs
+        # 344 us against 8 x 64.6 at M 512), and G x 113 MB of terms at 512 tokens. Past 1024 tokens G < 4 and each
+        # step's linear is already past that cost, so there is nothing to amortize (cs3x: 1536 x 1, G 2, +2.1 s).
+        G = _DIT_COND_STEPS_ROWS // int(s_trunk.shape[-2])
+        t = float(times.reshape(-1)[0])
+        k = next((i for i, x in enumerate(sched) if x == t), None)
+        if k is None or G < 4:
+            _latch("dit_cond_steps", "declined", f"times {t} not in the schedule" if k is None else f"G {G}")
+            return None
+        k0 = k - k % G
+        if self._steps_k0 != k0:
+            ts = torch.tensor(sched[k0:k0 + G], dtype=times.dtype)
+            self.module.cond_steps(self._from_torch(ts), s_trunk, self._cache_get("s_inputs"), self._cache_get("c"))
+            self._steps_k0 = k0
+            _latch("dit_cond_steps", "served")
+        return k - k0
+
     def _run_diffusion_device(
-        self, r_dev: ttnn.Tensor, times_dev: ttnn.Tensor, large_seq_len: bool
+        self, r_dev: ttnn.Tensor, times_dev: ttnn.Tensor, large_seq_len: bool, step=None
     ) -> ttnn.Tensor:
         """Pure on-device DiT step over the cached conditioning. ``r_dev`` and
         ``times_dev`` are the only per-step-varying inputs; everything else is
@@ -18318,6 +18439,7 @@ class DiffusionModule(TorchWrapper):
             self._cache_get("atom_to_token"),
             self._cache_get("atom_to_token_normed"),
             large_seq_len=large_seq_len,
+            step=step,
         )
 
     def forward(
@@ -18346,7 +18468,7 @@ class DiffusionModule(TorchWrapper):
                 and s_inputs.shape[0] == 1 and bool((times == times.reshape(-1)[0]).all())):
             times = times[:1]
         out = self._run_diffusion_device(
-            self._from_torch(r), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING)
+            self._from_torch(r), self._from_torch(times), seq_len > SEQ_LEN_MORE_CHUNKING, step=self._cond_step(times))
         return self._to_torch(out)[:, :N, :]
 
     # ---------------------------------------------------------------------------
@@ -18443,7 +18565,9 @@ class DiffusionModule(TorchWrapper):
     def reset_static_cache(self):
         super().reset_static_cache()
         self._release_trace()
+        self._steps_k0 = None
         if self.module is not None:
+            self.module.release_steps()
             self._clear_cached_attrs(self.module, ("_s_conditioned", "_c_reshaped"))
             for layer in self.module.encoder.layers + self.module.decoder.layers:
                 self._clear_cached_attrs(layer, ("s_o",))
