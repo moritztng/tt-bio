@@ -422,14 +422,13 @@ class OF3SampleDiffusion:
 
         Every per-step host artefact -- each sample's rotation, translation and noise (drawn by
         the caller, in the caller's order, so the random stream is the one the host path reads),
-        the fourier embedding of ``t`` and the step's scalars (`edm_step_scalars`) -- is uploaded
-        once before the loop. A captured step then does `edm_device_step_reference` in fp32 on
-        the card: masked mean, centre, rotate, translate, mask, add noise, scale to ``rl``,
-        conditioning + diffusion module, EDM output scaling and the EDM step, writing the new
-        coordinates back into a persistent buffer. Between replays the host only issues
-        device-to-device copies of step ``tau``'s precomputed inputs into the staging buffers the
-        trace reads; nothing is read back until the last step. A failed capture leaves every
-        step eager, still on the card.
+        the fourier embedding of ``t`` and the step's scalars (`edm_step_scalars`) -- is built on
+        the host once before the loop. A captured step then does `edm_device_step_reference` in
+        fp32 on the card: masked mean, centre, rotate, translate, mask, add noise, scale to
+        ``rl``, conditioning + diffusion module, EDM output scaling and the EDM step, writing the
+        new coordinates back into a persistent buffer. Between replays the host only writes step
+        ``tau``'s inputs into the staging buffers the trace reads; nothing is read back until the
+        last step. A failed capture leaves every step eager, still on the card.
         """
         S = xl_host.shape[0]
         T = len(t_list)
@@ -445,36 +444,45 @@ class OF3SampleDiffusion:
         m_dev = up(m_np)
         mrow_dev = up((m_np / atom_mask_host.sum().clamp_min(1.0)).transpose(1, 2))  # [1, 1, NP]
         xl_bufs = [up(self._pad_atoms_host(xl_host[k], n_atom, NP)) for k in range(S)]
-        # Precomputed per-step inputs, uploaded once (fp32; ~0.5 MB of noise a step at 4,100 atoms).
+        # Per-step inputs, built once on the host and written into the staging buffers the
+        # captured step reads, one step at a time. Holding all 200 steps on the card cost ~42 MB
+        # and 1,600 small buffers at 1,568 tokens, the headroom OpenBind-0's warm fold ran out of.
+        # The noise travels dense, row-major [1, NP/32, 96] fp32: a TILE [1, NP, 3] pads its 3
+        # columns to 32.
+        host = lambda x, dt=f32: ttnn.from_torch(x.float().contiguous(), layout=ttnn.TILE_LAYOUT,
+                                                 dtype=dt)
         sc = [edm_step_scalars(float(t_list[i]), float(c_tau_list[i]), sd, step_scale)
               for i in range(T)]
-        pre_sc = [[up(torch.tensor(v, dtype=torch.float64).reshape(1, 1, 1)) for v in row]
+        pre_sc = [[host(torch.tensor(v, dtype=torch.float64).reshape(1, 1, 1)) for v in row]
                   for row in sc]
-        pre_emb = [up(fourier_noise_emb(float(t_list[i]), sd, self.fourier_w,
-                                        self.fourier_b).reshape(1, 1, 256), act)
+        pre_emb = [host(fourier_noise_emb(float(t_list[i]), sd, self.fourier_w,
+                                          self.fourier_b).reshape(1, 1, 256), act)
                    for i in range(T)]
-        pre_smp = [[(up(rots_list[k][i].float().t().reshape(1, 3, 3)),
-                     up(trans_list[k][i].float().reshape(1, 1, 3)),
-                     up(self._pad_atoms_host(noise_list[k][i].float(), n_atom, NP)))
+        pre_smp = [[(host(rots_list[k][i].float().t().reshape(1, 3, 3)),
+                     host(trans_list[k][i].float().reshape(1, 1, 3)),
+                     ttnn.from_torch(self._pad_atoms_host(noise_list[k][i].float(), n_atom, NP)
+                                     .reshape(1, NP // 32, 96).contiguous(),
+                                     layout=ttnn.ROW_MAJOR_LAYOUT, dtype=f32))
                     for i in range(T)] for k in range(S)]
-        # Staging buffers the captured step reads (refilled on the card before every replay).
-        st_sc = [ttnn.clone(x) for x in pre_sc[0]]
-        st_emb = ttnn.clone(pre_emb[0])
-        st_smp = [tuple(ttnn.clone(x) for x in pre_smp[k][0]) for k in range(S)]
+        # Staging buffers the captured step reads (refilled before every replay).
+        st_sc = [ttnn.to_device(x, dev) for x in pre_sc[0]]
+        st_emb = ttnn.to_device(pre_emb[0], dev)
+        st_smp = [tuple(ttnn.to_device(x, dev) for x in pre_smp[k][0]) for k in range(S)]
 
         def stage(i):
             for src, dst in zip(pre_sc[i], st_sc):
-                ttnn.copy(src, dst)
-            ttnn.copy(pre_emb[i], st_emb)
+                ttnn.copy_host_to_device_tensor(src, dst)
+            ttnn.copy_host_to_device_tensor(pre_emb[i], st_emb)
             for k in range(S):
                 for src, dst in zip(pre_smp[k][i], st_smp[k]):
-                    ttnn.copy(src, dst)
+                    ttnn.copy_host_to_device_tensor(src, dst)
 
         def step():
             inv_s, c_skip, c_out, inv_t, h = st_sc
             xns, rls = [], []
             for k in range(S):
-                rt, tr, nz = st_smp[k]
+                rt, tr, nz_rm = st_smp[k]
+                nz = ttnn.to_layout(ttnn.reshape(nz_rm, (1, NP, 3)), ttnn.TILE_LAYOUT)
                 x = xl_bufs[k]
                 mean = _matmul_f32(mrow_dev, x, ckc)                         # [1, 1, 3]
                 xc = ttnn.subtract(x, mean)
@@ -485,7 +493,7 @@ class OF3SampleDiffusion:
                 xnm = ttnn.multiply(xn, m_dev)
                 rl = ttnn.multiply(xnm, inv_s)
                 rl_a = ttnn.typecast(rl, act) if act != f32 else rl
-                for y in (mean, xc, xr, xa, xam):
+                for y in (mean, xc, xr, xa, xam, nz):
                     ttnn.deallocate(y)
                 if rl_a is not rl:
                     ttnn.deallocate(rl)
@@ -556,10 +564,8 @@ class OF3SampleDiffusion:
         finally:
             if tid is not None:
                 ttnn.release_trace(dev, tid)
-            for y in [m_dev, mrow_dev, st_emb, *xl_bufs, *st_sc, *pre_emb,
-                      *(x for row in pre_sc for x in row),
-                      *(x for st in st_smp for x in st),
-                      *(x for smp in pre_smp for trip in smp for x in trip)]:
+            for y in [m_dev, mrow_dev, st_emb, *xl_bufs, *st_sc,
+                      *(x for st in st_smp for x in st)]:
                 ttnn.deallocate(y)
         return out
 
