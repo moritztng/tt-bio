@@ -623,7 +623,11 @@ NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8"
 #: 0.0116 -> 0.0101; and `pair_tail`, the triangle multiplication's output layer_norm, p_out, gate and residual add
 #: into the float32 stream as one program from 160 tokens (needs trimul_t1). In the trunk, against the default:
 #: 57.96 -> 44.10 s/design at 512 tokens, 16.84 -> 13.56 at 256 (state/rfd4/bets/pairblock.md).
-FAST_LEVERS = NORMAL_LEVERS | {"pair_block", "pair_tail"}
+#: `trimul_bres` + `trimul_bres_hifi2` run the triangle contraction on bmm_res (b[c] resident, whole channels per
+#: core) at HiFi2 where ttnn's plan is the 2D multicast one (from 288 tokens on Blackhole): on top of the above,
+#: 27.46 -> 25.58 s/design at 384 tokens, 43.60 -> 42.01 at 512, nothing at 256; designed-chain CA RMSD 2.3 A
+#: median against a 38.3 A seed floor at 512, 8 seeds (state/rfd4/bets/tri3.md).
+FAST_LEVERS = NORMAL_LEVERS | {"pair_block", "pair_tail", "trimul_bres", "trimul_bres_hifi2"}
 
 
 class Trunk(Module):
