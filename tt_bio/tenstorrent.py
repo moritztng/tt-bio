@@ -680,6 +680,8 @@ _FAST_MODE = False
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
+#   trimul_t1_2g    T1 may hold 2 GiB of outputs (a, b, g_out) instead of the fused projection's 1 GiB cap, so it
+#                   serves c_z 256 above ~900 tokens (1.5 GiB at 1024), where every call declined on "route"
 #   trimul_bres     the trimul einsum by `bmm_res` (b[c] resident in L1, whole channels per core) where it fits:
 #                   a, b and out cross DRAM once. Bit-exact with ttnn.matmul in ESMFold2 folds (byte-identical coords
 #                   on both archs); declines to ttnn.matmul where b[c] does not fit L1 (above 704 tokens bf16, 960 bfp8).
@@ -816,7 +818,8 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm")
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
+          "trimul_t1_2g")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -835,7 +838,7 @@ UNGRADED_LEVERS = frozenset({"trimul_b8in", "inproj_k6", "inproj_split", "dit_bp
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm"})
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -9308,9 +9311,62 @@ def weight_cache(cache_dir: str, mode: str):
     prev = _weight_cache
     _weight_cache = {"dir": cache_dir, "mode": mode, "counter": 0}
     try:
-        yield
+        yield _weight_cache
     finally:
         _weight_cache = prev
+
+
+class TileCacheMismatch(RuntimeError):
+    """A tile cache written by a different module construction than the one loading it."""
+
+
+def tile_cached(cache_dir: str, build, load):
+    """Run ``build()`` (reads the checkpoint) or ``load()`` (constructs with no state dict) so
+    every torch_to_tt tile comes from ``cache_dir``, writing it on the first call.
+
+    One builder under a flock; ``.done`` marks a complete cache, so a crashed build is
+    redone, and loads run in parallel once it exists. The cache stores, per call, the weight
+    key and dtype it was dumped under; a load that asks for anything else raises before a
+    wrong tile reaches the device, and the cache is rebuilt. Bit-exact: a loaded tile is
+    what from_torch made.
+    """
+    import fcntl, json
+    os.makedirs(cache_dir, exist_ok=True)
+    done, manifest = os.path.join(cache_dir, ".done"), os.path.join(cache_dir, "manifest.json")
+    with open(os.path.join(cache_dir, ".lock"), "w") as lockf:
+        for _ in range(2):
+            fcntl.flock(lockf, fcntl.LOCK_EX)
+            try:
+                if not os.path.exists(done):
+                    try:
+                        with weight_cache(cache_dir, "dump") as wc:
+                            wc["manifest"] = []
+                            out = build()
+                        json.dump(wc["manifest"], open(manifest, "w"))
+                        open(done, "w").close()
+                    except BaseException:
+                        _clear_tiles(cache_dir)
+                        raise
+                    return out
+            finally:
+                fcntl.flock(lockf, fcntl.LOCK_UN)
+            try:
+                with weight_cache(cache_dir, "load") as wc:
+                    wc["manifest"] = json.load(open(manifest))
+                    return load()
+            except TileCacheMismatch as e:
+                print(f"[tt-bio] rebuilding stale weight tile cache {cache_dir}: {e}", file=sys.stderr)
+                fcntl.flock(lockf, fcntl.LOCK_EX)
+                _clear_tiles(cache_dir)
+                fcntl.flock(lockf, fcntl.LOCK_UN)
+        raise TileCacheMismatch(f"{cache_dir} still mismatches after a rebuild")
+
+
+def _clear_tiles(cache_dir):
+    """Empty a tile cache but keep its .lock, which waiting peers hold open."""
+    for f in os.listdir(cache_dir):
+        if f != ".lock":
+            os.remove(os.path.join(cache_dir, f))
 
 
 class Module:
@@ -9356,9 +9412,14 @@ class Module:
                 mem[i] = ttnn.from_torch(transform(self.weights[key]), layout=ttnn.TILE_LAYOUT, dtype=dtype)
             return ttnn.to_device(mem[i], self.device)
         path = os.path.join(wc["dir"], f"{i}.tensorbin")
+        tag = [key, str(dtype)]
         if wc["mode"] == "load":
+            if "manifest" in wc and (i >= len(wc["manifest"]) or wc["manifest"][i] != tag):
+                raise TileCacheMismatch(f"call {i} asks for {tag}, cache holds "
+                                        f"{wc['manifest'][i] if i < len(wc['manifest']) else 'nothing'}")
             host = ttnn.load_tensor(path)
         else:
+            wc.get("manifest", []).append(tag)
             host = ttnn.from_torch(transform(self.weights[key]), layout=ttnn.TILE_LAYOUT, dtype=dtype)
             tmp = f"{path}.{os.getpid()}.tmp.tensorbin"  # dump_tensor requires a .tensorbin name
             ttnn.dump_tensor(tmp, host)
@@ -10040,7 +10101,7 @@ class TriangleMultiplication(Module):
         t1_bytes = (2 * self._hidden + shp[-1]) * H * H * batch * 2
         # This route is refused above unless the chunk memory is DRAM, so the operands are not L1.
         pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock(), False)
-        if (t1_bytes > _trimul_inproj_budget(H, self._hidden, batch)
+        if (t1_bytes > _trimul_inproj_budget(H, self._hidden, batch) * (2 if lever("trimul_t1_2g") else 1)
                 or (not T1_OWN_BUDGET and self._hidden * 4 * H * H * batch * 2 > _trimul_inproj_budget(
                     H, self._hidden, batch))
                 or not _mm_transpose_deferred(pc)):

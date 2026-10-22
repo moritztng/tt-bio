@@ -732,6 +732,7 @@ SIZE_LADDER_KNOWN_GAP: dict[str, tuple[str, str]] = {}
 _LADDER_NOT_A_FOLD = "not a predict/affinity model — %s; covered by its own release-gate arm"
 SIZE_LADDER_EXEMPT.update({
     m: _LADDER_NOT_A_FOLD % what for m, what in (
+        ("rfd4",        "condition-spec design, no fold path; no design-arm rungs recorded yet"),
         ("esmc-300m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
         ("esmc-600m",   "protein-LM embeddings, gated by the ESMC embed-parity leg"),
         ("esmc-6b",     "protein-LM embeddings, opt-in embed leg"),

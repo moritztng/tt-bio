@@ -1,0 +1,3 @@
+ppi_all_atom_pd1:
+  input: /home/moritz/rfd4-ref-env/src/RFD4-Proteina/data/benchmarks/ppi/ppi_all_atom/01_PD1.cif.zst
+  input_as_annotated_cif: true

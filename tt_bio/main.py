@@ -184,7 +184,7 @@ SAPROT_MODELS = ("saprot-35m", "saprot-650m", "saprot-1.3b")
 # production binder-design pipeline, mirroring predict's boltz2 default); rfd3
 # is the lighter single-shot all-atom diffusion designer; pxdesign generates binder
 # backbones against a target structure, conditioned on a distogram of the target only.
-DESIGN_MODELS = ("boltzgen", "rfd3", "pxdesign")
+DESIGN_MODELS = ("boltzgen", "rfd3", "pxdesign", "rfd4")
 
 # `affinity --model`: scalar-output affinity predictors. Separate from PREDICT_MODELS
 # because these fold nothing — no coordinates, no PAE, no confidence — so they do not
@@ -4268,6 +4268,51 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    f"over {r['conditioned_tokens']} conditioned tokens")
 
 
+def _run_rfd4_cli(inputs: Path, out_dir, num_designs, nsteps, seed, spec_subset,
+                  annotated_cif: bool, validate: bool) -> None:
+    """`tt-bio design --model rfd4`: a design spec to annotated-CIF designs.
+
+    The host path is RFD4's own (tt_bio/_vendor/rfd4_prep): the spec is built into an
+    annotated CIF per design, which is kept beside the output because it IS the model's
+    input, and a design that came out wrong is usually a spec that selected the wrong
+    atoms.
+    """
+    from tt_bio import rfd4
+
+    out_dir = Path(out_dir or "./designs")
+    only = [s.strip() for s in spec_subset.split(",") if s.strip()] if spec_subset else None
+    try:
+        if annotated_cif:
+            if only:
+                raise click.UsageError("--spec selects designs from a spec file; "
+                                       "--annotated_cif takes the CIF itself")
+            designs = [rfd4.DesignInput(Path(inputs).stem, Path(inputs))]
+        else:
+            designs = rfd4.prepare_examples(inputs, out_dir / "inputs",
+                                            only=only, validate=validate)
+    except NotImplementedError as e:
+        raise click.ClickException(str(e))
+    except (ValueError, KeyError, FileNotFoundError) as e:
+        raise click.ClickException(f"{type(e).__name__}: {e}")
+
+    click.echo(f"Designing {len(designs)} spec(s) × {num_designs} design(s) from "
+               f"{Path(inputs).name} → {out_dir}, seed {seed}")
+    engine = rfd4.get_engine()
+    written = 0
+    for design in designs:
+        features, atom_array = rfd4.featurize(design.cif, seed=seed)
+        tokens = int(features["padding_mask"].shape[-1])
+        click.echo(f"  {design.example_id}: {tokens} tokens <- {design.cif}")
+        output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed)
+        for row in range(num_designs):
+            suffix = "" if num_designs == 1 else f"_{row}"
+            path = rfd4.write_design(output, features, atom_array,
+                                     out_dir / f"{design.example_id}{suffix}_generated.cif", row=row)
+            click.echo(f"    -> {path}")
+            written += 1
+    click.echo(f"Done — {written} design(s) → {out_dir}")
+
+
 @cli.command("design")
 @click.argument("inputs", type=click.Path(exists=True, dir_okay=False))
 @click.option("--model", type=click.Choice(list(DESIGN_MODELS)), default="boltzgen", show_default=True,
@@ -4276,7 +4321,10 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
                    "predict's boltz2 default). rfd3: RFdiffusion3, a lighter single-shot "
                    "all-atom diffusion designer (one CIF per spec). pxdesign: binder "
                    "backbones against a target structure, conditioned on a distogram of the "
-                   "target. Options marked boltzgen/rfd3/pxdesign apply to that model only.")
+                   "target. rfd4: RFD4-Proteina, all-atom flow matching over the same design "
+                   "spec RFD4 itself takes (motifs, hotspots, burial, hydrogen bonds, contigs); "
+                   "see below. Options marked for a model apply to that "
+                   "model only.")
 @click.option("--out_dir", default=None,
               help="Output directory. Default: ./<input name>/ (boltzgen, writes "
                    "final_ranked_designs/ under it) or ./designs (rfd3, one "
@@ -4330,6 +4378,18 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 @click.option("--n_step", default=400, show_default=True, type=click.IntRange(min=1),
               help="pxdesign only. Diffusion denoising steps. 400 is what an upstream run "
                    "uses; lower is a fast smoke and moves the coordinates.")
+# ---- rfd4-scoped options ----
+@click.option("--nsteps", default=60, show_default=True, type=click.IntRange(min=1),
+              help="rfd4 only. Flow-matching integration steps (upstream's `generation.args."
+                   "nsteps` default).")
+@click.option("--annotated_cif", is_flag=True,
+              help="rfd4 only. INPUTS is already an annotated CIF (RFD4's `input_as_annotated_cif` "
+                   "form, e.g. one written by an earlier run), not a design spec, so it is "
+                   "featurized directly.")
+@click.option("--no_validate", is_flag=True,
+              help="rfd4 only. Skip the pre-save checks on each built structure. They are the "
+                   "slow part of preparing a large spec and they are what catches a selection "
+                   "that matched nothing.")
 @click.option("--host_threads", default=None, type=int,
               help="rfd3 only. Total host CPU threads this process may use, split across its "
                    "cards. Defaults to every core, which is right when this is the only tt-bio "
@@ -4380,7 +4440,8 @@ def _run_pxdesign_cli(inputs: Path, out_dir, cache, num_designs, n_step, seed) -
 @torch.no_grad()
 def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                checkpoint, golden_dir, num_timesteps, seed, partial_t, fp32_residual,
-               spec_subset, from_pdb, batch_size, n_step, host_threads,
+               spec_subset, from_pdb, batch_size, n_step, nsteps, annotated_cif, no_validate,
+               host_threads,
                protocol, steps, configs, budget, reuse, fast, diffusion_trace, debug, log,
                controller, run_id, owner):
     """Run structure design on Tenstorrent: generate new protein binders, scaffolds,
@@ -4425,7 +4486,24 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
     chains it did not produce would be worse than saying so. Selecting designs (the
     Protenix and AF2-IG filters) is not on the CLI yet.
 
-    All three models auto-download their checkpoints on first use.
+    \b
+    --model rfd4: RFD4-Proteina all-atom flow-matching design. INPUTS is a condition
+    spec, the same YAML or JSON RFD4 takes: each top-level key is one design, naming
+    input structures, a contig and conditions:
+
+    \b
+    binder-1:
+      input: target.cif
+      contig: "A10-20, 30-40, A60-70"
+      conditions:
+        hotspot: {true: [{select: "sel('A/*/[54,56]')"}]}
+
+    Each design is built into an annotated CIF under <out_dir>/inputs/ -- the model's
+    actual input, kept because a design that comes out wrong is usually a selection that
+    matched the wrong atoms -- and then featurized and designed on the card, one annotated
+    CIF per design.
+
+    boltzgen, rfd3, pxdesign and rfd4 auto-download their checkpoints on first use.
     """
     # rfd3 and pxdesign carry measured ceilings in DIFFERENT denominators (motif+designed vs
     # target residues); size_limits sizes each spec in its own and refuses before any device open.
@@ -4442,7 +4520,9 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
-                           ("--n_step", "n_step")):
+                           ("--n_step", "n_step"),
+                           ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                           ("--no_validate", "no_validate")):
             if _explicit(name):
                 click.secho(f"Note: --model boltzgen does not use {flag}; ignoring.", fg="yellow")
         argv = ["run", str(inputs)]
@@ -4490,7 +4570,9 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
-                           ("--devices", "devices")):
+                           ("--devices", "devices"),
+                           ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                           ("--no_validate", "no_validate")):
             if _explicit(name):
                 click.secho(f"Note: --model pxdesign does not use {flag}; ignoring.", fg="yellow")
         if controller:
@@ -4517,12 +4599,33 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         _run_pxdesign_cli(Path(inputs), out_dir, cache, num_designs, n_step, seed)
         return
 
+    if model == "rfd4":
+        for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
+                           ("--config", "configs"), ("--budget", "budget"),
+                           ("--reuse", "reuse"), ("--fast", "fast"),
+                           ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
+                           ("--log", "log"), ("--checkpoint", "checkpoint"),
+                           ("--golden_dir", "golden_dir"), ("--num_timesteps", "num_timesteps"),
+                           ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
+                           ("--from_pdb", "from_pdb"), ("--batch_size", "batch_size"),
+                           ("--host_threads", "host_threads"), ("--n_step", "n_step"),
+                           ("--devices", "devices"), ("--cache", "cache"),
+                           ("--controller", "controller")):
+            if _explicit(name):
+                click.secho(f"Note: --model rfd4 does not use {flag}; ignoring.", fg="yellow")
+        _run_rfd4_cli(Path(inputs), out_dir,
+                      num_designs if num_designs is not None else 1,
+                      nsteps, seed, spec_subset, annotated_cif, not no_validate)
+        return
+
     # --model rfd3
     for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
                        ("--config", "configs"), ("--budget", "budget"),
                        ("--reuse", "reuse"),
                        ("--diffusion_trace", "diffusion_trace"), ("--debug", "debug"),
-                       ("--log", "log"), ("--n_step", "n_step")):
+                       ("--log", "log"), ("--n_step", "n_step"),
+                       ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
+                       ("--no_validate", "no_validate")):
         if _explicit(name):
             click.secho(f"Note: --model rfd3 does not use {flag}; ignoring.", fg="yellow")
     if golden_dir is not None:
