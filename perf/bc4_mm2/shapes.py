@@ -86,6 +86,30 @@ def where():
     return " < ".join(names)
 
 
+def caller():
+    """The two frames that called `_matmul`, whatever file they are in (a VJP closure, `bmm`)."""
+    f, names = sys._getframe(2), []
+    while f is not None and len(names) < 2:
+        names.append(f"{Path(f.f_code.co_filename).name}:{f.f_code.co_name}:{f.f_lineno}")
+        f = f.f_back
+    return " < ".join(names)
+
+
+#: Why `pair_mm` turned a call down: its own DECLINED reasons, and the text of any exception minimal_matmul raised.
+REFUSED = collections.Counter()
+_real_mmm = ttnn.experimental.minimal_matmul
+
+
+def _mmm(*args, **kw):
+    try:
+        return _real_mmm(*args, **kw)
+    except Exception as e:                                               # noqa: BLE001
+        if kept():
+            REFUSED[str(e).splitlines()[0][:300]] += 1
+        raise
+
+
+ttnn.experimental.minimal_matmul = _mmm
 real_mm = AG._matmul
 
 
@@ -94,7 +118,7 @@ def _matmul(x, y, **kw):
         key = dict(site="_matmul", a=tens(x), b=tens(y), transpose_a=bool(kw.get("transpose_a")),
                    transpose_b=bool(kw.get("transpose_b")), plan=plan(kw.get("program_config")),
                    core_grid=opt(kw, "core_grid"), out_dtype=opt(kw, "dtype"), out_mem=opt(kw, "memory_config"),
-                   cfg=cfg(kw.get("compute_kernel_config")), where=where())
+                   cfg=cfg(kw.get("compute_kernel_config")), where=where(), caller=caller())
         rows[json.dumps(key, sort_keys=True)] += 1
     return real_mm(x, y, **kw)
 
@@ -136,7 +160,8 @@ def write():
         sha=git("rev-parse", "HEAD"), dirty=bool(git("status", "--porcelain", "--untracked-files=no")),
         host=socket.gethostname(), chip=os.environ.get("TT_VISIBLE_DEVICES"),
         env={k: v for k, v in sorted(os.environ.items()) if k.startswith("TT_BIO_")},
-        binder=a.binder, seed=a.seed, at=a.at, keep=a.keep, pair_mm_armed=PM.armed(), rows=out), indent=1))
+        binder=a.binder, seed=a.seed, at=a.at, keep=a.keep, pair_mm_armed=PM.armed(),
+        declined={json.dumps(k): n for k, n in PM.DECLINED.items()}, refused=dict(REFUSED), rows=out), indent=1))
 
 
 cls = bc2.design_model_class()

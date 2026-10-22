@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """bc4-bet-mm2 grade: device ms per iteration saved at the two matmul sites, old route against new, one process.
 
-A signature counts as rerouted by the number of calls per gradient iteration it lost at the hooked sites between
-two shape censuses (perf/bc4_mm2/shapes.py): --base on the branch's base, --head on the branch. For each, on
-random operands of the census shapes and dtypes:
+A signature counts as rerouted by the calls per gradient iteration that reach the shipped op in the --base census
+(perf/bc4_mm2/shapes.py, the branch's base) and not in the --head census (the branch): calls that left the hooked
+sites, plus or_linear calls the head records as served by pair_mm. Split-K lives inside `_matmul`, so every
+``a^T @ b`` it takes counts whole. For each, on random operands of the census shapes and dtypes:
 
 * old  the call as the base issued it: `autograd._matmul` with split-K off, or `ttnn.linear` with the
        `_pair_proj_config` program config `tenstorrent._pair_proj_linear` falls back to
@@ -36,9 +37,12 @@ def key(r):
 
 
 def census(p):
+    """Calls per iteration that reached the shipped op, by signature."""
     c, rows = collections.Counter(), {}
     for r in json.load(open(p))["rows"]:
-        k = key(r); c[k] += r["calls_per_it"]; rows[k] = r
+        k = key(r); rows[k] = r
+        if not r.get("served"):
+            c[k] += r["calls_per_it"]
     return c, rows
 
 
@@ -65,11 +69,11 @@ bc, brows = census(A.base); hc, _ = census(A.head)
 g = torch.Generator().manual_seed(7)
 rows, tot = [], collections.Counter()
 for k in sorted(bc, key=lambda k: -bc[k]):
-    lost = bc[k] - hc.get(k, 0)
     r = brows[k]
+    ta, tb = bool(r.get("transpose_a")), bool(r.get("transpose_b"))
+    lost = bc[k] if ta else bc[k] - hc.get(k, 0)
     if lost <= 0:
         continue
-    ta, tb = bool(r.get("transpose_a")), bool(r.get("transpose_b"))
     (ad, at), (bd, bt) = DT[r["a"]["dtype"]], DT[r["b"]["dtype"]]
     ha = torch.randn(*r["a"]["shape"], generator=g).to(at)
     kb = r["b"]["shape"][0 if not tb else 1] if not ta else r["b"]["shape"][0]
@@ -101,6 +105,8 @@ for k in sorted(bc, key=lambda k: -bc[k]):
     row = dict(site=r["site"], a=r["a"]["shape"], b=r["b"]["shape"], bias=hbias is not None, ta=ta, tb=tb,
                calls_lost=lost, calls_base=bc[k], served=served)
     if o_new is None or not served:
+        if o_new is not None:
+            ttnn.deallocate(o_new)
         row["note"] = "new route declined"; print(json.dumps(row), flush=True); rows.append(row); continue
     row["rel_new"] = rel(o_new, ref); row["rel_old"] = rel(old(), ref)
     row["old"] = timed(old); row["new"] = timed(new)
