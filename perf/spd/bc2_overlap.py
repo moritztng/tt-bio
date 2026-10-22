@@ -16,7 +16,7 @@ the timing analysis, since a native sample stops the process.
 
     TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 python perf/spd/bc2_overlap.py --out RUN --n 2
 """
-import argparse, contextlib, glob, json, os, subprocess, sys, threading, time
+import argparse, contextlib, glob, json, os, shutil, subprocess, sys, threading, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -96,7 +96,7 @@ cls = bc2.design_model_class()
 real_grads = cls.sequence_gradients
 rounds = {}
 spy = {"windows": []}
-PYSPY = str(Path(sys.executable).with_name("py-spy"))
+PYSPY = os.environ.get("PYSPY") or shutil.which("py-spy") or os.path.expanduser("~/.local/bin/py-spy")
 
 
 def spy_once(flag, name):
