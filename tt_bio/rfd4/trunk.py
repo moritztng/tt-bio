@@ -28,6 +28,7 @@ import torch
 
 from .. import dit_pair_bias
 from .. import ops
+from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
@@ -483,21 +484,26 @@ class PairUpdate(Module):
         self.tr_w2 = self.torch_to_tt(f"{t}.linear_2.weight", dtype=self.tr_hidden_dtype)
         self.tr_b2 = self.torch_to_tt(f"{t}.linear_2.bias", transform=ident, dtype=self.dtype)
 
-    def _write(self, x, mask):
-        """pi[b, j] * pj[b, i] (or pi[b, j] + pj[b, i]) for every pair (i, j): [b, n, n, pair].
-
-        The Hadamard write comes back masked: its factors are masked per token, which is the pair
-        mask's mi * mj, so the [n, n, pair] product never needs a mask of its own. Returns
-        `(update, masked)`."""
+    def _factors(self, x, mask):
+        """The write's per-token factors pi, pj [b, n, pair], masked per token for the Hadamard write."""
         ckc = self.compute_kernel_config
         h = ttnn.layer_norm(_mul_mask(x, mask), weight=self.ln_w, bias=self.ln_b, epsilon=EPS,
                             compute_kernel_config=ckc)
         pi = self._lin(h, self.xi_w, dtype=self.dtype)
         pj = self._lin(h, self.xj_w, dtype=self.dtype)
         ttnn.deallocate(h)
-        hadamard = self.pair_write == "hadamard"
-        if hadamard and mask is not None:
+        if self.pair_write == "hadamard" and mask is not None:
             pi, pj = ttnn.multiply(pi, mask), ttnn.multiply(pj, mask)
+        return pi, pj
+
+    def _write(self, x, mask):
+        """pi[b, j] * pj[b, i] (or pi[b, j] + pj[b, i]) for every pair (i, j): [b, n, n, pair].
+
+        The Hadamard write comes back masked: its factors are masked per token, which is the pair
+        mask's mi * mj, so the [n, n, pair] product never needs a mask of its own. Returns
+        `(update, masked)`."""
+        pi, pj = self._factors(x, mask)
+        hadamard = self.pair_write == "hadamard"
         b, n, c = (int(d) for d in pi.shape)
         pi4 = ttnn.reshape(pi, (b, 1, n, c))
         pj4 = ttnn.reshape(pj, (b, n, 1, c))
@@ -548,11 +554,20 @@ class PairUpdate(Module):
         """`__call__`, returning `(z, zb)`: the new pair and its `dtype` copy, which every residual
         write produces alongside the pair and the trunk's next pair bias reads."""
         xs = _as(x, self.dtype)
-        write, write_masked = self._write(xs, mask)
+        both = None
+        if lever("pair_write_res") and self.pair_write == "hadamard" and mask is None and z.dtype == ttnn.float32:
+            # no padded token: the Hadamard product is formed and added to the float32 stream in one program
+            pi, pj = self._factors(xs, mask)
+            b, n, c = (int(d) for d in pj.shape)
+            both = outer_residual.outer_residual(z, pi, ttnn.reshape(pj, (b, n, 1, c)))
+        if both is not None:
+            z, zb = both
+        else:
+            write, write_masked = self._write(xs, mask)
+            z, zb = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c,
+                              low=self.dtype)
         if xs is not x:
             ttnn.deallocate(xs)
-        z, zb = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c,
-                          low=self.dtype)
         subs = ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
                 (lambda h: _per_design(self.tri_in, h, pair_mask), False),
                 (lambda h: self._transition(h, pair_mask_c), True))
