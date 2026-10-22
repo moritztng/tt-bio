@@ -486,7 +486,12 @@ def route_opendde_weights(state_dict):
 # +0.0012 [+0.0006, +0.0018], docking 26 -> 26; normal PASS, top pose median 0.248 A (floor 1.410 A), CA-lDDT +0.0016
 # [+0.0003, +0.0037], DockQ +0.0138 [-0.0101, +0.0547], docking 26 -> 27. Blackhole is ungraded.
 DIT_SEAM = frozenset({"pz_device", "dit_mod16"})
-NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM
+# Both Wormhole modes let padded triangle attention take a 10-tile q chunk at the k chunk the ranking already picks
+# (triatt_q10): at 608 tokens q320 x k640 replaces q256 x k640, 23.46 -> 20.58 ms per call, torch.equal. Galaxy chip,
+# 2 paired warm folds, AICLK 1000 MHz, CIFs identical (spd-m-opendde q10ab, 2026-10-22): normal 608 115.76 -> 112.51 s
+# (-2.8 %), fast 608 115.72 -> 112.63 s (-2.7 %). Bit-exact, so no grade. Blackhole is unmeasured.
+TRIATT_Q10 = frozenset({"triatt_q10"})
+NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
@@ -497,7 +502,7 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # Wormhole fast takes DIT_SEAM too (above).
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
                                    "trimul_t1_dram"}
-                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM)
+                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10)
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median

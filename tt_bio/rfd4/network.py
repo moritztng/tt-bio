@@ -10,9 +10,10 @@ is one matmul deep and runs once per sampler step, not once per trunk pass:
     heads                             latents 32, CA 3, sequence 147, insertion bilinear
 
 Those four are upstream's own modules, vendored under `tt_bio._vendor.rfd4_prep._cif`, so the
-features the trunk reads are built by NVIDIA's code rather than a transcription of it. The census
-(`state/rfd4/census/census.json`) prices them at under 2 % of a design, and the pair feature build
-is a gather, so a device port of the glue would buy nothing and could only introduce drift.
+features the trunk reads are built by NVIDIA's code rather than a transcription of it. The pair
+builder is the exception: its passes over a [b, n, n, 384] fp32 tensor grow as n^2 and are the
+largest host cost of a long design, so on a card it is split into a per-design constant and a
+per-step gather and built there (`tt_bio.rfd4.pair`). The rest is a few ms a step.
 
 :class:`FlowNetwork` is the :class:`tt_bio.rfd4.sampler.Network` the sampler drives: one call per
 step, it owns the recycle loop, and the trunk it calls is injected. Pass the device trunk for a
@@ -188,6 +189,15 @@ class FlowGlue(torch.nn.Module):
         self.load_state_dict(_sub(state_dict, "nn."), strict=False)
         self.eval()
         self.requires_grad_(False)
+        from .pair import PairSplit
+
+        #: The pair builder split into what a design fixes and what a step moves, which is what lets
+        #: the card build the pair (`tt_bio.rfd4.pair`). None for a config it does not cover.
+        try:
+            self.pair_split = PairSplit(self.pair_repr_builder)
+        except ValueError as exc:
+            logger.info("rfd4: the pair is built on the host: %s", exc)
+            self.pair_split = None
 
     # -- the three pieces a step needs, each called once per network call ------------------
 
@@ -197,11 +207,15 @@ class FlowGlue(torch.nn.Module):
         c = self.cond_factory({**batch, "recycle_remaining": recycle_remaining})
         return self.transition_c_2(self.transition_c_1(c, mask), mask)
 
-    def initial_states(self, batch: dict) -> tuple[torch.Tensor, torch.Tensor]:
-        """`(s_init, z_init)` for this step's noisy state."""
+    def initial_states(self, batch: dict, pair_constant=None, modulation=None):
+        """`(s_init, z_init)` for this step's noisy state. Given the design's `pair_split.constant`,
+        `z_init` is the `PairInputs` the card builds the pair from instead of the host tensor;
+        `modulation` is that step's AdaLN `(gamma, beta)` if already computed."""
         mask = batch["padding_mask"]
         s_init = self.init_repr_factory(batch) * mask[..., None]
-        return s_init, self.pair_repr_builder(batch)
+        if pair_constant is None:
+            return s_init, self.pair_repr_builder(batch)
+        return s_init, self.pair_split.inputs(batch, pair_constant, modulation)
 
     def heads(self, s: torch.Tensor, batch: dict) -> dict[str, dict[str, torch.Tensor]]:
         """The four readouts. `emit_masks` decide which tokens a modality may move."""
@@ -234,15 +248,28 @@ class FlowNetwork:
     The batch the glue reads is the featurized example (`tt_bio.rfd4.io.featurize`) with this
     step's noisy state written in, exactly as upstream's sampler writes `x_t` and `t` into the
     batch it hands the network.
+
+    The conditioning (and, with the pair on the card, the pair AdaLN's modulation) reads only `t`,
+    the CATH code and the remaining-pass count, never the state. Given the trajectory's `plan`
+    (`sampler.step_plan`), :meth:`launch` computes the next step's while the card runs this one,
+    and every lane of a call reads the same one: the same function on the same inputs, so the
+    same tensors, computed off the critical path and once.
     """
 
     def __init__(self, glue: FlowGlue, trunk: Callable, batch: dict, *,
-                 condition_on_recycle_remaining: bool = True):
+                 condition_on_recycle_remaining: bool = True, plan: list | None = None):
         self.glue = glue
         self.trunk = trunk
         self.batch = batch
         self.condition_on_recycle_remaining = condition_on_recycle_remaining
         self.passes = 0
+        #: A trunk with `builds_pair` builds z_init on the card; the host then only computes the
+        #: design's constant pair projection, once (`tt_bio.rfd4.pair`).
+        self.pair_on_card = bool(getattr(trunk, "builds_pair", False)) and glue.pair_split is not None
+        self._pair_constant = None
+        self.plan = plan
+        self._conditioned: dict = {}
+        self._like = None
 
     def __call__(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int,
                  step: int) -> dict[str, dict[str, Any]]:
@@ -253,26 +280,57 @@ class FlowNetwork:
 
     def prepare(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int, step: int):
         n_designs = next(iter(x_t.values())).shape[0]
-        batch = dict(self.batch)
+        batch = self._step_batch(t, n_designs)
         batch["x_t"] = dict(x_t)
-        batch["t"] = {mode: torch.full((n_designs,), float(value)) for mode, value in t.items()}
-        batch = _broadcast_batch(batch, n_designs)
 
         depth = max(1, int(recycle_depth))
-        condition = self.condition_on_recycle_remaining and self.glue.condition_on_recycle_remaining
+        self._like = x_t["bb_ca"].new_zeros((n_designs, 0, 3))
+        conds, modulation = self._conditioning(t, depth, n_designs)
         with torch.no_grad():
-            s_init, z_init = self.glue.initial_states(batch)
-            conds = [self.glue.conditioning(batch, None)]
-            for cycle in range(1, depth):
-                conds.append(self.glue.conditioning(batch, depth - cycle - 1) if condition
-                             else conds[0])
-        return batch, depth, (s_init, z_init, conds, batch["padding_mask"].float())
+            if self.pair_on_card and self._pair_constant is None:
+                self._pair_constant = self.glue.pair_split.constant(self.batch)
+            s_init, z_init = self.glue.initial_states(batch, self._pair_constant, modulation)
+        return batch, depth, step, (s_init, z_init, conds, batch["padding_mask"].float())
 
     def launch(self, prepared):
-        """Start the trunk. A trunk with a `launch` only enqueues here; a plain callable runs."""
-        batch, depth, inputs = prepared
+        """Start the trunk. A trunk with a `launch` only enqueues here; a plain callable runs.
+        Then, while the card works, the next step's conditioning."""
+        batch, depth, step, inputs = prepared
         launch = getattr(self.trunk, "launch", None)
-        return batch, depth, launch(*inputs) if launch else self.trunk(*inputs)
+        pending = launch(*inputs) if launch else self.trunk(*inputs)
+        if self.plan is not None and step + 1 < len(self.plan) and self._like is not None:
+            t_next, depth_next = self.plan[step + 1]
+            self._conditioning(t_next, max(1, int(depth_next)), inputs[0].shape[0])
+        return batch, depth, pending
+
+    def _step_batch(self, t: dict[str, float], n_designs: int) -> dict:
+        batch = dict(self.batch)
+        batch["t"] = {mode: torch.full((n_designs,), float(value)) for mode, value in t.items()}
+        return _broadcast_batch(batch, n_designs)
+
+    def _conditioning(self, t: dict[str, float], depth: int, n_designs: int):
+        """`(conds, modulation)` for a step at `t` and `depth`, `n_designs` wide: one conditioning
+        tensor per recycle, and the pair AdaLN's `(gamma, beta)` when the card builds the pair."""
+        like = self._like.expand(n_designs, 0, 3)
+        key = (n_designs, depth, like.dtype, like.device, tuple(sorted((m, float(v)) for m, v in t.items())))
+        hit = self._conditioned.pop(key, None)
+        if hit is None:
+            batch = self._step_batch(t, n_designs)
+            # No state: the remaining-pass feature takes only its dtype and device from x_t, and a
+            # feature that read the state itself would fail on the empty stand-in, not differ.
+            batch["x_t"] = {"bb_ca": like}
+            condition = self.condition_on_recycle_remaining and self.glue.condition_on_recycle_remaining
+            with torch.no_grad():
+                conds = [self.glue.conditioning(batch, None)]
+                for cycle in range(1, depth):
+                    conds.append(self.glue.conditioning(batch, depth - cycle - 1) if condition
+                                 else conds[0])
+                modulation = self.glue.pair_split.modulation(batch) if self.pair_on_card else None
+            hit = conds, modulation
+        self._conditioned[key] = hit  # most recent last; a few steps of lanes, never the whole plan
+        while len(self._conditioned) > 8:
+            self._conditioned.pop(next(iter(self._conditioned)))
+        return hit
 
     def finish(self, launched) -> dict[str, dict[str, Any]]:
         batch, depth, pending = launched
