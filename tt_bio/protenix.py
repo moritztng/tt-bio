@@ -212,13 +212,13 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037 at HiFi4). No OOM at 1152 on a 12 GiB Wormhole chip.
 WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram",
                           "trimul_t1_2g"})
-# Protenix-v2's Blackhole normal set: dit_shoist + transition_b8 + ws_b8_plain, graded as one stack. Blackhole 512-token normal
-# grade vs the shipped Blackhole normal set (spd-m-protenix gsbn, 2026-10-21), 44 paired folds over 4 seeds on a p300 at
-# 1312-1350 MHz, PASS: same-seed top pose median 0.602 A vs the 1.311 A A/A floor, CA-lDDT -0.0004 [-0.0045, +0.0038], docking
-# 36/44 -> 36/44, every interval covers 0. dit_shoist alone read 0.049 A but its lrmsd interval excluded 0 (+0.69 [+0.004, +1.76]),
-# so it ships only inside the stack. Separate processes on one p300 chip at 1300-1350 MHz (bhab10): transition_b8 + ws_b8_plain
-# 28.57 / 28.28 -> 27.37 / 27.26 / 27.08 / 27.22 s warm; dit_shoist in-process x3 (bhab12) +0.1 s, inside the noise.
-BH_V2_NORMAL = frozenset({"dit_shoist", "transition_b8", "ws_b8_plain", "trimul_t1_2g"})
+# Protenix-v2's Blackhole normal set is trimul_t1_2g alone. The graded dit_shoist + transition_b8 + ws_b8_plain stack
+# (spd-m-protenix gsbn, 0.602 A vs the 1.311 A A/A floor, ~-1.2 s at 512) is out: transition_b8 makes the answer depend
+# on the core grid. Release gate rel-624358ec2 l1-budget on qb2, protenix-v2 fkg: native 4d8f5ebe != 8x8 39109461 with
+# the base set plus transition_b8, one digest 09614098 across all three legs without it. bfp8 shares an exponent per
+# block and the grid moves the block boundaries (the triatt_b8 precedent, 3b1155aa6), so a p150a and a p300c would give
+# two users different structures. The stack was graded as one, so it leaves as one; it stays available per run.
+BH_V2_NORMAL = frozenset({"trimul_t1_2g"})
 # dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
 # float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
 # mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
@@ -233,17 +233,22 @@ DIT_MM_WH = frozenset({"dit_shoist_mm", "dit_step_mm"})
 # (same sigmoid_poly on the same values; in_t1 f64 errors equal at N 512), so it needs no grade. Op on a Galaxy chip at
 # 1000 MHz (t1sig): 6.84 -> 6.41 ms/call, 6.27 -> 5.86 with bfp8 weights. Wormhole both modes; Blackhole unmeasured.
 T1_PSIG_WH = frozenset({"trimul_t1_psig"})
+# triatt_q10: padded triangle attention may take a 10-tile q chunk at the k chunk the ranking already picks, so output
+# bits cannot move (torch.equal). Op at Protenix-v2's mode sets on a Galaxy chip at 1000 MHz (spd-m-opendde q10h,
+# 2026-10-22), ms/call: 4 heads 608 8.00 -> 6.98, 1184 60.54 -> 56.39; 8 heads 608 15.59 -> 14.68; nowhere slower. A
+# 512-token fold never reaches it. Wormhole both modes; Blackhole ranks per grid and is unmeasured.
+TRIATT_Q10_WH = frozenset({"triatt_q10"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
-    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1`, `DIT_MM_WH` and `T1_PSIG_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
+    `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1`, `DIT_MM_WH`, `T1_PSIG_WH` and `TRIATT_Q10_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST` and
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode and `SHOIST_FAST` under --fast on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
-    wh_both = TRIATT_LN | TRIATT_K1 | DIT_MM_WH | T1_PSIG_WH if v2 and wh else frozenset()
+    wh_both = TRIATT_LN | TRIATT_K1 | DIT_MM_WH | T1_PSIG_WH | TRIATT_Q10_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL

@@ -163,12 +163,13 @@ seeds is two different designs with two different token counts.
 ## Precision
 
 The trunk's pair transition and the triangle multiplication's input projection run with block-fp8
-weights and a bf16 matmul kernel by default. That takes about 6 s off the trunk of a 512-token
-design on a Blackhole chip and very little at 128 tokens. It is not bit-exact against fp32-weight
-numerics, but on 30 seed-matched 512-token binder designs the designed chain moved 2.1 A median (11.4 A
-at most) while a different seed moves it 52.5 A, and radius of gyration, bond outliers and clashes were
-unchanged. `--fast` adds nothing further for RFD4. `TT_BIO_LEVERS=trimul_t1` restores the previous
-numerics ([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
+weights and a bf16 matmul kernel by default, and the pair transition and the triangle multiplication's
+output each run as one program with their residual add into the fp32 pair representation. Together that
+takes the trunk of a 512-token design from 64.3 to 44.1 s on a Blackhole chip. It is not bit-exact against
+fp32 numerics: on 30 seed-matched 512-token binder designs the designed chain moved 7.2 A median (23.9 A at
+most) while a different seed moves it 37.2 A, and radius of gyration, bond outliers and clashes were
+unchanged. `--fast` adds nothing further for RFD4. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics
+([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
 
 ## Many designs at once
 

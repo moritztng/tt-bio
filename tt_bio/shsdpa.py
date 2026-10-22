@@ -93,7 +93,8 @@ def plan(B, H, S, cores, k_chunk=None, max_qt=None):
                 if qpf < 1:
                     break
                 units = -(-B // bpf) * -(-H // hpf) * -(-nq // qpf)
-                cost = (units * (qt + UNIT_COST_TILES), bpf * hpf * qpf)
+                # A cost tie goes to fewer q splits (B7 H20 S544 on WH: 7,10,1 runs 0.332 ms a call, 7,5,2 0.352).
+                cost = (units * (qt + UNIT_COST_TILES), qpf, bpf * hpf * qpf)
                 if best is None or cost < best[0]:
                     best = (cost, qt * 32, (bpf, hpf, qpf))
     return best[1], best[2]
