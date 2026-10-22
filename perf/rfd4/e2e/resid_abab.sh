@@ -2,6 +2,7 @@
 # The residual-stream bet on one card in one session, under the chip flock (D-orch-40): ABAB warm
 # designs in one tree at each size, legs named by their env. AICLK is sampled inside every design.
 #   perf/rfd4/e2e/resid_abab.sh <card> <out-dir> "<size>:<rounds> ..." "<leg>=<ENV=V,...> ..." [designs per leg]
+# RESID_DESIGN_ARGS passes extra design.py flags (e.g. "--rng per_design").
 # e.g. resid_abab.sh 3 artifacts/abab1 "512:2 256:2 128:1" "base=TT_BIO_RFD4_ELIDE_MASKS=0 elide=TT_BIO_RFD4_ELIDE_MASKS=1"
 set -u
 card=$1 out=$2 sizes=$3 legs=$4 designs=${5:-2}
@@ -26,7 +27,7 @@ for sr in $sizes; do
             name=${leg%%=*} envs=${leg#*=}
             (export ${envs//,/ }
              PYTHONPATH=$wt timeout 2400 "$py" perf/rfd4/e2e/design.py --spec "$HOME/rfd4-inputs/pdl1-$n.yaml" \
-                 --weights "$weights" --out "$out/$n-$name$r" --designs "$designs" > "$out/$n-$name$r.log" 2>&1)
+                 --weights "$weights" --out "$out/$n-$name$r" --designs "$designs" ${RESID_DESIGN_ARGS:-} > "$out/$n-$name$r.log" 2>&1)
             stamp "design $n-$name$r rc=$? $(tail -1 "$out/$n-$name$r/runs.jsonl" 2>/dev/null | cut -c1-400)"
         done
     done
