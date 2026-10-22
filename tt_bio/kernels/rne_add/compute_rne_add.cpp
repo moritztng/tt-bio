@@ -37,6 +37,13 @@
 // first RNE gives what torch's bfloat16 multiply gives; the add and its RNE are the unmasked path.
 // Three DEST slots a tile, so the host caps GRAN at 1.
 //
+// DUAL=1 is the fp32 residual write (`residual_dual`): a float32 residual plus a bfloat16 update,
+// written twice from one read, the exact float32 sum to c_16 and the same sum rounded to even to
+// bfloat16 into c_17, which is the copy the next sublayer reads. The sum is computed into two DEST
+// slots (both SFPU adds are the same exact instruction on the same operands), one is packed as it
+// is and the other is rounded in place first, so the bfloat16 copy is `typecast`'s RNE of the
+// float32 result, bit for bit. Three DEST slots a tile, so the host caps GRAN at 1.
+//
 // `widen_add` is the same program at ADD_MODE=1, ROUND_MODE=0 with a float32 output CB: the
 // backward's gradient fan-in, `f32(a) + f32(b)` rounded once to float32. A bfloat16 operand widens
 // exactly on the way into DEST; a float32 one is unpacked straight to DEST (`UnpackToDestFp32`,
@@ -120,6 +127,9 @@ void kernel_main() {
     constexpr uint32_t MASKED = get_compile_time_arg_val(G + 8);
     constexpr uint32_t MT = get_compile_time_arg_val(G + 9);
     constexpr uint32_t cb_m = 2;  // c_2
+    constexpr uint32_t DUAL = get_compile_time_arg_val(G + 10);
+    constexpr uint32_t cb_out16 = 17;  // c_17
+    static_assert(!DUAL || (ADD_MODE == 1 && ROUND_MODE == 1 && !MASKED), "the dual write is the exact arm");
     // At file scope of a non-template function a discarded `if constexpr` branch is still
     // checked, so this cannot sit inside the MASKED branch: it would fail every unmasked arm.
     static_assert(!MASKED || (ADD_MODE == 1 && ROUND_MODE == 1), "the masked residual is the exact arm");
@@ -138,7 +148,7 @@ void kernel_main() {
 
     // The SFPU add holds both operands in DEST, so it costs two slots a tile where the FPU add
     // costs one. A 32-bit DEST is four tiles deep, which is where the host's GRAN cap comes from.
-    constexpr uint32_t SLOTS = MASKED ? 3 : (ADD_MODE == 1) ? 2 : 1;
+    constexpr uint32_t SLOTS = (MASKED || DUAL) ? 3 : (ADD_MODE == 1) ? 2 : 1;
 
     binary_op_init_common(cb_a, cb_b, cb_out);
     if constexpr (MASKED) {
@@ -151,6 +161,9 @@ void kernel_main() {
         cb_wait_front(cb_a, n);
         cb_wait_front(cb_b, n);
         cb_reserve_back(cb_out, n);
+        if constexpr (DUAL) {
+            cb_reserve_back(cb_out16, n);
+        }
 
         tile_regs_acquire();
         if constexpr (MASKED) {
@@ -170,6 +183,17 @@ void kernel_main() {
                 copy_tile(cb_a, j, s0);
                 add_binary_tile_init();
                 add_binary_tile(s0, s0 + 1, s0);
+            }
+        } else if constexpr (DUAL) {
+            for (uint32_t j = 0; j < n; ++j) {
+                const uint32_t s0 = SLOTS * j;
+                copy_tile_to_dst_init_short_with_dt(cb_b, cb_a);
+                copy_tile(cb_a, j, s0);
+                copy_tile_to_dst_init_short_with_dt(cb_a, cb_b);
+                copy_tile(cb_b, j, s0 + 1);
+                add_binary_tile_init();
+                add_binary_tile(s0, s0 + 1, s0 + 2);  // the float32 result
+                add_binary_tile(s0, s0 + 1, s0);      // the same sum, rounded below
             }
         } else if constexpr (ADD_MODE == 1) {
             for (uint32_t j = 0; j < n; ++j) {
@@ -202,14 +226,28 @@ void kernel_main() {
         tile_regs_commit();
 
         tile_regs_wait();
-        for (uint32_t j = 0; j < n; ++j) {
-            pack_tile(SLOTS * j, cb_out);
+        if constexpr (DUAL) {
+            for (uint32_t j = 0; j < n; ++j) {
+                pack_tile(SLOTS * j + 2, cb_out);
+            }
+            pack_reconfig_data_format(cb_out, cb_out16);
+            for (uint32_t j = 0; j < n; ++j) {
+                pack_tile(SLOTS * j, cb_out16);
+            }
+            pack_reconfig_data_format(cb_out16, cb_out);
+        } else {
+            for (uint32_t j = 0; j < n; ++j) {
+                pack_tile(SLOTS * j, cb_out);
+            }
         }
         tile_regs_release();
 
         cb_pop_front(cb_a, n);
         cb_pop_front(cb_b, n);
         cb_push_back(cb_out, n);
+        if constexpr (DUAL) {
+            cb_push_back(cb_out16, n);
+        }
     }
     if constexpr (MASKED) {
         cb_pop_front(cb_m, MT);

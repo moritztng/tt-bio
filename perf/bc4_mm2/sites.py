@@ -3,12 +3,12 @@
 
 A signature counts as rerouted by the calls per gradient iteration that reach the shipped op in the --base census
 (perf/bc4_mm2/shapes.py, the branch's base) and not in the --head census (the branch): calls that left the hooked
-sites, plus or_linear calls the head records as served by pair_mm. Split-K lives inside `_matmul`, so every
-``a^T @ b`` it takes counts whole. For each, on random operands of the census shapes and dtypes:
+sites, plus or_linear calls the head records as served by pair_mm. For each, on random operands of the census
+shapes and dtypes:
 
-* old  the call as the base issued it: `autograd._matmul` with split-K off, or `ttnn.linear` with the
-       `_pair_proj_config` program config `tenstorrent._pair_proj_linear` falls back to
-* new  what the branch runs instead: `autograd._matmul` with split-K on (a^T @ b), or `pair_mm.matmul`
+* old  the call as the base issued it: `autograd._matmul`, or `ttnn.linear` with the `_pair_proj_config`
+       program config `tenstorrent._pair_proj_linear` falls back to
+* new  what the branch runs instead: `pair_mm.matmul`
 
 Device time is a traced burst (--burst calls, --reps replays, min and median per call), AICLK read at every
 replay. Accuracy: rel L2 against float64 of the same operands, both routes.
@@ -71,7 +71,7 @@ rows, tot = [], collections.Counter()
 for k in sorted(bc, key=lambda k: -bc[k]):
     r = brows[k]
     ta, tb = bool(r.get("transpose_a")), bool(r.get("transpose_b"))
-    lost = bc[k] if ta else bc[k] - hc.get(k, 0)
+    lost = bc[k] - hc.get(k, 0)
     if lost <= 0:
         continue
     (ad, at), (bd, bt) = DT[r["a"]["dtype"]], DT[r["b"]["dtype"]]
@@ -87,21 +87,16 @@ for k in sorted(bc, key=lambda k: -bc[k]):
     odt = {"DataType.FLOAT32": ttnn.float32, "DataType.BFLOAT16": ttnn.bfloat16}.get(r.get("out_dtype"))
     if r["site"] == "_matmul":
         kw = dict(transpose_a=ta, transpose_b=tb, compute_kernel_config=cfg, **({"dtype": odt} if odt else {}))
-        def old():
-            AG.MM_SPLIT_K = False
-            try:
-                return AG._matmul(a, b, **kw)
-            finally:
-                AG.MM_SPLIT_K = True
-        new = (lambda: AG._matmul(a, b, **kw)) if ta else (lambda: PM.matmul(a, b, compute_kernel_config=cfg, transpose_b=tb))
+        old = lambda: AG._matmul(a, b, **kw)
+        new = lambda: PM.matmul(a, b, compute_kernel_config=cfg, transpose_b=tb)
     else:
         pc = T._pair_proj_config(a, b) if "program_config" in (r.get("extra") or []) else None
         old = lambda: ttnn.linear(a, b, bias=bias, dtype=odt, memory_config=DRAM, compute_kernel_config=cfg,
                                   **({"program_config": pc} if pc is not None else {}))
         new = lambda: PM.matmul(a, b, bias, cfg, odt)
-    s0 = dict(PM=PM.STATS[0], SK=AG.SPLIT_K["served"])
+    s0 = PM.STATS[0]
     o_new = new()
-    served = (PM.STATS[0] - s0["PM"]) + (AG.SPLIT_K["served"] - s0["SK"])
+    served = PM.STATS[0] - s0
     row = dict(site=r["site"], a=r["a"]["shape"], b=r["b"]["shape"], bias=hbias is not None, ta=ta, tb=tb,
                calls_lost=lost, calls_base=bc[k], served=served)
     if o_new is None or not served:

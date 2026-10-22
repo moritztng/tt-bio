@@ -1,0 +1,186 @@
+{
+  "source": "/home/ttuser/.coworker/wt/rfd4-beam/perf/rfd4/results/oracle_cost.jsonl",
+  "kept_rows": 6,
+  "dropped_rows": [],
+  "folds": {
+    "openfold3": {
+      "oracle": {
+        "256": {
+          "fold_s": 11.5,
+          "aiclk_median_per_rep": [
+            1350,
+            1350,
+            1350
+          ],
+          "board": null,
+          "card": "3",
+          "host": "tt-quietbox2",
+          "settings": {
+            "recycling_steps": 5,
+            "sampling_steps": 200,
+            "diffusion_samples": 1
+          }
+        },
+        "512": {
+          "fold_s": 21.6,
+          "aiclk_median_per_rep": [
+            1350,
+            1350,
+            1350
+          ],
+          "board": null,
+          "card": "3",
+          "host": "tt-quietbox2",
+          "settings": {
+            "recycling_steps": 5,
+            "sampling_steps": 200,
+            "diffusion_samples": 1
+          }
+        }
+      },
+      "ladder": {
+        "256": {
+          "fold_s": 7.0,
+          "aiclk_median_per_rep": [
+            1350,
+            1350,
+            1350
+          ],
+          "board": null,
+          "card": "3",
+          "host": "tt-quietbox2",
+          "settings": {
+            "sampling_steps": 6,
+            "diffusion_samples": 1
+          }
+        },
+        "512": {
+          "fold_s": 27.3,
+          "aiclk_median_per_rep": [
+            1350,
+            1350,
+            1350
+          ],
+          "board": null,
+          "card": "3",
+          "host": "tt-quietbox2",
+          "settings": {
+            "sampling_steps": 6,
+            "diffusion_samples": 1
+          }
+        }
+      }
+    },
+    "af2ig": {
+      "oracle": {
+        "256": {
+          "fold_s": 31.1,
+          "aiclk_median_per_rep": [
+            1350,
+            1350,
+            1350
+          ],
+          "board": null,
+          "card": "3",
+          "host": "tt-quietbox2",
+          "settings": {}
+        },
+        "512": {
+          "fold_s": 40.4,
+          "aiclk_median_per_rep": [
+            1350,
+            1350,
+            1350
+          ],
+          "board": null,
+          "card": "3",
+          "host": "tt-quietbox2",
+          "settings": {}
+        }
+      }
+    }
+  },
+  "breakeven": {
+    "openfold3@256": {
+      "inference_beam_example (B=3, L=2)": {
+        "oracle_fold_s": 11.5,
+        "passes_per_fold": 75.0,
+        "trunk_pass_s_for_a_50_50_split": 0.15333,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.1533 s at 256 tokens, RFD4-bound if slower"
+      },
+      "class defaults (B=4, L=4)": {
+        "oracle_fold_s": 11.5,
+        "passes_per_fold": 75.0,
+        "trunk_pass_s_for_a_50_50_split": 0.15333,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.1533 s at 256 tokens, RFD4-bound if slower"
+      },
+      "ppi_novelty_of3_search (B=2, L=2)": {
+        "oracle_fold_s": 11.5,
+        "passes_per_fold": 180.0,
+        "trunk_pass_s_for_a_50_50_split": 0.06389,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.0639 s at 256 tokens, RFD4-bound if slower"
+      }
+    },
+    "openfold3@512": {
+      "inference_beam_example (B=3, L=2)": {
+        "oracle_fold_s": 21.6,
+        "passes_per_fold": 75.0,
+        "trunk_pass_s_for_a_50_50_split": 0.288,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.2880 s at 512 tokens, RFD4-bound if slower"
+      },
+      "class defaults (B=4, L=4)": {
+        "oracle_fold_s": 21.6,
+        "passes_per_fold": 75.0,
+        "trunk_pass_s_for_a_50_50_split": 0.288,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.2880 s at 512 tokens, RFD4-bound if slower"
+      },
+      "ppi_novelty_of3_search (B=2, L=2)": {
+        "oracle_fold_s": 21.6,
+        "passes_per_fold": 180.0,
+        "trunk_pass_s_for_a_50_50_split": 0.12,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.1200 s at 512 tokens, RFD4-bound if slower"
+      }
+    },
+    "af2ig@256": {
+      "inference_beam_example (B=3, L=2)": {
+        "oracle_fold_s": 31.1,
+        "passes_per_fold": 75.0,
+        "trunk_pass_s_for_a_50_50_split": 0.41467,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.4147 s at 256 tokens, RFD4-bound if slower"
+      },
+      "class defaults (B=4, L=4)": {
+        "oracle_fold_s": 31.1,
+        "passes_per_fold": 75.0,
+        "trunk_pass_s_for_a_50_50_split": 0.41467,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.4147 s at 256 tokens, RFD4-bound if slower"
+      },
+      "ppi_novelty_of3_search (B=2, L=2)": {
+        "oracle_fold_s": 31.1,
+        "passes_per_fold": 180.0,
+        "trunk_pass_s_for_a_50_50_split": 0.17278,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.1728 s at 256 tokens, RFD4-bound if slower"
+      }
+    },
+    "af2ig@512": {
+      "inference_beam_example (B=3, L=2)": {
+        "oracle_fold_s": 40.4,
+        "passes_per_fold": 75.0,
+        "trunk_pass_s_for_a_50_50_split": 0.53867,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.5387 s at 512 tokens, RFD4-bound if slower"
+      },
+      "class defaults (B=4, L=4)": {
+        "oracle_fold_s": 40.4,
+        "passes_per_fold": 75.0,
+        "trunk_pass_s_for_a_50_50_split": 0.53867,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.5387 s at 512 tokens, RFD4-bound if slower"
+      },
+      "ppi_novelty_of3_search (B=2, L=2)": {
+        "oracle_fold_s": 40.4,
+        "passes_per_fold": 180.0,
+        "trunk_pass_s_for_a_50_50_split": 0.22444,
+        "reading": "beam search is ORACLE-bound if one RFD4 trunk pass is faster than 0.2244 s at 512 tokens, RFD4-bound if slower"
+      }
+    }
+  },
+  "note": "t_trunk is rfd4-trunk's to measure. This fixes the threshold it has to be compared against; it does not decide the split on its own."
+}

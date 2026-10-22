@@ -104,11 +104,13 @@ def _build(x, out, w, b, g, eps):
 
 def layer_norm(x, weight=None, bias=None, epsilon=1e-5, memory_config=None):
     """`ttnn.layer_norm(x, weight=, bias=, epsilon=)` over the last axis, or None (nothing allocated) when the
-    split does not apply: bf16 TILE interleaved DRAM in and out, whole tiles, rows x G within the grid."""
+    split does not apply: bf16 TILE, interleaved DRAM in, interleaved DRAM or L1 out, whole tiles, rows x G within
+    the grid."""
     pad = [int(d) for d in x.padded_shape]
     k = pad[-1]
+    mc = memory_config or ttnn.DRAM_MEMORY_CONFIG
     if (x.dtype != ttnn.bfloat16 or x.layout != ttnn.TILE_LAYOUT or x.memory_config() != ttnn.DRAM_MEMORY_CONFIG
-            or (memory_config is not None and memory_config != ttnn.DRAM_MEMORY_CONFIG)
+            or mc not in (ttnn.DRAM_MEMORY_CONFIG, ttnn.L1_MEMORY_CONFIG)
             or list(x.shape) != pad or k % TILE or not (_vec_ok(weight, k) and _vec_ok(bias, k))):
         STATS[1] += 1
         return None
@@ -119,8 +121,9 @@ def layer_norm(x, weight=None, bias=None, epsilon=1e-5, memory_config=None):
     if g is None:
         STATS[1] += 1
         return None
-    out = ttnn.allocate_tensor_on_device(x.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    key = (dev.id(), tuple(pad), weight is not None, bias is not None, float(epsilon), g, IM_DTYPE)
+    out = ttnn.allocate_tensor_on_device(x.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, mc)
+    key = (dev.id(), tuple(pad), weight is not None, bias is not None, float(epsilon), g, IM_DTYPE,
+           mc == ttnn.L1_MEMORY_CONFIG)
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, out, weight, bias, g, epsilon)

@@ -94,6 +94,8 @@ class SamplingSpec:
     nsteps: int = 60
     n_recycle_schedule: tuple[tuple[int, int], ...] | None = ((5, 6), (10, 5), (5, 4), (10, 3), (20, 2), (10, 1))
     n_recycle: int = 0
+    #: Classifier-free guidance weight. 1.0 is off and is the only value the release supports;
+    #: see :func:`check_guidance_w`.
     guidance_w: float = 1.0
 
     @property
@@ -350,7 +352,9 @@ class DesignRng:
     """
 
     def __init__(self, seed: int, n_designs: int, *, mode: str = "per_design",
-                 device: torch.device | str = "cpu", dtype: torch.dtype = torch.float32):
+                 device: torch.device | str = "cpu", dtype: torch.dtype = torch.float32, first: int = 0):
+        """``first`` is the design index of row 0, so designs ``first .. first + n_designs - 1`` of
+        a larger run draw exactly what they draw in it."""
         if mode not in ("per_design", "upstream"):
             raise ValueError(f"unknown rng mode {mode!r}")
         self.mode = mode
@@ -359,7 +363,8 @@ class DesignRng:
         self.device = torch.device(device)
         self.dtype = dtype
         self._generators = (
-            [torch.Generator(device=self.device).manual_seed(design_seed(seed, i)) for i in range(n_designs)]
+            [torch.Generator(device=self.device).manual_seed(design_seed(seed, first + i))
+             for i in range(n_designs)]
             if mode == "per_design" else None
         )
 
@@ -811,16 +816,24 @@ class SamplerOutput:
     trunk_passes: int = 0
 
 
-def run_trajectory(spec: SamplingSpec, network: Network, *, x: dict[str, Any],
-                   ts: dict[str, torch.Tensor], gt: dict[str, torch.Tensor], nsteps: int,
-                   depths: Sequence[int], rng: DesignRng,
-                   emit_masks: dict[str, torch.Tensor | None],
-                   save_trajectory_every: int = 0, dump_noisy_trajectories: bool = False,
-                   resample_target_backbone: bool = False, target_backbone=None,
-                   coord_cond_mask: torch.Tensor | None = None,
-                   groups: dict[str, torch.Tensor | None] | None = None,
-                   guidance: Callable | None = None) -> SamplerOutput:
+def run_trajectory(spec: SamplingSpec, network: Network, **kwargs) -> SamplerOutput:
     """Integrate from ``ts[*][0]`` to 1 in ``nsteps`` steps, one network call each.
+    The arguments are :func:`trajectory`'s."""
+    return _drive(trajectory(spec, **kwargs), network)
+
+
+def trajectory(spec: SamplingSpec, *, x: dict[str, Any],
+               ts: dict[str, torch.Tensor], gt: dict[str, torch.Tensor], nsteps: int,
+               depths: Sequence[int], rng: DesignRng,
+               emit_masks: dict[str, torch.Tensor | None],
+               save_trajectory_every: int = 0, dump_noisy_trajectories: bool = False,
+               resample_target_backbone: bool = False, target_backbone=None,
+               coord_cond_mask: torch.Tensor | None = None,
+               groups: dict[str, torch.Tensor | None] | None = None,
+               guidance: Callable | None = None):
+    """The loop, as a generator: it yields each step's network request ``(x_t, t, recycle_depth,
+    step)``, is sent the network's output, and returns the :class:`SamplerOutput`. Who answers the
+    requests, and when, is the driver's business (:func:`run_trajectory`, :func:`run_lanes`).
 
     This is both of upstream's loops (``full_simulation`` and ``partial_simulation``): they differ
     only in where ``x`` starts and in the inverse-folding resampling, so they are one function
@@ -850,7 +863,7 @@ def run_trajectory(spec: SamplingSpec, network: Network, *, x: dict[str, Any],
         t = {mode: float(ts[mode][step]) for mode in spec.data_modes}
         dt = {mode: float(ts[mode][step + 1] - ts[mode][step]) for mode in spec.data_modes}
 
-        out = network(x, t, recycle_depth=depths[step], step=step)
+        out = yield x, t, depths[step], step
         for mode in spec.data_modes:
             out[mode] = add_clean_prediction(out[mode], x[mode], t[mode])
             out[mode]["x_1"] = _masked(out[mode]["x_1"], emit_masks.get(mode))
@@ -908,29 +921,81 @@ def _noised_target_backbone(spec: SamplingSpec, target_backbone, t: float, rng: 
                        rng=rng, coord_cond_mask=coord_cond_mask, groups=groups)[BB_CA]
 
 
+def check_guidance_w(spec: SamplingSpec) -> None:
+    """Classifier-free guidance is off in the release, and cannot be turned on from it.
+
+    `v_guided = w * v + (1 - w) * v_ucond` needs a second, unconditional network call, and
+    upstream builds that call by dropping `cath_code` / `x_motif` from the batch
+    (`rfproteina/proteina.py::predict_for_sampling`, which asserts one of them is present).
+    The released RFD4 pipeline carries neither: CATH arrives as the `condition_cath-label`
+    palette entry and the motif as coordinate conditioning, so upstream's own unconditional
+    branch cannot run on a release batch, and its BioIR backend rejects `guidance_w` outright.
+    A weight other than 1.0 is therefore refused here rather than silently ignored.
+    """
+    if spec.guidance_w != 1.0:
+        raise ValueError(
+            f"guidance_w={spec.guidance_w}: classifier-free guidance is not available on the "
+            "released RFD4 checkpoint. Upstream's unconditional pass drops cath_code/x_motif, "
+            "and the release conditions through the condition palette instead, so there is no "
+            "unconditional model to blend with. Use metric gradient guidance "
+            "(tt_bio.rfd4.guidance) for a steered run.")
+
+
 def generate(spec: SamplingSpec, network: Network, *, n_designs: int, n_tokens: int, seed: int,
              emit_masks: dict[str, torch.Tensor | None], rng_mode: str = "per_design",
              start: PartialStart | None = None, x_1: dict[str, Any] | None = None,
              coord_cond_mask: torch.Tensor | None = None,
              groups: dict[str, torch.Tensor | None] | None = None,
              device: torch.device | str = "cpu", dtype: torch.dtype = torch.float32,
-             **kwargs) -> SamplerOutput:
+             lane_width: int | None = None, **kwargs) -> SamplerOutput:
     """One batch of designs, from pure noise or from a partly noised structure.
 
     ``start`` comes from :func:`resolve_partial_start`. A partial start needs ``x_1``: the clean
-    structure to corrupt, per modality. Everything else is :func:`run_trajectory`.
+    structure to corrupt, per modality. Everything else is :func:`trajectory`.
+
+    ``lane_width`` splits the designs into lanes of that many, each its own trajectory, and runs
+    the lanes through :func:`run_lanes`, so one lane's host work overlaps another's network call.
+    A lane is exactly the chunk ``ChunkedNetwork`` would run at that width, with the same draws, so
+    the designs are the same; it needs ``rng_mode="per_design"``, because under ``"upstream"`` a
+    design's noise depends on the order the whole batch is drawn in.
     """
-    start = start or PartialStart()
-    rng = DesignRng(seed, n_designs, mode=rng_mode, device=device, dtype=dtype)
+    check_guidance_w(spec)
+    common = dict(n_tokens=n_tokens, seed=seed, rng_mode=rng_mode, start=start or PartialStart(),
+                  device=device, dtype=dtype, **kwargs)
+    if lane_width is None or lane_width >= n_designs:
+        return _drive(_designs(spec, n_designs=n_designs, emit_masks=emit_masks, x_1=x_1,
+                               coord_cond_mask=coord_cond_mask, groups=groups, **common), network)
+    if rng_mode != "per_design":
+        raise ValueError("lanes need rng_mode='per_design'")
+    if kwargs.get("guidance") is not None:
+        raise ValueError("guidance sees the whole batch, so it cannot run in lanes")
+    lanes = []
+    for first in range(0, n_designs, lane_width):
+        k = min(lane_width, n_designs - first)
+        lanes.append(_designs(spec, n_designs=k, first=first,
+                              emit_masks=_rows(emit_masks, first, k, n_designs),
+                              x_1=_rows(x_1, first, k, n_designs),
+                              coord_cond_mask=_rows(coord_cond_mask, first, k, n_designs),
+                              groups=_rows(groups, first, k, n_designs), **common))
+    return _cat(run_lanes(lanes, network))
+
+
+def _designs(spec: SamplingSpec, *, n_designs: int, n_tokens: int, seed: int,
+             emit_masks: dict[str, torch.Tensor | None], rng_mode: str, start: PartialStart,
+             x_1: dict[str, Any] | None, coord_cond_mask: torch.Tensor | None,
+             groups: dict[str, torch.Tensor | None] | None, device, dtype, first: int = 0,
+             **kwargs):
+    """The :func:`trajectory` of designs ``first .. first + n_designs - 1``."""
+    rng = DesignRng(seed, n_designs, mode=rng_mode, device=device, dtype=dtype, first=first)
 
     if not start.is_partial:
         depths = recycle_depths(spec, spec.nsteps)
         ts, gt = sample_schedule(spec, spec.nsteps)
         x = sample_noise(spec, n_tokens, rng, emit_masks=emit_masks, coord_cond_mask=coord_cond_mask,
                          groups=groups, training=False)
-        return run_trajectory(spec, network, x=x, ts=ts, gt=gt, nsteps=spec.nsteps, depths=depths,
-                              rng=rng, emit_masks=emit_masks, coord_cond_mask=coord_cond_mask,
-                              groups=groups, **kwargs)
+        return trajectory(spec, x=x, ts=ts, gt=gt, nsteps=spec.nsteps, depths=depths,
+                          rng=rng, emit_masks=emit_masks, coord_cond_mask=coord_cond_mask,
+                          groups=groups, **kwargs)
 
     if x_1 is None:
         raise ValueError("a partial start needs x_1, the clean structure to corrupt")
@@ -947,7 +1012,101 @@ def generate(spec: SamplingSpec, network: Network, *, n_designs: int, n_tokens: 
                     coord_cond_mask=coord_cond_mask, groups=groups)
 
     inverse = start.inverse_folding_method == RESAMPLED_FORWARD_MARGINAL
-    return run_trajectory(spec, network, x=x, ts=ts, gt=gt, nsteps=nsteps, depths=depths, rng=rng,
-                          emit_masks=emit_masks, resample_target_backbone=inverse,
-                          target_backbone=x_1[BB_CA] if inverse else None,
-                          coord_cond_mask=coord_cond_mask, groups=groups, **kwargs)
+    return trajectory(spec, x=x, ts=ts, gt=gt, nsteps=nsteps, depths=depths, rng=rng,
+                      emit_masks=emit_masks, resample_target_backbone=inverse,
+                      target_backbone=x_1[BB_CA] if inverse else None,
+                      coord_cond_mask=coord_cond_mask, groups=groups, **kwargs)
+
+
+def _drive(steps, network: Network) -> SamplerOutput:
+    """Answer one trajectory's requests in order with ``network``."""
+    try:
+        request = next(steps)
+        while True:
+            x, t, depth, step = request
+            request = steps.send(network(x, t, recycle_depth=depth, step=step))
+    except StopIteration as done:
+        return done.value
+
+
+def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
+    """Drive independent trajectories (:func:`trajectory` generators) so the host never waits idle.
+
+    A network call is a host half (features, conditioning), a device half (the trunk) and a host
+    tail (heads, then the sampler's update). One design's next call needs its last one's output,
+    so within a lane the halves are serial; across lanes they are not. While one lane's trunk runs,
+    the host finishes the previous lane's step and prepares its next call, and the next trunk is
+    launched the moment the current one returns, so the card goes from one lane to the next
+    without waiting on the host.
+
+    The network may split its call into ``prepare(x_t, t, *, recycle_depth, step)``,
+    ``launch(prepared)`` and ``finish(launched)``, where ``launch`` only enqueues device work and
+    ``finish`` waits for it. One launched call is in flight at a time, so the card holds one
+    lane's trunk, as it would running them one after another. A network with no stages is called
+    as it is and the lanes simply run in turn.
+
+    Each lane computes exactly what it computes alone: the order lanes run in is not an input to
+    any of them.
+    """
+    from collections import deque
+
+    prepare = getattr(network, "prepare", None)
+    if prepare is None:
+        def prepare(x, t, *, recycle_depth, step):
+            return network(x, t, recycle_depth=recycle_depth, step=step)
+        launch = finish = lambda value: value
+    else:
+        launch, finish = network.launch, network.finish
+
+    results: list[SamplerOutput | None] = [None] * len(lanes)
+    ready: deque = deque()
+
+    def advance(i, out=None):
+        try:
+            x, t, depth, step = next(lanes[i]) if out is None else lanes[i].send(out)
+        except StopIteration as done:
+            results[i] = done.value
+            return
+        ready.append((i, prepare(x, t, recycle_depth=depth, step=step)))
+
+    for i in range(len(lanes)):
+        advance(i)
+    flight = None
+    while ready or flight:
+        if flight is None:
+            i, prepared = ready.popleft()
+            flight = i, launch(prepared)
+        i, launched = flight
+        out = finish(launched)
+        flight = None
+        if ready:
+            j, prepared = ready.popleft()
+            flight = j, launch(prepared)
+        advance(i, out)
+    return results
+
+
+def _rows(value, first: int, k: int, n: int):
+    """Rows ``first .. first + k - 1`` of whatever carries the design axis ``n``; a leading 1 is a
+    broadcast and is kept."""
+    if isinstance(value, dict):
+        return {key: _rows(v, first, k, n) for key, v in value.items()}
+    if torch.is_tensor(value) and value.dim() > 0 and value.shape[0] == n:
+        return value[first:first + k]
+    return value
+
+
+def _cat(parts: Sequence):
+    """Join lanes back into one batch, in lane order."""
+    head = parts[0]
+    if isinstance(head, SamplerOutput):
+        return SamplerOutput(x=_cat([p.x for p in parts]), x_1_pred=_cat([p.x_1_pred for p in parts]),
+                             sequence_logits=_cat([p.sequence_logits for p in parts]),
+                             insertion_logits=_cat([p.insertion_logits for p in parts]),
+                             trajectory=[_cat(list(snaps)) for snaps in zip(*(p.trajectory for p in parts))],
+                             trunk_passes=head.trunk_passes)
+    if isinstance(head, dict):
+        return {key: _cat([p[key] for p in parts]) for key in head}
+    if torch.is_tensor(head):
+        return torch.cat(parts, dim=0)
+    return head

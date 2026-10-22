@@ -37,7 +37,7 @@ from .conditions import (
 )
 from .datapipes_schema_proteina import NUM_TOKEN_TYPES, TokenType
 from .encoding import UNIFIED_ATOM37_ENCODING
-from .nn_modules_norm import make_norm
+from .nn_modules_norm import is_identity_mask, make_norm
 from .nn_noise_alignment import align_chirality, align_internal_coords
 from .transforms_chirality_feature import MAX_OVERLAPPING_CENTERS
 
@@ -1566,6 +1566,8 @@ class FeatureFactory(torch.nn.Module):
         elif self.mode == "seq":
             return feature_tensor * mask[..., None]  # [b, n, d]
         elif self.mode == "pair":
+            if is_identity_mask(mask, feature_tensor):  # x * 1 is x: skip a pass over the pair
+                return feature_tensor
             mask_pair = mask[:, None, :] * mask[:, :, None]  # [b, n, n]
             return feature_tensor * mask_pair[..., None]  # [b, n, n, d]
         else:

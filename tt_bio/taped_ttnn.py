@@ -865,6 +865,10 @@ def _permute_back(g, inv):
     the pair (1.00 / 0.33 at 195 tokens, 0.64 / 0.18 at 64 channels), torch.equal in every case.
     That is BindCraft 2's trimul gradient, 208 calls an iteration. ``[0, 3, 1, 2]`` keeps the
     permute, the faster of the two there (0.27 / 0.36 ms).
+
+    The 3-D form of the same move, ``[1, 2, 0]``, goes the same way: it is the VJP of the masked
+    outer product's ``permute(T, (2, 0, 1))`` (`af2._sum_rows_joined`), and the stock permute ran
+    it at 358 us on [224, 128, 64], 20 GB/s, 48 calls an iteration on a p300c (`bets/unnamed` u2).
     """
     if REBLOCK_PERMUTE_BW:
         from . import reblock_permute as R
@@ -873,9 +877,9 @@ def _permute_back(g, inv):
             return R.reblock_permute_back(g, mc)
         if inv == [0, 3, 1, 2] and R.eligible(g, mc):
             return R.reblock_permute(g, mc)
-    if list(inv) == [0, 2, 3, 1]:
-        mid = ttnn.transpose(g, 1, 2)
-        out = ttnn.transpose(mid, 2, 3)
+    if list(inv) in ([0, 2, 3, 1], [1, 2, 0]):
+        mid = ttnn.transpose(g, -3, -2)
+        out = ttnn.transpose(mid, -2, -1)
         ttnn.deallocate(mid)
         return out
     return ttnn.permute(g, inv)

@@ -21,11 +21,15 @@ import json
 import numpy as np
 
 
+MARK_FIELD = "condition_sequence_1_residue"
+
+
 def load(path):
     import biotite.structure.io.pdbx as pdbx
 
     f = pdbx.CIFFile.read(path)
-    return pdbx.get_structure(f, model=1)
+    fields = [MARK_FIELD] if MARK_FIELD in f.block["atom_site"] else []
+    return pdbx.get_structure(f, model=1, extra_fields=fields)
 
 
 def kabsch(p, q):
@@ -48,8 +52,14 @@ def designed_and_target(ref, chain=None):
     if chain is not None:
         designed = chain
     else:
-        # The binder is the shorter chain in a two-chain binder design (13 vs 115 at the 128 size).
-        designed = min(chains, key=lambda c: len(chains[c]))
+        # RFD4 writes the design marker into the sequence condition of every designed residue. Chain
+        # length does not tell: the binder is 13 residues at 128 but 141 and 397 at 256 and 512.
+        marked = [c for c, ca in chains.items()
+                  if MARK_FIELD in ca.get_annotation_categories()
+                  and (ca.get_annotation(MARK_FIELD) == "<M>").all()]
+        if len(marked) != 1:
+            raise ValueError(f"expected one chain carrying the design marker, got {marked}; pass --chain")
+        designed = marked[0]
     targets = [c for c in chains if c != designed]
     return designed, targets
 
