@@ -486,9 +486,16 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
+# Wormhole fast keeps the diffusion-conditioned pair on the chip (pz_device: one device LN feeds the bf16 DiT and the atom
+# z term, no host round trip) and runs the bf16 AdaLN modulation and the DiT's gated residuals as one addcmul each
+# (dit_mod16). Galaxy chip, separate-process, 3 on / 3 off warm folds, AICLK 1000 MHz (spd-m-opendde dsmf, 2026-10-22):
+# 608 tokens 119.67 -> 117.59 s (-1.7 %). WH 11-set fast grade vs main 7c42f9778, seeds 109-112, 44 paired folds (dsg):
+# PASS, same-seed top pose median 0.267 A (A/A floor 1.482 A), CA-lDDT +0.0012 [+0.0006, +0.0018], DockQ -0.0005
+# [-0.0040, +0.0025], docking 26 -> 26. Blackhole is ungraded.
+DIT_SEAM = frozenset({"pz_device", "dit_mod16"})
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
                                    "trimul_t1_dram"}
-                  | TRIATT_LN | TRIATT_K1)
+                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM)
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
