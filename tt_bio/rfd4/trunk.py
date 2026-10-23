@@ -655,9 +655,9 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: pair op. Paired traced trunk at 1325-1350 MHz: 512 tokens 1.20x, 256 tokens 1.14x; 31 designs at 512 tokens 40.66 ->
 #: 34.85 s; the designed chain moves 3.3 A median against a 38.1 A seed floor, binder grade PASS (state/rfd4/bets/bf16z.md).
 #: `trimul_t1b8`: T1 writes a and b as bfp8, so the contraction reads half the bytes. Paired traced trunk at 1350 MHz:
-#: 512 tokens 33.25 -> 32.75 s a design (1.015x), 384 1.014x; at 256 pairing 8-row items would unbalance the cores,
-#: so T1 keeps bf16 there (trimul_tail.t1_pair_free, bit-identical). 31 designs at 512: designed chain 2.05 A median
-#: against a 38.6 A seed floor, binder grade PASS (state/rfd4/bets/t1s.md).
+#: 512 tokens 26.48 -> 25.76 s a design (1.028x), 384 1.018x; at 256 pairing 8-row items would unbalance the cores,
+#: so T1 keeps bf16 there (trimul_tail.t1_pair_free, bit-identical). 31 designs at 512: designed chain 2.24 A median
+#: against a 38.8 A seed floor, binder grade PASS (state/rfd4/bets/t1s.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",

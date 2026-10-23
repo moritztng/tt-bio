@@ -927,8 +927,8 @@ binder grade passes. At 384 and 512 tokens `pair_tail` reads the contraction's c
 faster (1325-1350 MHz). At sizes whose tiles spread unevenly over the chip's cores (256, 288, 320, 352 and 448 tokens
 on a 110-core chip) it measured 1-6 % slower or no faster, so it steps aside there.
 The input kernel also writes its two projections in block-fp8 so the
-contraction reads half the bytes (`trimul_t1b8`, RFD4's set only): 33.25 to 32.75 s a 512-token design on the trunk
-(1.015x, 1350 MHz, paired), 1.014x at 384, 256 unchanged; the designed chain moves 2.05 A median against a 38.6 A
+contraction reads half the bytes (`trimul_t1b8`, RFD4's set only): 26.48 to 25.76 s a 512-token design on the trunk
+(1.028x, 1350 MHz, paired), 1.018x at 384, 256 unchanged; the designed chain moves 2.24 A median against a 38.8 A
 seed-to-seed spread and the binder grade passes.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
