@@ -41,8 +41,11 @@ def main():
     from tt_bio import rfd4
     from tt_bio.rfd4 import engine as E
 
-    out = sys.stdout
-    sys.stdout = sys.stderr  # the engine's own prints must not corrupt the protocol
+    # The protocol gets a private copy of fd 1; fd 1 itself goes to stderr, so nothing the engine or
+    # tt-metal's C++ logger prints can land in the pipe the driver parses.
+    out = os.fdopen(os.dup(1), "w")
+    os.dup2(2, 1)
+    sys.stdout = sys.stderr
     card = os.environ.get("TT_VISIBLE_DEVICES")
     root = Path(a.out) / f"chip{card}"
 
