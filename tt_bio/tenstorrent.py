@@ -430,6 +430,14 @@ SMALL_GRID_TRANSITION_MAX_C = 384
 # The 512-token heights in Transition._transition (c=256 bf16 at the L1 cap, c=384 bfp8 at twice the
 # element budget). A module bool so a paired fold A/B can toggle it in one process.
 _SMALL_GRID_TRANSITION_H512 = True
+# Core count the small-grid transition height is sized for: an n150/n300 chip's 8x8, the smallest Wormhole
+# grid tt-bio runs on, and not the live grid. The row height decides ttnn's K block for the swiglu matmuls,
+# so a height taken from the live grid made the answer depend on the card: Protenix-v2 512 x 256 x 1024,
+# TT_BIO_LEVERS=none, a Galaxy chip's 8x9 gave h=12 and an 8x8 h=10, two different digests, while every
+# forced height wrote the same bytes on both grids (perf/spd_bh/transition_h.py, WH .103). Fewer cores
+# than the live grid only lowers the per-core bytes, so it stays inside the L1 budget everywhere.
+# 0 = the live grid (A/B only).
+_SMALL_GRID_TRANSITION_CORES = 64
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
@@ -14301,6 +14309,7 @@ class Transition(Module):
         _tile = lambda v: -(-int(v) // 32) * 32
         _hid = int(self.fc1_weight.shape[-1])
         _gx, _gy = COMPUTE_GRID_MAIN
+        _l1_cores = min(_gx * _gy, _SMALL_GRID_TRANSITION_CORES or _gx * _gy)
         # Bytes per hidden element: x_1 and x_2 are bfp8 under `transition_b8` (a 32x32 tile is
         # 1024 mantissa bytes + 64 exponent bytes), bf16 otherwise. x_norm is always bf16.
         _hb = 1088 / 1024 if self._hidden_b8 else 2
@@ -14308,7 +14317,7 @@ class Transition(Module):
 
         def _l1_rows_at(w):
             """Row height the per-core L1 budget alone allows at swiglu width `w`."""
-            return TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy / (_tile(w) * _row_bytes)
+            return TRANSITION_L1_CHUNK_BYTES_PER_CORE * _l1_cores / (_tile(w) * _row_bytes)
 
         def _rows_at(w):
             """Row height EVERY budget allows at swiglu width `w`, BEFORE the floor at 1."""
@@ -14361,8 +14370,8 @@ class Transition(Module):
         # module, perf/spd_bh/transition_h.py): c=384 bfp8 hidden (OpenDDE --fast) runs the bf16
         # element budget's h=6 where bfp8 needs half the bytes, 38.79 -> 34.49 ms at h=12, -1.28 s
         # per fold and bit-exact in every fold; c=256 bf16 (Protenix-v2 normal) runs h=8 where the
-        # per-core L1 cap allows 12, 28.91 -> 26.13 ms, torch.equal in all 1048 in-fold calls
-        # (perf/spd_bh/transition_infold.py). bf16 activations only: the few fp32 calls at that shape
+        # per-core L1 cap allowed 12 on 72 cores (10 at the fixed 64), 28.91 -> 26.13 ms, torch.equal in all
+        # 1048 in-fold calls (perf/spd_bh/transition_infold.py). bf16 activations only: the few fp32 calls at that shape
         # round differently at the cap height (rel 5e-4) and moved the fold digest. Bounded at
         # W=512: the c=384 budget is a correctness bound at W=736/896 in bf16 (wrong values before
         # the clash, see above), and nobody has measured bfp8 there.
@@ -14600,6 +14609,24 @@ def _z_residual(z: ttnn.Tensor, zc: ttnn.Tensor, update: ttnn.Tensor, wide: bool
     return out
 
 
+_LAYER_TAP_CALL = [0]
+
+
+def _layer_tap(tag, t):
+    """Fingerprint z after each op of the first TT_BIO_LAYER_TAP_CALLS (default 2) PairformerLayer calls.
+
+    Appends to the file TT_BIO_TRUNK_TAP names, beside protenix.trunk_tap's block-level lines, so a
+    two-run diff names the first op whose output bytes differ, not just the first block. Off unless
+    that variable is set; one device->host copy per tap."""
+    path = os.environ.get("TT_BIO_TRUNK_TAP")
+    if not path or _LAYER_TAP_CALL[0] > int(os.environ.get("TT_BIO_LAYER_TAP_CALLS", "2")):
+        return
+    import hashlib
+    h = hashlib.sha256(ttnn.to_torch(t).to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
+    with open(path, "a") as fp:
+        fp.write(f"layer{_LAYER_TAP_CALL[0] - 1}|{tag}|{tuple(t.shape)}|{h}\n")
+
+
 class PairformerLayer(Module):
     def __init__(
         self,
@@ -14779,31 +14806,42 @@ class PairformerLayer(Module):
             # Each op returns z + its update. Where its blocks join on the host they carry their own
             # rows of z and z is freed before the upload, so a pair too big to sit beside its update
             # still runs (`_add_input`); everywhere else it is the in-place add this layer always ran.
+            _LAYER_TAP_CALL[0] += 1
+            _layer_tap("enter", z)
             z = self.triangle_multiplication_start(z, mask, add_to_input=True)
+            _layer_tap("tmul_out", z)
             z = self.triangle_multiplication_end(z, mask, add_to_input=True)
+            _layer_tap("tmul_in", z)
             z = self.triangle_attention_start(z, attn_mask_start, add_to_input=True)
+            _layer_tap("tatt_start", z)
             z = self.triangle_attention_end(z, attn_mask_end, add_to_input=True)
+            _layer_tap("tatt_end", z)
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
             z = self.transition_z(
                 z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
                 if _RESIDUAL_L1 else None, add_to_input=True)
+            _layer_tap("transition", z)
         else:
             zc = _z_compute(z, wide)
             z_update = self.triangle_multiplication_start(zc, mask)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tmul_out", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_multiplication_end(zc, mask)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tmul_in", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_attention_start(zc, attn_mask_start)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tatt_start", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_attention_end(zc, attn_mask_end)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tatt_end", z)
 
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
@@ -14812,6 +14850,7 @@ class PairformerLayer(Module):
                 zc, memory_config=_residual_update_memory_config(zc.shape, zc.dtype)
                 if _RESIDUAL_L1 else None, mask=trans_mask_z)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("transition", z)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
                 self._s_compute(s),
@@ -14827,9 +14866,11 @@ class PairformerLayer(Module):
             )
             ttnn.deallocate(s_norm)
             s = self._s_residual(s, s_update)
+            _layer_tap("s_apb", s)
 
             s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
             s = self._s_residual(s, s_update)
+            _layer_tap("s_transition", s)
         return s, z
 
     def _s_compute(self, s: ttnn.Tensor) -> ttnn.Tensor:
