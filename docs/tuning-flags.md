@@ -915,7 +915,10 @@ spread, with radius of gyration, bond outliers and clashes unchanged. Below 160 
 not run, the output program still serves (`pair_tail_small`): 1.05x on the trunk at 128 tokens and 1.02x at 96, and a
 128-token design takes 5.40 s instead of 5.66 s (1347-1350 MHz). On 30 seed-matched 128-token designs the designed
 chain moves 0.03 A median against a 5.4 A seed-to-seed spread, with radius of gyration, bond outliers and clashes
-unchanged. `pair_tail`, `pair_tail_small` and `pair_write_res` need the fp32 pair stream, so
+unchanged. From 288 tokens the triangle contraction runs on `bmm_res` at HiFi2 (`trimul_bres`,
+`trimul_bres_hifi2`, RFD4's set only): a 512-token design takes 39.8 s instead of 41.3 s (1.04x, 1331 MHz, 31 paired
+designs), the 384-token trunk 1.09x, 256 unchanged; the designed chain moves 2.2 A median against a 38.1 A seed-to-seed
+spread and the binder grade passes. `pair_tail`, `pair_tail_small` and `pair_write_res` need the fp32 pair stream, so
 `TT_BIO_RFD4_PAIR_BF16=1` (the pair stream in bf16) turns them off and was slower before the pair-bias and pair-write programs, 46.4 s against 44.1 s. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
@@ -966,13 +969,26 @@ both modes. Graded against no lever set on a Galaxy chip
 -0.0010], pLDDT -0.005, docking success 30 -> 29 of 43, median same-seed top-pose deviation 0.64 A where a different
 seed moves it 1.26 A. A 512-residue ESMFold2-Fast fold takes about 50 s instead of 53 s at 1000 MHz.
 
-**OpenFold3 and OpenBind-0** run the normal set without the two transition levers. Their `--fast` set adds
-`dit_s16` and `diffusion_bf16`, which run the diffusion transformer in bf16 with the same fused attention
-kernels as the fp32 path. Graded against normal mode on 11 complexes x 4 seeds on Blackhole (44 paired folds per
-model): OpenFold3's median same-seed top-pose deviation is 0.40 A where a different seed moves it 1.02 A, CA-lDDT
--0.0019, docking success 18 -> 19 of 44; OpenBind-0 moves 0.21 A against 1.90 A, CA-lDDT -0.0017, docking success
-26 of 44 in both. A 512-residue single-sample fold takes about 0.9 s less: 12.2 to 11.3 s for OpenFold3 on a
-Blackhole p300c chip at 1350 MHz, same chip, alternating runs.
+**OpenFold3 and OpenBind-0** run the normal set without the two transition levers, plus the trunk kernels of
+their `--fast` set: `trimul_t1`, `trimul_t2`, `transition_ws`, `ws_l1dest`, `triatt_ln` and `edm_device`
+(`trimul_t2cm` on Blackhole, `trimul_bres` and `atom_l1` on Wormhole). Graded against the normal set before them on
+11 complexes x 4 seeds, both models pass the normal bar on both parts. On Blackhole (p300c) OpenFold3's median
+same-seed top-pose deviation is 0.69 A where a different seed moves it 1.21 A, docking success 18 -> 20 of 44, and
+OpenBind-0's 0.52 A against 1.90 A, 26 -> 28 of 44; a 512-residue fold at 1350 MHz takes 9.7 s instead of 11.4 s
+(OpenFold3) and 11.5 s instead of 12.7 s (OpenBind-0). On a Wormhole Galaxy chip at 1000 MHz both go from 25.2 to
+20.0 s.
+
+OpenFold3's normal mode also runs the diffusion transformer in bf16 (`dit_s16`, `diffusion_bf16`, and on Wormhole
+`dit_fuse` and `dit_l1`). It passes the normal bar on both parts: 0.81 A against a 1.21 A seed floor on Blackhole,
+0.43 A against 0.98 A on Wormhole, docking success unchanged or better, and the Blackhole fold drops to 9.1 s.
+OpenBind-0 failed the same grade on Wormhole (CA-lDDT -0.0012 [-0.0020, -0.0006]) and keeps the fp32 diffusion
+transformer in normal mode.
+
+Their `--fast` set adds the bf16 diffusion transformer for OpenBind-0, lower-precision diffusion-transformer kernels
+for both and LoFi transition matmuls on Blackhole. The bf16 step alone, graded against normal mode on Blackhole (44
+paired folds per model): OpenFold3's median same-seed top-pose deviation is 0.40 A where a different seed moves it
+1.02 A, CA-lDDT -0.0019, docking success 18 -> 19 of 44; OpenBind-0 moves 0.21 A against 1.90 A, CA-lDDT -0.0017,
+docking success 26 of 44 in both.
 
 ## `TT_BIO_LNBW_FUSED`
 

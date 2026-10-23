@@ -11,6 +11,8 @@ arms' outputs on the same input are compared too (rel RMS of z), as a sanity che
 AICLK is sampled for the life of the run (`perf/clocksample.py`).
 """
 import argparse
+import contextlib
+import importlib
 import json
 import os
 import statistics
@@ -32,6 +34,23 @@ import ttnn  # noqa: E402
 PASSES_PER_DESIGN = 180
 
 
+@contextlib.contextmanager
+def held(spec):
+    """`MODULE.NAME=EXPR` set on tt_bio.MODULE for the duration; nothing when empty."""
+    if not spec:
+        yield
+        return
+    name, expr = spec.split("=", 1)
+    mod = importlib.import_module("tt_bio." + name.rsplit(".", 1)[0])
+    attr = name.rsplit(".", 1)[1]
+    prev = getattr(mod, attr)
+    setattr(mod, attr, eval(expr))
+    try:
+        yield
+    finally:
+        setattr(mod, attr, prev)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--weights", required=True)
@@ -40,6 +59,8 @@ def main():
     ap.add_argument("--reps", type=int, default=40)
     ap.add_argument("--base", default=None, help="lever set of the base arm (default rfd4.trunk.NORMAL_LEVERS)")
     ap.add_argument("--levers", default=None, help="lever set of the stack arm (default rfd4.trunk.FAST_LEVERS)")
+    ap.add_argument("--base-set", default="", help="MODULE.NAME=EXPR (a tt_bio module attribute) held while the base "
+                    "arm builds and captures its programs, e.g. 'trimul_tail.T1_NB={}': a knob A/B under one lever set")
     a = ap.parse_args()
 
     from tt_bio import tenstorrent as T
@@ -79,12 +100,13 @@ def main():
                 ttnn.deallocate(t)
 
     rec = {"n": n, "levers": {"base": sorted(arms["base"]._levers), "stack": sorted(arms["stack"]._levers)},
+           "base_set": a.base_set,
            "tt_bio": str(Path(TR.__file__).resolve().parents[2]), "load_start": os.getloadavg()[0]}
     with clocksample.during(period=0.5) as clk:
         traces, outs = {}, {}
         for k, tr in arms.items():
             fn = lambda tr=tr, z=zs[k]: tr.run_pass(ttnn.clone(s), ttnn.clone(z), cond, masks)  # noqa: E731
-            with T.lever_scope(tr._levers):  # run_pass is not scoped itself; __call__ is
+            with T.lever_scope(tr._levers), held(a.base_set if k == "base" else ""):  # run_pass is not scoped itself
                 free(fn())  # compile
                 sync()
                 out = fn()
