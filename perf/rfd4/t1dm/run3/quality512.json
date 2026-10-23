@@ -1,0 +1,1601 @@
+{
+ "verdict": "PASS",
+ "seed_floor": {
+  "binder": {
+   "_kind": "resample",
+   "_source": "RFD4-Proteina 2db07bb4 released recipe, pdl1-256 (141-141 binder + PD-L1 A17-131), arm native-compile b8, B200 vast:57076067 session s3, one session seed 1234 split into two disjoint halves of 5 batches (40 designs each)",
+   "_measured": "2026-10-21T17:34:54Z",
+   "_n": [
+    40,
+    40
+   ],
+   "clash_metrics.frac_atoms_clashing_1p5A": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "bond_length_metrics.bond_length.frac_unreasonable": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "amino_acid_composition.ala_fraction": {
+    "delta_median_abs": 0.0,
+    "d": 0.1,
+    "p": 0.948653,
+    "median_a": 0.0625,
+    "median_b": 0.0625,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "amino_acid_composition.gly_fraction": {
+    "delta_median_abs": 0.0039,
+    "d": 0.175,
+    "p": 0.40153,
+    "median_a": 0.043,
+    "median_b": 0.0391,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "sse_distribution.helix_fraction_coi": {
+    "delta_median_abs": 0.11705,
+    "d": 0.15,
+    "p": 0.720714,
+    "median_a": 0.29785,
+    "median_b": 0.4149,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "sse_distribution.sheet_fraction_coi": {
+    "delta_median_abs": 0.06735,
+    "d": 0.15,
+    "p": 0.699665,
+    "median_a": 0.3191,
+    "median_b": 0.25175000000000003,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "sse_distribution.num_ss_elements_coi": {
+    "delta_median_abs": 0.5,
+    "d": 0.075,
+    "p": 0.983201,
+    "median_a": 17.5,
+    "median_b": 17.0,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "geom.radius_of_gyration": {
+    "delta_median_abs": 0.617166,
+    "d": 0.25,
+    "p": 0.160392,
+    "median_a": 15.025064892659202,
+    "median_b": 14.407898891129232,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "geom.frac_ca_bond_outlier": {
+    "delta_median_abs": 0.0,
+    "d": 0.125,
+    "p": 0.106845,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "geom.ca_clash_frac": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "pre_oracle_pass": {
+    "delta_rate_abs": 0.0,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "interchain_interactions.hbond_atom_count_coi": {
+    "delta_median_abs": 0.5,
+    "d": 0.075,
+    "p": 0.973951,
+    "median_a": 5.5,
+    "median_b": 5.0,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "interchain_interactions.hydrophobic_atom_count_coi": {
+    "delta_median_abs": 0.5,
+    "d": 0.175,
+    "p": 0.367332,
+    "median_a": 6.0,
+    "median_b": 6.5,
+    "n_a": 40,
+    "n_b": 40
+   },
+   "interchain_interactions.saltbridge_residue_count_coi": {
+    "delta_median_abs": 0.0,
+    "d": 0.1,
+    "p": 0.818009,
+    "median_a": 3.0,
+    "median_b": 3.0,
+    "n_a": 40,
+    "n_b": 40
+   }
+  },
+  "unconditional": {
+   "_kind": "two-seed",
+   "_source": "upstream RFD4-Proteina fp32 on CPU (pc), released thinking_medium recipe, unconditional_128 spec, 30 designs a side, seeds 0 and 1; both arms refolded by the same OpenFold3 oracle on qb2 card 3",
+   "_measured": "2026-10-22T02:57:26Z",
+   "_n": [
+    60,
+    60
+   ],
+   "clash_metrics.frac_atoms_clashing_1p5A": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "bond_length_metrics.bond_length.frac_unreasonable": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "amino_acid_composition.ala_fraction": {
+    "delta_median_abs": 0.015,
+    "d": 0.266667,
+    "p": 0.166042,
+    "median_a": 0.055,
+    "median_b": 0.04,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "amino_acid_composition.gly_fraction": {
+    "delta_median_abs": 0.005,
+    "d": 0.033333,
+    "p": 1.0,
+    "median_a": 0.005,
+    "median_b": 0.01,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "sse_distribution.helix_fraction_coi": {
+    "delta_median_abs": 0.035,
+    "d": 0.266667,
+    "p": 0.19504,
+    "median_a": 0.865,
+    "median_b": 0.83,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "sse_distribution.sheet_fraction_coi": {
+    "delta_median_abs": 0.0,
+    "d": 0.1,
+    "p": 0.715564,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "sse_distribution.num_ss_elements_coi": {
+    "delta_median_abs": 0.0,
+    "d": 0.166667,
+    "p": 0.493575,
+    "median_a": 11.0,
+    "median_b": 11.0,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "geom.radius_of_gyration": {
+    "delta_median_abs": 0.409007,
+    "d": 0.2,
+    "p": 0.59627,
+    "median_a": 13.41099508454841,
+    "median_b": 13.001988162415042,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "geom.frac_ca_bond_outlier": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "geom.ca_clash_frac": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "pre_oracle_pass": {
+    "delta_rate_abs": 0.0,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "refolded_backbone_rmsd.rmsd": {
+    "delta_median_abs": 0.01115,
+    "d": 0.2,
+    "p": 0.586521,
+    "median_a": 0.37529999999999997,
+    "median_b": 0.38645,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "oracle.overall_plddt": {
+    "delta_median_abs": 0.21125,
+    "d": 0.133333,
+    "p": 0.958602,
+    "median_a": 88.0941,
+    "median_b": 87.88284999999999,
+    "n_a": 30,
+    "n_b": 30
+   },
+   "unconditional.pass": {
+    "delta_rate_abs": 0.0,
+    "n_a": 30,
+    "n_b": 30
+   }
+  }
+ },
+ "features": {
+  "unconditional": {
+   "n": 30,
+   "n_tt": 30,
+   "n_ref": 60,
+   "metrics": {
+    "clash_metrics.frac_atoms_clashing_1p5A": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "bond_length_metrics.bond_length.frac_unreasonable": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "amino_acid_composition.ala_fraction": {
+     "d": 0.166667,
+     "p": 0.662367,
+     "p_asymp": 0.760047,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.05,
+     "median_ref": 0.055,
+     "delta_median": -0.005,
+     "kind": "dist",
+     "tt": 0.05,
+     "ref": 0.055,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.015,
+      "d": 0.266667,
+      "p": 0.166042,
+      "median_a": 0.055,
+      "median_b": 0.04,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "amino_acid_composition.gly_fraction": {
+     "d": 0.1,
+     "p": 0.879156,
+     "p_asymp": 0.996969,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.0,
+     "median_ref": 0.005,
+     "delta_median": -0.005,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.005,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.005,
+      "d": 0.033333,
+      "p": 1.0,
+      "median_a": 0.005,
+      "median_b": 0.01,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": false,
+     "pass": true,
+     "oracle": false
+    },
+    "sse_distribution.helix_fraction_coi": {
+     "d": 0.233333,
+     "p": 0.295485,
+     "p_asymp": 0.342034,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.85,
+     "median_ref": 0.865,
+     "delta_median": -0.015,
+     "kind": "dist",
+     "tt": 0.85,
+     "ref": 0.865,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.035,
+      "d": 0.266667,
+      "p": 0.19504,
+      "median_a": 0.865,
+      "median_b": 0.83,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "sse_distribution.sheet_fraction_coi": {
+     "d": 0.1,
+     "p": 0.740663,
+     "p_asymp": 0.996969,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.1,
+      "p": 0.715564,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "sse_distribution.num_ss_elements_coi": {
+     "d": 0.066667,
+     "p": 0.99265,
+     "p_asymp": 1.0,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 10.0,
+     "median_ref": 11.0,
+     "delta_median": -1.0,
+     "kind": "dist",
+     "tt": 10.0,
+     "ref": 11.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.166667,
+      "p": 0.493575,
+      "median_a": 11.0,
+      "median_b": 11.0,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": false,
+     "pass": true,
+     "oracle": false
+    },
+    "geom.radius_of_gyration": {
+     "d": 0.166667,
+     "p": 0.80486,
+     "p_asymp": 0.760047,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 13.000374,
+     "median_ref": 13.410995,
+     "delta_median": -0.410621,
+     "kind": "dist",
+     "tt": 13.000374,
+     "ref": 13.410995,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.409007,
+      "d": 0.2,
+      "p": 0.59627,
+      "median_a": 13.41099508454841,
+      "median_b": 13.001988162415042,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": false,
+     "pass": true,
+     "oracle": false
+    },
+    "geom.frac_ca_bond_outlier": {
+     "d": 0.033333,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": false,
+     "pass": true,
+     "oracle": false
+    },
+    "geom.ca_clash_frac": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "pre_oracle_pass": {
+     "kind": "rate",
+     "tt": 1.0,
+     "ref": 1.0,
+     "n_pass_tt": 30,
+     "n_pass_ref": 30,
+     "n_tt": 30,
+     "n_ref": 30,
+     "p": 1.0,
+     "bar": "fisher p >= 0.05 (one-sided, drop only)",
+     "seed_floor": {
+      "delta_rate_abs": 0.0,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "pass": true,
+     "oracle": false
+    },
+    "amino_acid_composition.n_generated_unknown_residues": {
+     "kind": "guard",
+     "tt": 0.0,
+     "ref": null,
+     "n_tt": 30,
+     "bar": "mean <= 0.0",
+     "pass": true,
+     "oracle": false
+    },
+    "geom.n_nonfinite_coords": {
+     "kind": "guard",
+     "tt": 0.0,
+     "ref": null,
+     "n_tt": 30,
+     "bar": "mean <= 0.0",
+     "pass": true,
+     "oracle": false
+    },
+    "geom.chain_not_found": {
+     "kind": "guard",
+     "tt": 0.0,
+     "ref": null,
+     "n_tt": 30,
+     "bar": "mean <= 0.0",
+     "pass": true,
+     "oracle": false
+    },
+    "refolded_backbone_rmsd.rmsd": {
+     "d": 0.133333,
+     "p": 0.957602,
+     "p_asymp": 0.936009,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 0.38435,
+     "median_ref": 0.3753,
+     "delta_median": 0.00905,
+     "kind": "dist",
+     "tt": 0.38435,
+     "ref": 0.3753,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.01115,
+      "d": 0.2,
+      "p": 0.586521,
+      "median_a": 0.37529999999999997,
+      "median_b": 0.38645,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": true
+    },
+    "oracle.overall_plddt": {
+     "d": 0.166667,
+     "p": 0.80841,
+     "p_asymp": 0.760047,
+     "n_tt": 30,
+     "n_ref": 30,
+     "median_tt": 86.8669,
+     "median_ref": 88.0941,
+     "delta_median": -1.2272,
+     "kind": "dist",
+     "tt": 86.8669,
+     "ref": 88.0941,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.21125,
+      "d": 0.133333,
+      "p": 0.958602,
+      "median_a": 88.0941,
+      "median_b": 87.88284999999999,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "inside_seed_floor": false,
+     "pass": true,
+     "oracle": true
+    },
+    "unconditional.pass": {
+     "kind": "rate",
+     "tt": 0.8,
+     "ref": 0.833333,
+     "n_pass_tt": 24,
+     "n_pass_ref": 25,
+     "n_tt": 30,
+     "n_ref": 30,
+     "p": 0.5,
+     "bar": "fisher p >= 0.05 (one-sided, drop only)",
+     "seed_floor": {
+      "delta_rate_abs": 0.0,
+      "n_a": 30,
+      "n_b": 30
+     },
+     "pass": true,
+     "oracle": true
+    },
+    "unconditional.all_metrics_present": {
+     "kind": "guard",
+     "tt": 1.0,
+     "ref": null,
+     "n_tt": 30,
+     "bar": "mean >= 1.0",
+     "pass": true,
+     "oracle": true
+    }
+   },
+   "diversity": {
+    "unique_tt": 30,
+    "unique_ref": 30,
+    "n_tt": 30,
+    "n_ref": 60,
+    "unique_frac_tt": 1.0,
+    "unique_frac_ref": 0.5,
+    "p": 1.0,
+    "collapsed": false,
+    "bar": "Fisher exact p >= 0.05 against a drop, and more than one unique sequence",
+    "pass": true
+   },
+   "n_graded_metrics": 18,
+   "missing_oracle_metrics": [],
+   "failed": [],
+   "seed_floor_source": "upstream RFD4-Proteina fp32 on CPU (pc), released thinking_medium recipe, unconditional_128 spec, 30 designs a side, seeds 0 and 1; both arms refolded by the same OpenFold3 oracle on qb2 card 3",
+   "seed_floor_kind": "two-seed",
+   "verdict": "PASS",
+   "notes": [],
+   "allow_no_oracle": false,
+   "allow_no_floor": false,
+   "label": "tt-bio RFD4 on Tenstorrent (qb2 p300 card 0), thinking_medium, seed 0, 30 designs; refold oracle OpenFold3 on TT",
+   "tags": [
+    "design",
+    "unconditional_refolding"
+   ]
+  },
+  "binder": {
+   "n": 32,
+   "n_tt": 32,
+   "n_ref": 32,
+   "metrics": {
+    "clash_metrics.frac_atoms_clashing_1p5A": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "bond_length_metrics.bond_length.frac_unreasonable": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "amino_acid_composition.ala_fraction": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "amino_acid_composition.gly_fraction": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "sse_distribution.helix_fraction_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "sse_distribution.sheet_fraction_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "sse_distribution.num_ss_elements_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "geom.radius_of_gyration": {
+     "d": 0.09375,
+     "p": 0.99955,
+     "p_asymp": 0.998157,
+     "n_tt": 32,
+     "n_ref": 32,
+     "median_tt": 24.774763,
+     "median_ref": 24.890001,
+     "delta_median": -0.115238,
+     "kind": "dist",
+     "tt": 24.774763,
+     "ref": 24.890001,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.617166,
+      "d": 0.25,
+      "p": 0.160392,
+      "median_a": 15.025064892659202,
+      "median_b": 14.407898891129232,
+      "n_a": 40,
+      "n_b": 40
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "geom.frac_ca_bond_outlier": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 32,
+     "n_ref": 32,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.125,
+      "p": 0.106845,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 40,
+      "n_b": 40
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "geom.ca_clash_frac": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 32,
+     "n_ref": 32,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 40,
+      "n_b": 40
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "pre_oracle_pass": {
+     "kind": "rate",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "amino_acid_composition.n_generated_unknown_residues": {
+     "kind": "guard",
+     "missing": true,
+     "n_tt": 0,
+     "oracle": false
+    },
+    "geom.n_nonfinite_coords": {
+     "kind": "guard",
+     "tt": 0.0,
+     "ref": null,
+     "n_tt": 32,
+     "bar": "mean <= 0.0",
+     "pass": true,
+     "oracle": false
+    },
+    "geom.chain_not_found": {
+     "kind": "guard",
+     "tt": 0.0,
+     "ref": null,
+     "n_tt": 32,
+     "bar": "mean <= 0.0",
+     "pass": true,
+     "oracle": false
+    },
+    "oracle_ppi.ptm_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": true
+    },
+    "oracle_ppi.iptm_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": true
+    },
+    "oracle_ppi.min_ipae_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": true
+    },
+    "refolded_target_backbone_aligned_binder_rmsd.rmsd": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": true
+    },
+    "hotspot_obedience.hotspot_obedience": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "interchain_interactions.hbond_atom_count_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "interchain_interactions.hydrophobic_atom_count_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "interchain_interactions.saltbridge_residue_count_coi": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": false
+    },
+    "ppi.pass": {
+     "kind": "rate",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": true
+    },
+    "ppi.all_metrics_present": {
+     "kind": "guard",
+     "missing": true,
+     "n_tt": 0,
+     "oracle": true
+    }
+   },
+   "diversity": {
+    "unique_tt": 31,
+    "unique_ref": 31,
+    "n_tt": 32,
+    "n_ref": 32,
+    "unique_frac_tt": 0.9688,
+    "unique_frac_ref": 0.9688,
+    "p": 0.753968,
+    "collapsed": false,
+    "bar": "Fisher exact p >= 0.05 against a drop, and more than one unique sequence",
+    "pass": true
+   },
+   "n_graded_metrics": 5,
+   "missing_oracle_metrics": [
+    "oracle_ppi.ptm_coi",
+    "oracle_ppi.iptm_coi",
+    "oracle_ppi.min_ipae_coi",
+    "refolded_target_backbone_aligned_binder_rmsd.rmsd",
+    "ppi.pass",
+    "ppi.all_metrics_present"
+   ],
+   "failed": [],
+   "seed_floor_source": "RFD4-Proteina 2db07bb4 released recipe, pdl1-256 (141-141 binder + PD-L1 A17-131), arm native-compile b8, B200 vast:57076067 session s3, one session seed 1234 split into two disjoint halves of 5 batches (40 designs each)",
+   "seed_floor_kind": "resample",
+   "verdict": "PASS",
+   "notes": [
+    "clash_metrics.frac_atoms_clashing_1p5A: column absent on both arms",
+    "bond_length_metrics.bond_length.frac_unreasonable: column absent on both arms",
+    "amino_acid_composition.ala_fraction: column absent on both arms",
+    "amino_acid_composition.gly_fraction: column absent on both arms",
+    "sse_distribution.helix_fraction_coi: column absent on both arms",
+    "sse_distribution.sheet_fraction_coi: column absent on both arms",
+    "sse_distribution.num_ss_elements_coi: column absent on both arms",
+    "pre_oracle_pass: column absent on both arms",
+    "amino_acid_composition.n_generated_unknown_residues: column absent on both arms",
+    "oracle_ppi.ptm_coi: no oracle run",
+    "oracle_ppi.iptm_coi: no oracle run",
+    "oracle_ppi.min_ipae_coi: no oracle run",
+    "refolded_target_backbone_aligned_binder_rmsd.rmsd: no oracle run",
+    "hotspot_obedience.hotspot_obedience: column absent on both arms",
+    "interchain_interactions.hbond_atom_count_coi: column absent on both arms",
+    "interchain_interactions.hydrophobic_atom_count_coi: column absent on both arms",
+    "interchain_interactions.saltbridge_residue_count_coi: column absent on both arms",
+    "ppi.pass: no oracle run",
+    "ppi.all_metrics_present: no oracle run"
+   ],
+   "allow_no_oracle": true,
+   "allow_no_floor": false,
+   "label": "RFD4 default + trimul_t1_fgate vs default, 512 PD-L1 binder, 31 seeds",
+   "tags": [
+    "design",
+    "ppi_refolding",
+    "hotspot_conditioning",
+    "interchain_interactions"
+   ]
+  }
+ },
+ "paths": {
+  "unconditional": {
+   "tt": {
+    "root": [
+     "/home/ttuser/rfd4-oracle-runs/unconditional",
+     "/home/ttuser/rfd4-oracle-eval/unconditional"
+    ],
+    "n": 30,
+    "n_designs_parsed": 30,
+    "n_unique_sequences": 30,
+    "csvs": [
+     "/home/ttuser/rfd4-oracle-eval/unconditional/evaluation_metrics/per_example_metrics.csv"
+    ]
+   },
+   "ref": {
+    "root": [
+     "/home/ttuser/rfd4-oracle-ref/seed0",
+     "/home/ttuser/rfd4-oracle-eval/ref-seed0"
+    ],
+    "n": 60,
+    "n_designs_parsed": 30,
+    "n_unique_sequences": 30,
+    "csvs": [
+     "/home/ttuser/rfd4-oracle-ref/seed0/inference_metrics/per_example_metrics.csv",
+     "/home/ttuser/rfd4-oracle-eval/ref-seed0/evaluation_metrics/per_example_metrics.csv"
+    ]
+   },
+   "seed_floor_arms": [
+    {
+     "root": [
+      "/home/ttuser/rfd4-oracle-ref/seed0",
+      "/home/ttuser/rfd4-oracle-eval/ref-seed0"
+     ],
+     "n": 60,
+     "n_designs_parsed": 30,
+     "n_unique_sequences": 30,
+     "csvs": [
+      "/home/ttuser/rfd4-oracle-ref/seed0/inference_metrics/per_example_metrics.csv",
+      "/home/ttuser/rfd4-oracle-eval/ref-seed0/evaluation_metrics/per_example_metrics.csv"
+     ]
+    },
+    {
+     "root": [
+      "/home/ttuser/rfd4-oracle-ref/seed1",
+      "/home/ttuser/rfd4-oracle-eval/ref-seed1"
+     ],
+     "n": 60,
+     "n_designs_parsed": 30,
+     "n_unique_sequences": 30,
+     "csvs": [
+      "/home/ttuser/rfd4-oracle-ref/seed1/inference_metrics/per_example_metrics.csv",
+      "/home/ttuser/rfd4-oracle-eval/ref-seed1/evaluation_metrics/per_example_metrics.csv"
+     ]
+    }
+   ]
+  },
+  "binder": {
+   "seed_floor_arms": [
+    {
+     "root": [
+      "/home/moritz/.coworker/artifacts/rfd4-quality/floor_b200/armA/inference_samples",
+      "/home/moritz/.coworker/artifacts/rfd4-quality/floor_b200/armA/eval"
+     ],
+     "n": 40,
+     "n_designs_parsed": 40,
+     "n_unique_sequences": 40,
+     "csvs": [
+      "/home/moritz/.coworker/artifacts/rfd4-quality/floor_b200/armA/eval/evaluation_metrics/per_example_metrics.csv"
+     ]
+    },
+    {
+     "root": [
+      "/home/moritz/.coworker/artifacts/rfd4-quality/floor_b200/armB/inference_samples",
+      "/home/moritz/.coworker/artifacts/rfd4-quality/floor_b200/armB/eval"
+     ],
+     "n": 40,
+     "n_designs_parsed": 40,
+     "n_unique_sequences": 40,
+     "csvs": [
+      "/home/moritz/.coworker/artifacts/rfd4-quality/floor_b200/armB/eval/evaluation_metrics/per_example_metrics.csv"
+     ]
+    }
+   ],
+   "tt": {
+    "root": "/home/ttuser/scratch/rfd4-t1dm/tree-cd09d5f93/artifacts/t1dm/run3/design/stack",
+    "n": 32,
+    "n_designs_parsed": 32,
+    "n_unique_sequences": 31,
+    "csvs": []
+   },
+   "ref": {
+    "root": "/home/ttuser/scratch/rfd4-t1dm/tree-cd09d5f93/artifacts/t1dm/run3/design/base",
+    "n": 32,
+    "n_designs_parsed": 32,
+    "n_unique_sequences": 31,
+    "csvs": []
+   }
+  }
+ },
+ "harness": "perf/rfd4/quality.py",
+ "self_test": {
+  "cpu_two_seed": {
+   "what": "upstream vs upstream, two seeds, same build: the harness grading real RFD4 designs",
+   "feature": "unconditional",
+   "arms": {
+    "a_seed0": {
+     "root": [
+      "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/seed0",
+      "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/eval0"
+     ],
+     "n": 8,
+     "n_designs_parsed": 8,
+     "n_unique_sequences": 6,
+     "csvs": [
+      "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/seed0/inference_metrics/per_example_metrics.csv",
+      "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/eval0/evaluation_metrics/per_example_metrics.csv"
+     ]
+    },
+    "b_seed1": {
+     "root": [
+      "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/seed1",
+      "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/eval1"
+     ],
+     "n": 8,
+     "n_designs_parsed": 8,
+     "n_unique_sequences": 4,
+     "csvs": [
+      "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/seed1/inference_metrics/per_example_metrics.csv",
+      "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/eval1/evaluation_metrics/per_example_metrics.csv"
+     ]
+    }
+   },
+   "recipe": "CPU fp32, 100-residue monomer, nsteps=20 with n_recycle_schedule=[[20,1]] (reduced for a shared CPU box; not the released thinking_medium recipe). Metrics from upstream's own rfd4-evaluate at metrics_tags=[design], which is every oracle-free inline metric.",
+   "verdict_at_n30_bar": "INSUFFICIENT_N",
+   "verdict_with_n_bar_relaxed_to_8": "ORACLE_MISSING",
+   "metrics": {
+    "clash_metrics.frac_atoms_clashing_1p5A": {
+     "d": 0.375,
+     "p": 0.657817,
+     "p_asymp": 0.518942,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 0.07565,
+     "median_ref": 0.0918,
+     "delta_median": -0.01615,
+     "kind": "dist",
+     "tt": 0.07565,
+     "ref": 0.0918,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.01615,
+      "d": 0.375,
+      "p": 0.662667,
+      "median_a": 0.09179999999999999,
+      "median_b": 0.07565,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "bond_length_metrics.bond_length.frac_unreasonable": {
+     "d": 0.25,
+     "p": 0.829259,
+     "p_asymp": 0.928955,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 0.011,
+     "median_ref": 0.009,
+     "delta_median": 0.002,
+     "kind": "dist",
+     "tt": 0.011,
+     "ref": 0.009,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.002,
+      "d": 0.25,
+      "p": 0.829409,
+      "median_a": 0.009000000000000001,
+      "median_b": 0.011,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "amino_acid_composition.ala_fraction": {
+     "d": 0.25,
+     "p": 0.780761,
+     "p_asymp": 0.928955,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 1.0,
+     "median_ref": 0.99,
+     "delta_median": 0.01,
+     "kind": "dist",
+     "tt": 1.0,
+     "ref": 0.99,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.01,
+      "d": 0.25,
+      "p": 0.782561,
+      "median_a": 0.99,
+      "median_b": 1.0,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "amino_acid_composition.gly_fraction": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "sse_distribution.helix_fraction_coi": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "sse_distribution.sheet_fraction_coi": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 0.0,
+     "median_ref": 0.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 0.0,
+     "ref": 0.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 0.0,
+      "median_b": 0.0,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "sse_distribution.num_ss_elements_coi": {
+     "d": 0.0,
+     "p": 1.0,
+     "p_asymp": 1.0,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 1.0,
+     "median_ref": 1.0,
+     "delta_median": 0.0,
+     "kind": "dist",
+     "tt": 1.0,
+     "ref": 1.0,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.0,
+      "d": 0.0,
+      "p": 1.0,
+      "median_a": 1.0,
+      "median_b": 1.0,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "geom.radius_of_gyration": {
+     "d": 0.25,
+     "p": 0.979551,
+     "p_asymp": 0.928955,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 15.901563,
+     "median_ref": 15.992074,
+     "delta_median": -0.090511,
+     "kind": "dist",
+     "tt": 15.901563,
+     "ref": 15.992074,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.090511,
+      "d": 0.25,
+      "p": 0.980601,
+      "median_a": 15.992074030425186,
+      "median_b": 15.901563198894888,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "geom.frac_ca_bond_outlier": {
+     "d": 0.375,
+     "p": 0.616069,
+     "p_asymp": 0.518942,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 0.732323,
+     "median_ref": 0.752525,
+     "delta_median": -0.020202,
+     "kind": "dist",
+     "tt": 0.732323,
+     "ref": 0.752525,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.020202,
+      "d": 0.375,
+      "p": 0.619869,
+      "median_a": 0.7525252525252526,
+      "median_b": 0.7323232323232323,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": false,
+     "pass": true,
+     "oracle": false
+    },
+    "geom.ca_clash_frac": {
+     "d": 0.5,
+     "p": 0.19944,
+     "p_asymp": 0.187684,
+     "n_tt": 8,
+     "n_ref": 8,
+     "median_tt": 0.000105,
+     "median_ref": 0.000526,
+     "delta_median": -0.000421,
+     "kind": "dist",
+     "tt": 0.000105,
+     "ref": 0.000526,
+     "bar": "KS p >= 0.05, or inside the seed floor",
+     "seed_floor": {
+      "delta_median_abs": 0.000421,
+      "d": 0.5,
+      "p": 0.19739,
+      "median_a": 0.0005259835893120135,
+      "median_b": 0.00010519671786240269,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "inside_seed_floor": true,
+     "pass": true,
+     "oracle": false
+    },
+    "pre_oracle_pass": {
+     "kind": "rate",
+     "tt": 1.0,
+     "ref": 1.0,
+     "n_pass_tt": 8,
+     "n_pass_ref": 8,
+     "n_tt": 8,
+     "n_ref": 8,
+     "p": 1.0,
+     "bar": "fisher p >= 0.05 (one-sided, drop only)",
+     "seed_floor": {
+      "delta_rate_abs": 0.0,
+      "n_a": 8,
+      "n_b": 8
+     },
+     "pass": true,
+     "oracle": false
+    },
+    "amino_acid_composition.n_generated_unknown_residues": {
+     "kind": "guard",
+     "tt": 0.0,
+     "ref": null,
+     "n_tt": 8,
+     "bar": "mean <= 0.0",
+     "pass": true,
+     "oracle": false
+    },
+    "geom.n_nonfinite_coords": {
+     "kind": "guard",
+     "tt": 0.0,
+     "ref": null,
+     "n_tt": 8,
+     "bar": "mean <= 0.0",
+     "pass": true,
+     "oracle": false
+    },
+    "geom.chain_not_found": {
+     "kind": "guard",
+     "tt": 0.0,
+     "ref": null,
+     "n_tt": 8,
+     "bar": "mean <= 0.0",
+     "pass": true,
+     "oracle": false
+    },
+    "refolded_backbone_rmsd.rmsd": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": true
+    },
+    "oracle.overall_plddt": {
+     "kind": "dist",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": true
+    },
+    "unconditional.pass": {
+     "kind": "rate",
+     "missing": true,
+     "n_tt": 0,
+     "n_ref": 0,
+     "oracle": true
+    },
+    "unconditional.all_metrics_present": {
+     "kind": "guard",
+     "missing": true,
+     "n_tt": 0,
+     "oracle": true
+    }
+   },
+   "diversity": {
+    "unique_tt": 4,
+    "unique_ref": 6,
+    "n_tt": 8,
+    "n_ref": 8,
+    "unique_frac_tt": 0.5,
+    "unique_frac_ref": 0.75,
+    "p": 0.304196,
+    "collapsed": false,
+    "bar": "Fisher exact p >= 0.05 against a drop, and more than one unique sequence",
+    "pass": true
+   },
+   "log": "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/run.log",
+   "designs": [
+    "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/seed0",
+    "/home/moritz/.coworker/artifacts/rfd4-quality/selftest/seed1"
+   ],
+   "caveat": "not a quality claim and not a seed floor for any grade"
+  },
+  "b200_controls": {
+   "what": "the harness run on real released-recipe B200 designs from rfd4-fair-gpu's session s3, as a positive and a negative control. Designs: final-native-compile, pdl1-256 (141-141 binder + PD-L1 A17-131), 80 at size 256 and 40 at size 512, all session seed 1234, scored on CPU with rfd4-evaluate metrics_tags=[design,interchain_interactions] (oracle-free, 36 s per 40 designs).",
+   "positive_control": {
+    "arms": "the 80 size-256 designs split into two disjoint halves of 5 batches, 40 vs 40",
+    "verdict": "PASS",
+    "metrics_graded": 17,
+    "failed": [],
+    "reading": "two draws from one configuration clear every bar, so the test does not fire on noise."
+   },
+   "negative_control": {
+    "arms": "40 size-512 designs vs the 40-design half B",
+    "verdict": "FAIL",
+    "metrics_graded": 17,
+    "failed": [
+     "amino_acid_composition.ala_fraction",
+     "amino_acid_composition.gly_fraction",
+     "sse_distribution.helix_fraction_coi",
+     "sse_distribution.sheet_fraction_coi",
+     "sse_distribution.num_ss_elements_coi",
+     "geom.radius_of_gyration",
+     "interchain_interactions.hbond_atom_count_coi",
+     "interchain_interactions.saltbridge_residue_count_coi"
+    ],
+    "reading": "a genuinely different configuration fails 8 of 17, so the test has power. Largest moves: radius of gyration 14.41 -> 21.22 A (p=5e-05), num_ss_elements_coi 17 -> 44, helix_fraction_coi 0.415 -> 0.661.",
+    "record": "/home/moritz/.coworker/artifacts/rfd4-quality/floor_b200/negative-control.json"
+   },
+   "artifacts": "/home/moritz/.coworker/artifacts/rfd4-quality/floor_b200 (armA, armB, arm512, run_eval.sh, logs)"
+  }
+ },
+ "seed_floor_selftest": {
+  "unconditional": {
+   "_source": "SELF-TEST ONLY: 2x8 CPU fp32 designs at nsteps=20, not the released recipe; no grade may read this as a floor",
+   "_measured": "2026-10-21T16:12:58Z",
+   "_n": [
+    8,
+    8
+   ],
+   "clash_metrics.frac_atoms_clashing_1p5A": {
+    "delta_median_abs": 0.01615,
+    "d": 0.375,
+    "p": 0.662667,
+    "median_a": 0.09179999999999999,
+    "median_b": 0.07565,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "bond_length_metrics.bond_length.frac_unreasonable": {
+    "delta_median_abs": 0.002,
+    "d": 0.25,
+    "p": 0.829409,
+    "median_a": 0.009000000000000001,
+    "median_b": 0.011,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "amino_acid_composition.ala_fraction": {
+    "delta_median_abs": 0.01,
+    "d": 0.25,
+    "p": 0.782561,
+    "median_a": 0.99,
+    "median_b": 1.0,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "amino_acid_composition.gly_fraction": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "sse_distribution.helix_fraction_coi": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "sse_distribution.sheet_fraction_coi": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 0.0,
+    "median_b": 0.0,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "sse_distribution.num_ss_elements_coi": {
+    "delta_median_abs": 0.0,
+    "d": 0.0,
+    "p": 1.0,
+    "median_a": 1.0,
+    "median_b": 1.0,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "geom.radius_of_gyration": {
+    "delta_median_abs": 0.090511,
+    "d": 0.25,
+    "p": 0.980601,
+    "median_a": 15.992074030425186,
+    "median_b": 15.901563198894888,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "geom.frac_ca_bond_outlier": {
+    "delta_median_abs": 0.020202,
+    "d": 0.375,
+    "p": 0.619869,
+    "median_a": 0.7525252525252526,
+    "median_b": 0.7323232323232323,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "geom.ca_clash_frac": {
+    "delta_median_abs": 0.000421,
+    "d": 0.5,
+    "p": 0.19739,
+    "median_a": 0.0005259835893120135,
+    "median_b": 0.00010519671786240269,
+    "n_a": 8,
+    "n_b": 8
+   },
+   "pre_oracle_pass": {
+    "delta_rate_abs": 0.0,
+    "n_a": 8,
+    "n_b": 8
+   }
+  }
+ },
+ "updated": "2026-10-23T20:55:33Z",
+ "seed_floor_plan": {
+  "status": "resample floor measured, two-seed floor still owed",
+  "measured": "seed_floor.binder, _kind=resample: 40 vs 40 designs, two disjoint halves of ONE B200 arm at the released recipe. It bounds the sampling noise of a fixed configuration, which is what the KS test must clear, and says nothing about the seed itself.",
+  "owed": "a two-seed floor. perf/kitcmp/rfd4_arms.py --reference (rfd4-fair-gpu) runs the chosen arm ONCE with no seed= override, so no session it runs can produce one until a second seed arm is added there. That is the blocker, not box time.",
+  "how": "python3 perf/rfd4/quality.py floor --feature <family> --a <seedA> --b <seedB> --kind two-seed --source '<recipe, host, session>'; or index the session and let tick.d/calibrate_floor.sh do it.",
+  "other_families": "every family but binder still has no floor and grades NO_FLOOR, which is not a PASS."
+ }
+}

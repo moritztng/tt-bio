@@ -29,6 +29,15 @@
 #ifndef T1SPLIT
 #define T1SPLIT 0
 #endif
+// T1ZPRE (bench knob trimul_tail.T1_ZPRE): barriers of the next unit read ahead of the gathers, x_cb sized to hold them.
+// T1ZIL (trimul_tail.T1_ZIL): the rest of the next unit is read between gather tiles, whenever x_cb has room.
+// Neither changes which bytes land where: bit-identical.
+#ifndef T1ZPRE
+#define T1ZPRE 2
+#endif
+#ifndef T1ZIL
+#define T1ZIL 0
+#endif
 #ifndef T1B8
 #define T1B8 0
 #endif
@@ -173,8 +182,10 @@ void kernel_main() {
             cb_push_back(x_cb, RB * Kt);
         }
     };
-    // Barriers of the next unit read ahead of this unit's gathers: x_cb holds two (T1SPLIT), none otherwise.
-    constexpr uint32_t PRE = T1SPLIT ? (IL / RB < 2 ? IL / RB : 2) : 0;
+    // Barriers of the next unit read ahead of this unit's gathers: x_cb holds T1ZPRE (T1SPLIT), none otherwise.
+    constexpr uint32_t NBAR = IL / RB;
+    constexpr uint32_t PRE = T1SPLIT ? (NBAR < T1ZPRE ? NBAR : T1ZPRE) : 0;
+    uint32_t pre = 0;   // barriers of unit u already read
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         [[maybe_unused]] const auto [b, xt, h, yt] = t1_unit::decode<St, H, PAIR>(u);   // the mask's and the gather's
@@ -188,7 +199,7 @@ void kernel_main() {
             noc_async_read_barrier();
             cb_push_back(xn_cb, IL * Kt);
         }
-        if constexpr (!T1PRE) read_rows(page, u == u0 ? 0 : PRE * RB, IL);
+        if constexpr (!T1PRE) read_rows(page, pre * RB, IL);
         if constexpr (MASK) {
             const uint32_t scratch = get_write_ptr(mscratch_cb);
             noc_async_read_page((b * St + xt) * St + yt, mk, scratch);
@@ -209,12 +220,20 @@ void kernel_main() {
             cb_push_back(m_cb, IL);
         }
 #if T1SPLIT
-        if (u + 1 < u0 + nunits) read_rows(z_page(u + 1), 0, PRE * RB);
+        const bool next = u + 1 < u0 + nunits;
+        pre = next ? PRE : 0;
+        if (next) read_rows(z_page(u + 1), 0, PRE * RB);
         const uint32_t cube = xt * St + yt;
         for (uint32_t q = Q0; q < Q0 + QN; q += 2) {
             const uint32_t pg = (b * CT + (q < CT ? q : q - CT)) * 32 * St * St + cube;
             if (q < CT) gather.tile(tt::CBIndex::c_21, oa, pg, h * IL, St * St, (q - Q0) / 2);
             else gather.tile(tt::CBIndex::c_21, ob, pg, h * IL, St * St, (q - Q0) / 2);
+            if constexpr (T1ZIL) {
+                if (next && pre < NBAR && cb_pages_reservable_at_back(x_cb, RB * Kt)) {
+                    read_rows(z_page(u + 1), pre * RB, pre * RB + RB);
+                    ++pre;
+                }
+            }
         }
 #endif
     }
