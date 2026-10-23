@@ -737,7 +737,7 @@ def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
             ttnn.Shape([B, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
         )
     c_out = int(out.shape[-1])
-    assert c_off % TILE_W == 0 and c_off + C <= c_out and [int(d) for d in out.shape[:3]] == [B, N, N], (
+    assert c_off % TILE_W == 0 and c_off + C <= c_out and [int(out.shape[i]) for i in range(3)] == [B, N, N], (
         "reblock_permute_back: the channel slice must be tile-aligned and inside `out`",
         C, c_off, [int(d) for d in out.shape])
     if _pbpk() and (x.memory_config().memory_layout == out.memory_config().memory_layout
