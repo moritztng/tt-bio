@@ -32,8 +32,18 @@
 #ifndef T1B8
 #define T1B8 0
 #endif
+// T1MCAST (trimul_tail.T1_MCAST): every core needs every resident weight tile, so one core (per-core arg 2 set) reads
+// [Wp^T | Wg^T], gamma, beta and Wg_out from DRAM and multicasts the four CB regions to the grid rectangle instead
+// of each core pulling the same 575 KB (RFD4's key), common/weight_mcast.hpp. The same bytes land in the same CBs:
+// bit-identical.
+#ifndef T1MCAST
+#define T1MCAST 0
+#endif
 #include "api/dataflow/dataflow_api.h"
 #include "unit.hpp"
+#if T1MCAST
+#include "../common/weight_mcast.hpp"
+#endif
 #if T1SPLIT
 #include "gather.hpp"
 #endif
@@ -107,6 +117,12 @@ void kernel_main() {
     cb_reserve_back(w_cb, 2 * QN * Kt);
     cb_reserve_back(gamma_cb, Kt);
     cb_reserve_back(beta_cb, Kt);
+    if constexpr (NG) cb_reserve_back(wo_cb, Kt * NG);
+#if T1MCAST
+    constexpr uint32_t MC = T1SPLIT ? 9 : 7;   // weight_mcast.hpp's common args
+    const bool sender = get_arg_val<uint32_t>(2);
+    if (sender) {
+#endif
     uint32_t w = get_write_ptr(w_cb);
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wp, w);
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wg, w);
@@ -115,12 +131,22 @@ void kernel_main() {
     w = get_write_ptr(beta_cb);
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
     if constexpr (NG) {
-        cb_reserve_back(wo_cb, Kt * NG);
         w = get_write_ptr(wo_cb);
         for (uint32_t k = 0; k < Kt; ++k)
             for (uint32_t n = N0; n < N0 + NG; ++n, w += otb) noc_async_read_page(k * NTGT + n, wo, w);
     }
     noc_async_read_barrier();
+#if T1MCAST
+    }
+    if (sender) {
+        const uint32_t addr[] = {get_write_ptr(w_cb), get_write_ptr(gamma_cb), get_write_ptr(beta_cb),
+                                 NG ? get_write_ptr(wo_cb) : 0};
+        const uint32_t bytes[] = {2 * QN * Kt * wtb, Kt * tb, Kt * tb, Kt * NG * otb};
+        weight_mcast::send<MC>(addr, bytes, NG ? 4 : 3);
+    } else {
+        weight_mcast::receive<MC>();
+    }
+#endif
     cb_push_back(w_cb, 2 * QN * Kt);
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
