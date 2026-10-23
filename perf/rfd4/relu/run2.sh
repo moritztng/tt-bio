@@ -4,7 +4,7 @@
 # (quality.py binder). Books the card on qb2's arbiter and waits for it.
 #   perf/rfd4/relu/run2.sh <card> [legs]     (run from the tree on qb2)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/relu/run2; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/relu/run2; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-zprec256 design grade}; OWN=rfd4-perf-relu
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:$OWN PYTHONPATH=$W:$W/perf
 mkdir -p $O/design $O/grade; cd $W

@@ -7,7 +7,7 @@
 #   design grade       31 seeds at 512 per arm, per-seed CA RMSD (grade.py) and population quality
 #   perf/rfd4/t1s/run5.sh <card> [legs]     (run from the tree; books the card)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1s/run5; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1s/run5; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-std il ab512 ab256 ab384 design grade}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-t1s PYTHONPATH=$W:$W/perf
 mkdir -p $O/design $O/grade; cd $W

@@ -5,7 +5,7 @@
 # Takes the first free qb2 card (book.py + chip flock; release gates keep priority), waits up to 10 h.
 #   RUN=runN perf/rfd4/z8/run1.sh [legs]
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/z8/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/z8/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
 LEGS=${1:-zprec256 zprec512 ab512 ab384 ab256 design grade}
 mkdir -p $O/design $O/grade; cd $W
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" | tee -a $O/run.log; }
