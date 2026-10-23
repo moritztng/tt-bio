@@ -1554,6 +1554,10 @@ BF16_TILE, FP32_TILE = 2048, 4096
 # the reader, which reads z for the next unit ahead and then gathers them, and the odd ones to the writer, beside
 # g_out. One-launch plans with bf16 a / b only. The bytes land where the writer alone put them: bit-identical.
 T1_SPLIT = {(12, 16, 12): 1}
+# One core reads T1's resident weights and multicasts them to the grid (kernels/trimul_in_t1/reader.cpp T1MCAST)
+# instead of every core pulling the same pages: 575 KB a core, 63 MB a call at RFD4's key. Same bytes in the same
+# CBs, so a, b and g_out are bit-identical. An int (bench knob) applies to every key.
+T1_MCAST = {(12, 16, 12): 1}
 
 
 def _t1_knob(knob, key, default):
@@ -1766,10 +1770,11 @@ def t1_w8(wpT, wgT, wgo):
 
 
 def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, b8=False, group=0, ln1=0, xn=None,
-              split=False):
+              split=False, mcast=False):
     """The program of channel group `group` of the T1_PLANS entry for this call, `il` row tiles per item.
     `ln1` (T1_LN1): 1 the launch also writes xn into `xn`, 2 it reads xn as `x` and runs no layer_norm.
-    `split` (T1_SPLIT): the reader gathers the even channel tiles."""
+    `split` (T1_SPLIT): the reader gathers the even channel tiles. `mcast` (T1_MCAST): core (0, 0) reads the
+    weights and multicasts them; the entry's "mc" common args and "sems" go with every launch."""
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
@@ -1785,9 +1790,16 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // il), gx * gy, pair=b8 and il == 8)):
         cx, cy = c % gx, c // gx
-        rd[cx][cy] = [u0, n]
+        rd[cx][cy] = [u0, n] + ([int(c == 0)] if mcast else [])
         wr[cx][cy] = [u0, n]
         cp[cx][cy] = [n]
+    mc, sems = [], []
+    if mcast:
+        dev = x.device()
+        phys = lambda cx, cy: dev.worker_core_from_logical_core(ttnn.CoreCoord(cx, cy))  # noqa: E731
+        lo, hi = phys(0, 0), phys(gx - 1, gy - 1)
+        mc = [lo.x, lo.y, hi.x, hi.y, gx * gy, (lo.x << 16) | lo.y]
+        sems = [ttnn.SemaphoreDescriptor(id=i, core_ranges=core_grid, initial_value=0) for i in (0, 1)]
     # 1/K as a packed bf16 pair (exact for K a power of two) and eps as fp32 bits, as T2 has them.
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / shp[-1]))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -1806,8 +1818,8 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
                            eps_bits, group * qn, group * ng, ntg, il]
         + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
         + ([ct2, nb] + acc(outs[0]) + acc(outs[1]) if split else []),
-        defines=abl + pre + sp + ([("T1B8", "1")] if b8 else []), runtime_args=rd,
-        common_runtime_args=[0] * (9 if split else 7),
+        defines=abl + pre + sp + ([("T1B8", "1")] if b8 else []) + ([("T1MCAST", "1")] if mcast else []),
+        runtime_args=rd, common_runtime_args=[0] * ((9 if split else 7) + len(mc)),
         config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
@@ -1828,7 +1840,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split, b8=b8)
     cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if t1_cb_b8(i, w8, b8) else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
-    return {"kernels": [reader, writer, compute], "cbs": cbs}
+    return {"kernels": [reader, writer, compute], "cbs": cbs, "mc": mc, "sems": sems}
 
 
 def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False):
@@ -1859,29 +1871,30 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
     b8 = bool(b8 or T1_B8) and (il == 32 or il == 8 and t1_pair_free(B * (S // TILE) ** 2 * 4, grid[0] * grid[1]))
     nb, split = t1_dm(pkey, mask is not None, w8, b8)
+    mcast = bool(_t1_knob(T1_MCAST, pkey, 0)) and grid[0] * grid[1] > 1
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
         entry = _CACHE.get(key + (g, ln1))
         if entry is None:
             entry = _CACHE[key + (g, ln1)] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask,
-                                                       eps, il, nb, b8, g, ln1, xn, split)
+                                                       eps, il, nb, b8, g, ln1, xn, split, mcast)
         reader, writer, _ = entry["kernels"]
         src = xn if ln1 == 2 else x
         reader.common_runtime_args = [src.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
                                       wgo.buffer_address(), ln_w.buffer_address(),
                                       ln_b.buffer_address(),
                                       (mask if mask is not None else x).buffer_address()] + (
-                                     [outs[0].buffer_address(), outs[1].buffer_address()] if split else [])
+                                     [outs[0].buffer_address(), outs[1].buffer_address()] if split else []) + entry["mc"]
         writer.common_runtime_args = [o.buffer_address() for o in outs] + ([xn.buffer_address()] if ln1 == 1 else [])
-        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+        pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"])
         ttnn.generic_op([src, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs
                         + ([xn] if ln1 == 1 else []), pd)
     if xn is not None:
