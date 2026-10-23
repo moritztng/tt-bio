@@ -47,7 +47,7 @@ void kernel_main() {
     constexpr uint32_t Q0 = get_compile_time_arg_val(8);
     constexpr uint32_t N0 = get_compile_time_arg_val(9);
     constexpr uint32_t NTGT = get_compile_time_arg_val(10);    // g_out channel tiles in all
-    constexpr uint32_t IL = get_compile_time_arg_val(11);      // row tiles per unit, 32, 16, 8 or 4
+    constexpr uint32_t IL = get_compile_time_arg_val(11);      // row tiles per unit, 32, 16 or 8
     constexpr uint32_t H = 32 / IL;
     constexpr auto x_args = TensorAccessorArgs<12>();
     constexpr auto wp_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
@@ -56,7 +56,7 @@ void kernel_main() {
     constexpr auto gm_args = TensorAccessorArgs<wo_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
-    static_assert(IL % RB == 0 && (IL == 32 || IL == 16 || IL == 8 || IL == 4), "RB must divide the IL row tiles of a unit");
+    static_assert(IL % RB == 0 && (IL == 32 || IL == 16 || IL == 8), "RB must divide the IL row tiles of a unit");
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
     const auto wp = TensorAccessor(wp_args, get_common_arg_val<uint32_t>(1));

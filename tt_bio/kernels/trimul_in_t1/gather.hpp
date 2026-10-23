@@ -32,7 +32,7 @@ struct Gather {
     template <class Acc>
     void tile(uint32_t src_cb, const Acc& out, uint32_t page, uint32_t r0, uint32_t SS) {
         // The staged tile keeps the unit's rows where the output has them, so one write (IL >= 16) or one per
-        // face pair column (IL = 8 or 4) moves them.
+        // face pair column (IL = 8) moves them.
         [[maybe_unused]] const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;
         [[maybe_unused]] const uint32_t wlen = IL == 32 ? TB : (IL == 16 ? 2 * FB : IL * RB);
         cb_wait_front(src_cb, IL);
@@ -80,7 +80,7 @@ struct Gather {
                 } else {
                     const uint64_t dst = out.get_noc_addr(page, off0);
                     noc_async_write(st + off0, dst, wlen);
-                    if constexpr (IL <= 8) noc_async_write(st + off0 + FB, dst + FB, wlen);
+                    if constexpr (IL == 8) noc_async_write(st + off0 + FB, dst + FB, wlen);
                 }
             }
             dirty[grp] = true;
