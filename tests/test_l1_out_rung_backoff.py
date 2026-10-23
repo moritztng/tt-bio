@@ -212,6 +212,7 @@ def _drive_pair_proj(monkeypatch, l1_block_w, calls=3):
     """
     monkeypatch.setattr(T, "_pair_proj_config", lambda *a, **k: "cfg")
     monkeypatch.setattr(T, "_pair_proj_minimal_matmul", lambda *a, **k: None)
+    monkeypatch.setattr(T, "_l1_out_placeable", lambda *a: True)
     attempts = []
 
     def fake_linear(x, w, **kw):
@@ -282,6 +283,7 @@ def _refuse_with(monkeypatch, msg):
     monkeypatch.setattr(T, "_pair_proj_config", lambda *a, **k: object())
     monkeypatch.setattr(T, "_pair_proj_minimal_matmul", lambda *a, **k: "dram")
     monkeypatch.setattr(T.ttnn, "linear", linear)
+    monkeypatch.setattr(T, "_l1_out_placeable", lambda *a: True)
     x, w = _FakeT((1, 768, 768, 384)), _FakeT((384, 384))
     for _ in range(6):
         assert T._pair_proj_linear(x, w, None, "bf16", l1_out=True) == "dram"
@@ -297,3 +299,33 @@ def test_an_output_that_does_not_fit_retires_at_once(monkeypatch):
     """A narrower rung shrinks the circular buffers, never the output: one throw, not one per rung."""
     calls = _refuse_with(monkeypatch, "Not enough space to allocate 75497472 B L1 buffer across 72 banks")
     assert calls == ["l1"] and len(T._L1_OUT_REFUSED) == 1
+
+
+class _View:
+    num_banks = 72
+
+    def __init__(self, free):
+        self.largest_contiguous_bytes_free_per_bank = free
+
+
+def test_an_output_with_no_free_block_is_never_tried(monkeypatch):
+    """OpenDDE 768 on Wormhole: [1,128,768,384] x [384,384] bf16 needs 512 tiles = 1048576 B on each of
+    72 banks. With a sibling 1 MB/bank tensor resident 346848 B are free, so the L1 leg is declined
+    before the call instead of throwing inside it; a whole free bank takes it."""
+    class Dev(_FakeT):
+        def device(self):
+            return None
+
+    x, w = Dev((1, 128, 768, 384)), _FakeT((384, 384))
+    monkeypatch.setattr(T.ttnn, "get_memory_view", lambda dev, kind: _View([1395424, 346848]))
+    assert not T._l1_out_placeable(x, w, T.ttnn.bfloat16)
+    monkeypatch.setattr(T.ttnn, "get_memory_view", lambda dev, kind: _View(1048576))
+    assert T._l1_out_placeable(x, w, T.ttnn.bfloat16)
+
+    calls = []
+    monkeypatch.setattr(T, "_l1_out_placeable", lambda *a: False)
+    monkeypatch.setattr(T, "_pair_proj_config", lambda *a, **k: object())
+    monkeypatch.setattr(T, "_pair_proj_minimal_matmul", lambda *a, **k: "dram")
+    monkeypatch.setattr(T.ttnn, "linear", lambda *a, **k: calls.append(k) or "l1")
+    assert T._pair_proj_linear(x, w, None, "bf16", l1_out=True) == "dram"
+    assert calls == [] and not T._L1_OUT_REFUSED   # declined for now, not retired
