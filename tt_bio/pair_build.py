@@ -27,8 +27,9 @@ _CACHE: dict = {}
 
 
 def eligible(const, table, bins, scale, wg, beta) -> bool:
-    """const [B, N, N, C] float32 TILE; table [NB, C] float32 ROW_MAJOR; bins uint32 and scale float32 ROW_MAJOR
-    [B * N, N]; wg and beta [B, 32, C] float32 TILE (each row the same vector). N and C tile multiples, all in DRAM."""
+    """const [1 or B, N, N, C] float32 TILE (a lane's designs share one constant); table [NB, C] float32 ROW_MAJOR;
+    bins uint32 and scale float32 ROW_MAJOR [B * N, N]; wg and beta [B, 32, C] float32 TILE (each row the same
+    vector). N and C tile multiples, all in DRAM."""
     ts = [const, table, bins, scale, wg, beta]
     if [t.dtype for t in ts] != [ttnn.float32, ttnn.float32, ttnn.uint32, ttnn.float32, ttnn.float32, ttnn.float32]:
         return False
@@ -40,14 +41,17 @@ def eligible(const, table, bins, scale, wg, beta) -> bool:
     cs = [int(d) for d in const.shape]
     if len(cs) != 4:
         return False
-    B, n, m, c = cs
-    return (n == m and n % 32 == 0 and c % 32 == 0 and int(table.shape[0]) <= 32 and list(table.shape) == [table.shape[0], c]
+    cb, n, m, c = cs
+    B = int(wg.shape[0])
+    return (cb in (1, B) and n == m and n % 32 == 0 and c % 32 == 0 and int(table.shape[0]) <= 32
+            and list(table.shape) == [table.shape[0], c]
             and [int(d) for d in bins.shape] == [B * n, n] == [int(d) for d in scale.shape]
             and [int(d) for d in wg.shape] == [B, 32, c] == [int(d) for d in beta.shape])
 
 
 def _build(const, table, bins, scale, wg, beta, out, device):
-    B, n, _, c = (int(d) for d in const.shape)
+    cbat, n, _, c = (int(d) for d in const.shape)
+    B = int(wg.shape[0])
     nt, kt, nb = n // 32, c // 32, int(table.shape[0])
     units = B * n * nt
     g = device.compute_with_storage_grid_size()
@@ -73,7 +77,7 @@ def _build(const, table, bins, scale, wg, beta, out, device):
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     src = lambda name: str(KERNEL_DIR / name)  # noqa: E731
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=[n, nt, kt, nb] + acc(const) + acc(table) + acc(bins) + acc(scale)
+                                   compile_time_args=[n, nt, kt, nb, cbat * n * nt] + acc(const) + acc(table) + acc(bins) + acc(scale)
                                    + acc(wg) + acc(beta),
                                    runtime_args=rt, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
@@ -91,12 +95,13 @@ def _build(const, table, bins, scale, wg, beta, out, device):
 
 def pair_build(const, table, bins, scale, wg, beta):
     """z [B, N, N, C] float32 TILE = (const + table[bins]) * scale * wg + beta, or None when `eligible` declines.
-    Nothing is freed."""
+    A [1, N, N, C] const is every design's. Nothing is freed."""
     if not eligible(const, table, bins, scale, wg, beta):
         return None
     device = const.device()
-    out = ttnn.allocate_tensor_on_device(const.shape, ttnn.float32, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
-    key = (device.id(), tuple(int(d) for d in const.shape), int(table.shape[0]))
+    B, n, c = int(wg.shape[0]), int(const.shape[1]), int(const.shape[3])
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, n, n, c]), ttnn.float32, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
+    key = (device.id(), tuple(int(d) for d in const.shape), B, int(table.shape[0]))
     if key not in _CACHE:
         _CACHE[key] = _build(const, table, bins, scale, wg, beta, out, device)
     kernels, cbs = _CACHE[key]

@@ -74,6 +74,11 @@ def test_select_globs():
     assert not [n for n in names if n.startswith("ladder:") or n == "rg:l1-budget"]
 
 
+def test_select_rejects_a_pattern_that_matches_nothing():
+    with pytest.raises(SystemExit, match="rg:nope"):
+        gf.select(_legs(), ["rg:*", "rg:nope"])
+
+
 def test_record_lever_legs_splice_into_a_copy_and_are_only_built_on_request():
     assert not [lg for lg in _legs() if lg.family == "record"]
     legs = [lg for lg in gf.build_legs(ROSTER, [], 1, "SDPA_FUSED_PADDED") if lg.family == "record"]
@@ -534,7 +539,8 @@ def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path
     assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd
     assert "RELEASE_GATE_SIZE_WORKDIR=/t/out/x/sizegate-work" in cmd
     assert "/r/venv-aaaaaaaaaaaa/bin/python scripts/full_parity_gate.py" in cmd
-    free = shlex.split(h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y"))[-1]
+    toks = shlex.split(h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y"))
+    free = toks[toks.index("setsid") + 4]          # setsid -w bash -c <attempt>
     assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
     assert "/r/venv312-aaaaaaaaaaaa/bin/python -m pytest" in free
     bc2 = h.command(next(lg for lg in _legs() if lg.family == "bc2"), 1, "/t/out/z")
@@ -651,6 +657,37 @@ def test_a_pool_leg_whose_host_rebooted_under_it_is_reported_not_waited_for(tmp_
         rc = gf.run_in_pool(h, gf.POOL, leg, str(rdir), f)
     t.join()
     assert rc == 1 and gf.REBOOTED in (tmp_path / "leg.log").read_text()
+
+
+def test_a_pool_leg_that_left_the_queue_and_went_quiet_past_its_cap_is_lost(tmp_path, monkeypatch):
+    """rel-f9b8ca9e9 (10-23): 17 WH jobs died with no exit code under the same boot and the runner
+    polled them for 12 h. A started job whose log is quiet past budget + timeout's -k has nobody left."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    boot = tmp_path / "boot_id"
+    boot.write_text("first\n")
+    monkeypatch.setattr(gf, "BOOT_ID", str(boot))
+    queue = tmp_path / "queue"
+    queue.mkdir()
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, "b" * 40)
+    leg = gf.Leg("ux:x", ["PY", "-c", "pass"], "ux")
+    rdir = tmp_path / "o" / "run1" / "wh" / "ux_x"
+
+    def pool():  # starts the job, which dies before its rc line, and drops it from the queue
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        subprocess.run(["bash", "-c", jobs[0].read_text().splitlines()[2]], check=True)
+        jobs[0].unlink()
+        (rdir / "leg.log").write_text("##CHIP 3\n")
+        old = time.time() - leg.budget - 3600
+        os.utime(rdir / "leg.log", (old, old))
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(rdir), f)
+    t.join()
+    assert rc == 1 and gf.VANISHED in (tmp_path / "leg.log").read_text()
 
 
 def test_a_pool_leg_requeued_after_a_reboot_waits_for_its_new_run(tmp_path, monkeypatch):

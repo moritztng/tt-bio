@@ -34,7 +34,6 @@ ensure_p300_mesh_descriptor()
 import clocksample  # noqa: E402
 from rfd4.trunk_clock import time_trunk  # noqa: E402
 
-CLOCK_FLOOR_MHZ = 1200
 
 
 def main():
@@ -55,6 +54,7 @@ def main():
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
     ap.add_argument("--reseed", action="store_true", help="design i runs at seed+i: a seed floor from one session")
+    ap.add_argument("--fast", action="store_true", help="the CLI's --fast: set_fast_mode(True) before the build")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -103,6 +103,9 @@ def main():
         E.preprocess = transplanted
         emit({"kind": "transplant", "seams": a.upstream_seams, "keys": list(keys)})
 
+    if a.fast:
+        from tt_bio.tenstorrent import set_fast_mode
+        set_fast_mode(True)   # what `tt-bio design --fast` does; the trunk picks FAST_LEVERS at build
     with clocksample.during() as clk:
         t0 = time.perf_counter()
         engine = E.DesignEngine(a.weights, recipe=a.recipe)
@@ -140,7 +143,7 @@ def main():
               "trunk_call_s": ({"min": round(min(trunk_s), 4), "max": round(max(trunk_s), 4)}
                                if trunk_s else None),
               "instrument_attached": bool(trunk_s),
-              "aiclk": summ, "aiclk_mhz": mhz, "load1": os.getloadavg()[0], "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
+              "aiclk": summ, "aiclk_mhz": mhz, "load1": os.getloadavg()[0], "clock_artifact": clocksample.is_clock_artifact(mhz),
               "cif": str(path)})
         if not trunk_s:
             print("INSTRUMENT: engine.trunk.run_bucketed was never called through the timing patch; "

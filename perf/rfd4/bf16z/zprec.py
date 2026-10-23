@@ -1,6 +1,6 @@
-"""z and s of the released trunk against float64, RFD4's default lever set vs the same plus `pair_bf16z`.
+"""z and s of the released trunk against float64, RFD4's default lever set vs the same plus `--lever` (`pair_bf16z`).
 
-    TT_VISIBLE_DEVICES=<card> python perf/rfd4/bf16z/zprec.py --out <json> [--n 256] [--cycles 1]
+    TT_VISIBLE_DEVICES=<card> python perf/rfd4/bf16z/zprec.py --out <json> [--n 256] [--cycles 1] [--lever NAME]
 
 The golden trunk inputs (tests/test_rfd4_trunk_golden.py) tiled along the token axis to `--n` tokens with no padded
 token, so every fused program the lever changes (outer_residual, pair_tail, pair_relu) serves; resid_precision.py's
@@ -43,6 +43,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--n", type=int, default=256)
     ap.add_argument("--cycles", type=int, default=1)
+    ap.add_argument("--lever", default="pair_bf16z")
     a = ap.parse_args()
     weights = {k: v.double() for k, v in torch.load(G.WEIGHTS, map_location="cpu", weights_only=False)["weights"].items()}
     (x, z, cond, mask), _ = G._golden("MultiheadAttnAndTransition__nn_transformer_layers_1__call0.pt")
@@ -59,7 +60,7 @@ def main():
     res = {"tokens": n, "cycles": a.cycles, "bar": G.BAR, "floor": {"s": rel(fl_s, ref_s), "z": rel(fl_z, ref_z)}}
     base = ",".join(sorted(TR.NORMAL_LEVERS))
     outs = {}
-    for name, spec in (("base", base), ("bf16z", base + ",pair_bf16z")):
+    for name, spec in (("base", base), (a.lever, base + "," + a.lever)):
         os.environ["TT_BIO_LEVERS"] = spec
         mod = TR.Trunk(T.WeightScope({kk: v.float() for kk, v in weights.items()}), TR.compute_kernel_config(), 14,
                        G.HEADS, residual_dtype=ttnn.float32)
@@ -70,7 +71,7 @@ def main():
         outs[name] = (gs, gz)
         res[name] = {"pair_dtype": str(zd), "s": rel(gs, ref_s), "z": rel(gz, ref_z)}
         print(name, res[name], flush=True)
-    res["bf16z_vs_base"] = {"s": rel(outs["bf16z"][0], outs["base"][0]), "z": rel(outs["bf16z"][1], outs["base"][1])}
+    res[a.lever + "_vs_base"] = {"s": rel(outs[a.lever][0], outs["base"][0]), "z": rel(outs[a.lever][1], outs["base"][1])}
     print(json.dumps(res, indent=1))
     json.dump(res, open(a.out, "w"), indent=1)
 

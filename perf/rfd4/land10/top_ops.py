@@ -2,8 +2,8 @@
 
     python3 perf/rfd4/land10/top_ops.py <census dir> <out.json> [top]
 
-Same signpost attribution as census_v2.py. Per design = 60 first passes + 120 recycled ones (the recycle projections
-charged to the pass they feed). Ops are keyed by (family, op code); bytes are every input and output tensor at its
+Same signpost attribution as census_v2.py. Per design = (60 first passes + 120 recycled ones) / batch (the recycle
+projections charged to the pass they feed; run.json's batch, designs a pass). Per-pass columns are the whole batched pass. Ops are keyed by (family, op code); bytes are every input and output tensor at its
 logical shape and dtype (block-float formats at their packed size, a generic_op's io tensors once each, its returned one
 included), which is the DRAM traffic if every operand
 streams, so the floor `max(bytes / 436 GB/s, FLOPs / 140 TFLOP/s HiFi2)` is a lower bound even where an operand sits
@@ -86,16 +86,16 @@ def passes(prof):
     return out[0], out[-1]
 
 
-def table(first, rec, key):
+def table(first, rec, key, nb=1):
     t = collections.defaultdict(lambda: {"ms_design": 0.0, "ms_rec_pass": 0.0, "ops_rec_pass": 0, "bytes_rec_pass": 0.0,
                                          "flop_rec_pass": 0.0, "floor_ms_design": 0.0, "cores": set(), "shapes": {}})
-    for w, ops in ((60, first), (120, rec)):
+    for w, ops in ((60 / nb, first), (120 / nb, rec)):
         for fam, r in ops:
             e = t[key(fam, r)]
             ms, b, f = float(r["DEVICE KERNEL DURATION [ns]"] or 0) / 1e6, nbytes(r), op_flops(r)
             e["ms_design"] += w * ms
             e["floor_ms_design"] += w * max(b / BW, f / PEAK) * 1e3
-            if w == 120:
+            if ops is rec:
                 e["ms_rec_pass"] += ms
                 e["ops_rec_pass"] += 1
                 e["bytes_rec_pass"] += b
@@ -124,9 +124,10 @@ def main():
     prof, out = sys.argv[1], sys.argv[2]
     top = int(sys.argv[3]) if len(sys.argv) > 3 else 10
     first, rec = passes(prof)
-    ops = table(first, rec, lambda f, r: (f, r["OP CODE"]))
+    nb = json.load(open(f"{prof}/run.json")).get("batch", 1)
+    ops = table(first, rec, lambda f, r: (f, r["OP CODE"]), nb)
     glue = table([x for x in first if x[0] in GLUE], [x for x in rec if x[0] in GLUE],
-                 lambda f, r: (f, r["OP CODE"], shapes(r)))
+                 lambda f, r: (f, r["OP CODE"], shapes(r)), nb)
     doc = {"run": json.load(open(f"{prof}/run.json")), "roof": {"dram_gb_s": 436, "tflop_s_hifi2": 140},
            "device_s_per_design": round(sum(x["device_s_per_design"] for x in ops), 3),
            "top_ops": ops[:top], "all_ops": ops,

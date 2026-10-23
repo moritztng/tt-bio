@@ -156,9 +156,10 @@ def test_the_card_builds_the_pair(case, npad):
 
 
 @pytest.mark.device
-@pytest.mark.parametrize("b, n", [(1, 128), (2, 64), (1, 512)])
-def test_one_program_is_the_float32_ops_with_an_exact_gather(b, n):
-    """`tt_bio.pair_build` against the same four float32 ops on the host, in the same order."""
+@pytest.mark.parametrize("b, n, cb", [(1, 128, 1), (2, 64, 2), (1, 512, 1), (4, 64, 1), (4, 256, 1)])
+def test_one_program_is_the_float32_ops_with_an_exact_gather(b, n, cb):
+    """`tt_bio.pair_build` against the same four float32 ops on the host, in the same order. `cb` 1 under `b` > 1 is
+    a lane: one design constant, each design its own bins, scale and modulation."""
     import ttnn
 
     from tt_bio import tenstorrent as T
@@ -167,7 +168,7 @@ def test_one_program_is_the_float32_ops_with_an_exact_gather(b, n):
     dev = T.get_device()
     g = torch.Generator().manual_seed(n)
     c, nb = 384, 30
-    const = torch.randn(b, n, n, c, generator=g)
+    const = torch.randn(cb, n, n, c, generator=g)
     table = torch.randn(nb, c, generator=g) * torch.logspace(-4, 1, c)
     bins = torch.randint(0, nb, (b, n, n), generator=g)
     scale = torch.rand(b, n, n, generator=g) * 4

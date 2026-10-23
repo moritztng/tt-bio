@@ -219,7 +219,7 @@ def tri_mult(w, p, z, pair_mask, outgoing, rnd=ident):
     a = rnd(rnd(_lin(zn, w, f"{p}.linear_a_p")) * rnd(torch.sigmoid(_lin(zn, w, f"{p}.linear_a_g"))) * m)
     b = rnd(rnd(_lin(zn, w, f"{p}.linear_b_p")) * rnd(torch.sigmoid(_lin(zn, w, f"{p}.linear_b_g"))) * m)
     eq = "bikc,bjkc->bijc" if outgoing else "bkic,bkjc->bijc"
-    x = rnd(torch.einsum(eq, a, b))
+    x = getattr(rnd, "x", rnd)(torch.einsum(eq, a, b))   # `rnd.x`: how the contraction stores x, if not as rnd
     x = rnd(layer_norm(x, w[f"{p}.layer_norm_out.weight"], w.get(f"{p}.layer_norm_out.bias")))
     x = rnd(_lin(x, w, f"{p}.linear_z"))
     g = rnd(torch.sigmoid(_lin(zn, w, f"{p}.linear_g")))
@@ -236,7 +236,7 @@ def pair_transition(w, p, z, pair_mask, rnd=ident):
 def pair_update(w, p, x, z, mask, rnd=ident, pair_write="hadamard"):
     """`PairReprUpdate.forward` with `use_tri_mult=True`."""
     pm = mask[:, None, :] * mask[:, :, None]
-    res = _res(rnd)
+    res = getattr(rnd, "z", _res(rnd))   # `rnd.z`: how the pair stream is stored, if not as the residual
     x = x * mask[..., None]
     h = rnd(layer_norm(x, w[f"{p}.layer_norm_in.weight"], w[f"{p}.layer_norm_in.bias"]))
     pi, pj = rnd(h @ w[f"{p}.linear_x.weight"].T).chunk(2, dim=-1)
@@ -302,7 +302,7 @@ def trunk(w, s_init, z_init, conds, mask, nlayers, every_n=2, n_heads=16, rnd=id
     zero on the first cycle because the previous state is zero)."""
     s, z = torch.zeros_like(s_init), torch.zeros_like(z_init)
     for c in conds:
-        z_in = _res(rnd)(z_init + rnd(rnd(rms_norm(z, w["z_cycle_norm.weight"])) @ w["z_cycle_proj.weight"].T))
+        z_in = getattr(rnd, "z", _res(rnd))(z_init + rnd(rnd(rms_norm(z, w["z_cycle_norm.weight"])) @ w["z_cycle_proj.weight"].T))
         s_in = _res(rnd)(s_init + rnd(rnd(rms_norm(s, w["s_cycle_norm.weight"])) @ w["s_cycle_proj.weight"].T))
         s, z = s_in, z_in
         for i in range(nlayers):

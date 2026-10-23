@@ -13,6 +13,10 @@
 // does nothing but the gather, which is the critical path.
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#include "../common/weight_mcast.hpp"
+#ifndef T2MCAST
+#define T2MCAST 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -64,27 +68,42 @@ void kernel_main() {
     cb_reserve_back(cb_w, (1 + GATE) * Kt * Nt);
     cb_reserve_back(cb_gamma, Kt);
     cb_reserve_back(cb_beta, Kt);
+    // T2MCAST (trimul_tail.T2_MCAST, not GATE / EXTRA): core 0 reads Wp, gamma, beta and multicasts them
+    // (common/weight_mcast.hpp, common args 8..; per-core arg 2 marks the sender).
+    static_assert(!T2MCAST || (!GATE && !EXTRA), "T2MCAST multicasts Wp alone");
+    const bool sender = !T2MCAST || get_arg_val<uint32_t>(2);
     uint32_t w = get_write_ptr(cb_w);
-    for (uint32_t t = 0; t < Kt * Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, wp, w);
-    if constexpr (GATE) {
-        for (uint32_t t = 0; t < Kt * Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, wg, w);
-    }
-    w = get_write_ptr(cb_gamma);
-    for (uint32_t t = 0; t < Kt; ++t, w += TILE_BYTES) noc_async_read_page(t, gm, w);
-    w = get_write_ptr(cb_beta);
-    for (uint32_t t = 0; t < Kt; ++t, w += TILE_BYTES) noc_async_read_page(t, bt, w);
-    if constexpr (NBIAS > 0) {
-        // the [32, N] row-replicated biases, p's first
-        cb_reserve_back(cb_bias, NBIAS * Nt);
-        w = get_write_ptr(cb_bias);
-        if constexpr (EXTRA & 1) {
-            for (uint32_t t = 0; t < Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, bp, w);
+    if (sender) {
+        for (uint32_t t = 0; t < Kt * Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, wp, w);
+        if constexpr (GATE) {
+            for (uint32_t t = 0; t < Kt * Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, wg, w);
         }
-        if constexpr (EXTRA & 2) {
-            for (uint32_t t = 0; t < Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, bg, w);
+        w = get_write_ptr(cb_gamma);
+        for (uint32_t t = 0; t < Kt; ++t, w += TILE_BYTES) noc_async_read_page(t, gm, w);
+        w = get_write_ptr(cb_beta);
+        for (uint32_t t = 0; t < Kt; ++t, w += TILE_BYTES) noc_async_read_page(t, bt, w);
+        if constexpr (NBIAS > 0) {
+            // the [32, N] row-replicated biases, p's first
+            cb_reserve_back(cb_bias, NBIAS * Nt);
+            w = get_write_ptr(cb_bias);
+            if constexpr (EXTRA & 1) {
+                for (uint32_t t = 0; t < Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, bp, w);
+            }
+            if constexpr (EXTRA & 2) {
+                for (uint32_t t = 0; t < Nt; ++t, w += TILE_BYTES) noc_async_read_page(t, bg, w);
+            }
+        }
+        noc_async_read_barrier();
+    }
+    if constexpr (T2MCAST) {
+        if (sender) {
+            const uint32_t addr[] = {get_write_ptr(cb_w), get_write_ptr(cb_gamma), get_write_ptr(cb_beta)};
+            const uint32_t bytes[] = {Kt * Nt * TILE_BYTES, Kt * TILE_BYTES, Kt * TILE_BYTES};
+            weight_mcast::send<8>(addr, bytes, 3);
+        } else {
+            weight_mcast::receive<8>();
         }
     }
-    noc_async_read_barrier();
     if constexpr (NBIAS > 0) cb_push_back(cb_bias, NBIAS * Nt);
     cb_push_back(cb_w, (1 + GATE) * Kt * Nt);
     cb_push_back(cb_gamma, Kt);

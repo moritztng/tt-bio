@@ -194,6 +194,10 @@ INIT_FAILED_TRIES = 2
 #: hour. A different boot id and no exit code means the leg died with the host: run it once more.
 BOOT_ID = "/proc/sys/kernel/random/boot_id"
 REBOOTED = "rebooted under the leg"
+#: rel-f9b8ca9e9 (10-23): 17 WH pool jobs on .107/.110 died around 10:45Z with no exit code, under the same
+#: boot, and the runner polled them for 12 h while the train waited behind it. A leg runs under
+#: `timeout -k 600 <budget>`, so a started job whose log is quiet past that has no process left to write one.
+VANISHED = "left the pool with no exit code"
 #: A Galaxy lent out of the pool (spd/galaxy/lend_cfd.sh writes the window's start epoch here and
 #: PAUSEs the pool through it). pool.sh starts no job whose cap reaches the window, so a leg queued
 #: there waits out the whole lend: capacity:opendde of gate cb55af219 sat on .114 for hours on
@@ -834,9 +838,14 @@ def known_walls(hist: dict, prior: list) -> dict:
 
 
 def select(legs: list, patterns: list) -> list:
-    """Legs matching any pattern (all when there is none) and no `!pattern`."""
+    """Legs matching any pattern (all when there is none) and no `!pattern`. A pattern that matches
+    no leg is an error: `--legs record:rf3` (the leg is `record:rf3@<card>`) ran nothing on 10-23 and
+    wrote an empty PASS verdict over the record run rec-437a23413."""
     take = [p for p in patterns if not p.startswith("!")]
     drop = [p[1:] for p in patterns if p.startswith("!")]
+    if none := [p for p in take if not any(fnmatch.fnmatch(lg.name, p) for lg in legs)]:
+        raise SystemExit(f"--legs {','.join(none)} matches no leg; legs are e.g. "
+                         + ", ".join(lg.name for lg in legs[:6]))
     return [lg for lg in legs if (not take or any(fnmatch.fnmatch(lg.name, p) for p in take))
             and not any(fnmatch.fnmatch(lg.name, p) for p in drop)]
 
@@ -1043,8 +1052,9 @@ class Host:
         argv = [self.python(leg.family) if a == "PY" else fill(a) for a in self.leg(leg).argv]
         if "pool" in c and argv[1:2] and argv[1] in LOAD_GUARDED:
             argv += ["--load-ceiling", "0"]   # not in the leg's key: it changes nothing measured
-        body = (f"echo \"##LEG-START $(date +%s)\"; exec timeout -s INT -k 600 {leg.budget} nice -n 10 "
-                + " ".join(shlex.quote(a) for a in argv))
+        legpid = shlex.quote(f"{out}/leg.pid")
+        body = (f"echo \"##LEG-START $(date +%s)\"; echo $$ > {legpid}; exec timeout -s INT -k 600 {leg.budget} "
+                "nice -n 10 " + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         run = f"env {envs} bash -c {shlex.quote(body)}"
         if card is not None:
@@ -1055,10 +1065,19 @@ class Host:
         # (which survives bash's exec of the last command). When the runner's connection drops the
         # remote side keeps waiting on the card, so a rerun first ends the attempt it replaces;
         # otherwise both run the leg into one directory (qb1, 10-10: five BH legs queued twice).
+        #
+        # The session also hides the leg from a signal sent to the pool job: a JapanFold recall of a lent
+        # chip SIGINTs the job's process group, and on .110 on 2026-10-23 the gate drivers ran on and
+        # started their next fold on the chip being reset. So the job shell passes SIGINT/SIGTERM on to
+        # the leg's `timeout` (leg.pid), which hands it to the driver, and waits for the leg to finish.
+        # Still in flock or setup, there is no driver yet: the session is ended outright.
         mark = shlex.quote(f"GATE_ATTEMPT={out}")
         attempt = shlex.quote(f"echo $$ > {shlex.quote(f'{out}/attempt.pid')}; {run}")
-        return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
-                f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
+        fwd = shlex.quote(f"kill -INT $(cat {legpid} 2>/dev/null) 2>/dev/null || pkill -TERM -s $a")
+        return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && rm -f {legpid} && cd {self.tree} && "
+                f"{setup}{{ env {mark} setsid -w bash -c {attempt} & a=$!; trap {fwd} INT TERM; "
+                f"while :; do wait $a; rc=$?; kill -0 $a 2>/dev/null || break; done; (exit $rc); }}")
+                # no exec: a pool job writes rc after it
 
     def marked_bad(self, card) -> str | None:
         """The mark that takes `card` out of service (BAD_MARKS), or None. A host that does not
@@ -1607,14 +1626,16 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
         # recorded FAIL from a recalled attempt while its rerun went unread.
         rc_f = f"{q(rdir)}/rc"
         try:
-            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; [ -s {rc_f} ] && sleep {REQUEUE_GRACE_S} && "
+            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; "
+                         f"[ -e {q(job)} ] && echo 0 || echo $(( $(date +%s) - $(stat -c %Y {q(rdir)}/leg.log 2>/dev/null || date +%s) )); "
+                         f"[ -s {rc_f} ] && sleep {REQUEUE_GRACE_S} && "
                          f"if [ -e {q(job)} ] && ! [ {rc_f} -nt {q(job)} ]; then rm -f {rc_f}; echo {REQUEUED}; else cat {rc_f}; fi",
                          capture_output=True, timeout=120)
         except subprocess.TimeoutExpired:
             continue        # a busy sshd; the job runs on regardless, ask again
         if r.returncode == 255:
             continue        # the connection, not the job
-        boot, started, rc = (r.stdout.split("\n") + ["", ""])[:3]
+        boot, started, idle, rc = (r.stdout.split("\n") + ["", "", ""])[:4]
         if rc.strip() == REQUEUED:
             f.write(f"# {REQUEUED}: {host.name} recalled the chip under this attempt; waiting for the rerun\n")
             f.flush()
@@ -1626,6 +1647,11 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
             QUEUED.pop(job, None)
             RUNNING.pop(rdir, None)
             f.write(f"# {host.name} {REBOOTED} (boot id changed) and the leg left no exit code\n")
+            return 1
+        if int(idle or 0) > leg.budget + 900:
+            QUEUED.pop(job, None)
+            RUNNING.pop(rdir, None)
+            f.write(f"# the job {VANISHED}: out of {host.name}'s queue, log quiet {idle.strip()} s, past its {leg.budget} s cap\n")
             return 1
     QUEUED.pop(job, None)
     RUNNING.pop(rdir, None)
@@ -1718,7 +1744,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 contended += 1
                 time.sleep(CONTENDED_RETRY_S)
                 continue
-            if rc and card == POOL and REBOOTED in text and not rebooted:
+            if rc and card == POOL and (REBOOTED in text or VANISHED in text) and not rebooted:
                 rebooted += 1
                 continue
             if rc and card == POOL and GIVEN_BACK in text and given_back < GIVEN_BACK_TRIES:

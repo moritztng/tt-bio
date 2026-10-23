@@ -42,7 +42,7 @@ def test_wormhole_lm_is_bfp8_in_both_modes(monkeypatch, wormhole, fast, lm_b8):
 
 @pytest.mark.parametrize("wormhole", [True, False])
 def test_mode_sets_per_arch(monkeypatch, wormhole):
-    from tt_bio import esmfold2_runtime as rt
+    from tt_bio import esmfold2_runtime as rt, tenstorrent
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
     normal_set = rt.fold_levers(False).split("+")
@@ -59,6 +59,9 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
     assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))
     assert "trimul_t1" not in rt.fold_levers(False).split("+")
+    # Wormhole's normal mode takes the --fast trimul pair too (wnsg), Blackhole's does not.
+    normal = tenstorrent.parse_levers(rt.fold_levers(False))
+    assert all((n in normal) is wormhole for n in ("trimul_t2fold", "trimul_gin_w8"))
     # The ef2_* levers ride both sets on both archs; device pair init is graded on Wormhole's fast bar only.
     for fast in (False, True):
         names = rt.fold_levers(fast).split("+")

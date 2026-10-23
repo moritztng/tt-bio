@@ -935,6 +935,25 @@ picks its route on the batch's pair rows, so 16 designs of 128 tokens run the ro
 they ran one call per design. At one design a step nothing changes. 128 tokens at width 16 goes from 4.34 to 2.27 s a
 design and 256 at width 4 from 12.25 to 7.82 s (1306-1331 MHz); the designed chain moves 0.07 A median at 128 and 1.9 A
 at 256 against 5.4 A and 24 A seed-to-seed, and the binder grade passes.
+The pair transition's two matmuls run at HiFi2 (`pair_block_hifi2`, RFD4's set only): the block-fp8 weights keep
+every bit and the bf16 activation loses its last mantissa bit. The 512-token trunk goes from 25.87 to 24.32 s a
+design (1.064x, 1350 MHz, paired) and 256 1.041x; the designed chain moves 5.1 A median against a 38.8 A
+seed-to-seed spread and the binder grade passes.
+The triangle multiplication's input kernel writes its gate in block-fp8 for the output kernel to read
+(`trimul_t1g8`), and the output kernel's projection runs at HiFi2 (`trimul_tail_hifi2`), both RFD4's set only. The
+512-token trunk goes from 23.84 to 23.17 s a design (1.029x, 1350 MHz, paired), 384 1.024x and 256 1.032x; the
+designed chain moves 2.45 A median against a 37.7 A seed-to-seed spread and the binder grade passes.
+The pair stream is stored in block-fp8 between sublayers (`pair_bfp8z`, RFD4's set only): every kernel that writes it
+rounds its fp32 sum to nearest into 16-value blocks sharing one exponent, so each read or write of the stream moves
+1088 bytes a tile instead of 2048. The 512-token trunk goes from 23.30 to 22.09 s a design (1.055x, 1318 MHz, paired),
+384 1.047x and 256 1.073x. This one trades precision for bytes: the pair stream's error against a float64 reference
+goes from 0.029 to 0.053 (relative RMS), and the designed chain moves 8.9 A median against a 37.5 A seed-to-seed
+spread with the binder grade passing. It applies when the design length is a multiple of 32; a padded length keeps
+the bf16 stream.
+The triangle multiplication's input kernel forms its gated projections in one matmul block and multiplies by the
+gate's sigmoid before rounding (`trimul_t1_fgate`, RFD4's set only). The 512-token trunk goes from 22.15 to 21.71 s a
+design (1.021x, 1350 MHz, paired), 384 1.022x and 256 1.036x; the pair stream's error against float64 is unchanged,
+and the designed chain moves 2.50 A median against a 39.1 A seed-to-seed spread with the binder grade passing.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 

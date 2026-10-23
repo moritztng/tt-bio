@@ -1968,8 +1968,10 @@ def scan_rfd4_total(text: str, path=None) -> int:
 
         import yaml
 
-        from ._vendor.rfd4_prep._cif.inference_utils_contig_spec import (
-            ExpandableSegment, PreservedSegment, _partition_and_assign_chain_ids,
+        # The grammar module, not the assembler beside it: this guard reads a contig and
+        # builds nothing, and the assembler's atomworks import costs 1.2 s and ~376 MB.
+        from ._vendor.rfd4_prep._cif.contig_grammar import (
+            ExpandableSegment, PreservedSegment, chain_runs,
         )
     except Exception:
         return 0
@@ -1992,8 +1994,8 @@ def scan_rfd4_total(text: str, path=None) -> int:
             continue
         try:
             n = 0
-            for run in _partition_and_assign_chain_ids(contig):
-                for tok in run.tokens:
+            for run in chain_runs(contig):
+                for tok in run:
                     if isinstance(tok, PreservedSegment):
                         n += tok.end - tok.start + 1
                     elif isinstance(tok, ExpandableSegment):

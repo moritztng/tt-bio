@@ -69,18 +69,21 @@ def _copy_coords_by_atom_name(
     target_array: AtomArray,
     target_mask: np.ndarray,
 ) -> None:
-    """Copy coordinates from source to target for all matching atom names (in-place)."""
-    source_atom_names = set(source_array.atom_name[source_mask])
-    target_atom_names = target_array.atom_name[target_mask]
+    """Copy coordinates from source to target for all matching atom names (in-place).
 
-    for atom_name in target_atom_names:
+    The masks are boolean or ascending index arrays; names are compared within the selection only,
+    so a token costs its own atoms, not the whole array's.
+    """
+    src = np.flatnonzero(source_mask) if source_mask.dtype == bool else source_mask
+    tgt = np.flatnonzero(target_mask) if target_mask.dtype == bool else target_mask
+    src_names, tgt_names = source_array.atom_name[src], target_array.atom_name[tgt]
+    source_atom_names = set(src_names)
+
+    for atom_name in tgt_names:
         # Only copy if atom exists in source
         if atom_name not in source_atom_names:
             continue
-
-        source_atom_mask = source_mask & (source_array.atom_name == atom_name)
-        target_atom_mask = target_mask & (target_array.atom_name == atom_name)
-        target_array.coord[target_atom_mask] = source_array.coord[source_atom_mask]
+        target_array.coord[tgt[tgt_names == atom_name]] = source_array.coord[src[src_names == atom_name]]
 
 
 def _broadcast_src_component_residue_wise(atom_array: AtomArray) -> AtomArray:
@@ -150,6 +153,13 @@ def get_residue_level_annotations(
     return residue_annots
 
 
+def _token_indices(token_id: np.ndarray) -> dict:
+    """{token id: ascending atom indices} in ascending token order."""
+    order = np.argsort(token_id, kind="stable")
+    ids, starts = np.unique(token_id[order], return_index=True)
+    return dict(zip(ids.tolist(), np.split(order, starts[1:])))
+
+
 def copy_generated_coordinates_to_input(
     generated_atom_array: AtomArray,
     input_atom_array: AtomArray,
@@ -193,23 +203,27 @@ def copy_generated_coordinates_to_input(
     extra_atoms_mask = np.zeros(len(input_atom_array), dtype=bool)
     missing_atoms_and_indices = []
 
-    for token_id in np.unique(input_atom_array.token_id):
+    # Each token's atom indices, ascending, as `token_id == t` would select them, built once rather
+    # than one full-length mask per token.
+    input_tokens = _token_indices(input_atom_array.token_id)
+    generated_tokens = _token_indices(generated_atom_array.token_id)
+
+    for token_id, input_token_idx in input_tokens.items():
+        generated_token_idx = generated_tokens[token_id]
         # Get annotations for input token
-        input_token_mask = input_atom_array.token_id == token_id
-        input_res_name = input_atom_array.res_name[input_token_mask][0]
-        input_atom_names = input_atom_array.atom_name[input_token_mask]
+        input_res_name = input_atom_array.res_name[input_token_idx][0]
+        input_atom_names = input_atom_array.atom_name[input_token_idx]
 
         # Get corresponding annotations for the generated token
-        generated_token_mask = generated_atom_array.token_id == token_id
-        generated_res_name = generated_atom_array.res_name[generated_token_mask][0]
-        generated_atom_names = generated_atom_array.atom_name[generated_token_mask]
+        generated_res_name = generated_atom_array.res_name[generated_token_idx][0]
+        generated_atom_names = generated_atom_array.atom_name[generated_token_idx]
 
         # + ---------------------------------------------------------------------------------- +
         # CASE 1: Single-atom token (e.g., small molecule, atomized) -> copy directly
         # + ---------------------------------------------------------------------------------- +
-        if np.sum(input_token_mask) == 1 and input_atom_array.atomize[input_token_mask][0]:
-            assert np.sum(generated_token_mask) == 1, "Generated token should also be single-atom"
-            input_atom_array.coord[input_token_mask] = generated_atom_array.coord[generated_token_mask]
+        if len(input_token_idx) == 1 and input_atom_array.atomize[input_token_idx][0]:
+            assert len(generated_token_idx) == 1, "Generated token should also be single-atom"
+            input_atom_array.coord[input_token_idx] = generated_atom_array.coord[generated_token_idx]
             continue
 
         # + ---------------------------------------------------------------------------------- +
@@ -220,7 +234,7 @@ def copy_generated_coordinates_to_input(
             generated_atom_name_set = set(generated_atom_names)
             if input_atom_name_set == generated_atom_name_set:
                 _copy_coords_by_atom_name(
-                    generated_atom_array, generated_token_mask, input_atom_array, input_token_mask
+                    generated_atom_array, generated_token_idx, input_atom_array, input_token_idx
                 )
                 continue
 
@@ -231,13 +245,13 @@ def copy_generated_coordinates_to_input(
         extra_atoms = np.setdiff1d(input_atom_names, generated_atom_names)
 
         # Keep track of atoms that we need to remove later
-        extra_atoms_mask |= input_token_mask & np.isin(input_atom_array.atom_name, extra_atoms)
+        extra_atoms_mask[input_token_idx[np.isin(input_atom_names, extra_atoms)]] = True
 
         # Copy matching atoms
-        _copy_coords_by_atom_name(generated_atom_array, generated_token_mask, input_atom_array, input_token_mask)
+        _copy_coords_by_atom_name(generated_atom_array, generated_token_idx, input_atom_array, input_token_idx)
 
         # Update residue name
-        input_atom_array.res_name[input_token_mask] = generated_res_name
+        input_atom_array.res_name[input_token_idx] = generated_res_name
 
         # Prepare to add missing atoms later
         if len(missing_atoms) > 0:
@@ -245,7 +259,7 @@ def copy_generated_coordinates_to_input(
                 DEFAULT_ATOM_LEVEL_ANNOTATIONS | set(ANNOTATOR_REGISTRY.keys())
             ) - ANNOTS_TO_KEEP
             residue_annots = get_residue_level_annotations(
-                input_atom_array, input_token_mask, annotations_to_exclude=residue_level_annotations_to_exclude
+                input_atom_array, input_token_idx, annotations_to_exclude=residue_level_annotations_to_exclude
             )
 
             # Use the values in the template, matching what the model generated
@@ -253,7 +267,7 @@ def copy_generated_coordinates_to_input(
             residue_annots.pop("atom_name", None)
             residue_annots.pop("element", None)
 
-            residue_annots["original_global_index"] = np.full_like(input_token_mask.sum(), -1, dtype=int)
+            residue_annots["original_global_index"] = np.full_like(len(input_token_idx), -1, dtype=int)
 
             # Create template for new residue type with all residue-level annotations
             template = get_empty_ccd_template(
@@ -282,7 +296,7 @@ def copy_generated_coordinates_to_input(
 
             # Set coordinates from generated atom array
             _copy_coords_by_atom_name(
-                generated_atom_array, generated_token_mask, template, np.ones(len(template), dtype=bool)
+                generated_atom_array, generated_token_idx, template, np.ones(len(template), dtype=bool)
             )
 
             missing_atoms_and_indices.append((int(token_id), template))

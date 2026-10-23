@@ -37,7 +37,12 @@ from .envflags import env_flag
 # CA-lDDT +0.0004 [-0.0004, +0.0014], docking 26 -> 28/44. 512-token page fold on a p300c chip at 1350 MHz,
 # off/on/on/off processes (pnb): OpenFold3 11.39 -> 9.72 s, OpenBind-0 12.67 -> 11.54 s.
 NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {
-    "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "ws_l1dest", "triatt_ln", "edm_device"}
+    "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "ws_l1dest", "triatt_ln", "edm_device",
+    "trimul_t1_2g"}
+# trimul_t1_2g lets T1 serve above ~1180 tokens, where a + b + g_out pass its 1 GiB cap and every trimul fell back to
+# the gated-move channel loop. Inert at and below 1024 (T1 already serves there). 1536-token OpenFold3 fold, p300c:
+# fast 87.8 -> 64.2 s, normal 89.0 -> 72.1 s. On Wormhole T1 also needs the chunking gate open, which it is only to
+# ~1088 tokens; with the gate held at 1536 (not shipped) the 1536 fold goes 322 -> 205 s fast, 356 -> 248 s normal.
 # trimul_t1 + trimul_t2 (the triangle multiplication's input and output as one kernel each) join --fast on the
 # Blackhole 11-set fast grade against today's --fast, 44 paired folds per model:
 # OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,

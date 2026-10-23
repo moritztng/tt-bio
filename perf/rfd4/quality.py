@@ -61,17 +61,19 @@ def _find_designs(root: pathlib.Path) -> list[pathlib.Path]:
         found += sorted(root.rglob(pattern))
     if not found:  # a plain directory of CIFs, not an rfd4-generate output tree
         for pattern in ("*.cif", "*.cif.zst"):
-            found += sorted(p for p in root.rglob(pattern) if not _is_sidecar(p))
+            found += sorted(p for p in root.rglob(pattern) if not _is_sidecar(p.relative_to(root)))
     return found
 
 
 # Upstream's naming (docs/reference/output-format.md): the design is `_generated`, everything
-# else beside it is the input copy, a refold, a chain extract or a trajectory frame.
+# else beside it is the input copy, a refold, a chain extract or a trajectory frame. tt-bio's own
+# design output keeps the input template, with its unresolved designed chain, under `inputs/`.
 SIDECAR = ("_input", "_refolded", "_chain", "trajectories")
+SIDECAR_DIRS = ("trajectories", "inputs")
 
 
 def _is_sidecar(path: pathlib.Path) -> bool:
-    return any(s in path.name for s in SIDECAR) or "trajectories" in path.parts
+    return any(s in path.name for s in SIDECAR) or any(d in path.parts for d in SIDECAR_DIRS)
 
 
 def load_arm(path, chain: str | None = None) -> dict:

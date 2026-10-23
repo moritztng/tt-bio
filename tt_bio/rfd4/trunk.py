@@ -518,8 +518,8 @@ class PairUpdate(Module):
         ln = (self.tr_ln_w, self.tr_ln_b)
         if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln, resid=resid):
             return None
-        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
-                                        ln=ln + (EPS,), resid=resid)
+        fid = ttnn.MathFidelity.HiFi2 if lever("pair_block_hifi2") else self.compute_kernel_config.math_fidelity
+        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid)
 
     def _transition(self, z, pair_mask_c):
         """The masked transition update."""
@@ -552,6 +552,7 @@ class PairUpdate(Module):
         """`__call__`, returning `(z, zb)`: the new pair and its `dtype` copy, which every residual
         write produces alongside the pair and the trunk's next pair bias reads."""
         xs = _as(x, self.dtype)
+        rd = z.dtype if self.residual_dtype == ttnn.bfloat8_b else self.residual_dtype   # `Trunk.pair_dtype`
         both = None
         if (lever("pair_write_res") and self.pair_write == "hadamard" and mask is None
                 and (z.dtype == ttnn.float32 or lever("pair_bf16z"))):
@@ -563,7 +564,7 @@ class PairUpdate(Module):
             z, zb = both
         else:
             write, write_masked = self._write(xs, mask)
-            z, zb = _residual(z, write, self.residual_dtype, None if write_masked else pair_mask_c,
+            z, zb = _residual(z, write, rd, None if write_masked else pair_mask_c,
                               low=self.dtype)
         if xs is not x:
             ttnn.deallocate(xs)
@@ -594,7 +595,7 @@ class PairUpdate(Module):
                 u = sub(zb)
             if zb is not z:
                 ttnn.deallocate(zb)
-            z_new, zb = _residual(z, u, self.residual_dtype, None if own_mask else pair_mask_c,
+            z_new, zb = _residual(z, u, rd, None if own_mask else pair_mask_c,
                                   low=self.dtype)
             ttnn.deallocate(z)
             z = z_new
@@ -665,11 +666,29 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: tokens at width 16 takes 512's route) where it ran one call per design; at width 1 it changes nothing. 128 tokens
 #: at width 16: 4.34 -> 2.27 s/design on whole designs; the designed chain moves 0.07 A median against a 5.4 A seed
 #: floor, binder grade PASS (state/rfd4/bets/b128.md).
+#: `pair_block_hifi2` runs pair_block's two matmuls at HiFi2: the bfp8 weights keep every bit, the bf16 activation
+#: loses its last mantissa bit. Paired traced trunk at 1350 MHz: 512 tokens 25.87 -> 24.32 s a design (1.064x), 256
+#: tokens 1.041x. 31 designs at 512: designed chain 5.1 A median against a 38.8 A seed floor, binder grade PASS
+#: (state/rfd4/bets/relu.md).
+#: `trimul_t1g8` + `trimul_tail_hifi2`: T1 writes the gate g_out as bfp8 and the triangle tail reads it so, and the
+#: tail's p GEMM runs at HiFi2 (its LayerNorm and epilogue keep the trunk's fidelity). Paired traced trunk at 1350 MHz:
+#: 512 tokens 23.84 -> 23.17 s a design (1.029x), 384 1.024x, 256 1.032x. 31 designs at 512: designed chain 2.45 A
+#: median against a 37.7 A seed floor, binder grade PASS (state/rfd4/bets/tri7.md).
+#: `pair_bfp8z` (with `pair_bf16z`): the pair stream as bfloat8_b, each write packed (rounded to nearest) from the fp32
+#: dest sum into 16-value blocks, so every z read or write is 1088 B a tile instead of 2048. Paired traced trunk:
+#: 512 tokens 23.30 -> 22.09 s a design (1.055x, 1318 MHz), 384 1.047x, 256 1.073x. z rel RMS vs float64 0.053 (0.029
+#: with a bf16 stream). 31 designs at 512: designed chain 8.9 A median against a 37.5 A seed floor, binder grade PASS
+#: (state/rfd4/bets/z8.md). Unpadded calls only (`Trunk.pair_dtype`): a padded call keeps the bf16 stream.
+#: `trimul_t1_fgate`: T1's gate a = p * sigmoid(g) fused in DST, p and g of a channel tile in one 2 x 2 matmul block and
+#: never rounded to bf16 (unmasked calls at c_z 384). Paired traced trunk with pair_bfp8z: 512 tokens 22.15 -> 21.71 s
+#: a design (1.021x, 1350 MHz, two readings), 384 1.022x, 256 1.036x. z rel RMS vs float64 unchanged (0.053 at 512).
+#: 31 designs at 512: designed chain 2.50 A median against a 39.1 A seed floor, binder grade PASS (state/rfd4/bets/t1dm.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
-                           "pair_tail_cm", "trimul_t1b8", "pair_batch"})
+                           "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
+                           "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
@@ -697,7 +716,8 @@ class Trunk(Module):
         self.nlayers = nlayers
         self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
         self.pair_residual_dtype = pair_residual_dtype or (
-            ttnn.bfloat16 if "pair_bf16z" in self._levers else self.residual_dtype)
+            (ttnn.bfloat8_b if "pair_bfp8z" in self._levers else ttnn.bfloat16) if "pair_bf16z" in self._levers
+            else self.residual_dtype)
         with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
             self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
                                       residual_dtype=self.residual_dtype)
@@ -756,6 +776,10 @@ class Trunk(Module):
         ttnn.deallocate(hb)
         if low is not None or (res_dtype == ttnn.bfloat16 and lever("pair_bf16z")):   # rounded to even
             return _residual(init, p, res_dtype, low=low)
+        if res_dtype == ttnn.bfloat8_b:   # pair_bfp8z: the sum rounded once into the blocks, not p first
+            out = ttnn.add(init, p, dtype=res_dtype)
+            ttnn.deallocate(p)
+            return out
         pr = _as(p, res_dtype)
         if pr is not p:
             ttnn.deallocate(p)
@@ -795,13 +819,20 @@ class Trunk(Module):
             ttnn.deallocate(mask_scaled)
         return s, z
 
+    def pair_dtype(self, masks):
+        """The pair stream's dtype for a call with these `trunk_masks`. `pair_bfp8z` stores it bfloat8_b only when no
+        token is padded, where every z write is one of the fused programs; a padded call reads z far past the float64
+        model of bfp8 storage (state/rfd4/bets/z8.md), so it keeps the bfloat16 stream, main's path bit for bit."""
+        zd = self.pair_residual_dtype
+        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None else zd
+
     @under_lever_scope
     def __call__(self, s_init, z_init, conds, masks):
         """`conds[k]` is cycle k's conditioning ([b, n, dim_cond]); upstream recomputes it each cycle
         because it carries the remaining-pass count. `masks` is `trunk_masks(...)` built with this
         trunk's residual dtype. Returns the final (s, z) in the residual dtype; the inputs survive."""
         res_mask = masks[4]
-        zd = self.pair_residual_dtype
+        zd = self.pair_dtype(masks)
         res_pair_mask_c = masks[5] if zd == self.residual_dtype else masks[3]
         # Masked once here, in the residual dtype; every update after this keeps them masked. With no mask
         # and the right dtype the input is read as it is: nothing writes to it, so no copy is needed.
@@ -877,7 +908,7 @@ class Trunk(Module):
         if z_builder is not None:
             z = z_builder(z_init, npad)  # masked on entry to the trunk, like the uploaded one
         else:
-            z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.pair_residual_dtype)
+            z = up(pad(z_init.float(), [1, 2]) * (mc[:, :, None] * mc[:, None, :]), self.pair_dtype(masks))
         cs = [up(pad(c.float(), [1]), self.dtype) for c in conds]
         # A call during which a device refusal taught the process a new plan ran part of itself
         # on the old one; run it again, so a process's first design equals its repeats. Every

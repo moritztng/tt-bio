@@ -126,9 +126,38 @@ def test_a_trajectory_calls_the_network_once_a_step_with_the_scheduled_depth():
     assert out.trunk_passes == 180
 
 
-def test_the_loop_refuses_a_recycle_schedule_that_does_not_cover_the_steps():
-    with pytest.raises(ValueError, match="expands to"):
-        S.recycle_depths(S.recycle_strategy("medium/flat"), 50)
+@pytest.mark.parametrize("name", sorted(S.RECYCLE_SCHEDULES))
+def test_a_recycle_schedule_at_its_own_length_is_read_as_written(name):
+    spec = S.recycle_strategy(name)
+    written = tuple(d for width, d in spec.n_recycle_schedule for _ in range(width))
+    assert S.recycle_depths(spec, len(written)) == written
+
+
+def test_a_recycle_schedule_is_stretched_over_a_trajectory_of_another_length():
+    assert S.recycle_depths(S.recycle_strategy("medium/flat"), 50) == (3,) * 50
+    assert S.recycle_depths(S.RELEASED, 120) == tuple(d for d in S.recycle_depths(S.RELEASED, 60) for _ in "ab")
+
+
+def test_a_short_trajectory_gets_the_longest_tail_that_fits():
+    kw = dict(p1=2.0, tsr_safe=True, tail_step_multiplier=2)
+    for nsteps, fits in ((1, 0), (8, 4), (15, 7), (19, 9)):
+        got = S.schedule_times("power", nsteps, tail_steps=10, **kw)
+        want = S.schedule_times("power", nsteps, tail_steps=fits, **kw)
+        assert got.shape == (nsteps + 1,) and torch.equal(got, want)
+        assert torch.all(got[1:] > got[:-1])
+
+
+def test_the_ux_gate_smoke_runs_the_default_recipe_at_8_steps():
+    """`tt-bio design --model rfd4 --nsteps 8`, the release gate's UX leg: 8 network calls, each
+    at the depth the 60-step recipe has at that point of the trajectory."""
+    spec = S.replace(S.recycle_strategy("thinking_medium"), nsteps=8)
+    net = Net()
+    out = run(spec, network=net)
+    assert [step for step, _, _ in net.calls] == list(range(8))
+    assert tuple(d for _, d, _ in net.calls) == (6, 5, 4, 3, 2, 2, 2, 1)
+    assert out.trunk_passes == 25
+    for mode in S.RELEASED.data_modes:
+        assert torch.isfinite(out.x[mode]).all()
 
 
 def test_nothing_leaks_onto_a_token_the_modality_does_not_emit():
@@ -218,7 +247,7 @@ def test_a_refused_chunk_halves_the_width_and_reruns():
 
 
 class StagedNet(Net):
-    """`Net` split into prepare / launch / finish, logging the order the driver calls them in."""
+    """`Net` split into prepare / launch / collect / complete, logging the order the driver calls them in."""
 
     def __init__(self):
         super().__init__()
@@ -232,9 +261,13 @@ class StagedNet(Net):
         self.log.append(("launch", prepared[3]))
         return prepared
 
-    def finish(self, launched):
-        x_t, t, recycle_depth, step = launched
-        self.log.append(("finish", step))
+    def collect(self, launched):
+        self.log.append(("collect", launched[3]))
+        return launched
+
+    def complete(self, collected):
+        x_t, t, recycle_depth, step = collected
+        self.log.append(("complete", step))
         return self(x_t, t, recycle_depth=recycle_depth, step=step)
 
 
@@ -253,19 +286,19 @@ def test_lanes_give_the_designs_the_chunker_gives(width):
     assert max(n for _, _, n in net.calls) <= width
 
 
-def test_the_next_lane_launches_before_the_host_prepares_anything():
-    """One call in flight, and every finish is followed straight away by the next launch, so the
-    card never waits on host work that another lane could have done while it ran."""
+def test_the_next_lane_launches_before_the_host_does_anything():
+    """One call in flight, and every readback is followed straight away by the next launch, so the
+    card never waits on host work (the heads, the step, the next inputs) that can run under it."""
     net = StagedNet()
     run(short(), n_designs=2, network=net, lane_width=1)
     kinds = [k for k, _ in net.log]
     in_flight = 0
     for k in kinds:
-        in_flight += {"launch": 1, "finish": -1}.get(k, 0)
+        in_flight += {"launch": 1, "collect": -1}.get(k, 0)
         assert in_flight <= 1
     for i, k in enumerate(kinds[:-2]):
-        if k == "finish":
-            assert kinds[i + 1] == "launch", kinds[i - 2:i + 3]
+        if k == "collect":
+            assert kinds[i + 1:i + 3] == ["launch", "complete"], kinds[i - 2:i + 4]
     assert kinds.count("launch") == 2 * short().nsteps
 
 

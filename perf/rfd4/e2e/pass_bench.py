@@ -1,7 +1,7 @@
 """One RFD4 trunk pass on a card: ops per pass, eager vs traced time, and its output for a bit-compare.
 
     TT_VISIBLE_DEVICES=<card> TT_BIO_TRACE_REGION_MB=512 python perf/rfd4/e2e/pass_bench.py \
-        --weights <bundle> --out <file.json> [--dump <file.pt>] [--n 128] [--reps 20]
+        --weights <bundle> --out <file.json> [--dump <file.pt>] [--n 128] [--batch 1] [--reps 20]
 
 Runs against whatever `tt_bio` is on PYTHONPATH, so the same script times the code before and
 after a change. Inputs are seeded normals at the released widths with every token real: the time of
@@ -66,6 +66,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--dump")
     ap.add_argument("--n", type=int, default=128)
+    ap.add_argument("--batch", type=int, default=1, help="designs a trunk call (the sample width)")
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--no-trace", action="store_true")
     a = ap.parse_args()
@@ -80,11 +81,11 @@ def main():
     trunk = TR.Trunk(T.WeightScope({k: v.float() for k, v in N._sub(state, "nn.").items()}),
                      TR.compute_kernel_config(), nlayers=cfg["nlayers"], n_heads=cfg["nheads"],
                      every_n=cfg["update_pair_repr_every_n"], residual_dtype=ttnn.float32)
-    n, tok, pair, dc = a.n, cfg["token_dim"], cfg["pair_repr_dim"], cfg["dim_cond"]
+    n, b, tok, pair, dc = a.n, a.batch, cfg["token_dim"], cfg["pair_repr_dim"], cfg["dim_cond"]
     g = torch.Generator().manual_seed(0)
-    s0, z0 = torch.randn(1, n, tok, generator=g), torch.randn(1, n, n, pair, generator=g)
-    c0 = [torch.randn(1, n, dc, generator=g) for _ in range(3)]
-    mask = torch.ones(1, n)
+    s0, z0 = torch.randn(b, n, tok, generator=g), torch.randn(b, n, n, pair, generator=g)
+    c0 = [torch.randn(b, n, dc, generator=g) for _ in range(3)]
+    mask = torch.ones(b, n)
 
     up = lambda t, dt: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     masks = TR.trunk_masks(mask, dev, residual_dtype=ttnn.float32)
@@ -113,7 +114,7 @@ def main():
             ms.append(1e3 * (time.perf_counter() - t))
         return ms
 
-    rec = {"n": n, "nlayers": cfg["nlayers"], "tt_bio": str(Path(TR.__file__).resolve().parents[2])}
+    rec = {"n": n, "batch": b, "nlayers": cfg["nlayers"], "tt_bio": str(Path(TR.__file__).resolve().parents[2])}
     # Is a mixed fp32 + bf16 add the fp32 add of the widened bf16? If so the residual's typecast
     # can go; if the unpacker narrows the fp32 operand instead, it cannot.
     zf = up(z0, ttnn.float32)

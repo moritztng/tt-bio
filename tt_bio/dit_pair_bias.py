@@ -138,9 +138,9 @@ def rms_weight(ws, device):
 
 
 def rms_eligible(z, wt) -> bool:
-    """z [B, n, n, C] bf16 TILE in DRAM with n and C tile multiples (no padding anywhere), W^T [1, 1, 32, C]."""
+    """z [B, n, n, C] bf16 (or bfloat8_b, `pair_bfp8z`) TILE in DRAM with n and C tile multiples (no padding anywhere), W^T [1, 1, 32, C]."""
     ts = [z, wt]
-    if any(t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT
+    if any(t.dtype != ttnn.bfloat16 and not (t is z and t.dtype == ttnn.bfloat8_b) or t.layout != ttnn.TILE_LAYOUT
            or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
            or t.memory_config().buffer_type != ttnn.BufferType.DRAM for t in ts):
         return False
@@ -163,17 +163,19 @@ def rms_pair_bias(z, wt, eps, heads, n_out=1, fidelity=ttnn.MathFidelity.HiFi4):
     assert heads <= ho, (heads, n_out)
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, heads, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                            device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
-    key = ("rms", device.id(), B, n, c, float(eps), fidelity, n_out, heads)
+    key = ("rms", device.id(), B, n, c, float(eps), fidelity, n_out, heads, str(z.dtype))
+    z8 = z.dtype == ttnn.bfloat8_b
     if key not in _CACHE:
         g = device.compute_with_storage_grid_size()
         units = B * nt * nt
         _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, units, 0)
 
-        def cb(idx, tiles):
-            fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=ttnn.bfloat16, page_size=_TILE)
-            return ttnn.CBDescriptor(total_size=tiles * _TILE, core_ranges=grid, format_descriptors=[fmt])
+        def cb(idx, tiles, dt=ttnn.bfloat16):
+            size = _TILE if dt == ttnn.bfloat16 else 32 * 32 + 64
+            fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dt, page_size=size)
+            return ttnn.CBDescriptor(total_size=tiles * size, core_ranges=grid, format_descriptors=[fmt])
 
-        cbs = [cb(W_CB, kt), cb(Z_CB, _Z_DEPTH * _R * kt), cb(M_CB, 1), cb(RM_CB, 32), cb(T_CB, _R * kt),
+        cbs = [cb(W_CB, kt), cb(Z_CB, _Z_DEPTH * _R * kt, z.dtype), cb(M_CB, 1), cb(RM_CB, 32), cb(T_CB, _R * kt),
                cb(OUT_CB, 2 * _SW)]
         rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
         first = 0
@@ -192,13 +194,14 @@ def rms_pair_bias(z, wt, eps, heads, n_out=1, fidelity=ttnn.MathFidelity.HiFi4):
         src = lambda f: str(RMS_DIR / f)  # noqa: E731
         reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
                                        compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 2,
-                                       config=ttnn.ReaderConfigDescriptor())
+                                       defines=[("PB_Z8", "1")] if z8 else [], config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                        compile_time_args=wct, runtime_args=wr, common_runtime_args=[0] * n_out,
                                        config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
             compile_time_args=[kt, bits(1.0 / c), bits(float(eps))], runtime_args=cp,
+            defines=[("PB_Z8", "1")] if z8 else [],
             config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
         _CACHE[key] = [reader, writer, compute], cbs
     kernels, cbs = _CACHE[key]

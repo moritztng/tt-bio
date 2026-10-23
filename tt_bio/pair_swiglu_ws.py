@@ -158,7 +158,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         # One row tile deep each: the float32 residual, the float32 sum and its bf16 copy. The normed x and the hidden,
         # which compute alone fills and drains, go single-buffered to pay for them (same L1 as without). NOCOPY: the
         # residual is x and the sum bf16, no copy.
-        rd = ttnn.bfloat16 if nocopy else ttnn.float32
+        rd = x.dtype if nocopy else ttnn.float32       # bfloat8_b under pair_bfp8z (WS_Z8)
         cbs = ([cb(X_CB, kt, x.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(HID_CB, nh), cb(OUT_CB, ct, rd)]
                + ([] if nocopy else [cb(OUTB_CB, ct)]) + [cb(RES_CB, ct, rd)] + cbs[4:])
     elif ("WS_RESID", "1") in defines:
@@ -170,7 +170,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     if ln is not None:
         import struct
         cbs[0] = cb(X_CB, kt if res32 else 2 * kt)   # the normalised x the matmuls read, bf16
-        cbs += [cb(XRAW_CB, 2 * kt), cb(GAMMA_CB, kt), cb(BETA_CB, kt), cb(SCALER_CB, 1)]
+        cbs += [cb(XRAW_CB, 2 * kt, x.dtype), cb(GAMMA_CB, kt), cb(BETA_CB, kt), cb(SCALER_CB, 1)]
         cbs += [cb(i, kt if n is None else n, ttnn.float32) for i, n in LN_F32_CBS]
         inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
         scaler = (inv << 16) | inv          # 1/K as a packed bf16 pair, exact for K a power of two
@@ -278,7 +278,8 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
         return None
     if resid is not None:
         # generic_op hands back a new handle over resid's buffer; the caller keeps its own two
-        defines = (("WS_RESID", "1"), ("WS_RES32", "1")) + ((("WS_RES_NOCOPY", "1"),) if resid is x else ())
+        defines = (("WS_RESID", "1"), ("WS_RES32", "1")) + ((("WS_RES_NOCOPY", "1"),) if resid is x else ()) + (
+            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ())
         _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, resid, (b1, b2))
         return resid, x
     return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
@@ -298,7 +299,8 @@ def relu_eligible(x, w1, w2, ln=(), resid=None) -> bool:
     """What `pair_relu` serves: bf16 TILE interleaved x, bf16 or bfp8 weights (both the same), hidden a multiple of 4
     tiles, output width at most 4 tiles or a multiple of 4, and everything resident inside `_L1_BUDGET`. `resid` (float32
     TILE interleaved DRAM, x's padded shape, or `x` itself) as `pair_relu` takes it, in the same L1."""
-    if x.dtype != ttnn.bfloat16 or w1.dtype != w2.dtype or w1.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
+    # a bfp8 x only as pair_bfp8z's z, its own residual under the LayerNorm
+    if not (x.dtype == ttnn.bfloat16 or x.dtype == ttnn.bfloat8_b and resid is x and ln) or w1.dtype != w2.dtype or w1.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
         return False
     for t in (x, w1, w2):
         if t.layout != ttnn.TILE_LAYOUT or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:

@@ -30,9 +30,9 @@ _CACHE: dict = {}
 
 
 def eligible(z, pi, pj4) -> bool:
-    """z [B, n, n, C] float32 or bfloat16, pi [B, n, C] and pj4 [B, n, 1, C] bfloat16, all TILE interleaved, n and C
+    """z [B, n, n, C] float32, bfloat16 or bfloat8_b (`pair_bfp8z`), pi [B, n, C] and pj4 [B, n, 1, C] bfloat16, all TILE interleaved, n and C
     tile multiples (no padding: every tile of z has a whole pi tile)."""
-    if z.dtype not in (ttnn.float32, ttnn.bfloat16) or pi.dtype != ttnn.bfloat16 or pj4.dtype != ttnn.bfloat16:
+    if z.dtype not in (ttnn.float32, ttnn.bfloat16, ttnn.bfloat8_b) or pi.dtype != ttnn.bfloat16 or pj4.dtype != ttnn.bfloat16:
         return False
     if any(t.layout != ttnn.TILE_LAYOUT or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
            for t in (z, pi, pj4)):
@@ -46,7 +46,8 @@ def eligible(z, pi, pj4) -> bool:
 
 def _build(z, pi, pj4, out, lo, device):
     B, n, _, c = (int(d) for d in z.shape)
-    b16z = z.dtype == ttnn.bfloat16
+    b16z = z.dtype in (ttnn.bfloat16, ttnn.bfloat8_b)   # a narrow z: one rounded output, no float32 master
+    b8z = z.dtype == ttnn.bfloat8_b
     kt, nt = c // 32, n // 32
     pages = B * n * nt * kt
     g = device.compute_with_storage_grid_size()
@@ -56,14 +57,15 @@ def _build(z, pi, pj4, out, lo, device):
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=size)
         return ttnn.CBDescriptor(total_size=tiles * size, core_ranges=grid, format_descriptors=[fmt])
 
-    f32, b16 = 32 * 32 * 4, 32 * 32 * 2
+    f32, b16, b8 = 32 * 32 * 4, 32 * 32 * 2, 32 * 32 + 64
     if b16z:
-        cbs = [cb(Z_CB, ttnn.bfloat16, b16), cb(I_CB, ttnn.bfloat16, b16, 2 * kt), cb(J_CB, ttnn.bfloat16, b16),
-               cb(OUT_CB, ttnn.bfloat16, b16)]
+        zf, zp = (ttnn.bfloat8_b, b8) if b8z else (ttnn.bfloat16, b16)
+        cbs = [cb(Z_CB, zf, zp), cb(I_CB, ttnn.bfloat16, b16, 2 * kt), cb(J_CB, ttnn.bfloat16, b16),
+               cb(OUT_CB, zf, zp)]
     else:
         cbs = [cb(Z_CB, ttnn.float32, f32), cb(I_CB, ttnn.bfloat16, b16, 2 * kt), cb(J_CB, ttnn.bfloat16, b16),
                cb(OUT_CB, ttnn.float32, f32), cb(LO_CB, ttnn.bfloat16, b16)]
-    defines = [("OR_BF16", "1")] if b16z else []
+    defines = ([("OR_BF16", "1")] if b16z else []) + ([("OR_BFP8", "1")] if b8z else [])
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
     for group, per in ((cg1, work1), (cg2, work2)):
@@ -85,7 +87,7 @@ def _build(z, pi, pj4, out, lo, device):
                                    config=ttnn.WriterConfigDescriptor())
     cfg = ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
     modes = [ttnn.UnpackToDestMode.Default] * _NUM_CBS
-    if not b16z:    # a bf16 z goes through srcA exactly
+    if not b16z:    # a bf16 or bfp8 z goes through srcA exactly
         modes[Z_CB] = ttnn.UnpackToDestMode.UnpackToDestFp32
     cfg.unpack_to_dest_mode = modes
     compute = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path,
@@ -96,15 +98,15 @@ def _build(z, pi, pj4, out, lo, device):
 
 def outer_residual(z, pi, pj4):
     """`(z + pj4 * pi4, the same rounded to even in bfloat16)` for the float32 pair stream z [B, n, n, C], pi [B, n, C]
-    and pj4 [B, n, 1, C] (pi4 = pi as [B, 1, n, C]), or None when `eligible` declines. For a bfloat16 z, `(out, out)`
-    with out the rounded sum. Nothing is freed."""
+    and pj4 [B, n, 1, C] (pi4 = pi as [B, 1, n, C]), or None when `eligible` declines. For a bfloat16 or bfloat8_b z,
+    `(out, out)` with out the sum packed in z's format. Nothing is freed."""
     if not eligible(z, pi, pj4):
         return None
     device = z.device()
     alloc = lambda dt: ttnn.allocate_tensor_on_device(z.shape, dt, ttnn.TILE_LAYOUT, device,  # noqa: E731
                                                       ttnn.DRAM_MEMORY_CONFIG)
     out = alloc(z.dtype)
-    lo = out if z.dtype == ttnn.bfloat16 else alloc(ttnn.bfloat16)
+    lo = out if z.dtype != ttnn.float32 else alloc(ttnn.bfloat16)
     key = (device.id(), tuple(int(d) for d in z.shape), str(z.dtype))
     if key not in _CACHE:
         _CACHE[key] = _build(z, pi, pj4, out, lo, device)

@@ -173,15 +173,20 @@ def recycle_depths(spec: SamplingSpec, nsteps: int, full_nsteps: int | None = No
     A schedule is written over the full trajectory. Partial diffusion runs only its tail, so with
     ``nsteps < full_nsteps`` the schedule is expanded over ``full_nsteps`` and its last ``nsteps``
     depths are returned. Upstream ``proteina.Proteina.recycle_depths``.
+
+    A trajectory of a different length than the schedule (``--nsteps 8`` against the 60-step
+    recipe) reads each step's depth at the midpoint of the stretch of the schedule it covers, so
+    the depth stays a function of how far along the trajectory a step is. At the schedule's own
+    length this is the identity.
     """
     full_nsteps = nsteps if full_nsteps is None else full_nsteps
     if spec.n_recycle_schedule is None:
         depths = (spec.n_recycle,) * nsteps
     else:
-        depths = tuple(depth for width, depth in spec.n_recycle_schedule for _ in range(width))
-        if len(depths) != full_nsteps:
-            raise ValueError(f"recycle schedule expands to {len(depths)} steps; expected {full_nsteps}")
-        depths = depths[len(depths) - nsteps:]
+        written = tuple(depth for width, depth in spec.n_recycle_schedule for _ in range(width))
+        n = len(written)
+        depths = tuple(written[(2 * i + 1) * n // (2 * full_nsteps)] for i in range(full_nsteps))
+        depths = depths[full_nsteps - nsteps:]
     if any(not isinstance(d, int) or d < 0 for d in depths):
         raise ValueError("recycle depths must be non-negative integers")
     return depths
@@ -209,6 +214,10 @@ def _schedule_with_tail_multiplier(schedule_fn: Callable[[int], torch.Tensor], n
     The whole trajectory is laid out on a ``base_steps * multiplier`` grid and then subsampled:
     every ``multiplier``-th point up to the tail, every point inside it. The step count stays
     ``nsteps``, so the tail buys its density from the body.
+
+    A trajectory too short to hold the full tail (``nsteps < tail_steps * multiplier``) gets the
+    longest tail that fits, ``nsteps // multiplier`` intervals, and none below ``multiplier``
+    steps. Every ``nsteps`` that holds the full tail keeps its schedule unchanged.
     """
     if tail_steps < 1:
         raise ValueError("tail_steps must be positive")
@@ -220,9 +229,10 @@ def _schedule_with_tail_multiplier(schedule_fn: Callable[[int], torch.Tensor], n
         raise ValueError("tail_step_multiplier must be an integer >= 2")
     multiplier = integer_multiplier
 
+    tail_steps = min(tail_steps, nsteps // multiplier)
+    if tail_steps == 0:
+        return schedule_fn(nsteps)
     base_steps = nsteps - (multiplier - 1) * tail_steps
-    if base_steps < tail_steps:
-        raise ValueError("nsteps must be at least tail_steps * tail_step_multiplier")
 
     fine_steps = base_steps * multiplier
     tail_start = (base_steps - tail_steps) * multiplier
@@ -1055,10 +1065,12 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
     without waiting on the host.
 
     The network may split its call into ``prepare(x_t, t, *, recycle_depth, step)``,
-    ``launch(prepared)`` and ``finish(launched)``, where ``launch`` only enqueues device work and
-    ``finish`` waits for it. One launched call is in flight at a time, so the card holds one
-    lane's trunk, as it would running them one after another. A network with no stages is called
-    as it is and the lanes simply run in turn.
+    ``launch(prepared)``, ``collect(launched)`` and ``complete(collected)``: ``launch`` only
+    enqueues device work, ``collect`` waits for it and reads the result back, and ``complete`` is
+    the host work on that result (the heads), which runs after the next lane is launched. One
+    launched call is in flight at a time, so the card holds one lane's trunk, as it would running
+    them one after another. A network with no stages is called as it is and the lanes simply run
+    in turn.
 
     Each lane computes exactly what it computes alone: the order lanes run in is not an input to
     any of them.
@@ -1069,9 +1081,9 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
     if prepare is None:
         def prepare(x, t, *, recycle_depth, step):
             return network(x, t, recycle_depth=recycle_depth, step=step)
-        launch = finish = lambda value: value
+        launch = collect = complete = lambda value: value
     else:
-        launch, finish = network.launch, network.finish
+        launch, collect, complete = network.launch, network.collect, network.complete
 
     results: list[SamplerOutput | None] = [None] * len(lanes)
     ready: deque = deque()
@@ -1092,12 +1104,12 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
             i, prepared = ready.popleft()
             flight = i, launch(prepared)
         i, launched = flight
-        out = finish(launched)
+        collected = collect(launched)
         flight = None
         if ready:
             j, prepared = ready.popleft()
             flight = j, launch(prepared)
-        advance(i, out)
+        advance(i, complete(collected))
     return results
 
 

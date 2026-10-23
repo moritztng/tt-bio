@@ -1224,6 +1224,7 @@ def _run_local_fold(wrapped, out_dir: Path, logf, fold_timeout: float | None):
         rc = proc.poll()
         if rc is not None:
             _reap(proc)  # the CLI exited; take any worker it left behind with it
+            gate_guard.stop_if_stopped_outside(rc)
             return rc, False
         if folded_at is None and _find_results_dir(out_dir) is not None:
             folded_at = time.monotonic()
@@ -1250,6 +1251,7 @@ def _run_remote_fold(wrapped, worker: "Worker", out_dir: Path, logf, fold_timeou
                               timeout=fold_timeout)
     except subprocess.TimeoutExpired:
         return -99, True
+    gate_guard.stop_if_stopped_outside(proc.returncode)
     if proc.returncode == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
         subprocess.run(["rsync", "-a", "-e", "ssh -o ConnectTimeout=5",

@@ -29,11 +29,30 @@
 #ifndef T1SPLIT
 #define T1SPLIT 0
 #endif
+// T1ZPRE (bench knob trimul_tail.T1_ZPRE): barriers of the next unit read ahead of the gathers, x_cb sized to hold them.
+// T1ZIL (trimul_tail.T1_ZIL): the rest of the next unit is read between gather tiles, whenever x_cb has room.
+// Neither changes which bytes land where: bit-identical.
+#ifndef T1ZPRE
+#define T1ZPRE 2
+#endif
+#ifndef T1ZIL
+#define T1ZIL 0
+#endif
 #ifndef T1B8
 #define T1B8 0
 #endif
+// T1MCAST (trimul_tail.T1_MCAST): every core needs every resident weight tile, so one core (per-core arg 2 set) reads
+// [Wp^T | Wg^T], gamma, beta and Wg_out from DRAM and multicasts the four CB regions to the grid rectangle instead
+// of each core pulling the same 575 KB (RFD4's key), common/weight_mcast.hpp. The same bytes land in the same CBs:
+// bit-identical.
+#ifndef T1MCAST
+#define T1MCAST 0
+#endif
 #include "api/dataflow/dataflow_api.h"
 #include "unit.hpp"
+#if T1MCAST
+#include "../common/weight_mcast.hpp"
+#endif
 #if T1SPLIT
 #include "gather.hpp"
 #endif
@@ -93,7 +112,8 @@ void kernel_main() {
     constexpr uint32_t eps_cb = tt::CBIndex::c_11;
     constexpr uint32_t wo_cb = tt::CBIndex::c_18;
     constexpr uint32_t S = St * 32;
-    const uint32_t tb = get_tile_size(x_cb);
+    const uint32_t tb = get_tile_size(x_cb);       // z's tile: bf16, or bfp8 under pair_bfp8z
+    const uint32_t gtb = get_tile_size(gamma_cb);  // bf16
     const uint32_t wtb = get_tile_size(w_cb);    // bfp8 under trimul_t1w8, else tb
     const uint32_t otb = get_tile_size(wo_cb);
 
@@ -107,20 +127,36 @@ void kernel_main() {
     cb_reserve_back(w_cb, 2 * QN * Kt);
     cb_reserve_back(gamma_cb, Kt);
     cb_reserve_back(beta_cb, Kt);
+    if constexpr (NG) cb_reserve_back(wo_cb, Kt * NG);
+#if T1MCAST
+    constexpr uint32_t MC = T1SPLIT ? 9 : 7;   // weight_mcast.hpp's common args
+    const bool sender = get_arg_val<uint32_t>(2);
+    if (sender) {
+#endif
     uint32_t w = get_write_ptr(w_cb);
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wp, w);
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wg, w);
     w = get_write_ptr(gamma_cb);
-    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
+    for (uint32_t t = 0; t < Kt; ++t, w += gtb) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);
-    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
+    for (uint32_t t = 0; t < Kt; ++t, w += gtb) noc_async_read_page(t, bt, w);
     if constexpr (NG) {
-        cb_reserve_back(wo_cb, Kt * NG);
         w = get_write_ptr(wo_cb);
         for (uint32_t k = 0; k < Kt; ++k)
             for (uint32_t n = N0; n < N0 + NG; ++n, w += otb) noc_async_read_page(k * NTGT + n, wo, w);
     }
     noc_async_read_barrier();
+#if T1MCAST
+    }
+    if (sender) {
+        const uint32_t addr[] = {get_write_ptr(w_cb), get_write_ptr(gamma_cb), get_write_ptr(beta_cb),
+                                 NG ? get_write_ptr(wo_cb) : 0};
+        const uint32_t bytes[] = {2 * QN * Kt * wtb, Kt * gtb, Kt * gtb, Kt * NG * otb};
+        weight_mcast::send<MC>(addr, bytes, NG ? 4 : 3);
+    } else {
+        weight_mcast::receive<MC>();
+    }
+#endif
     cb_push_back(w_cb, 2 * QN * Kt);
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);
@@ -146,8 +182,10 @@ void kernel_main() {
             cb_push_back(x_cb, RB * Kt);
         }
     };
-    // Barriers of the next unit read ahead of this unit's gathers: x_cb holds two (T1SPLIT), none otherwise.
-    constexpr uint32_t PRE = T1SPLIT ? (IL / RB < 2 ? IL / RB : 2) : 0;
+    // Barriers of the next unit read ahead of this unit's gathers: x_cb holds T1ZPRE (T1SPLIT), none otherwise.
+    constexpr uint32_t NBAR = IL / RB;
+    constexpr uint32_t PRE = T1SPLIT ? (NBAR < T1ZPRE ? NBAR : T1ZPRE) : 0;
+    uint32_t pre = 0;   // barriers of unit u already read
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         [[maybe_unused]] const auto [b, xt, h, yt] = t1_unit::decode<St, H, PAIR>(u);   // the mask's and the gather's
@@ -155,13 +193,13 @@ void kernel_main() {
         if constexpr (T1PRE) {
             constexpr uint32_t xn_cb = tt::CBIndex::c_1;
             cb_reserve_back(xn_cb, IL * Kt);
-            const uint32_t base = get_write_ptr(xn_cb);
+            const uint32_t base = get_write_ptr(xn_cb), ntb = get_tile_size(xn_cb);   // the bf16 xn, not z
             for (uint32_t il = 0; il < IL; ++il, page += St * Kt)
-                for (uint32_t dt = 0; dt < Kt; ++dt) noc_async_read_page(page + dt, x, base + (dt * IL + il) * tb);
+                for (uint32_t dt = 0; dt < Kt; ++dt) noc_async_read_page(page + dt, x, base + (dt * IL + il) * ntb);
             noc_async_read_barrier();
             cb_push_back(xn_cb, IL * Kt);
         }
-        if constexpr (!T1PRE) read_rows(page, u == u0 ? 0 : PRE * RB, IL);
+        if constexpr (!T1PRE) read_rows(page, pre * RB, IL);
         if constexpr (MASK) {
             const uint32_t scratch = get_write_ptr(mscratch_cb);
             noc_async_read_page((b * St + xt) * St + yt, mk, scratch);
@@ -171,7 +209,7 @@ void kernel_main() {
             volatile tt_l1_ptr uint32_t* src = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(scratch);
             // Row il of a bf16 tile: 16 elements in face (il / 16) * 2 and 16 in the face after it,
             // row il % 16 of each; row 0 of the destination is the first row of faces 0 and 1.
-            for (uint32_t il = h * IL; il < h * IL + IL; ++il, d += tb) {
+            for (uint32_t il = h * IL; il < h * IL + IL; ++il, d += gtb) {   // m_cb is bf16, as gamma
                 volatile tt_l1_ptr uint32_t* dst = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(d);
                 const uint32_t s0 = (((il >> 4) * 2) * 256 + (il & 15) * 16) / 2;
                 for (uint32_t k = 0; k < 8; ++k) {
@@ -182,12 +220,20 @@ void kernel_main() {
             cb_push_back(m_cb, IL);
         }
 #if T1SPLIT
-        if (u + 1 < u0 + nunits) read_rows(z_page(u + 1), 0, PRE * RB);
+        const bool next = u + 1 < u0 + nunits;
+        pre = next ? PRE : 0;
+        if (next) read_rows(z_page(u + 1), 0, PRE * RB);
         const uint32_t cube = xt * St + yt;
         for (uint32_t q = Q0; q < Q0 + QN; q += 2) {
             const uint32_t pg = (b * CT + (q < CT ? q : q - CT)) * 32 * St * St + cube;
             if (q < CT) gather.tile(tt::CBIndex::c_21, oa, pg, h * IL, St * St, (q - Q0) / 2);
             else gather.tile(tt::CBIndex::c_21, ob, pg, h * IL, St * St, (q - Q0) / 2);
+            if constexpr (T1ZIL) {
+                if (next && pre < NBAR && cb_pages_reservable_at_back(x_cb, RB * Kt)) {
+                    read_rows(z_page(u + 1), pre * RB, pre * RB + RB);
+                    ++pre;
+                }
+            }
         }
 #endif
     }
