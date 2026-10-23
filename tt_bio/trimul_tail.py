@@ -1633,12 +1633,14 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False, b8=False):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False, b8=False, fg=False):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
     ([(index, tiles)], [(index, fp32 tiles)]); tiles are bf16 but in T1_W_CBS under `w8` and T1_B8_CBS under `b8`.
     Independent of N: N only sets how many units each core runs. `split` (T1_SPLIT): c_2's two channel tiles become
     one for each data-movement core, and the reader stages its own gather. `b8` at 8-row items adds the exponent holds
-    (kernels/trimul_in_t1/gather.hpp), 1 KB per channel tile a core gathers."""
+    (kernels/trimul_in_t1/gather.hpp), 1 KB per channel tile a core gathers. `fg` (t1_fgate) has no p / g CBs and
+    spends part of their L1 on a second channel tile in each a / b CB, so the gathers keep running through the next
+    item's layer_norm instead of idling on an empty CB."""
     nb = _t1_nb_pref((kt, ct2, ntg)) if nb is None else nb
     rb = T1_RB if rb is None else rb
     groups, plan_il = t1_plan((kt, ct2, ntg), w8)
@@ -1657,6 +1659,8 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=Fa
         bf[2] = (2, il)
         bf += [(21, il),         # the reader's a / b channel tile
                (25, 2 * nb)]     # the reader's gather staging
+    if fg:
+        bf = [(i, 2 * t if i in (2, 21) else t) for i, t in bf if i not in (4, 5)]
     if b8 and il == 8:
         slots = qn // (2 if split else 1)
         bf += [(26, -(-slots // 2))] + ([(27, -(-slots // 2))] if split else [])
@@ -1885,7 +1889,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split, b8=b8)
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split, b8=b8, fg=fg)
     g8 = outs[2].dtype == ttnn.bfloat8_b
     cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if t1_cb_b8(i, w8, b8) or (g8 and i == 19) else _cb(i, core_grid, t)
             for i, t in bf]
