@@ -23,11 +23,24 @@ OUT=$P/results/$L; mkdir -p "$OUT"
 TRIEDF=$OUT/tried; touch "$TRIEDF"; TRIED=" $(tr '\n' ' ' < "$TRIEDF")"
 log(){ echo "$(date -u +%FT%TZ) $*"; }
 credit(){ curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 -c 'import json,sys;print(json.load(sys.stdin)["credit"])'; }
-gone(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))'; }
-state(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys
-print(next((x.get("intended_status") or "" for x in json.load(sys.stdin)["instances"] if x["id"]==int(sys.argv[1])), "gone"))' $1; }
-destroy(){ curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$1/" >/dev/null; sleep 10
-  local n; n=$(gone); log "DESTROYED $1 ($2); instances left: $n"; rm -f $HOLD/$1
+# The vast API sometimes answers with an empty or non-JSON body. That is "unknown", never "gone" or "stopped":
+# on 2026-10-23 one empty body ended session st2 as `stopped` with the box still running, and another let
+# destroy() log DESTROYED with an empty count over an instance that billed for 1.6 h more.
+instances(){ local i out; for i in 1 2 3 4 5; do
+  out=$(curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys
+print(json.dumps(json.load(sys.stdin)["instances"]))' 2>/dev/null) && { echo "$out"; return 0; }; sleep 5; done; return 1; }
+gone(){ instances | python3 -c 'import json,sys;print(len(json.load(sys.stdin)))' 2>/dev/null; }
+state(){ local j; j=$(instances) || { echo unknown; return; }; echo "$j" | python3 -c 'import json,sys
+print(next((x.get("intended_status") or "" for x in json.load(sys.stdin) if x["id"]==int(sys.argv[1])), "gone"))' $1; }
+dead(){ case $(state $1) in running|unknown) return 1;; esac; }
+destroy(){ local n="" t
+  for t in 1 2 3 4 5; do
+    curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$1/" >/dev/null; sleep 10
+    [ "$(state $1)" = gone ] && { n=$(gone); break; }
+  done
+  # Unverified means it may still bill: keep it in OWNED so the reaper retries, and say so instead of DESTROYED.
+  [ -z "$n" ] && { log "DESTROY UNVERIFIED $1 ($2): still listed or API unreadable after 5 tries"; return 1; }
+  log "DESTROYED $1 ($2); instances left: $n"; rm -f $HOLD/$1
   # The reaper only ever touches ids listed in OWNED, so an id that is gone must leave the list.
   sed -i "/^$1\$/d" $S4/gpu/OWNED 2>/dev/null
   sed -i "s|^$1  $CAP_H  $SLUG$|#$1 DESTROYED $(date -u +%FT%TZ) ($2), confirmed instances=$n|" $B; }
@@ -56,7 +69,7 @@ for _ in $(seq $NMAX); do
   echo "# ^ $SLUG $L offer $O created $(date -u +%FT%TZ) by perf/kitcmp/rfd4_session.sh" >> $B
   T0=$(date +%s); log "created $I on offer $O"; S=""
   while [ $(( $(date +%s) - T0 )) -lt 720 ]; do
-    [ $(( $(date +%s) - T0 )) -ge 120 ] && [ "$(state $I)" != running ] && break
+    [ $(( $(date +%s) - T0 )) -ge 120 ] && dead $I && break
     # Two routes to the same box: the host's own open port, and vast's proxy. On 2026-10-19 a box that never
     # answered on the direct port cost two rentals, so try both every poll and take whichever answers.
     ROUTES=$($V show instance $I --raw 2>/dev/null | python3 -c 'import json,sys
@@ -99,7 +112,7 @@ if x.get("actual_status")=="running":
     # session that measured nothing never reads as "done" in this log (session 1, 2026-10-21).
     f=$(timeout 30 $S 'cat /root/kc/rfd4/RFD4-FAILED 2>/dev/null' 2>/dev/null)
     [ -n "$f" ] && END="FAILED ($f)"
-    [ -z "$st" ] && [ "$(state $I)" != running ] && END=stopped
+    [ -z "$st" ] && dead $I && END=stopped
     [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-420))") ] && END=${END:-cap}
     [ -n "$END" ] && break
   done
