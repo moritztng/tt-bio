@@ -25,7 +25,7 @@ ap.add_argument("--block", default=None,
 ap.add_argument("--gb8", action="store_true",
                 help="g uploaded as bfp8, as trimul_b8in writes g_out (both arms read it; the reference keeps bf16 g)")
 ap.add_argument("--abl", default="",
-                help="comma list of T2_ABL stage-ablation masks also timed after the full T2 (bench only)")
+                help="comma list of T2_ABL stage-ablation masks also timed after the full T2 and T2_FOLD (bench only)")
 ap.add_argument("--fold", action="store_true",
                 help="also run T2_FOLD (LN centring + gamma folded into Wp; needs --gate) vs float64 and its ms")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
@@ -153,12 +153,18 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 rec["fold_rel_rms_f64"], rec["fold_max_abs"] = rel(out, ref)
                 rec["fold_ms"] = timed(lambda: TT.fused_tail_ln(d["x"], d["gamma"], d["beta"], d["w"],
                                                                 d["g"], z, ckc, grid, wg=wg), A.reps)
+                for m in [int(v) for v in A.abl.split(",") if v]:
+                    TT.T2_ABL = m
+                    rec[f"fold_ms_abl{m}"] = timed(lambda: TT.fused_tail_ln(
+                        d["x"], d["gamma"], d["beta"], d["w"], d["g"], z, ckc, grid, wg=wg), A.reps)
+                TT.T2_ABL = 0
             ttnn.deallocate(z)
         except Exception as e:                                                # noqa: BLE001
             rec["fold_err"] = str(e).splitlines()[0][:300]
             traceback.print_exc()
         finally:
             TT.T2_FOLD = False
+            TT.T2_ABL = 0
         bad += "fold_err" in rec
     rec["t2_stats"] = list(TT.T2_STATS)
     bad += "t2_err" in rec or "inc_err" in rec
