@@ -901,16 +901,25 @@ class Trunk(Module):
             ttnn.deallocate(z_out)
         # The readback of s is queued right behind the trunk, so a call launched after this one
         # does not sit between the two: `collect` waits for this call alone.
-        return n, pair, (s_out, z_out), (s, z, *cs), download_later(s_out)
+        s_host = download_later(s_out)
+        # Everything but a pair still to be read back is freed now, not in `collect`: the command
+        # queue is in order, so a later call reusing the memory runs after this one has read it, and
+        # a second call in flight holds no more DRAM than one.
+        keep = {z_out.buffer_address()} if pair else set()
+        for t in (s, z, *cs, s_out) + (() if pair else (z_out,)):
+            if t.is_allocated() and t.buffer_address() not in keep:
+                ttnn.deallocate(t)
+        return n, (z_out if pair else None), s_host
 
     def collect(self, pending):
         """The `(s, z)` of a `launch`, back on the host, and its device tensors freed."""
-        n, pair, (s_out, z_out), inputs, s_host = pending
-        out = s_host()[:, :n], download(z_out)[:, :n, :n] if pair else None
-        for t in (*inputs, s_out, z_out):
-            if t.is_allocated():
-                ttnn.deallocate(t)
-        return out
+        n, z_out, s_host = pending
+        s = s_host()[:, :n]
+        if z_out is None:
+            return s, None
+        z = download(z_out)[:, :n, :n]
+        ttnn.deallocate(z_out)
+        return s, z
 
 
 def compute_kernel_config():
