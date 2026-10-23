@@ -5,8 +5,10 @@
 
 Reads the TT runs `run.py` wrote and keeps, for the evidence file, only the lines the protocol
 admits: warm measure batches on a p150a, not discarded (clock, contention, chunking), from a clean
-tree whose sha is on tt-bio main. Per size it takes the newest run with >= 5 such batches and
-reports the median designs/s with min and max.
+tree whose sha is on tt-bio main. Per size it takes the newest cell with >= 5 such batches and
+reports the median designs/s with min and max. A cell is one (sha, host, card, batch), the PROTOCOL
+section 4 cell on one box: clean lines from several runs of that cell pool, so a top-up run that
+replaces contended lines counts toward the same five.
 
 The B200 side is recomputed from `gpu-b200.jsonl` the way the gate does: warm lines grouped by
 (size, arm, batch), the median per group, and per size the fastest group (>= 5 lines preferred,
@@ -77,7 +79,7 @@ def tt_side(paths, repo):
         runs = defaultdict(list)
         for r in lines:
             if r["size"] == size:
-                runs[r["raw"]].append(r)
+                runs[r["sha"], r["host"], r["card"], r["batch"]].append(r)
         full = [v for v in runs.values() if len(v) >= MIN_BATCHES]
         if not full:
             continue
@@ -85,7 +87,7 @@ def tt_side(paths, repo):
         d = [r["designs_per_s"] for r in v]
         per[size] = {"designs_per_s": round(statistics.median(d), 5), "min": round(min(d), 5), "max": round(max(d), 5),
                      "batches": len(v), "batch": v[0]["batch"], "sha": v[0]["sha"], "host": v[0]["host"],
-                     "card": v[0]["card"], "board_type": v[0].get("board_type"), "raw": v[0]["raw"],
+                     "card": v[0]["card"], "board_type": v[0].get("board_type"), "raw": sorted({r["raw"] for r in v}),
                      "aiclk_mhz": sorted(r["aiclk_mhz"] for r in v),
                      "aiclk_min_mhz": min(r["aiclk_min_mhz"] for r in v),
                      "foreign_cores_median": max(r["foreign_cores_median"] or 0 for r in v),
@@ -202,7 +204,7 @@ def deck_cells(v, gpu_path):
                         f"pdl1-{s} frozen spec, ttnn 0.68.0, firmware {v['p150a_firmware']}",
             "when": t["date"], "card": f"{t['host']}:{t['card']} {t['board_type']}",
             "aiclk_samples": f"min {t['aiclk_min_mhz']} MHz in-run, foreign cores median <= {t['foreign_cores_median']}",
-            "source": f"{t['raw']}/runs.jsonl (perf/rfd4/fair/run.py)",
+            "source": ", ".join(f"{d}/runs.jsonl" for d in t["raw"]) + " (perf/rfd4/fair/run.py)",
             "ratio_vs_b200": c["ratio"]}
         cells[f"rfd4.b200.{s}"] = {
             "s": round(1 / g["designs_per_s"], 3),
