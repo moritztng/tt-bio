@@ -829,6 +829,9 @@ _FAST_MODE = False
 #                   float64 0.0116 -> 0.0101 (state/rfd4/bets/pairblock.md)
 #   pair_tail       RFD4's triangle output tail (LayerNorm, p_out, sigmoid gate) and its residual add into the float32
 #                   pair stream as one T2 program (`trimul_tail.fused_tail_ln(copy=)`), with no padded token. Unmeasured.
+#   pair_tail_small pair_tail below trimul_tail.MIN_N (160), where T1 declines: the incumbent chain keeps the input side
+#                   and computes g_out, T2's float32-stream form takes LayerNorm, p_out, gate and the residual write
+#                   (state/rfd4/bets/tri128.md)
 #   pair_bias_rms   RFD4's pair biases (RMSNorm of the pair, the stacked bias projection, head-first layout, the split per
 #                   block) as one `dit_pair_bias.rms_pair_bias` program, with no padded token (state/rfd4/bets/pairbias.md)
 #   pair_write_res  RFD4's Hadamard pair write and its residual add into the float32 pair stream as one
@@ -849,12 +852,12 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2")
+           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# RFD4's own set (rfd4.trunk.FAST_LEVERS) names pair_block, pair_tail, pair_bias_rms and pair_write_res, graded on
+# RFD4's own set (rfd4.trunk.FAST_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms and pair_write_res, graded on
 # RFD4's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
@@ -872,7 +875,7 @@ UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_sp
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
                              "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-                             "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2"})
+                             "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10783,6 +10786,7 @@ class TriangleMultiplication(Module):
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         pre_split = None
+        a_chunk = b_chunk = None
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
             try:
@@ -11197,6 +11201,15 @@ class TriangleMultiplication(Module):
                 break
             except RuntimeError as e:
                 msg = str(e)
+                # The refused attempt's channel operands are this call's own tensors. Free them
+                # now: the traceback keeps them referenced, and an L1 `a` left alive sits under
+                # the retried in-projection's circular buffers. At 576 tokens on Wormhole it did
+                # (`a` at 909312, the in-projection's CBs ending at 1152288), the retry and the
+                # host-join retry around it threw the same clash, and every fold died.
+                for _t in (a_chunk, b_chunk):
+                    if isinstance(_t, ttnn.Tensor) and _t.is_allocated():
+                        ttnn.deallocate(_t)
+                a_chunk = b_chunk = None
                 # TT_BIO_OF3L1_TMA's own refusal, first: an L1 "Out of Memory" would otherwise
                 # read as the DRAM refusal below (`_dram_oom` matches the allocator's wording,
                 # not the buffer type) and narrow the in-projection group for good, and an L1
@@ -11439,6 +11452,14 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        if (stream32 is not None and g_out_fused is None and x_norm_in is not None and H < _trimul_tail.MIN_N
+                and not x_normed and not add_to_input and self.p_out_bias is None and self.g_out_bias is None
+                and not ops.taping() and lever("pair_tail_small")):
+            # Below T1's floor the chain keeps the input side; g_out is the same projection the tail below
+            # would compute, and T2's float32-stream form then takes the rest of the tail with the residual.
+            g_out_fused = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config, None)
+            ttnn.deallocate(x_norm_in)
+            x_norm_in = None
         if (stream32 is not None and g_out_fused is not None and not x_normed and not add_to_input
                 and self.p_out_bias is None and not ops.taping()):
             t2m_flush()

@@ -187,41 +187,12 @@ def test_merge_back_takes_the_release_files_main_left_alone_and_keeps_mains_note
     assert rt.merge_back(rel, sha, "origin") == m          # already merged: nothing new
 
 
-def test_a_gate_waits_while_no_galaxy_is_lent(tmp_path, monkeypatch, capsys):
-    """A "galaxies" config with nothing lent would start a gate with no WH worker: wait for a lend instead."""
-    import subprocess
-    started = []
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0))
-    monkeypatch.setattr(rt, "start_gate", lambda *a: started.append(a))
-    monkeypatch.setattr(rt, "decide", lambda **k: {"do": "GATE", "sha": "b" * 40, "why": "", "running": []})
-    (tmp_path / "hosts.json").write_text(json.dumps({"g103": {}}))
-    alloc = tmp_path / "ALLOC.json"
-    cfg = tmp_path / "gate.json"
-    cfg.write_text(json.dumps({"hosts": str(tmp_path / "hosts.json"),
-                               "galaxies": {"alloc": str(alloc), "owners": ["spd"], "slots": 16}}))
-    monkeypatch.setattr(sys, "argv", ["release_train.py", "--gates", str(tmp_path), "--gate-config", str(cfg)])
-    alloc.write_text(json.dumps({"galaxies": {"103": {"owner": "japanfold", "phase": "serving"}}}))
-    assert rt.main() == 0 and started == []
-    assert "WAIT bbbbbbbbbbbb: no Galaxy lent to spd; WH legs need one" in capsys.readouterr().out
-    alloc.write_text(json.dumps({"galaxies": {"103": {"owner": "spd", "phase": "lent"}}}))
-    assert rt.main() == 0 and len(started) == 1
-
-
-def test_galaxy_pools_follow_the_lent_galaxy(tmp_path):
-    """Pool slots go to the Galaxy lent to the gate's owners now, not to a Galaxy named by hand."""
+def test_galaxy_pools_list_every_galaxy_pool(tmp_path):
+    """Every Galaxy with a pool gets slots, lent or not: the gate reads each pool's PAUSE while it
+    runs, so a leg taken back from a Galaxy returned to JapanFold goes to whichever pool is open."""
     hosts = tmp_path / "hosts.json"
-    hosts.write_text(json.dumps({"qb2": {}, "g107": {}, "g108": {}}))
-    alloc = tmp_path / "ALLOC.json"
-    alloc.write_text(json.dumps({"galaxies": {
-        "107": {"owner": "japanfold", "phase": "serving"},
-        "108": {"owner": "spd", "phase": "lent"},
-        "110": {"owner": "spd", "phase": "lent"},       # lent, but no hosts entry to reach it by
-        "111": {"owner": "cfd", "phase": "lent"}}}))
-    cfg = {"hosts": str(hosts), "workers": "qb2:1", "timed": "qb2:1",
-           "galaxies": {"alloc": str(alloc), "owners": ["spd"], "slots": 2}}
+    hosts.write_text(json.dumps({"qb2": {"pool": {}}, "g107": {"pool": {}}, "g108": {"pool": {}}, "g110": {}}))
+    cfg = {"hosts": str(hosts), "workers": "qb2:1", "timed": "qb2:1", "galaxies": {"slots": 2}}
     got = rt.galaxy_pools(cfg)
-    assert got["workers"] == "qb2:1,g108:pool,g108:pool"
-    assert got["timed"] == "qb2:1,g108:pool"
-    alloc.write_text(json.dumps({"galaxies": {"108": {"owner": "japanfold", "phase": "serving"}}}))
-    assert rt.galaxy_pools(cfg)["workers"] == "qb2:1"
-    assert rt.galaxy_pools({"workers": "qb2:1"}) == {"workers": "qb2:1"}
+    assert got["workers"] == "qb2:1,g107:pool,g107:pool,g108:pool,g108:pool"
+    assert got["timed"] == "qb2:1,g107:pool,g108:pool"
