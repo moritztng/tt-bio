@@ -203,6 +203,11 @@ already add to that op. At 1350 MHz the trunk of a 512-token design goes from 25
 256-token one 1.04x. Over 31 seed-matched 512-token designs the designed chain moved 5.1 A median against the
 previous default, while a different seed moves it 39 A, and the binder grade passes.
 
+The triangle multiplication's input kernel also writes its gate in block-fp8, and the output kernel's projection
+runs at HiFi2. At 1350 MHz the trunk of a 512-token design goes from 23.8 to 23.2 s (1.03x), of a 384-token one
+1.02x and of a 256-token one 1.03x. Over 31 seed-matched 512-token designs the designed chain moved 2.4 A median
+against the previous default, while a different seed moves it 38 A, and the binder grade passes.
+
 ## Many designs at once
 
 A spec can hold any number of designs and `--num_designs` multiplies them. Locally, one card

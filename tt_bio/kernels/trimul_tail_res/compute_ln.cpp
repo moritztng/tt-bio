@@ -27,6 +27,7 @@
 #include "api/compute/transpose_wh.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 #include "../common/ln_prologue.hpp"
+#include "../common/mm_fid.hpp"
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t Nt = get_compile_time_arg_val(1);
@@ -57,6 +58,16 @@ constexpr uint32_t EXTRA = get_compile_time_arg_val(10);
 // Wc = (I - 11^T / K) diag(gamma) Wp, and beta @ Wp into c_9 as Nt full bias tiles. Here only rstd is computed
 // (E[x^2] - mean^2), the GEMM reads x itself, and the epilogue is rstd * (x @ Wc) + bias.
 constexpr uint32_t FOLD = get_compile_time_arg_val(11);
+
+// T2_MM_FID (trimul_tail.t2_mm_fid, lever trimul_tail_hifi2): the p GEMM's fidelity. The LayerNorm and the epilogue
+// multiplies keep the compute config's, so at HiFi2 the only bit dropped is layer_norm(x)'s last one, in srcB.
+#ifdef T2_MM_FID
+constexpr auto MM_FID = static_cast<MathFidelity>(T2_MM_FID);
+#elif defined(TRISC_MATH)
+constexpr auto MM_FID = static_cast<MathFidelity>(MATH_FIDELITY);
+#else
+constexpr auto MM_FID = MathFidelity::HiFi4;  // MATH_FIDELITY exists only on the math TRISC, the only reader
+#endif
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
 constexpr uint32_t cb_w = tt::CBIndex::c_1;      // Wp, Kt * Nt, resident
@@ -230,7 +241,7 @@ void kernel_main() {
         }
 
         // 2. p = x_norm @ Wp (FOLD: x @ Wc), one K block accumulated in DST in k order, packed to bf16.
-        mm_block_init_short(cb_a, cb_w, false, SBW, 1, Kt);
+        mm_fid::block_init_short<MM_FID>(cb_a, cb_w, SBW, 1, Kt);
         reconfig_data_format(cb_w, cb_a);
         pack_reconfig_data_format(cb_p);
         cb_wait_front(cb_a, Mb * Kt);
@@ -242,7 +253,7 @@ void kernel_main() {
                 uint32_t i0 = mi * Kt;
                 uint32_t i1 = n0;
                 for (uint32_t k = 0; k < Kt; ++k) {
-                    matmul_block(cb_a, cb_w, i0, i1, 0, false, SBW, 1, Kt);
+                    mm_fid::block<MM_FID>(cb_a, cb_w, i0, i1, 0, SBW, 1, Kt);
                     i0++;
                     i1 += Nt;
                 }

@@ -834,9 +834,14 @@ def known_walls(hist: dict, prior: list) -> dict:
 
 
 def select(legs: list, patterns: list) -> list:
-    """Legs matching any pattern (all when there is none) and no `!pattern`."""
+    """Legs matching any pattern (all when there is none) and no `!pattern`. A pattern that matches
+    no leg is an error: `--legs record:rf3` (the leg is `record:rf3@<card>`) ran nothing on 10-23 and
+    wrote an empty PASS verdict over the record run rec-437a23413."""
     take = [p for p in patterns if not p.startswith("!")]
     drop = [p[1:] for p in patterns if p.startswith("!")]
+    if none := [p for p in take if not any(fnmatch.fnmatch(lg.name, p) for lg in legs)]:
+        raise SystemExit(f"--legs {','.join(none)} matches no leg; legs are e.g. "
+                         + ", ".join(lg.name for lg in legs[:6]))
     return [lg for lg in legs if (not take or any(fnmatch.fnmatch(lg.name, p) for p in take))
             and not any(fnmatch.fnmatch(lg.name, p) for p in drop)]
 
@@ -1043,8 +1048,9 @@ class Host:
         argv = [self.python(leg.family) if a == "PY" else fill(a) for a in self.leg(leg).argv]
         if "pool" in c and argv[1:2] and argv[1] in LOAD_GUARDED:
             argv += ["--load-ceiling", "0"]   # not in the leg's key: it changes nothing measured
-        body = (f"echo \"##LEG-START $(date +%s)\"; exec timeout -s INT -k 600 {leg.budget} nice -n 10 "
-                + " ".join(shlex.quote(a) for a in argv))
+        legpid = shlex.quote(f"{out}/leg.pid")
+        body = (f"echo \"##LEG-START $(date +%s)\"; echo $$ > {legpid}; exec timeout -s INT -k 600 {leg.budget} "
+                "nice -n 10 " + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         run = f"env {envs} bash -c {shlex.quote(body)}"
         if card is not None:
@@ -1055,10 +1061,19 @@ class Host:
         # (which survives bash's exec of the last command). When the runner's connection drops the
         # remote side keeps waiting on the card, so a rerun first ends the attempt it replaces;
         # otherwise both run the leg into one directory (qb1, 10-10: five BH legs queued twice).
+        #
+        # The session also hides the leg from a signal sent to the pool job: a JapanFold recall of a lent
+        # chip SIGINTs the job's process group, and on .110 on 2026-10-23 the gate drivers ran on and
+        # started their next fold on the chip being reset. So the job shell passes SIGINT/SIGTERM on to
+        # the leg's `timeout` (leg.pid), which hands it to the driver, and waits for the leg to finish.
+        # Still in flock or setup, there is no driver yet: the session is ended outright.
         mark = shlex.quote(f"GATE_ATTEMPT={out}")
         attempt = shlex.quote(f"echo $$ > {shlex.quote(f'{out}/attempt.pid')}; {run}")
-        return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
-                f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
+        fwd = shlex.quote(f"kill -INT $(cat {legpid} 2>/dev/null) 2>/dev/null || pkill -TERM -s $a")
+        return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && rm -f {legpid} && cd {self.tree} && "
+                f"{setup}{{ env {mark} setsid -w bash -c {attempt} & a=$!; trap {fwd} INT TERM; "
+                f"while :; do wait $a; rc=$?; kill -0 $a 2>/dev/null || break; done; (exit $rc); }}")
+                # no exec: a pool job writes rc after it
 
     def marked_bad(self, card) -> str | None:
         """The mark that takes `card` out of service (BAD_MARKS), or None. A host that does not

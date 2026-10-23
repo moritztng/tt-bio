@@ -218,7 +218,7 @@ def test_a_refused_chunk_halves_the_width_and_reruns():
 
 
 class StagedNet(Net):
-    """`Net` split into prepare / launch / finish, logging the order the driver calls them in."""
+    """`Net` split into prepare / launch / collect / complete, logging the order the driver calls them in."""
 
     def __init__(self):
         super().__init__()
@@ -232,9 +232,13 @@ class StagedNet(Net):
         self.log.append(("launch", prepared[3]))
         return prepared
 
-    def finish(self, launched):
-        x_t, t, recycle_depth, step = launched
-        self.log.append(("finish", step))
+    def collect(self, launched):
+        self.log.append(("collect", launched[3]))
+        return launched
+
+    def complete(self, collected):
+        x_t, t, recycle_depth, step = collected
+        self.log.append(("complete", step))
         return self(x_t, t, recycle_depth=recycle_depth, step=step)
 
 
@@ -253,19 +257,19 @@ def test_lanes_give_the_designs_the_chunker_gives(width):
     assert max(n for _, _, n in net.calls) <= width
 
 
-def test_the_next_lane_launches_before_the_host_prepares_anything():
-    """One call in flight, and every finish is followed straight away by the next launch, so the
-    card never waits on host work that another lane could have done while it ran."""
+def test_the_next_lane_launches_before_the_host_does_anything():
+    """One call in flight, and every readback is followed straight away by the next launch, so the
+    card never waits on host work (the heads, the step, the next inputs) that can run under it."""
     net = StagedNet()
     run(short(), n_designs=2, network=net, lane_width=1)
     kinds = [k for k, _ in net.log]
     in_flight = 0
     for k in kinds:
-        in_flight += {"launch": 1, "finish": -1}.get(k, 0)
+        in_flight += {"launch": 1, "collect": -1}.get(k, 0)
         assert in_flight <= 1
     for i, k in enumerate(kinds[:-2]):
-        if k == "finish":
-            assert kinds[i + 1] == "launch", kinds[i - 2:i + 3]
+        if k == "collect":
+            assert kinds[i + 1:i + 3] == ["launch", "complete"], kinds[i - 2:i + 4]
     assert kinds.count("launch") == 2 * short().nsteps
 
 

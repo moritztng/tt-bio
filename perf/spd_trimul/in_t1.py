@@ -54,7 +54,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG", "T1_SPLIT", "T1_MCAST"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG", "T1_SPLIT", "T1_MCAST", "T1_G8"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)

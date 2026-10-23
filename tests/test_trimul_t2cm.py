@@ -78,6 +78,8 @@ def test_eligibility_declines_cleanly(monkeypatch):
         assert TTL.t2cm_eligible(**a) == "ln_params"
         a = _args()
         a["g"] = _Fake([1, 512, 512, 128], dtype=ttnn.bfloat8_b)
+        assert TTL.t2cm_eligible(**a) is None                            # the plain form reads a bfp8 g (trimul_t1g8)
+        a["g"] = _Fake([1, 512, 512, 128], dtype=ttnn.float32)
         assert TTL.t2cm_eligible(**a) == "dtype"
         monkeypatch.setattr(T, "_l1_bank_bytes", lambda: 100_000)        # a smaller part: refuse, not throw
         assert TTL.t2cm_eligible(**_args()) == "l1"

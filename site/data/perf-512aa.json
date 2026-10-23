@@ -1,6 +1,6 @@
 {
   "schema": 3,
-  "updated": "2026-10-21",
+  "updated": "2026-10-23",
   "title": "TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware",
   "subtitle": "Eight structure-prediction models, two binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [

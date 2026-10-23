@@ -1055,10 +1055,12 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
     without waiting on the host.
 
     The network may split its call into ``prepare(x_t, t, *, recycle_depth, step)``,
-    ``launch(prepared)`` and ``finish(launched)``, where ``launch`` only enqueues device work and
-    ``finish`` waits for it. One launched call is in flight at a time, so the card holds one
-    lane's trunk, as it would running them one after another. A network with no stages is called
-    as it is and the lanes simply run in turn.
+    ``launch(prepared)``, ``collect(launched)`` and ``complete(collected)``: ``launch`` only
+    enqueues device work, ``collect`` waits for it and reads the result back, and ``complete`` is
+    the host work on that result (the heads), which runs after the next lane is launched. One
+    launched call is in flight at a time, so the card holds one lane's trunk, as it would running
+    them one after another. A network with no stages is called as it is and the lanes simply run
+    in turn.
 
     Each lane computes exactly what it computes alone: the order lanes run in is not an input to
     any of them.
@@ -1069,9 +1071,9 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
     if prepare is None:
         def prepare(x, t, *, recycle_depth, step):
             return network(x, t, recycle_depth=recycle_depth, step=step)
-        launch = finish = lambda value: value
+        launch = collect = complete = lambda value: value
     else:
-        launch, finish = network.launch, network.finish
+        launch, collect, complete = network.launch, network.collect, network.complete
 
     results: list[SamplerOutput | None] = [None] * len(lanes)
     ready: deque = deque()
@@ -1092,12 +1094,12 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
             i, prepared = ready.popleft()
             flight = i, launch(prepared)
         i, launched = flight
-        out = finish(launched)
+        collected = collect(launched)
         flight = None
         if ready:
             j, prepared = ready.popleft()
             flight = j, launch(prepared)
-        advance(i, out)
+        advance(i, complete(collected))
     return results
 
 

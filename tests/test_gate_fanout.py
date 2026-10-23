@@ -74,6 +74,11 @@ def test_select_globs():
     assert not [n for n in names if n.startswith("ladder:") or n == "rg:l1-budget"]
 
 
+def test_select_rejects_a_pattern_that_matches_nothing():
+    with pytest.raises(SystemExit, match="rg:nope"):
+        gf.select(_legs(), ["rg:*", "rg:nope"])
+
+
 def test_record_lever_legs_splice_into_a_copy_and_are_only_built_on_request():
     assert not [lg for lg in _legs() if lg.family == "record"]
     legs = [lg for lg in gf.build_legs(ROSTER, [], 1, "SDPA_FUSED_PADDED") if lg.family == "record"]
@@ -534,7 +539,8 @@ def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path
     assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd
     assert "RELEASE_GATE_SIZE_WORKDIR=/t/out/x/sizegate-work" in cmd
     assert "/r/venv-aaaaaaaaaaaa/bin/python scripts/full_parity_gate.py" in cmd
-    free = shlex.split(h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y"))[-1]
+    toks = shlex.split(h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y"))
+    free = toks[toks.index("setsid") + 4]          # setsid -w bash -c <attempt>
     assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
     assert "/r/venv312-aaaaaaaaaaaa/bin/python -m pytest" in free
     bc2 = h.command(next(lg for lg in _legs() if lg.family == "bc2"), 1, "/t/out/z")

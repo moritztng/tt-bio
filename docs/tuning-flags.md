@@ -939,6 +939,10 @@ The pair transition's two matmuls run at HiFi2 (`pair_block_hifi2`, RFD4's set o
 every bit and the bf16 activation loses its last mantissa bit. The 512-token trunk goes from 25.87 to 24.32 s a
 design (1.064x, 1350 MHz, paired) and 256 1.041x; the designed chain moves 5.1 A median against a 38.8 A
 seed-to-seed spread and the binder grade passes.
+The triangle multiplication's input kernel writes its gate in block-fp8 for the output kernel to read
+(`trimul_t1g8`), and the output kernel's projection runs at HiFi2 (`trimul_tail_hifi2`), both RFD4's set only. The
+512-token trunk goes from 23.84 to 23.17 s a design (1.029x, 1350 MHz, paired), 384 1.024x and 256 1.032x; the
+designed chain moves 2.45 A median against a 37.7 A seed-to-seed spread and the binder grade passes.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
