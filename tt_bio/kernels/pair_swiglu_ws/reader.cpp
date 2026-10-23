@@ -12,8 +12,7 @@
 // Under WS_RESID the residual's row tile (CT pages) follows each x row tile into c_20, and under WS_RESID2 the second
 // residual's into c_24 (common runtime arg 8).
 //
-// Under WS_RES32 the residual is float32 (its pages are 4 KB; `tr` is c_20's page size either way) and goes over in
-// compute's fc3 groups of two tiles.
+// Under WS_RES32 the residual is float32 (its pages are 4 KB; `tr` is c_20's page size either way).
 //
 // Under WS_RELU c_1 holds w1 alone ([KT, NH] tiles) and the row-replicated biases are read once into c_21 (b1, NH
 // tiles) and c_22 (b3, CT tiles). Under WS_RELU_BW b1 is read the same way and the cotangent dy's row tile (KT pages)
@@ -197,22 +196,7 @@ void kernel_main() {
             noc_async_read_page(r * KT + k, sb3, wd);
         }
 #endif
-#if defined(WS_RES32)
-        // compute pops c_20 two tiles a fc3 group, so the next row's z streams in behind it rather than after the
-        // whole row (c_20 is one row deep)
-        noc_async_read_barrier();
-        cb_push_back(cb_x, KT);
-        constexpr uint32_t OG = CT < 2 ? CT : 2;
-        for (uint32_t c = 0; c < CT; c += OG) {
-            cb_reserve_back(cb_res, OG);
-            uint32_t wr = get_write_ptr(cb_res);
-            for (uint32_t i = 0; i < OG; ++i, wr += tr) {
-                noc_async_read_page(r * CT + c + i, sr, wr);
-            }
-            noc_async_read_barrier();
-            cb_push_back(cb_res, OG);
-        }
-#elif defined(WS_RESID)
+#ifdef WS_RESID
         noc_async_read_barrier();
         cb_push_back(cb_x, KT);
         cb_reserve_back(cb_res, CT);
@@ -235,7 +219,7 @@ void kernel_main() {
 #ifdef WS_RELU_BW
         cb_push_back(cb_dy, KT);
 #endif
-#if defined(WS_RESID) && !defined(WS_RES32)
+#ifdef WS_RESID
         cb_push_back(cb_res, CT);
 #ifdef WS_RESID2
         cb_push_back(cb_res2, CT);
