@@ -32,7 +32,7 @@ from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
 from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
-                           _sdpa_program_config_for_lengths, bfp8_fidelity, download, fused_sdpa, lever,
+                           _sdpa_program_config_for_lengths, bfp8_fidelity, download, download_later, fused_sdpa, lever,
                            lever_scope, model_levers, refusals_learned, under_lever_scope, upload)
 
 EPS = 1e-5
@@ -899,12 +899,14 @@ class Trunk(Module):
                 break
             ttnn.deallocate(s_out)
             ttnn.deallocate(z_out)
-        return n, pair, (s_out, z_out), (s, z, *cs)
+        # The readback of s is queued right behind the trunk, so a call launched after this one
+        # does not sit between the two: `collect` waits for this call alone.
+        return n, pair, (s_out, z_out), (s, z, *cs), download_later(s_out)
 
     def collect(self, pending):
         """The `(s, z)` of a `launch`, back on the host, and its device tensors freed."""
-        n, pair, (s_out, z_out), inputs = pending
-        out = download(s_out)[:, :n], download(z_out)[:, :n, :n] if pair else None
+        n, pair, (s_out, z_out), inputs, s_host = pending
+        out = s_host()[:, :n], download(z_out)[:, :n, :n] if pair else None
         for t in (*inputs, s_out, z_out):
             if t.is_allocated():
                 ttnn.deallocate(t)

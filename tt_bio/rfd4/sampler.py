@@ -1056,9 +1056,11 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
 
     The network may split its call into ``prepare(x_t, t, *, recycle_depth, step)``,
     ``launch(prepared)`` and ``finish(launched)``, where ``launch`` only enqueues device work and
-    ``finish`` waits for it. One launched call is in flight at a time, so the card holds one
-    lane's trunk, as it would running them one after another. A network with no stages is called
-    as it is and the lanes simply run in turn.
+    ``finish`` waits for it. Two launched calls are in flight, so when one lane's trunk ends the
+    card goes straight on to the next lane's, already uploaded and enqueued, while the host reads
+    the first back and works on it. The card runs them in launch order, one trunk at a time, and
+    ``finish`` must wait for its own call only (`Trunk.launch` queues the readback behind the
+    trunk). A network with no stages is called as it is and the lanes simply run in turn.
 
     Each lane computes exactly what it computes alone: the order lanes run in is not an input to
     any of them.
@@ -1086,19 +1088,17 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
 
     for i in range(len(lanes)):
         advance(i)
-    flight = None
+    flight: deque = deque()
     while ready or flight:
-        if flight is None:
-            i, prepared = ready.popleft()
-            flight = i, launch(prepared)
-        i, launched = flight
-        out = finish(launched)
-        flight = None
-        if ready:
+        while ready and len(flight) < LANES_IN_FLIGHT:
             j, prepared = ready.popleft()
-            flight = j, launch(prepared)
-        advance(i, out)
+            flight.append((j, launch(prepared)))
+        i, launched = flight.popleft()
+        advance(i, finish(launched))
     return results
+
+
+LANES_IN_FLIGHT = 2  # one trunk running, the next already enqueued behind it
 
 
 def _rows(value, first: int, k: int, n: int):
