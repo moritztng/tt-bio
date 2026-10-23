@@ -52,7 +52,6 @@ ensure_p300_mesh_descriptor()
 
 import clocksample  # noqa: E402
 
-CLOCK_FLOOR_MHZ = 1200
 MIN_GAIN = 0.02
 CEILING = {128: 128, 256: 64, 512: 32}  # PROTOCOL section 4
 
@@ -288,8 +287,9 @@ def main():
             rec["quiet_wait_last"] = {"foreign_cores_median": loud, **{k: wait_con[k] for k in
                                       ("foreign_top", "foreign_unattributed_cores", "foreign_spawned")}}
         why = []
-        if mhz is None or mhz < CLOCK_FLOOR_MHZ:
-            why.append(f"clock_artifact: AICLK median {mhz} < {CLOCK_FLOOR_MHZ} MHz")
+        floor = clocksample.clock_floor_mhz()
+        if mhz is None or mhz < floor:
+            why.append(f"clock_artifact: AICLK median {mhz} < {floor} MHz")
         if con.holders and not a.shared_box:
             why.append(f"contended: device held by {sorted(con.holders)}")
         if (rec["foreign_cores_median"] or 0) > a.max_foreign_cores:
