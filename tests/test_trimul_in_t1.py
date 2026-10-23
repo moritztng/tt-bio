@@ -56,7 +56,8 @@ def test_rfd4_splits_the_gather_at_nb_8(mask, monkeypatch):
     one = TTL.t1_cb_bytes(12, 16, 12, mask, w8=True)
     assert TTL.t1_cb_bytes(12, 16, 12, mask, w8=True, split=True) == one + 16 * 2048
     assert TTL.t1_dm((12, 16, 12), mask, True) == (8, True)
-    assert TTL.t1_dm((12, 16, 12), mask, True, b8=True) == (8, False)
+    assert TTL.t1_dm((12, 16, 12), mask, True, b8=True) == (8, True)   # bfp8 a / b: the split and the holds fit
+    assert TTL.t1_cb_bytes(12, 16, 12, mask, w8=True, split=True, b8=True, il=8) < one + 16 * 2048
     assert TTL.t1_dm((12, 16, 12), mask, False)[1] is False          # bf16 weights: no room
     for key in [(4, 8, 4), (8, 16, 8), (12, 24, 12)]:
         assert TTL.t1_dm(key, mask, True)[1] is False
@@ -97,7 +98,9 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
     bfg, _ = TTL.t1_cb_plan(12, 24, 12, True)   # c_z 384: channel groups add the T1_LN1 xn CB
     bfs, _ = TTL.t1_cb_plan(12, 16, 12, True, w8=True, split=True)   # T1_SPLIT adds the reader's CBs
     assert len(bfs) == len({i for i, _ in bfs})
-    assert used == set(planned) | {i for i, _ in bfg} | {i for i, _ in bfs}
+    bfh, _ = TTL.t1_cb_plan(12, 16, 12, True, w8=True, split=True, b8=True)   # bfp8 at 8-row items adds the holds
+    assert len(bfh) == len({i for i, _ in bfh}) and {i for i, _ in bfh} - {i for i, _ in bfs} == {26, 27}
+    assert used == set(planned) | {i for i, _ in bfg} | {i for i, _ in bfh}
     bf0, _ = TTL.t1_cb_plan(KT, CT2, NTG, False)
     assert {3, 6, 15}.isdisjoint(i for i, _ in bf0)
 
@@ -388,3 +391,19 @@ def test_t1_rows(plan_il, units, ncores, want, monkeypatch):
     assert TTL.t1_rows(plan_il, units, ncores) == want
     monkeypatch.setattr(TTL, "T1_ROWS", 16)
     assert TTL.t1_rows(plan_il, units, ncores) == min(plan_il, 16)
+
+
+@pytest.mark.parametrize("St,cores", [(16, 110), (16, 130), (8, 110), (12, 7)])
+def test_t1_pair_items_cover_each_face_pair_on_one_core(St, cores):
+    """bfp8 at 8-row items (kernels/trimul_in_t1/unit.hpp): every (b, xt, h, yt) once, items 2k and 2k + 1 the two
+    halves of one face pair, and every core runs whole pairs, so the second item can write both items' exponents."""
+    H = 4
+    nu = 2 * St * St * H
+    units = [TTL.t1_unit(u, St, H, pair=True) for u in range(nu)]
+    assert sorted(units) == sorted(TTL.t1_unit(u, St, H) for u in range(nu))
+    for k in range(0, nu, 2):
+        (b0, x0, h0, y0), (b1, x1, h1, y1) = units[k], units[k + 1]
+        assert (b0, x0, y0) == (b1, x1, y1) and h0 % 2 == 0 and h1 == h0 + 1
+    split = TTL.t1_split(nu, cores, pair=True)
+    assert sum(n for _, n in split) == nu and all(u0 % 2 == 0 and n % 2 == 0 for u0, n in split)
+    assert all(split[i][0] + split[i][1] == split[i + 1][0] for i in range(len(split) - 1))

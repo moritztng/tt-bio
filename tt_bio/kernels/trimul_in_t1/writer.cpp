@@ -13,7 +13,8 @@
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes.
 // T1B8 (lever trimul_t1b8): a and b leave compute as bfp8 tiles. bfp8 keeps one exponent per 16-value face row,
 // the unit this gather moves, so the re-tiling is lossless: 16 mantissa bytes per face row by NOC as before, and
-// the face row's exponent byte by a core store (64 per tile; the NOC cannot move a single unaligned byte).
+// the face row's exponent byte by a core store (the NOC cannot move a single unaligned byte). At IL 8 the items
+// come in face-pair pairs (unit.hpp) and the second writes both items' exponents (gather.hpp).
 // T1SPLIT (trimul_tail.T1_SPLIT): compute sends the launch's even channel tiles to reader.cpp (c_21), which gathers
 // and writes them; this writer takes the odd ones and g_out. The gather is gather.hpp on both cores.
 #ifndef ABL
@@ -32,6 +33,7 @@
 #endif
 #include "api/dataflow/dataflow_api.h"
 #include "gather.hpp"
+#include "unit.hpp"
 
 void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(0);
@@ -44,7 +46,6 @@ void kernel_main() {
     constexpr uint32_t NTGT = get_compile_time_arg_val(7);  // g_out channel tiles in all
     constexpr uint32_t IL = get_compile_time_arg_val(8);    // row tiles per unit, 32, 16 or 8
     constexpr uint32_t H = 32 / IL;
-    static_assert(!T1B8 || IL == 32, "the bfp8 gather moves whole tiles");
     constexpr auto a_args = TensorAccessorArgs<9>();
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     constexpr auto g_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
@@ -67,15 +68,11 @@ void kernel_main() {
     constexpr uint32_t SS = St * St;
     constexpr uint32_t S = St * 32;
     constexpr uint32_t TB = t1_gather::TB;
-    static_assert(!(T1SPLIT && T1B8), "the split gather is bf16");
     t1_gather::Gather<NB, IL, ABL, T1B8> gather;
-    gather.init(stage_cb);
+    gather.init(stage_cb, tt::CBIndex::c_26);
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
-        const uint32_t b = u / (SS * H);
-        const uint32_t xt = (u / (St * H)) % St;
-        const uint32_t h = (u / St) % H;
-        const uint32_t yt = u % St;
+        const auto [b, xt, h, yt] = t1_unit::decode<St, H, T1B8 && IL == 8>(u);
         const uint32_t cube = xt * St + yt;
 #if T1XOUT
         {
@@ -103,8 +100,9 @@ void kernel_main() {
         }
         for (uint32_t q = Q0 + T1SPLIT; q < Q0 + QN; q += 1 + T1SPLIT) {
             const uint32_t page = (b * CT + (q < CT ? q : q - CT)) * 32 * SS + cube;
-            if (q < CT) gather.tile(out_cb, oa, page, h * IL, SS);
-            else gather.tile(out_cb, ob, page, h * IL, SS);
+            const uint32_t slot = (q - Q0) / (1 + T1SPLIT);
+            if (q < CT) gather.tile(out_cb, oa, page, h * IL, SS, slot);
+            else gather.tile(out_cb, ob, page, h * IL, SS, slot);
         }
     }
     noc_async_write_barrier();
