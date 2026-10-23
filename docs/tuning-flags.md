@@ -943,6 +943,13 @@ The triangle multiplication's input kernel writes its gate in block-fp8 for the 
 (`trimul_t1g8`), and the output kernel's projection runs at HiFi2 (`trimul_tail_hifi2`), both RFD4's set only. The
 512-token trunk goes from 23.84 to 23.17 s a design (1.029x, 1350 MHz, paired), 384 1.024x and 256 1.032x; the
 designed chain moves 2.45 A median against a 37.7 A seed-to-seed spread and the binder grade passes.
+The pair stream is stored in block-fp8 between sublayers (`pair_bfp8z`, RFD4's set only): every kernel that writes it
+rounds its fp32 sum to nearest into 16-value blocks sharing one exponent, so each read or write of the stream moves
+1088 bytes a tile instead of 2048. The 512-token trunk goes from 23.30 to 22.09 s a design (1.055x, 1318 MHz, paired),
+384 1.047x and 256 1.073x. This one trades precision for bytes: the pair stream's error against a float64 reference
+goes from 0.029 to 0.053 (relative RMS), and the designed chain moves 8.9 A median against a 37.5 A seed-to-seed
+spread with the binder grade passing. It applies when the design length is a multiple of 32; a padded length keeps
+the bf16 stream.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 

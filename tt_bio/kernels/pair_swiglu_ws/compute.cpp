@@ -33,6 +33,8 @@
 // the copy the next sublayer reads). Four dest slots a group, so fc3 runs two output tiles at a time.
 // WS_RES_NOCOPY (with WS_RES32; RFD4's bfloat16 pair stream, `pair_bf16z`): c_20 and c_16 are bfloat16 and the residual
 // is x itself, so the sum is rounded once to bfloat16 and written over x; there is no copy (c_25 is not built).
+// WS_Z8 (with WS_RES_NOCOPY; `pair_bfp8z`): x, c_5, c_20 and c_16 are bfloat8_b, the sum packed straight into it; the
+// packer goes back to the bf16 hidden's format after each output group.
 // WS_RELU_BW (that Transition's backward to its normed input): ((x @ w1 + b1 > 0) * (dy @ w2t)) @ w3 with w12 =
 // [w1 | w2^T] and w3 = w1^T, the SwiGLU program with b1 seeding fc1, a step function for the silu, and fc2 reading
 // the cotangent dy (c_23, KT tiles a row) instead of x. The hidden pre-activation is recomputed, never stored.
@@ -479,6 +481,9 @@ void kernel_main() {
             pack_reconfig_data_format(cb_out);
 #endif
             pack_tile_block(0, cb_out, OG);
+#ifdef WS_Z8
+            pack_reconfig_data_format(cb_hid);
+#endif
 #if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
             pack_reconfig_data_format(cb_outb);
             pack_tile_block(0, cb_outb, OG);
