@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// permute_back_pk: unit (ct, it, jt)'s 32 output tiles, row i = it*32 + i of out [N, N, H] at column tile jt and
+// permute_back_pk: unit (b, ct, it, jt)'s 32 output tiles, row i = it*32 + i of out[b] [N, N, H] at column tile jt and
 // channel tile CO + ct, written whole, WB per flush.
 #include "api/dataflow/dataflow_api.h"
 
@@ -20,14 +20,16 @@ void kernel_main() {
     const uint32_t nunits = get_arg_val<uint32_t>(1);
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
     constexpr uint32_t SS = St * St;
+    constexpr uint32_t CS = CT * SS;
     const uint32_t tb = get_tile_size(out_cb);
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
-        const uint32_t ct = ORD ? u % CT : u / SS;
-        const uint32_t cube = ORD ? u / CT : u % SS;
+        const uint32_t b = u / CS, v = u % CS;
+        const uint32_t ct = ORD ? v % CT : v / SS;
+        const uint32_t cube = ORD ? v / CT : v % SS;
         const uint32_t it = cube / St;
         const uint32_t jt = cube % St;
-        uint32_t page = ((it * 32) * St + jt) * Ht + CO + ct;
+        uint32_t page = ((b * St * 32 + it * 32) * St + jt) * Ht + CO + ct;
         for (uint32_t i0 = 0; i0 < 32; i0 += WB) {
             cb_wait_front(out_cb, WB);
             uint32_t src = get_read_ptr(out_cb);

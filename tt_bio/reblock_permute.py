@@ -722,21 +722,22 @@ def _pbpk():
 
 @_ops.fused_kernel("reblock_permute_back")
 def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
-    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[1, C, N, N]`` bf16 TILE.
+    """``ttnn.permute(x, (0, 2, 3, 1))`` for ``x`` of shape ``[B, C, N, N]`` bf16 TILE.
 
-    With ``out`` (a ``[1, N, N, C_out]`` tensor, ``C_out >= c_off + C``) the result is written into
+    With ``out`` (a ``[B, N, N, C_out]`` tensor, ``C_out >= c_off + C``) the result is written into
     its channels ``[c_off, c_off + C)`` and ``out`` is returned: a channel loop then fills one tensor
-    in place instead of concatenating its chunks. Same bytes, same order, bit-exact.
+    in place instead of concatenating its chunks. Same bytes, same order, bit-exact. B > 1 (RFD4's
+    sample batch) is served by `permute_back_pk` only; `eligible_back` admits it only where that runs.
     """
     device = device or x.device()
     mc = memory_config or x.memory_config()
-    C, N = int(x.shape[1]), int(x.shape[2])
+    B, C, N = int(x.shape[0]), int(x.shape[1]), int(x.shape[2])
     if out is None:
         out = ttnn.allocate_tensor_on_device(
-            ttnn.Shape([1, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
+            ttnn.Shape([B, N, N, C]), _DTYPE, ttnn.TILE_LAYOUT, device, mc
         )
     c_out = int(out.shape[-1])
-    assert c_off % TILE_W == 0 and c_off + C <= c_out and (int(out.shape[1]), int(out.shape[2])) == (N, N), (
+    assert c_off % TILE_W == 0 and c_off + C <= c_out and [int(d) for d in out.shape[:3]] == [B, N, N], (
         "reblock_permute_back: the channel slice must be tile-aligned and inside `out`",
         C, c_off, [int(d) for d in out.shape])
     if _pbpk() and (x.memory_config().memory_layout == out.memory_config().memory_layout
@@ -747,6 +748,7 @@ def reblock_permute_back(x, memory_config=None, device=None, out=None, c_off=0):
             STATS_BACK[0] += 1
             STATS_PBPK[0] += 1
             return _pk.permute_back_pk(x, out, tuple(COMPUTE_GRID_MAIN), c_off=c_off)
+    assert B == 1, ("reblock_permute_back: a batch needs permute_back_pk", [int(d) for d in x.shape])
     entry = _prepare_back(x, out, device)
     src, dst = x.buffer_address(), out.buffer_address()
     wargs = [dst, c_out // TILE_W, c_off // TILE_W, src]
@@ -801,11 +803,22 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     if not _ENABLED_BACK:
         return False
     shape = [int(d) for d in x.shape]
-    if len(shape) != 4 or shape[0] != 1 or shape[2] != shape[3] or shape[1] % TILE_W:
+    if len(shape) != 4 or shape[0] < 1 or shape[2] != shape[3] or shape[1] % TILE_W:
         return _reject("back_shape", shape)
     C, N = shape[1], shape[2]
     if N % TILE_H:
         return _reject("back_ragged", shape)
+    if shape[0] > 1:
+        # A sample batch, under RFD4's `pair_batch` only. permute_back_pk is the one kernel that takes it, and the
+        # alternative is the two transposes over the whole batch, not a stock permute, so the batch-1 window below does not
+        # apply. b16 at 128: 3.69 + 0.69 ms a move for the transposes (state/rfd4/bets/b128.md).
+        from .tenstorrent import lever
+        if not (lever("pair_batch") and _pbpk() and memory_config.buffer_type == ttnn.BufferType.DRAM
+                and x.dtype == _DTYPE and x.layout == ttnn.TILE_LAYOUT
+                and x.memory_config().memory_layout == memory_config.memory_layout
+                == ttnn.TensorMemoryLayout.INTERLEAVED):
+            return _reject("back_batch", shape)
+        return True
     if x.dtype != _DTYPE or x.layout != ttnn.TILE_LAYOUT:
         return _reject("back_dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:

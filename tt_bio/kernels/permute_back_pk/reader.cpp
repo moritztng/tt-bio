@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // permute_back_pk: x [C, N, N] channel-major -> out [N, N, H] channel-last, the re-tiling done by the packer.
-// Per unit (ct, it, jt): the 32 channel tiles x[ct*32 + c][it, jt], in channel order, in groups of 8.
+// x may carry a batch [B, C, N, N] -> [B, N, N, H]: units run b slowest, so batch 1 reads the same pages in the same order.
+// Per unit (b, ct, it, jt): the 32 channel tiles x[b][ct*32 + c][it, jt], in channel order, in groups of 8.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -17,12 +18,14 @@ void kernel_main() {
     const uint32_t nunits = get_arg_val<uint32_t>(1);
     constexpr uint32_t in_cb = tt::CBIndex::c_0;
     constexpr uint32_t SS = St * St;
+    constexpr uint32_t CS = CT * SS;
     const uint32_t tb = get_tile_size(in_cb);
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
-        const uint32_t ct = ORD ? u % CT : u / SS;
-        const uint32_t cube = ORD ? u / CT : u % SS;          // it * St + jt
-        uint32_t page = ct * 32 * SS + cube;
+        const uint32_t b = u / CS, v = u % CS;
+        const uint32_t ct = ORD ? v % CT : v / SS;
+        const uint32_t cube = ORD ? v / CT : v % SS;          // it * St + jt
+        uint32_t page = (b * CT + ct) * 32 * SS + cube;
         for (uint32_t g = 0; g < 4; ++g) {
             cb_reserve_back(in_cb, 8);
             uint32_t dst = get_write_ptr(in_cb);

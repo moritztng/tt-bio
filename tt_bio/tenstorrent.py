@@ -11201,7 +11201,7 @@ class TriangleMultiplication(Module):
                             x_out_pre = None
                         if x_out is None:
                             x_out = ttnn.allocate_tensor_on_device(
-                                ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
+                                ttnn.Shape([int(x_chunk.shape[0]), H, H, self._hidden]), x_chunk.dtype,
                                 ttnn.TILE_LAYOUT, self.device, back_mc)
                         if (c_done + int(x_chunk.shape[1]) == self._hidden and self._t2_serves(
                                 g_out_fused, x_norm_in, H, add_to_input)
@@ -11463,7 +11463,7 @@ class TriangleMultiplication(Module):
             else:
                 if not cm_off:
                     x_out = ttnn.allocate_tensor_on_device(
-                        ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
+                        ttnn.Shape([int(x_cm.shape[0]), H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
                 _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=cm_off)
             ttnn.deallocate(x_cm)
             x_cm = None
