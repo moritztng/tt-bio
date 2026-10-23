@@ -89,10 +89,11 @@ void kernel_main() {
         if constexpr (NG) {
             // trimul_tail.t1_g_page: row tile (b, xt*32 + il, yt), channel tile n.
             uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;
+            const uint32_t tg = get_tile_size(go_cb);    // bf16, or bfp8 under trimul_t1g8
             for (uint32_t il = 0; il < IL; ++il, page += St * NTGT) {
                 cb_wait_front(go_cb, NG);
                 uint32_t r = get_read_ptr(go_cb);
-                for (uint32_t n = 0; n < NG; ++n, r += TB)
+                for (uint32_t n = 0; n < NG; ++n, r += tg)
                     if constexpr (!(ABL & 64)) noc_async_write_page(page + n, og, r);
                 noc_async_writes_flushed();
                 cb_pop_front(go_cb, NG);
