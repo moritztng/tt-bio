@@ -5,7 +5,7 @@
 set -u
 R=${1:?outdir}; WT=$(cd "$(dirname "$0")/../../.." && pwd); cd $WT
 PY=$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python; export PYTHONPATH=$WT
-f() { ls $R/$1/pdl1_binder_512_s$2_r$(($2+1))_generated.cif; }
+f() { ls $PWD/$R/$1/pdl1_binder_512_s$2_r$(($2+1))_generated.cif; }
 for g in stack:smain:sbase fast:sfast:smain; do IFS=: read name ours ref <<< "$g"
   mkdir -p $R/grade-$name $R/pool-$name/tt $R/pool-$name/ref
   for k in $(seq 0 30); do
