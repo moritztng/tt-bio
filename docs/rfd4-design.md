@@ -165,7 +165,7 @@ seeds is two different designs with two different token counts.
 
 The trunk's pair transition and the triangle multiplication's input projection run with block-fp8
 weights and a bf16 matmul kernel by default, and the pair transition and the triangle multiplication's
-output each run as one program with their residual add into the fp32 pair representation. Together that
+output each run as one program with their residual add into the pair representation. Together that
 takes the trunk of a 512-token design from 64.3 to 44.1 s on a Blackhole chip. Forming each block's pair
 biases and writing the pair update as one program each is a further 1.10x at 512 tokens, graded on 31
 designs with radius of gyration, bond outliers and clashes unchanged. Running the triangle multiplication's
@@ -183,6 +183,13 @@ plan is faster and nothing changes. Over 31 seed-matched 512-token designs the d
 median against the previous default, while a different seed moves it 38 A, and the binder grade
 (radius of gyration, bond outliers, clashes, sequence diversity) passes. `--fast` runs the same set as
 the default.
+
+Between sublayers the pair representation is carried in bf16 rather than fp32. The fused programs read it
+and write it in place, accumulating in fp32 and rounding once on each write, so every memory-bound pair op
+moves half the bytes. On a Blackhole chip that takes a 512-token design from 37.6 to 30.3 s (1.24x, clock
+1287-1325 MHz); the trunk pass is 1.22x faster at 512 tokens and 1.15x at 256. Over 31 seed-matched
+512-token designs the designed chain moved 2.8 A median against the previous default, while a different
+seed moves it 39 A, and the binder grade passes.
 
 ## Many designs at once
 

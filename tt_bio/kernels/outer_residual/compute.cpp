@@ -10,6 +10,8 @@
 // the FPU into slot 1 (a bf16 x bf16 product is exact at HiFi4 into a 32-bit DEST); the SFPU sum into slot 2, and the
 // same sum into slot 0 rounded to even in place (rne_add's DUAL arm, kernels/rne_add/compute_rne_add.cpp). The
 // update is never rounded to bfloat16 before the add.
+// OR_BF16 (RFD4's bfloat16 pair stream, `pair_bf16z`): z is bfloat16, the rounded sum alone goes to c_16 (bfloat16)
+// and there is no c_17.
 #include <cstdint>
 
 #include "api/compute/common.h"
@@ -61,7 +63,9 @@ void kernel_main() {
         cb_wait_front(cb_z, GRAN);
         cb_wait_front(cb_j, GRAN);
         cb_reserve_back(cb_out, GRAN);
+#ifndef OR_BF16
         cb_reserve_back(cb_lo, GRAN);
+#endif
         for (uint32_t k = 0; k < n; ++k) {
             const uint32_t bj = (p + k) / RUN;
             if (bj != have) {
@@ -78,23 +82,31 @@ void kernel_main() {
             mul_bcast_rows_init_short(cb_i, cb_j);
             mul_tiles_bcast_rows(cb_i, cb_j, (p + k) % KT, k, 1);
             add_binary_tile_init();
+#ifndef OR_BF16
             add_binary_tile(0, 1, 2);
+#endif
             add_binary_tile(0, 1, 0);
             MATH((llk_math_eltwise_unary_sfpu_init<SfpuType::bitwise_and, false>()));
             MATH((_llk_math_eltwise_unary_sfpu_params_<false>(ckernel::sfpu::orz_rne_bf16_in_place<false>, 0,
                                                              static_cast<int>(VectorMode::RC))));
             tile_regs_commit();
             tile_regs_wait();
+#ifdef OR_BF16
+            pack_tile(0, cb_out);
+#else
             pack_reconfig_data_format(cb_out);
             pack_tile(2, cb_out);
             pack_reconfig_data_format(cb_lo);
             pack_tile(0, cb_lo);
+#endif
             tile_regs_release();
         }
         cb_pop_front(cb_z, GRAN);
         cb_pop_front(cb_j, GRAN);
         cb_push_back(cb_out, GRAN);
+#ifndef OR_BF16
         cb_push_back(cb_lo, GRAN);
+#endif
     }
     if (have != 0xFFFFFFFF) {
         cb_pop_front(cb_i, KT);

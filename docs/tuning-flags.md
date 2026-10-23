@@ -918,11 +918,19 @@ chain moves 0.03 A median against a 5.4 A seed-to-seed spread, with radius of gy
 unchanged. From 288 tokens the triangle contraction runs on `bmm_res` at HiFi2 (`trimul_bres`,
 `trimul_bres_hifi2`, RFD4's set only): a 512-token design takes 39.8 s instead of 41.3 s (1.04x, 1331 MHz, 31 paired
 designs), the 384-token trunk 1.09x, 256 unchanged; the designed chain moves 2.2 A median against a 38.1 A seed-to-seed
-spread and the binder grade passes. The input kernel also writes its two projections in block-fp8 so the
+spread and the binder grade passes. The pair stream itself is bf16 between sublayers (`pair_bf16z`): outer_residual,
+`pair_tail` and `pair_block` read it and write it in place, rounding once per write, which takes a 512-token design
+from 37.6 to 30.3 s (1287-1325 MHz) with the trunk pass 1.22x faster at 512 tokens and 1.15x at 256; on 31
+seed-matched 512-token designs the designed chain moves 2.8 A median against a 38.6 A seed-to-seed spread and the
+binder grade passes. At 384 and 512 tokens `pair_tail` reads the contraction's channel-major output itself
+(`pair_tail_cm`), so the triangle no longer moves it back to the pair layout: bit-identical, the trunk pass 1.015x
+faster (1325-1350 MHz). At sizes whose tiles spread unevenly over the chip's cores (256, 288, 320, 352 and 448 tokens
+on a 110-core chip) it measured 1-6 % slower or no faster, so it steps aside there.
+The input kernel also writes its two projections in block-fp8 so the
 contraction reads half the bytes (`trimul_t1b8`, RFD4's set only): 33.25 to 32.75 s a 512-token design on the trunk
 (1.015x, 1350 MHz, paired), 1.014x at 384, 256 unchanged; the designed chain moves 2.05 A median against a 38.6 A
-seed-to-seed spread and the binder grade passes. `pair_tail`, `pair_tail_small` and `pair_write_res` need the fp32 pair stream, so
-`TT_BIO_RFD4_PAIR_BF16=1` (the pair stream in bf16) turns them off and was slower before the pair-bias and pair-write programs, 46.4 s against 44.1 s. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
+seed-to-seed spread and the binder grade passes.
+`TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
 Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off
