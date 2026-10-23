@@ -5696,26 +5696,26 @@
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-21",
-      "host": "UF-EV-A5-GWH02",
-      "commit": "a2b7938f1",
+      "recorded": "2026-10-23",
+      "host": "UF-EV-A2-GWH01",
+      "commit": "437a23413",
       "host_threads": 2,
       "models": {
         "protenix-v1": {
           "grid": "8x9",
-          "recorded": "2026-10-21",
-          "host": "UF-EV-A5-GWH02",
-          "commit": "a2b7938f1",
+          "recorded": "2026-10-23",
+          "host": "UF-EV-A2-GWH01",
+          "commit": "437a23413",
           "host_threads": 2,
           "runtime_s": {
-            "256": 8.8,
+            "256": 8.3,
             "512": 18.1,
-            "640": 27.8,
-            "768": 38.7,
+            "640": 27.1,
+            "768": 38.9,
             "896": 51.2,
-            "1024": 66.2,
-            "1280": 136.9,
-            "1536": 225.7
+            "1024": 66.5,
+            "1280": 135.8,
+            "1536": 225.5
           },
           "levers": {
             "256": {
@@ -5777,14 +5777,10 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1696,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1696
-                },
-                "reason": "declines all 1696 calls on memory x1696: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at 256. It serves all 424 calls from 512 upward [carried from p300c] [carried from p150a]"
+                "served": 425,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5831,13 +5827,13 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 424,
+                "declined": 1,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=4": 424
+                  "k_tiles=4": 1
                 },
-                "reason": "declines all 424 calls on k_tiles=4 x424: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs [carried from p300c] [carried from p150a]"
+                "reason": "declines all 1 calls on k_tiles=4 x1: protenix-v1's c_z 128 is 4 tiles and the F1 tail gate was fitted to protenix-v2's c_z 256, which is 8. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5863,21 +5859,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1696,
+                "served": 424,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 3392,
+                "served": 850,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 3392,
+                "served": 850,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -8213,54 +8209,54 @@
           },
           "runtime_reps_s": {
             "256": [
-              8.7,
+              8.4,
               8.3,
-              8.8,
-              9.1,
-              8.8
+              8.4,
+              8.2,
+              8.3
             ],
             "512": [
-              18.4,
-              18.0,
+              18.1,
               18.1,
               18.2,
-              18.1
+              17.8,
+              17.9
             ],
             "640": [
-              27.8
+              27.1
             ],
             "768": [
-              38.7
+              38.9
             ],
             "896": [
               51.2
             ],
             "1024": [
-              66.2
+              66.5
             ],
             "1280": [
-              136.9
+              135.8
             ],
             "1536": [
-              225.7
+              225.5
             ]
           },
           "aiclk": {
             "256": {
-              "card": "10",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
                 1000,
                 500,
-                1000,
-                1000
+                500,
+                500
               ],
               "n": 25
             },
             "512": {
-              "card": "10",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8270,46 +8266,46 @@
                 1000,
                 1000
               ],
-              "n": 32
+              "n": 33
             },
             "640": {
-              "card": "10",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 8
+              "n": 9
             },
             "768": {
-              "card": "10",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 23
+              "n": 11
             },
             "896": {
-              "card": "10",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 25
+              "n": 14
             },
             "1024": {
-              "card": "10",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 15
+              "n": 16
             },
             "1280": {
-              "card": "10",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8318,7 +8314,7 @@
               "n": 28
             },
             "1536": {
-              "card": "10",
+              "card": "6",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8329,59 +8325,59 @@
           },
           "load": {
             "256": {
-              "max": 0.47,
+              "max": 0.77,
               "rep_median": [
-                0.47,
-                0.45,
-                0.44,
-                0.43,
-                0.46
+                0.76,
+                0.73,
+                0.69,
+                0.69,
+                0.67
               ]
             },
             "512": {
-              "max": 0.54,
+              "max": 0.6,
               "rep_median": [
-                0.51,
-                0.49,
-                0.5,
-                0.48,
-                0.51
+                0.59,
+                0.56,
+                0.54,
+                0.52,
+                0.56
               ]
             },
             "640": {
-              "max": 0.54,
+              "max": 0.61,
               "rep_median": [
-                0.53
+                0.58
               ]
             },
             "768": {
-              "max": 0.59,
+              "max": 0.54,
               "rep_median": [
-                0.53
+                0.52
               ]
             },
             "896": {
-              "max": 0.59,
+              "max": 0.53,
               "rep_median": [
-                0.47
+                0.48
               ]
             },
             "1024": {
-              "max": 0.6,
+              "max": 0.64,
               "rep_median": [
                 0.59
               ]
             },
             "1280": {
-              "max": 0.52,
+              "max": 0.57,
               "rep_median": [
-                0.49
+                0.53
               ]
             },
             "1536": {
-              "max": 0.66,
+              "max": 0.83,
               "rep_median": [
-                0.59
+                0.74
               ]
             }
           },
@@ -8518,29 +8514,29 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0084,
+          "sigma_runtime_512": 0.0091,
           "exponents": {
             "256->512": {
-              "k": 1.04,
+              "k": 1.125,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.874,
+              "k": 1.887,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.033,
-            "512": 0.0084
+            "256": 0.0101,
+            "512": 0.0091
           },
           "exponents_measured": {
-            "256->512": 1.04,
-            "512->640": 1.923,
-            "640->768": 1.814,
-            "768->896": 1.816,
-            "896->1024": 1.924,
-            "1024->1280": 3.256,
-            "1280->1536": 2.742
+            "256->512": 1.125,
+            "512->640": 1.809,
+            "640->768": 1.983,
+            "768->896": 1.782,
+            "896->1024": 1.958,
+            "1024->1280": 3.2,
+            "1280->1536": 2.782
           }
         }
       }

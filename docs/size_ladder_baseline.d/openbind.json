@@ -5789,26 +5789,26 @@
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-21",
-      "host": "UF-EV-A5-GWH02",
-      "commit": "a2b7938f1",
+      "recorded": "2026-10-23",
+      "host": "UF-EV-A2-GWH01",
+      "commit": "437a23413",
       "host_threads": 2,
       "models": {
         "openbind": {
           "grid": "8x9",
-          "recorded": "2026-10-21",
-          "host": "UF-EV-A5-GWH02",
-          "commit": "a2b7938f1",
+          "recorded": "2026-10-23",
+          "host": "UF-EV-A2-GWH01",
+          "commit": "437a23413",
           "host_threads": 2,
           "runtime_s": {
-            "256": 11.7,
-            "512": 20.1,
-            "640": 31.5,
-            "768": 44.1,
-            "896": 55.4,
-            "1024": 75.1,
-            "1280": 159.5,
-            "1536": 256.1
+            "256": 8.4,
+            "512": 19.8,
+            "640": 28.9,
+            "768": 42.3,
+            "896": 55.1,
+            "1024": 73.5,
+            "1280": 155.7,
+            "1536": 249.5
           },
           "levers": {
             "256": {
@@ -5870,14 +5870,10 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1728,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1728
-                },
-                "reason": "declines all 1728 calls on memory x1728: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size [carried from p150a]"
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5928,14 +5924,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 16,
-                  "k_tiles=4": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openbind's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5961,21 +5953,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1728,
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 3456,
+                "served": 880,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 3456,
+                "served": 880,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -8365,79 +8357,101 @@
           },
           "runtime_reps_s": {
             "256": [
-              11.7,
-              9.3,
-              10.2,
-              15.1,
-              17.2
+              8.2,
+              8.7,
+              8.4,
+              8.6,
+              8.4
             ],
             "512": [
+              19.6,
               20.1,
-              20.4,
-              20.0,
-              20.0,
-              20.3
+              19.8,
+              20.3,
+              19.7
             ],
             "640": [
-              29.8,
-              31.5,
-              40.0
+              28.8,
+              28.9,
+              29.1
             ],
             "768": [
-              44.1,
-              47.9,
-              42.3
+              42.2,
+              42.3,
+              43.1
             ],
             "896": [
-              67.9,
-              55.4,
+              55.2,
+              55.1,
               54.9
             ],
             "1024": [
-              76.5,
-              75.1,
-              71.8
+              73.5,
+              73.0,
+              73.7
             ],
             "1280": [
-              154.7,
-              159.5,
-              168.5
+              156.1,
+              155.7,
+              154.8
             ],
             "1536": [
-              261.4,
-              256.1,
-              252.2
+              249.5,
+              249.4,
+              250.6
             ]
           },
           "aiclk": {
             "256": {
-              "card": "7",
+              "card": "12",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
                 1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 35
+            },
+            "512": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000,
+                1000,
+                1000
+              ],
+              "n": 45
+            },
+            "640": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 33
+            },
+            "768": {
+              "card": "12",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
                 1000,
                 1000,
                 1000
               ],
               "n": 39
             },
-            "512": {
-              "card": "7",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000,
-                1000,
-                1000
-              ],
-              "n": 48
-            },
-            "640": {
-              "card": "7",
+            "896": {
+              "card": "12",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8447,30 +8461,8 @@
               ],
               "n": 46
             },
-            "768": {
-              "card": "7",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000
-              ],
-              "n": 55
-            },
-            "896": {
-              "card": "7",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000,
-                1000,
-                1000
-              ],
-              "n": 50
-            },
             "1024": {
-              "card": "7",
+              "card": "12",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8478,10 +8470,10 @@
                 1000,
                 1000
               ],
-              "n": 60
+              "n": 58
             },
             "1280": {
-              "card": "7",
+              "card": "12",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8489,10 +8481,10 @@
                 1000,
                 1000
               ],
-              "n": 105
+              "n": 102
             },
             "1536": {
-              "card": "7",
+              "card": "12",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8500,76 +8492,76 @@
                 1000,
                 1000
               ],
-              "n": 161
+              "n": 154
             }
           },
           "load": {
             "256": {
-              "max": 0.49,
+              "max": 0.52,
               "rep_median": [
-                0.48,
-                0.47,
-                0.45,
-                0.45,
-                0.45
-              ]
-            },
-            "512": {
-              "max": 0.57,
-              "rep_median": [
-                0.49,
-                0.48,
-                0.49,
                 0.5,
-                0.54
-              ]
-            },
-            "640": {
-              "max": 0.59,
-              "rep_median": [
-                0.53,
-                0.49,
-                0.48
-              ]
-            },
-            "768": {
-              "max": 0.59,
-              "rep_median": [
-                0.49,
-                0.47,
-                0.48
-              ]
-            },
-            "896": {
-              "max": 0.6,
-              "rep_median": [
-                0.59,
-                0.47,
-                0.46
-              ]
-            },
-            "1024": {
-              "max": 0.58,
-              "rep_median": [
+                0.5,
                 0.51,
-                0.46,
+                0.5,
                 0.51
               ]
             },
-            "1280": {
-              "max": 0.66,
+            "512": {
+              "max": 0.54,
               "rep_median": [
-                0.61,
+                0.5,
+                0.53,
+                0.53,
+                0.52,
+                0.52
+              ]
+            },
+            "640": {
+              "max": 0.53,
+              "rep_median": [
+                0.51,
+                0.51,
+                0.49
+              ]
+            },
+            "768": {
+              "max": 0.61,
+              "rep_median": [
+                0.51,
+                0.5,
+                0.51
+              ]
+            },
+            "896": {
+              "max": 0.54,
+              "rep_median": [
+                0.53,
                 0.49,
-                0.53
+                0.5
+              ]
+            },
+            "1024": {
+              "max": 0.8,
+              "rep_median": [
+                0.69,
+                0.72,
+                0.74
+              ]
+            },
+            "1280": {
+              "max": 0.77,
+              "rep_median": [
+                0.73,
+                0.6,
+                0.55
               ]
             },
             "1536": {
-              "max": 0.62,
+              "max": 0.76,
               "rep_median": [
-                0.51,
-                0.52,
-                0.56
+                0.57,
+                0.53,
+                0.67
               ]
             }
           },
@@ -8707,30 +8699,30 @@
               ]
             }
           },
-          "reps": 3,
-          "sigma_runtime_512": 0.009,
+          "reps": 1,
+          "sigma_runtime_512": 0.0147,
           "exponents": {
             "256->512": {
-              "k": 0.781,
-              "tol": 0.659
+              "k": 1.237,
+              "tol": 0.5
             },
             "512->768": {
-              "k": 1.938,
+              "k": 1.872,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.2636,
-            "512": 0.009
+            "256": 0.023,
+            "512": 0.0147
           },
           "exponents_measured": {
-            "256->512": 0.781,
-            "512->640": 2.013,
-            "640->768": 1.845,
-            "768->896": 1.48,
-            "896->1024": 2.278,
-            "1024->1280": 3.376,
-            "1280->1536": 2.597
+            "256->512": 1.237,
+            "512->640": 1.695,
+            "640->768": 2.089,
+            "768->896": 1.715,
+            "896->1024": 2.158,
+            "1024->1280": 3.364,
+            "1280->1536": 2.586
           }
         }
       }

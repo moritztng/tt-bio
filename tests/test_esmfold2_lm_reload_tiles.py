@@ -173,3 +173,40 @@ def test_esmc6b_tile_dir_keys_on_the_real_ttnn(tmp_path, monkeypatch):
     assert first and first == esmc.esmc6b_tile_dir("esmc-6b", snap)
     monkeypatch.setenv("TT_BIO_ESMC_PROBE", "1")
     assert esmc.esmc6b_tile_dir("esmc-6b", snap) != first
+
+
+def test_esmc6b_tile_dir_prunes_copies_idle_for_6h(tmp_path, monkeypatch):
+    """Every checkout keys its own 7-13 GB copy: keeping each a week filled qb2's disk (10-23)."""
+    import fcntl
+    import os
+    import time
+    from pathlib import Path
+
+    from tt_bio import esmc
+
+    snap = tmp_path / "snap"
+    snap.mkdir()
+    (snap / "model.safetensors").write_bytes(b"0" * 64)
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setattr(esmc.shutil, "disk_usage", lambda _p: type("U", (), {"free": 1 << 50})())
+    root = Path(esmc.esmc6b_tile_dir("esmc-6b", snap)).parent
+    old = time.time() - 7 * 3600
+
+    def make(key, done, age):
+        d = root / f"esmc-6b-{key}"
+        d.mkdir()
+        (d / "w.bin").write_bytes(b"0")
+        if done:
+            (d / ".done").touch()
+        os.utime(d / ".done" if done else d, (age, age))
+        return d
+
+    stale, fresh, crashed = make("stale", True, old), make("fresh", True, time.time()), make("crashed", False, old)
+    building = make("building", False, old)
+    holder = open(building / ".lock", "w")
+    fcntl.flock(holder, fcntl.LOCK_EX)
+    make("other", True, old).rename(root / "esmc-300m-other")
+    monkeypatch.setenv("TT_BIO_ESMC_PROBE", "1")  # a new key: the prune runs
+    esmc.esmc6b_tile_dir("esmc-6b", snap)
+    assert not stale.exists() and not crashed.exists()
+    assert fresh.exists() and building.exists() and (root / "esmc-300m-other").exists()

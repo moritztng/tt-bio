@@ -5,8 +5,9 @@
 
 Reads the TT runs `run.py` wrote and keeps, for the evidence file, only the lines the protocol
 admits: warm measure batches on a p150a, not discarded (clock, contention, chunking), from a clean
-tree whose sha is on tt-bio main. Per size it takes the newest run with >= 5 such batches and
-reports the median designs/s with min and max.
+tree whose sha is on tt-bio main. Per size it takes, among the runs with >= 5 such batches on the
+newest main sha measured, the fastest arm (batch width, lane width), and reports its median designs/s
+with min and max.
 
 The B200 side is recomputed from `gpu-b200.jsonl` the way the gate does: warm lines grouped by
 (size, arm, batch), the median per group, and per size the fastest group (>= 5 lines preferred,
@@ -100,10 +101,11 @@ def tt_side(paths, repo):
         full = [v for v in runs.values() if len(v) >= MIN_BATCHES]
         if not full:
             continue
-        v = max(full, key=lambda v: max(r["t"] for r in v))
+        sha = max(full, key=lambda v: max(r["t"] for r in v))[0]["sha"]  # the newest main measured
+        v = max((v for v in full if v[0]["sha"] == sha), key=lambda v: statistics.median(r["designs_per_s"] for r in v))
         d = [r["designs_per_s"] for r in v]
         per[size] = {"designs_per_s": round(statistics.median(d), 5), "min": round(min(d), 5), "max": round(max(d), 5),
-                     "batches": len(v), "batch": v[0]["batch"], "sha": v[0]["sha"], "host": v[0]["host"],
+                     "batches": len(v), "batch": v[0]["batch"], "lane_width": v[0].get("lane_width") or v[0]["batch"], "sha": v[0]["sha"], "host": v[0]["host"],
                      "card": v[0]["card"], "board_type": v[0].get("board_type"), "raw": v[0]["raw"],
                      "aiclk_mhz": sorted(r["aiclk_mhz"] for r in v),
                      "aiclk_min_mhz": min(r["aiclk_min_mhz"] for r in v),
@@ -137,7 +139,7 @@ def evidence_line(r):
     keep = ("kind", "size", "designs", "wall_s", "batch", "part", "host", "card", "aiclk_mhz", "aiclk_min_mhz",
             "aiclk_samples", "power_w", "power_w_peak", "sha", "raw", "seed", "t", "board_type",
             "foreign_cores_median", "foreign_device_holders", "host_load_per_core_median", "recipe", "steps",
-            "trunk_passes", "featurize_s", "design_s", "write_s")
+            "trunk_passes", "featurize_s", "design_s", "write_s", "lane_width")
     return {"arm": "tt-bio main", **{k: r.get(k) for k in keep}}
 
 
@@ -241,7 +243,8 @@ def fair_md(v):
          "| B200 designs/s (arm, batch, n) | ratio |", "|---|---|---|---|---|---|---|---|---|"]
     for s, c in v["sizes"].items():
         t, g = c["tt"], c["b200"]
-        tc = (f"{t['designs_per_s']} ({t['min']}-{t['max']}, {t['batches']})", t["batch"],
+        b = t and (t["batch"] if t.get("lane_width", t["batch"]) == t["batch"] else f"{t['batch']} (lanes of {t['lane_width']})")
+        tc = (f"{t['designs_per_s']} ({t['min']}-{t['max']}, {t['batches']})", b,
               "/".join(str(x) for x in t["aiclk_mhz"]), t["foreign_cores_median"], f"{t['card']}, {t['host']}",
               t["sha"][:9]) if t else ("not measured", "", "", "", "", "")
         gc = (f"{g['designs_per_s']} ({g['arm']}, b{g['batch']}, {g['batches']}"

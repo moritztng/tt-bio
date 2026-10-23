@@ -854,6 +854,10 @@ _FAST_MODE = False
 #   pair_batch      RFD4's triangle multiplication on a sample batch as one call instead of one per design: the route
 #                   (L1 or DRAM, T1, pair_tail_small) is chosen on the batch's pair rows, so 16 designs of 128 tokens
 #                   run the route one 512-token design takes (state/rfd4/bets/b128.md)
+#   trimul_t1g8     T1 writes g_out as bfp8 and the tail reads it so (whole tiles, no re-tiling): the tail, DRAM-bound,
+#                   reads 47 % fewer gate bytes. RFD4's c_z 384 only (state/rfd4/bets/tri7.md)
+#   trimul_tail_hifi2 the trimul tail's p GEMM at HiFi2; its LayerNorm and epilogue multiplies keep the trunk's
+#                   fidelity, so the one bit dropped is layer_norm(x)'s last, in srcB (Wp, bf16, sits in srcA)
 #   pair_block_hifi2 pair_block's two matmuls at HiFi2 instead of the trunk's fidelity. The bfp8 weights sit in srcA and
 #                   keep every bit; the bf16 activation in srcB loses its last mantissa bit (state/rfd4/bets/relu.md)
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
@@ -873,13 +877,13 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
-           "pair_tail_cm", "pair_batch", "pair_block_hifi2")
+           "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
 # RFD4's own set (rfd4.trunk.NORMAL_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms, pair_write_res,
-# trimul_bres_hifi2, pair_bf16z, pair_tail_cm, trimul_t1b8 and pair_block_hifi2, graded on RFD4's designs.
+# trimul_bres_hifi2, pair_bf16z, pair_tail_cm, trimul_t1b8, pair_block_hifi2, trimul_t1g8 and trimul_tail_hifi2, graded on RFD4's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
@@ -897,7 +901,8 @@ UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_sp
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
                              "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
-                             "pair_tail_cm", "pair_batch", "pair_block_hifi2"})
+                             "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
+                             "trimul_tail_hifi2"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -7207,6 +7212,28 @@ _PAIR_FFN_FC1_BW = 1
 _PAIR_FFN_FC1_BLOCK_W = 16
 
 
+# Off restores the try-and-catch leg alone, for the A/B that prices the allocator query.
+PAIR_PROJ_L1_FIT = True
+
+
+def _l1_out_placeable(x, w, dtype) -> bool:
+    """The interleaved L1 output of `x @ w` fits the largest free block of every bank now.
+
+    An interleaved buffer puts ceil(pages / banks) tiles on each bank, so that is the block the
+    allocator must find. Asked before the try rather than learned from a throw: at OpenDDE 768 on
+    Wormhole the output needs 1048576 B a bank while a sibling 1 MB/bank tensor leaves 346848 B,
+    and a throw inside a program enqueue is a hang risk on a Galaxy chip.
+    """
+    rows = 1
+    for d in tuple(x.padded_shape)[:-1]:
+        rows *= int(d)
+    pages = -(-rows // 32) * -(-int(w.shape[-1]) // 32)
+    mv = ttnn.get_memory_view(x.device(), ttnn.BufferType.L1)
+    lcf = mv.largest_contiguous_bytes_free_per_bank
+    lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+    return -(-pages // int(mv.num_banks)) * _mm_generic.tile_bytes(dtype) <= lcf
+
+
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                       l1_bw: int | None = None, l1_block_w: int | None = None,
                       bias=None, silu: bool = False):
@@ -7245,11 +7272,14 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         cfg = None if retired else _pair_proj_config(
             x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
             out_l1=True, block_w=l1_block_w, rung=rung, silu=silu)
-        if cfg is None:
+        if cfg is not None and PAIR_PROJ_L1_FIT and not _l1_out_placeable(x, w, dtype):
+            cfg = None
+            _latch("l1_out", "declined", "no L1 block for the output")
+        elif cfg is None:
             if rung:
                 _L1_OUT_REFUSED.add(key)
             _latch("l1_out", "blocked" if rung or retired else "declined")
-        else:
+        if cfg is not None:
             try:
                 out = ttnn.linear(
                     x, w, bias=bias, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
@@ -10266,7 +10296,7 @@ class TriangleMultiplication(Module):
         outs = TT1.fused_in_ln(
             x, self.in_norm_weight, self.in_norm_bias, *wts[:2], wts[2] or self.g_out_weight,
             ckc, tuple(COMPUTE_GRID_MAIN),
-            mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold))
+            mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold), g8=lever("trimul_t1g8"))
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:

@@ -39,6 +39,7 @@ void kernel_main() {
     const uint32_t first_unit = get_arg_val<uint32_t>(0);
     const uint32_t num_units = get_arg_val<uint32_t>(1);
     const uint32_t tb = get_tile_size(z_cb);
+    const uint32_t tg = get_tile_size(g_cb);    // bf16, or a bfp8 g_out (trimul_t1g8)
 
     // first row tile of block b of this core; its rows follow St apart
     auto block_m = [&](uint32_t b) -> uint32_t {
@@ -59,7 +60,7 @@ void kernel_main() {
             for (uint32_t t = 0; t < Nt; ++t, wm += tb) noc_async_read_page(jt * Nt + t, mk, wm);
         }
         for (uint32_t r = 0; r < Mb; ++r, m += St) {
-            for (uint32_t t = 0; t < gt; ++t, wg += tb) noc_async_read_page(m * gt + t, g, wg);
+            for (uint32_t t = 0; t < gt; ++t, wg += tg) noc_async_read_page(m * gt + t, g, wg);
             for (uint32_t t = 0; t < Nt; ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz);
         }
         noc_async_read_barrier();

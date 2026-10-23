@@ -74,6 +74,11 @@ def test_select_globs():
     assert not [n for n in names if n.startswith("ladder:") or n == "rg:l1-budget"]
 
 
+def test_select_rejects_a_pattern_that_matches_nothing():
+    with pytest.raises(SystemExit, match="rg:nope"):
+        gf.select(_legs(), ["rg:*", "rg:nope"])
+
+
 def test_record_lever_legs_splice_into_a_copy_and_are_only_built_on_request():
     assert not [lg for lg in _legs() if lg.family == "record"]
     legs = [lg for lg in gf.build_legs(ROSTER, [], 1, "SDPA_FUSED_PADDED") if lg.family == "record"]
