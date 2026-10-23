@@ -104,7 +104,8 @@ def gpu_side(path):
         d = [r["designs"] / r["wall_s"] for r in v]
         cand = {"designs_per_s": round(statistics.median(d), 5), "min": round(min(d), 5), "max": round(max(d), 5),
                 "arm": arm, "batch": b, "batches": len(v), "gpu": v[0].get("gpu"), "host": v[0].get("host"),
-                "sha": v[0].get("sha"), "date": max(r.get("t", "") for r in v),
+                "sha": v[0].get("sha"), "date": max(r.get("t", "") for r in v), "session": v[0].get("session"),
+                "sm_mhz": statistics.median(r.get("sm_mhz_busy_median") or r.get("sm_mhz") or 0 for r in v),
                 "short": len(v) < MIN_BATCHES}
         cur = per.get(size)
         if cur is None or (cur["short"], -cur["designs_per_s"]) > (cand["short"], -cand["designs_per_s"]):
@@ -126,6 +127,7 @@ def main():
     ap.add_argument("--state", default="/home/moritz/.coworker/state/rfd4")
     ap.add_argument("--gpu", help="default <state>/evidence/gpu-b200.jsonl")
     ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[3]))
+    ap.add_argument("--deck", help="default <state>/../biodeck/src/extra_cells.json")
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
     state = Path(a.state)
@@ -174,7 +176,37 @@ def main():
     (state / "VERDICT.json").write_text(json.dumps(out, indent=1) + "\n")
     (state / "FAIR.md").write_text(fair)
     (state / "rows" / "rfd4-fair-tt.json").write_text(json.dumps(row, indent=1) + "\n")
+    if verdict in ("PASS", "FAIL"):
+        deck = Path(a.deck or state.parent / "biodeck" / "src" / "extra_cells.json")
+        cells = {k: v for k, v in json.loads(deck.read_text()).items() if not k.startswith("rfd4.")}
+        cells.update(deck_cells(out, gpu_path))
+        deck.write_text(json.dumps(cells, indent=1) + "\n")
     print(fair)
+
+
+def deck_cells(v, gpu_path):
+    """The rfd4.* deck cells, shaped like rfd3.*: one measured cell per size and side, never a projection."""
+    cells = {}
+    for s, c in v["sizes"].items():
+        t, g = c["tt"], c["b200"]
+        cells[f"rfd4.p150a.{s}"] = {
+            "s": round(1 / t["designs_per_s"], 3),
+            "unit": f"s/design (warm median of {t['batches']} batches at batch {t['batch']}, "
+                    f"{t['min']}-{t['max']} designs/s)",
+            "n": t["batches"], "aiclk_mhz": statistics.median(t["aiclk_mhz"]), "batch": t["batch"],
+            "versions": f"tt-bio main {t['sha'][:9]}, RFdiffusion4 thinking_medium, 60 steps / 180 trunk passes, "
+                        f"pdl1-{s} frozen spec, ttnn 0.68.0",
+            "when": t["date"], "card": f"{t['host']}:{t['card']} {t['board_type']}",
+            "aiclk_samples": f"min {t['aiclk_min_mhz']} MHz in-run, foreign cores median <= {t['foreign_cores_median']}",
+            "source": f"{t['raw']}/runs.jsonl (perf/rfd4/fair/run.py)",
+            "ratio_vs_b200": c["ratio"]}
+        cells[f"rfd4.b200.{s}"] = {
+            "s": round(1 / g["designs_per_s"], 3),
+            "unit": f"s/design (warm median of {g['batches']} batches at batch {g['batch']}, arm {g['arm']})",
+            "n": g["batches"], "clock_mhz": g["sm_mhz"], "batch": g["batch"],
+            "versions": f"RFdiffusion4 upstream, arm {g['arm']}, thinking_medium, pdl1-{s}",
+            "when": g["date"], "box": f"1x {g['gpu']} (session {g['session']})", "source": str(gpu_path)}
+    return cells
 
 
 def fair_md(v):
