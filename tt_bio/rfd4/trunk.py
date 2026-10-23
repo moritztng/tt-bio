@@ -518,8 +518,8 @@ class PairUpdate(Module):
         ln = (self.tr_ln_w, self.tr_ln_b)
         if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln, resid=resid):
             return None
-        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=self.compute_kernel_config.math_fidelity,
-                                        ln=ln + (EPS,), resid=resid)
+        fid = ttnn.MathFidelity.HiFi2 if lever("pair_block_hifi2") else self.compute_kernel_config.math_fidelity
+        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid)
 
     def _transition(self, z, pair_mask_c):
         """The masked transition update."""
@@ -665,11 +665,15 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: tokens at width 16 takes 512's route) where it ran one call per design; at width 1 it changes nothing. 128 tokens
 #: at width 16: 4.34 -> 2.27 s/design on whole designs; the designed chain moves 0.07 A median against a 5.4 A seed
 #: floor, binder grade PASS (state/rfd4/bets/b128.md).
+#: `pair_block_hifi2` runs pair_block's two matmuls at HiFi2: the bfp8 weights keep every bit, the bf16 activation
+#: loses its last mantissa bit. Paired traced trunk at 1350 MHz: 512 tokens 25.87 -> 24.32 s a design (1.064x), 256
+#: tokens 1.041x. 31 designs at 512: designed chain 5.1 A median against a 38.8 A seed floor, binder grade PASS
+#: (state/rfd4/bets/relu.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
-                           "pair_tail_cm", "trimul_t1b8", "pair_batch"})
+                           "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
