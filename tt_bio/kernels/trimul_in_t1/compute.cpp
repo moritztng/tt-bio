@@ -34,6 +34,7 @@
 #define LN_ABL ((ABL >> 7) & 3)   // bench-only LN stage skips, see ln_prologue.hpp
 #endif
 #include "../common/ln_prologue.hpp"
+#include "../common/outer_add.hpp"
 // ABL (bench-only define, trimul_tail.T1_ABL; 0 in every model path): bits that skip one stage's
 // work while keeping its circular-buffer traffic, to time each stage by difference (perf/spd_trimul/in_t1.py --abl).
 //   1 layer_norm, 2 g_out matmul, 4 [a | b] matmuls, 8 gate multiply, 16 z reads, 32 writer gather, 64 writer writes,
@@ -52,8 +53,8 @@
 #define T1PRE 0
 #endif
 // T1OUTER (RFD4's `pair_outer_fold`): the raw rows in c_7 are the pair stream z before its Hadamard write, and the
-// layer_norm reads z' = z + pj[b, x] * pi[b, y] instead, formed per tile in DEST and rounded to even into c_23 by
-// outer_residual's own sequence (z copied to DEST, the FPU row-broadcast product, the SFPU sum), so xn is the xn
+// layer_norm reads z' = z + pj[b, x] * pi[b, y] instead, formed per tile by outer_add_tile (outer_residual's own sequence,
+// the product at HiFi4) and packed to c_23, so xn is the xn
 // of outer_residual's bf16 output, bit for bit. c_21 holds the unit's Kt pi tiles (y = the unit's yt), c_22 the
 // row tile's Kt pj4 tiles (row 0 read).
 #ifndef T1OUTER
@@ -120,15 +121,7 @@ ALWI void outer_row() {
     pack_reconfig_data_format(zp_cb);
     for (uint32_t dt = 0; dt < Kt; ++dt) {
         tile_regs_acquire();
-        reconfig_data_format_srca(cb_x);
-        copy_tile_to_dst_init_short(cb_x);
-        copy_tile(cb_x, dt, 0);
-        reconfig_data_format(pi_cb, pj_cb);
-        mul_bcast_rows_init_short(pi_cb, pj_cb);
-        mul_tiles_bcast_rows(pi_cb, pj_cb, dt, dt, 1);
-        add_binary_tile_init();
-        add_binary_tile(0, 1, 0);
-        round_bf16_rne_tile(0);
+        outer_add_tile(cb_x, dt, pi_cb, dt, pj_cb, dt);
         tile_regs_commit();
         tile_regs_wait();
         pack_tile(0, zp_cb);

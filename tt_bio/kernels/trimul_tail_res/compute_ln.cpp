@@ -27,6 +27,7 @@
 #include "api/compute/transpose_wh.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 #include "../common/ln_prologue.hpp"
+#include "../common/outer_add.hpp"
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t Nt = get_compile_time_arg_val(1);
@@ -86,7 +87,7 @@ constexpr uint32_t NBIAS = (EXTRA & 1) + ((EXTRA >> 1) & 1);
 // copy the next sublayer reads). Two tiles a group, the update in DST 0-1 and z in 2-3.
 // T2OUTER (RFD4's `pair_outer_fold`, with the bf16 stream; the define's value is St): c_7 holds z before the pair
 // update's Hadamard write, and the epilogue adds the update to z' = z + pj[b, x] * pi[b, y] instead, formed per
-// tile in DEST and rounded to even into c_25 by outer_residual's own sequence, so the sum is the one the unfused
+// tile by outer_add_tile (outer_residual's own sequence) and packed to c_25, so the sum is the one the unfused
 // path computes from outer_residual's output, bit for bit. Per block: c_22 the Mb * Nt pi tiles (y = the block's
 // row tiles), c_23 the Nt pj4 tiles of its x (row 0 read; Mb divides St, so a block is one x).
 #ifdef T2OUTER
@@ -319,15 +320,7 @@ void kernel_main() {
         pack_reconfig_data_format(cb_zr);
         for (uint32_t t = 0; t < blk; ++t) {
             tile_regs_acquire();
-            reconfig_data_format_srca(cb_z);
-            copy_tile_to_dst_init_short(cb_z);
-            copy_tile(cb_z, t, 0);
-            reconfig_data_format(cb_pi, cb_pj);
-            mul_bcast_rows_init_short(cb_pi, cb_pj);
-            mul_tiles_bcast_rows(cb_pi, cb_pj, t, t % Nt, 1);
-            add_binary_tile_init();
-            add_binary_tile(0, 1, 0);
-            round_bf16_rne_tile(0);
+            outer_add_tile(cb_z, t, cb_pi, t, cb_pj, t % Nt);
             tile_regs_commit();
             tile_regs_wait();
             pack_tile(0, cb_zr);
