@@ -16,6 +16,7 @@ import argparse, json, statistics, sys, time, traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # perf/ for clocksample
 ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="64,128,512")
 ap.add_argument("--reps", type=int, default=10)
@@ -39,6 +40,7 @@ ensure_p300_mesh_descriptor()
 import torch, ttnn
 from tt_bio import tenstorrent as T, trimul_tail as TT, mm_generic as MG, reblock_permute as RB
 from tt_bio.af2 import compute_kernel_config
+import clocksample
 
 dev = T.get_device()
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
@@ -133,6 +135,7 @@ dw8 = {"wpT": up8(wpT), "wgT": up8(wgT), "wgo": up8(wgo)} if A.w8 else {}
 bad = 0
 for n in [int(s) for s in A.ns.split(",") if s]:
     rec = {"n": n}
+    clk = clocksample.during(period=0.5).__enter__()   # AICLK during this N's timed calls
     # z O(1) with a per-row offset the norm must remove.
     z = (torch.randn(1, n, n, C, generator=gen) * 2 + torch.randn(1, n, n, 1, generator=gen)).to(torch.bfloat16)
     m = None if A.no_mask else (torch.rand(1, n, n, generator=gen) > 0.1).to(torch.bfloat16)
@@ -258,6 +261,8 @@ for n in [int(s) for s in A.ns.split(",") if s]:
         traceback.print_exc()
     rec["t1_stats"] = list(TT.T1_STATS)
     bad += "t1_err" in rec or "inc_err" in rec
+    clk.__exit__(None, None, None)
+    rec["aiclk"] = clk.summary()
     print(json.dumps(rec), flush=True)
     if A.out:
         with open(A.out, "a") as f:
