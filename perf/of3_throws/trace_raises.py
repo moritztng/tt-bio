@@ -12,6 +12,11 @@ one Python call per Python call, paid only while tracing.
 With TRACE_L1FITS_OUT set it also logs every distinct `_l1_fits` decision (caller, bytes, reserve, answer)
 beside what the L1 allocator reports (bank size and count), so a gate that admits a tensor the device then
 refuses can be read off the numbers.
+
+With HANG_DUMP_AT=<s> (and HANG_DUMP_OUT=<file>) a process still running after <s> seconds dumps every thread's
+Python stack and, if PYSPY names a py-spy binary, its native stack too, three times 30 s apart. A healthy
+cell is long done by then, so the dumps are the hang's location. The process lets any tracer attach to it
+(PR_SET_PTRACER), since py-spy runs as its child and Yama scope 1 only lets ancestors trace.
 """
 import json
 import os
@@ -76,7 +81,31 @@ def _patch_l1_fits(path):
     T._l1_fits = fits
 
 
+def _hang_watch(at, path):
+    import ctypes
+    import faulthandler
+    import subprocess
+    import threading
+    ctypes.CDLL(None).prctl(0x59616D61, ctypes.c_ulong(-1), 0, 0, 0)  # PR_SET_PTRACER, PR_SET_PTRACER_ANY
+    out = open(path, "a", buffering=1)
+    spy = os.environ.get("PYSPY")
+
+    def watch():
+        time.sleep(at)
+        for i in range(3):
+            out.write(f"=== dump {i} at {time.time() - _t0:.0f} s\n")
+            faulthandler.dump_traceback(out, all_threads=True)
+            if spy:
+                r = subprocess.run([spy, "dump", "--native", "--pid", str(os.getpid())], capture_output=True, text=True,
+                                   timeout=120)
+                out.write(r.stdout + r.stderr)
+            time.sleep(30)
+    threading.Thread(target=watch, daemon=True).start()
+
+
 if __name__ == "__main__":
+    if os.environ.get("HANG_DUMP_AT"):
+        _hang_watch(float(os.environ["HANG_DUMP_AT"]), os.environ.get("HANG_DUMP_OUT", "hang.txt"))
     if os.environ.get("TRACE_L1FITS_OUT"):
         _patch_l1_fits(os.environ["TRACE_L1FITS_OUT"])
     script = sys.argv[1]
