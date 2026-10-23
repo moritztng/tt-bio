@@ -8255,6 +8255,14 @@ def _release_ownership_fn():
     return fn
 
 
+def _drain_or_raise(dev):
+    """Finish the queued work on ``dev``, or raise: a chip that cannot drain must not be closed."""
+    try:
+        ttnn.synchronize_device(dev)
+    except Exception as e:
+        raise RuntimeError(f"device did not drain, not closed (process exit releases it): {e}") from e
+
+
 def _close_device_locked(dev):
     """Close the device AND hand the chip back, so a closed card is a free card.
 
@@ -8273,7 +8281,15 @@ def _close_device_locked(dev):
     state, and both run through the UMD device path, so both belong inside
     ``device_init_lock`` (see ``_open_device_locked``). ``MetalContext`` is recreated on
     next access, so a later ``get_device()`` in this same process still works.
+
+    The drain runs BEFORE the lock. ``device_init_lock`` is one lock for every device open on
+    the host, and on a hung chip the drain waits out ``TT_METAL_OPERATION_TIMEOUT_SECONDS`` and
+    the close then spins on the same dead queue: on a Galaxy (2026-10-23) one hung OpenDDE cell
+    held the lock for over 15 minutes that way while 13 opens on other chips, JapanFold's chip
+    checks among them, queued behind it. A chip that does not drain is left open and this
+    raises: process exit frees its fds and its UMD mutex, and the chip needs a reset anyway.
     """
+    _drain_or_raise(dev)
     with device_init_lock():
         ttnn.close_device(dev)
         _release_ownership_fn()()
@@ -9296,11 +9312,9 @@ def device_generation():
 def cleanup():
     global _device, _trace_region_size, _device_lease, _device_generation
     if _device is not None:
-        try:
-            # Drain queued work before closing so teardown is deterministic.
-            ttnn.synchronize_device(_device)
-        except Exception:
-            pass
+        # Drain queued work before closing so teardown is deterministic; a hung chip raises
+        # here, once, instead of timing out again inside _close_device_locked.
+        _drain_or_raise(_device)
         _ZERO_MASKS.clear()  # device tensors, freed while the device is still open
         _close_device_locked(_device)
         _device = None
