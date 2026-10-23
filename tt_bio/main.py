@@ -4379,6 +4379,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
     from tt_bio.tenstorrent import set_fast_mode
 
     set_fast_mode(fast)   # the trunk picks its lever set (rfd4.trunk.FAST_LEVERS) when it is built
+    click.echo(f"Designing {Path(inputs).name} × {num_designs} design(s) → {out_dir} (seed {seed})")
     try:
         written = rfd4.design(inputs, out_dir, num_designs=num_designs, backend=backend,
                               recipe=recipe, adapter=lora, tsr_k=tsr_k, nsteps=nsteps, seed=seed,
