@@ -16,6 +16,7 @@ import argparse, json, statistics, sys, time, traceback
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # perf/ for clocksample
 ap = argparse.ArgumentParser()
 ap.add_argument("--ns", default="64,128,512")
 ap.add_argument("--reps", type=int, default=10)
@@ -26,6 +27,8 @@ ap.add_argument("--ln1-ab", action="store_true", help="also run T1 with T1_LN1 o
 ap.add_argument("--abl", default="", help="comma list of T1_ABL stage-skip masks to time after the real T1"
                 " (kernels/trimul_in_t1: 1 LN, 2 g_out mm, 4 [a|b] mm, 8 gate, 16 z reads, 32 gather, 64 writes, 512 gate sigmoid)")
 ap.add_argument("--set", default="", help="comma list NAME=INT of trimul_tail knobs for T1 (T1_RB, T1_SBW, GIN_MOVE_NB, T1_ROWS, SIGPOLY, T1_PSIG)")
+ap.add_argument("--ab", default="", help="comma list NAME=INT: after the default T1 (bfp8 weights with --w8), each"
+                " trimul_tail knob value alone, its bit-equality to the default's a, b, g_out and its time")
 ap.add_argument("--grid", default="", help="gx,gy: run T1 on this core grid instead of COMPUTE_GRID_MAIN")
 ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (lever trimul_t1w8): its error and time")
 ap.add_argument("--fid", default="", help="HiFi4/HiFi3/HiFi2/LoFi: run T1 at this fidelity instead of the trunk's")
@@ -39,6 +42,7 @@ ensure_p300_mesh_descriptor()
 import torch, ttnn
 from tt_bio import tenstorrent as T, trimul_tail as TT, mm_generic as MG, reblock_permute as RB
 from tt_bio.af2 import compute_kernel_config
+import clocksample
 
 dev = T.get_device()
 kcfg = T.trunk_compute_kernel_config(compute_kernel_config())
@@ -50,7 +54,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
@@ -133,6 +137,7 @@ dw8 = {"wpT": up8(wpT), "wgT": up8(wgT), "wgo": up8(wgo)} if A.w8 else {}
 bad = 0
 for n in [int(s) for s in A.ns.split(",") if s]:
     rec = {"n": n}
+    clk = clocksample.during(period=0.5).__enter__()   # AICLK during this N's timed calls
     # z O(1) with a per-row offset the norm must remove.
     z = (torch.randn(1, n, n, C, generator=gen) * 2 + torch.randn(1, n, n, 1, generator=gen)).to(torch.bfloat16)
     m = None if A.no_mask else (torch.rand(1, n, n, generator=gen) > 0.1).to(torch.bfloat16)
@@ -253,11 +258,29 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                         TT.T1_ABL = m_
                         rec[f"w8_abl{m_}_ms"] = timed(lambda: free(t1w()), A.reps)
                     TT.T1_ABL = 0
+            if A.ab:
+                f = t1w if A.w8 else t1
+                outs = f()
+                ttnn.synchronize_device(dev)
+                base = [ttnn.to_torch(o) for o in outs]
+                free(outs)
+                for kv in A.ab.split(","):
+                    k, v = kv.split("=")
+                    prev = getattr(TT, k)
+                    setattr(TT, k, int(v))
+                    outs = f()
+                    ttnn.synchronize_device(dev)
+                    rec[f"ab_{k}={v}_equal"] = [bool(torch.equal(ttnn.to_torch(o), t)) for o, t in zip(outs, base)]
+                    free(outs)
+                    rec[f"ab_{k}={v}_ms"] = timed(lambda: free(f()), A.reps)
+                    setattr(TT, k, prev)
     except Exception as e:                                                    # noqa: BLE001
         rec["t1_err"] = str(e).splitlines()[0][:300]
         traceback.print_exc()
     rec["t1_stats"] = list(TT.T1_STATS)
     bad += "t1_err" in rec or "inc_err" in rec
+    clk.__exit__(None, None, None)
+    rec["aiclk"] = clk.summary()
     print(json.dumps(rec), flush=True)
     if A.out:
         with open(A.out, "a") as f:

@@ -1,0 +1,163 @@
+{
+ "size": 512,
+ "recipe": "thinking_medium",
+ "trunk_passes": 180,
+ "first_passes": 60,
+ "recycled_passes": 120,
+ "batch": 1,
+ "dims": {
+  "token": 768,
+  "pair": 384,
+  "cond": 256
+ },
+ "instrument": "device profiler (Tracy build tt-metal-b2z = ttnn 0.68.0), DEVICE KERNEL DURATION per op, eager trunk call of 2 passes on random inputs of the design shapes (perf/rfd4/e2e/elt_prof.py); families by signposts around each sublayer, innermost wins; gaps between kernels not counted",
+ "aiclk": {
+  "0": {
+   "min": 1331,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ },
+ "host_load": 7.3,
+ "card": "qb2 physical 3",
+ "per_pass": {
+  "first": {
+   "device_ms": 205.797,
+   "ops": 608
+  },
+  "recycled": {
+   "device_ms": 208.895,
+   "ops": 613,
+   "elementwise_ms": 3.176,
+   "elementwise_ops": 165,
+   "gflop": 1216.15
+  }
+ },
+ "device_s_per_design": 37.415,
+ "tflop_per_design": 214.23,
+ "families": {
+  "tri_mult_in": {
+   "ms_per_pass": 67.8335,
+   "ops_per_pass": 28,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 481.036,
+   "tflops": 7.09,
+   "device_s_per_design": 12.213,
+   "share_of_device": 0.3264
+  },
+  "tri_mult_out": {
+   "ms_per_pass": 66.019,
+   "ops_per_pass": 28,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 481.036,
+   "tflops": 7.29,
+   "device_s_per_design": 11.89,
+   "share_of_device": 0.3178
+  },
+  "pass_glue": {
+   "ms_per_pass": 51.0967,
+   "ops_per_pass": 43,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 4.228,
+   "tflops": 0.08,
+   "device_s_per_design": 9.206,
+   "share_of_device": 0.246
+  },
+  "pair_bias": {
+   "ms_per_pass": 5.5228,
+   "ops_per_pass": 8,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.995,
+   "share_of_device": 0.0266
+  },
+  "attention": {
+   "ms_per_pass": 4.1763,
+   "ops_per_pass": 182,
+   "elementwise_ms_per_pass": 0.132,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 53.553,
+   "tflops": 12.82,
+   "device_s_per_design": 0.751,
+   "share_of_device": 0.0201
+  },
+  "recycle": {
+   "ms_per_pass": 4.1528,
+   "ops_per_pass": 5,
+   "elementwise_ms_per_pass": 0.0179,
+   "elementwise_ops_per_pass": 1,
+   "gflop_per_pass": 77.913,
+   "tflops": 18.76,
+   "device_s_per_design": 0.498,
+   "share_of_device": 0.0133
+  },
+  "residual": {
+   "ms_per_pass": 3.5992,
+   "ops_per_pass": 29,
+   "elementwise_ms_per_pass": 0.2469,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.459,
+   "share_of_device": 0.0123
+  },
+  "token_transition": {
+   "ms_per_pass": 2.3556,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0.3337,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 101.469,
+   "tflops": 43.08,
+   "device_s_per_design": 0.424,
+   "share_of_device": 0.0113
+  },
+  "adaln": {
+   "ms_per_pass": 1.6703,
+   "ops_per_pass": 140,
+   "elementwise_ms_per_pass": 0.5228,
+   "elementwise_ops_per_pass": 56,
+   "gflop_per_pass": 11.274,
+   "tflops": 6.75,
+   "device_s_per_design": 0.3,
+   "share_of_device": 0.008
+  },
+  "cast": {
+   "ms_per_pass": 1.65,
+   "ops_per_pass": 38,
+   "elementwise_ms_per_pass": 1.65,
+   "elementwise_ops_per_pass": 38,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.296,
+   "share_of_device": 0.0079
+  },
+  "ada_scale": {
+   "ms_per_pass": 0.819,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0.2724,
+   "elementwise_ops_per_pass": 28,
+   "gflop_per_pass": 5.637,
+   "tflops": 6.88,
+   "device_s_per_design": 0.148,
+   "share_of_device": 0.004
+  },
+  "outside": {
+   "ms_per_pass": 0,
+   "ops_per_pass": 0,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.235,
+   "share_of_device": 0.0063
+  }
+ },
+ "sha": "83fb59bcb (= 288f1ed37 at 512 tokens)",
+ "note": "qb2 p300c development number, never ratio-grade; row rfd4-land8"
+}

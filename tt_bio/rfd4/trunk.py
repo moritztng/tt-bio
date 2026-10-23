@@ -648,14 +648,16 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: to 640 tokens (state/rfd4/bets/tri4.md). `pair_tail_small` brings pair_tail below 160 tokens, where T1 declines:
 #: the chain keeps the input side and pair_tail reads its two operands from L1. Paired trunk pass at 1350 MHz: 128
 #: tokens 28.58 -> 27.19 ms, 96 tokens 20.83 -> 20.34 ms; 30 designs at 128 PASS the binder grade (state/rfd4/bets/tri128.md).
+#: `trimul_bres` + `trimul_bres_hifi2` run the triangle contraction on bmm_res (b[c] resident, whole channels per core)
+#: at HiFi2 where ttnn's plan is the 2D multicast one (from 288 tokens on Blackhole; nothing changes at 256). Paired
+#: on one chip at 1331 MHz: 31 designs at 512 tokens 41.30 -> 39.77 s (1.039x), trunk pass 1.087x at 384; the
+#: designed chain moves 2.2 A median against a 38.1 A seed floor, binder grade PASS (state/rfd4/bets/tri5.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
-                           "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small"})
-#: `--fast` adds `trimul_bres` + `trimul_bres_hifi2`: the triangle contraction on bmm_res (b[c] resident, whole
-#: channels per core) at HiFi2 where ttnn's plan is the 2D multicast one (from 288 tokens on Blackhole). Measured on
-#: top of pair_block + pair_tail: 27.46 -> 25.58 s/design at 384 tokens, 43.60 -> 42.01 at 512, nothing at 256;
-#: designed-chain CA RMSD 2.3 A median against a 38.3 A seed floor at 512, 8 seeds (state/rfd4/bets/tri3.md).
-FAST_LEVERS = NORMAL_LEVERS | {"trimul_bres", "trimul_bres_hifi2"}
+                           "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
+                           "trimul_bres", "trimul_bres_hifi2"})
+#: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
+FAST_LEVERS = NORMAL_LEVERS
 
 
 class Trunk(Module):

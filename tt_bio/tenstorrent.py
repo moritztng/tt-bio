@@ -857,8 +857,8 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# RFD4's own set (rfd4.trunk.FAST_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms and pair_write_res, graded on
-# RFD4's designs.
+# RFD4's own set (rfd4.trunk.NORMAL_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms, pair_write_res and
+# trimul_bres_hifi2, graded on RFD4's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
@@ -6371,7 +6371,7 @@ def _pair_bias_ln_row_cap(width: int, channels: int, elem: int = 2) -> int:
     if not reserve or not _PAIR_BIAS_LN_CAP:
         return 0
     try:
-        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
+        per_core = _matmul_cb_budget()
     except Exception:                                                          # noqa: BLE001
         return 0
     row = int(width) * ((int(channels) + 31) // 32) * 32 * int(elem)
@@ -6499,9 +6499,12 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     from . import ops
     if ops.taping():
         return False
+    # The allocator's bank, not get_max_worker_l1_unreserved_size(), which reads 70656 B more on
+    # both parts. Every admission in that band threw (thr2, Wormhole, 576 and 608 tokens): the
+    # template trimul's `a` under bmm_res's buffers, the ending transpose's L1 destination.
     try:
-        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
-    except Exception:
+        per_core = _matmul_cb_budget()
+    except Exception:                                                          # noqa: BLE001
         return False
     cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
     return headroom * nbytes <= max(per_core - reserve_per_core, 0) * cores
@@ -7223,7 +7226,11 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                     _pair_bias_stat("o_in_matmul_exit_l1")
                 return out
             except Exception as e:
-                if laddered:
+                # A narrower drain block shrinks the circular buffers, not the output, so an
+                # allocator refusal of the output itself retires the class at once instead of
+                # throwing once per rung (OpenDDE 768 on WH: 4 throws, a sibling 1 MB/bank
+                # tensor resident, 346848 B free per bank).
+                if laddered and "Not enough space" not in str(e):
                     _l1_out_narrow(key)
                 else:
                     _L1_OUT_REFUSED.add(key)
@@ -10786,6 +10793,7 @@ class TriangleMultiplication(Module):
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         pre_split = None
+        a_chunk = b_chunk = None
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
             try:
@@ -11200,6 +11208,15 @@ class TriangleMultiplication(Module):
                 break
             except RuntimeError as e:
                 msg = str(e)
+                # The refused attempt's channel operands are this call's own tensors. Free them
+                # now: the traceback keeps them referenced, and an L1 `a` left alive sits under
+                # the retried in-projection's circular buffers. At 576 tokens on Wormhole it did
+                # (`a` at 909312, the in-projection's CBs ending at 1152288), the retry and the
+                # host-join retry around it threw the same clash, and every fold died.
+                for _t in (a_chunk, b_chunk):
+                    if isinstance(_t, ttnn.Tensor) and _t.is_allocated():
+                        ttnn.deallocate(_t)
+                a_chunk = b_chunk = None
                 # TT_BIO_OF3L1_TMA's own refusal, first: an L1 "Out of Memory" would otherwise
                 # read as the DRAM refusal below (`_dram_oom` matches the allocator's wording,
                 # not the buffer type) and narrow the in-projection group for good, and an L1
