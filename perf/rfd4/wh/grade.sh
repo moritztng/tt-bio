@@ -26,6 +26,9 @@ r = [x["rmsd_a"] for x in rows]; fl = [x["seed_floor_a"] for x in rows]
 print(f"n {len(rows)} | WH vs BH CA RMSD median {st.median(r):.2f} A (p25 {sorted(r)[len(r)//4]:.2f}, max {max(r):.2f}) "
       f"| BH seed floor median {st.median(fl):.2f} A (min {min(fl):.2f}) | under floor {sum(a < b for a, b in zip(r, fl))}/{len(r)}")
 PY
+# quality.py reads the seed floor from its --out doc; seed it with the calibrated binder floor LAND9-12 graded against
+$PY -c 'import json, sys; json.dump({"seed_floor": json.load(open(sys.argv[1]))["seed_floor"]}, open(sys.argv[2], "w"))' \
+  /home/moritz/.coworker/state/rfd4/QUALITY.json $A/quality$N.json
 $PY perf/rfd4/quality.py grade --feature binder --tt $P/tt --ref $P/ref --allow-no-oracle \
   --label "rfd4-wh-bringup: Wormhole vs Blackhole, $N-token PD-L1 binder, 31 seeds" --out $A/quality$N.json > $A/quality$N.log 2>&1
 echo "quality rc=$? $(tail -1 $A/quality$N.log | cut -c1-200)"
