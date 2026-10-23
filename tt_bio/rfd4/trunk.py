@@ -567,14 +567,17 @@ class PairUpdate(Module):
                               low=self.dtype)
         if xs is not x:
             ttnn.deallocate(xs)
-        subs = ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
-                (lambda h: _per_design(self.tri_in, h, pair_mask), False),
+        # pair_batch: the triangle multiplication takes the sample batch whole and picks its route on the batch's rows
+        whole = int(z.shape[0]) == 1 or lever("pair_batch")
+        run_tri = (lambda t, h: t(h, pair_mask)) if whole else (lambda t, h: _per_design(t, h, pair_mask))  # noqa: E731
+        subs = ((lambda h: run_tri(self.tri_out, h), False),
+                (lambda h: run_tri(self.tri_in, h), False),
                 (lambda h: self._transition(h, pair_mask_c), True))
         # `pair_bf16z`: a bf16 stream is its own copy (zb is z), which the fused programs below write in place
         fused = zb is not z or lever("pair_bf16z")
         for sub, own_mask in subs:
             u = None
-            if not own_mask and pair_mask is None and fused and int(z.shape[0]) == 1 and lever("pair_tail"):
+            if not own_mask and pair_mask is None and fused and whole and lever("pair_tail"):
                 # no padded token: the triangle's output tail adds into the pair stream in the same program,
                 # z and zb written in place
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
