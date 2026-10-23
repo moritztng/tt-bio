@@ -50,7 +50,7 @@ def eligible(const, table, bins, scale, wg, beta) -> bool:
 
 
 def _build(const, table, bins, scale, wg, beta, out, device):
-    cb, n, _, c = (int(d) for d in const.shape)
+    cbat, n, _, c = (int(d) for d in const.shape)
     B = int(wg.shape[0])
     nt, kt, nb = n // 32, c // 32, int(table.shape[0])
     units = B * n * nt
@@ -77,7 +77,7 @@ def _build(const, table, bins, scale, wg, beta, out, device):
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     src = lambda name: str(KERNEL_DIR / name)  # noqa: E731
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=[n, nt, kt, nb, cb * n * nt] + acc(const) + acc(table) + acc(bins) + acc(scale)
+                                   compile_time_args=[n, nt, kt, nb, cbat * n * nt] + acc(const) + acc(table) + acc(bins) + acc(scale)
                                    + acc(wg) + acc(beta),
                                    runtime_args=rt, common_runtime_args=[0] * 6, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
