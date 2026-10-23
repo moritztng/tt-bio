@@ -675,6 +675,9 @@ _FAST_MODE = False
 #                   sigmoid(layer_norm_in(z) @ Wg_out) itself, so g_out is never written to DRAM. It takes only
 #                   the calls the F1 tail would serve with the residual folded in, and there it is bit-exact
 #   trimul_t2w      with trimul_t2, T2 also takes c_z 384 (OpenDDE) at its own (2, 12, 1, 2, 1) block (trimul_tail.T2_BLOCK)
+#   tail_pp         the trimul row-block output tail's unbiased projections (`_tail_rows`) on `_pair_proj_linear`
+#                   instead of `core_grid=` (OpenDDE's 1216-token refiner, which T1/T2 do not serve). Not bit-exact:
+#                   [1,128,1216,384] @ [384,384] HiFi4 4.64 -> 1.91 ms, float64 rel_rms 0.00173 -> 0.00169 (plin2)
 #   narrow_bw16     the narrow-output pair projections (`_narrow_proj_linear`) at in0_block_w 16, not `_NARROW_PROJ_BW`
 #   trimul_t1b8     T1 (c_z 128) writes a and b as bfp8, as trimul_b8in does at c_z 256: the einsum reads half
 #                   the bytes (Boltz-2 WH fast census: T1 1.0 s + einsum 0.86 s per fold, both DRAM-bound)
@@ -852,7 +855,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small")
+           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "tail_pp")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -863,7 +866,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"tail_pp", "pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
@@ -11607,6 +11610,15 @@ class TriangleMultiplication(Module):
                 and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                 and self.p_out_bias is None)
 
+    def _tail_proj(self, x, w, bias):
+        """One row block's output projection. Under `tail_pp` an unbiased one takes the tuned
+        pair projection: OpenDDE's refiner (1216 tokens, past T1/T2) ran [1,128,1216,384] @
+        [384,384] at 9.9 ms a call on `core_grid=`, 0.10 of roof."""
+        if bias is None and lever("tail_pp"):
+            return _pair_proj_linear(x, w, self.compute_kernel_config, _dtype())
+        return ttnn.linear(x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=_dtype(),
+                           compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+
     def _tail_rows(self, x_in, x, H, host_acc, add_to_input=False):
         """The output projections in row blocks, from the pair input and the channel-loop result.
 
@@ -11640,15 +11652,7 @@ class TriangleMultiplication(Module):
                 epsilon=1e-5,
                 compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
-            g_block = ttnn.linear(
-                z_rows,
-                self.g_out_weight,
-                bias=self.g_out_bias,
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
+            g_block = self._tail_proj(z_rows, self.g_out_weight, self.g_out_bias)
             ttnn.deallocate(z_rows)
             if not residual and e - s < H:  # a whole-axis slice is x_in itself
                 ttnn.deallocate(r)
@@ -11670,15 +11674,7 @@ class TriangleMultiplication(Module):
                 epsilon=1e-5,
                 compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
-            p_block = ttnn.linear(
-                x_rows,
-                self.out_p_weight,
-                bias=self.p_out_bias,
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
+            p_block = self._tail_proj(x_rows, self.out_p_weight, self.p_out_bias)
             ttnn.deallocate(x_rows)
             if chunks:
                 ttnn.deallocate(x_blk)
