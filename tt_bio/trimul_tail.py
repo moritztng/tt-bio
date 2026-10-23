@@ -1018,7 +1018,8 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None, stream16=False)
             return "dtype"
         # A plain-form g_out may be bfp8 (trimul_b8in writes it so): CB 5 takes g's format and
         # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
-        if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b):
+        if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b) and not (
+                t is resid and stream16 and copy is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG and not (
                 (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG and lever("pair_tail_small")):
@@ -1103,6 +1104,9 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     res32 = copy is not None
     assert not (res32 and (moved is not None or fold)), "T2_RES32 is the plain or GATE form"
     defines = [("T2_RES32", "1")] if res32 else []
+    z8 = resid.dtype == ttnn.bfloat8_b      # pair_bfp8z: z in c_7 and the sum out of c_2 are bfp8
+    if z8:
+        defines.append(("T2_Z8", "1"))
     gx, gy = grid
     ncores = gx * gy
     mcast = _t2_mcast(kt, nt, gate, EXTRA, grid)
@@ -1194,10 +1198,10 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     f32 = ttnn.float32
     cbs = [_cb(0, core_grid, kt if moved is not None else 2 * Mb * kt),
            _cb(1, core_grid, (1 + gate) * kt * nt),
-           _cb_fmt(2, core_grid, 2 * blk, f32 if res32 else ttnn.bfloat16), _cb(3, core_grid, Mb * kt),
+           _cb_fmt(2, core_grid, 2 * blk, f32 if res32 else resid.dtype), _cb(3, core_grid, Mb * kt),
            _cb(4, core_grid, blk),
            _cb_fmt(5, core_grid, (2 - gate) * blk, ttnn.bfloat16 if gate and moved is not None else g.dtype),
-           _cb_fmt(7, core_grid, 2 * blk, f32 if res32 else ttnn.bfloat16),
+           _cb_fmt(7, core_grid, 2 * blk, f32 if res32 else resid.dtype),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, Mb if fold else 1, f32),
@@ -1301,7 +1305,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
     if fold:
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
+    key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
            None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
            _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)))
@@ -1367,9 +1371,11 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, pre
     if ckc is not None and dest_guard.exposed_args(ckc):
         return "dest_guard"
     for t in (xcm, wp, g, resid) + ((wg,) if wg is not None else ()) + tuple(t for t in ex if t is not None):
-        # a plain-form g may be bfp8 (trimul_t1g8), as in fused_tail_ln
-        b8g = t is g and wg is None and t is not None and t.dtype == ttnn.bfloat8_b
-        if t is None or (t.dtype != ttnn.bfloat16 and not b8g) or t.layout != ttnn.TILE_LAYOUT:
+        if t is None or t.layout != ttnn.TILE_LAYOUT:
+            return "dtype"
+        # a plain-form g may be bfp8 (trimul_t1g8), as in fused_tail_ln; so may the stream16 z (pair_bfp8z)
+        b8 = t.dtype == ttnn.bfloat8_b and (t is g and wg is None or t is resid and stream16)
+        if t.dtype != ttnn.bfloat16 and not b8:
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
@@ -1500,7 +1506,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     parts = lambda m: _t2cm_parts(wp, m, gate, extra, c_off // TILE)  # noqa: E731
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2cm", spec(xcm), spec(wp), spec(g), spec(ln_w), spec(ln_b), tuple(grid),
+    key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)))
@@ -1776,7 +1782,7 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
     w8 = t1_w8(wpT, wgT, wgo)
-    if x.dtype != ttnn.bfloat16 or w8 is None:
+    if x.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or w8 is None:   # bfp8: pair_bfp8z's z
         return "dtype"
     shp = [int(d) for d in x.shape]
     if len(shp) not in (3, 4) or shp[-2] != shp[-3] or shp[-2] % TILE or shp[-1] % TILE:
@@ -1854,7 +1860,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
                            eps_bits, group * qn, group * ng, ntg, il]
-        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
+        + acc(xn if ln1 == 2 else x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
         + ([ct2, nb] + acc(outs[0]) + acc(outs[1]) if split else []),
         defines=abl + pre + sp + ([("T1B8", "1")] if b8 else []) + ([("T1MCAST", "1")] if mcast else []),
         runtime_args=rd, common_runtime_args=[0] * ((9 if split else 7) + len(mc)),
@@ -1877,8 +1883,9 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
             dst_full_sync_en=full))
     bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split, b8=b8)
     g8 = outs[2].dtype == ttnn.bfloat8_b
-    cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if t1_cb_b8(i, w8, b8) or (g8 and i == 19) else _cb(i, core_grid, t)
-            for i, t in bf]
+    cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b)
+            if t1_cb_b8(i, w8, b8) or (g8 and i == 19) or (i == 7 and x.dtype == ttnn.bfloat8_b)
+            else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
     return {"kernels": [reader, writer, compute], "cbs": cbs, "mc": mc, "sems": sems}
 
@@ -1919,7 +1926,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     g8 = bool(g8 or T1_G8) and pkey in T1_G8_KEYS
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab),
             alloc(shp[:-1] + [int(wgo.shape[-1])], ttnn.bfloat8_b if g8 else ttnn.bfloat16)]
-    key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
+    key = ("t1", str(x.padded_shape), str(x.dtype), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
            T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None

@@ -151,10 +151,11 @@ void kernel_main() {
     cb_push_back(cb_eps, 1);
     cb_reserve_back(cb_gamma, KT);
     cb_reserve_back(cb_beta, KT);
+    const uint32_t tg = get_tile_size(cb_gamma);   // bf16; the raw x in c_5 is bfp8 under WS_Z8
     w = get_write_ptr(cb_gamma);
-    for (uint32_t p = 0; p < KT; ++p, w += tx) noc_async_read_page(p, sg, w);
+    for (uint32_t p = 0; p < KT; ++p, w += tg) noc_async_read_page(p, sg, w);
     w = get_write_ptr(cb_beta);
-    for (uint32_t p = 0; p < KT; ++p, w += tx) noc_async_read_page(p, sb, w);
+    for (uint32_t p = 0; p < KT; ++p, w += tg) noc_async_read_page(p, sb, w);
 #endif
 #if defined(WS_RELU) || defined(WS_RELU_BW)
     const uint32_t tb = get_tile_size(cb_b1);

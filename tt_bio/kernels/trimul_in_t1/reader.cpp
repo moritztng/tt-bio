@@ -103,7 +103,8 @@ void kernel_main() {
     constexpr uint32_t eps_cb = tt::CBIndex::c_11;
     constexpr uint32_t wo_cb = tt::CBIndex::c_18;
     constexpr uint32_t S = St * 32;
-    const uint32_t tb = get_tile_size(x_cb);
+    const uint32_t tb = get_tile_size(x_cb);       // z's tile: bf16, or bfp8 under pair_bfp8z
+    const uint32_t gtb = get_tile_size(gamma_cb);  // bf16
     const uint32_t wtb = get_tile_size(w_cb);    // bfp8 under trimul_t1w8, else tb
     const uint32_t otb = get_tile_size(wo_cb);
 
@@ -127,9 +128,9 @@ void kernel_main() {
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wp, w);
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wg, w);
     w = get_write_ptr(gamma_cb);
-    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
+    for (uint32_t t = 0; t < Kt; ++t, w += gtb) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);
-    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
+    for (uint32_t t = 0; t < Kt; ++t, w += gtb) noc_async_read_page(t, bt, w);
     if constexpr (NG) {
         w = get_write_ptr(wo_cb);
         for (uint32_t k = 0; k < Kt; ++k)
@@ -141,7 +142,7 @@ void kernel_main() {
     if (sender) {
         const uint32_t addr[] = {get_write_ptr(w_cb), get_write_ptr(gamma_cb), get_write_ptr(beta_cb),
                                  NG ? get_write_ptr(wo_cb) : 0};
-        const uint32_t bytes[] = {2 * QN * Kt * wtb, Kt * tb, Kt * tb, Kt * NG * otb};
+        const uint32_t bytes[] = {2 * QN * Kt * wtb, Kt * gtb, Kt * gtb, Kt * NG * otb};
         weight_mcast::send<MC>(addr, bytes, NG ? 4 : 3);
     } else {
         weight_mcast::receive<MC>();
@@ -181,9 +182,9 @@ void kernel_main() {
         if constexpr (T1PRE) {
             constexpr uint32_t xn_cb = tt::CBIndex::c_1;
             cb_reserve_back(xn_cb, IL * Kt);
-            const uint32_t base = get_write_ptr(xn_cb);
+            const uint32_t base = get_write_ptr(xn_cb), ntb = get_tile_size(xn_cb);   // the bf16 xn, not z
             for (uint32_t il = 0; il < IL; ++il, page += St * Kt)
-                for (uint32_t dt = 0; dt < Kt; ++dt) noc_async_read_page(page + dt, x, base + (dt * IL + il) * tb);
+                for (uint32_t dt = 0; dt < Kt; ++dt) noc_async_read_page(page + dt, x, base + (dt * IL + il) * ntb);
             noc_async_read_barrier();
             cb_push_back(xn_cb, IL * Kt);
         }
@@ -197,7 +198,7 @@ void kernel_main() {
             volatile tt_l1_ptr uint32_t* src = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(scratch);
             // Row il of a bf16 tile: 16 elements in face (il / 16) * 2 and 16 in the face after it,
             // row il % 16 of each; row 0 of the destination is the first row of faces 0 and 1.
-            for (uint32_t il = h * IL; il < h * IL + IL; ++il, d += tb) {
+            for (uint32_t il = h * IL; il < h * IL + IL; ++il, d += gtb) {   // m_cb is bf16, as gamma
                 volatile tt_l1_ptr uint32_t* dst = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(d);
                 const uint32_t s0 = (((il >> 4) * 2) * 256 + (il & 15) * 16) / 2;
                 for (uint32_t k = 0; k < 8; ++k) {
