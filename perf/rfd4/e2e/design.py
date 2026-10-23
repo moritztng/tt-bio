@@ -55,6 +55,7 @@ def main():
     ap.add_argument("--rng", default="upstream", choices=("upstream", "per_design"),
                     help="upstream: same noise as capture.py --reseed-at-sampler at this seed (paired grade)")
     ap.add_argument("--reseed", action="store_true", help="design i runs at seed+i: a seed floor from one session")
+    ap.add_argument("--fast", action="store_true", help="the CLI's --fast: set_fast_mode(True) before the build")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -103,6 +104,9 @@ def main():
         E.preprocess = transplanted
         emit({"kind": "transplant", "seams": a.upstream_seams, "keys": list(keys)})
 
+    if a.fast:
+        from tt_bio.tenstorrent import set_fast_mode
+        set_fast_mode(True)   # what `tt-bio design --fast` does; the trunk picks FAST_LEVERS at build
     with clocksample.during() as clk:
         t0 = time.perf_counter()
         engine = E.DesignEngine(a.weights, recipe=a.recipe)
