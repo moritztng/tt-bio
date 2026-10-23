@@ -14562,6 +14562,24 @@ def _z_residual(z: ttnn.Tensor, zc: ttnn.Tensor, update: ttnn.Tensor, wide: bool
     return out
 
 
+_LAYER_TAP_CALL = [0]
+
+
+def _layer_tap(tag, t):
+    """Fingerprint z after each op of the first TT_BIO_LAYER_TAP_CALLS (default 2) PairformerLayer calls.
+
+    Appends to the file TT_BIO_TRUNK_TAP names, beside protenix.trunk_tap's block-level lines, so a
+    two-run diff names the first op whose output bytes differ, not just the first block. Off unless
+    that variable is set; one device->host copy per tap."""
+    path = os.environ.get("TT_BIO_TRUNK_TAP")
+    if not path or _LAYER_TAP_CALL[0] > int(os.environ.get("TT_BIO_LAYER_TAP_CALLS", "2")):
+        return
+    import hashlib
+    h = hashlib.sha256(ttnn.to_torch(t).to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
+    with open(path, "a") as fp:
+        fp.write(f"layer{_LAYER_TAP_CALL[0] - 1}|{tag}|{tuple(t.shape)}|{h}\n")
+
+
 class PairformerLayer(Module):
     def __init__(
         self,
@@ -14741,31 +14759,42 @@ class PairformerLayer(Module):
             # Each op returns z + its update. Where its blocks join on the host they carry their own
             # rows of z and z is freed before the upload, so a pair too big to sit beside its update
             # still runs (`_add_input`); everywhere else it is the in-place add this layer always ran.
+            _LAYER_TAP_CALL[0] += 1
+            _layer_tap("enter", z)
             z = self.triangle_multiplication_start(z, mask, add_to_input=True)
+            _layer_tap("tmul_out", z)
             z = self.triangle_multiplication_end(z, mask, add_to_input=True)
+            _layer_tap("tmul_in", z)
             z = self.triangle_attention_start(z, attn_mask_start, add_to_input=True)
+            _layer_tap("tatt_start", z)
             z = self.triangle_attention_end(z, attn_mask_end, add_to_input=True)
+            _layer_tap("tatt_end", z)
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
             z = self.transition_z(
                 z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
                 if _RESIDUAL_L1 else None, add_to_input=True)
+            _layer_tap("transition", z)
         else:
             zc = _z_compute(z, wide)
             z_update = self.triangle_multiplication_start(zc, mask)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tmul_out", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_multiplication_end(zc, mask)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tmul_in", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_attention_start(zc, attn_mask_start)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tatt_start", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_attention_end(zc, attn_mask_end)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tatt_end", z)
 
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
@@ -14774,6 +14803,7 @@ class PairformerLayer(Module):
                 zc, memory_config=_residual_update_memory_config(zc.shape, zc.dtype)
                 if _RESIDUAL_L1 else None, mask=trans_mask_z)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("transition", z)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
                 self._s_compute(s),
@@ -14789,9 +14819,11 @@ class PairformerLayer(Module):
             )
             ttnn.deallocate(s_norm)
             s = self._s_residual(s, s_update)
+            _layer_tap("s_apb", s)
 
             s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
             s = self._s_residual(s, s_update)
+            _layer_tap("s_transition", s)
         return s, z
 
     def _s_compute(self, s: ttnn.Tensor) -> ttnn.Tensor:
