@@ -657,7 +657,8 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
-                           "trimul_bres", "trimul_bres_hifi2", "pair_bf16z"})
+                           "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
+                           "pair_tail_cm"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 

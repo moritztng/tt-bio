@@ -1309,14 +1309,20 @@ def set_t2cm(on: bool) -> bool:
     return prev
 
 
-def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, prev=None, own_switch=False):
+def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, prev=None, own_switch=False,
+                  stream16=False):
     """None when T2CM serves `resid += T2(xcm permuted to [1, S, S, K])`, else the reason it does not.
-    `wg`, `ex`, `prev`: see `fused_tail_ln_cm`; `own_switch`: the caller is switched on by its own flag
+    `wg`, `ex`, `prev`, `stream16`: see `fused_tail_ln_cm`; `own_switch`: the caller is switched on by its own flag
     (AF2's TT_BIO_AF2_T2CM), not the levers. Pure host checks; nothing is touched."""
     from .tenstorrent import lever
     from . import ops
     ex = ex or (None,) * 4
-    if not (own_switch or ((T2CM or lever("trimul_t2cm")) and (T2 or lever("trimul_t2")))):
+    if stream16:
+        if not (T2CM or lever("pair_tail_cm")):
+            return "off"
+        if wg is not None or any(t is not None for t in ex) or prev is not None:
+            return "stream16_form"
+    elif not (own_switch or ((T2CM or lever("trimul_t2cm")) and (T2 or lever("trimul_t2")))):
         return "off"
     if ops.recording():
         return "tape"
@@ -1337,7 +1343,8 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, pre
         if why is not None:
             return why
     K = c_off + xs[1]
-    why = _t2_shape_why([1, xs[2], xs[3], K], [1, xps[2], xps[3], K], ln_w, ln_b, wp, g, resid, wg)
+    why = _t2_shape_why([1, xs[2], xs[3], K], [1, xps[2], xps[3], K], ln_w, ln_b, wp, g, resid, wg,
+                        res32=stream16)
     if why is not None:
         return why
     N = int(wp.shape[-1])
@@ -1402,6 +1409,20 @@ def t1_rows(plan_il, units, ncores):
     return plan_il // balance_split(units, ncores) if plan_il == 32 else plan_il
 
 
+# RFD4's pair_tail on the bf16 stream (`pair_tail_cm`) reads channel-major only where balance_split cuts its units in
+# two and the halves fill at least T2CM_STREAM16_BALANCE of the core rounds. qb2 p300c chip (110 cores), paired traced
+# trunk vs the move + pair_tail (state/rfd4/bets/tailcm.md), parts and balance in brackets: 512 1.012-1.017x in four
+# readings (P 2, 0.93), 384 1.014-1.015x (P 2, 0.87); 352 0.978x (P 2, 0.73); whole units lose or sit in the noise:
+# 448 0.991x (0.89), 320 1.012x (0.91), 288 0.982x (0.74), 256 0.94x (0.58). The gather costs most of the move it saves.
+T2CM_STREAM16_BALANCE = 0.85
+
+
+def t2cm_stream16_fits(n, ncores):
+    """Whether `pair_tail_cm` takes an n-token pair on `ncores` cores (see T2CM_STREAM16_BALANCE)."""
+    units = _tiles(n) ** 2
+    u = 2 * units
+    return balance_split(units, ncores) == 2 and u / (-(-u // ncores) * ncores) >= T2CM_STREAM16_BALANCE
+
 # A/B knob: the fewest row parts T2CM splits each (it, jt) block into; 0 = balance_split's choice
 # (production). Each part's rows compute exactly as in the whole block, so the choice is bit-exact
 # (bht1f: identical CIFs at 512 on both models, OpenBind-0 --fast -0.14 s on p150a).
@@ -1409,7 +1430,7 @@ T2CM_MIN_P = 0
 
 
 def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, bp=None, bg=None,
-                     mask=None, out=None, prev=None):
+                     mask=None, out=None, prev=None, stream16=False):
     """`fused_tail_ln` on the channel-major [1, K, S, S] x: `resid += (layer_norm(x) @ wp) *
     sigmoid(g)` with x[0, i, j, c] = xcm[0, c, i, j], `resid` written in place and returned. None when
     T2CM is off or does not cover the call; nothing has been touched then. `xcm` is not deallocated.
@@ -1419,9 +1440,13 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     `bias_rows` builds them; `mask` a per-row dropout mask [.., S, N] (shared over i), multiplying the
     update before the add; `out` a separate destination, so `resid` stays as it was (the checkpointed
     forward keeps it as its saved input). `prev` = (x, c_off): xcm holds only channels c_off.., the
-    earlier ones are already in x [1, S, S, K] (T2m's split, for a channel loop of several chunks)."""
+    earlier ones are already in x [1, S, S, K] (T2m's split, for a channel loop of several chunks).
+
+    `stream16` (RFD4's pair_tail under `pair_bf16z` and `pair_tail_cm`; plain form only): `resid` is the bf16
+    pair stream, admitted at the T2_RES32 keys as `fused_tail_ln(stream16=)` is."""
     ex = (bp, bg, mask, out)
-    why = t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc, wg, ex, prev, own_switch=out is not None)
+    why = t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc, wg, ex, prev, own_switch=out is not None,
+                        stream16=stream16)
     if why is not None:
         if why != "off":
             T2CM_STATS[1] += 1

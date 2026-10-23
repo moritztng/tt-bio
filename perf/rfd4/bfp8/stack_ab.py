@@ -125,6 +125,9 @@ def main():
             free(res)
     d = outs["stack"] - outs["base"]
     rec["z_rel_rms_stack_vs_base"] = float(d.pow(2).mean().sqrt() / outs["base"].pow(2).mean().sqrt())
+    rec["z_equal"] = bool(torch.equal(outs["stack"], outs["base"]))
+    from tt_bio import trimul_tail as TT2
+    rec["t2cm_served_declined"] = list(TT2.T2CM_STATS)
     ratios = [b / s_ for b, s_ in zip(ms["base"], ms["stack"])]
     for k, v in ms.items():
         med = statistics.median(v)
