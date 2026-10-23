@@ -879,7 +879,10 @@ _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 # 650M --fast hHSA 151.0 -> 146.1 ms (+0.000045), hPCSK9 155.2 -> 146.2 (+0.000074); normal hHSA 175.4 -> 170.2
 # (+0.000019), hPCSK9 175.3 -> 171.4 (+0.000064); 1.3B --fast hPCSK9 284.9 -> 275.7 (-0.000071), normal hHSA 337.3 ->
 # 328.2 (-0.000014); 35M --fast hHSA 29.1 -> 26.3 (-0.000011), normal hPCSK9 29.6 -> 27.6 (+0.000010).
-# None = Wormhole, and Blackhole --fast inside _bh_fast's stack (alone, Blackhole normal 1.3B read pcc -0.000110, ls124).
+# None = Wormhole, and Blackhole at width >= 1280: --fast inside _bh_fast's stack, normal on top of mm_resid (alone,
+# Blackhole normal 1.3B read pcc -0.000110 in ls124). ls125 (p300c, 1350 MHz at the plateau, 4 rounds x 3, mean of round
+# mins, mm_resid -> + gelu_f32, pcc vs fp32 delta against the old default): normal 650M hHSA 83.1 -> 78.2 ms (+0.000026),
+# hPCSK9 88.3 -> 84.5 (+0.000059), 1.3B hPCSK9 171.1 -> 166.3 (+0.000000), faster in every round.
 _SAPROT_GELU_F32 = env_flag("TT_BIO_SAPROT_GELU_F32", None)
 
 
@@ -887,7 +890,8 @@ def _fc1_act(w=None) -> str:
     if _SAPROT_GELU_F32 is not None:
         return "gelu_approx" if _SAPROT_GELU_F32 else "gelu"
     from tt_bio import tenstorrent
-    return "gelu_approx" if tenstorrent.is_wormhole() or (w is not None and _bh_fast(w)) else "gelu"
+    wide = w is not None and int(w.shape[-2]) >= _MM_RESID_MIN_WIDTH
+    return "gelu_approx" if tenstorrent.is_wormhole() or wide else "gelu"
 
 
 # --fast: fc1's GELU output written as block-fp8 where it goes to DRAM, the [rows, 4d] activation fc2 reads back (half
