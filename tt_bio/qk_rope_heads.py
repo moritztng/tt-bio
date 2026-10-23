@@ -66,6 +66,13 @@ def _plan(kt: int, vpack: bool = False, qcb: bool = False):
     return None
 
 
+def fits(d: int, out_dtype=None, q_dtype=None) -> bool:
+    """Whether a [*, *, d] q, k, v call writing `out_dtype` (q in `q_dtype`) fits its CBs in L1. At the ESMC-6B width
+    (d 2560) the reload plan fits bf16 or all block-fp8, but not bf16 q beside block-fp8 k, v (1114 KB of 1100)."""
+    od = out_dtype or ttnn.bfloat16
+    return _plan(d // 32, od != ttnn.bfloat16, (q_dtype or od) != od) is not None
+
+
 def _l1_bytes(kt: int, reload: bool = False, xb: int = 2) -> int:
     bf16 = (xb * kt + 2 + 2 + (1 if reload else 2) * kt + 1 + 8 + 2 * _vc(kt)) * _TILE   # x, cos, sin, gammas, scaler, out, v
     fp32 = (4 + 2 * kt + 4) * 2 * _TILE                                                  # eps, mean, var, rstd, xc, tmp, p
