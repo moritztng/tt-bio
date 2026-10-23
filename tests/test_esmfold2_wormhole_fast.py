@@ -42,7 +42,7 @@ def test_wormhole_lm_is_bfp8_in_both_modes(monkeypatch, wormhole, fast, lm_b8):
 
 @pytest.mark.parametrize("wormhole", [True, False])
 def test_mode_sets_per_arch(monkeypatch, wormhole):
-    from tt_bio import esmfold2_runtime as rt
+    from tt_bio import esmfold2_runtime as rt, tenstorrent
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(rt, "is_wormhole", lambda: wormhole)
     normal_set = rt.fold_levers(False).split("+")
@@ -59,6 +59,9 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
     assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))
     assert "trimul_t1" not in rt.fold_levers(False).split("+")
+    # Wormhole's normal mode takes the --fast trimul pair too (wnsg), Blackhole's does not.
+    normal = tenstorrent.parse_levers(rt.fold_levers(False))
+    assert all((n in normal) is wormhole for n in ("trimul_t2fold", "trimul_gin_w8", "dit_shoist"))
     # The ef2_* levers ride both sets on both archs; device pair init is graded on Wormhole's fast bar only.
     for fast in (False, True):
         names = rt.fold_levers(fast).split("+")
@@ -72,9 +75,10 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     assert "lm_sdpa_stock" in normal_set and "lm_sdpa_stock" in fast_set
     assert "lm_ln_stock" in normal_set and "lm_ln_stock" in fast_set
     assert all((n in s) is not wormhole for n in ("lm_k64", "lm_linear") for s in (normal_set, fast_set))
-    # The fused token-DiT attention (dsg) and its hoisted conditioning (dsq2) passed the fast bar on Wormhole only.
+    # The fused token-DiT attention (dsg) and its hoisted conditioning (dsq2) passed the fast bar on Wormhole only;
+    # the hoist rides Wormhole's normal set too (wnsg).
     assert ("dit_qkvf" in fast_set) is wormhole and "dit_qkvf" not in normal_set
-    assert ("dit_shoist" in fast_set) is wormhole and "dit_shoist" not in normal_set
+    assert ("dit_shoist" in fast_set) is wormhole and ("dit_shoist" in normal_set) is wormhole
     assert ("trunk_hifi2" in fast_set) is wormhole and "trunk_hifi2" not in normal_set
     assert ("ef2_atom_rope" in fast_set) is wormhole and ("ef2_atom_rope" in normal_set) is wormhole
     # trimul_t2m lost to plain T2 once trimul_bres fed the tail (wtm) and rides no set.
