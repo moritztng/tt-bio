@@ -36,6 +36,11 @@ _KEYPAD_ROW = env_flag("TT_BIO_SHSDPA_KEYPAD_ROW", True)
 # 6B 0.166 -> 0.162 ms a call, rel_rms vs float64 0.0269 -> 0.0264. It changes the output (another softmax blocking):
 # ESMC/SaProt page cells, 7 model x mode, pcc vs fp32 moves -0.000025..+0.00001 (mean -0.000009), pooled cos >= 0.99983.
 _K_CHUNK_WIDE = env_flag("TT_BIO_SHSDPA_K288", True)
+# fp32 instead of bf16 for the row statistics (running max and sum), the two output accumulators and the score CB.
+# Off: under grade (perf/spd_m_saprot/attn_drift.py, the logit scale that fits the output on real SaProt q, k, v).
+_STATS_F32 = False
+_OUT_IM_F32 = False
+_IM_F32 = False
 
 
 def k_chunk_default() -> int:
@@ -124,12 +129,17 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2,
         try:
             return SG.sdpa(dev, q, k, v, row, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                            kernel_dir=KERNEL_DIR, keypad=table, defines_extra=defines,
-                           merged_out=merged, exp_approx_mode=exp_approx)
+                           merged_out=merged, exp_approx_mode=exp_approx, **_wide())
         except Exception as exc:
             if not auto or q_chunk == 32:
                 raise
             T.absorb_l1_refusal("shsdpa q chunk", exc)
             _Q_TILES_CAP[key] = q_chunk // 32 - 1
+
+
+def _wide():
+    f = ttnn.float32
+    return {k: f for k, on in (("stats_dtype", _STATS_F32), ("out_im_dtype", _OUT_IM_F32), ("im_dtype", _IM_F32)) if on}
 
 
 # Largest q chunk (tiles) per shape and operand placement that the device accepted. L1 operands (SaProt's RoPE leaves
