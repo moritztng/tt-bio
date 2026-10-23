@@ -723,8 +723,6 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
         reader, writer, _ = entry["kernels"]
         reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), wg.buffer_address(),
                                       (mask if mask is not None else x).buffer_address()]
-        if split:
-            reader.common_runtime_args += [outs[0].buffer_address(), outs[1].buffer_address()]
         writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
         pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
         ttnn.generic_op([x, wp, wg, *outs] + ([mask] if mask is not None else []), pd)
