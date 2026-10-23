@@ -114,6 +114,10 @@ def test_climb_stops_after_two_flat_rungs_and_honours_the_ceiling(monkeypatch, t
     climb = next(r for r in _run(tmp_path / "c", "--ceiling", "8") if r["kind"] == "climb")
     assert climb["best_batch"] == 8 and climb["stopped"] == "ceiling"
 
+    _stub_rfd4(monkeypatch, tmp_path, dram_width=1024, per_call_s=lambda w: float(w))
+    climb = next(r for r in _run(tmp_path / "t", "--climb-through", "8") if r["kind"] == "climb")
+    assert [r["batch"] for r in climb["rungs"]] == [1, 2, 4, 8]  # flat from b2, climbed through b8
+
 
 def test_under_clocked_batches_are_discarded(monkeypatch, tmp_path):
     _stub_rfd4(monkeypatch, tmp_path, dram_width=8, per_call_s=lambda w: 10.0)

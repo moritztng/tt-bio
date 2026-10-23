@@ -7,8 +7,10 @@ Two phases, one process, every line appended to `<out>/runs.jsonl`:
 
 1. Climb. The sample width doubles from 1 until the card pushes back (a rung that errors, a rung
    the chunker had to run narrower because DRAM refused it, or two rungs in a row that buy under
-   2 %) or the protocol's ceiling (b128 / b64 / b32 at 128 / 256 / 512 tokens). Each rung pays one
-   compile call, then one warm screen batch.
+   2 %) or the protocol's ceiling (b128 / b64 / b32 at 128 / 256 / 512 tokens). Flat rungs never stop it
+   below `--climb-through`, by default one rung past the engine's own default width (`auto_width`), so
+   the climb always tests the width a user gets and the next one. Each rung pays one compile call,
+   then one warm screen batch.
 2. Measure. At the best rung, `--batches` (>= 5) warm batches, each one full batch of finished
    designs on its own seed. These are the lines the evidence file is built from.
 
@@ -174,6 +176,8 @@ def main():
     ap.add_argument("--host", default=os.uname().nodename)
     ap.add_argument("--ceiling", type=int, help="widest rung; default the protocol's per-size ceiling")
     ap.add_argument("--ladder-start", type=int, default=1)
+    ap.add_argument("--climb-through", type=int,
+                    help="flat rungs do not stop the climb below this width; default 2 x the engine's auto_width")
     ap.add_argument("--batch", type=int, help="skip the climb and measure at this width")
     ap.add_argument("--batches", type=int, default=5, help="warm batches at the best width (protocol: >= 5)")
     ap.add_argument("--seed", type=int, default=1000, help="batch i runs on seed + i")
@@ -257,6 +261,7 @@ def main():
     # Width 1 pays the first compile of everything; it is reported, never amortised.
     first = batch(1, a.seed, "cold", "compile")
     ceiling = a.ceiling or CEILING.get(size, 32)
+    through = a.climb_through or 2 * getattr(E, "auto_width", lambda n: 0)(size)
 
     if a.batch:
         best = a.batch
@@ -281,7 +286,7 @@ def main():
             flat = flat + 1 if dps < top * (1 + MIN_GAIN) else 0
             if dps > top:
                 best, top = width, dps
-            if flat >= 2:
+            if flat >= 2 and width >= through:
                 break
             width *= 2
         stop = ("ceiling" if width > ceiling else "pushback")
