@@ -28,6 +28,8 @@ for leg in ${3:-devtests n128-w16 n128-w1 n256-w4 n256-w1 sanity d512 census512 
                 --out $R/d512 --designs 6 --rng upstream ;;
     census512) bash perf/rfd4/e2e/elt_prof.sh $R/$leg $N --n 512 \
                 && python3 perf/rfd4/e2e/census_v2.py $R/$leg $R/e2e-512-v8.json ;;
+    census128) bash perf/rfd4/e2e/elt_prof.sh $R/$leg $N --n 128 \
+                && python3 perf/rfd4/e2e/census_v2.py $R/$leg $R/e2e-128-v8.json ;;
     census256) bash perf/rfd4/e2e/elt_prof.sh $R/$leg $N --n 256 --batch 4 \
                 && python3 perf/rfd4/e2e/census_v2.py $R/$leg $R/e2e-256-b4-v8.json ;;
   esac > $R/$leg.log 2>&1
