@@ -3,7 +3,7 @@
 # T1 / T2 digests at every model's key on this tree and on main's ($OLD): equal = other models untouched.
 #   RUN=run5 perf/rfd4/z8/run5.sh <main tree> [legs]     (run from the tree; first free qb2 card, up to 4 h)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/z8/${RUN:-run5}; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/z8/${RUN:-run5}; PY=$HOME/tt-bio-dev/env/bin/python
 OLD=${1:?main tree}; LEGS=${2:-devtests xtree}
 mkdir -p $O; cd $W
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" | tee -a $O/run.log; }

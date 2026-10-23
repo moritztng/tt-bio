@@ -4,7 +4,7 @@
 # a / b / g_out bit-equal and ms (in_t1.py --ab), RFD4 also with compute-only / DM-only times at NB 8.
 #   perf/rfd4/t1k/run2.sh <card> [legs]     (run from the tree; waits for the card's booking)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1k/run2; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1k/run2; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-rfd4 rfd4nb8 rfd4mask protenix opendde opendde8 boltz}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-t1k PYTHONPATH=$W
 mkdir -p $O; cd $W

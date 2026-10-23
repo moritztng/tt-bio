@@ -4,7 +4,7 @@
 # main's behaviour). z after one pass must be bit-identical (z_rel_rms_stack_vs_base 0).
 #   perf/rfd4/t1k/run3.sh <card> [legs]     (run from the tree; waits for the card's booking)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1k/run3; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1k/run3; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-ab512 ab256 ab384}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-t1k PYTHONPATH=$W:$W/perf
 mkdir -p $O; cd $W
