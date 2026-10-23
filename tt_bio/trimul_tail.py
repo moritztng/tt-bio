@@ -1499,6 +1499,9 @@ T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_i
 T1_PSIG = 0                       # bench knob for lever trimul_t1_psig (kernels/trimul_in_t1 T1_PSIG)
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
+# Output tiles T1's writer gathers per read barrier (a divisor of 32); 0 = GIN_MOVE_NB, gin_moved's. A/B knob: where
+# the tiles land does not depend on it, only how many gathers wait on one barrier.
+T1_NB = 0
 # Plans with channel groups normalise z once: the first launch stores xn (bf16, z's layout) beside its outputs
 # and the later launches read it instead of re-running the layer_norm. The matmuls read the same bf16 tiles,
 # so a, b and g_out are bit-identical. At OpenDDE's c_z 384 (3 launches) the layer_norm was 4.67 of T1's 16.18 ms
@@ -1516,6 +1519,10 @@ T1_ROWS = 0
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
+def t1_nb():
+    return T1_NB or GIN_MOVE_NB
+
+
 def set_t1(on: bool) -> bool:
     """A/B switch for the paired harness. Returns the previous state."""
     global T1
@@ -1527,7 +1534,7 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
     ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent of N: N only sets how many units
     each core runs."""
-    nb = GIN_MOVE_NB if nb is None else nb
+    nb = t1_nb() if nb is None else nb
     rb = T1_RB if rb is None else rb
     groups, plan_il = t1_plan((kt, ct2, ntg), w8)
     il = plan_il if il is None else il
@@ -1708,7 +1715,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, b8=F
         defines=abl + pre, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, GIN_MOVE_NB, ng, group * qn, qn, group * ng, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2])
+        compile_time_args=[ct2, St, t1_nb(), ng, group * qn, qn, group * ng, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2])
         + ([kt] + acc(xn) if ln1 == 1 else []),
         defines=abl + xout + ([("T1B8", "1")] if b8 else []), runtime_args=wr,
         common_runtime_args=[0] * (4 if ln1 == 1 else 3), config=ttnn.WriterConfigDescriptor())
@@ -1760,7 +1767,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
-           tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, GIN_MOVE_NB,
+           tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, t1_nb(),
            T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
