@@ -17,7 +17,7 @@ stamp "start $(git log --oneline -1 | cut -c1-70) dirty=$(git status --short tt_
 B=$($PY -c "from tt_bio.rfd4.trunk import NORMAL_LEVERS as N; print(','.join(sorted(N)))")
 S=$B,trimul_bres,trimul_bres_hifi2
 echo "base $B" >> $O/run.log
-f() { ls $O/design/$1/pdl1_binder_512_s$2_r*_generated.cif; }
+f() { echo $O/design/$1/pdl1_binder_512_s$2_r$(($2 + 1))_generated.cif; }   # r0 is the compile pass
 for leg in $LEGS; do
   case $leg in
     ab*) n=${leg#ab}; TT_BIO_TRACE_REGION_MB=512 timeout 2400 $PY perf/rfd4/bfp8/stack_ab.py --weights $HOME/rfd4-bundle \
