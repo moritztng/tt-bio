@@ -4,7 +4,8 @@
 
 Same signpost attribution as census_v2.py. Per design = 60 first passes + 120 recycled ones (the recycle projections
 charged to the pass they feed). Ops are keyed by (family, op code); bytes are every input and output tensor at its
-logical shape and dtype (block-float formats at their packed size, a generic_op's io tensors once each), which is the DRAM traffic if every operand
+logical shape and dtype (block-float formats at their packed size, a generic_op's io tensors once each, its returned one
+included), which is the DRAM traffic if every operand
 streams, so the floor `max(bytes / 436 GB/s, FLOPs / 140 TFLOP/s HiFi2)` is a lower bound even where an operand sits
 in L1. FLOPs as census_v2 (2*M*K*N a matmul, 4*b*h*n*n*d an SDPA) plus the projections inside fused generic ops
 (op_flops), 0 otherwise.
@@ -32,9 +33,11 @@ def dims(r, k):
 
 
 def tensors(r):
-    # generic_op lists its outputs among its io tensors and reports the last one again as OUTPUT_0
-    outs = [] if r["OP CODE"].startswith("GenericOp") else [f"OUTPUT_{i}" for i in range(4)]
-    for k in [f"INPUT_{i}" for i in range(16)] + outs:
+    # generic_op lists its io tensors as inputs, then its returned (last) io tensor again as one more input and as
+    # OUTPUT_0: count that tensor once (outer_residual's io [z, pi, pj4, out] reads INPUT_0..4 + OUTPUT_0)
+    gen = r["OP CODE"].startswith("GenericOp")
+    ins = [k for k in (f"INPUT_{i}" for i in range(16)) if dims(r, k)]
+    for k in (ins[:-1] if gen else ins + [f"OUTPUT_{i}" for i in range(4)]):
         d = dims(r, k)
         if d:
             n = d[0] * d[1] * d[2] * d[3]
