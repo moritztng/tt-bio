@@ -23,6 +23,7 @@ ALWI void block_init_short(uint32_t in0, uint32_t in1, uint32_t ct, uint32_t rt,
 #ifdef ARCH_BLACKHOLE
 template <MathFidelity FID>
 ALWI void block_math(uint32_t in0, uint32_t in1, uint32_t idst, uint32_t ct, uint32_t rt) {
+#ifdef TRISC_MATH
     volatile uint32_t en = *(throttle_ptr) % 2;
     if (en) {
         if (throttled_mop_status != 1) {
@@ -37,6 +38,7 @@ ALWI void block_math(uint32_t in0, uint32_t in1, uint32_t idst, uint32_t ct, uin
         }
         llk_math_matmul<FID, MM_THROTTLE>(idst, ct, rt);
     }
+#endif
 }
 #endif
 

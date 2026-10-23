@@ -23,7 +23,7 @@ A = ap.parse_args()
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 import torch, ttnn
-from tt_bio import tenstorrent as T, trimul_tail as TT, _mm_generic
+from tt_bio import tenstorrent as T, trimul_tail as TT, mm_generic as _mm_generic
 from tt_bio.rfd4.trunk import compute_kernel_config
 
 dev = T.get_device()

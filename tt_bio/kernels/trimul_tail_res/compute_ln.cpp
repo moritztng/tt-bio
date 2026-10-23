@@ -63,8 +63,10 @@ constexpr uint32_t FOLD = get_compile_time_arg_val(11);
 // multiplies keep the compute config's, so at HiFi2 the only bit dropped is layer_norm(x)'s last one, in srcB.
 #ifdef T2_MM_FID
 constexpr auto MM_FID = static_cast<MathFidelity>(T2_MM_FID);
-#else
+#elif defined(TRISC_MATH)
 constexpr auto MM_FID = static_cast<MathFidelity>(MATH_FIDELITY);
+#else
+constexpr auto MM_FID = MathFidelity::HiFi4;  // MATH_FIDELITY exists only on the math TRISC, the only reader
 #endif
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0;      // x_out rows, bf16, Mb * Kt double buffered
