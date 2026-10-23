@@ -16,7 +16,7 @@ exec 9>"$HOME/spd_qb2_chip$C.lock"
 flock -w 3600 9 || { stamp "flock timeout"; exit 3; }
 while fuser "/dev/tenstorrent/$C" >/dev/null 2>&1; do sleep 20; done
 stamp "start tree $(cat $W/TREE_SHA 2>/dev/null)"
-B=$($PY -c "from tt_bio.rfd4.trunk import NORMAL_LEVERS as N; print(','.join(sorted(N)))")
+B=$($PY -c "from tt_bio.rfd4.trunk import NORMAL_LEVERS as N; print(','.join(sorted(N - {'pair_block_hifi2'})))")
 S=$B,pair_block_hifi2
 f() { ls $O/design/$1/pdl1_binder_512_s$2_r*_generated.cif | tail -1; }   # s0 also has the cold run r0
 for leg in $LEGS; do
