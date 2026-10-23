@@ -1006,7 +1006,8 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None, stream16=False)
             return "dtype"
         # A plain-form g_out may be bfp8 (trimul_b8in writes it so): CB 5 takes g's format and
         # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
-        if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b):
+        if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b) and not (
+                t is resid and stream16 and copy is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG and not (
                 (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG and lever("pair_tail_small")):
@@ -1091,6 +1092,9 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     res32 = copy is not None
     assert not (res32 and (moved is not None or fold)), "T2_RES32 is the plain or GATE form"
     defines = [("T2_RES32", "1")] if res32 else []
+    z8 = resid.dtype == ttnn.bfloat8_b      # pair_bfp8z: z in c_7 and the sum out of c_2 are bfp8
+    if z8:
+        defines.append(("T2_Z8", "1"))
     gx, gy = grid
     ncores = gx * gy
     mcast = _t2_mcast(kt, nt, gate, EXTRA, grid)
@@ -1179,10 +1183,10 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     f32 = ttnn.float32
     cbs = [_cb(0, core_grid, kt if moved is not None else 2 * Mb * kt),
            _cb(1, core_grid, (1 + gate) * kt * nt),
-           _cb_fmt(2, core_grid, 2 * blk, f32 if res32 else ttnn.bfloat16), _cb(3, core_grid, Mb * kt),
+           _cb_fmt(2, core_grid, 2 * blk, f32 if res32 else resid.dtype), _cb(3, core_grid, Mb * kt),
            _cb(4, core_grid, blk),
            _cb_fmt(5, core_grid, (2 - gate) * blk, g.dtype if moved is None else ttnn.bfloat16),
-           _cb_fmt(7, core_grid, 2 * blk, f32 if res32 else ttnn.bfloat16),
+           _cb_fmt(7, core_grid, 2 * blk, f32 if res32 else resid.dtype),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, Mb if fold else 1, f32),
@@ -1286,7 +1290,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
     if fold:
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2", spec(x), spec(wp), str(g.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
+    key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
            None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
            _t2_mcast(kt, nt, wg is not None, 0, grid))
@@ -1352,7 +1356,8 @@ def t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc=None, wg=None, ex=None, pre
     if ckc is not None and dest_guard.exposed_args(ckc):
         return "dest_guard"
     for t in (xcm, wp, g, resid) + ((wg,) if wg is not None else ()) + tuple(t for t in ex if t is not None):
-        if t is None or t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT:
+        if t is None or t.layout != ttnn.TILE_LAYOUT or t.dtype != ttnn.bfloat16 and not (
+                t is resid and stream16 and t.dtype == ttnn.bfloat8_b):   # pair_bfp8z: a bfp8 stream
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
             return "memcfg"
@@ -1483,7 +1488,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     parts = lambda m: _t2cm_parts(wp, m, gate, extra, c_off // TILE)  # noqa: E731
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
-    key = ("t2cm", spec(xcm), spec(wp), spec(ln_w), spec(ln_b), tuple(grid),
+    key = ("t2cm", spec(xcm), spec(wp), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid))
     entry = _CACHE.get(key)
