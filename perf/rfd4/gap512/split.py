@@ -1,4 +1,5 @@
-"""Where the wall goes between batched trunk calls: a timeline of `run_lanes` at one width.
+"""(wk/rfd4-perf-lanes4 split.py, plus designs.pt for byte identity.)
+Where the wall goes between batched trunk calls: a timeline of `run_lanes` at one width.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/lanes4/split.py --spec <yaml> --weights <bundle> --out <dir> \
         --width 4 [--designs 32] [--seed 0]
@@ -73,6 +74,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
 
+    import torch
     from tt_bio import rfd4
     from tt_bio.rfd4 import engine as E, network as N, trunk as T
 
@@ -95,8 +97,9 @@ def main():
     EV.clear()
     with clocksample.during(period=1.0) as clk:
         t0 = time.perf_counter()
-        engine.design(features, num_designs=a.designs, nsteps=nsteps, seed=a.seed, rng="per_design")
+        output = engine.design(features, num_designs=a.designs, nsteps=nsteps, seed=a.seed, rng="per_design")
         wall = time.perf_counter() - t0
+    torch.save(output, out / "designs.pt")  # byte identity across arms
     cs = clk.summary().get(0) or {}
     s = summarize(EV, a.designs, wall)
     s.update(width=a.width, width_achieved=engine.chunk_width, aiclk_mhz=cs.get("median"),
