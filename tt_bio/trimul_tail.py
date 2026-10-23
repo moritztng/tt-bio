@@ -1657,7 +1657,7 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=Fa
           (1, il * kt),          # layer_norm(z) of one unit, slot dt * il + row
           (2, 2 * il),           # a / b tiles to the writer, two channel tiles
           (4, il), (5, il),      # p and sigmoid(g) of one channel tile
-          (7, 2 * rb * kt),      # raw z rows, double buffered
+          (7, max(2, T1_ZPRE) * rb * kt),   # raw z rows, double buffered (T1_ZPRE: deeper)
           (8, kt), (9, kt),      # gamma, beta
           (10, 1),               # 1/K reduce scaler
           (24, 2 * nb)]          # the writer's gather staging
@@ -1693,6 +1693,10 @@ T1_G8_KEYS = {(12, 16, 12)}
 T1_FG = False
 T1_FG_KEYS = {(12, 16, 12)}
 T1_FGD = 2                        # channel tiles in each a / b CB under t1_fgate
+# Bench knobs for T1's reader under T1_SPLIT (kernels/trimul_in_t1/reader.cpp): T1_ZPRE barriers of the next item read
+# ahead of the gathers (c_7 holds max(2, T1_ZPRE)), T1_ZIL the rest read between gather tiles. Bit-identical.
+T1_ZPRE = 2
+T1_ZIL = 0
 
 
 def t1_fgate(key, mask, fg=False):
@@ -1870,7 +1874,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     if _t1_psig():
         abl.append(("T1_PSIG", "1"))
     xout, pre = [("T1XOUT", "1")] if ln1 == 1 else [], [("T1PRE", "1")] if ln1 == 2 else []
-    sp = [("T1SPLIT", "1")] if split else []
+    sp = [("T1SPLIT", "1"), ("T1ZPRE", str(T1_ZPRE)), ("T1ZIL", str(T1_ZIL))] if split else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
@@ -1945,7 +1949,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
             alloc(shp[:-1] + [int(wgo.shape[-1])], ttnn.bfloat8_b if g8 else ttnn.bfloat16)]
     key = ("t1", str(x.padded_shape), str(x.dtype), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0, T1_ZPRE, T1_ZIL)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
