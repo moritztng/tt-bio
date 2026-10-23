@@ -77,7 +77,7 @@ class _NoMemo(dict):
         pass
 
 
-def _run(case, plan, n_designs, calls):
+def _run(case, plan, n_designs, width, calls):
     from tt_bio._vendor.rfd4_prep._cif.model_masks import compute_flow_emit_masks
     from tt_bio.rfd4 import engine as E
     from tt_bio.rfd4 import network as N
@@ -98,21 +98,24 @@ def _run(case, plan, n_designs, calls):
         return S.generate(spec, net, n_designs=n_designs, n_tokens=batch["padding_mask"].shape[1],
                           seed=3, rng_mode="per_design", emit_masks=compute_flow_emit_masks(batch),
                           groups=E._groups(batch), coord_cond_mask=batch.get("coord_cond_mask"),
-                          lane_width=1 if n_designs > 1 else None)
+                          lane_width=width)
     finally:
         glue.conditioning = inner
 
 
 @needs_bundle
-@pytest.mark.parametrize("n_designs", [1, 3], ids=["one", "three_lanes"])
-def test_prefetched_conditioning_gives_the_same_designs(case, n_designs):
+@pytest.mark.parametrize("n_designs, width", [(1, None), (3, 1), (5, 3)],
+                         ids=["one", "three_lanes", "uneven_lanes"])
+def test_prefetched_conditioning_gives_the_same_designs(case, n_designs, width):
     base_calls, plan_calls = [], []
-    base = _run(case, False, n_designs, base_calls)
-    ahead = _run(case, True, n_designs, plan_calls)
+    base = _run(case, False, n_designs, width, base_calls)
+    ahead = _run(case, True, n_designs, width, plan_calls)
     for mode in base.x:
         assert torch.equal(base.x[mode], ahead.x[mode])
     assert torch.equal(base.sequence_logits, ahead.sequence_logits)
     assert torch.equal(base.insertion_logits, ahead.insertion_logits)
-    # One conditioning per recycle of the plan, whatever the lane count: 180 for thinking_medium.
-    assert len(base_calls) == 180 * n_designs
-    assert len(plan_calls) == 180
+    # One conditioning per recycle of the plan (180 for thinking_medium) per lane without the memo,
+    # per lane width with it: lanes of 3 and 2 cannot share a tensor.
+    widths = [min(width or n_designs, n_designs - first) for first in range(0, n_designs, width or n_designs)]
+    assert len(base_calls) == 180 * len(widths)
+    assert len(plan_calls) == 180 * len(set(widths))
