@@ -152,6 +152,27 @@ def test_qkrh_default(wormhole, switch, monkeypatch):
 
 
 @pytest.mark.parametrize("wormhole", [True, False])
+def test_qkrh_dtypes_fit_l1(wormhole, monkeypatch):
+    """Block-fp8 q, k, v from qk_rope_heads, bf16 q on Wormhole bf16-accumulation forwards, and all bf16 where that mix
+    would not fit the kernel's L1 (the 6B width), so qk_rope_heads never declines a dtype choice made here."""
+    from tt_bio import qk_rope_heads
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(esmc, "_ESMC_QKRH_BF8", None)
+    monkeypatch.setattr(esmc, "_ESMC_QKRH_Q_BF16", None)
+    monkeypatch.setattr(esmc, "_ESMC_MM_BF16_ACC", None)
+    b8 = type("W", (), {"dtype": ttnn.bfloat8_b})()
+    for d in (960, 1152, 2560):
+        for exact in (False, True):
+            got = esmc._qkrh_dtypes(b8, exact, d)
+            q_bf16 = wormhole and not exact
+            if q_bf16 and d == 2560:
+                assert got == (None, None)
+            else:
+                assert got == (ttnn.bfloat8_b, ttnn.bfloat16 if q_bf16 else None)
+            assert got == (None, None) or qk_rope_heads.fits(d, *got)
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
     """SaProt's packed RoPE + head split program defaults on with block-fp8 weights (--fast) on both arches, and in
