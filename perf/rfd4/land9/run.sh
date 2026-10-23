@@ -8,7 +8,7 @@ set -u
 N=$1; R=$2; WT=$(cd "$(dirname "$0")/../../.." && pwd); BASE=$WT/artifacts/land9/base288
 PY=$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python
 IN=$HOME/rfd4-inputs; W=$HOME/rfd4-bundle
-mkdir -p $R; cd $WT
+mkdir -p $R; R=$(cd $R && pwd); cd $WT
 export TT_VISIBLE_DEVICES=$N TT_BIO_LEASE_CARDS=$N TT_BIO_LEASE_HOLDER=worker:rfd4-land9 PYTHONPATH=$WT
 FAST=$($PY -c "from tt_bio.rfd4.trunk import FAST_LEVERS as F; print(','.join(sorted(F)))" 2>/dev/null)
 S="--spec $IN/pdl1-512.yaml --weights $W --rng upstream"

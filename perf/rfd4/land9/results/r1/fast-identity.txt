@@ -1,0 +1,8 @@
+fast s0 identical
+fast s1 identical
+fast s2 identical
+fast s3 identical
+fast s4 identical
+fast s5 identical
+fast s6 identical
+fast s7 identical

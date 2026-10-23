@@ -1,0 +1,210 @@
+{
+ "passes": [
+  {
+   "device_ms": 3.905904,
+   "ops": 3,
+   "elementwise_ms": 2.000883,
+   "elementwise_ops": 2,
+   "families": {
+    "outside_pass": {
+     "ms": 3.905904,
+     "ops": 3,
+     "elt_ms": 2.000883,
+     "elt_ops": 2
+    }
+   }
+  },
+  {
+   "device_ms": 187.243723,
+   "ops": 614,
+   "elementwise_ms": 4.54908,
+   "elementwise_ops": 166,
+   "families": {
+    "pass_glue": {
+     "ms": 46.350370999999996,
+     "ops": 43,
+     "elt_ms": 0.0,
+     "elt_ops": 0
+    },
+    "cast": {
+     "ms": 3.012366,
+     "ops": 39,
+     "elt_ms": 3.012366,
+     "elt_ops": 39
+    },
+    "pair_bias": {
+     "ms": 5.5434909999999995,
+     "ops": 8,
+     "elt_ms": 0.0,
+     "elt_ops": 0
+    },
+    "adaln": {
+     "ms": 1.670054,
+     "ops": 140,
+     "elt_ms": 0.524205,
+     "elt_ops": 56
+    },
+    "attention": {
+     "ms": 4.173461,
+     "ops": 182,
+     "elt_ms": 0.132751,
+     "elt_ops": 14
+    },
+    "ada_scale": {
+     "ms": 0.8201880000000003,
+     "ops": 56,
+     "elt_ms": 0.274667,
+     "elt_ops": 28
+    },
+    "residual": {
+     "ms": 3.576594,
+     "ops": 29,
+     "elt_ms": 0.250914,
+     "elt_ops": 14
+    },
+    "token_transition": {
+     "ms": 2.3596369999999993,
+     "ops": 56,
+     "elt_ms": 0.33590699999999996,
+     "elt_ops": 14
+    },
+    "tri_mult_out": {
+     "ms": 57.49141,
+     "ops": 28,
+     "elt_ms": 0.0,
+     "elt_ops": 0
+    },
+    "tri_mult_in": {
+     "ms": 58.095437,
+     "ops": 28,
+     "elt_ms": 0.0,
+     "elt_ops": 0
+    },
+    "recycle": {
+     "ms": 4.150714000000001,
+     "ops": 5,
+     "elt_ms": 0.01827,
+     "elt_ops": 1
+    }
+   }
+  },
+  {
+   "device_ms": 177.50994599999999,
+   "ops": 604,
+   "elementwise_ms": 1.8117329999999998,
+   "elementwise_ops": 161,
+   "families": {
+    "pass_glue": {
+     "ms": 46.40416199999999,
+     "ops": 43,
+     "elt_ms": 0.0,
+     "elt_ops": 0
+    },
+    "pair_bias": {
+     "ms": 5.528816,
+     "ops": 8,
+     "elt_ms": 0.0,
+     "elt_ops": 0
+    },
+    "cast": {
+     "ms": 0.29652800000000007,
+     "ops": 35,
+     "elt_ms": 0.29652800000000007,
+     "elt_ops": 35
+    },
+    "adaln": {
+     "ms": 1.6701280000000007,
+     "ops": 140,
+     "elt_ms": 0.524469,
+     "elt_ops": 56
+    },
+    "attention": {
+     "ms": 4.171975000000001,
+     "ops": 182,
+     "elt_ms": 0.13249,
+     "elt_ops": 14
+    },
+    "ada_scale": {
+     "ms": 0.8219580000000003,
+     "ops": 56,
+     "elt_ms": 0.27621599999999996,
+     "elt_ops": 28
+    },
+    "residual": {
+     "ms": 0.461593,
+     "ops": 28,
+     "elt_ms": 0.24590399999999998,
+     "elt_ops": 14
+    },
+    "token_transition": {
+     "ms": 2.3614300000000004,
+     "ops": 56,
+     "elt_ms": 0.3361259999999999,
+     "elt_ops": 14
+    },
+    "tri_mult_out": {
+     "ms": 57.610169,
+     "ops": 28,
+     "elt_ms": 0.0,
+     "elt_ops": 0
+    },
+    "tri_mult_in": {
+     "ms": 58.18318699999998,
+     "ops": 28,
+     "elt_ms": 0.0,
+     "elt_ops": 0
+    }
+   }
+  }
+ ],
+ "by_op_code": {
+  "TilizeDeviceOperation": {
+   "ms": 1.905021,
+   "ops": 1
+  },
+  "CloneOperation": {
+   "ms": 2.000883,
+   "ops": 2
+  },
+  "LayerNormDeviceOperation": {
+   "ms": 4.330919,
+   "ops": 158
+  },
+  "TypecastDeviceOperation": {
+   "ms": 3.3088939999999996,
+   "ops": 74
+  },
+  "GenericOpDeviceOperation": {
+   "ms": 336.83638099999996,
+   "ops": 185
+  },
+  "MatmulDeviceOperation": {
+   "ms": 11.617816999999992,
+   "ops": 422
+  },
+  "BinaryNgDeviceOperation": {
+   "ms": 3.051919000000002,
+   "ops": 253
+  },
+  "ConcatDeviceOperation": {
+   "ms": 0.36583,
+   "ops": 28
+  },
+  "NlpCreateHeadsDeviceOperation": {
+   "ms": 0.9146769999999999,
+   "ops": 28
+  },
+  "SDPAOperation": {
+   "ms": 2.7338310000000003,
+   "ops": 28
+  },
+  "NLPConcatHeadsDeviceOperation": {
+   "ms": 0.324697,
+   "ops": 28
+  },
+  "ReshapeViewDeviceOperation": {
+   "ms": 1.268704,
+   "ops": 14
+  }
+ }
+}

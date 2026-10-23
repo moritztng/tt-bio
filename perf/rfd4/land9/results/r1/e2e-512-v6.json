@@ -1,0 +1,153 @@
+{
+ "size": 512,
+ "recipe": "thinking_medium",
+ "trunk_passes": 180,
+ "first_passes": 60,
+ "recycled_passes": 120,
+ "batch": 1,
+ "dims": {
+  "token": 768,
+  "pair": 384,
+  "cond": 256
+ },
+ "instrument": "device profiler (Tracy build tt-metal-b2z = ttnn 0.68.0), DEVICE KERNEL DURATION per op, eager trunk call of 2 passes on random inputs of the design shapes (perf/rfd4/e2e/elt_prof.py); families by signposts around each sublayer, innermost wins; gaps between kernels not counted",
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ },
+ "host_load": 11.8,
+ "card": "qb2 physical 3",
+ "per_pass": {
+  "first": {
+   "device_ms": 177.51,
+   "ops": 604
+  },
+  "recycled": {
+   "device_ms": 187.244,
+   "ops": 614,
+   "elementwise_ms": 4.549,
+   "elementwise_ops": 166
+  }
+ },
+ "device_s_per_design": 33.12,
+ "tflop_per_design": 214.23,
+ "families": {
+  "tri_mult_in": {
+   "ms_per_pass": 58.1247,
+   "ops_per_pass": 28.0,
+   "elementwise_ms_per_pass": 0.0,
+   "elementwise_ops_per_pass": 0.0,
+   "gflop_per_pass": 481.036,
+   "tflops": 8.28,
+   "device_s_per_design": 10.462,
+   "share_of_device": 0.3159
+  },
+  "tri_mult_out": {
+   "ms_per_pass": 57.531,
+   "ops_per_pass": 28.0,
+   "elementwise_ms_per_pass": 0.0,
+   "elementwise_ops_per_pass": 0.0,
+   "gflop_per_pass": 481.036,
+   "tflops": 8.36,
+   "device_s_per_design": 10.356,
+   "share_of_device": 0.3127
+  },
+  "pass_glue": {
+   "ms_per_pass": 46.3683,
+   "ops_per_pass": 43.0,
+   "elementwise_ms_per_pass": 0.0,
+   "elementwise_ops_per_pass": 0.0,
+   "gflop_per_pass": 4.228,
+   "tflops": 0.09,
+   "device_s_per_design": 8.346,
+   "share_of_device": 0.252
+  },
+  "pair_bias": {
+   "ms_per_pass": 5.5386,
+   "ops_per_pass": 8.0,
+   "elementwise_ms_per_pass": 0.0,
+   "elementwise_ops_per_pass": 0.0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.997,
+   "share_of_device": 0.0301
+  },
+  "attention": {
+   "ms_per_pass": 4.173,
+   "ops_per_pass": 182.0,
+   "elementwise_ms_per_pass": 0.1327,
+   "elementwise_ops_per_pass": 14.0,
+   "gflop_per_pass": 53.553,
+   "tflops": 12.83,
+   "device_s_per_design": 0.751,
+   "share_of_device": 0.0227
+  },
+  "recycle": {
+   "ms_per_pass": 2.7671,
+   "ops_per_pass": 3.3,
+   "elementwise_ms_per_pass": 0.0122,
+   "elementwise_ops_per_pass": 0.7,
+   "gflop_per_pass": 77.913,
+   "tflops": 28.16,
+   "device_s_per_design": 0.498,
+   "share_of_device": 0.015
+  },
+  "residual": {
+   "ms_per_pass": 2.5383,
+   "ops_per_pass": 28.7,
+   "elementwise_ms_per_pass": 0.2492,
+   "elementwise_ops_per_pass": 14.0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.457,
+   "share_of_device": 0.0138
+  },
+  "token_transition": {
+   "ms_per_pass": 2.3602,
+   "ops_per_pass": 56.0,
+   "elementwise_ms_per_pass": 0.336,
+   "elementwise_ops_per_pass": 14.0,
+   "gflop_per_pass": 101.469,
+   "tflops": 42.99,
+   "device_s_per_design": 0.425,
+   "share_of_device": 0.0128
+  },
+  "cast": {
+   "ms_per_pass": 2.1071,
+   "ops_per_pass": 37.7,
+   "elementwise_ms_per_pass": 2.1071,
+   "elementwise_ops_per_pass": 37.7,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.379,
+   "share_of_device": 0.0115
+  },
+  "adaln": {
+   "ms_per_pass": 1.6701,
+   "ops_per_pass": 140.0,
+   "elementwise_ms_per_pass": 0.5243,
+   "elementwise_ops_per_pass": 56.0,
+   "gflop_per_pass": 11.274,
+   "tflops": 6.75,
+   "device_s_per_design": 0.301,
+   "share_of_device": 0.0091
+  },
+  "ada_scale": {
+   "ms_per_pass": 0.8208,
+   "ops_per_pass": 56.0,
+   "elementwise_ms_per_pass": 0.2752,
+   "elementwise_ops_per_pass": 28.0,
+   "gflop_per_pass": 5.637,
+   "tflops": 6.87,
+   "device_s_per_design": 0.148,
+   "share_of_device": 0.0045
+  }
+ },
+ "sha": "7c670f3a8 (+ land9 harness c3c35784a)",
+ "note": "qb2 p300c development number, never ratio-grade; row rfd4-land9",
+ "v5_device_s_per_design": 37.415
+}
