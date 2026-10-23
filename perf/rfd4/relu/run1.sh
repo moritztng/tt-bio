@@ -3,7 +3,7 @@
 # pair_block_hifi2, 30 reps at 512 and 256. RUN=<dir> names the artifact directory (default run1). Books the card on qb2's arbiter and waits for it.
 #   perf/rfd4/relu/run1.sh <card> [legs]     (run from the tree on qb2)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/relu/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/relu/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-solo ab512 ab256}; OWN=rfd4-perf-relu
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:$OWN PYTHONPATH=$W:$W/perf
 mkdir -p $O; cd $W

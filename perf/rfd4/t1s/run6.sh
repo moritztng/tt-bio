@@ -4,7 +4,7 @@
 # 512 re-read on this tree.
 #   perf/rfd4/t1s/run6.sh <card> <run5 log> [legs]     (run from the tree; starts after run5's ALLDONE, books the card)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1s/run6; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1s/run6; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; R5=${2:?run5 log}; LEGS=${3:-ab256 ab512 ab384}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-t1s PYTHONPATH=$W:$W/perf
 mkdir -p $O; cd $W
