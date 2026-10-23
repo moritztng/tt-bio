@@ -12,7 +12,8 @@
 // pack(i), so each kernel packs where its consumer reads: T1 into a reserved slot of its unit,
 // T2 appended to its GEMM input. The pack hook does no CB bookkeeping; the caller reserves and
 // pushes its output. Needs REDUCE_OP / REDUCE_DIM from the host (SUM, REDUCE_ROW) and the scaler
-// tile holding 1/K.
+// tile holding 1/K. layer_norm_row's BLK runs every per-tile stage BLK tiles per DST acquire (4 fits a
+// half-sync fp32 DST), the same ops on the same tiles; at BLK > 1 the hook is pack(i, d), tile i in DST d.
 #pragma once
 
 #include <cstdint>
@@ -106,22 +107,23 @@ ALWI void rstd() {
 
 // Kt tiles at the front of C::x (popped) -> pack(i) for every channel tile i, `out` the CB pack
 // writes to (its data format is configured here).
-template <class C, class Pack>
+template <class C, uint32_t BLK = 1, class Pack>
 ALWI void layer_norm_row(uint32_t out, Pack pack) {
+    static_assert(C::Kt % BLK == 0, "BLK divides the channel tiles");
     row_mean<C>(C::x, C::mean, false);                    // mean
     cb_wait_front(C::mean, 1);
-    stage<C, SUB_COL>(C::x, C::mean, C::xc);              // xc = x - mean
+    stage<C, SUB_COL, BLK>(C::x, C::mean, C::xc);              // xc = x - mean
     cb_pop_front(C::x, C::Kt);
     cb_pop_front(C::mean, 1);
     cb_wait_front(C::xc, C::Kt);
     if constexpr (LN_ABL & 2) {
         row_mean<C>(C::xc, C::var, false);
     } else {
-        stage<C, MUL>(C::xc, C::xc, C::tmp);              // xc^2
+        stage<C, MUL, BLK>(C::xc, C::xc, C::tmp);         // xc^2
         row_mean<C>(C::tmp, C::var, true);                // var (biased, as layer_norm)
     }
     rstd<C>();                                            // rstd = rsqrt(var + eps)
-    stage<C, MUL_COL>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
+    stage<C, MUL_COL, BLK>(C::xc, C::rstd, C::tmp);       // norm = xc * rstd
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
     cb_wait_front(C::tmp, C::Kt);
@@ -140,18 +142,21 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
         cb_pop_front(C::tmp, C::Kt);
         return;
     }
-    stage<C, MUL_ROW>(C::tmp, C::gamma, C::xc);           // * gamma
+    stage<C, MUL_ROW, BLK>(C::tmp, C::gamma, C::xc);      // * gamma
     cb_pop_front(C::tmp, C::Kt);
     cb_wait_front(C::xc, C::Kt);
     reconfig_data_format(C::xc, C::beta);                 // + beta, packed by the caller's hook
     pack_reconfig_data_format(out);
     add_bcast_rows_init_short(C::xc, C::beta);
-    for (uint32_t i = 0; i < C::Kt; ++i) {
+    for (uint32_t i0 = 0; i0 < C::Kt; i0 += BLK) {
         tile_regs_acquire();
-        add_tiles_bcast_rows(C::xc, C::beta, i, i, 0);
+        for (uint32_t j = 0; j < BLK; ++j) add_tiles_bcast_rows(C::xc, C::beta, i0 + j, i0 + j, j);
         tile_regs_commit();
         tile_regs_wait();
-        pack(i);
+        for (uint32_t j = 0; j < BLK; ++j) {
+            if constexpr (BLK == 1) pack(i0);
+            else pack(i0 + j, j);
+        }
         tile_regs_release();
     }
     cb_pop_front(C::xc, C::Kt);

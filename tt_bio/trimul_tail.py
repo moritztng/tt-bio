@@ -723,6 +723,8 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
         reader, writer, _ = entry["kernels"]
         reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), wg.buffer_address(),
                                       (mask if mask is not None else x).buffer_address()]
+        if split:
+            reader.common_runtime_args += [outs[0].buffer_address(), outs[1].buffer_address()]
         writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
         pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
         ttnn.generic_op([x, wp, wg, *outs] + ([mask] if mask is not None else []), pd)
@@ -1522,18 +1524,43 @@ T1_ROWS = 0
 BF16_TILE, FP32_TILE = 2048, 4096
 
 
+# Both data-movement cores gather (kernels/trimul_in_t1/gather.hpp): compute sends the even [a | b] channel tiles to
+# the reader, which reads z for the next unit ahead and then gathers them, and the odd ones to the writer, beside
+# g_out. One-launch plans with bf16 a / b only. The bytes land where the writer alone put them: bit-identical.
+T1_SPLIT = {(12, 16, 12): 1}
+# DST tiles per acquire in T1's layer_norm stages (ln_prologue.hpp BLK; 4 fits a half-sync fp32 DST): the same ops
+# on the same tiles, a quarter of the per-tile handshakes. Bit-identical.
+T1_LNB = {(12, 16, 12): 4}
+
+
+def _t1_knob(knob, key, default):
+    return knob if isinstance(knob, int) else knob.get(key, default)
+
+
 def _t1_nb_pref(key):
-    nb = T1_NB if isinstance(T1_NB, int) else T1_NB.get(key, 0)
-    return nb or GIN_MOVE_NB
+    return _t1_knob(T1_NB, key, 0) or GIN_MOVE_NB
+
+
+def t1_lnb(key):
+    lnb = _t1_knob(T1_LNB, key, 1)
+    return lnb if lnb in (1, 2, 4) and key[0] % lnb == 0 else 1
+
+
+def t1_dm(key, mask, w8, b8=False):
+    """(NB, split) of T1's writer for the (kt, ct2, ntg) plan: the preferred NB and split where the staging fits the L1
+    gate t1_eligible applies, the split with a halved NB next, else GIN_MOVE_NB on the writer alone."""
+    from .tenstorrent import _l1_bank_bytes
+    fits = lambda nb, sp: t1_cb_bytes(*key, mask, nb=nb, w8=w8, split=sp) <= 0.85 * _l1_bank_bytes()  # noqa: E731
+    nb = _t1_nb_pref(key)
+    if _t1_knob(T1_SPLIT, key, 0) and t1_plan(key, w8)[0] == 1 and not b8:
+        for n in (nb, nb // 2):
+            if n >= 2 and fits(n, True):
+                return n, True
+    return (nb if fits(nb, False) else GIN_MOVE_NB), False
 
 
 def t1_nb(key, mask, w8):
-    """T1's NB for the (kt, ct2, ntg) plan where its staging fits the L1 gate t1_eligible applies, else GIN_MOVE_NB."""
-    from .tenstorrent import _l1_bank_bytes
-    nb = _t1_nb_pref(key)
-    if nb != GIN_MOVE_NB and t1_cb_bytes(*key, mask, nb=nb, w8=w8) > 0.85 * _l1_bank_bytes():
-        return GIN_MOVE_NB
-    return nb
+    return t1_dm(key, mask, w8)[0]
 
 
 def set_t1(on: bool) -> bool:
@@ -1543,10 +1570,11 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
     ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent of N: N only sets how many units
-    each core runs."""
+    each core runs. `split` (T1_SPLIT): c_2's two channel tiles become one for each data-movement core,
+    and the reader stages its own gather."""
     nb = _t1_nb_pref((kt, ct2, ntg)) if nb is None else nb
     rb = T1_RB if rb is None else rb
     groups, plan_il = t1_plan((kt, ct2, ntg), w8)
@@ -1561,6 +1589,10 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False):
           (8, kt), (9, kt),      # gamma, beta
           (10, 1),               # 1/K reduce scaler
           (24, 2 * nb)]          # the writer's gather staging
+    if split:
+        bf[2] = (2, il)
+        bf += [(21, il),         # the reader's a / b channel tile
+               (25, 2 * nb)]     # the reader's gather staging
     if ng:
         bf += [(18, kt * ng),    # Wg_out [K, N] of the group, resident
                (19, 2 * ng)]     # g_out of one row tile, double buffered
@@ -1576,8 +1608,8 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False):
 T1_W_CBS = (0, 18)                # the resident weight CBs, bfp8 under trimul_t1w8
 
 
-def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False):
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, w8=w8)
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False, split=False):
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, w8=w8, split=split)
     wb = MG.tile_bytes(ttnn.bfloat8_b) if w8 else BF16_TILE
     return (sum(t * (wb if i in T1_W_CBS else BF16_TILE) for i, t in bf)
             + sum(t for _, t in f32) * FP32_TILE)
@@ -1688,9 +1720,11 @@ def t1_w8(wpT, wgT, wgo):
     return True if d == {ttnn.bfloat8_b} else False if d == {ttnn.bfloat16} else None
 
 
-def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, b8=False, group=0, ln1=0, xn=None):
+def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, b8=False, group=0, ln1=0, xn=None,
+              split=False, lnb=1):
     """The program of channel group `group` of the T1_PLANS entry for this call, `il` row tiles per item.
-    `ln1` (T1_LN1): 1 the launch also writes xn into `xn`, 2 it reads xn as `x` and runs no layer_norm."""
+    `ln1` (T1_LN1): 1 the launch also writes xn into `xn`, 2 it reads xn as `x` and runs no layer_norm.
+    `split` (T1_SPLIT): the reader gathers the even channel tiles; `lnb` (T1_LNB): layer_norm DST block."""
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
@@ -1720,29 +1754,32 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     if _t1_psig():
         abl.append(("T1_PSIG", "1"))
     xout, pre = [("T1XOUT", "1")] if ln1 == 1 else [], [("T1PRE", "1")] if ln1 == 2 else []
+    sp = [("T1SPLIT", "1")] if split else []
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
                            eps_bits, group * qn, group * ng, ntg, il]
-        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
-        defines=abl + pre, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
+        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
+        + ([ct2, nb] + acc(outs[0]) + acc(outs[1]) if split else []),
+        defines=abl + pre + sp, runtime_args=rd, common_runtime_args=[0] * (9 if split else 7),
+        config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[ct2, St, nb, ng, group * qn, qn, group * ng, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2])
         + ([kt] + acc(xn) if ln1 == 1 else []),
-        defines=abl + xout + ([("T1B8", "1")] if b8 else []), runtime_args=wr,
+        defines=abl + xout + sp + ([("T1B8", "1")] if b8 else []), runtime_args=wr,
         common_runtime_args=[0] * (4 if ln1 == 1 else 3), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, group * qn, ct2, il],
-        defines=abl + xout + pre, runtime_args=cp,
+        defines=abl + xout + pre + sp + ([("T1LNB", str(lnb))] if lnb > 1 else []), runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8)
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split)
     cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if (b8 and i == 2) or (w8 and i in T1_W_CBS)
             else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
@@ -1774,29 +1811,32 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     w8 = bool(t1_w8(wpT, wgT, wgo))
     pkey = (int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE)
     groups, il = t1_plan(pkey, w8)
-    nb = t1_nb(pkey, mask is not None, w8)
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
     b8 = bool(b8 or T1_B8) and il == 32   # writer.cpp: whole tiles
+    nb, split = t1_dm(pkey, mask is not None, w8, b8)
+    lnb = t1_lnb(pkey)
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, lnb)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
         entry = _CACHE.get(key + (g, ln1))
         if entry is None:
             entry = _CACHE[key + (g, ln1)] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask,
-                                                       eps, il, nb, b8, g, ln1, xn)
+                                                       eps, il, nb, b8, g, ln1, xn, split, lnb)
         reader, writer, _ = entry["kernels"]
         src = xn if ln1 == 2 else x
         reader.common_runtime_args = [src.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
                                       wgo.buffer_address(), ln_w.buffer_address(),
                                       ln_b.buffer_address(),
                                       (mask if mask is not None else x).buffer_address()]
+        if split:
+            reader.common_runtime_args += [outs[0].buffer_address(), outs[1].buffer_address()]
         writer.common_runtime_args = [o.buffer_address() for o in outs] + ([xn.buffer_address()] if ln1 == 1 else [])
         pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
         ttnn.generic_op([src, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs

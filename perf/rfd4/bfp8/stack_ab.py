@@ -36,19 +36,19 @@ PASSES_PER_DESIGN = 180
 
 @contextlib.contextmanager
 def held(spec):
-    """`MODULE.NAME=EXPR` set on tt_bio.MODULE for the duration; nothing when empty."""
-    if not spec:
-        yield
-        return
-    name, expr = spec.split("=", 1)
-    mod = importlib.import_module("tt_bio." + name.rsplit(".", 1)[0])
-    attr = name.rsplit(".", 1)[1]
-    prev = getattr(mod, attr)
-    setattr(mod, attr, eval(expr))
+    """`MODULE.NAME=EXPR[;MODULE.NAME=EXPR...]` set on tt_bio.MODULE for the duration; nothing when empty."""
+    prev = []
+    for one in [v for v in spec.split(";") if v]:
+        name, expr = one.split("=", 1)
+        mod = importlib.import_module("tt_bio." + name.rsplit(".", 1)[0])
+        attr = name.rsplit(".", 1)[1]
+        prev.append((mod, attr, getattr(mod, attr)))
+        setattr(mod, attr, eval(expr))
     try:
         yield
     finally:
-        setattr(mod, attr, prev)
+        for mod, attr, v in reversed(prev):
+            setattr(mod, attr, v)
 
 
 def main():
@@ -60,7 +60,7 @@ def main():
     ap.add_argument("--base", default=None, help="lever set of the base arm (default rfd4.trunk.NORMAL_LEVERS)")
     ap.add_argument("--levers", default=None, help="lever set of the stack arm (default rfd4.trunk.FAST_LEVERS)")
     ap.add_argument("--base-set", default="", help="MODULE.NAME=EXPR (a tt_bio module attribute) held while the base "
-                    "arm builds and captures its programs, e.g. 'trimul_tail.T1_NB={}': a knob A/B under one lever set")
+                    "arm builds and captures its programs, e.g. 'trimul_tail.T1_NB={}': a knob A/B under one lever set; several joined by ';'")
     a = ap.parse_args()
 
     from tt_bio import tenstorrent as T

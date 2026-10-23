@@ -51,6 +51,14 @@
 #ifndef T1PRE
 #define T1PRE 0
 #endif
+// T1SPLIT (trimul_tail.T1_SPLIT): even channel tiles q go to c_21 for reader.cpp's gather, odd ones to c_2 for the
+// writer's, so both data-movement cores gather. T1LNB: layer_norm stages in DST blocks of that many tiles.
+#ifndef T1SPLIT
+#define T1SPLIT 0
+#endif
+#ifndef T1LNB
+#define T1LNB 1
+#endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t QN = get_compile_time_arg_val(1);        // [a | b] channel tiles of this launch
@@ -69,6 +77,7 @@ static_assert(IL % SBW == 0 && IL % 4 == 0 && SBW <= 4, "fp32 half-sync DST hold
 constexpr uint32_t w_cb = tt::CBIndex::c_0;      // [Wp^T | Wg^T] of the group, 2 * QN * Kt, resident
 constexpr uint32_t xn_cb = tt::CBIndex::c_1;     // layer_norm(z) of the unit, bf16, IL * Kt
 constexpr uint32_t out_cb = tt::CBIndex::c_2;    // a / b tiles to the writer
+constexpr uint32_t out_rd_cb = tt::CBIndex::c_21;  // T1SPLIT: the even channel tiles, to the reader
 constexpr uint32_t p_cb = tt::CBIndex::c_4;
 constexpr uint32_t g_cb = tt::CBIndex::c_5;
 constexpr uint32_t m_cb = tt::CBIndex::c_6;
@@ -112,13 +121,15 @@ ALWI void layer_norm_row(uint32_t il) {
     }
     if constexpr (T1XOUT) {
         cb_reserve_back(xo_cb, Kt);
-        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) {
-            pack_tile<true>(0, xn_cb, i * IL + il);
-            pack_tile<true>(0, xo_cb, i);
+        ln_prologue::layer_norm_row<LnCbs, T1LNB>(xn_cb, [il](uint32_t i, uint32_t d = 0) {
+            pack_tile<true>(d, xn_cb, i * IL + il);
+            pack_tile<true>(d, xo_cb, i);
         });
         cb_push_back(xo_cb, Kt);
     } else {
-        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * IL + il); });
+        ln_prologue::layer_norm_row<LnCbs, T1LNB>(xn_cb, [il](uint32_t i, uint32_t d = 0) {
+            pack_tile<true>(d, xn_cb, i * IL + il);
+        });
     }
 }
 
@@ -221,11 +232,12 @@ void kernel_main() {
                 }
                 cb_push_back(pass_cb, IL);
             }
+            const uint32_t ocb = T1SPLIT && !(q & 1) ? out_rd_cb : out_cb;
             cb_wait_front(p_cb, IL);
             cb_wait_front(g_cb, IL);
-            cb_reserve_back(out_cb, IL);
+            cb_reserve_back(ocb, IL);
             reconfig_data_format(p_cb, g_cb);
-            pack_reconfig_data_format(out_cb);
+            pack_reconfig_data_format(ocb);
             for (uint32_t t0 = 0; t0 < IL && !(ABL & 8); t0 += 4) {
                 const bool masked = MASK && Q0 + q < CT2 / 2;
                 if (masked) {
@@ -240,7 +252,7 @@ void kernel_main() {
                     tile_regs_release();
                     cb_push_back(gm_cb, 4);
                     cb_wait_front(gm_cb, 4);
-                    pack_reconfig_data_format(out_cb);
+                    pack_reconfig_data_format(ocb);
                 }
                 tile_regs_acquire();
                 if (masked) {
@@ -255,11 +267,11 @@ void kernel_main() {
                 }
                 tile_regs_commit();
                 tile_regs_wait();
-                for (uint32_t i = 0; i < 4; ++i) pack_tile(i, out_cb);
+                for (uint32_t i = 0; i < 4; ++i) pack_tile(i, ocb);
                 tile_regs_release();
                 if (masked) cb_pop_front(gm_cb, 4);
             }
-            cb_push_back(out_cb, IL);
+            cb_push_back(ocb, IL);
             cb_pop_front(p_cb, IL);
             cb_pop_front(g_cb, IL);
         }
