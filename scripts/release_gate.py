@@ -995,6 +995,12 @@ L1_BUDGET_HIDDEN = (128, 256)
 # that died on his p300c. Cheap enough for a default arm (~15 s a grid).
 L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 L1_BUDGET_MODEL = "protenix-v2"
+# fkg is ~130 tokens, too small for the trimul T1 path and most grid-derived chunk choices to engage:
+# main 6e42015fc folded 9TY2_512 differently on Blackhole's native grid and at 8x8 (0.07-0.36 A) while
+# this leg passed. So a part with more than 8x8 cores also folds the size ladder's 512-token input at
+# both grids, and the two digests must agree.
+L1_BUDGET_WIDE_DATA = REPO_ROOT / "perf" / "size512" / "fixtures" / "cdk2x2_512.yaml"
+L1_BUDGET_WIDE_GRID = (8, 8)
 # --- nesso1 correctness leg ------------------------------------------------------
 # Nesso-1 folds nothing, so it cannot join MODELS: there is no structure to Kabsch and no
 # TM to score. Its output is eleven scalars, and the only comparison available is against
@@ -5203,8 +5209,8 @@ def _l1_budget_physical_grid() -> tuple:
     raise RuntimeError(f"could not read the compute grid: {out.stdout[-500:]} {out.stderr[-500:]}")
 
 
-def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
-    """One fkg fold at a forced grid and/or a forced trimul chunk width."""
+def _l1_budget_fold(label: str, grid, cap: int, keep: bool, data: Path = L1_BUDGET_DATA) -> dict:
+    """One fold of `data` (fkg unless given) at a forced grid and/or a forced trimul chunk width."""
     out = RUN_DIR / f"l1_budget_gate_{label}"
     if out.exists():
         shutil.rmtree(out)
@@ -5216,7 +5222,7 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
         env["TT_BIO_TRIMUL_CHUNK_CAP"] = str(cap)
     else:
         env.pop("TT_BIO_TRIMUL_CHUNK_CAP", None)
-    cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(L1_BUDGET_DATA),
+    cmd = [sys.executable, "-m", "tt_bio.main", "predict", str(data),
            "--model", L1_BUDGET_MODEL, "--single_sequence",
            "--sampling_steps", str(L1_BUDGET_STEPS), "--diffusion_samples", "1",
            "--seed", str(SEED), "--out_dir", str(out), "--debug"]
@@ -5229,11 +5235,11 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
     # behaviour is unchanged until somebody decides this should always run.
     if os.environ.get("C14_L1BUDGET_FAST") == "1":
         cmd.append("--fast")
-    print(f"\n{'='*70}\n[l1-budget] folding {L1_BUDGET_DATA.name} on {L1_BUDGET_MODEL}, "
+    print(f"\n{'='*70}\n[l1-budget] folding {data.name} on {L1_BUDGET_MODEL}, "
           f"grid {'native' if grid is None else f'{grid[0]}x{grid[1]}'}"
           f"{f', trimul width capped at {cap}' if cap else ''}\n{'='*70}", flush=True)
 
-    row = {"model": f"l1-budget:{label}", "grid": grid, "cap": cap, "seconds": None,
+    row = {"model": f"l1-budget:{label}", "target": data.stem, "grid": grid, "cap": cap, "seconds": None,
            "clashes": None, "md5": None, "gate": False, "error": None}
     log = RUN_DIR / f"l1_budget_gate_{label}.log"
     t0 = time.monotonic()
@@ -5253,13 +5259,13 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
         row["error"] = (f"predict exited {rc}"
                         + (f" — an L1/CB clash escaped: {tail[-1][-160:]}" if tail else ""))
         return row
-    results = out / _l1_budget_results_dir()
+    results = out / _l1_budget_results_dir(data)
     cifs = sorted((results / "structures").glob("*.cif")) if (results / "structures").exists() else []
     if not cifs:
         row["error"] = f"predict wrote no CIF under {results}"
         return row
     try:
-        _parse_gate(cifs, name=L1_BUDGET_DATA.stem)
+        _parse_gate(cifs, name=data.stem)
     except Exception as e:
         row["error"] = f"CIF parse failed: {e}"
         return row
@@ -5274,9 +5280,9 @@ def _l1_budget_fold(label: str, grid, cap: int, keep: bool) -> dict:
     return row
 
 
-def _l1_budget_results_dir() -> str:
+def _l1_budget_results_dir(data: Path) -> str:
     from tt_bio.main import predict_results_dir_name
-    return predict_results_dir_name(L1_BUDGET_MODEL, L1_BUDGET_DATA.stem)
+    return predict_results_dir_name(L1_BUDGET_MODEL, data.stem)
 
 
 def run_l1_budget_fold(keep: bool) -> list:
@@ -5302,6 +5308,10 @@ def run_l1_budget_fold(keep: bool) -> list:
         legs.append((f"{grid[0]}x{grid[1]}", grid, 0))
     legs.append(("narrow", None, L1_BUDGET_CAP))
     rows = [_l1_budget_fold(label, grid, cap, keep) for label, grid, cap in legs]
+    wide = L1_BUDGET_WIDE_GRID
+    if phys != wide and wide[0] <= phys[0] and wide[1] <= phys[1]:
+        rows += [_l1_budget_fold(f"512-{label}", grid, 0, keep, data=L1_BUDGET_WIDE_DATA)
+                 for label, grid in (("native", None), (f"{wide[0]}x{wide[1]}", wide))]
 
     # Neutrality: the clash-and-narrow fold must match the never-clashed one byte for byte.
     cold = next((r for r in rows if r["model"] == "l1-budget:native"), None)
@@ -5938,16 +5948,19 @@ def main() -> int:
                       "if this change is intentional, re-record with --size-ladder-record")
 
     if want_l1_budget:
-        if not L1_BUDGET_DATA.exists():
-            sys.exit(f"missing l1-budget gate target {L1_BUDGET_DATA}")
+        for data in (L1_BUDGET_DATA, L1_BUDGET_WIDE_DATA):
+            if not data.exists():
+                sys.exit(f"missing l1-budget gate target {data}")
         ar = run_l1_budget_static()
         frows = run_l1_budget_fold(args.keep)
-        md5s = {r["md5"] for r in frows if r["md5"]}
-        if len(md5s) > 1:
-            for r in frows:
-                r["gate"] = False
-                r["error"] = r["error"] or (
-                    f"grid/width ladder is NOT numerics-neutral: {sorted(md5s)}")
+        for target in {r["target"] for r in frows}:
+            group = [r for r in frows if r["target"] == target]
+            md5s = {r["md5"] for r in group if r["md5"]}
+            if len(md5s) > 1:
+                for r in group:
+                    r["gate"] = False
+                    r["error"] = r["error"] or (
+                        f"grid/width ladder is NOT numerics-neutral on {target}: {sorted(md5s)}")
         print(f"\n{'#'*78}\nRELEASE GATE — L1 budgets vs part "
               f"({L1_BUDGET_DATA.name} on {L1_BUDGET_MODEL}, "
               f"{len(L1_BUDGET_PARTS)} part classes)\n{'#'*78}")
