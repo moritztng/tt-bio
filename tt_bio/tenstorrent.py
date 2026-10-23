@@ -6371,7 +6371,7 @@ def _pair_bias_ln_row_cap(width: int, channels: int, elem: int = 2) -> int:
     if not reserve or not _PAIR_BIAS_LN_CAP:
         return 0
     try:
-        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
+        per_core = _matmul_cb_budget()
     except Exception:                                                          # noqa: BLE001
         return 0
     row = int(width) * ((int(channels) + 31) // 32) * 32 * int(elem)
@@ -6499,9 +6499,12 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     from . import ops
     if ops.taping():
         return False
+    # The allocator's bank, not get_max_worker_l1_unreserved_size(), which reads 70656 B more on
+    # both parts. Every admission in that band threw (thr2, Wormhole, 576 and 608 tokens): the
+    # template trimul's `a` under bmm_res's buffers, the ending transpose's L1 destination.
     try:
-        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
-    except Exception:
+        per_core = _matmul_cb_budget()
+    except Exception:                                                          # noqa: BLE001
         return False
     cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
     return headroom * nbytes <= max(per_core - reserve_per_core, 0) * cores
