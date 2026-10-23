@@ -926,6 +926,15 @@ binder grade passes. At 384 and 512 tokens `pair_tail` reads the contraction's c
 (`pair_tail_cm`), so the triangle no longer moves it back to the pair layout: bit-identical, the trunk pass 1.015x
 faster (1325-1350 MHz). At sizes whose tiles spread unevenly over the chip's cores (256, 288, 320, 352 and 448 tokens
 on a 110-core chip) it measured 1-6 % slower or no faster, so it steps aside there.
+The input kernel also writes its two projections in block-fp8 so the
+contraction reads half the bytes (`trimul_t1b8`, RFD4's set only): 26.48 to 25.76 s a 512-token design on the trunk
+(1.028x, 1350 MHz, paired), 1.018x at 384, 256 unchanged; the designed chain moves 2.24 A median against a 38.8 A
+seed-to-seed spread and the binder grade passes.
+With several designs a step (`pair_batch`), the triangle multiplication takes the whole sample batch in one call and
+picks its route on the batch's pair rows, so 16 designs of 128 tokens run the route one 512-token design runs, where
+they ran one call per design. At one design a step nothing changes. 128 tokens at width 16 goes from 4.34 to 2.27 s a
+design and 256 at width 4 from 12.25 to 7.82 s (1306-1331 MHz); the designed chain moves 0.07 A median at 128 and 1.9 A
+at 256 against 5.4 A and 24 A seed-to-seed, and the binder grade passes.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 

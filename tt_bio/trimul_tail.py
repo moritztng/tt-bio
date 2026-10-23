@@ -723,8 +723,6 @@ def gin_moved(x, wpT, wgT, ckc, grid, mask=None):
         reader, writer, _ = entry["kernels"]
         reader.common_runtime_args = [x.buffer_address(), wp.buffer_address(), wg.buffer_address(),
                                       (mask if mask is not None else x).buffer_address()]
-        if split:
-            reader.common_runtime_args += [outs[0].buffer_address(), outs[1].buffer_address()]
         writer.common_runtime_args = [outs[0].buffer_address(), outs[1].buffer_address()]
         pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
         ttnn.generic_op([x, wp, wg, *outs] + ([mask] if mask is not None else []), pd)
@@ -1570,9 +1568,9 @@ def t1_dm(key, mask, w8, b8=False):
     """(NB, split) of T1's writer for the (kt, ct2, ntg) plan: the preferred NB and split where the staging fits the L1
     gate t1_eligible applies, the split with a halved NB next, else GIN_MOVE_NB on the writer alone."""
     from .tenstorrent import _l1_bank_bytes
-    fits = lambda nb, sp: t1_cb_bytes(*key, mask, nb=nb, w8=w8, split=sp) <= 0.85 * _l1_bank_bytes()  # noqa: E731
+    fits = lambda nb, sp: t1_cb_bytes(*key, mask, nb=nb, w8=w8, split=sp, b8=b8) <= 0.85 * _l1_bank_bytes()  # noqa: E731
     nb = _t1_nb_pref(key)
-    if _t1_knob(T1_SPLIT, key, 0) and t1_plan(key, w8)[0] == 1 and not b8:
+    if _t1_knob(T1_SPLIT, key, 0) and t1_plan(key, w8)[0] == 1:
         for n in (nb, nb // 2):
             if n >= 2 and fits(n, True):
                 return n, True
@@ -1590,11 +1588,12 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False, b8=False):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
-    ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent of N: N only sets how many units
-    each core runs. `split` (T1_SPLIT): c_2's two channel tiles become one for each data-movement core,
-    and the reader stages its own gather."""
+    ([(index, tiles)], [(index, fp32 tiles)]); tiles are bf16 but in T1_W_CBS under `w8` and T1_B8_CBS under `b8`.
+    Independent of N: N only sets how many units each core runs. `split` (T1_SPLIT): c_2's two channel tiles become
+    one for each data-movement core, and the reader stages its own gather. `b8` at 8-row items adds the exponent holds
+    (kernels/trimul_in_t1/gather.hpp), 1 KB per channel tile a core gathers."""
     nb = _t1_nb_pref((kt, ct2, ntg)) if nb is None else nb
     rb = T1_RB if rb is None else rb
     groups, plan_il = t1_plan((kt, ct2, ntg), w8)
@@ -1613,6 +1612,9 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=Fa
         bf[2] = (2, il)
         bf += [(21, il),         # the reader's a / b channel tile
                (25, 2 * nb)]     # the reader's gather staging
+    if b8 and il == 8:
+        slots = qn // (2 if split else 1)
+        bf += [(26, -(-slots // 2))] + ([(27, -(-slots // 2))] if split else [])
     if ng:
         bf += [(18, kt * ng),    # Wg_out [K, N] of the group, resident
                (19, 2 * ng)]     # g_out of one row tile, double buffered
@@ -1626,12 +1628,16 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=Fa
 
 
 T1_W_CBS = (0, 18)                # the resident weight CBs, bfp8 under trimul_t1w8
+T1_B8_CBS = (2, 21, 24, 25)       # a / b on their way out and the gather staging, bfp8 under trimul_t1b8
 
 
-def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False, split=False):
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, w8=w8, split=split)
-    wb = MG.tile_bytes(ttnn.bfloat8_b) if w8 else BF16_TILE
-    return (sum(t * (wb if i in T1_W_CBS else BF16_TILE) for i, t in bf)
+def t1_cb_b8(i, w8, b8):
+    return (w8 and i in T1_W_CBS) or (b8 and i in T1_B8_CBS)
+
+
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False, split=False, b8=False, il=None):
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, il=il, w8=w8, split=split, b8=b8)
+    return (sum(t * (MG.tile_bytes(ttnn.bfloat8_b) if t1_cb_b8(i, w8, b8) else BF16_TILE) for i, t in bf)
             + sum(t for _, t in f32) * FP32_TILE)
 
 
@@ -1646,8 +1652,18 @@ def t1_host_weights(g_in_t, p_in_t, g_out_t):
     return p_in_t.t().contiguous(), g_in_t.t().contiguous(), g_out_t.contiguous()
 
 
-def t1_split(nu, ncores):
-    """Units (b, xt, yt) per core, as gin_moved splits them: [(first unit, count)] per core."""
+def t1_pair_free(nu, ncores):
+    """Whether running `nu` 8-row items in face-pair pairs (bfp8 a / b, t1_unit) keeps the busiest core's item count.
+    Where it does not (256 tokens on a 110-core p300c: 4 items instead of 3, the trunk 0.987x in t1s run5), a and b
+    stay bf16. On a 130-core p150a it is free at 256 and 512 tokens, not at 384 (5 items -> 6)."""
+    return 2 * -(-nu // (2 * ncores)) == -(-nu // ncores)
+
+
+def t1_split(nu, ncores, pair=False):
+    """Units (b, xt, yt) per core, as gin_moved splits them: [(first unit, count)] per core. `pair`: whole pairs of
+    items (t1_unit), so one core runs both 8-row halves of a face pair."""
+    if pair:
+        return [(2 * u0, 2 * n) for u0, n in t1_split(nu // 2, ncores)]
     out, u0 = [], 0
     for c in range(ncores):
         n = nu // ncores + (c < nu % ncores)
@@ -1658,6 +1674,15 @@ def t1_split(nu, ncores):
 
 
 # The kernels' page arithmetic, mirrored here so the CPU test can check it against torch.
+def t1_unit(u, S_t, h_n, pair=False):
+    """kernels/trimul_in_t1/unit.hpp: item u as (b, xt, h, yt), `h_n` = 32 // IL items an x tile. `pair`: items 2k and
+    2k + 1 are rows 16 hp .. 16 hp + 15 of one (b, xt, yt), the two halves of a face pair."""
+    b, xt = u // (S_t * S_t * h_n), (u // (S_t * h_n)) % S_t
+    if pair:
+        return b, xt, 2 * ((u // (2 * S_t)) % (h_n // 2)) + (u & 1), (u // 2) % S_t
+    return b, xt, (u // S_t) % h_n, u % S_t
+
+
 def t1_x_page(b, xt, yt, il, dt, S_t, kt):
     """reader.cpp: z tile of row tile (b, x = xt * 32 + il, yt), channel tile dt."""
     return ((b * S_t * 32 + xt * 32 + il) * S_t + yt) * kt + dt
@@ -1758,7 +1783,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // il), gx * gy)):
+    for c, (u0, n) in enumerate(t1_split(B * St * St * (32 // il), gx * gy, pair=b8 and il == 8)):
         cx, cy = c % gx, c // gx
         rd[cx][cy] = [u0, n]
         wr[cx][cy] = [u0, n]
@@ -1781,7 +1806,8 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
                            eps_bits, group * qn, group * ng, ntg, il]
         + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
         + ([ct2, nb] + acc(outs[0]) + acc(outs[1]) if split else []),
-        defines=abl + pre + sp, runtime_args=rd, common_runtime_args=[0] * (9 if split else 7),
+        defines=abl + pre + sp + ([("T1B8", "1")] if b8 else []), runtime_args=rd,
+        common_runtime_args=[0] * (9 if split else 7),
         config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
@@ -1799,9 +1825,8 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split)
-    cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if (b8 and i == 2) or (w8 and i in T1_W_CBS)
-            else _cb(i, core_grid, t) for i, t in bf]
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split, b8=b8)
+    cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if t1_cb_b8(i, w8, b8) else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
@@ -1832,7 +1857,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     pkey = (int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE)
     groups, il = t1_plan(pkey, w8)
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
-    b8 = bool(b8 or T1_B8) and il == 32   # writer.cpp: whole tiles
+    b8 = bool(b8 or T1_B8) and (il == 32 or il == 8 and t1_pair_free(B * (S // TILE) ** 2 * 4, grid[0] * grid[1]))
     nb, split = t1_dm(pkey, mask is not None, w8, b8)
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)

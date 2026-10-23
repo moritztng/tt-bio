@@ -29,7 +29,11 @@
 #ifndef T1SPLIT
 #define T1SPLIT 0
 #endif
+#ifndef T1B8
+#define T1B8 0
+#endif
 #include "api/dataflow/dataflow_api.h"
+#include "unit.hpp"
 #if T1SPLIT
 #include "gather.hpp"
 #endif
@@ -75,8 +79,8 @@ void kernel_main() {
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(7));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(8));
     static_assert(!T1PRE, "T1SPLIT is for one-launch plans");
-    t1_gather::Gather<NB, IL, ABL, false> gather;
-    gather.init(tt::CBIndex::c_25);
+    t1_gather::Gather<NB, IL, ABL, T1B8> gather;
+    gather.init(tt::CBIndex::c_25, tt::CBIndex::c_27);
 #endif
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -124,8 +128,9 @@ void kernel_main() {
 
     // Row tile (b, x, yt) of z is page ((b * S + x) * St + yt) * Kt + dt (trimul_tail.t1_x_page); z_page is unit u's
     // first row tile.
+    constexpr bool PAIR = T1B8 && IL == 8;
     auto z_page = [](uint32_t u) -> uint32_t {
-        const uint32_t b = u / (St * St * H), xt = (u / (St * H)) % St, h = (u / St) % H, yt = u % St;
+        const auto [b, xt, h, yt] = t1_unit::decode<St, H, PAIR>(u);
         return ((b * S + xt * 32 + h * IL) * St + yt) * Kt;
     };
     // Rows i0 .. i1 - 1 of the unit at `page`, RB per barrier, into x_cb.
@@ -145,10 +150,7 @@ void kernel_main() {
     constexpr uint32_t PRE = T1SPLIT ? (IL / RB < 2 ? IL / RB : 2) : 0;
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
-        [[maybe_unused]] const uint32_t b = u / (St * St * H);   // the mask's and the split gather's
-        [[maybe_unused]] const uint32_t xt = (u / (St * H)) % St;
-        [[maybe_unused]] const uint32_t h = (u / St) % H;
-        [[maybe_unused]] const uint32_t yt = u % St;
+        [[maybe_unused]] const auto [b, xt, h, yt] = t1_unit::decode<St, H, PAIR>(u);   // the mask's and the gather's
         uint32_t page = z_page(u);
         if constexpr (T1PRE) {
             constexpr uint32_t xn_cb = tt::CBIndex::c_1;
@@ -184,8 +186,8 @@ void kernel_main() {
         const uint32_t cube = xt * St + yt;
         for (uint32_t q = Q0; q < Q0 + QN; q += 2) {
             const uint32_t pg = (b * CT + (q < CT ? q : q - CT)) * 32 * St * St + cube;
-            if (q < CT) gather.tile(tt::CBIndex::c_21, oa, pg, h * IL, St * St);
-            else gather.tile(tt::CBIndex::c_21, ob, pg, h * IL, St * St);
+            if (q < CT) gather.tile(tt::CBIndex::c_21, oa, pg, h * IL, St * St, (q - Q0) / 2);
+            else gather.tile(tt::CBIndex::c_21, ob, pg, h * IL, St * St, (q - Q0) / 2);
         }
 #endif
     }

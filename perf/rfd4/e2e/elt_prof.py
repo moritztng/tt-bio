@@ -2,7 +2,7 @@
 
     perf/rfd4/e2e/elt_prof.sh <out_dir> [card]    (runs this under `python -m tracy` on the Tracy build)
 
-Runs the engine's own `Trunk` eagerly at 128 tokens, batch 1, on random inputs of the design's shapes
+Runs the engine's own `Trunk` eagerly at 128 tokens, batch 1 (`--batch` for more designs a step), on random inputs of the design's shapes
 (kernel time does not depend on the values) with an all-ones token mask, which is what a 128-token
 design passes. One warm-up call, then one measured call of `--cycles` passes, so the second and later
 passes include the recycle projections. Every sublayer is bracketed by `B|<family>` / `E|<family>`
@@ -80,6 +80,7 @@ def main():
     ap.add_argument("--weights", default="/home/ttuser/rfd4-bundle")
     ap.add_argument("--n", type=int, default=128)
     ap.add_argument("--cycles", type=int, default=2)
+    ap.add_argument("--batch", type=int, default=1, help="designs a trunk call (the sample batch)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -89,17 +90,17 @@ def main():
     engine = E.DesignEngine(a.weights, recipe="thinking_medium")
     dev, trunk = engine._device, engine.trunk
     instrument(trunk)
-    n = a.n
+    n, b = a.n, a.batch
     g = torch.Generator().manual_seed(0)
     tok, pair = int(trunk.blocks[0].mhba.mha.node_norm_w.shape[-1]), int(trunk.z_proj.shape[-1])
     cond = int(trunk.blocks[0].mhba.adaln.gamma_w.shape[0])
-    masks = trunk.masks_for(torch.ones(1, n), dev)
+    masks = trunk.masks_for(torch.ones(b, n), dev)
     up = lambda t, dt: upload(t, dtype=dt, device=dev)  # noqa: E731
 
     def call():
-        s = up(torch.randn(1, n, tok, generator=g), ttnn.float32)
-        z = up(torch.randn(1, n, n, pair, generator=g), ttnn.float32)
-        cs = [up(torch.randn(1, n, cond, generator=g), ttnn.bfloat16) for _ in range(a.cycles)]
+        s = up(torch.randn(b, n, tok, generator=g), ttnn.float32)
+        z = up(torch.randn(b, n, n, pair, generator=g), ttnn.float32)
+        cs = [up(torch.randn(b, n, cond, generator=g), ttnn.bfloat16) for _ in range(a.cycles)]
         so, zo = trunk(s, z, cs, masks)
         ttnn.synchronize_device(dev)
         for t in (s, z, so, zo, *cs):
@@ -112,7 +113,7 @@ def main():
         call()
     signpost("elt_end")
     ttnn.synchronize_device(dev)
-    json.dump({"n": n, "cycles": a.cycles, "tok": tok, "pair": pair, "cond": cond, "aiclk": clk.summary(),
+    json.dump({"n": n, "batch": b, "cycles": a.cycles, "tok": tok, "pair": pair, "cond": cond, "aiclk": clk.summary(),
                "load": os.getloadavg()[0], "card": os.environ.get("TT_VISIBLE_DEVICES")}, open(a.out, "w"), indent=2)
     ttnn.ReadDeviceProfiler(dev)
 

@@ -37,7 +37,7 @@ def test_publish_workflow_runs_it():
 ])
 def test_refuses_a_broken_link(tmp_path: Path, page: str, good: str, bad: str):
     site = tmp_path / "site"
-    shutil.copytree(REPO / "site", site)
+    shutil.copytree(REPO / "site", site, copy_function=shutil.copyfile)   # writable even from a read-only tree
     text = (site / page).read_text()
     assert good in text
     (site / page).write_text(text.replace(good, bad, 1))
