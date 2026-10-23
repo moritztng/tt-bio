@@ -5,7 +5,8 @@
 // outer_residual compute: RFD4's Hadamard pair write and its residual add as one pass,
 //   z'[b, i, j, :] = z[b, i, j, :] + pj[b, i, :] * pi[b, j, :],
 // written as float32 (c_16) and as its bfloat16 copy rounded to even (c_17), the copy the next sublayer reads.
-// Per tile: z (float32, unpacked straight to DEST) into slot 0; pi's tile times pj4's row 0 broadcast down the rows on
+// Work items run in (b, jt, i, ct) order (reader.cpp): c_1 holds the current (b, jt) run's KT pi tiles, c_2 one pj4
+// row per item. Per tile: z (float32, unpacked straight to DEST) into slot 0; pi's tile times pj4's row 0 broadcast down the rows on
 // the FPU into slot 1 (a bf16 x bf16 product is exact at HiFi4 into a 32-bit DEST); the SFPU sum into slot 2, and the
 // same sum into slot 0 rounded to even in place (rne_add's DUAL arm, kernels/rne_add/compute_rne_add.cpp). The
 // update is never rounded to bfloat16 before the add.
@@ -48,24 +49,34 @@ static_assert(DST_ACCUM_MODE == 1, "outer_residual needs a 32-bit DEST (fp32_des
 
 void kernel_main() {
     constexpr uint32_t GRAN = get_compile_time_arg_val(0);
+    constexpr uint32_t RUN = get_compile_time_arg_val(1);   // work items of one (b, jt): N * KT
+    constexpr uint32_t KT = get_compile_time_arg_val(2);
     constexpr uint32_t cb_z = 0, cb_i = 1, cb_j = 2, cb_out = 16, cb_lo = 17;
     const uint32_t p0 = get_arg_val<uint32_t>(0);
     const uint32_t np = get_arg_val<uint32_t>(1);
     binary_op_init_common(cb_i, cb_j, cb_out);
+    uint32_t have = 0xFFFFFFFF;
     for (uint32_t p = p0; p < p0 + np; p += GRAN) {
         const uint32_t n = p0 + np - p < GRAN ? p0 + np - p : GRAN;
         cb_wait_front(cb_z, GRAN);
-        cb_wait_front(cb_i, GRAN);
         cb_wait_front(cb_j, GRAN);
         cb_reserve_back(cb_out, GRAN);
         cb_reserve_back(cb_lo, GRAN);
         for (uint32_t k = 0; k < n; ++k) {
+            const uint32_t bj = (p + k) / RUN;
+            if (bj != have) {
+                if (have != 0xFFFFFFFF) {
+                    cb_pop_front(cb_i, KT);
+                }
+                cb_wait_front(cb_i, KT);
+                have = bj;
+            }
             tile_regs_acquire();
             copy_tile_to_dst_init_short_with_dt(cb_i, cb_z);
             copy_tile(cb_z, k, 0);
             reconfig_data_format(cb_i, cb_j);
             mul_bcast_rows_init_short(cb_i, cb_j);
-            mul_tiles_bcast_rows(cb_i, cb_j, k, k, 1);
+            mul_tiles_bcast_rows(cb_i, cb_j, (p + k) % KT, k, 1);
             add_binary_tile_init();
             add_binary_tile(0, 1, 2);
             add_binary_tile(0, 1, 0);
@@ -81,9 +92,11 @@ void kernel_main() {
             tile_regs_release();
         }
         cb_pop_front(cb_z, GRAN);
-        cb_pop_front(cb_i, GRAN);
         cb_pop_front(cb_j, GRAN);
         cb_push_back(cb_out, GRAN);
         cb_push_back(cb_lo, GRAN);
+    }
+    if (have != 0xFFFFFFFF) {
+        cb_pop_front(cb_i, KT);
     }
 }
