@@ -498,9 +498,13 @@ TRIATT_Q10 = frozenset({"triatt_q10"})
 # 640 133.10 -> 126.80 s (-4.7 %), 576 111.85 -> 109.76 s. The 10-18 normal grade (512-token set, before k1q) FAILed on iRMSD.
 # Graded on the shipped normal set (k1g, 11 complexes x 4 seeds, native size): PASS, same-seed top pose median 0.108 A
 # (A/A floor 1.273 A), iRMSD -0.145 [-0.359, -0.005], DockQ +0.003 [+0.000, +0.007], docking 27 -> 27 of 44.
+# Wormhole normal runs the trunk at HiFi2 (trunk_hifi2), but triatt_ln is slower at HiFi2 than at HiFi3 on two column
+# groups, which OpenDDE's c 384 always takes: 640 x c384 at 1000 MHz, HiFi2 15.0-16.6 ms a call, HiFi3 12.1-12.3. So
+# triatt_ln_f3 runs that kernel at HiFi3, closer to float64 (q|k|v rel_rms 0.0061 -> 0.0038). Galaxy chip, 3 paired warm
+# folds, AICLK 1000 MHz (spd-m-opendde tf3n, 2026-10-23): 640 126.15 -> 123.64 s (-2.0 %). UNGRADED, grade tf3g running.
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
-                    "transition_b8", "ws_b8_plain"})
+                    "transition_b8", "ws_b8_plain", "triatt_ln_f3"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
