@@ -1,0 +1,17 @@
+tri_mult_out     GenericOpDeviceOperation                   1.085 s  floor  0.829  x1.31  244.6 GB/s 63.05 TF/s
+tri_mult_in      GenericOpDeviceOperation                   1.083 s  floor  0.829  x1.31  245.0 GB/s 63.16 TF/s
+pair_relu        GenericOpDeviceOperation                   0.575 s  floor  0.533  x1.08  90.0 GB/s 129.66 TF/s
+tri_mult_in      MatmulDeviceOperation                      0.231 s  floor  0.223  x1.04  420.3 GB/s 31.39 TF/s
+tri_mult_out     MatmulDeviceOperation                      0.229 s  floor  0.223  x1.03  423.5 GB/s 31.62 TF/s
+outer_residual   GenericOpDeviceOperation                   0.201 s  floor  0.119  x1.69  258.2 GB/s None TF/s
+pair_bias        GenericOpDeviceOperation                   0.146 s  floor  0.082  x1.78  245.0 GB/s None TF/s
+token_transition MatmulDeviceOperation                      0.137 s  floor  0.057  x2.41  146.5 GB/s 58.11 TF/s
+attention        MatmulDeviceOperation                      0.080 s  floor  0.027  x3.01  145.0 GB/s 41.46 TF/s
+cast             TypecastDeviceOperation                    0.078 s  floor  0.056  x1.38  318.4 GB/s None TF/s
+pass_glue split 0.837 s
+  pair_relu       GenericOpDeviceOperation               0.575 s x7  floor  0.533  90.0 GB/s  input_0 5x224x224x384 BFLOAT8_B ; input_1 1x1x384x768 BFLOAT8_B ; input_2 1x1x768x384 BFLOAT8_B ; input_3 1x1x
+  outer_residual  GenericOpDeviceOperation               0.201 s x7  floor  0.119  258.2 GB/s  input_0 5x224x224x384 BFLOAT8_B ; input_1 1x5x224x384 BFLOAT16 ; input_2 5x224x1x384 BFLOAT16 ; input_3 5x224x
+  pass_glue       ReshapeViewDeviceOperation             0.045 s x7  floor  0.001  9.6 GB/s  input_0 1x5x224x384 BFLOAT16 ; output_0 1x1120x1x384 BFLOAT16
+  pair_factors    MatmulDeviceOperation                  0.011 s x14  floor  0.004  148.7 GB/s  input_0 1x5x224x768 BFLOAT16 ; input_1 1x1x768x384 BFLOAT16 ; output_0 1x5x224x384 BFLOAT16
+  pair_factors    LayerNormDeviceOperation               0.005 s x7  floor  0.002  166.8 GB/s  input_0 1x5x224x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x5x224x768 
+  pass_glue       LayerNormDeviceOperation               0.000 s x1  floor  0.000  161.3 GB/s  input_0 1x5x224x256 BFLOAT16 ; output_0 1x5x224x256 BFLOAT16
