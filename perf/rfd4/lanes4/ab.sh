@@ -16,6 +16,8 @@ leg() { arm=$1 n=$2 w=$3 seed=$4; t=$R/tree-$arm; o=$R/r$5-$arm-n$n
   (cd $t && PYTHONPATH=$t:$t/perf timeout 1800 $PY perf/rfd4/b128/designs.py --spec $IN/pdl1-$n.yaml --weights $W \
      --out $o --width $w --designs 32 --seed $seed) > $o.log 2>&1
   stamp "r$5-$arm-n$n rc=$?"; }
+exec 9>"$HOME/spd_qb2_chip$N.lock"; flock -w 14400 9 || { stamp "flock timeout"; exit 3; }
+while fuser "/dev/tenstorrent/$N" > /dev/null 2>&1; do sleep 20; done
 stamp "start chip $N A=$A B=$B"
 for r in 1 2; do s=$(( (r-1)*100 ))
   leg A 256 4 $s $r; leg B 256 4 $s $r; leg A 128 16 $s $r; leg B 128 16 $s $r
@@ -25,4 +27,5 @@ for arm in A B; do t=$R/tree-$arm
      --out $R/split-$arm-n256 --width 4 --designs 32) > $R/split-$arm-n256.log 2>&1
   stamp "split-$arm rc=$?"
 done
+exec 9>&-
 stamp ALLDONE
