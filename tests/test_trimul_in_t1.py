@@ -39,6 +39,15 @@ def test_cb_budget_fits_l1(mask):
 
 
 @pytest.mark.parametrize("mask", [False, True])
+def test_cb_budget_rfd4_gathers_8_per_barrier(mask):
+    """RFD4's key (c_z 384, hidden 256) stages 8 gathered tiles per read barrier (T1_NB), the others gin_moved's 2."""
+    assert TTL._t1_nb_pref((12, 16, 12)) == 8 and TTL._t1_nb_pref((8, 16, 8)) == TTL.GIN_MOVE_NB
+    b8, b2 = (TTL.t1_cb_bytes(12, 16, 12, mask, nb=nb, w8=True) for nb in (8, 2))
+    assert TTL.t1_cb_bytes(12, 16, 12, mask, w8=True) == b8 == b2 + 12 * 2048
+    assert b8 <= 0.85 * L1_ALLOCATOR_BANK
+
+
+@pytest.mark.parametrize("mask", [False, True])
 def test_cb_budget_fits_l1_c256(mask):
     """c_z 256 in one launch of 32-row units would need ~1.9 MB a core; its plan fits the gate."""
     assert TTL.T1_PLANS[(8, 16, 8)] == (2, 16)
