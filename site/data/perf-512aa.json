@@ -958,12 +958,12 @@
             "versions": "tt-bio main ec0633e88 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 3",
             "when": "2026-10-16T08:44:34Z",
             "fast": {
-              "s_per_design": 50.761,
+              "s_per_design": 32.376,
               "n": 4,
-              "spread_pct": 1.15,
+              "spread_pct": 5.38,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main ec0633e88 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 3",
-              "when": "2026-10-16T08:51:28Z"
+              "versions": "tt-bio main 9695ccdd9 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+              "when": "2026-10-23T19:18:14Z"
             }
           },
           "h200": {
@@ -1344,22 +1344,22 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.10007,
+            "s_per_batch": 0.06955,
             "n": 7,
-            "spread_pct": 41.18,
+            "spread_pct": 23.81,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main c639c8c91, ttnn None, qb1 p150a card 2",
-            "when": "2026-10-19T20:50:17Z",
+            "versions": "tt-bio main 9695ccdd9, ttnn None, qb1 p150a card 0",
+            "when": "2026-10-23T19:23:15Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.09814,
+              "s_per_batch": 0.0678,
               "n": 7,
-              "spread_pct": 9.2,
+              "spread_pct": 56.25,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main c639c8c91, ttnn None, qb1 p150a card 2",
-              "when": "2026-10-19T20:43:49Z"
+              "versions": "tt-bio main 9695ccdd9, ttnn None, qb1 p150a card 0",
+              "when": "2026-10-23T19:24:06Z"
             }
           },
           "h200": {
