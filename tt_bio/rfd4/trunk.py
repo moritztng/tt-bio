@@ -516,8 +516,8 @@ class PairUpdate(Module):
     def _transition_block(self, z, resid=None):
         """`pair_block`: LayerNorm, fc1 + bias, ReLU, fc2 + bias as one program, unmasked; None where it does not
         serve. The hidden stays in the core's L1 and no normalised copy of z is written. With `resid` (the float32
-        stream `z` is the bf16 copy of) the update is added to it in the same program, both written in place:
-        returns `(resid, z)`."""
+        stream `z` is the bf16 copy of, or under `pair_bf16z` z itself) the update is added to it in the same
+        program, both written in place: returns `(resid, z)`."""
         from .. import pair_swiglu_ws
         w1, b1, w2, b2 = self.tr_ws
         ln = (self.tr_ln_w, self.tr_ln_b)
@@ -558,8 +558,9 @@ class PairUpdate(Module):
         write produces alongside the pair and the trunk's next pair bias reads."""
         xs = _as(x, self.dtype)
         both = None
-        if lever("pair_write_res") and self.pair_write == "hadamard" and mask is None and z.dtype == ttnn.float32:
-            # no padded token: the Hadamard product is formed and added to the float32 stream in one program
+        if (lever("pair_write_res") and self.pair_write == "hadamard" and mask is None
+                and (z.dtype == ttnn.float32 or lever("pair_bf16z"))):
+            # no padded token: the Hadamard product is formed and added to the pair stream in one program
             pi, pj = self._factors(xs, mask)
             b, n, c = (int(d) for d in pj.shape)
             both = outer_residual.outer_residual(z, pi, ttnn.reshape(pj, (b, n, 1, c)))
@@ -574,16 +575,18 @@ class PairUpdate(Module):
         subs = ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
                 (lambda h: _per_design(self.tri_in, h, pair_mask), False),
                 (lambda h: self._transition(h, pair_mask_c), True))
+        # `pair_bf16z`: a bf16 stream is its own copy (zb is z), which the fused programs below write in place
+        fused = zb is not z or lever("pair_bf16z")
         for sub, own_mask in subs:
             u = None
-            if not own_mask and pair_mask is None and zb is not z and int(z.shape[0]) == 1 and lever("pair_tail"):
-                # no padded token: the triangle's output tail adds into the float32 stream in the same program,
+            if not own_mask and pair_mask is None and fused and int(z.shape[0]) == 1 and lever("pair_tail"):
+                # no padded token: the triangle's output tail adds into the pair stream in the same program,
                 # z and zb written in place
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
                 u = tri(zb, None, stream32=z)
                 if tri.took_residual:
                     continue
-            if own_mask and pair_mask is None and self.tr_ws is not None and zb is not z:
+            if own_mask and pair_mask is None and self.tr_ws is not None and fused:
                 # the transition with no padded token: its residual write rides the same program, in place
                 both = self._transition_block(zb, resid=z)
                 if both is not None:
@@ -678,10 +681,10 @@ class Trunk(Module):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         self.residual_dtype = residual_dtype or self.dtype
-        self.pair_residual_dtype = pair_residual_dtype or (
-            ttnn.bfloat16 if PAIR_BF16 else self.residual_dtype)
         self.nlayers = nlayers
         self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
+        self.pair_residual_dtype = pair_residual_dtype or (
+            ttnn.bfloat16 if PAIR_BF16 or "pair_bf16z" in self._levers else self.residual_dtype)
         with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
             self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
                                       residual_dtype=self.residual_dtype)
@@ -738,7 +741,7 @@ class Trunk(Module):
             ttnn.deallocate(h)
         p = self._lin(hb, proj_w, dtype=self.dtype)
         ttnn.deallocate(hb)
-        if low is not None:
+        if low is not None or (res_dtype == ttnn.bfloat16 and lever("pair_bf16z")):   # rounded to even
             return _residual(init, p, res_dtype, low=low)
         pr = _as(p, res_dtype)
         if pr is not p:

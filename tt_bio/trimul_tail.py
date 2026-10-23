@@ -970,12 +970,13 @@ def _vec_ok(v, K):
             and v.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
-def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None):
+def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None, stream16=False):
     """None when T2 serves this call, else the reason it does not. With `wg`, `g` is the trimul's
     input norm and T2 computes sigmoid(g @ wg) itself (the GATE form). With `copy` (bf16, resid's shape) `resid`
-    is a float32 stream and `copy` its bf16 copy, both written (T2_RES32)."""
+    is a float32 stream and `copy` its bf16 copy, both written (T2_RES32). `stream16`: `resid` is RFD4's bf16 pair
+    stream (`pair_bf16z`), written in place; its caller gates it, at the same keys as T2_RES32."""
     from .tenstorrent import lever
-    if copy is None and not (T2 or lever("trimul_t2" if wg is None else "trimul_t2g")):
+    if copy is None and not (stream16 or T2 or lever("trimul_t2" if wg is None else "trimul_t2g")):
         return "off"
     if copy is not None:
         if (resid is None or resid.dtype != ttnn.float32 or resid.layout != ttnn.TILE_LAYOUT
@@ -994,7 +995,7 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None):
                 (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG and lever("pair_tail_small")):
             return "memcfg"
     return _t2_shape_why([int(d) for d in x.shape], [int(d) for d in x.padded_shape],
-                         ln_w, ln_b, wp, g, resid, wg, res32=copy is not None)
+                         ln_w, ln_b, wp, g, resid, wg, res32=copy is not None or stream16)
 
 
 def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None, res32=False):
@@ -1216,7 +1217,8 @@ def _lever(name):
     return lever(name)
 
 
-def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, moved=None, copy=None):
+def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, moved=None, copy=None,
+                  stream16=False):
     """`resid += (layer_norm(x; ln_w, ln_b, eps) @ wp) * sigmoid(g)` in one kernel (with `wg`:
     `* sigmoid(g @ wg)`, g the trimul's input norm), `resid`
     written in place and returned (the caller's `_add_input` then sees `u is x`). None when T2 is
@@ -1224,12 +1226,13 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
     `moved` = (x_chunk, c_off) is T2m: x's channels from c_off on are still in the einsum's
     channel-major chunk and are read from there (`x` holds only [0, c_off), and its shape).
     `copy` (T2_RES32, not with `moved`): `resid` is a float32 stream, the sum is one float32 rounding of
-    resid + update written over it, and its bf16 rounding over `copy`; returns `resid`."""
+    resid + update written over it, and its bf16 rounding over `copy`; returns `resid`. `stream16` (not with `copy`):
+    `resid` is RFD4's bf16 pair stream, the plain form admitted at the T2_RES32 keys (see `t2_eligible`)."""
     from . import ops
     if ops.taping() or dest_guard.exposed_args(ckc):
         T2_STATS[1] += 1
         return None
-    why = t2_eligible(x, ln_w, ln_b, wp, g, resid, wg, copy) or (
+    why = t2_eligible(x, ln_w, ln_b, wp, g, resid, wg, copy, stream16 and copy is None) or (
         "res32_moved" if copy is not None and moved is not None else None)
     if why is not None:
         T2_STATS[1] += 1
