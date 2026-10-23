@@ -242,7 +242,7 @@ class FlowNetwork:
     tensor per recycle because upstream rebuilds it each cycle from the remaining-pass count. The
     device trunk (`tt_bio.rfd4.trunk.Trunk.run_bucketed`) and a host reference have the same shape,
     so a parity test and a real design run the same code around them. A trunk that also has
-    `launch(...)` and `collect(pending)` is enqueued by :meth:`launch` and read by :meth:`finish`,
+    `launch(...)` and `collect(pending)` is enqueued by :meth:`launch` and read by :meth:`collect`,
     which is what lets `sampler.run_lanes` keep the host busy while the card runs.
 
     The batch the glue reads is the featurized example (`tt_bio.rfd4.io.featurize`) with this
@@ -275,8 +275,8 @@ class FlowNetwork:
                  step: int) -> dict[str, dict[str, Any]]:
         return self.finish(self.launch(self.prepare(x_t, t, recycle_depth=recycle_depth, step=step)))
 
-    # The call in three stages, for `sampler.run_lanes`: the host builds the trunk's inputs, the
-    # trunk is enqueued, and the heads read its output once it is back.
+    # The call in four stages, for `sampler.run_lanes`: the host builds the trunk's inputs, the
+    # trunk is enqueued, s is read back, and the heads run on it.
 
     def prepare(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int, step: int):
         n_designs = next(iter(x_t.values())).shape[0]
@@ -333,9 +333,18 @@ class FlowNetwork:
         return hit
 
     def finish(self, launched) -> dict[str, dict[str, Any]]:
+        return self.complete(self.collect(launched))
+
+    def collect(self, launched):
+        """Wait for the trunk and read s back. The card is free from here on."""
         batch, depth, pending = launched
         s, _z = self.trunk.collect(pending) if hasattr(self.trunk, "collect") else pending
         self.passes += depth
+        return s, batch
+
+    def complete(self, collected) -> dict[str, dict[str, Any]]:
+        """The heads on a collected s, host work `sampler.run_lanes` runs under the next lane's trunk."""
+        s, batch = collected
         with torch.no_grad():
             return self.glue.heads(s, batch)
 
