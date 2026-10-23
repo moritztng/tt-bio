@@ -1176,7 +1176,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
                                         dst_full_sync_en=full)
     mmfid = t2_mm_fid(kt, nt, gate)
     if mmfid is not None:
-        defines = defines + [("T2_MM_FID", str(int(mmfid)))]
+        defines = defines + [("T2_MM_FID", str(mmfid.value))]
     if res32:   # the float32 z straight to DST: through srcA it would lose 13 mantissa bits
         modes = [ttnn.UnpackToDestMode.Default] * 64
         modes[7] = ttnn.UnpackToDestMode.UnpackToDestFp32
