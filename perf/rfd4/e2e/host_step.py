@@ -35,6 +35,7 @@ def main():
     ap.add_argument("--weights", required=True)
     ap.add_argument("--designs", type=int, default=2, help="the first is a warm-up")
     ap.add_argument("--out")
+    ap.add_argument("--profile", help="cProfile the last design's loop and write its pstats here")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -90,11 +91,19 @@ def main():
         for stage in ("prepare", "launch", "finish"):
             setattr(net, stage, timed(f"{stage}_total_s", getattr(net, stage)))
         load0 = os.getloadavg()[0]
+        prof = None
+        if a.profile and i == a.designs - 1:
+            import cProfile
+            prof = cProfile.Profile()
+            prof.enable()
         t0 = time.perf_counter()
         out = S.generate(spec, net, n_designs=1, n_tokens=n, seed=i, rng_mode="per_design",
                          emit_masks=compute_flow_emit_masks(batch), groups=E._groups(batch),
                          coord_cond_mask=batch.get("coord_cond_mask"))
         loop_s = time.perf_counter() - t0
+        if prof is not None:
+            prof.disable()
+            prof.dump_stats(a.profile)
         # The CIF writer on a stand-in output with the real shapes (CA at the sampled positions).
         o = Out()
         o.coords_nm = torch.zeros(1, n, 37, 3)

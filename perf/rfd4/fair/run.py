@@ -178,6 +178,10 @@ def main():
     ap.add_argument("--batches", type=int, default=5, help="warm batches at the best width (protocol: >= 5)")
     ap.add_argument("--seed", type=int, default=1000, help="batch i runs on seed + i")
     ap.add_argument("--max-foreign-cores", type=float, default=1.0)
+    ap.add_argument("--lane-width", type=int,
+                    help="run a batch as interleaved lanes of at most this many designs a trunk call "
+                         "(`sampler.run_lanes`), so one lane's host work hides behind another's trunk; "
+                         "default: the whole batch in one trunk call")
     a = ap.parse_args()
 
     from tt_bio import rfd4
@@ -216,8 +220,8 @@ def main():
     def batch(width, seed, kind, phase):
         """One full batch of `width` finished designs on `seed`, timed end to end."""
         nonlocal size
-        engine.max_parallel_samples = width
-        d = out / f"b{width}" / f"{phase}-s{seed}"
+        engine.max_parallel_samples = lane = min(width, a.lane_width or width)
+        d = out / (f"b{width}" if lane == width else f"b{width}l{lane}") / f"{phase}-s{seed}"
         with clocksample.during(period=1.0) as clk, Contention() as con:
             t0 = time.perf_counter()
             ex = rfd4.prepare_examples(a.spec, d / "inputs")[0]
@@ -231,7 +235,7 @@ def main():
         size = int(features["padding_mask"].shape[-1])
         cs = clk.summary().get(0) or {}
         mhz = cs.get("median")
-        rec = {"kind": kind, "phase": phase, "size": size, "batch": width, "width_achieved": engine.chunk_width,
+        rec = {"kind": kind, "phase": phase, "size": size, "batch": width, "lane_width": lane, "width_achieved": engine.chunk_width,
                "designs": width, "wall_s": round(wall, 3), "designs_per_s": round(width / wall, 5),
                "featurize_s": round(t_feat, 3), "design_s": round(t_design, 3),
                "write_s": round(wall - t_feat - t_design, 3), "recipe": "thinking_medium",
@@ -247,8 +251,8 @@ def main():
             why.append(f"contended: device held by {sorted(con.holders)}")
         if (rec["foreign_cores_median"] or 0) > a.max_foreign_cores:
             why.append(f"contended: {rec['foreign_cores_median']} foreign cores > {a.max_foreign_cores}")
-        if engine.chunk_width < width:
-            why.append(f"chunked: DRAM ran width {width} at {engine.chunk_width}")
+        if engine.chunk_width < lane:
+            why.append(f"chunked: DRAM ran width {lane} at {engine.chunk_width}")
         if why:
             rec["discard"] = "; ".join(why)
         emit(rec)
@@ -275,7 +279,7 @@ def main():
                       "error": f"{type(exc).__name__}: {str(exc)[:600]}"})
                 break
             rungs.append(r)
-            if r["width_achieved"] < width:
+            if r["width_achieved"] < r["lane_width"]:
                 break  # DRAM refused this width
             dps = r["designs_per_s"]
             flat = flat + 1 if dps < top * (1 + MIN_GAIN) else 0
