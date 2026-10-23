@@ -1,0 +1,14 @@
+start chip 0 branch 1dcdcd898 dirty=0 base 83fb59bcbf247b34d488f4992a50acc8afb982c6 py /home/ttuser/tt-bio-dev/env/bin/python 2026-10-23T00:16:41Z load 12.87
+orz-main1 rc=0 /home/ttuser/scratch/ptrans/run2/main [('1x512x384', None, 3.6502), ('1x256x384', None, 0.927), ('1x128x384', None, 0.2376), ('2x96x384', None, 0.2618)] {'0': {'min': 1350, 'max': 1350, 'median': 1350, 'n': 4}} 2026-10-23T00:17:08Z load 11.84
+relu-main1 rc=0 /home/ttuser/scratch/ptrans/run2/main [(512, 'full', 4.1984), (512, 'no_xread', 4.2476), (512, 'no_write', 4.2354), (512, 'no_fc3', 4.6819)] {'0': {'min': 1350, 'max': 1350, 'median': 1350, 'n': 12}} 2026-10-23T00:18:02Z load 13.75
+orz-branch1 rc=0 /home/ttuser/.coworker/wt/rfd4-perf-ptrans [('1x512x384', None, 2.9474), ('1x256x384', None, 0.7516), ('1x128x384', None, 0.1932), ('2x96x384', None, 0.2171)] {'0': {'min': 1350, 'max': 1350, 'median': 1350, 'n': 2}} 2026-10-23T00:18:11Z load 12.62
+relu-branch1 rc=0 /home/ttuser/.coworker/wt/rfd4-perf-ptrans [(512, 'full', 4.2249), (512, 'no_xread', 4.2348), (512, 'no_write', 4.2667), (512, 'no_fc3', 4.7546)] {'0': {'min': 1343, 'max': 1350, 'median': 1350, 'n': 5}} 2026-10-23T00:18:55Z load 15.79
+orz-main2 rc=0 /home/ttuser/scratch/ptrans/run2/main [('1x512x384', None, 3.6819), ('1x256x384', None, 0.9071), ('1x128x384', None, 0.2379), ('2x96x384', None, 0.2644)] {'0': {'min': 1350, 'max': 1350, 'median': 1350, 'n': 2}} 2026-10-23T00:19:07Z load 15.02
+relu-main2 rc=0 /home/ttuser/scratch/ptrans/run2/main [(512, 'full', 4.2474), (512, 'no_xread', 4.2527), (512, 'no_write', 4.302), (512, 'no_fc3', 4.6854)] {'0': {'min': 1137, 'max': 1350, 'median': 1350, 'n': 3}} 2026-10-23T00:19:21Z load 13.77
+orz-branch2 rc=0 /home/ttuser/.coworker/wt/rfd4-perf-ptrans [('1x512x384', None, 2.9421), ('1x256x384', None, 0.7474), ('1x128x384', None, 0.2071), ('2x96x384', None, 0.2256)] {'0': {'min': 1350, 'max': 1350, 'median': 1350, 'n': 5}} 2026-10-23T00:20:00Z load 14.61
+relu-branch2 rc=0 /home/ttuser/.coworker/wt/rfd4-perf-ptrans [(512, 'full', 4.2376), (512, 'no_xread', 4.3245), (512, 'no_write', 4.1682), (512, 'no_fc3', 4.7494)] {'0': {'min': 1300, 'max': 1350, 'median': 1350, 'n': 3}} 2026-10-23T00:20:15Z load 14.31
+split-main1 rc=0 2026-10-23T00:24:03Z load 6.73
+split-branch1 rc=0 2026-10-23T00:27:02Z load 5.71
+split-main2 rc=0 2026-10-23T00:30:05Z load 6.91
+split-branch2 rc=0 2026-10-23T00:33:11Z load 6.27
+end 2026-10-23T00:33:11Z load 6.27
