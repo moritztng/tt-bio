@@ -311,8 +311,8 @@ class AdaLN(Module):
         ck = self.compute_kernel_config
         a_norm = ttnn.layer_norm(a, epsilon=1e-5, compute_kernel_config=ck)
         if terms is not None:
-            (sc_t, sc_off, w), (sh_t, sh_off, _) = terms
-            out = addcmul_at(sh_t, a_norm, sc_t, w, x_off=sh_off, z_off=sc_off)
+            (sc_t, sc_off, w, sc_row), (sh_t, sh_off, _, sh_row) = terms
+            out = addcmul_at(sh_t, a_norm, sc_t, w, x_off=sh_off, z_off=sc_off, x_row=sh_row, z_row=sc_row)
             if out is None:
                 sc, sh = terms[0].cut(), terms[1].cut()
                 out = ttnn.addcmul(sh, a_norm, sc, value=1.0)
