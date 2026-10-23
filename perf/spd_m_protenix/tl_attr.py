@@ -8,7 +8,9 @@ layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or sever
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
 --b8 0,1 repeats every arm with lever triatt_ln_b8 (bfp8 q, k, v); at ABL 0 each B8 arm also runs on a grid one row
 shorter and prints whether its outputs are torch.equal to the full grid's (grid_invariant), and the bf16 arm's
-deviation from a float64 reference beside the bfp8 arm's (rel_rms_f64).
+deviation from a float64 reference beside the bfp8 arm's (rel_rms_f64, per output q, k, v, gate, bias), and
+whether the bfp8 arm's bf16 outputs (gate, bias) are torch.equal to the bf16 arm's (bf16_rest_exact).
+--tr 0 skips the transposed read, which declines on column groups (OpenDDE's c 384).
 """
 import argparse, json, os, statistics, time
 
@@ -21,6 +23,7 @@ ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--abl", default="0,1,2,4,8,12,3,7,11,14,13", help="comma list of ABL masks")
 ap.add_argument("--fids", default="HiFi3,HiFi2")
 ap.add_argument("--b8", default="0", help="comma list: lever triatt_ln_b8 off (0) / on (1)")
+ap.add_argument("--tr", default="0,1", help="comma list: plain (0) / transposed (1) read")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -87,13 +90,13 @@ def reference(tr):
 
 def rel_rms(out, ref):
     o = [t[..., :r.shape[-1]].double().reshape(r.shape) for t, r in zip(out, ref)]
-    return round(max(float((p - q).pow(2).mean().sqrt() / q.pow(2).mean().sqrt()) for p, q in zip(o, ref)), 5)
+    return [round(float((p - q).pow(2).mean().sqrt() / q.pow(2).mean().sqrt()), 5) for p, q in zip(o, ref)]
 
 
 small = (grid[0], grid[1] - 1)
 for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
-    for tr in (False, True):
-        ref = None
+    for tr in [bool(int(d)) for d in a.tr.split(",")]:
+        ref = plain = None
         for b8 in [bool(int(d)) for d in a.b8.split(",")]:
             B8 = b8
             for abl in [int(m) for m in a.abl.split(",")]:
@@ -108,6 +111,10 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                     out = host(r)
                     free(r)
                     row["rel_rms_f64"] = rel_rms(out, ref)
+                    if not b8:
+                        plain = out
+                    elif plain is not None:
+                        row["bf16_rest_exact"] = all(torch.equal(p, q) for p, q in zip(out[3:], plain[3:]))
                     if b8:
                         r = run(fid, tr, small)
                         row["grid_invariant"] = all(torch.equal(p, q) for p, q in zip(out, host(r)))
