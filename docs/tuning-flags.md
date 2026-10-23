@@ -918,7 +918,10 @@ chain moves 0.03 A median against a 5.4 A seed-to-seed spread, with radius of gy
 unchanged. From 288 tokens the triangle contraction runs on `bmm_res` at HiFi2 (`trimul_bres`,
 `trimul_bres_hifi2`, RFD4's set only): a 512-token design takes 39.8 s instead of 41.3 s (1.04x, 1331 MHz, 31 paired
 designs), the 384-token trunk 1.09x, 256 unchanged; the designed chain moves 2.2 A median against a 38.1 A seed-to-seed
-spread and the binder grade passes. `pair_tail`, `pair_tail_small` and `pair_write_res` need the fp32 pair stream, so
+spread and the binder grade passes. The input kernel also writes its two projections in block-fp8 so the
+contraction reads half the bytes (`trimul_t1b8`, RFD4's set only): 33.25 to 32.75 s a 512-token design on the trunk
+(1.015x, 1350 MHz, paired), 1.014x at 384, 256 unchanged; the designed chain moves 2.05 A median against a 38.6 A
+seed-to-seed spread and the binder grade passes. `pair_tail`, `pair_tail_small` and `pair_write_res` need the fp32 pair stream, so
 `TT_BIO_RFD4_PAIR_BF16=1` (the pair stream in bf16) turns them off and was slower before the pair-bias and pair-write programs, 46.4 s against 44.1 s. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 

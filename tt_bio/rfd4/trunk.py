@@ -652,10 +652,14 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: at HiFi2 where ttnn's plan is the 2D multicast one (from 288 tokens on Blackhole; nothing changes at 256). Paired
 #: on one chip at 1331 MHz: 31 designs at 512 tokens 41.30 -> 39.77 s (1.039x), trunk pass 1.087x at 384; the
 #: designed chain moves 2.2 A median against a 38.1 A seed floor, binder grade PASS (state/rfd4/bets/tri5.md).
+#: `trimul_t1b8`: T1 writes a and b as bfp8, so the contraction reads half the bytes. Paired traced trunk at 1350 MHz:
+#: 512 tokens 33.25 -> 32.75 s a design (1.015x), 384 1.014x; at 256 pairing 8-row items would unbalance the cores,
+#: so T1 keeps bf16 there (trimul_tail.t1_pair_free, bit-identical). 31 designs at 512: designed chain 2.05 A median
+#: against a 38.6 A seed floor, binder grade PASS (state/rfd4/bets/t1s.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
-                           "trimul_bres", "trimul_bres_hifi2"})
+                           "trimul_bres", "trimul_bres_hifi2", "trimul_t1b8"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
