@@ -194,6 +194,10 @@ INIT_FAILED_TRIES = 2
 #: hour. A different boot id and no exit code means the leg died with the host: run it once more.
 BOOT_ID = "/proc/sys/kernel/random/boot_id"
 REBOOTED = "rebooted under the leg"
+#: rel-f9b8ca9e9 (10-23): 17 WH pool jobs on .107/.110 died around 10:45Z with no exit code, under the same
+#: boot, and the runner polled them for 12 h while the train waited behind it. A leg runs under
+#: `timeout -k 600 <budget>`, so a started job whose log is quiet past that has no process left to write one.
+VANISHED = "left the pool with no exit code"
 #: A Galaxy lent out of the pool (spd/galaxy/lend_cfd.sh writes the window's start epoch here and
 #: PAUSEs the pool through it). pool.sh starts no job whose cap reaches the window, so a leg queued
 #: there waits out the whole lend: capacity:opendde of gate cb55af219 sat on .114 for hours on
@@ -1622,14 +1626,16 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
         # recorded FAIL from a recalled attempt while its rerun went unread.
         rc_f = f"{q(rdir)}/rc"
         try:
-            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; [ -s {rc_f} ] && sleep {REQUEUE_GRACE_S} && "
+            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; "
+                         f"[ -e {q(job)} ] && echo 0 || echo $(( $(date +%s) - $(stat -c %Y {q(rdir)}/leg.log 2>/dev/null || date +%s) )); "
+                         f"[ -s {rc_f} ] && sleep {REQUEUE_GRACE_S} && "
                          f"if [ -e {q(job)} ] && ! [ {rc_f} -nt {q(job)} ]; then rm -f {rc_f}; echo {REQUEUED}; else cat {rc_f}; fi",
                          capture_output=True, timeout=120)
         except subprocess.TimeoutExpired:
             continue        # a busy sshd; the job runs on regardless, ask again
         if r.returncode == 255:
             continue        # the connection, not the job
-        boot, started, rc = (r.stdout.split("\n") + ["", ""])[:3]
+        boot, started, idle, rc = (r.stdout.split("\n") + ["", "", ""])[:4]
         if rc.strip() == REQUEUED:
             f.write(f"# {REQUEUED}: {host.name} recalled the chip under this attempt; waiting for the rerun\n")
             f.flush()
@@ -1641,6 +1647,11 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
             QUEUED.pop(job, None)
             RUNNING.pop(rdir, None)
             f.write(f"# {host.name} {REBOOTED} (boot id changed) and the leg left no exit code\n")
+            return 1
+        if int(idle or 0) > leg.budget + 900:
+            QUEUED.pop(job, None)
+            RUNNING.pop(rdir, None)
+            f.write(f"# the job {VANISHED}: out of {host.name}'s queue, log quiet {idle.strip()} s, past its {leg.budget} s cap\n")
             return 1
     QUEUED.pop(job, None)
     RUNNING.pop(rdir, None)
@@ -1733,7 +1744,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
                 contended += 1
                 time.sleep(CONTENDED_RETRY_S)
                 continue
-            if rc and card == POOL and REBOOTED in text and not rebooted:
+            if rc and card == POOL and (REBOOTED in text or VANISHED in text) and not rebooted:
                 rebooted += 1
                 continue
             if rc and card == POOL and GIVEN_BACK in text and given_back < GIVEN_BACK_TRIES:
