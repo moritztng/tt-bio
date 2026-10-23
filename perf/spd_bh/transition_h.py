@@ -10,7 +10,7 @@ against an L1 budget of ~16 rows. This runs the real Transition module, both exi
 TT_BIO_TRANSITION_H_CHUNK, and reports ms per call, AICLK, torch.equal against the shipped
 height (swiglu is row-local, so any height should be bit-identical) and rel_rms against float64.
 """
-import argparse, json, os, statistics, sys, time
+import argparse, hashlib, json, os, statistics, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -113,6 +113,7 @@ def run(a, emit, torch, ttnn, T, dev):
                 emit(ev="arm", arm=arm, h_used=heights, ms=ts, ms_med=statistics.median(ts),
                      ms_min=min(ts), aiclk=clk,
                      equal_to_ship=bool(torch.equal(out, base[add])) if add in base else None,
+                     digest=hashlib.sha256(out.to(torch.float32).numpy().tobytes()).hexdigest()[:16],
                      rel_rms=float(d.pow(2).mean().sqrt() / want.pow(2).mean().sqrt()),
                      finite=bool(torch.isfinite(out).all()))
             except Exception as e:
