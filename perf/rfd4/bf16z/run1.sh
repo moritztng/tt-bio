@@ -5,7 +5,7 @@
 # and as a population (quality.py).
 #   perf/rfd4/bf16z/run1.sh <card> [legs]
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/bf16z/run1; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/bf16z/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-zprec256 ab512 ab256 census-base census-stack zprec512 design grade}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-bf16z PYTHONPATH=$W:$W/perf
 mkdir -p $O/design $O/grade; cd $W
@@ -18,7 +18,7 @@ stamp "start $(git log --oneline -1 2>/dev/null | cut -c1-70) tree=$(cat TREE 2>
 B=$($PY -c "from tt_bio.rfd4.trunk import NORMAL_LEVERS as N; print(','.join(sorted(N)))")
 S=$B,pair_bf16z
 echo "base $B" >> $O/run.log
-f() { ls $O/design/$1/pdl1_binder_512_s$2_r*_generated.cif; }
+f() { ls $O/design/$1/pdl1_binder_512_s$2_r*_generated.cif | tail -1; }   # s0 also has the cold run r0
 for leg in $LEGS; do
   case $leg in
     zprec*) n=${leg#zprec}; timeout 3600 $PY perf/rfd4/bf16z/zprec.py --n $n --out $O/$leg.json > $O/$leg.log 2>&1 ;;
