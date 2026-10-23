@@ -2242,8 +2242,12 @@ def esmc6b_tile_dir(name: str, snapshot) -> str | None:
 
     Keyed by everything that decides the tiles: the checkpoint, the stored dtype (block-fp8
     or bf16), the code that builds and tiles the module, the ttnn build and the
-    TT_BIO_ESMC* switches. A key nobody loaded for a week is pruned when a new one is written.
+    TT_BIO_ESMC* switches. The key hashes the source, so every checkout writes its own 7-13 GB
+    copy; when a new one is written, any other nobody loaded for 6 h is pruned (qb2 kept a week
+    of them and filled its disk, 97 GB in 18 h). A half-built one goes the same way unless its
+    builder still holds the lock.
     """
+    import fcntl
     import hashlib
 
     import tt_bio.tenstorrent as _tt
@@ -2265,7 +2269,13 @@ def esmc6b_tile_dir(name: str, snapshot) -> str | None:
     root.mkdir(parents=True, exist_ok=True)
     for old in root.glob(f"{name}-*"):
         done = old / ".done"
-        if old != tdir and done.exists() and _time.time() - done.stat().st_mtime > 7 * 86400:
+        if old == tdir or _time.time() - (done if done.exists() else old).stat().st_mtime < 6 * 3600:
+            continue
+        with open(old / ".lock", "a") as lockf:
+            try:
+                fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                continue  # a builder is writing it
             shutil.rmtree(old, ignore_errors=True)
     # The tiles take at most half the fp32 checkpoint (bf16); keep 10 GB free beside them.
     need = sum(f.stat().st_size for f in snap.glob("*.safetensors")) // 2 + (10 << 30)
