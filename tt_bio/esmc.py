@@ -498,6 +498,13 @@ class Embedding(Module):
 # (Blackhole with mm_gate: 300M -2..-9 %, 600M -9 %); the lm_linear lever keeps the linear (ESMFold2 on Blackhole).
 _ESMC_MM = (env_flag("TT_BIO_ESMC_MM", False) if os.environ.get("TT_BIO_ESMC_MM", "").strip() else None)
 ESMC_MM_MIN_ROWS = 2048
+# The ESMC-6B's 512-1023 rows under bf16 weights on Blackhole: below ESMC_MM_MIN_ROWS, but the qkv split and the gate
+# still beat LIN6B + chunk and the two LIN6B fc1 halves + gate there (qb2 p300 chip, 1350 MHz, ms a layer:
+# lin6b_sweep --mm qkv 2D + chunk 0.282 -> minimal_matmul_split 0.243; gate_cfg_sweep --shapes 6b 0.452 -> 0.412,
+# rel_l2 vs float64 0.0019 both). The out and fc2 projections do not gain (0.092 -> 0.096, 0.217 -> 0.232), and on
+# Wormhole the gate loses (1.019 -> 1.053). None = on for Blackhole.
+_ESMC_MM_6B_BF16 = (env_flag("TT_BIO_ESMC_MM_6B_BF16", False)
+                    if os.environ.get("TT_BIO_ESMC_MM_6B_BF16", "").strip() else None)
 #: [projections served by minimal_matmul, declined], read by the A/B harness.
 MM_STATS = [0, 0]
 # minimal_matmul's block config for those projections: 16 x 4 output tiles a block, K in blocks of 4 tiles (2 where K
@@ -678,6 +685,15 @@ class _MMLin:
     def _mm_on(self) -> bool:
         return _esmc_mm()
 
+    def _mm_6b_bf16(self, x, w) -> bool:
+        """The 6B's page rows with bf16 weights, where its qkv split and gate take minimal_matmul (_ESMC_MM_6B_BF16)."""
+        on = _ESMC_MM_6B_BF16
+        if on is None:
+            from tt_bio import tenstorrent
+            on = not tenstorrent.is_wormhole()
+        return (on and getattr(self, "lm_large", False) and w.dtype == ttnn.bfloat16 == x.dtype
+                and 512 <= x.volume() // int(x.shape[-1]) < 1024 and self._mm_on())
+
     def _mm_ck(self, w):
         ck = self.compute_kernel_config
         if not _mm_bf16_acc(w, self.mm_exact_acc):
@@ -699,7 +715,7 @@ class _MMLin:
 
     def _lin_split(self, x, w, chunks: int, bias=None):
         """x @ w (+ bias) split into `chunks` outputs along the last dim by the matmul itself, or None where it does not serve."""
-        if not (_ESMC_QKV_MM_SPLIT and self._mm_ok(x, w)):
+        if not (_ESMC_QKV_MM_SPLIT and (self._mm_ok(x, w) or self._mm_6b_bf16(x, w))):
             return None
         try:
             out = ttnn.experimental.minimal_matmul_split(
@@ -1361,11 +1377,12 @@ class SwiGLUFFN(_MMLin, Module):
         w = self.fc1_a_weight
         # The ESMC-6B's 544 rows are below minimal_matmul's floor, but under --fast (block-fp8 weights) the gated op
         # still beats its two LIN6B linears and gate: 0.910 -> 0.706 ms a layer (gate_cfg_sweep --shapes 6b, Galaxy
-        # chip, 1000 MHz). Under bf16 weights it does not (1.019 -> 1.053). It keeps the 6B's HiFi4 fp32 accumulation,
-        # and only the measured regime (512-1023 rows, M block 2): the 256-row FFN chunks above 1024 aa are untested.
+        # chip, 1000 MHz). Under bf16 weights it does not there (1.019 -> 1.053); on Blackhole it does (_ESMC_MM_6B_BF16).
+        # It keeps the 6B's HiFi4 fp32 accumulation, and only the measured regime (512-1023 rows, M block 2): the
+        # 256-row FFN chunks above 1024 aa are untested.
         rows = x_norm.volume() // int(x_norm.shape[-1])
-        large = (getattr(self, "lm_large", False) and w.dtype == ttnn.bfloat8_b and x_norm.dtype == ttnn.bfloat16
-                 and 512 <= rows < 1024)
+        large = ((getattr(self, "lm_large", False) and w.dtype == ttnn.bfloat8_b and x_norm.dtype == ttnn.bfloat16
+                  and 512 <= rows < 1024) or self._mm_6b_bf16(x_norm, w))
         if not (_mm_gate_on() and not l1_gated and len(x_norm.shape) == 3 and not _SWIGLU_SILU_FC1
                 and not _ESMC_ACT_BFP8 and (large or self._mm_ok(x_norm, w))):
             return None
