@@ -4,7 +4,9 @@
 a broadcast multiply that writes the [n, n, pair] update in bfloat16, then `rne_add.residual_dual` reading it back
 with z and writing z and its bfloat16 copy. Here the product is formed in DEST from one pi tile and one row of pj
 and added to z there, so the update never touches DRAM: at 512 tokens 1.0 GB a call against 1.41 GB plus the
-multiply's pass (state/rfd4/bets/pairbias.md). The product is exact in the 32-bit DEST and the sum is rounded once
+multiply's pass (state/rfd4/bets/pairbias.md). The program walks z in (b, jt, i, ct) order so a core holds one
+run's pi tiles and reads only row 0 of each pj4 tile: z is the only tensor it streams (state/rfd4/bets/ptrans.md;
+1.41 -> ~1.02 GB a call at 512 tokens, every bit the same). The product is exact in the 32-bit DEST and the sum is rounded once
 to float32, so the result is closer to float64 than the two-op path, whose update is rounded to bfloat16 first;
 the bfloat16 copy is that sum rounded to even, as `residual_dual` writes it.
 
@@ -48,12 +50,12 @@ def _build(z, pi, pj4, out, lo, device):
     g = device.compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, pages, 0)
 
-    def cb(idx, dtype, size):
+    def cb(idx, dtype, size, tiles=2 * GRAN):
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=size)
-        return ttnn.CBDescriptor(total_size=2 * GRAN * size, core_ranges=grid, format_descriptors=[fmt])
+        return ttnn.CBDescriptor(total_size=tiles * size, core_ranges=grid, format_descriptors=[fmt])
 
     f32, b16 = 32 * 32 * 4, 32 * 32 * 2
-    cbs = [cb(Z_CB, ttnn.float32, f32), cb(I_CB, ttnn.bfloat16, b16), cb(J_CB, ttnn.bfloat16, b16),
+    cbs = [cb(Z_CB, ttnn.float32, f32), cb(I_CB, ttnn.bfloat16, b16, 2 * kt), cb(J_CB, ttnn.bfloat16, b16),
            cb(OUT_CB, ttnn.float32, f32), cb(LO_CB, ttnn.bfloat16, b16)]
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
@@ -70,14 +72,14 @@ def _build(z, pi, pj4, out, lo, device):
                                    compile_time_args=[kt, nt, n, GRAN] + acc(z) + acc(pi) + acc(pj4),
                                    runtime_args=rd, common_runtime_args=[0] * 3, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=path, core_ranges=grid,
-                                   compile_time_args=[GRAN] + acc(out) + acc(lo), runtime_args=wr,
+                                   compile_time_args=[GRAN, kt, nt, n] + acc(out) + acc(lo), runtime_args=wr,
                                    common_runtime_args=[0] * 2, config=ttnn.WriterConfigDescriptor())
     cfg = ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
     modes = [ttnn.UnpackToDestMode.Default] * _NUM_CBS
     modes[Z_CB] = ttnn.UnpackToDestMode.UnpackToDestFp32
     cfg.unpack_to_dest_mode = modes
     compute = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path,
-                                    core_ranges=grid, compile_time_args=[GRAN], runtime_args=cp, config=cfg)
+                                    core_ranges=grid, compile_time_args=[GRAN, n * kt, kt], runtime_args=cp, config=cfg)
     return [reader, writer, compute], cbs
 
 

@@ -1,0 +1,22 @@
+start chip 1 branch 1dcdcd898 dirty=0 base 83fb59bcbf247b34d488f4992a50acc8afb982c6 2026-10-22T23:27:12Z load 7.06
+orz-main1 rc=0 2026-10-22T23:27:23Z load 6.53
+relu-main1 rc=0 2026-10-22T23:27:34Z load 6.65
+orz-branch1 rc=0 2026-10-22T23:27:43Z load 6.72
+relu-branch1 rc=0 2026-10-22T23:27:51Z load 6.51
+orz-main2 rc=0 2026-10-22T23:27:59Z load 6.11
+relu-main2 rc=0 2026-10-22T23:28:06Z load 5.94
+orz-branch2 rc=0 2026-10-22T23:28:15Z load 5.79
+relu-branch2 rc=0 2026-10-22T23:28:22Z load 5.73
+512-main1 rc=0 /home/ttuser/scratch/ptrans/run1/main {'median': 638.639, 'min': 637.403} {'median': 640.515, 'min': 638.704, 'capture_s': 0.06} {'0': {'min': 1275, 'max': 1350, 'median': 1306, 'n': 19}} 2026-10-22T23:29:11Z load 5.69
+512-branch1 rc=0 /home/ttuser/.coworker/wt/rfd4-perf-ptrans {'median': 627.32, 'min': 625.842} {'median': 628.754, 'min': 626.989, 'capture_s': 0.06} {'0': {'min': 1243, 'max': 1350, 'median': 1300, 'n': 19}} 2026-10-22T23:29:58Z load 5.01
+identity /home/ttuser/scratch/ptrans/run1/512-branch1.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+512-main2 rc=0 /home/ttuser/scratch/ptrans/run1/main {'median': 641.231, 'min': 640.001} {'median': 640.351, 'min': 637.372, 'capture_s': 0.07} {'0': {'min': 1200, 'max': 1350, 'median': 1281, 'n': 16}} 2026-10-22T23:30:43Z load 5.11
+512-branch2 rc=0 /home/ttuser/.coworker/wt/rfd4-perf-ptrans {'median': 628.643, 'min': 626.83} {'median': 628.795, 'min': 625.501, 'capture_s': 0.07} {'0': {'min': 1250, 'max': 1350, 'median': 1300, 'n': 16}} 2026-10-22T23:31:30Z load 5.95
+identity /home/ttuser/scratch/ptrans/run1/512-branch2.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+256-main1 rc=0 /home/ttuser/scratch/ptrans/run1/main {'median': 192.567, 'min': 192.005} {'median': 192.07, 'min': 191.57, 'capture_s': 0.05} {'0': {'min': 1281, 'max': 1350, 'median': 1337, 'n': 11}} 2026-10-22T23:31:52Z load 7.09
+256-branch1 rc=0 /home/ttuser/.coworker/wt/rfd4-perf-ptrans {'median': 189.068, 'min': 188.691} {'median': 189.061, 'min': 188.734, 'capture_s': 0.06} {'0': {'min': 1256, 'max': 1350, 'median': 1337, 'n': 10}} 2026-10-22T23:32:11Z load 6.50
+identity /home/ttuser/scratch/ptrans/run1/256-branch1.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+256-main2 rc=0 /home/ttuser/scratch/ptrans/run1/main {'median': 191.851, 'min': 191.661} {'median': 191.651, 'min': 191.471, 'capture_s': 0.06} {'0': {'min': 1275, 'max': 1350, 'median': 1331, 'n': 9}} 2026-10-22T23:32:31Z load 6.26
+256-branch2 rc=0 /home/ttuser/.coworker/wt/rfd4-perf-ptrans {'median': 188.613, 'min': 188.435} {'median': 188.528, 'min': 188.418, 'capture_s': 0.06} {'0': {'min': 1287, 'max': 1350, 'median': 1318, 'n': 9}} 2026-10-22T23:32:51Z load 7.25
+identity /home/ttuser/scratch/ptrans/run1/256-branch2.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+end 2026-10-22T23:32:53Z load 7.55

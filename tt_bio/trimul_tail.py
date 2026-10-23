@@ -920,6 +920,9 @@ T2_WIDE_KEYS = {(12, 12)}
 # RFD4's (8, 12) (hidden 256 -> c_z 384) at the same block, only in the float32-stream form (`copy`, T2_RES32),
 # whose caller (the rfd4 trunk's `pair_tail` lever) gates it: no other model's T2 eligibility changes.
 T2_RES32_KEYS = {(8, 12)}
+# T2 reads x and g through TensorAccessors, so interleaved L1 operands need no kernel change. Accepted under
+# RFD4's `pair_tail_small`, whose chain leaves both in L1 below MIN_N; the residual stream and its copy stay DRAM.
+# A DRAM copy of the two instead lost (0.98x a trunk pass at 128 tokens, state/rfd4/bets/tri128.md).
 T2_BLOCK = {(12, 12): (2, 12, 1, 2, 1), (8, 12): (2, 12, 1, 2, 1)}
 
 
@@ -987,7 +990,8 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None):
         # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
         if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
-        if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG:
+        if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG and not (
+                (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG and lever("pair_tail_small")):
             return "memcfg"
     return _t2_shape_why([int(d) for d in x.shape], [int(d) for d in x.padded_shape],
                          ln_w, ln_b, wp, g, resid, wg, res32=copy is not None)
@@ -1474,7 +1478,9 @@ T1_KEYS = set(T1_PLANS)
 # The plans when the resident weights are bfp8 (lever trimul_t1w8): half the weight bytes per core, so c_z 384
 # fits its [a | b] and g_out weights in two channel groups instead of three, one launch and one xn pass fewer.
 # c_z 256 fits ONE launch of 16-row units (1072 KB of CBs, what its two bf16 groups take now): z is read once.
-T1_PLANS_W8 = {(8, 16, 8): (1, 16), (12, 24, 12): (2, 8)}
+# RFD4's c_z 384 / hidden 256 fits one launch of 8-row units, so xn is never written and read back: 512 tokens on
+# a p300c chip at 1350 MHz, 11.1 -> 10.6 ms a call (16-row units: 13.9 ms; state/rfd4/bets/tri4.md).
+T1_PLANS_W8 = {(8, 16, 8): (1, 16), (12, 24, 12): (2, 8), (12, 16, 12): (1, 8)}
 
 
 def _t1_psig():

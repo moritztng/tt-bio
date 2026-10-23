@@ -168,6 +168,20 @@ def test_probe_counts_an_empty_marker_and_tails_the_jobs_own_log(tmp_path):
     assert "Traceback: boom" in out["jobs"]["4-x.sh"]["tail"]
 
 
+def test_probe_drops_the_booking_of_a_concluded_row(tmp_path):
+    """A row that concludes leaves its booking standing (10-23: two RFD4 rows held qb2 cards 1 and 3 ~4 h after
+    concluding); the probe removes bookings whose owner is in `concluded` and keeps every other one."""
+    (tmp_path / "spd/feed").mkdir(parents=True)
+    w = tmp_path / "spd/feed/windows.tsv"
+    w.write_text("1\t9999999999\trfd4-land8\t3\tx\n1\t9999999999\trfd4-live\t0\ty\n")
+    a = {"kind": "bh", "cards": [], "sweep": True, "paths": [], "outdirs": {}, "book": feed.BOOK,
+         "concluded": ["rfd4-land8", "not-booked"]}
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}, check=True)
+    assert json.loads(r.stdout)["unbooked"] == ["rfd4-land8"]
+    assert [l.split("\t")[2] for l in w.read_text().splitlines()] == ["rfd4-live"]
+
+
 def _probe_bh(tmp_path, queued):
     import fcntl
     jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)

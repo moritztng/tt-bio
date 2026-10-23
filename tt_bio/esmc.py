@@ -245,20 +245,28 @@ _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC
 # (perf/shsdpa/bench.py --b8): 300M 0.306 -> 0.270, 600M 0.359 -> 0.327, 6B 0.162 -> 0.134; rel_rms vs float64 0.0265
 # -> 0.0268. Page cell (esmc_ab, traced, 3 rounds, Galaxy chip at 1000 MHz), off -> on medians, pcc vs fp32: 300M normal
 # 92.58 -> 90.66 ms (-0.000056), 600M normal 130.53 -> 129.39 (-0.000067), 6B normal 182.80 -> 180.98 (+0.000040).
-# Wormhole --fast with bf16 accumulation fails its bar at 300M (0.000202 under normal, bar 0.0002), so on Wormhole only
-# forwards that keep fp32 accumulation take it. Blackhole (p300 chip, 1350 MHz, eager, 3 rounds, off -> on medians, pcc
+# Wormhole --fast with bf16 accumulation fails its bar at 300M (0.000202 under normal, bar 0.0002), so there q stays
+# bf16 (_ESMC_QKRH_Q_BF16). Blackhole (p300 chip, 1350 MHz, eager, 3 rounds, off -> on medians, pcc
 # vs fp32): 300M fast 49.80 -> 48.50 ms (-0.000004), 600M fast 76.20 -> 74.52 (+0.000022), 6B 122 both arms; normal
 # 300M / 600M under host noise (batch minima 51.6 -> 51.4, 81.2 -> 79.5), pcc -0.000025 / 0.0; fast drops vs normal
 # 0.000159 / 0.000126, so Blackhole takes it in both modes. None = that default. Only shsdpa reads block-fp8 q, k, v
 # (a KeyPad mask), so ESMFold2 (lm_sdpa_stock) is untouched.
 _ESMC_QKRH_BF8 = (env_flag("TT_BIO_ESMC_QKRH_BF8", False)
                   if os.environ.get("TT_BIO_ESMC_QKRH_BF8", "").strip() else None)
+# Wormhole --fast with bf16 accumulation keeps q bf16 and sends only k and v block-fp8 (qk_rope_heads q_dtype). Page cell
+# (esmc_ab, traced, 3 rounds, Galaxy chip at 1000 MHz), off -> k/v -> all block-fp8 medians ms, pcc drop vs normal-off
+# (bar 0.0002): 300M 85.97/86.84/85.16 -> 84.84/85.49/84.28 (0.000167) -> 83.28/83.52/83.79 (0.000202, fails);
+# 600M 121.57/121.42/122.21 -> 120.66/120.21/119.81 (0.000171) -> 119.87/119.80/120.76 (0.000170). None = that default;
+# True / False force bf16 q / block-fp8 q wherever qk_rope_heads writes block-fp8.
+_ESMC_QKRH_Q_BF16 = (env_flag("TT_BIO_ESMC_QKRH_Q_BF16", False)
+                     if os.environ.get("TT_BIO_ESMC_QKRH_Q_BF16", "").strip() else None)
 # ln_split (tt_bio/ln_split.py): the per-layer LayerNorms of a forward with few tile rows (the 6B at one sequence: 17 of
 # 72 Wormhole cores busy in ttnn.layer_norm) split each row tile over G cores. [544, 2560] device ms a call (.110,
 # trace replay): weight+bias 0.109 -> 0.085, weight 0.091 -> 0.073. Not bit-exact (rel_l2 vs float64 0.0032 against
 # 0.0019). Declines where ttnn spreads as wide (300M/600M page batches). 6B page cell, Wormhole 1000 MHz, 4 A/Bs of 3
-# rounds: normal -3.4 / -2.7 / -1.9 / -3.0 ms of ~180 (pcc vs fp32 +0.000014 / -0.000046), fast -1.2 / -2.9 ms. None = on
-# for Wormhole; ESMFold2 keeps ttnn.layer_norm (lm_ln_stock) until a fold grades it; Blackhole is not measured.
+# rounds: normal -3.4 / -2.7 / -1.9 / -3.0 ms of ~180 (pcc vs fp32 +0.000014 / -0.000046), fast -1.2 / -2.9 ms. Blackhole
+# (p300 chip, 1350 MHz, 3 rounds): 6B normal 121.7 -> 119.0 ms (pcc -0.000013), fast 117.3 -> 115.8 (+0.000076). None =
+# on; ESMFold2 keeps ttnn.layer_norm (lm_ln_stock) until a fold grades it.
 _ESMC_LN_SPLIT = (env_flag("TT_BIO_ESMC_LN_SPLIT", False)
                   if os.environ.get("TT_BIO_ESMC_LN_SPLIT", "").strip() else None)
 
@@ -268,7 +276,7 @@ def _ln(x, weight, bias, ck, memory_config=None):
     on = _ESMC_LN_SPLIT
     if on is None:
         from tt_bio import tenstorrent
-        on = tenstorrent.is_wormhole() and not tenstorrent.lever("lm_ln_stock")
+        on = not tenstorrent.lever("lm_ln_stock")
     if on:
         from tt_bio import ln_split
         y = ln_split.layer_norm(x, weight, bias, 1e-5, memory_config)
@@ -619,11 +627,14 @@ def _mm_bf16_acc(w, exact: bool = False) -> bool:
     return w.dtype == ttnn.bfloat8_b and not exact if _ESMC_MM_BF16_ACC is None else _ESMC_MM_BF16_ACC
 
 
-def _qkrh_bf8(w, exact: bool) -> bool:
-    if _ESMC_QKRH_BF8 is not None:
-        return _ESMC_QKRH_BF8
+def _qkrh_dtypes(w, exact: bool):
+    """(out_dtype, q_dtype) for qk_rope_heads: block-fp8 q, k, v, except bf16 q on Wormhole bf16-accumulation forwards."""
+    if _ESMC_QKRH_BF8 is False:
+        return None, None
     from tt_bio import tenstorrent
-    return not (tenstorrent.is_wormhole() and _mm_bf16_acc(w, exact))
+    q_bf16 = (tenstorrent.is_wormhole() and _mm_bf16_acc(w, exact) if _ESMC_QKRH_Q_BF16 is None
+              else _ESMC_QKRH_Q_BF16)
+    return ttnn.bfloat8_b, ttnn.bfloat16 if q_bf16 else None
 
 
 def _kb6_on() -> bool:
@@ -864,9 +875,10 @@ class Attention(_MMLin, Module):
                 q, k, v = self._qkv(x)
         else:
             q, k, v = self._qkv(x)
+        out_dtype, q_dtype = (_qkrh_dtypes(self.out_weight, self.mm_exact_acc) if isinstance(attn_mask, KeyPad)
+                              else (None, None))
         heads = (qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin,
-                               out_dtype=ttnn.bfloat8_b if isinstance(attn_mask, KeyPad)
-                               and _qkrh_bf8(self.out_weight, self.mm_exact_acc) else None) if _qkrh() else None)
+                               out_dtype=out_dtype, q_dtype=q_dtype) if _qkrh() else None)
         if heads is not None:
             for t in (q, k, v):
                 ttnn.deallocate(t)
