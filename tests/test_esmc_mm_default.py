@@ -169,12 +169,18 @@ def test_saprot_qkrh_default(wormhole, switch, monkeypatch):
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_fc1_gelu_f32_default(wormhole, switch, monkeypatch):
-    """SaProt's fc1 asks for approx gelu (calculate_gelu_f32 under the gelu_f32 overlay) on Wormhole; the switch overrides."""
+    """SaProt's fc1 asks for approx gelu (calculate_gelu_f32 under the gelu_f32 overlay) on Wormhole and on Blackhole --fast
+    at width >= 1280 (block-fp8 weight); the switch overrides."""
     from tt_bio import saprot
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(saprot, "_SAPROT_GELU_F32", switch)
     on = wormhole if switch is None else switch
     assert saprot._fc1_act() == ("gelu_approx" if on else "gelu")
+    for dtype in (ttnn.bfloat8_b, ttnn.bfloat16):
+        for d in (480, 1280):
+            w = types.SimpleNamespace(dtype=dtype, shape=(d, 4 * d))
+            on = (wormhole or (dtype == ttnn.bfloat8_b and d >= 1280)) if switch is None else switch
+            assert saprot._fc1_act(w) == ("gelu_approx" if on else "gelu")
 
 
 @pytest.mark.parametrize("wormhole", [True, False])
