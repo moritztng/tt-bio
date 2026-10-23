@@ -286,20 +286,22 @@ def test_lanes_give_the_designs_the_chunker_gives(width):
     assert max(n for _, _, n in net.calls) <= width
 
 
-def test_the_next_lane_launches_before_the_host_does_anything():
-    """One call in flight, and every readback is followed straight away by the next launch, so the
-    card never waits on host work (the heads, the step, the next inputs) that can run under it."""
+@pytest.mark.parametrize("n_designs", [2, 3])
+def test_the_next_lane_is_enqueued_before_a_call_is_waited_on(n_designs):
+    """Two calls in flight whenever another lane has one ready, so the card goes from one trunk
+    straight to the next while the host reads the first back and runs its heads and step."""
     net = StagedNet()
-    run(short(), n_designs=2, network=net, lane_width=1)
+    run(short(), n_designs=n_designs, network=net, lane_width=1)
     kinds = [k for k, _ in net.log]
-    in_flight = 0
+    in_flight, waits = 0, []
     for k in kinds:
         in_flight += {"launch": 1, "collect": -1}.get(k, 0)
-        assert in_flight <= 1
-    for i, k in enumerate(kinds[:-2]):
+        assert in_flight <= S.LANES_IN_FLIGHT
         if k == "collect":
-            assert kinds[i + 1:i + 3] == ["launch", "complete"], kinds[i - 2:i + 4]
-    assert kinds.count("launch") == 2 * short().nsteps
+            waits.append(in_flight + 1)
+    # every wait but the last lane's tail has the next call queued behind it
+    assert all(w == S.LANES_IN_FLIGHT for w in waits[:-1]), waits
+    assert kinds.count("launch") == n_designs * short().nsteps
 
 
 def test_a_partial_start_runs_in_lanes_too():

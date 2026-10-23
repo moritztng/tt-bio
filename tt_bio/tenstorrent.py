@@ -8774,6 +8774,25 @@ def download(t):
     return h
 
 
+def download_later(t):
+    """`download(t)` enqueued without waiting for the card: returns a function that waits for this
+    readback alone (not for work enqueued after it) and gives what `download(t)` gives. The device
+    tensor may be freed as soon as this returns."""
+    if t.layout != ttnn.TILE_LAYOUT or t.dtype not in _TORCH_DT or \
+            not _device_tilize(t.volume() * _TORCH_DT[t.dtype].itemsize):
+        host = ttnn.from_device(t, blocking=False)
+    else:
+        rm = ttnn.to_layout(t, ttnn.ROW_MAJOR_LAYOUT)
+        host = ttnn.from_device(rm, blocking=False)
+        ttnn.deallocate(rm)
+    done = ttnn.record_event(t.device())
+
+    def wait():
+        ttnn.event_synchronize(done)
+        return ttnn.to_torch(host)
+    return wait
+
+
 def require_trace_region(what):
     """Raise, naming ``what``, unless the open device reserved a trace region."""
     if _trace_region_size <= 0:
