@@ -1677,6 +1677,15 @@ T1_B8_CBS = (2, 21, 24, 25)       # a / b on their way out and the gather stagin
 # trimul_t1g8: g_out (c_19 and the DRAM tensor) bfp8. RFD4's key only; T1_G8 forces it on for the benches.
 T1_G8 = False
 T1_G8_KEYS = {(12, 16, 12)}
+# trimul_t1_fgate: p and g of a channel tile in one 2 x 2 matmul block and a = p * sigmoid(g) on the packer's SFPU in
+# DST, no p / g round trip through L1 and no FPU gate multiply (kernels/trimul_in_t1 T1FGATE). Unmasked calls with the
+# packer sigmoid only: the mask multiply has no room in a 4-tile fp32 DST half. T1_FG forces it on for the benches.
+T1_FG = False
+T1_FG_KEYS = {(12, 16, 12)}
+
+
+def t1_fgate(key, mask, fg=False):
+    return bool(fg or T1_FG) and key in T1_FG_KEYS and mask is None and _t1_psig() and not RNE & 1
 
 
 def t1_cb_b8(i, w8, b8):
@@ -1814,11 +1823,12 @@ def t1_w8(wpT, wgT, wgo):
 
 
 def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, b8=False, group=0, ln1=0, xn=None,
-              split=False, mcast=False):
+              split=False, mcast=False, fg=False):
     """The program of channel group `group` of the T1_PLANS entry for this call, `il` row tiles per item.
     `ln1` (T1_LN1): 1 the launch also writes xn into `xn`, 2 it reads xn as `x` and runs no layer_norm.
     `split` (T1_SPLIT): the reader gathers the even channel tiles. `mcast` (T1_MCAST): core (0, 0) reads the
-    weights and multicasts them; the entry's "mc" common args and "sems" go with every launch."""
+    weights and multicasts them; the entry's "mc" common args and "sems" go with every launch. `fg` (t1_fgate):
+    the gate is fused in DST."""
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
@@ -1869,7 +1879,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, group * qn, ct2, il],
-        defines=abl + xout + pre + sp, runtime_args=cp,
+        defines=abl + xout + pre + sp + ([("T1FGATE", "1")] if fg else []), runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
@@ -1883,13 +1893,14 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     return {"kernels": [reader, writer, compute], "cbs": cbs, "mc": mc, "sems": sems}
 
 
-def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False, g8=False):
+def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False, g8=False, fg=False):
     """`[a, b, g_out]` of the trimul input side from the raw pair `x`, one kernel:
     xn = layer_norm(x; ln_w, ln_b, eps), [a | b] = (xn @ wpT^T) * sigmoid(xn @ wgT^T), `a` times
     the pair mask when `mask` is given, both [B, C, S, S] (gin_moved's layout), and
     g_out = xn @ wgo as [*x.shape[:-1], N]. None when T1 is off or does not cover the call;
     nothing is allocated then. `x` is not touched. `b8` (or T1_B8) writes a and b as bfp8, `g8` (or T1_G8) g_out
-    at the T1_G8_KEYS (whole tiles: compute packs c_19 as bfp8, the writer moves 1088-byte pages)."""
+    at the T1_G8_KEYS (whole tiles: compute packs c_19 as bfp8, the writer moves 1088-byte pages), `fg` (or T1_FG)
+    the gate fused in DST (t1_fgate)."""
     from . import ops
     fid, approx, _, full = ckc
     if ops.taping() or dest_guard.exposed_args((fid, approx, True, full)):
@@ -1917,18 +1928,19 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
     g8 = bool(g8 or T1_G8) and pkey in T1_G8_KEYS
+    fg = t1_fgate(pkey, mask, fg) and groups == 1
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab),
             alloc(shp[:-1] + [int(wgo.shape[-1])], ttnn.bfloat8_b if g8 else ttnn.bfloat16)]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
         entry = _CACHE.get(key + (g, ln1))
         if entry is None:
             entry = _CACHE[key + (g, ln1)] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask,
-                                                       eps, il, nb, b8, g, ln1, xn, split, mcast)
+                                                       eps, il, nb, b8, g, ln1, xn, split, mcast, fg)
         reader, writer, _ = entry["kernels"]
         src = xn if ln1 == 2 else x
         reader.common_runtime_args = [src.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
