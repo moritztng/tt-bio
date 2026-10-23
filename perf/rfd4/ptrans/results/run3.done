@@ -1,0 +1,22 @@
+start chip 0 main 83fb59bcbf247b34d488f4992a50acc8afb982c6 o 3f056969c ot1 bcdcf935fc582aa77a22ac0a6446d6ea57d13662 py /home/ttuser/tt-bio-dev/env/bin/python 2026-10-23T00:33:11Z load 6.27
+512-main1 rc=0 /home/ttuser/scratch/ptrans/run3/main {'median': 629.671, 'min': 628.914, 'capture_s': 0.07} {'0': {'min': 1231, 'max': 1350, 'median': 1325, 'n': 20}} 2026-10-23T00:34:01Z load 7.19
+512-o1 rc=0 /home/ttuser/scratch/ptrans/run3/o {'median': 614.569, 'min': 611.816, 'capture_s': 0.06} {'0': {'min': 1275, 'max': 1350, 'median': 1325, 'n': 18}} 2026-10-23T00:34:50Z load 6.86
+512-ot11 rc=0 /home/ttuser/scratch/ptrans/run3/ot1 {'median': 612.376, 'min': 611.359, 'capture_s': 0.06} {'0': {'min': 1275, 'max': 1350, 'median': 1312, 'n': 19}} 2026-10-23T00:35:39Z load 5.65
+identity /home/ttuser/scratch/ptrans/run3/512-o1.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+identity /home/ttuser/scratch/ptrans/run3/512-ot11.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+512-main2 rc=0 /home/ttuser/scratch/ptrans/run3/main {'median': 626.59, 'min': 625.124, 'capture_s': 0.06} {'0': {'min': 1212, 'max': 1350, 'median': 1331, 'n': 16}} 2026-10-23T00:36:25Z load 5.72
+512-o2 rc=0 /home/ttuser/scratch/ptrans/run3/o {'median': 612.02, 'min': 611.151, 'capture_s': 0.07} {'0': {'min': 1275, 'max': 1350, 'median': 1318, 'n': 16}} 2026-10-23T00:37:22Z load 5.76
+512-ot12 rc=0 /home/ttuser/scratch/ptrans/run3/ot1 {'median': 613.06, 'min': 612.513, 'capture_s': 0.06} {'0': {'min': 1225, 'max': 1350, 'median': 1331, 'n': 18}} 2026-10-23T00:38:10Z load 6.38
+identity /home/ttuser/scratch/ptrans/run3/512-o2.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+identity /home/ttuser/scratch/ptrans/run3/512-ot12.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+256-main1 rc=0 /home/ttuser/scratch/ptrans/run3/main {'median': 192.179, 'min': 191.797, 'capture_s': 0.06} {'0': {'min': 1225, 'max': 1350, 'median': 1343, 'n': 11}} 2026-10-23T00:38:33Z load 6.92
+256-o1 rc=0 /home/ttuser/scratch/ptrans/run3/o {'median': 189.241, 'min': 188.37, 'capture_s': 0.06} {'0': {'min': 1250, 'max': 1350, 'median': 1343, 'n': 11}} 2026-10-23T00:38:52Z load 6.46
+256-ot11 rc=0 /home/ttuser/scratch/ptrans/run3/ot1 {'median': 188.884, 'min': 188.627, 'capture_s': 0.06} {'0': {'min': 1281, 'max': 1350, 'median': 1337, 'n': 11}} 2026-10-23T00:39:10Z load 7.05
+identity /home/ttuser/scratch/ptrans/run3/256-o1.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+identity /home/ttuser/scratch/ptrans/run3/256-ot11.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+256-main2 rc=0 /home/ttuser/scratch/ptrans/run3/main {'median': 192.676, 'min': 192.092, 'capture_s': 0.06} {'0': {'min': 1306, 'max': 1343, 'median': 1337, 'n': 9}} 2026-10-23T00:39:28Z load 6.51
+256-o2 rc=0 /home/ttuser/scratch/ptrans/run3/o {'median': 188.516, 'min': 188.313, 'capture_s': 0.06} {'0': {'min': 1287, 'max': 1350, 'median': 1325, 'n': 9}} 2026-10-23T00:39:44Z load 6.24
+256-ot12 rc=0 /home/ttuser/scratch/ptrans/run3/ot1 {'median': 188.947, 'min': 188.739, 'capture_s': 0.06} {'0': {'min': 1331, 'max': 1350, 'median': 1343, 'n': 9}} 2026-10-23T00:40:00Z load 5.81
+identity /home/ttuser/scratch/ptrans/run3/256-o2.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+identity /home/ttuser/scratch/ptrans/run3/256-ot12.pt {'s': True, 'z': True, 'call_s': True, 'call_z': True}
+end 2026-10-23T00:40:01Z load 5.81
