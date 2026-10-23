@@ -15,7 +15,7 @@ them into the JSON `title` and `subtitle` and into the page's `<title>` and meta
 hand-written fifth copy would only go stale.
 
 `index.html` is the landing page. Its bar chart reads the same JSON and derives the same three
-metrics. The hero is static text: "4×" is the median, over every published row, of a Galaxy
+metrics. The hero is static text: "5×" is the median, over every published row, of a Galaxy
 Blackhole's throughput per dollar of purchase price against a DGX B200's, rounded to a whole number,
 and the h1 fraction is its reciprocal. The lede names two example models in `<b>` (OpenFold3 and
 Boltz-2), and each must reach a DGX B200's throughput on its own. `render_check.js` recomputes all of
