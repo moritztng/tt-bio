@@ -19,6 +19,7 @@ import os
 import re
 import signal
 import threading
+import time
 
 GRANT_ENV = "TT_VISIBLE_DEVICES"
 
@@ -259,9 +260,19 @@ LIVE_LEGS: set[int] = set()
 LIVE_LEGS_LOCK = threading.Lock()
 
 
+#: Set once the gate is stopping: a leg started after that is stopped at once, and a second signal
+#: does not cut short the grace the first one gave the legs.
+STOPPING = threading.Event()
+
+
 def track_leg(pgid: int) -> None:
     with LIVE_LEGS_LOCK:
         LIVE_LEGS.add(pgid)
+    if STOPPING.is_set():
+        try:
+            os.killpg(pgid, signal.SIGINT)
+        except (ProcessLookupError, PermissionError):
+            pass
 
 
 def untrack_leg(pgid: int) -> None:
@@ -269,21 +280,71 @@ def untrack_leg(pgid: int) -> None:
         LIVE_LEGS.discard(pgid)
 
 
-def reap_live_legs() -> list[int]:
-    """SIGKILL every leg still running, from any thread. Returns the groups it signalled."""
+#: How long a leg gets to close its chip after the gate passes it a SIGINT, before SIGKILL. A
+#: JapanFold recall of a lent chip waits ~30 s for the borrower before it resets the chip.
+REAP_GRACE_S = 20.0
+
+
+def _group_alive(pgid: int) -> bool:
+    """Whether a non-zombie process is left in `pgid`. Not killpg(pgid, 0): the fold's own exited
+    leader stays a zombie until its Popen reaps it, and reaping it here would hand that Popen rc 0."""
+    for d in os.listdir("/proc"):
+        try:
+            state, _ppid, pgrp = open(f"/proc/{d}/stat").read().rpartition(")")[2].split()[:3]
+        except (OSError, ValueError):
+            continue
+        if int(pgrp) == pgid and state != "Z":
+            return True
+    return False
+
+
+def reap_live_legs(grace: float = REAP_GRACE_S) -> list[int]:
+    """Stop every leg still running, from any thread: SIGINT so the fold closes its chip itself,
+    SIGKILL whatever is left after `grace` s. Returns the groups it signalled."""
     with LIVE_LEGS_LOCK:
         pgids = sorted(LIVE_LEGS)
         LIVE_LEGS.clear()
-    for pgid in pgids:
-        try:
-            os.killpg(pgid, signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
+    for sig in (signal.SIGINT, signal.SIGKILL):
+        for pgid in pgids:
+            try:
+                os.killpg(pgid, sig)
+            except (ProcessLookupError, PermissionError):
+                pass
+        deadline = time.monotonic() + grace
+        while sig == signal.SIGINT and time.monotonic() < deadline and any(map(_group_alive, pgids)):
+            time.sleep(0.2)
     return pgids
 
 
+#: Exit codes of a fold that something outside the gate stopped. A JapanFold recall of a lent chip
+#: SIGINTs the fold's process group (glx_elastic's give-back, the agent's lend mode) and SIGTERMs it
+#: after that. On .110 on 2026-10-23 the gates read such an exit as a failed attempt, started the
+#: next fold on the chip JapanFold was resetting, and two chips were marked dead. Callers check only
+#: an exit the gate did not cause itself: its own timeouts and stall kills also send SIGTERM.
+OUTSIDE_STOPS = frozenset({-signal.SIGINT, 128 + signal.SIGINT, -signal.SIGTERM, 128 + signal.SIGTERM})
+_BAIL: list = []   # install_teardown's handler
+
+
+def stop_if_stopped_outside(rc) -> None:
+    """End the whole gate when a fold it did not kill exited on SIGINT or SIGTERM: the chip was
+    taken back, so no further attempt may start on it. gate_fanout reruns the leg elsewhere.
+
+    With install_teardown armed the signal goes to the gate itself, whose handler stops every
+    other leg and exits from the main thread; the calling thread waits for that instead of
+    returning to its queue. Without it, KeyboardInterrupt unwinds the caller."""
+    if rc not in OUTSIDE_STOPS:
+        return
+    print(f"\na fold exited {rc} on a signal the gate did not send: its chip was taken back. "
+          f"Stopping the gate, no further attempt.", flush=True)
+    if _BAIL and signal.getsignal(signal.SIGINT) is _BAIL[0]:
+        if not STOPPING.is_set():
+            os.kill(os.getpid(), signal.SIGINT)
+        threading.Event().wait(REAP_GRACE_S + 30)
+    raise KeyboardInterrupt(f"fold exited {rc}: stopped from outside the gate")
+
+
 def install_teardown(*, exit_now=None) -> None:
-    """Make a SIGTERM or SIGHUP to the gate reach the fold it is running.
+    """Make a SIGINT, SIGTERM or SIGHUP to the gate reach the fold it is running, and end the gate.
 
     `os._exit` after reaping rather than an orderly shutdown, on purpose: a raised exception
     only unwinds the thread the signal landed on, which is the one thread NOT running a leg.
@@ -294,15 +355,20 @@ def install_teardown(*, exit_now=None) -> None:
     atexit.register(reap_live_legs)
 
     def bail(signum, _frame):
+        if STOPPING.is_set():
+            return                      # already stopping, in this handler further down the stack
+        STOPPING.set()
         left = reap_live_legs()
         if left:
             print(f"\nsignal {signum}: killed {len(left)} leg(s) still on a card "
                   f"({', '.join(map(str, left))}). Finished cells are in the report; fold them "
                   f"in with --record-from.", flush=True)
         exit_now(128 + signum)
+        STOPPING.clear()                # only reached when a test passes an exit_now that returns
 
     for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         try:
             signal.signal(sig, bail)
         except (ValueError, OSError):
             pass          # not the main thread, or no such signal here
+    _BAIL[:] = [bail]
