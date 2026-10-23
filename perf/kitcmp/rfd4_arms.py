@@ -32,7 +32,7 @@ SCREEN_BATCH = {128: 8, 256: 4, 512: 2}
 # A fixed ladder stopping at 16/8/4 is not "its best": at 512 x b2 the B200 held 8.5 GiB of ~180 GiB and the
 # rate was still climbing at the top rung, so the ladder would have set NVIDIA's number instead of the card.
 # Double until the card actually pushes back -- a failed/OOM rung, or two rungs that buy nothing.
-SWEEP_CEIL = {128: 2048, 256: 512, 512: 256}
+SWEEP_CEIL = {128: 2048, 192: 1024, 224: 1024, 256: 512, 320: 512, 512: 256}
 # Every session-4 climb ended ON its ceiling while still gaining (128 +2.8 %, 256 +2.1 %, 512 +2.4 % on the
 # last doubling), so those rates were our cost guard's number and not the card's, and all three errors ran in
 # OUR favour. Raised for session 5 (D-fairgpu-06). The real stop is the stall rule above -- two rungs that buy
@@ -81,6 +81,12 @@ def summarise(recs):
             "sm_mhz_median": statistics.median(mhz) if mhz else None}
 
 
+def ceil(size):
+    """Widest rung a size may be climbed to. A size with no entry falls back to the next larger one's,
+    so an added size is bounded by a ceiling that was measured, never by an unbounded climb."""
+    return SWEEP_CEIL.get(size) or SWEEP_CEIL[min((s for s in SWEEP_CEIL if s >= size), default=max(SWEEP_CEIL))]
+
+
 def time_left(margin=600):
     return time.time() < a.deadline - margin
 
@@ -97,7 +103,7 @@ def climb(arm, size, warm, tag, seed=None, on_rung=None, start=1):
     """
     seed = {int(k): v for k, v in (seed or {}).items()}
     sweep, best_rate, stall, b = {}, 0.0, 0, start
-    while b <= SWEEP_CEIL[size] and time_left():
+    while b <= ceil(size) and time_left():
         if b in seed:
             s = seed[b]
             print(f"climb {arm}@{size}: b{b} reused from this box's earlier sweep ({s.get('status')})",
@@ -119,8 +125,8 @@ def climb(arm, size, warm, tag, seed=None, on_rung=None, start=1):
                 break
         b *= 2
     else:
-        if b > SWEEP_CEIL[size] and stall == 0:
-            print(f"climb {arm}@{size}: hit the configured ceiling b{SWEEP_CEIL[size]} while still gaining "
+        if b > ceil(size) and stall == 0:
+            print(f"climb {arm}@{size}: hit the configured ceiling b{ceil(size)} while still gaining "
                   f"-- the ceiling, not the card, bounded this", flush=True)
     return sweep
 
