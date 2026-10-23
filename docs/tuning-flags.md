@@ -922,7 +922,10 @@ spread and the binder grade passes. The pair stream itself is bf16 between subla
 `pair_tail` and `pair_block` read it and write it in place, rounding once per write, which takes a 512-token design
 from 40.7 to 34.9 s (1281-1318 MHz) with the trunk pass 1.20x faster at 512 tokens and 1.14x at 256; on 31
 seed-matched 512-token designs the designed chain moves 3.3 A median against a 38.1 A seed-to-seed spread and the
-binder grade passes. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
+binder grade passes. From 288 tokens `pair_tail` reads the contraction's channel-major output itself
+(`pair_tail_cm`), so the triangle no longer moves it back to the pair layout: bit-identical, the trunk pass 1.015x
+faster at 384 and 512 tokens (1325-1350 MHz). At 256 it would lose 2-6 %, so it steps aside there.
+`TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
 Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off

@@ -1409,6 +1409,11 @@ def t1_rows(plan_il, units, ncores):
     return plan_il // balance_split(units, ncores) if plan_il == 32 else plan_il
 
 
+# RFD4's pair_tail on the bf16 stream (`pair_tail_cm`) reads channel-major from this many tokens. qb2 p300c chip, paired
+# traced trunk vs pair_tail after the move (state/rfd4/bets/tailcm.md): 512 1.015-1.017x, 384 1.015x; 256 loses at
+# every part count (P 1 0.94x, P 2 0.92x, P 4 0.98x), where 64 (it, jt) units leave half of 110 cores idle.
+T2CM_STREAM16_MIN_N = 288
+
 # A/B knob: the fewest row parts T2CM splits each (it, jt) block into; 0 = balance_split's choice
 # (production). Each part's rows compute exactly as in the whole block, so the choice is bit-exact
 # (bht1f: identical CIFs at 512 on both models, OpenBind-0 --fast -0.14 s on p150a).

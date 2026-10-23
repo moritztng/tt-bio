@@ -864,7 +864,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
 # RFD4's own set (rfd4.trunk.NORMAL_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms, pair_write_res,
-# trimul_bres_hifi2 and pair_bf16z, graded on RFD4's designs.
+# trimul_bres_hifi2, pair_bf16z and pair_tail_cm, graded on RFD4's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
@@ -10796,8 +10796,9 @@ class TriangleMultiplication(Module):
                and x_norm_in is not None)
         cm_ex = ((self.p_out_bias, self.g_out_bias, fused_residual[0], True) if af2 else None)
         # `pair_tail_cm` (RFD4, bf16 pair stream): pair_tail reads that chunk the same way and adds into x_in.
-        cm16 = (stream32 is x_in and lever("pair_tail_cm") and H >= _trimul_tail.MIN_N and not add_to_input
-                and not ops.taping() and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None)
+        cm16 = (stream32 is x_in and lever("pair_tail_cm") and H >= _trimul_tail.T2CM_STREAM16_MIN_N
+                and not add_to_input and not ops.taping() and self.p_out_bias is None
+                and _trimul_tail.t2cm_fit(self.out_p_weight) is None)
         cm_on = (cm16 or (af2 and not ops.recording() and H >= _trimul_tail.MIN_N)
                  or (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
                      and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()

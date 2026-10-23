@@ -134,7 +134,9 @@ def test_rfd4_bf16_stream_form(monkeypatch):
     monkeypatch.setattr(T, "arch_name", lambda: "blackhole")
     monkeypatch.setattr(TTL, "T2", False)
     monkeypatch.setattr(TTL, "T2CM", False)
+    from tt_bio.rfd4 import trunk
     assert "pair_tail_cm" in T.LEVERS and "pair_tail_cm" not in T.NORMAL_LEVERS
+    assert "pair_tail_cm" in trunk.NORMAL_LEVERS
     a = _args(K=256, N=384)
     assert TTL.t2cm_eligible(**a, stream16=True) == "off"
     with T.levers("pair_tail_cm"):
@@ -145,3 +147,4 @@ def test_rfd4_bf16_stream_form(monkeypatch):
     with T.levers("trimul_t2,trimul_t2cm"):
         assert TTL.t2cm_eligible(**a) == "key=8x12"                    # no other model's T2CM eligibility moves
     assert TTL._t2cm_parts(torch.zeros(256, 384)) == 1
+    assert TTL.MIN_N < TTL.T2CM_STREAM16_MIN_N <= 384     # 256 tokens keep the move (it loses there), 384 reads cm
