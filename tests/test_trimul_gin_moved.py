@@ -16,6 +16,8 @@ from tt_bio import tenstorrent as T
 from tt_bio import trimul_tail as TTL
 from tt_bio.af2 import compute_kernel_config
 
+pytestmark = pytest.mark.device
+
 CZ, C = 256, 128    # protenix-v2's c_z; one chunk of a and of b
 
 

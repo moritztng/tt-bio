@@ -567,14 +567,17 @@ class PairUpdate(Module):
                               low=self.dtype)
         if xs is not x:
             ttnn.deallocate(xs)
-        subs = ((lambda h: _per_design(self.tri_out, h, pair_mask), False),
-                (lambda h: _per_design(self.tri_in, h, pair_mask), False),
+        # pair_batch: the triangle multiplication takes the sample batch whole and picks its route on the batch's rows
+        whole = int(z.shape[0]) == 1 or lever("pair_batch")
+        run_tri = (lambda t, h: t(h, pair_mask)) if whole else (lambda t, h: _per_design(t, h, pair_mask))  # noqa: E731
+        subs = ((lambda h: run_tri(self.tri_out, h), False),
+                (lambda h: run_tri(self.tri_in, h), False),
                 (lambda h: self._transition(h, pair_mask_c), True))
         # `pair_bf16z`: a bf16 stream is its own copy (zb is z), which the fused programs below write in place
         fused = zb is not z or lever("pair_bf16z")
         for sub, own_mask in subs:
             u = None
-            if not own_mask and pair_mask is None and fused and int(z.shape[0]) == 1 and lever("pair_tail"):
+            if not own_mask and pair_mask is None and fused and whole and lever("pair_tail"):
                 # no padded token: the triangle's output tail adds into the pair stream in the same program,
                 # z and zb written in place
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
@@ -658,11 +661,15 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: 512 tokens 26.48 -> 25.76 s a design (1.028x), 384 1.018x; at 256 pairing 8-row items would unbalance the cores,
 #: so T1 keeps bf16 there (trimul_tail.t1_pair_free, bit-identical). 31 designs at 512: designed chain 2.24 A median
 #: against a 38.8 A seed floor, binder grade PASS (state/rfd4/bets/t1s.md).
+#: `pair_batch` runs the triangle multiplication on a sample batch as one call routed on the batch's pair rows (128
+#: tokens at width 16 takes 512's route) where it ran one call per design; at width 1 it changes nothing. 128 tokens
+#: at width 16: 4.34 -> 2.27 s/design on whole designs; the designed chain moves 0.07 A median against a 5.4 A seed
+#: floor, binder grade PASS (state/rfd4/bets/b128.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
-                           "pair_tail_cm", "trimul_t1b8"})
+                           "pair_tail_cm", "trimul_t1b8", "pair_batch"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 

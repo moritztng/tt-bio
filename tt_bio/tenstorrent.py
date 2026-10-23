@@ -851,6 +851,9 @@ _FAST_MODE = False
 #                   (state/rfd4/bets/bf16z.md)
 #   pair_tail_cm    with pair_bf16z, RFD4's pair_tail reads the contraction's channel-major [1, C, S, S] output itself
 #                   (T2CM's gather), so `reblock_permute_back` never runs. A pure data move: bit-exact against pair_tail
+#   pair_batch      RFD4's triangle multiplication on a sample batch as one call instead of one per design: the route
+#                   (L1 or DRAM, T1, pair_tail_small) is chosen on the batch's pair rows, so 16 designs of 128 tokens
+#                   run the route one 512-token design takes (state/rfd4/bets/b128.md)
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -868,7 +871,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
-           "pair_tail_cm")
+           "pair_tail_cm", "pair_batch")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -892,7 +895,7 @@ UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_sp
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
                              "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
-                             "pair_tail_cm"})
+                             "pair_tail_cm", "pair_batch"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -2196,6 +2199,13 @@ def _triangle_mul_memory_config(seq_len: int) -> ttnn.MemoryConfig:
     if seq_len >= _trimul_tail.MIN_N and lever("trimul_t1_dram") and _trimul_tail.t1_any():
         return ttnn.DRAM_MEMORY_CONFIG
     return ttnn.L1_MEMORY_CONFIG if seq_len <= _trimul_l1_max_seq() else ttnn.DRAM_MEMORY_CONFIG
+
+
+def _trimul_route_n(seq_len: int, batch: int) -> int:
+    """The token count the trimul's route is chosen on. Under `pair_batch` (RFD4) a batch of b designs of n tokens has
+    the pair rows of one design of n * sqrt(b) tokens, and its row ops (T1, the tail) fill the grid as that design's do;
+    the contraction stays per design. Otherwise n."""
+    return int(seq_len * batch ** 0.5) if batch > 1 and lever("pair_batch") else seq_len
 
 
 def _trimul_chunk_size(seq_len: int, hidden: int, batch: int = 1) -> int:
@@ -10190,7 +10200,8 @@ class TriangleMultiplication(Module):
         the mask past the move, no biases, no tape. Every decline is counted in T1_STATS[1].
         """
         TT1 = _trimul_tail
-        if not TT1.t1_any() or H < TT1.MIN_N:
+        Hr = _trimul_route_n(H, prod(shp[:-3]))
+        if not TT1.t1_any() or Hr < TT1.MIN_N:
             return None
         mask_ok = mask is None or (_TRIMUL_MASK_AFTER_MOVE and len(mask.shape) == 3)
         why = next((k for k, bad in (
@@ -10200,7 +10211,7 @@ class TriangleMultiplication(Module):
             ("g_out_bias", lambda: self.g_out_bias is not None), ("mask", lambda: not mask_ok),
             ("move", lambda: not (self.gated_move or _TRIMUL_MASK_AFTER_MOVE)),
             ("chunking", lambda: H > SEQ_LEN_MORE_CHUNKING),
-            ("not_dram", lambda: _triangle_mul_memory_config(H).buffer_type != ttnn.BufferType.DRAM),
+            ("not_dram", lambda: _triangle_mul_memory_config(Hr).buffer_type != ttnn.BufferType.DRAM),
             ("host_concat", lambda: _host_concat(x))) if bad()), None)
         if why:
             TT1.T1_STATS[1] += 1
@@ -10647,10 +10658,11 @@ class TriangleMultiplication(Module):
                         ttnn.deallocate(x_norm_in)
                     x_norm_in, row_norm = None, True
         dram_peak(f"trimul({'end' if self.ending else 'start'}) x_norm_in [z={'x'.join(str(d) for d in x.shape)}]")
-        memory_config = _triangle_mul_memory_config(H)
         # Every L1 tensor the channel loop holds is [batch, chunk, H, H], so the width
         # budget has to see the batch a confidence head arrives with, not just H.
         batch = prod(shp[:-3])
+        Hr = _trimul_route_n(H, batch)
+        memory_config = _triangle_mul_memory_config(Hr)
         large_seq = memory_config.buffer_type == ttnn.BufferType.DRAM
         # The output the channel chunks are written into (`_TRIMUL_BACK_INTO`) is a second
         # pair-sized tensor beside the whole input norm. Made lazily at the first chunk it was
@@ -10659,7 +10671,7 @@ class TriangleMultiplication(Module):
         # not fit beside the norm, drop the norm for the row blocks, which do not hold one.
         x_out_pre, keep_chunks = None, False
         if (large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES
-                and not _host_concat(x)):
+                and not _host_concat(x) and Hr == H):
             from tt_bio.size_limits import is_alloc_refusal
             while x_out_pre is None and not keep_chunks:
                 try:
@@ -11191,7 +11203,7 @@ class TriangleMultiplication(Module):
                             x_out_pre = None
                         if x_out is None:
                             x_out = ttnn.allocate_tensor_on_device(
-                                ttnn.Shape([1, H, H, self._hidden]), x_chunk.dtype,
+                                ttnn.Shape([int(x_chunk.shape[0]), H, H, self._hidden]), x_chunk.dtype,
                                 ttnn.TILE_LAYOUT, self.device, back_mc)
                         if (c_done + int(x_chunk.shape[1]) == self._hidden and self._t2_serves(
                                 g_out_fused, x_norm_in, H, add_to_input)
@@ -11453,7 +11465,7 @@ class TriangleMultiplication(Module):
             else:
                 if not cm_off:
                     x_out = ttnn.allocate_tensor_on_device(
-                        ttnn.Shape([1, H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
+                        ttnn.Shape([int(x_cm.shape[0]), H, H, self._hidden]), x_cm.dtype, ttnn.TILE_LAYOUT, self.device, cm_mc)
                 _reblock.reblock_permute_back(x_cm, cm_mc, out=x_out, c_off=cm_off)
             ttnn.deallocate(x_cm)
             x_cm = None
@@ -11489,7 +11501,7 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
-        if (stream32 is not None and g_out_fused is None and x_norm_in is not None and H < _trimul_tail.MIN_N
+        if (stream32 is not None and g_out_fused is None and x_norm_in is not None and Hr < _trimul_tail.MIN_N
                 and not x_normed and not add_to_input and self.p_out_bias is None and self.g_out_bias is None
                 and not ops.taping() and lever("pair_tail_small")):
             # Below T1's floor the chain keeps the input side; g_out is the same projection the tail below
