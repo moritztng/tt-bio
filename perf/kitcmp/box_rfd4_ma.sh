@@ -8,6 +8,10 @@
 # Everything lands under /root/kc/rfd4 and rfd4_session.sh pulls that directory every few minutes, so a box that
 # dies mid-way still leaves every finished arm behind.
 set -u
+# The single-GPU B200 market was empty on 2026-10-23, so this session may land on a 2x or 4x box. The gated
+# number is one GPU with no tensor parallelism (PROTOCOL.md section 7), so pin the run to GPU 0 and log that
+# GPU alone; the rest of the board stays idle and is not part of any rate published from here.
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
 CAP_H=${1:-5}; T0=$(date +%s); DEADLINE=$(python3 -c "print(int($T0 + $CAP_H*3600 - 900))")
 SHA=${RFD4_SHA:-2db07bb444d91695f8c10e6acb7648e9297f9221}
 B=/root/kc/rfd4; mkdir -p $B; cd /root/kc
@@ -72,11 +76,11 @@ PY
 fi
 say "import gate: $(tail -1 $B/import-gate.log)"
 /opt/rfd4-venv/bin/python -m pip freeze > $B/pip-freeze.txt 2>&1
-nvidia-smi -q > $B/nvidia-smi-q.txt 2>&1
+nvidia-smi -q -i 0 > $B/nvidia-smi-q.txt 2>&1
 { uname -a; nproc; free -g; df -h /; } > $B/census.txt 2>&1
 
 # --- the clock logger, alive for the life of the box (a logger that dies leaves the rerun unclocked) -----------
-nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,utilization.memory,clocks_event_reasons.active,memory.used \
+nohup nvidia-smi -i 0 --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,utilization.memory,clocks_event_reasons.active,memory.used \
   --format=csv,noheader -l 1 >> $B/smi.csv 2>&1 &
 echo $! > $B/smi.pid
 
