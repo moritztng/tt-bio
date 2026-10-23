@@ -7,7 +7,7 @@ One lane of `--width` designs (`max_parallel_samples = width`), one warm-up batc
 piece is wrapped with `ttnn.synchronize_device` before and after, so its time is its own host work plus the device
 work it enqueued, and nothing overlaps: pieces sum to the wall. Nested pieces are charged exclusively (the pair build
 uploads its inputs; those count as upload, not pair). Pieces: prepare, cond (FlowNetwork), heads (FlowGlue), pair
-(PairOnCard, the pair built on the card), upload (every host->device tensor), trunk (Trunk.__call__: what the
+(PairOnCard: host prep; pair_kernel is the one program, from_torch its row-major inputs), upload (every host->device tensor), trunk (Trunk.__call__: what the
 census profiles, plus its own masked copies and clones), download (readback + untilize), decode (autoencoder);
 `rest` is the wall minus all of them (sampler step, padding, glue). The syncs cost a round trip each, so the wall
 here is not the lane wall; the per-piece numbers are what count. Compare `trunk` with the census at this clock.
@@ -32,6 +32,7 @@ import ttnn  # noqa: E402
 import clocksample  # noqa: E402
 
 ACC = defaultdict(float)
+SIZES = defaultdict(lambda: defaultdict(lambda: [0, 0.0]))  # label -> MB bucket -> [count, s]
 CALLS = defaultdict(int)
 STACK: list = []
 DEV = []
@@ -51,6 +52,11 @@ def timed(owner, name, label):
             dt = time.perf_counter() - t0
             child = STACK.pop()
             ACC[label] += dt - child
+            if label in ("upload", "from_torch") and a and hasattr(a[0], "numel"):
+                mb = a[0].numel() * a[0].element_size() / 2**20
+                key = "<1" if mb < 1 else f"{int(mb)}"
+                SIZES[label][key][0] += 1
+                SIZES[label][key][1] += dt - child
             CALLS[label] += 1
             if STACK:
                 STACK[-1] += dt
@@ -82,6 +88,9 @@ def main():
     timed(TT, "upload", "upload")
     timed(T, "upload", "upload")
     timed(T, "download", "download")
+    from tt_bio import pair_build as PB
+    timed(PB, "pair_build", "pair_kernel")
+    timed(ttnn, "from_torch", "from_torch")
     timed(T.Trunk, "__call__", "trunk")
     timed(E.DesignEngine, "decode", "decode")
 
@@ -92,6 +101,7 @@ def main():
     for rep in range(a.reps + 1):
         ACC.clear()
         CALLS.clear()
+        SIZES.clear()
         with clocksample.during(period=1.0) as clk:
             t0 = time.perf_counter()
             engine.design(features, num_designs=a.width, nsteps=nsteps, seed=a.seed + rep, rng="per_design")
@@ -101,7 +111,8 @@ def main():
         per["rest"] = round((wall - sum(ACC.values())) / a.width, 4)
         rec = {"kind": "warmup" if rep == 0 else "timed", "size": int(features["padding_mask"].shape[-1]),
                "width": a.width, "wall_s_per_design": round(wall / a.width, 4), "s_per_design": per,
-               "calls": dict(CALLS), "aiclk_mhz": cs.get("median"), "aiclk_min_mhz": cs.get("min"),
+               "calls": dict(CALLS),
+               "transfers_mb": {l: {k: [n, round(t, 4)] for k, (n, t) in d.items()} for l, d in SIZES.items()}, "aiclk_mhz": cs.get("median"), "aiclk_min_mhz": cs.get("min"),
                "load1": round(os.getloadavg()[0], 2), "sha": sha,
                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
         print(json.dumps(rec), flush=True)
