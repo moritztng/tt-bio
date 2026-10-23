@@ -14,8 +14,9 @@ fewer flagged). The ratio is PROTOCOL section 7:
 
     ratio = (32 x designs_s_p150a / 160000) / (8 x designs_s_b200 / 562154)
 
-Writes `evidence/tt-p150a.jsonl`, `FAIR.md`, `VERDICT.json` and `rows/rfd4-fair-tt.json` under
-`--state`, or with `--dry` prints what it would write.
+Writes `evidence/tt-p150a.jsonl`, `FAIR.md`, `VERDICT.json` and `rows/<--row>.json` under
+`--state`, or with `--dry` prints what it would write. A FAIR.md from a different measurement is
+kept below the new table as history.
 """
 import argparse
 import json
@@ -129,6 +130,7 @@ def main():
     ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[3]))
     ap.add_argument("--deck", help="default <state>/../biodeck/src/extra_cells.json")
     ap.add_argument("--firmware", required=True, help="the card's firmware bundle during the runs, e.g. 19.8.1 (130-core)")
+    ap.add_argument("--row", default="rfd4-fair-tt", help="the campaign row whose rows/<row>.json this writes")
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
     state = Path(a.state)
@@ -158,9 +160,9 @@ def main():
            "b200_source": str(gpu_path), "b200_complete": all(s in gpu for s in SIZES) and not gpu_short,
            "written": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     ev = [evidence_line(r) for s in SIZES if s in tt for r in tt[s]["lines"]]
-    fair = fair_md(out)
+    fair = fair_md(out, state / "FAIR.md", state / "VERDICT.json")
     row = {"status": "done" if verdict in ("PASS", "FAIL") and out["b200_complete"] else "running",
-           "part": "p150a", "firmware": a.firmware, "host": sorted({t["host"] for t in tt.values()}),
+           "part": "p150a", "fw": a.firmware, "host": sorted({t["host"] for t in tt.values()}),
            "card": sorted({t["card"] for t in tt.values()}), "sizes": list(SIZES),
            "designs_per_s": {s: tt[s]["designs_per_s"] for s in tt},
            "aiclk_mhz": {s: tt[s]["aiclk_mhz"] for s in tt},
@@ -177,7 +179,7 @@ def main():
     (state / "evidence" / "tt-p150a.jsonl").write_text("".join(json.dumps(x) + "\n" for x in ev))
     (state / "VERDICT.json").write_text(json.dumps(out, indent=1) + "\n")
     (state / "FAIR.md").write_text(fair)
-    (state / "rows" / "rfd4-fair-tt.json").write_text(json.dumps(row, indent=1) + "\n")
+    (state / "rows" / f"{a.row}.json").write_text(json.dumps(row, indent=1) + "\n")
     if verdict in ("PASS", "FAIL"):
         deck = Path(a.deck or state.parent / "biodeck" / "src" / "extra_cells.json")
         cells = {k: v for k, v in json.loads(deck.read_text()).items() if not k.startswith("rfd4.")}
@@ -211,7 +213,7 @@ def deck_cells(v, gpu_path):
     return cells
 
 
-def fair_md(v):
+def fair_md(v, old_md, old_verdict):
     L = ["# RFD4 fair number: one p150a against one B200", "",
          f"Written by `perf/rfd4/fair/verdict.py` at {v['written']}. Protocol `state/rfd4/PROTOCOL.md` (frozen).",
          f"Ratio per size = {v['formula']}; per chip that is {v['per_chip_factor']}x, so {v['bar']:.2f}x needs "
@@ -231,7 +233,22 @@ def fair_md(v):
           + ("" if v["b200_complete"] else "; it is incomplete (missing sizes or fewer than 5 batches), "
              "so every ratio here is against what it has so far") + ".",
           f"TT measure lines rejected from the evidence: {v['tt_rejected_measure_lines'] or 'none'}."]
-    return "\n".join(L) + "\n"
+    return "\n".join(L) + "\n" + history(v, old_md, old_verdict)
+
+
+def history(v, old_md, old_verdict):
+    """The previous FAIR.md, below the new one, unless it reported the same TT measurement."""
+    if not old_md.exists():
+        return ""
+    if old_verdict.exists():
+        tt = lambda x: {str(s): c["tt"] and c["tt"]["designs_per_s"] for s, c in x["sizes"].items()}
+        if tt(json.loads(old_verdict.read_text())) == tt(json.loads(json.dumps(v))):
+            old = old_md.read_text()
+            cut = old.find("\n## Earlier verdicts\n")
+            return "" if cut < 0 else old[cut:]
+    body = old_md.read_text().split("\n", 1)[1].lstrip("\n")
+    head, sep, rest = body.partition("\n## Earlier verdicts\n")
+    return f"\n## Earlier verdicts\n\n### Superseded at {v['written']}\n\n{head.rstrip()}\n" + (rest if sep else "")
 
 
 if __name__ == "__main__":
