@@ -33,6 +33,34 @@ def _tt_smi():
 TT_SMI = _tt_smi()
 
 
+#: Below this the clock, not the code, sets the time, so a number taken there is an artifact.
+#: The floor is per arch and has to be, because the two architectures have different ceilings:
+#: a Blackhole p150a/p300c bursts to 1350 and a contended one falls to 800, while a Wormhole
+#: Galaxy chip's ceiling IS 1000 (it reads 1000 throughout a fold and 500 idle). Blackhole's
+#: 1200 applied to Wormhole marks every honest Galaxy measurement `clock_artifact`, which is
+#: how a whole architecture's perf numbers get read as regressions.
+CLOCK_FLOOR_MHZ = {"blackhole": 1200, "wormhole_b0": 1000}
+#: What to assume when the arch cannot be read (no card, no sysfs): the stricter floor.
+CLOCK_FLOOR_DEFAULT_MHZ = 1200
+
+
+def clock_floor_mhz(arch=None):
+    """The AICLK below which a measurement on this card is an artifact, not a result."""
+    if arch is None:
+        try:
+            from tt_bio.tenstorrent import arch_name
+            arch = arch_name()
+        except Exception:
+            arch = None
+    return CLOCK_FLOOR_MHZ.get(arch, CLOCK_FLOOR_DEFAULT_MHZ)
+
+
+def is_clock_artifact(mhz, arch=None):
+    """True when ``mhz`` is below this arch's floor. ``None`` (nothing sampled) is not a result
+    either, but the callers differ on whether they discard it, so they keep deciding that."""
+    return mhz is not None and mhz < clock_floor_mhz(arch)
+
+
 def sample_aiclk(stop, out, *, period=2.0, load=None, power=None):
     """Append AICLK samples per device index into ``out`` until ``stop`` is set.
 

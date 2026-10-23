@@ -12,12 +12,17 @@ import torch
 import ttnn
 
 from tt_bio import tenstorrent as T
+from tt_bio import trimul_tail as TAIL
 from tt_bio.rfd4 import trunk as TR
 
 import rfd4_reference as REF
 
 BAR = 5e-2
 PCC_BAR = 0.999
+
+
+def rel_rms(a, b):
+    return ((a - b).pow(2).mean().sqrt() / b.pow(2).mean().sqrt()).item()
 
 
 def _dev(t, dev):
@@ -112,6 +117,14 @@ def test_pair_tail_residual_in_place(outgoing):
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
         zbt = _dev(zb, dev)
         got = tri(zbt, None, stream32=zt)
+    if T.arch_name() not in TAIL.T2_RES32_ARCHS:
+        # The float32-stream form declines here (wrong on Wormhole, see T2_RES32_ARCHS): nothing is written in
+        # place and the update comes back for the caller's residual, graded the same way.
+        assert not tri.took_residual and got is not zt
+        err = rel_rms(ttnn.to_torch(got).double().reshape(ref.shape), ref)
+        print(f"\npair_tail {name}: declined on {T.arch_name()}, unfused update rel_rms {err:.3e} vs float64")
+        assert err < BAR
+        return
     assert tri.took_residual and got is zt
     z_new = ttnn.to_torch(zt).double().reshape(ref.shape)
     zb_new = ttnn.to_torch(zbt).double().reshape(ref.shape)
