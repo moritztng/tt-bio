@@ -1409,20 +1409,19 @@ def t1_rows(plan_il, units, ncores):
     return plan_il // balance_split(units, ncores) if plan_il == 32 else plan_il
 
 
-# RFD4's pair_tail on the bf16 stream (`pair_tail_cm`) reads channel-major from T2CM_STREAM16_MIN_N tokens where its
-# (it, jt, part) units fill the core rounds to at least T2CM_STREAM16_BALANCE. qb2 p300c chip (110 cores), paired
-# traced trunk vs the move + pair_tail (state/rfd4/bets/tailcm.md), balance in brackets: 512 1.012-1.017x (0.93),
-# 384 1.014x (0.87), 320 1.012x (0.91); 352 0.978x (0.73), 288 0.982x (0.74), 256 0.94x (0.58, and 0.96x forced
-# to 4 parts, 0.78). The gather costs most of the move it saves, so an idle core round loses it.
-T2CM_STREAM16_MIN_N = 320
+# RFD4's pair_tail on the bf16 stream (`pair_tail_cm`) reads channel-major only where balance_split cuts its units in
+# two and the halves fill at least T2CM_STREAM16_BALANCE of the core rounds. qb2 p300c chip (110 cores), paired traced
+# trunk vs the move + pair_tail (state/rfd4/bets/tailcm.md), parts and balance in brackets: 512 1.012-1.017x in four
+# readings (P 2, 0.93), 384 1.014-1.015x (P 2, 0.87); 352 0.978x (P 2, 0.73); whole units lose or sit in the noise:
+# 448 0.991x (0.89), 320 1.012x (0.91), 288 0.982x (0.74), 256 0.94x (0.58). The gather costs most of the move it saves.
 T2CM_STREAM16_BALANCE = 0.85
 
 
 def t2cm_stream16_fits(n, ncores):
     """Whether `pair_tail_cm` takes an n-token pair on `ncores` cores (see T2CM_STREAM16_BALANCE)."""
     units = _tiles(n) ** 2
-    u = balance_split(units, ncores) * units
-    return n >= T2CM_STREAM16_MIN_N and u / (-(-u // ncores) * ncores) >= T2CM_STREAM16_BALANCE
+    u = 2 * units
+    return balance_split(units, ncores) == 2 and u / (-(-u // ncores) * ncores) >= T2CM_STREAM16_BALANCE
 
 # A/B knob: the fewest row parts T2CM splits each (it, jt) block into; 0 = balance_split's choice
 # (production). Each part's rows compute exactly as in the whole block, so the choice is bit-exact

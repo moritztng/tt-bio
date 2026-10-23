@@ -147,5 +147,5 @@ def test_rfd4_bf16_stream_form(monkeypatch):
     with T.levers("trimul_t2,trimul_t2cm"):
         assert TTL.t2cm_eligible(**a) == "key=8x12"                    # no other model's T2CM eligibility moves
     assert TTL._t2cm_parts(torch.zeros(256, 384)) == 1
-    # measured on 110 cores: wins at 320 / 384 / 512, loses at 256 / 288 / 352, so those keep the move
-    assert [n for n in (256, 288, 320, 352, 384, 512) if TTL.t2cm_stream16_fits(n, 110)] == [320, 384, 512]
+    # measured on 110 cores: wins at 384 / 512, loses or is noise at 256 / 288 / 320 / 352 / 448, so those keep the move
+    assert [n for n in (256, 288, 320, 352, 384, 448, 512) if TTL.t2cm_stream16_fits(n, 110)] == [384, 512]
