@@ -151,8 +151,8 @@ s/design is the run's wall time over two, so model load is included.
 | nanobody CDRs | 224 | `high/front_loaded` | 21.8 |
 | antibody CDRs (Fab) | 329 | `high/front_loaded` | 63.7 |
 
-Cost grows with the token count and with the recipe, not with `--num_designs`: designs are
-independent trajectories.
+Cost grows with the token count and with the recipe. A run of several designs at a small token
+count batches them on the card and is cheaper per design: see [Many designs at once](#many-designs-at-once).
 
 Partial diffusion and inverse folding, which start from an input structure instead of noise, are
 not on the CLI yet.
@@ -193,8 +193,13 @@ seed moves it 39 A, and the binder grade passes.
 
 ## Many designs at once
 
-A spec can hold any number of designs and `--num_designs` multiplies them. Locally they run one
-after another on one card. Across a fleet, each becomes its own job:
+A spec can hold any number of designs and `--num_designs` multiplies them. Locally, one card
+denoises several of a spec's designs in one batched step: as many as fit in the pair rows of one
+512-token design and at most 16: 16 up to 128 tokens, 4 at 256 and one from 363 tokens up. Each design keeps its own
+seed and trajectory. At 128 tokens a design then takes 2.3 s of card time instead of 4.9 s one at a
+time (Blackhole p300, 1318-1337 MHz median during the run, 32 designs), and a 256-token design 7.8 s.
+A batched design is not bit-identical to the same design run alone: on 31 seeds at 128 tokens the
+designed chain moves 0.08 A median against 5.4 A between seeds, and the binder grade passes. Across a fleet, each design becomes its own job:
 
 ```bash
 tt-bio design specs.yaml --model rfd4 --num_designs 32 --controller http://127.0.0.1:8765

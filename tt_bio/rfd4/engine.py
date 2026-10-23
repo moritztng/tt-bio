@@ -45,6 +45,14 @@ class DesignOutput:
     trajectory: list = field(default_factory=list)
 
 
+def auto_width(n_tokens: int) -> int:
+    """The default sample width at `n_tokens`: the most designs whose pair rows together fit in one 512-token
+    design's, 4 at 256 tokens, 1 from 363, and at most 16, the widest graded (128 tokens). The trunk's triangle multiplication takes such a batch as one
+    call on the 512-token route (`pair_batch`): at 128 tokens a design costs 2.27 s at width 16 against 4.86 s
+    alone (p300c, ~1330 MHz). A width DRAM refuses narrows by itself."""
+    return min(16, max(1, 512 ** 2 // max(1, int(n_tokens)) ** 2))
+
+
 @runtime_checkable
 class Engine(Protocol):
     """Generate designs from one featurized example."""
@@ -65,7 +73,7 @@ class DesignEngine:
 
     def __init__(self, weights: str | Path = DEFAULT_WEIGHTS, *, recipe: str = "thinking_medium",
                  tsr_k: float | None = None, adapter: str | Path | None = None,
-                 max_parallel_samples: int | None = 1):
+                 max_parallel_samples: int | None | str = "auto"):
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
@@ -92,10 +100,9 @@ class DesignEngine:
         # The bundle stores the AE under `autoencoder.`; it is byte-identical to the AE's own
         # checkpoint (699/699 tensors), which is what the AE was graded on.
         self.autoencoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("decoder",))
-        # One design per device step. At 128 tokens the pair stack already fills the grid, so
-        # the trunk took 13 % and 14 % longer per design at width 2 and 4, and the auto config of the
-        # transition's 768->3072 linear is not batch-invariant, so a batched design is not
-        # bit-identical to the same design alone (perf/rfd4/batch/sweep.py, 2026-10-21).
+        # "auto" batches as many designs a device step as `auto_width` allows. A batched design is not
+        # bit-identical to the same design alone (the token transition's matmul config moves with M), and
+        # the 31-seed grade puts the difference far under the seed floor (state/rfd4/bets/b128.md).
         self.max_parallel_samples = max_parallel_samples
         self._device = self.autoencoder.dev["decoder"].device
         from tt_bio.rfd4.pair import PairOnCard
@@ -187,7 +194,8 @@ class DesignEngine:
                     coord_cond_mask=batch.get("coord_cond_mask"), start=start, x_1=x_1,
                     guidance=guidance, save_trajectory_every=save_trajectory_every)
         out = None
-        width = resolve_sample_chunk_width(num_designs, self.max_parallel_samples)
+        cap = auto_width(n_tokens) if self.max_parallel_samples == "auto" else self.max_parallel_samples
+        width = resolve_sample_chunk_width(num_designs, cap)
         if rng == "per_design" and guidance is None and width < num_designs:
             # The chunks ChunkedNetwork would run one after another, run as interleaved lanes:
             # same designs, but the host prepares one chunk while the card runs another.
@@ -204,7 +212,7 @@ class DesignEngine:
         if out is None:
             if rng == "upstream":
                 torch.manual_seed(seed)
-            chunked = _sampler.ChunkedNetwork(network, spec, max_parallel_samples=self.max_parallel_samples)
+            chunked = _sampler.ChunkedNetwork(network, spec, max_parallel_samples=cap)
             out = _sampler.generate(spec, chunked, **args)
             #: The sample width the trajectory finished at: `max_parallel_samples`, or less where DRAM
             #: refused a chunk and the chunker halved it. A throughput number quotes this, not the cap.

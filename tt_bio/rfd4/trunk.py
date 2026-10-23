@@ -657,11 +657,15 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: write it in place, accumulating in fp32 and rounding once on the write, so z is half the bytes on every DRAM-bound
 #: pair op. Paired traced trunk at 1325-1350 MHz: 512 tokens 1.20x, 256 tokens 1.14x; 31 designs at 512 tokens 40.66 ->
 #: 34.85 s; the designed chain moves 3.3 A median against a 38.1 A seed floor, binder grade PASS (state/rfd4/bets/bf16z.md).
+#: `pair_batch` runs the triangle multiplication on a sample batch as one call routed on the batch's pair rows (128
+#: tokens at width 16 takes 512's route) where it ran one call per design; at width 1 it changes nothing. 128 tokens
+#: at width 16: 4.34 -> 2.27 s/design on whole designs; the designed chain moves 0.07 A median against a 5.4 A seed
+#: floor, binder grade PASS (state/rfd4/bets/b128.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
-                           "pair_tail_cm"})
+                           "pair_tail_cm", "pair_batch"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
