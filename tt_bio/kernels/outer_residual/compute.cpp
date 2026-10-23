@@ -12,6 +12,8 @@
 // update is never rounded to bfloat16 before the add.
 // OR_BF16 (RFD4's bfloat16 pair stream, `pair_bf16z`): z is bfloat16, the rounded sum alone goes to c_16 (bfloat16)
 // and there is no c_17.
+// OR_BFP8 (with OR_BF16, `pair_bfp8z`): z and c_16 are bfloat8_b and the packer rounds the float32 sum into its 16-value
+// blocks directly; no bfloat16 rounding first.
 #include <cstdint>
 
 #include "api/compute/common.h"
@@ -86,9 +88,11 @@ void kernel_main() {
             add_binary_tile(0, 1, 2);
 #endif
             add_binary_tile(0, 1, 0);
+#ifndef OR_BFP8
             MATH((llk_math_eltwise_unary_sfpu_init<SfpuType::bitwise_and, false>()));
             MATH((_llk_math_eltwise_unary_sfpu_params_<false>(ckernel::sfpu::orz_rne_bf16_in_place<false>, 0,
                                                              static_cast<int>(VectorMode::RC))));
+#endif
             tile_regs_commit();
             tile_regs_wait();
 #ifdef OR_BF16
