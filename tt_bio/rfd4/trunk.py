@@ -679,12 +679,16 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: 512 tokens 23.30 -> 22.09 s a design (1.055x, 1318 MHz), 384 1.047x, 256 1.073x. z rel RMS vs float64 0.053 (0.029
 #: with a bf16 stream). 31 designs at 512: designed chain 8.9 A median against a 37.5 A seed floor, binder grade PASS
 #: (state/rfd4/bets/z8.md). Unpadded calls only (`Trunk.pair_dtype`): a padded call keeps the bf16 stream.
+#: `trimul_t1_fgate`: T1's gate a = p * sigmoid(g) fused in DST, p and g of a channel tile in one 2 x 2 matmul block and
+#: never rounded to bf16 (unmasked calls at c_z 384). Paired traced trunk with pair_bfp8z: 512 tokens 22.15 -> 21.71 s
+#: a design (1.021x, 1350 MHz, two readings), 384 1.022x, 256 1.036x. z rel RMS vs float64 unchanged (0.053 at 512).
+#: 31 designs at 512: designed chain 2.50 A median against a 39.1 A seed floor, binder grade PASS (state/rfd4/bets/t1dm.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
                            "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
-                           "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z"})
+                           "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
