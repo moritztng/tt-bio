@@ -153,6 +153,10 @@ def get_residue_level_annotations(
     return residue_annots
 
 
+#: The residue-level annotations that say where a residue sits rather than what it is.
+_POSITION_ANNOTS = ("res_id", "auth_seq_id", "token_id", "within_chain_source_res_idx")
+
+
 def _token_indices(token_id: np.ndarray) -> dict:
     """{token id: ascending atom indices} in ascending token order."""
     order = np.argsort(token_id, kind="stable")
@@ -202,6 +206,11 @@ def copy_generated_coordinates_to_input(
 
     extra_atoms_mask = np.zeros(len(input_atom_array), dtype=bool)
     missing_atoms_and_indices = []
+    # A designed chain asks for the same few residue templates over and over, and building one (CCD copy,
+    # registry defaults) costs ~1 ms. Everything in it but the residue's position follows from the residue
+    # name, the missing atoms and the residue-level annotations, so build each once a call and re-set only
+    # the position on a copy.
+    templates = {}
 
     # Each token's atom indices, ascending, as `token_id == t` would select them, built once rather
     # than one full-length mask per token.
@@ -269,6 +278,20 @@ def copy_generated_coordinates_to_input(
 
             residue_annots["original_global_index"] = np.full_like(len(input_token_idx), -1, dtype=int)
 
+            position = {k: residue_annots[k] for k in _POSITION_ANNOTS if residue_annots.get(k) is not None}
+            key = (generated_res_name, tuple(missing_atoms),
+                   tuple(sorted((k, repr(v)) for k, v in residue_annots.items() if k not in position)))
+            cached = templates.get(key)
+            if cached is not None:
+                template = cached.copy()
+                for annot, value in position.items():
+                    template.set_annotation(annot, np.full(len(template), value))
+                _copy_coords_by_atom_name(
+                    generated_atom_array, generated_token_idx, template, np.ones(len(template), dtype=bool)
+                )
+                missing_atoms_and_indices.append((int(token_id), template))
+                continue
+
             # Create template for new residue type with all residue-level annotations
             template = get_empty_ccd_template(
                 ccd_code=generated_res_name,
@@ -293,6 +316,7 @@ def copy_generated_coordinates_to_input(
             annotations_to_default -= {"atom_id", "coord_to_be_noised"}
             template = default_annotations_and_conditions_from_registry(template, annotations=annotations_to_default)
             SA_SRC.set_annotation(template, SA_SRC.default_annotation(template))
+            templates[key] = template.copy()
 
             # Set coordinates from generated atom array
             _copy_coords_by_atom_name(
