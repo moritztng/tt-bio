@@ -186,10 +186,10 @@ the default.
 
 Between sublayers the pair representation is carried in bf16 rather than fp32. The fused programs read it
 and write it in place, accumulating in fp32 and rounding once on each write, so every memory-bound pair op
-moves half the bytes. On a Blackhole chip that takes a 512-token design from 40.7 to 34.9 s (1.17x, clock
-1281-1318 MHz); the trunk pass is 1.20x faster at 512 tokens and 1.14x at 256. Over 31 seed-matched
-512-token designs the designed chain moved 3.3 A median against the previous default, while a different
-seed moves it 38 A, and the binder grade passes.
+moves half the bytes. On a Blackhole chip that takes a 512-token design from 37.6 to 30.3 s (1.24x, clock
+1287-1325 MHz); the trunk pass is 1.22x faster at 512 tokens and 1.15x at 256. Over 31 seed-matched
+512-token designs the designed chain moved 2.8 A median against the previous default, while a different
+seed moves it 39 A, and the binder grade passes.
 
 ## Many designs at once
 

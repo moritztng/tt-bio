@@ -920,8 +920,8 @@ unchanged. From 288 tokens the triangle contraction runs on `bmm_res` at HiFi2 (
 designs), the 384-token trunk 1.09x, 256 unchanged; the designed chain moves 2.2 A median against a 38.1 A seed-to-seed
 spread and the binder grade passes. The pair stream itself is bf16 between sublayers (`pair_bf16z`): outer_residual,
 `pair_tail` and `pair_block` read it and write it in place, rounding once per write, which takes a 512-token design
-from 40.7 to 34.9 s (1281-1318 MHz) with the trunk pass 1.20x faster at 512 tokens and 1.14x at 256; on 31
-seed-matched 512-token designs the designed chain moves 3.3 A median against a 38.1 A seed-to-seed spread and the
+from 37.6 to 30.3 s (1287-1325 MHz) with the trunk pass 1.22x faster at 512 tokens and 1.15x at 256; on 31
+seed-matched 512-token designs the designed chain moves 2.8 A median against a 38.6 A seed-to-seed spread and the
 binder grade passes. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
