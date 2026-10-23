@@ -17,7 +17,7 @@ stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" | tee
 stamp "wait booking chip$C"
 until [ "$(python3 $HOME/spd/feed/book.py active $C 2>/dev/null)" = rfd4-perf-tri7 ]; do sleep 30; done
 exec 9>"$HOME/spd_qb2_chip$C.lock"
-flock -w 3600 9 || { stamp "flock timeout"; exit 3; }
+flock -w 14400 9 || { stamp "flock timeout"; exit 3; }
 while fuser "/dev/tenstorrent/$C" >/dev/null 2>&1; do sleep 20; done
 stamp "start tree $(cat $W/TREE_SHA 2>/dev/null) main $(cat $OLD/TREE_SHA 2>/dev/null)"
 R="--c 384 --hidden 256 --w8 --fid HiFi2"
