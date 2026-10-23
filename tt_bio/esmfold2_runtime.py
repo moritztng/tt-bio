@@ -1648,10 +1648,12 @@ _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm")
 # bar, L-RMSD +1.77 A [+0.10, +3.92] and I-RMSD +0.30 A [+0.02, +0.74], though the top-pose median is 0.56 A against a
 # 1.20 A seed floor and docking 31 -> 31 of 44. ESMFold2-Fast --fast passes the fast bar with it (qrf, 44 paired folds:
 # CA-lDDT -0.0007 [-0.0031, +0.0011], top-pose median 0.79 A vs 1.26 A floor, docking 24 -> 24), so --fast keeps it.
-# Normal mode on Wormhole also takes the --fast trimul pair (trimul_t2fold, trimul_gin_w8) with dit_shoist and
-# trunk_hifi3, A/B'd and graded as one stack. Same chip, in-process, 512 aa, repeat 3, 1000 MHz (wnx3): ESMFold2
-# 26.44 -> 25.27 s, ESMFold2-Fast 16.33 -> 15.64 s.
-_WH_NORMAL_EXTRA = "+ef2_lm_combine+lm_qk_chain+trunk_hifi3+trimul_t2fold+trimul_gin_w8+dit_shoist"
+# Normal mode on Wormhole also takes the --fast trimul pair (trimul_t2fold, trimul_gin_w8). With dit_shoist and
+# trunk_hifi3 on top the stack failed ESMFold2's normal bar on DockQ (wnsg, -0.011 [-0.022, -0.002]); each half alone
+# passed it (wnsp: gin_w8 +0.014 [-0.008, +0.045], t2fold +0.018 [+0.001, +0.044], docking 30 -> 32 of 44), and the
+# pair is graded as the stack it ships as (wnp2). The pair carries the speed (wnx3, 1000 MHz, 512 aa): ESMFold2
+# 26.44 -> 25.27 s, ESMFold2-Fast 16.33 -> 15.64 s for the four-lever stack.
+_WH_NORMAL_EXTRA = "+ef2_lm_combine+lm_qk_chain+trimul_t2fold+trimul_gin_w8"
 # lm_gate_ng keeps the 6B's SwiGLU gate on binary_ng in both modes (esmc._lm_gate_legacy, on for Wormhole elsewhere):
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
 # ef2_atom_rope is exact (rotate_half as a +-1 permutation matmul): ESMFold2-Fast 512 aa --fast CIF identical with and
