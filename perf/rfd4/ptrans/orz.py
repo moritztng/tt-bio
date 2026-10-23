@@ -21,7 +21,7 @@ ap.add_argument("--shapes", nargs="+", default=["1x512x384", "1x256x384", "1x128
 ap.add_argument("--reps", type=int, default=7)
 ap.add_argument("--inner", type=int, default=10)
 a = ap.parse_args()
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.append(str(Path(__file__).resolve().parents[3]))   # after PYTHONPATH, so an A/B tree wins
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # perf/: clocksample
 
 import torch  # noqa: E402
@@ -87,7 +87,8 @@ def main():
             print(json.dumps(r), flush=True)
             for t in (z_t, pi_t, pj4_t):
                 ttnn.deallocate(t)
-    out = dict(rows=rows, aiclk=clk.summary(), load=clk.load and max(clk.load), script="perf/rfd4/ptrans/orz.py")
+    out = dict(rows=rows, tt_bio=str(Path(O.__file__).parents[1]), aiclk=clk.summary(), load=clk.load and max(clk.load),
+               script="perf/rfd4/ptrans/orz.py")
     Path(a.out).write_text(json.dumps(out, indent=1))
     print("aiclk", clk.summary(), "load", out["load"])
 
