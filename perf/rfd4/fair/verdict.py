@@ -128,6 +128,7 @@ def main():
     ap.add_argument("--gpu", help="default <state>/evidence/gpu-b200.jsonl")
     ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[3]))
     ap.add_argument("--deck", help="default <state>/../biodeck/src/extra_cells.json")
+    ap.add_argument("--firmware", required=True, help="the card's firmware bundle during the runs, e.g. 19.8.1 (130-core)")
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
     state = Path(a.state)
@@ -152,13 +153,14 @@ def main():
 
     out = {"verdict": verdict, "bar": BAR, "per_chip_factor": round(PER_CHIP, 3),
            "formula": "(32 x designs_s_p150a / 160000) / (8 x designs_s_b200 / 562154)",
+           "p150a_firmware": a.firmware,
            "sizes": sizes, "tt_rejected_measure_lines": rejected,
            "b200_source": str(gpu_path), "b200_complete": all(s in gpu for s in SIZES) and not gpu_short,
            "written": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     ev = [evidence_line(r) for s in SIZES if s in tt for r in tt[s]["lines"]]
     fair = fair_md(out)
     row = {"status": "done" if verdict in ("PASS", "FAIL") and out["b200_complete"] else "running",
-           "part": "p150a", "host": sorted({t["host"] for t in tt.values()}),
+           "part": "p150a", "firmware": a.firmware, "host": sorted({t["host"] for t in tt.values()}),
            "card": sorted({t["card"] for t in tt.values()}), "sizes": list(SIZES),
            "designs_per_s": {s: tt[s]["designs_per_s"] for s in tt},
            "aiclk_mhz": {s: tt[s]["aiclk_mhz"] for s in tt},
@@ -195,7 +197,7 @@ def deck_cells(v, gpu_path):
                     f"{t['min']}-{t['max']} designs/s)",
             "n": t["batches"], "aiclk_mhz": statistics.median(t["aiclk_mhz"]), "batch": t["batch"],
             "versions": f"tt-bio main {t['sha'][:9]}, RFdiffusion4 thinking_medium, 60 steps / 180 trunk passes, "
-                        f"pdl1-{s} frozen spec, ttnn 0.68.0",
+                        f"pdl1-{s} frozen spec, ttnn 0.68.0, firmware {v['p150a_firmware']}",
             "when": t["date"], "card": f"{t['host']}:{t['card']} {t['board_type']}",
             "aiclk_samples": f"min {t['aiclk_min_mhz']} MHz in-run, foreign cores median <= {t['foreign_cores_median']}",
             "source": f"{t['raw']}/runs.jsonl (perf/rfd4/fair/run.py)",
@@ -214,7 +216,7 @@ def fair_md(v):
          f"Written by `perf/rfd4/fair/verdict.py` at {v['written']}. Protocol `state/rfd4/PROTOCOL.md` (frozen).",
          f"Ratio per size = {v['formula']}; per chip that is {v['per_chip_factor']}x, so {v['bar']:.2f}x needs "
          f"one p150a at >= {v['bar'] / v['per_chip_factor']:.4f}x one B200.", "",
-         f"**Verdict: {v['verdict']}** against the {v['bar']:.2f}x bar.", "",
+         f"**Verdict: {v['verdict']}** against the {v['bar']:.2f}x bar. p150a firmware: {v['p150a_firmware']}.", "",
          "| size | p150a designs/s (min-max, n) | batch | AICLK MHz (per batch) | foreign cores | card, host | main sha "
          "| B200 designs/s (arm, batch, n) | ratio |", "|---|---|---|---|---|---|---|---|---|"]
     for s, c in v["sizes"].items():
