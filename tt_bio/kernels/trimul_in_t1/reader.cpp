@@ -23,7 +23,16 @@
 #ifndef T1PRE
 #define T1PRE 0
 #endif
+// T1SPLIT (trimul_tail.T1_SPLIT): this reader also gathers and writes the launch's even [a | b] channel tiles, which
+// compute sends to c_21 (gather.hpp, as writer.cpp does the odd ones). The first two z barriers of the next unit are
+// read before this unit's gathers, so compute's next layer_norm does not wait on them.
+#ifndef T1SPLIT
+#define T1SPLIT 0
+#endif
 #include "api/dataflow/dataflow_api.h"
+#if T1SPLIT
+#include "gather.hpp"
+#endif
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
 void kernel_main() {
@@ -58,6 +67,17 @@ void kernel_main() {
     const auto mk = TensorAccessor(m_args, get_common_arg_val<uint32_t>(6));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
+#if T1SPLIT
+    constexpr uint32_t CT = get_compile_time_arg_val(m_args.next_compile_time_args_offset()) / 2;
+    constexpr uint32_t NB = get_compile_time_arg_val(m_args.next_compile_time_args_offset() + 1);
+    constexpr auto a_args = TensorAccessorArgs<m_args.next_compile_time_args_offset() + 2>();
+    constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
+    const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(7));
+    const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(8));
+    static_assert(!T1PRE, "T1SPLIT is for one-launch plans");
+    t1_gather::Gather<NB, IL, ABL, false> gather;
+    gather.init(tt::CBIndex::c_25);
+#endif
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
     constexpr uint32_t mscratch_cb = tt::CBIndex::c_3;
@@ -102,13 +122,34 @@ void kernel_main() {
     cb_push_back(beta_cb, Kt);
     if constexpr (NG) cb_push_back(wo_cb, Kt * NG);
 
+    // Row tile (b, x, yt) of z is page ((b * S + x) * St + yt) * Kt + dt (trimul_tail.t1_x_page); z_page is unit u's
+    // first row tile.
+    auto z_page = [](uint32_t u) -> uint32_t {
+        const uint32_t b = u / (St * St * H), xt = (u / (St * H)) % St, h = (u / St) % H, yt = u % St;
+        return ((b * S + xt * 32 + h * IL) * St + yt) * Kt;
+    };
+    // Rows i0 .. i1 - 1 of the unit at `page`, RB per barrier, into x_cb.
+    auto read_rows = [&](uint32_t page, uint32_t i0, uint32_t i1) {
+        page += i0 * St * Kt;
+        for (uint32_t il0 = i0; il0 < i1; il0 += RB) {
+            cb_reserve_back(x_cb, RB * Kt);
+            uint32_t dst = get_write_ptr(x_cb);
+            for (uint32_t r = 0; r < RB; ++r, page += St * Kt)
+                for (uint32_t dt = 0; dt < Kt; ++dt, dst += tb)
+                    if constexpr (!(ABL & 16)) noc_async_read_page(page + dt, x, dst);
+            noc_async_read_barrier();
+            cb_push_back(x_cb, RB * Kt);
+        }
+    };
+    // Barriers of the next unit read ahead of this unit's gathers: x_cb holds two (T1SPLIT), none otherwise.
+    constexpr uint32_t PRE = T1SPLIT ? (IL / RB < 2 ? IL / RB : 2) : 0;
+
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
-        const uint32_t b = u / (St * St * H);
-        const uint32_t xt = (u / (St * H)) % St;
-        const uint32_t h = (u / St) % H;
-        const uint32_t yt = u % St;
-        // Row tile (b, x, yt) of z is page ((b * S + x) * St + yt) * Kt + dt (trimul_tail.t1_x_page).
-        uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;
+        [[maybe_unused]] const uint32_t b = u / (St * St * H);   // the mask's and the split gather's
+        [[maybe_unused]] const uint32_t xt = (u / (St * H)) % St;
+        [[maybe_unused]] const uint32_t h = (u / St) % H;
+        [[maybe_unused]] const uint32_t yt = u % St;
+        uint32_t page = z_page(u);
         if constexpr (T1PRE) {
             constexpr uint32_t xn_cb = tt::CBIndex::c_1;
             cb_reserve_back(xn_cb, IL * Kt);
@@ -118,15 +159,7 @@ void kernel_main() {
             noc_async_read_barrier();
             cb_push_back(xn_cb, IL * Kt);
         }
-        for (uint32_t il0 = 0; il0 < IL && !T1PRE; il0 += RB) {
-            cb_reserve_back(x_cb, RB * Kt);
-            uint32_t dst = get_write_ptr(x_cb);
-            for (uint32_t r = 0; r < RB; ++r, page += St * Kt)
-                for (uint32_t dt = 0; dt < Kt; ++dt, dst += tb)
-                    if constexpr (!(ABL & 16)) noc_async_read_page(page + dt, x, dst);
-            noc_async_read_barrier();
-            cb_push_back(x_cb, RB * Kt);
-        }
+        if constexpr (!T1PRE) read_rows(page, u == u0 ? 0 : PRE * RB, IL);
         if constexpr (MASK) {
             const uint32_t scratch = get_write_ptr(mscratch_cb);
             noc_async_read_page((b * St + xt) * St + yt, mk, scratch);
@@ -146,5 +179,17 @@ void kernel_main() {
             }
             cb_push_back(m_cb, IL);
         }
+#if T1SPLIT
+        if (u + 1 < u0 + nunits) read_rows(z_page(u + 1), 0, PRE * RB);
+        const uint32_t cube = xt * St + yt;
+        for (uint32_t q = Q0; q < Q0 + QN; q += 2) {
+            const uint32_t pg = (b * CT + (q < CT ? q : q - CT)) * 32 * St * St + cube;
+            if (q < CT) gather.tile(tt::CBIndex::c_21, oa, pg, h * IL, St * St);
+            else gather.tile(tt::CBIndex::c_21, ob, pg, h * IL, St * St);
+        }
+#endif
     }
+#if T1SPLIT
+    noc_async_write_barrier();
+#endif
 }

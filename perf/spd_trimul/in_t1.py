@@ -54,10 +54,21 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG", "T1_SPLIT"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
+
+
+def digest(ts):
+    """sha256 (16 hex) over the raw bytes of a, b, g_out: equal across trees means bit-identical outputs."""
+    import hashlib
+    h = hashlib.sha256()
+    for t in ts:
+        h.update(t.contiguous().view(torch.int16 if t.element_size() == 2 else torch.int32).numpy().tobytes())
+    return h.hexdigest()[:16]
+
+
 up = lambda t: ttnn.from_torch(t.to(torch.bfloat16), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 print(json.dumps({"set": A.set, "grid": grid, "ckc": [str(c) for c in ckc], "c": C, "hidden": h,
@@ -204,6 +215,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                 torch.save({k: t.reshape(ref[k].shape) for k, t in zip("abg", host)}, f"{A.save}/t1_{n}.pt")
                 A.save_n = -1
             rec["t1_finite"] = all(bool(torch.isfinite(t).all()) for t in host)
+            rec["t1_digest"] = digest(host)
             for k, t in zip("abg", host):
                 rec[f"t1_{k}_rel_rms_f64"], rec[f"t1_{k}_max_abs"] = rel(t.reshape(ref[k].shape), ref[k])
             if m is not None:
@@ -248,6 +260,7 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                     rec["w8_err"] = f"declined: {rec['w8_why']}"
                 else:
                     ttnn.synchronize_device(dev)
+                    rec["w8_digest"] = digest([ttnn.to_torch(o) for o in outs])
                     for k, o in zip("abg", outs):
                         t = ttnn.to_torch(o)
                         rec[f"w8_{k}_finite"] = bool(torch.isfinite(t).all())

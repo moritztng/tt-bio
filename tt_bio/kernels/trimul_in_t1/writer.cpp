@@ -14,6 +14,8 @@
 // T1B8 (lever trimul_t1b8): a and b leave compute as bfp8 tiles. bfp8 keeps one exponent per 16-value face row,
 // the unit this gather moves, so the re-tiling is lossless: 16 mantissa bytes per face row by NOC as before, and
 // the face row's exponent byte by a core store (64 per tile; the NOC cannot move a single unaligned byte).
+// T1SPLIT (trimul_tail.T1_SPLIT): compute sends the launch's even channel tiles to reader.cpp (c_21), which gathers
+// and writes them; this writer takes the odd ones and g_out. The gather is gather.hpp on both cores.
 #ifndef ABL
 #define ABL 0
 #endif
@@ -25,7 +27,11 @@
 #ifndef T1XOUT
 #define T1XOUT 0
 #endif
+#ifndef T1SPLIT
+#define T1SPLIT 0
+#endif
 #include "api/dataflow/dataflow_api.h"
+#include "gather.hpp"
 
 void kernel_main() {
     constexpr uint32_t CT2 = get_compile_time_arg_val(0);
@@ -60,14 +66,10 @@ void kernel_main() {
     constexpr uint32_t CT = CT2 / 2;
     constexpr uint32_t SS = St * St;
     constexpr uint32_t S = St * 32;
-    constexpr uint32_t TB = 2048, FB = 512, RB = 32;
-    // bfp8_b tile: 64 exponent bytes (face-major, one per face row), then 4 faces x 16 rows x 16 mantissa bytes.
-    constexpr uint32_t TB8 = 1088, EB = 64, FB8 = 256, RB8 = 16;
-
-    cb_reserve_back(stage_cb, 2 * NB);
-    const uint32_t stage0 = get_write_ptr(stage_cb);
-    noc_async_read_one_packet_set_state(get_noc_addr(stage0), T1B8 ? RB8 : RB);
-    bool dirty[2] = {false, false};
+    constexpr uint32_t TB = t1_gather::TB;
+    static_assert(!(T1SPLIT && T1B8), "the split gather is bf16");
+    t1_gather::Gather<NB, IL, ABL, T1B8> gather;
+    gather.init(stage_cb);
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t b = u / (SS * H);
@@ -75,11 +77,6 @@ void kernel_main() {
         const uint32_t h = (u / St) % H;
         const uint32_t yt = u % St;
         const uint32_t cube = xt * St + yt;
-        // The unit's rows r0 .. r0 + IL - 1 of each output tile: the staged tile keeps them where the output
-        // has them, so one write (IL >= 16) or one per face pair column (IL = 8) moves them.
-        const uint32_t r0 = h * IL;
-        const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;
-        const uint32_t wlen = IL == 32 ? TB : (IL == 16 ? 2 * FB : IL * RB);
 #if T1XOUT
         {
             uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;   // z's row tile pages
@@ -104,65 +101,10 @@ void kernel_main() {
                 cb_pop_front(go_cb, NG);
             }
         }
-        for (uint32_t q = Q0; q < Q0 + QN; ++q) {
-            const bool is_a = q < CT;
-            uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;
-            cb_wait_front(out_cb, IL);
-            const uint32_t src = get_read_ptr(out_cb);
-            for (uint32_t c0 = 0; c0 < 32; c0 += NB) {
-                const uint32_t grp = (c0 / NB) & 1u;
-                const uint32_t gbase = stage0 + grp * NB * TB;
-                if (dirty[grp]) noc_async_writes_flushed();
-#if T1B8
-                for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
-                    const uint32_t c = c0 + j;
-                    const uint32_t st = gbase + j * TB;
-                    // source row c of tile il: face (c >> 4) * 2 (+1 for the right half), face row c & 15
-                    const uint32_t sf = (c >> 4) * 2, sr = c & 15;
-                    volatile tt_l1_ptr uint8_t* se = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(src);
-                    volatile tt_l1_ptr uint8_t* de = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(st);
-                    for (uint32_t il = 0; il < 32; ++il) {
-                        const uint32_t df = (il >> 4) * 2, dr = il & 15;
-                        const uint32_t s0 = src + il * TB8 + EB + sf * FB8 + sr * RB8;
-                        const uint32_t d0 = st + EB + df * FB8 + dr * RB8;
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s0 + FB8, d0 + FB8);
-                        de[df * 16 + dr] = se[il * TB8 + sf * 16 + sr];
-                        de[(df + 1) * 16 + dr] = se[il * TB8 + (sf + 1) * 16 + sr];
-                    }
-                }
-#else
-                for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
-                    const uint32_t c = c0 + j;
-                    const uint32_t st = gbase + j * TB;
-                    // source row c of tile il: face (c >> 4) * 2 (+1 for the right half), face row c & 15;
-                    // destination row r0 + il, the same face arithmetic
-                    uint32_t s0 = src + (c >> 4) * 2 * FB + (c & 15) * RB;
-                    for (uint32_t il = 0; il < IL; ++il, s0 += TB) {
-                        const uint32_t r = r0 + il;
-                        const uint32_t d0 = st + (r >> 4) * 2 * FB + (r & 15) * RB;
-                        noc_async_read_one_packet_with_state(s0, d0);
-                        noc_async_read_one_packet_with_state(s0 + FB, d0 + FB);
-                    }
-                }
-#endif
-                noc_async_read_barrier();
-                for (uint32_t j = 0; j < NB; ++j, page += SS) {
-                    if constexpr (ABL & 64) continue;
-                    const uint32_t st = gbase + j * TB;
-                    if constexpr (T1B8) {
-                        noc_async_write(st, is_a ? oa.get_noc_addr(page) : ob.get_noc_addr(page), TB8);
-                    } else {
-                        const uint64_t dst = is_a ? oa.get_noc_addr(page, off0) : ob.get_noc_addr(page, off0);
-                        noc_async_write(st + off0, dst, wlen);
-                        if constexpr (IL == 8) noc_async_write(st + off0 + FB, dst + FB, wlen);
-                    }
-                }
-                dirty[grp] = true;
-            }
-            noc_async_write_barrier();
-            dirty[0] = dirty[1] = false;
-            cb_pop_front(out_cb, IL);
+        for (uint32_t q = Q0 + T1SPLIT; q < Q0 + QN; q += 1 + T1SPLIT) {
+            const uint32_t page = (b * CT + (q < CT ? q : q - CT)) * 32 * SS + cube;
+            if (q < CT) gather.tile(out_cb, oa, page, h * IL, SS);
+            else gather.tile(out_cb, ob, page, h * IL, SS);
         }
     }
     noc_async_write_barrier();
