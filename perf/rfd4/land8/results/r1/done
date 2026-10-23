@@ -1,0 +1,14 @@
+start chip 3 sha 83fb59bcbf247b34d488f4992a50acc8afb982c6 py /home/ttuser/scratch/shipflow/venv312-1384f4c1b7bf/bin/python fast=pair_bias_rms,pair_block,pair_mm,pair_mm_tr,pair_tail,pair_write_res,transition_b8,trimul_bres,trimul_bres_hifi2,trimul_gin,trimul_gin_hifi2,trimul_gin_w8,trimul_t1,trimul_t1_dram,trimul_t1_psig,trimul_t1w8 2026-10-22T22:37:26Z load 6.18
+devtests rc=0 2026-10-22T22:40:45Z load 11.89
+sbase rc=0 2026-10-22T23:07:54Z load 5.01
+smain rc=0 2026-10-22T23:32:20Z load 6.41
+sfast rc=0 2026-10-22T23:56:30Z load 6.87
+ab512 rc=0 2026-10-22T23:56:51Z load 7.63
+d128 rc=0 2026-10-22T23:57:43Z load 8.29
+d256 rc=0 2026-10-22T23:59:18Z load 5.84
+d512 rc=0 2026-10-23T00:04:07Z load 5.72
+f512 rc=0 2026-10-23T00:08:59Z load 5.15
+split512 rc=0 2026-10-23T00:12:21Z load 6.31
+census512 rc=0 2026-10-23T00:12:56Z load 7.07
+census128 rc=0 2026-10-23T00:13:31Z load 6.90
+ALLDONE 2026-10-23T00:13:31Z load 6.90

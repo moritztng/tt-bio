@@ -1,0 +1,63 @@
+{
+ "n": 512,
+ "levers": {
+  "base": [
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_psig",
+   "trimul_t1w8"
+  ],
+  "stack": [
+   "pair_bias_rms",
+   "pair_block",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_write_res",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_psig",
+   "trimul_t1w8"
+  ]
+ },
+ "tt_bio": "/home/ttuser/.coworker/wt/rfd4-land8",
+ "load_start": 7.36279296875,
+ "z_rel_rms_stack_vs_base": 0.008299829364174218,
+ "base": {
+  "pass_ms_median": 205.779,
+  "pass_ms_min": 204.997,
+  "trunk_s_per_design": 37.04
+ },
+ "stack": {
+  "pass_ms_median": 198.326,
+  "pass_ms_min": 197.832,
+  "trunk_s_per_design": 35.699
+ },
+ "paired_speedup_median": 1.0379,
+ "reps": 30,
+ "load_end": 7.63427734375,
+ "aiclk": {
+  "0": {
+   "min": 1293,
+   "max": 1350,
+   "median": 1337,
+   "n": 5
+  }
+ }
+}
