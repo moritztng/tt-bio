@@ -1,0 +1,81 @@
+{
+ "rows": [
+  {
+   "n": 256,
+   "arm": "fused_hifi4",
+   "ms": 1.0258,
+   "ms_min": 1.0002,
+   "rel_rms_vs_f64": 0.01012720194450214,
+   "digest": 121377.234375,
+   "t": "08:10:12",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "n": 256,
+   "arm": "fused_hifi2",
+   "ms": 0.6863,
+   "ms_min": 0.6723,
+   "rel_rms_vs_f64": 0.014845968167154723,
+   "digest": 120473.9296875,
+   "t": "08:10:13",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi2"
+  },
+  {
+   "n": 256,
+   "arm": "fused_lofi",
+   "ms": 0.5328,
+   "ms_min": 0.5262,
+   "rel_rms_vs_f64": 0.06309548976252619,
+   "digest": 116468.1640625,
+   "t": "08:10:15",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.LoFi"
+  },
+  {
+   "n": 512,
+   "arm": "fused_hifi4",
+   "ms": 3.908,
+   "ms_min": 3.5961,
+   "rel_rms_vs_f64": 0.010121599579356039,
+   "digest": 122048.21875,
+   "t": "08:10:16",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi4"
+  },
+  {
+   "n": 512,
+   "arm": "fused_hifi2",
+   "ms": 2.4623,
+   "ms_min": 2.3311,
+   "rel_rms_vs_f64": 0.014840151141952284,
+   "digest": 121137.125,
+   "t": "08:10:17",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi2"
+  },
+  {
+   "n": 512,
+   "arm": "fused_lofi",
+   "ms": 1.7837,
+   "ms_min": 1.7289,
+   "rel_rms_vs_f64": 0.06309998219822661,
+   "digest": 117115.421875,
+   "t": "08:10:17",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.LoFi"
+  }
+ ],
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 3
+  }
+ },
+ "load": 0.4112548828125,
+ "tree": "/home/ttuser/rfd4-relu-runs/tree-6d7a15ef9",
+ "script": "perf/rfd4/pairblock/transition.py"
+}
