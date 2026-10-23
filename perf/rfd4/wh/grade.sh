@@ -13,7 +13,8 @@ A=$HOME/scratch/rfd4-wh/${TAG:-wh}; mkdir -p $A/wh$N $A/bh$N $A/mn$N
 rsync -a ${WH:-172.16.102.103:spd/rfd4-wh/out/seeds$N/designs/} $A/wh$N/
 rsync -a tt-quietbox2:scratch/rfd4-wh-bringup/runs/${BH:-br}$N/ $A/bh$N/
 [ -z "${BH:-}" ] && rsync -a tt-quietbox2:scratch/rfd4-wh-bringup/runs/mn$N/ $A/mn$N/ 2>/dev/null
-f() { ls $A/$1/pdl1_binder_${N}_s$2_r$(($2+1))_generated.cif 2>/dev/null; }
+# by seed, not run index: a seed list split across two jobs restarts the r counter. Last run of a seed is the warm one.
+f() { ls $A/$1/pdl1_binder_${N}_s$2_r*_generated.cif 2>/dev/null | sort -V | tail -1; }
 G=$A/grade$N; P=$A/pool$N; rm -rf $G $P; mkdir -p $G $P/tt $P/ref
 for k in $(seq 0 30); do
   w=$(f wh$N $k); b=$(f bh$N $k); fl=$(f bh$N $(( (k+1)%31 )))
