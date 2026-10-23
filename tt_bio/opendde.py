@@ -496,6 +496,8 @@ TRIATT_Q10 = frozenset({"triatt_q10"})
 # 320 6.24 -> 4.09 ms (0.0289 -> 0.0265), 576 19.84 -> 17.21 ms (0.0275 -> 0.0266), 640 28.74 -> 22.71 ms (0.0279 ->
 # 0.0269), so it is faster and closer to float64 at every size it reaches. Galaxy chip, 2 paired warm folds (k1n): normal
 # 640 133.10 -> 126.80 s (-4.7 %), 576 111.85 -> 109.76 s. The 10-18 normal grade (512-token set, before k1q) FAILed on iRMSD.
+# Graded on the shipped normal set (k1g, 11 complexes x 4 seeds, native size): PASS, same-seed top pose median 0.108 A
+# (A/A floor 1.273 A), iRMSD -0.145 [-0.359, -0.005], DockQ +0.003 [+0.000, +0.007], docking 27 -> 27 of 44.
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
