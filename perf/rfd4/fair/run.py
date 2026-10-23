@@ -232,7 +232,8 @@ def main():
     card = os.environ.get("TT_VISIBLE_DEVICES")
     sha, dirty = git("rev-parse", "HEAD"), bool(git("status", "--porcelain", "--untracked-files=no"))
     base = {"part": a.part, "host": a.host, "card": card, "sha": sha, "tree_dirty": dirty,
-            "board_type": board_type(), "raw": str(out), "spec": a.spec}
+            # tt-smi walks every chip on the box, including ones other users hold, and hangs behind a dead ARC
+            "board_type": "unprobed (--shared-box)" if a.shared_box else board_type(), "raw": str(out), "spec": a.spec}
 
     def emit(rec):
         rec = {**rec, **base, "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
