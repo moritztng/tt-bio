@@ -42,11 +42,6 @@ NEG_INF = -1e4
 #: one of them multiplies by 1.0 or adds 0.0. `TT_BIO_RFD4_ELIDE_MASKS=0` builds them anyway.
 ELIDE_FULL_MASKS = env_flag("TT_BIO_RFD4_ELIDE_MASKS", True)
 
-#: Probe only, off: a bfloat16 pair stream under an fp32 token stream (`Trunk(pair_residual_dtype=)`
-#: when the caller does not say). Halves the bytes of every pair residual write; a precision change.
-PAIR_BF16 = env_flag("TT_BIO_RFD4_PAIR_BF16", False)
-
-
 def _rms(x, w, ckc):
     """RMSNorm, with or without the elementwise weight (`elementwise_affine=False` upstream)."""
     if w is None:
@@ -655,10 +650,14 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: at HiFi2 where ttnn's plan is the 2D multicast one (from 288 tokens on Blackhole; nothing changes at 256). Paired
 #: on one chip at 1331 MHz: 31 designs at 512 tokens 41.30 -> 39.77 s (1.039x), trunk pass 1.087x at 384; the
 #: designed chain moves 2.2 A median against a 38.1 A seed floor, binder grade PASS (state/rfd4/bets/tri5.md).
+#: `pair_bf16z` carries the pair stream in bf16 between sublayers: outer_residual, pair_tail and pair_block read it and
+#: write it in place, accumulating in fp32 and rounding once on the write, so z is half the bytes on every DRAM-bound
+#: pair op. Paired traced trunk at 1325-1350 MHz: 512 tokens 1.20x, 256 tokens 1.14x; 31 designs at 512 tokens 40.66 ->
+#: 34.85 s; the designed chain moves 3.3 A median against a 38.1 A seed floor, binder grade PASS (state/rfd4/bets/bf16z.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
-                           "trimul_bres", "trimul_bres_hifi2"})
+                           "trimul_bres", "trimul_bres_hifi2", "pair_bf16z"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
@@ -686,7 +685,7 @@ class Trunk(Module):
         self.nlayers = nlayers
         self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
         self.pair_residual_dtype = pair_residual_dtype or (
-            ttnn.bfloat16 if PAIR_BF16 or "pair_bf16z" in self._levers else self.residual_dtype)
+            ttnn.bfloat16 if "pair_bf16z" in self._levers else self.residual_dtype)
         with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
             self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
                                       residual_dtype=self.residual_dtype)
