@@ -9,6 +9,8 @@
 // writer only gets block b after compute popped this read, and other blocks are other rows.
 // GATE 1: the g accessor is xb (the trimul's input norm, Kt tiles per row tile) and goes to c_6; Wg
 // follows Wp in c_1 (compute_ln.cpp computes g itself).
+// T2OUTER (= St; compute_ln.cpp): with each block's z rows, its Mb * Nt pi tiles (b, yt + mi, n) into c_22 and row 0
+// of the Nt pj4 tiles (b, x, n) into c_23, the first 64 B of faces 0 and 1, as outer_residual's reader takes them.
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
@@ -28,6 +30,16 @@ void kernel_main() {
     constexpr auto gm_args = TensorAccessorArgs<z_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
+#ifdef T2OUTER
+    constexpr auto pi_args = TensorAccessorArgs<wg_args.next_compile_time_args_offset()>();
+    constexpr auto pj_args = TensorAccessorArgs<pi_args.next_compile_time_args_offset()>();
+    const auto spi = TensorAccessor(pi_args, get_common_arg_val<uint32_t>(7));
+    const auto spj = TensorAccessor(pj_args, get_common_arg_val<uint32_t>(8));
+    constexpr uint32_t St = T2OUTER, S = St * 32;
+    constexpr uint32_t pi_cb = tt::CBIndex::c_22, pj_cb = tt::CBIndex::c_23;
+    constexpr uint32_t FACE = 512, ROW0 = 64;
+    static_assert(St % Mb == 0, "a block is Mb row tiles of one x");
+#endif
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
     const auto wp = TensorAccessor(w_args, get_common_arg_val<uint32_t>(1));
@@ -90,8 +102,24 @@ void kernel_main() {
         cb_reserve_back(z_cb, Mb * Nt);
         uint32_t wz = get_write_ptr(z_cb);
         for (uint32_t t = 0; t < (NOREAD ? 0 : Mb * Nt); ++t, wz += tz) noc_async_read_page(m * Nt + t, z, wz);
+#ifdef T2OUTER
+        // row tile m of z [B, S, S, Nt] is (b, x, yt) = (m / (S * St), (m / St) % S, m % St)
+        const uint32_t bb = m / (S * St), xx = (m / St) % S, yt = m % St;
+        cb_reserve_back(pi_cb, Mb * Nt);
+        cb_reserve_back(pj_cb, Nt);
+        uint32_t wpi = get_write_ptr(pi_cb), wpj = get_write_ptr(pj_cb);
+        for (uint32_t t = 0; t < Mb * Nt; ++t, wpi += tb) noc_async_read_page((bb * St + yt) * Nt + t, spi, wpi);
+        for (uint32_t n = 0; n < Nt; ++n, wpj += tb) {
+            noc_async_read(spj.get_noc_addr((bb * S + xx) * Nt + n, 0), wpj, ROW0);
+            noc_async_read(spj.get_noc_addr((bb * S + xx) * Nt + n, FACE), wpj + FACE, ROW0);
+        }
+#endif
         noc_async_read_barrier();
         cb_push_back(g_cb, Mb * gt);
         cb_push_back(z_cb, Mb * Nt);
+#ifdef T2OUTER
+        cb_push_back(pi_cb, Mb * Nt);
+        cb_push_back(pj_cb, Nt);
+#endif
     }
 }

@@ -84,6 +84,21 @@ constexpr uint32_t NBIAS = (EXTRA & 1) + ((EXTRA >> 1) & 1);
 // (UnpackToDestFp32, set by the host) beside the update and added by the SFPU, so z + update is one float32
 // rounding; the sum is packed float32 to c_2 (written over z) and bfloat16 to c_21 (over the trimul's input, the
 // copy the next sublayer reads). Two tiles a group, the update in DST 0-1 and z in 2-3.
+// T2OUTER (RFD4's `pair_outer_fold`, with the bf16 stream; the define's value is St): c_7 holds z before the pair
+// update's Hadamard write, and the epilogue adds the update to z' = z + pj[b, x] * pi[b, y] instead, formed per
+// tile in DEST and rounded to even into c_25 by outer_residual's own sequence, so the sum is the one the unfused
+// path computes from outer_residual's output, bit for bit. Per block: c_22 the Mb * Nt pi tiles (y = the block's
+// row tiles), c_23 the Nt pj4 tiles of its x (row 0 read; Mb divides St, so a block is one x).
+#ifdef T2OUTER
+#ifdef T2_RES32
+#error "T2OUTER is the bf16 stream's form"
+#endif
+constexpr uint32_t cb_pi = tt::CBIndex::c_22;
+constexpr uint32_t cb_pj = tt::CBIndex::c_23;
+constexpr uint32_t cb_zr = tt::CBIndex::c_25;    // z' of the block, the epilogue's residual
+#else
+constexpr uint32_t cb_zr = cb_z;
+#endif
 #ifdef T2_RES32
 constexpr uint32_t cb_copy = tt::CBIndex::c_21;
 constexpr uint32_t G = 2;
@@ -295,11 +310,39 @@ void kernel_main() {
             cb_pop_front(cb_xb, Mb * Kt);
         }
 
+#ifdef T2OUTER
+        // z' = z + pj * pi for the block, before the epilogue reads it as its residual.
+        cb_wait_front(cb_z, blk);
+        cb_wait_front(cb_pi, blk);
+        cb_wait_front(cb_pj, Nt);
+        cb_reserve_back(cb_zr, blk);
+        pack_reconfig_data_format(cb_zr);
+        for (uint32_t t = 0; t < blk; ++t) {
+            tile_regs_acquire();
+            reconfig_data_format_srca(cb_z);
+            copy_tile_to_dst_init_short(cb_z);
+            copy_tile(cb_z, t, 0);
+            reconfig_data_format(cb_pi, cb_pj);
+            mul_bcast_rows_init_short(cb_pi, cb_pj);
+            mul_tiles_bcast_rows(cb_pi, cb_pj, t, t % Nt, 1);
+            add_binary_tile_init();
+            add_binary_tile(0, 1, 0);
+            round_bf16_rne_tile(0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack_tile(0, cb_zr);
+            tile_regs_release();
+        }
+        cb_push_back(cb_zr, blk);
+        cb_pop_front(cb_z, blk);
+        cb_pop_front(cb_pi, blk);
+        cb_pop_front(cb_pj, Nt);
+#endif
         // 3 + 4. out = z + p * sigmoid(g). The sigmoid is re-initialised every block: the
         // prologue's rsqrt init reprograms the SFPU.
         cb_wait_front(cb_p, blk);
         cb_wait_front(cb_g, blk);
-        cb_wait_front(cb_z, blk);
+        cb_wait_front(cb_zr, blk);
         if constexpr (EXTRA & 4) cb_wait_front(cb_mask, Nt);
         cb_reserve_back(cb_out, blk);
 #ifdef T2_RES32
@@ -347,7 +390,7 @@ void kernel_main() {
                 binary_dest_reuse_tiles<EltwiseBinaryType::ELWMUL, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
                     cb_p, t0 + i, i);
             }
-            if constexpr (FOLD) reconfig_data_format(cb_z, cb_z);
+            if constexpr (FOLD) reconfig_data_format(cb_zr, cb_zr);
             if constexpr (RNE & 4) {
                 for (uint32_t i = 0; i < G; ++i) round_bf16_rne_tile(i);
             }
@@ -369,10 +412,10 @@ void kernel_main() {
             for (uint32_t i = 0; i < G; ++i) add_binary_tile(i, G + i, i);
 #else
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
-                cb_z);
+                cb_zr);
             for (uint32_t i = 0; i < G; ++i)
                 binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
-                    cb_z, t0 + i, i);
+                    cb_zr, t0 + i, i);
             if constexpr (RNE & 1) {
                 for (uint32_t i = 0; i < G; ++i) round_bf16_rne_tile(i);
             }
@@ -395,7 +438,7 @@ void kernel_main() {
 #endif
         cb_pop_front(cb_p, blk);
         cb_pop_front(cb_g, blk);
-        cb_pop_front(cb_z, blk);
+        cb_pop_front(cb_zr, blk);
         if constexpr (EXTRA & 4) cb_pop_front(cb_mask, Nt);
         if constexpr (FOLD) cb_pop_front(cb_rstd, Mb);
     }
