@@ -918,8 +918,11 @@ chain moves 0.03 A median against a 5.4 A seed-to-seed spread, with radius of gy
 unchanged. From 288 tokens the triangle contraction runs on `bmm_res` at HiFi2 (`trimul_bres`,
 `trimul_bres_hifi2`, RFD4's set only): a 512-token design takes 39.8 s instead of 41.3 s (1.04x, 1331 MHz, 31 paired
 designs), the 384-token trunk 1.09x, 256 unchanged; the designed chain moves 2.2 A median against a 38.1 A seed-to-seed
-spread and the binder grade passes. `pair_tail`, `pair_tail_small` and `pair_write_res` need the fp32 pair stream, so
-`TT_BIO_RFD4_PAIR_BF16=1` (the pair stream in bf16) turns them off and was slower before the pair-bias and pair-write programs, 46.4 s against 44.1 s. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
+spread and the binder grade passes. The pair stream itself is bf16 between sublayers (`pair_bf16z`): outer_residual,
+`pair_tail` and `pair_block` read it and write it in place, rounding once per write, which takes a 512-token design
+from 40.7 to 34.9 s (1281-1318 MHz) with the trunk pass 1.20x faster at 512 tokens and 1.14x at 256; on 31
+seed-matched 512-token designs the designed chain moves 3.3 A median against a 38.1 A seed-to-seed spread and the
+binder grade passes. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
 Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off
