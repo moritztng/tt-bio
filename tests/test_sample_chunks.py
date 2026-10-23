@@ -173,11 +173,12 @@ def test_boltz2_samples_do_not_depend_on_the_width(monkeypatch):
 
 def test_every_batched_sampler_goes_through_the_one_helper():
     """Counted in the source, so a sampler loop that grows its own copy is caught here."""
-    calls = {p.name: len(re.findall(r"\bdenoise_in_chunks\(", p.read_text()))
+    # Keyed by path, not name: rf3, rfd3 and rfd4 each have a `sampler.py`.
+    calls = {p.relative_to(ROOT / "tt_bio").as_posix(): len(re.findall(r"\bdenoise_in_chunks\(", p.read_text()))
              for p in (ROOT / "tt_bio").rglob("*.py") if p.name != "sample_chunks.py"}
     assert {k: v for k, v in calls.items() if v} == {"boltz2.py": 1, "protenix.py": 1,
                                                        "openfold3_sample_diffusion.py": 1,
-                                                       "sampler.py": 1}  # rfd4/sampler.py
+                                                       "rfd4/sampler.py": 1}
     # OpenDDE, OpenDDE-AbAg and PXDesign sample through protenix.edm_sample.
     for rel in ("opendde.py", "pxdesign/model.py"):
         assert "edm_sample(" in (ROOT / "tt_bio" / rel).read_text(), rel
