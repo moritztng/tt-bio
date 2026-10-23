@@ -285,6 +285,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                     prev = getattr(TT, k)
                     setattr(TT, k, int(v))
                     outs = f()
+                    if outs is None:          # the knob does not fit (L1): T1 declines, the tail would run
+                        rec[f"ab_{k}={v}_declined"] = True
+                        setattr(TT, k, prev)
+                        continue
                     ttnn.synchronize_device(dev)
                     rec[f"ab_{k}={v}_equal"] = [bool(torch.equal(ttnn.to_torch(o), t)) for o, t in zip(outs, base)]
                     free(outs)
