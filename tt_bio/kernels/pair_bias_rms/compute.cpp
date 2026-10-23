@@ -13,6 +13,7 @@
 //   3. P_i *= rsqrt(S_i / C + eps) on the SFPU in the fp32 dest, then the pair packed untilized into one 32-tile
 //      row of c_3 as in dit_pair_bias, and each 2 KB row tilized into head h's output tile.
 // z streams through c_1 two rows at a time; nothing of a unit stays resident but the 32 untilized rows.
+// PB_Z8 (`pair_bfp8z`): z is bfloat8_b, so srcA / srcB are reconfigured at each step that changes operands.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM          // tilize.h guards tilize_block on these
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -21,6 +22,9 @@
 #include "api/compute/eltwise_binary.h"
 #include "api/compute/pack_untilize.h"
 #include "api/compute/tilize.h"
+#ifdef PB_Z8
+#include "api/compute/reconfig_data_format.h"
+#endif
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/eltwise_unary/binop_with_scalar.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
@@ -41,6 +45,9 @@ void kernel_main() {
         for (uint32_t g = 0; g < 32 / ROWS; ++g) {
             cb_wait_front(cb_z, ROWS * KT);
             // 1. squares
+#ifdef PB_Z8
+            reconfig_data_format(cb_z, cb_z);
+#endif
             mul_tiles_init(cb_z, cb_z);
             cb_reserve_back(cb_sq, ROWS * KT);
             for (uint32_t t0 = 0; t0 < ROWS * KT; t0 += 4) {
@@ -60,12 +67,18 @@ void kernel_main() {
             cb_wait_front(cb_sq, ROWS * KT);
             // 2. projection and sum of squares, 3. the norm's scale
             tile_regs_acquire();
+#ifdef PB_Z8
+            reconfig_data_format(cb_z, cb_w);   // srcA takes in1 (z), srcB in0 (W^T)
+#endif
             mm_init_short(cb_w, cb_z, 1);
             for (uint32_t t = 0; t < ROWS; ++t) {
                 for (uint32_t c = 0; c < KT; ++c) {
                     matmul_tiles(cb_w, cb_z, c, t * KT + c, t);
                 }
             }
+#ifdef PB_Z8
+            reconfig_data_format(cb_sq, cb_one);
+#endif
             mm_init_short(cb_one, cb_sq, 1);
             for (uint32_t t = 0; t < ROWS; ++t) {
                 for (uint32_t c = 0; c < KT; ++c) {
