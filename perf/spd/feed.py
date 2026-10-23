@@ -403,7 +403,7 @@ def arc(R, st, P, log, now=None):
                     h["resets"].append(now); fleet(f"{n} card {c} {why}: one bounded reset under its card flock")
             except Exception as e:
                 log(f"{n}: dead-ARC handling of card {c} failed: {e}")
-    f.write_text(json.dumps(H, indent=1))
+    write_json(f, H)
 
 
 def remote(ssh, script, payload, timeout=120):
@@ -587,6 +587,14 @@ def wake(root, row, why, log):
         (root / "state/notbefore/cleared").mkdir(parents=True, exist_ok=True)
         nb.rename(root / "state/notbefore/cleared" / f"{row}.spd-feed-{int(time.time())}")
     log(f"woke {row}: {why}")
+
+
+def write_json(f, obj):
+    """Write through a temp file and a rename: the tick kills a slow pass at 900 s, and a kill inside write_text left
+    a page-aligned half ledger that crashed every later pass until someone repaired it (10-23, 20:05Z-21:2xZ)."""
+    tmp = f.with_name(f.name + ".tmp")
+    tmp.write_text(json.dumps(obj, indent=1))
+    os.replace(tmp, f)
 
 
 def steal(cs, ledger, st, P, stamp, dry, log):
@@ -792,7 +800,7 @@ def main(argv=None):
     if a.dry_run:
         log(f"dry run: cells {len(cs)}, done {sum(c['is_done'] for c in cs)}, twin queued/running {sum(bool(live & set(c['also'])) for c in cs)}")
         return 0
-    ledger_f.write_text(json.dumps(ledger, indent=1))
+    write_json(ledger_f, ledger)
     q = [(k, L) for k, L in ledger.items() if L.get("quarantined") and k in keys]
     lines = ["# SPD quarantine (perf/spd/feed.py; a cell returns once its row changes the grid entry)", "",
              f"Updated {stamp}. {len(q)} cell(s).", ""]
