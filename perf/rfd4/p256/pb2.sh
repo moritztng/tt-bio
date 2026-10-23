@@ -30,7 +30,9 @@ designs $A 256 4 32; designs $B 256 4 32
 fair $A 128 16 16 1; fair $B 128 16 16 1; fair $A 128 16 16 2; fair $B 128 16 16 2
 designs $A 512 1 2; designs $B 512 1 2
 exec 9>&-; $BOOK rm $OWN; stamp released
-for k in 0 1; do cmp -s $R/d512-$A/pdl1_binder_512_d$k.cif $R/d512-$B/pdl1_binder_512_d$k.cif; stamp "512 d$k cmp=$?"; done
+# _entry.time is the write clock, the only line two identical designs may differ in
+nt() { grep -v '^_entry.time' $R/d512-$1/pdl1_binder_512_d$2.cif; }
+for k in 0 1; do cmp -s <(nt $A $k) <(nt $B $k); stamp "512 d$k cmp=$?"; done
 cd $R/tree-$B
 f() { echo $R/d256-$1/pdl1_binder_256_d$2.cif; }
 for k in $(seq 0 31); do
