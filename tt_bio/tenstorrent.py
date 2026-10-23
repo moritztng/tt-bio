@@ -1428,6 +1428,10 @@ _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 # general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
 # path: c730 on Wormhole 157.95 -> 152.61 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
 _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
+# `_heads_unpadded`'s three projections on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
+# `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
+# 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). False = core_grid as before.
+_PWA_PROJ = True
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
@@ -16447,7 +16451,13 @@ class PairWeightedAveraging(Module):
         H, hd = self.n_heads, self.head_dim
         rows, T = int(mc.shape[0]), int(mc.shape[1])
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-        v = ttnn.linear(mc, self.m_weight, **lin)                # [rows, T, H*hd]
+
+        def proj(x, w):
+            o = (_narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype)
+                 if _PWA_PROJ else None)
+            return ttnn.linear(x, w, **lin) if o is None else o
+
+        v = proj(mc, self.m_weight)                              # [rows, T, H*hd]
         vh = ttnn.permute(v, (2, 0, 1))                          # [H*hd, rows, T]
         ttnn.deallocate(v)
         vh = ttnn.reshape(vh, (H, hd * rows, T))                 # a view when rows % 32 == 0
@@ -16456,10 +16466,10 @@ class PairWeightedAveraging(Module):
         ttnn.deallocate(vh)
         ttnn.deallocate(w)
         ot = permute_120(ttnn.reshape(o, (H * hd, rows, T)))     # [rows, T, H*hd]
-        g = ttnn.linear(mc, self.g_weight, **lin)
+        g = proj(mc, self.g_weight)
         ot = ttnn.multiply_(ot, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(g)
-        out = ttnn.linear(ot, self.o_weight, **lin)              # heads summed in the matmul
+        out = proj(ot, self.o_weight)                            # heads summed in the matmul
         ttnn.deallocate(ot)
         return out
 
