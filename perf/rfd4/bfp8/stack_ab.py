@@ -11,6 +11,8 @@ arms' outputs on the same input are compared too (rel RMS of z), as a sanity che
 AICLK is sampled for the life of the run (`perf/clocksample.py`).
 """
 import argparse
+import contextlib
+import importlib
 import json
 import os
 import statistics
@@ -32,6 +34,23 @@ import ttnn  # noqa: E402
 PASSES_PER_DESIGN = 180
 
 
+@contextlib.contextmanager
+def held(spec):
+    """`MODULE.NAME=EXPR[;MODULE.NAME=EXPR...]` set on tt_bio.MODULE for the duration; nothing when empty."""
+    prev = []
+    for one in [v for v in spec.split(";") if v]:
+        name, expr = one.split("=", 1)
+        mod = importlib.import_module("tt_bio." + name.rsplit(".", 1)[0])
+        attr = name.rsplit(".", 1)[1]
+        prev.append((mod, attr, getattr(mod, attr)))
+        setattr(mod, attr, eval(expr))
+    try:
+        yield
+    finally:
+        for mod, attr, v in reversed(prev):
+            setattr(mod, attr, v)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--weights", required=True)
@@ -40,6 +59,8 @@ def main():
     ap.add_argument("--reps", type=int, default=40)
     ap.add_argument("--base", default=None, help="lever set of the base arm (default rfd4.trunk.NORMAL_LEVERS)")
     ap.add_argument("--levers", default=None, help="lever set of the stack arm (default rfd4.trunk.FAST_LEVERS)")
+    ap.add_argument("--base-set", default="", help="MODULE.NAME=EXPR (a tt_bio module attribute) held while the base "
+                    "arm builds and captures its programs, e.g. 'trimul_tail.T1_NB={}': a knob A/B under one lever set; several joined by ';'")
     a = ap.parse_args()
 
     from tt_bio import tenstorrent as T
@@ -69,7 +90,8 @@ def main():
     c0 = torch.randn(1, n, dc, generator=g)
     up = lambda t, dt: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     masks = TR.trunk_masks(torch.ones(1, n), dev, residual_dtype=ttnn.float32)
-    s, z, cond = up(s0, ttnn.float32), up(z0, ttnn.float32), up(c0, ttnn.bfloat16)
+    s, cond = up(s0, ttnn.float32), up(c0, ttnn.bfloat16)
+    zs = {k: up(z0, tr.pair_residual_dtype) for k, tr in arms.items()}   # each arm's own pair stream dtype
     sync = lambda: ttnn.synchronize_device(dev)  # noqa: E731
 
     def free(ts):
@@ -78,12 +100,13 @@ def main():
                 ttnn.deallocate(t)
 
     rec = {"n": n, "levers": {"base": sorted(arms["base"]._levers), "stack": sorted(arms["stack"]._levers)},
+           "base_set": a.base_set,
            "tt_bio": str(Path(TR.__file__).resolve().parents[2]), "load_start": os.getloadavg()[0]}
     with clocksample.during(period=0.5) as clk:
         traces, outs = {}, {}
         for k, tr in arms.items():
-            fn = lambda tr=tr: tr.run_pass(ttnn.clone(s), ttnn.clone(z), cond, masks)  # noqa: E731
-            with T.lever_scope(tr._levers):  # run_pass is not scoped itself; __call__ is
+            fn = lambda tr=tr, z=zs[k]: tr.run_pass(ttnn.clone(s), ttnn.clone(z), cond, masks)  # noqa: E731
+            with T.lever_scope(tr._levers), held(a.base_set if k == "base" else ""):  # run_pass is not scoped itself
                 free(fn())  # compile
                 sync()
                 out = fn()
@@ -102,6 +125,9 @@ def main():
             free(res)
     d = outs["stack"] - outs["base"]
     rec["z_rel_rms_stack_vs_base"] = float(d.pow(2).mean().sqrt() / outs["base"].pow(2).mean().sqrt())
+    rec["z_equal"] = bool(torch.equal(outs["stack"], outs["base"]))
+    from tt_bio import trimul_tail as TT2
+    rec["t2cm_served_declined"] = list(TT2.T2CM_STATS)
     ratios = [b / s_ for b, s_ in zip(ms["base"], ms["stack"])]
     for k, v in ms.items():
         med = statistics.median(v)

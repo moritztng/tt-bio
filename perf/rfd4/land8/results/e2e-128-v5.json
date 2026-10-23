@@ -1,0 +1,163 @@
+{
+ "size": 128,
+ "recipe": "thinking_medium",
+ "trunk_passes": 180,
+ "first_passes": 60,
+ "recycled_passes": 120,
+ "batch": 1,
+ "dims": {
+  "token": 768,
+  "pair": 384,
+  "cond": 256
+ },
+ "instrument": "device profiler (Tracy build tt-metal-b2z = ttnn 0.68.0), DEVICE KERNEL DURATION per op, eager trunk call of 2 passes on random inputs of the design shapes (perf/rfd4/e2e/elt_prof.py); families by signposts around each sublayer, innermost wins; gaps between kernels not counted",
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 1
+  }
+ },
+ "host_load": 4.2,
+ "card": "qb2 physical 0",
+ "per_pass": {
+  "first": {
+   "device_ms": 26.756,
+   "ops": 664
+  },
+  "recycled": {
+   "device_ms": 26.987,
+   "ops": 669,
+   "elementwise_ms": 0.612,
+   "elementwise_ops": 165,
+   "gflop": 309.98
+  }
+ },
+ "device_s_per_design": 4.844,
+ "tflop_per_design": 55.5,
+ "families": {
+  "tri_mult_in": {
+   "ms_per_pass": 7.7253,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 131.533,
+   "tflops": 17.03,
+   "device_s_per_design": 1.391,
+   "share_of_device": 0.2872
+  },
+  "tri_mult_out": {
+   "ms_per_pass": 7.7148,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 131.533,
+   "tflops": 17.05,
+   "device_s_per_design": 1.389,
+   "share_of_device": 0.2868
+  },
+  "pass_glue": {
+   "ms_per_pass": 4.3478,
+   "ops_per_pass": 43,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 1.057,
+   "tflops": 0.24,
+   "device_s_per_design": 0.783,
+   "share_of_device": 0.1617
+  },
+  "attention": {
+   "ms_per_pass": 2.2615,
+   "ops_per_pass": 182,
+   "elementwise_ms_per_pass": 0.0376,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 11.274,
+   "tflops": 4.99,
+   "device_s_per_design": 0.407,
+   "share_of_device": 0.084
+  },
+  "token_transition": {
+   "ms_per_pass": 1.8499,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0.1254,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 25.367,
+   "tflops": 13.71,
+   "device_s_per_design": 0.333,
+   "share_of_device": 0.0687
+  },
+  "pair_bias": {
+   "ms_per_pass": 1.0022,
+   "ops_per_pass": 8,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.18,
+   "share_of_device": 0.0372
+  },
+  "adaln": {
+   "ms_per_pass": 0.8924,
+   "ops_per_pass": 140,
+   "elementwise_ms_per_pass": 0.1347,
+   "elementwise_ops_per_pass": 56,
+   "gflop_per_pass": 2.819,
+   "tflops": 3.16,
+   "device_s_per_design": 0.161,
+   "share_of_device": 0.0332
+  },
+  "ada_scale": {
+   "ms_per_pass": 0.3831,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0.0748,
+   "elementwise_ops_per_pass": 28,
+   "gflop_per_pass": 1.409,
+   "tflops": 3.68,
+   "device_s_per_design": 0.069,
+   "share_of_device": 0.0142
+  },
+  "residual": {
+   "ms_per_pass": 0.327,
+   "ops_per_pass": 29,
+   "elementwise_ms_per_pass": 0.054,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.046,
+   "share_of_device": 0.0095
+  },
+  "recycle": {
+   "ms_per_pass": 0.3007,
+   "ops_per_pass": 5,
+   "elementwise_ms_per_pass": 0.0037,
+   "elementwise_ops_per_pass": 1,
+   "gflop_per_pass": 4.983,
+   "tflops": 16.57,
+   "device_s_per_design": 0.036,
+   "share_of_device": 0.0074
+  },
+  "cast": {
+   "ms_per_pass": 0.182,
+   "ops_per_pass": 38,
+   "elementwise_ms_per_pass": 0.182,
+   "elementwise_ops_per_pass": 38,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.032,
+   "share_of_device": 0.0066
+  },
+  "outside": {
+   "ms_per_pass": 0,
+   "ops_per_pass": 0,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.016,
+   "share_of_device": 0.0033
+  }
+ },
+ "sha": "288f1ed37 (main, with pair_tail_small)",
+ "note": "qb2 p300c development number, never ratio-grade; row rfd4-land8"
+}

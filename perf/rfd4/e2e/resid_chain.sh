@@ -16,5 +16,5 @@ cd "$wt"
 PYTHONPATH=$wt timeout 1800 "$py" perf/rfd4/e2e/resid_precision.py --out "$out/precision.json" > "$out/precision.log" 2>&1
 stamp "precision rc=$?"
 bash perf/rfd4/e2e/resid_abab.sh "$card" "$out/abab" "512:2 256:2 128:1" \
-    "base=TT_BIO_RFD4_ELIDE_MASKS=0 elide=TT_BIO_RFD4_ELIDE_MASKS=1 pairbf16=TT_BIO_RFD4_ELIDE_MASKS=1,TT_BIO_RFD4_PAIR_BF16=1"
+    "base=TT_BIO_RFD4_ELIDE_MASKS=0 elide=TT_BIO_RFD4_ELIDE_MASKS=1"
 stamp "chain end"

@@ -153,11 +153,14 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     if ("WS_L1ACC", "1") in defines:
         cbs.append(cb(ACC_CB, _SW, ttnn.float32))
     res32 = ("WS_RES32", "1") in defines
+    nocopy = ("WS_RES_NOCOPY", "1") in defines
     if res32:
         # One row tile deep each: the float32 residual, the float32 sum and its bf16 copy. The normed x and the hidden,
-        # which compute alone fills and drains, go single-buffered to pay for them (same L1 as without).
-        cbs = [cb(X_CB, kt, x.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(HID_CB, nh), cb(OUT_CB, ct, ttnn.float32),
-               cb(OUTB_CB, ct), cb(RES_CB, ct, ttnn.float32)] + cbs[4:]
+        # which compute alone fills and drains, go single-buffered to pay for them (same L1 as without). NOCOPY: the
+        # residual is x and the sum bf16, no copy.
+        rd = ttnn.bfloat16 if nocopy else ttnn.float32
+        cbs = ([cb(X_CB, kt, x.dtype), cb(W3_CB, nh * ct, w3.dtype), cb(HID_CB, nh), cb(OUT_CB, ct, rd)]
+               + ([] if nocopy else [cb(OUTB_CB, ct)]) + [cb(RES_CB, ct, rd)] + cbs[4:])
     elif ("WS_RESID", "1") in defines:
         base = (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln is not None else 0)
                 + (_SW * 2 * _TILE if ("WS_L1ACC", "1") in defines else 0))
@@ -196,7 +199,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
               + (() if resid2 is None else (resid2,)) + (() if bias is None else bias)):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     wct = [ct] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
-    if res32:
+    if res32 and not nocopy:
         wct += list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
@@ -207,7 +210,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0, 0],
                                    defines=list(defines), config=ttnn.WriterConfigDescriptor())
     ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True)
-    if res32:   # the float32 residual straight to dest: through srcA it would lose 13 mantissa bits
+    if res32 and not nocopy:   # the float32 residual straight to dest: through srcA it would lose 13 mantissa bits
         modes = [ttnn.UnpackToDestMode.Default] * _NUM_CBS
         modes[RES_CB] = ttnn.UnpackToDestMode.UnpackToDestFp32
         ccfg.unpack_to_dest_mode = modes
@@ -266,6 +269,8 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     `resid` (float32, x's shape): the residual stream x is the bf16 copy of. The result is added to it in the fp32 dest
     (one float32 rounding, the update never rounded to bf16) and written back over `resid`, and the sum's bf16 copy
     over `x`; returns `(resid, x)`. Each row tile of x is read before its sum is written, by the same core.
+    `resid` may also be `x` itself (bf16, RFD4's `pair_bf16z` stream): the sum is rounded once to bf16 and written over
+    `x`; returns `(x, x)`.
 
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
     (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
@@ -273,7 +278,8 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
         return None
     if resid is not None:
         # generic_op hands back a new handle over resid's buffer; the caller keeps its own two
-        _run(x, w1, w2, fidelity, (("WS_RESID", "1"), ("WS_RES32", "1")), SILU_POLY, ln, resid, (b1, b2))
+        defines = (("WS_RESID", "1"), ("WS_RES32", "1")) + ((("WS_RES_NOCOPY", "1"),) if resid is x else ())
+        _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, resid, (b1, b2))
         return resid, x
     return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
 
@@ -291,7 +297,7 @@ def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch
 def relu_eligible(x, w1, w2, ln=(), resid=None) -> bool:
     """What `pair_relu` serves: bf16 TILE interleaved x, bf16 or bfp8 weights (both the same), hidden a multiple of 4
     tiles, output width at most 4 tiles or a multiple of 4, and everything resident inside `_L1_BUDGET`. `resid` (float32
-    TILE interleaved DRAM, x's padded shape) as `pair_relu` takes it, in the same L1."""
+    TILE interleaved DRAM, x's padded shape, or `x` itself) as `pair_relu` takes it, in the same L1."""
     if x.dtype != ttnn.bfloat16 or w1.dtype != w2.dtype or w1.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b):
         return False
     for t in (x, w1, w2):
@@ -304,7 +310,7 @@ def relu_eligible(x, w1, w2, ln=(), resid=None) -> bool:
     if ln and not all(_ln_vec_ok(v, 32 * kt) for v in ln):
         return False
     if resid is not None and not (
-            resid.dtype == ttnn.float32 and resid.layout == ttnn.TILE_LAYOUT and ct == kt
+            (resid.dtype == ttnn.float32 or resid is x) and resid.layout == ttnn.TILE_LAYOUT and ct == kt
             and resid.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
             and resid.memory_config().buffer_type == ttnn.BufferType.DRAM
             and x.memory_config().buffer_type == ttnn.BufferType.DRAM

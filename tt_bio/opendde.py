@@ -491,7 +491,14 @@ DIT_SEAM = frozenset({"pz_device", "dit_mod16"})
 # 2 paired warm folds, AICLK 1000 MHz, CIFs identical (spd-m-opendde q10ab, 2026-10-22): normal 608 115.76 -> 112.51 s
 # (-2.8 %), fast 608 115.72 -> 112.63 s (-2.7 %). Bit-exact, so no grade. Blackhole is unmeasured.
 TRIATT_Q10 = frozenset({"triatt_q10"})
-NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10
+# Wormhole normal also takes triatt_k1, as fast does: since k1q the one-k pick is offered in both modes, and normal still
+# chunked k at 320 (k64), 576 (k192) and 640 (k160). Per call at 1000 MHz, float64 rel_rms (spd-m-opendde k1op, 2026-10-22):
+# 320 6.24 -> 4.09 ms (0.0289 -> 0.0265), 576 19.84 -> 17.21 ms (0.0275 -> 0.0266), 640 28.74 -> 22.71 ms (0.0279 ->
+# 0.0269), so it is faster and closer to float64 at every size it reaches. Galaxy chip, 2 paired warm folds (k1n): normal
+# 640 133.10 -> 126.80 s (-4.7 %), 576 111.85 -> 109.76 s. The 10-18 normal grade (512-token set, before k1q) FAILed on iRMSD.
+# Graded on the shipped normal set (k1g, 11 complexes x 4 seeds, native size): PASS, same-seed top pose median 0.108 A
+# (A/A floor 1.273 A), iRMSD -0.145 [-0.359, -0.005], DockQ +0.003 [+0.000, +0.007], docking 27 -> 27 of 44.
+NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
@@ -517,8 +524,8 @@ WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "
 # [-0.0005, +0.0003], docking 26 -> 26.
 # Wormhole fast also takes triatt_k1 (protenix.TRIATT_K1). 512-token truth set, WH_FAST_LEVERS vs + triatt_k1, 4 seeds,
 # 44 paired folds, every digest moved (spd-gap-small gk1os, 2026-10-18): PASS, same-seed top pose median 0.450 A vs the
-# 1.902 A A/A floor. cdk2x2 512 x 1 at 1000 MHz, 5 paired warm folds (k1o): fast 93.77 -> 92.44 s. Normal stays off:
-# its grade FAILs on iRMSD, +0.068 A [+0.014, +0.146] (43 paired folds, docking 31 -> 31), though normal reads -1.67 s.
+# 1.902 A A/A floor. cdk2x2 512 x 1 at 1000 MHz, 5 paired warm folds (k1o): fast 93.77 -> 92.44 s. Normal
+# took it later, once k1q had moved 512 to one k (NORMAL_LEVERS, above).
 # Wormhole fast also takes ws_resid2: the transition's last hidden chunk adds z and the chain's partial sum in its fp32
 # dest, so the residual add_ pass goes. Galaxy chip, cdk2x2 x 1, 1000 MHz, 2 paired warm folds (spd-m-opendde rr2ab,
 # 2026-10-18): fast 512 -1.03 s, fast 576 -1.36 s. WH 11-set fast grade vs the shipped fast set, seeds 109-112, 44

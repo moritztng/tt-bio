@@ -430,6 +430,14 @@ SMALL_GRID_TRANSITION_MAX_C = 384
 # The 512-token heights in Transition._transition (c=256 bf16 at the L1 cap, c=384 bfp8 at twice the
 # element budget). A module bool so a paired fold A/B can toggle it in one process.
 _SMALL_GRID_TRANSITION_H512 = True
+# Core count the small-grid transition height is sized for: an n150/n300 chip's 8x8, the smallest Wormhole
+# grid tt-bio runs on, and not the live grid. The row height decides ttnn's K block for the swiglu matmuls,
+# so a height taken from the live grid made the answer depend on the card: Protenix-v2 512 x 256 x 1024,
+# TT_BIO_LEVERS=none, a Galaxy chip's 8x9 gave h=12 and an 8x8 h=10, two different digests, while every
+# forced height wrote the same bytes on both grids (perf/spd_bh/transition_h.py, WH .103). Fewer cores
+# than the live grid only lowers the per-core bytes, so it stays inside the L1 budget everywhere.
+# 0 = the live grid (A/B only).
+_SMALL_GRID_TRANSITION_CORES = 64
 TRANSITION_H_CHUNK_SIZE_FAST = 32
 TRANSITION_H_CHUNK_SIZE = 16
 # Measured 1.87x at the protenix pair shape (microbench M4, W=320/c=256) but 32 clashes
@@ -829,10 +837,18 @@ _FAST_MODE = False
 #                   float64 0.0116 -> 0.0101 (state/rfd4/bets/pairblock.md)
 #   pair_tail       RFD4's triangle output tail (LayerNorm, p_out, sigmoid gate) and its residual add into the float32
 #                   pair stream as one T2 program (`trimul_tail.fused_tail_ln(copy=)`), with no padded token. Unmeasured.
+#   pair_tail_small pair_tail below trimul_tail.MIN_N (160), where T1 declines: the incumbent chain keeps the input side
+#                   and computes g_out, T2's float32-stream form takes LayerNorm, p_out, gate and the residual write
+#                   (state/rfd4/bets/tri128.md)
 #   pair_bias_rms   RFD4's pair biases (RMSNorm of the pair, the stacked bias projection, head-first layout, the split per
 #                   block) as one `dit_pair_bias.rms_pair_bias` program, with no padded token (state/rfd4/bets/pairbias.md)
 #   pair_write_res  RFD4's Hadamard pair write and its residual add into the float32 pair stream as one
 #                   `outer_residual` program, with no padded token (state/rfd4/bets/pairbias.md)
+#   pair_bf16z      RFD4's pair stream in bf16 between sublayers, written in place by pair_write_res, pair_tail and
+#                   pair_block (one rounding a write, fp32 accumulation inside each); half the bytes those programs move
+#                   (state/rfd4/bets/bf16z.md)
+#   pair_tail_cm    with pair_bf16z, RFD4's pair_tail reads the contraction's channel-major [1, C, S, S] output itself
+#                   (T2CM's gather), so `reblock_permute_back` never runs. A pure data move: bit-exact against pair_tail
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -849,13 +865,14 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2")
+           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
+           "pair_tail_cm")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
-# RFD4's own set (rfd4.trunk.FAST_LEVERS) names pair_block, pair_tail, pair_bias_rms and pair_write_res, graded on
-# RFD4's designs.
+# RFD4's own set (rfd4.trunk.NORMAL_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms, pair_write_res,
+# trimul_bres_hifi2, pair_bf16z and pair_tail_cm, graded on RFD4's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
@@ -872,7 +889,8 @@ UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_sp
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
                              "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-                             "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2"})
+                             "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
+                             "pair_tail_cm"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -1425,6 +1443,11 @@ _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 # general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
 # path: c730 on Wormhole 157.95 -> 152.61 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
 _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
+# `_heads_unpadded`'s three projections on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
+# `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
+# 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Fold, 3 paired warm, CIFs identical:
+# OpenDDE n608 -0.29 s, f608 / n288 / Protenix-v2 f512 within noise. False = core_grid as before.
+_PWA_PROJ = True
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
@@ -6368,7 +6391,7 @@ def _pair_bias_ln_row_cap(width: int, channels: int, elem: int = 2) -> int:
     if not reserve or not _PAIR_BIAS_LN_CAP:
         return 0
     try:
-        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
+        per_core = _matmul_cb_budget()
     except Exception:                                                          # noqa: BLE001
         return 0
     row = int(width) * ((int(channels) + 31) // 32) * 32 * int(elem)
@@ -6496,9 +6519,12 @@ def _l1_fits(nbytes: int, headroom: float, reserve_per_core: int = 0) -> bool:
     from . import ops
     if ops.taping():
         return False
+    # The allocator's bank, not get_max_worker_l1_unreserved_size(), which reads 70656 B more on
+    # both parts. Every admission in that band threw (thr2, Wormhole, 576 and 608 tokens): the
+    # template trimul's `a` under bmm_res's buffers, the ending transpose's L1 destination.
     try:
-        per_core = int(ttnn.get_max_worker_l1_unreserved_size())
-    except Exception:
+        per_core = _matmul_cb_budget()
+    except Exception:                                                          # noqa: BLE001
         return False
     cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
     return headroom * nbytes <= max(per_core - reserve_per_core, 0) * cores
@@ -7220,7 +7246,11 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                     _pair_bias_stat("o_in_matmul_exit_l1")
                 return out
             except Exception as e:
-                if laddered:
+                # A narrower drain block shrinks the circular buffers, not the output, so an
+                # allocator refusal of the output itself retires the class at once instead of
+                # throwing once per rung (OpenDDE 768 on WH: 4 throws, a sibling 1 MB/bank
+                # tensor resident, 346848 B free per bank).
+                if laddered and "Not enough space" not in str(e):
                     _l1_out_narrow(key)
                 else:
                     _L1_OUT_REFUSED.add(key)
@@ -10551,7 +10581,8 @@ class TriangleMultiplication(Module):
         `stream32` (RFD4, float32, x's shape) is the residual stream `x` is the bf16 copy of. Where T2's
         float32 form serves the tail (`trimul_tail.fused_tail_ln(copy=)`) the update is added to it in the
         same program, the sum written over `stream32` and its bf16 copy over `x`; `stream32` comes back and
-        `took_residual` is set. Anywhere else the bare update, as without it."""
+        `took_residual` is set. `stream32` may be `x` itself (RFD4's bf16 stream, `pair_bf16z`): the sum is
+        written over `x`. Anywhere else the bare update, as without it."""
         self.took_residual = False
         u = host_acc_after_refusal(
             ("trimul", tuple(x.padded_shape), self.ending), x, lambda: _inplace_guarded(
@@ -10777,12 +10808,18 @@ class TriangleMultiplication(Module):
         af2 = (fused_residual is not None and g_out_fused is None and not fuse_gout
                and x_norm_in is not None)
         cm_ex = ((self.p_out_bias, self.g_out_bias, fused_residual[0], True) if af2 else None)
-        cm_on = ((af2 and not ops.recording() and H >= _trimul_tail.MIN_N)
+        # `pair_tail_cm` (RFD4, bf16 pair stream): pair_tail reads that chunk the same way and adds into x_in.
+        cm16 = (stream32 is x_in and lever("pair_tail_cm")
+                and _trimul_tail.t2cm_stream16_fits(H, COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
+                and not add_to_input and not ops.taping() and self.p_out_bias is None
+                and _trimul_tail.t2cm_fit(self.out_p_weight) is None)
+        cm_on = (cm16 or (af2 and not ops.recording() and H >= _trimul_tail.MIN_N)
                  or (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
                      and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
         pre_split = None
+        a_chunk = b_chunk = None
         while True:
             tma_live = False         # an L1 `a` (TT_BIO_OF3L1_TMA) is live in this attempt
             try:
@@ -11136,7 +11173,7 @@ class TriangleMultiplication(Module):
                                 _mm_generic.ckc_args(self.compute_kernel_config),
                                 self.g_out_weight if af2 else None,
                                 (None, None, fused_residual[0], None) if af2 else None,
-                                own_switch=af2) is None):
+                                own_switch=af2, stream16=cm16) is None):
                         # T2CM reads this chunk where it is; the move below never runs.
                         x_cm, cm_mc = x_chunk, back_mc
                         c_done += int(x_chunk.shape[1])
@@ -11197,6 +11234,15 @@ class TriangleMultiplication(Module):
                 break
             except RuntimeError as e:
                 msg = str(e)
+                # The refused attempt's channel operands are this call's own tensors. Free them
+                # now: the traceback keeps them referenced, and an L1 `a` left alive sits under
+                # the retried in-projection's circular buffers. At 576 tokens on Wormhole it did
+                # (`a` at 909312, the in-projection's CBs ending at 1152288), the retry and the
+                # host-join retry around it threw the same clash, and every fold died.
+                for _t in (a_chunk, b_chunk):
+                    if isinstance(_t, ttnn.Tensor) and _t.is_allocated():
+                        ttnn.deallocate(_t)
+                a_chunk = b_chunk = None
                 # TT_BIO_OF3L1_TMA's own refusal, first: an L1 "Out of Memory" would otherwise
                 # read as the DRAM refusal below (`_dram_oom` matches the allocator's wording,
                 # not the buffer type) and narrow the in-projection group for good, and an L1
@@ -11390,9 +11436,11 @@ class TriangleMultiplication(Module):
             else:
                 fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
                     x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
-                    x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+                    x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                    stream16=cm16)
             if fused is not None:
                 TRIMUL_GOUT_STATS[0] += 1
+                self.took_residual = cm16
                 ttnn.deallocate(x_cm)
                 if x_norm_in is not None:      # None under T1
                     ttnn.deallocate(x_norm_in)
@@ -11439,12 +11487,21 @@ class TriangleMultiplication(Module):
         # result is still alive, so a refusal there can still take the row-blocked tail from the
         # same two inputs. Once it succeeds the result is freed, exactly where rebinding `x` used
         # to free it, so every size that fits keeps its peak and its ops.
+        if (stream32 is not None and g_out_fused is None and x_norm_in is not None and H < _trimul_tail.MIN_N
+                and not x_normed and not add_to_input and self.p_out_bias is None and self.g_out_bias is None
+                and not ops.taping() and lever("pair_tail_small")):
+            # Below T1's floor the chain keeps the input side; g_out is the same projection the tail below
+            # would compute, and T2's float32-stream form then takes the rest of the tail with the residual.
+            g_out_fused = _trimul_out_proj(x_norm_in, self.g_out_weight, self.compute_kernel_config, None)
+            ttnn.deallocate(x_norm_in)
+            x_norm_in = None
         if (stream32 is not None and g_out_fused is not None and not x_normed and not add_to_input
                 and self.p_out_bias is None and not ops.taping()):
             t2m_flush()
             fused = _trimul_tail.fused_tail_ln(
                 x, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused, stream32,
-                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN), copy=x_in)
+                _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                copy=None if stream32 is x_in else x_in, stream16=stream32 is x_in)
             if fused is not None:
                 ttnn.deallocate(x)
                 ttnn.deallocate(g_out_fused)
@@ -14252,6 +14309,7 @@ class Transition(Module):
         _tile = lambda v: -(-int(v) // 32) * 32
         _hid = int(self.fc1_weight.shape[-1])
         _gx, _gy = COMPUTE_GRID_MAIN
+        _l1_cores = min(_gx * _gy, _SMALL_GRID_TRANSITION_CORES or _gx * _gy)
         # Bytes per hidden element: x_1 and x_2 are bfp8 under `transition_b8` (a 32x32 tile is
         # 1024 mantissa bytes + 64 exponent bytes), bf16 otherwise. x_norm is always bf16.
         _hb = 1088 / 1024 if self._hidden_b8 else 2
@@ -14259,7 +14317,7 @@ class Transition(Module):
 
         def _l1_rows_at(w):
             """Row height the per-core L1 budget alone allows at swiglu width `w`."""
-            return TRANSITION_L1_CHUNK_BYTES_PER_CORE * _gx * _gy / (_tile(w) * _row_bytes)
+            return TRANSITION_L1_CHUNK_BYTES_PER_CORE * _l1_cores / (_tile(w) * _row_bytes)
 
         def _rows_at(w):
             """Row height EVERY budget allows at swiglu width `w`, BEFORE the floor at 1."""
@@ -14312,8 +14370,8 @@ class Transition(Module):
         # module, perf/spd_bh/transition_h.py): c=384 bfp8 hidden (OpenDDE --fast) runs the bf16
         # element budget's h=6 where bfp8 needs half the bytes, 38.79 -> 34.49 ms at h=12, -1.28 s
         # per fold and bit-exact in every fold; c=256 bf16 (Protenix-v2 normal) runs h=8 where the
-        # per-core L1 cap allows 12, 28.91 -> 26.13 ms, torch.equal in all 1048 in-fold calls
-        # (perf/spd_bh/transition_infold.py). bf16 activations only: the few fp32 calls at that shape
+        # per-core L1 cap allowed 12 on 72 cores (10 at the fixed 64), 28.91 -> 26.13 ms, torch.equal in all
+        # 1048 in-fold calls (perf/spd_bh/transition_infold.py). bf16 activations only: the few fp32 calls at that shape
         # round differently at the cap height (rel 5e-4) and moved the fold digest. Bounded at
         # W=512: the c=384 budget is a correctness bound at W=736/896 in bf16 (wrong values before
         # the clash, see above), and nobody has measured bfp8 there.
@@ -14551,6 +14609,24 @@ def _z_residual(z: ttnn.Tensor, zc: ttnn.Tensor, update: ttnn.Tensor, wide: bool
     return out
 
 
+_LAYER_TAP_CALL = [0]
+
+
+def _layer_tap(tag, t):
+    """Fingerprint z after each op of the first TT_BIO_LAYER_TAP_CALLS (default 2) PairformerLayer calls.
+
+    Appends to the file TT_BIO_TRUNK_TAP names, beside protenix.trunk_tap's block-level lines, so a
+    two-run diff names the first op whose output bytes differ, not just the first block. Off unless
+    that variable is set; one device->host copy per tap."""
+    path = os.environ.get("TT_BIO_TRUNK_TAP")
+    if not path or _LAYER_TAP_CALL[0] > int(os.environ.get("TT_BIO_LAYER_TAP_CALLS", "2")):
+        return
+    import hashlib
+    h = hashlib.sha256(ttnn.to_torch(t).to(torch.float32).contiguous().numpy().tobytes()).hexdigest()[:16]
+    with open(path, "a") as fp:
+        fp.write(f"layer{_LAYER_TAP_CALL[0] - 1}|{tag}|{tuple(t.shape)}|{h}\n")
+
+
 class PairformerLayer(Module):
     def __init__(
         self,
@@ -14730,31 +14806,42 @@ class PairformerLayer(Module):
             # Each op returns z + its update. Where its blocks join on the host they carry their own
             # rows of z and z is freed before the upload, so a pair too big to sit beside its update
             # still runs (`_add_input`); everywhere else it is the in-place add this layer always ran.
+            _LAYER_TAP_CALL[0] += 1
+            _layer_tap("enter", z)
             z = self.triangle_multiplication_start(z, mask, add_to_input=True)
+            _layer_tap("tmul_out", z)
             z = self.triangle_multiplication_end(z, mask, add_to_input=True)
+            _layer_tap("tmul_in", z)
             z = self.triangle_attention_start(z, attn_mask_start, add_to_input=True)
+            _layer_tap("tatt_start", z)
             z = self.triangle_attention_end(z, attn_mask_end, add_to_input=True)
+            _layer_tap("tatt_end", z)
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
             z = self.transition_z(
                 z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
                 if _RESIDUAL_L1 else None, add_to_input=True)
+            _layer_tap("transition", z)
         else:
             zc = _z_compute(z, wide)
             z_update = self.triangle_multiplication_start(zc, mask)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tmul_out", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_multiplication_end(zc, mask)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tmul_in", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_attention_start(zc, attn_mask_start)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tatt_start", z)
 
             zc = _z_compute(z, wide)
             z_update = self.triangle_attention_end(zc, attn_mask_end)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("tatt_end", z)
 
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
@@ -14763,6 +14850,7 @@ class PairformerLayer(Module):
                 zc, memory_config=_residual_update_memory_config(zc.shape, zc.dtype)
                 if _RESIDUAL_L1 else None, mask=trans_mask_z)
             z = _z_residual(z, zc, z_update, wide)
+            _layer_tap("transition", z)
         if self.transform_s:
             s_norm = ttnn.layer_norm(
                 self._s_compute(s),
@@ -14778,9 +14866,11 @@ class PairformerLayer(Module):
             )
             ttnn.deallocate(s_norm)
             s = self._s_residual(s, s_update)
+            _layer_tap("s_apb", s)
 
             s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
             s = self._s_residual(s, s_update)
+            _layer_tap("s_transition", s)
         return s, z
 
     def _s_compute(self, s: ttnn.Tensor) -> ttnn.Tensor:
@@ -16419,7 +16509,13 @@ class PairWeightedAveraging(Module):
         H, hd = self.n_heads, self.head_dim
         rows, T = int(mc.shape[0]), int(mc.shape[1])
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-        v = ttnn.linear(mc, self.m_weight, **lin)                # [rows, T, H*hd]
+
+        def proj(x, w):
+            o = (_narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype)
+                 if _PWA_PROJ else None)
+            return ttnn.linear(x, w, **lin) if o is None else o
+
+        v = proj(mc, self.m_weight)                              # [rows, T, H*hd]
         vh = ttnn.permute(v, (2, 0, 1))                          # [H*hd, rows, T]
         ttnn.deallocate(v)
         vh = ttnn.reshape(vh, (H, hd * rows, T))                 # a view when rows % 32 == 0
@@ -16428,10 +16524,10 @@ class PairWeightedAveraging(Module):
         ttnn.deallocate(vh)
         ttnn.deallocate(w)
         ot = permute_120(ttnn.reshape(o, (H * hd, rows, T)))     # [rows, T, H*hd]
-        g = ttnn.linear(mc, self.g_weight, **lin)
+        g = proj(mc, self.g_weight)
         ot = ttnn.multiply_(ot, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(g)
-        out = ttnn.linear(ot, self.o_weight, **lin)              # heads summed in the matmul
+        out = proj(ot, self.o_weight)                            # heads summed in the matmul
         ttnn.deallocate(ot)
         return out
 

@@ -21,8 +21,8 @@ dropped, so a main that has not merged the last release commit back does not shi
 On GATE, with --gate-config, it starts gate_fanout.py on that commit, detached, so every push to
 main is gated without anyone asking; the ledger means only the legs the push changed run. The
 config is a JSON object of gate_fanout's own flags, {"hosts": "...", "workers": "...", "timed":
-"...", "args": [...]}, where "galaxies" adds pool slots on whichever Galaxies are lent to the
-gate's owners right now (galaxy_pools), and the run goes to <gates>/rel-<sha9>; while another full gate runs it
+"...", "args": [...]}, where "galaxies" adds pool slots on every Galaxy the hosts file gives a pool
+(galaxy_pools), and the run goes to <gates>/rel-<sha9>; while another full gate runs it
 waits for it instead. On RECORD (the gate failed only on size-ladder drift, release_next.py) it
 re-records those models' ladders on the same commit into <gates>/rec-<sha9>, and the release
 commit carries the fragments. When a failed gate's dir lists fixes in FIXES (release_next.py, Fix
@@ -297,28 +297,21 @@ def locked(path: Path) -> bool:
     return False
 
 
-def lent_galaxies(cfg: dict) -> list:
-    """The `g<id>` hosts ALLOC.json shows lent to the "galaxies" owners right now and the hosts file names."""
-    g = cfg["galaxies"]
-    hosts = json.loads(Path(cfg["hosts"]).read_text())
-    alloc = json.loads(Path(g["alloc"]).read_text()).get("galaxies", {})
-    return [f"g{i}" for i, a in sorted(alloc.items())
-            if a.get("phase") == "lent" and a.get("owner") in g["owners"] and f"g{i}" in hosts]
-
-
 def galaxy_pools(cfg: dict) -> dict:
-    """`cfg` with its "galaxies" entry, {"alloc": ALLOC.json, "owners": [...], "slots": N}, turned
-    into worker and timed slots: N `g<id>:pool` workers and one timed slot for every Galaxy that
-    ALLOC.json shows lent to one of `owners` and that the hosts file names. Which Galaxy that is
-    changes by the hour: rel-50bcbd42c listed .107 by hand and queued its WH legs there on
-    2026-10-17 while .107 was back serving JapanFold and the lent .108 had the chips."""
+    """`cfg` with its "galaxies" entry, {"slots": N}, turned into N `g<id>:pool` workers and one
+    timed slot on every Galaxy the hosts file gives a pool. Whether a Galaxy's pool takes a leg is
+    decided while the gate runs (gate_fanout's PAUSE/LEND-AT read), not when it starts: rel-f2fd17ff3
+    listed only .103, the Galaxy lent at its start, and when .103 went back to JapanFold at 15:02Z
+    on 2026-10-22 its seven WH legs were taken back to a queue no other host served, for 6 h while
+    .107's shared-chip pool ran SPD jobs."""
     g = cfg.get("galaxies")
     if not g:
         return cfg
-    lent = lent_galaxies(cfg)
+    hosts = json.loads(Path(cfg["hosts"]).read_text())
+    pools = [h for h, c in hosts.items() if h.startswith("g") and "pool" in c]
     join = lambda *parts: ",".join(x for x in parts if x)
-    return {**cfg, "workers": join(cfg.get("workers", ""), *(f"{h}:pool" for h in lent for _ in range(g["slots"]))),
-            "timed": join(cfg.get("timed", ""), *(f"{h}:pool" for h in lent))}
+    return {**cfg, "workers": join(cfg.get("workers", ""), *(f"{h}:pool" for h in pools for _ in range(g["slots"]))),
+            "timed": join(cfg.get("timed", ""), *(f"{h}:pool" for h in pools))}
 
 
 def start_gate(sha: str, gates: Path, config: Path, models: list | None = None) -> None:
@@ -356,10 +349,6 @@ def main() -> int:
         # running one's PASSes (with their read sets) are what the next gate reuses.
         d = {**d, "do": "WAIT", "why": f"gate main's head after the running gate on "
                                        f"{', '.join(s[:9] for s in d['running'])} ends"}
-    if (d["do"] == "GATE" and args.gate_config and (g := json.loads(args.gate_config.read_text())).get("galaxies")
-            and not lent_galaxies(g)):
-        # With no Galaxy lent the gate would have no WH worker and leave every WH leg unrun.
-        d = {**d, "do": "WAIT", "why": f"no Galaxy lent to {', '.join(g['galaxies']['owners'])}; WH legs need one"}
     if d["do"] in ("GATE", "RECORD") and args.gate_config and not args.dry_run:
         if fx := d.get("fixes"):
             subprocess.run(["git", "-C", str(REPO), "push", "-q", "-f", args.remote,
