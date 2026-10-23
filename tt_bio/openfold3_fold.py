@@ -30,7 +30,14 @@ from .envflags import env_flag
 # dit_qsplit moves work between cores, not arithmetic: CIFs identical with and without it on both models, Wormhole
 # and Blackhole (512-token --fast fold A/B, xmodel_ab); -0.22 s (OpenFold3) / -0.24 s (OpenBind-0) on a Galaxy chip
 # at 1000 MHz, flat on p150a. opm_jd comes with the shared normal set.
-NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"dit_qsplit"}
+# Normal mode also runs the fast set's trunk kernels on both parts: trimul_t1, trimul_t2 (trimul_t2cm on Blackhole),
+# transition_ws, ws_l1dest, triatt_ln and edm_device; the DiT stays fp32. Blackhole 11-set normal grade against the
+# normal set before it, paired seeds, 44 folds per model (nbg, p300c, 2026-10-23), PASS: OpenFold3 top pose median
+# 0.688 A (floor 1.208 A), CA-lDDT +0.0014 [-0.0010, +0.0048], docking 18 -> 20/44; OpenBind-0 0.519 A (floor 1.898 A),
+# CA-lDDT +0.0004 [-0.0004, +0.0014], docking 26 -> 28/44. 512-token page fold on a p300c chip at 1350 MHz,
+# off/on/on/off processes (pnb): OpenFold3 11.39 -> 9.72 s, OpenBind-0 12.67 -> 11.54 s.
+NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {
+    "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "ws_l1dest", "triatt_ln", "edm_device"}
 # trimul_t1 + trimul_t2 (the triangle multiplication's input and output as one kernel each) join --fast on the
 # Blackhole 11-set fast grade against today's --fast, 44 paired folds per model:
 # OpenFold3 top pose median 0.352 A (seed floor 1.328 A), CA-lDDT -0.0002 [-0.0012, +0.0008], docking 19 -> 19/44,
@@ -140,20 +147,23 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # --fast folds (m8w, 2026-10-20): OpenFold3 -0.11 s, OpenBind-0 -0.06 s mean. Graded on the 11-complex fast set,
 # paired seeds (m8g): PASS on both models (DockQ -0.003 / -0.005, CIs span zero). Blackhole within noise (OpenFold3
 # median -0.04 s, m8b2), so Wormhole fast only.
-# Wormhole normal also runs the fast set's trunk kernels: trimul_t1, trimul_t2, transition_ws, ws_l1dest, triatt_ln and
-# edm_device (the DiT stays fp32). 11-set normal grade of that set against the normal set before it, paired seeds, 44
-# folds per model (nwg, 2026-10-21), PASS: OpenFold3 top pose median 0.398 A (floor 1.010 A), CA-lDDT +0.0005
-# [-0.0012, +0.0025], docking 20 -> 21/44; OpenBind-0 0.633 A (floor 0.813 A), CA-lDDT -0.0004 [-0.0017, +0.0007],
-# docking 27 -> 27/44. 512-token page fold on a Galaxy chip at 1000 MHz, off/on/on/off processes (pnw): OpenFold3
-# 25.20 -> 20.02 s, OpenBind-0 25.27 -> 20.03 s.
-WH_NORMAL_LEVERS = NORMAL_LEVERS | {"trimul_bres", "atom_l1", "trimul_t1", "trimul_t2", "transition_ws", "ws_l1dest",
-                                    "triatt_ln", "edm_device"}
-# Per-model additions to WH_NORMAL_LEVERS, each with the grade the other model failed. The bf16 DiT stack (dit_s16,
-# diffusion_bf16, dit_fuse, dit_l1) on top of WH_NORMAL_LEVERS, 11-set normal grade, paired seeds, 44 folds per model
-# (nwd, 2026-10-21): OpenFold3 PASS, top pose median 0.434 A (floor 0.980 A), CA-lDDT -0.0001 [-0.0013, +0.0011],
-# docking 21 -> 23/44. OpenBind-0 FAIL, CA-lDDT -0.0012 [-0.0020, -0.0006] (without dit_fuse and dit_l1 also ligand
-# RMSD +1.52 A [+0.04, +3.96]), so OpenBind-0 keeps the fp32 DiT.
-WH_NORMAL_MODEL_LEVERS = {"openfold3": frozenset({"dit_s16", "diffusion_bf16", "dit_fuse", "dit_l1"})}
+# The Wormhole normal grade of the trunk kernels (with trimul_bres and atom_l1, without trimul_t2cm as in Wormhole fast):
+# 11-set normal grade against the normal set before it, paired seeds, 44 folds per model (nwg, 2026-10-21), PASS:
+# OpenFold3 top pose median 0.398 A (floor 1.010 A), CA-lDDT +0.0005 [-0.0012, +0.0025], docking 20 -> 21/44;
+# OpenBind-0 0.633 A (floor 0.813 A), CA-lDDT -0.0004 [-0.0017, +0.0007], docking 27 -> 27/44. 512-token page fold on a
+# Galaxy chip at 1000 MHz, off/on/on/off processes (pnw): OpenFold3 25.20 -> 20.02 s, OpenBind-0 25.27 -> 20.03 s.
+WH_NORMAL_LEVERS = NORMAL_LEVERS - {"trimul_t2cm"} | {"trimul_bres", "atom_l1"}
+# Per-model additions to the normal set, each with the grade the other model failed. OpenFold3 takes the bf16 DiT in
+# normal mode; OpenBind-0 failed its Wormhole grade and keeps the fp32 DiT on both parts.
+# Wormhole, the stack dit_s16, diffusion_bf16, dit_fuse, dit_l1 on top of WH_NORMAL_LEVERS, 11-set normal grade, paired
+# seeds, 44 folds per model (nwd, 2026-10-21): OpenFold3 PASS, top pose median 0.434 A (floor 0.980 A), CA-lDDT -0.0001
+# [-0.0013, +0.0011], docking 21 -> 23/44. OpenBind-0 FAIL, CA-lDDT -0.0012 [-0.0020, -0.0006] (without dit_fuse and
+# dit_l1 also ligand RMSD +1.52 A [+0.04, +3.96]).
+# Blackhole, dit_s16 + diffusion_bf16 on top of NORMAL_LEVERS against the normal set before both (nbg, p300c,
+# 2026-10-23): OpenFold3 PASS, top pose median 0.809 A (floor 1.208 A), CA-lDDT -0.0005 [-0.0031, +0.0033], docking
+# 18 -> 20/44; page fold at 1350 MHz 9.72 -> 9.12 s (pnb).
+NORMAL_MODEL_LEVERS = {"openfold3": frozenset({"dit_s16", "diffusion_bf16"})}
+WH_NORMAL_MODEL_LEVERS = {"openfold3": NORMAL_MODEL_LEVERS["openfold3"] | {"dit_fuse", "dit_l1"}}
 # ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
 # 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.
 # trimul_t2cm leaves Wormhole fast too: plain T2 + reblock_permute_back is faster there at the page cell. Galaxy chip at
@@ -385,11 +395,12 @@ class OpenFold3(Module):
     def __init__(self, sd, compute_kernel_config, num_cycles: int = 4, levers=None, model="openfold3"):
         """``levers``: the precision levers (``tenstorrent.LEVERS``) this model builds and folds
         under, active only inside its own build and fold, as for Protenix-v2. None takes the
-        mode's set (``tenstorrent.model_levers``): ``NORMAL_LEVERS`` / ``FAST_LEVERS`` below (``WH_*`` on Wormhole,
-        plus ``WH_NORMAL_MODEL_LEVERS[model]`` in normal mode) and nothing else, the older bfp8 trunk is off inside
-        the scope. ``model``: the family id the weights belong to (openfold3, openbind)."""
+        mode's set (``tenstorrent.model_levers``): ``NORMAL_LEVERS`` / ``FAST_LEVERS`` below (``WH_*`` on Wormhole),
+        plus ``NORMAL_MODEL_LEVERS[model]`` (``WH_NORMAL_MODEL_LEVERS`` on Wormhole) in normal mode, and nothing
+        else, the older bfp8 trunk is off inside the scope. ``model``: the family id the weights belong to (openfold3, openbind)."""
         wh = _T.is_wormhole()
-        normal = WH_NORMAL_LEVERS | WH_NORMAL_MODEL_LEVERS.get(model, frozenset()) if wh else NORMAL_LEVERS
+        normal = (WH_NORMAL_LEVERS | WH_NORMAL_MODEL_LEVERS.get(model, frozenset()) if wh
+                  else NORMAL_LEVERS | NORMAL_MODEL_LEVERS.get(model, frozenset()))
         self._levers = _T.model_levers(normal, WH_FAST_LEVERS if wh else FAST_LEVERS, spec=levers)
         with _T.lever_scope(self._levers):
             self._build(sd, compute_kernel_config, num_cycles)

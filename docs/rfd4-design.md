@@ -137,18 +137,19 @@ a sugar tree arrives with its glycosidic bonds intact.
 
 ## Design families and what they cost
 
-Measured on one Blackhole p300 chip at 1350 MHz AICLK (sampled during the design), at the full
-recipe: every step, every recycle.
+Measured on one Blackhole p300 chip at 1325-1350 MHz AICLK (sampled during the design), at the full
+recipe: every step, every recycle. Each run made two designs with the kernels already compiled;
+s/design is the run's wall time over two, so model load is included.
 
 | family | tokens | recipe | s/design |
 |---|---:|---|---:|
-| motif scaffolding | 82 | `medium/midpeak` | 25.7 |
-| structure prediction | 138 | `thinking_medium` | 53.4 |
-| enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 61.2 |
-| unconditional monomer | 100 | `thinking_medium` | 66.9 |
-| binder against a protein target | 225 | `medium/front_loaded` | 73.8 |
-| nanobody CDRs | 224 | `high/front_loaded` | 80.0 |
-| antibody CDRs (Fab) | 329 | `high/front_loaded` | 231.0 |
+| motif scaffolding | 82 | `medium/midpeak` | 9.2 |
+| unconditional monomer | 100 | `thinking_medium` | 11.7 |
+| structure prediction | 138 | `thinking_medium` | 14.0 |
+| enzyme (catalytic site + ligands) | 223 | `medium/midpeak` | 16.3 |
+| binder against a protein target | 225 | `medium/front_loaded` | 21.7 |
+| nanobody CDRs | 224 | `high/front_loaded` | 21.8 |
+| antibody CDRs (Fab) | 329 | `high/front_loaded` | 63.7 |
 
 Cost grows with the token count and with the recipe, not with `--num_designs`: designs are
 independent trajectories.
@@ -163,12 +164,32 @@ seeds is two different designs with two different token counts.
 ## Precision
 
 The trunk's pair transition and the triangle multiplication's input projection run with block-fp8
-weights and a bf16 matmul kernel by default. That takes about 6 s off the trunk of a 512-token
-design on a Blackhole chip and very little at 128 tokens. It is not bit-exact against fp32-weight
-numerics, but on 30 seed-matched 512-token binder designs the designed chain moved 2.1 A median (11.4 A
-at most) while a different seed moves it 52.5 A, and radius of gyration, bond outliers and clashes were
-unchanged. `--fast` adds nothing further for RFD4. `TT_BIO_LEVERS=trimul_t1` restores the previous
-numerics ([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
+weights and a bf16 matmul kernel by default, and the pair transition and the triangle multiplication's
+output each run as one program with their residual add into the pair representation. Together that
+takes the trunk of a 512-token design from 64.3 to 44.1 s on a Blackhole chip. Forming each block's pair
+biases and writing the pair update as one program each is a further 1.10x at 512 tokens, graded on 31
+designs with radius of gyration, bond outliers and clashes unchanged. Running the triangle multiplication's
+input kernel as one launch, with block-fp8 weights at HiFi2, takes the 512-token trunk from 40.6 to 37.2 s
+(1.09x, 1.08-1.13x from 160 to 640 tokens). It is not bit-exact against
+fp32 numerics: on 30 seed-matched 512-token binder designs the designed chain moved 7.2 A median (23.9 A at
+most) while a different seed moves it 37.2 A, and radius of gyration, bond outliers and clashes were
+unchanged. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics
+([`tuning-flags.md`](tuning-flags.md#tt_bio_levers)).
+
+From 288 tokens the triangle contraction also runs on a kernel that keeps one operand resident per
+channel, at reduced matmul precision. On a Blackhole chip at 1331 MHz that takes a 512-token design from
+41.3 to 39.8 s (1.04x) and the trunk of a 384-token one 1.09x faster; at 256 tokens and below ttnn's own
+plan is faster and nothing changes. Over 31 seed-matched 512-token designs the designed chain moved 2.2 A
+median against the previous default, while a different seed moves it 38 A, and the binder grade
+(radius of gyration, bond outliers, clashes, sequence diversity) passes. `--fast` runs the same set as
+the default.
+
+Between sublayers the pair representation is carried in bf16 rather than fp32. The fused programs read it
+and write it in place, accumulating in fp32 and rounding once on each write, so every memory-bound pair op
+moves half the bytes. On a Blackhole chip that takes a 512-token design from 37.6 to 30.3 s (1.24x, clock
+1287-1325 MHz); the trunk pass is 1.22x faster at 512 tokens and 1.15x at 256. Over 31 seed-matched
+512-token designs the designed chain moved 2.8 A median against the previous default, while a different
+seed moves it 39 A, and the binder grade passes.
 
 ## Many designs at once
 

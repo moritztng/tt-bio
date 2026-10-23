@@ -118,3 +118,91 @@ def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=Fals
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
     ttnn.generic_op([z, wt, mask, *outs], pd)
     return outs if n_out > 1 else outs[0]
+
+
+RMS_DIR = Path(__file__).resolve().parent / "kernels" / "pair_bias_rms"
+_R = 2         # rows i per compute step (kernels/pair_bias_rms/compute.cpp)
+_Z_DEPTH = 4   # steps of z in flight per core
+
+
+def rms_weight(ws, device):
+    """W^T for `rms_pair_bias` from one [C, H] projection per consumer, H <= 32 / len(ws): [1, 1, 32, C] bf16,
+    consumer k's heads from row k * 32 / len(ws), zero rows padding the head tile."""
+    import torch
+    ho = 32 // len(ws)
+    wt = torch.zeros(32, ws[0].shape[0])
+    for k, w in enumerate(ws):
+        assert w.shape[1] <= ho, (w.shape, ho)
+        wt[k * ho:k * ho + w.shape[1]] = w.t().float()
+    return ttnn.from_torch(wt.reshape(1, 1, 32, -1), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device)
+
+
+def rms_eligible(z, wt) -> bool:
+    """z [B, n, n, C] bf16 TILE in DRAM with n and C tile multiples (no padding anywhere), W^T [1, 1, 32, C]."""
+    ts = [z, wt]
+    if any(t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT
+           or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
+           or t.memory_config().buffer_type != ttnn.BufferType.DRAM for t in ts):
+        return False
+    zs, ls, ws = [int(d) for d in z.padded_shape], [int(d) for d in z.shape], [int(d) for d in wt.padded_shape]
+    if len(zs) != 4 or len(ws) != 4 or zs != ls:
+        return False
+    kt = zs[3] // 32
+    l1 = (kt + 1 + _Z_DEPTH * _R * kt + _R * kt + 32 + 2 * _SW) * _TILE
+    return zs[1] == zs[2] and zs[2] % 32 == 0 and zs[3] % 32 == 0 and ws[2] == 32 and ws[3] == zs[3] and l1 <= _L1_BUDGET
+
+
+def rms_pair_bias(z, wt, eps, heads, n_out=1, fidelity=ttnn.MathFidelity.HiFi4):
+    """rms0(z) @ W head-first for z [B, n, n, C], rms0 being the RMSNorm without a weight (fold it into W): a list of
+    `n_out` bf16 tensors [B, heads, n, n], one per consumer, from wt = `rms_weight(...)`. One program in place of
+    rms_norm, linear, permute (0, 3, 1, 2) and the slices: z is read once and only the biases are written. Check
+    `rms_eligible` first."""
+    device = z.device()
+    B, n, _, c = (int(d) for d in z.padded_shape)
+    kt, nt, ho = c // 32, n // 32, 32 // n_out
+    assert heads <= ho, (heads, n_out)
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, heads, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                                           device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
+    key = ("rms", device.id(), B, n, c, float(eps), fidelity, n_out, heads)
+    if key not in _CACHE:
+        g = device.compute_with_storage_grid_size()
+        units = B * nt * nt
+        _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, units, 0)
+
+        def cb(idx, tiles):
+            fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=ttnn.bfloat16, page_size=_TILE)
+            return ttnn.CBDescriptor(total_size=tiles * _TILE, core_ranges=grid, format_descriptors=[fmt])
+
+        cbs = [cb(W_CB, kt), cb(Z_CB, _Z_DEPTH * _R * kt), cb(M_CB, 1), cb(RM_CB, 32), cb(T_CB, _R * kt),
+               cb(OUT_CB, 2 * _SW)]
+        rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+        first = 0
+        for group, per in ((cg1, work1), (cg2, work2)):
+            for cr in group.ranges():
+                for cx in range(cr.start.x, cr.end.x + 1):
+                    for cy in range(cr.start.y, cr.end.y + 1):
+                        rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [first, per]
+                        first += per
+        assert first == units, (first, units)
+        bits = lambda f: struct.unpack("<I", struct.pack("<f", f))[0]  # noqa: E731
+        rct = [kt, nt] + list(ttnn.TensorAccessorArgs(z).get_compile_time_args()) \
+            + list(ttnn.TensorAccessorArgs(wt).get_compile_time_args())
+        wct = [nt, _SW, ho, heads] + list(ttnn.TensorAccessorArgs(outs[0]).get_compile_time_args())
+        path = ttnn.KernelDescriptor.SourceType.FILE_PATH
+        src = lambda f: str(RMS_DIR / f)  # noqa: E731
+        reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
+                                       compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 2,
+                                       config=ttnn.ReaderConfigDescriptor())
+        writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
+                                       compile_time_args=wct, runtime_args=wr, common_runtime_args=[0] * n_out,
+                                       config=ttnn.WriterConfigDescriptor())
+        compute = ttnn.KernelDescriptor(
+            kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
+            compile_time_args=[kt, bits(1.0 / c), bits(float(eps))], runtime_args=cp,
+            config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
+        _CACHE[key] = [reader, writer, compute], cbs
+    kernels, cbs = _CACHE[key]
+    kernels[0].common_runtime_args = [z.buffer_address(), wt.buffer_address()]
+    kernels[1].common_runtime_args = [o.buffer_address() for o in outs]
+    ttnn.generic_op([z, wt, *outs], ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs))
+    return outs

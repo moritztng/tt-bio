@@ -27,6 +27,12 @@
 // WS_RELU (AF2's Transition): fc3(relu(x @ w1 + b1)) + b3. c_1 holds w1 alone and there is no gate; each bias is a
 // CB of tiles whose 32 rows all carry the vector (c_21 = b1, NH tiles; c_22 = b3, CT tiles), copied into dest as the
 // seed its matmul accumulates on, so the bias costs no pass and is summed in fp32 with the products.
+// WS_RES32 (with WS_RELU and WS_RESID; RFD4's float32 pair stream): the residual c_20 is float32, unpacked straight to
+// dest (UnpackToDestFp32, set by the host) beside fc3's unrounded fp32 result and added by the SFPU, so z + t is one
+// float32 rounding; the sum is packed twice, float32 to c_16 (written over z) and bfloat16 to c_25 (written over x,
+// the copy the next sublayer reads). Four dest slots a group, so fc3 runs two output tiles at a time.
+// WS_RES_NOCOPY (with WS_RES32; RFD4's bfloat16 pair stream, `pair_bf16z`): c_20 and c_16 are bfloat16 and the residual
+// is x itself, so the sum is rounded once to bfloat16 and written over x; there is no copy (c_25 is not built).
 // WS_RELU_BW (that Transition's backward to its normed input): ((x @ w1 + b1 > 0) * (dy @ w2t)) @ w3 with w12 =
 // [w1 | w2^T] and w3 = w1^T, the SwiGLU program with b1 seeding fc1, a step function for the silu, and fc2 reading
 // the cotangent dy (c_23, KT tiles a row) instead of x. The hidden pre-activation is recomputed, never stored.
@@ -41,6 +47,9 @@
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/eltwise_unary/relu.h"
 #include "api/compute/eltwise_unary/comp.h"
+#ifdef WS_RES32
+#include "api/compute/eltwise_binary_sfpu.h"
+#endif
 
 #if defined(WS_PACK_SILU) && defined(TRISC_PACK)
 #include "llk_math_eltwise_unary_sfpu_silu.h"   // the packer-side SFPU init, as kernels/fc12g
@@ -178,7 +187,11 @@ void kernel_main() {
     constexpr uint32_t SILU_POLY = get_compile_time_arg_val(3);
     const uint32_t count = get_arg_val<uint32_t>(1);
     constexpr uint32_t SW = 4;
+#ifdef WS_RES32
+    constexpr uint32_t OG = CT < 2 ? CT : 2, cb_outb = 25;
+#else
     constexpr uint32_t OG = CT < 4 ? CT : 4;
+#endif
     static_assert(NH % SW == 0 && CT % OG == 0);
     constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16, cb_res = 20;
 #ifdef WS_RELU
@@ -431,7 +444,7 @@ void kernel_main() {
             mm_block_init_short(cb_hid, cb_w3, false, OG, 1, NH);
             reconfig_data_format(cb_w3, cb_hid);
 #endif
-#ifdef WS_RESID
+#if defined(WS_RESID) && !defined(WS_RES32)
             seed_res<OG>(cb_res, cb_hid, cb_w3, NH, 0);
 #endif
 #ifndef WS_NO_FC3
@@ -439,6 +452,16 @@ void kernel_main() {
                 matmul_block(cb_hid, cb_w3, k, k * CT + c, 0, false, OG, 1, NH);
             }
 #endif
+#endif
+#ifdef WS_RES32
+            copy_tile_to_dst_init_short_with_dt(cb_w3, cb_res);
+            for (uint32_t i = 0; i < OG; ++i) {
+                copy_tile(cb_res, i, OG + i);
+            }
+            add_binary_tile_init();
+            for (uint32_t i = 0; i < OG; ++i) {
+                add_binary_tile(i, OG + i, i);
+            }
 #endif
 #ifdef WS_RESID
             cb_pop_front(cb_res, OG);
@@ -448,10 +471,23 @@ void kernel_main() {
 #endif
             tile_regs_commit();
             cb_reserve_back(cb_out, OG);
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
+            cb_reserve_back(cb_outb, OG);
+#endif
             tile_regs_wait();
+#ifdef WS_RES32
+            pack_reconfig_data_format(cb_out);
+#endif
             pack_tile_block(0, cb_out, OG);
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
+            pack_reconfig_data_format(cb_outb);
+            pack_tile_block(0, cb_outb, OG);
+#endif
             tile_regs_release();
             cb_push_back(cb_out, OG);
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
+            cb_push_back(cb_outb, OG);
+#endif
         }
         cb_pop_front(cb_hid, NH);
     }

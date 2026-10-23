@@ -39,22 +39,40 @@ def _bracket(fn, name):
     return w
 
 
+class _Bracketed:
+    """A bracketed module call that still reads as the module (trunk.py reads tri.took_residual after the call)."""
+
+    def __init__(self, mod, name):
+        self._mod, self._call = mod, _bracket(mod.__call__, name)
+
+    def __call__(self, *a, **k):
+        return self._call(*a, **k)
+
+    def __getattr__(self, k):
+        return getattr(self._mod, k)
+
+
 def instrument(trunk):
     from tt_bio.rfd4 import trunk as T
     T._as = _bracket(T._as, "cast")
     T._residual = _bracket(T._residual, "residual")
     T._masked_copy = _bracket(T._masked_copy, "masked_copy")
     T.pair_biases = _bracket(T.pair_biases, "pair_bias")
+    # The fused programs PairUpdate.run calls directly: without these they fell into
+    # pass_glue (census v6: 8.35 s a 512 design with no sub-family).
+    T.outer_residual.outer_residual = _bracket(T.outer_residual.outer_residual, "outer_residual")
     for cls, meth, name in ((T.AdaptiveNorm, "__call__", "adaln"), (T.AdaptiveScale, "__call__", "ada_scale"),
                             (T.Transition, "__call__", "token_transition"),
                             (T.PairBiasAttention, "__call__", "attention"),
                             (T.Trunk, "_group_biases", "pair_bias"), (T.Trunk, "_recycle", "recycle"),
                             (T.PairUpdate, "_write", "pair_write"), (T.PairUpdate, "_transition", "pair_transition"),
+                            (T.PairUpdate, "_factors", "pair_factors"),
+                            (T.PairUpdate, "_transition_block", "pair_relu"),
                             (T.Trunk, "run_pass", "pass")):
         setattr(cls, meth, _bracket(getattr(cls, meth), name))
     for pu in trunk.pair_updates.values():
-        pu.tri_out = _bracket(pu.tri_out, "tri_mult_out")
-        pu.tri_in = _bracket(pu.tri_in, "tri_mult_in")
+        pu.tri_out = _Bracketed(pu.tri_out, "tri_mult_out")
+        pu.tri_in = _Bracketed(pu.tri_in, "tri_mult_in")
 
 
 def main():

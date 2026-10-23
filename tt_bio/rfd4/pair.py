@@ -29,11 +29,11 @@ elementwise in fp32. On the card the two sums cost +14 ms a step at 512 and were
 enough: `ttnn.sum` unpacks fp32 to tf32, rel 2.7e-4 on a sum of squares, and that moved designs
 at 512 by 2.1 A against the 0.6 A bar.
 
-The card's gather is exact. `ttnn.embedding` only moves bf16, so each fp32 weight row is split
-into three bf16 parts whose sum is the fp32 value; the card gathers each part (a row copy), widens
-it to fp32 and adds the three (`tests/test_rfd4_pair_device.py`). A one-hot matmul against the
-stacked parts looks equivalent but is not: with the parts stacked along K the card's accumulation
-keeps only about bf16's precision, ~1e-4 off at |w| ~ 0.1.
+The card gathers `W_x[bin]` as one matmul, onehot(bin) x [hi; mid; lo], where hi, mid and lo are
+the fp32 weight's three bf16 parts (`split_bf16`) stacked along K. It is not exact: the card's
+accumulation across the K tiles keeps ~1e-4 at |w| ~ 0.1 (z rel rms 1.7e-5 at 512), well under the
+bf16 copy the trunk reads. Three bf16 embeddings widened and added are exact but cost 14.2 ms a step
+at 512 against 5.4 ms (`perf/rfd4/glue/build_bench.py`); `ttnn.embedding` only moves bf16.
 """
 from __future__ import annotations
 
@@ -189,8 +189,20 @@ class PairOnCard:
         import ttnn
 
         self.split, self.device = split, device
-        self.parts = [ttnn.from_torch(w, layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
-                      for w in split_bf16(split.w_step)]
+        # bin i of part j is row 32 j + i of the stacked parts, so a bin's one-hot row picks all three
+        nb, k = split.nbins, 32
+        assert nb <= k, nb
+        onehot, stacked = torch.zeros(nb, 3 * k), torch.zeros(3 * k, split.w_step.shape[-1])
+        for j, part in enumerate(split_bf16(split.w_step).float()):
+            onehot[torch.arange(nb), j * k + torch.arange(nb)] = 1.0
+            stacked[j * k:j * k + nb] = part
+        self.onehot = ttnn.from_torch(onehot.bfloat16(), layout=ttnn.ROW_MAJOR_LAYOUT, device=device,
+                                      dtype=ttnn.bfloat16)
+        self.stacked = ttnn.from_torch(stacked.bfloat16(), layout=ttnn.TILE_LAYOUT, device=device,
+                                       dtype=ttnn.bfloat16)
+        # W_x itself, float32 row-major, for `tt_bio.pair_build`'s exact gather
+        self.table = ttnn.from_torch(split.w_step.float().contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT, device=device,
+                                     dtype=ttnn.float32)
         self._const = None  # (host PairConstant, npad, its padded projection on the card)
 
     def _constant(self, c: PairConstant, npad: int):
@@ -217,6 +229,9 @@ class PairOnCard:
         if npad:
             bins = torch.nn.functional.pad(bins, [0, npad, 0, npad])
             scale = torch.nn.functional.pad(scale, [0, npad, 0, npad])
+        z = self.one_program(const, bins, scale, p.gamma, p.beta)
+        if z is not None:
+            return z
         rows = self.rows(bins)
         x = ttnn.add(rows, const)
         ttnn.deallocate(rows)
@@ -235,26 +250,38 @@ class PairOnCard:
             ttnn.deallocate(t)
         return z
 
-    def rows(self, bins: torch.Tensor):
-        """`W_x[bins]` on the card, [b, n, n, pair] fp32, exactly the fp32 weight rows."""
+    def one_program(self, const, bins: torch.Tensor, scale: torch.Tensor, gamma: torch.Tensor, beta: torch.Tensor):
+        """The same z as the ttnn ops below, as one program (`tt_bio.pair_build`), or None where it declines.
+        Its gather is exact, so z sits closer to float64 than the one-hot matmul's."""
         import ttnn
+
+        from ..pair_build import pair_build
+
+        b, n, c = int(bins.shape[0]), int(bins.shape[1]), int(self.table.shape[1])
+        rm = dict(layout=ttnn.ROW_MAJOR_LAYOUT, device=self.device)
+        bins_tt = ttnn.from_torch(bins.reshape(b * n, n).to(torch.int32), dtype=ttnn.uint32, **rm)
+        scale_tt = ttnn.from_torch(scale.reshape(b * n, n).float().contiguous(), dtype=ttnn.float32, **rm)
+        wg = (self.split.ln_weight.double() * gamma.double()).float()
+        wg_tt, beta_tt = (ttnn.from_torch(v.float()[:, None, :].expand(b, 32, c).contiguous(), layout=ttnn.TILE_LAYOUT,
+                                          device=self.device, dtype=ttnn.float32) for v in (wg, beta))
+        z = pair_build(const, self.table, bins_tt, scale_tt, wg_tt, beta_tt)
+        for t in (bins_tt, scale_tt, wg_tt, beta_tt):
+            ttnn.deallocate(t)
+        return z
+
+    def rows(self, bins: torch.Tensor):
+        """`W_x[bins]` on the card, [b, n, n, pair] fp32, the fp32 weight rows to ~1e-4."""
+        import ttnn
+
+        from .trunk import compute_kernel_config
 
         b, n = int(bins.shape[0]), int(bins.shape[1])
         idx = ttnn.from_torch(bins.reshape(1, b * n * n).to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
                               device=self.device, dtype=ttnn.uint32)
-        rows = None
-        for w in self.parts:
-            r = ttnn.embedding(idx, w, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-            r32 = ttnn.typecast(r, ttnn.float32)
-            ttnn.deallocate(r)
-            if rows is None:
-                rows = r32
-            else:
-                acc = ttnn.add(rows, r32)
-                ttnn.deallocate(rows)
-                ttnn.deallocate(r32)
-                rows = acc
+        onehot = ttnn.embedding(idx, self.onehot, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(idx)
+        rows = ttnn.matmul(onehot, self.stacked, dtype=ttnn.float32, compute_kernel_config=compute_kernel_config())
+        ttnn.deallocate(onehot)
         return ttnn.reshape(rows, (b, n, n, rows.shape[-1]))
 
     def release(self):

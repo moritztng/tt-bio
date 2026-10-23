@@ -17,8 +17,7 @@ cd "$wt"
 stamp "start $(git log --oneline -1)"
 for n in $sizes; do
     for r in $(seq 1 "$rounds"); do
-        for leg in base=TT_BIO_RFD4_ELIDE_MASKS=0 elide=TT_BIO_RFD4_ELIDE_MASKS=1 \
-                   pairbf16=TT_BIO_RFD4_ELIDE_MASKS=1,TT_BIO_RFD4_PAIR_BF16=1; do
+        for leg in base=TT_BIO_RFD4_ELIDE_MASKS=0 elide=TT_BIO_RFD4_ELIDE_MASKS=1; do
             name=${leg%%=*} envs=${leg#*=}
             (export ${envs//,/ }
              PYTHONPATH=$wt timeout 1800 "$py" perf/rfd4/e2e/pass_bench.py --weights "${RFD4_WEIGHTS:-$HOME/rfd4-bundle}" \

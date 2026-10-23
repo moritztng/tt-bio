@@ -254,3 +254,46 @@ def test_a_silu_epilogue_is_its_own_cached_config(monkeypatch):
     off = T._pair_proj_program_config(RF3_M_TILES, 2, 2, 2, 2, True, None, 0)
     assert on is not off and on.fused_activation is not None and off.fused_activation is None
     T._pair_proj_program_config.cache_clear()
+
+
+# ---------------------------------------------------------------- what a refusal costs
+
+class _Shape(tuple):
+    pass
+
+
+class _FakeT:
+    dtype = "bf16"
+
+    def __init__(self, shape):
+        self.padded_shape = self.shape = _Shape(shape)
+
+
+def _refuse_with(monkeypatch, msg):
+    """Run `_pair_proj_linear`'s L1 leg against a device that refuses every L1 output with `msg`."""
+    calls = []
+
+    def linear(*a, memory_config=None, **k):
+        if memory_config is T.ttnn.L1_MEMORY_CONFIG:
+            calls.append("l1")
+            raise RuntimeError(msg)
+        return "dram"
+
+    monkeypatch.setattr(T, "_pair_proj_config", lambda *a, **k: object())
+    monkeypatch.setattr(T, "_pair_proj_minimal_matmul", lambda *a, **k: "dram")
+    monkeypatch.setattr(T.ttnn, "linear", linear)
+    x, w = _FakeT((1, 768, 768, 384)), _FakeT((384, 384))
+    for _ in range(6):
+        assert T._pair_proj_linear(x, w, None, "bf16", l1_out=True) == "dram"
+    return calls
+
+
+def test_a_clash_walks_the_ladder(monkeypatch):
+    calls = _refuse_with(monkeypatch, "Statically allocated circular buffers clash with L1 buffers")
+    assert len(calls) == 6 and not T._L1_OUT_REFUSED   # the fake config never runs out of rungs
+
+
+def test_an_output_that_does_not_fit_retires_at_once(monkeypatch):
+    """A narrower rung shrinks the circular buffers, never the output: one throw, not one per rung."""
+    calls = _refuse_with(monkeypatch, "Not enough space to allocate 75497472 B L1 buffer across 72 banks")
+    assert calls == ["l1"] and len(T._L1_OUT_REFUSED) == 1

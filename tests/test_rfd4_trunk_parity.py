@@ -270,9 +270,13 @@ def test_trunk_stack(nlayers, cycles, mode):
 
 
 @pytest.mark.device
-def test_full_mask_elision_is_bit_identical():
-    """With no padded token `trunk_masks` hands back None for every mask but the triangle's and the
-    trunk skips those multiplies. That has to be the identity, bit for bit, on both streams."""
+def test_full_mask_elision_is_bit_identical(monkeypatch):
+    """With no padded token `trunk_masks` hands back None for every mask (the triangle's is None either
+    way) and the trunk skips those multiplies. That has to be the identity, bit for bit, on both streams.
+    pair_bias_rms, pair_write_res and pair_bf16z serve only the unmasked trunk with a different program, so they
+    are off here; their accuracy is graded on their own."""
+    monkeypatch.setenv("TT_BIO_LEVERS", ",".join(sorted(TR.NORMAL_LEVERS - {"pair_bias_rms", "pair_write_res",
+                                                                           "pair_bf16z"})))
     dev = T.get_device()
     nlayers, cycles = 4, 2
     w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=31)
@@ -284,7 +288,7 @@ def test_full_mask_elision_is_bit_identical():
     outs = []
     for elide in (False, True):
         masks = TR.trunk_masks(mask, dev, residual_dtype=ttnn.float32, elide=elide)
-        assert (masks[0] is None) == elide and masks[2] is not None
+        assert (masks[0] is None) == elide and masks[2] is None
         s, z = mod(_dev(s0, dev, ttnn.float32), _dev(z0, dev, ttnn.float32), [_dev(c, dev) for c in conds], masks)
         outs.append((ttnn.to_torch(s), ttnn.to_torch(z)))
     assert torch.equal(outs[0][0], outs[1][0]) and torch.equal(outs[0][1], outs[1][1])
