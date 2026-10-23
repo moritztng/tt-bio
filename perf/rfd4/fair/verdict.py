@@ -37,6 +37,26 @@ def ratio(tt, gpu):
     return (GALAXY_CHIPS * tt / GALAXY_USD) / (DGX_GPUS * gpu / DGX_USD)
 
 
+HISTORY = "## Earlier verdicts"
+
+
+def carry_history(path, fair, written):
+    """The new FAIR.md, with every earlier verdict kept under one history heading.
+
+    A fair number is evidence: rerunning this script must not delete the verdict it supersedes
+    (it did, 2026-10-23, and the history had to be pasted back from a tool log).
+    """
+    if not path.exists():
+        return fair
+    old = path.read_text()
+    head, _, tail = old.partition(HISTORY)
+    older = tail.strip()
+    block = [HISTORY, "", f"### Superseded at {written}", "", head.strip()]
+    if older:
+        block += ["", older]
+    return fair.rstrip() + "\n\n" + "\n".join(block) + "\n"
+
+
 def jsonl(path):
     p = Path(path)
     return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
@@ -176,7 +196,7 @@ def main():
         return
     (state / "evidence" / "tt-p150a.jsonl").write_text("".join(json.dumps(x) + "\n" for x in ev))
     (state / "VERDICT.json").write_text(json.dumps(out, indent=1) + "\n")
-    (state / "FAIR.md").write_text(fair)
+    (state / "FAIR.md").write_text(carry_history(state / "FAIR.md", fair, out["written"]))
     (state / "rows" / "rfd4-fair-tt.json").write_text(json.dumps(row, indent=1) + "\n")
     if verdict in ("PASS", "FAIL"):
         deck = Path(a.deck or state.parent / "biodeck" / "src" / "extra_cells.json")
