@@ -56,6 +56,13 @@
 #ifndef T1SPLIT
 #define T1SPLIT 0
 #endif
+// T1FGATE (trimul_tail.t1_fgate, lever trimul_t1_fgate): step 3 as one 2 x 2 matmul block per two row tiles, w_cb rows
+// q (p) and QN + q (g) against xn rows il, il + 1, so DST holds p0 p1 g0 g1; the packer thread computes
+// p * sigmoid(g) into tiles 0 and 1 on its own dest half and packs them. p and g stay fp32 into the product, and
+// nothing goes through p_cb / g_cb. Unmasked, packer sigmoid (T1_PSIG), no RNE: the host gates it.
+#ifndef T1FGATE
+#define T1FGATE 0
+#endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t QN = get_compile_time_arg_val(1);        // [a | b] channel tiles of this launch
@@ -177,6 +184,38 @@ void kernel_main() {
         // prologue's rsqrt init reprograms the SFPU (as in T2).
         sigmoid_tile_init();
         if constexpr (MASK) cb_wait_front(m_cb, IL);
+#if T1FGATE
+        static_assert(!MASK && !(RNE & 1) && IL % 2 == 0, "T1FGATE: unmasked, no output RNE, even IL");
+        mm_block_init_short(w_cb, xn_cb, true, 2, 2, QN * Kt);
+        reconfig_data_format(xn_cb, w_cb);
+        pack_reconfig_data_format(out_cb);
+        for (uint32_t q = 0; q < QN; ++q) {
+            const uint32_t ocb = T1SPLIT && !(q & 1) ? out_rd_cb : out_cb;
+            cb_reserve_back(ocb, IL);
+            for (uint32_t il0 = 0; il0 < IL; il0 += 2) {
+                tile_regs_acquire();
+                if constexpr (!(ABL & 4)) {
+                    uint32_t i0 = q * Kt;   // the block's second w row is QN * Kt further: g of the same channel tile
+                    uint32_t i1 = il0;
+                    for (uint32_t k = 0; k < Kt; ++k, ++i0, i1 += IL)
+                        matmul_block(w_cb, xn_cb, i0, i1, 0, true, 2, 2, QN * Kt);
+                }
+                tile_regs_commit();
+                PACK(TTI_SEMWAIT(p_stall::STALL_TDMA | p_stall::STALL_CFG,
+                                 semaphore::t6_sem(semaphore::MATH_PACK), p_stall::STALL_ON_ZERO));
+                PACK(TT_SETC16(DEST_TARGET_REG_CFG_MATH_Offset_ADDR32, ckernel::packer::get_packer_dest_offset()));
+                if constexpr (!(ABL & 512)) {
+                    gate_poly_tile_pack<SIGPOLY, 2>(0);
+                    gate_poly_tile_pack<SIGPOLY, 2>(1);
+                }
+                PACK(TTI_STALLWAIT(p_stall::STALL_PACK, p_stall::WAIT_SFPU));
+                pack_tile<true>(0, ocb, il0);
+                pack_tile<true>(1, ocb, il0 + 1);
+                tile_regs_release();
+            }
+            cb_push_back(ocb, IL);
+        }
+#else
         for (uint32_t q = 0; q < QN; ++q) {
             for (uint32_t pass = 0; pass < 2; ++pass) {
                 const uint32_t pass_cb = pass == 0 ? p_cb : g_cb;
@@ -270,6 +309,7 @@ void kernel_main() {
             cb_pop_front(p_cb, IL);
             cb_pop_front(g_cb, IL);
         }
+#endif
         cb_pop_front(xn_cb, IL * Kt);
         if constexpr (MASK) cb_pop_front(m_cb, IL);
     }
