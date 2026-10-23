@@ -157,5 +157,7 @@
    "device_s_per_design": 0.235,
    "share_of_device": 0.0063
   }
- }
+ },
+ "sha": "83fb59bcb (= 288f1ed37 at 512 tokens)",
+ "note": "qb2 p300c development number, never ratio-grade; row rfd4-land8"
 }

@@ -19,132 +19,132 @@
    "n": 1
   }
  },
- "host_load": 7.1,
- "card": "qb2 physical 3",
+ "host_load": 4.2,
+ "card": "qb2 physical 0",
  "per_pass": {
   "first": {
-   "device_ms": 28.395,
-   "ops": 706
+   "device_ms": 26.756,
+   "ops": 664
   },
   "recycled": {
-   "device_ms": 28.621,
-   "ops": 711,
-   "elementwise_ms": 2.031,
-   "elementwise_ops": 179,
-   "gflop": 355.07
+   "device_ms": 26.987,
+   "ops": 669,
+   "elementwise_ms": 0.612,
+   "elementwise_ops": 165,
+   "gflop": 309.98
   }
  },
- "device_s_per_design": 5.138,
- "tflop_per_design": 63.61,
+ "device_s_per_design": 4.844,
+ "tflop_per_design": 55.5,
  "families": {
   "tri_mult_in": {
-   "ms_per_pass": 7.1452,
-   "ops_per_pass": 70,
-   "elementwise_ms_per_pass": 0.683,
-   "elementwise_ops_per_pass": 7,
-   "gflop_per_pass": 154.082,
-   "tflops": 21.56,
-   "device_s_per_design": 1.286,
-   "share_of_device": 0.2503
+   "ms_per_pass": 7.7253,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 131.533,
+   "tflops": 17.03,
+   "device_s_per_design": 1.391,
+   "share_of_device": 0.2872
   },
   "tri_mult_out": {
-   "ms_per_pass": 7.1184,
-   "ops_per_pass": 70,
-   "elementwise_ms_per_pass": 0.6818,
-   "elementwise_ops_per_pass": 7,
-   "gflop_per_pass": 154.082,
-   "tflops": 21.65,
-   "device_s_per_design": 1.282,
-   "share_of_device": 0.2495
+   "ms_per_pass": 7.7148,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 131.533,
+   "tflops": 17.05,
+   "device_s_per_design": 1.389,
+   "share_of_device": 0.2868
   },
   "pass_glue": {
-   "ms_per_pass": 4.3669,
+   "ms_per_pass": 4.3478,
    "ops_per_pass": 43,
    "elementwise_ms_per_pass": 0,
    "elementwise_ops_per_pass": 0,
    "gflop_per_pass": 1.057,
    "tflops": 0.24,
-   "device_s_per_design": 0.787,
-   "share_of_device": 0.1532
-  },
-  "residual": {
-   "ms_per_pass": 2.9628,
-   "ops_per_pass": 43,
-   "elementwise_ms_per_pass": 0.0558,
-   "elementwise_ops_per_pass": 14,
-   "gflop_per_pass": 0.0,
-   "tflops": 0.0,
-   "device_s_per_design": 0.521,
-   "share_of_device": 0.1014
+   "device_s_per_design": 0.783,
+   "share_of_device": 0.1617
   },
   "attention": {
-   "ms_per_pass": 2.3144,
+   "ms_per_pass": 2.2615,
    "ops_per_pass": 182,
-   "elementwise_ms_per_pass": 0.0431,
+   "elementwise_ms_per_pass": 0.0376,
    "elementwise_ops_per_pass": 14,
    "gflop_per_pass": 11.274,
-   "tflops": 4.87,
-   "device_s_per_design": 0.416,
-   "share_of_device": 0.081
+   "tflops": 4.99,
+   "device_s_per_design": 0.407,
+   "share_of_device": 0.084
   },
   "token_transition": {
-   "ms_per_pass": 1.8719,
+   "ms_per_pass": 1.8499,
    "ops_per_pass": 56,
-   "elementwise_ms_per_pass": 0.1329,
+   "elementwise_ms_per_pass": 0.1254,
    "elementwise_ops_per_pass": 14,
    "gflop_per_pass": 25.367,
-   "tflops": 13.55,
-   "device_s_per_design": 0.337,
-   "share_of_device": 0.0656
+   "tflops": 13.71,
+   "device_s_per_design": 0.333,
+   "share_of_device": 0.0687
   },
   "pair_bias": {
-   "ms_per_pass": 1.0025,
+   "ms_per_pass": 1.0022,
    "ops_per_pass": 8,
    "elementwise_ms_per_pass": 0,
    "elementwise_ops_per_pass": 0,
    "gflop_per_pass": 0.0,
    "tflops": 0.0,
    "device_s_per_design": 0.18,
-   "share_of_device": 0.035
+   "share_of_device": 0.0372
   },
   "adaln": {
-   "ms_per_pass": 0.9419,
+   "ms_per_pass": 0.8924,
    "ops_per_pass": 140,
-   "elementwise_ms_per_pass": 0.1552,
+   "elementwise_ms_per_pass": 0.1347,
    "elementwise_ops_per_pass": 56,
    "gflop_per_pass": 2.819,
-   "tflops": 2.99,
-   "device_s_per_design": 0.17,
-   "share_of_device": 0.0331
+   "tflops": 3.16,
+   "device_s_per_design": 0.161,
+   "share_of_device": 0.0332
   },
   "ada_scale": {
-   "ms_per_pass": 0.4048,
+   "ms_per_pass": 0.3831,
    "ops_per_pass": 56,
-   "elementwise_ms_per_pass": 0.0853,
+   "elementwise_ms_per_pass": 0.0748,
    "elementwise_ops_per_pass": 28,
    "gflop_per_pass": 1.409,
-   "tflops": 3.48,
-   "device_s_per_design": 0.073,
+   "tflops": 3.68,
+   "device_s_per_design": 0.069,
    "share_of_device": 0.0142
   },
+  "residual": {
+   "ms_per_pass": 0.327,
+   "ops_per_pass": 29,
+   "elementwise_ms_per_pass": 0.054,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.046,
+   "share_of_device": 0.0095
+  },
   "recycle": {
-   "ms_per_pass": 0.3014,
+   "ms_per_pass": 0.3007,
    "ops_per_pass": 5,
-   "elementwise_ms_per_pass": 0.0039,
+   "elementwise_ms_per_pass": 0.0037,
    "elementwise_ops_per_pass": 1,
    "gflop_per_pass": 4.983,
-   "tflops": 16.53,
+   "tflops": 16.57,
    "device_s_per_design": 0.036,
-   "share_of_device": 0.007
+   "share_of_device": 0.0074
   },
   "cast": {
-   "ms_per_pass": 0.1905,
+   "ms_per_pass": 0.182,
    "ops_per_pass": 38,
-   "elementwise_ms_per_pass": 0.1905,
+   "elementwise_ms_per_pass": 0.182,
    "elementwise_ops_per_pass": 38,
    "gflop_per_pass": 0.0,
    "tflops": 0.0,
-   "device_s_per_design": 0.034,
+   "device_s_per_design": 0.032,
    "share_of_device": 0.0066
   },
   "outside": {
@@ -155,7 +155,9 @@
    "gflop_per_pass": 0,
    "tflops": 0.0,
    "device_s_per_design": 0.016,
-   "share_of_device": 0.0031
+   "share_of_device": 0.0033
   }
- }
+ },
+ "sha": "288f1ed37 (main, with pair_tail_small)",
+ "note": "qb2 p300c development number, never ratio-grade; row rfd4-land8"
 }
