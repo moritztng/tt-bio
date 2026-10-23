@@ -5,9 +5,10 @@
 #   br256 / br512  this branch's tree: the BH arm the WH designs are graded against, and the "after" side
 #   mn256 / mn512  main 01c1644ae: the "before" side; BH must come out byte-identical (the branch only gates a
 #                  Wormhole-only form), and its timings pair with br on the same chip
-#   nohup setsid bash bh_chain.sh > /dev/null 2>&1 &
+#   z8256 / z8512  the tip tree carrying pair_bfp8z ($R/z8), the BH side of its Wormhole grade (D-orch-136)
+#   [CARD=1 LEGS="z8256 z8512"] nohup setsid bash bh_chain.sh > /dev/null 2>&1 &
 set -u
-R=$HOME/scratch/rfd4-wh-bringup; BOOK="python3 $HOME/spd/feed/book.py"; CARD=2
+R=$HOME/scratch/rfd4-wh-bringup; BOOK="python3 $HOME/spd/feed/book.py"; CARD=${CARD:-2}
 PY=$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python; W=$HOME/rfd4-bundle; IN=$R/inputs
 exec >>"$R/chain.log" 2>&1
 echo "chain start $(date -u +%FT%TZ) pid=$$"
@@ -24,8 +25,8 @@ while :; do
 done
 echo "window open $(date -u +%FT%TZ)"; uptime
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:rfd4-wh-bringup
-for leg in br256 mn256 br512 mn512; do
-  tree=$R/branch; [ "${leg:0:2}" = mn ] && tree=$R/main
+for leg in ${LEGS:-br256 mn256 br512 mn512}; do
+  case ${leg:0:2} in mn) tree=$R/main;; z8) tree=$R/z8;; *) tree=$R/branch;; esac
   n=${leg:2}; seeds="$(seq 0 30)"; [ "$leg" = mn512 ] && seeds="$(seq 0 7)"
   echo "$leg start $(date -u +%FT%TZ) tree $(cat $tree/SHA) load $(cut -d' ' -f1 /proc/loadavg)"
   (cd $tree && PYTHONPATH=$tree flock -w 900 $HOME/spd_qb2_chip$CARD.lock timeout 3000 $PY perf/rfd4/e2e/design.py \
