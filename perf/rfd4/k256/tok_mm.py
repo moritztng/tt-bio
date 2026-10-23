@@ -3,6 +3,7 @@ against production's call. Census v7 has these at 2.4-5.7x their byte floor on 6
 768 -> 3072 pair at the same ms at 256 as at 512: weight-read bound, not row bound.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/k256/tok_mm.py --out <json> [--n 256] [--rounds 4] [--reps 10]
+        [--pipelined]
 
 Arms: `prod` = Module._lin's call (ops.linear, CORE_GRID_MAIN), `plain` = ttnn.linear with no core grid,
 `1d:w=<in0_block_w>` = 1D multicast of x over ceil(Nt / per_core_N) cores (per_core_N the smallest that fits the
@@ -55,6 +56,7 @@ def main():
     ap.add_argument("--rounds", type=int, default=4)
     ap.add_argument("--reps", type=int, default=10)
     ap.add_argument("--arms", default="prod|plain|1d:w=2|1d:w=4|1d:w=8|2d:w=2|2d:w=4")
+    ap.add_argument("--pipelined", action="store_true", help="time --reps calls between two syncs, a sample a round")
     a = ap.parse_args()
 
     from tt_bio import ops
@@ -106,6 +108,16 @@ def main():
                 times[arm] = []
             for _ in range(a.rounds):
                 for arm, _e in live:
+                    if a.pipelined:
+                        # reps calls back to back, one sync: the host enqueues ahead, so a call costs its device
+                        # time plus the gap between programs, as in the traced trunk
+                        ttnn.synchronize_device(dev)
+                        t0 = time.perf_counter()
+                        for _ in range(a.reps):
+                            ttnn.deallocate(call(arm))
+                        ttnn.synchronize_device(dev)
+                        times[arm].append((time.perf_counter() - t0) / a.reps)
+                        continue
                     for _ in range(a.reps):
                         ttnn.synchronize_device(dev)
                         t0 = time.perf_counter()
@@ -115,7 +127,7 @@ def main():
                         ttnn.deallocate(r)
             floor_ms = 1e3 * 2 * (a.n * K + K * N + a.n * N) / 436e9
             for arm, e in live:
-                ts = sorted(times[arm][1:])
+                ts = sorted(times[arm] if a.pipelined else times[arm][1:])
                 ms = 1e3 * statistics.median(ts)
                 rows.append(dict(n=a.n, op=name, arm=arm, ms=round(ms, 4), p10_ms=round(1e3 * ts[len(ts) // 10], 4),
                                  ms_a_pass=round(ms * per_pass, 3), x_floor=round(ms / floor_ms, 2),

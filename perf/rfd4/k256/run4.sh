@@ -17,6 +17,9 @@ stamp "start tree $(cat $W/TREE_SHA 2>/dev/null)"
 for n in 256 512; do
   timeout 900 $PY perf/rfd4/k256/tok_mm.py --n $n --out $O/tok-$n.json > $O/tok-$n.log 2>&1
   stamp "tok $n rc=$?"
+  timeout 900 $PY perf/rfd4/k256/tok_mm.py --n $n --pipelined --rounds 12 --reps 40 --arms "prod|2d:w=4|2d:w=8|1d:w=8" \
+    --out $O/pipe-$n.json > $O/pipe-$n.log 2>&1
+  stamp "pipe $n rc=$?"
 done
 exec 9>&-
 python3 $HOME/spd/feed/book.py rm rfd4-perf-k256
