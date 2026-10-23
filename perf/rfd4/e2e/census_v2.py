@@ -4,7 +4,8 @@
 
 FLOPs are counted from the profiled shapes, not a model: 2*M*K*N per matmul (batch dims multiplied
 in), 4*b*h*n*n*d per SDPA. Pass 2 (a recycled pass) is the steady pass; a design is 60 first passes
-and 120 recycled ones at thinking_medium, so per design = 60 * first + 120 * recycled.
+and 120 recycled ones at thinking_medium, so per design = (60 * first + 120 * recycled) / batch, a pass carrying
+`batch` designs (run.json's batch, elt_prof.py --batch). Per-pass figures are for the whole batched pass.
 """
 import collections
 import csv
@@ -31,6 +32,7 @@ def main():
     prof, out = sys.argv[1], sys.argv[2]
     rows = list(csv.DictReader(open(f"{prof}/ops.csv")))
     run = json.load(open(f"{prof}/run.json"))
+    nb = run.get("batch", 1)
     # The recycle projections run between two passes; they are charged to the pass they feed.
     on, stack, passes, pending = False, [], [], collections.defaultdict(lambda: collections.Counter())
     for r in rows:
@@ -61,19 +63,19 @@ def main():
     fams = {}
     for name in sorted(set(first) | set(rec), key=lambda k: -rec[k]["ms"]):
         a, b = first[name], rec[name]
-        design_s = (60 * a["ms"] + 120 * b["ms"]) / 1e3
+        design_s = (60 * a["ms"] + 120 * b["ms"]) / 1e3 / nb
         fams[name] = {"ms_per_pass": round(b["ms"], 4), "ops_per_pass": b["ops"],
                       "elementwise_ms_per_pass": round(b["elt_ms"], 4), "elementwise_ops_per_pass": b["elt_ops"],
                       "gflop_per_pass": round(b["gflop"], 3),
                       "tflops": round(b["gflop"] / b["ms"], 2) if b["ms"] and b["gflop"] else 0.0,
                       "device_s_per_design": round(design_s, 3)}
     tot = lambda p, k: sum(v[k] for v in p.values())  # noqa: E731
-    dev_s = (60 * tot(first, "ms") + 120 * tot(rec, "ms")) / 1e3
+    dev_s = (60 * tot(first, "ms") + 120 * tot(rec, "ms")) / 1e3 / nb
     for v in fams.values():
         v["share_of_device"] = round(v["device_s_per_design"] / dev_s, 4)
     doc = {
         "size": run["n"], "recipe": "thinking_medium", "trunk_passes": 180, "first_passes": 60, "recycled_passes": 120,
-        "batch": 1, "dims": {"token": run["tok"], "pair": run["pair"], "cond": run["cond"]},
+        "batch": nb, "dims": {"token": run["tok"], "pair": run["pair"], "cond": run["cond"]},
         "instrument": "device profiler (Tracy build tt-metal-b2z = ttnn 0.68.0), DEVICE KERNEL DURATION per op, "
                       "eager trunk call of 2 passes on random inputs of the design shapes (perf/rfd4/e2e/elt_prof.py); "
                       "families by signposts around each sublayer, innermost wins; gaps between kernels not counted",
@@ -83,7 +85,7 @@ def main():
                                   "elementwise_ms": round(tot(rec, "elt_ms"), 3), "elementwise_ops": tot(rec, "elt_ops"),
                                   "gflop": round(tot(rec, "gflop"), 2)}},
         "device_s_per_design": round(dev_s, 3),
-        "tflop_per_design": round((60 * tot(first, "gflop") + 120 * tot(rec, "gflop")) / 1e3, 2),
+        "tflop_per_design": round((60 * tot(first, "gflop") + 120 * tot(rec, "gflop")) / 1e3 / nb, 2),
         "families": fams,
     }
     json.dump(doc, open(out, "w"), indent=1)
