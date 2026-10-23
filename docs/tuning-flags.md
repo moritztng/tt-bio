@@ -935,6 +935,10 @@ picks its route on the batch's pair rows, so 16 designs of 128 tokens run the ro
 they ran one call per design. At one design a step nothing changes. 128 tokens at width 16 goes from 4.34 to 2.27 s a
 design and 256 at width 4 from 12.25 to 7.82 s (1306-1331 MHz); the designed chain moves 0.07 A median at 128 and 1.9 A
 at 256 against 5.4 A and 24 A seed-to-seed, and the binder grade passes.
+The pair transition's two matmuls run at HiFi2 (`pair_block_hifi2`, RFD4's set only): the block-fp8 weights keep
+every bit and the bf16 activation loses its last mantissa bit. The 512-token trunk goes from 25.87 to 24.32 s a
+design (1.064x, 1350 MHz, paired) and 256 1.041x; the designed chain moves 5.1 A median against a 38.8 A
+seed-to-seed spread and the binder grade passes.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
