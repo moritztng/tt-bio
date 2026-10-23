@@ -2207,7 +2207,7 @@ _ESMC_6B_B8 = env_flag("TT_BIO_ESMC_6B_B8", True)
 # ESMC-6B embeddings on Wormhole at HiFi3 instead of HiFi4, --fast and normal with block-fp8 weights (same cell):
 # fast 197.3 -> 182.2 ms, pcc vs fp32 0.998849 -> 0.998859; normal 240.7 (bf16) -> 182.3 ms, pcc 0.998936 -> 0.998859,
 # pooled 0.999851 -> 0.999815. At one sequence the two modes now run the same forward. HiFi2 reads 178.2 ms but pcc
-# 0.998539, past the fast bar.
+# 0.998539, past the fast bar. Blackhole (bf16 weights under normal) too: f6b, qb2 p300, see below.
 _ESMC_6B_FIDELITY = os.environ.get("TT_BIO_ESMC_6B_FIDELITY", "HiFi3")
 
 
@@ -2217,12 +2217,12 @@ def _6b_weights_b8(fast: bool) -> bool:
 
 
 def _embed_6b_mode(model, fast: bool):
-    """The ESMC-6B embed model's per-mode compute on Wormhole: block-fp8 weights under a normal forward keep fp32
-    accumulation, and both run at _ESMC_6B_FIDELITY. ESMFold2 builds its own 6B and is untouched."""
+    """The ESMC-6B embed model's per-mode compute: both modes run at _ESMC_6B_FIDELITY, and on Wormhole block-fp8
+    weights under a normal forward keep fp32 accumulation. ESMFold2 builds its own 6B and is untouched."""
     from tt_bio import tenstorrent
+    model.compute_kernel_config.math_fidelity = getattr(ttnn.MathFidelity, _ESMC_6B_FIDELITY)
     if not (tenstorrent.is_wormhole() and _6b_weights_b8(fast)):
         return model
-    model.compute_kernel_config.math_fidelity = getattr(ttnn.MathFidelity, _ESMC_6B_FIDELITY)
     if not fast:
         for b in model.module.blocks:
             b.attn.mm_exact_acc = b.ffn.mm_exact_acc = True
