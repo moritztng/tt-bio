@@ -461,6 +461,13 @@ def _normal_hifi3() -> bool:
     return bool(_SAPROT_NORMAL_HIFI3)
 
 
+# Under grade (ls132, off): normal mode's qkv keeps HiFi4 where the other projections take HiFi3, and _QKV_NOACC also
+# drops its packer L1 accumulation (the HiFi4 -2^n sums). BH normal's mm_rope + SFPU sums is -6..-10 % but failed 650M
+# hPCSK9 by 0.00006 (ls124); its q, k error (2.70e-3 vs float64, ls126) is the term left to shrink.
+_SAPROT_QKV_HIFI4 = env_flag("TT_BIO_SAPROT_QKV_HIFI4", False)
+_SAPROT_QKV_NOACC = env_flag("TT_BIO_SAPROT_QKV_NOACC", False)
+
+
 class _SaprotLin(_MMLin):
     MM_BFP8_HIFI2 = False   # SaProt 35M --fast at HiFi2: pooled cos vs fp32 0.999915 -> 0.999879, under the 0.9999 bar
 
@@ -474,6 +481,14 @@ class _SaprotLin(_MMLin):
         on = d >= _HIFI2_MIN_WIDTH if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
         if not (on and w.dtype == ttnn.bfloat8_b and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _hifi2_roles()
                 and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
+            if (_SAPROT_QKV_HIFI4 and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4
+                    and _role(d, int(w.shape[-2]), int(w.shape[-1])) == "qkv"):
+                if not _SAPROT_QKV_NOACC:
+                    return ck
+                if getattr(self, "_ck_noacc", None) is None:
+                    self._ck_noacc = type(ck)(math_fidelity=ck.math_fidelity, math_approx_mode=ck.math_approx_mode,
+                                              fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=False)
+                return self._ck_noacc
             if _normal_hifi3() and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
                 if getattr(self, "_ck_hifi3", None) is None:
                     self._ck_hifi3 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ck.math_approx_mode,
