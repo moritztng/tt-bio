@@ -89,7 +89,7 @@ GATE_LEG = "(spd_qb1_card|spd_qb2_chip|TT_VISIBLE_DEVICES=)%s[. ].*(RELEASE_GATE
 
 # Runs on the pool host: report state, existence of paths, and sweep dead entries. Payload is appended as JSON.
 PROBE = r'''
-import glob, json, os, shutil, sys, time
+import glob, json, os, shutil, subprocess, sys, time
 A = json.loads(sys.stdin.readline())
 H = os.path.expanduser("~"); now = time.time(); out = {"exists": {}, "jobs": {}}
 def ok(p):
@@ -157,6 +157,12 @@ else:
     bk = H + "/spd/feed/book.py"   # the box's card arbiter (book.py), shipped by the feed so every runner reads one version
     if A.get("book") and (not os.path.exists(bk) or open(bk).read() != A["book"]):
         open(bk + ".tmp", "w").write(A["book"]); os.replace(bk + ".tmp", bk)
+    # A row that concludes leaves its booking standing: 10-23 rfd4-land8 and rfd4-perf-ptrans held qb2 cards 3 and 1
+    # for ~4 h after concluding, no process on them, 14 waiters held off. Drop a booking whose owner has concluded.
+    W = H + "/spd/feed/windows.tsv"
+    if A.get("sweep") and A.get("concluded") and os.path.exists(W):
+        for o in sorted({l.split("\t")[2] for l in open(W) if l.count("\t") >= 3} & set(A["concluded"])):
+            subprocess.run(["python3", bk, "rm", o], capture_output=True); out.setdefault("unbooked", []).append(o)
     cards = [c for c in A["cards"] if not os.path.exists(H + "/spd/locks/chip%d.BAD" % c)]
     # dead ARC: the class node reads 0xFFFFFFFF (10-15 qb1 card 2 for 70+ min while jobs kept dying there in init).
     # Logical card c is the c-th class node in PCI order, the order TT_VISIBLE_DEVICES and tt-smi use.
@@ -643,10 +649,13 @@ def main(argv=None):
     paths = sorted({p for c in cs for p in c["done"] + c["requires"]} | {r[0] for r in roots.values() if r})
     outdirs = {c["name"]: outs(c) for c in cs}
     st = {}
+    now = time.time()
+    concluded = [f.name for f in (R / "state/concluded").iterdir() if now - f.stat().st_mtime < 7 * 86400] \
+        if (R / "state/concluded").is_dir() else []
     for name, p in P.items():
         try:
             st[name] = remote(p["ssh"], PROBE, {"kind": p["kind"], "paths": [x for x in paths], "cards": p.get("cards", []), "book": BOOK,
-                                             "lock": p.get("lock", ""), "lend": p.get("lend", False), "sweep": not a.dry_run, "outdirs": outdirs})
+                                             "concluded": concluded, "lock": p.get("lock", ""), "lend": p.get("lend", False), "sweep": not a.dry_run, "outdirs": outdirs})
         except Exception as e:  # an unreachable box is skipped, never fatal
             log(f"{name}: probe failed: {e}")
     # 1. account every ledger entry: done, pending, or a failed attempt
@@ -768,6 +777,8 @@ def main(argv=None):
     qnames = {L["name"] for L in ledger.values() if L.get("quarantined")}
     for n, jobs in place.items():
         s = st[n]
+        if s.get("unbooked"):
+            log(f"{n}: dropped the booking of concluded {', '.join(s['unbooked'])}")
         log(f"{n}: healthy {s['healthy']} queued {s['queued']} -> +{len(jobs)} feed jobs; swept {s.get('swept', 0)}")
         if a.dry_run:
             continue

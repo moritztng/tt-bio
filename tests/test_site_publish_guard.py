@@ -39,7 +39,7 @@ def sandbox(tmp_path: Path) -> Path:
     for rel in FILES:
         dst = tmp_path / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(REPO / rel, dst)
+        shutil.copyfile(REPO / rel, dst)   # content only: a deduped gate tree is read-only
     return tmp_path
 
 

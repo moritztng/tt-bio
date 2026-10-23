@@ -22,11 +22,12 @@ L1_BH_BANK = 1_461_760           # `_l1_bank_bytes` on Blackhole
 L1_WH_BANK = 1_499_136 * 0.98    # the Wormhole figure tests/test_transition_t3.py budgets against
 
 
-def test_lever_named_and_fast_only():
+def test_lever_named_and_scoped():
     assert "trimul_t2cm" in T.LEVERS
     assert "trimul_t2cm" not in T.UNGRADED_LEVERS | T.NORMAL_LEVERS
     from tt_bio import openfold3_fold as of3
-    assert "trimul_t2cm" in of3.FAST_LEVERS and "trimul_t2cm" not in of3.NORMAL_LEVERS
+    assert "trimul_t2cm" in of3.FAST_LEVERS and "trimul_t2cm" in of3.NORMAL_LEVERS   # Blackhole normal, nbg
+    assert "trimul_t2cm" not in of3.WH_NORMAL_LEVERS | of3.WH_FAST_LEVERS
 
 
 # ---------------------------------------------------------------- eligibility
@@ -77,6 +78,8 @@ def test_eligibility_declines_cleanly(monkeypatch):
         assert TTL.t2cm_eligible(**a) == "ln_params"
         a = _args()
         a["g"] = _Fake([1, 512, 512, 128], dtype=ttnn.bfloat8_b)
+        assert TTL.t2cm_eligible(**a) is None                            # the plain form reads a bfp8 g (trimul_t1g8)
+        a["g"] = _Fake([1, 512, 512, 128], dtype=ttnn.float32)
         assert TTL.t2cm_eligible(**a) == "dtype"
         monkeypatch.setattr(T, "_l1_bank_bytes", lambda: 100_000)        # a smaller part: refuse, not throw
         assert TTL.t2cm_eligible(**_args()) == "l1"
@@ -124,3 +127,27 @@ def test_routes_through_the_moved_program():
     assert "moved=(xcm, c_off, P)" in src
     assert not (KDIR / "reader_ln_cm.cpp").exists() and not (KDIR / "writer_ln_cm.cpp").exists()
     assert "CM" not in re.sub(r"//.*", "", (KDIR / "compute_ln.cpp").read_text())
+
+
+def test_rfd4_bf16_stream_form(monkeypatch):
+    """RFD4's pair_tail on the bf16 pair stream (`pair_tail_cm`): hidden 256 -> c_z 384, a key plain T2CM does not
+    take, admitted only with `stream16`; its stage fits Blackhole's L1 whole (P = 1), double-buffered."""
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: L1_BH_BANK)
+    monkeypatch.setattr(T, "arch_name", lambda: "blackhole")
+    monkeypatch.setattr(TTL, "T2", False)
+    monkeypatch.setattr(TTL, "T2CM", False)
+    from tt_bio.rfd4 import trunk
+    assert "pair_tail_cm" in T.LEVERS and "pair_tail_cm" not in T.NORMAL_LEVERS
+    assert "pair_tail_cm" in trunk.NORMAL_LEVERS
+    a = _args(K=256, N=384)
+    assert TTL.t2cm_eligible(**a, stream16=True) == "off"
+    with T.levers("pair_tail_cm"):
+        assert TTL.t2cm_eligible(**a) == "off"                         # trimul_t2cm's own gate is unchanged
+        assert TTL.t2cm_eligible(**a, stream16=True) is None
+        assert TTL.t2cm_eligible(**_args(S=384, K=256, N=384), stream16=True) is None
+        assert TTL.t2cm_eligible(**a, stream16=True, wg=_Fake([256, 384])) == "stream16_form"
+    with T.levers("trimul_t2,trimul_t2cm"):
+        assert TTL.t2cm_eligible(**a) == "key=8x12"                    # no other model's T2CM eligibility moves
+    assert TTL._t2cm_parts(torch.zeros(256, 384)) == 1
+    # measured on 110 cores: wins at 384 / 512, loses or is noise at 256 / 288 / 320 / 352 / 448, so those keep the move
+    assert [n for n in (256, 288, 320, 352, 384, 448, 512) if TTL.t2cm_stream16_fits(n, 110)] == [384, 512]

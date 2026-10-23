@@ -39,6 +39,31 @@ def test_cb_budget_fits_l1(mask):
 
 
 @pytest.mark.parametrize("mask", [False, True])
+def test_cb_budget_rfd4_gathers_8_per_barrier(mask):
+    """RFD4's key (c_z 384, hidden 256) stages 8 gathered tiles per read barrier (T1_NB), the others gin_moved's 2."""
+    assert TTL._t1_nb_pref((12, 16, 12)) == 8 and TTL._t1_nb_pref((8, 16, 8)) == TTL.GIN_MOVE_NB
+    b8, b2 = (TTL.t1_cb_bytes(12, 16, 12, mask, nb=nb, w8=True) for nb in (8, 2))
+    assert TTL.t1_cb_bytes(12, 16, 12, mask, w8=True) == b8 == b2 + 12 * 2048
+    assert b8 <= 0.85 * L1_ALLOCATOR_BANK
+
+
+@pytest.mark.parametrize("mask", [False, True])
+def test_rfd4_splits_the_gather_at_nb_8(mask, monkeypatch):
+    """RFD4's key gathers on both data-movement cores at NB 8 with or without the mask (c_2's two channel tiles become
+    one per core, the reader stages its own 2 * NB); the other keys keep the writer alone."""
+    import tt_bio.tenstorrent as T_
+    monkeypatch.setattr(T_, "_l1_bank_bytes", lambda: L1_ALLOCATOR_BANK)
+    one = TTL.t1_cb_bytes(12, 16, 12, mask, w8=True)
+    assert TTL.t1_cb_bytes(12, 16, 12, mask, w8=True, split=True) == one + 16 * 2048
+    assert TTL.t1_dm((12, 16, 12), mask, True) == (8, True)
+    assert TTL.t1_dm((12, 16, 12), mask, True, b8=True) == (8, True)   # bfp8 a / b: the split and the holds fit
+    assert TTL.t1_cb_bytes(12, 16, 12, mask, w8=True, split=True, b8=True, il=8) < one + 16 * 2048
+    assert TTL.t1_dm((12, 16, 12), mask, False)[1] is False          # bf16 weights: no room
+    for key in [(4, 8, 4), (8, 16, 8), (12, 24, 12)]:
+        assert TTL.t1_dm(key, mask, True)[1] is False
+
+
+@pytest.mark.parametrize("mask", [False, True])
 def test_cb_budget_fits_l1_c256(mask):
     """c_z 256 in one launch of 32-row units would need ~1.9 MB a core; its plan fits the gate."""
     assert TTL.T1_PLANS[(8, 16, 8)] == (2, 16)
@@ -71,7 +96,11 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
     planned = [i for i, _ in bf] + [i for i, _ in f32]
     assert len(planned) == len(set(planned)), "a CB index is planned twice"
     bfg, _ = TTL.t1_cb_plan(12, 24, 12, True)   # c_z 384: channel groups add the T1_LN1 xn CB
-    assert used == set(planned) | {i for i, _ in bfg}
+    bfs, _ = TTL.t1_cb_plan(12, 16, 12, True, w8=True, split=True)   # T1_SPLIT adds the reader's CBs
+    assert len(bfs) == len({i for i, _ in bfs})
+    bfh, _ = TTL.t1_cb_plan(12, 16, 12, True, w8=True, split=True, b8=True)   # bfp8 at 8-row items adds the holds
+    assert len(bfh) == len({i for i, _ in bfh}) and {i for i, _ in bfh} - {i for i, _ in bfs} == {26, 27}
+    assert used == set(planned) | {i for i, _ in bfg} | {i for i, _ in bfh}
     bf0, _ = TTL.t1_cb_plan(KT, CT2, NTG, False)
     assert {3, 6, 15}.isdisjoint(i for i, _ in bf0)
 
@@ -79,15 +108,21 @@ def test_cb_plan_covers_every_cb_the_kernels_use():
 def test_kernel_page_expressions_match_the_python_mirror():
     reader = (KDIR / "reader.cpp").read_text()
     writer = (KDIR / "writer.cpp").read_text()
-    assert "uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;" in reader
+    gather = (KDIR / "gather.hpp").read_text()
+    assert "return ((b * S + xt * 32 + h * IL) * St + yt) * Kt;" in reader
     assert "page += St * Kt" in reader
     assert "noc_async_read_page(k * NTGT + n, wo, w)" in reader
     assert "uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * NTGT + N0;" in writer
     assert "page += St * NTGT" in writer
-    assert "const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;" in writer
-    assert "get_noc_addr(page, off0)" in writer
-    assert "uint32_t page = (b * CT + (is_a ? q : q - CT)) * 32 * SS + cube;" in writer
-    assert "page += SS" in writer
+    assert "const uint32_t off0 = IL == 32 ? 0 : (r0 >> 4) * 2 * FB + (r0 & 15) * RB;" in gather
+    assert "get_noc_addr(page, off0)" in gather
+    assert "page += SS" in gather
+    assert "const uint32_t page = (b * CT + (q < CT ? q : q - CT)) * 32 * SS + cube;" in writer
+    assert "const uint32_t pg = (b * CT + (q < CT ? q : q - CT)) * 32 * St * St + cube;" in reader
+    # T1_SPLIT: compute's even channel tiles (from the launch's first) go to the reader, the odd ones to the writer.
+    assert "for (uint32_t q = Q0 + T1SPLIT; q < Q0 + QN; q += 1 + T1SPLIT)" in writer
+    assert "for (uint32_t q = Q0; q < Q0 + QN; q += 2)" in reader
+    assert "T1SPLIT && !(q & 1) ? out_rd_cb : out_cb" in (KDIR / "compute.cpp").read_text()
 
 
 # ---------------------------------------------------------------- weights
@@ -356,3 +391,28 @@ def test_t1_rows(plan_il, units, ncores, want, monkeypatch):
     assert TTL.t1_rows(plan_il, units, ncores) == want
     monkeypatch.setattr(TTL, "T1_ROWS", 16)
     assert TTL.t1_rows(plan_il, units, ncores) == min(plan_il, 16)
+
+
+@pytest.mark.parametrize("St,cores", [(16, 110), (16, 130), (8, 110), (12, 7)])
+def test_t1_pair_items_cover_each_face_pair_on_one_core(St, cores):
+    """bfp8 at 8-row items (kernels/trimul_in_t1/unit.hpp): every (b, xt, h, yt) once, items 2k and 2k + 1 the two
+    halves of one face pair, and every core runs whole pairs, so the second item can write both items' exponents."""
+    H = 4
+    nu = 2 * St * St * H
+    units = [TTL.t1_unit(u, St, H, pair=True) for u in range(nu)]
+    assert sorted(units) == sorted(TTL.t1_unit(u, St, H) for u in range(nu))
+    for k in range(0, nu, 2):
+        (b0, x0, h0, y0), (b1, x1, h1, y1) = units[k], units[k + 1]
+        assert (b0, x0, y0) == (b1, x1, y1) and h0 % 2 == 0 and h1 == h0 + 1
+    split = TTL.t1_split(nu, cores, pair=True)
+    assert sum(n for _, n in split) == nu and all(u0 % 2 == 0 and n % 2 == 0 for u0, n in split)
+    assert all(split[i][0] + split[i][1] == split[i + 1][0] for i in range(len(split) - 1))
+
+
+def test_t1_pairs_only_where_balance_is_free():
+    """bfp8 at 8-row items needs whole face pairs per core; T1 pairs only where that keeps the busiest core's count."""
+    items = lambda n: (n // 32) ** 2 * 4  # noqa: E731
+    assert TTL.t1_pair_free(items(512), 110) and TTL.t1_pair_free(items(384), 110)
+    assert not TTL.t1_pair_free(items(256), 110)                    # 3 items -> 4 on the busiest p300c core
+    assert TTL.t1_pair_free(items(256), 130) and TTL.t1_pair_free(items(512), 130)
+    assert not TTL.t1_pair_free(items(384), 130)                    # 5 -> 6 on a p150a

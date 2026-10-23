@@ -245,14 +245,21 @@ _ESMC_QKRH = (env_flag("TT_BIO_ESMC_QKRH", False) if os.environ.get("TT_BIO_ESMC
 # (perf/shsdpa/bench.py --b8): 300M 0.306 -> 0.270, 600M 0.359 -> 0.327, 6B 0.162 -> 0.134; rel_rms vs float64 0.0265
 # -> 0.0268. Page cell (esmc_ab, traced, 3 rounds, Galaxy chip at 1000 MHz), off -> on medians, pcc vs fp32: 300M normal
 # 92.58 -> 90.66 ms (-0.000056), 600M normal 130.53 -> 129.39 (-0.000067), 6B normal 182.80 -> 180.98 (+0.000040).
-# Wormhole --fast with bf16 accumulation fails its bar at 300M (0.000202 under normal, bar 0.0002), so on Wormhole only
-# forwards that keep fp32 accumulation take it. Blackhole (p300 chip, 1350 MHz, eager, 3 rounds, off -> on medians, pcc
+# Wormhole --fast with bf16 accumulation fails its bar at 300M (0.000202 under normal, bar 0.0002), so there q stays
+# bf16 (_ESMC_QKRH_Q_BF16). Blackhole (p300 chip, 1350 MHz, eager, 3 rounds, off -> on medians, pcc
 # vs fp32): 300M fast 49.80 -> 48.50 ms (-0.000004), 600M fast 76.20 -> 74.52 (+0.000022), 6B 122 both arms; normal
 # 300M / 600M under host noise (batch minima 51.6 -> 51.4, 81.2 -> 79.5), pcc -0.000025 / 0.0; fast drops vs normal
 # 0.000159 / 0.000126, so Blackhole takes it in both modes. None = that default. Only shsdpa reads block-fp8 q, k, v
 # (a KeyPad mask), so ESMFold2 (lm_sdpa_stock) is untouched.
 _ESMC_QKRH_BF8 = (env_flag("TT_BIO_ESMC_QKRH_BF8", False)
                   if os.environ.get("TT_BIO_ESMC_QKRH_BF8", "").strip() else None)
+# Wormhole --fast with bf16 accumulation keeps q bf16 and sends only k and v block-fp8 (qk_rope_heads q_dtype). Page cell
+# (esmc_ab, traced, 3 rounds, Galaxy chip at 1000 MHz), off -> k/v -> all block-fp8 medians ms, pcc drop vs normal-off
+# (bar 0.0002): 300M 85.97/86.84/85.16 -> 84.84/85.49/84.28 (0.000167) -> 83.28/83.52/83.79 (0.000202, fails);
+# 600M 121.57/121.42/122.21 -> 120.66/120.21/119.81 (0.000171) -> 119.87/119.80/120.76 (0.000170). None = that default;
+# True / False force bf16 q / block-fp8 q wherever qk_rope_heads writes block-fp8.
+_ESMC_QKRH_Q_BF16 = (env_flag("TT_BIO_ESMC_QKRH_Q_BF16", False)
+                     if os.environ.get("TT_BIO_ESMC_QKRH_Q_BF16", "").strip() else None)
 # ln_split (tt_bio/ln_split.py): the per-layer LayerNorms of a forward with few tile rows (the 6B at one sequence: 17 of
 # 72 Wormhole cores busy in ttnn.layer_norm) split each row tile over G cores. [544, 2560] device ms a call (.110,
 # trace replay): weight+bias 0.109 -> 0.085, weight 0.091 -> 0.073. Not bit-exact (rel_l2 vs float64 0.0032 against
@@ -620,11 +627,17 @@ def _mm_bf16_acc(w, exact: bool = False) -> bool:
     return w.dtype == ttnn.bfloat8_b and not exact if _ESMC_MM_BF16_ACC is None else _ESMC_MM_BF16_ACC
 
 
-def _qkrh_bf8(w, exact: bool) -> bool:
-    if _ESMC_QKRH_BF8 is not None:
-        return _ESMC_QKRH_BF8
-    from tt_bio import tenstorrent
-    return not (tenstorrent.is_wormhole() and _mm_bf16_acc(w, exact))
+def _qkrh_dtypes(w, exact: bool, d: int):
+    """(out_dtype, q_dtype) for qk_rope_heads at width `d`: block-fp8 q, k, v, except bf16 q on Wormhole
+    bf16-accumulation forwards. Where that mix does not fit L1 (the 6B on Wormhole --fast) all three stay bf16: the
+    kernel would decline and the forward fall back to the six-op chain (gapboard 6B fast 0.177 -> 0.198 s)."""
+    if _ESMC_QKRH_BF8 is False:
+        return None, None
+    from tt_bio import qk_rope_heads as qkrh, tenstorrent
+    q_bf16 = (tenstorrent.is_wormhole() and _mm_bf16_acc(w, exact) if _ESMC_QKRH_Q_BF16 is None
+              else _ESMC_QKRH_Q_BF16)
+    q_dtype = ttnn.bfloat16 if q_bf16 else None
+    return (ttnn.bfloat8_b, q_dtype) if qkrh.fits(d, ttnn.bfloat8_b, q_dtype) else (None, None)
 
 
 def _kb6_on() -> bool:
@@ -865,9 +878,10 @@ class Attention(_MMLin, Module):
                 q, k, v = self._qkv(x)
         else:
             q, k, v = self._qkv(x)
+        out_dtype, q_dtype = (_qkrh_dtypes(self.out_weight, self.mm_exact_acc, int(q.padded_shape[-1]))
+                              if isinstance(attn_mask, KeyPad) else (None, None))
         heads = (qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin,
-                               out_dtype=ttnn.bfloat8_b if isinstance(attn_mask, KeyPad)
-                               and _qkrh_bf8(self.out_weight, self.mm_exact_acc) else None) if _qkrh() else None)
+                               out_dtype=out_dtype, q_dtype=q_dtype) if _qkrh() else None)
         if heads is not None:
             for t in (q, k, v):
                 ttnn.deallocate(t)
@@ -2228,8 +2242,12 @@ def esmc6b_tile_dir(name: str, snapshot) -> str | None:
 
     Keyed by everything that decides the tiles: the checkpoint, the stored dtype (block-fp8
     or bf16), the code that builds and tiles the module, the ttnn build and the
-    TT_BIO_ESMC* switches. A key nobody loaded for a week is pruned when a new one is written.
+    TT_BIO_ESMC* switches. The key hashes the source, so every checkout writes its own 7-13 GB
+    copy; when a new one is written, any other nobody loaded for 6 h is pruned (qb2 kept a week
+    of them and filled its disk, 97 GB in 18 h). A half-built one goes the same way unless its
+    builder still holds the lock.
     """
+    import fcntl
     import hashlib
 
     import tt_bio.tenstorrent as _tt
@@ -2251,7 +2269,13 @@ def esmc6b_tile_dir(name: str, snapshot) -> str | None:
     root.mkdir(parents=True, exist_ok=True)
     for old in root.glob(f"{name}-*"):
         done = old / ".done"
-        if old != tdir and done.exists() and _time.time() - done.stat().st_mtime > 7 * 86400:
+        if old == tdir or _time.time() - (done if done.exists() else old).stat().st_mtime < 6 * 3600:
+            continue
+        with open(old / ".lock", "a") as lockf:
+            try:
+                fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                continue  # a builder is writing it
             shutil.rmtree(old, ignore_errors=True)
     # The tiles take at most half the fp32 checkpoint (bf16); keep 10 GB free beside them.
     need = sum(f.stat().st_size for f in snap.glob("*.safetensors")) // 2 + (10 << 30)

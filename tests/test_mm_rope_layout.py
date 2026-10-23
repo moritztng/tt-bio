@@ -19,6 +19,14 @@ def test_layout_saprot_wh():
     assert mm_rope.layout(120, 11, 8) is None
 
 
+def test_cols_widest_split():
+    assert mm_rope.cols(120, 8, 8) == 8      # Wormhole: the full grid, unchanged
+    assert mm_rope.cols(120, 11, 4) == 10    # Blackhole p300c / p150a: one column idle
+    assert mm_rope.cols(120, 13, 4) == 10
+    assert mm_rope.cols(120, 8, 7) is None     # odd N block: no core count helps
+    assert mm_rope.cols(121, 8, 4) is None
+
+
 def test_permute_roundtrip_and_whole_heads():
     d, ncols, nb = 1280, 8, 8
     w = torch.arange(3 * d, dtype=torch.float32)[None].repeat(2, 1)

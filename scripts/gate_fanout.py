@@ -201,6 +201,8 @@ REBOOTED = "rebooted under the leg"
 #: queued before the lend was booked is taken back and handed to another worker.
 LEND_AT = "~/spd/galaxy/LEND-AT"
 LEND_READ_S = 300
+REQUEUED = "requeued"     # run_in_pool's note for an attempt the pool put back after a chip recall
+REQUEUE_GRACE_S = 3       # the pool requeues right after the job exits; give it that long before reading rc
 WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
 #: glx_elastic gives a lent Galaxy back to JapanFold by SIGINTing every pool job and touching the pool's
 #: RETURNED. .107 went back at 07:34Z on 2026-10-16, 35 min into the WH legs of gate 5e250928a, and 14 of
@@ -793,7 +795,10 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
                             ["PY", "scripts/release_gate.py", "--model", "size-ladder",
                              "--size-ladder-models", m, *how, "--size-ladder-baseline",
                              "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
-                            setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/",
+                            # The tree's files can be frozen read-only (Galaxy dedupe); a plain cp
+                            # keeps that mode and the record then cannot write its own copy.
+                            setup="cp -r --no-preserve=mode docs/size_ladder_baseline.json "
+                                  "docs/size_ladder_baseline.d {OUT}/",
                             card_types=(ct,) if ct else ()))
     if record_abb3:
         legs.append(Leg(ABB3_LEG, ["PY", "-c", ABB3_RECORD, "{OUT}", "{SHA}", "{WORKER}", "{CARD_TYPE}",
@@ -829,9 +834,14 @@ def known_walls(hist: dict, prior: list) -> dict:
 
 
 def select(legs: list, patterns: list) -> list:
-    """Legs matching any pattern (all when there is none) and no `!pattern`."""
+    """Legs matching any pattern (all when there is none) and no `!pattern`. A pattern that matches
+    no leg is an error: `--legs record:rf3` (the leg is `record:rf3@<card>`) ran nothing on 10-23 and
+    wrote an empty PASS verdict over the record run rec-437a23413."""
     take = [p for p in patterns if not p.startswith("!")]
     drop = [p[1:] for p in patterns if p.startswith("!")]
+    if none := [p for p in take if not any(fnmatch.fnmatch(lg.name, p) for lg in legs)]:
+        raise SystemExit(f"--legs {','.join(none)} matches no leg; legs are e.g. "
+                         + ", ".join(lg.name for lg in legs[:6]))
     return [lg for lg in legs if (not take or any(fnmatch.fnmatch(lg.name, p) for p in take))
             and not any(fnmatch.fnmatch(lg.name, p) for p in drop)]
 
@@ -1038,8 +1048,9 @@ class Host:
         argv = [self.python(leg.family) if a == "PY" else fill(a) for a in self.leg(leg).argv]
         if "pool" in c and argv[1:2] and argv[1] in LOAD_GUARDED:
             argv += ["--load-ceiling", "0"]   # not in the leg's key: it changes nothing measured
-        body = (f"echo \"##LEG-START $(date +%s)\"; exec timeout -s INT -k 600 {leg.budget} nice -n 10 "
-                + " ".join(shlex.quote(a) for a in argv))
+        legpid = shlex.quote(f"{out}/leg.pid")
+        body = (f"echo \"##LEG-START $(date +%s)\"; echo $$ > {legpid}; exec timeout -s INT -k 600 {leg.budget} "
+                "nice -n 10 " + " ".join(shlex.quote(a) for a in argv))
         envs = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
         run = f"env {envs} bash -c {shlex.quote(body)}"
         if card is not None:
@@ -1050,10 +1061,19 @@ class Host:
         # (which survives bash's exec of the last command). When the runner's connection drops the
         # remote side keeps waiting on the card, so a rerun first ends the attempt it replaces;
         # otherwise both run the leg into one directory (qb1, 10-10: five BH legs queued twice).
+        #
+        # The session also hides the leg from a signal sent to the pool job: a JapanFold recall of a lent
+        # chip SIGINTs the job's process group, and on .110 on 2026-10-23 the gate drivers ran on and
+        # started their next fold on the chip being reset. So the job shell passes SIGINT/SIGTERM on to
+        # the leg's `timeout` (leg.pid), which hands it to the driver, and waits for the leg to finish.
+        # Still in flock or setup, there is no driver yet: the session is ended outright.
         mark = shlex.quote(f"GATE_ATTEMPT={out}")
         attempt = shlex.quote(f"echo $$ > {shlex.quote(f'{out}/attempt.pid')}; {run}")
-        return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && cd {self.tree} && {setup}"
-                f"env {mark} setsid -w bash -c {attempt}")   # no exec: a pool job writes rc after it
+        fwd = shlex.quote(f"kill -INT $(cat {legpid} 2>/dev/null) 2>/dev/null || pkill -TERM -s $a")
+        return (f"mkdir -p {shlex.quote(out)} && {self.end_attempt(out)} && rm -f {legpid} && cd {self.tree} && "
+                f"{setup}{{ env {mark} setsid -w bash -c {attempt} & a=$!; trap {fwd} INT TERM; "
+                f"while :; do wait $a; rc=$?; kill -0 $a 2>/dev/null || break; done; (exit $rc); }}")
+                # no exec: a pool job writes rc after it
 
     def marked_bad(self, card) -> str | None:
         """The mark that takes `card` out of service (BAD_MARKS), or None. A host that does not
@@ -1596,14 +1616,24 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
             RUNNING.pop(rdir, None)
             f.write(f"# taken back: {host.name}'s pool is lent or paused past this leg's cap\n")
             return WITHDRAWN
+        # A chip the agent recalls is SIGINTed under the leg, which still writes an rc; the pool then copies the
+        # job back into the queue within milliseconds, so a queued job no older than the rc is a requeue, not a
+        # verdict (file times tick per jiffy, hence "no older"). rel-f2fd17ff3, 10-22 21:22Z: ladder:openbind
+        # recorded FAIL from a recalled attempt while its rerun went unread.
+        rc_f = f"{q(rdir)}/rc"
         try:
-            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; cat {q(rdir)}/rc 2>/dev/null",
+            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; [ -s {rc_f} ] && sleep {REQUEUE_GRACE_S} && "
+                         f"if [ -e {q(job)} ] && ! [ {rc_f} -nt {q(job)} ]; then rm -f {rc_f}; echo {REQUEUED}; else cat {rc_f}; fi",
                          capture_output=True, timeout=120)
         except subprocess.TimeoutExpired:
             continue        # a busy sshd; the job runs on regardless, ask again
         if r.returncode == 255:
             continue        # the connection, not the job
         boot, started, rc = (r.stdout.split("\n") + ["", ""])[:3]
+        if rc.strip() == REQUEUED:
+            f.write(f"# {REQUEUED}: {host.name} recalled the chip under this attempt; waiting for the rerun\n")
+            f.flush()
+            continue
         if rc.strip():
             rc = int(rc)
             break

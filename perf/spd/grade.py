@@ -163,10 +163,13 @@ def no_truth(free, failed, a):
 
 
 def lost_reach(reps, arch, base, test):
-    """Levers whose kernels the test arm never ran though it was meant to: one served in `base` and never in `test`
-    (a refusal latched it off for the fold), or one named only in `test` that latches and never served. gfc 10-20
-    read PASS while its test arm ran neither dit_fc123g nor dit_shard: fc12g raised at 5 samples."""
-    served, named, seen = {base: defaultdict(int), test: defaultdict(int)}, {base: set(), test: set()}, set()
+    """Levers whose kernels the test arm never ran though it was meant to: one served in `base` and refused or
+    blocked in `test` (a refusal latched it off for the fold), or one named only in `test` that latches and never
+    served. gfc 10-20 read PASS while its test arm ran neither dit_fc123g nor dit_shard: fc12g raised at 5 samples.
+    A latch the test arm never reached is not lost: the lever under test replaced its path (bnwg 10-23,
+    transition_ws retires the row-blocked FC1 and its l1_out latch with it)."""
+    served, tried = {base: defaultdict(int), test: defaultdict(int)}, defaultdict(int)
+    named, seen = {base: set(), test: set()}, set()
     for r in reps:
         if r["arch"] != arch:
             continue
@@ -174,7 +177,10 @@ def lost_reach(reps, arch, base, test):
         for k, v in (r.get("latches") or {}).items():
             seen.add(k)
             served[r["arm"]][k] += v.get("served", 0)
-    lost = [f"{k} served {v} in {base}, 0 in {test}" for k, v in served[base].items() if v and not served[test][k]]
+            if r["arm"] == test:
+                tried[k] += v.get("refused", 0) + v.get("blocked", 0)
+    lost = [f"{k} served {v} in {base}, 0 in {test} ({tried[k]} refused or blocked)"
+            for k, v in served[base].items() if v and not served[test][k] and tried[k]]
     lost += [f"{k} (only in {test}) never served" for k in sorted(named[test] - named[base])
              if k in seen and not served[test][k]]
     return lost

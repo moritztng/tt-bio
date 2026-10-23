@@ -58,12 +58,19 @@ def _vc(kt: int) -> int:
     return max(c for c in range(2, 11, 2) if kt % c == 0)
 
 
-def _plan(kt: int, vpack: bool = False):
+def _plan(kt: int, vpack: bool = False, qcb: bool = False):
     """(reload, x buffers): both gammas resident and x double-buffered where that fits, else less."""
     for reload, xb in ((False, 2), (False, 1), (True, 1)):
-        if _l1_bytes(kt, reload, xb) + (2 * _vc(kt) * _TILE if vpack else 0) <= _L1_BUDGET:
+        if _l1_bytes(kt, reload, xb) + (2 * _vc(kt) * _TILE if vpack else 0) + (8 * _TILE if qcb else 0) <= _L1_BUDGET:
             return reload, xb
     return None
+
+
+def fits(d: int, out_dtype=None, q_dtype=None) -> bool:
+    """Whether a [*, *, d] q, k, v call writing `out_dtype` (q in `q_dtype`) fits its CBs in L1. At the ESMC-6B width
+    (d 2560) the reload plan fits bf16 or all block-fp8, but not bf16 q beside block-fp8 k, v (1114 KB of 1100)."""
+    od = out_dtype or ttnn.bfloat16
+    return _plan(d // 32, od != ttnn.bfloat16, (q_dtype or od) != od) is not None
 
 
 def _l1_bytes(kt: int, reload: bool = False, xb: int = 2) -> int:
@@ -72,7 +79,7 @@ def _l1_bytes(kt: int, reload: bool = False, xb: int = 2) -> int:
     return bf16 + fp32
 
 
-def eligible(q, k, v, cos, packed: bool = False, vpack: bool = False) -> bool:
+def eligible(q, k, v, cos, packed: bool = False, vpack: bool = False, qcb: bool = False) -> bool:
     """bf16 TILE interleaved [B, L, D] q, k, v of one shape (or one [B, L, 3D] qkv, passed three times), D / 64 heads, a
     cos table covering L, CBs in budget."""
     shape = [int(d) for d in q.padded_shape]
@@ -88,10 +95,10 @@ def eligible(q, k, v, cos, packed: bool = False, vpack: bool = False) -> bool:
             return False
     if int(cos.padded_shape[-1]) != 64 or int(cos.padded_shape[-2]) < shape[1]:
         return False
-    return _plan(shape[-1] // (96 if packed else 32), vpack) is not None
+    return _plan(shape[-1] // (96 if packed else 32), vpack, qcb) is not None
 
 
-def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloat16):
+def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloat16, qd=None):
     g = device.compute_with_storage_grid_size()
     grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))])
 
@@ -102,17 +109,19 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloa
 
     f32 = ttnn.float32
     vc = _vc(kt)
-    vpack = od != ttnn.bfloat16
-    reload, xb = _plan(kt, vpack)
+    vpack, qcb = od != ttnn.bfloat16, (qd or od) != od
+    reload, xb = _plan(kt, vpack, qcb)
     reload = reload and ln
     cbs = [cb(5, xb * kt), cb(6, 2), cb(7, 2), cb(8, kt), cb(10, 1), cb(16, 8, od), cb(21, 2 * vc),
            cb(11, 1, f32), cb(12, 1, f32), cb(13, 1, f32), cb(14, 1, f32), cb(17, kt, f32), cb(18, kt, f32),
            cb(20, 4, f32)] + ([] if reload else [cb(15, kt)]) + ([cb(22, 2 * vc, od)] if vpack else [])
+    cbs += [cb(23, 8, qd)] if qcb else []
     defines = ([("QKRH_RELOAD", "1")] if reload else []) + ([] if ln else [("QKRH_NO_LN", "1")])
     hg = 2 if BLOCK >= 4 and kt // 2 % 2 == 0 else 1   # whole groups only: c_20 / c_16 never wrap mid-reservation
     defines += [("QKRH_BLK", str(max(1, BLOCK))), ("QKRH_HG", str(hg))]
     defines += [("QKRH_SFPU", "1")] if _sfpu() else []
     defines += [("QKRH_V_PACK", "1")] if vpack else []
+    defines += [("QKRH_Q_CB", "1")] if qcb else []
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -147,12 +156,13 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloa
     return [reader, writer, compute], cbs
 
 
-def qk_rope_heads(q, k, v, q_gamma, k_gamma, cos, sin, eps: float = 1e-5, out_dtype=None):
+def qk_rope_heads(q, k, v, q_gamma, k_gamma, cos, sin, eps: float = 1e-5, out_dtype=None, q_dtype=None):
     """(rope(LN(q)), rope(LN(k)), v) per head, [B, H, L, 64] DRAM each, from [B, L, D] q, k, v; or None where
     `eligible` declines. gamma bf16 TILE [1, D] as `torch_to_tt` leaves a norm parameter; cos / sin the
     [1, 1, L, 64] NeoX tables of `esmc.rope_tables`. `out_dtype` bf16 (None) or bfloat8_b: q and k are packed from
-    their fp32 dest, v goes through the packer too (QKRH_V_PACK). Does not free its inputs."""
-    return _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed=False, out_dtype=out_dtype)
+    their fp32 dest, v goes through the packer too (QKRH_V_PACK). `q_dtype` (None = `out_dtype`) gives q its own
+    dtype, packed into its own CB (QKRH_Q_CB): bf16 q beside block-fp8 k and v. Does not free its inputs."""
+    return _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed=False, out_dtype=out_dtype, q_dtype=q_dtype)
 
 
 def rope_heads_packed(qkv, cos, sin):
@@ -161,9 +171,10 @@ def rope_heads_packed(qkv, cos, sin):
     return _run(qkv, qkv, qkv, None, None, cos, sin, 0.0, packed=True)
 
 
-def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed, out_dtype=None):
+def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed, out_dtype=None, q_dtype=None):
     od = out_dtype or ttnn.bfloat16
-    if not eligible(q, k, v, cos, packed, od != ttnn.bfloat16):
+    qd = q_dtype or od
+    if not eligible(q, k, v, cos, packed, od != ttnn.bfloat16, qd != od):
         STATS[1] += 1
         return None
     ln = q_gamma is not None
@@ -171,13 +182,13 @@ def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed, out_dtype=None):
     b, length, d = (int(x) for x in q.padded_shape)
     d = d // 3 if packed else d
     kt, lt, h = d // 32, length // 32, d // 64
-    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([b, h, length, 64]), od, ttnn.TILE_LAYOUT, device,
-                                           ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
+    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([b, h, length, 64]), dt, ttnn.TILE_LAYOUT, device,
+                                           ttnn.DRAM_MEMORY_CONFIG) for dt in (qd, od, od)]
     # without a LayerNorm the gamma slots are never read; cos stands in so every accessor has a tensor
     tensors = [q, k, v, q_gamma if ln else cos, k_gamma if ln else cos, cos, sin] + outs
-    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, _sfpu(), str(od), tuple(t.memory_config().buffer_type for t in tensors[:7]))
+    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, _sfpu(), str(od), str(qd), tuple(t.memory_config().buffer_type for t in tensors[:7]))
     if key not in _CACHE:
-        _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln, od)
+        _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln, od, qd)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [t.buffer_address() for t in tensors[:7]]
     kernels[1].common_runtime_args = [t.buffer_address() for t in outs]

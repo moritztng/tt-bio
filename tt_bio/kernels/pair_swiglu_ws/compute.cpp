@@ -31,6 +31,8 @@
 // dest (UnpackToDestFp32, set by the host) beside fc3's unrounded fp32 result and added by the SFPU, so z + t is one
 // float32 rounding; the sum is packed twice, float32 to c_16 (written over z) and bfloat16 to c_25 (written over x,
 // the copy the next sublayer reads). Four dest slots a group, so fc3 runs two output tiles at a time.
+// WS_RES_NOCOPY (with WS_RES32; RFD4's bfloat16 pair stream, `pair_bf16z`): c_20 and c_16 are bfloat16 and the residual
+// is x itself, so the sum is rounded once to bfloat16 and written over x; there is no copy (c_25 is not built).
 // WS_RELU_BW (that Transition's backward to its normed input): ((x @ w1 + b1 > 0) * (dy @ w2t)) @ w3 with w12 =
 // [w1 | w2^T] and w3 = w1^T, the SwiGLU program with b1 seeding fc1, a step function for the silu, and fc2 reading
 // the cotangent dy (c_23, KT tiles a row) instead of x. The hidden pre-activation is recomputed, never stored.
@@ -469,7 +471,7 @@ void kernel_main() {
 #endif
             tile_regs_commit();
             cb_reserve_back(cb_out, OG);
-#ifdef WS_RES32
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
             cb_reserve_back(cb_outb, OG);
 #endif
             tile_regs_wait();
@@ -477,13 +479,13 @@ void kernel_main() {
             pack_reconfig_data_format(cb_out);
 #endif
             pack_tile_block(0, cb_out, OG);
-#ifdef WS_RES32
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
             pack_reconfig_data_format(cb_outb);
             pack_tile_block(0, cb_outb, OG);
 #endif
             tile_regs_release();
             cb_push_back(cb_out, OG);
-#ifdef WS_RES32
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
             cb_push_back(cb_outb, OG);
 #endif
         }

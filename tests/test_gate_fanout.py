@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -73,13 +74,18 @@ def test_select_globs():
     assert not [n for n in names if n.startswith("ladder:") or n == "rg:l1-budget"]
 
 
+def test_select_rejects_a_pattern_that_matches_nothing():
+    with pytest.raises(SystemExit, match="rg:nope"):
+        gf.select(_legs(), ["rg:*", "rg:nope"])
+
+
 def test_record_lever_legs_splice_into_a_copy_and_are_only_built_on_request():
     assert not [lg for lg in _legs() if lg.family == "record"]
     legs = [lg for lg in gf.build_legs(ROSTER, [], 1, "SDPA_FUSED_PADDED") if lg.family == "record"]
     assert [lg.name for lg in legs] == ["record:boltz2", "record:rf3"]
     h = gf.Host("h", {"arch": "wh", "card_type": "w", "lock": "/l{card}", "root": "/r"}, "a" * 40)
     cmd = h.command(legs[0], 3, "/o")
-    assert "cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d /o/ && " in cmd
+    assert "cp -r --no-preserve=mode docs/size_ladder_baseline.json docs/size_ladder_baseline.d /o/ && " in cmd
     assert "--size-ladder-baseline /o/size_ladder_baseline.json" in cmd
     assert "--size-ladder-record-lever SDPA_FUSED_PADDED" in cmd
 
@@ -533,7 +539,8 @@ def test_command_pins_card_under_its_flock_and_substitutes_placeholders(tmp_path
     assert "localhost:2" in cmd and "/t/out/x/report.json" in cmd
     assert "RELEASE_GATE_SIZE_WORKDIR=/t/out/x/sizegate-work" in cmd
     assert "/r/venv-aaaaaaaaaaaa/bin/python scripts/full_parity_gate.py" in cmd
-    free = shlex.split(h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y"))[-1]
+    toks = shlex.split(h.command(next(lg for lg in _legs() if lg.name == "pytest_cpu"), None, "/t/out/y"))
+    free = toks[toks.index("setsid") + 4]          # setsid -w bash -c <attempt>
     assert "flock" not in free and "TT_VISIBLE_DEVICES='' " in free
     assert "/r/venv312-aaaaaaaaaaaa/bin/python -m pytest" in free
     bc2 = h.command(next(lg for lg in _legs() if lg.family == "bc2"), 1, "/t/out/z")
@@ -683,6 +690,45 @@ def test_a_pool_leg_requeued_after_a_reboot_waits_for_its_new_run(tmp_path, monk
         rc = gf.run_in_pool(h, gf.POOL, leg, str(rdir), f)
     t.join()
     assert rc == 4 and gf.REBOOTED not in (tmp_path / "leg.log").read_text()
+
+
+def test_a_pool_leg_whose_chip_was_recalled_waits_for_the_requeued_run(tmp_path, monkeypatch):
+    """The agent recalls a lent chip by SIGINTing the job, which still writes an rc, and the pool copies the
+    job back into the queue. rel-f2fd17ff3 (10-22 21:22Z) recorded ladder:openbind FAIL from that attempt
+    while the rerun on chip 28 went unread. A queued job no older than the rc is a requeue: wait for the rerun."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    monkeypatch.setattr(gf, "REQUEUE_GRACE_S", 0.5)
+    queue = tmp_path / "queue"
+    queue.mkdir()
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, sha)
+    seen = tmp_path / "first-attempt"
+    leg = gf.Leg("ux:x", ["PY", "-c", f"import os, sys; p = {str(seen)!r}; "
+                          "sys.exit(0) if os.path.exists(p) else (open(p, 'w').close(), sys.exit(1))"], "ux")
+    rdir = tmp_path / "o" / "run1" / "wh" / "ux_x"
+
+    def pool():  # first attempt is recalled (rc 1) and requeued; the rerun passes
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        job = jobs[0]
+        running = tmp_path / job.name
+        os.replace(job, running)
+        env = {"CHIP": "7", "PATH": "/usr/bin:/bin"}
+        subprocess.run(["bash", str(running)], env=env)
+        shutil.copy(running, f"{job}.tmp")
+        os.replace(f"{job}.tmp", job)
+        time.sleep(1.0)
+        os.replace(job, running)
+        subprocess.run(["bash", str(running)], env=env, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(rdir), f)
+    t.join()
+    assert rc == 0 and f"# {gf.REQUEUED}:" in (tmp_path / "leg.log").read_text()
 
 
 def test_a_pool_leg_notes_a_give_back_that_stopped_it(tmp_path, monkeypatch):

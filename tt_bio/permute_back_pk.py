@@ -38,25 +38,25 @@ def _cb(idx, core_grid, tiles):
 
 def ok(x, out, c_off=0):
     xs, os_ = [int(d) for d in x.shape], [int(d) for d in out.shape]
-    return (len(xs) == 4 and len(os_) == 4 and xs[0] == os_[0] == 1 and xs[2] == xs[3] == os_[1] == os_[2]
+    return (len(xs) == 4 and len(os_) == 4 and xs[0] == os_[0] >= 1 and xs[2] == xs[3] == os_[1] == os_[2]
             and xs[2] % TILE == 0 and xs[1] % TILE == 0 and c_off % TILE == 0 and c_off + xs[1] <= os_[3]
             and os_[3] % TILE == 0 and x.dtype == out.dtype == ttnn.bfloat16
             and x.layout == out.layout == ttnn.TILE_LAYOUT)
 
 
 def permute_back_pk(x, out, grid, c_off=0):
-    """out[0, i, j, c_off + c] = x[0, c, i, j]."""
+    """out[b, i, j, c_off + c] = x[b, c, i, j]."""
     assert ok(x, out, c_off)
-    C, N, H = int(x.shape[1]), int(x.shape[2]), int(out.shape[3])
+    B, C, N, H = int(x.shape[0]), int(x.shape[1]), int(x.shape[2]), int(out.shape[3])
     St, CT, Ht = N // TILE, C // TILE, H // TILE
     # The accessor args differ by buffer type (DRAM / L1) and bank layout, so the memory configs are part of the key.
-    key = (C, N, H, c_off, tuple(grid), str(x.memory_config()), str(out.memory_config()), ABL, OUT_TILES, WB, ORD)
+    key = (B, C, N, H, c_off, tuple(grid), str(x.memory_config()), str(out.memory_config()), ABL, OUT_TILES, WB, ORD)
     entry = _CACHE.get(key)
     if entry is None:
         gx, gy = grid
         ncores = gx * gy
         core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
-        nu = CT * St * St
+        nu = B * CT * St * St
         rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
         u0 = 0
         for c in range(ncores):

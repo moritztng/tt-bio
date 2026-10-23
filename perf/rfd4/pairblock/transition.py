@@ -1,7 +1,7 @@
 """RFD4's pair transition, the trunk's composed ops against one `pair_relu` program: ms per call and error vs float64.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/pairblock/transition.py --weights ~/rfd4-bundle --out <json> \
-        [--n 128 256 512] [--arms normal fast fused_hifi4 fused_hifi2] [--tree <tt-bio checkout>]
+        [--n 128 256 512] [--arms normal fast fused_hifi4 fused_hifi2 fused_lofi] [--tree <tt-bio checkout>]
 
 `normal` / `fast` run `PairUpdate._transition` (LayerNorm, fc1 + relu, fc2, the pair-mask multiply) built and called
 under the trunk's NORMAL_LEVERS / FAST_LEVERS of the tree on the path (`--tree`: a checkout whose tt_bio is imported
@@ -100,7 +100,8 @@ def main():
                     extra = {"levers": sorted(levers)}
                 else:
                     from tt_bio import pair_swiglu_ws as W
-                    fid = getattr(ttnn.MathFidelity, arm.split("_")[1].replace("hifi", "HiFi"))
+                    fid = {"hifi4": ttnn.MathFidelity.HiFi4, "hifi2": ttnn.MathFidelity.HiFi2,
+                           "lofi": ttnn.MathFidelity.LoFi}[arm.split("_")[1]]
                     g = lambda k: w["transition_out." + k]  # noqa: E731
                     w1, b1, w2, b2 = W.relu_weights(g("linear_1.weight").t().float(), g("linear_1.bias").float(),
                                                     g("linear_2.weight").t().float(), g("linear_2.bias").float(),

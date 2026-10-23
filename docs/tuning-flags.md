@@ -915,8 +915,35 @@ spread, with radius of gyration, bond outliers and clashes unchanged. Below 160 
 not run, the output program still serves (`pair_tail_small`): 1.05x on the trunk at 128 tokens and 1.02x at 96, and a
 128-token design takes 5.40 s instead of 5.66 s (1347-1350 MHz). On 30 seed-matched 128-token designs the designed
 chain moves 0.03 A median against a 5.4 A seed-to-seed spread, with radius of gyration, bond outliers and clashes
-unchanged. `pair_tail`, `pair_tail_small` and `pair_write_res` need the fp32 pair stream, so
-`TT_BIO_RFD4_PAIR_BF16=1` (the pair stream in bf16) turns them off and was slower before the pair-bias and pair-write programs, 46.4 s against 44.1 s. `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
+unchanged. From 288 tokens the triangle contraction runs on `bmm_res` at HiFi2 (`trimul_bres`,
+`trimul_bres_hifi2`, RFD4's set only): a 512-token design takes 39.8 s instead of 41.3 s (1.04x, 1331 MHz, 31 paired
+designs), the 384-token trunk 1.09x, 256 unchanged; the designed chain moves 2.2 A median against a 38.1 A seed-to-seed
+spread and the binder grade passes. The pair stream itself is bf16 between sublayers (`pair_bf16z`): outer_residual,
+`pair_tail` and `pair_block` read it and write it in place, rounding once per write, which takes a 512-token design
+from 37.6 to 30.3 s (1287-1325 MHz) with the trunk pass 1.22x faster at 512 tokens and 1.15x at 256; on 31
+seed-matched 512-token designs the designed chain moves 2.8 A median against a 38.6 A seed-to-seed spread and the
+binder grade passes. At 384 and 512 tokens `pair_tail` reads the contraction's channel-major output itself
+(`pair_tail_cm`), so the triangle no longer moves it back to the pair layout: bit-identical, the trunk pass 1.015x
+faster (1325-1350 MHz). At sizes whose tiles spread unevenly over the chip's cores (256, 288, 320, 352 and 448 tokens
+on a 110-core chip) it measured 1-6 % slower or no faster, so it steps aside there.
+The input kernel also writes its two projections in block-fp8 so the
+contraction reads half the bytes (`trimul_t1b8`, RFD4's set only): 26.48 to 25.76 s a 512-token design on the trunk
+(1.028x, 1350 MHz, paired), 1.018x at 384, 256 unchanged; the designed chain moves 2.24 A median against a 38.8 A
+seed-to-seed spread and the binder grade passes.
+With several designs a step (`pair_batch`), the triangle multiplication takes the whole sample batch in one call and
+picks its route on the batch's pair rows, so 16 designs of 128 tokens run the route one 512-token design runs, where
+they ran one call per design. At one design a step nothing changes. 128 tokens at width 16 goes from 4.34 to 2.27 s a
+design and 256 at width 4 from 12.25 to 7.82 s (1306-1331 MHz); the designed chain moves 0.07 A median at 128 and 1.9 A
+at 256 against 5.4 A and 24 A seed-to-seed, and the binder grade passes.
+The pair transition's two matmuls run at HiFi2 (`pair_block_hifi2`, RFD4's set only): the block-fp8 weights keep
+every bit and the bf16 activation loses its last mantissa bit. The 512-token trunk goes from 25.87 to 24.32 s a
+design (1.064x, 1350 MHz, paired) and 256 1.041x; the designed chain moves 5.1 A median against a 38.8 A
+seed-to-seed spread and the binder grade passes.
+The triangle multiplication's input kernel writes its gate in block-fp8 for the output kernel to read
+(`trimul_t1g8`), and the output kernel's projection runs at HiFi2 (`trimul_tail_hifi2`), both RFD4's set only. The
+512-token trunk goes from 23.84 to 23.17 s a design (1.029x, 1350 MHz, paired), 384 1.024x and 256 1.032x; the
+designed chain moves 2.45 A median against a 37.7 A seed-to-seed spread and the binder grade passes.
+`TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
 Boltz-2's `--fast` is the shared fast set run on the normal path. The older block-fp8 fast path is off
@@ -966,13 +993,26 @@ both modes. Graded against no lever set on a Galaxy chip
 -0.0010], pLDDT -0.005, docking success 30 -> 29 of 43, median same-seed top-pose deviation 0.64 A where a different
 seed moves it 1.26 A. A 512-residue ESMFold2-Fast fold takes about 50 s instead of 53 s at 1000 MHz.
 
-**OpenFold3 and OpenBind-0** run the normal set without the two transition levers. Their `--fast` set adds
-`dit_s16` and `diffusion_bf16`, which run the diffusion transformer in bf16 with the same fused attention
-kernels as the fp32 path. Graded against normal mode on 11 complexes x 4 seeds on Blackhole (44 paired folds per
-model): OpenFold3's median same-seed top-pose deviation is 0.40 A where a different seed moves it 1.02 A, CA-lDDT
--0.0019, docking success 18 -> 19 of 44; OpenBind-0 moves 0.21 A against 1.90 A, CA-lDDT -0.0017, docking success
-26 of 44 in both. A 512-residue single-sample fold takes about 0.9 s less: 12.2 to 11.3 s for OpenFold3 on a
-Blackhole p300c chip at 1350 MHz, same chip, alternating runs.
+**OpenFold3 and OpenBind-0** run the normal set without the two transition levers, plus the trunk kernels of
+their `--fast` set: `trimul_t1`, `trimul_t2`, `transition_ws`, `ws_l1dest`, `triatt_ln` and `edm_device`
+(`trimul_t2cm` on Blackhole, `trimul_bres` and `atom_l1` on Wormhole). Graded against the normal set before them on
+11 complexes x 4 seeds, both models pass the normal bar on both parts. On Blackhole (p300c) OpenFold3's median
+same-seed top-pose deviation is 0.69 A where a different seed moves it 1.21 A, docking success 18 -> 20 of 44, and
+OpenBind-0's 0.52 A against 1.90 A, 26 -> 28 of 44; a 512-residue fold at 1350 MHz takes 9.7 s instead of 11.4 s
+(OpenFold3) and 11.5 s instead of 12.7 s (OpenBind-0). On a Wormhole Galaxy chip at 1000 MHz both go from 25.2 to
+20.0 s.
+
+OpenFold3's normal mode also runs the diffusion transformer in bf16 (`dit_s16`, `diffusion_bf16`, and on Wormhole
+`dit_fuse` and `dit_l1`). It passes the normal bar on both parts: 0.81 A against a 1.21 A seed floor on Blackhole,
+0.43 A against 0.98 A on Wormhole, docking success unchanged or better, and the Blackhole fold drops to 9.1 s.
+OpenBind-0 failed the same grade on Wormhole (CA-lDDT -0.0012 [-0.0020, -0.0006]) and keeps the fp32 diffusion
+transformer in normal mode.
+
+Their `--fast` set adds the bf16 diffusion transformer for OpenBind-0, lower-precision diffusion-transformer kernels
+for both and LoFi transition matmuls on Blackhole. The bf16 step alone, graded against normal mode on Blackhole (44
+paired folds per model): OpenFold3's median same-seed top-pose deviation is 0.40 A where a different seed moves it
+1.02 A, CA-lDDT -0.0019, docking success 18 -> 19 of 44; OpenBind-0 moves 0.21 A against 1.90 A, CA-lDDT -0.0017,
+docking success 26 of 44 in both.
 
 ## `TT_BIO_LNBW_FUSED`
 

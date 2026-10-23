@@ -33,7 +33,7 @@ def _tt_smi():
 TT_SMI = _tt_smi()
 
 
-def sample_aiclk(stop, out, *, period=2.0, load=None):
+def sample_aiclk(stop, out, *, period=2.0, load=None, power=None):
     """Append AICLK samples per device index into ``out`` until ``stop`` is set.
 
     With TT_VISIBLE_DEVICES exported, tt-smi honours it and reports the granted chip as
@@ -42,6 +42,8 @@ def sample_aiclk(stop, out, *, period=2.0, load=None):
     ``load``, if given, collects the host's 1-min loadavg / nproc at the same instants. On a
     shared host the scheduler times the fold as much as the chip does (whglx ran at 8.5x during
     the MGX re-record), so a runtime needs its load beside it just as it needs its clock.
+
+    ``power``, if given, collects board power in watts per device index from the same reading.
     """
     while not stop.is_set():
         if load is not None:
@@ -54,6 +56,9 @@ def sample_aiclk(stop, out, *, period=2.0, load=None):
                 clk = None if clk is None else aiclk_reading(int(clk))
                 if clk is not None:
                     out.setdefault(i, []).append(clk)
+                w = dev.get("telemetry", {}).get("power")
+                if power is not None and w is not None:
+                    power.setdefault(i, []).append(float(str(w).strip()))
         except Exception:
             pass
         time.sleep(period)
@@ -69,13 +74,14 @@ class during:
     def __init__(self, period=2.0):
         self.clocks = {}
         self.load = []
+        self.power = {}
         self._stop = threading.Event()
         self._period = period
 
     def __enter__(self):
         self._t = threading.Thread(target=sample_aiclk,
                                    args=(self._stop, self.clocks),
-                                   kwargs={"period": self._period, "load": self.load},
+                                   kwargs={"period": self._period, "load": self.load, "power": self.power},
                                    daemon=True)
         self._t.start()
         return self

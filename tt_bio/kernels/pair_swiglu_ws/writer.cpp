@@ -3,7 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // pair_swiglu_ws writer. Drains c_16, CT tiles per row tile, to pages [r*CT, (r+1)*CT) of the output; under WS_RES32
-// also c_25 (the bfloat16 copy of the float32 output) to the same pages of x (common runtime arg 1).
+// also c_25 (the bfloat16 copy of the float32 output) to the same pages of x (common runtime arg 1), but not under
+// WS_RES_NOCOPY, where the output is x.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -15,7 +16,7 @@ void kernel_main() {
     constexpr auto o_args = TensorAccessorArgs<1>();
     const auto so = TensorAccessor(o_args, out_addr);
     const uint32_t to = get_tile_size(cb_out);
-#ifdef WS_RES32
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
     constexpr uint32_t cb_outb = 25;
     constexpr auto b_args = TensorAccessorArgs<o_args.next_compile_time_args_offset()>();
     const auto sb = TensorAccessor(b_args, get_common_arg_val<uint32_t>(1));
@@ -29,7 +30,7 @@ void kernel_main() {
             noc_async_write_page(r * CT + c, so, rd);
         }
 #endif
-#ifdef WS_RES32
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
         cb_wait_front(cb_outb, CT);
         uint32_t rb = get_read_ptr(cb_outb);
         for (uint32_t c = 0; c < CT; ++c, rb += tb) {
@@ -38,7 +39,7 @@ void kernel_main() {
 #endif
         noc_async_write_barrier();
         cb_pop_front(cb_out, CT);
-#ifdef WS_RES32
+#if defined(WS_RES32) && !defined(WS_RES_NOCOPY)
         cb_pop_front(cb_outb, CT);
 #endif
     }

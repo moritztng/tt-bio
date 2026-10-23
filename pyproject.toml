@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tt-bio"
-version = "0.21.0"
+version = "0.21.1"
 description = "Boltz-2, ESMFold2, Protenix-v2, OpenFold3, and OpenDDE structure prediction, BoltzGen/RFdiffusion3 design, and ESMC/SaProt protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
 readme = "README.md"
 requires-python = ">=3.10,<3.13,!=3.11.*"
@@ -83,8 +83,10 @@ dependencies = [
     "zstandard",      # atomworks io/utils/compression.py, ml/utils/io.py
     "beartype",       # rf3 data/ground_truth_template.py
     "jaxtyping",      # atomworks ml/conditions/annotator.py
-    "pyarrow",        # atomworks ml/utils/io.py (rf3 data/pipelines.py), and the
+    "pyarrow<22",     # atomworks ml/utils/io.py (rf3 data/pipelines.py), and the
                       # pandas.to_parquet engine behind `embed --format parquet`
+                      # <22: pyarrow 26 needs NumPy 2 and ttnn 0.68 pins 1.26, so a fresh
+                      # [tenstorrent] install could not import atomworks (21.0.0 works).
     # RF3's torch reference (tt_bio/_vendor/rf3/model, the thing the ttnn port is
     # scored against) contracts with opt_einsum rather than torch.einsum. Keeping
     # it means the reference's contraction order, and so its float results, match
