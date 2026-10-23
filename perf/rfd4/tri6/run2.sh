@@ -2,9 +2,10 @@
 # tri6 run2: T1 + T2 weight multicast together (trimul_tail.T1_MCAST, T2_MCAST) in the paired traced trunk.
 #   ab512 ab256    base arm with both off, 30 reps
 #   t2ab512 t2ab256  base arm with T2_MCAST off only (T1 on both arms): the tail's share
+#   RUN=<dir> (default run2) names the output; a letter after the size (ab512b) is a repeat.
 #   perf/rfd4/tri6/run2.sh <card> [after-log] [legs]   (run from the tree; waits for after-log's ALLDONE, books the card)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/tri6/run2; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/tri6/${RUN:-run2}; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; AFTER=${2:-}; LEGS=${3:-ab512 ab256 t2ab512 t2ab256}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-tri6
 mkdir -p $O; cd $W
@@ -24,6 +25,7 @@ for leg in $LEGS; do
     ab*) OFF="trimul_tail.T1_MCAST={};trimul_tail.T2_MCAST=set()"; n=${leg#ab} ;;
     t2ab*) OFF="trimul_tail.T2_MCAST=set()"; n=${leg#t2ab} ;;
   esac
+  n=${n%%[a-z]*}   # ab512b: a repeat of ab512
   PYTHONPATH=$W:$W/perf TT_BIO_TRACE_REGION_MB=512 timeout 2400 $PY perf/rfd4/bfp8/stack_ab.py \
     --weights $HOME/rfd4-bundle --out $O/$leg.json --n $n --reps 30 --base $B --levers $B --base-set "$OFF" \
     > $O/$leg.log 2>&1
