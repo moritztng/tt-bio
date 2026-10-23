@@ -151,6 +151,14 @@ ALWI void sigmoid_poly_tile_pack(uint32_t idst) {
         []() __attribute__((always_inline)) { ckernel::sfpu::_sig_rows_<V, false>(); }, idst, (int)VectorMode::RC)));
 }
 
+// gate_poly_tile issued by the packer thread on the dest half it holds (trimul_in_t1's T1FGATE).
+template <uint32_t V, uint32_t GAP>
+ALWI void gate_poly_tile_pack(uint32_t ip) {
+    PACK((ckernel::sfpu::_sig_init_<V>()));
+    PACK((_llk_math_eltwise_unary_sfpu_params_<false>(
+        []() __attribute__((always_inline)) { ckernel::sfpu::_sig_rows_<V, true, GAP * 32>(); }, ip, (int)VectorMode::RC)));
+}
+
 template <uint32_t V = 2>
 ALWI void silu_poly_v_tile_pack(uint32_t idst) {
     PACK((ckernel::sfpu::_sig_init_<V>()));
