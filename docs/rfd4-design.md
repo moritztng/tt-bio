@@ -191,6 +191,12 @@ moves half the bytes. On a Blackhole chip that takes a 512-token design from 37.
 512-token designs the designed chain moved 2.8 A median against the previous default, while a different
 seed moves it 39 A, and the binder grade passes.
 
+The triangle multiplication's input kernel writes its two projections in block-fp8, so the contraction
+reads half the bytes. At 1350 MHz that takes the trunk of a 512-token design from 26.5 to 25.8 s (1.03x)
+and of a 384-token one 1.02x. Where block-fp8 would leave one core more work than the others (256 tokens
+on a p300 chip) the projections stay bf16 and nothing changes. Over 31 seed-matched 512-token designs the designed chain moved 2.2 A median against the
+previous default, while a different seed moves it 39 A, and the binder grade passes.
+
 ## Many designs at once
 
 A spec can hold any number of designs and `--num_designs` multiplies them. Locally they run one

@@ -654,11 +654,15 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: write it in place, accumulating in fp32 and rounding once on the write, so z is half the bytes on every DRAM-bound
 #: pair op. Paired traced trunk at 1325-1350 MHz: 512 tokens 1.20x, 256 tokens 1.14x; 31 designs at 512 tokens 40.66 ->
 #: 34.85 s; the designed chain moves 3.3 A median against a 38.1 A seed floor, binder grade PASS (state/rfd4/bets/bf16z.md).
+#: `trimul_t1b8`: T1 writes a and b as bfp8, so the contraction reads half the bytes. Paired traced trunk at 1350 MHz:
+#: 512 tokens 26.48 -> 25.76 s a design (1.028x), 384 1.018x; at 256 pairing 8-row items would unbalance the cores,
+#: so T1 keeps bf16 there (trimul_tail.t1_pair_free, bit-identical). 31 designs at 512: designed chain 2.24 A median
+#: against a 38.8 A seed floor, binder grade PASS (state/rfd4/bets/t1s.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
-                           "pair_tail_cm"})
+                           "pair_tail_cm", "trimul_t1b8"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 

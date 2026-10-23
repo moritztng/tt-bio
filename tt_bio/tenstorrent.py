@@ -684,8 +684,10 @@ _FAST_MODE = False
 #                   the calls the F1 tail would serve with the residual folded in, and there it is bit-exact
 #   trimul_t2w      with trimul_t2, T2 also takes c_z 384 (OpenDDE) at its own (2, 12, 1, 2, 1) block (trimul_tail.T2_BLOCK)
 #   narrow_bw16     the narrow-output pair projections (`_narrow_proj_linear`) at in0_block_w 16, not `_NARROW_PROJ_BW`
-#   trimul_t1b8     T1 (c_z 128) writes a and b as bfp8, as trimul_b8in does at c_z 256: the einsum reads half
-#                   the bytes (Boltz-2 WH fast census: T1 1.0 s + einsum 0.86 s per fold, both DRAM-bound)
+#   trimul_t1b8     T1 writes a and b as bfp8, as trimul_b8in does at c_z 256: the einsum reads half the bytes
+#                   (Boltz-2 WH fast census: T1 1.0 s + einsum 0.86 s per fold, both DRAM-bound). Whole-tile items, or
+#                   8-row items in face-pair pairs where that keeps the core balance (trimul_tail.t1_pair_free;
+#                   RFD4 at 512 tokens on a p300c: trunk 1.015x)
 #   trimul_t1_c256  with trimul_t1, T1 also takes c_z = hidden = 256 (Protenix, ESMFold2) as two channel-group launches
 #                   of 16-row units (trimul_tail.T1_PLANS)
 #   trimul_t1_c384  with trimul_t1, T1 also takes c_z = hidden = 384 (OpenDDE) as three channel-group launches
@@ -872,7 +874,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2, graded on BoltzGen's designs.
 # RFD4's own set (rfd4.trunk.NORMAL_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms, pair_write_res,
-# trimul_bres_hifi2, pair_bf16z and pair_tail_cm, graded on RFD4's designs.
+# trimul_bres_hifi2, pair_bf16z, pair_tail_cm and trimul_t1b8, graded on RFD4's designs.
 # OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
