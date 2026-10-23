@@ -1683,7 +1683,7 @@ def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
         import signal
         try:
             os.killpg(proc.pid, signal.SIGINT)
-            proc.wait(timeout=120)
+            proc.wait(timeout=gate_guard.REAP_GRACE_S)
         except Exception:
             pass
         _kill_group(proc)
@@ -1703,6 +1703,7 @@ def _run_fold(cmd: list, timeout: float, **popen_kw) -> tuple:
                 f"({verdict}). Opening it again is what hard-resets this host. Free the board "
                 f"pair's sibling, run `tt-smi -r`, and resume with --resume.")
         return None, True
+    gate_guard.stop_if_stopped_outside(rc)   # a recalled chip: raises, so no next rung or arm starts
     if rc == CONTENDED_EXIT_CODE:
         # Label it by what was run: "-m tt_bio.main predict ..." -> "tt-bio predict", a bare
         # script -> its filename. Legs sharing a CLI collapse to one label, which is fine --
