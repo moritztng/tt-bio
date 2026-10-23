@@ -4,6 +4,7 @@
 #   dm    DM side only (compute skipped, 527), then also z reads / gather / writes skipped
 #   sig6  the degree-6 gate sigmoid (lever trimul_sig6): error and compute-only time
 #   baseN / fgN  the default T1 and lever F (T1_FG, the gate fused in DST), alternated by the caller
+#   abN[rK] paired traced trunk at N, RFD4's set vs the set + trimul_t1_fgate, 30 reps
 #   fid1  LoFi, fid4 HiFi4, fid3 HiFi3: compute-only with and without the GEMMs, so the cost of one fidelity phase
 #   perf/rfd4/t1c/run1.sh <card> [legs]     (run from the tree; waits for the card booking)
 set -u
@@ -21,6 +22,7 @@ stamp "start tree $(git -C $W rev-parse --short HEAD)"
 S="T1_PSIG=1,T1_B8=1,T1_G8=1"; R="--c 384 --hidden 256 --w8 --no-mask --reps 20"
 t1() { local leg=$1; shift
   PYTHONPATH=$W timeout 1500 $PY perf/spd_trimul/in_t1.py $R "$@" --out $O/$leg.jsonl >> $O/$leg.log 2>&1; }
+B=$(PYTHONPATH=$W $PY -c "from tt_bio.rfd4.trunk import NORMAL_LEVERS as N; print(','.join(sorted(N)))")
 for leg in $LEGS; do
   case $leg in
     fid2) t1 $leg --set $S --fid HiFi2 --ns 512,384,256 --abl 112,114,116,118,113,120,624,639,527 --ab T1_SBW=2,T1_SBW=1 ;;
@@ -29,6 +31,10 @@ for leg in $LEGS; do
     fid3) t1 $leg --set $S --fid HiFi3 --ns 512 --abl 112,118 ;;
     base*) t1 $leg --set $S --fid HiFi2 --ns 512,384,256 --abl 112,527 ;;
     fg*) t1 $leg --set $S,T1_FG=1 --fid HiFi2 --ns 512,384,256 --abl 112,527,624 ;;
+    ab*) n=${leg#ab}; n=${n%%r*}
+      PYTHONPATH=$W:$W/perf TT_BIO_TRACE_REGION_MB=512 timeout 2400 $PY perf/rfd4/bfp8/stack_ab.py \
+        --weights $HOME/rfd4-bundle --out $O/$leg.json --n $n --reps 30 --base $B --levers $B,trimul_t1_fgate \
+        > $O/$leg.log 2>&1 ;;
     dm) t1 $leg --set $S --fid HiFi2 --ns 512,384,256 --abl 112,527,543,559,591,623 ;;
     sig6) TT_BIO_LEVERS=trimul_sig6 t1 $leg --set $S --fid HiFi2 --ns 512,256 --abl 112,624 ;;
   esac
