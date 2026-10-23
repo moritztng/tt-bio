@@ -839,6 +839,8 @@ _FAST_MODE = False
 #   pair_bf16z      RFD4's pair stream in bf16 between sublayers, written in place by pair_write_res, pair_tail and
 #                   pair_block (one rounding a write, fp32 accumulation inside each); half the bytes those programs move
 #                   (state/rfd4/bets/bf16z.md)
+#   pair_tail_cm    with pair_bf16z, RFD4's pair_tail reads the contraction's channel-major [1, C, S, S] output itself
+#                   (T2CM's gather), so `reblock_permute_back` never runs. A pure data move: bit-exact against pair_tail
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -855,7 +857,8 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z")
+           "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
+           "pair_tail_cm")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -878,7 +881,8 @@ UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_sp
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
                              "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
-                             "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z"})
+                             "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
+                             "pair_tail_cm"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10791,7 +10795,10 @@ class TriangleMultiplication(Module):
         af2 = (fused_residual is not None and g_out_fused is None and not fuse_gout
                and x_norm_in is not None)
         cm_ex = ((self.p_out_bias, self.g_out_bias, fused_residual[0], True) if af2 else None)
-        cm_on = ((af2 and not ops.recording() and H >= _trimul_tail.MIN_N)
+        # `pair_tail_cm` (RFD4, bf16 pair stream): pair_tail reads that chunk the same way and adds into x_in.
+        cm16 = (stream32 is x_in and lever("pair_tail_cm") and H >= _trimul_tail.MIN_N and not add_to_input
+                and not ops.taping() and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None)
+        cm_on = (cm16 or (af2 and not ops.recording() and H >= _trimul_tail.MIN_N)
                  or (lever("trimul_t2cm") and (_trimul_tail.T2 or lever("trimul_t2"))
                      and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
@@ -11151,7 +11158,7 @@ class TriangleMultiplication(Module):
                                 _mm_generic.ckc_args(self.compute_kernel_config),
                                 self.g_out_weight if af2 else None,
                                 (None, None, fused_residual[0], None) if af2 else None,
-                                own_switch=af2) is None):
+                                own_switch=af2, stream16=cm16) is None):
                         # T2CM reads this chunk where it is; the move below never runs.
                         x_cm, cm_mc = x_chunk, back_mc
                         c_done += int(x_chunk.shape[1])
@@ -11414,9 +11421,11 @@ class TriangleMultiplication(Module):
             else:
                 fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
                     x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
-                    x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN))
+                    x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
+                    stream16=cm16)
             if fused is not None:
                 TRIMUL_GOUT_STATS[0] += 1
+                self.took_residual = cm16
                 ttnn.deallocate(x_cm)
                 if x_norm_in is not None:      # None under T1
                     ttnn.deallocate(x_norm_in)

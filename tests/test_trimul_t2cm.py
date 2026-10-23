@@ -125,3 +125,23 @@ def test_routes_through_the_moved_program():
     assert "moved=(xcm, c_off, P)" in src
     assert not (KDIR / "reader_ln_cm.cpp").exists() and not (KDIR / "writer_ln_cm.cpp").exists()
     assert "CM" not in re.sub(r"//.*", "", (KDIR / "compute_ln.cpp").read_text())
+
+
+def test_rfd4_bf16_stream_form(monkeypatch):
+    """RFD4's pair_tail on the bf16 pair stream (`pair_tail_cm`): hidden 256 -> c_z 384, a key plain T2CM does not
+    take, admitted only with `stream16`; its stage fits Blackhole's L1 whole (P = 1), double-buffered."""
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: L1_BH_BANK)
+    monkeypatch.setattr(T, "arch_name", lambda: "blackhole")
+    monkeypatch.setattr(TTL, "T2", False)
+    monkeypatch.setattr(TTL, "T2CM", False)
+    assert "pair_tail_cm" in T.LEVERS and "pair_tail_cm" not in T.NORMAL_LEVERS
+    a = _args(K=256, N=384)
+    assert TTL.t2cm_eligible(**a, stream16=True) == "off"
+    with T.levers("pair_tail_cm"):
+        assert TTL.t2cm_eligible(**a) == "off"                         # trimul_t2cm's own gate is unchanged
+        assert TTL.t2cm_eligible(**a, stream16=True) is None
+        assert TTL.t2cm_eligible(**_args(S=384, K=256, N=384), stream16=True) is None
+        assert TTL.t2cm_eligible(**a, stream16=True, wg=_Fake([256, 384])) == "stream16_form"
+    with T.levers("trimul_t2,trimul_t2cm"):
+        assert TTL.t2cm_eligible(**a) == "key=8x12"                    # no other model's T2CM eligibility moves
+    assert TTL._t2cm_parts(torch.zeros(256, 384)) == 1
