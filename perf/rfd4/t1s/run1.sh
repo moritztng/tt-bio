@@ -8,7 +8,7 @@
 #   ab512 ab256 ab384  paired traced trunk, base arm built with both levers off (stack_ab --base-set), 30 reps
 #   perf/rfd4/t1s/run1.sh <card> <main tree> [legs]     (run from the tree; waits for the card's booking)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1s/run1; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1s/run1; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; OLD=${2:?main tree}; LEGS=${3:-t1 main mask xtree ab512 ab256 ab384}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-t1s
 mkdir -p $O; cd $W

@@ -2,10 +2,10 @@
 # z8 run6: the four z-graded trunk tests on main's tree ($OLD) for their device readings beside run5's (pair_bfp8z
 # default). Waits for run5's ALLDONE, then the first free qb2 card.   perf/rfd4/z8/run6.sh <main tree>
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/z8/run6; PY=$HOME/tt-bio-dev/env/bin/python; OLD=${1:?main tree}
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/z8/run6; PY=$HOME/tt-bio-dev/env/bin/python; OLD=${1:?main tree}
 mkdir -p $O; cd $W
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" | tee -a $O/run.log; }
-until grep -q ALLDONE $W/artifacts/z8/run5/run.log 2>/dev/null; do sleep 30; done
+until grep -q ALLDONE $W/perf/rfd4/z8/run5/run.log 2>/dev/null; do sleep 30; done
 C=
 while [ -z "$C" ]; do
   for c in 3 1 2 0; do

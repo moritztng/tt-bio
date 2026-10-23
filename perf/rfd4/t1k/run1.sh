@@ -5,7 +5,7 @@
 # each stage's cost reads by difference; AICLK sampled during every N. Then the writer knobs at 512 and the mask case.
 #   perf/rfd4/t1k/run1.sh <card> [legs]     (run from the tree; waits for the card's booking)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1k/run1; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1k/run1; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-abl knobs mask}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-t1k PYTHONPATH=$W
 mkdir -p $O; cd $W
