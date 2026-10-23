@@ -250,8 +250,11 @@ TRIATT_Q10_WH = frozenset({"triatt_q10"})
 # fast set vs + both, 44 paired folds over 4 seeds (spd-m-protenix gpzf, 2026-10-23), PASS: same-seed top pose median
 # 0.402 A vs the 1.497 A A/A floor, CA-lDDT +0.0013 [+0.0002, +0.0032], lRMSD -0.21 [-0.45, -0.02], docking 37/44 -> 37/44.
 # cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz (pzab), steady warm pairs -0.69 / -0.71 s. On a p300 chip (bhpzab, 9TY2_512,
-# separate processes x2) the two runs read -1.2 and +1.4 s, inside the box's drift, so Blackhole stays off.
-DIT_SEAM_FAST_WH = frozenset({"pz_device", "dit_mod16"})
+# separate processes x2) the two runs read -1.2 and +1.4 s, inside the box's drift; ABBA x4 in separate processes (bhpzab2, AICLK
+# 1337-1350 median) reads -0.53..-1.16 s per warm fold, median -0.83 s on ~36 s. Blackhole 512-token fast grade vs the shipped
+# Blackhole fast set (gpzbh, 2026-10-23), PASS on the first 34 paired folds: same-seed top pose median 0.424 A vs the 1.590 A
+# A/A floor, CA-lDDT +0.0002 [-0.0009, +0.0018], docking 27/34 -> 28/34, every interval covers 0.
+DIT_SEAM_FAST = frozenset({"pz_device", "dit_mod16"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -259,15 +262,15 @@ def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `TRIATT_K1`, `DIT_MM_WH` and `TRIATT_Q10_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
-    `OPM_B8CFG_FAST` and `DIT_SEAM_FAST_WH` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` under --fast and `T1_PSIG` in both modes on both chips."""
+    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` in both modes on both chips."""
     v2 = Trunk._derive_c_z(state_dict) == 256
     wh = _T.is_wormhole()
     wh_both = TRIATT_LN | TRIATT_K1 | DIT_MM_WH | TRIATT_Q10_WH if v2 and wh else frozenset()
-    wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST | DIT_SEAM_FAST_WH
+    wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | T1_PSIG
                             | (WH_V2_NORMAL if wh else BH_V2_NORMAL) if v2 else NORMAL_LEVERS) | wh_both,
-                           fast | SHOIST_FAST | T1_PSIG if v2 else fast)
+                           fast | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG if v2 else fast)
 
 
 # How many diffusion samples a single batched denoise carries by default. The batched
