@@ -4,7 +4,7 @@
 # equality against the default and times both; AICLK is sampled during every N.
 #   perf/rfd4/k256/run1.sh <card>     (run from the tree; waits for the card's booking)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/k256/run1; PY=${PY:-$HOME/tt-bio-dev/env/bin/python}
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/k256/${RUN:-run1}; PY=${PY:-$HOME/tt-bio-dev/env/bin/python}
 C=${1:?card}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-k256 PYTHONPATH=$W
 mkdir -p $O; cd $W
