@@ -8,7 +8,7 @@
 #   fid1  LoFi, fid4 HiFi4, fid3 HiFi3: compute-only with and without the GEMMs, so the cost of one fidelity phase
 #   perf/rfd4/t1c/run1.sh <card> [legs]     (run from the tree; waits for the card booking)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1c/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1c/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-fid2 fid1 fid4 fid3}
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:rfd4-perf-t1c
 mkdir -p $O; cd $W

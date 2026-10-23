@@ -6,7 +6,7 @@
 #   abN[rK]     paired traced trunk at N, RFD4's set vs the set + $LEV (default trimul_t1_fgate), 30 reps
 #   perf/rfd4/t1dm/run1.sh <card> [legs]     (run from the tree; waits for the card booking)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1dm/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1dm/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
 C=${1:?card}; LEGS=${2:-base fg}; ME=rfd4-perf-t1dm
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:$ME
 mkdir -p $O; cd $W

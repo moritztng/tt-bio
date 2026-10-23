@@ -4,7 +4,7 @@
 # digests at the other models' keys with F forced on (T1_FG=1) here and off on main's tree ($OLD): equal = RFD4 only.
 #   RUN=run3 perf/rfd4/t1dm/run3.sh <main tree> [legs]     (run from the tree; first free qb2 card, up to 10 h)
 set -u
-W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/t1dm/${RUN:-run3}; PY=$HOME/tt-bio-dev/env/bin/python
+W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/perf/rfd4/t1dm/${RUN:-run3}; PY=$HOME/tt-bio-dev/env/bin/python
 OLD=${1:?main tree}; LEGS=${2:-zprec256 zprec512 design grade xtree}; ME=rfd4-perf-t1dm; LEV=trimul_t1_fgate
 mkdir -p $O/design $O/grade; cd $W
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" | tee -a $O/run.log; }
