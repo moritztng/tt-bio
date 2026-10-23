@@ -7212,6 +7212,10 @@ _PAIR_FFN_FC1_BW = 1
 _PAIR_FFN_FC1_BLOCK_W = 16
 
 
+# Off restores the try-and-catch leg alone, for the A/B that prices the allocator query.
+PAIR_PROJ_L1_FIT = True
+
+
 def _l1_out_placeable(x, w, dtype) -> bool:
     """The interleaved L1 output of `x @ w` fits the largest free block of every bank now.
 
@@ -7268,7 +7272,7 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         cfg = None if retired else _pair_proj_config(
             x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
             out_l1=True, block_w=l1_block_w, rung=rung, silu=silu)
-        if cfg is not None and not _l1_out_placeable(x, w, dtype):
+        if cfg is not None and PAIR_PROJ_L1_FIT and not _l1_out_placeable(x, w, dtype):
             cfg = None
             _latch("l1_out", "declined", "no L1 block for the output")
         elif cfg is None:
