@@ -1626,6 +1626,13 @@ def t1_host_weights(g_in_t, p_in_t, g_out_t):
     return p_in_t.t().contiguous(), g_in_t.t().contiguous(), g_out_t.contiguous()
 
 
+def t1_pair_free(nu, ncores):
+    """Whether running `nu` 8-row items in face-pair pairs (bfp8 a / b, t1_unit) keeps the busiest core's item count.
+    Where it does not (256 tokens on a 110-core p300c: 4 items instead of 3, the trunk 0.987x in t1s run5), a and b
+    stay bf16. On a 130-core p150a it is free at 256 and 512 tokens, not at 384 (5 items -> 6)."""
+    return 2 * -(-nu // (2 * ncores)) == -(-nu // ncores)
+
+
 def t1_split(nu, ncores, pair=False):
     """Units (b, xt, yt) per core, as gin_moved splits them: [(first unit, count)] per core. `pair`: whole pairs of
     items (t1_unit), so one core runs both 8-row halves of a face pair."""
@@ -1824,7 +1831,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     pkey = (int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE)
     groups, il = t1_plan(pkey, w8)
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
-    b8 = bool(b8 or T1_B8) and il in (32, 8)   # gather.hpp: whole tiles or paired 8-row items
+    b8 = bool(b8 or T1_B8) and (il == 32 or il == 8 and t1_pair_free(B * (S // TILE) ** 2 * 4, grid[0] * grid[1]))
     nb, split = t1_dm(pkey, mask is not None, w8, b8)
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)

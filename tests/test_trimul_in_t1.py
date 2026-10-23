@@ -407,3 +407,12 @@ def test_t1_pair_items_cover_each_face_pair_on_one_core(St, cores):
     split = TTL.t1_split(nu, cores, pair=True)
     assert sum(n for _, n in split) == nu and all(u0 % 2 == 0 and n % 2 == 0 for u0, n in split)
     assert all(split[i][0] + split[i][1] == split[i + 1][0] for i in range(len(split) - 1))
+
+
+def test_t1_pairs_only_where_balance_is_free():
+    """bfp8 at 8-row items needs whole face pairs per core; T1 pairs only where that keeps the busiest core's count."""
+    items = lambda n: (n // 32) ** 2 * 4  # noqa: E731
+    assert TTL.t1_pair_free(items(512), 110) and TTL.t1_pair_free(items(384), 110)
+    assert not TTL.t1_pair_free(items(256), 110)                    # 3 items -> 4 on the busiest p300c core
+    assert TTL.t1_pair_free(items(256), 130) and TTL.t1_pair_free(items(512), 130)
+    assert not TTL.t1_pair_free(items(384), 130)                    # 5 -> 6 on a p150a
