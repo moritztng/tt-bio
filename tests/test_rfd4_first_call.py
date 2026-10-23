@@ -29,6 +29,12 @@ class _Out:
     def __init__(self, tag):
         self.tag, self.freed = tag, False
 
+    def is_allocated(self):
+        return not self.freed
+
+    def buffer_address(self):
+        return id(self)
+
 
 class _Trunk(trunk_mod.Trunk):
     """The real `launch`, with the device forward replaced by one that learns a plan on its first call."""
@@ -51,8 +57,9 @@ class _Trunk(trunk_mod.Trunk):
 
 @pytest.fixture
 def fake_device(monkeypatch):
-    monkeypatch.setattr(trunk_mod, "upload", lambda t, dtype, device: t)
+    monkeypatch.setattr(trunk_mod, "upload", lambda t, dtype, device: _Out("input"))
     monkeypatch.setattr(trunk_mod.ttnn, "deallocate", lambda t: setattr(t, "freed", True))
+    monkeypatch.setattr(trunk_mod, "download_later", lambda t: lambda: t)
 
 
 def _launch(tr):
@@ -63,9 +70,9 @@ def _launch(tr):
 
 def test_a_call_that_learned_a_plan_is_run_again(fake_device):
     tr = _Trunk(learn_on={1})
-    _, _, (s_out, z_out), _ = _launch(tr)
+    _, z_out, s_host = _launch(tr)
     assert tr.calls == 2
-    assert s_out.tag == ("s", 2) and z_out.tag == ("z", 2)
+    assert s_host().tag == ("s", 2) and z_out.tag == ("z", 2)
     assert all(t.freed for t in tr.outs[0])          # the mixed-plan result is released
 
 
@@ -77,6 +84,15 @@ def test_a_settled_call_runs_once(fake_device):
 
 def test_a_count_that_never_settles_is_capped(fake_device):
     tr = _Trunk(learn_on=set(range(1, 100)))
-    _, _, (s_out, _), _ = _launch(tr)
-    assert tr.calls == 3 and s_out.tag == ("s", 3)
+    _, _, s_host = _launch(tr)
+    assert tr.calls == 3 and s_host().tag == ("s", 3)
 
+
+def test_launch_frees_all_but_the_pair_it_reads(fake_device):
+    tr = _Trunk(learn_on=set())
+    _, z_out, _ = _launch(tr)
+    s_out, z = tr.outs[0]
+    assert s_out.freed and z is z_out and not z.freed  # s is read back already; z waits for collect
+    _, z_out, _ = tr.launch(torch.zeros(1, 32, 4), torch.zeros(1, 32, 32, 4), [torch.zeros(1, 32, 4)],
+                            torch.ones(1, 32), device=None, pair=False)
+    assert z_out is None and all(t.freed for t in tr.outs[1])
