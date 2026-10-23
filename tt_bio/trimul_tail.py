@@ -1305,6 +1305,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
     ttnn.generic_op([x, wp, g, ln_w, ln_b] + ([] if copy is None else [copy]) + [resid] + ([wg] if wg is not None else [])
                     + ([moved[0]] if moved is not None else []) + (list(outer) if outer is not None else []), pd)
     T2_STATS[0] += 1
+    OUTER_STATS[1] += outer is not None
     if moved is not None:
         T2M_STATS[0] += 1
     return resid
@@ -1778,6 +1779,9 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
+OUTER_STATS = [0, 0]    # T1 calls, tail calls that formed z' = z + pj * pi themselves (pair_outer_fold)
+
+
 def t1_outer_ok(outer, x):
     """Whether T1 folds RFD4's Hadamard write `outer` = (pi [B, S, K], pj4 [B, S, 1, K]) into x (z before the write):
     both bf16, tiled, interleaved DRAM, unpadded, the shapes outer_residual takes."""
@@ -1852,4 +1856,5 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
         ttnn.deallocate(xn)
     T1_STATS[0] += 1
     MASK_STATS[0] += mask is not None
+    OUTER_STATS[0] += outer is not None
     return outs
