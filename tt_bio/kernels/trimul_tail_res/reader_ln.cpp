@@ -11,6 +11,10 @@
 // follows Wp in c_1 (compute_ln.cpp computes g itself).
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
+#include "../common/weight_mcast.hpp"
+#ifndef T2MCAST
+#define T2MCAST 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -62,16 +66,31 @@ void kernel_main() {
     cb_reserve_back(in1_cb, (1 + GATE) * Kt * Nt);
     cb_reserve_back(gamma_cb, Kt);
     cb_reserve_back(beta_cb, Kt);
+    // T2MCAST (trimul_tail.T2_MCAST, not GATE): core 0 reads Wp, gamma, beta and multicasts them
+    // (common/weight_mcast.hpp, common args 7..; per-core arg 2 marks the sender).
+    static_assert(!T2MCAST || !GATE, "T2MCAST multicasts Wp alone");
+    const bool sender = !T2MCAST || get_arg_val<uint32_t>(2);
     uint32_t w = get_write_ptr(in1_cb);
-    for (uint32_t t = 0; t < Kt * Nt; ++t, w += tb) noc_async_read_page(t, wp, w);
-    if constexpr (GATE) {
-        for (uint32_t t = 0; t < Kt * Nt; ++t, w += tb) noc_async_read_page(t, wg, w);
+    if (sender) {
+        for (uint32_t t = 0; t < Kt * Nt; ++t, w += tb) noc_async_read_page(t, wp, w);
+        if constexpr (GATE) {
+            for (uint32_t t = 0; t < Kt * Nt; ++t, w += tb) noc_async_read_page(t, wg, w);
+        }
+        w = get_write_ptr(gamma_cb);
+        for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
+        w = get_write_ptr(beta_cb);
+        for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
+        noc_async_read_barrier();
     }
-    w = get_write_ptr(gamma_cb);
-    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
-    w = get_write_ptr(beta_cb);
-    for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
-    noc_async_read_barrier();
+    if constexpr (T2MCAST) {
+        if (sender) {
+            const uint32_t addr[] = {get_write_ptr(in1_cb), get_write_ptr(gamma_cb), get_write_ptr(beta_cb)};
+            const uint32_t bytes[] = {Kt * Nt * tb, Kt * tb, Kt * tb};
+            weight_mcast::send<7>(addr, bytes, 3);
+        } else {
+            weight_mcast::receive<7>();
+        }
+    }
     cb_push_back(in1_cb, (1 + GATE) * Kt * Nt);
     cb_push_back(gamma_cb, Kt);
     cb_push_back(beta_cb, Kt);

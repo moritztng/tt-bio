@@ -34,14 +34,16 @@
 #endif
 // T1MCAST (trimul_tail.T1_MCAST): every core needs every resident weight tile, so one core (per-core arg 2 set) reads
 // [Wp^T | Wg^T], gamma, beta and Wg_out from DRAM and multicasts the four CB regions to the grid rectangle instead
-// of each core pulling the same 575 KB (RFD4's key). Receivers count themselves ready on the sender's semaphore 0;
-// the sender then writes the weights and sets semaphore 1 on every core, ordered behind the data on the same path
-// (pair_swiglu_ws's WS_MCAST handshake). The same bytes land in the same CBs: bit-identical.
+// of each core pulling the same 575 KB (RFD4's key), common/weight_mcast.hpp. The same bytes land in the same CBs:
+// bit-identical.
 #ifndef T1MCAST
 #define T1MCAST 0
 #endif
 #include "api/dataflow/dataflow_api.h"
 #include "unit.hpp"
+#if T1MCAST
+#include "../common/weight_mcast.hpp"
+#endif
 #if T1SPLIT
 #include "gather.hpp"
 #endif
@@ -117,11 +119,9 @@ void kernel_main() {
     cb_reserve_back(beta_cb, Kt);
     if constexpr (NG) cb_reserve_back(wo_cb, Kt * NG);
 #if T1MCAST
-    constexpr uint32_t MC = T1SPLIT ? 9 : 7;   // common args MC.. : x0, y0, x1, y1, ncores, sender (x << 16 | y)
-    const uint32_t ncores = get_common_arg_val<uint32_t>(MC + 4), sender_xy = get_common_arg_val<uint32_t>(MC + 5);
-    volatile tt_l1_ptr uint32_t* ready = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
-    volatile tt_l1_ptr uint32_t* valid = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(1));
-    if (get_arg_val<uint32_t>(2)) {
+    constexpr uint32_t MC = T1SPLIT ? 9 : 7;   // weight_mcast.hpp's common args
+    const bool sender = get_arg_val<uint32_t>(2);
+    if (sender) {
 #endif
     uint32_t w = get_write_ptr(w_cb);
     for (uint32_t t = Q0 * Kt; t < (Q0 + QN) * Kt; ++t, w += wtb) noc_async_read_page(t, wp, w);
@@ -137,26 +137,14 @@ void kernel_main() {
     }
     noc_async_read_barrier();
 #if T1MCAST
-        const uint32_t x0 = get_common_arg_val<uint32_t>(MC), y0 = get_common_arg_val<uint32_t>(MC + 1);
-        const uint32_t x1 = get_common_arg_val<uint32_t>(MC + 2), y1 = get_common_arg_val<uint32_t>(MC + 3);
-        const uint64_t m = noc_index == 0 ? get_noc_multicast_addr(x0, y0, x1, y1, 0)
-                                          : get_noc_multicast_addr(x1, y1, x0, y0, 0);
-        noc_semaphore_wait(ready, ncores - 1);
-        noc_semaphore_set(ready, 0);
-        const uint32_t aw = get_write_ptr(w_cb), ag = get_write_ptr(gamma_cb), ab = get_write_ptr(beta_cb);
-        noc_async_write_multicast(aw, m | aw, 2 * QN * Kt * wtb, ncores - 1);
-        noc_async_write_multicast(ag, m | ag, Kt * tb, ncores - 1);
-        noc_async_write_multicast(ab, m | ab, Kt * tb, ncores - 1, !NG);
-        if constexpr (NG) {
-            const uint32_t ao = get_write_ptr(wo_cb);
-            noc_async_write_multicast(ao, m | ao, Kt * NG * otb, ncores - 1, true);
-        }
-        *valid = 1;
-        noc_semaphore_set_multicast(get_semaphore(1), m | get_semaphore(1), ncores - 1);
-        noc_async_write_barrier();
+    }
+    if (sender) {
+        const uint32_t addr[] = {get_write_ptr(w_cb), get_write_ptr(gamma_cb), get_write_ptr(beta_cb),
+                                 NG ? get_write_ptr(wo_cb) : 0};
+        const uint32_t bytes[] = {2 * QN * Kt * wtb, Kt * tb, Kt * tb, Kt * NG * otb};
+        weight_mcast::send<MC>(addr, bytes, NG ? 4 : 3);
     } else {
-        noc_semaphore_inc(get_noc_addr(sender_xy >> 16, sender_xy & 0xffff, get_semaphore(0)), 1);
-        noc_semaphore_wait(valid, 1);
+        weight_mcast::receive<MC>();
     }
 #endif
     cb_push_back(w_cb, 2 * QN * Kt);
