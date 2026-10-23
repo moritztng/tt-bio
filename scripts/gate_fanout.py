@@ -834,9 +834,14 @@ def known_walls(hist: dict, prior: list) -> dict:
 
 
 def select(legs: list, patterns: list) -> list:
-    """Legs matching any pattern (all when there is none) and no `!pattern`."""
+    """Legs matching any pattern (all when there is none) and no `!pattern`. A pattern that matches
+    no leg is an error: `--legs record:rf3` (the leg is `record:rf3@<card>`) ran nothing on 10-23 and
+    wrote an empty PASS verdict over the record run rec-437a23413."""
     take = [p for p in patterns if not p.startswith("!")]
     drop = [p[1:] for p in patterns if p.startswith("!")]
+    if none := [p for p in take if not any(fnmatch.fnmatch(lg.name, p) for lg in legs)]:
+        raise SystemExit(f"--legs {','.join(none)} matches no leg; legs are e.g. "
+                         + ", ".join(lg.name for lg in legs[:6]))
     return [lg for lg in legs if (not take or any(fnmatch.fnmatch(lg.name, p) for p in take))
             and not any(fnmatch.fnmatch(lg.name, p) for p in drop)]
 
