@@ -7226,7 +7226,11 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                     _pair_bias_stat("o_in_matmul_exit_l1")
                 return out
             except Exception as e:
-                if laddered:
+                # A narrower drain block shrinks the circular buffers, not the output, so an
+                # allocator refusal of the output itself retires the class at once instead of
+                # throwing once per rung (OpenDDE 768 on WH: 4 throws, a sibling 1 MB/bank
+                # tensor resident, 346848 B free per bank).
+                if laddered and "Not enough space" not in str(e):
                     _l1_out_narrow(key)
                 else:
                     _L1_OUT_REFUSED.add(key)
