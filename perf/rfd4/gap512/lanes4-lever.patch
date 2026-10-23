@@ -1,0 +1,147 @@
+diff --git a/tests/test_rfd4_sampler.py b/tests/test_rfd4_sampler.py
+index b1fd86fb0..e084fa61c 100644
+--- a/tests/test_rfd4_sampler.py
++++ b/tests/test_rfd4_sampler.py
+@@ -218,7 +218,7 @@ def test_a_refused_chunk_halves_the_width_and_reruns():
+ 
+ 
+ class StagedNet(Net):
+-    """`Net` split into prepare / launch / finish, logging the order the driver calls them in."""
++    """`Net` split into prepare / launch / collect / complete, logging the order the driver calls them in."""
+ 
+     def __init__(self):
+         super().__init__()
+@@ -232,9 +232,13 @@ class StagedNet(Net):
+         self.log.append(("launch", prepared[3]))
+         return prepared
+ 
+-    def finish(self, launched):
+-        x_t, t, recycle_depth, step = launched
+-        self.log.append(("finish", step))
++    def collect(self, launched):
++        self.log.append(("collect", launched[3]))
++        return launched
++
++    def complete(self, collected):
++        x_t, t, recycle_depth, step = collected
++        self.log.append(("complete", step))
+         return self(x_t, t, recycle_depth=recycle_depth, step=step)
+ 
+ 
+@@ -253,19 +257,19 @@ def test_lanes_give_the_designs_the_chunker_gives(width):
+     assert max(n for _, _, n in net.calls) <= width
+ 
+ 
+-def test_the_next_lane_launches_before_the_host_prepares_anything():
+-    """One call in flight, and every finish is followed straight away by the next launch, so the
+-    card never waits on host work that another lane could have done while it ran."""
++def test_the_next_lane_launches_before_the_host_does_anything():
++    """One call in flight, and every readback is followed straight away by the next launch, so the
++    card never waits on host work (the heads, the step, the next inputs) that can run under it."""
+     net = StagedNet()
+     run(short(), n_designs=2, network=net, lane_width=1)
+     kinds = [k for k, _ in net.log]
+     in_flight = 0
+     for k in kinds:
+-        in_flight += {"launch": 1, "finish": -1}.get(k, 0)
++        in_flight += {"launch": 1, "collect": -1}.get(k, 0)
+         assert in_flight <= 1
+     for i, k in enumerate(kinds[:-2]):
+-        if k == "finish":
+-            assert kinds[i + 1] == "launch", kinds[i - 2:i + 3]
++        if k == "collect":
++            assert kinds[i + 1:i + 3] == ["launch", "complete"], kinds[i - 2:i + 4]
+     assert kinds.count("launch") == 2 * short().nsteps
+ 
+ 
+diff --git a/tt_bio/rfd4/network.py b/tt_bio/rfd4/network.py
+index 5fa6ea14b..120831558 100644
+--- a/tt_bio/rfd4/network.py
++++ b/tt_bio/rfd4/network.py
+@@ -242,7 +242,7 @@ class FlowNetwork:
+     tensor per recycle because upstream rebuilds it each cycle from the remaining-pass count. The
+     device trunk (`tt_bio.rfd4.trunk.Trunk.run_bucketed`) and a host reference have the same shape,
+     so a parity test and a real design run the same code around them. A trunk that also has
+-    `launch(...)` and `collect(pending)` is enqueued by :meth:`launch` and read by :meth:`finish`,
++    `launch(...)` and `collect(pending)` is enqueued by :meth:`launch` and read by :meth:`collect`,
+     which is what lets `sampler.run_lanes` keep the host busy while the card runs.
+ 
+     The batch the glue reads is the featurized example (`tt_bio.rfd4.io.featurize`) with this
+@@ -275,8 +275,8 @@ class FlowNetwork:
+                  step: int) -> dict[str, dict[str, Any]]:
+         return self.finish(self.launch(self.prepare(x_t, t, recycle_depth=recycle_depth, step=step)))
+ 
+-    # The call in three stages, for `sampler.run_lanes`: the host builds the trunk's inputs, the
+-    # trunk is enqueued, and the heads read its output once it is back.
++    # The call in four stages, for `sampler.run_lanes`: the host builds the trunk's inputs, the
++    # trunk is enqueued, s is read back, and the heads run on it.
+ 
+     def prepare(self, x_t: dict[str, Any], t: dict[str, float], *, recycle_depth: int, step: int):
+         n_designs = next(iter(x_t.values())).shape[0]
+@@ -333,9 +333,18 @@ class FlowNetwork:
+         return hit
+ 
+     def finish(self, launched) -> dict[str, dict[str, Any]]:
++        return self.complete(self.collect(launched))
++
++    def collect(self, launched):
++        """Wait for the trunk and read s back. The card is free from here on."""
+         batch, depth, pending = launched
+         s, _z = self.trunk.collect(pending) if hasattr(self.trunk, "collect") else pending
+         self.passes += depth
++        return s, batch
++
++    def complete(self, collected) -> dict[str, dict[str, Any]]:
++        """The heads on a collected s, host work `sampler.run_lanes` runs under the next lane's trunk."""
++        s, batch = collected
+         with torch.no_grad():
+             return self.glue.heads(s, batch)
+ 
+diff --git a/tt_bio/rfd4/sampler.py b/tt_bio/rfd4/sampler.py
+index adf3e2558..18e01988f 100644
+--- a/tt_bio/rfd4/sampler.py
++++ b/tt_bio/rfd4/sampler.py
+@@ -1055,10 +1055,12 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
+     without waiting on the host.
+ 
+     The network may split its call into ``prepare(x_t, t, *, recycle_depth, step)``,
+-    ``launch(prepared)`` and ``finish(launched)``, where ``launch`` only enqueues device work and
+-    ``finish`` waits for it. One launched call is in flight at a time, so the card holds one
+-    lane's trunk, as it would running them one after another. A network with no stages is called
+-    as it is and the lanes simply run in turn.
++    ``launch(prepared)``, ``collect(launched)`` and ``complete(collected)``: ``launch`` only
++    enqueues device work, ``collect`` waits for it and reads the result back, and ``complete`` is
++    the host work on that result (the heads), which runs after the next lane is launched. One
++    launched call is in flight at a time, so the card holds one lane's trunk, as it would running
++    them one after another. A network with no stages is called as it is and the lanes simply run
++    in turn.
+ 
+     Each lane computes exactly what it computes alone: the order lanes run in is not an input to
+     any of them.
+@@ -1069,9 +1071,9 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
+     if prepare is None:
+         def prepare(x, t, *, recycle_depth, step):
+             return network(x, t, recycle_depth=recycle_depth, step=step)
+-        launch = finish = lambda value: value
++        launch = collect = complete = lambda value: value
+     else:
+-        launch, finish = network.launch, network.finish
++        launch, collect, complete = network.launch, network.collect, network.complete
+ 
+     results: list[SamplerOutput | None] = [None] * len(lanes)
+     ready: deque = deque()
+@@ -1092,12 +1094,12 @@ def run_lanes(lanes: Sequence, network: Network) -> list[SamplerOutput]:
+             i, prepared = ready.popleft()
+             flight = i, launch(prepared)
+         i, launched = flight
+-        out = finish(launched)
++        collected = collect(launched)
+         flight = None
+         if ready:
+             j, prepared = ready.popleft()
+             flight = j, launch(prepared)
+-        advance(i, out)
++        advance(i, complete(collected))
+     return results
+ 
+ 
