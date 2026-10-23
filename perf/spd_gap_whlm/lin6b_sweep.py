@@ -67,6 +67,8 @@ def main() -> int:
     ap.add_argument("--model", default="esmc-6b", choices=sorted(MODELS))
     ap.add_argument("--fidelity", default=None, help="default: the model's (6B HiFi4, 300M/600M HiFi3)")
     ap.add_argument("--shapes", default="qkv,out,fc1h,fc2")
+    ap.add_argument("--mm", action="store_true", help="minimal_matmul arms below ESMC_MM_MIN_ROWS too: plain, the qkv's "
+                    "3-way split (no ttnn.chunk after it), and the chunk the linear path pays alone")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
     global M, D, FF, SHAPES
@@ -94,23 +96,34 @@ def main() -> int:
         cand = arms(g.x, g.y, K, N, cap=4)
         if M >= esmc.ESMC_MM_MIN_ROWS:  # the shipped path at this shape first, so it is the equal_default base
             cand = {"mm": "mm", **cand}
+        elif args.mm:
+            cand = {**cand, "mm": "mm", **({"mm_split3": "split", "chunk3": "chunk"} if name == "qkv" else {})}
+        lin = ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16) if name == "qkv" and args.mm else None
         for arm, cfg in cand.items():
             kw = {"core_grid": T.CORE_GRID_MAIN} if cfg == "grid" else {} if cfg == "auto" else {"program_config": cfg}
             fn = (lambda: ttnn.experimental.minimal_matmul(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16,
                                                            **esmc._mm_config(xd, wd))) if cfg == "mm" else \
+                (lambda: ttnn.experimental.minimal_matmul_split(
+                    xd, wd, chunks=3, compute_kernel_config=ck, dtype=ttnn.bfloat16,
+                    memory_config=ttnn.DRAM_MEMORY_CONFIG, **esmc._mm_config(xd, wd))) if cfg == "split" else \
+                (lambda: ttnn.chunk(lin, 3, dim=-1)) if cfg == "chunk" else \
                 (lambda kw=kw: ttnn.linear(xd, wd, compute_kernel_config=ck, dtype=ttnn.bfloat16, **kw))
             rec = {"wdtype": args.wdtype, "fidelity": args.fidelity, "shape": name, "mkn": [M, K, N], "arm": arm,
                    "grid": [g.x, g.y]}
             try:
                 o = fn()
-                got = ttnn.to_torch(o).reshape(M, N).double()
-                ttnn.deallocate(o)
+                parts = list(o) if isinstance(o, (list, tuple)) else [o]
+                got = torch.cat([ttnn.to_torch(t).reshape(M, -1) for t in parts], -1).double()
+                for t in parts:
+                    ttnn.deallocate(t)
                 ts = []
                 for _ in range(args.repeat):
                     ttnn.synchronize_device(dev)
                     t0 = time.perf_counter()
                     for _ in range(args.inner):
-                        ttnn.deallocate(fn())
+                        o = fn()
+                        for t in (o if isinstance(o, (list, tuple)) else [o]):
+                            ttnn.deallocate(t)
                     ttnn.synchronize_device(dev)
                     ts.append((time.perf_counter() - t0) / args.inner * 1e3)
                 ms = sorted(ts)[len(ts) // 2]
@@ -128,6 +141,8 @@ def main() -> int:
             out.write(json.dumps(rec) + "\n")
             out.flush()
         ttnn.deallocate(xd); ttnn.deallocate(wd)
+        if lin is not None:
+            ttnn.deallocate(lin)
     return 0
 
 
