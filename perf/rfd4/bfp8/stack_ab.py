@@ -69,7 +69,8 @@ def main():
     c0 = torch.randn(1, n, dc, generator=g)
     up = lambda t, dt: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     masks = TR.trunk_masks(torch.ones(1, n), dev, residual_dtype=ttnn.float32)
-    s, z, cond = up(s0, ttnn.float32), up(z0, ttnn.float32), up(c0, ttnn.bfloat16)
+    s, cond = up(s0, ttnn.float32), up(c0, ttnn.bfloat16)
+    zs = {k: up(z0, tr.pair_residual_dtype) for k, tr in arms.items()}   # each arm's own pair stream dtype
     sync = lambda: ttnn.synchronize_device(dev)  # noqa: E731
 
     def free(ts):
@@ -82,7 +83,7 @@ def main():
     with clocksample.during(period=0.5) as clk:
         traces, outs = {}, {}
         for k, tr in arms.items():
-            fn = lambda tr=tr: tr.run_pass(ttnn.clone(s), ttnn.clone(z), cond, masks)  # noqa: E731
+            fn = lambda tr=tr, z=zs[k]: tr.run_pass(ttnn.clone(s), ttnn.clone(z), cond, masks)  # noqa: E731
             with T.lever_scope(tr._levers):  # run_pass is not scoped itself; __call__ is
                 free(fn())  # compile
                 sync()
