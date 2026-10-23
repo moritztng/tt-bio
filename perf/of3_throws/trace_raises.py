@@ -14,7 +14,7 @@ beside what the L1 allocator reports (bank size and count), so a gate that admit
 refuses can be read off the numbers.
 
 With HANG_DUMP_AT=<s> (and HANG_DUMP_OUT=<file>) a process still running after <s> seconds dumps every thread's
-Python stack and, if PYSPY names a py-spy binary, its native stack too, three times 30 s apart. A healthy
+Python stack every <s> seconds and, if PYSPY names a py-spy binary, its native stack three times 30 s apart. A healthy
 cell is long done by then, so the dumps are the hang's location. The process lets any tracer attach to it
 (PR_SET_PTRACER), since py-spy runs as its child and Yama scope 1 only lets ancestors trace.
 """
@@ -82,26 +82,19 @@ def _patch_l1_fits(path):
 
 
 def _hang_watch(at, path):
+    """Neither dumper needs the GIL: a hang inside a native ttnn call holds it, and a Python watcher thread then never
+    wakes (hcap 10-23: 2 hangs, 0 bytes dumped). faulthandler's timer is a C thread; py-spy runs from a shell."""
     import ctypes
     import faulthandler
     import subprocess
-    import threading
     ctypes.CDLL(None).prctl(0x59616D61, ctypes.c_ulong(-1), 0, 0, 0)  # PR_SET_PTRACER, PR_SET_PTRACER_ANY
     out = open(path, "a", buffering=1)
+    faulthandler.dump_traceback_later(at, repeat=True, file=out)
     spy = os.environ.get("PYSPY")
-
-    def watch():
-        time.sleep(at)
-        for i in range(3):
-            out.write(f"=== dump {i} at {time.time() - _t0:.0f} s\n")
-            faulthandler.dump_traceback(out, all_threads=True)
-            if spy:
-                r = subprocess.run([spy, "dump", "--native", "--pid", str(os.getpid())], capture_output=True, text=True,
-                                   timeout=120)
-                out.write(r.stdout + r.stderr)
-            time.sleep(30)
-    threading.Thread(target=watch, daemon=True).start()
-
+    if spy:
+        sh = (f'sleep {at}; for i in 0 1 2; do kill -0 {os.getpid()} || exit; echo "=== dump $i native"; '
+              f'timeout 120 {spy} dump --native --pid {os.getpid()}; sleep 30; done')
+        subprocess.Popen(["sh", "-c", sh], stdout=out, stderr=out, start_new_session=True)
 
 if __name__ == "__main__":
     if os.environ.get("HANG_DUMP_AT"):
