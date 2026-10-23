@@ -177,7 +177,8 @@ _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 # rope_heads_packed (WH 650M --fast page census: qkv 26.8 + rope 11.4 of 145.9 ms). Page A/B on a Galaxy chip at 1000 MHz,
 # 2 rounds x 3, pcc vs fp32 against the two programs: normal 650M hHSA 169.3 -> 163.3 ms (-0.000019), 1.3B hHSA 325.8 ->
 # 314.3 (+0.000091); --fast 650M hHSA 145.0 -> 137.6 (-0.000003), hPCSK9 145.0 -> 138.6 (-0.000020), 1.3B hPCSK9 276.9
-# -> 263.9 (+0.000066). None = Wormhole until Blackhole grades it (mm_rope.plan declines grids that split a head).
+# -> 263.9 (+0.000066). None = Wormhole, and Blackhole --fast as part of _bh_fast's stack (ls124); Blackhole normal
+# failed its bar there (SFPU-sum packed RoPE, 650M hPCSK9 pcc -0.000161).
 _SAPROT_MM_ROPE = (env_flag("TT_BIO_SAPROT_MM_ROPE", False) if os.environ.get("TT_BIO_SAPROT_MM_ROPE", "").strip() else None)
 
 
@@ -274,8 +275,16 @@ _PROGS_HIFI2 = {
 _SAPROT_FC1_MM = env_flag("TT_BIO_SAPROT_FC1_MM", True)
 _FC1_MM = {False: (8, 8, 8, 1, 4), True: (4, 8, 8, 1, 4)}   # by hifi2
 # The same program on Blackhole, where fc1 runs the 2D pick (ls121 p300c census at 1350 MHz, 650M --fast: fc1 0.58 ms a call
-# against fc2's minimal_matmul 0.28 ms at equal FLOPs). Off until graded (ls122, with gelu_f32).
-_SAPROT_FC1_MM_BH = env_flag("TT_BIO_SAPROT_FC1_MM_BH", False)
+# against fc2's minimal_matmul 0.28 ms at equal FLOPs). None = --fast, as part of _bh_fast's stack (ls124).
+_SAPROT_FC1_MM_BH = env_flag("TT_BIO_SAPROT_FC1_MM_BH", None)
+
+
+def _bh_fast(w) -> bool:
+    """Blackhole --fast at width >= 1280 takes gelu_f32, mm_rope, mm_resid and fc1 on minimal_matmul as one stack. ls124
+    (p300c, 1350 MHz, 4 rounds x 3, mean of round mins off -> on, pcc vs fp32 delta): 650M hHSA 73.2 -> 66.8 ms
+    (+0.000135), hPCSK9 73.3 -> 68.0 (+0.000090), 1.3B hPCSK9 138.7 -> 125.9 (+0.000039), faster in every round. Alone
+    each read -1.4..+1.4 ms, so the stack is graded and shipped whole."""
+    return w.dtype == ttnn.bfloat8_b and int(w.shape[-2]) >= _MM_RESID_MIN_WIDTH
 # Off drops the out-block entries (WH fc1) back to the linear's own pick.
 _SAPROT_OUT_SPLIT = env_flag("TT_BIO_SAPROT_OUT_SPLIT", True)
 _PROG_ROWS = (3072, 4096)   # page batch 7 x 544 = 3808 rows: the shape the table was measured at
@@ -292,7 +301,9 @@ _SAPROT_RESID = env_flag("TT_BIO_SAPROT_RESID", True)
 # --fast). One rounding instead of two: out projection rel_l2 vs float64 1.94e-3 -> 1.70e-3. Page A/B on a Galaxy chip at
 # 1000 MHz, 2 rounds x 3, pcc vs fp32: --fast 650M hHSA 138.1 -> 134.8 ms (-0.000014), hPCSK9 138.3 -> 135.2 (+0.000032),
 # 1.3B hPCSK9 264.3 -> 255.8 (+0.000086); normal 650M hHSA 164.5 -> 162.3 (+0.000010). 35M --fast reads 26.4 -> 27.2 (its
-# projections already write L1 through the linear), so None = Wormhole at width >= _MM_RESID_MIN_WIDTH. Blackhole untested.
+# projections already write L1 through the linear), so None = width >= _MM_RESID_MIN_WIDTH. Blackhole ls124 (p300c, 1350
+# MHz, 4 rounds x 3, mean of round mins): normal 650M hHSA 88.8 -> 83.7 ms (-0.000003), hPCSK9 88.6 -> 84.5 (+0.000036),
+# 1.3B hPCSK9 180.5 -> 170.9 (+0.000016), faster in every round; --fast takes it inside _bh_fast's stack.
 _SAPROT_MM_RESID = (env_flag("TT_BIO_SAPROT_MM_RESID", False) if os.environ.get("TT_BIO_SAPROT_MM_RESID", "").strip()
                     else None)
 _MM_RESID_MIN_WIDTH = 1280
@@ -344,7 +355,8 @@ def _saprot_prog(x, w, act, hifi2=False):
     rows = x.volume() // k
     key = (tenstorrent.is_wormhole(), k, n)
     hit = (_PROGS_HIFI2.get(key) if hifi2 else None) or _PROGS.get(key)
-    if _SAPROT_FC1_MM and (k, n) == (1280, 5120) and (key[0] or _SAPROT_FC1_MM_BH):
+    bh = _bh_fast(w) if _SAPROT_FC1_MM_BH is None else _SAPROT_FC1_MM_BH
+    if _SAPROT_FC1_MM and (k, n) == (1280, 5120) and (key[0] or bh):
         hit = ("mm", _FC1_MM[hifi2])
     if hit is None or not _PROG_ROWS[0] <= rows <= _PROG_ROWS[1] or act not in (None, "gelu", "gelu_approx"):
         return None
@@ -512,8 +524,7 @@ class _SaprotLin(_MMLin):
     def _mm_resid_on(self) -> bool:
         if _SAPROT_MM_RESID is not None:
             return _SAPROT_MM_RESID
-        from tt_bio import tenstorrent
-        return tenstorrent.is_wormhole() and int(self.norm_weight.shape[-1]) >= _MM_RESID_MIN_WIDTH
+        return int(self.norm_weight.shape[-1]) >= _MM_RESID_MIN_WIDTH
 
     def _mm_resid(self, x, w, bias, resid, l1):
         """resid + (x @ w + bias) from one mm_resid matmul, into L1 where `l1` and it places, or None."""
@@ -648,7 +659,7 @@ class ESM2Attention(_SaprotLin, Module):
     def _mm_rope(self, x, cos, sin):
         """(rope(q), rope(k), v) from one mm_rope matmul, or None where the measured program or mm_rope declines."""
         from tt_bio import mm_rope, tenstorrent
-        on = tenstorrent.is_wormhole() if _SAPROT_MM_ROPE is None else _SAPROT_MM_ROPE
+        on = tenstorrent.is_wormhole() or _bh_fast(self.qkv_weight) if _SAPROT_MM_ROPE is None else _SAPROT_MM_ROPE
         if not on or self.head_dim != 64 or not _saprot_qkrh(self.qkv_weight):
             return None
         if not hasattr(self, "qkv_rope"):   # built on first use, so an A/B can flip the flag on a loaded model
@@ -868,15 +879,15 @@ _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 # 650M --fast hHSA 151.0 -> 146.1 ms (+0.000045), hPCSK9 155.2 -> 146.2 (+0.000074); normal hHSA 175.4 -> 170.2
 # (+0.000019), hPCSK9 175.3 -> 171.4 (+0.000064); 1.3B --fast hPCSK9 284.9 -> 275.7 (-0.000071), normal hHSA 337.3 ->
 # 328.2 (-0.000014); 35M --fast hHSA 29.1 -> 26.3 (-0.000011), normal hPCSK9 29.6 -> 27.6 (+0.000010).
-# None = Wormhole until Blackhole is graded.
+# None = Wormhole, and Blackhole --fast inside _bh_fast's stack (alone, Blackhole normal 1.3B read pcc -0.000110, ls124).
 _SAPROT_GELU_F32 = env_flag("TT_BIO_SAPROT_GELU_F32", None)
 
 
-def _fc1_act() -> str:
+def _fc1_act(w=None) -> str:
     if _SAPROT_GELU_F32 is not None:
         return "gelu_approx" if _SAPROT_GELU_F32 else "gelu"
     from tt_bio import tenstorrent
-    return "gelu_approx" if tenstorrent.is_wormhole() else "gelu"
+    return "gelu_approx" if tenstorrent.is_wormhole() or (w is not None and _bh_fast(w)) else "gelu"
 
 
 # --fast: fc1's GELU output written as block-fp8 where it goes to DRAM, the [rows, 4d] activation fc2 reads back (half
@@ -913,7 +924,7 @@ class ESM2FFN(_SaprotLin, Module):
         b8 = (_fc1_b8() and _GELU_FUSED and self.fc1_weight.dtype == ttnn.bfloat8_b
               and not _out_l1(x_norm, self.fc1_weight))
         h = self._lin(x_norm, self.fc1_weight, bias=self.fc1_bias, **({"dtype": ttnn.bfloat8_b} if b8 else {}),
-                      **({"activation": _fc1_act()} if _GELU_FUSED else {}))
+                      **({"activation": _fc1_act(self.fc1_weight)} if _GELU_FUSED else {}))
         ttnn.deallocate(x_norm)
         if not _GELU_FUSED:
             h = ttnn.gelu(h)
