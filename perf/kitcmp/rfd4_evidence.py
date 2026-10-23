@@ -24,6 +24,8 @@ ap.add_argument("--session", required=True, type=Path, action="append", default=
                 help="pulled /root/kc/rfd4 directory; repeat once per rented box")
 ap.add_argument("--tt", type=Path, help="JSON of {size: designs_per_s} measured on one p150a")
 ap.add_argument("--write", action="store_true")
+ap.add_argument("--append", action="store_true",
+                help="add these sessions' lines to gpu-b200.jsonl, keep every other session's, leave the row alone")
 a = ap.parse_args()
 
 
@@ -148,7 +150,13 @@ if a.tt and a.tt.exists():
         ratio = PER_CHIP * t / med
         print(f"  {size}: TT {t:.4f} / B200 {med:.4f} -> {ratio:.2f}x  {'PASS' if ratio >= 3 else 'BELOW GATE'}")
 
-if a.write:
+if a.append:
+    ev = STATE / "evidence" / "gpu-b200.jsonl"
+    mine = {r["session"] for r in lines}
+    kept = [l for l in ev.read_text().splitlines(keepends=True) if json.loads(l).get("session") not in mine]
+    ev.write_text("".join(kept) + "".join(json.dumps(r) + "\n" for r in lines))
+    print(f"\nappended {len(lines)} lines for {sorted(mine)} to {ev} ({len(kept)} other lines kept)")
+elif a.write:
     ev = STATE / "evidence" / "gpu-b200.jsonl"
     ev.parent.mkdir(parents=True, exist_ok=True)
     ev.write_text("".join(json.dumps(r) + "\n" for r in lines))
