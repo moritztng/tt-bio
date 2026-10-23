@@ -1410,9 +1410,10 @@ def t1_rows(plan_il, units, ncores):
 
 
 # RFD4's pair_tail on the bf16 stream (`pair_tail_cm`) reads channel-major from this many tokens. qb2 p300c chip, paired
-# traced trunk vs pair_tail after the move (state/rfd4/bets/tailcm.md): 512 1.015-1.017x, 384 1.015x; 256 loses at
-# every part count (P 1 0.94x, P 2 0.92x, P 4 0.98x), where 64 (it, jt) units leave half of 110 cores idle.
-T2CM_STREAM16_MIN_N = 288
+# traced trunk vs pair_tail after the move (state/rfd4/bets/tailcm.md): 512 1.012-1.017x, 384 1.014-1.015x, 320
+# 1.012x; 288 0.98x and 256 loses at every part count (P 1 0.94x, P 2 0.92x, P 4 0.98x): 81 or 64 (it, jt) units
+# balance badly on 110 cores, and below that the gather's cost outweighs the move it saves.
+T2CM_STREAM16_MIN_N = 320
 
 # A/B knob: the fewest row parts T2CM splits each (it, jt) block into; 0 = balance_split's choice
 # (production). Each part's rows compute exactly as in the whole block, so the choice is bit-exact
