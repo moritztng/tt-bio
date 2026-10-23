@@ -92,6 +92,22 @@ class Contention:
                 continue
         return out
 
+    @staticmethod
+    def _proc_cpu():
+        """{pid: (comm, utime+stime ticks)} for every process except this one and its children."""
+        me, out = os.getpid(), {}
+        for p in os.listdir("/proc"):
+            if not p.isdigit() or int(p) == me:
+                continue
+            try:
+                head, tail = open(f"/proc/{p}/stat").read().rsplit(")", 1)
+                f = tail.split()
+                if int(f[1]) != me:
+                    out[p] = (head.split("(", 1)[1], int(f[11]) + int(f[12]))
+            except (OSError, ValueError, IndexError):
+                continue
+        return out
+
     def _sample(self):
         box, own, t = self._box_busy(), self._own_busy(), time.monotonic()
         if t > self._last[2]:
@@ -105,6 +121,7 @@ class Contention:
 
     def __enter__(self):
         self._last = (self._box_busy(), self._own_busy(), time.monotonic())
+        self._t0, self._cpu0 = self._last[2], self._proc_cpu()
         self.holders |= self.device_holders()
         self._t = threading.Thread(target=self._run, daemon=True)
         self._t.start()
@@ -114,13 +131,18 @@ class Contention:
         self._stop.set()
         self._t.join(timeout=10)
         self._sample()  # the tail since the last tick, so a short batch is never unsampled
+        dt = max(time.monotonic() - self._t0, 1e-9)
+        use = [(n - self._cpu0.get(p, (c, 0))[1], f"{p}:{c}") for p, (c, n) in self._proc_cpu().items()]
+        self.top = [{"proc": k, "cores": round(d / self._hz / dt, 2)} for d, k in sorted(use, reverse=True)[:5]
+                    if d / self._hz / dt >= 0.05]
         return False
 
     def summary(self):
         c = sorted(self.cores)
         return {"foreign_cores_median": round(statistics.median(c), 2) if c else None,
                 "foreign_cores_max": round(c[-1], 2) if c else None,
-                "foreign_device_holders": sorted(self.holders)}
+                "foreign_device_holders": sorted(self.holders),
+                "foreign_top": getattr(self, "top", [])}
 
 
 def board_type():
