@@ -17,11 +17,7 @@ segment token that appears *later* in the string within the same run (see
 doc's feedback round).
 """
 
-import itertools
-from dataclasses import dataclass
-
 import numpy as np
-from tt_bio._vendor.atomworks.constants import MASKED
 from tt_bio._vendor.atomworks.enums import ChainType
 from tt_bio._vendor.atomworks.io.utils.atom_array_plus import (
     AtomArrayPlus,
@@ -38,164 +34,29 @@ from tt_bio._vendor.atomworks.ml.utils.expandable_segment import insert_expandab
 # fitting the `res_id` column's int64 dtype with no overflow/promotion risk.
 EXPANDABLE_SEGMENT_RES_ID_SENTINEL = -(2**31)
 
-_SUFFIX_TO_CHAIN_TYPE = {"P": ChainType.POLYPEPTIDE_L, "R": ChainType.RNA, "D": ChainType.DNA}
-
-
-@dataclass(frozen=True)
-class PreservedSegment:
-    """A contig token referencing a range of the input structure, kept verbatim."""
-
-    chain_id: str
-    start: int
-    end: int
-
-
-@dataclass(frozen=True)
-class ExpandableSegment:
-    """A contig token inserting a collapsed expandable-segment sentinel."""
-
-    name: str | None
-    seg_min: int
-    seg_max: int
-    chain_type: ChainType | None  # explicit suffix; None means "use the run's default"
-
-
-@dataclass
-class ChainRun:
-    """One output chain: a contiguous run of tokens between two chainbreaks."""
-
-    tokens: list[PreservedSegment | ExpandableSegment]
-    chain_id: str
-
-
-# ---------------------------------------------------------------------------
-# Token parsing
-# ---------------------------------------------------------------------------
-
-_LENGTH_RANGE_CHARS = set("0123456789-")
-
-
-def _parse_length_and_suffix(body: str, token: str) -> tuple[int, int, ChainType | None]:
-    chain_type = None
-    if body and body[-1] in _SUFFIX_TO_CHAIN_TYPE:
-        chain_type = _SUFFIX_TO_CHAIN_TYPE[body[-1]]
-        body = body[:-1]
-    if not body or not set(body) <= _LENGTH_RANGE_CHARS:
-        raise ValueError(f"Malformed expandable-segment token: {token!r}")
-    parts = body.split("-")
-    if len(parts) == 1:
-        seg_min = seg_max = int(parts[0])
-    elif len(parts) == 2:
-        seg_min, seg_max = int(parts[0]), int(parts[1])
-    else:
-        raise ValueError(f"Malformed expandable-segment token: {token!r}")
-    if seg_max < seg_min:
-        raise ValueError(f"Expandable segment {token!r} has end < start ({seg_max} < {seg_min}).")
-    return seg_min, seg_max, chain_type
-
-
-def _parse_preserved_segment(token: str) -> PreservedSegment:
-    chain_chars = 0
-    for ch in token:
-        if not ch.isalpha():
-            break
-        chain_chars += 1
-    if chain_chars == 0:
-        raise ValueError(f"Malformed preserved-segment token: {token!r}")
-    chain_id, rest = token[:chain_chars], token[chain_chars:]
-    parts = rest.split("-")
-    if len(parts) == 1 and parts[0].isdigit():
-        start = end = int(parts[0])
-    elif len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-        start, end = int(parts[0]), int(parts[1])
-    else:
-        raise ValueError(f"Malformed preserved-segment token: {token!r}")
-    if end < start:
-        raise ValueError(f"Preserved segment {token!r} has end < start ({end} < {start}).")
-    return PreservedSegment(chain_id=chain_id, start=start, end=end)
-
-
-def _parse_token(token: str) -> "str | PreservedSegment | ExpandableSegment":
-    """Classify and parse one contig token, unambiguously by shape.
-
-    Returns ``"chainbreak"`` for ``/0``, otherwise a :py:class:`PreservedSegment`
-    or :py:class:`ExpandableSegment`.
-    """
-    token = token.strip()
-    if not token:
-        raise ValueError("Empty contig token (check for stray/trailing commas).")
-    if token == "/0":
-        return "chainbreak"
-    if ":" in token:
-        name, _, body = token.partition(":")
-        if not name:
-            raise ValueError(f"Malformed named expandable-segment token (empty name): {token!r}")
-        if name == MASKED:
-            raise ValueError(
-                f"Expandable segment name cannot be {MASKED!r} -- that string is reserved "
-                "internally to mark an already-realized segment sentinel."
-            )
-        seg_min, seg_max, chain_type = _parse_length_and_suffix(body, token)
-        return ExpandableSegment(name=name, seg_min=seg_min, seg_max=seg_max, chain_type=chain_type)
-    if token[0].isalpha():
-        return _parse_preserved_segment(token)
-    seg_min, seg_max, chain_type = _parse_length_and_suffix(token, token)
-    return ExpandableSegment(name=None, seg_min=seg_min, seg_max=seg_max, chain_type=chain_type)
-
-
-# ---------------------------------------------------------------------------
-# Chain-run partition + chain-id assignment (pass 1 of 2)
-# ---------------------------------------------------------------------------
-
-
-def _validate_no_overlapping_preserved_segments(runs: list[list]) -> None:
-    """Reject preserved segments on the same original chain that reference overlapping residues.
-
-    An overlap would otherwise be silently duplicated into the assembled structure
-    (the shared residues appear twice, contiguously renumbered), which is essentially
-    always a typo rather than something intentional.
-    """
-    by_chain: dict[str, list[PreservedSegment]] = {}
-    for run in runs:
-        for tok in run:
-            if isinstance(tok, PreservedSegment):
-                by_chain.setdefault(tok.chain_id, []).append(tok)
-
-    for chain_id, segments in by_chain.items():
-        segments = sorted(segments, key=lambda s: s.start)
-        for prev, curr in itertools.pairwise(segments):
-            if curr.start <= prev.end:
-                raise ValueError(
-                    f"Preserved segments on chain {chain_id!r} overlap: "
-                    f"{chain_id}{prev.start}-{prev.end} and {chain_id}{curr.start}-{curr.end} "
-                    "both reference some of the same residues."
-                )
+# The grammar -- tokens, chain runs and the checks that need no atoms -- lives in
+# `contig_grammar`, which imports nothing but the standard library, so a caller that
+# only wants to know what a contig asks for does not pay numpy, atomworks and torch
+# (1.2 s and ~376 MB). Re-exported here because this module is where upstream's call
+# sites look for them.
+from .contig_grammar import (  # noqa: F401  (re-exported)
+    ChainRun,
+    ExpandableSegment,
+    PreservedSegment,
+    _parse_token,
+    _validate_no_overlapping_preserved_segments,
+    chain_runs,
+)
 
 
 def _partition_and_assign_chain_ids(contig: str) -> list[ChainRun]:
-    tokens = [_parse_token(t) for t in contig.split(",")]
-
-    names = [t.name for t in tokens if isinstance(t, ExpandableSegment) and t.name is not None]
-    dupes = sorted({n for n in names if names.count(n) > 1})
-    if dupes:
-        raise ValueError(f"Duplicate expandable-segment name(s) in contig: {dupes}")
-
-    runs: list[list] = [[]]
-    for tok in tokens:
-        if tok == "chainbreak":
-            runs.append([])
-        else:
-            runs[-1].append(tok)
-    runs = [r for r in runs if r]
-    if not runs:
-        raise ValueError("Contig string produced no chain runs (only chainbreaks/empty tokens).")
-
-    _validate_no_overlapping_preserved_segments(runs)
+    """`chain_runs` plus the output chain ids, which is the half that needs atomworks."""
+    runs = chain_runs(contig)
 
     claimed_chain_ids = {t.chain_id for run in runs for t in run if isinstance(t, PreservedSegment)}
     synthetic_chain_id_gen = create_chain_id_generator(unavailable_chain_ids=claimed_chain_ids)
 
-    chain_runs = []
+    chain_runs_out = []
     seen_chain_ids: set[str] = set()
     for run_tokens in runs:
         preserved = [t for t in run_tokens if isinstance(t, PreservedSegment)]
@@ -213,8 +74,8 @@ def _partition_and_assign_chain_ids(contig: str) -> list[ChainRun]:
         if chain_id in seen_chain_ids:
             raise ValueError(f"Contig produces two separate output chains both named {chain_id!r}. ")
         seen_chain_ids.add(chain_id)
-        chain_runs.append(ChainRun(tokens=run_tokens, chain_id=chain_id))
-    return chain_runs
+        chain_runs_out.append(ChainRun(tokens=run_tokens, chain_id=chain_id))
+    return chain_runs_out
 
 
 def _anchor_chain_type(atom_array_in: AtomArrayPlus, run: ChainRun) -> ChainType | None:

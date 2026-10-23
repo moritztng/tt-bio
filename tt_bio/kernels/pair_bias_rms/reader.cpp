@@ -18,18 +18,19 @@ void kernel_main() {
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
     constexpr uint32_t cb_w = 0, cb_z = 1, cb_one = 2, R = 2;
-    const uint32_t ts = get_tile_size(cb_z);
+    const uint32_t ts = get_tile_size(cb_z);    // bfp8 under PB_Z8
+    const uint32_t tw = get_tile_size(cb_w);    // bf16, as the ones tile
 
     cb_reserve_back(cb_one, 1);
     volatile tt_l1_ptr uint32_t* one = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(cb_one));
-    for (uint32_t w = 0; w < ts / 4; ++w) {
+    for (uint32_t w = 0; w < tw / 4; ++w) {
         one[w] = 0x3F803F80u;   // two bf16 1.0
     }
     cb_push_back(cb_one, 1);
 
     cb_reserve_back(cb_w, KT);
     uint32_t wp = get_write_ptr(cb_w);
-    for (uint32_t p = 0; p < KT; ++p, wp += ts) {
+    for (uint32_t p = 0; p < KT; ++p, wp += tw) {
         noc_async_read_page(p, sw, wp);
     }
     noc_async_read_barrier();

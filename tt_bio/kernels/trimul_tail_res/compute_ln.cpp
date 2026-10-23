@@ -76,7 +76,7 @@ constexpr uint32_t cb_ln = tt::CBIndex::c_3;     // layer_norm(x) rows, bf16, Mb
 constexpr uint32_t cb_p = tt::CBIndex::c_4;      // x_norm @ Wp, bf16, Mb * Nt
 constexpr uint32_t cb_g = tt::CBIndex::c_5;      // g_out rows, bf16, from DRAM (GATE: sigmoid(xb @ Wg))
 constexpr uint32_t cb_xb = tt::CBIndex::c_6;     // GATE: xb rows, bf16, Mb * Kt double buffered
-constexpr uint32_t cb_z = tt::CBIndex::c_7;      // z rows, bf16, from DRAM
+constexpr uint32_t cb_z = tt::CBIndex::c_7;      // z rows, bf16 (bfp8 under T2_Z8), from DRAM
 constexpr uint32_t cb_gamma = tt::CBIndex::c_8;  // Kt tiles, resident
 constexpr uint32_t cb_beta = tt::CBIndex::c_9;   // Kt tiles, resident
 constexpr uint32_t cb_scaler = tt::CBIndex::c_10;
@@ -379,6 +379,9 @@ void kernel_main() {
             add_binary_tile_init();
             for (uint32_t i = 0; i < G; ++i) add_binary_tile(i, G + i, i);
 #else
+#ifdef T2_Z8
+            reconfig_data_format_srcb(cb_z);    // a bfp8 z (pair_bfp8z) unpacks into srcB in its own format
+#endif
             binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCA>(
                 cb_z);
             for (uint32_t i = 0; i < G; ++i)

@@ -36,7 +36,6 @@ ensure_p300_mesh_descriptor()
 
 import clocksample  # noqa: E402
 
-CLOCK_FLOOR_MHZ = 1200
 
 
 def main():
@@ -122,7 +121,7 @@ def main():
                "host_s": round(t_design - acc["device_s"], 3),
                "featurize_s": round(t_feat, 3),
                "aiclk_mhz": mhz, "aiclk": summ,
-               "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
+               "clock_artifact": clocksample.is_clock_artifact(mhz),
                "load1": round(load0, 2), "load1_end": round(os.getloadavg()[0], 2), "nproc": os.cpu_count(),
                "sha": sha, "card": os.environ.get("TT_VISIBLE_DEVICES"),
                "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "cif": str(path)}

@@ -35,38 +35,53 @@ def interleave(w1: torch.Tensor, w2: torch.Tensor, group: int) -> torch.Tensor:
     return torch.stack([w1.reshape(k, n // group, group), w2.reshape(k, n // group, group)], 2).reshape(k, 2 * n)
 
 
+def layout(rows: int, n2: int, nb: int, grid):
+    """(transpose, N tiles a core, M tiles a core) for N block `nb`, or None where no layout serves it.
+    Every core's N range must be whole N blocks, so no block straddles a [W1_j | W2_j] group: N is padded to that
+    (`mm_generic.build`'s n_align; a core past the real columns computes padding the writer drops). Of the two ways
+    to lay M and N over the grid, the one with less padded work a core; the factory's own (N over the grid's
+    columns unless M > N) on a tie. On Wormhole's 8x9 every ESMC shape divides and this is the factory's layout.
+    Blackhole's 11 or 13 columns divide none of them, which kept the gate off there until N could be padded."""
+    nt, mt = n2 // TILE, rows // TILE
+    if nb % 2 or nt % nb:
+        return None
+    best = None
+    natural = rows > n2
+    for transpose in (natural, not natural):
+        n_cores, m_cores = (grid[1], grid[0]) if transpose else (grid[0], grid[1])
+        lay = (transpose, -(-nt // (n_cores * nb)) * nb, -(-mt // m_cores))
+        if best is None or lay[1] * lay[2] < best[1] * best[2]:
+            best = lay
+    return best
+
+
 def plan(x, n2: int, cfg, grid):
     """None when the gated program covers x @ [K, n2] at block config `cfg` on `grid`, else why not."""
-    N_block = cfg[2]
-    if N_block % 2:
+    if cfg[2] % 2:
         return "n_block"
-    rows = x.volume() // int(x.shape[-1])
-    nt = n2 // TILE
-    transpose = rows > n2
-    n_cores = grid[1] if transpose else grid[0]
-    if nt % n_cores or (nt // n_cores) % N_block:
-        return "n_split"           # every core's N range must be whole N blocks, so no block straddles a group
+    if layout(x.volume() // int(x.shape[-1]), n2, cfg[2], grid) is None:
+        return "n_split"
     return None
 
 
 def config(x, n2: int, kt: int, grid, bf16_acc: bool):
     """The block config (M, K, N, subblock_h, subblock_w) for x @ [K, n2], or None where no N block fits `plan`.
     perf/spd_gap_whlm/gate_cfg_sweep.py (Galaxy chip, 1000 MHz, 3808 rows): this rule is the sweep's best or within
-    2 % of it on ESMC 300M/600M, normal and --fast. N is the largest plan-valid block up to 12 tiles, the subblock
-    the widest divisor of it that fits a dest half, K 4 tiles under bf16 accumulation where K divides.
+    2 % of it on ESMC 300M/600M, normal and --fast. N is the block up to 12 tiles whose `layout` pads the least work
+    a core (the largest on a tie), the subblock the widest divisor of it that fits a dest half, K 4 tiles under bf16
+    accumulation where K divides.
     M is 8 tiles unless a core's share of the rows is smaller: the ESMC-6B's 544 rows (17 tiles over 8 grid rows)
     run best at M 2 and K 4 (--shapes 6b: 0.706 ms against 0.834 at M 4 and 0.956 at M 8)."""
     dmax = 8 if bf16_acc else 4
     rows = x.volume() // int(x.shape[-1])
-    per_core = -(-(rows // TILE) // (grid[0] if rows > n2 else grid[1]))
+    fits = [(nb, lay) for nb in (12, 10, 8, 6, 4) if (lay := layout(rows, n2, nb, grid)) is not None]
+    if not fits:
+        return None
+    nb, (_, _, per_core) = min(fits, key=lambda f: f[1][1] * f[1][2])
     mb = min(8, 1 << (per_core.bit_length() - 1))
     kb = 4 if kt % 4 == 0 and (bf16_acc or mb <= 2) else 2
-    for nb in (12, 10, 8, 6, 4):
-        cfg = (mb, kb, nb, 1, 1)
-        if plan(x, n2, cfg, grid) is None:
-            sw = max(w for w in range(1, dmax + 1) if nb % w == 0)
-            return (mb, kb, nb, max(h for h in (1, 2, 4, 8) if h * sw <= dmax and mb % h == 0), sw)
-    return None
+    sw = max(w for w in range(1, dmax + 1) if nb % w == 0)
+    return (mb, kb, nb, max(h for h in (1, 2, 4, 8) if h * sw <= dmax and mb % h == 0), sw)
 
 
 def overlay_ok() -> bool:
@@ -83,8 +98,8 @@ def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=Fa
     and multiply (2), to time its parts. `pack_sfpu` runs the epilogue's silu and multiply on the PACK thread (the
     silu is calculate_silu_f32 there only under the silu_f32 metal overlay)."""
     n2 = int(w12.shape[-1])
-    why = plan(x, n2, cfg, grid)
-    if why is not None:
+    lay = layout(x.volume() // int(x.shape[-1]), n2, cfg[2], grid)
+    if lay is None:
         STATS[1] += 1
         return None
     dev = x.device()
@@ -96,7 +111,7 @@ def gated(x, w12, cfg, ckc, grid, out_dtype=ttnn.bfloat16, probe=0, pack_sfpu=Fa
     entry = _CACHE.get(key)
     if entry is None:
         entry = MG.build(dev, x, w12, [out], (tuple(cfg), tuple(grid)), ck, defines={"MM_GATED": 1},
-                         kernel_dir=KERNEL_DIR)
+                         kernel_dir=KERNEL_DIR, transpose=lay[0], n_align=cfg[2])
         compute = entry["kernels"][4]
         compute.kernel_source = str(KERNEL_DIR / "compute.cpp")
         compute.defines = ([("MM_GATED", "1")] + ([("MM_GATE_PROBE", str(probe))] if probe else [])
