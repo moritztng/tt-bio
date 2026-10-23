@@ -30,6 +30,7 @@ for leg in $LEGS; do
     fid4) t1 $leg --set $S --fid HiFi4 --ns 512 --abl 112,118 ;;
     fid3) t1 $leg --set $S --fid HiFi3 --ns 512 --abl 112,118 ;;
     base*) t1 $leg --set $S --fid HiFi2 --ns 512,384,256 --abl 112,527 ;;
+    fq*) d=${leg#fq}; d=${d%%r*}; t1 $leg --set $S,T1_FG=1,T1_FGD=$d --fid HiFi2 --ns 512,384,256 --abl 112,527 ;;
     fg*) t1 $leg --set $S,T1_FG=1 --fid HiFi2 --ns 512,384,256 --abl 112,527,624 ;;
     ab*) n=${leg#ab}; n=${n%%r*}
       PYTHONPATH=$W:$W/perf TT_BIO_TRACE_REGION_MB=512 timeout 2400 $PY perf/rfd4/bfp8/stack_ab.py \
