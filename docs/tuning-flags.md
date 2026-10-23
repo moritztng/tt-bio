@@ -924,7 +924,8 @@ from 40.7 to 34.9 s (1281-1318 MHz) with the trunk pass 1.20x faster at 512 toke
 seed-matched 512-token designs the designed chain moves 3.3 A median against a 38.1 A seed-to-seed spread and the
 binder grade passes. From 320 tokens `pair_tail` reads the contraction's channel-major output itself
 (`pair_tail_cm`), so the triangle no longer moves it back to the pair layout: bit-identical, the trunk pass 1.01-1.02x
-faster from 320 to 512 tokens (1325-1350 MHz). At 288 and 256 tokens it would lose 2-6 %, so it steps aside there.
+faster at 320, 384 and 512 tokens (1325-1350 MHz). It steps aside below 320 tokens and at sizes whose tiles spread
+unevenly over the chip's cores (352 on a 110-core chip), where it measured 2-6 % slower.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 

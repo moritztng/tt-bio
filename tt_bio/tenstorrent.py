@@ -10796,7 +10796,8 @@ class TriangleMultiplication(Module):
                and x_norm_in is not None)
         cm_ex = ((self.p_out_bias, self.g_out_bias, fused_residual[0], True) if af2 else None)
         # `pair_tail_cm` (RFD4, bf16 pair stream): pair_tail reads that chunk the same way and adds into x_in.
-        cm16 = (stream32 is x_in and lever("pair_tail_cm") and H >= _trimul_tail.T2CM_STREAM16_MIN_N
+        cm16 = (stream32 is x_in and lever("pair_tail_cm")
+                and _trimul_tail.t2cm_stream16_fits(H, COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1])
                 and not add_to_input and not ops.taping() and self.p_out_bias is None
                 and _trimul_tail.t2cm_fit(self.out_p_weight) is None)
         cm_on = (cm16 or (af2 and not ops.recording() and H >= _trimul_tail.MIN_N)
