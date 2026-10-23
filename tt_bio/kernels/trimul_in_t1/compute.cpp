@@ -52,12 +52,9 @@
 #define T1PRE 0
 #endif
 // T1SPLIT (trimul_tail.T1_SPLIT): even channel tiles q go to c_21 for reader.cpp's gather, odd ones to c_2 for the
-// writer's, so both data-movement cores gather. T1LNB: layer_norm stages in DST blocks of that many tiles.
+// writer's, so both data-movement cores gather.
 #ifndef T1SPLIT
 #define T1SPLIT 0
-#endif
-#ifndef T1LNB
-#define T1LNB 1
 #endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -121,15 +118,13 @@ ALWI void layer_norm_row(uint32_t il) {
     }
     if constexpr (T1XOUT) {
         cb_reserve_back(xo_cb, Kt);
-        ln_prologue::layer_norm_row<LnCbs, T1LNB>(xn_cb, [il](uint32_t i, uint32_t d = 0) {
-            pack_tile<true>(d, xn_cb, i * IL + il);
-            pack_tile<true>(d, xo_cb, i);
+        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) {
+            pack_tile<true>(0, xn_cb, i * IL + il);
+            pack_tile<true>(0, xo_cb, i);
         });
         cb_push_back(xo_cb, Kt);
     } else {
-        ln_prologue::layer_norm_row<LnCbs, T1LNB>(xn_cb, [il](uint32_t i, uint32_t d = 0) {
-            pack_tile<true>(d, xn_cb, i * IL + il);
-        });
+        ln_prologue::layer_norm_row<LnCbs>(xn_cb, [il](uint32_t i) { pack_tile<true>(0, xn_cb, i * IL + il); });
     }
 }
 

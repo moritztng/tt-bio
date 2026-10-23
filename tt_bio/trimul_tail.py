@@ -1528,9 +1528,6 @@ BF16_TILE, FP32_TILE = 2048, 4096
 # the reader, which reads z for the next unit ahead and then gathers them, and the odd ones to the writer, beside
 # g_out. One-launch plans with bf16 a / b only. The bytes land where the writer alone put them: bit-identical.
 T1_SPLIT = {(12, 16, 12): 1}
-# DST tiles per acquire in T1's layer_norm stages (ln_prologue.hpp BLK; 4 fits a half-sync fp32 DST): the same ops
-# on the same tiles, a quarter of the per-tile handshakes. Bit-identical.
-T1_LNB = {(12, 16, 12): 4}
 
 
 def _t1_knob(knob, key, default):
@@ -1539,11 +1536,6 @@ def _t1_knob(knob, key, default):
 
 def _t1_nb_pref(key):
     return _t1_knob(T1_NB, key, 0) or GIN_MOVE_NB
-
-
-def t1_lnb(key):
-    lnb = _t1_knob(T1_LNB, key, 1)
-    return lnb if lnb in (1, 2, 4) and key[0] % lnb == 0 else 1
 
 
 def t1_dm(key, mask, w8, b8=False):
@@ -1721,10 +1713,10 @@ def t1_w8(wpT, wgT, wgo):
 
 
 def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, b8=False, group=0, ln1=0, xn=None,
-              split=False, lnb=1):
+              split=False):
     """The program of channel group `group` of the T1_PLANS entry for this call, `il` row tiles per item.
     `ln1` (T1_LN1): 1 the launch also writes xn into `xn`, 2 it reads xn as `x` and runs no layer_norm.
-    `split` (T1_SPLIT): the reader gathers the even channel tiles; `lnb` (T1_LNB): layer_norm DST block."""
+    `split` (T1_SPLIT): the reader gathers the even channel tiles."""
     import struct
     shp = [int(d) for d in x.shape]
     B = shp[0] if len(shp) == 4 else 1
@@ -1773,7 +1765,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, group * qn, ct2, il],
-        defines=abl + xout + pre + sp + ([("T1LNB", str(lnb))] if lnb > 1 else []), runtime_args=cp,
+        defines=abl + xout + pre + sp, runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
@@ -1814,21 +1806,20 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
     b8 = bool(b8 or T1_B8) and il == 32   # writer.cpp: whole tiles
     nb, split = t1_dm(pkey, mask is not None, w8, b8)
-    lnb = t1_lnb(pkey)
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, lnb)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
         entry = _CACHE.get(key + (g, ln1))
         if entry is None:
             entry = _CACHE[key + (g, ln1)] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask,
-                                                       eps, il, nb, b8, g, ln1, xn, split, lnb)
+                                                       eps, il, nb, b8, g, ln1, xn, split)
         reader, writer, _ = entry["kernels"]
         src = xn if ln1 == 2 else x
         reader.common_runtime_args = [src.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
