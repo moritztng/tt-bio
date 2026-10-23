@@ -75,7 +75,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import capacity_fixture                                                    # noqa: E402
-from gate_guard import install_teardown, track_leg, untrack_leg            # noqa: E402
+from gate_guard import install_teardown, stop_if_stopped_outside, track_leg, untrack_leg  # noqa: E402
 from tt_bio import device_lease                                             # noqa: E402
 from tt_bio import size_limits as sl                                        # noqa: E402
 
@@ -811,7 +811,7 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
         beats = sum(f.stat().st_size for f in beat.parent.glob(beat.name + ".*"))
         return (n + beats + (log.stat().st_size if log.exists() else 0)), (n > 0 or beats > 0)
 
-    last, last_move, stalled, warm = -1, time.monotonic(), False, False
+    last, last_move, stalled, warm, killed = -1, time.monotonic(), False, False, False
     cpu_at_quiet, cpu_now = tree_cpu_s(proc.pid), tree_cpu_s(proc.pid)
     try:
         while True:
@@ -839,7 +839,8 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
                 break
             if now - t0 > timeout:
                 break
-        if proc.poll() is None:
+        killed = proc.poll() is None
+        if killed:
             # The CLI spawns worker processes; killing only the outer pid orphans the engine.
             try:
                 os.killpg(proc.pid, signal.SIGTERM)
@@ -859,6 +860,8 @@ def execute(worker: Worker, argv: list[str], log: Path, *, mode: str,
         except (ProcessLookupError, PermissionError):
             pass
         untrack_leg(proc.pid)
+    if not killed:
+        stop_if_stopped_outside(proc.returncode)
     wall = time.monotonic() - t0
     text = log.read_text(errors="replace") if log.exists() else ""
     return {"rc": proc.returncode, "wall_s": round(wall, 1), "stalled": stalled,
