@@ -4635,7 +4635,11 @@ def _size_ladder_write_fragment(baseline_path: Path, card: str, stamp: dict,
     # Recorded here rather than as a second field in the monolith: a model whose ceiling
     # reaches past the shared rungs is a fact about that model, and writing it into the one
     # file every branch shares is the merge conflict fragments exist to avoid.
-    frag["rungs"] = list(_size_ladder_model_rungs(model))
+    # The union over every board, as SIZE_LADDER_CONTRACT_RUNGS is for the shared json: writing
+    # only the recording board's ladder let a p300c pass drop the 1152-1536 rungs the p150a and
+    # Galaxy cells in the same file are walked at.
+    frag["rungs"] = sorted(set().union(*(_size_ladder_model_rungs(model, card=c)
+                                         for c in (None, *SIZE_LADDER_CARD_RUNGS))))
     block = frag.setdefault("cards", {}).setdefault(card, {})
     block.update(stamp)
     block.setdefault("models", {})[model] = entry
