@@ -80,7 +80,7 @@ def test_record_lever_legs_splice_into_a_copy_and_are_only_built_on_request():
     assert [lg.name for lg in legs] == ["record:boltz2", "record:rf3"]
     h = gf.Host("h", {"arch": "wh", "card_type": "w", "lock": "/l{card}", "root": "/r"}, "a" * 40)
     cmd = h.command(legs[0], 3, "/o")
-    assert "cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d /o/ && " in cmd
+    assert "cp -r --no-preserve=mode docs/size_ladder_baseline.json docs/size_ladder_baseline.d /o/ && " in cmd
     assert "--size-ladder-baseline /o/size_ladder_baseline.json" in cmd
     assert "--size-ladder-record-lever SDPA_FUSED_PADDED" in cmd
 
