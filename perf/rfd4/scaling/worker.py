@@ -4,9 +4,10 @@
 
 Reads commands on stdin, one per line, and answers each with one JSON line on stdout:
 
-    run SEED   one full batch of B finished designs, timed exactly like perf/rfd4/fair/run.py's warm line
-               (spec parse, featurisation, all 60 steps of thinking_medium, decode, every CIF written)
-    quit       exit
+    run SEED [T]  one full batch of B finished designs, timed exactly like perf/rfd4/fair/run.py's warm line
+                  (spec parse, featurisation, all 60 steps of thinking_medium, decode, every CIF written),
+                  with torch's intra-op pool at T threads (0 or absent: what torch picked at start)
+    quit          exit
 
 The first line out is {"ready": ...} once the device is open and the compile batch has run. Wall-clock
 stamps are time.time() so the driver can line batches on different chips up against each other.
@@ -38,8 +39,12 @@ def main():
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
+    import torch
+
     from tt_bio import rfd4
     from tt_bio.rfd4 import engine as E
+
+    threads0 = torch.get_num_threads()
 
     # The protocol gets a private copy of fd 1; fd 1 itself goes to stderr, so nothing the engine or
     # tt-metal's C++ logger prints can land in the pipe the driver parses.
@@ -54,7 +59,8 @@ def main():
     engine.max_parallel_samples = lane = min(a.batch, a.lane_width or a.batch)
     t_load = time.perf_counter() - t0
 
-    def batch(seed, phase):
+    def batch(seed, phase, threads=0):
+        torch.set_num_threads(threads or threads0)
         d = root / f"{phase}-s{seed}"
         c0, w0, t0 = cpu_s(), time.time(), time.perf_counter()
         ex = rfd4.prepare_examples(a.spec, d / "inputs")[0]
@@ -70,7 +76,8 @@ def main():
                 "size": int(features["padding_mask"].shape[-1]), "t_start": w0, "t_end": time.time(),
                 "wall_s": round(wall, 3), "designs_per_s": round(a.batch / wall, 5),
                 "featurize_s": round(t_feat, 3), "design_s": round(t_design, 3),
-                "write_s": round(wall - t_feat - t_design, 3), "cpu_s": round(cpu_s() - c0, 2)}
+                "write_s": round(wall - t_feat - t_design, 3), "cpu_s": round(cpu_s() - c0, 2),
+                "threads": torch.get_num_threads()}
 
     def say(rec):
         out.write(json.dumps(rec) + "\n")
@@ -83,7 +90,7 @@ def main():
         if not cmd or cmd[0] == "quit":
             break
         try:
-            say(batch(int(cmd[1]), "measure"))
+            say(batch(int(cmd[1]), "measure", int(cmd[2]) if len(cmd) > 2 else 0))
         except Exception as exc:  # noqa: BLE001 -- the driver records it and stops the run
             say({"card": card, "error": f"{type(exc).__name__}: {str(exc)[:600]}"})
 

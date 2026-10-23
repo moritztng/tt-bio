@@ -15,7 +15,8 @@ for line in sys.stdin:
     w0 = time.time(); time.sleep(0.3 if card == "3" else 0.2); w1 = time.time()
     print(json.dumps({"card": card, "designs": 2, "t_start": w0, "t_end": w1, "wall_s": w1 - w0,
                       "designs_per_s": 2 / (w1 - w0), "featurize_s": 0.01, "design_s": 0.18, "write_s": 0.01,
-                      "cpu_s": 0.05, "width_achieved": 2, "seed": int(line.split()[1])}), flush=True)
+                      "cpu_s": 0.05, "width_achieved": 2, "seed": int(line.split()[1]),
+                      "threads": int(line.split()[2])}), flush=True)
 '''
 
 
@@ -33,6 +34,7 @@ def test_rounds_and_report(tmp_path):
     assert [r["active"] for r in rounds[4:]] == [[3], [0, 3], [0], [0]]  # rep 2 is rotated by one
     pinned = [r for r in rounds if r["cpus_per_chip"] == 1]
     assert all(len(r["pins"]["0"]) == 1 for r in pinned)
+    assert all(r["chips"]["0"]["threads"] == 1 for r in pinned)  # a pinned chip's pool is sized to its CPUs
     seeds = [v["seed"] for r in rounds for v in r["chips"].values()]
     assert len(seeds) == len(set(seeds))  # every batch on its own seed
     both = next(r for r in rounds if r["n"] == 2)

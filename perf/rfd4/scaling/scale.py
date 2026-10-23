@@ -7,7 +7,9 @@
 `run` starts one worker per card (perf/rfd4/scaling/worker.py: one process, one chip, compiled once), then
 plays ROUNDS `--reps` times, rotating the order each rep so no configuration always runs first or last.
 A round names the cards that run one batch together, started at the same instant; `@K` pins each of those
-workers to K logical CPUs of its own (physical cores first), which asks how much host a chip needs to stay fed.
+workers to K logical CPUs of its own (physical cores first) and sizes its torch thread pool to K, which asks how
+much host a chip needs to stay fed. Pinning without resizing the pool measures oversubscription instead: torch's
+default pool time-sliced onto one core ran 20x slower while keeping that core flat out.
 Cards a round does not name sit idle with their device open.
 
 The driver samples at 1 Hz, from sysfs and /proc only so the sampler itself costs nothing: AICLK, board power
@@ -189,7 +191,7 @@ def run(a):
                 pins[c] = sorted(cpus)
             with Sampler(cards, {c: p.pid for c, p in procs.items()}) as s:
                 for c in active:
-                    procs[c].stdin.write(f"run {seed}\n")
+                    procs[c].stdin.write(f"run {seed} {ncpu or 0}\n")
                     seed += 1
                 res = {c: json.loads(procs[c].stdout.readline() or '{"error": "worker died"}') for c in active}
             for c in active:
@@ -201,7 +203,8 @@ def run(a):
             t0, t1 = min(r["t_start"] for r in res.values()), max(r["t_end"] for r in res.values())
             win = [x for x in s.rows if t0 <= x["t"] <= t1] or s.rows
             chips = {c: {**{k: r[k] for k in ("wall_s", "designs_per_s", "featurize_s", "design_s", "write_s",
-                                              "cpu_s", "width_achieved", "seed")},
+                                              "cpu_s", "width_achieved", "seed", "threads")
+                                              if k in r},
                          "cores": round(r["cpu_s"] / r["wall_s"], 2),
                          "aiclk_mhz": med([x["aiclk"][c] for x in win]),
                          "aiclk_min_mhz": min((x["aiclk"][c] for x in win if x["aiclk"][c]), default=None),
