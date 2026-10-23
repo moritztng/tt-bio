@@ -79,6 +79,7 @@ def _stub_rfd4(monkeypatch, tmp_path, *, dram_width, per_call_s):
     monkeypatch.setattr(run.Contention, "device_holders", staticmethod(lambda: set()))
     for f in ("_box_busy", "_own_busy"):  # an idle box, whatever the test host is doing
         monkeypatch.setattr(run.Contention, f, staticmethod(lambda: 0))
+    monkeypatch.setattr(run.Contention, "wait_quiet", classmethod(lambda cls, cap, **k: (0, 0.0, {})))
 
 
 def _run(tmp_path, *extra):
@@ -121,7 +122,23 @@ def test_under_clocked_batches_are_discarded(monkeypatch, tmp_path):
     lines = _run(tmp_path, "--batch", "2")
     measure = [r for r in lines if r.get("phase") == "measure"]
     assert all(r["discard"].startswith("clock_artifact") for r in measure)
+    assert len(measure) == 15  # 3 x --batches attempts, then it gives up
     assert lines[-1]["clean"] == 0 and lines[-1]["designs_per_s_median"] is None
+
+
+def test_a_contended_batch_is_retried_until_five_are_clean(monkeypatch, tmp_path):
+    _stub_rfd4(monkeypatch, tmp_path, dram_width=8, per_call_s=lambda w: 10.0)
+    calls, summary = [], run.Contention.summary
+
+    def loud(self):  # batches 3 and 4 (the first two measure batches, after two compiles) on a loud box
+        calls.append(1)
+        return {**summary(self), "foreign_cores_median": 5.0 if len(calls) in (3, 4) else 0.0}
+    monkeypatch.setattr(run.Contention, "summary", loud)
+    lines = _run(tmp_path, "--batch", "2")
+    measure = [r for r in lines if r.get("phase") == "measure"]
+    assert [("discard" in r) for r in measure] == [True, True] + [False] * 5
+    assert len({r["seed"] for r in measure}) == 7
+    assert lines[-1]["clean"] == 5
 
 
 def test_a_foreign_device_holder_aborts_before_the_engine_opens(monkeypatch, tmp_path):
@@ -157,3 +174,14 @@ def test_verdict_admits_only_clean_p150a_main_lines_and_applies_section_7(tmp_pa
     assert g[128]["designs_per_s"] == 2.0
     assert verdict.ratio(0.302, 2.0) == pytest.approx(0.302 * 14.0538 / 2.0, rel=1e-4)
     assert verdict.ratio(0.2135 * 2.0, 2.0) == pytest.approx(3.0, abs=0.01)
+
+
+def test_verdict_takes_the_fastest_arm_on_the_newest_main(tmp_path):
+    repo = str(HERE.parents[2])
+    main = subprocess.run(["git", "rev-parse", "origin/main"], cwd=repo, capture_output=True, text=True).stdout.strip()
+    b1 = [_line(512, 0.034, main, raw="b1", batch=1) for _ in range(5)]
+    lanes = [_line(512, 0.036, main, raw="lanes", batch=2, lane_width=1) for _ in range(5)]
+    runs = tmp_path / "runs.jsonl"
+    runs.write_text("".join(json.dumps(x) + "\n" for x in lanes + b1))  # lanes measured first, still wins
+    tt, _ = verdict.tt_side([runs], repo)
+    assert tt[512]["raw"] == "lanes" and tt[512]["batch"] == 2 and tt[512]["lane_width"] == 1
