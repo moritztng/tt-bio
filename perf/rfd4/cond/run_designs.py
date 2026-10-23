@@ -30,7 +30,6 @@ sys.path.insert(0, str(HERE))                   # this directory for families
 import clocksample  # noqa: E402
 import families  # noqa: E402
 
-CLOCK_FLOOR_MHZ = 1200
 
 
 def main() -> int:
@@ -77,7 +76,7 @@ def main() -> int:
         aiclk=summary,
         aiclk_mhz=mhz,
         clock_line=clk.line(0),
-        clock_artifact=bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
+        clock_artifact=clocksample.is_clock_artifact(mhz),
         cifs=sorted(str(p) for p in out.glob("*_generated.cif")),
         stdout=proc.stdout[-4000:],
         stderr=proc.stderr[-4000:],

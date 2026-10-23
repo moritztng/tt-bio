@@ -920,6 +920,12 @@ T2_WIDE_KEYS = {(12, 12)}
 # RFD4's (8, 12) (hidden 256 -> c_z 384) at the same block, only in the float32-stream form (`copy`, T2_RES32),
 # whose caller (the rfd4 trunk's `pair_tail` lever) gates it: no other model's T2 eligibility changes.
 T2_RES32_KEYS = {(8, 12)}
+# The float32-stream form is graded on Blackhole only. On a Wormhole Galaxy chip it is wrong, not imprecise: the sum
+# carries z exactly but the update lands at 0.56x plus noise, rel_rms 1.38 vs float64 (bar 0.05), both directions at
+# 256 tokens (perf/rfd4/wh/pair_tail_forms.py, .103 chip 26, 2026-10-23). The bf16 stream16 form the trunk runs by
+# default (`pair_bf16z`) is right there, rel_rms 0.0097 at a 0.0032 bf16 floor. Until the cause is found T2_RES32
+# declines on Wormhole and the call takes the unfused residual.
+T2_RES32_ARCHS = ("blackhole",)
 # T2 reads x and g through TensorAccessors, so interleaved L1 operands need no kernel change. Accepted under
 # RFD4's `pair_tail_small`, whose chain leaves both in L1 below MIN_N; the residual stream and its copy stay DRAM.
 # A DRAM copy of the two instead lost (0.98x a trunk pass at 128 tokens, state/rfd4/bets/tri128.md).
@@ -1008,6 +1014,9 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None, stream16=False)
     if copy is None and not (stream16 or T2 or lever("trimul_t2" if wg is None else "trimul_t2g")):
         return "off"
     if copy is not None:
+        from .tenstorrent import arch_name
+        if arch_name() not in T2_RES32_ARCHS:
+            return "res32_arch"
         if (resid is None or resid.dtype != ttnn.float32 or resid.layout != ttnn.TILE_LAYOUT
                 or resid.memory_config() != ttnn.DRAM_MEMORY_CONFIG
                 or tuple(copy.padded_shape) != tuple(resid.padded_shape)):

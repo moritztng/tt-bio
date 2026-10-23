@@ -230,7 +230,7 @@ def _cb(idx, core_grid, page_size, num_tiles, data_format):
 
 
 def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=None,
-          noc_mode=None, n_widths=None, bias=None, extra=()):
+          noc_mode=None, n_widths=None, bias=None, extra=(), transpose=None, n_align=1):
     """The ProgramDescriptor for ``minimal_matmul(in0, in1) -> outs`` with block config ``cfg``.
 
     ``cfg`` is a 5-tuple ``(M_block, K_block, N_block, subblock_h, subblock_w)`` and a
@@ -255,6 +255,10 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
 
     ``extra`` are more tensors a patched DM kernel reads (mm_rope's cos / sin): their accessors follow the bias's in
     the compile-time args, their addresses come just before the outputs' in the runtime args.
+
+    ``transpose`` overrides the factory's ``M > N`` pick of which axis of the grid carries N (True: N over the grid's
+    rows). ``n_align`` pads N so every core's range is a whole number of ``n_align`` tiles (mm_gate needs whole N
+    blocks a core); 1 is the factory's padding to the core count.
 
     ``noc_mode`` is for a DM kernel that issues transactions on the NOC it was NOT configured
     with. Under the default ``DM_DEDICATED_NOC`` the firmware only runs ``noc_local_state_init``
@@ -308,7 +312,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     interm_fmt = ttnn.float32 if fp32_dest_acc_en else ttnn.bfloat16
     interm_tile_size = tile_bytes(interm_fmt)
 
-    transpose = M > N
+    transpose = M > N if transpose is None else bool(transpose)
     in0_noc = NOC_FOR_DRAM_READ if transpose else NOC_FOR_DRAM_WRITE
     in0_risc = (ttnn.DataMovementProcessor.RISCV_0 if transpose
                 else ttnn.DataMovementProcessor.RISCV_1)
@@ -319,7 +323,7 @@ def build(device, in0, in1, outs, cfg, ckc, defines=(), kernel_dir=None, m_k=Non
     in1_axis_cores = gy if transpose else gx
 
     padded_M_tiles = _round_up(M_tiles, in0_axis_cores)
-    padded_N_tiles = _round_up(N_tiles, in1_axis_cores)
+    padded_N_tiles = _round_up(N_tiles, in1_axis_cores * n_align)
     padded_K_tiles = _round_up(K_tiles, K_block_tiles)
     M_tiles_per_core = padded_M_tiles // in0_axis_cores
     N_tiles_per_core = padded_N_tiles // in1_axis_cores

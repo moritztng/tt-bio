@@ -311,7 +311,7 @@ class FlowNetwork:
     def _conditioning(self, t: dict[str, float], depth: int, n_designs: int):
         """`(conds, modulation)` for a step at `t` and `depth`, `n_designs` wide: one conditioning
         tensor per recycle, and the pair AdaLN's `(gamma, beta)` when the card builds the pair."""
-        like = self._like.expand(n_designs, 0, 3)
+        like = self._like.new_zeros((n_designs, 0, 3))  # lanes of a call can differ in width
         key = (n_designs, depth, like.dtype, like.device, tuple(sorted((m, float(v)) for m, v in t.items())))
         hit = self._conditioned.pop(key, None)
         if hit is None:

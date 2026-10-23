@@ -131,6 +131,22 @@ def test_mm_bfp8_hifi2_lowers_fast_weights_only(wdtype, large, saprot, monkeypat
 
 @pytest.mark.parametrize("wormhole", [True, False])
 @pytest.mark.parametrize("switch", [None, True, False])
+@pytest.mark.parametrize("large,rows,wdtype", [(True, 544, "bfloat16"), (True, 544, "bfloat8_b"),
+                                               (True, 1088, "bfloat16"), (False, 544, "bfloat16")])
+def test_mm_6b_bf16_default(wormhole, switch, large, rows, wdtype, monkeypatch):
+    """The 6B's page rows under bf16 weights take minimal_matmul for its qkv split and gate on Blackhole only."""
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(esmc, "_ESMC_MM_6B_BF16", switch)
+    monkeypatch.setattr(esmc, "_ESMC_MM", None)
+    lin = esmc._MMLin()
+    lin.lm_large = large
+    x, w = _T(rows, 2560, esmc.ttnn.bfloat16), _T(2560, 7680, getattr(esmc.ttnn, wdtype))
+    regime = large and rows == 544 and wdtype == "bfloat16"
+    assert lin._mm_6b_bf16(x, w) is (regime and (not wormhole if switch is None else switch))
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
 @pytest.mark.parametrize("wdtype", ["bfloat16", "bfloat8_b"])
 def test_qk_l1_large_default(wormhole, switch, wdtype, monkeypatch):
     """The 6B's q/k L1 path defaults on for Wormhole block-fp8 weights only; the switch overrides it."""
@@ -224,6 +240,39 @@ def test_mm_gate_default(wormhole, switch, monkeypatch):
     assert esmc._mm_gate_on() is (True if switch is None else switch)
     with tenstorrent.levers("lm_gate_ng"):
         assert esmc._mm_gate_on() is (False if switch is None else switch)
+
+
+# ESMC 300M / 600M (3808 rows, page batch) and 6B (544 rows) FFN gates: rows, n2 = 2 x hidden, K tiles.
+_GATE_SHAPES = {"300m": (3808, 5120, 30), "600m": (3808, 6144, 36), "6b": (544, 13824, 80)}
+
+
+@pytest.mark.parametrize("bf16_acc", [False, True])
+@pytest.mark.parametrize("model,want", [("300m", ((8, 2, 10, 2, 2), (8, 2, 10, 1, 5))),
+                                        ("600m", ((8, 2, 12, 1, 4), (8, 4, 12, 1, 6))),
+                                        ("6b", ((2, 4, 6, 1, 3), (2, 4, 6, 1, 6)))])
+def test_mm_gate_config_wormhole_unchanged(model, want, bf16_acc):
+    """Wormhole's 8 grid columns divide every ESMC gate: the factory's layout and the block configs graded there."""
+    from tt_bio import mm_gate
+    rows, n2, kt = _GATE_SHAPES[model]
+    x = types.SimpleNamespace(volume=lambda: rows * 64, shape=(rows, 64))
+    assert mm_gate.config(x, n2, kt, (8, 9), bf16_acc) == want[bf16_acc]
+    assert mm_gate.layout(rows, n2, want[bf16_acc][2], (8, 9))[0] is (rows > n2)
+
+
+@pytest.mark.parametrize("grid", [(11, 10), (13, 10)])
+@pytest.mark.parametrize("model", list(_GATE_SHAPES))
+def test_mm_gate_layout_blackhole(model, grid):
+    """Blackhole's 11 / 13 columns divide no ESMC gate; the padded layout still gives every core whole N blocks,
+    covers N, and is the cheaper of the two orientations."""
+    from tt_bio import mm_gate
+    rows, n2, kt = _GATE_SHAPES[model]
+    x = types.SimpleNamespace(volume=lambda: rows * 64, shape=(rows, 64))
+    cfg = mm_gate.config(x, n2, kt, grid, False)
+    assert cfg is not None and mm_gate.plan(x, n2, cfg, grid) is None
+    transpose, n_core, m_core = mm_gate.layout(rows, n2, cfg[2], grid)
+    n_cores, m_cores = (grid[1], grid[0]) if transpose else grid
+    assert n_core % cfg[2] == 0 and (n2 // 32) % cfg[2] == 0
+    assert n_core * n_cores >= n2 // 32 and m_core * m_cores >= rows // 32
 
 
 @pytest.mark.parametrize("wdtype,bf16_acc", [("bfloat16", False), ("bfloat8_b", True)])

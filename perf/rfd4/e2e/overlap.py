@@ -27,7 +27,6 @@ ensure_p300_mesh_descriptor()
 
 import clocksample  # noqa: E402
 
-CLOCK_FLOOR_MHZ = 1200
 FIELDS = ("coords_nm", "residue_type", "atom_mask", "insertion_logits")
 
 
@@ -87,7 +86,7 @@ def main():
                "recipe": "thinking_medium", "steps": engine.spec.nsteps,
                "wall_s": round(wall, 3), "design_s": round(t_design, 3), "write_s": round(t_write, 3),
                "s_per_design": round(wall / a.designs, 3), "designs_per_s": round(a.designs / wall, 4),
-               "aiclk_mhz": mhz, "aiclk": summ, "clock_artifact": bool(mhz is not None and mhz < CLOCK_FLOOR_MHZ),
+               "aiclk_mhz": mhz, "aiclk": summ, "clock_artifact": clocksample.is_clock_artifact(mhz),
                "load1": round(load0, 2), "load1_end": round(os.getloadavg()[0], 2), "nproc": os.cpu_count(),
                "card": os.environ.get("TT_VISIBLE_DEVICES"), "seed": a.seed,
                **({"stages_s": {k: round(v, 3) for k, v in stages.items()}} if stages is not None else {}),

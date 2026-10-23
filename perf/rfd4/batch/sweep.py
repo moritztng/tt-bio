@@ -38,7 +38,6 @@ ensure_p300_mesh_descriptor()
 import clocksample  # noqa: E402
 from rfd4.trunk_clock import time_trunk  # noqa: E402
 
-CLOCK_FLOOR_MHZ = 1200
 MIN_GAIN = 0.02
 
 
@@ -111,7 +110,7 @@ def main():
                "trunk_s": round(sum(trunk_s), 3), "host_s": round(t_design - sum(trunk_s), 3),
                "designs_per_s": round(n / wall, 5), "s_per_design": round(wall / n, 3),
                "aiclk": summ, "aiclk_mhz": mhz, "loadavg_1m": round(os.getloadavg()[0], 1),
-               "clock_artifact": bool(mhz is None or mhz < CLOCK_FLOOR_MHZ)}
+               "clock_artifact": bool(mhz is None or clocksample.is_clock_artifact(mhz))}
         emit(rec)
         return rec, output
 
