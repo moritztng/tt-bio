@@ -2,15 +2,17 @@
 # rfd4-wh-bringup: grade the Wormhole designs against Blackhole's, seed by seed, on the CPU (pc).
 # Same two instruments LAND9-12 used: grade.py per seed (designed-chain CA RMSD, WH vs BH at the same seed, against the
 # BH seed floor: BH at seed k vs BH at seed k+1) and quality.py's population grade on the 31-design pools.
-#   bash perf/rfd4/wh/grade.sh <size>          pulls .103's seeds<size> and qb2's br<size> into artifacts/wh/
+#   bash perf/rfd4/wh/grade.sh <size>          pulls .103's seeds<size> and qb2's br<size> into ~/scratch/rfd4-wh/
+#   TAG=z8 WH=172.16.102.107:'spd/rfd4-wh/out/z8s<size>*/designs/' BH=z8 bash perf/rfd4/wh/grade.sh <size>
+#                                              the pair_bfp8z tip tree (D-orch-136), WH from .107's pool
 # Also checks the branch against main on Blackhole: every br<size> seed main also ran must be byte-identical (ATOM).
 set -u
 N=${1:?size}; WT=$(cd "$(dirname "$0")/../../.." && pwd); cd $WT
 PY=${PY:-/home/moritz/rfd4-cpu-venv/bin/python}; export PYTHONPATH=$WT
-A=$WT/artifacts/wh; mkdir -p $A/wh$N $A/bh$N $A/mn$N
-rsync -a 172.16.102.103:spd/rfd4-wh/out/seeds$N/designs/ $A/wh$N/
-rsync -a tt-quietbox2:scratch/rfd4-wh-bringup/runs/br$N/ $A/bh$N/
-rsync -a tt-quietbox2:scratch/rfd4-wh-bringup/runs/mn$N/ $A/mn$N/ 2>/dev/null
+A=$HOME/scratch/rfd4-wh/${TAG:-wh}; mkdir -p $A/wh$N $A/bh$N $A/mn$N
+rsync -a ${WH:-172.16.102.103:spd/rfd4-wh/out/seeds$N/designs/} $A/wh$N/
+rsync -a tt-quietbox2:scratch/rfd4-wh-bringup/runs/${BH:-br}$N/ $A/bh$N/
+[ -z "${BH:-}" ] && rsync -a tt-quietbox2:scratch/rfd4-wh-bringup/runs/mn$N/ $A/mn$N/ 2>/dev/null
 f() { ls $A/$1/pdl1_binder_${N}_s$2_r$(($2+1))_generated.cif 2>/dev/null; }
 G=$A/grade$N; P=$A/pool$N; rm -rf $G $P; mkdir -p $G $P/tt $P/ref
 for k in $(seq 0 30); do
