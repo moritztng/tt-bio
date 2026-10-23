@@ -48,7 +48,9 @@ def split_overrides(sets):
 
 
 def smi(fields):
-    q = subprocess.run(["nvidia-smi", f"--query-gpu={','.join(fields)}", "--format=csv,noheader,nounits"],
+    # -i: the single-B200 market can be empty, and a 2-GPU box measured on GPU 0 must not read GPU 1's row.
+    q = subprocess.run(["nvidia-smi", "-i", os.environ.get("GPU_INDEX", "0"),
+                        f"--query-gpu={','.join(fields)}", "--format=csv,noheader,nounits"],
                        capture_output=True, text=True)
     vals = q.stdout.strip().splitlines()[0].split(", ") if q.returncode == 0 and q.stdout.strip() else []
     out = {}

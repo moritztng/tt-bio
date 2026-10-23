@@ -74,7 +74,7 @@ nvidia-smi -q > $B/nvidia-smi-q.txt 2>&1
 { uname -a; nproc; free -g; df -h /; } > $B/census.txt 2>&1
 
 # --- the clock logger, alive for the life of the box (a logger that dies leaves the rerun unclocked) -----------
-nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,utilization.memory,clocks_event_reasons.active,memory.used \
+nohup nvidia-smi -i ${GPU_INDEX:-0} --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,utilization.memory,clocks_event_reasons.active,memory.used \
   --format=csv,noheader -l 1 >> $B/smi.csv 2>&1 &
 echo $! > $B/smi.pid
 

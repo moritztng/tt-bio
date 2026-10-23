@@ -84,7 +84,9 @@ if x.get("actual_status")=="running":
     R $P/rfd4_gpu.py $P/rfd4_arms.py $P/$BOX $H:/root/kc/ &&
     R $S4/inputs/ $H:/root/kc/inputs/ && echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
     { destroy $I "push failed"; continue; }
-  timeout 60 $S -f "cd /root/kc && setsid nohup bash $BOX $CAP_H > box_rfd4.log 2>&1 < /dev/null &" ||
+  # BOXENV carries the box script's knobs across ssh (CELLS, FINAL_WARM, CUDA_VISIBLE_DEVICES). An env var
+  # set around this script never reaches the remote shell, so without it a CELLS list silently ran the default.
+  timeout 60 $S -f "cd /root/kc && setsid nohup env ${BOXENV:-} bash $BOX $CAP_H > box_rfd4.log 2>&1 < /dev/null &" ||
     { destroy $I "launch failed"; continue; }
   log "$I running $BOX"
   END=""
