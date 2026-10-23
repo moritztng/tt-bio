@@ -6,7 +6,7 @@
 // by face row into the [B, C, S, S] tiles of a or b, NB output tiles per read barrier through a 2 * NB tile staging
 // CB, then written to DRAM. writer.cpp runs it for every channel tile, or under T1SPLIT for the odd ones while
 // reader.cpp runs it for the even ones from its own CBs: the tiles land in the same bytes either way.
-// ABL bits 32 (gather) and 64 (writes) as in writer.cpp. T1B8: bfp8 a / b, whole tiles (IL 32).
+// SKIP: the ABL bits 32 (gather) and 64 (writes) of writer.cpp (ABL itself is a macro there). T1B8: bfp8 a / b, whole tiles (IL 32).
 #pragma once
 
 #include "api/dataflow/dataflow_api.h"
@@ -17,7 +17,7 @@ constexpr uint32_t TB = 2048, FB = 512, RB = 32;
 // bfp8_b tile: 64 exponent bytes (face-major, one per face row), then 4 faces x 16 rows x 16 mantissa bytes.
 constexpr uint32_t TB8 = 1088, EB = 64, FB8 = 256, RB8 = 16;
 
-template <uint32_t NB, uint32_t IL, uint32_t ABL, bool B8>
+template <uint32_t NB, uint32_t IL, uint32_t SKIP, bool B8>
 struct Gather {
     uint32_t stage0;
     bool dirty[2];
@@ -43,7 +43,7 @@ struct Gather {
             const uint32_t grp = (c0 / NB) & 1u;
             const uint32_t gbase = stage0 + grp * NB * TB;
             if (dirty[grp]) noc_async_writes_flushed();
-            for (uint32_t j = 0; j < NB && !(ABL & 32); ++j) {
+            for (uint32_t j = 0; j < NB && !(SKIP & 32); ++j) {
                 const uint32_t c = c0 + j;
                 const uint32_t st = gbase + j * TB;
                 // source row c of tile il: face (c >> 4) * 2 (+1 for the right half), face row c & 15
@@ -73,7 +73,7 @@ struct Gather {
             }
             noc_async_read_barrier();
             for (uint32_t j = 0; j < NB; ++j, page += SS) {
-                if constexpr (ABL & 64) continue;
+                if constexpr (SKIP & 64) continue;
                 const uint32_t st = gbase + j * TB;
                 if constexpr (B8) {
                     noc_async_write(st, out.get_noc_addr(page), TB8);

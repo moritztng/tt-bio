@@ -1834,9 +1834,8 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
         reader.common_runtime_args = [src.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
                                       wgo.buffer_address(), ln_w.buffer_address(),
                                       ln_b.buffer_address(),
-                                      (mask if mask is not None else x).buffer_address()]
-        if split:
-            reader.common_runtime_args += [outs[0].buffer_address(), outs[1].buffer_address()]
+                                      (mask if mask is not None else x).buffer_address()] + (
+                                     [outs[0].buffer_address(), outs[1].buffer_address()] if split else [])
         writer.common_runtime_args = [o.buffer_address() for o in outs] + ([xn.buffer_address()] if ln1 == 1 else [])
         pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
         ttnn.generic_op([src, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs
