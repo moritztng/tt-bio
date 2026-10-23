@@ -178,11 +178,16 @@ def main():
     ap.add_argument("--batches", type=int, default=5, help="warm batches at the best width (protocol: >= 5)")
     ap.add_argument("--seed", type=int, default=1000, help="batch i runs on seed + i")
     ap.add_argument("--max-foreign-cores", type=float, default=1.0)
+    ap.add_argument("--shared-box", action="store_true",
+                    help="dev line on a multi-chip box other rows share: other pids holding a device are recorded "
+                         "in every line instead of aborting or discarding it; refused with --part p150a")
     ap.add_argument("--lane-width", type=int,
                     help="run a batch as interleaved lanes of at most this many designs a trunk call "
                          "(`sampler.run_lanes`), so one lane's host work hides behind another's trunk; "
                          "default: the whole batch in one trunk call")
     a = ap.parse_args()
+    if a.shared_box and a.part == "p150a":
+        ap.error("--shared-box is a dev line; the gated p150a number needs the box to itself")
 
     from tt_bio import rfd4
     from tt_bio.rfd4 import engine as E
@@ -203,7 +208,7 @@ def main():
         print(json.dumps(rec), flush=True)
 
     before = Contention.device_holders()
-    if before:
+    if before and not a.shared_box:
         emit({"kind": "abort", "why": "another process holds a Tenstorrent device on this box",
               "foreign_device_holders": sorted(before)})
         sys.exit(2)
@@ -247,7 +252,7 @@ def main():
         why = []
         if mhz is None or mhz < CLOCK_FLOOR_MHZ:
             why.append(f"clock_artifact: AICLK median {mhz} < {CLOCK_FLOOR_MHZ} MHz")
-        if con.holders:
+        if con.holders and not a.shared_box:
             why.append(f"contended: device held by {sorted(con.holders)}")
         if (rec["foreign_cores_median"] or 0) > a.max_foreign_cores:
             why.append(f"contended: {rec['foreign_cores_median']} foreign cores > {a.max_foreign_cores}")

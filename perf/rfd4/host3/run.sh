@@ -20,7 +20,7 @@ for round in ${ROUNDS:-1 2 3}; do
         B) args="--batch 2 --lane-width 1 --batches 5" ;;
       esac
       timeout 3600 $PY perf/rfd4/fair/run.py --spec $IN/pdl1-$n.yaml --weights $W --out $R/$n-$arm --part p300c \
-        --seed 1000 $args --max-foreign-cores 99 > $R/$n-$arm-r$round.log 2>&1
+        --seed 1000 $args --max-foreign-cores 99 --shared-box > $R/$n-$arm-r$round.log 2>&1
       stamp "r$round $n $arm rc=$?"
     done
   done
