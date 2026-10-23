@@ -7212,6 +7212,28 @@ _PAIR_FFN_FC1_BW = 1
 _PAIR_FFN_FC1_BLOCK_W = 16
 
 
+# Off restores the try-and-catch leg alone, for the A/B that prices the allocator query.
+PAIR_PROJ_L1_FIT = True
+
+
+def _l1_out_placeable(x, w, dtype) -> bool:
+    """The interleaved L1 output of `x @ w` fits the largest free block of every bank now.
+
+    An interleaved buffer puts ceil(pages / banks) tiles on each bank, so that is the block the
+    allocator must find. Asked before the try rather than learned from a throw: at OpenDDE 768 on
+    Wormhole the output needs 1048576 B a bank while a sibling 1 MB/bank tensor leaves 346848 B,
+    and a throw inside a program enqueue is a hang risk on a Galaxy chip.
+    """
+    rows = 1
+    for d in tuple(x.padded_shape)[:-1]:
+        rows *= int(d)
+    pages = -(-rows // 32) * -(-int(w.shape[-1]) // 32)
+    mv = ttnn.get_memory_view(x.device(), ttnn.BufferType.L1)
+    lcf = mv.largest_contiguous_bytes_free_per_bank
+    lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+    return -(-pages // int(mv.num_banks)) * _mm_generic.tile_bytes(dtype) <= lcf
+
+
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                       l1_bw: int | None = None, l1_block_w: int | None = None,
                       bias=None, silu: bool = False):
@@ -7250,11 +7272,14 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         cfg = None if retired else _pair_proj_config(
             x, w, bw_cap=_PAIR_PROJ_L1_BW if l1_bw is None else l1_bw,
             out_l1=True, block_w=l1_block_w, rung=rung, silu=silu)
-        if cfg is None:
+        if cfg is not None and PAIR_PROJ_L1_FIT and not _l1_out_placeable(x, w, dtype):
+            cfg = None
+            _latch("l1_out", "declined", "no L1 block for the output")
+        elif cfg is None:
             if rung:
                 _L1_OUT_REFUSED.add(key)
             _latch("l1_out", "blocked" if rung or retired else "declined")
-        else:
+        if cfg is not None:
             try:
                 out = ttnn.linear(
                     x, w, bias=bias, memory_config=ttnn.L1_MEMORY_CONFIG, dtype=dtype,
