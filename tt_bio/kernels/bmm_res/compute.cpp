@@ -18,6 +18,14 @@
 #include "api/compute/reconfig_data_format.h"
 #include "api/compute/compute_kernel_api.h"
 
+// BRES_DRAIN (bmm_res.DRAIN, a soak knob): every Tensix thread waits for its own issued instructions to finish before
+// TA switches the unpacker, math and packer between transpose and matmul, so no reconfiguration overlaps work in flight.
+#ifdef BRES_DRAIN
+#define BRES_SYNC() do { UNPACK((ckernel::tensix_sync())); MATH((ckernel::tensix_sync())); PACK((ckernel::tensix_sync())); } while (0)
+#else
+#define BRES_SYNC() do { } while (0)
+#endif
+
 void kernel_main() {
     constexpr uint32_t MT = get_compile_time_arg_val(0);
     constexpr uint32_t KT = get_compile_time_arg_val(1);
@@ -64,6 +72,7 @@ void kernel_main() {
         cb_wait_front(cb_b, KT * NT);
         for (uint32_t r = 0; r < MT; ++r) {
             if constexpr (TA) {
+                BRES_SYNC();
                 reconfig_data_format_srca(cb_b, cb_a_raw);
                 transpose_wh_init_short(cb_a_raw);
                 PACK((pack_reconfig_data_format(cb_a)));
@@ -84,6 +93,7 @@ void kernel_main() {
                     tile_regs_release();
                     cb_push_back(cb_a, nb);
                 }
+                BRES_SYNC();
                 reconfig_data_format_srca(cb_a_raw, cb_b);
                 mm_block_init_short(cb_a, cb_b, TB, OG, 1, KT);
                 PACK((pack_reconfig_data_format(cb_out)));

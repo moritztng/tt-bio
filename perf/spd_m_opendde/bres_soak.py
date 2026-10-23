@@ -9,14 +9,15 @@ tested in minutes instead of 25 fold processes.
 A synchronize every --sync calls bounds how far the host runs ahead; with TT_METAL_OPERATION_TIMEOUT_SECONDS set, a
 hang raises instead of blocking, and the last heartbeat line says how many calls ran clean.
 
-usage: TT_VISIBLE_DEVICES=N python perf/spd_m_opendde/bres_soak.py [--fid HiFi2] [--ta] [--tb] [--seconds 600]
+usage: TT_VISIBLE_DEVICES=N python perf/spd_m_opendde/bres_soak.py [--fid HiFi2] [--ta] [--tb] [--drain] [--seconds 600]
 """
-import argparse, os, sys, time
+import argparse, os, time
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--fid", default="HiFi2")
 ap.add_argument("--ta", action="store_true")
 ap.add_argument("--tb", action="store_true")
+ap.add_argument("--drain", action="store_true", help="bmm_res.DRAIN: drain every thread at each TA phase switch")
 ap.add_argument("--seq", type=int, default=608)
 ap.add_argument("--channels", type=int, default=384)
 ap.add_argument("--seconds", type=float, default=600)
@@ -32,6 +33,7 @@ W._apply_tt_environment(worker_payload(slot)); W._bind_host_threads()
 import torch, ttnn
 import tt_bio.tenstorrent as T
 from tt_bio import bmm_res
+bmm_res.DRAIN = a.drain
 
 dev = T.get_device()
 torch.manual_seed(0)
@@ -40,7 +42,7 @@ up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, 
                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
 x, y = up(torch.randn(shape)), up(torch.randn(shape))
 ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, a.fid), fp32_dest_acc_en=True)
-tag = f"bres_soak fid={a.fid} ta={int(a.ta)} tb={int(a.tb)} S={a.seq} C={a.channels}"
+tag = f"bres_soak fid={a.fid} ta={int(a.ta)} tb={int(a.tb)} drain={int(a.drain)} S={a.seq} C={a.channels}"
 
 
 def call():
@@ -49,7 +51,11 @@ def call():
     ttnn.deallocate(out)
 
 
-call(); ttnn.synchronize_device(dev)
+first = bmm_res.matmul(x, y, compute_kernel_config=ckc, transpose_a=a.ta, transpose_b=a.tb)
+import hashlib
+print(f"{tag} digest {hashlib.sha256(ttnn.to_torch(first).contiguous().view(torch.int16).numpy().tobytes()).hexdigest()[:16]}",
+      flush=True)
+ttnn.deallocate(first)
 t0, n = time.time(), 1
 print(f"{tag} start", flush=True)
 while time.time() - t0 < a.seconds:
