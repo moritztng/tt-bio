@@ -2,10 +2,14 @@
 """Tests for book.py's lapse rule: python3 test_book.py"""
 import os, sys, tempfile
 d = tempfile.mkdtemp()
+# book reads its paths at import; set them only for that import so a pytest run does not leak them into test_feed
+_env = {k: os.environ.get(k) for k in ("SPD_WINDOWS", "SPD_FEED_JOBS")}
 os.environ["SPD_WINDOWS"] = d + "/w.tsv"
 os.environ["SPD_FEED_JOBS"] = d + "/jobs"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import book
+for k, v in _env.items():
+    os.environ.pop(k) if v is None else os.environ.__setitem__(k, v)
 
 B = book.LAPSE_S
 row = lambda s, o, cs: (s, s + 6 * 3600, o, set(cs), "")
