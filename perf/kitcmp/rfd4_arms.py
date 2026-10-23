@@ -35,6 +35,9 @@ ARMS = {
                                "nn.torch_compile_mode=max-autotune"],
     "cueq-max-autotune-nocg": ["nn.tri_mult_backend=cuequivariance", "nn.attention_type=cuequivariance",
                                "nn.torch_compile_mode=max-autotune-no-cudagraphs"],
+    # 256's winner is the native backend, and max-autotune with CUDA graphs OOMs there at the published batch,
+    # so the no-graph mode is the only way that size gets autotuned matmuls (box_s6b.sh).
+    "max-autotune-nocg":      ["nn.torch_compile_mode=max-autotune-no-cudagraphs"],
 }
 SCREEN_BATCH = {128: 8, 256: 4, 512: 2}
 # The GPU is entitled to its own best batch (STANDING memory gpu-comparison-must-be-one-protocol-both-sides).
