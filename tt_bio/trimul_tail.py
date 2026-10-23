@@ -1530,11 +1530,11 @@ def _t1_nb_pref(key):
     return nb or GIN_MOVE_NB
 
 
-def t1_nb(key, mask, w8):
+def t1_nb(key, mask, w8, outer=False):
     """T1's NB for the (kt, ct2, ntg) plan where its staging fits the L1 gate t1_eligible applies, else GIN_MOVE_NB."""
     from .tenstorrent import _l1_bank_bytes
     nb = _t1_nb_pref(key)
-    if nb != GIN_MOVE_NB and t1_cb_bytes(*key, mask, nb=nb, w8=w8) > 0.85 * _l1_bank_bytes():
+    if nb != GIN_MOVE_NB and t1_cb_bytes(*key, mask, nb=nb, w8=w8, outer=outer) > 0.85 * _l1_bank_bytes():
         return GIN_MOVE_NB
     return nb
 
@@ -1546,15 +1546,15 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, outer=False):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
     ([(index, bf16 tiles)], [(index, fp32 tiles)]). Independent of N: N only sets how many units
-    each core runs."""
+    each core runs. `outer` (T1OUTER): one raw row per read barrier, plus pi, pj4 and z' (reader.cpp)."""
     nb = _t1_nb_pref((kt, ct2, ntg)) if nb is None else nb
     rb = T1_RB if rb is None else rb
     groups, plan_il = t1_plan((kt, ct2, ntg), w8)
     il = plan_il if il is None else il
-    rb = min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16, 2 at 8
+    rb = 1 if outer else min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16, 2 at 8
     qn, ng = ct2 // groups, ntg // groups
     bf = [(0, 2 * qn * kt),      # [Wp^T | Wg^T] of the group, resident
           (1, il * kt),          # layer_norm(z) of one unit, slot dt * il + row
@@ -1572,6 +1572,8 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False):
                (15, 4)]          # g * m of one block
     if T1_LN1 and groups > 1:
         bf += [(20, 2 * kt)]     # xn of one row tile to the writer (T1_LN1), double buffered
+    if outer:
+        bf += [(21, kt), (22, 2 * kt), (23, kt)]   # pi of the unit, pj4 rows (double buffered), z' of one row tile
     f32 = [(11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt)]   # eps, mean, var, rstd, xc, tmp
     return bf, f32
 
@@ -1579,8 +1581,8 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False):
 T1_W_CBS = (0, 18)                # the resident weight CBs, bfp8 under trimul_t1w8
 
 
-def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False):
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, w8=w8)
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False, outer=False):
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, w8=w8, outer=outer)
     wb = MG.tile_bytes(ttnn.bfloat8_b) if w8 else BF16_TILE
     return (sum(t * (wb if i in T1_W_CBS else BF16_TILE) for i, t in bf)
             + sum(t for _, t in f32) * FP32_TILE)
@@ -1691,7 +1693,8 @@ def t1_w8(wpT, wgT, wgo):
     return True if d == {ttnn.bfloat8_b} else False if d == {ttnn.bfloat16} else None
 
 
-def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, b8=False, group=0, ln1=0, xn=None):
+def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, b8=False, group=0, ln1=0, xn=None,
+              outer=None):
     """The program of channel group `group` of the T1_PLANS entry for this call, `il` row tiles per item.
     `ln1` (T1_LN1): 1 the launch also writes xn into `xn`, 2 it reads xn as `x` and runs no layer_norm."""
     import struct
@@ -1702,7 +1705,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     w8 = bool(t1_w8(wpT, wgT, wgo))
     groups = t1_plan((kt, ct2, ntg), w8)[0]
     qn, ng = ct2 // groups, ntg // groups
-    rb = min(T1_RB, il // 4)
+    rb = 1 if outer is not None else min(T1_RB, il // 4)
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -1723,12 +1726,16 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     if _t1_psig():
         abl.append(("T1_PSIG", "1"))
     xout, pre = [("T1XOUT", "1")] if ln1 == 1 else [], [("T1PRE", "1")] if ln1 == 2 else []
+    if outer is not None:
+        pre.append(("T1OUTER", "1"))
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
                            eps_bits, group * qn, group * ng, ntg, il]
-        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m),
-        defines=abl + pre, runtime_args=rd, common_runtime_args=[0] * 7, config=ttnn.ReaderConfigDescriptor())
+        + acc(x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
+        + ([] if outer is None else acc(outer[0]) + acc(outer[1])),
+        defines=abl + pre, runtime_args=rd, common_runtime_args=[0] * (7 if outer is None else 9),
+        config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[ct2, St, nb, ng, group * qn, qn, group * ng, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2])
@@ -1745,19 +1752,29 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8)
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, outer=outer is not None)
     cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b) if (b8 and i == 2) or (w8 and i in T1_W_CBS)
             else _cb(i, core_grid, t) for i, t in bf]
            + [_cb_fmt(i, core_grid, t, ttnn.float32) for i, t in f32])
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False):
+def t1_outer_ok(outer, x):
+    """Whether T1 folds RFD4's Hadamard write `outer` = (pi [B, S, K], pj4 [B, S, 1, K]) into x (z before the write):
+    both bf16, tiled, interleaved DRAM, unpadded, the shapes outer_residual takes."""
+    from . import outer_residual
+    return outer is not None and outer_residual.eligible(x, outer[0], outer[1]) and x.dtype == ttnn.bfloat16
+
+
+def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False, outer=None):
     """`[a, b, g_out]` of the trimul input side from the raw pair `x`, one kernel:
     xn = layer_norm(x; ln_w, ln_b, eps), [a | b] = (xn @ wpT^T) * sigmoid(xn @ wgT^T), `a` times
     the pair mask when `mask` is given, both [B, C, S, S] (gin_moved's layout), and
     g_out = xn @ wgo as [*x.shape[:-1], N]. None when T1 is off or does not cover the call;
-    nothing is allocated then. `x` is not touched. `b8` (or T1_B8) writes a and b as bfp8."""
+    nothing is allocated then. `x` is not touched. `b8` (or T1_B8) writes a and b as bfp8.
+    `outer` = (pi, pj4) (T1OUTER, RFD4's `pair_outer_fold`): x is the pair before its Hadamard write and T1 normalises
+    x + pj4 * pi4 (outer_residual's bf16 sum, bit for bit) instead; None when that form does not serve (one launch,
+    no mask, the L1 gate)."""
     from . import ops
     fid, approx, _, full = ckc
     if ops.taping() or dest_guard.exposed_args((fid, approx, True, full)):
@@ -1777,7 +1794,13 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     w8 = bool(t1_w8(wpT, wgT, wgo))
     pkey = (int(x.shape[-1]) // TILE, 2 * C // TILE, int(wgo.shape[-1]) // TILE)
     groups, il = t1_plan(pkey, w8)
-    nb = t1_nb(pkey, mask is not None, w8)
+    if outer is not None:
+        from .tenstorrent import _l1_bank_bytes
+        if (not t1_outer_ok(outer, x) or mask is not None or groups != 1
+                or t1_cb_bytes(*pkey, False, nb=GIN_MOVE_NB, w8=w8, outer=True) > 0.85 * _l1_bank_bytes()):
+            T1_STATS[1] += 1
+            return None
+    nb = t1_nb(pkey, mask is not None, w8, outer=outer is not None)
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
     b8 = bool(b8 or T1_B8) and il == 32   # writer.cpp: whole tiles
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
@@ -1786,23 +1809,25 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     outs = [alloc([B, C, S, S], ab), alloc([B, C, S, S], ab), alloc(shp[:-1] + [int(wgo.shape[-1])])]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, outer is not None)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
         entry = _CACHE.get(key + (g, ln1))
         if entry is None:
             entry = _CACHE[key + (g, ln1)] = _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask,
-                                                       eps, il, nb, b8, g, ln1, xn)
+                                                       eps, il, nb, b8, g, ln1, xn, outer)
         reader, writer, _ = entry["kernels"]
         src = xn if ln1 == 2 else x
         reader.common_runtime_args = [src.buffer_address(), wpT.buffer_address(), wgT.buffer_address(),
                                       wgo.buffer_address(), ln_w.buffer_address(),
                                       ln_b.buffer_address(),
-                                      (mask if mask is not None else x).buffer_address()]
+                                      (mask if mask is not None else x).buffer_address()] + (
+            [] if outer is None else [outer[0].buffer_address(), outer[1].buffer_address()])
         writer.common_runtime_args = [o.buffer_address() for o in outs] + ([xn.buffer_address()] if ln1 == 1 else [])
         pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
-        ttnn.generic_op([src, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else []) + outs
+        ttnn.generic_op([src, wpT, wgT, wgo, ln_w, ln_b] + ([mask] if mask is not None else [])
+                        + (list(outer) if outer is not None else []) + outs
                         + ([xn] if ln1 == 1 else []), pd)
     if xn is not None:
         ttnn.deallocate(xn)

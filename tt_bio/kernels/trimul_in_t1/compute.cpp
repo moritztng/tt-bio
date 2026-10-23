@@ -51,6 +51,14 @@
 #ifndef T1PRE
 #define T1PRE 0
 #endif
+// T1OUTER (RFD4's `pair_outer_fold`): the raw rows in c_7 are the pair stream z before its Hadamard write, and the
+// layer_norm reads z' = z + pj[b, x] * pi[b, y] instead, formed per tile in DEST and rounded to even into c_23 by
+// outer_residual's own sequence (z copied to DEST, the FPU row-broadcast product, the SFPU sum), so xn is the xn
+// of outer_residual's bf16 output, bit for bit. c_21 holds the unit's Kt pi tiles (y = the unit's yt), c_22 the
+// row tile's Kt pj4 tiles (row 0 read).
+#ifndef T1OUTER
+#define T1OUTER 0
+#endif
 
 constexpr uint32_t Kt = get_compile_time_arg_val(0);
 constexpr uint32_t QN = get_compile_time_arg_val(1);        // [a | b] channel tiles of this launch
@@ -89,21 +97,56 @@ constexpr uint32_t cb_tmp = tt::CBIndex::c_17;   // fp32, Kt tiles
 constexpr uint32_t wo_cb = tt::CBIndex::c_18;    // Wg_out [Kt x NG] of the group, resident
 constexpr uint32_t go_cb = tt::CBIndex::c_19;    // g_out of one row tile, NG tiles
 constexpr uint32_t xo_cb = tt::CBIndex::c_20;    // T1XOUT: one row tile of xn to the writer, Kt tiles
+constexpr uint32_t pi_cb = tt::CBIndex::c_21;    // T1OUTER: pi of the unit, Kt tiles
+constexpr uint32_t pj_cb = tt::CBIndex::c_22;    // T1OUTER: pj4 of one row tile, Kt tiles
+constexpr uint32_t zp_cb = tt::CBIndex::c_23;    // T1OUTER: z' of one row tile, Kt tiles, the layer_norm's input
 
 ALWI void sigmoid_bf16_tile(uint32_t idst) {
     MATH((llk_math_eltwise_unary_sfpu_sigmoid<false, false>(idst, (int)VectorMode::RC)));
 }
 
 struct LnCbs {
-    static constexpr uint32_t Kt = ::Kt, x = cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler,
+    static constexpr uint32_t Kt = ::Kt, x = T1OUTER ? zp_cb : cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler,
         eps = cb_eps, mean = cb_mean, var = cb_var, rstd = cb_rstd, xc = cb_xc, tmp = cb_tmp;
 };
 
 // Row tile il: Kt tiles at the front of cb_x (popped) -> slots dt * IL + il of the reserved xn_cb.
+#if T1OUTER
+// Row tile il: Kt z tiles at the front of c_7 and its Kt pj4 tiles (both popped) -> z' into c_23.
+ALWI void outer_row() {
+    cb_wait_front(cb_x, Kt);
+    cb_wait_front(pj_cb, Kt);
+    cb_reserve_back(zp_cb, Kt);
+    pack_reconfig_data_format(zp_cb);
+    for (uint32_t dt = 0; dt < Kt; ++dt) {
+        tile_regs_acquire();
+        reconfig_data_format_srca(cb_x);
+        copy_tile_to_dst_init_short(cb_x);
+        copy_tile(cb_x, dt, 0);
+        reconfig_data_format(pi_cb, pj_cb);
+        mul_bcast_rows_init_short(pi_cb, pj_cb);
+        mul_tiles_bcast_rows(pi_cb, pj_cb, dt, dt, 1);
+        add_binary_tile_init();
+        add_binary_tile(0, 1, 0);
+        round_bf16_rne_tile(0);
+        tile_regs_commit();
+        tile_regs_wait();
+        pack_tile(0, zp_cb);
+        tile_regs_release();
+    }
+    cb_push_back(zp_cb, Kt);
+    cb_pop_front(cb_x, Kt);
+    cb_pop_front(pj_cb, Kt);
+}
+#endif
+
 ALWI void layer_norm_row(uint32_t il) {
+#if T1OUTER
+    outer_row();
+#endif
     if constexpr (ABL & 1) {
-        cb_wait_front(cb_x, Kt);
-        cb_pop_front(cb_x, Kt);
+        cb_wait_front(LnCbs::x, Kt);
+        cb_pop_front(LnCbs::x, Kt);
         if constexpr (T1XOUT) {
             cb_reserve_back(xo_cb, Kt);
             cb_push_back(xo_cb, Kt);
@@ -139,9 +182,11 @@ void kernel_main() {
     for (uint32_t u = 0; u < nunits; ++u) {
         // 1. layer_norm of the unit's IL row tiles (T1PRE: the reader fills xn_cb with them).
         if constexpr (!T1PRE) {
+            if constexpr (T1OUTER) cb_wait_front(pi_cb, Kt);
             cb_reserve_back(xn_cb, IL * Kt);
             for (uint32_t il = 0; il < IL; ++il) layer_norm_row(il);
             cb_push_back(xn_cb, IL * Kt);
+            if constexpr (T1OUTER) cb_pop_front(pi_cb, Kt);
         }
         cb_wait_front(xn_cb, IL * Kt);
 

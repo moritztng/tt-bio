@@ -23,6 +23,12 @@
 #ifndef T1PRE
 #define T1PRE 0
 #endif
+// T1OUTER (RFD4's `pair_outer_fold`, compute.cpp): x is z before its Hadamard write. Per unit the Kt pi tiles
+// (b, yt, dt) go to c_21; with each row tile (b, x, yt), only row 0 of its Kt pj4 tiles (b, x, dt) to c_22, the
+// first 64 B of faces 0 and 1, as outer_residual's reader takes them. RB is 1 then (trimul_tail.t1_cb_plan).
+#ifndef T1OUTER
+#define T1OUTER 0
+#endif
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
@@ -47,6 +53,13 @@ void kernel_main() {
     constexpr auto gm_args = TensorAccessorArgs<wo_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     constexpr auto m_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
+#if T1OUTER
+    constexpr auto pi_args = TensorAccessorArgs<m_args.next_compile_time_args_offset()>();
+    constexpr auto pj_args = TensorAccessorArgs<pi_args.next_compile_time_args_offset()>();
+    const auto spi = TensorAccessor(pi_args, get_common_arg_val<uint32_t>(7));
+    const auto spj = TensorAccessor(pj_args, get_common_arg_val<uint32_t>(8));
+    static_assert(RB == 1, "T1OUTER reads one row tile and its pj4 row per barrier");
+#endif
     static_assert(IL % RB == 0 && (IL == 32 || IL == 16 || IL == 8), "RB must divide the IL row tiles of a unit");
 
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
@@ -109,6 +122,16 @@ void kernel_main() {
         const uint32_t yt = u % St;
         // Row tile (b, x, yt) of z is page ((b * S + x) * St + yt) * Kt + dt (trimul_tail.t1_x_page).
         uint32_t page = ((b * S + xt * 32 + h * IL) * St + yt) * Kt;
+#if T1OUTER
+        constexpr uint32_t pi_cb = tt::CBIndex::c_21, pj_cb = tt::CBIndex::c_22;
+        constexpr uint32_t FACE = 512, ROW0 = 64;   // a bf16 face; faces 0 and 1 begin with row 0's two halves
+        cb_reserve_back(pi_cb, Kt);
+        uint32_t wpi = get_write_ptr(pi_cb);
+        for (uint32_t dt = 0; dt < Kt; ++dt, wpi += tb) noc_async_read_page((b * St + yt) * Kt + dt, spi, wpi);
+        noc_async_read_barrier();
+        cb_push_back(pi_cb, Kt);
+        uint32_t pjrow = (b * S + xt * 32 + h * IL) * Kt;   // pj4 tile (b, x, dt) is page (b * S + x) * Kt + dt
+#endif
         if constexpr (T1PRE) {
             constexpr uint32_t xn_cb = tt::CBIndex::c_1;
             cb_reserve_back(xn_cb, IL * Kt);
@@ -124,8 +147,20 @@ void kernel_main() {
             for (uint32_t r = 0; r < RB; ++r, page += St * Kt)
                 for (uint32_t dt = 0; dt < Kt; ++dt, dst += tb)
                     if constexpr (!(ABL & 16)) noc_async_read_page(page + dt, x, dst);
+#if T1OUTER
+            cb_reserve_back(pj_cb, Kt);
+            uint32_t wpj = get_write_ptr(pj_cb);
+            for (uint32_t dt = 0; dt < Kt; ++dt, wpj += tb) {
+                noc_async_read(spj.get_noc_addr(pjrow + dt, 0), wpj, ROW0);
+                noc_async_read(spj.get_noc_addr(pjrow + dt, FACE), wpj + FACE, ROW0);
+            }
+            pjrow += Kt;
+#endif
             noc_async_read_barrier();
             cb_push_back(x_cb, RB * Kt);
+#if T1OUTER
+            cb_push_back(pj_cb, Kt);
+#endif
         }
         if constexpr (MASK) {
             const uint32_t scratch = get_write_ptr(mscratch_cb);
