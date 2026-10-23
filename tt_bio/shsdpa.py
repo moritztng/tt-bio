@@ -40,6 +40,8 @@ _K_CHUNK_WIDE = env_flag("TT_BIO_SHSDPA_K288", True)
 # Off: under grade (perf/spd_m_saprot/attn_drift.py, the logit scale that fits the output on real SaProt q, k, v).
 _STATS_F32 = False
 _OUT_IM_F32 = False
+# The accurate exponential instead of the fast one for the softmax (kernel define EXP_ACCURATE). Off: under grade.
+_EXP_ACCURATE = False
 _IM_F32 = False
 
 
@@ -118,6 +120,8 @@ def sdpa(q, k, v, scale, pad, q_chunk=None, k_chunk=None, split=None, ckc=HIFI2,
     auto = q_chunk is None and split is None
     if _KEYPAD_ROW:
         defines = {"KEYPAD_ROW": 1, **(defines or {})}
+    if _EXP_ACCURATE:
+        defines = {"EXP_ACCURATE": 1, **(defines or {})}
     key = (B, H, S, D, grid, tuple(t.memory_config().buffer_type == ttnn.BufferType.L1 for t in (q, k, v)))
     table, row = pad
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, 1, S, H * D] if merged else [B, H, S, D]), out_dtype or q.dtype,

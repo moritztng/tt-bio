@@ -394,13 +394,17 @@ void sub_exp_block_bcast_cols_inplace(uint32_t in1_cb, uint32_t reduce_cb, uint3
                 } else
 #endif
                 {
+                // The fast exponential folds the scale into its own constants (exp_tile_init); the
+                // accurate one applies it here, as a bf16 multiplier, so the scale must be exact in bf16.
+                constexpr bool scale_en = !approx_exp && scale_fp32 != 0x3F800000;
+                static_assert(!scale_en || (scale_fp32 & 0xFFFF) == 0, "accurate exp: scale not exact in bf16");
                 exp_tile<
                     approx_exp /* approx */,
                     approx_exp /* fast+approx */,
-                    false /* scale_en */,
+                    scale_en,
                     false /* skip +ve check */,
                     InputClamping::None,
-                    iterations>(j, vector_mode_exp);
+                    iterations>(j, vector_mode_exp, scale_fp32 >> 16);
                 }
 #endif
             }
@@ -2173,7 +2177,12 @@ void sdpa_inner_loop(
              */
             {
             SHSDPA_ZONE("EXP");
-            sub_exp_block_bcast_cols_inplace<cb_qk_im, Sq_chunk_t, scale_fp32, true>(
+#ifdef EXP_ACCURATE
+            constexpr bool exp_fast = false;
+#else
+            constexpr bool exp_fast = true;
+#endif
+            sub_exp_block_bcast_cols_inplace<cb_qk_im, Sq_chunk_t, scale_fp32, true, true, (int)VectorMode::RC, exp_fast>(
                 alias_cur_max, alias_cur_sum, Sk_chunk_t);
             }
 
