@@ -30,12 +30,26 @@ from tt_bio import esmc as E  # noqa: E402
 
 
 class _T:
-    """Enough of a tensor for the stubs to hand around."""
+    """Enough of a tensor for the stubs to hand around.
+
+    `_ffn` norms through `esmc._ln`, which offers the shape to `ln_split.layer_norm` first, and that
+    reads real tensor attributes off whatever it is handed (`ln_split.py:112`). A stand-in without
+    them raises `AttributeError: '_T' object has no attribute 'dtype'` there instead of declining.
+    So the stand-in declares itself as what it is, not a bf16 TILE DRAM tensor: the split declines,
+    `_ln` falls back to the stubbed `ttnn.layer_norm`, and these tests stay about the branch choice
+    in `_ffn` and nothing else.
+    """
+
+    dtype = None
+    layout = None
 
     def __init__(self, name):
         self.name = name
         self.shape = (1, 32, 1536, 256)
         self.padded_shape = self.shape
+
+    def memory_config(self):
+        return None
 
 
 def _stub_ttnn(monkeypatch):

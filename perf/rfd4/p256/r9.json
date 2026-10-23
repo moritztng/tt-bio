@@ -1,0 +1,75 @@
+{
+ "what": "PB (pair_build in lanes) r9, qb2 chip 1, 2026-10-23T21:47-22:14Z; A 80ce7f62f (main), B 6319700b2 (PB)",
+ "grade_256_w4": {
+  "n": 32,
+  "ca_rmsd_median_a": 1.042,
+  "ca_rmsd_max_a": 14.315,
+  "seed_floor_median_a": 24.456,
+  "bar": "median under half the floor median"
+ },
+ "quality_binder": {
+  "verdict": "PASS",
+  "n_tt": 32,
+  "n_ref": 32,
+  "note": "first read FAILed geom.n_nonfinite_coords: inputs/ template counted as a 33rd design; harness fixed, regrade PASS"
+ },
+ "fair_128_b16": {
+  "f128-16-16-80ce7f62f-1": {
+   "designs_per_s_median": 0.50197,
+   "aiclk_mhz": [
+    1287,
+    1268,
+    1256
+   ],
+   "aiclk_min_mhz": [
+    1243,
+    1206,
+    1200
+   ]
+  },
+  "f128-16-16-6319700b2-1": {
+   "designs_per_s_median": 0.51039,
+   "aiclk_mhz": [
+    1268,
+    1262,
+    1281
+   ],
+   "aiclk_min_mhz": [
+    1168,
+    1200,
+    1237
+   ]
+  },
+  "f128-16-16-80ce7f62f-2": {
+   "designs_per_s_median": 0.48029,
+   "aiclk_mhz": [
+    1268,
+    1275,
+    1275
+   ],
+   "aiclk_min_mhz": [
+    1187,
+    1168,
+    1193
+   ]
+  },
+  "f128-16-16-6319700b2-2": {
+   "designs_per_s_median": 0.48534,
+   "aiclk_mhz": [
+    1350,
+    1281,
+    1275
+   ],
+   "aiclk_min_mhz": [
+    1237,
+    1225,
+    1218
+   ]
+  }
+ },
+ "b_over_a_128": [
+  1.0168,
+  1.0105
+ ],
+ "identity_512_w1": "d0, d1 identical apart from _entry.time"
+}

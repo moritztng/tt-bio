@@ -34,6 +34,7 @@ ap.add_argument("--w8", action="store_true", help="also run T1 on bfp8 weights (
 ap.add_argument("--fid", default="", help="HiFi4/HiFi3/HiFi2/LoFi: run T1 at this fidelity instead of the trunk's")
 ap.add_argument("--save", default="", help="DIR: torch.save inc_{a,b,g} and t1_{a,b,g} of the --save-n call here, to locate wrong values offline")
 ap.add_argument("--save-n", type=int, default=0, help="the --ns entry (its first occurrence) whose outputs --save writes")
+ap.add_argument("--z8", action="store_true", help="z as bfp8_b (lever pair_bfp8z, the RFD4 trunk at unpadded sizes)")
 ap.add_argument("--out", help="also append each JSON line here (the qb runner passes it)")
 A = ap.parse_args()
 
@@ -54,7 +55,7 @@ TT.set_t1(True)
 TT.T1_C256 = 1
 for kv in [v for v in A.set.split(",") if v]:
     k, v = kv.split("=")
-    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG", "T1_SPLIT", "T1_MCAST", "T1_G8"), k
+    assert k in ("T1_RB", "T1_SBW", "GIN_MOVE_NB", "T1_NB", "T1_B8", "T1_ROWS", "SIGPOLY", "T1_PSIG", "T1_SPLIT", "T1_MCAST", "T1_G8", "T1_FG", "T1_FGD", "T1_ZPRE", "T1_ZIL"), k
     setattr(TT, k, int(v))
 C, h = A.c, A.hidden
 gen = torch.Generator().manual_seed(0)
@@ -152,7 +153,9 @@ for n in [int(s) for s in A.ns.split(",") if s]:
     # z O(1) with a per-row offset the norm must remove.
     z = (torch.randn(1, n, n, C, generator=gen) * 2 + torch.randn(1, n, n, 1, generator=gen)).to(torch.bfloat16)
     m = None if A.no_mask else (torch.rand(1, n, n, generator=gen) > 0.1).to(torch.bfloat16)
-    dz = up(z)
+    dz = up8(z) if A.z8 else up(z)
+    if A.z8:   # the reference normalises the z T1 reads
+        z = ttnn.to_torch(dz).reshape(z.shape).to(torch.bfloat16)
     dm = None if m is None else up(m)
     d = torch.float64
     zn = torch.nn.functional.layer_norm(z.to(d), (C,), w["gamma"].to(d), w["beta"].to(d), 1e-5)
@@ -282,6 +285,10 @@ for n in [int(s) for s in A.ns.split(",") if s]:
                     prev = getattr(TT, k)
                     setattr(TT, k, int(v))
                     outs = f()
+                    if outs is None:          # the knob does not fit (L1): T1 declines, the tail would run
+                        rec[f"ab_{k}={v}_declined"] = True
+                        setattr(TT, k, prev)
+                        continue
                     ttnn.synchronize_device(dev)
                     rec[f"ab_{k}={v}_equal"] = [bool(torch.equal(ttnn.to_torch(o), t)) for o, t in zip(outs, base)]
                     free(outs)

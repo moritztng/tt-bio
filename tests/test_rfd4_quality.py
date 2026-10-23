@@ -280,6 +280,8 @@ def test_only_the_generated_cif_counts_as_a_design(tmp_path):
     plain.mkdir()
     _helix_cif(plain / "a.cif", n=12)
     _helix_cif(plain / "b_refolded.cif", n=12)
+    (plain / "inputs").mkdir()
+    _helix_cif(plain / "inputs" / "template.cif", n=12)
     assert quality.load_arm(plain)["n_designs_parsed"] == 1
 
 

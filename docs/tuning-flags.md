@@ -950,6 +950,10 @@ rounds its fp32 sum to nearest into 16-value blocks sharing one exponent, so eac
 goes from 0.029 to 0.053 (relative RMS), and the designed chain moves 8.9 A median against a 37.5 A seed-to-seed
 spread with the binder grade passing. It applies when the design length is a multiple of 32; a padded length keeps
 the bf16 stream.
+The triangle multiplication's input kernel forms its gated projections in one matmul block and multiplies by the
+gate's sigmoid before rounding (`trimul_t1_fgate`, RFD4's set only). The 512-token trunk goes from 22.15 to 21.71 s a
+design (1.021x, 1350 MHz, paired), 384 1.022x and 256 1.036x; the pair stream's error against float64 is unchanged,
+and the designed chain moves 2.50 A median against a 39.1 A seed-to-seed spread with the binder grade passing.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
