@@ -676,8 +676,10 @@ _FAST_MODE = False
 #                   the calls the F1 tail would serve with the residual folded in, and there it is bit-exact
 #   trimul_t2w      with trimul_t2, T2 also takes c_z 384 (OpenDDE) at its own (2, 12, 1, 2, 1) block (trimul_tail.T2_BLOCK)
 #   narrow_bw16     the narrow-output pair projections (`_narrow_proj_linear`) at in0_block_w 16, not `_NARROW_PROJ_BW`
-#   trimul_t1b8     T1 (c_z 128) writes a and b as bfp8, as trimul_b8in does at c_z 256: the einsum reads half
-#                   the bytes (Boltz-2 WH fast census: T1 1.0 s + einsum 0.86 s per fold, both DRAM-bound)
+#   trimul_t1b8     T1 writes a and b as bfp8, as trimul_b8in does at c_z 256: the einsum reads half the bytes
+#                   (Boltz-2 WH fast census: T1 1.0 s + einsum 0.86 s per fold, both DRAM-bound). Whole-tile items, or
+#                   8-row items in face-pair pairs where that keeps the core balance (trimul_tail.t1_pair_free;
+#                   RFD4 at 512 tokens on a p300c: trunk 1.015x)
 #   trimul_t1_c256  with trimul_t1, T1 also takes c_z = hidden = 256 (Protenix, ESMFold2) as two channel-group launches
 #                   of 16-row units (trimul_tail.T1_PLANS)
 #   trimul_t1_c384  with trimul_t1, T1 also takes c_z = hidden = 384 (OpenDDE) as three channel-group launches
