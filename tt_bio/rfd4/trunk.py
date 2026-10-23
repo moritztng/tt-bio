@@ -557,13 +557,29 @@ class PairUpdate(Module):
         """`__call__`, returning `(z, zb)`: the new pair and its `dtype` copy, which every residual
         write produces alongside the pair and the trunk's next pair bias reads."""
         xs = _as(x, self.dtype)
-        both = None
+        both = outer = None
         if (lever("pair_write_res") and self.pair_write == "hadamard" and mask is None
                 and (z.dtype == ttnn.float32 or lever("pair_bf16z"))):
             # no padded token: the Hadamard product is formed and added to the pair stream in one program
             pi, pj = self._factors(xs, mask)
             b, n, c = (int(d) for d in pj.shape)
-            both = outer_residual.outer_residual(z, pi, ttnn.reshape(pj, (b, n, 1, c)))
+            pj4 = ttnn.reshape(pj, (b, n, 1, c))
+            if (lever("pair_outer_fold") and z.dtype == ttnn.bfloat16 and pair_mask is None and b == 1
+                    and lever("pair_tail")):
+                # pair_outer_fold: z' = z + pj4 * pi4 is formed by tri_out's T1 and tail from z, never written
+                u = self.tri_out(z, None, stream32=z, outer=(pi, pj4))
+                if u is not None and self.tri_out.took_residual:
+                    both = (z, z)
+                    subs_from = 1
+                elif u is not None:   # z now holds z', the update is bare
+                    z_new, _ = _residual(z, u, self.residual_dtype, pair_mask_c, low=self.dtype)
+                    both = (z_new, z_new)
+                    subs_from = 1
+            if both is None:
+                both = outer_residual.outer_residual(z, pi, pj4)
+                subs_from = 0
+        else:
+            subs_from = 0
         if both is not None:
             z, zb = both
         else:
@@ -577,7 +593,7 @@ class PairUpdate(Module):
                 (lambda h: self._transition(h, pair_mask_c), True))
         # `pair_bf16z`: a bf16 stream is its own copy (zb is z), which the fused programs below write in place
         fused = zb is not z or lever("pair_bf16z")
-        for sub, own_mask in subs:
+        for sub, own_mask in subs[subs_from:]:
             u = None
             if not own_mask and pair_mask is None and fused and int(z.shape[0]) == 1 and lever("pair_tail"):
                 # no padded token: the triangle's output tail adds into the pair stream in the same program,
@@ -771,9 +787,10 @@ class Trunk(Module):
             pu = self.pair_updates.get(i)
             if pu is not None:
                 z_new, zb_new = pu.run(s, z, mask, pair_mask, pair_mask_c)
-                if zb is not z:
+                if zb is not z and zb is not zb_new:
                     ttnn.deallocate(zb)
-                ttnn.deallocate(z)
+                if z is not z_new:   # pair_outer_fold writes the stream in place
+                    ttnn.deallocate(z)
                 z, zb = z_new, zb_new
         if zb is not z:
             ttnn.deallocate(zb)
