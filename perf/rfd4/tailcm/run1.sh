@@ -2,7 +2,8 @@
 # tailcm run1: RFD4's pair_tail reading the contraction's channel-major output on the bf16 pair stream
 # (`pair_tail_cm`) on top of RFD4's default set. Paired traced trunk A/B at 512, 384 and 256
 # (perf/rfd4/bfp8/stack_ab.py, 30 reps, AICLK sampled during, z_equal = torch.equal on z after a pass), and at 512
-# the gather's row parts, P = 1 (base) against balance_split's P = 2 (stack), both under the lever.
+# legs pK_N: the gather's row parts forced to at least K (base) against balance_split's choice (stack), both under
+# the lever, at N tokens.
 #   perf/rfd4/tailcm/run1.sh <card> [legs]
 set -u
 W=$(cd "$(dirname "$0")/../../.." && pwd); O=$W/artifacts/tailcm/${RUN:-run1}; PY=$HOME/tt-bio-dev/env/bin/python
@@ -23,7 +24,7 @@ ab() { TT_BIO_TRACE_REGION_MB=512 timeout 2400 $PY perf/rfd4/bfp8/stack_ab.py --
 for leg in $LEGS; do
   case $leg in
     ab*) ab $leg ${leg#ab} --base $B --levers $S ;;
-    p1_512) ab $leg 512 --base $S --levers $S --base-set 'trimul_tail.T2CM_MIN_P=1' ;;
+    p*_*) p=${leg%_*}; ab $leg ${leg#*_} --base $S --levers $S --base-set "trimul_tail.T2CM_MIN_P=${p#p}" ;;
   esac
   rc=$?; stamp "$leg rc=$rc"
   [ "$leg" = ab256 ] && [ $rc != 0 ] && { stamp "ABORT: the lever does not run"; exit 4; }
