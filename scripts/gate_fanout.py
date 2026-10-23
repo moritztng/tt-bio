@@ -795,7 +795,10 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
                             ["PY", "scripts/release_gate.py", "--model", "size-ladder",
                              "--size-ladder-models", m, *how, "--size-ladder-baseline",
                              "{OUT}/size_ladder_baseline.json"], "record", workdir=True,
-                            setup="cp -r docs/size_ladder_baseline.json docs/size_ladder_baseline.d {OUT}/",
+                            # The tree's files can be frozen read-only (Galaxy dedupe); a plain cp
+                            # keeps that mode and the record then cannot write its own copy.
+                            setup="cp -r --no-preserve=mode docs/size_ladder_baseline.json "
+                                  "docs/size_ladder_baseline.d {OUT}/",
                             card_types=(ct,) if ct else ()))
     if record_abb3:
         legs.append(Leg(ABB3_LEG, ["PY", "-c", ABB3_RECORD, "{OUT}", "{SHA}", "{WORKER}", "{CARD_TYPE}",
