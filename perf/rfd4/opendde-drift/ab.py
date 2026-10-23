@@ -58,6 +58,7 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("arms", nargs="+", metavar="NAME=TREE")
     a = ap.parse_args()
+    a.out = a.out.resolve()
     arms = [x.split("=", 1) for x in a.arms]
     a.out.mkdir(parents=True, exist_ok=True)
     rows = a.out / "rows.jsonl"
@@ -75,7 +76,7 @@ def main():
                        "--diffusion_samples", "1", "--seed", "0", "--out_dir", str(od)]
                 t0 = time.time()
                 with open(a.out / f"{label}.log", "w") as fp, during() as clk:
-                    rc = subprocess.run(cmd, stdout=fp, stderr=subprocess.STDOUT, cwd=str(GATE_TREE)).returncode
+                    rc = subprocess.run(cmd, stdout=fp, stderr=subprocess.STDOUT, cwd=tree).returncode
                 dig, cif = cif_digest(od)
                 row = {"arm": name, "tree": tree, "rung": rung, "rep": rep, "rc": rc,
                        "wall_s": round(time.time() - t0, 1), "runtime_s": runtime_s(od),
