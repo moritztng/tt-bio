@@ -6460,6 +6460,13 @@ def _l1_memory_config_if_it_fits(t: ttnn.Tensor, headroom: float,
     return ttnn.DRAM_MEMORY_CONFIG
 
 
+def _l1_bank_share(shape, elem: int) -> int:
+    """Bytes per bank an L1-interleaved tensor of `shape` holds: its tiles dealt round-robin."""
+    tile = 1024 * elem
+    cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    return -(-(_padded_bytes(shape, elem) // tile) // cores) * tile
+
+
 def _padded_bytes(shape, elem: int) -> int:
     """Tile-padded size of a tensor of `shape` at `elem` bytes an element, 0 if it has no tiles.
 
@@ -6800,8 +6807,9 @@ def _trimul_ibw_full() -> bool:
 # carried across: the number above is Blackhole's own.
 @lru_cache(maxsize=None)
 def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False, sub: tuple = (1, 1),
-                                 l1_operands: bool = True,
+                                 l1_operands: bool = True, reserve: int = 0,
                                  ) -> ttnn.MatmulMultiCoreReuseMultiCastProgramConfig:
+    """`reserve` is the bytes per core already held in L1 under the plan's circular buffers."""
     gx, gy = COMPUTE_GRID_MAIN
     per_core_M = -(-seq_len_tiles // gy)
     per_core_N = -(-seq_len_tiles // gx)
@@ -6821,7 +6829,7 @@ def _triangle_mul_program_config(seq_len_tiles: int, full: bool = False, sub: tu
     # 1024 tokens on Wormhole asked 1774880 B against 1499136 (spd-orchestrator ladder, 10-08).
     # Priced whenever the deferral may be taken, so both variants share one block; it moves no
     # band width at any size from 256 to 2048 tokens on either arch.
-    budget = _matmul_cb_budget()
+    budget = _matmul_cb_budget() - reserve
     in0_block_w = _trimul_in0_block_w(seq_len_tiles, full)
     transposed = lambda w: 2 * w * per_core_M if _TRIMUL_MM_TRANSPOSE else 0
     while in0_block_w > 1 and _matmul_cb_bytes(in0_block_w, per_core_M, per_core_N, 2,
@@ -11190,12 +11198,24 @@ class TriangleMultiplication(Module):
                             compute_kernel_config=_trimul_bres_ckc(self.compute_kernel_config),
                             transpose_a=defer_a, transpose_b=defer_b, b8=lever("trimul_bres_b8"))
                     if x_chunk is None:
+                        # `program_config` is priced against an empty bank. An operand or the result
+                        # the tail put in L1 sits under its circular buffers, so the plan is re-priced
+                        # beside them: Blackhole 768 aa threw here on the template's full-K block over
+                        # its 64-channel `a` (thr6, buffer at 884736, CBs ending at 1051136). A plan
+                        # that fits beside them comes back unchanged.
+                        in_l1 = lambda t: t.memory_config().buffer_type == ttnn.BufferType.L1  # noqa: E731
+                        live = sum(_l1_bank_share(t.shape, 4 if t.dtype == ttnn.float32 else 2)
+                                   for t in (a_chunk, b_chunk) if in_l1(t))
+                        if out_mc.buffer_type == ttnn.BufferType.L1:
+                            live += _l1_bank_share(a_chunk.shape, 2)
                         x_chunk = ttnn.matmul(
                             a_chunk,
                             b_chunk,
                             compute_kernel_config=_trimul_einsum_ckc(self.compute_kernel_config),
                             memory_config=out_mc,
-                            program_config=program_config,
+                            program_config=program_config if not live else
+                            _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(),
+                                                         _trimul_subblock(), not large_seq, live),
                             dtype=ttnn.bfloat16,
                             transpose_a=defer_a,
                             transpose_b=defer_b,
