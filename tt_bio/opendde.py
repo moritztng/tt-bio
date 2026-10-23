@@ -17,7 +17,8 @@ device.
 import torch
 import ttnn
 
-from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, WS_CHAIN, _KeyedWeights
+from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN,
+                       TRIATT_LN_B8_FAST, WS_CHAIN, _KeyedWeights)
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -498,7 +499,12 @@ TRIATT_Q10 = frozenset({"triatt_q10"})
 # 640 133.10 -> 126.80 s (-4.7 %), 576 111.85 -> 109.76 s. The 10-18 normal grade (512-token set, before k1q) FAILed on iRMSD.
 # Graded on the shipped normal set (k1g, 11 complexes x 4 seeds, native size): PASS, same-seed top pose median 0.108 A
 # (A/A floor 1.273 A), iRMSD -0.145 [-0.359, -0.005], DockQ +0.003 [+0.000, +0.007], docking 27 -> 27 of 44.
+# Wormhole normal also takes the bfp8 q|k|v|gate out of triatt_ln (protenix.TRIATT_LN_B8_FAST), which pays off only at the
+# trunk's HiFi2: OpenDDE's c 384 runs ln_qkvgb_heads on two column groups, 640 x c384 at HiFi2 15.76 -> 11.05 ms a call
+# (spd-m-opendde lbg). Galaxy chip, 4 paired warm folds, AICLK 1000 MHz (lbn2): 288 -0.73 s (-2.5 %), 576 -7.90 s (-7.2 %),
+# 608 -1.59 s, 640 -7.60 s (-6.0 %). UNGRADED, 44-fold grade lbng running.
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1
+                 | TRIATT_LN_B8_FAST
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
 BH_NORMAL_LEVERS = _FAMILY_NORMAL
