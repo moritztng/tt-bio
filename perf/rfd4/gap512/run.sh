@@ -10,6 +10,7 @@ IN=$HOME/rfd4-inputs; W=$HOME/rfd4-bundle; BOOK="python3 $HOME/spd/feed/book.py"
 mkdir -p $R; R=$(cd $R && pwd)
 for arm in A P L; do t=$R/tree-$arm; [ -d $t ] && continue; sha=${!arm:-$A}; mkdir -p $t
   git -C $WT archive $sha | tar -x -C $t; echo $sha > $t/TREE; done
+for t in $R/tree-?; do cp $WT/perf/rfd4/gap512/split.py $t/perf/rfd4/gap512/split.py; done  # one tool, arms differ in tt_bio
 [ -f $R/tree-L/.patched ] || { (cd $R/tree-L && git apply perf/rfd4/gap512/lanes4-lever.patch) && touch $R/tree-L/.patched; }
 export TT_VISIBLE_DEVICES=$N TT_BIO_LEASE_CARDS=$N TT_BIO_LEASE_HOLDER=worker:$OWN
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" >> $R/done; }

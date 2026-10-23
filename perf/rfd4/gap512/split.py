@@ -104,10 +104,12 @@ def main():
     s = summarize(EV, a.designs, wall)
     s.update(width=a.width, width_achieved=engine.chunk_width, aiclk_mhz=cs.get("median"),
              aiclk_min_mhz=cs.get("min"), load1=round(os.getloadavg()[0], 2),
+             aiclk_mean_mhz=round(sum(clk.clocks.get(0) or [0]) / max(1, len(clk.clocks.get(0) or [])), 1),
              t=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     print(json.dumps(s), flush=True)
     (out / "timeline.json").write_text(json.dumps({"summary": s, "t0": t0,
-                                                   "events": [(l, x - t0, y - t0) for l, x, y in EV]}))
+                                                   "events": [(l, x - t0, y - t0) for l, x, y in EV],
+                                                   "aiclk": clk.clocks.get(0), "load": clk.load}))
 
 
 if __name__ == "__main__":
