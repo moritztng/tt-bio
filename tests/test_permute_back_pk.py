@@ -13,6 +13,8 @@ from tt_bio import permute_back_pk as PK
 from tt_bio import reblock_permute as RB
 from tt_bio import tenstorrent as T
 
+pytestmark = pytest.mark.device
+
 
 def _dev(t, dev):
     return ttnn.from_torch(t.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,
