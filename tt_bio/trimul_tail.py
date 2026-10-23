@@ -1660,7 +1660,7 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=Fa
         bf += [(21, il),         # the reader's a / b channel tile
                (25, 2 * nb)]     # the reader's gather staging
     if fg:
-        bf = [(i, 2 * t if i in (2, 21) else t) for i, t in bf if i not in (4, 5)]
+        bf = [(i, T1_FGD * t if i in (2, 21) else t) for i, t in bf if i not in (4, 5)]
     if b8 and il == 8:
         slots = qn // (2 if split else 1)
         bf += [(26, -(-slots // 2))] + ([(27, -(-slots // 2))] if split else [])
@@ -1686,6 +1686,7 @@ T1_G8_KEYS = {(12, 16, 12)}
 # packer sigmoid only: the mask multiply has no room in a 4-tile fp32 DST half. T1_FG forces it on for the benches.
 T1_FG = False
 T1_FG_KEYS = {(12, 16, 12)}
+T1_FGD = 2                        # channel tiles in each a / b CB under t1_fgate
 
 
 def t1_fgate(key, mask, fg=False):
@@ -1937,7 +1938,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
             alloc(shp[:-1] + [int(wgo.shape[-1])], ttnn.bfloat8_b if g8 else ttnn.bfloat16)]
     key = ("t1", str(x.padded_shape), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
