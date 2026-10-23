@@ -1430,7 +1430,8 @@ _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
 # `_heads_unpadded`'s three projections on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
 # `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
-# 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). False = core_grid as before.
+# 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Fold, 3 paired warm, CIFs identical:
+# OpenDDE n608 -0.29 s, f608 / n288 / Protenix-v2 f512 within noise. False = core_grid as before.
 _PWA_PROJ = True
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
