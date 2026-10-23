@@ -47,10 +47,13 @@ class DesignOutput:
 
 def auto_width(n_tokens: int) -> int:
     """The default sample width at `n_tokens`: the most designs whose pair rows together fit in one 512-token
-    design's, 4 at 256 tokens, 1 from 363, and at most 16, the widest graded (128 tokens). The trunk's triangle multiplication takes such a batch as one
-    call on the 512-token route (`pair_batch`): at 128 tokens a design costs 2.27 s at width 16 against 4.86 s
-    alone (p300c, ~1330 MHz). A width DRAM refuses narrows by itself."""
-    return min(16, max(1, 512 ** 2 // max(1, int(n_tokens)) ** 2))
+    design's, twice that below 256 tokens, and at most 16, the widest graded (128 tokens). That is 10 at 224, 4 at
+    256, 1 from 363. The trunk's triangle multiplication takes such a batch as one call on the 512-token route
+    (`pair_batch`): at 128 tokens a design costs 2.27 s at width 16 against 4.86 s alone (p300c, ~1330 MHz). Below
+    256 a call still pays per launch, so the doubled budget buys 1.056x a design at 224 and 1.024x at 192; from 384
+    a wider call is slower (traced trunk, p300c, 1275-1350 MHz). A width DRAM refuses narrows by itself."""
+    n = max(1, int(n_tokens))
+    return min(16, max(1, 512 ** 2 * (2 if n < 256 else 1) // n ** 2))
 
 
 @runtime_checkable
