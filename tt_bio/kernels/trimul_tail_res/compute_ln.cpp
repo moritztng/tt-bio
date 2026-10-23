@@ -47,7 +47,7 @@ constexpr uint32_t MOVED = get_compile_time_arg_val(7);
 constexpr uint32_t CP = get_compile_time_arg_val(8);
 // ABL (bench-only, trimul_tail.T2_ABL; 0 in every model path): bits that skip one stage's compute and
 // push its CB as is, so the stage's time drops out while the reader and writer move the same bytes.
-// 1 LayerNorm, 2 the p GEMM, 4 the gate GEMM + sigmoid (GATE), 8 the epilogue, 16 the epilogue's sigmoid (not GATE).
+// 1 LayerNorm (FOLD: the rstd stage), 2 the p GEMM, 4 the gate GEMM + sigmoid (GATE), 8 the epilogue, 16 the epilogue's sigmoid (not GATE).
 constexpr uint32_t ABL = get_compile_time_arg_val(9);
 // EXTRA (MOVED only, 0 for every caller before AF2): 1 a bias on p, 2 a bias on the GATE g, each as Nt
 // tiles with the bias row in all 32 rows (c_19, p first), copied into DST before the K accumulation;
@@ -233,7 +233,12 @@ void kernel_main() {
         constexpr uint32_t cb_a = FOLD ? cb_x : cb_ln;
         if constexpr (FOLD) {
             cb_wait_front(cb_x, Mb * Kt);
-            for (uint32_t mi = 0; mi < Mb; ++mi) fold_rstd_row(mi);
+            if constexpr (ABL & 1) {                                // rstd slots pushed uncomputed
+                cb_reserve_back(cb_rstd, Mb);
+                cb_push_back(cb_rstd, Mb);
+            } else {
+                for (uint32_t mi = 0; mi < Mb; ++mi) fold_rstd_row(mi);
+            }
         } else {
             for (uint32_t mi = 0; mi < Mb; ++mi) {
                 layer_norm_row();
