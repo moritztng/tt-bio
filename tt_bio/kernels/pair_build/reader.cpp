@@ -23,7 +23,8 @@ void kernel_main() {
     constexpr uint32_t NT = get_compile_time_arg_val(1);   // N / 32
     constexpr uint32_t KT = get_compile_time_arg_val(2);   // C / 32
     constexpr uint32_t NB = get_compile_time_arg_val(3);   // table rows (bins)
-    constexpr auto c_args = TensorAccessorArgs<4>();
+    constexpr uint32_t CU = get_compile_time_arg_val(4);   // units the constant holds: N * NT, or B * N * NT
+    constexpr auto c_args = TensorAccessorArgs<5>();
     constexpr auto t_args = TensorAccessorArgs<c_args.next_compile_time_args_offset()>();
     constexpr auto b_args = TensorAccessorArgs<t_args.next_compile_time_args_offset()>();
     constexpr auto s_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
@@ -77,7 +78,7 @@ void kernel_main() {
         cb_reserve_back(cb_c, KT);
         uint32_t wc = get_write_ptr(cb_c);
         for (uint32_t ct = 0; ct < KT; ++ct, wc += ts) {
-            noc_async_read_page(u * KT + ct, sc, wc);
+            noc_async_read_page((u % CU) * KT + ct, sc, wc);
         }
         // the scale and gathered tiles are built while the const reads are in flight
         cb_reserve_back(cb_s, 1);
