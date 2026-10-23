@@ -669,6 +669,8 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: loses its last mantissa bit. Paired traced trunk at 1350 MHz: 512 tokens 25.87 -> 24.32 s a design (1.064x), 256
 #: tokens 1.041x. 31 designs at 512: designed chain 5.1 A median against a 38.8 A seed floor, binder grade PASS
 #: (state/rfd4/bets/relu.md).
+#: `pair_bfp8z` (with `pair_bf16z`; not in the set): the pair stream as bfloat8_b, each write packed from the fp32 dest
+#: sum into 16-value blocks, so every z read or write is 1088 B a tile instead of 2048 (state/rfd4/bets/z8.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
@@ -701,7 +703,8 @@ class Trunk(Module):
         self.nlayers = nlayers
         self._levers = model_levers(normal=NORMAL_LEVERS, fast=FAST_LEVERS)
         self.pair_residual_dtype = pair_residual_dtype or (
-            ttnn.bfloat16 if "pair_bf16z" in self._levers else self.residual_dtype)
+            (ttnn.bfloat8_b if "pair_bfp8z" in self._levers else ttnn.bfloat16) if "pair_bf16z" in self._levers
+            else self.residual_dtype)
         with lever_scope(self._levers):   # a lever that picks a stored dtype is read at build
             self.blocks = [TrunkBlock(self.scope(f"transformer_layers.{i}"), ckc, n_heads, dtype=self.dtype,
                                       residual_dtype=self.residual_dtype)
@@ -760,6 +763,10 @@ class Trunk(Module):
         ttnn.deallocate(hb)
         if low is not None or (res_dtype == ttnn.bfloat16 and lever("pair_bf16z")):   # rounded to even
             return _residual(init, p, res_dtype, low=low)
+        if res_dtype == ttnn.bfloat8_b:   # pair_bfp8z: the sum rounded once into the blocks, not p first
+            out = ttnn.add(init, p, dtype=res_dtype)
+            ttnn.deallocate(p)
+            return out
         pr = _as(p, res_dtype)
         if pr is not p:
             ttnn.deallocate(p)
