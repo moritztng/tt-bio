@@ -101,7 +101,42 @@ def _masked_copy(x, mask, dtype, alias=False):
     return out
 
 
-class AdaptiveNorm(Module):
+#: The fused epilogues the token linears ask for, as ttnn's `linear(activation=...)` spells them.
+_TOKEN_ACT = {None: None, "silu": ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU),
+              "sigmoid": ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID, 4.0, 0.0)}   # vector mode RC, exact
+
+
+class TokenModule(Module):
+    """A token-track module. Under `token_mm2d` its linears take one key at every size: ttnn's 2D multicast on the
+    full grid, 4-tile K blocks. That is the plan ttnn picks itself for each of them at 512 tokens (bit-identical
+    there); at 256 its heuristic gives the transition's 768 -> 3072 pair 64 cores and runs it 1.9x slower
+    (state/rfd4/bets/k256.md)."""
+
+    def _lin(self, x, w, bias=None, dtype=None, activation=None, **kw):
+        from ..tenstorrent import COMPUTE_GRID_MAIN, mm_sigmoid, silu_ckc
+        ckc = self.compute_kernel_config
+        rows = 1
+        for d in x.shape[:-1]:
+            rows *= int(d)
+        mt, (kt, nt) = rows // 32, (int(d) // 32 for d in w.shape)
+        if kw or not lever("token_mm2d") or activation not in _TOKEN_ACT or int(x.shape[-2]) % 32 or kt % 4:
+            return super()._lin(x, w, bias=bias, dtype=dtype, activation=activation, **kw)
+        act = _TOKEN_ACT[activation]
+        if activation == "silu":
+            ckc = silu_ckc(ckc)
+        elif activation == "sigmoid" and not isinstance(mm_sigmoid(ckc), str):
+            act = mm_sigmoid(ckc)
+        gx, gy = COMPUTE_GRID_MAIN
+        pm, pn = -(-mt // gy), -(-nt // gx)
+        pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=4, out_subblock_h=1,
+            out_subblock_w=max(d for d in (4, 3, 2, 1) if pn % d == 0), out_block_h=pm, out_block_w=pn,
+            per_core_M=pm, per_core_N=pn, transpose_mcast=False, fused_activation=act, fuse_batch=True)
+        return ttnn.linear(x, w, bias=bias, program_config=pc, compute_kernel_config=ckc,
+                           dtype=ttnn.bfloat16 if dtype is None else dtype, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+
+
+class AdaptiveNorm(TokenModule):
     """`AdaptiveLayerNorm`: norm(x) * sigmoid(W_g norm_c(c) + b_g) + W_b norm_c(c), then mask.
 
     `self.norm` has no elementwise weight; `norm_cond` does, and it is folded into both
@@ -137,7 +172,7 @@ class AdaptiveNorm(Module):
         return _mul_mask(out, mask)
 
 
-class AdaptiveScale(Module):
+class AdaptiveScale(TokenModule):
     """`AdaptiveOutputScale`: x * sigmoid(W c + b) * mask. The bias trains to -2, so this gates
     a freshly initialised block almost shut; at inference it is an ordinary per-channel gate. The
     sigmoid runs in the matmul's epilogue."""
@@ -155,7 +190,7 @@ class AdaptiveScale(Module):
         return out
 
 
-class Transition(Module):
+class Transition(TokenModule):
     """`Transition` with `layer_norm=False`: linear_out(silu(gates) * x), where x and gates
     are the two halves of one [dim -> 2 * dim_inner] projection. Upstream masks the output; here
     the adaptive scale after it does, which multiplies by the same 0/1 mask.
@@ -225,7 +260,7 @@ def pair_biases(zb, w, mask_scaled, ckc, dtype):
     return out
 
 
-class PairBiasAttention(Module):
+class PairBiasAttention(TokenModule):
     """`PairBiasAttention`: RMSNorm, packed QKV with bias, optional QK norm over the packed head
     axis, pair-bias from RMSNorm(z), sigmoid gate, output projection.
 
