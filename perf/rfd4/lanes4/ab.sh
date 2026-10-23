@@ -1,9 +1,9 @@
 #!/bin/bash
 # rfd4-perf-lanes4 paired A/B on one qb2 chip: A = origin/main, B = branch (next lane launched before the heads).
 # Two ABAB rounds of 32 designs a size at 256 w4 and 128 w16 (perf/rfd4/b128/designs.py), then one split.py a side at 256.
-#   bash ab.sh <chip> <outdir> <sha_A> <sha_B>
+#   bash ab.sh <chip> <outdir> <sha_A> <sha_B> [first_round last_round split]   (default 1 2 1)
 set -u
-N=$1; R=$2; A=$3; B=$4
+N=$1; R=$2; A=$3; B=$4; R0=${5:-1}; R1=${6:-2}; SPLIT=${7:-1}
 WT=/home/ttuser/.coworker/wt/rfd4-perf-lanes4
 PY=$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python
 IN=$HOME/rfd4-inputs; W=$HOME/rfd4-bundle
@@ -19,10 +19,10 @@ leg() { arm=$1 n=$2 w=$3 seed=$4; t=$R/tree-$arm; o=$R/r$5-$arm-n$n
 exec 9>"$HOME/spd_qb2_chip$N.lock"; flock -w 14400 9 || { stamp "flock timeout"; exit 3; }
 while fuser "/dev/tenstorrent/$N" > /dev/null 2>&1; do sleep 20; done
 stamp "start chip $N A=$A B=$B"
-for r in 1 2; do s=$(( (r-1)*100 ))
+for r in $(seq $R0 $R1); do s=$(( (r-1)*100 ))
   leg A 256 4 $s $r; leg B 256 4 $s $r; leg A 128 16 $s $r; leg B 128 16 $s $r
 done
-for arm in A B; do t=$R/tree-$arm
+[ "$SPLIT" = 1 ] && for arm in A B; do t=$R/tree-$arm
   (cd $t && PYTHONPATH=$t:$t/perf timeout 1800 $PY perf/rfd4/lanes4/split.py --spec $IN/pdl1-256.yaml --weights $W \
      --out $R/split-$arm-n256 --width 4 --designs 32) > $R/split-$arm-n256.log 2>&1
   stamp "split-$arm rc=$?"
