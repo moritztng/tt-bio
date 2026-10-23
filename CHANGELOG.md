@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-10-23
+
 ### Fixed
 - **A job that hangs its worker no longer walks the whole fleet.** If two workers in turn stop heartbeating
   on the same job, the controller fails it with an error saying so instead of handing it to a third

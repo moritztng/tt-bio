@@ -2,26 +2,26 @@
   "assembled_by": "scripts/release_gate.py --model size-ladder",
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-21",
-      "host": "UF-EV-A5-GWH02",
-      "commit": "a2b7938f1",
+      "recorded": "2026-10-23",
+      "host": "UF-EV-A2-GWH01",
+      "commit": "437a23413",
       "host_threads": 2,
       "models": {
         "esmfold2": {
           "grid": "8x9",
-          "recorded": "2026-10-21",
-          "host": "UF-EV-A5-GWH02",
-          "commit": "a2b7938f1",
+          "recorded": "2026-10-23",
+          "host": "UF-EV-A2-GWH01",
+          "commit": "437a23413",
           "host_threads": 2,
           "runtime_s": {
-            "256": 20.0,
-            "512": 32.6,
-            "640": 44.2,
-            "768": 65.0,
-            "896": 80.3,
-            "1024": 105.9,
-            "1280": 319.7,
-            "1536": 583.7
+            "256": 14.1,
+            "512": 31.5,
+            "640": 44.5,
+            "768": 64.0,
+            "896": 81.1,
+            "1024": 104.2,
+            "1280": 318.4,
+            "1536": 579.4
           },
           "levers": {
             "256": {
@@ -80,15 +80,11 @@
                 "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached."
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 9312,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 9312
-                },
-                "reason": "dtype, not size, and it cannot fire on this card type at ANY rung. `mm_dualnoc.in_proj` rejects unless output, activation and weight dtypes are all bfloat16 (tt_bio/mm_dualnoc.py:81); `_dtype()` returns bfloat8_b whenever `_FAST_MODE` (tt_bio/tenstorrent.py:579); and tt_bio/main.py:2733 forces --fast for esmfold2 on Wormhole, because ESMC-6B in normal precision needs ~12.8 GB against a ~12 GB chip. So the clause is `dtype` at 100 % of calls at every rung, and the production drop-in 60-p2-levers-off.conf that sets TT_BIO_TRIMUL_DUAL_NOC=0 cannot change a single call on this model."
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -165,24 +161,26 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 9312,
+                "served": 1164,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 18624,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: the gated channel move is not offered on this model's pair track [carried from p300c]"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 18624,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c]"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -2506,41 +2504,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              20.0,
-              20.2,
-              19.9,
-              19.8,
-              20.8
+              14.1,
+              14.1,
+              14.2,
+              14.1,
+              13.9
             ],
             "512": [
-              32.3,
-              32.6,
-              33.1,
-              32.3,
-              32.8
+              31.5,
+              30.8,
+              30.9,
+              31.7,
+              33.7
             ],
             "640": [
-              44.2
+              44.5
             ],
             "768": [
-              65.0
+              64.0
             ],
             "896": [
-              80.3
+              81.1
             ],
             "1024": [
-              105.9
+              104.2
             ],
             "1280": [
-              319.7
+              318.4
             ],
             "1536": [
-              583.7
+              579.4
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "8",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2550,10 +2548,10 @@
                 1000,
                 1000
               ],
-              "n": 142
+              "n": 126
             },
             "512": {
-              "card": "1",
+              "card": "8",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2563,19 +2561,19 @@
                 1000,
                 1000
               ],
-              "n": 149
+              "n": 146
             },
             "640": {
-              "card": "1",
+              "card": "8",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 31
+              "n": 33
             },
             "768": {
-              "card": "1",
+              "card": "8",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2584,16 +2582,16 @@
               "n": 34
             },
             "896": {
-              "card": "1",
+              "card": "8",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 36
+              "n": 37
             },
             "1024": {
-              "card": "1",
+              "card": "8",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2602,79 +2600,79 @@
               "n": 42
             },
             "1280": {
-              "card": "1",
+              "card": "8",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 84
+              "n": 83
             },
             "1536": {
-              "card": "1",
+              "card": "8",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 130
+              "n": 135
             }
           },
           "load": {
             "256": {
-              "max": 0.59,
+              "max": 0.54,
               "rep_median": [
-                0.45,
-                0.5,
                 0.51,
-                0.54,
+                0.52,
+                0.52,
+                0.52,
                 0.5
               ]
             },
             "512": {
-              "max": 0.66,
+              "max": 0.8,
               "rep_median": [
-                0.59,
-                0.51,
-                0.49,
-                0.57,
-                0.6
+                0.52,
+                0.53,
+                0.5,
+                0.56,
+                0.74
               ]
             },
             "640": {
-              "max": 0.54,
+              "max": 0.77,
               "rep_median": [
-                0.5
+                0.67
               ]
             },
             "768": {
-              "max": 0.52,
+              "max": 0.59,
               "rep_median": [
-                0.48
+                0.55
               ]
             },
             "896": {
-              "max": 0.58,
+              "max": 0.64,
               "rep_median": [
                 0.5
               ]
             },
             "1024": {
-              "max": 0.55,
+              "max": 0.58,
               "rep_median": [
-                0.53
+                0.55
               ]
             },
             "1280": {
-              "max": 0.56,
+              "max": 0.91,
               "rep_median": [
-                0.42
+                0.7
               ]
             },
             "1536": {
-              "max": 0.66,
+              "max": 0.55,
               "rep_median": [
-                0.5
+                0.51
               ]
             }
           },
@@ -2683,17 +2681,16 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0312,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.0258,
-              "radius_of_gyration_A": 67.921,
-              "plddt_mean": 0.28089,
+              "ca_ca_median_A": 81.3206,
+              "radius_of_gyration_A": 68.006,
+              "plddt_mean": 0.283002,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.026 A outside [3.6, 4.0]",
+                "median CA-CA 81.321 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 67.9 A outside [9.0, 45.2]"
+                "radius of gyration 68.0 A outside [9.0, 45.2]"
               ]
             },
             "512": {
@@ -2815,29 +2812,29 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0105,
+          "sigma_runtime_512": 0.0369,
           "exponents": {
             "256->512": {
-              "k": 0.705,
+              "k": 1.16,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.702,
+              "k": 1.748,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0197,
-            "512": 0.0105
+            "256": 0.0078,
+            "512": 0.0369
           },
           "exponents_measured": {
-            "256->512": 0.705,
-            "512->640": 1.364,
-            "640->768": 2.115,
-            "768->896": 1.371,
-            "896->1024": 2.072,
-            "1024->1280": 4.951,
-            "1280->1536": 3.302
+            "256->512": 1.16,
+            "512->640": 1.548,
+            "640->768": 1.993,
+            "768->896": 1.536,
+            "896->1024": 1.877,
+            "1024->1280": 5.006,
+            "1280->1536": 3.284
           }
         }
       }

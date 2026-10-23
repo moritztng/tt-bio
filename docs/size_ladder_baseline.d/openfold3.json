@@ -5793,26 +5793,26 @@
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-21",
-      "host": "UF-EV-A5-GWH02",
-      "commit": "a2b7938f1",
+      "recorded": "2026-10-23",
+      "host": "UF-EV-A2-GWH01",
+      "commit": "437a23413",
       "host_threads": 2,
       "models": {
         "openfold3": {
           "grid": "8x9",
-          "recorded": "2026-10-21",
-          "host": "UF-EV-A5-GWH02",
-          "commit": "a2b7938f1",
+          "recorded": "2026-10-23",
+          "host": "UF-EV-A2-GWH01",
+          "commit": "437a23413",
           "host_threads": 2,
           "runtime_s": {
-            "256": 17.3,
-            "512": 19.9,
-            "640": 29.1,
+            "256": 8.6,
+            "512": 20.0,
+            "640": 29.0,
             "768": 42.3,
-            "896": 54.8,
-            "1024": 71.6,
-            "1280": 158.9,
-            "1536": 249.6
+            "896": 55.3,
+            "1024": 72.7,
+            "1280": 155.7,
+            "1536": 248.7
           },
           "levers": {
             "256": {
@@ -5874,14 +5874,10 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 1728,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "memory": 1728
-                },
-                "reason": "declines all 1728 calls on memory x1728: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size [carried from p150a]"
+                "served": 440,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -5932,14 +5928,10 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "k_tiles=2": 16,
-                  "k_tiles=4": 424
-                },
-                "reason": "declines all 440 calls on k_tiles=4 x424, k_tiles=2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -5965,21 +5957,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1728,
+                "served": 440,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 3456,
+                "served": 880,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 3456,
+                "served": 880,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -8369,53 +8361,53 @@
           },
           "runtime_reps_s": {
             "256": [
-              17.3,
-              23.6,
-              18.9,
-              17.3,
-              10.8
+              9.1,
+              8.7,
+              8.6,
+              8.5,
+              8.5
             ],
             "512": [
-              19.9,
               20.0,
-              19.8,
               20.2,
-              19.9
+              19.7,
+              20.1,
+              20.0
             ],
             "640": [
-              29.1,
-              30.1,
-              29.0
+              28.8,
+              29.0,
+              30.1
             ],
             "768": [
-              43.4,
               42.0,
+              42.3,
               42.3
             ],
             "896": [
-              60.6,
-              54.5,
-              54.8
+              55.3,
+              55.4,
+              55.2
             ],
             "1024": [
-              75.6,
-              71.0,
-              71.6
+              72.7,
+              73.6,
+              72.4
             ],
             "1280": [
-              157.3,
-              161.4,
-              158.9
+              156.1,
+              154.1,
+              155.7
             ],
             "1536": [
-              249.6,
-              249.2,
-              252.0
+              248.7,
+              249.3,
+              248.4
             ]
           },
           "aiclk": {
             "256": {
-              "card": "21",
+              "card": "16",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8425,10 +8417,10 @@
                 1000,
                 1000
               ],
-              "n": 43
+              "n": 37
             },
             "512": {
-              "card": "21",
+              "card": "16",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8441,7 +8433,7 @@
               "n": 45
             },
             "640": {
-              "card": "21",
+              "card": "16",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8449,10 +8441,10 @@
                 1000,
                 1000
               ],
-              "n": 37
+              "n": 33
             },
             "768": {
-              "card": "21",
+              "card": "16",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8460,10 +8452,10 @@
                 1000,
                 1000
               ],
-              "n": 41
+              "n": 39
             },
             "896": {
-              "card": "21",
+              "card": "16",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8471,10 +8463,10 @@
                 1000,
                 1000
               ],
-              "n": 47
+              "n": 48
             },
             "1024": {
-              "card": "21",
+              "card": "16",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8482,10 +8474,10 @@
                 1000,
                 1000
               ],
-              "n": 55
+              "n": 58
             },
             "1280": {
-              "card": "21",
+              "card": "16",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8496,7 +8488,7 @@
               "n": 104
             },
             "1536": {
-              "card": "21",
+              "card": "16",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8504,76 +8496,76 @@
                 1000,
                 1000
               ],
-              "n": 158
+              "n": 168
             }
           },
           "load": {
             "256": {
-              "max": 0.54,
+              "max": 0.77,
               "rep_median": [
-                0.48,
-                0.45,
-                0.45,
-                0.5,
-                0.51
+                0.75,
+                0.69,
+                0.68,
+                0.66,
+                0.59
               ]
             },
             "512": {
-              "max": 0.58,
+              "max": 0.61,
               "rep_median": [
-                0.48,
-                0.5,
-                0.52,
-                0.54,
-                0.56
+                0.53,
+                0.55,
+                0.55,
+                0.58,
+                0.55
               ]
             },
             "640": {
-              "max": 0.52,
+              "max": 0.62,
               "rep_median": [
                 0.49,
                 0.48,
-                0.49
+                0.53
               ]
             },
             "768": {
               "max": 0.64,
               "rep_median": [
-                0.61,
-                0.47,
-                0.48
+                0.59,
+                0.54,
+                0.51
               ]
             },
             "896": {
-              "max": 0.64,
+              "max": 0.59,
               "rep_median": [
-                0.59,
-                0.47,
-                0.46
+                0.53,
+                0.56,
+                0.56
               ]
             },
             "1024": {
-              "max": 0.58,
+              "max": 0.83,
               "rep_median": [
-                0.49,
-                0.5,
-                0.5
+                0.73,
+                0.78,
+                0.61
               ]
             },
             "1280": {
-              "max": 0.66,
+              "max": 0.92,
               "rep_median": [
-                0.62,
-                0.49,
-                0.53
+                0.8,
+                0.69,
+                0.75
               ]
             },
             "1536": {
-              "max": 0.62,
+              "max": 0.7,
               "rep_median": [
+                0.54,
                 0.51,
-                0.52,
-                0.56
+                0.43
               ]
             }
           },
@@ -8712,30 +8704,30 @@
               ]
             }
           },
-          "reps": 3,
-          "sigma_runtime_512": 0.0076,
+          "reps": 1,
+          "sigma_runtime_512": 0.0094,
           "exponents": {
             "256->512": {
-              "k": 0.202,
-              "tol": 0.652
+              "k": 1.218,
+              "tol": 0.5
             },
             "512->768": {
-              "k": 1.86,
+              "k": 1.847,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.2608,
-            "512": 0.0076
+            "256": 0.0287,
+            "512": 0.0094
           },
           "exponents_measured": {
-            "256->512": 0.202,
-            "512->640": 1.703,
-            "640->768": 2.052,
-            "768->896": 1.68,
-            "896->1024": 2.003,
-            "1024->1280": 3.572,
-            "1280->1536": 2.477
+            "256->512": 1.218,
+            "512->640": 1.665,
+            "640->768": 2.07,
+            "768->896": 1.738,
+            "896->1024": 2.049,
+            "1024->1280": 3.413,
+            "1280->1536": 2.569
           }
         }
       }
