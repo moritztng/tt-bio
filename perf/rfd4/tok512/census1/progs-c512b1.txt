@@ -1,0 +1,26 @@
+token side n=512 b=1 AICLK {'0': {'min': 1350, 'max': 1350, 'median': 1350, 'n': 1}}: 2.268 s/design, floor 0.986
+token_transition MatmulDeviceOperation     0.260 fl  0.100 x2.6 n28 c88 | MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x3072 BFLOAT16 ; output_0 1x1x512x3072 BFLOAT16
+attention        SDPAOperation             0.246 fl  0.055 x4.51 n14 c110 | SDPA/11x10/q256k256 | HiFi4 | input_0 1x12x512x64 BFLOAT16 ; input_1 1x12x512x64 BFLOAT16 ; input_2 1x12x512x64 BFLOAT16 ; input_3 1x12x512x512 BFLOAT16 ; output_0 1x12x5
+recycle          MatmulDeviceOperation     0.242 fl  0.111 x2.18 n1 c110 | MatmulMultiCoreReuseMultiCast1D/11x10 | HiFi4 | input_0 1x512x512x384 BFLOAT16 ; input_1 1x1x384x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT16
+attention        MatmulDeviceOperation     0.224 fl  0.080 x2.82 n70 c64 | MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+recycle          BinaryNgDeviceOperation   0.117 fl  0.114 x1.03 n1 c110 |  | HiFi4 | input_0 1x512x512x384 BFLOAT8_B ; input_1 1x512x512x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT8_B
+attention        LayerNormDeviceOperation  0.112 fl  0.027 x4.11 n42 c16 |  | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+token_transition MatmulDeviceOperation     0.104 fl  0.050 x2.09 n14 c64 | MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x3072 BFLOAT16 ; input_1 1x1x3072x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+adaln            MatmulDeviceOperation     0.099 fl  0.017 x5.9 n28 c64 | MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x256 BFLOAT16 ; input_1 1x1x256x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+ada_scale        MatmulDeviceOperation     0.098 fl  0.017 x5.9 n28 c64 | MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x256 BFLOAT16 ; input_1 1x1x256x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+adaln            BinaryNgDeviceOperation   0.094 fl  0.055 x1.73 n56 c110 |  | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+recycle          LayerNormDeviceOperation  0.084 fl  0.059 x1.42 n1 c110 |  | HiFi4 | input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x1x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT8_B
+attention        NlpCreateHeadsDeviceOper  0.082 fl  0.027 x3.01 n14 c16 |  |  | input_0 1x1x512x2304 BFLOAT16 ; output_0 1x12x512x64 BFLOAT16 ; output_1 1x12x512x64 BFLOAT16 ; output_2 1x12x512x64 BFLOAT16
+adaln            LayerNormDeviceOperation  0.063 fl  0.018 x3.44 n28 c16 |  | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+token_transition BinaryNgDeviceOperation   0.060 fl  0.055 x1.11 n14 c110 |  | HiFi4 | input_0 1x1x512x3072 BFLOAT16 ; input_1 1x1x512x3072 BFLOAT16 ; output_0 1x1x512x3072 BFLOAT16
+ada_scale        BinaryNgDeviceOperation   0.049 fl  0.027 x1.81 n28 c110 |  | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+adaln            MatmulDeviceOperation     0.045 fl  0.017 x2.72 n28 c64 | MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x256 BFLOAT16 ; input_1 1x1x256x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+residual         BinaryNgDeviceOperation   0.044 fl  0.027 x1.63 n14 c110 |  | HiFi4 | input_0 1x1x512x768 FLOAT32 ; input_1 1x1x512x768 FLOAT32 ; output_0 1x1x512x768 FLOAT32
+residual         GenericOpDeviceOperation  0.038 fl  0.027 x1.4 n14 c110 |  | HiFi4 | input_0 1x1x512x768 FLOAT32 ; input_1 1x1x512x768 BFLOAT16 ; input_2 1x1x512x768 BFLOAT16 ; input_3 1x1x512x768 FLOAT32
+cast             TypecastDeviceOperation   0.035 fl  0.021 x1.67 n22 c110 |  | HiFi4 | input_0 1x1x512x768 FLOAT32 ; output_0 1x1x512x768 BFLOAT16
+attention        ConcatDeviceOperation     0.033 fl  0.027 x1.21 n14 c110 |  |  | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; input_2 1x1x512x768 BFLOAT16 ; output_0 1x1x512x2304 BFLOAT16
+pair_factors     MatmulDeviceOperation     0.032 fl  0.010 x3.16 n14 c48 | MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x384 BFLOAT16 ; output_0 1x1x512x384 BFLOAT16
+attention        NLPConcatHeadsDeviceOper  0.030 fl  0.009 x3.27 n14 c16 |  |  | input_0 1x12x512x64 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+pair_factors     LayerNormDeviceOperation  0.025 fl  0.005 x5.39 n7 c16 |  | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+attention        BinaryNgDeviceOperation   0.024 fl  0.014 x1.76 n14 c110 |  | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16
+cast             TypecastDeviceOperation   0.021 fl  0.014 x1.44 n15 c110 |  | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 FLOAT32
