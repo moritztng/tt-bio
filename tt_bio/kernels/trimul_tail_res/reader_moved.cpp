@@ -139,7 +139,7 @@ void kernel_main() {
             uint32_t page = it * St + jt, dst = stage;
             const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
             if constexpr (T2_SBIG) {
-                constexpr uint32_t NR = Clt * 32 * STAGE_TILE / T2_SBIG;
+                constexpr uint32_t NR = Clt * 32 * STAGE_TILE / (T2_SBIG ? T2_SBIG : 1);
                 for (uint32_t k = 0; k < NR; ++k) {
                     noc_async_read(sx.get_noc_addr((u * NR + k) % 2048), stage + k * T2_SBIG, T2_SBIG);
                 }
