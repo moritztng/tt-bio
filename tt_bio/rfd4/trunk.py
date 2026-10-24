@@ -704,12 +704,19 @@ SDPA_FILL = True
 #: never rounded to bf16 (unmasked calls at c_z 384). Paired traced trunk with pair_bfp8z: 512 tokens 22.15 -> 21.71 s
 #: a design (1.021x, 1350 MHz, two readings), 384 1.022x, 256 1.036x. z rel RMS vs float64 unchanged (0.053 at 512).
 #: 31 designs at 512: designed chain 2.50 A median against a 39.1 A seed floor, binder grade PASS (state/rfd4/bets/t1dm.md).
+#: The token side: `tok_w8` runs the token transition and attention projections on bfp8 weights at HiFi2,
+#: `tok_recycle_mm` the pair recycle projection on minimal_matmul (2072 -> 1416 us at 512), `dit_sigf32` every fused
+#: sigmoid on the fp32-dest one. With SDPA_FILL, paired traced trunk at 1300-1350 MHz: 512 tokens 1.0147x, 224 1.025x,
+#: 256 1.023x, 128 1.033x; whole design at 512 1.012x. z rel RMS vs float64 0.050 -> 0.052 at 512 and 224. 31 designs:
+#: designed chain 5.7 A median against a 40.0 A seed floor at 512, 3.1 against 21.4 at 224, binder grade PASS at both
+#: (state/rfd4/bets/tok512.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
                            "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
-                           "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t"})
+                           "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
+                           "tok_recycle_mm", "dit_sigf32", "tok_w8"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
