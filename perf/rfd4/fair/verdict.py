@@ -27,15 +27,38 @@ from collections import defaultdict
 from pathlib import Path
 
 SIZES = (128, 256, 512)
+# Realistic binder sizes (rfd4-size-typical, state/rfd4/SIZE-TYPICAL.md): reported in their own table, never
+# part of the gate, which stays defined on SIZES.
+TYPICAL = (192, 224, 320)
 BAR = 3.00
 MIN_BATCHES = 5
 GALAXY_CHIPS, GALAXY_USD = 32, 160000
 DGX_GPUS, DGX_USD = 8, 562154
+# The same eight B200s in an HGX chassis (rfd4-gpu-fair2, state/rfd4/GPU-AUDIT.md): every ratio/$ divides by this.
+HGX_USD = 384228
+HGX_FACTOR = DGX_USD / HGX_USD  # 1.4631
 PER_CHIP = (GALAXY_CHIPS / GALAXY_USD) / (DGX_GPUS / DGX_USD)  # 14.054
 
 
 def ratio(tt, gpu):
     return (GALAXY_CHIPS * tt / GALAXY_USD) / (DGX_GPUS * gpu / DGX_USD)
+
+
+def r_sys(tt, gpu):
+    """Raw throughput, 32 chips against 8 GPUs, no prices. "Matches a DGX B200" is r_sys >= 1, i.e. ratio >= 3.5135."""
+    return GALAXY_CHIPS * tt / (DGX_GPUS * gpu)
+
+
+def crossing(cells):
+    """Token count where r_sys crosses 1.00, interpolated linearly in log(r_sys) between the two measured sizes
+    that bracket it. None when no adjacent pair brackets 1.00."""
+    import math
+    pts = sorted((s, c["r_sys"]) for s, c in cells.items() if c.get("r_sys"))
+    for (s0, r0), (s1, r1) in zip(pts, pts[1:]):
+        if (r0 - 1) * (r1 - 1) <= 0 and r0 != r1:
+            f = math.log(r0) / (math.log(r0) - math.log(r1))
+            return {"tokens": round(s0 + f * (s1 - s0)), "between": [s0, s1], "r_sys": [r0, r1]}
+    return None
 
 
 HISTORY = "## Earlier verdicts"
@@ -95,7 +118,7 @@ def tt_side(paths, repo):
             elif r.get("kind") == "warm" and r.get("phase") == "measure":
                 rejected[why.split(":")[0]] += 1
     per = {}
-    for size in SIZES:
+    for size in SIZES + TYPICAL:
         runs = defaultdict(list)
         for r in lines:
             if r["size"] == size:
@@ -154,6 +177,7 @@ def main():
     ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[3]))
     ap.add_argument("--deck", help="default <state>/../biodeck/src/extra_cells.json")
     ap.add_argument("--firmware", required=True, help="the card's firmware bundle during the runs, e.g. 19.8.1 (130-core)")
+    ap.add_argument("--row", help="also write rows/<ROW>.json: every measured size, gated and realistic, with r_sys")
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
     state = Path(a.state)
@@ -161,14 +185,15 @@ def main():
 
     tt, rejected = tt_side(a.runs, a.repo)
     gpu = gpu_side(gpu_path)
-    sizes = {}
-    for s in SIZES:
+    sizes, typical = {}, {}
+    for s in SIZES + TYPICAL:
         t, g = tt.get(s), gpu.get(s)
         cell = {"tt": t and {k: v for k, v in t.items() if k != "lines"}, "b200": g}
         if t and g:
             cell["ratio"] = round(ratio(t["designs_per_s"], g["designs_per_s"]), 3)
+            cell["r_sys"] = round(r_sys(t["designs_per_s"], g["designs_per_s"]), 3)
             cell["p150a_share_of_b200"] = round(t["designs_per_s"] / g["designs_per_s"], 4)
-        sizes[s] = cell
+        (sizes if s in SIZES else typical)[s] = cell
     ratios = [c.get("ratio") for c in sizes.values()]
     if all(r is not None for r in ratios):
         verdict = "PASS" if min(ratios) >= BAR else "FAIL"
@@ -179,30 +204,56 @@ def main():
     out = {"verdict": verdict, "bar": BAR, "per_chip_factor": round(PER_CHIP, 3),
            "formula": "(32 x designs_s_p150a / 160000) / (8 x designs_s_b200 / 562154)",
            "p150a_firmware": a.firmware,
-           "sizes": sizes, "tt_rejected_measure_lines": rejected,
+           "sizes": sizes, "realistic_binder_sizes": typical,
+           "r_sys_formula": "32 x designs_s_p150a / (8 x designs_s_b200) = ratio / 3.5135; >= 1.00 matches a DGX B200",
+           "r_sys_crossing": crossing({**sizes, **typical}), "tt_rejected_measure_lines": rejected,
            "b200_source": str(gpu_path), "b200_complete": all(s in gpu for s in SIZES) and not gpu_short,
            "written": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
-    ev = [evidence_line(r) for s in SIZES if s in tt for r in tt[s]["lines"]]
+    ev = [evidence_line(r) for s in SIZES + TYPICAL if s in tt for r in tt[s]["lines"]]
+    gated = {s: v for s, v in tt.items() if s in SIZES}
     fair = fair_md(out)
     row = {"status": "done" if verdict in ("PASS", "FAIL") and out["b200_complete"] else "running",
-           "part": "p150a", "firmware": a.firmware, "host": sorted({t["host"] for t in tt.values()}),
-           "card": sorted({t["card"] for t in tt.values()}), "sizes": list(SIZES),
-           "designs_per_s": {s: tt[s]["designs_per_s"] for s in tt},
-           "aiclk_mhz": {s: tt[s]["aiclk_mhz"] for s in tt},
+           "part": "p150a", "firmware": a.firmware, "host": sorted({t["host"] for t in gated.values()}),
+           "card": sorted({t["card"] for t in gated.values()}), "sizes": list(SIZES),
+           "designs_per_s": {s: tt[s]["designs_per_s"] for s in gated},
+           "aiclk_mhz": {s: tt[s]["aiclk_mhz"] for s in gated},
            "host_load": {s: {"foreign_cores_median_max": tt[s]["foreign_cores_median"],
-                             "load_per_core_median_max": tt[s]["host_load_per_core_median"]} for s in tt},
-           "main_sha": {s: tt[s]["sha"] for s in tt},
-           "b200_reference": {s: gpu[s] for s in gpu},
+                             "load_per_core_median_max": tt[s]["host_load_per_core_median"]} for s in gated},
+           "main_sha": {s: tt[s]["sha"] for s in gated},
+           "b200_reference": {s: gpu[s] for s in gpu if s in SIZES},
            "ratio": {s: c.get("ratio") for s, c in sizes.items()}, "verdict": verdict,
            "updated": out["written"]}
+    allm = {**sizes, **typical}
+    meas = {s: tt[s] for s in sorted(allm) if s in tt}
+    full = {"status": "done" if out["b200_complete"] and all(allm[s].get("ratio") for s in meas) else "running",
+            "part": "p150a", "fw": a.firmware, "host": sorted({t["host"] for t in meas.values()}),
+            "card": sorted({t["card"] for t in meas.values()}), "sizes": list(meas),
+            "designs_per_s": {s: t["designs_per_s"] for s, t in meas.items()},
+            "batch": {s: t["batch"] for s, t in meas.items()},
+            "lane_width": {s: t["lane_width"] for s, t in meas.items()},
+            "n_clean": {s: t["batches"] for s, t in meas.items()},
+            "aiclk_mhz": {s: t["aiclk_mhz"] for s, t in meas.items()},
+            "aiclk_min_mhz": {s: t["aiclk_min_mhz"] for s, t in meas.items()},
+            "host_load": {s: {"foreign_cores_median_max": t["foreign_cores_median"],
+                              "load_per_core_median_max": t["host_load_per_core_median"]} for s, t in meas.items()},
+            "main_sha": {s: t["sha"] for s, t in meas.items()},
+            "raw": {s: t["raw"] for s, t in meas.items()},
+            "b200_reference": {s: allm[s]["b200"] for s in meas},
+            "ratio": {s: allm[s].get("ratio") for s in meas},
+            "ratio_hgx": {s: allm[s].get("ratio") and round(allm[s]["ratio"] / HGX_FACTOR, 3) for s in meas},
+            "r_sys": {s: allm[s].get("r_sys") for s in meas},
+            "r_sys_crossing": out["r_sys_crossing"], "verdict": verdict, "verdict_written": out["written"]}
     if a.dry:
         print(json.dumps(out, indent=1, default=str))
+        print(json.dumps(full, indent=1, default=str))
         print(fair)
         return
     (state / "evidence" / "tt-p150a.jsonl").write_text("".join(json.dumps(x) + "\n" for x in ev))
     (state / "VERDICT.json").write_text(json.dumps(out, indent=1) + "\n")
     (state / "FAIR.md").write_text(carry_history(state / "FAIR.md", fair, out["written"]))
     (state / "rows" / "rfd4-fair-tt.json").write_text(json.dumps(row, indent=1) + "\n")
+    if a.row:
+        (state / "rows" / f"{a.row}.json").write_text(json.dumps(full, indent=1) + "\n")
     if verdict in ("PASS", "FAIL"):
         deck = Path(a.deck or state.parent / "biodeck" / "src" / "extra_cells.json")
         cells = {k: v for k, v in json.loads(deck.read_text()).items() if not k.startswith("rfd4.")}
@@ -253,11 +304,48 @@ def fair_md(v):
         gc = (f"{g['designs_per_s']} ({g['arm']}, b{g['batch']}, {g['batches']}"
               f"{', short' if g['short'] else ''})") if g else "not published"
         L.append(f"| {s} | " + " | ".join(str(x) for x in tc) + f" | {gc} | {c.get('ratio', '')} |")
+    L += typical_md(v)
     L += ["", f"B200 side recomputed from `{v['b200_source']}`"
           + ("" if v["b200_complete"] else "; it is incomplete (missing sizes or fewer than 5 batches), "
              "so every ratio here is against what it has so far") + ".",
-          f"TT measure lines rejected from the evidence: {v['tt_rejected_measure_lines'] or 'none'}."]
+          f"TT measure lines rejected from the evidence: {v['tt_rejected_measure_lines'] or 'none'}.",
+          "", "## How these ratios can be quoted", "",
+          f"Chassis: every ratio/$ prices the B200 side as a DGX B200 at ${DGX_USD:,}. The same eight B200s in an HGX "
+          f"chassis cost ${HGX_USD:,} (rfd4-gpu-fair2); on that basis every ratio divides by {HGX_FACTOR:.4f}. "
+          "A ratio quoted without its chassis is not quotable.",
+          "Scale: 32 chips and 8 GPUs are each one measured device times the count. The Galaxy's multi-chip "
+          "efficiency is owned by rfd4-bh-scaling (`state/rfd4/SCALING.md`); until it reports, x32 is an "
+          "extrapolation."]
     return "\n".join(L) + "\n"
+
+
+def typical_md(v):
+    """The realistic-binder-size table and the raw-throughput view, beside (not inside) the gated table."""
+    L = ["", "## Realistic binder sizes (not part of the gate)", "",
+         "PD-L1 (115 residues) with a fixed binder of 77 / 109 / 205 residues; why these sizes is in "
+         "`state/rfd4/SIZE-TYPICAL.md`. Same protocol, same per-chip arithmetic. `R_sys` is the raw throughput of "
+         "32 p150a chips against 8 B200 GPUs (ratio / 3.5135): 1.00 is \"matches a DGX B200\". Both sides are "
+         "extrapolated from one measured chip or GPU.", "",
+         "| size | binder | p150a designs/s (min-max, n) | batch | AICLK MHz | foreign cores | main sha "
+         "| B200 designs/s (arm, batch, n) | ratio/$ | R_sys |", "|---|---|---|---|---|---|---|---|---|---|"]
+    for s, c in v["realistic_binder_sizes"].items():
+        t, g = c["tt"], c["b200"]
+        b = t and (t["batch"] if t.get("lane_width", t["batch"]) == t["batch"] else f"{t['batch']} (lanes of {t['lane_width']})")
+        tc = (f"{t['designs_per_s']} ({t['min']}-{t['max']}, {t['batches']})", b,
+              "/".join(str(x) for x in t["aiclk_mhz"]), t["foreign_cores_median"], t["sha"][:9]) if t \
+            else ("not measured", "", "", "", "")
+        gc = (f"{g['designs_per_s']} ({g['arm']}, b{g['batch']}, {g['batches']}"
+              f"{', short' if g['short'] else ''})") if g else "not measured"
+        L.append(f"| {s} | {s - 115} | " + " | ".join(str(x) for x in tc)
+                 + f" | {gc} | {c.get('ratio', '')} | {c.get('r_sys', '')} |")
+    allc = {**v["sizes"], **v["realistic_binder_sizes"]}
+    L += ["", "R_sys at every measured size: " + ", ".join(f"{s} {c['r_sys']}" for s, c in sorted(allc.items())
+                                                      if c.get("r_sys")) + "."]
+    x = v.get("r_sys_crossing")
+    L.append(f"R_sys crosses 1.00 at about **{x['tokens']} tokens** (log-linear between the measured {x['between'][0]} "
+             f"and {x['between'][1]}, R_sys {x['r_sys'][0]} and {x['r_sys'][1]}); an interpolation, not a measurement."
+             if x else "No pair of adjacent measured sizes brackets R_sys = 1.00.")
+    return L
 
 
 if __name__ == "__main__":
