@@ -79,7 +79,8 @@ def test_shared_path_is_used_unchanged_when_writable():
         resolved, err = _take_lock(shared)
         assert resolved == shared, resolved
         assert err == "", err                      # no warning, nothing to warn about
-        assert os.listdir(d) == ["tt-bio-device-open.lock"], os.listdir(d)
+        # No fallback file; the ".serve" sibling is the serving-first marker beside the lock.
+        assert sorted(os.listdir(d)) == ["tt-bio-device-open.lock", "tt-bio-device-open.lock.serve"], os.listdir(d)
 
 
 def test_falls_back_to_a_per_user_path_and_says_so():
@@ -140,6 +141,32 @@ def test_two_processes_serialize_when_shared_path_unwritable():
                                f"{overlap:.3f}s of {hold}s")
         assert a1 - a0 >= hold and b1 - b0 >= hold
 
+
+
+def test_a_serving_open_goes_before_a_borrowing_one_that_waited_longer():
+    """.107 2026-10-24: release legs on lent chips queued their bring-ups ahead of the
+    JapanFold agent's canaries, which gave up after 300 s. A holds the lock; B (borrow) starts
+    waiting, then C (serve). When A lets go, C must hold it before B."""
+    with tempfile.TemporaryDirectory() as d:
+        lock = os.path.join(d, "tt-bio-device-open.lock")
+
+        def start(name, hold, cls):
+            env = dict(os.environ, REPO=REPO, LOCK=lock, HOLD=str(hold), OUT=os.path.join(d, name))
+            env.pop("TT_BIO_DEVICE_CLASS", None)
+            if cls:
+                env["TT_BIO_DEVICE_CLASS"] = cls
+            return subprocess.Popen([sys.executable, "-c", HOLDER], env=env, stderr=subprocess.DEVNULL)
+
+        a = start("a", 2.0, None)
+        time.sleep(0.7)
+        b = start("b", 0.5, "borrow")
+        time.sleep(0.7)
+        c = start("c", 0.5, None)
+        for p in (a, b, c):
+            assert p.wait(timeout=60) == 0
+        (a0, a1), (b0, b1), (c0, c1) = [json.load(open(os.path.join(d, n))) for n in "abc"]
+        assert a1 <= c0 + 0.05 and c1 <= b0 + 0.05, (
+            f"held a {a0:.2f}-{a1:.2f}, borrow {b0:.2f}-{b1:.2f}, serve {c0:.2f}-{c1:.2f}")
 
 # A child that runs the real _open_device_locked() with ttnn.open_device swapped for a call
 # that holds the GIL the way the C open does when it spins on a dirty chip.

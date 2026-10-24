@@ -186,15 +186,57 @@ def device_init_lock():
     if f is None:
         yield                    # unserialized, and already warned about above
         return
+    serve = None
     try:
-        fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
+        serve = open(_init_lock_path + ".serve", "a")
+    except Exception:
+        pass                     # no priority on this box; the lock itself still serializes
+    try:
+        if os.environ.get(DEVICE_CLASS_ENV) == "borrow":
+            _take_behind_serve(f, serve)
+        else:
+            if serve is not None:
+                fcntl.flock(serve, fcntl.LOCK_SH)   # says "a serving open is waiting"
+            fcntl.flock(f, fcntl.LOCK_EX)  # wait our turn; do NOT proceed concurrently
         yield
     finally:
+        for x in (f, serve):
+            try:
+                if x is not None:
+                    fcntl.flock(x, fcntl.LOCK_UN)
+                    x.close()
+            except Exception:
+                pass
+
+
+#: ``borrow`` marks a process running on a chip a serving host lent it (the JapanFold agent's
+#: borrow lane sets it): its bring-ups go after every serving one. Anything else, or unset, serves.
+DEVICE_CLASS_ENV = "TT_BIO_DEVICE_CLASS"
+#: How often a borrowing open looks again while a serving one waits or the lock is held.
+BORROW_POLL_S = 0.5
+
+
+def _take_behind_serve(f, serve):
+    """Take the bring-up lock only when no serving open waits for it.
+
+    .107 2026-10-24 00:07-01:01Z: release legs requeued on lent chips queued their bring-ups
+    in the same lock as the agent's canaries, each canary gave up after 300 s behind them,
+    and five chips sat out until the box reset itself. A serving open holds ``<lock>.serve``
+    shared from before it waits until it is done; a borrowing one never sits in the kernel's
+    queue, it polls, so the next release always goes to a waiting serving open."""
+    while True:
+        if serve is not None:
+            try:
+                fcntl.flock(serve, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(serve, fcntl.LOCK_UN)
+            except BlockingIOError:
+                time.sleep(BORROW_POLL_S)
+                continue
         try:
-            fcntl.flock(f, fcntl.LOCK_UN)
-            f.close()
-        except Exception:
-            pass
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            time.sleep(BORROW_POLL_S)
 
 
 def lease_dir():
