@@ -34,8 +34,10 @@ _seen = set()
 def _trace(name, fn):
     def wrapped(*a, **kw):
         out = fn(*a, **kw)
-        sig = (name, tuple(tuple(t.padded_shape) for t in a[:1] if hasattr(t, "padded_shape")),
-               tuple(str(t.dtype) for t in a[:1] if hasattr(t, "dtype")), out is None)
+        sig = (name, tuple(tuple(t.padded_shape) for t in a[:2] if hasattr(t, "padded_shape")),
+               tuple(str(t.dtype) for t in a[:2] if hasattr(t, "dtype")),
+               out if isinstance(out, (bool, int, str, type(None))) else type(out).__name__,
+               tuple(x for x in a if isinstance(x, (bool, int))))
         if sig not in _seen:
             _seen.add(sig)
             print("PATH", *sig, file=sys.stderr, flush=True)
@@ -45,7 +47,14 @@ def _trace(name, fn):
 
 _tail.fused_tail = _trace("fused_tail", _tail.fused_tail)
 _tail.fused_tail_ln = _trace("fused_tail_ln", _tail.fused_tail_ln)
-_tt._trimul_tail = _tail
+from tt_bio import back_ln as _bl  # noqa: E402
+_bl.eligible = _trace("back_ln.eligible", _bl.eligible)
+_tail.t2m_eligible = _trace("t2m_eligible", _tail.t2m_eligible)
+_tt._trimul_route_n = _trace("route_n", _tt._trimul_route_n)
+_tt._triangle_mul_memory_config = _trace("tri_memcfg", _tt._triangle_mul_memory_config)
+_tt.TriangleMultiplication._t2_serves = _trace("t2_serves", _tt.TriangleMultiplication._t2_serves)
+_tt.TriangleMultiplication._t2g_exact = _trace("t2g_exact", _tt.TriangleMultiplication._t2g_exact)
+_tt.TriangleMultiplication._t1_in = _trace("t1_in", _tt.TriangleMultiplication._t1_in)
 _tt._trimul_out_proj = _trace("trimul_out_proj", _tt._trimul_out_proj)
 _tt.TriangleMultiplication._tail_rows = _trace("tail_rows", _tt.TriangleMultiplication._tail_rows)
 run = Path(__file__).resolve().parents[1] / "fair" / "run.py"
