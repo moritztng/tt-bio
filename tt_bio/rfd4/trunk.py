@@ -31,7 +31,7 @@ from .. import ops
 from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
-from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
+from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope, _pair_proj_minimal_matmul,
                            _sdpa_program_config_for_lengths, bfp8_fidelity, download, fused_sdpa, lever,
                            lever_scope, model_levers, refusals_learned, under_lever_scope, upload)
 
@@ -308,13 +308,13 @@ class PairBiasAttention(Module):
         # float64 on the parity case: the default call runs the scores at a lower fidelity and an
         # approximate exp, and this attention's output is a near-cancelling average over the whole
         # token axis, which magnifies both.
-        # `work` (batch x heads) lets the q chunk narrow until the grid is full: at 512 tokens, batch 1, the capped
-        # chunk of 256 gave 24 work units on 110 cores. q chunks split independent query rows, so the bits do not move.
+        # `work` (batch x heads, SDPA_FILL) lets the q chunk narrow until the grid is full.
         n = int(q.shape[2])
+        work = int(q.shape[0]) * self.n_heads if SDPA_FILL else 0
         o = fused_sdpa(q, k, v, attn_mask=bias, scale=self.head_dim ** -0.5,
                        compute_kernel_config=ckc,
-                       program_config=_sdpa_program_config_for_lengths(n, n, int(q.shape[0]) * self.n_heads,
-                                                                      site="rfd4_trunk", d=self.head_dim))
+                       program_config=_sdpa_program_config_for_lengths(n, n, work, site="rfd4_trunk",
+                                                                      d=self.head_dim))
         for t in (q, k, v) + ((bias,) if own else ()):
             ttnn.deallocate(t)
         om = self._merge_heads(o)
@@ -630,6 +630,11 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
             pair_c, res_tok, res_pair_c)
 
 
+#: The pair-biased SDPA's q chunk narrows until batch x heads x chunks fills the grid: at 512 tokens, batch 1, the
+#: capped chunk of 256 ran 24 work units on 110 cores, 98.3 -> 64.8 us a call. q chunks split independent query rows,
+#: so the output is bit-identical (torch.equal at every rung, perf/rfd4/tok512/sdpa_sweep.py).
+SDPA_FILL = True
+
 #: RFD4's levers per mode (`tenstorrent.model_levers`); TT_BIO_LEVERS overrides both when a harness grades a
 #: set. `trimul_t1` runs the triangle multiplication's input layer_norm, gated projections and channel moves as
 #: one kernel from 160 tokens (it declines below, where the trimul runs from L1): 15.0 -> 11.3 ms a call at 512
@@ -773,7 +778,11 @@ class Trunk(Module):
         hb = _as(h, self.dtype)
         if hb is not h:
             ttnn.deallocate(h)
-        p = self._lin(hb, proj_w, dtype=self.dtype)
+        p = None
+        if lever("tok_recycle_mm"):   # None where the contraction is not one K block (the 768-wide single recycle)
+            p = _pair_proj_minimal_matmul(hb, proj_w, self.compute_kernel_config, self.dtype)
+        if p is None:
+            p = self._lin(hb, proj_w, dtype=self.dtype)
         ttnn.deallocate(hb)
         if low is not None or (res_dtype == ttnn.bfloat16 and lever("pair_bf16z")):   # rounded to even
             return _residual(init, p, res_dtype, low=low)
