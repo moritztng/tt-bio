@@ -44,6 +44,33 @@ class DesignOutput:
     #: (`tt_bio.rfd4.trajectory.write_trajectory` puts them on disk).
     trajectory: list = field(default_factory=list)
 
+    def digests(self) -> list[str]:
+        """sha256 of each design's decoded output: coordinates, residue types, atom mask and insertion logits,
+        as little-endian float32 / int64 / bool bytes. Two runs of one design on one seed at one width agree on
+        it, so a measured batch can be rerun and checked, and skipped or cached work shows."""
+        import hashlib
+
+        import torch
+
+        parts = [(self.coords_nm, torch.float32), (self.residue_type, torch.int64), (self.atom_mask, torch.bool),
+                 (self.insertion_logits, torch.float32)]
+        b = int(self.coords_nm.shape[0])
+        out = []
+        for k in range(b):
+            h = hashlib.sha256()
+            for t, dtype in parts:
+                if isinstance(t, torch.Tensor) and t.dim() and t.shape[0] == b:
+                    a = t[k].detach().to("cpu", dtype).contiguous().numpy()
+                    h.update(str(a.shape).encode())
+                    h.update(a.astype(a.dtype.newbyteorder("<"), copy=False).tobytes())
+            out.append(h.hexdigest())
+        return out
+
+    def digest(self) -> str:
+        """One sha256 over the batch's `digests`, in design order."""
+        import hashlib
+        return hashlib.sha256("".join(self.digests()).encode()).hexdigest()
+
 
 def auto_width(n_tokens: int) -> int:
     """The default sample width at `n_tokens`: the most designs whose pair rows together fit in one 512-token
@@ -140,6 +167,14 @@ class DesignEngine:
             self._encoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("encoder",))
         return self._encoder
 
+    def counted(self) -> dict:
+        """What this engine has run so far, counted where it runs rather than derived from the recipe:
+        trunk passes and trunk-block forwards summed over designs, and designs decoded. The difference of
+        two readings around a `design` call is what that call did; `perf/rfd4/fair/run.py` fails a batch
+        whose count is not the recipe's."""
+        return {"trunk_passes": self.trunk.counted["passes"], "trunk_blocks": self.trunk.counted["blocks"],
+                "blocks_per_pass": self.trunk.nlayers, "decoded": self.autoencoder.decoded}
+
     @classmethod
     def from_pretrained(cls, weights: str | Path = DEFAULT_WEIGHTS, **kwargs) -> "DesignEngine":
         """Load the released bundle onto a card. Upstream spells this
@@ -210,6 +245,7 @@ class DesignEngine:
             # The chunks ChunkedNetwork would run one after another, run as interleaved lanes:
             # same designs, but the host prepares one chunk while the card runs another.
             # Guidance sees the whole batch, so it stays on the chunker.
+            ran = dict(self.trunk.counted)
             try:
                 out = _sampler.generate(spec, network, lane_width=width, **args)
                 self.chunk_width = width
@@ -218,6 +254,7 @@ class DesignEngine:
                     raise
                 logger.info("rfd4: %d-wide lanes refused DRAM, narrowing in chunks instead", width)
             if out is None:  # the refused call's device tensors go before the chunker allocates
+                self.trunk.counted = ran  # an abandoned trajectory produced nothing; the chunker reruns it whole
                 gc.collect()
         if out is None:
             if rng == "upstream":

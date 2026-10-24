@@ -736,6 +736,13 @@ class Trunk(Module):
     drifts far from float64 even when every op is at its bf16 floor; see the parity test.
     """
 
+    #: What ran, counted rather than derived from the recycle schedule: per design, the trunk passes and
+    #: trunk-block forwards of every call whose output `collect` read back. A call rerun after a device refusal
+    #: counts once, a call that raised not at all. Host integers only: no device sync, nothing on the critical
+    #: path. Replaced, never mutated in place, so the class default serves a stand-in trunk that never runs
+    #: `__call__` and a bench that calls `run_pass` directly.
+    _ran = (0, 0)
+
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
                  dtype=None, residual_dtype=None, pair_residual_dtype=None):
         super().__init__(state_dict, ckc)
@@ -834,6 +841,7 @@ class Trunk(Module):
                 biases = self._group_biases(self._group_at[i], zb, mask_scaled)
             bias = biases.pop(0)
             s_new = block(s, zb, cond, mask, bias_mask, res_mask, cn=cn, bias=bias)
+            self._ran = (self._ran[0], self._ran[1] + 1)
             ttnn.deallocate(bias)
             ttnn.deallocate(s)
             s = s_new
@@ -849,6 +857,7 @@ class Trunk(Module):
         ttnn.deallocate(cn)
         if mask_scaled is not None:
             ttnn.deallocate(mask_scaled)
+        self._ran = (self._ran[0] + 1, self._ran[1])
         return s, z
 
     def pair_dtype(self, masks):
@@ -874,6 +883,7 @@ class Trunk(Module):
         # a float32 pair stream takes its recycle as one dual write, which also gives the next pass its bf16 copy
         low = self.dtype if zd == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
         s = z = None
+        self._ran = (0, 0)
         for c in conds:
             zb = None
             if s is None:
@@ -904,6 +914,14 @@ class Trunk(Module):
         masks = trunk_masks(mask, device, dtype=self.dtype, residual_dtype=self.residual_dtype)
         self._masks = (device, mask.clone(), masks)
         return masks
+
+    @property
+    def counted(self) -> dict:
+        return self.__dict__.setdefault("_counted", {"passes": 0, "blocks": 0})
+
+    @counted.setter
+    def counted(self, value: dict) -> None:
+        self.__dict__["_counted"] = dict(value)
 
     def run_bucketed(self, s_init, z_init, conds, mask, device, pair=True):
         """Host entry: s_init [b, N, token], z_init [b, N, N, pair], conds [b, N, cond] per cycle and the
@@ -953,11 +971,14 @@ class Trunk(Module):
                 break
             ttnn.deallocate(s_out)
             ttnn.deallocate(z_out)
-        return n, pair, (s_out, z_out), (s, z, *cs)
+        return n, pair, (s_out, z_out), (s, z, *cs), tuple(self._ran)
 
     def collect(self, pending):
         """The `(s, z)` of a `launch`, back on the host, and its device tensors freed."""
-        n, pair, (s_out, z_out), inputs = pending
+        n, pair, (s_out, z_out), inputs, (passes, blocks) = pending
+        b = int(s_out.shape[0])
+        self.counted["passes"] += passes * b
+        self.counted["blocks"] += blocks * b
         out = download(s_out)[:, :n], download(z_out)[:, :n, :n] if pair else None
         for t in (*inputs, s_out, z_out):
             if t.is_allocated():

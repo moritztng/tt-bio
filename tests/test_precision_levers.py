@@ -225,7 +225,7 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     assert WS_CHAIN == {"ws_chain"}
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
-    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | BH_V2_NORMAL | T1_PSIG
+    assert mode_levers(ck(256)) == NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | BH_V2_NORMAL | T1_PSIG | TRIATT_K1
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
     assert (mode_levers(ck(256))
@@ -233,7 +233,7 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     assert mode_levers(ck(128)) == NORMAL_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", True)
     monkeypatch.setattr(T, "is_wormhole", lambda: False)
-    assert mode_levers(ck(256)) == FAST_LEVERS | BH_V2_FAST | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG
+    assert mode_levers(ck(256)) == FAST_LEVERS | BH_V2_FAST | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG | TRIATT_K1
     assert mode_levers(ck(128)) == FAST_LEVERS
     monkeypatch.setattr(T, "is_wormhole", lambda: True)
     assert (mode_levers(ck(256)) == FAST_LEVERS - {"trimul_t1_c256"} | TRIATT_LN | TRIATT_K1 | WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST

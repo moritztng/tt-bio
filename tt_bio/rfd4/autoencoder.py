@@ -227,6 +227,8 @@ class RFD4AutoEncoder:
         self.tab = AF.tables()
         self.folded = {p: AF.fold(state_dict, p, torch.float32) for p in parts}
         self.dev = {p: AEHalf(self.folded[p]) for p in parts}
+        #: Designs the decoder ran a forward on, counted per call (`DesignEngine.counted`).
+        self.decoded = 0
 
     @classmethod
     def from_checkpoint(cls, path: str, parts=("encoder", "decoder")):
@@ -246,7 +248,9 @@ class RFD4AutoEncoder:
         """`DecoderTransformer.forward`'s outputs."""
         attend, emit = AF.ae_masks(batch)
         feats = AF.decoder_features(batch, self.folded["decoder"]["emb"], self.tab["mask_token"])
-        return AF.decode_heads(self.dev["decoder"](feats, attend), batch, emit, self.tab)
+        out = self.dev["decoder"](feats, attend)
+        self.decoded += int(feats.shape[0])
+        return AF.decode_heads(out, batch, emit, self.tab)
 
     def decode(self, batch: dict, required_atom_mask=None) -> dict:
         """`AutoEncoder.decode`: coordinates (nm), residue type and atom mask per token."""
