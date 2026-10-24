@@ -14,7 +14,7 @@ for arm in A P; do t=$R/tree-$arm; [ -d $t ] && continue; sha=${!arm}; mkdir -p 
   rm -rf $t/perf/rfd4/p512; cp -r $WT/perf/rfd4/p512 $t/perf/rfd4/p512; done  # one tool, arms differ in tt_bio
 node() { for s in /sys/class/tenstorrent/*; do echo "$(basename "$(readlink -f "$s/device")") ${s##*!}"; done |
   sort | sed -n "$(($1 + 1))s/.* //p"; }
-held() { fuser /dev/tenstorrent/$(node $N) /dev/tenstorrent/$(node $MATE) 2>&1 | grep -o '[0-9]\+' | tr '\n' ' '; }
+held() { fuser /dev/tenstorrent/$(node $N) /dev/tenstorrent/$(node $MATE) 2>/dev/null | grep -o '[0-9]\+' | tr '\n' ' '; }
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d' ' -f1 /proc/loadavg) held[$(held)]" >> $R/done; }
 stamp "booked $($BOOK add $OWN $N,$MATE ${HOLD_S:-12600} --note "p512 ABBA, board pair idle")"
 until [ "$($BOOK active $N 2>/dev/null)" = $OWN ]; do $BOOK add $OWN $N,$MATE ${HOLD_S:-12600} > /dev/null; sleep 60; done
