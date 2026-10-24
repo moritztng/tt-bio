@@ -137,6 +137,12 @@ def _sub(state_dict: dict, prefix: str) -> dict:
     return {k[len(prefix):]: v for k, v in state_dict.items() if k.startswith(prefix)}
 
 
+def _names(keys, shown: int = 8) -> str:
+    keys = sorted(keys)
+    more = f" and {len(keys) - shown} more" if len(keys) > shown else ""
+    return ", ".join(f"nn.{k}" for k in keys[:shown]) + more
+
+
 class FlowGlue(torch.nn.Module):
     """Upstream's feature factories, conditioning transitions and heads, on the host in fp32.
 
@@ -186,7 +192,14 @@ class FlowGlue(torch.nn.Module):
         self.insertion_k_proj = torch.nn.Linear(token_dim, token_dim, bias=False)
         self._insertion_head_scale = token_dim ** -0.5
 
-        self.load_state_dict(_sub(state_dict, "nn."), strict=False)
+        # Non-strict because the trunk's weights share the `nn.` prefix; the two directions strict
+        # would check are checked here and in `check_trunk_reads`. A head left at its init would
+        # design plausible-looking output with no error.
+        loaded = self.load_state_dict(_sub(state_dict, "nn."), strict=False)
+        if loaded.missing_keys:
+            raise KeyError(f"the checkpoint has no {_names(loaded.missing_keys)}")
+        #: The `nn.` weights the glue does not own, every one of which the trunk must read.
+        self.trunk_keys = frozenset(loaded.unexpected_keys)
         self.eval()
         self.requires_grad_(False)
         from .pair import PairSplit
@@ -198,6 +211,14 @@ class FlowGlue(torch.nn.Module):
         except ValueError as exc:
             logger.info("rfd4: the pair is built on the host: %s", exc)
             self.pair_split = None
+
+    def check_trunk_reads(self, reads) -> None:
+        """Raise unless the trunk read exactly the `nn.` weights the glue left to it."""
+        unread, shared = self.trunk_keys - set(reads), set(reads) - self.trunk_keys
+        if unread or shared:
+            raise ValueError("rfd4 weights: " + "; ".join(
+                f"{what} {_names(keys)}" for what, keys in
+                (("read by nothing:", unread), ("read by both the trunk and the heads:", shared)) if keys))
 
     # -- the three pieces a step needs, each called once per network call ------------------
 

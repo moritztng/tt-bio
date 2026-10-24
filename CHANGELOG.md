@@ -63,6 +63,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   metrics, `--task_csv` maps each structure to a task, and `--job_id` with `--gen_njobs` splits the
   inputs into shards. See [rfd4-evaluate](docs/rfd4-evaluate.md).
 
+### Fixed
+- **An RFD4 beam no longer keeps survivors by arrival order when a metric is NaN or infinite.** Such
+  a candidate is now invalid, ranks last and says which metric and value made it so; a non-numeric
+  metric no longer crashes the search. Rewards rank as float32, as upstream does, so values equal at
+  float32 tie and the earlier candidate wins. Credit: Magnus Bauer (see NOTICE #14).
+- **RFD4 refuses a checkpoint with a missing or unused weight.** The host-side heads loaded without
+  a key check, so a renamed or absent weight kept its initial value and designs came out plausible
+  but wrong. Credit: Magnus Bauer (see NOTICE #14).
+
 ## [0.21.1] - 2026-10-23
 
 ### Fixed

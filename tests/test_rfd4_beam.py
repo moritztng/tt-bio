@@ -7,7 +7,7 @@ a trunk. That is the point of the `FlowModel` seam: the loop is gradeable before
 import pytest
 
 from tt_bio.rfd4.beam import BeamSearchStrategy, FlowModel
-from tt_bio.rfd4.search import SEARCH_REWARD_KEY
+from tt_bio.rfd4.search import SEARCH_REWARD_KEY, RewardModel
 
 
 class ToyModel:
@@ -96,6 +96,37 @@ def test_a_missing_weighted_key_removes_the_candidate_rather_than_ranking_it():
     assert len(out) == 2
 
 
+BAD_VALUES = [float("nan"), float("inf"), float("-inf"), "n/a", None, True]
+
+
+@pytest.mark.parametrize("bad", BAD_VALUES, ids=repr)
+@pytest.mark.parametrize("order", [(0, 1, 2, 3), (3, 2, 1, 0), (1, 3, 0, 2), (2, 0, 3, 1)])
+def test_a_non_finite_metric_makes_the_candidate_invalid_and_ranks_it_last(bad, order):
+    """A NaN reward compares unordered, so before this the survivors followed insertion order; an
+    inf ranked first. Whatever the order the candidates arrive in, the survivors are the two best
+    valid ones, best first, and the invalid ones carry a reason naming the key and the value."""
+    rows = [{"oracle.plddt_coi": v} for v in (bad, 30.0, bad, 50.0)]
+    s = strategy(providers={"oracle": Provider("oracle", scores=[rows[i] for i in order])},
+                 save_rollouts=True)
+    out = s.generate(ToyModel(), batch=["x"], n_inputs=1)
+    beam = [d for d in out if d["from_beam"]]
+    assert [d["reward"] for d in beam] == [50.0, 30.0]
+    assert all(d["invalid_reason"] is None for d in beam)
+    dropped = [d for d in out if not d["from_beam"]]
+    assert len(dropped) == 2 and all(d["reward"] == float("-inf") for d in dropped)
+    assert all(d["invalid_reason"] == f"oracle.plddt_coi={bad!r}" for d in dropped)
+
+
+def test_an_invalid_reward_names_every_offending_key():
+    reward = RewardModel({"oracle.plddt_coi": {"weight": 1.0}, "oracle.ptm": {"weight": 2.0},
+                          "oracle.ipae": {"weight": -1.0}, "oracle.unused": {"weight": 0.0}})
+    assert reward.score({"oracle.plddt_coi": 80.0, "oracle.ptm": float("nan"), "oracle.unused": None}) == (
+        float("-inf"), "oracle.ipae missing, oracle.ptm=nan")
+    assert reward.score({"oracle.plddt_coi": 1e308, "oracle.ptm": 1e308, "oracle.ipae": 0}) == (
+        float("-inf"), "the weighted sum is inf")
+    assert reward.score({"oracle.plddt_coi": 80.0, "oracle.ptm": 0.5, "oracle.ipae": 3}) == (78.0, None)
+
+
 def test_the_tie_break_is_stable_so_selection_is_deterministic():
     scores = [{"oracle.plddt_coi": 50.0}] * 4
     s = strategy(providers={"oracle": Provider("oracle", scores=scores)},
@@ -106,6 +137,15 @@ def test_the_tie_break_is_stable_so_selection_is_deterministic():
     assert len(beam) == 2 and len(dropped) == 2
     # equal rewards: the first two candidates survive, both times
     assert [d["generated_atom_array"]["i"] for d in dropped] == [2, 3]
+
+
+def test_rewards_equal_in_fp32_tie_and_the_earlier_candidate_wins():
+    """Upstream ranks `torch.tensor(rewards, dtype=torch.float32)`, so these three tie and the two
+    lowest indices survive; ranking the Python floats kept candidates 3 and 2."""
+    scores = [{"oracle.plddt_coi": v} for v in (0.5, 1.0, 1.0 + 1e-12, 1.0 + 2e-12)]
+    s = strategy(providers={"oracle": Provider("oracle", scores=scores)}, save_rollouts=True)
+    out = s.generate(ToyModel(), batch=["x"], n_inputs=1)
+    assert [d["generated_atom_array"]["i"] for d in out if d["from_beam"]] == [1, 2]
 
 
 def test_clean_prediction_scores_without_a_rollout():

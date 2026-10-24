@@ -403,7 +403,7 @@ def _trimul_weights(scope) -> WeightScope:
     `TriangleMultiplication` reads (Boltz's layout: packed [a; b] in-projections, norm_in/out,
     p_out/g_out). The release checkpoint has no biases (`tri_mult_bias: false`); its LayerNorms
     get zero biases, which is what a bias-free LayerNorm computes."""
-    w = scope.data
+    w = scope
     cat = lambda a, b: torch.cat([w[a], w[b]])  # noqa: E731
     out = {
         "norm_in.weight": w["layer_norm_in.weight"],
