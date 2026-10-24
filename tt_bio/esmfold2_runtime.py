@@ -1702,6 +1702,12 @@ _LM_STOCK = "+lm_sdpa_stock+lm_ln_stock"
 # The ESMC language model on Blackhole as ESMFold2 folded it before ESMC took the Wormhole LM path there: graded on
 # ESMC's embeddings only, not on a fold yet.
 _BH_LM_KEEP = "+lm_qk_chain+lm_gate_ng+lm_k64+lm_linear"
+# Blackhole normal mode takes Wormhole's trimul pair as well (trimul_t2fold + trimul_gin_w8). Same card, in-process A/B,
+# warm, repeat 4, 512 aa at 1350 MHz (bgw): ESMFold2-Fast 9.63 -> 8.99 s (4 of 4 rounds faster), ESMFold2 14.64 ->
+# 14.43 s. Normal bar against LEVERS_NORMAL, 11 complexes x 4 seeds, 44 paired folds per model (p300c, 1350 MHz, bgwg):
+# ESMFold2-Fast CA-lDDT -0.0003 [-0.0018, +0.0011], top-pose median 0.87 A vs 1.64 A seed floor, docking 24 -> 24 of 44.
+# On Blackhole --fast the pair ties the T1 route (bgw, bfx), so the fast set keeps T1.
+_BH_NORMAL_EXTRA = "+trimul_t2fold+trimul_gin_w8"
 
 
 def fold_levers(fast: bool) -> str:
@@ -1716,7 +1722,7 @@ def fold_levers(fast: bool) -> str:
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     else:
-        levers += _BH_LM_KEEP
+        levers += _BH_LM_KEEP + ("" if fast else _BH_NORMAL_EXTRA)
     return levers + _LM_STOCK
 
 

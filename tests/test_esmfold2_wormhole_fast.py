@@ -59,9 +59,10 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
     assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))
     assert "trimul_t1" not in rt.fold_levers(False).split("+")
-    # Wormhole's normal mode takes the --fast trimul pair too (wnsg), Blackhole's does not.
+    # Both archs' normal mode takes Wormhole's --fast trimul pair (wnsg, bgwg); Blackhole --fast keeps T1.
     normal = tenstorrent.parse_levers(rt.fold_levers(False))
-    assert all((n in normal) is wormhole for n in ("trimul_t2fold", "trimul_gin_w8"))
+    assert all(n in normal for n in ("trimul_t2fold", "trimul_gin_w8"))
+    assert all((n in fast_set) is wormhole for n in ("trimul_t2fold", "trimul_gin_w8"))
     # The ef2_* levers ride both sets on both archs; device pair init is graded on Wormhole's fast bar only.
     for fast in (False, True):
         names = rt.fold_levers(fast).split("+")
