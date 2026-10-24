@@ -1,0 +1,6 @@
+booked 1792837618 1792844818 2026-10-24T10:26:58Z load 3.21
+start chip 3 tree fbaf12330 2026-10-24T10:26:58Z load 3.21
+tail rc=0 2026-10-24T10:27:37Z load 5.91
+spre gain at 512 by round [-0.1091, -0.0627, -0.0777]
+SPRE did not beat GROW, trunk legs skipped 2026-10-24T10:27:37Z load 5.91
+ALLDONE 2026-10-24T10:27:37Z load 5.91

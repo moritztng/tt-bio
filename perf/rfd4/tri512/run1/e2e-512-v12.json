@@ -1,0 +1,201 @@
+{
+ "size": 512,
+ "recipe": "thinking_medium",
+ "trunk_passes": 180,
+ "first_passes": 60,
+ "recycled_passes": 120,
+ "batch": 1,
+ "dims": {
+  "token": 768,
+  "pair": 384,
+  "cond": 256
+ },
+ "instrument": "device profiler (Tracy build tt-metal-b2z = ttnn 0.68.0), DEVICE KERNEL DURATION per op, eager trunk call of 2 passes on random inputs of the design shapes (perf/rfd4/e2e/elt_prof.py); families by signposts around each sublayer, innermost wins; gaps between kernels not counted",
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 1
+  }
+ },
+ "host_load": 4.4,
+ "card": "qb2 physical 3",
+ "per_pass": {
+  "first": {
+   "device_ms": 109.151,
+   "ops": 588
+  },
+  "recycled": {
+   "device_ms": 110.278,
+   "ops": 593,
+   "elementwise_ms": 4.632,
+   "elementwise_ops": 167,
+   "gflop": 254.07
+  }
+ },
+ "device_s_per_design": 19.782,
+ "tflop_per_design": 41.06,
+ "families": {
+  "tri_mult_in": {
+   "ms_per_pass": 35.1006,
+   "ops_per_pass": 21,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 6.315,
+   "share_of_device": 0.3192
+  },
+  "tri_mult_out": {
+   "ms_per_pass": 34.8145,
+   "ops_per_pass": 21,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 6.263,
+   "share_of_device": 0.3166
+  },
+  "pair_relu": {
+   "ms_per_pass": 16.6216,
+   "ops_per_pass": 7,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 2.992,
+   "share_of_device": 0.1512
+  },
+  "pair_bias": {
+   "ms_per_pass": 4.2929,
+   "ops_per_pass": 8,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.773,
+   "share_of_device": 0.0391
+  },
+  "attention": {
+   "ms_per_pass": 4.1698,
+   "ops_per_pass": 182,
+   "elementwise_ms_per_pass": 0.1324,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 53.553,
+   "tflops": 12.84,
+   "device_s_per_design": 0.751,
+   "share_of_device": 0.038
+  },
+  "outer_residual": {
+   "ms_per_pass": 3.7688,
+   "ops_per_pass": 7,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.678,
+   "share_of_device": 0.0343
+  },
+  "recycle": {
+   "ms_per_pass": 3.746,
+   "ops_per_pass": 6,
+   "elementwise_ms_per_pass": 0.9946,
+   "elementwise_ops_per_pass": 2,
+   "gflop_per_pass": 77.913,
+   "tflops": 20.8,
+   "device_s_per_design": 0.45,
+   "share_of_device": 0.0227
+  },
+  "token_transition": {
+   "ms_per_pass": 2.3646,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0.3364,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 101.469,
+   "tflops": 42.91,
+   "device_s_per_design": 0.425,
+   "share_of_device": 0.0215
+  },
+  "cast": {
+   "ms_per_pass": 2.1268,
+   "ops_per_pass": 39,
+   "elementwise_ms_per_pass": 2.1268,
+   "elementwise_ops_per_pass": 39,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.328,
+   "share_of_device": 0.0166
+  },
+  "adaln": {
+   "ms_per_pass": 1.6664,
+   "ops_per_pass": 140,
+   "elementwise_ms_per_pass": 0.5204,
+   "elementwise_ops_per_pass": 56,
+   "gflop_per_pass": 11.274,
+   "tflops": 6.77,
+   "device_s_per_design": 0.3,
+   "share_of_device": 0.0152
+  },
+  "ada_scale": {
+   "ms_per_pass": 0.822,
+   "ops_per_pass": 56,
+   "elementwise_ms_per_pass": 0.2749,
+   "elementwise_ops_per_pass": 28,
+   "gflop_per_pass": 5.637,
+   "tflops": 6.86,
+   "device_s_per_design": 0.148,
+   "share_of_device": 0.0075
+  },
+  "residual": {
+   "ms_per_pass": 0.4609,
+   "ops_per_pass": 28,
+   "elementwise_ms_per_pass": 0.2464,
+   "elementwise_ops_per_pass": 14,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.083,
+   "share_of_device": 0.0042
+  },
+  "pair_factors": {
+   "ms_per_pass": 0.3164,
+   "ops_per_pass": 21,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 4.228,
+   "tflops": 13.36,
+   "device_s_per_design": 0.057,
+   "share_of_device": 0.0029
+  },
+  "pass_glue": {
+   "ms_per_pass": 0.0065,
+   "ops_per_pass": 1,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0.0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.001,
+   "share_of_device": 0.0001
+  },
+  "outside": {
+   "ms_per_pass": 0,
+   "ops_per_pass": 0,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.148,
+   "share_of_device": 0.0075
+  },
+  "masked_copy": {
+   "ms_per_pass": 0,
+   "ops_per_pass": 0,
+   "elementwise_ms_per_pass": 0,
+   "elementwise_ops_per_pass": 0,
+   "gflop_per_pass": 0,
+   "tflops": 0.0,
+   "device_s_per_design": 0.072,
+   "share_of_device": 0.0036
+  }
+ }
+}

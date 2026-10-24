@@ -1,0 +1,44 @@
+== pass 0: device 2.033 ms, 4 ops; elementwise 0.967 ms (3 ops)
+   outside_pass          1.364 ms     3 ops   elementwise   0.299 ms    2 ops
+   masked_copy           0.668 ms     1 ops   elementwise   0.668 ms    1 ops
+== pass 1: device 70.268 ms, 593 ops; elementwise 2.757 ms (167 ops)
+   tri_mult_in          20.838 ms    21 ops   elementwise   0.000 ms    0 ops
+   tri_mult_out         20.653 ms    21 ops   elementwise   0.000 ms    0 ops
+   pair_relu             9.584 ms     7 ops   elementwise   0.000 ms    0 ops
+   attention             6.137 ms   182 ops   elementwise   0.089 ms   14 ops
+   pair_bias             2.584 ms     8 ops   elementwise   0.000 ms    0 ops
+   token_transition      2.220 ms    56 ops   elementwise   0.255 ms   14 ops
+   outer_residual        2.184 ms     7 ops   elementwise   0.000 ms    0 ops
+   recycle               2.125 ms     6 ops   elementwise   0.545 ms    2 ops
+   adaln                 1.422 ms   140 ops   elementwise   0.324 ms   56 ops
+   cast                  1.230 ms    39 ops   elementwise   1.230 ms   39 ops
+   ada_scale             0.700 ms    56 ops   elementwise   0.169 ms   28 ops
+   pair_factors          0.295 ms    21 ops   elementwise   0.000 ms    0 ops
+   residual              0.290 ms    28 ops   elementwise   0.145 ms   14 ops
+   pass_glue             0.006 ms     1 ops   elementwise   0.000 ms    0 ops
+== pass 2: device 67.560 ms, 584 ops; elementwise 1.696 ms (162 ops)
+   tri_mult_in          20.785 ms    21 ops   elementwise   0.000 ms    0 ops
+   tri_mult_out         20.653 ms    21 ops   elementwise   0.000 ms    0 ops
+   pair_relu             9.581 ms     7 ops   elementwise   0.000 ms    0 ops
+   attention             6.133 ms   182 ops   elementwise   0.088 ms   14 ops
+   pair_bias             2.581 ms     8 ops   elementwise   0.000 ms    0 ops
+   token_transition      2.223 ms    56 ops   elementwise   0.255 ms   14 ops
+   outer_residual        2.181 ms     7 ops   elementwise   0.000 ms    0 ops
+   adaln                 1.419 ms   140 ops   elementwise   0.324 ms   56 ops
+   cast                  0.714 ms    36 ops   elementwise   0.714 ms   36 ops
+   ada_scale             0.698 ms    56 ops   elementwise   0.169 ms   28 ops
+   pair_factors          0.296 ms    21 ops   elementwise   0.000 ms    0 ops
+   residual              0.290 ms    28 ops   elementwise   0.145 ms   14 ops
+   pass_glue             0.006 ms     1 ops   elementwise   0.000 ms    0 ops
+== by op code, whole measured call
+   GenericOpDeviceOperation                          111.912 ms   156
+   MatmulDeviceOperation                              10.320 ms   422
+   SDPAOperation                                       6.874 ms    28
+   TypecastDeviceOperation                             2.612 ms    76
+   LayerNormDeviceOperation                            2.603 ms   158
+   BinaryNgDeviceOperation                             2.509 ms   254
+   TilizeDeviceOperation                               1.066 ms     1
+   NlpCreateHeadsDeviceOperation                       0.898 ms    28
+   ConcatDeviceOperation                               0.453 ms    28
+   NLPConcatHeadsDeviceOperation                       0.315 ms    28
+   CloneOperation                                      0.299 ms     2

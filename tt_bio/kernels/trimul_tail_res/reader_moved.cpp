@@ -25,6 +25,10 @@
 #ifndef T2_GROW
 #define T2_GROW 0
 #endif
+// T2_S1K (trimul_tail.T2_S1K): at P = 2 the stage reads a part as one 1 KB read (its two faces sit side by side).
+#ifndef T2_S1K
+#define T2_S1K 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -134,6 +138,8 @@ void kernel_main() {
                     (void)a;
                 } else if constexpr (P == 1) {
                     noc_async_read(a, dst, TILE_BYTES);         // the whole tile, faces in place
+                } else if constexpr (P == 2 && T2_S1K) {
+                    noc_async_read(a, dst, 2 * PART_ROW_BYTES);  // 16 rows are two whole faces, side by side
                 } else {
                     noc_async_read(a, dst, PART_ROW_BYTES);
                     noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
