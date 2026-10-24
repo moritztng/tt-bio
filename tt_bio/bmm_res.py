@@ -15,6 +15,15 @@ the 6 MB floor. A split call streams the transposed a in 4-tile groups and drain
 OG) at a time, so b's block fits L1 beside them. The accumulation order over K is unchanged, so a split call returns
 exactly what an unsplit one would.
 
+Under the `bres_ta_hifi3` lever a Wormhole transposed-a call asked for at HiFi2 runs at HiFi3. HiFi2 with the per-row
+transpose_wh <-> matmul switch hangs one core (packer never releases the staging CB): bmm_res alone in a loop at
+[1, 384, 608, 608] hung after 700 to 97600 calls on six Galaxy chips, with or without draining every thread at the
+switch and with a full re-init there; HiFi3, HiFi4 and LoFi transposed-a and HiFi2 transposed-b ran 107k-112k calls
+clean (spd-m-opendde bs, bs2, 2026-10-24, perf/spd_m_opendde/bres_soak.py). HiFi3 costs ~0.8 % a call (5.50 vs 5.46 ms);
+it is the WH LoFi unpacker stall family (`tenstorrent.lofi_allowed`). It is a lever, not a default, because it moves
+the fold: OpenDDE WH fast graded PASS with it, OpenDDE WH normal (also HiFi2 here, no hang seen in production) did not
+(one 9TH6 docking flip).
+
 `transpose_a` / `transpose_b` take ttnn.matmul's meaning (the operand is stored [.., K, M] / [.., N, K]), which is
 how the trimul's gin_moved chunks arrive: the reader fetches tiles in the transposed order, the matmul unpacker
 transposes each b tile, and compute transposes each a tile into a bf16 staging CB before it multiplies (ttnn's in0
@@ -177,6 +186,10 @@ def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_c
     if compute_kernel_config is not None and not compute_kernel_config.fp32_dest_acc_en:
         return None
     fidelity = ttnn.MathFidelity.HiFi4 if compute_kernel_config is None else compute_kernel_config.math_fidelity
+    if transpose_a and fidelity == ttnn.MathFidelity.HiFi2:
+        from .tenstorrent import arch_name, lever
+        if lever("bres_ta_hifi3") and arch_name() == "wormhole_b0":
+            fidelity = ttnn.MathFidelity.HiFi3
     for t in (a, b):
         mc = t.memory_config()
         if (t.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or t.layout != ttnn.TILE_LAYOUT
