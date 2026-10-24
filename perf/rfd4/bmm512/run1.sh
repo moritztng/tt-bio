@@ -1,0 +1,17 @@
+#!/bin/bash
+# bmm512 run1: the split of bmm_res at 512 / 384 (split.py) on chip <N>, AICLK sampled every second.
+#   bash perf/rfd4/bmm512/run1.sh <chip> <outdir>      (books and locks the chip itself)
+set -u
+N=$1; R=$2; WT=$(cd "$(dirname "$0")/../../.." && pwd)
+PY=$HOME/tt-bio-dev/env/bin/python; BOOK="python3 $HOME/spd/feed/book.py"; OWN=rfd4-perf-bmm512
+mkdir -p $R; R=$(cd $R && pwd); cd $WT
+export TT_VISIBLE_DEVICES=$N TT_BIO_LEASE_CARDS=$N TT_BIO_LEASE_HOLDER=worker:$OWN PYTHONPATH=$WT:$WT/perf
+$BOOK add $OWN $N 1500 --now --note "bmm512 run1: bmm_res split" > /dev/null
+exec 9>"$HOME/spd_qb2_chip$N.lock"; flock -w 120 9 || exit 3
+( while sleep 1; do echo "$(date +%s) $(cat "/sys/class/tenstorrent/tenstorrent!$N/tt_aiclk")"; done ) > $R/aiclk.txt &
+CLK=$!
+timeout 1300 $PY perf/rfd4/bmm512/split.py --n 512,384 --C 220,256,330 --out $R/split.jsonl > $R/split.log 2>&1
+echo "split rc=$?" >> $R/done
+kill $CLK
+exec 9>&-; $BOOK rm $OWN
+echo ALLDONE >> $R/done
