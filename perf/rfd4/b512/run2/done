@@ -1,0 +1,12 @@
+booked 1792814938 1792822138 2026-10-24T04:07:58Z load 5.92
+start chip 0 tree 899dfa90a baseset outer_residual.PJ_TILES=False 2026-10-24T04:12:09Z load 4.09
+ab512 rc=0 2026-10-24T04:12:32Z load 4.91
+ab384 rc=0 2026-10-24T04:12:47Z load 4.64
+ab256 rc=0 2026-10-24T04:12:59Z load 4.23
+ab224 rc=0 2026-10-24T04:13:08Z load 3.89
+wall base1 rc=0 2026-10-24T04:15:23Z load 6.56
+wall lev1 rc=0 2026-10-24T04:17:42Z load 9.60
+wall base2 rc=0 2026-10-24T04:20:01Z load 9.00
+wall lev2 rc=0 2026-10-24T04:22:27Z load 10.52
+wall512 rc=0 2026-10-24T04:22:27Z load 10.52
+ALLDONE 2026-10-24T04:22:27Z load 10.52
