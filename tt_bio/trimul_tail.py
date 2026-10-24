@@ -883,6 +883,14 @@ T2_STATS = [0, 0]       # served, declined
 # writer still move every byte); 16 the reader skips its per-block DRAM reads, 32 the writer its writes (non-moved
 # T2 only). Diagnostic only, 0 in every model path.
 T2_ABL = 0
+# T2m / T2CM data-movement ablation (bench only, 0 in every model path): reader_moved.cpp bits 1 skip the gather's
+# L1 reads, 2 skip the stage's DRAM reads; writer_moved.cpp 4 skips the g / z reads, 8 the writes.
+T2_DMABL = 0
+# T2m / T2CM gather grouping (A/B knob, on in production): the reader gathers a whole row's Kt - Cp x tiles under
+# one read barrier into a two-row input CB instead of one tile a barrier into a two-tile CB. Taken only where the
+# larger CB fits at the block and parts chosen without it, so eligibility, Mb and P are unchanged and the output is
+# bit-identical. RFD4's tail 2.70 -> 2.04 ms at 512, 1.65 -> 1.27 at 384 (p300c, state/rfd4/bets/g512.md).
+T2_GROW = True
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # T2_FOLD (off): fold the LN's centring and gamma into Wp, LN(x) @ Wp = rstd * (x @ Wc) + beta @ Wp with
 # Wc = (I - 11^T / K) diag(gamma) Wp, so compute_ln.cpp only needs rstd and skips four of the LN's five Kt-tile
@@ -1075,18 +1083,19 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None, res32=False):
     return None
 
 
-def _t2_tiles(kt, nt, Mb, gate=False, moved=None, extra=0, res32=False):
+def _t2_tiles(kt, nt, Mb, gate=False, moved=None, extra=0, res32=False, grow=False):
     """bf16-tile equivalents of T2's circular buffers per core (an fp32 tile counts 2). The GATE
     form adds Wg and the double-buffered xb rows, and computes g single-buffered. `moved` = (Cp, P):
     T2m assembles one x row at a time (Kt tiles instead of 2 Mb Kt), plus the gather's two-tile
-    input, the Cp prev tiles and the stage, (Kt - Cp) * 32 channel parts of 2048 / P bytes."""
+    input (two rows of Kt - Cp tiles with `grow`), the Cp prev tiles and the stage, (Kt - Cp) * 32 channel
+    parts of 2048 / P bytes."""
     blk = Mb * nt
     bf16 = 2 * Mb * kt + kt * nt + 2 * blk + Mb * kt + blk + 2 * blk + 2 * blk + 2 * kt + 1
     if gate:
         bf16 += kt * nt + 2 * Mb * kt - blk
     if moved is not None:
         cp, P = moved
-        bf16 += kt - 2 * Mb * kt + 2 + 2 * cp + -(-(kt - cp) * 32 // P)
+        bf16 += kt - 2 * Mb * kt + (2 * (kt - cp) if grow else 2) + 2 * cp + -(-(kt - cp) * 32 // P)
     bf16 += ((extra & 1) + (extra >> 1 & 1)) * nt + (2 * nt if extra & 4 else 0)
     if res32:   # c_2 and c_7 float32, plus c_21 the bf16 copy
         bf16 += 6 * blk
@@ -1122,6 +1131,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     mcast = _t2_mcast(kt, nt, gate, EXTRA, grid)
     mc, sems = _mcast_args(x.device(), gx, gy) if mcast else ([], [])
     me = lambda c: [int(c == 0)] if mcast else []  # noqa: E731
+    grow = moved is not None and T2_GROW and _t2_grow_fits(kt, nt, Mb, gate, moved[1] // TILE, moved[2], EXTRA)
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
@@ -1179,12 +1189,13 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             + acc(wp) + acc(wg if gate else wp) + acc(ln_w) + acc(ln_b)
             + acc(ex[0] if EXTRA & 1 else wp) + acc(ex[1] if EXTRA & 2 else wp),
             runtime_args=rd, common_runtime_args=[0] * (8 + len(mc)),
-            defines=[("T2MCAST", "1")] if mcast else [], config=ttnn.ReaderConfigDescriptor())
+            defines=([("T2MCAST", "1")] if mcast else []) + _t2m_dm_defines(grow), config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer_moved.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, St, Mb, P, int(gate), EXTRA] + acc(g) + acc(resid)
             + acc(ex[2] if EXTRA & 4 else resid) + acc(ex[3] if EXTRA & 8 else resid),
-            runtime_args=wr, common_runtime_args=[0] * 4, config=ttnn.WriterConfigDescriptor())
+            runtime_args=wr, common_runtime_args=[0] * 4, defines=_t2m_dm_defines(False),
+            config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
                                         dst_full_sync_en=full)
@@ -1221,7 +1232,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     if res32:
         cbs.append(_cb(21, core_grid, 2 * blk))
     if moved is not None:
-        cbs.append(_cb(15, core_grid, 2))
+        cbs.append(_cb(15, core_grid, 2 * (kt - Cp) if grow else 2))
         if Cp:
             cbs.append(_cb(18, core_grid, 2 * Cp))
         stage = (kt - Cp) * TILE * 2 * (TILE // P) * TILE     # each channel's part: two faces' rows
@@ -1233,6 +1244,16 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     if EXTRA & 4:
         cbs.append(_cb(20, core_grid, 2 * nt))
     return {"kernels": [reader, writer, compute], "cbs": cbs, "mc": mc, "sems": sems}
+
+
+def _t2m_dm_defines(grow):
+    return [(k, str(int(v))) for k, v in (("T2_DMABL", T2_DMABL), ("T2_GROW", grow)) if v]
+
+
+def _t2_grow_fits(kt, nt, Mb, gate, cp, P, extra):
+    from . import tenstorrent as TT
+    return (_t2_tiles(kt, nt, Mb, gate, (cp, P), extra, grow=True) * MG.tile_bytes(ttnn.bfloat16)
+            <= 0.85 * TT._l1_bank_bytes())
 
 
 def t2m_parts(kt, nt, Mb, gate, cp, min_parts=1, extra=0):
@@ -1316,7 +1337,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW,
            None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
            _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)))
     entry = _CACHE.get(key)
@@ -1517,7 +1538,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)))
     entry = _CACHE.get(key)
