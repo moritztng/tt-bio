@@ -1,0 +1,402 @@
+{
+ "legs": [
+  {
+   "leg": "A1",
+   "s_per_design": 21.249875,
+   "aiclk_mhz": 1315.0,
+   "aiclk_min_mhz": 1275,
+   "foreign_cores": 1.37,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "P1",
+   "s_per_design": 21.182000000000002,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1262,
+   "foreign_cores": 1.44,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "P2",
+   "s_per_design": 21.212375,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1275,
+   "foreign_cores": 2.07,
+   "foreign_holders": [
+    "1039411:python"
+   ],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "A2",
+   "s_per_design": 21.27175,
+   "aiclk_mhz": 1309.0,
+   "aiclk_min_mhz": 1262,
+   "foreign_cores": 2.63,
+   "foreign_holders": [
+    "1206200:python",
+    "1363888:python"
+   ],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "A3",
+   "s_per_design": 21.32825,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1275,
+   "foreign_cores": 2.0,
+   "foreign_holders": [
+    "1589185:python",
+    "1591559:python",
+    "1600739:python"
+   ],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "P3",
+   "s_per_design": 21.187,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1256,
+   "foreign_cores": 2.85,
+   "foreign_holders": [
+    "1872982:python"
+   ],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "P4",
+   "s_per_design": 21.733874999999998,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1268,
+   "foreign_cores": 0.32,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "A4",
+   "s_per_design": 21.222125,
+   "aiclk_mhz": 1309.0,
+   "aiclk_min_mhz": 1268,
+   "foreign_cores": 0.35,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "A5",
+   "s_per_design": 21.234375,
+   "aiclk_mhz": 1315.0,
+   "aiclk_min_mhz": 1268,
+   "foreign_cores": 0.31,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "P5",
+   "s_per_design": 21.1585,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1268,
+   "foreign_cores": 0.31,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "P6",
+   "s_per_design": 21.158875000000002,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1268,
+   "foreign_cores": 0.3,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "A6",
+   "s_per_design": 21.220875,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1268,
+   "foreign_cores": 1.27,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "A7",
+   "s_per_design": 21.312375,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1268,
+   "foreign_cores": 1.26,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "P7",
+   "s_per_design": 22.674375,
+   "aiclk_mhz": 1318.0,
+   "aiclk_min_mhz": 1268,
+   "foreign_cores": 0.7,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "P8",
+   "s_per_design": 21.160375000000002,
+   "aiclk_mhz": 1309.0,
+   "aiclk_min_mhz": 1275,
+   "foreign_cores": 0.28,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  },
+  {
+   "leg": "A8",
+   "s_per_design": 21.231875000000002,
+   "aiclk_mhz": 1312.0,
+   "aiclk_min_mhz": 1275,
+   "foreign_cores": 0.29,
+   "foreign_holders": [],
+   "width_achieved": 1,
+   "batches": 2,
+   "seeds": [
+    1010,
+    1011
+   ],
+   "discard": false
+  }
+ ],
+ "pairs": [
+  {
+   "pair": 1,
+   "ratio": 1.0032043716362948,
+   "clock_gap_mhz": -3.0,
+   "graded": true
+  },
+  {
+   "pair": 2,
+   "ratio": 1.0027990736539403,
+   "clock_gap_mhz": 3.0,
+   "graded": true
+  },
+  {
+   "pair": 3,
+   "ratio": 1.0066668239958465,
+   "clock_gap_mhz": 0.0,
+   "graded": true
+  },
+  {
+   "pair": 4,
+   "ratio": 0.9764538077080135,
+   "clock_gap_mhz": 3.0,
+   "graded": true
+  },
+  {
+   "pair": 5,
+   "ratio": 1.003586029255382,
+   "clock_gap_mhz": -3.0,
+   "graded": true
+  },
+  {
+   "pair": 6,
+   "ratio": 1.002930212499483,
+   "clock_gap_mhz": 0.0,
+   "graded": true
+  },
+  {
+   "pair": 7,
+   "ratio": 0.9399321921772926,
+   "clock_gap_mhz": 6.0,
+   "graded": true
+  },
+  {
+   "pair": 8,
+   "ratio": 1.0033789571309581,
+   "clock_gap_mhz": -3.0,
+   "graded": true
+  }
+ ],
+ "graded_pairs": 8,
+ "median_pair": 1.003067292067889,
+ "mean_s_per_design": {
+  "A": 21.258937500000002,
+  "P": 21.433421875
+ },
+ "designs_identical": true,
+ "identity": {
+  "b1/compile-s1000": {
+   "files": 16,
+   "legs": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P7",
+    "P8"
+   ],
+   "identical": true
+  },
+  "b4l1/compile-s1000": {
+   "files": 16,
+   "legs": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P7",
+    "P8"
+   ],
+   "identical": true
+  },
+  "b4l1/measure-s1010": {
+   "files": 16,
+   "legs": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P7",
+    "P8"
+   ],
+   "identical": true
+  },
+  "b4l1/measure-s1011": {
+   "files": 16,
+   "legs": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "A5",
+    "A6",
+    "A7",
+    "A8",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6",
+    "P7",
+    "P8"
+   ],
+   "identical": true
+  }
+ }
+}

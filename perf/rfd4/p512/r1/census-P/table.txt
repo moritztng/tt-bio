@@ -1,0 +1,19 @@
+8 calls, n 512 batch 4 lane 1, AICLK {'0': {'min': 1300, 'max': 1350, 'median': 1318, 'n': 5}}
+  between_calls  median    0.000 ms a call
+  pair_build     median    9.066 ms a call
+  trunk          median  326.347 ms a call
+head+tail (all but trunk): 9.066 ms a call = 0.544 s a design
+ops outside the trunk (all calls):
+  between_calls BinaryNgDeviceOperation                     84.106 ms  1548 ops
+  pair_build   GenericOpDeviceOperation                    72.524 ms     8 ops
+  between_calls MatmulDeviceOperation                       27.645 ms   420 ops
+  between_calls SliceDeviceOperation                         8.768 ms  1080 ops
+  between_calls SoftmaxDeviceOperation                       3.418 ms    12 ops
+  between_calls UnaryNgDeviceOperation                       2.634 ms    12 ops
+  pair_build   TilizeDeviceOperation                        1.908 ms     1 ops
+  between_calls NlpCreateHeadsDeviceOperation                1.231 ms    12 ops
+  between_calls ConcatDeviceOperation                        1.146 ms    12 ops
+  between_calls UnaryDeviceOperation                         0.792 ms    72 ops
+  between_calls TypecastDeviceOperation                      0.692 ms   360 ops
+  between_calls NLPConcatHeadsDeviceOperation                0.422 ms    12 ops
+  between_calls TransposeDeviceOperation                     0.399 ms    12 ops

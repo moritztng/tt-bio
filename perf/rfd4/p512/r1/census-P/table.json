@@ -1,0 +1,106 @@
+{
+ "calls": 8,
+ "median_ms_a_call": {
+  "between_calls": 0.0,
+  "pair_build": 9.0656475,
+  "trunk": 326.3472235000005
+ },
+ "head_tail_ms_a_call": 9.0656475,
+ "head_tail_s_a_design": 0.54393885,
+ "run": {
+  "n": 512,
+  "batch": 4,
+  "lane": 1,
+  "nsteps": 2,
+  "aiclk": {
+   "0": {
+    "min": 1300,
+    "max": 1350,
+    "median": 1318,
+    "n": 5
+   }
+  },
+  "load": 2.39697265625,
+  "card": "0"
+ },
+ "ops": [
+  {
+   "family": "pair_build",
+   "op": "TilizeDeviceOperation",
+   "ms": 1.907515,
+   "n": 1
+  },
+  {
+   "family": "pair_build",
+   "op": "GenericOpDeviceOperation",
+   "ms": 72.524401,
+   "n": 8
+  },
+  {
+   "family": "between_calls",
+   "op": "SliceDeviceOperation",
+   "ms": 8.768322000000001,
+   "n": 1080
+  },
+  {
+   "family": "between_calls",
+   "op": "BinaryNgDeviceOperation",
+   "ms": 84.1055529999997,
+   "n": 1548
+  },
+  {
+   "family": "between_calls",
+   "op": "TypecastDeviceOperation",
+   "ms": 0.6916269999999998,
+   "n": 360
+  },
+  {
+   "family": "between_calls",
+   "op": "MatmulDeviceOperation",
+   "ms": 27.64538400000002,
+   "n": 420
+  },
+  {
+   "family": "between_calls",
+   "op": "UnaryDeviceOperation",
+   "ms": 0.7916799999999999,
+   "n": 72
+  },
+  {
+   "family": "between_calls",
+   "op": "ConcatDeviceOperation",
+   "ms": 1.1460040000000002,
+   "n": 12
+  },
+  {
+   "family": "between_calls",
+   "op": "NlpCreateHeadsDeviceOperation",
+   "ms": 1.23082,
+   "n": 12
+  },
+  {
+   "family": "between_calls",
+   "op": "TransposeDeviceOperation",
+   "ms": 0.39878199999999997,
+   "n": 12
+  },
+  {
+   "family": "between_calls",
+   "op": "SoftmaxDeviceOperation",
+   "ms": 3.4181570000000003,
+   "n": 12
+  },
+  {
+   "family": "between_calls",
+   "op": "NLPConcatHeadsDeviceOperation",
+   "ms": 0.42186199999999996,
+   "n": 12
+  },
+  {
+   "family": "between_calls",
+   "op": "UnaryNgDeviceOperation",
+   "ms": 2.63393,
+   "n": 12
+  }
+ ]
+}
