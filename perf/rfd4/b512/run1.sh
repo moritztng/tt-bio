@@ -15,7 +15,7 @@ until [ "$($BOOK active $C 2>/dev/null)" = $ME ]; do $BOOK add $ME $C ${HOLD_S:-
 exec 9>"$HOME/spd_qb2_chip$C.lock"; flock -w 7200 9 || { stamp "flock timeout"; exit 3; }
 while fuser "/dev/tenstorrent/$C" > /dev/null 2>&1; do sleep 20; done
 stamp "start chip $C tree $(git rev-parse --short HEAD) dirty $(git status --porcelain | wc -l)"
-ORL="or:base;or:gran=8;or:gran=16;or:gran=32;or:dm=1;or:dm=2;or:dm=4;or:dm=3;or:dm=7;or:gran=16,dm=4"
+ORL=${ORL:-"or:base;or:gran=8;or:gran=16;or:gran=32;or:dm=1;or:dm=2;or:dm=4;or:dm=3;or:dm=7;or:gran=16,dm=4"}
 PBL="pb:base;pb:dm=1;pb:dm=2;pb:dm=3"
 S="T1_PSIG=1,T1_B8=1,T1_G8=1,T1_FG=1"
 for leg in ${3:-or pb t1 tail}; do
