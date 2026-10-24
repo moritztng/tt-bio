@@ -161,3 +161,20 @@ def test_no_command_offers_to_bind_another_interface():
         out = CliRunner().invoke(cli, [cmd, "--help"]).output
         assert "--listen" not in out, cmd
     assert "--lease-s" in CliRunner().invoke(cli, ["controller", "--help"]).output
+
+
+def test_an_events_poll_reads_its_own_run_not_the_whole_table(tmp_path):
+    # An agent writes ~25k events an hour; a poll that walks the table by seq slowed served folds by a third
+    # after 18 h. The plan must reach one run's rows through the index, including a store opened on an old file.
+    path = tmp_path / "c.sqlite3"
+    H.ControllerStore(path)
+    with H.sqlite3.connect(path) as conn:
+        conn.execute("DROP INDEX events_run_seq")
+    store = H.ControllerStore(path)
+    run_id = _run(store, "x")
+    with store._connect() as conn:
+        plan = " ".join(r[3] for r in conn.execute(
+            "EXPLAIN QUERY PLAN SELECT seq, event_json FROM events WHERE run_id=? AND seq>? ORDER BY seq LIMIT 500",
+            (run_id, 0)))
+    assert "USING INDEX events_run_seq" in plan or "USING COVERING INDEX events_run_seq" in plan, plan
+    assert [e["event"] for e in store.events(run_id, 0)["events"]] == ["run"]

@@ -182,6 +182,11 @@ class ControllerStore:
                     event_json TEXT NOT NULL,
                     created_at REAL NOT NULL
                 );
+                -- Every events() poll and create_run's delete look up one run. Without this index each
+                -- walked the table from seq `after` to its end: 56 ms at after=0 on a JapanFold agent's
+                -- 468k rows after 18 h (~25k events/h), enough to pin the controller's core and slow
+                -- served OpenDDE folds from 162 s to 218 s until the agent restarted.
+                CREATE INDEX IF NOT EXISTS events_run_seq ON events (run_id, seq);
                 """
             )
             # Migrate pre-existing tables that lack newer columns.
