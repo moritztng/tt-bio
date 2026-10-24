@@ -252,8 +252,8 @@ TRIATT_Q10_WH = frozenset({"triatt_q10"})
 # cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz (pzab), steady warm pairs -0.69 / -0.71 s. On a p300 chip (bhpzab, 9TY2_512,
 # separate processes x2) the two runs read -1.2 and +1.4 s, inside the box's drift; ABBA x4 in separate processes (bhpzab2, AICLK
 # 1337-1350 median) reads -0.53..-1.16 s per warm fold, median -0.83 s on ~36 s. Blackhole 512-token fast grade vs the shipped
-# Blackhole fast set (gpzbh, 2026-10-23), PASS on the first 34 paired folds: same-seed top pose median 0.424 A vs the 1.590 A
-# A/A floor, CA-lDDT +0.0002 [-0.0009, +0.0018], docking 27/34 -> 28/34, every interval covers 0.
+# Blackhole fast set (gpzbh, 2026-10-24), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.413 A vs the 1.407 A
+# A/A floor, CA-lDDT +0.0002 [-0.0006, +0.0013], docking 35/44 -> 36/44.
 DIT_SEAM_FAST = frozenset({"pz_device", "dit_mod16"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
