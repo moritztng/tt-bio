@@ -11,6 +11,8 @@ stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" >> $R
 [ -e $HOME/spd/locks/chip$N.BAD ] && { stamp "chip $N carries chip$N.BAD, refusing"; exit 2; }
 MAIN=$R/main-tree; rm -rf $MAIN; mkdir -p $MAIN
 git -C ${SRC:-$WT} archive ${MAIN_REF:-origin/main} | tar -x -C $MAIN
+# digest.py is new on this branch: main runs the same script against its own tt_bio
+mkdir -p $MAIN/perf/rfd4/tri224; cp $WT/perf/rfd4/tri224/digest.py $MAIN/perf/rfd4/tri224/
 until [ "$($BOOK active $N 2>/dev/null)" = $OWN ]; do $BOOK add $OWN $N ${HOLD_S:-1200} --note "tri224 run6 digests" > /dev/null; sleep 60; done
 exec 9>"$HOME/spd_qb2_chip$N.lock"; flock -w 3600 9 || { stamp "flock timeout"; exit 3; }
 while fuser "/dev/tenstorrent/$N" > /dev/null 2>&1; do sleep 20; done
