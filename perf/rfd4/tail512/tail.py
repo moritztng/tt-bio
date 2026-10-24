@@ -2,7 +2,8 @@
 ROT with x page-rotated as bmm_res writes it): median ms of warm synchronized calls, error vs float64, output sha,
 then the same call under bench knobs. `abl=` T2_ABL (compute_ln.cpp: 1 LN, 2 p GEMM, 8 epilogue, 16 sigmoid,
 64 the transposes), `dm=` T2_DMABL (reader 1 gather L1 reads, 2 stage DRAM reads; writer 4 g / z reads, 8 writes),
-`grow=0`, `s1k=0`, `rot=0` turn main's levers off. Knob sets are comma-joined, legs ';'-joined.
+`grow=0`, `s1k=0`, `rot=0` turn main's levers off,
+`lnblk=` T2_LNBLK and `sbw=` the p GEMM's subblock width price compute levers. Knob sets are comma-joined, legs ';'-joined.
 
 usage: TT_VISIBLE_DEVICES=<chip> timeout 900 python perf/rfd4/tail512/tail.py --ns 512,384 --legs "dm=15;abl=91"
 """
@@ -29,8 +30,9 @@ ckc = _mm_generic.ckc_args(T.trunk_compute_kernel_config(compute_kernel_config()
 grid = tuple(T.COMPUTE_GRID_MAIN)
 up = lambda t, dt=ttnn.bfloat16: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT,  # noqa: E731
                                                  device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-KNOB = {"abl": "T2_ABL", "dm": "T2_DMABL", "grow": "T2_GROW", "s1k": "T2_S1K", "sbig": "T2_SBIG", "sstr": "T2_SSTR"}
-MAIN = {"T2_ABL": 0, "T2_DMABL": 0, "T2_GROW": True, "T2_S1K": True, "T2_SBIG": 0, "T2_SSTR": 0}
+KNOB = {"abl": "T2_ABL", "dm": "T2_DMABL", "grow": "T2_GROW", "s1k": "T2_S1K", "sbig": "T2_SBIG", "sstr": "T2_SSTR", "lnblk": "T2_LNBLK"}
+MAIN = {"T2_ABL": 0, "T2_DMABL": 0, "T2_GROW": True, "T2_S1K": True, "T2_SBIG": 0, "T2_SSTR": 0, "T2_LNBLK": 1}
+BLOCK = dict(TT.T2_BLOCK)
 
 
 def aiclk():
@@ -50,11 +52,14 @@ def setk(leg):
     """main's knobs, then the leg's; returns whether x is read rotated."""
     for k, v in MAIN.items():
         setattr(TT, k, v)
+    TT.T2_BLOCK.clear(); TT.T2_BLOCK.update(BLOCK)
     rot = True
     for kv in filter(None, leg.split(",")):
         k, v = kv.split("=")
         if k == "rot":
             rot = bool(int(v))
+        elif k == "sbw":    # the p GEMM's output subblock width at RFD4's (8, 12)
+            TT.T2_BLOCK[(8, 12)] = BLOCK[(8, 12)][:4] + (int(v),)
         else:
             setattr(TT, KNOB[k], int(v))
     return rot

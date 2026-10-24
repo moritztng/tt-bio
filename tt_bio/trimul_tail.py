@@ -900,6 +900,9 @@ T2_GROW = True
 # whole faces side by side, so reader_moved.cpp reads them as one 1 KB read instead of two 512 B ones. Same bytes,
 # same places, bit-identical; RFD4's tail 1.99 -> 1.91 ms at 512, 1.25 -> 1.20 at 384 (state/rfd4/bets/tri512.md).
 T2_S1K = True
+# T2 LayerNorm stages' tiles per DST acquire (common/ln_prologue.hpp LN_BLK; 4 fills a half-sync fp32 DST). Same ops on
+# the same tiles in the same order, so bit-identical; fewer math / pack handshakes.
+T2_LNBLK = 1
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # T2_FOLD (off): fold the LN's centring and gamma into Wp, LN(x) @ Wp = rstd * (x @ Wc) + beta @ Wp with
 # Wc = (I - 11^T / K) diag(gamma) Wp, so compute_ln.cpp only needs rstd and skips four of the LN's five Kt-tile
@@ -1212,6 +1215,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     mmfid = t2_mm_fid(kt, nt, gate)
     if mmfid is not None:
         defines = defines + [("T2_MM_FID", str(mmfid.value))]
+    if T2_LNBLK != 1:
+        defines = defines + [("LN_BLK", str(T2_LNBLK))]
     if res32:   # the float32 z straight to DST: through srcA it would lose 13 mantissa bits
         modes = [ttnn.UnpackToDestMode.Default] * 64
         modes[7] = ttnn.UnpackToDestMode.UnpackToDestFp32
@@ -1349,7 +1354,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR,
-           None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
+           T2_LNBLK, block, None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
            _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)))
     entry = _CACHE.get(key)
     if entry is None:
@@ -1550,7 +1555,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, _t2_block(kt, nt), P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)), bool(rot))
     entry = _CACHE.get(key)
