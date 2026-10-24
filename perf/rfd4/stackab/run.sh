@@ -4,7 +4,8 @@
 # every leg. Each tree runs its own perf/rfd4/fair/run.py, as fair7 did. The 512 A tree (95fe840d0) gets the one
 # harness line 0a3ee1291 added (--shared-box skips the tt-smi board probe, which walks every chip on a shared box);
 # nothing under tt_bio/ is touched.
-#   bash perf/rfd4/stackab/run.sh <chip> <outdir> <main sha>      (detach it)
+#   setsid nohup bash perf/rfd4/stackab/run.sh <chip> <outdir> <main sha> > log 2>&1 < /dev/null &
+# setsid matters: run1 inherited the worker turn's process group and died with it (SIGINT, rc=130).
 set -u
 N=$1; R=$2; BSHA=$3; WT=$(cd "$(dirname "$0")/../../.." && pwd)
 PY=$HOME/tt-bio-dev/env/bin/python; BOOK="python3 $HOME/spd/feed/book.py"; OWN=rfd4-stackab
@@ -24,9 +25,11 @@ until [ "$($BOOK active $N 2>/dev/null)" = $OWN ]; do $BOOK add $OWN $N ${HOLD_S
 exec 9>"$HOME/spd_qb2_chip$N.lock"; flock -w 7200 9 || { stamp "flock timeout"; exit 3; }
 while fuser "/dev/tenstorrent/$N" > /dev/null 2>&1; do sleep 20; done
 stamp "start chip $N A512 95fe840d0 A224 0a3ee1291 B $BSHA"
-( while sleep 1; do echo "$(date +%s) $(cat "/sys/class/tenstorrent/tenstorrent!$N/tt_aiclk")"; done ) > $R/aiclk.txt &
+( while sleep 1; do echo "$(date +%s) $(cat "/sys/class/tenstorrent/tenstorrent!$N/tt_aiclk")"; done ) >> $R/aiclk.txt &
 CLK=$!
 leg() {  # leg <size> <arm> <name> <batches>
+  [ -e $R/$3.ok ] && return  # resumable: a leg that finished rc=0 is never rerun
+  rm -rf $R/raw/$3
   local T=$S/B; [ $2 = A ] && T=$S/A$1
   local W="--batch 4 --lane-width 1"; [ $1 = 224 ] && W="--batch 20 --lane-width 10"
   stamp "$3 begin"
@@ -34,7 +37,7 @@ leg() {  # leg <size> <arm> <name> <batches>
    PYTHONPATH=$T timeout 3600 $PY perf/rfd4/fair/run.py --spec $HOME/rfd4-inputs/pdl1-$1.yaml \
     --weights $HOME/rfd4-bundle --out $R/raw/$3 --part p300c --shared-box --quiet-timeout ${QT:-600} \
     $W --batches $4 --max-attempts 4 >> $R/$3.log 2>&1)
-  stamp "$3 rc=$?"
+  local rc=$?; stamp "$3 rc=$rc"; [ $rc = 0 ] && touch $R/$3.ok
   $BOOK add $OWN $N ${HOLD_S:-18000} > /dev/null
 }
 for s in ${SIZES:-512 224}; do
