@@ -64,6 +64,22 @@ class Engine(Protocol):
         ...
 
 
+def load_trunk(glue, state: dict, cfg: dict):
+    """The device trunk over the `nn.` weights the heads left to it. Refuses a checkpoint where a
+    weight is read by neither, so a renamed or extra tensor fails the load instead of designing."""
+    import ttnn
+
+    from tt_bio.rfd4 import network as _network
+    from tt_bio.rfd4.trunk import Trunk, compute_kernel_config
+    from tt_bio.tenstorrent import WeightScope
+
+    scope = WeightScope.recording({k: v.float() for k, v in _network._sub(state, "nn.").items()})
+    trunk = Trunk(scope, compute_kernel_config(), nlayers=cfg["nlayers"], n_heads=cfg["nheads"],
+                  every_n=cfg["update_pair_repr_every_n"], residual_dtype=ttnn.float32)
+    glue.check_trunk_reads(scope.reads)
+    return trunk
+
+
 class DesignEngine:
     """RFD4 on Tenstorrent: the sampler driving the trunk and the autoencoder on one card.
 
@@ -80,10 +96,6 @@ class DesignEngine:
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
-        from tt_bio.rfd4.trunk import Trunk, compute_kernel_config
-
-        import ttnn
-
         path = _resolve_weights(weights)
         state, config = _network.load_checkpoint(path, adapter=adapter)
         cfg = config["nn"]
@@ -94,12 +106,7 @@ class DesignEngine:
                                                            **{_sampler.LOCAL_LATENTS: replace(latents, tsr_k=tsr_k)}))
         self.config = config
         self.glue = _network.FlowGlue(state, config)
-        from tt_bio.tenstorrent import WeightScope
-
-        self.trunk = Trunk(WeightScope({k: v.float() for k, v in _network._sub(state, "nn.").items()}),
-                           compute_kernel_config(), nlayers=cfg["nlayers"], n_heads=cfg["nheads"],
-                           every_n=cfg["update_pair_repr_every_n"],
-                           residual_dtype=ttnn.float32)
+        self.trunk = load_trunk(self.glue, state, cfg)
         # The bundle stores the AE under `autoencoder.`; it is byte-identical to the AE's own
         # checkpoint (699/699 tensors), which is what the AE was graded on.
         self.autoencoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("decoder",))

@@ -9520,14 +9520,30 @@ atexit.register(_drop_cycles_at_exit)
 
 
 class WeightScope:
-    """Immutable scoped view over a flat checkpoint state-dict."""
+    """Immutable scoped view over a flat checkpoint state-dict.
 
-    def __init__(self, data: Mapping[str, torch.Tensor]):
+    A scope made by `recording` notes the root key of every weight read through it or any child
+    (`[]` and `get`, not `.data`), so a loader can prove it consumed exactly what it was given.
+    """
+
+    def __init__(self, data: Mapping[str, torch.Tensor], *, _reads: set | None = None,
+                 _roots: Mapping[str, str] | None = None):
         self._data = MappingProxyType(dict(data))
+        self._reads = _reads
+        self._roots = _roots
 
     @classmethod
     def wrap(cls, data: Mapping[str, torch.Tensor] | "WeightScope") -> "WeightScope":
         return data if isinstance(data, cls) else cls(data)
+
+    @classmethod
+    def recording(cls, data: Mapping[str, torch.Tensor]) -> "WeightScope":
+        return cls(data, _reads=set())
+
+    @property
+    def reads(self) -> frozenset[str]:
+        """The root keys read so far; empty for a scope that does not record."""
+        return frozenset(self._reads or ())
 
     @property
     def data(self) -> Mapping[str, torch.Tensor]:
@@ -9537,7 +9553,13 @@ class WeightScope:
         return dict(self._data)
 
     def __getitem__(self, key: str) -> torch.Tensor:
-        return self._data[key]
+        value = self._data[key]
+        if self._reads is not None:
+            self._reads.add(self._roots[key] if self._roots is not None else key)
+        return value
+
+    def get(self, key: str, default=None):
+        return self[key] if key in self._data else default
 
     def __contains__(self, key: object) -> bool:
         # Without this, `key in scope` falls back to iterating __getitem__ with
@@ -9548,7 +9570,7 @@ class WeightScope:
         if not scope:
             return self
         scope_prefix = f"{scope}."
-        out = {}
+        out, roots = {}, {}
         for key, value in self._data.items():
             if not key.startswith(scope_prefix):
                 continue
@@ -9556,7 +9578,10 @@ class WeightScope:
             if strip_prefix and child_key.startswith(strip_prefix):
                 child_key = child_key[len(strip_prefix) :]
             out[child_key] = value
-        return WeightScope(out)
+            roots[child_key] = self._roots[key] if self._roots is not None else key
+        if self._reads is None:
+            return WeightScope(out)
+        return WeightScope(out, _reads=self._reads, _roots=roots)
 
 
 Weights = Mapping[str, torch.Tensor] | WeightScope
