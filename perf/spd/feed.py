@@ -35,7 +35,8 @@ Galaxies: jobs go to ~/spd/pool/queue/ and pool.sh starts them. qb1/qb2 have no 
 a waiter that takes the first usable card of its box to come free (its CHIPS.md flock free, no release leg on it);
 the job itself gets a private LOCK so run_chip.sh does not wait on its own card. Waiters queue for cards through one
 dispatch flock per box, so they start in about the order they were placed. A BH job still waiting after STEAL_S moves
-to a free card on another BH box its cell allows.
+to a free card on another BH box its cell allows; a Galaxy that offers no chip for STEAL_S hands its queued feed jobs
+back to the fill, which places them on a pool with room.
 """
 import argparse
 import hashlib
@@ -318,6 +319,12 @@ PLACE = f"NODE = {NODE!r}\nRUN = {RUN!r}\nGATE_LEG = {GATE_LEG!r}\n" + PLACE   #
 WITHDRAW = r'''
 import json, os, signal, sys, time
 A = json.loads(sys.stdin.readline()); J = os.path.expanduser("~/spd/feed/jobs"); got = []
+if A.get("kind") == "galaxy":   # pool.sh starts only queue/*.sh; a job it already moved to running/ fails the rename
+    for n in A["names"]:
+        q = os.path.expanduser("~/spd/pool/queue/" + n)
+        try: os.rename(q, q + ".moved"); got.append(n)
+        except OSError: pass
+    A["names"] = []
 for n in A["names"]:
     sh = J + "/" + n
     if not os.path.exists(sh) or os.path.exists(sh + ".start") or os.path.exists(sh + ".end"): continue
@@ -712,12 +719,34 @@ def main(argv=None):
         twins = [m for m, j in s.get("jobs", {}).items() if j["state"] == "queued" and owner.get(m, n) != n]
         if twins and not a.dry_run:
             try:
-                gone = remote(P[n]["ssh"], WITHDRAW, {"names": twins})
+                gone = remote(P[n]["ssh"], WITHDRAW, {"names": twins, "kind": P[n]["kind"]})
             except Exception as e:
                 log(f"{n}: twin withdraw failed: {e}"); continue
             for m in gone:
                 s["jobs"].pop(m); s["queued"] -= 1
             log(f"{n}: withdrew {len(gone)} twin(s) placed elsewhere while it was dark")
+    # a Galaxy that has offered no chip for STEAL_S (lending switched off, every chip recalled) strands its queue: withdraw
+    # its feed jobs and mark them lost, so step 2 places them on a pool with room (10-24: .107 lent 0 chips from 01:10Z
+    # with 92 cells queued while .103 sat lent with 20 healthy)
+    zf = S / "zero.json"
+    zero = json.loads(zf.read_text()) if zf.exists() else {}
+    zero = {n: zero.get(n, now) for n, s in st.items() if P[n]["kind"] == "galaxy" and s["healthy"] <= 0}
+    if not a.dry_run:
+        write_json(zf, zero)
+    for n in [n for n in zero if now - zero[n] >= STEAL_S]:
+        stuck = [m for m, j in st[n]["jobs"].items() if j["state"] == "queued"]
+        if not stuck or a.dry_run:
+            continue
+        try:
+            gone = remote(P[n]["ssh"], WITHDRAW, {"names": stuck, "kind": "galaxy"})
+        except Exception as e:
+            log(f"{n}: stranded withdraw failed: {e}"); continue
+        for m in gone:
+            st[n]["jobs"].pop(m); st[n]["queued"] -= 1
+        for L in ledger.values():
+            if L.get("host") == n and L.get("name") in gone:
+                L["state"] = "lost"
+        log(f"{n}: no chip for {int(now - zero[n]) // 60} min, withdrew {len(gone)} queued job(s) to place elsewhere")
     if not a.dry_run:
         arc(R, st, P, log)
     live = {n for s in st.values() for n in s.get("live", [])}
