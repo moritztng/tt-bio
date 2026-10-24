@@ -82,7 +82,7 @@ JOBS = {
 }
 
 #: BUCKETED rows with no `JOBS` entry, each with the reason it cannot take the shared 98-aa fasta.
-#: An entry here is a debt with a name on it, not an exemption: all three ARE censused, just on
+#: An entry here is a debt with a name on it, not an exemption: every one IS censused, just on
 #: their own fixture and by hand rather than by this test.
 NO_SHARED_INPUT = {
     "nesso1": "`tt-bio affinity` takes a complex YAML, not a fasta; censused on "
@@ -91,6 +91,9 @@ NO_SHARED_INPUT = {
                 "at 196 ragged tokens",
     "boltzgen": "`tt-bio design` takes a target spec and a binder length, so it needs its own "
                 "fixture the way rfd3 does",
+    "rfd4": "`tt-bio design` takes a condition spec, not a fasta; Trunk.run_bucketed is graded on "
+            "a ragged 100-token input against float64 by tests/test_rfd4_trunk_parity.py::"
+            "test_trunk_run_bucketed_ragged_length",
 }
 _RFD3_TARGET = os.path.join(REPO, "perf", "wh-correctness", "results", "payloads",
                             "des_rfd3_binder.json")
