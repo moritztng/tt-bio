@@ -722,6 +722,12 @@ FAST_LEVERS = NORMAL_LEVERS
 
 
 class Trunk(Module):
+    #: What ran, counted rather than derived from the recycle schedule: per design, the trunk passes and
+    #: trunk-block forwards of every call whose output `collect` read back. A call rerun after a device refusal
+    #: counts once, a call that raised not at all. Host integers only: no device sync, nothing on the critical
+    #: path. The two class defaults let a stand-in trunk that never runs `__call__` go through launch/collect.
+    _ran = (0, 0)
+
     """`LocalLatentsTransformer._run_trunk` in inference: `nlayers` trunk blocks with a pair update
     after every `every_n`-th one but the last, run once per recycle.
 
@@ -772,11 +778,6 @@ class Trunk(Module):
                                         layout=ttnn.TILE_LAYOUT, device=self.device)
                         for g in self.bias_groups]
         self._group_at = {g[0]: k for k, g in enumerate(self.bias_groups)}
-        #: What ran, counted rather than derived from the recycle schedule: per design, the trunk passes and
-        #: trunk-block forwards of every call whose output `collect` read back. A call rerun after a device
-        #: refusal counts once, a call that raised not at all. Host integers only, no device sync.
-        self.counted = {"passes": 0, "blocks": 0}
-        self._ran = [0, 0]
         # pair_bias_rms: each group's biases as one program from zb (RMSNorm, projection, head-first layout, split)
         self.bias_wts = None
         if "pair_bias_rms" in self._levers:
@@ -912,6 +913,14 @@ class Trunk(Module):
         masks = trunk_masks(mask, device, dtype=self.dtype, residual_dtype=self.residual_dtype)
         self._masks = (device, mask.clone(), masks)
         return masks
+
+    @property
+    def counted(self) -> dict:
+        return self.__dict__.setdefault("_counted", {"passes": 0, "blocks": 0})
+
+    @counted.setter
+    def counted(self, value: dict) -> None:
+        self.__dict__["_counted"] = dict(value)
 
     def run_bucketed(self, s_init, z_init, conds, mask, device, pair=True):
         """Host entry: s_init [b, N, token], z_init [b, N, N, pair], conds [b, N, cond] per cycle and the

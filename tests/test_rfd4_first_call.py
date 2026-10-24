@@ -63,7 +63,7 @@ def _launch(tr):
 
 def test_a_call_that_learned_a_plan_is_run_again(fake_device):
     tr = _Trunk(learn_on={1})
-    _, _, (s_out, z_out), _ = _launch(tr)
+    _, _, (s_out, z_out), _, _ = _launch(tr)
     assert tr.calls == 2
     assert s_out.tag == ("s", 2) and z_out.tag == ("z", 2)
     assert all(t.freed for t in tr.outs[0])          # the mixed-plan result is released
@@ -77,6 +77,6 @@ def test_a_settled_call_runs_once(fake_device):
 
 def test_a_count_that_never_settles_is_capped(fake_device):
     tr = _Trunk(learn_on=set(range(1, 100)))
-    _, _, (s_out, _), _ = _launch(tr)
+    _, _, (s_out, _), _, _ = _launch(tr)
     assert tr.calls == 3 and s_out.tag == ("s", 3)
 

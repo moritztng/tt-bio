@@ -24,7 +24,7 @@ class _Out:
 def _trunk(monkeypatch, passes, refusals=0):
     """A Trunk whose call runs `passes` passes of 24 blocks; the first `refusals` calls teach a new plan."""
     tr = object.__new__(T.Trunk)
-    tr.counted, tr._ran, tr.residual_dtype, tr.dtype = {"passes": 0, "blocks": 0}, [0, 0], None, None
+    tr.residual_dtype = tr.dtype = None
     learned = {"n": 0, "left": refusals}
 
     def call(s, z, cs, masks):
@@ -51,6 +51,14 @@ def _go(tr, b, n=32, depth=3):
     s, z = torch.zeros(b, n, 4), torch.zeros(b, n, n, 2)
     conds = [torch.zeros(b, n, 4)] * depth
     return tr.launch(s, z, conds, torch.ones(b, n), device=None, pair=False)
+
+
+def test_a_stand_in_trunk_that_never_counted_still_launches_and_collects(monkeypatch):
+    tr = _trunk(monkeypatch, passes=0)
+    del T.Trunk.__call__  # a stub trunk subclassing nothing of ours: no __call__ of ours ever ran
+    T.Trunk.__call__ = lambda self, *a: (_Out(1), _Out(1))
+    tr.collect(_go(tr, b=1))
+    assert tr.counted == {"passes": 0, "blocks": 0}
 
 
 def test_a_pass_counts_once_a_design_and_only_when_read_back(monkeypatch):
