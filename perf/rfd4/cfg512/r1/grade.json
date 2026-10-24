@@ -1,0 +1,203 @@
+{
+ "legs": {
+  "A1": {
+   "batch": 4,
+   "batches": 4,
+   "clean": 4,
+   "s_per_design": 20.8069,
+   "design_s_per_design": 20.5899,
+   "featurize_s": 0.274,
+   "write_s": 0.581,
+   "aiclk_median": [
+    1300,
+    1300,
+    1300,
+    1306
+   ],
+   "aiclk_min": 1262,
+   "discard": [],
+   "rows": [
+    [
+     4,
+     82.307,
+     83.146
+    ],
+    [
+     4,
+     82.26,
+     83.09
+    ],
+    [
+     4,
+     82.371,
+     83.244
+    ],
+    [
+     4,
+     82.5,
+     83.43
+    ]
+   ]
+  },
+  "A2": {
+   "batch": 4,
+   "batches": 4,
+   "clean": 4,
+   "s_per_design": 20.813,
+   "design_s_per_design": 20.5561,
+   "featurize_s": 0.267,
+   "write_s": 0.576,
+   "aiclk_median": [
+    1300,
+    1312,
+    1300,
+    1300
+   ],
+   "aiclk_min": 1262,
+   "discard": [],
+   "rows": [
+    [
+     4,
+     82.248,
+     83.85
+    ],
+    [
+     4,
+     82.212,
+     83.058
+    ],
+    [
+     4,
+     82.195,
+     83.018
+    ],
+    [
+     4,
+     82.242,
+     83.082
+    ]
+   ]
+  },
+  "B1": {
+   "batch": 8,
+   "batches": 2,
+   "clean": 2,
+   "s_per_design": 20.6782,
+   "design_s_per_design": 20.5547,
+   "featurize_s": 0.281,
+   "write_s": 0.706,
+   "aiclk_median": [
+    1300,
+    1306
+   ],
+   "aiclk_min": 1256,
+   "discard": [],
+   "rows": [
+    [
+     8,
+     164.346,
+     165.285
+    ],
+    [
+     8,
+     164.53,
+     165.567
+    ]
+   ]
+  },
+  "B2": {
+   "batch": 8,
+   "batches": 2,
+   "clean": 2,
+   "s_per_design": 20.6647,
+   "design_s_per_design": 20.5292,
+   "featurize_s": 0.282,
+   "write_s": 0.803,
+   "aiclk_median": [
+    1306,
+    1306
+   ],
+   "aiclk_min": 1256,
+   "discard": [],
+   "rows": [
+    [
+     8,
+     164.266,
+     165.356
+    ],
+    [
+     8,
+     164.201,
+     165.28
+    ]
+   ]
+  },
+  "C1": {
+   "batch": 16,
+   "batches": 1,
+   "clean": 1,
+   "s_per_design": 20.9833,
+   "design_s_per_design": 20.5225,
+   "featurize_s": 0.299,
+   "write_s": 7.072,
+   "aiclk_median": [
+    1300
+   ],
+   "aiclk_min": 1256,
+   "discard": [],
+   "rows": [
+    [
+     16,
+     328.36,
+     335.732
+    ]
+   ]
+  },
+  "C2": {
+   "batch": 16,
+   "batches": 1,
+   "clean": 1,
+   "s_per_design": 20.6529,
+   "design_s_per_design": 20.5286,
+   "featurize_s": 0.281,
+   "write_s": 1.709,
+   "aiclk_median": [
+    1300
+   ],
+   "aiclk_min": 1256,
+   "discard": [],
+   "rows": [
+    [
+     16,
+     328.458,
+     330.447
+    ]
+   ]
+  }
+ },
+ "s_per_design": {
+  "4": 20.81,
+  "8": 20.6715,
+  "16": 20.8181
+ },
+ "vs_b4l1": {
+  "4": 1.0,
+  "8": 1.0067,
+  "16": 0.9996
+ },
+ "pair_vs_A_same_round": {
+  "B1": 1.0062,
+  "B2": 1.0072,
+  "C1": 0.9916,
+  "C2": 1.0078
+ },
+ "fit_design_s": {
+  "per_design_s": 20.5099,
+  "per_batch_s": 0.2536,
+  "points": 14
+ },
+ "seed1010_d0_3_identical": {
+  "files": 6,
+  "all_equal": false
+ }
+}
