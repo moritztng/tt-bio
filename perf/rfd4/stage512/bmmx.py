@@ -4,7 +4,7 @@ output with channel c's tile pages rotated by c inside the channel.
 
 usage: TT_VISIBLE_DEVICES=<chip> timeout 1800 python perf/rfd4/stage512/bmmx.py --out x.jsonl
 """
-import argparse, hashlib, json, sys
+import argparse, hashlib, inspect, json, sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
@@ -33,7 +33,7 @@ def emit(rec):
 def run(C, n, ta, tb, dt, rot=False):
     g = torch.Generator().manual_seed(C * 1000 + n + 2 * ta + tb)
     a, b = torch.randn(1, C, n, n, generator=g), torch.randn(1, C, n, n, generator=g)
-    y = B.matmul(up(a, dt), up(b, dt), transpose_a=ta, transpose_b=tb, rot=rot)
+    y = B.matmul(up(a, dt), up(b, dt), transpose_a=ta, transpose_b=tb, **({"rot": True} if rot else {}))
     return None if y is None else ttnn.to_torch(y).reshape(1, C, n, n)
 
 
@@ -43,7 +43,7 @@ for C, n, ta, tb, dt in [(128, 256, 0, 0, ttnn.bfloat16), (128, 256, 1, 1, ttnn.
                          (128, 1024, 0, 0, ttnn.bfloat16), (256, 1024, 1, 1, ttnn.bfloat8_b)]:
     y = run(C, n, ta, tb, dt)
     rec = {"C": C, "n": n, "ta": ta, "tb": tb, "dtype": str(dt), "sha": None if y is None else sha(y)}
-    if y is not None and n in (384, 512):
+    if y is not None and n in (384, 512) and "rot" in inspect.signature(B.matmul).parameters:  # main: no rot
         r = run(C, n, ta, tb, dt, rot=True)
         St = n // 32
         tiles = y.reshape(C, St, 32, St, 32).permute(0, 1, 3, 2, 4).reshape(C, St * St, 32, 32)
