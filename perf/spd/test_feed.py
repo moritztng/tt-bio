@@ -909,6 +909,13 @@ def test_a_bad_grid_file_skips_alone_and_prio_clamps(tmp_path):
     assert lead["spd-a/hiprio/x"] == 2
 
 
+
+def test_a_concluded_rows_grid_places_nothing(tmp_path):
+    (tmp_path / "a.yaml").write_text(LEAD)
+    assert feed.cells(tmp_path, log=lambda m: None)
+    assert feed.cells(tmp_path, log=lambda m: None, done={"spd-a"}) == []
+    assert feed.cells(tmp_path, log=lambda m: None, done={"spd-b"})
+
 def test_lead_rows_are_live_rows_dedicated_to_a_directive(tmp_path):
     (tmp_path / "state/spd/steer").mkdir(parents=True); (tmp_path / "state/concluded").mkdir()
     (tmp_path / "state/spd/steer/config.json").write_text(json.dumps(

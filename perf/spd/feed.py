@@ -469,9 +469,10 @@ def lead_rows(root):
     return out
 
 
-def cells(grid_dir, log=print, lead=frozenset()):
+def cells(grid_dir, log=print, lead=frozenset(), done=frozenset()):
     """All cells of all active experiments, ordered by tier, rows round-robin within a tier. Rows in `lead` may use
-    prio 2 (lead_rows)."""
+    prio 2 (lead_rows). A row in `done` has concluded and nobody reads its cells: on 10-24 spd-gap-esmf (concluded
+    10-15) and spd-pairchain still held ~45 jobs and 6 chips of the one lent Galaxy."""
     by_tier = {}
     for f in sorted(Path(grid_dir).glob("*.yaml")):
         try:  # one unreadable grid file must not stop every row's feed
@@ -479,6 +480,8 @@ def cells(grid_dir, log=print, lead=frozenset()):
             row, tier = g["row"], TIERS[g.get("tier", "amber")]
         except Exception as x:
             log(f"skip {f.name}: {type(x).__name__}: {str(x).splitlines()[0] if str(x) else ''}")
+            continue
+        if row in done:
             continue
         for e in g.get("experiments", []):
             if not e.get("active", True):
@@ -651,7 +654,8 @@ def main(argv=None):
     def log(m):
         logf.write(f"{stamp} {m}\n"); print(m)
 
-    cs = cells(R / "state/spd/grids", log, lead_rows(R))
+    cs = cells(R / "state/spd/grids", log, lead_rows(R),
+               {f.name for f in (R / "state/concluded").iterdir()} if (R / "state/concluded").is_dir() else set())
     P = pools(R)
     # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch. A dark BH box
     # keeps its results: an experiment with a cell done there waits for it, so its A/B arms stay on one box.
