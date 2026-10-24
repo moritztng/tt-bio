@@ -1,7 +1,7 @@
 """RFD4's triangle tail at 512 / 384 as the trunk runs it on main (T2CM stream16, g_out bfp8, z bfp8, p GEMM HiFi2):
 median ms of warm synchronized calls, error vs float64, output sha, then the same call under bench knobs
 `abl=<T2_ABL>` (compute stage skips), `dm=<T2_DMABL>` (reader 1 gather L1 reads, 2 stage DRAM reads; writer 4 g / z
-reads, 8 writes) and `grow=1` (T2_GROW, a row's gather under one barrier), `spre=1` (T2_SPRE, the next stage read a slice a row). Knob sets are comma-joined, legs ';'-joined.
+reads, 8 writes) and `grow=1` (T2_GROW, a row's gather under one barrier). Knob sets are comma-joined, legs ';'-joined.
 
 usage: TT_VISIBLE_DEVICES=<chip> timeout 900 python perf/rfd4/g512/tail.py --ns 512,384 --legs "dm=1;abl=27;grow=1"
 """
@@ -28,7 +28,7 @@ ckc = _mm_generic.ckc_args(T.trunk_compute_kernel_config(compute_kernel_config()
 grid = tuple(T.COMPUTE_GRID_MAIN)
 up = lambda t, dt=ttnn.bfloat16: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT,  # noqa: E731
                                                  device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-KNOB = {"abl": "T2_ABL", "dm": "T2_DMABL", "grow": "T2_GROW", "spre": "T2_SPRE"}
+KNOB = {"abl": "T2_ABL", "dm": "T2_DMABL", "grow": "T2_GROW"}
 
 
 def aiclk():
