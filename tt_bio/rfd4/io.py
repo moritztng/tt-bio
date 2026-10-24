@@ -19,6 +19,10 @@ counts. The seed is part of the design's identity, not a knob.
 from __future__ import annotations
 
 import logging
+import os
+import sys
+from collections import namedtuple
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -28,7 +32,8 @@ logger = logging.getLogger(__name__)
 #: The token length a design is padded to is decided by the engine, not here;
 #: prepare_cif pads to the example's own length and fills absent schema keys.
 __all__ = ["DesignInput", "featurize", "load_spec", "prepare_examples", "resolve_inputs",
-           "write_design"]
+           "start_writer", "write_design", "write_designs",
+           "writer_count", "writer_pool"]
 
 
 @dataclass(frozen=True)
@@ -143,3 +148,115 @@ def write_design(output, features: dict, atom_array, path: str | Path, *, row: i
     path = Path(path).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
     return Path(write_cif(output, features, atom_array, path, row=row))
+
+
+#: One design of an engine output: the four fields `write_cif` reads, cut to batch 1.
+_Row = namedtuple("_Row", "coords_nm residue_type atom_mask insertion_logits")
+
+#: Most writer processes a batch gets. A write is ~0.2 s, so past this the start-up and the last
+#: straggler eat what another process would save, and a host running one engine per chip
+#: multiplies whatever this is by the number of engines.
+MAX_WRITERS = 8
+#: Memory the writer's forkserver holds (Python, torch, biotite's decoded CCD) and memory one
+#: writer adds beyond the pages it shares with the server, rounded up from pc at 224 tokens
+#: (perf/rfd4/gap224mem: ~1.66 GB and <=70 MB).
+SERVER_MIB = 1800
+WRITER_MIB = 128
+_POOL = None
+
+
+def _available_mib() -> int:
+    try:
+        with open("/proc/meminfo") as f:
+            return next(int(line.split()[1]) // 1024 for line in f if line.startswith("MemAvailable:"))
+    except (OSError, StopIteration):
+        return 0
+
+
+def writer_count(n_designs: int, available_mib: int | None = None) -> int:
+    """How many processes write a batch of `n_designs`: one per design, at most `MAX_WRITERS` and
+    one per CPU, and only as many as fit, with the server, in half of the memory available now.
+    1 means write in this process."""
+    if available_mib is None:
+        available_mib = _available_mib()
+    fit = (available_mib // 2 - SERVER_MIB) // WRITER_MIB
+    return max(1, min(n_designs, MAX_WRITERS, os.cpu_count() or 1, fit))
+
+
+@contextmanager
+def _main_hidden():
+    """Start writer processes without re-running the caller's script: a spawned process executes
+    `__main__` as `__mp_main__` before its first task, and a harness or the CLI imports the
+    device stack at the top. The writer needs none of it."""
+    main = sys.modules["__main__"]
+    saved = {k: main.__dict__[k] for k in ("__file__", "__spec__") if k in main.__dict__}
+    main.__dict__.pop("__file__", None)
+    main.__spec__ = None
+    try:
+        yield
+    finally:
+        main.__dict__.update(saved)
+
+
+def _context():
+    import multiprocessing
+
+    ctx = multiprocessing.get_context("forkserver")
+    ctx.set_forkserver_preload(["tt_bio.rfd4._writer_preload"])
+    return ctx
+
+
+def start_writer(n_designs: int) -> None:
+    """Start the server `write_designs` forks its writers from, if a batch of `n_designs` gets any,
+    without waiting for it.
+
+    The server loads what a write needs (`tt_bio.rfd4._writer_preload`, ~3 s) once and writers
+    fork from it, so they hold none of this process's device handles or threads and share its
+    memory. Call this before the card runs and the load hides behind the design.
+    """
+    from multiprocessing import forkserver
+
+    if writer_count(n_designs) > 1:
+        _context()
+        with _main_hidden():
+            forkserver.ensure_running()
+
+
+def writer_pool(n_designs: int):
+    """The processes a batch of `n_designs` is written on, or None to write it in this process.
+
+    Started on the first batch and kept, so later batches pay neither a fork (~20 ms a writer)
+    nor a writer's first, colder design. A larger batch, or a writer that died, replaces it.
+    """
+    from concurrent.futures import ProcessPoolExecutor
+
+    global _POOL
+    n = writer_count(n_designs)
+    if n == 1:
+        return None
+    if _POOL is None or _POOL._broken or _POOL._max_workers < n:
+        if _POOL is not None:
+            _POOL.shutdown(wait=False)
+        _POOL = ProcessPoolExecutor(n, mp_context=_context())  # writers start as tasks arrive
+    return _POOL
+
+
+def write_designs(output, features: dict, atom_array, paths) -> list[Path]:
+    """`write_design` for rows 0..len(paths)-1 of `output`, several at a time.
+
+    A write is ~0.2 s of single-threaded Python at 224 tokens and starts only once the card has
+    finished, so a batch written one design after another adds that per design to the wall.
+    The batch goes to `writer_pool`. Each writer gets its own row (copied, so a view does not ship
+    the whole batch) and the padding mask, which is all `write_cif` reads from `features`. The
+    files are identical to a serial write.
+    """
+    paths = list(paths)
+    pool = writer_pool(len(paths))
+    if pool is None:
+        return [write_design(output, features, atom_array, p, row=k) for k, p in enumerate(paths)]
+    mask = {"padding_mask": features["padding_mask"].clone()}
+    with _main_hidden():  # writers start inside submit
+        jobs = [pool.submit(write_design, _Row(*(getattr(output, f)[k:k + 1].detach().cpu().clone()
+                                                  for f in _Row._fields)), mask, atom_array, p)
+                for k, p in enumerate(paths)]
+    return [j.result() for j in jobs]

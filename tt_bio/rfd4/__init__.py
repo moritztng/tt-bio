@@ -23,9 +23,10 @@ The model itself is :mod:`tt_bio.rfd4.network` (the host glue around the trunk),
 """
 from tt_bio.rfd4.engine import DesignEngine, Engine, get_engine
 from tt_bio.rfd4.io import (DesignInput, featurize, load_spec, prepare_examples,
-                            write_design)
+                            write_design, write_designs)
 from tt_bio.rfd4.fleet import design_via_controller
 from tt_bio.rfd4.run import design
 
 __all__ = ["DesignEngine", "DesignInput", "Engine", "design", "design_via_controller",
-           "featurize", "get_engine", "load_spec", "prepare_examples", "write_design"]
+           "featurize", "get_engine", "load_spec", "prepare_examples", "write_design",
+           "write_designs"]

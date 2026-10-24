@@ -1,0 +1,49 @@
+{
+ "n": 192,
+ "batch": 7,
+ "cycles": 3,
+ "ttnn": "/home/ttuser/scratch/shipflow/venv312-1384f4c1b7bf/lib/python3.12/site-packages/ttnn",
+ "tt_bio": "/home/ttuser/.coworker/wt/rfd4-perf-gap224/tt_bio",
+ "card": "1",
+ "eager_ms": {
+  "median": 396.386,
+  "min": 395.19,
+  "all": [
+   396.02,
+   396.53,
+   396.86,
+   396.24,
+   395.19,
+   396.1,
+   396.7,
+   395.71,
+   396.76,
+   396.96
+  ]
+ },
+ "traced_ms": {
+  "median": 396.403,
+  "min": 392.071,
+  "all": [
+   392.07,
+   396.55,
+   397.74,
+   396.45,
+   394.77,
+   397.44,
+   396.35,
+   396.0,
+   397.03,
+   395.88
+  ]
+ },
+ "aiclk": {
+  "0": {
+   "min": 1200,
+   "max": 1350,
+   "median": 1243,
+   "n": 8
+  }
+ },
+ "load1": 3.7060546875
+}

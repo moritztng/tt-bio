@@ -269,8 +269,7 @@ def main():
             t_feat = time.perf_counter() - t0
             o = engine.design(features, num_designs=width, nsteps=engine.spec.nsteps, seed=seed, rng="per_design")
             t_design = time.perf_counter() - t0 - t_feat
-            for k in range(width):
-                rfd4.write_design(o, features, atom_array, d / f"{ex.example_id}_s{seed}_d{k}.cif", row=k)
+            rfd4.write_designs(o, features, atom_array, [d / f"{ex.example_id}_s{seed}_d{k}.cif" for k in range(width)])
             wall = time.perf_counter() - t0
         size = int(features["padding_mask"].shape[-1])
         cs = clk.summary().get(0) or {}
