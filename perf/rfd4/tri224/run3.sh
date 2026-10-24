@@ -7,7 +7,7 @@
 set -u
 N=$1; R=$2; LEGS=${3:-zprec224 zprec192 designs grade}; WT=$(cd "$(dirname "$0")/../../.." && pwd)
 PY=${PY:-$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python}
-IN=$HOME/rfd4-inputs; W=$HOME/rfd4-bundle; BOOK="python3 $HOME/spd/feed/book.py"; OWN=${OWN:-rfd4-perf-tri224}; LEV=pair_x8
+IN=$HOME/rfd4-inputs; W=$HOME/rfd4-bundle; BOOK="python3 $HOME/spd/feed/book.py"; OWN=${OWN:-rfd4-perf-tri224}; LEV=${LEV:-pair_x8,pair_x8t}
 mkdir -p $R; R=$(cd $R && pwd); cd $WT
 export TT_VISIBLE_DEVICES=$N TT_BIO_LEASE_CARDS=$N TT_BIO_LEASE_HOLDER=worker:$OWN PYTHONPATH=$WT:$WT/perf
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" >> $R/done; }
@@ -37,7 +37,7 @@ for leg in $LEGS; do
              done
              cp $HOME/scratch/rfd4-land5/QUALITY.base.json $R/quality-$n.json
              nice -n 19 $PY perf/rfd4/quality.py grade --feature binder --tt $R/pool-$n/tt --ref $R/pool-$n/ref \
-               --allow-no-oracle --label "tri224 $n: default + pair_x8 vs default, PD-L1 binder, 31 seeds" \
+               --allow-no-oracle --label "tri224 $n: default + $LEV vs default, PD-L1 binder, 31 seeds" \
                --out $R/quality-$n.json > $R/quality-$n.log 2>&1
              stamp "quality $n rc=$? $(tail -1 $R/quality-$n.log | cut -c1-200)"
            done ;;
