@@ -6,6 +6,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Added
+- **RFD4 evidence proves what it used to assume.** A fair cell now counts the trunk passes and
+  trunk-block forwards that actually ran (`DesignEngine.counted`) and fails if the count is not the
+  recipe's, instead of deriving the number from the schedule; every evidence line carries a sha256 of
+  each design's decoded output, so a cell can be rerun and checked. The quality grade gained a second,
+  paired leg (exact sign test on a frozen holdout, equivalence returning INCONCLUSIVE by design) beside
+  the existing KS leg, and re-derives every headline number from the CIF it claims to come from,
+  rejecting an arm whose numbers disagree with its artifacts, that counts a design twice, or whose
+  source commit is not on main. Method credit: Magnus Bauer (see NOTICE #13).
 - **RFD4-Proteina (`tt-bio design --model rfd4`).** Binders, motif scaffolds, enzymes around a
   ligand, antibody and nanobody CDRs and unconditional monomers, designed through a latent flow at
   the shipped `thinking_medium` budget (60 steps, 180 trunk passes). Input is a design YAML with

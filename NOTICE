@@ -146,6 +146,18 @@ MIT-licensed and credited in the top-level LICENSE.
    Note:          only params_model_1_ptm.npz is extracted and kept; downloaded on first
                   use, not redistributed here
 
+13. RFD4 evidence and grading method — four checks in our own code follow the
+   method of an independent RFD4 port by Magnus Bauer (IPD / Baker Lab): counting
+   the trunk passes that ran instead of deriving them from the schedule, a digest
+   on every evidence line, the preregistered paired sign test on a frozen holdout
+   (perf/rfd4/holdout.json, perf/rfd4/quality.py), and re-deriving a reported
+   number from the artifact it names (perf/rfd4/rebind.py). No code is vendored;
+   the implementations are ours and the files carry the reference they follow.
+   Source:        github.com/magnusbauer/tt-bio, branch rfd4-experimental,
+                  head 7fbfc2704 (2026-10-23)
+   License:       MIT, the same licence as tt-bio
+   Credit:        Magnus Bauer <magnusb@uw.edu>
+
 Not included
 
 12. BindCraft 2 — tt-bio contains none of its code and does not distribute or serve it.
