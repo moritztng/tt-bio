@@ -17,8 +17,8 @@
 #ifndef T2MCAST
 #define T2MCAST 0
 #endif
-// Bench-only (trimul_tail.T2_DMABL / T2_GROW, 0 in every model path): DMABL 1 skips the gather's L1 reads, 2 the
-// stage's DRAM reads; GROW gathers a whole row's Clt tiles under one barrier (c_15 holds two rows).
+// T2_DMABL (bench only, 0 in every model path): 1 skips the gather's L1 reads, 2 the stage's DRAM reads.
+// T2_GROW (trimul_tail._t2_grow_fits): the gather fills a whole row's Clt tiles under one barrier, c_15 holds two.
 #ifndef T2_DMABL
 #define T2_DMABL 0
 #endif
