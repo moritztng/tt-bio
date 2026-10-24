@@ -28,7 +28,7 @@ ckc = _mm_generic.ckc_args(T.trunk_compute_kernel_config(compute_kernel_config()
 grid = tuple(T.COMPUTE_GRID_MAIN)
 up = lambda t, dt=ttnn.bfloat16: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT,  # noqa: E731
                                                  device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-KNOB = {"abl": "T2_ABL", "dm": "T2_DMABL", "grow": "T2_GROW", "sbig": "T2_SBIG"}
+KNOB = {"abl": "T2_ABL", "dm": "T2_DMABL", "grow": "T2_GROW", "sbig": "T2_SBIG", "sstr": "T2_SSTR"}
 
 
 def aiclk():

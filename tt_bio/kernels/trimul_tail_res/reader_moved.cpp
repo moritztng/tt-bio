@@ -35,6 +35,11 @@
 #ifndef T2_SBIG
 #define T2_SBIG 0
 #endif
+// T2_SSTR (bench only, 0 in every model path): the stage's per-channel reads step T2_SSTR pages instead of St * St
+// (wrapping inside x), which moves them to other banks and DRAM rows. Wrong values; prices a page order.
+#ifndef T2_SSTR
+#define T2_SSTR 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -156,7 +161,7 @@ void kernel_main() {
                     noc_async_read(a, dst, PART_ROW_BYTES);
                     noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
                 }
-                page += StSt;
+                page = T2_SSTR ? (page + T2_SSTR) % (Clt * 32 * StSt) : page + StSt;
                 dst += STAGE_TILE;
             }
             noc_async_read_barrier();
