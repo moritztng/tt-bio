@@ -10,6 +10,10 @@
 // pi, pj4 addresses. Per-core: first work item, count.
 #include "api/dataflow/dataflow_api.h"
 
+#ifndef OR_DM
+#define OR_DM 0   // bench knob outer_residual.DM: 1 skip z reads, 2 skip pj4 reads, 4 skip writes (writer)
+#endif
+
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
     constexpr uint32_t NT = get_compile_time_arg_val(1);
@@ -54,9 +58,11 @@ void kernel_main() {
             const uint32_t i = (w / KT) % N;
             const uint32_t bj = w / RUN;
             const uint32_t bi = (bj / NT) * N + i;   // b * N + i
-            noc_async_read_page((bi * NT + bj % NT) * KT + ct, sz, wz);
-            noc_async_read(sj.get_noc_addr(bi * KT + ct, 0), wj, ROW0);
-            noc_async_read(sj.get_noc_addr(bi * KT + ct, FACE), wj + FACE, ROW0);
+            if constexpr (!(OR_DM & 1)) noc_async_read_page((bi * NT + bj % NT) * KT + ct, sz, wz);
+            if constexpr (!(OR_DM & 2)) {
+                noc_async_read(sj.get_noc_addr(bi * KT + ct, 0), wj, ROW0);
+                noc_async_read(sj.get_noc_addr(bi * KT + ct, FACE), wj + FACE, ROW0);
+            }
         }
         noc_async_read_barrier();
         cb_push_back(cb_z, GRAN);

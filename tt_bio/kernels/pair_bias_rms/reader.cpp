@@ -8,6 +8,10 @@
 // Common runtime args: z, W^T addresses. Per-core runtime args: first unit, unit count.
 #include "api/dataflow/dataflow_api.h"
 
+#ifndef PB_DM
+#define PB_DM 0   // bench knob dit_pair_bias.RMS_DM: 1 skip z reads, 2 skip bias writes
+#endif
+
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);   // c_pair / 32
     constexpr uint32_t NT = get_compile_time_arg_val(1);   // n / 32
@@ -46,7 +50,7 @@ void kernel_main() {
             uint32_t zp = get_write_ptr(cb_z);
             for (uint32_t r = 0; r < R; ++r, page += NT * KT) {
                 for (uint32_t c = 0; c < KT; ++c, zp += ts) {
-                    noc_async_read_page(page + c, sz, zp);
+                    if constexpr (!(PB_DM & 1)) noc_async_read_page(page + c, sz, zp);
                 }
             }
             noc_async_read_barrier();

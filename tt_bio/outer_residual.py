@@ -25,6 +25,8 @@ from . import core_split
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "outer_residual"
 Z_CB, I_CB, J_CB, OUT_CB, LO_CB = 0, 1, 2, 16, 17
 GRAN = 4
+# Bench knob (0 in every model path): bits that skip DM work, 1 z reads, 2 pj4 row reads, 4 writes.
+DM = 0
 _NUM_CBS = 64
 _CACHE: dict = {}
 
@@ -65,7 +67,7 @@ def _build(z, pi, pj4, out, lo, device):
     else:
         cbs = [cb(Z_CB, ttnn.float32, f32), cb(I_CB, ttnn.bfloat16, b16, 2 * kt), cb(J_CB, ttnn.bfloat16, b16),
                cb(OUT_CB, ttnn.float32, f32), cb(LO_CB, ttnn.bfloat16, b16)]
-    defines = ([("OR_BF16", "1")] if b16z else []) + ([("OR_BFP8", "1")] if b8z else [])
+    defines = ([("OR_BF16", "1")] if b16z else []) + ([("OR_BFP8", "1")] if b8z else []) + ([("OR_DM", str(DM))] if DM else [])
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
     for group, per in ((cg1, work1), (cg2, work2)):
@@ -107,7 +109,7 @@ def outer_residual(z, pi, pj4):
                                                       ttnn.DRAM_MEMORY_CONFIG)
     out = alloc(z.dtype)
     lo = out if z.dtype != ttnn.float32 else alloc(ttnn.bfloat16)
-    key = (device.id(), tuple(int(d) for d in z.shape), str(z.dtype))
+    key = (device.id(), tuple(int(d) for d in z.shape), str(z.dtype), GRAN, DM)
     if key not in _CACHE:
         _CACHE[key] = _build(z, pi, pj4, out, lo, device)
     kernels, cbs = _CACHE[key]

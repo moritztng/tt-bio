@@ -1727,6 +1727,9 @@ T1_FGD = 2                        # channel tiles in each a / b CB under t1_fgat
 # ahead of the gathers (c_7 holds max(2, T1_ZPRE)), T1_ZIL the rest read between gather tiles. Bit-identical.
 T1_ZPRE = 2
 T1_ZIL = 0
+# Bench knob: T1's gather ends each channel tile on noc_async_writes_flushed instead of a full write barrier (the
+# staging and hold buffers only need their bytes out of L1). Bit-identical.
+T1_WFL = 0
 
 
 def t1_fgate(key, mask, fg=False):
@@ -1900,7 +1903,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     d = KERNEL_DIR.parent / "trimul_in_t1"
     m = mask if mask is not None else x
-    abl = [("ABL", str(T1_ABL))] if T1_ABL else []
+    abl = ([("ABL", str(T1_ABL))] if T1_ABL else []) + ([("T1WFL", "1")] if T1_WFL else [])
     if _t1_psig():
         abl.append(("T1_PSIG", "1"))
     xout, pre = [("T1XOUT", "1")] if ln1 == 1 else [], [("T1PRE", "1")] if ln1 == 2 else []
@@ -1979,7 +1982,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
             alloc(shp[:-1] + [int(wgo.shape[-1])], ttnn.bfloat8_b if g8 else ttnn.bfloat16)]
     key = ("t1", str(x.padded_shape), str(x.dtype), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0, T1_ZPRE, T1_ZIL)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0, T1_ZPRE, T1_ZIL, T1_WFL)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2

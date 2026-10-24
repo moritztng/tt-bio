@@ -8,6 +8,10 @@
 // ([B, HV, n, n], one address per output in the common args), and a padding head is dropped.
 #include "api/dataflow/dataflow_api.h"
 
+#ifndef PB_DM
+#define PB_DM 0   // bench knob dit_pair_bias.RMS_DM: 1 skip z reads, 2 skip bias writes
+#endif
+
 void kernel_main() {
     constexpr uint32_t NT = get_compile_time_arg_val(0);
     constexpr uint32_t SW = get_compile_time_arg_val(1);
@@ -27,7 +31,7 @@ void kernel_main() {
             uint32_t rd = get_read_ptr(cb_out);
             for (uint32_t t = 0; t < SW; ++t, rd += ts) {
                 const uint32_t h = h0 + t;
-                if (h % HO < HV) {
+                if (!(PB_DM & 2) && h % HO < HV) {
                     const auto so = TensorAccessor(o_args, get_common_arg_val<uint32_t>(h / HO));
                     noc_async_write_page(((b * HV + h % HO) * NT + ib) * NT + jb, so, rd);
                 }
