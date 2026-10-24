@@ -11,6 +11,11 @@ tt-bio evaluate designs/ --metrics_tags design --out_dir eval/
 result is `eval/evaluation_metrics/per_example_metrics.csv`, one row per design, with upstream's
 column names, values rounded to four decimals and an empty cell where upstream writes NaN.
 
+Beside it, `aggregated_metrics.csv` holds one row per dataset, metric and reduction, the file
+upstream's generate path writes: a median for the refold oracles and RMSD metrics and a mean for the
+rest, the share of designs with `min_ipae_coi` under 1, 1.5 and 2, and per-target solve rates for
+each pass criterion.
+
 ## Flags
 
 | tt-bio | upstream | meaning |

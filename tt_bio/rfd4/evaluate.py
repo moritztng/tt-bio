@@ -2,7 +2,9 @@
 
 Same inputs (a directory of generated structures, searched recursively), same `metrics_tags`
 gating, same output: `<out_dir>/evaluation_metrics/per_example_metrics[_job<N>].csv`, one row per
-design, upstream's column names, rounded to 4 decimals with NaN written as an empty cell.
+design, upstream's column names, rounded to 4 decimals with NaN written as an empty cell, and beside
+it `aggregated_metrics[_job<N>].csv`, the per-dataset reductions upstream's generate path writes
+(medians, `frac_under_<T>` on `min_ipae_coi`, per-target solve rates).
 
 What upstream does and this keeps, on purpose:
 * the inline block is all-or-nothing per design. If any inline metric raises, the design gets no
@@ -19,6 +21,8 @@ import hashlib
 import logging
 import math
 from pathlib import Path
+
+import numpy as np
 
 from tt_bio.rfd4 import eval_metrics as M
 from tt_bio.rfd4 import eval_refold as R
@@ -327,4 +331,80 @@ def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njob
         writer.writeheader()
         for row in rows:
             writer.writerow({c: _cell(row.get(c)) for c in columns})
+    with open(metrics_dir / f"aggregated_metrics{suffix}.csv", "w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=("dataset", "metric", "reduction", "value", "n"))
+        writer.writeheader()
+        for agg in aggregate(rows, columns):
+            writer.writerow({**agg, "value": _cell(agg["value"])})
     return path
+
+
+# The aggregate step upstream runs after its per-example CSV (rfproteina `proteina.py:1436-1503`).
+# Its `rfd4-evaluate` stops at the per-example CSV; this writes the same `aggregated_metrics.csv`
+# its generate path does, so a run scored here reads like one scored there.
+
+#: Metrics whose config sets `aggregation: [median]` (configs/metrics/**/*.yaml); every other column
+#: is a mean (`Metric.__init__` default, and the fallback for a column no metric owns).
+MEDIAN = {
+    "design_motif_allatom_rmsd", "design_unindexed_motif_allatom_rmsd", "ca_rmsd_to_input",
+    "refolded_backbone_rmsd", "refolded_target_aligned_binder_rmsd",
+    "refolded_target_backbone_aligned_binder_rmsd", "refolded_motif_allatom_rmsd",
+    "refolded_motif_ca_rmsd", "refolded_backbone_aligned_ligand_rmsd", "refolded_apo_holo_rmsd",
+    *(key for key, _, _ in R.ORACLES),
+}  # fmt: skip
+#: `frac_under_thresholds` (af3.yaml): one `frac_under_<T>` row per threshold, strict `<`, keyed by
+#: the bare output name (`OracleMetric.aggregate`).
+FRAC_UNDER = {key: {"min_ipae_coi": (1, 1.5, 2)} for key, _, _ in R.ORACLES}
+#: `inference_utils/solve_rate_metrics.py`: share of targets with at least this pass rate.
+SOLVE_RATE = {"1pct": 0.01, "5pct": 0.05, "10pct": 0.10, "20pct": 0.20}
+_NOT_METRICS = {
+    "example_id", "dataset_name", "task", "designed_structure_path", "chain_of_interest",
+    "foldseek_cluster_id", "ckpt_path", "ckpt_name", "seed", "input_cif_path", "input_json_path",
+    "metrics_tags", "output_base_dir",
+}  # fmt: skip
+
+
+def _number(value):
+    """`pd.to_numeric(errors="coerce")` for one cell: None for anything that is not a finite-or-inf number."""
+    try:
+        x = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(x) else x
+
+
+def aggregate(rows, columns):
+    """Upstream's aggregated rows for per-example `rows`: per dataset, each metric column's reductions
+    over the designs that have a value (`n`), then that dataset's per-target solve rates."""
+    out = []
+    criteria = [f"{name}.pass" for name, *_ in R.PASS_CRITERIA]
+    for ds in dict.fromkeys(r["dataset_name"] for r in rows):
+        group = [r for r in rows if r["dataset_name"] == ds]
+        for col in columns:
+            if col in _NOT_METRICS or col.startswith("generation."):
+                continue
+            vals = [x for r in group if (x := _number(r.get(col))) is not None]
+            if not vals:
+                continue
+            name, _, suffix = col.partition(".")
+            red = "median" if name in MEDIAN else "mean"
+            reductions = {red: float(np.median(vals) if red == "median" else np.mean(vals))}
+            for t in FRAC_UNDER.get(name, {}).get(suffix.rpartition(".")[2], ()):
+                reductions[f"frac_under_{t}"] = sum(v < t for v in vals) / len(vals)
+            out += [{"dataset": ds, "metric": col, "reduction": k, "value": round(v, 4), "n": len(vals)}
+                    for k, v in reductions.items()]
+        for col in (c for c in criteria if c in columns):
+            by_task = {}
+            for r in group:
+                if (x := _number(r.get(col))) is not None:
+                    by_task.setdefault(r["task"], []).append(x)
+            rates = [sum(v) / len(v) for v in by_task.values()]
+            if not rates:
+                continue
+            prefix, top = col[: -len("pass")], max(SOLVE_RATE.values())
+            solve = {"n_targets": float(len(rates)), "any": sum(p > 0 for p in rates) / len(rates)}
+            solve.update({k: sum(p >= t for p in rates) / len(rates) for k, t in SOLVE_RATE.items()})
+            solve["auc"] = sum(min(p, top) for p in rates) / len(rates) / top
+            out += [{"dataset": ds, "metric": f"{prefix}solve_rate_{k}", "reduction": "", "value": round(v, 4),
+                     "n": len(rates)} for k, v in solve.items()]
+    return out
