@@ -1,6 +1,8 @@
 #!/bin/bash
 # stage512 run4: whole designs at 512 through the fair harness (perf/rfd4/fair/run.py, b4 lanes of 1, PD-L1 512),
 # base (bmm_res.ROT = False, a copy of this tree) and ROT (this tree) alternated ROUNDS (2) times, 4 seeds each.
+# QT caps the harness quiet wait (s) and each leg runs exactly 4 warm batches: design_s is device time and holds
+# within 0.1 s on a loud host, so a contended batch is read, not retried.
 #   bash perf/rfd4/stage512/run4.sh <chip> <outdir>      (from a snapshot tree; books and locks the chip itself)
 set -u
 N=$1; R=$2; WT=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -21,7 +23,7 @@ for k in $(seq ${ROUNDS:-2}); do
   for arm in base rot; do
     T=$WT; [ $arm = base ] && T=$BT
     (cd $T && PYTHONPATH=$T timeout 2400 $PY perf/rfd4/fair/run.py --spec $HOME/rfd4-inputs/pdl1-512.yaml \
-      --weights $HOME/rfd4-bundle --out $R/$arm$k --part p300c --shared-box --batch 4 --lane-width 1 --batches 4 \
+      --weights $HOME/rfd4-bundle --out $R/$arm$k --part p300c --shared-box --quiet-timeout ${QT:-1800} --batch 4 --lane-width 1 --batches 4 --max-attempts 4 \
       > $R/$arm$k.log 2>&1)
     stamp "$arm$k rc=$?"
   done
