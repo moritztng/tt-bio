@@ -647,7 +647,7 @@ def test_a_pool_leg_whose_host_rebooted_under_it_is_reported_not_waited_for(tmp_
     def pool():  # starts the job's first line only (it dies with the host), then the host reboots
         while not (jobs := list(queue.glob("*.sh"))):
             time.sleep(0.02)
-        first = jobs[0].read_text().splitlines()[2]
+        first = next(l for l in jobs[0].read_text().splitlines() if l.startswith("mkdir"))
         subprocess.run(["bash", "-c", first], check=True)
         assert (rdir / "boot").read_text() == "first\n"
         boot.write_text("second\n")
@@ -677,7 +677,8 @@ def test_a_pool_leg_that_left_the_queue_and_went_quiet_past_its_cap_is_lost(tmp_
     def pool():  # starts the job, which dies before its rc line, and drops it from the queue
         while not (jobs := list(queue.glob("*.sh"))):
             time.sleep(0.02)
-        subprocess.run(["bash", "-c", jobs[0].read_text().splitlines()[2]], check=True)
+        first = next(l for l in jobs[0].read_text().splitlines() if l.startswith("mkdir"))
+        subprocess.run(["bash", "-c", first], check=True)
         jobs[0].unlink()
         (rdir / "leg.log").write_text("##CHIP 3\n")
         old = time.time() - leg.budget - 3600
