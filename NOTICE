@@ -160,6 +160,19 @@ MIT-licensed and credited in the top-level LICENSE.
    License:       MIT, the same licence as tt-bio
    Credit:        Magnus Bauer <magnusb@uw.edu>
 
+14. RFD4 reward validity and weight completeness. Two checks in tt_bio/rfd4/ follow
+   the stricter checks of Magnus Bauer's independent RFD4 port. A NaN, infinite or
+   non-numeric weighted metric now makes a candidate invalid with a reason naming the
+   key, and invalid candidates rank last, the way his release reward does; beam rewards
+   are ranked as float32 with a stable sort, as upstream does. Loading refuses a
+   checkpoint unless the set of weights read equals the set the model uses, in both
+   directions, with drop and extra-key negative controls in the tests. No code is
+   vendored; the implementations are ours.
+   Source:        github.com/magnusbauer/tt-bio, branch rfd4-experimental,
+                  head 7fbfc2704 (2026-10-23)
+   License:       MIT, the same licence as tt-bio
+   Credit:        Magnus Bauer <magnusb@uw.edu>
+
 Not included
 
 12. BindCraft 2 — tt-bio contains none of its code and does not distribute or serve it.
