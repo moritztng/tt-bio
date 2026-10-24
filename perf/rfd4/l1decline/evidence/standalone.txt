@@ -1,0 +1,14 @@
+# perf/rfd4/l1decline/standalone.py 16 32, pc card 0, main 77ca47583 (2026-10-24)
+# ttnn.linear((B,192,192,384) bfp8, (384,384) bf16, core_grid 13x10, DRAM out, bf16 out)
+# columns: B fp32_dest_acc packer_l1_acc result
+16 True True REFUSED Statically allocated circular buffers on core range [(x=0,y=0) - (x=12,y=9)] grow to 1586560 B which is beyond max L1 size of 1572864 B
+16 True False REFUSED (same 1586560 B)
+16 False True OK
+16 False False OK
+32 True True REFUSED (same 1586560 B)
+32 True False REFUSED (same 1586560 B)
+32 False True OK
+32 False False OK
+# ttnn's 1D tall plan: in0_block_w 1, per_core_M ceil(Mt/130), drain (71,3) at both widths.
+# factory CBs: in0 2*71*1088 + in1 2*3*2048 + out 213*2048 + interm(fp32) 213*4096 = 1475456 B, + L1 base 111104 = 1586560.
+# ttnn's estimator prices the out CB at the in0 tile size (bfp8 1088 B) instead of bf16 2048 B: 213*960 = 204480 B under.

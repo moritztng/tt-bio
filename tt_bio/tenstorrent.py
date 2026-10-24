@@ -7239,6 +7239,87 @@ def _l1_out_placeable(x, w, dtype) -> bool:
     return -(-pages // int(mv.num_banks)) * _mm_generic.tile_bytes(dtype) <= lcf
 
 
+def _ttnn_1d_drain(per_core_M: int, per_core_N: int, price, budget: int) -> tuple[int, int]:
+    """ttnn's drain-block choice for a 1D plan (`get_multi_dim_per_core_factor`) under `price`.
+
+    The whole per-core block if it prices under `budget`, else the largest-area pair of divisors
+    that does, the squarer pair winning a tie in area, and (1, 1) if nothing does.
+    """
+    if price(per_core_M, per_core_N) < budget:
+        return per_core_M, per_core_N
+    ms = [per_core_M, 1] + [f for f in range(per_core_M // 2, 1, -1) if per_core_M % f == 0]
+    ns = [per_core_N, 1] + [f for f in range(per_core_N // 2, 1, -1) if per_core_N % f == 0]
+    by_area: dict = {}
+    for m in ms:
+        for n in ns:
+            old = by_area.get(m * n)
+            if old is None or max(old) / min(old) >= max(m, n) / min(m, n):
+                by_area[m * n] = (m, n)
+    for area in sorted(by_area, reverse=True):
+        if price(*by_area[area]) < budget:
+            return by_area[area]
+    return 1, 1
+
+
+def _core_grid_1d_plan(x, w, ckc, dtype, bias=None, silu: bool = False):
+    """The plan `ttnn.linear(core_grid=CORE_GRID_MAIN)` builds for a tall projection, re-blocked to
+    fit L1 when ttnn's own one does not. None leaves the call to ttnn.
+
+    ttnn sizes the drain block with an estimate that prices the output tile at the INPUT's tile
+    size. A bfp8 input (1088 B tiles) writing bf16 (2048 B) is under-priced, and the plan it
+    admits is refused at program build. Measured on RFD4's trimul gate projection,
+    (32,192,192,384) bfp8 @ (384,384) on a p150a: drain block (71, 3), 1475456 B of circular
+    buffers on a 1461760 B bank (perf/rfd4/l1decline). Here the same choice is made twice: once
+    as ttnn prices it, to see whether ttnn's plan fits, and once with the true tile sizes when it
+    does not. Only the drain block moves. `in0_block_w` is ttnn's, so every output tile
+    accumulates K in the same order and the result is the one ttnn's plan would give if it fit.
+    """
+    gx, gy = COMPUTE_GRID_MAIN
+    cores = gx * gy
+    xs, ws = tuple(x.padded_shape), tuple(w.padded_shape)
+    if len(ws) != 2 or x.memory_config().is_sharded() or xs[-1] != ws[0]:
+        return None
+    rows = prod(int(d) for d in xs[:-1])
+    m_tiles, k_tiles, n_tiles = rows // 32, int(ws[0]) // 32, int(ws[1]) // 32
+    # ttnn's 1D tall plan: `is_narrow_shape` and `is_tall` in matmul_program_config.cpp.
+    if rows // int(ws[1]) <= 8 or m_tiles <= n_tiles:
+        return None
+    per_core_M = -(-m_tiles // cores)
+    bw = -(-k_tiles // cores)
+    while k_tiles % bw:
+        bw -= 1
+    t0, t1, t_out = (_mm_generic.tile_bytes(d) for d in (x.dtype, w.dtype, dtype))
+    t_bias = 0 if bias is None else _mm_generic.tile_bytes(bias.dtype)
+    fp32 = bool(getattr(ckc, "fp32_dest_acc_en", False))
+    blocks = k_tiles // bw
+    l1_acc = bool(getattr(ckc, "packer_l1_acc", False)) and (
+        (bias is not None and blocks > 1) or blocks > 2)
+    t_interm = _FP32_ACC_TILE if fp32 else (_mm_generic.tile_bytes(ttnn.bfloat16) if l1_acc else t_out)
+    # The intermediate shares the output's buffer when the two have one format.
+    t_cb_out = t_out + (0 if t_interm == t_out else t_interm)
+    n0 = 2 if blocks > 1 else 1
+
+    def ttnn_price(h, wd):
+        est_interm = _FP32_ACC_TILE if fp32 else max(_mm_generic.tile_bytes(ttnn.bfloat16), t_out)
+        return 2 * h * bw * t0 + 2 * wd * bw * t1 + h * wd * (t0 + est_interm) + wd * t_bias
+
+    def true_price(h, wd):
+        return n0 * h * bw * t0 + 2 * wd * bw * t1 + h * wd * t_cb_out + wd * t_bias
+
+    budget = _matmul_cb_budget()
+    if true_price(*_ttnn_1d_drain(per_core_M, n_tiles, ttnn_price, budget)) <= budget:
+        return None
+    obh, obw = _ttnn_1d_drain(per_core_M, n_tiles, true_price, budget)
+    if true_price(obh, obw) > budget:
+        return None
+    sh = max(h for h in range(min(4, obh), 0, -1) if obh % h == 0)
+    sw = max(v for v in range(min(4 // sh, obw), 0, -1) if obw % v == 0)
+    return ttnn.MatmulMultiCoreReuseMultiCast1DProgramConfig(
+        compute_with_storage_grid_size=(gx, gy), in0_block_w=bw, out_subblock_h=sh, out_subblock_w=sw,
+        out_block_h=obh, out_block_w=obw, per_core_M=per_core_M, per_core_N=n_tiles, fuse_batch=True,
+        fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None, mcast_in0=False)
+
+
 def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
                       l1_bw: int | None = None, l1_block_w: int | None = None,
                       bias=None, silu: bool = False):
@@ -7323,10 +7404,17 @@ def _pair_proj_linear(x, w, ckc, dtype, l1_out: bool = False,
         if bias is not None:
             _pair_bias_stat("o_in_matmul_exit_cfg")
         return out
-    out = ttnn.linear(
-        x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
-        compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN, activation="silu" if silu else None,
-    )
+    cfg = _core_grid_1d_plan(x, w, ckc, dtype, bias, silu)
+    if cfg is not None:
+        out = ttnn.linear(
+            x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+            compute_kernel_config=ckc, program_config=cfg,
+        )
+    else:
+        out = ttnn.linear(
+            x, w, bias=bias, memory_config=ttnn.DRAM_MEMORY_CONFIG, dtype=dtype,
+            compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN, activation="silu" if silu else None,
+        )
     if bias is not None:
         _pair_bias_stat("o_in_matmul_exit_grid")
     return out

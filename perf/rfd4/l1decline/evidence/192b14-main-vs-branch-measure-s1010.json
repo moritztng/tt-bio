@@ -1,0 +1,92 @@
+{
+ "a": "/home/ttuser/scratch/l1d-runs/main-192b14/run/b14/measure-s1010",
+ "b": "/home/ttuser/scratch/l1d-runs/branch-192b14/run/b14/measure-s1010",
+ "n": 14,
+ "equal": 14,
+ "rows": [
+  {
+   "design": 0,
+   "sha_a": "a48c3c50227b9f38",
+   "sha_b": "a48c3c50227b9f38",
+   "equal": true
+  },
+  {
+   "design": 1,
+   "sha_a": "1cca5be19d6a3876",
+   "sha_b": "1cca5be19d6a3876",
+   "equal": true
+  },
+  {
+   "design": 2,
+   "sha_a": "5c03779b9a90ec28",
+   "sha_b": "5c03779b9a90ec28",
+   "equal": true
+  },
+  {
+   "design": 3,
+   "sha_a": "f3d2c2106475466f",
+   "sha_b": "f3d2c2106475466f",
+   "equal": true
+  },
+  {
+   "design": 4,
+   "sha_a": "b9e1490b46bb1562",
+   "sha_b": "b9e1490b46bb1562",
+   "equal": true
+  },
+  {
+   "design": 5,
+   "sha_a": "fe0ec4b0eadf31a1",
+   "sha_b": "fe0ec4b0eadf31a1",
+   "equal": true
+  },
+  {
+   "design": 6,
+   "sha_a": "318ac1074dba42aa",
+   "sha_b": "318ac1074dba42aa",
+   "equal": true
+  },
+  {
+   "design": 7,
+   "sha_a": "5f19324ee8df9d58",
+   "sha_b": "5f19324ee8df9d58",
+   "equal": true
+  },
+  {
+   "design": 8,
+   "sha_a": "1eec79e02c514904",
+   "sha_b": "1eec79e02c514904",
+   "equal": true
+  },
+  {
+   "design": 9,
+   "sha_a": "1b50fa3321320112",
+   "sha_b": "1b50fa3321320112",
+   "equal": true
+  },
+  {
+   "design": 10,
+   "sha_a": "c4492e9f8de62ae8",
+   "sha_b": "c4492e9f8de62ae8",
+   "equal": true
+  },
+  {
+   "design": 11,
+   "sha_a": "15359ec20dfc9dd9",
+   "sha_b": "15359ec20dfc9dd9",
+   "equal": true
+  },
+  {
+   "design": 12,
+   "sha_a": "2cc9a6bebd34c543",
+   "sha_b": "2cc9a6bebd34c543",
+   "equal": true
+  },
+  {
+   "design": 13,
+   "sha_a": "0bc4253d6105c4b2",
+   "sha_b": "0bc4253d6105c4b2",
+   "equal": true
+  }
+ ]
+}
