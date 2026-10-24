@@ -3,7 +3,8 @@
 `rfproteina/search/beam_search.py:86` branches each beam member into `n_branch` independent
 segments, scores them at a checkpoint, and keeps the best `beam_width` per input. The surface here
 is upstream's (`state/rfd4/BEAM.md` section 1): the same constructor, the same
-`generate(model, batch)`, the same stable-sort tie-break, and the same -inf on a missing weighted
+`generate(model, batch)`, the same tie-break (rewards cast to fp32, then a stable argsort, so a
+difference below fp32 resolution is a tie and the earlier candidate wins), and the same -inf on a missing weighted
 key, which is how a failed oracle fold removes a candidate instead of ranking it first. A NaN, inf
 or non-numeric weighted value is -inf too, with the reason on the design as `invalid_reason`.
 
@@ -183,8 +184,7 @@ class BeamSearchStrategy:
 
             keep: list[Candidate] = []
             for input_idx in sorted(live):
-                ranked = sorted((c for c in cands if c.orig_batch_idx == input_idx),
-                                key=lambda c: -c.reward)          # stable, as upstream's argsort
+                ranked = _rank([c for c in cands if c.orig_batch_idx == input_idx])
                 survivors = ranked[:self.beam_width]
                 if not _beam_continues(config.get("continuation_criteria"), survivors):
                     live.discard(input_idx)
@@ -271,6 +271,17 @@ class BeamSearchStrategy:
             raise ValueError(f"{path} carries no sampler state; a resumed beam needs the noise "
                              f"states, not only the bookkeeping.")
         return saved
+
+
+def _rank(cands: list[Candidate]) -> list[Candidate]:
+    """Best first, exactly as upstream prunes: the rewards as an fp32 tensor and a stable descending
+    argsort, so rewards equal in fp32 tie and the earlier candidate wins, and -inf ranks last."""
+    import torch
+
+    if not cands:
+        return []
+    rewards = torch.tensor([c.reward for c in cands], dtype=torch.float32)
+    return [cands[i] for i in torch.argsort(rewards, descending=True, stable=True).tolist()]
 
 
 def _beam_continues(criteria: Mapping | None, survivors: list[Candidate]) -> bool:

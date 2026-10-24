@@ -139,6 +139,15 @@ def test_the_tie_break_is_stable_so_selection_is_deterministic():
     assert [d["generated_atom_array"]["i"] for d in dropped] == [2, 3]
 
 
+def test_rewards_equal_in_fp32_tie_and_the_earlier_candidate_wins():
+    """Upstream ranks `torch.tensor(rewards, dtype=torch.float32)`, so these three tie and the two
+    lowest indices survive; ranking the Python floats kept candidates 3 and 2."""
+    scores = [{"oracle.plddt_coi": v} for v in (0.5, 1.0, 1.0 + 1e-12, 1.0 + 2e-12)]
+    s = strategy(providers={"oracle": Provider("oracle", scores=scores)}, save_rollouts=True)
+    out = s.generate(ToyModel(), batch=["x"], n_inputs=1)
+    assert [d["generated_atom_array"]["i"] for d in out if d["from_beam"]] == [1, 2]
+
+
 def test_clean_prediction_scores_without_a_rollout():
     s = strategy(checkpoints={20: {"metrics": ["novelty"], "use_clean_prediction": True,
                                    "rewards": {"novelty.is_novel": {"weight": 1.0}}}},
