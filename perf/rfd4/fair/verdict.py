@@ -34,6 +34,9 @@ BAR = 3.00
 MIN_BATCHES = 5
 GALAXY_CHIPS, GALAXY_USD = 32, 160000
 DGX_GPUS, DGX_USD = 8, 562154
+# The same eight B200s in an HGX chassis (rfd4-gpu-fair2, state/rfd4/GPU-AUDIT.md): every ratio/$ divides by this.
+HGX_USD = 384228
+HGX_FACTOR = DGX_USD / HGX_USD  # 1.4631
 PER_CHIP = (GALAXY_CHIPS / GALAXY_USD) / (DGX_GPUS / DGX_USD)  # 14.054
 
 
@@ -171,6 +174,7 @@ def main():
     ap.add_argument("--repo", default=str(Path(__file__).resolve().parents[3]))
     ap.add_argument("--deck", help="default <state>/../biodeck/src/extra_cells.json")
     ap.add_argument("--firmware", required=True, help="the card's firmware bundle during the runs, e.g. 19.8.1 (130-core)")
+    ap.add_argument("--row", help="also write rows/<ROW>.json: every measured size, gated and realistic, with r_sys")
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
     state = Path(a.state)
@@ -216,14 +220,37 @@ def main():
            "b200_reference": {s: gpu[s] for s in gpu if s in SIZES},
            "ratio": {s: c.get("ratio") for s, c in sizes.items()}, "verdict": verdict,
            "updated": out["written"]}
+    allm = {**sizes, **typical}
+    meas = {s: tt[s] for s in sorted(allm) if s in tt}
+    full = {"status": "done" if out["b200_complete"] and all(allm[s].get("ratio") for s in meas) else "running",
+            "part": "p150a", "fw": a.firmware, "host": sorted({t["host"] for t in meas.values()}),
+            "card": sorted({t["card"] for t in meas.values()}), "sizes": list(meas),
+            "designs_per_s": {s: t["designs_per_s"] for s, t in meas.items()},
+            "batch": {s: t["batch"] for s, t in meas.items()},
+            "lane_width": {s: t["lane_width"] for s, t in meas.items()},
+            "n_clean": {s: t["batches"] for s, t in meas.items()},
+            "aiclk_mhz": {s: t["aiclk_mhz"] for s, t in meas.items()},
+            "aiclk_min_mhz": {s: t["aiclk_min_mhz"] for s, t in meas.items()},
+            "host_load": {s: {"foreign_cores_median_max": t["foreign_cores_median"],
+                              "load_per_core_median_max": t["host_load_per_core_median"]} for s, t in meas.items()},
+            "main_sha": {s: t["sha"] for s, t in meas.items()},
+            "raw": {s: t["raw"] for s, t in meas.items()},
+            "b200_reference": {s: allm[s]["b200"] for s in meas},
+            "ratio": {s: allm[s].get("ratio") for s in meas},
+            "ratio_hgx": {s: allm[s].get("ratio") and round(allm[s]["ratio"] / HGX_FACTOR, 3) for s in meas},
+            "r_sys": {s: allm[s].get("r_sys") for s in meas},
+            "r_sys_crossing": out["r_sys_crossing"], "verdict": verdict, "verdict_written": out["written"]}
     if a.dry:
         print(json.dumps(out, indent=1, default=str))
+        print(json.dumps(full, indent=1, default=str))
         print(fair)
         return
     (state / "evidence" / "tt-p150a.jsonl").write_text("".join(json.dumps(x) + "\n" for x in ev))
     (state / "VERDICT.json").write_text(json.dumps(out, indent=1) + "\n")
     (state / "FAIR.md").write_text(carry_history(state / "FAIR.md", fair, out["written"]))
     (state / "rows" / "rfd4-fair-tt.json").write_text(json.dumps(row, indent=1) + "\n")
+    if a.row:
+        (state / "rows" / f"{a.row}.json").write_text(json.dumps(full, indent=1) + "\n")
     if verdict in ("PASS", "FAIL"):
         deck = Path(a.deck or state.parent / "biodeck" / "src" / "extra_cells.json")
         cells = {k: v for k, v in json.loads(deck.read_text()).items() if not k.startswith("rfd4.")}
@@ -278,7 +305,14 @@ def fair_md(v):
     L += ["", f"B200 side recomputed from `{v['b200_source']}`"
           + ("" if v["b200_complete"] else "; it is incomplete (missing sizes or fewer than 5 batches), "
              "so every ratio here is against what it has so far") + ".",
-          f"TT measure lines rejected from the evidence: {v['tt_rejected_measure_lines'] or 'none'}."]
+          f"TT measure lines rejected from the evidence: {v['tt_rejected_measure_lines'] or 'none'}.",
+          "", "## How these ratios can be quoted", "",
+          f"Chassis: every ratio/$ prices the B200 side as a DGX B200 at ${DGX_USD:,}. The same eight B200s in an HGX "
+          f"chassis cost ${HGX_USD:,} (rfd4-gpu-fair2); on that basis every ratio divides by {HGX_FACTOR:.4f}. "
+          "A ratio quoted without its chassis is not quotable.",
+          "Scale: 32 chips and 8 GPUs are each one measured device times the count. The Galaxy's multi-chip "
+          "efficiency is owned by rfd4-bh-scaling (`state/rfd4/SCALING.md`); until it reports, x32 is an "
+          "extrapolation."]
     return "\n".join(L) + "\n"
 
 
