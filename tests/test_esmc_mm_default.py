@@ -133,16 +133,19 @@ def test_mm_bfp8_hifi2_lowers_fast_weights_only(wdtype, large, saprot, monkeypat
 @pytest.mark.parametrize("switch", [None, True, False])
 @pytest.mark.parametrize("large,rows,wdtype", [(True, 544, "bfloat16"), (True, 544, "bfloat8_b"),
                                                (True, 1088, "bfloat16"), (False, 544, "bfloat16")])
-def test_mm_6b_bf16_default(wormhole, switch, large, rows, wdtype, monkeypatch):
-    """The 6B's page rows under bf16 weights take minimal_matmul for its qkv split and gate on Blackhole only."""
+def test_mm_6b_default(wormhole, switch, large, rows, wdtype, monkeypatch):
+    """The 6B's page rows take minimal_matmul for its qkv split and gate on Blackhole only, each weight dtype under its
+    own switch."""
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
-    monkeypatch.setattr(esmc, "_ESMC_MM_6B_BF16", switch)
+    flag = {"bfloat16": "_ESMC_MM_6B_BF16", "bfloat8_b": "_ESMC_MM_6B_B8"}[wdtype]
+    monkeypatch.setattr(esmc, flag, switch)
+    monkeypatch.setattr(esmc, "_ESMC_MM_6B_B8" if wdtype == "bfloat16" else "_ESMC_MM_6B_BF16", False)
     monkeypatch.setattr(esmc, "_ESMC_MM", None)
     lin = esmc._MMLin()
     lin.lm_large = large
     x, w = _T(rows, 2560, esmc.ttnn.bfloat16), _T(2560, 7680, getattr(esmc.ttnn, wdtype))
-    regime = large and rows == 544 and wdtype == "bfloat16"
-    assert lin._mm_6b_bf16(x, w) is (regime and (not wormhole if switch is None else switch))
+    regime = large and rows == 544
+    assert bool(lin._mm_6b(x, w)) is (regime and (not wormhole if switch is None else switch))
 
 
 @pytest.mark.parametrize("wormhole", [True, False])
