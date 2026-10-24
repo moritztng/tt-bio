@@ -1,0 +1,87 @@
+{
+ "rows": [
+  {
+   "n": 256,
+   "arm": "fused_hifi2",
+   "ms": 0.6631,
+   "ms_min": 0.6551,
+   "rel_rms_vs_f64": 0.014845968167154723,
+   "digest": 120473.9296875,
+   "t": "07:30:51",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi2",
+   "fc2_lofi": false
+  },
+  {
+   "n": 256,
+   "arm": "fused_hifi2lofi",
+   "ms": 0.5913,
+   "ms_min": 0.5874,
+   "rel_rms_vs_f64": 0.027474820243016337,
+   "digest": 119346.625,
+   "t": "07:30:52",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi2",
+   "fc2_lofi": true
+  },
+  {
+   "n": 384,
+   "arm": "fused_hifi2",
+   "ms": 1.3729,
+   "ms_min": 1.337,
+   "rel_rms_vs_f64": 0.014832143557557097,
+   "digest": 121117.234375,
+   "t": "07:30:53",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi2",
+   "fc2_lofi": false
+  },
+  {
+   "n": 384,
+   "arm": "fused_hifi2lofi",
+   "ms": 1.2027,
+   "ms_min": 1.1793,
+   "rel_rms_vs_f64": 0.027463320447860394,
+   "digest": 119981.3359375,
+   "t": "07:30:53",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi2",
+   "fc2_lofi": true
+  },
+  {
+   "n": 512,
+   "arm": "fused_hifi2",
+   "ms": 2.4098,
+   "ms_min": 2.3096,
+   "rel_rms_vs_f64": 0.014840151141952284,
+   "digest": 121137.125,
+   "t": "07:30:54",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi2",
+   "fc2_lofi": false
+  },
+  {
+   "n": 512,
+   "arm": "fused_hifi2lofi",
+   "ms": 2.0924,
+   "ms_min": 2.0421,
+   "rel_rms_vs_f64": 0.027470228412911815,
+   "digest": 120005.0078125,
+   "t": "07:30:54",
+   "weights": "bfp8",
+   "fidelity": "MathFidelity.HiFi2",
+   "fc2_lofi": true
+  }
+ ],
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 2
+  }
+ },
+ "load": 0.288726806640625,
+ "tree": "/home/ttuser/.coworker/wt/rfd4-perf-relu512",
+ "script": "perf/rfd4/pairblock/transition.py"
+}
