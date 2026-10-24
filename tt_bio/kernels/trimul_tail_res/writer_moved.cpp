@@ -5,14 +5,18 @@
 // trimul tail T2m writer (reader_moved.cpp's partner). A unit (it, jt, part) is R = 32 / P rows i,
 // R / Mb blocks of Mb rows; the block's row tiles are m = i * St + jt, St apart. Per block this
 // RISC reads what compute needs besides x, g (or xb under GATE, gt tiles per row) into c_5 / c_6 and
-// z into c_7, then writes the previous block's output from c_2 into z in place. Reading block b
-// before writing block b - 1 keeps the double-buffered inputs one block ahead of compute; z of a
-// row is always read before this same core writes it, and no other core touches the row.
+// z into c_7, then writes a finished block's output from c_2 into z in place. Reading blocks up to
+// w + T2_WDEPTH - 1 before writing block w keeps the inputs ahead of compute; z of a row is always
+// read before this same core writes it, and no other core touches the row.
 #include "api/dataflow/dataflow_api.h"
 
 // Bench-only (trimul_tail.T2_DMABL, 0 in every model path): 4 skips the g / z reads, 8 the writes.
 #ifndef T2_DMABL
 #define T2_DMABL 0
+#endif
+// T2_WDEPTH (trimul_tail.T2_WDEPTH): blocks of g / z the CBs hold; the reads run that many blocks ahead of the writes.
+#ifndef T2_WDEPTH
+#define T2_WDEPTH 2
 #endif
 
 void kernel_main() {
@@ -88,10 +92,10 @@ void kernel_main() {
     };
 
     const uint32_t nblocks = num_units * BPU;
-    for (uint32_t b = 0; b < nblocks; ++b) {
-        read_block(block_m(b));
-        if (b > 0) write_block(block_m(b - 1));
+    uint32_t r = 0;
+    for (uint32_t w = 0; w < nblocks; ++w) {
+        for (; r < nblocks && r < w + T2_WDEPTH; ++r) read_block(block_m(r));
+        write_block(block_m(w));
     }
-    if (nblocks > 0) write_block(block_m(nblocks - 1));
     noc_async_write_barrier();
 }

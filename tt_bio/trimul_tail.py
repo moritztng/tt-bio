@@ -903,6 +903,9 @@ T2_S1K = True
 # T2 LayerNorm stages' tiles per DST acquire (common/ln_prologue.hpp LN_BLK; 4 fills a half-sync fp32 DST). Same ops on
 # the same tiles in the same order, so bit-identical; fewer math / pack handshakes.
 T2_LNBLK = 1
+# T2m / T2CM g / z depth in blocks (writer_moved.cpp T2_WDEPTH, plain non-GATE form): the writer's reads run this many
+# blocks ahead of its writes. Same data in the same places, bit-identical.
+T2_WDEPTH = 2
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # T2_FOLD (off): fold the LN's centring and gamma into Wp, LN(x) @ Wp = rstd * (x @ Wc) + beta @ Wp with
 # Wc = (I - 11^T / K) diag(gamma) Wp, so compute_ln.cpp only needs rstd and skips four of the LN's five Kt-tile
@@ -1143,6 +1146,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     mcast = _t2_mcast(kt, nt, gate, EXTRA, grid)
     mc, sems = _mcast_args(x.device(), gx, gy) if mcast else ([], [])
     me = lambda c: [int(c == 0)] if mcast else []  # noqa: E731
+    wd = T2_WDEPTH if moved is not None and not gate else 2
     grow = moved is not None and T2_GROW and _t2_grow_fits(kt, nt, Mb, gate, moved[1] // TILE, moved[2], EXTRA)
     core_grid = ttnn.CoreRangeSet(
         [ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -1207,7 +1211,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             kernel_source=str(d / "writer_moved.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, St, Mb, P, int(gate), EXTRA] + acc(g) + acc(resid)
             + acc(ex[2] if EXTRA & 4 else resid) + acc(ex[3] if EXTRA & 8 else resid),
-            runtime_args=wr, common_runtime_args=[0] * 4, defines=_t2m_dm_defines(False),
+            runtime_args=wr, common_runtime_args=[0] * 4,
+            defines=_t2m_dm_defines(False) + ([("T2_WDEPTH", str(wd))] if wd != 2 else []),
             config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
@@ -1236,8 +1241,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
            _cb(1, core_grid, (1 + gate) * kt * nt),
            _cb_fmt(2, core_grid, 2 * blk, f32 if res32 else resid.dtype), _cb(3, core_grid, Mb * kt),
            _cb(4, core_grid, blk),
-           _cb_fmt(5, core_grid, (2 - gate) * blk, ttnn.bfloat16 if gate and moved is not None else g.dtype),
-           _cb_fmt(7, core_grid, 2 * blk, f32 if res32 else resid.dtype),
+           _cb_fmt(5, core_grid, (wd - gate) * blk, ttnn.bfloat16 if gate and moved is not None else g.dtype),
+           _cb_fmt(7, core_grid, wd * blk, f32 if res32 else resid.dtype),
            _cb(8, core_grid, kt), _cb(9, core_grid, kt), _cb(10, core_grid, 1),
            _cb_fmt(11, core_grid, 1, f32), _cb_fmt(12, core_grid, 1, f32),
            _cb_fmt(13, core_grid, 1, f32), _cb_fmt(14, core_grid, Mb if fold else 1, f32),
@@ -1555,7 +1560,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, _t2_block(kt, nt), P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, T2_WDEPTH, _t2_block(kt, nt), P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)), bool(rot))
     entry = _CACHE.get(key)
