@@ -25,12 +25,15 @@
 #ifndef T2_GROW
 #define T2_GROW 0
 #endif
-// T2_SPRE (trimul_tail._t2_spre, with T2_GROW): the stage is double-buffered, and row il of a unit also reads the
-// il-th R-th of the next unit's stage channels into the other half under the row's barrier. Without it the next
-// stage is read in one burst after the unit's last gather, every core at once, while compute drains two rows.
+// T2_SPRE (trimul_tail._t2_spre, with T2_GROW): the stage is double-buffered, and row il of a unit also starts the
+// il-th R-th of the next unit's stage reads into the other half. They carry NOC transaction id 1 and the gathers id 0,
+// so a row's barrier waits for its own gather only; the unit waits for id 1 before it gathers from that half.
+// Without it the next stage is read in one burst after the unit's last gather, every core at once.
 #ifndef T2_SPRE
 #define T2_SPRE 0
 #endif
+static_assert(!T2_SPRE || T2_GROW, "T2_SPRE prefetches under GROW's row barriers");
+constexpr uint32_t GATHER_TRID = 0, STAGE_TRID = 1;
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -128,6 +131,7 @@ void kernel_main() {
     constexpr uint32_t StSt = St * St;
     constexpr uint32_t STAGE_BYTES = Clt * 32 * STAGE_TILE;
     constexpr uint32_t CPR = Clt * 32 / R;    // T2_SPRE: the next stage's channels read under each row
+    static_assert(!T2_SPRE || 2 * CPR <= 127, "a row's stage reads must fit beside 128 out under one id");
     // Channels [c0, c1) of unit u's stage into the stage at dst.
     auto read_stage = [&](uint32_t u, uint32_t dst, uint32_t c0, uint32_t c1) {
         const uint32_t part = u % P, blk = u / P;
@@ -160,7 +164,9 @@ void kernel_main() {
         const uint32_t stage = stage0 + (T2_SPRE ? ((u - first_unit) & 1) * STAGE_BYTES : 0);
         const uint32_t next = stage0 + (T2_SPRE ? ((u - first_unit + 1) & 1) * STAGE_BYTES : 0);
         const uint64_t stage_noc = get_noc_addr(stage);
-        if constexpr (!T2_SPRE) {
+        if constexpr (T2_SPRE) {
+            if (u > first_unit) noc_async_read_barrier_with_trid(STAGE_TRID);
+        } else {
             read_stage(u, stage, 0, Clt * 32);
             noc_async_read_barrier();
         }
@@ -175,7 +181,13 @@ void kernel_main() {
                 cb_push_back(cb_prev, Cp);
             }
             // The stage reads reprogram the read command buffer, so they go ahead of the gather's set_state.
-            if (T2_SPRE && u + 1 < last) read_stage(u + 1, next, il * CPR, (il + 1) * CPR);
+            if (T2_SPRE && u + 1 < last) {
+                // 2 * CPR reads a row (32 at P = 2) on top of at most 128 still out stay inside the id's counter.
+                while (NOC_STATUS_READ_REG(noc_index, NIU_MST_REQS_OUTSTANDING_ID(STAGE_TRID)) > 128);
+                noc_async_read_set_trid(STAGE_TRID);
+                read_stage(u + 1, next, il * CPR, (il + 1) * CPR);
+                noc_async_read_set_trid(GATHER_TRID);
+            }
             noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
             if constexpr (T2_GROW) cb_reserve_back(cb_in, Clt);
             const uint32_t row0 = get_write_ptr(cb_in);
@@ -189,8 +201,13 @@ void kernel_main() {
                 uint32_t s1 = s0 + (P == 1 ? FACE_BYTES : PART_ROW_BYTES);
                 for (uint32_t c = 0; c < ((T2_DMABL & 1) ? 0 : 32); ++c) {
                     const uint32_t row = (c / 16) * 2 * FACE_BYTES + (c % 16) * FACE_ROW_BYTES;
-                    noc_async_read_one_packet_with_state(s0, d + row);
-                    noc_async_read_one_packet_with_state(s1, d + row + FACE_BYTES);
+                    if constexpr (T2_SPRE) {   // waits while 128 reads of the id are out: its counter holds 255
+                        noc_async_read_one_packet_with_state_with_trid(s0, 0, d + row, GATHER_TRID);
+                        noc_async_read_one_packet_with_state_with_trid(s1, 0, d + row + FACE_BYTES, GATHER_TRID);
+                    } else {
+                        noc_async_read_one_packet_with_state(s0, d + row);
+                        noc_async_read_one_packet_with_state(s1, d + row + FACE_BYTES);
+                    }
                     s0 += STAGE_TILE;
                     s1 += STAGE_TILE;
                 }
@@ -199,7 +216,10 @@ void kernel_main() {
                     cb_push_back(cb_in, 1);
                 }
             }
-            if constexpr (T2_GROW) {
+            if constexpr (T2_SPRE) {
+                noc_async_read_barrier_with_trid(GATHER_TRID);
+                cb_push_back(cb_in, Clt);
+            } else if constexpr (T2_GROW) {
                 noc_async_read_barrier();
                 cb_push_back(cb_in, Clt);
             }
