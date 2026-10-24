@@ -505,11 +505,6 @@ ESMC_MM_MIN_ROWS = 2048
 # Wormhole the gate loses (1.019 -> 1.053). None = on for Blackhole.
 _ESMC_MM_6B_BF16 = (env_flag("TT_BIO_ESMC_MM_6B_BF16", False)
                     if os.environ.get("TT_BIO_ESMC_MM_6B_BF16", "").strip() else None)
-# The same qkv split under --fast's block-fp8 weights, where the 6B otherwise runs LIN6B + chunk (dcb3 census, qb2 p300
-# at 1350 MHz: linear x240 + chunk x80 3.6 ms of 93 device). Keeps the linear's compute config (fp32 accumulation).
-# None = on for Blackhole.
-_ESMC_MM_6B_B8 = (env_flag("TT_BIO_ESMC_MM_6B_B8", False)
-                  if os.environ.get("TT_BIO_ESMC_MM_6B_B8", "").strip() else None)
 #: [projections served by minimal_matmul, declined], read by the A/B harness.
 MM_STATS = [0, 0]
 # minimal_matmul's block config for those projections: 16 x 4 output tiles a block, K in blocks of 4 tiles (2 where K
@@ -690,14 +685,13 @@ class _MMLin:
     def _mm_on(self) -> bool:
         return _esmc_mm()
 
-    def _mm_6b(self, x, w) -> bool:
-        """The 6B's page rows, where its qkv split and gate take minimal_matmul: bf16 weights (_ESMC_MM_6B_BF16) or
-        --fast's block-fp8 ones (_ESMC_MM_6B_B8)."""
-        on = {ttnn.bfloat16: _ESMC_MM_6B_BF16, ttnn.bfloat8_b: _ESMC_MM_6B_B8}.get(w.dtype, False)
+    def _mm_6b_bf16(self, x, w) -> bool:
+        """The 6B's page rows with bf16 weights, where its qkv split and gate take minimal_matmul (_ESMC_MM_6B_BF16)."""
+        on = _ESMC_MM_6B_BF16
         if on is None:
             from tt_bio import tenstorrent
             on = not tenstorrent.is_wormhole()
-        return (on and getattr(self, "lm_large", False) and x.dtype == ttnn.bfloat16
+        return (on and getattr(self, "lm_large", False) and w.dtype == ttnn.bfloat16 == x.dtype
                 and 512 <= x.volume() // int(x.shape[-1]) < 1024 and self._mm_on())
 
     def _mm_ck(self, w):
@@ -721,14 +715,12 @@ class _MMLin:
 
     def _lin_split(self, x, w, chunks: int, bias=None):
         """x @ w (+ bias) split into `chunks` outputs along the last dim by the matmul itself, or None where it does not serve."""
-        large = self._mm_6b(x, w)
-        if not (_ESMC_QKV_MM_SPLIT and (large or self._mm_ok(x, w))):
+        if not (_ESMC_QKV_MM_SPLIT and (self._mm_ok(x, w) or self._mm_6b_bf16(x, w))):
             return None
-        ck, exact = (self.compute_kernel_config, True) if large else (self._mm_ck(w), self.mm_exact_acc)
         try:
             out = ttnn.experimental.minimal_matmul_split(
-                x, w, chunks=chunks, bias_tensor=bias, compute_kernel_config=ck, dtype=_dtype(ttnn.bfloat16),
-                memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, exact))
+                x, w, chunks=chunks, bias_tensor=bias, compute_kernel_config=self._mm_ck(w), dtype=_dtype(ttnn.bfloat16),
+                memory_config=ttnn.DRAM_MEMORY_CONFIG, **_mm_config(x, w, self.mm_exact_acc))
         except RuntimeError:
             return None
         MM_FUSE_STATS[0] += 1
@@ -1390,7 +1382,7 @@ class SwiGLUFFN(_MMLin, Module):
         # 256-row FFN chunks above 1024 aa are untested.
         rows = x_norm.volume() // int(x_norm.shape[-1])
         large = ((getattr(self, "lm_large", False) and w.dtype == ttnn.bfloat8_b and x_norm.dtype == ttnn.bfloat16
-                  and 512 <= rows < 1024) or self._mm_6b(x_norm, w))
+                  and 512 <= rows < 1024) or self._mm_6b_bf16(x_norm, w))
         if not (_mm_gate_on() and not l1_gated and len(x_norm.shape) == 3 and not _SWIGLU_SILU_FC1
                 and not _ESMC_ACT_BFP8 and (large or self._mm_ok(x_norm, w))):
             return None
