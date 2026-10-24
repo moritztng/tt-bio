@@ -7,7 +7,7 @@
 set -u
 N=$1; R=$2; LEGS=${3:-zprec224 zprec192 designs grade}; WT=$(cd "$(dirname "$0")/../../.." && pwd)
 PY=${PY:-$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python}
-IN=$HOME/rfd4-inputs; W=$HOME/rfd4-bundle; BOOK="python3 $HOME/spd/feed/book.py"; OWN=rfd4-perf-tri224; LEV=pair_x8
+IN=$HOME/rfd4-inputs; W=$HOME/rfd4-bundle; BOOK="python3 $HOME/spd/feed/book.py"; OWN=${OWN:-rfd4-perf-tri224}; LEV=pair_x8
 mkdir -p $R; R=$(cd $R && pwd); cd $WT
 export TT_VISIBLE_DEVICES=$N TT_BIO_LEASE_CARDS=$N TT_BIO_LEASE_HOLDER=worker:$OWN PYTHONPATH=$WT:$WT/perf
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" >> $R/done; }

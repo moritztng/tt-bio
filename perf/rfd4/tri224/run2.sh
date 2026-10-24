@@ -5,7 +5,7 @@
 set -u
 N=$1; R=$2; ROUNDS=${3:-2}; WT=$(cd "$(dirname "$0")/../../.." && pwd)
 PY=${PY:-$HOME/scratch/shipflow/venv312-1384f4c1b7bf/bin/python}
-W=$HOME/rfd4-bundle; BOOK="python3 $HOME/spd/feed/book.py"; OWN=rfd4-perf-tri224
+W=$HOME/rfd4-bundle; BOOK="python3 $HOME/spd/feed/book.py"; OWN=${OWN:-rfd4-perf-tri224}
 mkdir -p $R; R=$(cd $R && pwd); cd $WT
 export TT_VISIBLE_DEVICES=$N TT_BIO_LEASE_CARDS=$N TT_BIO_LEASE_HOLDER=worker:$OWN PYTHONPATH=$WT:$WT/perf
 export TT_BIO_TRACE_REGION_MB=${TT_BIO_TRACE_REGION_MB:-2048}
