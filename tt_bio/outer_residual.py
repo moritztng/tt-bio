@@ -27,23 +27,29 @@ Z_CB, I_CB, J_CB, OUT_CB, LO_CB = 0, 1, 2, 16, 17
 GRAN = 4
 # Bench knob (0 in every model path): bits that skip DM work, 1 z reads, 2 pj4 row reads, 4 writes.
 DM = 0
+# pj as [B, n, C] tiles, read a block of 32 rows at a time and row i copied in L1 (kernels/outer_residual/reader.cpp
+# OR_PJT), instead of pj4 [B, n, 1, C] and two 64 B DRAM reads a work tile. Bit-identical. False: the pj4 reads (bench
+# base arm).
+PJ_TILES = True
+PJ_CB = 3
 _NUM_CBS = 64
 _CACHE: dict = {}
 
 
-def eligible(z, pi, pj4) -> bool:
-    """z [B, n, n, C] float32, bfloat16 or bfloat8_b (`pair_bfp8z`), pi [B, n, C] and pj4 [B, n, 1, C] bfloat16, all TILE interleaved, n and C
-    tile multiples (no padding: every tile of z has a whole pi tile)."""
-    if z.dtype not in (ttnn.float32, ttnn.bfloat16, ttnn.bfloat8_b) or pi.dtype != ttnn.bfloat16 or pj4.dtype != ttnn.bfloat16:
+def eligible(z, pi, pj) -> bool:
+    """z [B, n, n, C] float32, bfloat16 or bfloat8_b (`pair_bfp8z`), pi [B, n, C] and pj [B, n, C] (or pj4
+    [B, n, 1, C]) bfloat16, all TILE interleaved, n and C tile multiples (no padding: every tile of z has a whole pi
+    tile)."""
+    if z.dtype not in (ttnn.float32, ttnn.bfloat16, ttnn.bfloat8_b) or pi.dtype != ttnn.bfloat16 or pj.dtype != ttnn.bfloat16:
         return False
     if any(t.layout != ttnn.TILE_LAYOUT or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
-           for t in (z, pi, pj4)):
+           for t in (z, pi, pj)):
         return False
-    zs, ps, js = ([int(d) for d in t.shape] for t in (z, pi, pj4))
-    if len(zs) != 4 or len(ps) != 3 or len(js) != 4:
+    zs, ps, js = ([int(d) for d in t.shape] for t in (z, pi, pj))
+    if len(zs) != 4 or len(ps) != 3:
         return False
     B, n, m, c = zs
-    return n == m and n % 32 == 0 and c % 32 == 0 and ps == [B, n, c] and js == [B, n, 1, c]
+    return n == m and n % 32 == 0 and c % 32 == 0 and ps == [B, n, c] and js in ([B, n, c], [B, n, 1, c])
 
 
 def _build(z, pi, pj4, out, lo, device):
@@ -67,7 +73,11 @@ def _build(z, pi, pj4, out, lo, device):
     else:
         cbs = [cb(Z_CB, ttnn.float32, f32), cb(I_CB, ttnn.bfloat16, b16, 2 * kt), cb(J_CB, ttnn.bfloat16, b16),
                cb(OUT_CB, ttnn.float32, f32), cb(LO_CB, ttnn.bfloat16, b16)]
-    defines = ([("OR_BF16", "1")] if b16z else []) + ([("OR_BFP8", "1")] if b8z else []) + ([("OR_DM", str(DM))] if DM else [])
+    pjt = len(pj4.shape) == 3
+    if pjt:   # the reader's block of pj: KT tiles of 32 rows i
+        cbs.append(cb(PJ_CB, ttnn.bfloat16, b16, kt))
+    defines = ([("OR_BF16", "1")] if b16z else []) + ([("OR_BFP8", "1")] if b8z else []) + ([("OR_DM", str(DM))] if DM else []) \
+        + ([("OR_PJT", "1")] if pjt else [])
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
     for group, per in ((cg1, work1), (cg2, work2)):
@@ -98,18 +108,22 @@ def _build(z, pi, pj4, out, lo, device):
     return [reader, writer, compute], cbs
 
 
-def outer_residual(z, pi, pj4):
+def outer_residual(z, pi, pj):
     """`(z + pj4 * pi4, the same rounded to even in bfloat16)` for the float32 pair stream z [B, n, n, C], pi [B, n, C]
-    and pj4 [B, n, 1, C] (pi4 = pi as [B, 1, n, C]), or None when `eligible` declines. For a bfloat16 or bfloat8_b z,
-    `(out, out)` with out the sum packed in z's format. Nothing is freed."""
-    if not eligible(z, pi, pj4):
+    and pj [B, n, C] or pj4 [B, n, 1, C] (pi4 = pi as [B, 1, n, C], pj4 = pj as [B, n, 1, C]), or None when `eligible`
+    declines. For a bfloat16 or bfloat8_b z, `(out, out)` with out the sum packed in z's format. Nothing is freed."""
+    if not eligible(z, pi, pj):
         return None
+    pj4 = pj
+    if len(pj.shape) == 3 and not PJ_TILES:
+        b, n, c = (int(d) for d in pj.shape)
+        pj4 = ttnn.reshape(pj, (b, n, 1, c))
     device = z.device()
     alloc = lambda dt: ttnn.allocate_tensor_on_device(z.shape, dt, ttnn.TILE_LAYOUT, device,  # noqa: E731
                                                       ttnn.DRAM_MEMORY_CONFIG)
     out = alloc(z.dtype)
     lo = out if z.dtype != ttnn.float32 else alloc(ttnn.bfloat16)
-    key = (device.id(), tuple(int(d) for d in z.shape), str(z.dtype), GRAN, DM)
+    key = (device.id(), tuple(int(d) for d in z.shape), str(z.dtype), GRAN, DM, len(pj4.shape))
     if key not in _CACHE:
         _CACHE[key] = _build(z, pi, pj4, out, lo, device)
     kernels, cbs = _CACHE[key]

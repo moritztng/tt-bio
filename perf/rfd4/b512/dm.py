@@ -4,6 +4,7 @@ output so knob legs that keep every byte can be checked bit-identical, AICLK sam
     TT_VISIBLE_DEVICES=<chip> python perf/rfd4/b512/dm.py --ns 512,384 --legs "or:base;or:gran=8;or:dm=1;pb:base" --out <jsonl>
 
 A leg is `<prog>:<k=v,...>`: or = outer_residual (gran=GRAN, dm=DM bits 1 z reads, 2 pj4 rows, 4 writes), pb =
+pjt=1 pj as [B, n, C] tiles, pjt=0 the same input reshaped to pj4 inside), pb =
 rms_pair_bias (dm=RMS_DM bits 1 z reads, 2 writes). DM legs skip work, so their digests differ by design. Legs run
 in the given order, the whole list `--rounds` times alternated; the time is the median of `--reps` x `--inner` calls.
 """
@@ -55,21 +56,23 @@ def main():
         gen = torch.Generator().manual_seed(n + c)
         z = up(torch.randn(1, n, n, c, generator=gen), ttnn.bfloat8_b)
         pi = up((torch.randn(1, n, c, generator=gen) * 0.7).to(torch.bfloat16), ttnn.bfloat16)
-        pj4 = ttnn.reshape(up((torch.randn(1, n, c, generator=gen) * 0.7).to(torch.bfloat16), ttnn.bfloat16),
-                           (1, n, 1, c))
+        pj = up((torch.randn(1, n, c, generator=gen) * 0.7).to(torch.bfloat16), ttnn.bfloat16)
+        pj4 = ttnn.reshape(pj, (1, n, 1, c))
         wt = P.rms_weight([torch.randn(c, 12) * 0.05, torch.randn(c, 12) * 0.05], dev)
-        inputs[n] = (z, pi, pj4, wt)
+        inputs[n] = (z, pi, pj4, wt, pj)
     legs = [l.strip() for l in a.legs.split(";") if l.strip()]
     with open(a.out, "a") as f:
         for rnd in range(a.rounds):
-            for n, (z, pi, pj4, wt) in inputs.items():
+            for n, (z, pi, pj4, wt, pj) in inputs.items():
                 for leg in legs:
                     prog, _, kv = leg.partition(":")
                     knobs = dict(x.split("=") for x in kv.split(",") if "=" in x)
                     O.GRAN, O.DM, P.RMS_DM = int(knobs.get("gran", 4)), 0, 0
                     if prog == "or":
                         O.DM = int(knobs.get("dm", 0))
-                        call = lambda: O.outer_residual(z, pi, pj4)[:1]  # noqa: E731
+                        O.PJ_TILES = knobs.get("pjt", "1") == "1"
+                        pjx = pj if "pjt" in knobs else pj4   # pjt=0: [B, n, C] reshaped inside, as the trunk on main
+                        call = lambda: O.outer_residual(z, pi, pjx)[:1]  # noqa: E731
                     else:
                         P.RMS_DM = int(knobs.get("dm", 0))
                         call = lambda: P.rms_pair_bias(z, wt, 1e-5, 12, n_out=2)  # noqa: E731

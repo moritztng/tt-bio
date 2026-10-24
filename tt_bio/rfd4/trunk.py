@@ -558,8 +558,7 @@ class PairUpdate(Module):
                 and (z.dtype == ttnn.float32 or lever("pair_bf16z"))):
             # no padded token: the Hadamard product is formed and added to the pair stream in one program
             pi, pj = self._factors(xs, mask)
-            b, n, c = (int(d) for d in pj.shape)
-            both = outer_residual.outer_residual(z, pi, ttnn.reshape(pj, (b, n, 1, c)))
+            both = outer_residual.outer_residual(z, pi, pj)
         if both is not None:
             z, zb = both
         else:

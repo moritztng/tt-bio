@@ -13,6 +13,12 @@
 #ifndef OR_DM
 #define OR_DM 0   // bench knob outer_residual.DM: 1 skip z reads, 2 skip pj4 reads, 4 skip writes (writer)
 #endif
+// OR_PJT (outer_residual.PJ_TILES): pj comes as [B, n, C] tiles, as pi. The reader keeps the KT tiles of the current 32 rows
+// i in c_3, read once per 32 rows, and copies row i into each slot's row 0 by core stores instead of two 64 B DRAM reads
+// a work item. The slot's row 0 holds the same values either way.
+#ifndef OR_PJT
+#define OR_PJT 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
@@ -32,6 +38,12 @@ void kernel_main() {
     constexpr uint32_t FACE = 512, ROW0 = 64;   // a bf16 face; faces 0 and 1 begin with row 0's two halves
     const uint32_t zs = get_tile_size(cb_z), bs = get_tile_size(cb_i);
     uint32_t have = 0xFFFFFFFF;
+#if OR_PJT
+    constexpr uint32_t cb_pt = 3, PROW = 32;   // one bf16 face row
+    cb_reserve_back(cb_pt, KT);                // the reader's own scratch: never pushed
+    const uint32_t pt = get_write_ptr(cb_pt);
+    uint32_t pblk = 0xFFFFFFFF;
+#endif
     for (uint32_t p = p0; p < p0 + np; p += GRAN) {
         const uint32_t n = p0 + np - p < GRAN ? p0 + np - p : GRAN;
         // pi of every run this granule enters, before the granule is reserved: compute pops a run only while it
@@ -59,10 +71,32 @@ void kernel_main() {
             const uint32_t bj = w / RUN;
             const uint32_t bi = (bj / NT) * N + i;   // b * N + i
             if constexpr (!(OR_DM & 1)) noc_async_read_page((bi * NT + bj % NT) * KT + ct, sz, wz);
+#if OR_PJT
+            // row i of pj's tile (b, i / 32, ct) from the block read below, into the slot's row 0 by core stores
+            if (bi / 32 != pblk) {
+                pblk = bi / 32;   // nothing in flight reads the block: earlier slots were filled by core stores
+                if constexpr (!(OR_DM & 2)) {
+                    uint32_t wp = pt;
+                    for (uint32_t c = 0; c < KT; ++c, wp += bs) noc_async_read_page(pblk * KT + c, sj, wp);
+                }
+                noc_async_read_barrier();
+            }
+            {
+                const uint32_t r = bi % 32;
+                const uint32_t src = pt + ct * bs + (r >> 4) * 2 * FACE + (r & 15) * PROW;
+                volatile tt_l1_ptr uint32_t* s0 = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(src);
+                volatile tt_l1_ptr uint32_t* d0 = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(wj);
+                for (uint32_t q = 0; q < PROW / 4; ++q) {
+                    d0[q] = s0[q];
+                    d0[FACE / 4 + q] = s0[FACE / 4 + q];
+                }
+            }
+#else
             if constexpr (!(OR_DM & 2)) {
                 noc_async_read(sj.get_noc_addr(bi * KT + ct, 0), wj, ROW0);
                 noc_async_read(sj.get_noc_addr(bi * KT + ct, FACE), wj + FACE, ROW0);
             }
+#endif
         }
         noc_async_read_barrier();
         cb_push_back(cb_z, GRAN);
