@@ -25,6 +25,12 @@
 #ifndef T2_GROW
 #define T2_GROW 0
 #endif
+// T2_SPRE (trimul_tail._t2_spre, with T2_GROW): the stage is double-buffered, and row il of a unit also reads the
+// il-th R-th of the next unit's stage channels into the other half under the row's barrier. Without it the next
+// stage is read in one burst after the unit's last gather, every core at once, while compute drains two rows.
+#ifndef T2_SPRE
+#define T2_SPRE 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -118,29 +124,44 @@ void kernel_main() {
     cb_push_back(cb_beta, Kt);
 
     cb_reserve_back(cb_stage, 1);
-    const uint32_t stage = get_write_ptr(cb_stage);
-    const uint64_t stage_noc = get_noc_addr(stage);
+    const uint32_t stage0 = get_write_ptr(cb_stage);
     constexpr uint32_t StSt = St * St;
-    for (uint32_t u = first_unit; u < first_unit + num_units; ++u) {
+    constexpr uint32_t STAGE_BYTES = Clt * 32 * STAGE_TILE;
+    constexpr uint32_t CPR = Clt * 32 / R;    // T2_SPRE: the next stage's channels read under each row
+    // Channels [c0, c1) of unit u's stage into the stage at dst.
+    auto read_stage = [&](uint32_t u, uint32_t dst, uint32_t c0, uint32_t c1) {
+        const uint32_t part = u % P, blk = u / P;
+        uint32_t page = blk + c0 * StSt;    // (it, jt) = (blk / St, blk % St): page it * St + jt is blk
+        const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
+        dst += c0 * STAGE_TILE;
+        for (uint32_t c = c0; c < c1; ++c) {
+            const uint64_t a = sx.get_noc_addr(page, off);
+            if constexpr (T2_DMABL & 2) {
+                (void)a;
+            } else if constexpr (P == 1) {
+                noc_async_read(a, dst, TILE_BYTES);         // the whole tile, faces in place
+            } else {
+                noc_async_read(a, dst, PART_ROW_BYTES);
+                noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
+            }
+            page += StSt;
+            dst += STAGE_TILE;
+        }
+    };
+    const uint32_t last = first_unit + num_units;
+    if (T2_SPRE && num_units > 0) {
+        read_stage(first_unit, stage0, 0, Clt * 32);
+        noc_async_read_barrier();
+    }
+    for (uint32_t u = first_unit; u < last; ++u) {
         const uint32_t part = u % P;
         const uint32_t blk = u / P;
         const uint32_t it = blk / St, jt = blk - (blk / St) * St;
-        {
-            uint32_t page = it * St + jt, dst = stage;
-            const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
-            for (uint32_t c = 0; c < Clt * 32; ++c) {
-                const uint64_t a = sx.get_noc_addr(page, off);
-                if constexpr (T2_DMABL & 2) {
-                    (void)a;
-                } else if constexpr (P == 1) {
-                    noc_async_read(a, dst, TILE_BYTES);         // the whole tile, faces in place
-                } else {
-                    noc_async_read(a, dst, PART_ROW_BYTES);
-                    noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
-                }
-                page += StSt;
-                dst += STAGE_TILE;
-            }
+        const uint32_t stage = stage0 + (T2_SPRE ? ((u - first_unit) & 1) * STAGE_BYTES : 0);
+        const uint32_t next = stage0 + (T2_SPRE ? ((u - first_unit + 1) & 1) * STAGE_BYTES : 0);
+        const uint64_t stage_noc = get_noc_addr(stage);
+        if constexpr (!T2_SPRE) {
+            read_stage(u, stage, 0, Clt * 32);
             noc_async_read_barrier();
         }
         for (uint32_t il = 0; il < R; ++il) {
@@ -153,6 +174,8 @@ void kernel_main() {
                 noc_async_read_barrier();
                 cb_push_back(cb_prev, Cp);
             }
+            // The stage reads reprogram the read command buffer, so they go ahead of the gather's set_state.
+            if (T2_SPRE && u + 1 < last) read_stage(u + 1, next, il * CPR, (il + 1) * CPR);
             noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
             if constexpr (T2_GROW) cb_reserve_back(cb_in, Clt);
             const uint32_t row0 = get_write_ptr(cb_in);
