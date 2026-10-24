@@ -7,6 +7,10 @@
 // item, count. Under OR_BF16 c_16 alone (the bfloat16 sum) to the one output.
 #include "api/dataflow/dataflow_api.h"
 
+#ifndef OR_DM
+#define OR_DM 0
+#endif
+
 void kernel_main() {
     constexpr uint32_t GRAN = get_compile_time_arg_val(0);
     constexpr uint32_t KT = get_compile_time_arg_val(1);
@@ -37,7 +41,7 @@ void kernel_main() {
             const uint32_t w = p + k;
             const uint32_t bj = w / RUN;
             const uint32_t q = (((bj / NT) * N + (w / KT) % N) * NT + bj % NT) * KT + w % KT;
-            noc_async_write_page(q, so, r);
+            if constexpr (!(OR_DM & 4)) noc_async_write_page(q, so, r);
 #ifndef OR_BF16
             noc_async_write_page(q, sl, rl);
             rl += ls;
