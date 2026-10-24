@@ -867,6 +867,8 @@ _FAST_MODE = False
 #                   move back (`permute_back_pk`) takes it, which reads it so and writes bf16: the one tensor written and
 #                   read through DRAM between them halves. bfp8 blocks run along j inside one channel, and the tail
 #                   layer-norms the result next (state/rfd4/bets/tri224.md)
+#   pair_x8t        with pair_x8, the move writes bfp8 too and the tail (T2, stream16) reads it so: blocks then run along
+#                   channels before the tail's LayerNorm, and the packer truncates (state/rfd4/bets/tri224.md)
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -885,7 +887,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
-           "trimul_t1_fgate", "pair_x8")
+           "trimul_t1_fgate", "pair_x8", "pair_x8t")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -911,7 +913,7 @@ UNGRADED_LEVERS = frozenset({"pz_device", "trimul_b8in", "inproj_k6", "inproj_sp
                              "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
-                             "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8"})
+                             "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -11252,8 +11254,10 @@ class TriangleMultiplication(Module):
                     if into:
                         # Each chunk lands in its own channel slice of one output tensor, so the
                         # concat below never runs. Bit-exact: the same bytes in the same order.
-                        # `pair_x8`: a bfp8 chunk still moves into a bf16 output.
-                        out_dt = ttnn.bfloat16 if x_chunk.dtype == ttnn.bfloat8_b else x_chunk.dtype
+                        # `pair_x8`: a bfp8 chunk moves into a bf16 output, or a bfp8 one under `pair_x8t`.
+                        out_dt = x_chunk.dtype
+                        if x_chunk.dtype == ttnn.bfloat8_b and not lever("pair_x8t"):
+                            out_dt = ttnn.bfloat16
                         if x_out is None and x_out_pre is not None:
                             if x_out_pre.dtype == out_dt:
                                 x_out = x_out_pre

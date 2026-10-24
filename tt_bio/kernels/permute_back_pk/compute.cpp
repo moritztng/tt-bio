@@ -26,6 +26,7 @@ void kernel_main() {
     constexpr uint32_t ABL = get_compile_time_arg_val(0);   // bit 1: no tilize/transpose, bit 3: no transpose (diagnostic)
     constexpr uint32_t TR = get_compile_time_arg_val(1);    // 1: transpose each tilized tile, 0: write it as is
     constexpr uint32_t X8 = get_compile_time_arg_val(2);    // 1: in_cb is bfp8, so srcA switches format per stage
+    constexpr uint32_t O8 = get_compile_time_arg_val(3);    // 1: out_cb is bfp8 (`pair_x8t`), so the packer switches too
     const uint32_t nunits = get_arg_val<uint32_t>(0);
     constexpr uint32_t in_cb = tt::CBIndex::c_0, rm_cb = tt::CBIndex::c_1, t_cb = tt::CBIndex::c_2;
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
@@ -36,6 +37,7 @@ void kernel_main() {
         // pack_untilize_block (no in-tree user) was the first suspect when bpk3 still hung.
         if constexpr (X8) reconfig_data_format_srca(in_cb);
         copy_tile_to_dst_init_short(in_cb);
+        if constexpr (O8) pack_reconfig_data_format(rm_cb);
         pack_untilize_dest_init<8, 32>(rm_cb);
         cb_reserve_back(rm_cb, 32);
         for (uint32_t g = 0; g < 4; ++g) {
@@ -77,6 +79,7 @@ void kernel_main() {
 
         // The short init: the full one re-runs pack_sync_init and the hw configure mid-kernel, which hung the chip
         // (bpk, bpk2 on .107); in-tree kernels call it once at start and the short form after other ops.
+        if constexpr (O8) pack_reconfig_data_format(out_cb);
         transpose_wh_init_short(t_cb);
         for (uint32_t i = 0; i < 32; i += 8) {
             cb_wait_front(t_cb, 8);

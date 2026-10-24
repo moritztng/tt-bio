@@ -1,5 +1,6 @@
 """pair_x8's move back on the device: permute_back_pk on a bfp8 x equals torch's permute of x as stored, at the batched
-shapes RFD4 runs (224 b10, 192 b14, 256 b4), and the bf16 program is unchanged. Run under `timeout`.
+shapes RFD4 runs (224 b10, 192 b14, 256 b4), and the bf16 program is unchanged. `pair_x8t` (bfp8 out, packer-truncated,
+blocks along channels) cannot be bit-exact: its rel RMS against the exact move is recorded. Run under `timeout`.
 
     TT_VISIBLE_DEVICES=<chip> python perf/rfd4/tri224/x8_exact.py --out <file.json>
 """
@@ -54,6 +55,14 @@ for spec in a.shapes.split(","):
         rec[f"{name}_stored_rel_rms"] = float((stored.double() - xt.double()).pow(2).mean().sqrt()
                                               / xt.double().pow(2).mean().sqrt())
         rec[f"{name}_move_ms"] = timed(lambda: PK.permute_back_pk(x, out, grid))
+        if name == "bfp8":
+            o8 = ttnn.allocate_tensor_on_device(ttnn.Shape([B, n, n, 256]), ttnn.bfloat8_b, ttnn.TILE_LAYOUT, dev, DRAM)
+            PK.permute_back_pk(x, o8, grid)
+            ref = stored.permute(0, 2, 3, 1).double()
+            rec["x8t_rel_rms_vs_exact"] = float((ttnn.to_torch(o8).double() - ref).pow(2).mean().sqrt()
+                                                / ref.pow(2).mean().sqrt())
+            rec["x8t_move_ms"] = timed(lambda: PK.permute_back_pk(x, o8, grid))
+            ttnn.deallocate(o8)
         ttnn.deallocate(x)
         ttnn.deallocate(out)
     print(json.dumps(rec), flush=True)
