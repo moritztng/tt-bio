@@ -1,6 +1,7 @@
 #!/bin/bash
 # gridclass: is transition_b8's BH digest split a grid effect or the small-grid code path? args: CHIP OUT TREE
 # Arms: native 11x10, forced 8x8 and 10x10 with the big-grid path held. s8_b8 (small path, 8c7ec5be) and the base-set control were read in gridclass r1.
+# ARMS picks a subset; n_base is the shipped set at the native grid (a cross-card control: 2b4a7c3c on a p300).
 set -u; CHIP=$1 OUT=$2 TREE=$3; ROW=spd-m-protenix
 mkdir -p "$OUT" ~/spd/locks ~/spd/$ROW/leases; [ -f ~/japanfold/env.sh ] && . ~/japanfold/env.sh >/dev/null 2>&1
 cd "$TREE" || exit 1
@@ -32,7 +33,7 @@ run() { # name force hold levers
   echo "$(date -u +%FT%TZ) $n force=$g hold=$h rc=$rc md5=$md try=$try $(grep GRIDCLASS $o/log | sort | uniq -c | tr '\n' ' ')" >> $OUT/run.log
 }
 B8="$L+transition_b8+ws_b8_plain"
-run n_b8 "" 0 "$B8"
-run h8_b8 8,8 1 "$B8"
-run h10_b8 10,10 1 "$B8"
+for a in ${ARMS:-n_b8 h8_b8 h10_b8}; do case $a in
+  n_base) run n_base "" 0 "$L";; n_b8) run n_b8 "" 0 "$B8";; h8_b8) run h8_b8 8,8 1 "$B8";; h10_b8) run h10_b8 10,10 1 "$B8";;
+esac; done
 touch $OUT/DONE
