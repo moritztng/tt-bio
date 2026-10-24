@@ -578,3 +578,73 @@ def test_the_floor_watcher_refuses_an_index_kind_it_does_not_know(tmp_path, caps
         ffr.INDEX, quality.QUALITY_JSON = monkey["INDEX"], monkey["QUALITY_JSON"]
     assert "is not one of" in capsys.readouterr().out
     assert not doc.exists()
+
+
+# ----------------------------------------------------------------------------- the paired leg
+def test_the_sign_test_needs_twelve_of_sixteen_and_recomputes_after_ties():
+    worse = [0.4] * 12 + [-0.1] * 4
+    assert stats.sign_test(worse)["verdict"] == "FAIL"
+    assert stats.sign_test([0.4] * 11 + [-0.1] * 5)["verdict"] == "INCONCLUSIVE"
+    assert stats.sign_test([-0.4] * 12 + [0.1] * 4)["verdict"] == "PASS"
+    # two exact ties removed: the threshold moves from 12 of 16 to 11 of 14, so 11 now decides
+    tied = stats.sign_test([0.4] * 11 + [-0.1] * 3 + [0.0, 0.0])
+    assert tied["ties"] == 2 and tied["n"] == 14 and tied["needed_one_side"] == 11
+    assert tied["verdict"] == "FAIL"
+    assert stats.sign_test([0.1, -0.1, 0.1, -0.1])["needed_one_side"] is None  # n=4 cannot reject
+
+
+def test_an_equivalent_arm_reads_inconclusive_not_pass():
+    rng = np.random.default_rng(7)
+    d = rng.normal(0.0, 0.3, 16)
+    assert stats.sign_test(d)["verdict"] == "INCONCLUSIVE"
+
+
+def test_one_huge_difference_cannot_carry_the_verdict_but_moves_hodges_lehmann():
+    d = [-50.0] + [0.2] * 15
+    assert stats.sign_test(d)["verdict"] == "FAIL"  # 15 of 16 worse, whatever the one magnitude says
+    assert stats.hodges_lehmann(d)["estimate"] > 0
+
+
+def _cases(n_worse, n_better, stratum="pdl1-128", seed0=1, incomplete=0):
+    cases = [{"stratum": stratum, "seed": seed0 + i, "tt_value": 1.5, "ref_value": 1.0} for i in range(n_worse)]
+    cases += [{"stratum": stratum, "seed": seed0 + 100 + i, "tt_value": 1.0, "ref_value": 1.5}
+              for i in range(n_better)]
+    cases += [{"stratum": stratum, "seed": seed0 + 200 + i, "tt_value": float("nan"), "ref_value": 1.0}
+              for i in range(incomplete)]
+    return cases
+
+
+def test_the_completeness_floor_overrides_the_signs():
+    res = quality.paired_leg(_cases(11, 0, incomplete=5), "refolded_backbone_rmsd.rmsd")
+    st = res["strata"]["pdl1-128"]
+    assert st["sign_test"]["verdict"] == "FAIL" and st["n_complete"] == 11
+    assert st["verdict"] == "INCONCLUSIVE" and res["verdict"] == "INCONCLUSIVE"
+    assert [c["seed"] for c in st["incomplete"]] == [201, 202, 203, 204, 205]  # named, never dropped
+
+
+def test_a_stratum_that_fails_decides_the_leg_and_the_leg_never_gates():
+    res = quality.paired_leg(_cases(12, 4) + _cases(0, 16, stratum="pdl1-256"),
+                             "refolded_backbone_rmsd.rmsd")
+    assert res["strata"]["pdl1-128"]["verdict"] == "FAIL"
+    assert res["strata"]["pdl1-256"]["verdict"] == "PASS"
+    assert res["verdict"] == "FAIL" and res["gates"] is False
+
+
+def test_the_holdout_seeds_are_refused_without_the_flag(tmp_path, capsys):
+    hold = quality.holdout()
+    ref = _write_arm(tmp_path, "ref", _rows(1, 0))
+    tt = _write_arm(tmp_path, "tt", _rows(1, 1))
+    manifest = tmp_path / "cases.json"
+    manifest.write_text(json.dumps({"cases": [{"stratum": "pdl1-128", "seed": hold["seeds"][0],
+                                               "tt": str(tt), "ref": str(ref)}]}))
+    out = tmp_path / "QUALITY.json"
+    argv = ["paired", "--feature", FEATURE, "--manifest", str(manifest), "--out", str(out)]
+    with pytest.raises(SystemExit) as exc:
+        quality.main(argv)
+    assert exc.value.code == 2 and "allow-holdout" in capsys.readouterr().err
+    assert not out.exists()
+    assert quality.main(argv + ["--allow-holdout"]) == 0
+    doc = json.loads(out.read_text())
+    assert doc["paired"][FEATURE]["on_holdout_seeds"] == [hold["seeds"][0]]
+    assert doc["paired"][FEATURE]["verdict"] == "INCONCLUSIVE"  # one case, far under the floor
+    assert doc["verdict"] == "NOT_GRADED"  # the paired leg does not write a grade of its own

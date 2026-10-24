@@ -1,0 +1,9 @@
+{
+ "about": "Frozen holdout for the paired leg of the RFD4 quality grade (perf/rfd4/quality.py paired). These seeds are run once, to confirm a decision already made on development seeds, never to make one; quality.py refuses any case on them unless --allow-holdout is passed. Frozen 2026-10-24 before any design was generated on them; no fair cell, grade or bet uses 7000-7150. Method: Magnus Bauer, notes/validation/PROTOCOL-v2.md (rfd4-experimental @ 7fbfc2704).",
+ "seeds": [7000, 7010, 7020, 7030, 7040, 7050, 7060, 7070, 7080, 7090, 7100, 7110, 7120, 7130, 7140, 7150],
+ "strata": ["pdl1-128", "pdl1-256"],
+ "expected_per_stratum": 16,
+ "complete_floor": 12,
+ "alpha_one_sided": 0.05,
+ "column": "refolded_backbone_rmsd.rmsd"
+}

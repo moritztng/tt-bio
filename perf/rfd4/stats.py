@@ -131,3 +131,61 @@ def fisher_exact_greater(tt_pass: int, tt_n: int, ref_pass: int, ref_n: int) -> 
             continue
         p += math.exp(_log_choose(row1, x) + _log_choose(row2, col1 - x) - denom)
     return min(1.0, p)
+
+
+# --------------------------------------------------------------------------- paired
+def binom_tail(k: int, n: int) -> float:
+    """P(B >= k) for B ~ Bin(n, 1/2), exact."""
+    return sum(math.comb(n, j) for j in range(max(k, 0), n + 1)) / 2 ** n if n else 1.0
+
+
+def sign_test(d, alpha: float = 0.05) -> dict:
+    """The exact paired sign test on per-case differences `d` oriented so that positive is worse.
+
+    Exact ties are removed and the binomial threshold is recomputed on what is left. Each side is
+    tested one-sided at `alpha`: `p_better <= alpha` is PASS, `p_worse <= alpha` is FAIL, anything else
+    INCONCLUSIVE. An arm equivalent to the other produces about half the signs each way, so equivalence
+    reads INCONCLUSIVE by design, never PASS. Magnitudes are ignored, so one large difference cannot carry
+    a verdict. Method: Magnus Bauer, `notes/validation/PROTOCOL-v2.md` section 4.1 (rfd4-experimental).
+    """
+    d = np.asarray(d, dtype=float)
+    better, worse = int((d < 0).sum()), int((d > 0).sum())
+    n = better + worse
+    p_better, p_worse = binom_tail(better, n), binom_tail(worse, n)
+    need = next((k for k in range(n + 1) if binom_tail(k, n) <= alpha), None)
+    verdict = "PASS" if p_better <= alpha else "FAIL" if p_worse <= alpha else "INCONCLUSIVE"
+    return {"n": n, "ties": int(d.size - n), "better": better, "worse": worse, "needed_one_side": need,
+            "p_better": round(p_better, 6), "p_worse": round(p_worse, 6), "alpha": alpha, "verdict": verdict}
+
+
+def _signed_rank_null(n: int) -> list[float]:
+    """P(T = t) for the Wilcoxon signed-rank statistic on n pairs, t = 0..n(n+1)/2."""
+    counts = [1]
+    for r in range(1, n + 1):
+        nxt = counts + [0] * r
+        for t, c in enumerate(counts):
+            nxt[t + r] += c
+        counts = nxt
+    return [c / 2 ** n for c in counts]
+
+
+def hodges_lehmann(d, alpha: float = 0.05) -> dict:
+    """The Hodges-Lehmann pseudo-median of `d` (median of the Walsh averages) with its one-sided
+    1 - alpha Wilcoxon signed-rank bounds. Reported as an effect size, never a verdict: the interval
+    assumes the differences are symmetric about it, which a structure metric's need not be."""
+    d = np.asarray(d, dtype=float)
+    d = d[np.isfinite(d)]
+    n = d.size
+    if n == 0:
+        return {"n": 0, "estimate": float("nan"), "lower": float("nan"), "upper": float("nan")}
+    walsh = np.sort([(d[i] + d[j]) / 2 for i in range(n) for j in range(i, n)])
+    cdf, c = 0.0, -1
+    for t, p in enumerate(_signed_rank_null(n)):
+        cdf += p
+        if cdf > alpha + 1e-12:
+            break
+        c = t
+    # L = W_(c+1), U = W_(M-c) (1-based), c the largest t with P(T <= t) <= alpha; no such t: no bound
+    lower, upper = (float(walsh[c]), float(walsh[walsh.size - c - 1])) if c >= 0 else (-math.inf, math.inf)
+    return {"n": n, "estimate": _round(float(np.median(walsh))), "lower": _round(lower), "upper": _round(upper),
+            "alpha_one_sided": alpha}
