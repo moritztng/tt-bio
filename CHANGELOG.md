@@ -14,6 +14,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   the existing KS leg, and re-derives every headline number from the CIF it claims to come from,
   rejecting an arm whose numbers disagree with its artifacts, that counts a design twice, or whose
   source commit is not on main. Method credit: Magnus Bauer (see NOTICE #13).
+- **`tt-bio evaluate --model rfd4` writes `aggregated_metrics.csv`** beside the per-example CSV:
+  per-dataset medians or means as upstream configures them, `frac_under_1/1.5/2` on `min_ipae_coi`
+  and per-target solve rates. Credit: Magnus Bauer (see NOTICE #13).
 - **RFD4-Proteina (`tt-bio design --model rfd4`).** Binders, motif scaffolds, enzymes around a
   ligand, antibody and nanobody CDRs and unconditional monomers, designed through a latent flow at
   the shipped `thinking_medium` budget (60 steps, 180 trunk passes). Input is a design YAML with
