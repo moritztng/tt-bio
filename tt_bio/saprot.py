@@ -168,7 +168,7 @@ _QKRH_QSCALE = None
 # HiFi4 needs the fp32 dest (HiFi4 at bf16 dest was worse than HiFi2, HiFi2 at fp32 dest no better). Galaxy chip, 1000 MHz,
 # 2 rounds, --fast, pcc vs fp32 against HiFi2: 650M hPCSK9 +0.000265, hEGFR +0.000093, hTF +0.000035, hTNFa +0.000012,
 # 1.3B hPCSK9 +0.000080, hEGFR +0.000128, at +0.9 to +1.5 % time. None = with the packed RoPE program only.
-_SAPROT_SDPA = None
+_SAPROT_SDPA = env_flag("TT_BIO_SAPROT_SDPA", None)
 _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
