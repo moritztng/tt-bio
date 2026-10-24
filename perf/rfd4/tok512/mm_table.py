@@ -23,6 +23,15 @@ def main():
         if label:
             us[label] += float(r["DEVICE KERNEL DURATION [ns]"] or 0) / 1e3 / reps
     err = {x["label"]: x.get("err") for x in sw["rows"]}
+    if all(lab.count("|") == 1 for lab in us):   # sdpa_sweep.py: shape|chunks
+        print(f"AICLK {sw['aiclk']}  load {sw['load']}")
+        meta = {x["label"]: x for x in sw["rows"]}
+        for lab, t in sorted(us.items()):
+            m = meta[lab]
+            print(f"{lab:22s} {t:8.1f} us  err {m['err']:.5f}  equal_shipped {m['equal_shipped']}  shipped {m['shipped']}"
+                  f"  rule {m['rule']}")
+        json.dump([{**meta[lab], "us": round(t, 2)} for lab, t in us.items()], open(f"{d}/table.json", "w"), indent=1)
+        return
     groups = collections.defaultdict(list)
     for lab, t in us.items():
         site, m, wd, fid, impl = lab.split("|")

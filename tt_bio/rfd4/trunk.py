@@ -308,11 +308,13 @@ class PairBiasAttention(Module):
         # float64 on the parity case: the default call runs the scores at a lower fidelity and an
         # approximate exp, and this attention's output is a near-cancelling average over the whole
         # token axis, which magnifies both.
+        # `work` (batch x heads) lets the q chunk narrow until the grid is full: at 512 tokens, batch 1, the capped
+        # chunk of 256 gave 24 work units on 110 cores. q chunks split independent query rows, so the bits do not move.
         n = int(q.shape[2])
         o = fused_sdpa(q, k, v, attn_mask=bias, scale=self.head_dim ** -0.5,
                        compute_kernel_config=ckc,
-                       program_config=_sdpa_program_config_for_lengths(n, n, site="rfd4_trunk",
-                                                                      d=self.head_dim))
+                       program_config=_sdpa_program_config_for_lengths(n, n, int(q.shape[0]) * self.n_heads,
+                                                                      site="rfd4_trunk", d=self.head_dim))
         for t in (q, k, v) + ((bias,) if own else ()):
             ttnn.deallocate(t)
         om = self._merge_heads(o)
