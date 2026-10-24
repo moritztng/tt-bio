@@ -26,14 +26,14 @@
 #define T2_GROW 0
 #endif
 // T2_SPRE (trimul_tail._t2_spre, with T2_GROW): the stage is double-buffered, and row il of a unit also starts the
-// il-th R-th of the next unit's stage reads into the other half. They carry NOC transaction id 1 and the gathers id 0,
+// il-th R-th of the next unit's stage reads into the other half. They carry NOC transaction id 1 and the gathers id 2,
 // so a row's barrier waits for its own gather only; the unit waits for id 1 before it gathers from that half.
 // Without it the next stage is read in one burst after the unit's last gather, every core at once.
 #ifndef T2_SPRE
 #define T2_SPRE 0
 #endif
 static_assert(!T2_SPRE || T2_GROW, "T2_SPRE prefetches under GROW's row barriers");
-constexpr uint32_t GATHER_TRID = 0, STAGE_TRID = 1;
+constexpr uint32_t STAGE_TRID = 1, GATHER_TRID = 2;   // 0 is every untagged read's (as the DRAM-sharded matmul reader)
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -186,8 +186,8 @@ void kernel_main() {
                 while (NOC_STATUS_READ_REG(noc_index, NIU_MST_REQS_OUTSTANDING_ID(STAGE_TRID)) > 128);
                 noc_async_read_set_trid(STAGE_TRID);
                 read_stage(u + 1, next, il * CPR, (il + 1) * CPR);
-                noc_async_read_set_trid(GATHER_TRID);
             }
+            if constexpr (T2_SPRE) noc_async_read_set_trid(GATHER_TRID);
             noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
             if constexpr (T2_GROW) cb_reserve_back(cb_in, Clt);
             const uint32_t row0 = get_write_ptr(cb_in);
@@ -218,6 +218,7 @@ void kernel_main() {
             }
             if constexpr (T2_SPRE) {
                 noc_async_read_barrier_with_trid(GATHER_TRID);
+                noc_async_read_set_trid(0);
                 cb_push_back(cb_in, Clt);
             } else if constexpr (T2_GROW) {
                 noc_async_read_barrier();
