@@ -39,7 +39,10 @@ each fix's own change applied on top. Only the legs the fixes touched, and the o
 run again; the rest are ledger hits on the frozen code. Gating main's newer head instead reuses
 little, because nearly every staging edits a module every leg imports (tt_bio/tenstorrent.py).
 The candidate is rebuilt from FIXES on every tick with fixed commit metadata, so the same list
-always names the same commit.
+always names the same commit. A fix to the gate itself (a wrong rule in scripts/release_gate.py, a
+test registry gap) fixes no regression and goes on main only, with the leg waived on the failed
+commit: as a FIX it reruns nearly every leg, since they all read release_gate.py (rel-a06d92c6d,
+10-24: two such fixes made a 155-of-245-leg candidate on unchanged model code).
 """
 from __future__ import annotations
 
