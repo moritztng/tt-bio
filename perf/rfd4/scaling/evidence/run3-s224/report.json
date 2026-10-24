@@ -1,0 +1,228 @@
+{
+ "dir": "/home/ttuser/scratch/rfd4-bh-scaling/runs3/s224",
+ "start": {
+  "kind": "start",
+  "cards": [
+   0,
+   1,
+   3
+  ],
+  "sha": "3c671bf29eb37881f928292ecda227bf13e76619",
+  "fw": {
+   "0": "19.11.0.0",
+   "1": "19.11.0.0",
+   "3": "19.15.0.0"
+  },
+  "board_serial": {
+   "0": "000004613193410D",
+   "1": "000004613193410D",
+   "3": "0000046131934103"
+  },
+  "batch": 4,
+  "lane_width": null,
+  "spec": "/home/ttuser/scratch/rfd4-bh-scaling/inputs/pdl1-224.yaml",
+  "reps": 4,
+  "rounds": "0;1;3;0,1,3;0,1,3@1;0,1,3@2;0,1,3@3",
+  "host": "tt-quietbox2",
+  "nproc": 16,
+  "tag": "s224",
+  "utc": "2026-10-24T02:39:40Z"
+ },
+ "rounds": 28,
+ "clean": 28,
+ "dropped": [],
+ "single_chip_floor": {
+  "0": {
+   "median": 0.179,
+   "spread": 0.0085,
+   "n": 4
+  },
+  "1": {
+   "median": 0.176,
+   "spread": 0.0065,
+   "n": 4
+  },
+  "3": {
+   "median": 0.178,
+   "spread": 0.0025,
+   "n": 4
+  }
+ },
+ "configs": {
+  "0,1,3@1": {
+   "n": 3,
+   "cpus_per_chip": 1,
+   "reps": 4,
+   "designs_per_s": 0.483,
+   "min": 0.48102,
+   "max": 0.4838,
+   "designs_per_s_span": 0.48,
+   "efficiency": 0.9055,
+   "efficiency_min_max": [
+    0.9025,
+    0.9077
+   ],
+   "worker_cores_per_chip": 0.999,
+   "cpu_s_per_design": 6.217,
+   "featurize_s": 0.225,
+   "write_s": 0.849,
+   "aiclk_mhz": 1310.5,
+   "aiclk_min_mhz": 1181.0,
+   "power_w": 102.75,
+   "temp_c_max": 74.053,
+   "box_cores_median": 4.432,
+   "foreign_cores_median": 1.439,
+   "flags": []
+  },
+  "0,1,3@2": {
+   "n": 3,
+   "cpus_per_chip": 2,
+   "reps": 4,
+   "designs_per_s": 0.477,
+   "min": 0.46954,
+   "max": 0.48504,
+   "designs_per_s_span": 0.452,
+   "efficiency": 0.895,
+   "efficiency_min_max": [
+    0.8809,
+    0.91
+   ],
+   "worker_cores_per_chip": 1.123,
+   "cpu_s_per_design": 7.121,
+   "featurize_s": 0.265,
+   "write_s": 0.855,
+   "aiclk_mhz": 1309.0,
+   "aiclk_min_mhz": 1212.0,
+   "power_w": 99.0,
+   "temp_c_max": 74.053,
+   "box_cores_median": 4.742,
+   "foreign_cores_median": 1.404,
+   "flags": []
+  },
+  "0,1,3@3": {
+   "n": 3,
+   "cpus_per_chip": 3,
+   "reps": 4,
+   "designs_per_s": 0.47,
+   "min": 0.46432,
+   "max": 0.47823,
+   "designs_per_s_span": 0.449,
+   "efficiency": 0.8822,
+   "efficiency_min_max": [
+    0.8711,
+    0.8972
+   ],
+   "worker_cores_per_chip": 1.318,
+   "cpu_s_per_design": 8.745,
+   "featurize_s": 0.234,
+   "write_s": 0.823,
+   "aiclk_mhz": 1313.5,
+   "aiclk_min_mhz": 1206.0,
+   "power_w": 92.0,
+   "temp_c_max": 74.181,
+   "box_cores_median": 5.214,
+   "foreign_cores_median": 1.151,
+   "flags": []
+  },
+  "0": {
+   "n": 1,
+   "cpus_per_chip": null,
+   "reps": 4,
+   "designs_per_s": 0.179,
+   "min": 0.17798,
+   "max": 0.1795,
+   "designs_per_s_span": 0.179,
+   "efficiency": 0.9975,
+   "efficiency_min_max": [
+    0.9943,
+    1.0028
+   ],
+   "worker_cores_per_chip": 1.519,
+   "cpu_s_per_design": 8.765,
+   "featurize_s": 0.21,
+   "write_s": 0.784,
+   "aiclk_mhz": 1319.75,
+   "aiclk_min_mhz": 1281.0,
+   "power_w": 124.75,
+   "temp_c_max": 69.503,
+   "box_cores_median": 2.489,
+   "foreign_cores_median": 0.934,
+   "flags": []
+  },
+  "1": {
+   "n": 1,
+   "cpus_per_chip": null,
+   "reps": 4,
+   "designs_per_s": 0.176,
+   "min": 0.17594,
+   "max": 0.17708,
+   "designs_per_s_span": 0.176,
+   "efficiency": 1.0028,
+   "efficiency_min_max": [
+    0.9997,
+    1.0061
+   ],
+   "worker_cores_per_chip": 1.562,
+   "cpu_s_per_design": 9.07,
+   "featurize_s": 0.212,
+   "write_s": 0.778,
+   "aiclk_mhz": 1281.0,
+   "aiclk_min_mhz": 1231.0,
+   "power_w": 121.25,
+   "temp_c_max": 73.412,
+   "box_cores_median": 2.97,
+   "foreign_cores_median": 1.384,
+   "flags": []
+  },
+  "3": {
+   "n": 1,
+   "cpus_per_chip": null,
+   "reps": 4,
+   "designs_per_s": 0.178,
+   "min": 0.17738,
+   "max": 0.17783,
+   "designs_per_s_span": 0.178,
+   "efficiency": 0.9978,
+   "efficiency_min_max": [
+    0.9965,
+    0.999
+   ],
+   "worker_cores_per_chip": 1.567,
+   "cpu_s_per_design": 9.168,
+   "featurize_s": 0.214,
+   "write_s": 0.792,
+   "aiclk_mhz": 1326.5,
+   "aiclk_min_mhz": 1281.0,
+   "power_w": 111.5,
+   "temp_c_max": 71.938,
+   "box_cores_median": 3.069,
+   "foreign_cores_median": 1.386,
+   "flags": []
+  },
+  "0,1,3": {
+   "n": 3,
+   "cpus_per_chip": null,
+   "reps": 4,
+   "designs_per_s": 0.484,
+   "min": 0.44027,
+   "max": 0.49524,
+   "designs_per_s_span": 0.479,
+   "efficiency": 0.9078,
+   "efficiency_min_max": [
+    0.826,
+    0.9292
+   ],
+   "worker_cores_per_chip": 1.681,
+   "cpu_s_per_design": 12.29,
+   "featurize_s": 0.312,
+   "write_s": 0.849,
+   "aiclk_mhz": 1304.5,
+   "aiclk_min_mhz": 1187.0,
+   "power_w": 96.75,
+   "temp_c_max": 73.797,
+   "box_cores_median": 6.692,
+   "foreign_cores_median": 1.421,
+   "flags": []
+  }
+ }
+}
