@@ -52,7 +52,9 @@ void kernel_main() {
     constexpr uint32_t beta_cb = tt::CBIndex::c_9;
     constexpr uint32_t scaler_cb = tt::CBIndex::c_10;
     constexpr uint32_t eps_cb = tt::CBIndex::c_11;
-    const uint32_t tb = get_tile_size(in0_cb);
+    const uint32_t tb = get_tile_size(in0_cb);                  // bf16 x, or bfp8 x (RFD4's pair_x8t)
+    const uint32_t tw = get_tile_size(in1_cb);                  // the weights' own pages, whatever x is
+    const uint32_t tv = get_tile_size(gamma_cb);
     const uint32_t tg = get_tile_size(g_cb);                    // bf16, or bfp8 g_out (trimul_b8in)
     const uint32_t tz = get_tile_size(z_cb);                    // bf16 z, or float32 under T2_RES32
 
@@ -72,20 +74,20 @@ void kernel_main() {
     const bool sender = !T2MCAST || get_arg_val<uint32_t>(2);
     uint32_t w = get_write_ptr(in1_cb);
     if (sender) {
-        for (uint32_t t = 0; t < Kt * Nt; ++t, w += tb) noc_async_read_page(t, wp, w);
+        for (uint32_t t = 0; t < Kt * Nt; ++t, w += tw) noc_async_read_page(t, wp, w);
         if constexpr (GATE) {
-            for (uint32_t t = 0; t < Kt * Nt; ++t, w += tb) noc_async_read_page(t, wg, w);
+            for (uint32_t t = 0; t < Kt * Nt; ++t, w += tw) noc_async_read_page(t, wg, w);
         }
         w = get_write_ptr(gamma_cb);
-        for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
+        for (uint32_t t = 0; t < Kt; ++t, w += tv) noc_async_read_page(t, gm, w);
         w = get_write_ptr(beta_cb);
-        for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, bt, w);
+        for (uint32_t t = 0; t < Kt; ++t, w += tv) noc_async_read_page(t, bt, w);
         noc_async_read_barrier();
     }
     if constexpr (T2MCAST) {
         if (sender) {
             const uint32_t addr[] = {get_write_ptr(in1_cb), get_write_ptr(gamma_cb), get_write_ptr(beta_cb)};
-            const uint32_t bytes[] = {Kt * Nt * tb, Kt * tb, Kt * tb};
+            const uint32_t bytes[] = {Kt * Nt * tw, Kt * tv, Kt * tv};
             weight_mcast::send<7>(addr, bytes, 3);
         } else {
             weight_mcast::receive<7>();

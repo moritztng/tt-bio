@@ -780,6 +780,15 @@ def set_enabled_back(on: bool) -> bool:
     return prev
 
 
+def back_x8_ok(memory_config) -> bool:
+    """Whether a batched move back takes a bfp8 x (lever `pair_x8`): the batch kernel, DRAM interleaved, no tape."""
+    from . import ops
+    from .tenstorrent import lever
+    return bool(lever("pair_x8") and lever("pair_batch") and _pbpk() and _ENABLED_BACK and not ops.taping()
+                and memory_config.buffer_type == ttnn.BufferType.DRAM
+                and memory_config.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
+
+
 def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
     """The gate for the back direction.
 
@@ -814,7 +823,8 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
         # apply. b16 at 128: 3.69 + 0.69 ms a move for the transposes (state/rfd4/bets/b128.md).
         from .tenstorrent import lever
         if not (lever("pair_batch") and _pbpk() and memory_config.buffer_type == ttnn.BufferType.DRAM
-                and x.dtype == _DTYPE and x.layout == ttnn.TILE_LAYOUT
+                and (x.dtype == _DTYPE or x.dtype == ttnn.bfloat8_b and back_x8_ok(memory_config))
+                and x.layout == ttnn.TILE_LAYOUT
                 and x.memory_config().memory_layout == memory_config.memory_layout
                 == ttnn.TensorMemoryLayout.INTERLEAVED):
             return _reject("back_batch", shape)

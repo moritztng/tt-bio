@@ -29,10 +29,9 @@ _CACHE: dict = {}
 TILE = 32
 
 
-def _cb(idx, core_grid, tiles):
-    fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=ttnn.bfloat16,
-                                  page_size=MG.tile_bytes(ttnn.bfloat16))
-    return ttnn.CBDescriptor(total_size=tiles * MG.tile_bytes(ttnn.bfloat16), core_ranges=core_grid,
+def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
+    fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=MG.tile_bytes(dtype))
+    return ttnn.CBDescriptor(total_size=tiles * MG.tile_bytes(dtype), core_ranges=core_grid,
                              format_descriptors=[fmt])
 
 
@@ -40,17 +39,19 @@ def ok(x, out, c_off=0):
     xs, os_ = [int(d) for d in x.shape], [int(d) for d in out.shape]
     return (len(xs) == 4 and len(os_) == 4 and xs[0] == os_[0] >= 1 and xs[2] == xs[3] == os_[1] == os_[2]
             and xs[2] % TILE == 0 and xs[1] % TILE == 0 and c_off % TILE == 0 and c_off + xs[1] <= os_[3]
-            and os_[3] % TILE == 0 and x.dtype == out.dtype == ttnn.bfloat16
+            and os_[3] % TILE == 0 and out.dtype in (ttnn.bfloat16, ttnn.bfloat8_b) and x.dtype in (ttnn.bfloat16, ttnn.bfloat8_b)
             and x.layout == out.layout == ttnn.TILE_LAYOUT)
 
 
 def permute_back_pk(x, out, grid, c_off=0):
-    """out[b, i, j, c_off + c] = x[b, c, i, j]."""
+    """out[b, i, j, c_off + c] = x[b, c, i, j]. x may be bfp8 (RFD4's `pair_x8`): the unpacker widens it. out may be bfp8
+    too (`pair_x8t`): the packer narrows the transposed tile, blocks now running along channels."""
     assert ok(x, out, c_off)
     B, C, N, H = int(x.shape[0]), int(x.shape[1]), int(x.shape[2]), int(out.shape[3])
     St, CT, Ht = N // TILE, C // TILE, H // TILE
     # The accessor args differ by buffer type (DRAM / L1) and bank layout, so the memory configs are part of the key.
-    key = (B, C, N, H, c_off, tuple(grid), str(x.memory_config()), str(out.memory_config()), ABL, OUT_TILES, WB, ORD)
+    key = (B, C, N, H, c_off, tuple(grid), str(x.dtype), str(out.dtype), str(x.memory_config()), str(out.memory_config()), ABL, OUT_TILES,
+           WB, ORD)
     entry = _CACHE.get(key)
     if entry is None:
         gx, gy = grid
@@ -77,9 +78,10 @@ def permute_back_pk(x, out, grid, c_off=0):
             config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[ABL, 1], runtime_args=cp,
+            compile_time_args=[ABL, 1, int(x.dtype != ttnn.bfloat16), int(out.dtype != ttnn.bfloat16)], runtime_args=cp,
             config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False))
-        cbs = [_cb(0, core_grid, 16), _cb(1, core_grid, 32), _cb(2, core_grid, 32), _cb(16, core_grid, OUT_TILES)]
+        cbs = [_cb(0, core_grid, 16, x.dtype), _cb(1, core_grid, 32), _cb(2, core_grid, 32),
+               _cb(16, core_grid, OUT_TILES, out.dtype)]
         entry = _CACHE[key] = ([reader, writer, compute], cbs)
     kernels, cbs = entry
     kernels[0].common_runtime_args = [x.buffer_address()]
@@ -128,7 +130,7 @@ def tile_rows(x, out, grid):
             config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[0, 0], runtime_args=cp,
+            compile_time_args=[0, 0, 0, 0], runtime_args=cp,
             config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False))
         cbs = [_cb(0, core_grid, 16), _cb(1, core_grid, 32), _cb(16, core_grid, OUT_TILES)]
         entry = _CACHE[key] = ([reader, writer, compute], cbs)

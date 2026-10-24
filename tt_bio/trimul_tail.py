@@ -1035,8 +1035,9 @@ def t2_eligible(x, ln_w, ln_b, wp, g, resid, wg=None, copy=None, stream16=False)
             return "dtype"
         # A plain-form g_out may be bfp8 (trimul_b8in writes it so): CB 5 takes g's format and
         # compute unpacks it into DEST like the bf16 tile, so b8in and T2 stack.
+        # So may RFD4's moved x under `pair_x8t` (stream16 only): CB 0 takes x's format, the LN unpacks it.
         if t.dtype != ttnn.bfloat16 and not (t is g and wg is None and t.dtype == ttnn.bfloat8_b) and not (
-                t is resid and stream16 and copy is None and t.dtype == ttnn.bfloat8_b):
+                (t is resid or t is x) and stream16 and copy is None and t.dtype == ttnn.bfloat8_b):
             return "dtype"
         if t.memory_config() != ttnn.DRAM_MEMORY_CONFIG and not (
                 (t is x or t is g) and t.memory_config() == ttnn.L1_MEMORY_CONFIG and lever("pair_tail_small")):
@@ -1216,7 +1217,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
         config=ccfg)
     blk = Mb * nt
     f32 = ttnn.float32
-    cbs = [_cb(0, core_grid, kt if moved is not None else 2 * Mb * kt),
+    cbs = [_cb_fmt(0, core_grid, kt if moved is not None else 2 * Mb * kt, ttnn.bfloat16 if moved is not None else x.dtype),
            _cb(1, core_grid, (1 + gate) * kt * nt),
            _cb_fmt(2, core_grid, 2 * blk, f32 if res32 else resid.dtype), _cb(3, core_grid, Mb * kt),
            _cb(4, core_grid, blk),
