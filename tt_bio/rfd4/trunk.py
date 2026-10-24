@@ -722,12 +722,6 @@ FAST_LEVERS = NORMAL_LEVERS
 
 
 class Trunk(Module):
-    #: What ran, counted rather than derived from the recycle schedule: per design, the trunk passes and
-    #: trunk-block forwards of every call whose output `collect` read back. A call rerun after a device refusal
-    #: counts once, a call that raised not at all. Host integers only: no device sync, nothing on the critical
-    #: path. The two class defaults let a stand-in trunk that never runs `__call__` go through launch/collect.
-    _ran = (0, 0)
-
     """`LocalLatentsTransformer._run_trunk` in inference: `nlayers` trunk blocks with a pair update
     after every `every_n`-th one but the last, run once per recycle.
 
@@ -741,6 +735,13 @@ class Trunk(Module):
     and leaves the residual adds in fp32). Over 6 recycles x 12 pair updates an all-bf16 pair stream
     drifts far from float64 even when every op is at its bf16 floor; see the parity test.
     """
+
+    #: What ran, counted rather than derived from the recycle schedule: per design, the trunk passes and
+    #: trunk-block forwards of every call whose output `collect` read back. A call rerun after a device refusal
+    #: counts once, a call that raised not at all. Host integers only: no device sync, nothing on the critical
+    #: path. Replaced, never mutated in place, so the class default serves a stand-in trunk that never runs
+    #: `__call__` and a bench that calls `run_pass` directly.
+    _ran = (0, 0)
 
     def __init__(self, state_dict, ckc, nlayers: int = 24, n_heads: int = 16, every_n: int = 2,
                  dtype=None, residual_dtype=None, pair_residual_dtype=None):
@@ -840,7 +841,7 @@ class Trunk(Module):
                 biases = self._group_biases(self._group_at[i], zb, mask_scaled)
             bias = biases.pop(0)
             s_new = block(s, zb, cond, mask, bias_mask, res_mask, cn=cn, bias=bias)
-            self._ran[1] += 1
+            self._ran = (self._ran[0], self._ran[1] + 1)
             ttnn.deallocate(bias)
             ttnn.deallocate(s)
             s = s_new
@@ -856,7 +857,7 @@ class Trunk(Module):
         ttnn.deallocate(cn)
         if mask_scaled is not None:
             ttnn.deallocate(mask_scaled)
-        self._ran[0] += 1
+        self._ran = (self._ran[0] + 1, self._ran[1])
         return s, z
 
     def pair_dtype(self, masks):
@@ -882,7 +883,7 @@ class Trunk(Module):
         # a float32 pair stream takes its recycle as one dual write, which also gives the next pass its bf16 copy
         low = self.dtype if zd == ttnn.float32 and self.dtype == ttnn.bfloat16 else None
         s = z = None
-        self._ran = [0, 0]
+        self._ran = (0, 0)
         for c in conds:
             zb = None
             if s is None:
