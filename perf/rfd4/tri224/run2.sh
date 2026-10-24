@@ -19,7 +19,7 @@ stamp "x8_exact rc=$?"
 for r in $(seq 1 $ROUNDS); do
   for leg in 224x10 192x14 256x4 384x1 512x1; do
     n=${leg%x*}; b=${leg#*x}
-    timeout 1800 $PY perf/rfd4/bfp8/stack_ab.py --weights $W --n $n --batch $b --reps ${REPS:-30} --levers +pair_x8 \
+    timeout 1800 $PY perf/rfd4/bfp8/stack_ab.py --weights $W --n $n --batch $b --reps ${REPS:-30} --levers ${LEVERS:-+pair_x8} \
       --out $R/ab$n-b$b-r$r.json > $R/ab$n-b$b-r$r.log 2>&1
     stamp "ab$n-b$b-r$r rc=$? $(python3 -c "import json;d=json.load(open('$R/ab$n-b$b-r$r.json'));print(d['paired_speedup_median'],d['aiclk'])" 2>/dev/null)"
   done
