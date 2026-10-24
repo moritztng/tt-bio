@@ -912,6 +912,9 @@ T2_DMCFG = 0
 # Bench knob T2_XNOC (0 = main): bits 1 / 2 put the writer's writes / g, z reads, bit 4 the reader's stage reads on the
 # NOC the kernel was not configured with, under DM_DYNAMIC_NOC (see mm_generic's noc_mode note: dedicated mode hangs).
 T2_XNOC = 0
+# Bench knob T2_WSTAGE (0 = main): the writer reads each unit's stage (two units deep), the reader only gathers. With
+# T2_DMCFG 1 that puts every DRAM read of T2CM on NOC0 in dedicated mode.
+T2_WSTAGE = 0
 T2_DMCFGS = {1: (1, 1, 0, 0), 2: (0, 0, 1, 1), 3: (1, 0, 0, 0), 4: (1, 0, 0, 1), 5: (0, 1, 1, 0)}
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # T2_FOLD (off): fold the LN's centring and gamma into Wp, LN(x) @ Wp = rstd * (x @ Wc) + beta @ Wp with
@@ -1218,10 +1221,12 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer_moved.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, St, Mb, P, int(gate), EXTRA] + acc(g) + acc(resid)
-            + acc(ex[2] if EXTRA & 4 else resid) + acc(ex[3] if EXTRA & 8 else resid),
-            runtime_args=wr, common_runtime_args=[0] * 4,
+            + acc(ex[2] if EXTRA & 4 else resid) + acc(ex[3] if EXTRA & 8 else resid) + (acc(chunk) if T2_WSTAGE else []),
+            runtime_args=wr, common_runtime_args=[0] * (5 if T2_WSTAGE else 4),
             defines=_t2m_dm_defines(False) + ([("T2_WDEPTH", str(wd))] if wd != 2 else [])
-            + ([("T2_XNOC", str(T2_XNOC & 3))] if T2_XNOC & 3 else []),
+            + ([("T2_XNOC", str(T2_XNOC & 3))] if T2_XNOC & 3 else [])
+            + ([("T2_WSTAGE", "1"), ("T2_WCP", str(Cp))] + ([("T2_ROT", "1")] if rot else [])
+               if T2_WSTAGE else []),
             config=_t2_dmcfg(2) or ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
@@ -1266,7 +1271,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             cbs.append(_cb(18, core_grid, 2 * Cp))
         stage = (kt - Cp) * TILE * 2 * (TILE // P) * TILE     # each channel's part: two faces' rows
         fmt = ttnn.CBFormatDescriptor(buffer_index=24, data_format=ttnn.bfloat16, page_size=stage)
-        cbs.append(ttnn.CBDescriptor(total_size=stage, core_ranges=core_grid, format_descriptors=[fmt]))
+        cbs.append(ttnn.CBDescriptor(total_size=stage * (2 if T2_WSTAGE else 1), core_ranges=core_grid,
+                                     format_descriptors=[fmt]))
     nbias = (EXTRA & 1) + (EXTRA >> 1 & 1)
     if nbias:
         cbs.append(_cb(19, core_grid, nbias * nt))
@@ -1578,7 +1584,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, T2_WDEPTH, T2_DMCFG, T2_XNOC, _t2_block(kt, nt), P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, T2_WDEPTH, T2_DMCFG, T2_XNOC, T2_WSTAGE, _t2_block(kt, nt), P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)), bool(rot))
     entry = _CACHE.get(key)
@@ -1591,7 +1597,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     reader.common_runtime_args = [a, a if prev is None else prev[0].buffer_address(), wp.buffer_address(), addr(wg, wp), ln_w.buffer_address(),
                                   ln_b.buffer_address(), addr(bp, wp), addr(bg, wp)] + entry["mc"]
     writer.common_runtime_args = [g.buffer_address(), resid.buffer_address(), addr(mask, resid),
-                                  addr(out, resid)]
+                                  addr(out, resid)] + ([a] if T2_WSTAGE else [])
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"])
     ttnn.generic_op([xcm, wp, g, ln_w, ln_b, resid] + [t for t in (wg,) + ex if t is not None]
                     + ([prev[0]] if prev is not None else []), pd)

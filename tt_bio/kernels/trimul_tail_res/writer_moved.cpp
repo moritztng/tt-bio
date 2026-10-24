@@ -23,6 +23,17 @@
 #ifndef T2_XNOC
 #define T2_XNOC 0
 #endif
+// T2_WSTAGE (bench knob trimul_tail.T2_WSTAGE, 0 in every model path): this kernel, not the reader, reads each unit's
+// stage into c_24 (two units deep), so on its NOC; T2_WCP is the host's Cp. The stage loop is reader_moved.cpp's.
+#ifndef T2_WSTAGE
+#define T2_WSTAGE 0
+#endif
+#ifndef T2_ROT
+#define T2_ROT 0
+#endif
+#ifndef T2_S1K
+#define T2_S1K 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -97,9 +108,43 @@ void kernel_main() {
         cb_pop_front(out_cb, Mb * Nt);
     };
 
+#if T2_WSTAGE
+    constexpr auto x_args = TensorAccessorArgs<o_args.next_compile_time_args_offset()>();
+    const auto sx = TensorAccessor(x_args, get_common_arg_val<uint32_t>(4));
+    constexpr uint32_t Clt = Kt - T2_WCP, StSt = St * St, cb_stage = tt::CBIndex::c_24;
+    constexpr uint32_t TILE_BYTES = 2048, FACE_BYTES = 512, FACE_ROW_BYTES = 32;
+    constexpr uint32_t PART_ROW_BYTES = R * FACE_ROW_BYTES, STAGE_TILE = 2 * PART_ROW_BYTES;
+    auto stage_unit = [&](uint32_t u) {
+        cb_reserve_back(cb_stage, 1);
+        const uint32_t part = u % P, blk = u / P;
+        const uint32_t it = blk / St, jt = blk - (blk / St) * St;
+        uint32_t page = it * St + jt, slot = page, dst = get_write_ptr(cb_stage);
+        const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
+        for (uint32_t c = 0; c < Clt * 32; ++c) {
+            const uint64_t a = sx.get_noc_addr(T2_ROT ? c * StSt + slot : page, off);
+            if constexpr (P == 1) {
+                noc_async_read(a, dst, TILE_BYTES);
+            } else if constexpr (P == 2 && T2_S1K) {
+                noc_async_read(a, dst, 2 * PART_ROW_BYTES);
+            } else {
+                noc_async_read(a, dst, PART_ROW_BYTES);
+                noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
+            }
+            page += StSt;
+            slot = slot + 1 == StSt ? 0 : slot + 1;
+            dst += STAGE_TILE;
+        }
+        noc_async_read_barrier();
+        cb_push_back(cb_stage, 1);
+    };
+    uint32_t su = 0;
+#endif
     const uint32_t nblocks = num_units * BPU;
     uint32_t r = 0;
     for (uint32_t w = 0; w < nblocks; ++w) {
+#if T2_WSTAGE
+        for (; su < num_units && su < w / BPU + 2; ++su) stage_unit(first_unit + su);
+#endif
         for (; r < nblocks && r < w + T2_WDEPTH; ++r) read_block(block_m(r));
         write_block(block_m(w));
     }

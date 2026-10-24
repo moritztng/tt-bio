@@ -39,6 +39,10 @@
 #ifndef T2_XNOC
 #define T2_XNOC 0
 #endif
+// T2_WSTAGE (bench knob, see writer_moved.cpp): the writer stages each unit into c_24; this kernel only gathers.
+#ifndef T2_WSTAGE
+#define T2_WSTAGE 0
+#endif
 #ifndef T2_ROT
 #define T2_ROT 0
 #endif
@@ -142,16 +146,20 @@ void kernel_main() {
     cb_push_back(cb_gamma, Kt);
     cb_push_back(cb_beta, Kt);
 
-    cb_reserve_back(cb_stage, 1);
-    const uint32_t stage = get_write_ptr(cb_stage);
-    const uint64_t stage_noc = get_noc_addr(stage);
+    if constexpr (!T2_WSTAGE) cb_reserve_back(cb_stage, 1);
+    uint32_t stage = get_write_ptr(cb_stage);
+    uint64_t stage_noc = get_noc_addr(stage);
     constexpr uint32_t StSt = St * St;
     const uint8_t snoc = (T2_XNOC & 4) ? 1 - noc_index : noc_index;
     for (uint32_t u = first_unit; u < first_unit + num_units; ++u) {
         const uint32_t part = u % P;
         const uint32_t blk = u / P;
         const uint32_t it = blk / St, jt = blk - (blk / St) * St;
-        {
+        if constexpr (T2_WSTAGE) {
+            cb_wait_front(cb_stage, 1);
+            stage = get_read_ptr(cb_stage);
+            stage_noc = get_noc_addr(stage);
+        } else {
             uint32_t page = it * St + jt, dst = stage;
             uint32_t slot = page;   // T2_ROT: channel c's block slot, (it * St + jt + c) % StSt
             const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
@@ -217,5 +225,6 @@ void kernel_main() {
                 cb_push_back(cb_in, Clt);
             }
         }
+        if constexpr (T2_WSTAGE) cb_pop_front(cb_stage, 1);
     }
 }
