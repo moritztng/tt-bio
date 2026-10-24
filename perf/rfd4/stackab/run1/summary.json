@@ -1,0 +1,328 @@
+{
+ "512": {
+  "legs": {
+   "1A": {
+    "designs_per_s": 0.04217,
+    "dev_per_s": 0.04337,
+    "per_batch": [
+     0.04207,
+     0.0422,
+     0.0422,
+     0.04213
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1331,
+     1331,
+     1331,
+     1331
+    ],
+    "sha": "95fe840d07c3162f81c505756939ffbf1d0db29b",
+    "tree_dirty": true
+   },
+   "2B": {
+    "designs_per_s": 0.04908,
+    "dev_per_s": 0.04972,
+    "per_batch": [
+     0.04921,
+     0.04921,
+     0.04813,
+     0.04896
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1318,
+     1318,
+     1318,
+     1318
+    ],
+    "sha": "9bcb8ce3f6b1c2cb17a7a3f53c0e6969dc529bfb",
+    "tree_dirty": false
+   },
+   "3B": {
+    "designs_per_s": 0.04855,
+    "dev_per_s": 0.0492,
+    "per_batch": [
+     0.04914,
+     0.04843,
+     0.04866,
+     0.04758
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350.0,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1318,
+     1318,
+     1318,
+     1312
+    ],
+    "sha": "9bcb8ce3f6b1c2cb17a7a3f53c0e6969dc529bfb",
+    "tree_dirty": false
+   },
+   "4A": {
+    "designs_per_s": 0.04212,
+    "dev_per_s": 0.0433,
+    "per_batch": [
+     0.0406,
+     0.04218,
+     0.04211,
+     0.04214
+    ],
+    "contended": 3,
+    "batches": 4,
+    "aiclk_1hz_median": 1350,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1331,
+     1331,
+     1331,
+     1331
+    ],
+    "sha": "95fe840d07c3162f81c505756939ffbf1d0db29b",
+    "tree_dirty": true
+   },
+   "5A": {
+    "designs_per_s": 0.04068,
+    "dev_per_s": 0.04292,
+    "per_batch": [
+     0.0394,
+     0.03965,
+     0.04171,
+     0.04171
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1331,
+     1325,
+     1325,
+     1318
+    ],
+    "sha": "95fe840d07c3162f81c505756939ffbf1d0db29b",
+    "tree_dirty": true
+   },
+   "6B": {
+    "designs_per_s": 0.04929,
+    "dev_per_s": 0.04982,
+    "per_batch": [
+     0.04938,
+     0.04871,
+     0.04923,
+     0.04934
+    ],
+    "contended": 0,
+    "batches": 4,
+    "aiclk_1hz_median": 1325.0,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1325,
+     1318,
+     1318,
+     1318
+    ],
+    "sha": "9bcb8ce3f6b1c2cb17a7a3f53c0e6969dc529bfb",
+    "tree_dirty": false
+   }
+  },
+  "dropped_low_clock": [],
+  "rounds": [
+   {
+    "A": 0.04217,
+    "B": 0.04908,
+    "ratio": 1.1639,
+    "ratio_dev": 1.1464
+   },
+   {
+    "A": 0.04212,
+    "B": 0.04855,
+    "ratio": 1.1527,
+    "ratio_dev": 1.1363
+   },
+   {
+    "A": 0.04068,
+    "B": 0.04929,
+    "ratio": 1.2117,
+    "ratio_dev": 1.1608
+   }
+  ],
+  "A": 0.04212,
+  "B": 0.04908,
+  "ratio_median": 1.1639,
+  "ratio_min": 1.1527,
+  "ratio_max": 1.2117,
+  "ratio_dev_median": 1.1464
+ },
+ "224": {
+  "legs": {
+   "1A": {
+    "designs_per_s": 0.22486,
+    "dev_per_s": 0.2368,
+    "per_batch": [
+     0.22501,
+     0.22437,
+     0.22472,
+     0.22541
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350.0,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1312,
+     1306,
+     1306,
+     1318
+    ],
+    "sha": "0a3ee12911227c9d6a669f9e653dd57f79d56118",
+    "tree_dirty": false
+   },
+   "2B": {
+    "designs_per_s": 0.24492,
+    "dev_per_s": 0.26264,
+    "per_batch": [
+     0.23074,
+     0.23101,
+     0.25942,
+     0.25883
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1293,
+     1293,
+     1287,
+     1293
+    ],
+    "sha": "9bcb8ce3f6b1c2cb17a7a3f53c0e6969dc529bfb",
+    "tree_dirty": false
+   },
+   "3B": {
+    "designs_per_s": 0.25534,
+    "dev_per_s": 0.26268,
+    "per_batch": [
+     0.25577,
+     0.2599,
+     0.25492,
+     0.25464
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1293,
+     1300,
+     1287,
+     1287
+    ],
+    "sha": "9bcb8ce3f6b1c2cb17a7a3f53c0e6969dc529bfb",
+    "tree_dirty": false
+   },
+   "4A": {
+    "designs_per_s": 0.22502,
+    "dev_per_s": 0.23667,
+    "per_batch": [
+     0.2249,
+     0.22515,
+     0.22514,
+     0.22347
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350.0,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1300,
+     1306,
+     1312,
+     1306
+    ],
+    "sha": "0a3ee12911227c9d6a669f9e653dd57f79d56118",
+    "tree_dirty": false
+   },
+   "5A": {
+    "designs_per_s": 0.2154,
+    "dev_per_s": 0.23667,
+    "per_batch": [
+     0.20372,
+     0.20618,
+     0.22461,
+     0.22512
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350.0,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1306,
+     1312,
+     1312,
+     1300
+    ],
+    "sha": "0a3ee12911227c9d6a669f9e653dd57f79d56118",
+    "tree_dirty": false
+   },
+   "6B": {
+    "designs_per_s": 0.25807,
+    "dev_per_s": 0.26181,
+    "per_batch": [
+     0.25808,
+     0.25816,
+     0.25779,
+     0.25806
+    ],
+    "contended": 4,
+    "batches": 4,
+    "aiclk_1hz_median": 1350,
+    "aiclk_1hz_min": 800,
+    "aiclk_harness": [
+     1287,
+     1293,
+     1281,
+     1287
+    ],
+    "sha": "9bcb8ce3f6b1c2cb17a7a3f53c0e6969dc529bfb",
+    "tree_dirty": false
+   }
+  },
+  "dropped_low_clock": [],
+  "rounds": [
+   {
+    "A": 0.22486,
+    "B": 0.24492,
+    "ratio": 1.0892,
+    "ratio_dev": 1.1091
+   },
+   {
+    "A": 0.22502,
+    "B": 0.25534,
+    "ratio": 1.1347,
+    "ratio_dev": 1.1099
+   },
+   {
+    "A": 0.2154,
+    "B": 0.25807,
+    "ratio": 1.1981,
+    "ratio_dev": 1.1062
+   }
+  ],
+  "A": 0.22486,
+  "B": 0.25534,
+  "ratio_median": 1.1347,
+  "ratio_min": 1.0892,
+  "ratio_max": 1.1981,
+  "ratio_dev_median": 1.1091
+ }
+}
