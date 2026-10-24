@@ -10,6 +10,11 @@
 // row is always read before this same core writes it, and no other core touches the row.
 #include "api/dataflow/dataflow_api.h"
 
+// Bench-only (trimul_tail.T2_DMABL, 0 in every model path): 4 skips the g / z reads, 8 the writes.
+#ifndef T2_DMABL
+#define T2_DMABL 0
+#endif
+
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
     constexpr uint32_t Nt = get_compile_time_arg_val(1);
@@ -60,7 +65,7 @@ void kernel_main() {
             const uint32_t jt = m % St;
             for (uint32_t t = 0; t < Nt; ++t, wm += tm) noc_async_read_page(jt * Nt + t, mk, wm);
         }
-        for (uint32_t r = 0; r < Mb; ++r, m += St) {
+        for (uint32_t r = 0; r < ((T2_DMABL & 4) ? 0 : Mb); ++r, m += St) {
             for (uint32_t t = 0; t < gt; ++t, wg += tg) noc_async_read_page(m * gt + t, g, wg);
             for (uint32_t t = 0; t < Nt; ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz);
         }
@@ -72,7 +77,7 @@ void kernel_main() {
     auto write_block = [&](uint32_t m) {
         cb_wait_front(out_cb, Mb * Nt);
         uint32_t r = get_read_ptr(out_cb);
-        for (uint32_t k = 0; k < Mb; ++k, m += St) {
+        for (uint32_t k = 0; k < ((T2_DMABL & 8) ? 0 : Mb); ++k, m += St) {
             for (uint32_t t = 0; t < Nt; ++t, r += tb) {
                 if constexpr (EXTRA & 8) noc_async_write_page(m * Nt + t, o, r);
                 else noc_async_write_page(m * Nt + t, z, r);

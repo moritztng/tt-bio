@@ -17,6 +17,14 @@
 #ifndef T2MCAST
 #define T2MCAST 0
 #endif
+// Bench-only (trimul_tail.T2_DMABL / T2_GROW, 0 in every model path): DMABL 1 skips the gather's L1 reads, 2 the
+// stage's DRAM reads; GROW gathers a whole row's Clt tiles under one barrier (c_15 holds two rows).
+#ifndef T2_DMABL
+#define T2_DMABL 0
+#endif
+#ifndef T2_GROW
+#define T2_GROW 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -122,7 +130,9 @@ void kernel_main() {
             const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
             for (uint32_t c = 0; c < Clt * 32; ++c) {
                 const uint64_t a = sx.get_noc_addr(page, off);
-                if constexpr (P == 1) {
+                if constexpr (T2_DMABL & 2) {
+                    (void)a;
+                } else if constexpr (P == 1) {
                     noc_async_read(a, dst, TILE_BYTES);         // the whole tile, faces in place
                 } else {
                     noc_async_read(a, dst, PART_ROW_BYTES);
@@ -144,23 +154,31 @@ void kernel_main() {
                 cb_push_back(cb_prev, Cp);
             }
             noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
+            if constexpr (T2_GROW) cb_reserve_back(cb_in, Clt);
+            const uint32_t row0 = get_write_ptr(cb_in);
             for (uint32_t ct = 0; ct < Clt; ++ct) {
-                cb_reserve_back(cb_in, 1);
-                const uint32_t d = get_write_ptr(cb_in);
+                if constexpr (!T2_GROW) cb_reserve_back(cb_in, 1);
+                const uint32_t d = T2_GROW ? row0 + ct * TILE_BYTES : get_write_ptr(cb_in);
                 // P = 1 stages whole tiles (row il: faces 2 * (il / 16) and + 1); P > 1 stages each
                 // part's left face rows, then its right ones.
                 uint32_t s0 = stage + ct * 32 * STAGE_TILE +
                               (P == 1 ? (il / 16) * 2 * FACE_BYTES + (il % 16) * FACE_ROW_BYTES : il * FACE_ROW_BYTES);
                 uint32_t s1 = s0 + (P == 1 ? FACE_BYTES : PART_ROW_BYTES);
-                for (uint32_t c = 0; c < 32; ++c) {
+                for (uint32_t c = 0; c < ((T2_DMABL & 1) ? 0 : 32); ++c) {
                     const uint32_t row = (c / 16) * 2 * FACE_BYTES + (c % 16) * FACE_ROW_BYTES;
                     noc_async_read_one_packet_with_state(s0, d + row);
                     noc_async_read_one_packet_with_state(s1, d + row + FACE_BYTES);
                     s0 += STAGE_TILE;
                     s1 += STAGE_TILE;
                 }
+                if constexpr (!T2_GROW) {
+                    noc_async_read_barrier();
+                    cb_push_back(cb_in, 1);
+                }
+            }
+            if constexpr (T2_GROW) {
                 noc_async_read_barrier();
-                cb_push_back(cb_in, 1);
+                cb_push_back(cb_in, Clt);
             }
         }
     }
