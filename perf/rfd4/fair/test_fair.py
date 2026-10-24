@@ -215,3 +215,17 @@ def test_a_batch_that_ran_fewer_passes_than_the_recipe_fails_the_cell(monkeypatc
     assert bad["seed"] == 1012 and bad["trunk_passes_counted"] == 179 and bad["discard"].startswith("work_mismatch")
     assert not any(r.get("kind") == "summary" for r in recs)
     assert verdict.admit({**bad, "discard": None, "tree_dirty": False}, HERE).startswith("work_mismatch")
+
+
+def test_host_control_separates_the_card_from_the_code(tmp_path):
+    repo = str(HERE.parents[2])
+    main = subprocess.run(["git", "rev-parse", "origin/main"], cwd=repo, capture_output=True, text=True).stdout.strip()
+    runs = tmp_path / "ctrl.jsonl"
+    runs.write_text("".join(json.dumps(_line(512, 0.040 + i / 10000, main, host="qb1")) + "\n" for i in range(5)))
+    c = verdict.host_control(runs, repo, {"designs_per_s": 0.0441, "what": "pc"}, {512: {"designs_per_s": 0.0502}})
+    assert c["designs_per_s"] == 0.0402 and c["n_clean"] == 5
+    assert c["host_factor"] == round(0.0402 / 0.0441, 3) and c["code_gain"] == round(0.0502 / 0.0402, 3)
+    assert "Host control" in "\n".join(verdict.control_md(c))
+    short = tmp_path / "short.jsonl"
+    short.write_text(json.dumps(_line(512, 0.04, main)) + "\n")
+    assert verdict.host_control(short, repo, None, {})["status"] == "short"
