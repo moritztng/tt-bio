@@ -898,7 +898,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # RFD4's own set (rfd4.trunk.NORMAL_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms, pair_write_res,
 # trimul_bres_hifi2, pair_bf16z, pair_tail_cm, trimul_t1b8, pair_block_hifi2, trimul_t1g8, trimul_tail_hifi2 and
 # pair_bfp8z (that pair stream as bfloat8_b) and trimul_t1_fgate, graded on RFD4's designs.
-# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_hifi2, dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
+# OpenFold3's own --fast set names dit_fuse, edm_device, ws_l1dest, and dit_kc, dit_mask16, triatt_hifi2, ws_psilu and dit_mask8 (Wormhole),
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
