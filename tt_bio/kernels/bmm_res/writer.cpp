@@ -31,7 +31,12 @@ void kernel_main() {
 #ifdef BRES_ROT
         const uint32_t rot = (u / NS) % CH;
 #endif
-        for (uint32_t r = 0; r < MT; ++r) {
+        for (uint32_t r0 = 0; r0 < MT; ++r0) {
+#ifdef BRES_RSTAG
+            const uint32_t r = (r0 + u / NS) % MT;
+#else
+            const uint32_t r = r0;
+#endif
             for (uint32_t n = 0; n < NB; n += W) {
                 cb_wait_front(cb_out, W);
                 uint32_t rd = get_read_ptr(cb_out);

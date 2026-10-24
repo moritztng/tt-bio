@@ -5,7 +5,7 @@ is 3 channels on 36 cores and 2 on the rest, so C 256 vs 220 / 330 says whether 
 
 usage: TT_VISIBLE_DEVICES=<chip> timeout 1500 python perf/rfd4/bmm512/split.py --out x.jsonl [--n 512] [--C 220,256,330]
 """
-import argparse, json, statistics, sys, time
+import argparse, hashlib, json, statistics, sys, time
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[3]))
@@ -17,6 +17,7 @@ ap.add_argument("--abl", default="0,1,2,4,3,6,5,7")
 ap.add_argument("--rounds", type=int, default=3)
 ap.add_argument("--inner", type=int, default=20)
 ap.add_argument("--reps", type=int, default=5)
+ap.add_argument("--rstag", default="0", help="bench: bmm_res.RSTAG arms, e.g. 0,1 (interleaved, output sha per arm)")
 ap.add_argument("--adepth", type=int, default=0, help="bench: bmm_res.A_DEPTH (0 keeps the module's)")
 A = ap.parse_args()
 
@@ -65,6 +66,13 @@ for r in range(A.rounds):
         rot = B.rot_pays(dev, n)
         for ta in (False, True):
             for abl in map(int, A.abl.split(",")):
-                ms, lo, hi = timed(lambda: B.matmul(a, b, ckc, transpose_a=ta, abl=abl, rot=rot))
-                emit({"round": r, "n": n, "C": C, "ta": ta, "abl": abl, "rot": rot, "adepth": B.A_DEPTH, "plan": B._plan(n // 32, n // 32, 1088, 1088, transpose_a=ta), "ms": ms, "min": lo, "max": hi,
-                      "t": time.time()})
+                for rs in map(int, A.rstag.split(",")):
+                    B.RSTAG = bool(rs)
+                    fn = lambda: B.matmul(a, b, ckc, transpose_a=ta, abl=abl, rot=rot)  # noqa: E731
+                    ms, lo, hi = timed(fn)
+                    sha = None
+                    if abl == 0 and r == 0:
+                        o = fn(); sha = hashlib.sha256(ttnn.to_torch(o).view(torch.int16).numpy().tobytes()).hexdigest()[:16]
+                        ttnn.deallocate(o)
+                    emit({"round": r, "n": n, "C": C, "ta": ta, "abl": abl, "rot": rot, "rstag": rs, "adepth": B.A_DEPTH,
+                          "ms": ms, "min": lo, "max": hi, "sha": sha, "t": time.time()})

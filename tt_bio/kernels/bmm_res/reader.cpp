@@ -60,7 +60,12 @@ void kernel_main() {
                 }
             }
         }
-        for (uint32_t r = 0; r < MT; ++r) {
+        for (uint32_t r0 = 0; r0 < MT; ++r0) {
+#ifdef BRES_RSTAG
+            const uint32_t r = (r0 + c) % MT;
+#else
+            const uint32_t r = r0;
+#endif
             for (uint32_t k0 = 0; k0 < KT; k0 += AG) {
                 const uint32_t g = KT - k0 < AG ? KT - k0 : AG;
                 cb_reserve_back(cb_a, AG);

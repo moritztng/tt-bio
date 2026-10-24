@@ -65,6 +65,8 @@ BRES_SPLIT = None if os.environ.get("TT_BIO_BRES_SPLIT", "").strip() == "" else 
 BRES_B8 = env_flag("TT_BIO_BRES_B8", False)
 #: A/B switch for `rot` (on): False makes `rot_pays` say no, so every caller writes the plain order.
 ROT = True
+#: Bench: channel c starts at row c % MT (reader and writer), so cores reading a transposed a spread over the banks.
+RSTAG = False
 #: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt bf16 staged for transpose_a) + out 2 * nt tiles.
 L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
@@ -159,10 +161,11 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 2,
-                                   defines=[("BRES_NO_A", "1")] if abl & 4 else [], config=ttnn.ReaderConfigDescriptor())
+                                   defines=([("BRES_NO_A", "1")] if abl & 4 else []) + ([("BRES_RSTAG", "1")] if RSTAG else []), config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
-                                   defines=([("BRES_NO_WRITE", "1")] if abl & 2 else []) + ([("BRES_ROT", "1")] if rot else []),
+                                   defines=([("BRES_NO_WRITE", "1")] if abl & 2 else []) + ([("BRES_ROT", "1")] if rot else [])
+                                   + ([("BRES_RSTAG", "1")] if RSTAG else []),
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
@@ -237,7 +240,7 @@ def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_c
                                          ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     rot = bool(rot(out) if callable(rot) else rot)
     key = (dev.id(), tuple(sa), tuple(sb), a.dtype, b.dtype, a.memory_config().buffer_type,
-           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8, rot)
+           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8, rot, RSTAG)
     if key not in _CACHE:
         _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8,
                              rot)
