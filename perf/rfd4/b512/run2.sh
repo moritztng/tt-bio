@@ -2,7 +2,7 @@
 # b512 run2: the levers run1 kept, on by default in this tree, graded against the same tree with BASESET (default:
 # outer_residual.GRAN=4 and trimul_tail.T1_WFL=0, the values on main) held in the base arm.
 #   abN       paired traced trunk at N, RFD4's served set, 30 reps
-#   wall512   whole designs at 512 (PD-L1 binder), base and lever alternated twice, 4 seeds each
+#   wall512   whole designs at 512 (PD-L1 binder), base and lever alternated WALL_K (2) times, 4 seeds each
 #   t1x       T1 digests at every model key with T1_WFL off and on (shared kernel, D-orch-140)
 # Run it from a snapshot of the tree (git archive into ~/scratch), never the live worktree.
 #   bash perf/rfd4/b512/run2.sh <chip> <outdir> [legs]
@@ -30,7 +30,7 @@ for leg in ${3:-ab512 ab384 ab256 ab224 wall512 t1x}; do
     ab*) n=${leg#ab}
       TT_BIO_TRACE_REGION_MB=512 timeout 2400 $PY perf/rfd4/bfp8/stack_ab.py --weights $HOME/rfd4-bundle \
         --out $R/$leg.json --n $n --reps 30 --base $B --levers $B --base-set "$BASESET" ;;
-    wall512) for k in 1 2; do
+    wall512) for k in $(seq ${WALL_K:-2}); do
         timeout 1800 $PY -c "$OFF" $D --out $R/wall512/base$k; stamp "wall base$k rc=$?"
         timeout 1800 $PY perf/rfd4/e2e/design.py $D --out $R/wall512/lev$k; stamp "wall lev$k rc=$?"
       done ;;
