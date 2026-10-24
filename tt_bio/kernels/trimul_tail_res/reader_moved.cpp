@@ -19,7 +19,8 @@
 #endif
 // T2_DMABL (bench only, 0 in every model path): 1 skips the gather's L1 reads, 2 the stage's DRAM reads.
 // 16 halves each stage read and 32 each gather read (same request count, half the bytes, wrong output): the
-// ceiling of a bfp8 x on this reader's two read streams.
+// ceiling of a bfp8 x on this reader's two read streams. 64 adds the RISC byte copies a bfp8 gather needs for its shared
+// exponents (64 a tile, one per face row; the NOC cannot move them, 16 B granular).
 // T2_GROW (trimul_tail._t2_grow_fits): the gather fills a whole row's Clt tiles under one barrier, c_15 holds two.
 #ifndef T2_DMABL
 #define T2_DMABL 0
@@ -178,6 +179,12 @@ void kernel_main() {
                     noc_async_read_one_packet_with_state(s1, d + row + FACE_BYTES);
                     s0 += STAGE_TILE;
                     s1 += STAGE_TILE;
+                }
+                if constexpr (T2_DMABL & 64) {
+                    volatile tt_l1_ptr uint8_t* e = reinterpret_cast<volatile tt_l1_ptr uint8_t*>(d);
+                    volatile tt_l1_ptr uint8_t* x =
+                        reinterpret_cast<volatile tt_l1_ptr uint8_t*>(stage + ct * 32 * STAGE_TILE + il);
+                    for (uint32_t k = 0; k < 64; ++k) e[k] = x[(k & 31) * STAGE_TILE + (k >> 5) * 16];
                 }
                 if constexpr (!T2_GROW) {
                     noc_async_read_barrier();
