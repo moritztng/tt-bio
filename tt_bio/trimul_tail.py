@@ -885,6 +885,7 @@ T2_STATS = [0, 0]       # served, declined
 T2_ABL = 0
 # T2m / T2CM data-movement ablation (bench only, 0 in every model path): reader_moved.cpp bits 1 skip the gather's
 # L1 reads, 2 skip the stage's DRAM reads; writer_moved.cpp 4 skips the g / z reads, 8 the writes.
+# reader 16 / 32 halve each stage / gather read (the bfp8 x ceiling, wrong output).
 T2_DMABL = 0
 # T2m / T2CM gather grouping (A/B knob, on in production): the reader gathers a whole row's Kt - Cp x tiles under
 # one read barrier into a two-row input CB instead of one tile a barrier into a two-tile CB. Taken only where the

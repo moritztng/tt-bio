@@ -18,6 +18,8 @@
 #define T2MCAST 0
 #endif
 // T2_DMABL (bench only, 0 in every model path): 1 skips the gather's L1 reads, 2 the stage's DRAM reads.
+// 16 halves each stage read and 32 each gather read (same request count, half the bytes, wrong output): the
+// ceiling of a bfp8 x on this reader's two read streams.
 // T2_GROW (trimul_tail._t2_grow_fits): the gather fills a whole row's Clt tiles under one barrier, c_15 holds two.
 #ifndef T2_DMABL
 #define T2_DMABL 0
@@ -139,7 +141,7 @@ void kernel_main() {
                 } else if constexpr (P == 1) {
                     noc_async_read(a, dst, TILE_BYTES);         // the whole tile, faces in place
                 } else if constexpr (P == 2 && T2_S1K) {
-                    noc_async_read(a, dst, 2 * PART_ROW_BYTES);  // 16 rows are two whole faces, side by side
+                    noc_async_read(a, dst, (T2_DMABL & 16 ? 1 : 2) * PART_ROW_BYTES);  // 16 rows are two whole faces, side by side
                 } else {
                     noc_async_read(a, dst, PART_ROW_BYTES);
                     noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
@@ -159,7 +161,7 @@ void kernel_main() {
                 noc_async_read_barrier();
                 cb_push_back(cb_prev, Cp);
             }
-            noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
+            noc_async_read_one_packet_set_state(stage_noc, T2_DMABL & 32 ? FACE_ROW_BYTES / 2 : FACE_ROW_BYTES);
             if constexpr (T2_GROW) cb_reserve_back(cb_in, Clt);
             const uint32_t row0 = get_write_ptr(cb_in);
             for (uint32_t ct = 0; ct < Clt; ++ct) {
