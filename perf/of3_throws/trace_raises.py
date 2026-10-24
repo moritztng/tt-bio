@@ -16,7 +16,9 @@ refuses can be read off the numbers.
 With HANG_DUMP_AT=<s> (and HANG_DUMP_OUT=<file>) a process still running after <s> seconds dumps every thread's
 Python stack every <s> seconds and, if PYSPY names a py-spy binary, its native stack three times 30 s apart. A healthy
 cell is long done by then, so the dumps are the hang's location. The process lets any tracer attach to it
-(PR_SET_PTRACER), since py-spy runs as its child and Yama scope 1 only lets ancestors trace.
+(PR_SET_PTRACER), since py-spy runs as its child and Yama scope 1 only lets ancestors trace. HANG_TRIAGE=<shell cmd>
+runs once after the native dumps while the process is still hung (tt-triage against the chip it holds: the dispatch
+timeout hook's triage prints only system_info, the hung process has to be alive and its Inspector logs readable).
 """
 import json
 import os
@@ -94,6 +96,8 @@ def _hang_watch(at, path):
     if spy:
         sh = (f'sleep {at}; for i in 0 1 2; do kill -0 {os.getpid()} || exit; echo "=== dump $i native"; '
               f'timeout 120 {spy} dump --native --pid {os.getpid()}; sleep 30; done')
+        if os.environ.get("HANG_TRIAGE"):
+            sh += f'; kill -0 {os.getpid()} && echo "=== triage" && ({os.environ["HANG_TRIAGE"]})'
         subprocess.Popen(["sh", "-c", sh], stdout=out, stderr=out, start_new_session=True)
 
 if __name__ == "__main__":
