@@ -204,6 +204,13 @@ VANISHED = "left the pool with no exit code"
 #: 2026-10-10 while .107 and .108 had chips. Such a host takes no leg the lend would hold, and a leg it
 #: queued before the lend was booked is taken back and handed to another worker.
 LEND_AT = "~/spd/galaxy/LEND-AT"
+#: A Galaxy JapanFold serves runs pool jobs only on chips its agent has lent (spd/galaxy/pool.sh "lend mode": the
+#: agent is active, or enabled with no ~/glx/LENT, and a chip is usable while lend/<umd>.lent says recall_at null).
+#: With none lent the pool starts nothing, so it counts as paused: rel-a06d92c6d (10-24) queued 16 WH legs on .110
+#: an hour after it went back to JapanFold, every chip recalled, and they sat there 7 h while .103 had chips.
+SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
+                     'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
+                     '! grep -qs \'"recall_at": null\' ~/japanfold/state/agent/lend/*.lent')
 LEND_READ_S = 300
 REQUEUED = "requeued"     # run_in_pool's note for an attempt the pool put back after a chip recall
 REQUEUE_GRACE_S = 3       # the pool requeues right after the job exits; give it that long before reading rc
@@ -882,7 +889,7 @@ class Host:
         if "pool" not in self.cfg or time.time() - self.lend[0] < LEND_READ_S:
             return
         pause = shlex.quote(str(Path(self.cfg["pool"]["queue"]).parent / "PAUSE"))
-        r = self.ssh(f"cat {LEND_AT} 2>/dev/null; echo; test -e {pause} && echo PAUSE",
+        r = self.ssh(f"cat {LEND_AT} 2>/dev/null; echo; test -e {pause} && echo PAUSE; {SERVING_NONE_LENT} && echo PAUSE || :",
                      capture_output=True, timeout=120)
         if r.returncode in (0, 1):
             words = r.stdout.split()

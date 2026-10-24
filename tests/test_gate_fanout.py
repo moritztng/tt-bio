@@ -1553,3 +1553,29 @@ def test_a_worker_on_a_chip_marked_bad_runs_no_leg_and_its_legs_run_elsewhere(tm
 
     res = gf.Gate({"bh": list(legs)}, [(h, 0), (h, 1)], {("qb2", 1)}, execute, tmp_path).run()
     assert set(ran) == {1} and len(res) == len(legs)
+
+
+def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypatch):
+    """pool.sh starts nothing on a JapanFold-serving box with no chip lent, so its legs go elsewhere."""
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "systemctl").write_text("#!/bin/sh\nexit 0\n")
+    (stub / "systemctl").chmod(0o755)
+    lend = tmp_path / "japanfold" / "state" / "agent" / "lend"
+    lend.mkdir(parents=True)
+    (lend / "0.lent").write_text('{"node": "0", "recall_at": 1792800000}')
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PATH", f"{stub}:{os.environ['PATH']}")
+
+    def paused():
+        h = gf.Host("g110", {"arch": "wh", "card_type": "wh", "root": str(tmp_path), "ssh": "localhost",
+                             "pool": {"queue": str(tmp_path / "pool" / "queue")}}, "f" * 40)
+        h.read_lend()
+        return h.lent(3600)
+
+    assert paused()                                   # every chip recalled
+    (lend / "1.lent").write_text('{"node": "1", "recall_at": null}')
+    assert not paused()                               # one chip lent: the pool can start a leg
+    (lend / "1.lent").unlink()
+    (stub / "systemctl").write_text("#!/bin/sh\nexit 3\n")
+    assert not paused()                               # no agent: an SPD box, its own pool rules
