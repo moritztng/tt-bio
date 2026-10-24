@@ -31,7 +31,7 @@ from .. import ops
 from .. import outer_residual
 from .. import rne_add
 from ..envflags import env_flag
-from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope,
+from ..tenstorrent import (CORE_GRID_MAIN, Module, TriangleMultiplication, WeightScope, _pair_proj_minimal_matmul,
                            _sdpa_program_config_for_lengths, bfp8_fidelity, download, fused_sdpa, lever,
                            lever_scope, model_levers, refusals_learned, under_lever_scope, upload)
 
@@ -155,6 +155,17 @@ class AdaptiveScale(Module):
         return out
 
 
+def _token_weights(mod):
+    """(weight dtype, matmul config) of a token-side linear: bfp8 at HiFi2 under `tok_w8` (HiFi2 covers every
+    mantissa bit a bfp8 weight carries, the bf16 activation loses its low half), else the module's own."""
+    ckc = mod.compute_kernel_config
+    if not lever("tok_w8"):
+        return mod.dtype, ckc
+    w8 = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ckc.math_approx_mode,
+                   fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
+    return ttnn.bfloat8_b, w8
+
+
 class Transition(Module):
     """`Transition` with `layer_norm=False`: linear_out(silu(gates) * x), where x and gates
     are the two halves of one [dim -> 2 * dim_inner] projection. Upstream masks the output; here
@@ -170,17 +181,19 @@ class Transition(Module):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         inner = self.weights["swish_linear.0.weight"].shape[0] // 2
-        self.fc_x = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[:inner].t(), dtype=self.dtype)
-        self.fc_g = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[inner:].t(), dtype=self.dtype)
-        self.out_w = self.torch_to_tt("linear_out.weight", dtype=self.dtype)
+        wd, self.wckc = _token_weights(self)
+        self.fc_x = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[:inner].t(), dtype=wd)
+        self.fc_g = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[inner:].t(), dtype=wd)
+        self.out_w = self.torch_to_tt("linear_out.weight", dtype=wd)
 
     def __call__(self, x):
-        a = self._lin(x, self.fc_x, dtype=self.dtype)
-        g = self._lin(x, self.fc_g, dtype=self.dtype, activation="silu")
+        c = self.wckc
+        a = self._lin(x, self.fc_x, dtype=self.dtype, compute_kernel_config=c)
+        g = self._lin(x, self.fc_g, dtype=self.dtype, activation="silu", compute_kernel_config=c)
         h = ttnn.multiply(g, a)
         ttnn.deallocate(a)
         ttnn.deallocate(g)
-        out = self._lin(h, self.out_w, dtype=self.dtype)
+        out = self._lin(h, self.out_w, dtype=self.dtype, compute_kernel_config=c)
         ttnn.deallocate(h)
         return out
 
@@ -251,15 +264,16 @@ class PairBiasAttention(Module):
         self.inner = inner
         self.head_dim = inner // n_heads
         self.node_norm_w = self.torch_to_tt("node_norm.weight", transform=lambda x: x, dtype=self.dtype)
-        self.q_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[:inner].t(), dtype=self.dtype)
-        self.k_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[inner:2 * inner].t(), dtype=self.dtype)
-        self.v_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[2 * inner:].t(), dtype=self.dtype)
+        wd, self.wckc = _token_weights(self)
+        self.q_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[:inner].t(), dtype=wd)
+        self.k_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[inner:2 * inner].t(), dtype=wd)
+        self.v_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[2 * inner:].t(), dtype=wd)
         self.q_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[:inner], dtype=self.dtype)
         self.k_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[inner:2 * inner], dtype=self.dtype)
         self.v_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[2 * inner:], dtype=self.dtype)
-        self.g_w = self.torch_to_tt("to_g.weight", dtype=self.dtype)
+        self.g_w = self.torch_to_tt("to_g.weight", dtype=wd)
         self.g_b = self.torch_to_tt("to_g.bias", transform=lambda x: x, dtype=self.dtype)
-        self.out_w = self.torch_to_tt("to_out_node.weight", dtype=self.dtype)
+        self.out_w = self.torch_to_tt("to_out_node.weight", dtype=wd)
         self.out_b = self.torch_to_tt("to_out_node.bias", transform=lambda x: x, dtype=self.dtype)
         self.qk_norm = "q_layer_norm.weight" in self.weights
         if self.qk_norm:
@@ -287,10 +301,11 @@ class PairBiasAttention(Module):
         recomputed nor freed); otherwise it is built from `z` and `pair_bias_mask`."""
         ckc = self.compute_kernel_config
         a = _rms(x, self.node_norm_w, ckc)
-        q = self._lin(a, self.q_w, bias=self.q_b, dtype=self.dtype)
-        k = self._lin(a, self.k_w, bias=self.k_b, dtype=self.dtype)
-        v = self._lin(a, self.v_w, bias=self.v_b, dtype=self.dtype)
-        g = self._lin(a, self.g_w, bias=self.g_b, dtype=self.dtype, activation="sigmoid")
+        c = self.wckc
+        q = self._lin(a, self.q_w, bias=self.q_b, dtype=self.dtype, compute_kernel_config=c)
+        k = self._lin(a, self.k_w, bias=self.k_b, dtype=self.dtype, compute_kernel_config=c)
+        v = self._lin(a, self.v_w, bias=self.v_b, dtype=self.dtype, compute_kernel_config=c)
+        g = self._lin(a, self.g_w, bias=self.g_b, dtype=self.dtype, activation="sigmoid", compute_kernel_config=c)
         ttnn.deallocate(a)
         if self.qk_norm:
             qn, kn = _rms(q, self.q_norm_w, ckc), _rms(k, self.k_norm_w, ckc)
@@ -308,10 +323,12 @@ class PairBiasAttention(Module):
         # float64 on the parity case: the default call runs the scores at a lower fidelity and an
         # approximate exp, and this attention's output is a near-cancelling average over the whole
         # token axis, which magnifies both.
+        # `work` (batch x heads, SDPA_FILL) lets the q chunk narrow until the grid is full.
         n = int(q.shape[2])
+        work = int(q.shape[0]) * self.n_heads if SDPA_FILL else 0
         o = fused_sdpa(q, k, v, attn_mask=bias, scale=self.head_dim ** -0.5,
                        compute_kernel_config=ckc,
-                       program_config=_sdpa_program_config_for_lengths(n, n, site="rfd4_trunk",
+                       program_config=_sdpa_program_config_for_lengths(n, n, work, site="rfd4_trunk",
                                                                       d=self.head_dim))
         for t in (q, k, v) + ((bias,) if own else ()):
             ttnn.deallocate(t)
@@ -320,7 +337,7 @@ class PairBiasAttention(Module):
         gated = ttnn.multiply(om, g)
         ttnn.deallocate(om)
         ttnn.deallocate(g)
-        out = self._lin(gated, self.out_w, bias=self.out_b, dtype=self.dtype)
+        out = self._lin(gated, self.out_w, bias=self.out_b, dtype=self.dtype, compute_kernel_config=self.wckc)
         ttnn.deallocate(gated)
         return out
 
@@ -628,6 +645,11 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
             pair_c, res_tok, res_pair_c)
 
 
+#: The pair-biased SDPA's q chunk narrows until batch x heads x chunks fills the grid: at 512 tokens, batch 1, the
+#: capped chunk of 256 ran 24 work units on 110 cores, 98.3 -> 64.8 us a call. q chunks split independent query rows,
+#: so the output is bit-identical (torch.equal at every rung, perf/rfd4/tok512/sdpa_sweep.py).
+SDPA_FILL = True
+
 #: RFD4's levers per mode (`tenstorrent.model_levers`); TT_BIO_LEVERS overrides both when a harness grades a
 #: set. `trimul_t1` runs the triangle multiplication's input layer_norm, gated projections and channel moves as
 #: one kernel from 160 tokens (it declines below, where the trimul runs from L1): 15.0 -> 11.3 ms a call at 512
@@ -682,12 +704,19 @@ def trunk_masks(mask, device, dtype=ttnn.bfloat16, residual_dtype=None, elide=No
 #: never rounded to bf16 (unmasked calls at c_z 384). Paired traced trunk with pair_bfp8z: 512 tokens 22.15 -> 21.71 s
 #: a design (1.021x, 1350 MHz, two readings), 384 1.022x, 256 1.036x. z rel RMS vs float64 unchanged (0.053 at 512).
 #: 31 designs at 512: designed chain 2.50 A median against a 39.1 A seed floor, binder grade PASS (state/rfd4/bets/t1dm.md).
+#: The token side: `tok_w8` runs the token transition and attention projections on bfp8 weights at HiFi2,
+#: `tok_recycle_mm` the pair recycle projection on minimal_matmul (2072 -> 1416 us at 512), `dit_sigf32` every fused
+#: sigmoid on the fp32-dest one. With SDPA_FILL, paired traced trunk at 1300-1350 MHz: 512 tokens 1.0147x, 224 1.025x,
+#: 256 1.023x, 128 1.033x; whole design at 512 1.012x. z rel RMS vs float64 0.050 -> 0.052 at 512 and 224. 31 designs:
+#: designed chain 5.7 A median against a 40.0 A seed floor at 512, 3.1 against 21.4 at 224, binder grade PASS at both
+#: (state/rfd4/bets/tok512.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
                            "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
-                           "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t"})
+                           "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
+                           "tok_recycle_mm", "dit_sigf32", "tok_w8"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
@@ -771,7 +800,11 @@ class Trunk(Module):
         hb = _as(h, self.dtype)
         if hb is not h:
             ttnn.deallocate(h)
-        p = self._lin(hb, proj_w, dtype=self.dtype)
+        p = None
+        if lever("tok_recycle_mm"):   # None where the contraction is not one K block (the 768-wide single recycle)
+            p = _pair_proj_minimal_matmul(hb, proj_w, self.compute_kernel_config, self.dtype)
+        if p is None:
+            p = self._lin(hb, proj_w, dtype=self.dtype)
         ttnn.deallocate(hb)
         if low is not None or (res_dtype == ttnn.bfloat16 and lever("pair_bf16z")):   # rounded to even
             return _residual(init, p, res_dtype, low=low)

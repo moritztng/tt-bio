@@ -1,0 +1,20 @@
+{
+ "base": {
+  "trunk_s": 20.927500000000002,
+  "design_s": 21.823999999999998,
+  "wall_s": 22.3955,
+  "n": 8,
+  "aiclk_min": 1281,
+  "aiclk_median": 1325.0
+ },
+ "lev": {
+  "trunk_s": 20.633000000000003,
+  "design_s": 21.557499999999997,
+  "wall_s": 22.147,
+  "n": 8,
+  "aiclk_min": 1281,
+  "aiclk_median": 1321.5
+ },
+ "trunk_s_ratio": 1.0143,
+ "design_s_ratio": 1.0124
+}
