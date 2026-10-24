@@ -35,6 +35,7 @@ forwards; ``fold()`` additionally runs the trunk + confidence heads -- see
 from __future__ import annotations
 
 import math
+import os
 
 import torch
 import ttnn
@@ -331,7 +332,7 @@ class OF3SampleDiffusion:
         the staging copies and the output reads touch the device, and the trace is released
         before the cache it reads is freed.
         """
-        if _T.lever("edm_device"):
+        if _T.lever("edm_device") and os.environ.get("TT_BIO_EDM_SYNC") != "off":
             return self._rollout_edm_device(
                 xl_host, atom_mask_host, rots_list, trans_list, noise_list, t_list, c_tau_list,
                 step_scale, progress_fn, dm_args, inv_cache, single_args, n_atom, NP, n_token,
@@ -535,16 +536,19 @@ class OF3SampleDiffusion:
 
         tid = None
         traced = True
+        _SYNC = os.environ.get("TT_BIO_EDM_SYNC", "")   # hang probe hsync: "", cap, step, off
         try:
             for tau in range(T):
                 if progress_fn:
                     progress_fn("diffusion", step=tau, total=T)
                 stage(tau)
                 if tid is not None:
-                    ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
+                    ttnn.execute_trace(dev, tid, cq_id=0, blocking=_SYNC == "step")
                 else:
                     step()
                 if tid is None and traced and tau + 1 < T:
+                    if _SYNC == "cap":
+                        ttnn.synchronize_device(dev)
                     tid = ttnn.begin_trace_capture(dev, cq_id=0)
                     try:
                         step()
