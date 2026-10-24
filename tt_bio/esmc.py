@@ -2207,7 +2207,8 @@ _ESMC_6B_B8 = env_flag("TT_BIO_ESMC_6B_B8", True)
 # ESMC-6B embeddings on Wormhole at HiFi3 instead of HiFi4, --fast and normal with block-fp8 weights (same cell):
 # fast 197.3 -> 182.2 ms, pcc vs fp32 0.998849 -> 0.998859; normal 240.7 (bf16) -> 182.3 ms, pcc 0.998936 -> 0.998859,
 # pooled 0.999851 -> 0.999815. At one sequence the two modes now run the same forward. HiFi2 reads 178.2 ms but pcc
-# 0.998539, past the fast bar. Blackhole (bf16 weights under normal) too: f6b, qb2 p300, see below.
+# 0.998539, past the fast bar. Blackhole too (qb2 p300, 1350 MHz, page batch): normal (bf16 weights) 123.3 -> 109.5 ms,
+# pcc 0.999057 -> 0.999016; fast 117.9 -> 98.8 ms, pcc 0.998943 -> 0.998870.
 _ESMC_6B_FIDELITY = os.environ.get("TT_BIO_ESMC_6B_FIDELITY", "HiFi3")
 
 
