@@ -44,3 +44,21 @@ for t in range(t0, t0 + 3 * B, 60):
 # busy_now on this host returns a set and never raises
 assert isinstance(book.busy_now(), set)
 print("ok")
+
+# a held card flock (a gate leg between two device opens) keeps a window from starting on that card; a waiter does not
+import fcntl
+book.LOCKS, book.PROC_LOCKS = d + "/spd_qbX_*.lock", d + "/locks"
+lk = {c: d + "/spd_qbX_chip%d.lock" % c for c in (0, 1)}
+for f in lk.values():
+    open(f, "w").close()
+ino = lambda c: os.stat(lk[c]).st_ino
+open(book.PROC_LOCKS, "w").write("1: FLOCK  ADVISORY  WRITE 42 08:02:%d 0 EOF\n1: -> FLOCK  ADVISORY  WRITE 43 08:02:%d 0 EOF\n"
+                                 % (ino(0), ino(1)))
+assert book.flocked({0, 1}) == {0} and book.flocked({1}) == set()
+# against the real /proc/locks: our own flock on chip 1 is seen
+book.PROC_LOCKS = "/proc/locks"
+with open(lk[1]) as h:
+    fcntl.flock(h, fcntl.LOCK_EX)
+    assert book.flocked({0, 1}) == {1}
+assert book.flocked({0, 1}) == set()
+print("ok")
