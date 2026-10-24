@@ -915,6 +915,8 @@ T2_XNOC = 0
 # Bench knob T2_WSTAGE (0 = main): the writer reads each unit's stage (two units deep), the reader only gathers. With
 # T2_DMCFG 1 that puts every DRAM read of T2CM on NOC0 in dedicated mode.
 T2_WSTAGE = 0
+# Bench knob T2_GWR (0 = main): the T2CM gather's loopback copies as own-L1 writes too (reader_moved.cpp).
+T2_GWR = 0
 T2_DMCFGS = {1: (1, 1, 0, 0), 2: (0, 0, 1, 1), 3: (1, 0, 0, 0), 4: (1, 0, 0, 1), 5: (0, 1, 1, 0)}
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # T2_FOLD (off): fold the LN's centring and gamma into Wp, LN(x) @ Wp = rstd * (x @ Wc) + beta @ Wp with
@@ -1216,7 +1218,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             + acc(ex[0] if EXTRA & 1 else wp) + acc(ex[1] if EXTRA & 2 else wp),
             runtime_args=rd, common_runtime_args=[0] * (8 + len(mc)),
             defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow)
-            + ([("T2_XNOC", str(T2_XNOC & 4))] if T2_XNOC & 4 else []),
+            + ([("T2_XNOC", str(T2_XNOC & 4))] if T2_XNOC & 4 else [])
+            + ([("T2_GWR", str(T2_GWR))] if T2_GWR else []) + ([("T2_WSTAGE", "1")] if T2_WSTAGE else []),
             config=_t2_dmcfg(0) or ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer_moved.cpp"), source_type=src, core_ranges=core_grid,
@@ -1584,7 +1587,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, T2_WDEPTH, T2_DMCFG, T2_XNOC, T2_WSTAGE, _t2_block(kt, nt), P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, T2_WDEPTH, T2_DMCFG, T2_XNOC, T2_WSTAGE, T2_GWR, _t2_block(kt, nt), P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)), bool(rot))
     entry = _CACHE.get(key)

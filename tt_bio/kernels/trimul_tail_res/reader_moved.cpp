@@ -39,6 +39,12 @@
 #ifndef T2_XNOC
 #define T2_XNOC 0
 #endif
+// T2_GWR (bench knob trimul_tail.T2_GWR, 0 in every model path): the gather's loopback copies go through the write
+// command buffer as well, as L1 -> own-L1 writes: 1 every copy, 2 each tile row's right face (the left stays a read).
+// Same bytes to the same places.
+#ifndef T2_GWR
+#define T2_GWR 0
+#endif
 // T2_WSTAGE (bench knob, see writer_moved.cpp): the writer stages each unit into c_24; this kernel only gathers.
 #ifndef T2_WSTAGE
 #define T2_WSTAGE 0
@@ -200,6 +206,7 @@ void kernel_main() {
             noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
             if constexpr (T2_GROW) cb_reserve_back(cb_in, Clt);
             const uint32_t row0 = get_write_ptr(cb_in);
+            if constexpr (T2_GWR) noc_async_write_one_packet_set_state(get_noc_addr(row0), FACE_ROW_BYTES);
             for (uint32_t ct = 0; ct < Clt; ++ct) {
                 if constexpr (!T2_GROW) cb_reserve_back(cb_in, 1);
                 const uint32_t d = T2_GROW ? row0 + ct * TILE_BYTES : get_write_ptr(cb_in);
@@ -210,18 +217,22 @@ void kernel_main() {
                 uint32_t s1 = s0 + (P == 1 ? FACE_BYTES : PART_ROW_BYTES);
                 for (uint32_t c = 0; c < ((T2_DMABL & 1) ? 0 : 32); ++c) {
                     const uint32_t row = (c / 16) * 2 * FACE_BYTES + (c % 16) * FACE_ROW_BYTES;
-                    noc_async_read_one_packet_with_state(s0, d + row);
-                    noc_async_read_one_packet_with_state(s1, d + row + FACE_BYTES);
+                    if constexpr (T2_GWR == 1) noc_async_write_one_packet_with_state(s0, d + row);
+                    else noc_async_read_one_packet_with_state(s0, d + row);
+                    if constexpr (T2_GWR) noc_async_write_one_packet_with_state(s1, d + row + FACE_BYTES);
+                    else noc_async_read_one_packet_with_state(s1, d + row + FACE_BYTES);
                     s0 += STAGE_TILE;
                     s1 += STAGE_TILE;
                 }
                 if constexpr (!T2_GROW) {
                     noc_async_read_barrier();
+                    if constexpr (T2_GWR) noc_async_write_barrier();
                     cb_push_back(cb_in, 1);
                 }
             }
             if constexpr (T2_GROW) {
                 noc_async_read_barrier();
+                if constexpr (T2_GWR) noc_async_write_barrier();
                 cb_push_back(cb_in, Clt);
             }
         }
