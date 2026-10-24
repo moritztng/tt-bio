@@ -1,9 +1,10 @@
 """Card-free profile of RFD4's per-batch host work: spec build + featurize, and one design's write_cif.
 
-    python perf/rfd4/hostio/hostprof.py --spec pdl1-512.yaml --out DIR [--reps 5] [--prof]
+    python perf/rfd4/hostio/hostprof.py --spec pdl1-512.yaml --out DIR [--reps 5] [--prof] [--batch N]
 
 Writes DIR/<phase>.prof (cProfile) and prints wall per rep as JSON lines. The design written is
-the stand-in engine output of tests/test_rfd4_write_designs.py, real shapes.
+the stand-in engine output of tests/test_rfd4_write_designs.py, real shapes. `--batch N` also times
+`write_designs` of N designs on the writer pool, the way perf/rfd4/fair/run.py writes a batch.
 """
 import argparse
 import cProfile
@@ -21,6 +22,7 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--reps", type=int, default=5)
     p.add_argument("--prof", action="store_true")
+    p.add_argument("--batch", type=int, default=0)
     a = p.parse_args()
     from test_rfd4_write_designs import _stand_in
     from tt_bio import rfd4
@@ -50,6 +52,12 @@ def main():
     features, atom_array = timed("featurize", feat)
     output = _stand_in(features, 1)
     timed("write", lambda r: rfd4.write_design(output, features, atom_array, out / f"w{r}.cif", row=0))
+    if a.batch:
+        from tt_bio.rfd4.io import start_writer
+        start_writer(a.batch)
+        batch = _stand_in(features, a.batch)
+        timed(f"write_designs{a.batch}", lambda r: rfd4.write_designs(
+            batch, features, atom_array, [out / f"b{r}" / f"d{k}.cif" for k in range(a.batch)]))
     print(json.dumps({"tokens": int(features["padding_mask"].shape[1])}))
 
 
