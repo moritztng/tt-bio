@@ -535,8 +535,8 @@ class OF3SampleDiffusion:
                     ttnn.deallocate(y)
 
         tid = None
-        traced = True
-        _SYNC = os.environ.get("TT_BIO_EDM_SYNC", "")   # hang probe hsync: "", cap, step, off
+        _SYNC = os.environ.get("TT_BIO_EDM_SYNC", "")   # hang probe hsync: "", cap, step, off, eager
+        traced = _SYNC != "eager"
         try:
             for tau in range(T):
                 if progress_fn:
