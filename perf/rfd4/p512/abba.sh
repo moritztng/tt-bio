@@ -18,18 +18,23 @@ held() { fuser /dev/tenstorrent/$(node $N) /dev/tenstorrent/$(node $MATE) 2>&1 |
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d' ' -f1 /proc/loadavg) held[$(held)]" >> $R/done; }
 stamp "booked $($BOOK add $OWN $N,$MATE ${HOLD_S:-12600} --note "p512 ABBA, board pair idle")"
 until [ "$($BOOK active $N 2>/dev/null)" = $OWN ]; do $BOOK add $OWN $N,$MATE ${HOLD_S:-12600} > /dev/null; sleep 60; done
-exec 8>"$HOME/spd_qb2_chip$N.lock"; flock -w 14400 8 || { stamp "flock $N timeout"; exit 3; }
-exec 9>"$HOME/spd_qb2_chip$MATE.lock"; flock -w 14400 9 || { stamp "flock $MATE timeout"; exit 3; }
-until [ -z "$(held)" ]; do sleep 20; done
+# A release-gate process naming either chip (running, or waiting on the chip's lock) has absolute priority: the
+# chain takes the two locks per leg, never across legs, and starts a leg only after 120 s with no gate and no fd.
+gate() { pgrep -af "shipflow|RELEASE_GATE_RUN_DIR|release_gate|gate_fanout" | grep -v -e pgrep -e book.py |
+  grep -qE "(TT_VISIBLE_DEVICES=|spd_qb2_chip)($N|$MATE)[^0-9]"; }
+quiet() { local q=0; while [ $q -lt 6 ]; do $BOOK add $OWN $N,$MATE ${HOLD_S:-12600} > /dev/null; if gate || [ -n "$(held)" ]; then q=0; else q=$((q + 1)); fi; sleep 20; done; }
 export TT_VISIBLE_DEVICES=$N TT_BIO_LEASE_CARDS=$N TT_BIO_LEASE_HOLDER=worker:$OWN
-stamp "start chip $N (mate $MATE idle) A=$(cat $R/tree-A/TREE) P=$(cat $R/tree-P/TREE)"
+quiet; stamp "start chip $N (mate $MATE idle) A=$(cat $R/tree-A/TREE) P=$(cat $R/tree-P/TREE)"
 leg() {  # phase leg size batch lane batches [extra]
   local t=$R/tree-${2:0:1} o=$R/$1/$2
-  until [ -z "$(held)" ]; do sleep 20; done
+  quiet
+  exec 8>"$HOME/spd_qb2_chip$N.lock" 9>"$HOME/spd_qb2_chip$MATE.lock"
+  flock -w 600 8 && flock -w 600 9 || { exec 8>&- 9>&-; stamp "$1/$2 lock busy, retry"; leg "$@"; return; }
   (cd $t && PYTHONPATH=$t timeout 3600 $PY perf/rfd4/p512/leg.py ${7:-} --spec $IN/pdl1-$3.yaml --weights $W \
      --out $o --part dev --shared-box --batch $4 --lane-width $5 --batches $6 --max-attempts $6 \
      --max-foreign-cores 4 --quiet-timeout 300) > $o.log 2>&1
-  stamp "$1/$2 rc=$?"
+  local rc=$?; exec 8>&- 9>&-
+  stamp "$1/$2 rc=$rc"
 }
 mkdir -p $R/n512 $R/n224 $R/dram
 for p in $PHASES; do case $p in
@@ -37,6 +42,5 @@ for p in $PHASES; do case $p in
   n224) for l in A1 P1 P2 A2 A3 P3 P4 A4; do leg n224 $l 224 20 10 1; done ;;
   dram) for l in A1 P1; do leg dram $l 512 4 1 1 --dram; done ;;
 esac; done
-exec 8>&- 9>&-
 $BOOK rm $OWN > /dev/null
 stamp ALLDONE
