@@ -52,7 +52,8 @@ def test_featurize_is_exact(spec, tmp_path):
     """Every annotation the invariant check reads gets the same verdict per segment as upstream's,
     on the real atom array, so the features (which the check only inspects) cannot move."""
     from tt_bio import rfd4
-    from tt_bio._vendor.atomworks.io.utils.selection import get_residue_starts, get_token_starts
+    from tt_bio._vendor.atomworks.io.utils.selection import get_residue_starts
+    from tt_bio._vendor.atomworks.ml.utils.token import get_token_starts
     from tt_bio._vendor.atomworks.io.utils.standard_annotations import STANDARD_ANNOTATIONS
     from tt_bio._vendor.atomworks.io.utils.standard_annotations.base import Level
     from tt_bio._vendor.rfd4_prep._cif.transforms_invariants import _uniform_per_segment
