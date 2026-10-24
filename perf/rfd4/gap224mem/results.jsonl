@@ -6,3 +6,4 @@
 {"tree": "611a706ce", "tokens": 224, "batch": 8, "rounds": 4, "pool_start_s": 0.619, "first_batch_s": 0.644, "workers": 10, "serial_s": 1.922, "pool_s": 0.376, "serial_all": [1.955, 1.876, 1.89, 1.958], "pool_all": [0.379, 0.373, 0.375, 0.377], "speedup": 5.11, "byte_identical": "32/32"}
 {"instrument": "treepeak.py, 224 b8, new tree", "host_peak_mib": 3499, "child_max": {"Rss": 1658, "Pss": 1580, "Private": 1505}}
 {"instrument": "treepeak.py, 224 b8, tree 611a706ce", "host_peak_mib": 15887, "child_max": {"Rss": 1626, "Pss": 1425, "Private": 1405}}
+{"final_tree": true, "tokens": 224, "batch": 8, "rounds": 4, "writers": 8, "first_batch_s": 0.669, "serial_s": 1.988, "pool_s": 0.419, "write_speedup": 4.75, "server_pss_mib": 1579, "writer_private_mib_max": 39, "host_peak_mib": 3510, "cifs_identical": "32/32"}

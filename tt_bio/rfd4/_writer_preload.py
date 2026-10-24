@@ -27,7 +27,10 @@ torch.set_num_threads(1)
 for _code in ("ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS",
               "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL"):
     get_empty_ccd_template(_code)
-    info.standardize_order(info.residue(_code)), info.bonds_in_residue(_code), info.link_type(_code)  # biotite index
+    # what the write asks biotite, which indexes its CCD on the first lookup of each table
+    info.standardize_order(info.residue(_code))
+    info.bonds_in_residue(_code)
+    info.link_type(_code)
 
 # A writer's garbage collector would otherwise write to every object this module left behind and
 # so copy the pages it shares with the server.

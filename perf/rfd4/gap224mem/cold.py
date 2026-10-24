@@ -22,7 +22,7 @@ out = Path(__file__).parent / "runs" / f"cold-{os.getpid()}"
 ex = rfd4.prepare_examples(sys.argv[2], out / "inputs")[0]
 f, aa = rfd4.featurize(ex.cif, seed=1000)
 o = _stand_in(f, 2)
-IO.start_writer(); time.sleep(8)
+IO.start_writer(2); time.sleep(8)
 row = IO._Row(*(getattr(o, k)[0:1].clone() for k in IO._Row._fields))
 mask = {"padding_mask": f["padding_mask"].clone()}
 with IO._main_hidden():

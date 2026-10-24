@@ -3,7 +3,7 @@ import sys, time
 sys.path.insert(0, sys.argv[1])
 from concurrent.futures import ProcessPoolExecutor
 from tt_bio.rfd4 import io as IO
-IO.start_writer(); time.sleep(10)
+IO.start_writer(8); time.sleep(10)
 for n in (1, 4, 8):
     t0 = time.perf_counter()
     with ProcessPoolExecutor(n, mp_context=IO._context()) as pool:

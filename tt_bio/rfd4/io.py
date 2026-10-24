@@ -226,7 +226,7 @@ def writer_pool(n_designs: int):
     """The processes a batch of `n_designs` is written on, or None to write it in this process.
 
     Started on the first batch and kept, so later batches pay neither a fork (~20 ms a writer)
-    nor a writer's first, colder design. A larger batch replaces it with a larger pool.
+    nor a writer's first, colder design. A larger batch, or a writer that died, replaces it.
     """
     from concurrent.futures import ProcessPoolExecutor
 
@@ -234,7 +234,7 @@ def writer_pool(n_designs: int):
     n = writer_count(n_designs)
     if n == 1:
         return None
-    if _POOL is None or _POOL._max_workers < n:
+    if _POOL is None or _POOL._broken or _POOL._max_workers < n:
         if _POOL is not None:
             _POOL.shutdown(wait=False)
         _POOL = ProcessPoolExecutor(n, mp_context=_context())  # writers start as tasks arrive

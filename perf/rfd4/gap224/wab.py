@@ -49,7 +49,7 @@ def main():
     f, aa = rfd4.featurize(ex.cif, seed=1000)
     o = stand_in(f, B, 0)
     t0 = time.perf_counter()
-    IO.writer_pool()
+    IO.start_writer(B)
     start = time.perf_counter() - t0
     time.sleep(float(sys.argv[5]) if len(sys.argv) > 5 else 0)  # the design the pool starts behind
     t0 = time.perf_counter()
@@ -69,7 +69,7 @@ def main():
             (a if leg == "A" else b).append(time.perf_counter() - t0)
         same += sum(body(out / f"A{r}" / f"d{k}.cif") == body(out / f"B{r}" / f"d{k}.cif") for k in range(B))
     print(json.dumps({"tokens": int(f["padding_mask"].shape[1]), "batch": B, "rounds": rounds,
-                      "pool_start_s": round(start, 3), "first_batch_s": round(first, 3), "workers": IO.writer_pool()._max_workers,
+                      "pool_start_s": round(start, 3), "first_batch_s": round(first, 3), "workers": IO.writer_count(B),
                       "serial_s": round(statistics.median(a), 3), "pool_s": round(statistics.median(b), 3),
                       "serial_all": [round(x, 3) for x in a], "pool_all": [round(x, 3) for x in b],
                       "speedup": round(statistics.median(a) / statistics.median(b), 2),
