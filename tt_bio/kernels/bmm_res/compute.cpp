@@ -25,6 +25,8 @@
 #else
 #define BRES_SYNC() do { } while (0)
 #endif
+// BRES_FULL_TINIT / BRES_FULL_MINIT (bmm_res.SOAK, soak knobs): the TA phase switch runs the full transpose_wh_init /
+// mm_block_init (hw configure of every thread, address modes, MOP) instead of the reconfig + short init.
 
 void kernel_main() {
     constexpr uint32_t MT = get_compile_time_arg_val(0);
@@ -73,9 +75,13 @@ void kernel_main() {
         for (uint32_t r = 0; r < MT; ++r) {
             if constexpr (TA) {
                 BRES_SYNC();
+#ifdef BRES_FULL_TINIT
+                transpose_wh_init(cb_a_raw, cb_a);
+#else
                 reconfig_data_format_srca(cb_b, cb_a_raw);
                 transpose_wh_init_short(cb_a_raw);
                 PACK((pack_reconfig_data_format(cb_a)));
+#endif
                 for (uint32_t k = 0; k < KT; k += 4) {
                     const uint32_t nb = KT - k < 4 ? KT - k : 4;
                     cb_wait_front(cb_a_raw, nb);
@@ -94,9 +100,13 @@ void kernel_main() {
                     cb_push_back(cb_a, nb);
                 }
                 BRES_SYNC();
+#ifdef BRES_FULL_MINIT
+                mm_block_init(cb_a, cb_b, cb_out, TB, OG, 1, KT);
+#else
                 reconfig_data_format_srca(cb_a_raw, cb_b);
                 mm_block_init_short(cb_a, cb_b, TB, OG, 1, KT);
                 PACK((pack_reconfig_data_format(cb_out)));
+#endif
             }
             cb_wait_front(cb_a, KT);
             for (uint32_t n = 0; n < NT; n += OG) {

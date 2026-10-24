@@ -47,9 +47,10 @@ SPLIT_GROUP = 4        # a split call's transposed-a read group in tiles (comput
 #: tokens: ESMFold2-Fast 41.49 -> 42.00 s normal, 31.82 -> 32.30 s --fast, ESMFold2 --fast 54.09 -> 54.72 s.
 BRES_SPLIT = None if os.environ.get("TT_BIO_BRES_SPLIT", "").strip() == "" else env_flag("TT_BIO_BRES_SPLIT", True)
 BRES_B8 = env_flag("TT_BIO_BRES_B8", False)
-#: Drain every Tensix thread at each transpose <-> matmul switch of a transposed-a call (BRES_DRAIN in compute.cpp).
-#: A soak knob for the WH fast hang (perf/spd_m_opendde/bres_soak.py --drain); changes no number.
-DRAIN = False
+#: Soak knobs for the WH HiFi2 transposed-a hang (perf/spd_m_opendde/bres_soak.py), compute.cpp defines that change no
+#: number: BRES_DRAIN drains every Tensix thread at each transpose <-> matmul switch, BRES_FULL_TINIT / BRES_FULL_MINIT
+#: run the full transpose / matmul init there instead of the short one.
+SOAK: tuple = ()
 #: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt bf16 staged for transpose_a) + out 2 * nt tiles.
 L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
@@ -146,7 +147,7 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
         compile_time_args=[mt, kt, nb, int(ta), int(tb), ag if ns > 1 or b8 else 0, bg], runtime_args=cp,
-        defines=([("BRES_NO_MM", "1")] if abl & 1 else []) + ([("BRES_DRAIN", "1")] if DRAIN else []),
+        defines=([("BRES_NO_MM", "1")] if abl & 1 else []) + [(d, "1") for d in SOAK],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
     a_cb = cb(A_CB, kt, ttnn.bfloat16) if ta else cb(A_CB, A_DEPTH * kt, a.dtype)
     cbs = [a_cb, cb(B_CB, depth * kt * nb, ttnn.bfloat8_b if b8 else b.dtype), cb(OUT_CB, 2 * w, ttnn.bfloat16)]
@@ -210,7 +211,7 @@ def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_c
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape),
                                          ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     key = (dev.id(), tuple(sa), tuple(sb), a.dtype, b.dtype, a.memory_config().buffer_type,
-           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8, DRAIN)
+           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8, SOAK)
     if key not in _CACHE:
         _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8)
     kernels, cbs = _CACHE[key]
