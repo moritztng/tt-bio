@@ -469,9 +469,10 @@ def route_opendde_weights(state_dict):
 # per arm (spd-m-opendde th2p, 2026-10-21): normal 608 127.1 -> 124.6 s, 288 -0.33 s. WH 11-set normal grade, shipped set
 # vs + trunk_hifi2, seeds 109-112, 44 paired folds (th2g): PASS, same-seed top pose median 0.216 A (A/A floor 1.330 A),
 # CA-lDDT +0.0006 [+0.0002, +0.0013], DockQ +0.0033 [+0.0004, +0.0068], docking 26 -> 26; the confidence head reads ipTM
-# -0.018 [-0.048, -0.002] and pLDDT -0.0014. Wormhole fast does not take it: it graded PASS (608 -2.27 s, -1.9 %), but
-# with it the 608 fast set hung the device in 5 of 15 processes on Galaxy chips, without it 0 of 11 (spd-m-opendde hgd,
-# 2026-10-22). Normal has not hung at 608 with it.
+# -0.018 [-0.048, -0.002] and pLDDT -0.0014. Wormhole fast takes it too. It was dropped 10-22 because the 608 fast set
+# hung 15 of 54 processes with it; the hang was bmm_res's transposed-a call at HiFi2, which now runs at HiFi3 on Wormhole
+# (bmm_res.TA_HIFI3). With that cure 0 of 12 processes hung (cold + 6 warm each) and fast 608 read 111.7 s against 114.2 s
+# for the set without trunk_hifi2 (Galaxy chips, 1000 MHz, spd-m-opendde bta, 2026-10-24).
 # Wormhole normal runs the pair transition on bfp8 weights in one hidden chunk (transition_b8 + ws_b8_plain), as fast does:
 # trunk_hifi2 showed the four-chunk HiFi3 schedule, not its fidelity, was the cost. Galaxy chip, 1000 MHz, separate-process
 # ABBA, 2 warm folds per arm (spd-m-opendde tbp, 2026-10-21): normal 608 122.2 -> 115.7 s (-5.3 %), 288 32.2 -> 30.4 s
@@ -508,7 +509,7 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # -0.0002, docking 25 -> 24 of 44. cdk2x2 512 x 1 at 1000 MHz: 104.16 -> 101.52 s (-2.5 %). Blackhole is ungraded.
 # Wormhole fast takes DIT_SEAM too (above).
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
-                                   "trimul_t1_dram"}
+                                   "trimul_t1_dram", "trunk_hifi2"}
                   | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10)
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
