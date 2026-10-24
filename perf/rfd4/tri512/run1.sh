@@ -4,6 +4,7 @@
 #             compute only (ABL 112), DM only (527) and DM by stage (543 no z reads, 559 no gather, 591 no writes,
 #             623 neither), 512 / 384
 #   tail      the T2CM tail with GROW (main's default) against GROW off, and GROW with dm / abl skips, 512 / 384
+#             (TL=... overrides the tail legs; run1b: each compute stage skip alone under GROW)
 #   censusN   census v12, device ms a program a call (elt_prof + census_v2 + top_ops)
 #   bash perf/rfd4/tri512/run1.sh <chip> <outdir> [legs]      (run from a snapshot tree with .sha)
 set -u
@@ -18,7 +19,7 @@ exec 9>"$HOME/spd_qb2_chip$N.lock"; flock -w 7200 9 || { stamp "flock timeout"; 
 while fuser "/dev/tenstorrent/$N" > /dev/null 2>&1; do sleep 20; done
 stamp "start chip $N tree $(cat .sha 2>/dev/null)"
 G="grow=1"
-TL="$G;$G,dm=1;$G,dm=2;$G,dm=12;$G,abl=27;$G,abl=27,dm=12"
+TL=${TL:-"$G;$G,dm=1;$G,dm=2;$G,dm=12;$G,abl=27;$G,abl=27,dm=12"}
 for leg in ${3:-t1 tail census512 census384}; do
   case $leg in
     t1) timeout 1500 $PY perf/spd_trimul/in_t1.py --c 384 --hidden 256 --w8 --z8 --no-mask --reps 20 --fid HiFi2 \
