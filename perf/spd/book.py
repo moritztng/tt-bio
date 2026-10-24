@@ -23,10 +23,16 @@ Why: on 10-23 four RFD4 bookings held all of qb2 with one RFD4 process running a
 
 Why: on 10-16 the gapboard chain and a cfd3 take both claimed qb1 through renamed `sleep` sentinels; each yielded only
 to "real" legs, and three cards sat idle for hours with 21 feed jobs queued.
+
+`add` also never starts a window on a card whose flock (~/spd_<box>_cardN.lock or _chipN.lock) is held: a release-gate
+leg holds it for its whole run, including the gaps between device opens where no node is open.
+Why: on 10-24 the rfd4-bh-scaling chain read qb2 cards 0-1 as free in such a gap and took them, and two ladder legs of
+gate a06d92c6d FAILed on DeviceInUseError.
 """
 import fcntl
 import glob
 import os
+import re
 import sys
 import time
 
@@ -36,6 +42,8 @@ J = os.environ.get("SPD_FEED_JOBS", H + "/spd/feed/jobs")
 NEVER = 9999999999
 LAPSE_S = 1800
 GAP_S = 300
+LOCKS = os.environ.get("SPD_CARD_LOCKS", H + "/spd_*.lock")
+PROC_LOCKS = os.environ.get("SPD_PROC_LOCKS", "/proc/locks")
 
 
 def read(now):
@@ -90,6 +98,27 @@ def busy_now():
             continue
         if c is not None:
             out.add(c)
+    return out
+
+
+def flocked(cards):
+    """Those of `cards` whose card flock some process holds (a granted FLOCK line in /proc/locks, not a waiter's "->")."""
+    ino = {}
+    for p in glob.glob(LOCKS):
+        m = re.search(r"_(?:card|chip)(\d+)\.lock$", p)
+        try:
+            if m and int(m[1]) in cards:
+                ino[os.stat(p).st_ino] = int(m[1])
+        except OSError:
+            pass
+    out = set()
+    try:
+        for line in open(PROC_LOCKS):
+            f = line.split()
+            if len(f) > 5 and f[1] == "FLOCK" and int(f[5].rsplit(":", 1)[-1]) in ino:
+                out.add(ino[int(f[5].rsplit(":", 1)[-1])])
+    except (OSError, ValueError):
+        pass
     return out
 
 
@@ -149,7 +178,8 @@ def main(a):
         if a[0] == "add":
             owner, cards, dur = a[1], {int(c) for c in a[2].split(",")}, int(a[3])
             rows = [r for r in rows if r[2] != owner]
-            s = now if "--now" in a else earliest(rows, cards, dur, max(now, feed_end(cards)))
+            s = now if "--now" in a else earliest(rows, cards, dur, max(now, feed_end(cards),
+                                                                        now + 60 if flocked(cards) else 0))
             rows.append((s, s + dur, owner, cards, opt("--note") or ""))
             write(rows)
             print(s, s + dur)

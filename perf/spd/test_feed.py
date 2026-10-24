@@ -351,6 +351,65 @@ def test_a_waiter_held_off_by_a_booking_does_not_block_a_lower_prio_one(tmp_path
         subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])
 
 
+def test_withdraw_on_a_galaxy_sets_aside_queued_jobs_and_leaves_started_ones(tmp_path):
+    q = tmp_path / "spd/pool/queue"; q.mkdir(parents=True)
+    (q / "4-a-f-x.sh").write_text("")
+    r = subprocess.run([sys.executable, "-c", feed.WITHDRAW], input=json.dumps({"names": ["4-a-f-x.sh", "4-b-f-x.sh"],
+                       "kind": "galaxy"}) + "\n", capture_output=True, text=True, env={"HOME": str(tmp_path)}, check=True)
+    assert json.loads(r.stdout) == ["4-a-f-x.sh"]
+    assert (q / "4-a-f-x.sh.moved").exists() and not (q / "4-a-f-x.sh").exists()
+
+
+def _two_galaxies(tmp_path, monkeypatch, zero_since):
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/feed").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(GRID.format(tier="red"))
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {"7": {"owner": "spd", "phase": "lent"},
+                                                                            "3": {"owner": "spd", "phase": "lent"}}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {})
+    cs = feed.cells(tmp_path / "state/spd/grids")
+    boxes = {"ubuntu@172.16.102.7": Box(0), "ubuntu@172.16.102.3": Box(4)}
+    boxes["ubuntu@172.16.102.7"].queue = [c["name"] for c in cs]
+    (tmp_path / "state/spd/feed/ledger.json").write_text(json.dumps({c["key"]: {
+        "host": "7", "name": c["name"], "state": "queued", "hash": c["hash"], "fails": [], "row": "spd-x"} for c in cs}))
+    if zero_since is not None:
+        (tmp_path / "state/spd/feed/zero.json").write_text(json.dumps({"7": zero_since}))
+    withdrawn = []
+
+    def remote(ssh, script, payload, timeout=120):
+        b = boxes[ssh]
+        if script is feed.PROBE:
+            return b.probe(payload["paths"])
+        if script is feed.WITHDRAW:
+            assert payload["kind"] == "galaxy"
+            got = [n for n in payload["names"] if n in b.queue]
+            b.queue = [n for n in b.queue if n not in got]; withdrawn.extend(got)
+            return got
+        b.queue += [j["name"] for j in payload["jobs"]]
+        return len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    return cs, boxes, withdrawn
+
+
+def test_a_galaxy_with_no_chip_for_steal_s_hands_its_queue_to_a_pool_with_chips(tmp_path, monkeypatch):
+    # 10-24: .107's lending went off at 01:10Z and 92 feed cells waited there while .103 sat lent with 20 chips
+    cs, boxes, withdrawn = _two_galaxies(tmp_path, monkeypatch, time.time() - feed.STEAL_S - 5)
+    run(tmp_path)
+    names = sorted(c["name"] for c in cs)
+    assert sorted(withdrawn) == names
+    assert boxes["ubuntu@172.16.102.7"].queue == [] and sorted(boxes["ubuntu@172.16.102.3"].queue) == names
+    led = json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())
+    assert {L["host"] for L in led.values()} == {"3"}
+
+
+def test_a_galaxy_just_gone_to_zero_chips_keeps_its_queue(tmp_path, monkeypatch):
+    # lent chips churn: a box reading 0 for one pass gets its chips back minutes later, so the clock starts now
+    cs, boxes, withdrawn = _two_galaxies(tmp_path, monkeypatch, None)
+    run(tmp_path)
+    assert withdrawn == [] and len(boxes["ubuntu@172.16.102.7"].queue) == len(cs)
+    assert "7" in json.loads((tmp_path / "state/spd/feed/zero.json").read_text())
+
+
 def test_withdraw_kills_an_unstarted_waiter_and_sets_it_aside(tmp_path):
     jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
     w = subprocess.Popen(["setsid", "bash", "-c", "sleep 300"])
