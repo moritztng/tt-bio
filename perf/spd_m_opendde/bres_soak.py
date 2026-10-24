@@ -45,7 +45,7 @@ up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, 
                                memory_config=ttnn.DRAM_MEMORY_CONFIG)
 x, y = up(torch.randn(shape)), up(torch.randn(shape))
 ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=getattr(ttnn.MathFidelity, a.fid), fp32_dest_acc_en=True)
-tag = f"bres_soak fid={a.fid} ta={int(a.ta)} tb={int(a.tb)} soak={",".join(bmm_res.SOAK) or "-"} S={a.seq} C={a.channels}"
+tag = f"bres_soak fid={a.fid} ta={int(a.ta)} tb={int(a.tb)} soak={','.join(bmm_res.SOAK) or '-'} S={a.seq} C={a.channels}"
 
 
 def call():
