@@ -324,7 +324,8 @@ def build(names, root: Path | None = None, cache: Path | None = None) -> Path:
 # Every venv path keys its own overlay, and each carries its own JIT cache (2-10 GB once a model has run). qb2 builds
 # a venv per release candidate and kept every overlay: 53 of them, 67 GB, / at 18 GB free on 2026-10-24. A process
 # holds a shared lock on the overlay it uses for its whole life; a new overlay prunes any other nobody started in
-# PRUNE_IDLE_S and nobody holds. The JIT cache rebuilds on the next use.
+# PRUNE_IDLE_S and nobody holds. The JIT cache rebuilds on the next use. An overlay with no .lock was last used by code
+# that neither holds the lock nor stamps .complete (a Galaxy engine still on an older release), so it is never pruned.
 PRUNE_IDLE_S = 6 * 3600
 _HELD: dict[Path, object] = {}
 
@@ -354,7 +355,7 @@ def _prune(cache: Path, keep: Path) -> None:
         try:
             if now - (old / ".complete").stat().st_mtime < PRUNE_IDLE_S:
                 continue
-            lockf = open(old / ".lock", "a")
+            lockf = open(old / ".lock", "r")
         except OSError:
             continue
         with lockf:
