@@ -70,7 +70,7 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
     ``on_write(path)`` as each output lands; the CLI prints its progress from both.
     """
     from tt_bio.rfd4.engine import get_engine
-    from tt_bio.rfd4.io import featurize, resolve_inputs, write_designs, writer_pool
+    from tt_bio.rfd4.io import featurize, resolve_inputs, start_writer, write_designs
 
     check_backend(backend)
     if engine is not None and (recipe is not None or adapter is not None or tsr_k is not None):
@@ -108,8 +108,7 @@ def design(spec: str | Path, out_dir: str | Path = "designs", *, num_designs: in
         # still a valid engine for a default run.
         steering = {k: v for k, v in (("transforms", transforms), ("guidance", guidance),
                                       ("save_trajectory_every", save_trajectory_every)) if v}
-        if num_designs > 1:
-            writer_pool()  # its start-up runs while the card designs
+        start_writer(num_designs)  # its start-up runs while the card designs
         output = engine.design(features, num_designs=num_designs, nsteps=nsteps, seed=seed,
                                **steering, **sampling)
         suffixes = [""] if num_designs == 1 else [f"_{row}" for row in range(num_designs)]

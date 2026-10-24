@@ -41,14 +41,14 @@ def main():
 
     from tt_bio import rfd4
     from tt_bio.rfd4 import engine as E
-    from tt_bio.rfd4.io import writer_pool
+    from tt_bio.rfd4.io import start_writer
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     log = open(out / "ab.jsonl", "a")
     engine = E.DesignEngine(a.weights, recipe="thinking_medium")
     engine.max_parallel_samples = a.batch
-    writer_pool()
+    start_writer(a.batch)
 
     def batch(arm, seed):
         d = out / f"{arm}-s{seed}"

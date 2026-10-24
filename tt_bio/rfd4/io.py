@@ -21,7 +21,6 @@ from __future__ import annotations
 import logging
 import os
 import sys
-import time
 from collections import namedtuple
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -33,7 +32,8 @@ logger = logging.getLogger(__name__)
 #: The token length a design is padded to is decided by the engine, not here;
 #: prepare_cif pads to the example's own length and fills absent schema keys.
 __all__ = ["DesignInput", "featurize", "load_spec", "prepare_examples", "resolve_inputs",
-           "write_design", "write_designs", "writer_pool"]
+           "start_writer", "write_design", "write_designs",
+           "writer_count", "writer_pool"]
 
 
 @dataclass(frozen=True)
@@ -152,29 +152,40 @@ def write_design(output, features: dict, atom_array, path: str | Path, *, row: i
 
 #: One design of an engine output: the four fields `write_cif` reads, cut to batch 1.
 _Row = namedtuple("_Row", "coords_nm residue_type atom_mask insertion_logits")
+
+#: Most writer processes a batch gets. A write is ~0.2 s, so past this the start-up and the last
+#: straggler eat what another process would save, and a host running one engine per chip
+#: multiplies whatever this is by the number of engines.
+MAX_WRITERS = 8
+#: Memory the writer's forkserver holds (Python, torch, biotite's decoded CCD) and memory one
+#: writer adds beyond the pages it shares with the server, rounded up from pc at 224 tokens
+#: (perf/rfd4/gap224mem: ~1.66 GB and <=70 MB).
+SERVER_MIB = 1800
+WRITER_MIB = 128
 _POOL = None
 
 
-_AMINO_ACIDS = ("ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS",
-                "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL")
+def _available_mib() -> int:
+    try:
+        with open("/proc/meminfo") as f:
+            return next(int(line.split()[1]) // 1024 for line in f if line.startswith("MemAvailable:"))
+    except (OSError, StopIteration):
+        return 0
 
 
-def _warm_worker():
-    """What a worker's first write would otherwise load lazily, ~3 s: the stereo templates
-    built when the unindexing transforms import, and the CCD entry of every amino acid."""
-    import torch
-
-    from tt_bio._vendor.atomworks.io.template import get_empty_ccd_template
-    from tt_bio._vendor.rfd4_prep._cif import transforms_unindexing  # noqa: F401
-
-    torch.set_num_threads(1)
-    for code in _AMINO_ACIDS:
-        get_empty_ccd_template(code)
+def writer_count(n_designs: int, available_mib: int | None = None) -> int:
+    """How many processes write a batch of `n_designs`: one per design, at most `MAX_WRITERS` and
+    one per CPU, and only as many as fit, with the server, in half of the memory available now.
+    1 means write in this process."""
+    if available_mib is None:
+        available_mib = _available_mib()
+    fit = (available_mib // 2 - SERVER_MIB) // WRITER_MIB
+    return max(1, min(n_designs, MAX_WRITERS, os.cpu_count() or 1, fit))
 
 
 @contextmanager
 def _main_hidden():
-    """Start pool workers without re-running the caller's script: a spawned worker executes
+    """Start writer processes without re-running the caller's script: a spawned process executes
     `__main__` as `__mp_main__` before its first task, and a harness or the CLI imports the
     device stack at the top. The writer needs none of it."""
     main = sys.modules["__main__"]
@@ -187,25 +198,46 @@ def _main_hidden():
         main.__dict__.update(saved)
 
 
-def writer_pool():
-    """The worker processes `write_designs` writes on, started on the first call.
+def _context():
+    import multiprocessing
 
-    Workers come from a forkserver, so they hold none of this process's device handles or
-    threads. Starting them costs a few seconds of CPU; call this before the card runs and that
-    hides behind the design.
+    ctx = multiprocessing.get_context("forkserver")
+    ctx.set_forkserver_preload(["tt_bio.rfd4._writer_preload"])
+    return ctx
+
+
+def start_writer(n_designs: int) -> None:
+    """Start the server `write_designs` forks its writers from, if a batch of `n_designs` gets any,
+    without waiting for it.
+
+    The server loads what a write needs (`tt_bio.rfd4._writer_preload`, ~3 s) once and writers
+    fork from it, so they hold none of this process's device handles or threads and share its
+    memory. Call this before the card runs and the load hides behind the design.
     """
-    global _POOL
-    if _POOL is None:
-        import multiprocessing
-        from concurrent.futures import ProcessPoolExecutor
+    from multiprocessing import forkserver
 
-        ctx = multiprocessing.get_context("forkserver")
-        ctx.set_forkserver_preload(["tt_bio._vendor.rfd4_prep.processing"])
-        n = min(16, max(1, (os.cpu_count() or 1) - 2))
-        _POOL = ProcessPoolExecutor(n, mp_context=ctx, initializer=_warm_worker)
+    if writer_count(n_designs) > 1:
+        _context()
         with _main_hidden():
-            for _ in range(n):
-                _POOL.submit(time.sleep, 0.5)  # busy, so every submit starts a worker
+            forkserver.ensure_running()
+
+
+def writer_pool(n_designs: int):
+    """The processes a batch of `n_designs` is written on, or None to write it in this process.
+
+    Started on the first batch and kept, so later batches pay neither a fork (~20 ms a writer)
+    nor a writer's first, colder design. A larger batch replaces it with a larger pool.
+    """
+    from concurrent.futures import ProcessPoolExecutor
+
+    global _POOL
+    n = writer_count(n_designs)
+    if n == 1:
+        return None
+    if _POOL is None or _POOL._max_workers < n:
+        if _POOL is not None:
+            _POOL.shutdown(wait=False)
+        _POOL = ProcessPoolExecutor(n, mp_context=_context())  # writers start as tasks arrive
     return _POOL
 
 
@@ -214,16 +246,16 @@ def write_designs(output, features: dict, atom_array, paths) -> list[Path]:
 
     A write is ~0.2 s of single-threaded Python at 224 tokens and starts only once the card has
     finished, so a batch written one design after another adds that per design to the wall.
-    Each worker gets its own row (copied, so a view does not ship the whole batch) and the
-    padding mask, which is all `write_cif` reads from `features`. The files are identical to
-    a serial write.
+    The batch goes to `writer_pool`. Each writer gets its own row (copied, so a view does not ship
+    the whole batch) and the padding mask, which is all `write_cif` reads from `features`. The
+    files are identical to a serial write.
     """
     paths = list(paths)
-    if len(paths) <= 1:
+    pool = writer_pool(len(paths))
+    if pool is None:
         return [write_design(output, features, atom_array, p, row=k) for k, p in enumerate(paths)]
     mask = {"padding_mask": features["padding_mask"].clone()}
-    pool = writer_pool()
-    with _main_hidden():
+    with _main_hidden():  # writers start inside submit
         jobs = [pool.submit(write_design, _Row(*(getattr(output, f)[k:k + 1].detach().cpu().clone()
                                                   for f in _Row._fields)), mask, atom_array, p)
                 for k, p in enumerate(paths)]

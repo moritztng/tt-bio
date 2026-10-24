@@ -59,7 +59,7 @@ def host(monkeypatch, tmp_path):
 
     monkeypatch.setattr(rfd4_io, "write_design", write_design)
     monkeypatch.setattr(rfd4_io, "write_designs", write_designs)
-    monkeypatch.setattr(rfd4_io, "writer_pool", lambda: None)
+    monkeypatch.setattr(rfd4_io, "start_writer", lambda n: None)
     return types.SimpleNamespace(written=written, prepare_examples=prepare_examples,
                                  out=tmp_path / "designs", spec=tmp_path / "spec.yaml")
 
