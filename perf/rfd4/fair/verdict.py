@@ -78,6 +78,8 @@ def admit(r, repo):
         return r["discard"]
     if r.get("tree_dirty"):
         return "dirty tree"
+    if "trunk_passes_counted" in r and r["trunk_passes_counted"] != r["trunk_passes"]:
+        return f"work_mismatch: {r['trunk_passes_counted']} trunk passes counted, {r['trunk_passes']} scheduled"
     if not on_main(r["sha"], repo):
         return f"sha {r['sha'][:9]} is not on main"
     return None
@@ -139,7 +141,8 @@ def evidence_line(r):
     keep = ("kind", "size", "designs", "wall_s", "batch", "part", "host", "card", "aiclk_mhz", "aiclk_min_mhz",
             "aiclk_samples", "power_w", "power_w_peak", "sha", "raw", "seed", "t", "board_type",
             "foreign_cores_median", "foreign_device_holders", "host_load_per_core_median", "recipe", "steps",
-            "trunk_passes", "featurize_s", "design_s", "write_s", "lane_width")
+            "trunk_passes", "trunk_passes_counted", "trunk_blocks_counted", "decoded_counted", "digest",
+            "featurize_s", "design_s", "write_s", "lane_width")
     return {"arm": "tt-bio main", **{k: r.get(k) for k in keep}}
 
 

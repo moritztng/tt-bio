@@ -51,7 +51,7 @@ def test_an_openfold3_refold_reaches_the_grade(tmp_path):
     ref = _arm(tmp_path / "ref", "of3")
 
     graded = quality.grade_feature("unconditional", tt, ref, floor={}, n_min=1,
-                                   permutations=200, allow_no_floor=True)
+                                   permutations=200, allow_no_floor=True, allow_unbound=True)
 
     for column in OWED:
         entry = graded["metrics"][column]
@@ -77,7 +77,7 @@ def test_without_a_refold_the_same_design_reads_oracle_missing(tmp_path):
     arm = quality.load_arm([inputs, pathlib.Path(csv_path)])
 
     graded = quality.grade_feature("unconditional", arm, arm, floor={}, n_min=1,
-                                   permutations=200, allow_no_floor=True)
+                                   permutations=200, allow_no_floor=True, allow_unbound=True)
     assert graded["verdict"] == "ORACLE_MISSING"
     assert sorted(graded["missing_oracle_metrics"]) == sorted(
         OWED + ("unconditional.all_metrics_present",))
@@ -87,7 +87,7 @@ def test_an_af3_named_cache_still_reaches_the_grade(tmp_path):
     """AF3 is upstream's default oracle; teaching the reader `of3` must not cost it `af3`."""
     arm = _arm(tmp_path / "af3", "af3")
     graded = quality.grade_feature("unconditional", arm, arm, floor={}, n_min=1,
-                                   permutations=200, allow_no_floor=True)
+                                   permutations=200, allow_no_floor=True, allow_unbound=True)
     assert graded["missing_oracle_metrics"] == []
 
 

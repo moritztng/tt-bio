@@ -14,7 +14,11 @@ Two phases, one process, every line appended to `<out>/runs.jsonl`:
 
 A warm line spans what a user waits for: spec parse, featurisation, all 60 sampler steps of the
 released `thinking_medium` recipe (180 trunk passes), the decode and every CIF written. The engine
-takes its depth from the recipe and refuses a shorter one, so nothing here can do less of the work.
+takes its depth from the recipe and refuses a shorter one, and every batch checks it: the trunk counts the
+passes and block forwards that actually ran and the decoder the designs it decoded (`DesignEngine.counted`),
+and a batch whose count is not the recipe's ends the run (`work_mismatch`). Each line carries a sha256 of
+every design's decoded output (`DesignOutput.digests`) and one over the batch, so any line can be rerun on
+its seed and width and checked.
 
 Clock and contention are sampled DURING each batch, on threads, never once at a boundary:
 
@@ -35,6 +39,7 @@ A line with a `discard` reason stays in runs.jsonl for the record and never reac
 file (`verdict.py`): a contended or under-clocked run is discarded, not averaged.
 """
 import argparse
+import hashlib
 import json
 import os
 import statistics
@@ -54,6 +59,18 @@ import clocksample  # noqa: E402
 
 MIN_GAIN = 0.02
 CEILING = {128: 128, 256: 64, 512: 32}  # PROTOCOL section 4
+
+
+def per_design(total, width):
+    return total // width if total % width == 0 else round(total / width, 3)
+
+
+def work_mismatch(ran, passes, width, blocks_per_pass):
+    """Why the counted work of a `width`-design batch is not the recipe's `passes` trunk passes a design,
+    each of `blocks_per_pass` blocks, and one decode a design; None when it is."""
+    want = {"trunk_passes": passes * width, "trunk_blocks": passes * width * blocks_per_pass, "decoded": width}
+    bad = [f"{k} counted {ran[k]}, scheduled {v}" for k, v in want.items() if ran[k] != v]
+    return "; ".join(bad) or None
 
 
 class Contention:
@@ -267,11 +284,15 @@ def main():
             ex = rfd4.prepare_examples(a.spec, d / "inputs")[0]
             features, atom_array = rfd4.featurize(ex.cif, seed=seed)
             t_feat = time.perf_counter() - t0
+            c0 = engine.counted()
             o = engine.design(features, num_designs=width, nsteps=engine.spec.nsteps, seed=seed, rng="per_design")
             t_design = time.perf_counter() - t0 - t_feat
             rfd4.write_designs(o, features, atom_array, [d / f"{ex.example_id}_s{seed}_d{k}.cif" for k in range(width)])
             wall = time.perf_counter() - t0
+        c1 = engine.counted()
         size = int(features["padding_mask"].shape[-1])
+        ran = {k: c1[k] - c0[k] for k in ("trunk_passes", "trunk_blocks", "decoded")}
+        digests = o.digests()
         cs = clk.summary().get(0) or {}
         mhz = cs.get("median")
         rec = {"kind": kind, "phase": phase, "size": size, "batch": width, "lane_width": lane, "width_achieved": engine.chunk_width,
@@ -279,6 +300,10 @@ def main():
                "featurize_s": round(t_feat, 3), "design_s": round(t_design, 3),
                "write_s": round(wall - t_feat - t_design, 3), "recipe": "thinking_medium",
                "steps": engine.spec.nsteps, "trunk_passes": passes, "seed": seed, "rng": "per_design",
+               "trunk_passes_counted": per_design(ran["trunk_passes"], width),
+               "trunk_blocks_counted": per_design(ran["trunk_blocks"], width),
+               "decoded_counted": ran["decoded"],
+               "digest": hashlib.sha256("".join(digests).encode()).hexdigest(), "design_digests": digests,
                "aiclk_mhz": mhz, "aiclk_min_mhz": cs.get("min"), "aiclk_samples": cs.get("n", 0),
                "power_w": _median(clk.power.get(0)), "power_w_peak": max(clk.power.get(0) or [None]),
                "host_load_per_core_median": round(statistics.median(clk.load), 3) if clk.load else None,
@@ -296,9 +321,14 @@ def main():
             why.append(f"contended: {rec['foreign_cores_median']} foreign cores > {a.max_foreign_cores}")
         if engine.chunk_width < lane:
             why.append(f"chunked: DRAM ran width {lane} at {engine.chunk_width}")
+        short = work_mismatch(ran, passes, width, c1["blocks_per_pass"])
+        if short:
+            why.append(f"work_mismatch: {short}")
         if why:
             rec["discard"] = "; ".join(why)
         emit(rec)
+        if short:  # the no-cheat rule is checked, not assumed: a batch that ran other work than the recipe ends the cell
+            raise SystemExit(f"rfd4 fair: {short} (seed {seed}, width {width}); the cell is invalid")
         return rec
 
     # Width 1 pays the first compile of everything; it is reported, never amortised.
