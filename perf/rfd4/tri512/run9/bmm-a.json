@@ -1,0 +1,147 @@
+{
+ "arch": "Arch.BLACKHOLE",
+ "grid": [
+  11,
+  10
+ ],
+ "loadavg": [
+  "3.99",
+  "3.73",
+  "3.68"
+ ],
+ "inner": 5,
+ "reps": 5,
+ "cells": [
+  {
+   "S": 512,
+   "C": 256,
+   "St": 16,
+   "arms": [
+    {
+     "arm": "prod",
+     "ms": 1.345675199991092,
+     "ms_min": 1.3374133995966986,
+     "ms_max": 1.3543777997256257,
+     "exact_vs_prod": true,
+     "rel_l2_f64": 0.004980728299937236,
+     "speedup": 1.0
+    },
+    {
+     "arm": "perchan",
+     "ms": 1.345749200845603,
+     "ms_min": 1.3331453999853693,
+     "ms_max": 1.3769585988484323,
+     "exact_vs_prod": true,
+     "rel_l2_f64": 0.004980728299937236,
+     "speedup": 0.999945011407427
+    },
+    {
+     "arm": "plain",
+     "ms": 3.393042800598778,
+     "ms_min": 3.3926460004295222,
+     "ms_max": 3.398855800332967,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.004959858520047105,
+     "speedup": 0.3965983570126548
+    },
+    {
+     "arm": "grid11x10",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 si"
+    },
+    {
+     "arm": "grid8x8",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 1788416 B which is beyond max L1 siz"
+    },
+    {
+     "arm": "reuse_c1_k1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1788416 B which is beyond max L1 si"
+    },
+    {
+     "arm": "reuse_c1_k16",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 3355136 B which is beyond max L1 si"
+    },
+    {
+     "arm": "res",
+     "ms": 0.8987734006950632,
+     "ms_min": 0.8857603999786079,
+     "ms_max": 0.9050431996001862,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016736029933133768,
+     "speedup": 1.4972352307605221
+    },
+    {
+     "arm": "res_d1",
+     "ms": 0.910487599321641,
+     "ms_min": 0.9067685998161323,
+     "ms_max": 0.9141663991613314,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016736029933133768,
+     "speedup": 1.4779720239942726
+    },
+    {
+     "arm": "res_c64",
+     "ms": 0.925724400440231,
+     "ms_min": 0.9133250001468696,
+     "ms_max": 0.9279185993364081,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016736029933133768,
+     "speedup": 1.4536455983564356
+    },
+    {
+     "arm": "res_split",
+     "ms": 0.8903212001314387,
+     "ms_min": 0.8874638006091118,
+     "ms_max": 0.895258599484805,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016736029933133768,
+     "speedup": 1.5114491262169532
+    },
+    {
+     "arm": "res_split4",
+     "ms": 1.5272645992808975,
+     "ms_min": 1.518305399804376,
+     "ms_max": 1.5327910004998557,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016736029933133768,
+     "speedup": 0.8811015462708259
+    },
+    {
+     "arm": "res_b8",
+     "ms": 0.8910106000257656,
+     "ms_min": 0.8857563996571116,
+     "ms_max": 0.919941600295715,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016736029933133768,
+     "speedup": 1.5102796756314445
+    },
+    {
+     "arm": "res_out8",
+     "ms": 0.8037085994146764,
+     "ms_min": 0.7999752007890493,
+     "ms_max": 0.8079485996859148,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.007807652738656189,
+     "speedup": 1.6743322156452205
+    },
+    {
+     "arm": "res_abl2",
+     "ms": 0.6705513995257206,
+     "ms_min": 0.6673851996310987,
+     "ms_max": 0.6742901998222806,
+     "exact_vs_prod": false,
+     "rel_l2_f64": NaN,
+     "speedup": 2.006818867193305
+    }
+   ]
+  }
+ ],
+ "mem": "dram",
+ "transpose": "a",
+ "fid": "HiFi2",
+ "dtype": "bfp8",
+ "loadavg_end": [
+  "3.83",
+  "3.70",
+  "3.67"
+ ]
+}

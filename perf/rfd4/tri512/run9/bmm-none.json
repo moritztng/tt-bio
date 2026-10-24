@@ -1,0 +1,147 @@
+{
+ "arch": "Arch.BLACKHOLE",
+ "grid": [
+  11,
+  10
+ ],
+ "loadavg": [
+  "3.75",
+  "3.67",
+  "3.66"
+ ],
+ "inner": 5,
+ "reps": 5,
+ "cells": [
+  {
+   "S": 512,
+   "C": 256,
+   "St": 16,
+   "arms": [
+    {
+     "arm": "prod",
+     "ms": 1.3383831988903694,
+     "ms_min": 1.3351611996768042,
+     "ms_max": 1.3461120004649274,
+     "exact_vs_prod": true,
+     "rel_l2_f64": 0.0016948102308737781,
+     "speedup": 1.0
+    },
+    {
+     "arm": "perchan",
+     "ms": 1.3399884002865292,
+     "ms_min": 1.33817280002404,
+     "ms_max": 1.3464928008033894,
+     "exact_vs_prod": true,
+     "rel_l2_f64": 0.0016948102308737781,
+     "speedup": 0.9988020781405148
+    },
+    {
+     "arm": "plain",
+     "ms": 3.441901800397318,
+     "ms_min": 3.438302800350357,
+     "ms_max": 3.446532400266733,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0017140834334662626,
+     "speedup": 0.38884990813389053
+    },
+    {
+     "arm": "grid11x10",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1753600 B which is beyond max L1 si"
+    },
+    {
+     "arm": "grid8x8",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=7,y=7)] grow to 1753600 B which is beyond max L1 siz"
+    },
+    {
+     "arm": "reuse_c1_k1",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 1753600 B which is beyond max L1 si"
+    },
+    {
+     "arm": "reuse_c1_k16",
+     "error": "RuntimeError: TT_THROW @ /project/tt_metal/impl/program/program.cpp:1043: tt::exception\ninfo:\nStatically allocated circular buffers on core range [(x=0,y=0) - (x=10,y=9)] grow to 2798080 B which is beyond max L1 si"
+    },
+    {
+     "arm": "res",
+     "ms": 0.805333600146696,
+     "ms_min": 0.8048945994232781,
+     "ms_max": 0.8107557994662784,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016721631368008406,
+     "speedup": 1.6618991168958746
+    },
+    {
+     "arm": "res_d1",
+     "ms": 0.8160440003848635,
+     "ms_min": 0.8151902002282441,
+     "ms_max": 0.8197090006433427,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016721631368008406,
+     "speedup": 1.6400870519961666
+    },
+    {
+     "arm": "res_c64",
+     "ms": 0.8385906010516919,
+     "ms_min": 0.8354528006748296,
+     "ms_max": 0.8410154012381099,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016721631368008406,
+     "speedup": 1.5959911752073996
+    },
+    {
+     "arm": "res_split",
+     "ms": 0.8059305997448973,
+     "ms_min": 0.8049627998843789,
+     "ms_max": 0.8079225997789763,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016721631368008406,
+     "speedup": 1.660668051708187
+    },
+    {
+     "arm": "res_split4",
+     "ms": 1.2192905996926129,
+     "ms_min": 1.2184330000309274,
+     "ms_max": 1.2387077993480489,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016721631368008406,
+     "speedup": 1.0976736794557262
+    },
+    {
+     "arm": "res_b8",
+     "ms": 0.8006545991520397,
+     "ms_min": 0.7970316000864841,
+     "ms_max": 0.8069143994362094,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.0016721631368008406,
+     "speedup": 1.6716112045166909
+    },
+    {
+     "arm": "res_out8",
+     "ms": 0.6982420003623702,
+     "ms_min": 0.693877600133419,
+     "ms_max": 0.706681799783837,
+     "exact_vs_prod": false,
+     "rel_l2_f64": 0.007806058751923781,
+     "speedup": 1.916789878288304
+    },
+    {
+     "arm": "res_abl2",
+     "ms": 0.5798988000606187,
+     "ms_min": 0.5774242003099062,
+     "ms_max": 0.5848542001331225,
+     "exact_vs_prod": false,
+     "rel_l2_f64": NaN,
+     "speedup": 2.3079599384417833
+    }
+   ]
+  }
+ ],
+ "mem": "dram",
+ "transpose": "none",
+ "fid": "HiFi2",
+ "dtype": "bfp8",
+ "loadavg_end": [
+  "4.17",
+  "3.76",
+  "3.69"
+ ]
+}
