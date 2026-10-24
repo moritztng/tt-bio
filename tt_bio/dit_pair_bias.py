@@ -84,7 +84,6 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
                                    config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0] * n_out,
-                                       defines=([("PB_DM", str(RMS_DM))] if RMS_DM else []),
                                    config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
@@ -124,7 +123,6 @@ def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=Fals
 RMS_DIR = Path(__file__).resolve().parent / "kernels" / "pair_bias_rms"
 _R = 2         # rows i per compute step (kernels/pair_bias_rms/compute.cpp)
 _Z_DEPTH = 4   # steps of z in flight per core
-RMS_DM = 0     # bench knob (0 in every model path): 1 skips the z reads, 2 the bias writes
 
 
 def rms_weight(ws, device):
@@ -165,7 +163,7 @@ def rms_pair_bias(z, wt, eps, heads, n_out=1, fidelity=ttnn.MathFidelity.HiFi4):
     assert heads <= ho, (heads, n_out)
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, heads, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                            device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
-    key = ("rms", device.id(), B, n, c, float(eps), fidelity, n_out, heads, str(z.dtype), RMS_DM)
+    key = ("rms", device.id(), B, n, c, float(eps), fidelity, n_out, heads, str(z.dtype))
     z8 = z.dtype == ttnn.bfloat8_b
     if key not in _CACHE:
         g = device.compute_with_storage_grid_size()
@@ -196,7 +194,7 @@ def rms_pair_bias(z, wt, eps, heads, n_out=1, fidelity=ttnn.MathFidelity.HiFi4):
         src = lambda f: str(RMS_DIR / f)  # noqa: E731
         reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
                                        compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 2,
-                                       defines=([("PB_Z8", "1")] if z8 else []) + ([("PB_DM", str(RMS_DM))] if RMS_DM else []), config=ttnn.ReaderConfigDescriptor())
+                                       defines=[("PB_Z8", "1")] if z8 else [], config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                        compile_time_args=wct, runtime_args=wr, common_runtime_args=[0] * n_out,
                                        config=ttnn.WriterConfigDescriptor())

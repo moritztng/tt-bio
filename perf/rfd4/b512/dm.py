@@ -1,11 +1,11 @@
-"""outer_residual and rms_pair_bias at RFD4 trunk shapes (bfp8 z, `pair_bfp8z`): ms a call per leg, a digest of the
+"""outer_residual at RFD4 trunk shapes (bfp8 z, `pair_bfp8z`): ms a call per leg, a digest of the
 output so knob legs that keep every byte can be checked bit-identical, AICLK sampled during.
 
-    TT_VISIBLE_DEVICES=<chip> python perf/rfd4/b512/dm.py --ns 512,384 --legs "or:base;or:gran=8;or:dm=1;pb:base" --out <jsonl>
+    TT_VISIBLE_DEVICES=<chip> python perf/rfd4/b512/dm.py --ns 512,384 --legs "or:base;or:gran=8;or:dm=1;or:pjt=1" --out <jsonl>
 
-A leg is `<prog>:<k=v,...>`: or = outer_residual (gran=GRAN, dm=DM bits 1 z reads, 2 pj4 rows, 4 writes), pb =
-pjt=1 pj as [B, n, C] tiles, pjt=0 the same input reshaped to pj4 inside), pb =
-rms_pair_bias (dm=RMS_DM bits 1 z reads, 2 writes). DM legs skip work, so their digests differ by design. Legs run
+A leg is `or:<k=v,...>`: gran=GRAN, dm=DM bits (1 z reads, 2 pj rows, 4 writes), pjt=1 pj as [B, n, C] tiles,
+pjt=0 the same input reshaped to pj4 inside, no pjt a pj4 input as on main before PJ_TILES. DM legs skip work, so
+their digests differ by design. run1's rms_pair_bias legs (899dfa90a) used a knob since dropped. Legs run
 in the given order, the whole list `--rounds` times alternated; the time is the median of `--reps` x `--inner` calls.
 """
 import argparse
@@ -37,7 +37,6 @@ ensure_p300_mesh_descriptor()
 import clocksample  # noqa: E402
 import ttnn  # noqa: E402
 
-from tt_bio import dit_pair_bias as P  # noqa: E402
 from tt_bio import outer_residual as O  # noqa: E402
 from tt_bio.tenstorrent import get_device  # noqa: E402
 
@@ -58,24 +57,19 @@ def main():
         pi = up((torch.randn(1, n, c, generator=gen) * 0.7).to(torch.bfloat16), ttnn.bfloat16)
         pj = up((torch.randn(1, n, c, generator=gen) * 0.7).to(torch.bfloat16), ttnn.bfloat16)
         pj4 = ttnn.reshape(pj, (1, n, 1, c))
-        wt = P.rms_weight([torch.randn(c, 12) * 0.05, torch.randn(c, 12) * 0.05], dev)
-        inputs[n] = (z, pi, pj4, wt, pj)
+        inputs[n] = (z, pi, pj4, pj)
     legs = [l.strip() for l in a.legs.split(";") if l.strip()]
     with open(a.out, "a") as f:
         for rnd in range(a.rounds):
-            for n, (z, pi, pj4, wt, pj) in inputs.items():
+            for n, (z, pi, pj4, pj) in inputs.items():
                 for leg in legs:
                     prog, _, kv = leg.partition(":")
                     knobs = dict(x.split("=") for x in kv.split(",") if "=" in x)
-                    O.GRAN, O.DM, P.RMS_DM = int(knobs.get("gran", 4)), 0, 0
-                    if prog == "or":
-                        O.DM = int(knobs.get("dm", 0))
-                        O.PJ_TILES = knobs.get("pjt", "1") == "1"
-                        pjx = pj if "pjt" in knobs else pj4   # pjt=0: [B, n, C] reshaped inside, as the trunk on main
-                        call = lambda: O.outer_residual(z, pi, pjx)[:1]  # noqa: E731
-                    else:
-                        P.RMS_DM = int(knobs.get("dm", 0))
-                        call = lambda: P.rms_pair_bias(z, wt, 1e-5, 12, n_out=2)  # noqa: E731
+                    assert prog == "or", leg
+                    O.GRAN, O.DM = int(knobs.get("gran", 4)), int(knobs.get("dm", 0))
+                    O.PJ_TILES = knobs.get("pjt", "1") == "1"
+                    pjx = pj if "pjt" in knobs else pj4   # pjt=0: [B, n, C] reshaped inside, as the trunk on main
+                    call = lambda: O.outer_residual(z, pi, pjx)[:1]  # noqa: E731
                     with clocksample.during() as clk:
                         out = call()
                         ttnn.synchronize_device(dev)
