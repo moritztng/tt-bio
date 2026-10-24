@@ -995,12 +995,15 @@ L1_BUDGET_HIDDEN = (128, 256)
 # that died on his p300c. Cheap enough for a default arm (~15 s a grid).
 L1_BUDGET_DATA = REPO_ROOT / "examples" / "affinity_fkg.yaml"
 L1_BUDGET_MODEL = "protenix-v2"
-# fkg is ~130 tokens, too small for the trimul T1 path and most grid-derived chunk choices to engage:
-# main 6e42015fc folded 9TY2_512 differently on Blackhole's native grid and at 8x8 (0.07-0.36 A) while
-# this leg passed. So a part with more than 8x8 cores also folds the size ladder's 512-token input at
-# both grids, and the two digests must agree.
+# fkg is ~130 tokens, too small for the trimul T1 path and most grid-derived chunk choices to engage.
+# So the leg also folds the size ladder's 512-token input at the native grid and at every other real
+# part grid of the same chunk regime, and those digests must agree. The regime is the line
+# tenstorrent._apply_grid_thresholds draws (fewer than 11x10 cores retunes every chunk size for
+# Wormhole's L1), so a grid across it takes different chunk widths by design: 8x8 forced on a
+# Blackhole card folded cdk2x2_512 differently from native (0.07-0.36 A on 9TY2_512, the same split
+# on v0.21.0 with every lever off), and no Blackhole part runs 8x8. A card-dependent fold within one
+# regime (p150a 13x10 vs p300c 11x10, Galaxy 8x9 vs n300 8x8) is what this half catches.
 L1_BUDGET_WIDE_DATA = REPO_ROOT / "perf" / "size512" / "fixtures" / "cdk2x2_512.yaml"
-L1_BUDGET_WIDE_GRID = (8, 8)
 # --- nesso1 correctness leg ------------------------------------------------------
 # Nesso-1 folds nothing, so it cannot join MODELS: there is no structure to Kabsch and no
 # TM to score. Its output is eleven scalars, and the only comparison available is against
@@ -5214,6 +5217,12 @@ def _l1_budget_physical_grid() -> tuple:
     raise RuntimeError(f"could not read the compute grid: {out.stdout[-500:]} {out.stderr[-500:]}")
 
 
+def _l1_budget_small_grid(grid) -> bool:
+    """True when tenstorrent._apply_grid_thresholds puts `grid` on the small-part chunk sizes."""
+    import tt_bio.tenstorrent as tt
+    return grid[0] * grid[1] < tt.COMPUTE_GRID_X_11 * tt.COMPUTE_GRID_Y
+
+
 def _l1_budget_fold(label: str, grid, cap: int, keep: bool, data: Path = L1_BUDGET_DATA) -> dict:
     """One fold of `data` (fkg unless given) at a forced grid and/or a forced trimul chunk width."""
     out = RUN_DIR / f"l1_budget_gate_{label}"
@@ -5313,10 +5322,11 @@ def run_l1_budget_fold(keep: bool) -> list:
         legs.append((f"{grid[0]}x{grid[1]}", grid, 0))
     legs.append(("narrow", None, L1_BUDGET_CAP))
     rows = [_l1_budget_fold(label, grid, cap, keep) for label, grid, cap in legs]
-    wide = L1_BUDGET_WIDE_GRID
-    if phys != wide and wide[0] <= phys[0] and wide[1] <= phys[1]:
+    small = _l1_budget_small_grid
+    wide = [g for _lbl, g, _c in legs if g is not None and small(g) == small(phys)]
+    if wide:
         rows += [_l1_budget_fold(f"512-{label}", grid, 0, keep, data=L1_BUDGET_WIDE_DATA)
-                 for label, grid in (("native", None), (f"{wide[0]}x{wide[1]}", wide))]
+                 for label, grid in [("native", None)] + [(f"{g[0]}x{g[1]}", g) for g in wide]]
 
     # Neutrality: the clash-and-narrow fold must match the never-clashed one byte for byte.
     cold = next((r for r in rows if r["model"] == "l1-budget:native"), None)
