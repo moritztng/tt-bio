@@ -151,7 +151,9 @@ MIT-licensed and credited in the top-level LICENSE.
    the trunk passes that ran instead of deriving them from the schedule, a digest
    on every evidence line, the preregistered paired sign test on a frozen holdout
    (perf/rfd4/holdout.json, perf/rfd4/quality.py), and re-deriving a reported
-   number from the artifact it names (perf/rfd4/rebind.py). No code is vendored;
+   number from the artifact it names (perf/rfd4/rebind.py). His port also showed
+   our evaluate never wrote upstream's aggregated_metrics.csv (frac_under_* and
+   solve rates); tt_bio/rfd4/evaluate.py now does. No code is vendored;
    the implementations are ours and the files carry the reference they follow.
    Source:        github.com/magnusbauer/tt-bio, branch rfd4-experimental,
                   head 7fbfc2704 (2026-10-23)
