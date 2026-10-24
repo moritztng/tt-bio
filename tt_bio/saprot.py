@@ -210,7 +210,9 @@ _HALF_ROPE_IN1 = 5
 # (grid 8 x 8) instead of 12 over 5; the writer drops the pad heads. Same per-head values as the 5-core arm (ls116).
 # Page A/B --fast (ls133, Galaxy chip at 1000 MHz, 4 rounds x 3, mean of round mins off -> on, pcc vs fp32 delta): hHSA
 # 20.59 -> 20.30 (+0.000003), hPCSK9 21.61 -> 20.63 (-0.000001), faster in 7 of 8 rounds; normal (ls117, 2 rounds) 3 of 4,
-# pcc identical. None = Wormhole; Blackhole ungraded.
+# pcc identical. Blackhole (ls135, p300c at 1350 MHz, same protocol, hw + gelu_f32 as one arm): --fast hHSA 14.43 ->
+# 11.73 (+0.000041), hPCSK9 12.88 -> 11.70 (-0.000014), faster in 8 of 8 rounds; normal 4 of 8, not taken.
+# None = Wormhole and Blackhole --fast.
 _SAPROT_HALF_WIDE = env_flag("TT_BIO_SAPROT_HALF_WIDE", None)
 _HALF_TABLES: dict = {}
 _RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
@@ -699,7 +701,8 @@ class ESM2Attention(_SaprotLin, Module):
         from tt_bio import mm_rope, tenstorrent
         if not (self.rope_pairs and _SAPROT_HALF_ROPE):
             return None
-        wide = tenstorrent.is_wormhole() if _SAPROT_HALF_WIDE is None else _SAPROT_HALF_WIDE
+        wide = (tenstorrent.is_wormhole() or self.qkv_weight.dtype == ttnn.bfloat8_b if _SAPROT_HALF_WIDE is None
+                else _SAPROT_HALF_WIDE)
         cfg, nc = _HALF_ROPE_CFG, 8 if wide else _HALF_ROPE_IN1
         dev = lambda t, dt: ttnn.from_torch(t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
         if not hasattr(self, "qkv_half"):
@@ -898,10 +901,12 @@ _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 # 650M --fast hHSA 151.0 -> 146.1 ms (+0.000045), hPCSK9 155.2 -> 146.2 (+0.000074); normal hHSA 175.4 -> 170.2
 # (+0.000019), hPCSK9 175.3 -> 171.4 (+0.000064); 1.3B --fast hPCSK9 284.9 -> 275.7 (-0.000071), normal hHSA 337.3 ->
 # 328.2 (-0.000014); 35M --fast hHSA 29.1 -> 26.3 (-0.000011), normal hPCSK9 29.6 -> 27.6 (+0.000010).
-# None = Wormhole, and Blackhole at width >= 1280: --fast inside _bh_fast's stack, normal on top of mm_resid (alone,
+# None = Wormhole, Blackhole --fast, and Blackhole normal at width >= 1280: --fast inside _bh_fast's stack, normal on top of mm_resid (alone,
 # Blackhole normal 1.3B read pcc -0.000110 in ls124). ls125 (p300c, 1350 MHz at the plateau, 4 rounds x 3, mean of round
 # mins, mm_resid -> + gelu_f32, pcc vs fp32 delta against the old default): normal 650M hHSA 83.1 -> 78.2 ms (+0.000026),
-# hPCSK9 88.3 -> 84.5 (+0.000059), 1.3B hPCSK9 171.1 -> 166.3 (+0.000000), faster in every round.
+# hPCSK9 88.3 -> 84.5 (+0.000059), 1.3B hPCSK9 171.1 -> 166.3 (+0.000000), faster in every round. Blackhole 35M --fast
+# takes it with the wide half-pair qkv (ls135, see _SAPROT_HALF_WIDE); Blackhole normal 35M keeps the accurate GELU
+# (4 of 8 rounds faster).
 _SAPROT_GELU_F32 = env_flag("TT_BIO_SAPROT_GELU_F32", None)
 
 
@@ -909,8 +914,8 @@ def _fc1_act(w=None) -> str:
     if _SAPROT_GELU_F32 is not None:
         return "gelu_approx" if _SAPROT_GELU_F32 else "gelu"
     from tt_bio import tenstorrent
-    wide = w is not None and int(w.shape[-2]) >= _MM_RESID_MIN_WIDTH
-    return "gelu_approx" if tenstorrent.is_wormhole() or wide else "gelu"
+    bh = w is not None and (w.dtype == ttnn.bfloat8_b or int(w.shape[-2]) >= _MM_RESID_MIN_WIDTH)
+    return "gelu_approx" if tenstorrent.is_wormhole() or bh else "gelu"
 
 
 # --fast: fc1's GELU output written as block-fp8 where it goes to DRAM, the [rows, 4d] activation fc2 reads back (half
