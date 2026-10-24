@@ -182,10 +182,13 @@ class ControllerStore:
                     event_json TEXT NOT NULL,
                     created_at REAL NOT NULL
                 );
-                -- Every events() poll and create_run's delete look up one run. Without this index each
-                -- walked the table from seq `after` to its end: 56 ms at after=0 on a JapanFold agent's
-                -- 468k rows after 18 h (~25k events/h), enough to pin the controller's core and slow
-                -- served OpenDDE folds from 162 s to 218 s until the agent restarted.
+                -- A store lives as long as its agent and keeps every job and event, so each lookup
+                -- below scanned a table that grows all day. Every lease ran five such scans of jobs
+                -- under self._lock (50 ms at 2.7k jobs on a JapanFold agent after 18 h), 32 workers
+                -- polling saturated the lock, heartbeats and progress queued behind it, and served
+                -- OpenDDE folds slowed from 162 s to 218 s until the agent restarted.
+                CREATE INDEX IF NOT EXISTS jobs_worker_status ON jobs (worker_id, status);
+                CREATE INDEX IF NOT EXISTS jobs_status_lease ON jobs (status, lease_until);
                 CREATE INDEX IF NOT EXISTS events_run_seq ON events (run_id, seq);
                 """
             )
