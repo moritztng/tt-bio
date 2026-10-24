@@ -80,23 +80,25 @@ def test_half_pair_layout_on_a_five_wide_in1_axis():
                                                            (True, True, False, False)])
 @pytest.mark.parametrize("batch", [1, 7])
 @pytest.mark.parametrize("wide_switch", [None, False, True])
-def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch, wide_switch, monkeypatch):
+@pytest.mark.parametrize("fast", [False, True])
+def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch, wide_switch, fast, monkeypatch):
     """35M's fused half-pair qkv serves by default on both arches, for the rope_pairs path: over all 8 in1 cores on
-    Wormhole by default (wide), else 5 in1 cores in both grid orientations ((8, 5) once B * L > N = 1920 transposes
+    Wormhole and Blackhole --fast by default (wide), else 5 in1 cores in both grid orientations ((8, 5) once B * L > N = 1920 transposes
     minimal_matmul's grid)."""
     import types
     from tt_bio import saprot as sp
     monkeypatch.setattr(sp, "_SAPROT_HALF_ROPE", switch)
     monkeypatch.setattr(sp, "_HALF_TABLES", {})
     monkeypatch.setattr(sp, "_SAPROT_HALF_WIDE", wide_switch)
-    wide = wormhole if wide_switch is None else wide_switch
+    wide = (wormhole or fast) if wide_switch is None else wide_switch
     monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
     monkeypatch.setattr(sp.ttnn, "from_torch", lambda t, **kw: t)
     seen = []
     monkeypatch.setattr(mm_rope, "qkv_rope_heads", lambda x, w, b, cos, sin, h, cfg, grid, ck, half, ncols: seen.append(
         (tuple(w.shape), tuple(cos.shape), cfg, grid, half, ncols)) or ("q", "k", "v"))
     H, d, D = 20, 24, 480
-    attn = types.SimpleNamespace(rope_pairs=pairs, n_heads=H, head_dim=d, device=None, qkv_weight=None,
+    attn = types.SimpleNamespace(rope_pairs=pairs, n_heads=H, head_dim=d, device=None,
+                                 qkv_weight=types.SimpleNamespace(dtype=sp.ttnn.bfloat8_b if fast else sp.ttnn.bfloat16),
                                  weights={"qkv.weight": torch.randn(3 * H * d, D), "qkv.bias": torch.randn(3 * H * d)},
                                  _ck=lambda w: "ck")
     x = types.SimpleNamespace(padded_shape=(batch, 544, D))
