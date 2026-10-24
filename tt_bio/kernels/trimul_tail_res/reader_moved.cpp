@@ -34,6 +34,11 @@
 // prices a layout where a unit's stage sits in T2_SBIG-byte pages.
 // T2_ROT (fused_tail_ln_cm(rot=True)): x was written page-rotated (bmm_res.matmul(rot=)), channel c's tile (it, jt)
 // at block slot (it * St + jt + c) % (St * St) of its channel, so a unit's stage reads walk every DRAM bank.
+// T2_XNOC (trimul_tail.T2_XNOC, needs DM_DYNAMIC_NOC): 4 issues the stage reads on the NOC this kernel was not
+// configured with (the gather stays on its own).
+#ifndef T2_XNOC
+#define T2_XNOC 0
+#endif
 #ifndef T2_ROT
 #define T2_ROT 0
 #endif
@@ -141,6 +146,7 @@ void kernel_main() {
     const uint32_t stage = get_write_ptr(cb_stage);
     const uint64_t stage_noc = get_noc_addr(stage);
     constexpr uint32_t StSt = St * St;
+    const uint8_t snoc = (T2_XNOC & 4) ? 1 - noc_index : noc_index;
     for (uint32_t u = first_unit; u < first_unit + num_units; ++u) {
         const uint32_t part = u % P;
         const uint32_t blk = u / P;
@@ -156,22 +162,22 @@ void kernel_main() {
                 }
             }
             for (uint32_t c = 0; c < (T2_SBIG ? 0 : Clt * 32); ++c) {
-                const uint64_t a = sx.get_noc_addr(T2_ROT ? c * StSt + slot : page, off);
+                const uint64_t a = sx.get_noc_addr(T2_ROT ? c * StSt + slot : page, off, snoc);
                 if constexpr (T2_DMABL & 2) {
                     (void)a;
                 } else if constexpr (P == 1) {
-                    noc_async_read(a, dst, TILE_BYTES);         // the whole tile, faces in place
+                    noc_async_read(a, dst, TILE_BYTES, snoc);         // the whole tile, faces in place
                 } else if constexpr (P == 2 && T2_S1K) {
-                    noc_async_read(a, dst, 2 * PART_ROW_BYTES);  // 16 rows are two whole faces, side by side
+                    noc_async_read(a, dst, 2 * PART_ROW_BYTES, snoc);  // 16 rows are two whole faces, side by side
                 } else {
-                    noc_async_read(a, dst, PART_ROW_BYTES);
-                    noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
+                    noc_async_read(a, dst, PART_ROW_BYTES, snoc);
+                    noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES, snoc);
                 }
                 page = T2_SSTR ? (page + T2_SSTR) % (Clt * 32 * StSt) : page + StSt;
                 slot = slot + 1 == StSt ? 0 : slot + 1;
                 dst += STAGE_TILE;
             }
-            noc_async_read_barrier();
+            noc_async_read_barrier(snoc);
         }
         for (uint32_t il = 0; il < R; ++il) {
             const uint32_t i = it * 32 + part * R + il;

@@ -18,6 +18,11 @@
 #ifndef T2_WDEPTH
 #define T2_WDEPTH 2
 #endif
+// T2_XNOC (trimul_tail.T2_XNOC, needs DM_DYNAMIC_NOC): 1 issues the writes, 2 the g / z reads on the NOC this
+// kernel was not configured with.
+#ifndef T2_XNOC
+#define T2_XNOC 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -49,6 +54,7 @@ void kernel_main() {
     const uint32_t num_units = get_arg_val<uint32_t>(1);
     const uint32_t tb = get_tile_size(z_cb);      // z and the output share a format (bfp8 under pair_bfp8z)
     const uint32_t tg = get_tile_size(g_cb);      // bf16, or a bfp8 g_out (trimul_t1g8)
+    const uint8_t rnoc = (T2_XNOC & 2) ? 1 - noc_index : noc_index, wnoc = (T2_XNOC & 1) ? 1 - noc_index : noc_index;
 
     // first row tile of block b of this core; its rows follow St apart
     auto block_m = [&](uint32_t b) -> uint32_t {
@@ -67,13 +73,13 @@ void kernel_main() {
             uint32_t wm = get_write_ptr(mask_cb);
             const uint32_t tm = get_tile_size(mask_cb);
             const uint32_t jt = m % St;
-            for (uint32_t t = 0; t < Nt; ++t, wm += tm) noc_async_read_page(jt * Nt + t, mk, wm);
+            for (uint32_t t = 0; t < Nt; ++t, wm += tm) noc_async_read_page(jt * Nt + t, mk, wm, 0, rnoc);
         }
         for (uint32_t r = 0; r < ((T2_DMABL & 4) ? 0 : Mb); ++r, m += St) {
-            for (uint32_t t = 0; t < gt; ++t, wg += tg) noc_async_read_page(m * gt + t, g, wg);
-            for (uint32_t t = 0; t < Nt; ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz);
+            for (uint32_t t = 0; t < gt; ++t, wg += tg) noc_async_read_page(m * gt + t, g, wg, 0, rnoc);
+            for (uint32_t t = 0; t < Nt; ++t, wz += tb) noc_async_read_page(m * Nt + t, z, wz, 0, rnoc);
         }
-        noc_async_read_barrier();
+        noc_async_read_barrier(rnoc);
         cb_push_back(g_cb, Mb * gt);
         cb_push_back(z_cb, Mb * Nt);
         if constexpr (EXTRA & 4) cb_push_back(mask_cb, Nt);
@@ -83,11 +89,11 @@ void kernel_main() {
         uint32_t r = get_read_ptr(out_cb);
         for (uint32_t k = 0; k < ((T2_DMABL & 8) ? 0 : Mb); ++k, m += St) {
             for (uint32_t t = 0; t < Nt; ++t, r += tb) {
-                if constexpr (EXTRA & 8) noc_async_write_page(m * Nt + t, o, r);
-                else noc_async_write_page(m * Nt + t, z, r);
+                if constexpr (EXTRA & 8) noc_async_write_page(m * Nt + t, o, r, 0, 0, wnoc);
+                else noc_async_write_page(m * Nt + t, z, r, 0, 0, wnoc);
             }
         }
-        noc_async_writes_flushed();
+        noc_async_writes_flushed(wnoc);
         cb_pop_front(out_cb, Mb * Nt);
     };
 
@@ -97,5 +103,5 @@ void kernel_main() {
         for (; r < nblocks && r < w + T2_WDEPTH; ++r) read_block(block_m(r));
         write_block(block_m(w));
     }
-    noc_async_write_barrier();
+    noc_async_write_barrier(wnoc);
 }
