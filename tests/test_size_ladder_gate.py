@@ -991,8 +991,12 @@ def test_a_models_fragment_records_its_own_ladder(rg_fresh, tmp_path):
                                 "commit": "3880fe8f"},
         "rf3", {"runtime_s": {"256": 51.6}})
     frag = json.loads((tmp_path / "size_ladder_baseline.d" / "rf3.json").read_text())
-    assert frag["rungs"] == list(rg_fresh._size_ladder_model_rungs("rf3"))
     assert 1088 in frag["rungs"]
+    # and every board's top rungs, whichever board recorded: a p300c pass writing only its own
+    # ladder dropped the 1152-1536 rungs the p150a and Galaxy cells in the same file are walked at
+    for card in rg_fresh.SIZE_LADDER_CARD_RUNGS:
+        assert set(rg_fresh._size_ladder_model_rungs("rf3", card=card)) <= set(frag["rungs"]), card
+    assert frag["rungs"] == sorted(frag["rungs"])
 
 
 def test_an_extra_rung_belongs_to_one_model_only(rg_fresh):
