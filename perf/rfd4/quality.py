@@ -40,6 +40,7 @@ import numpy as np
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import geometry  # noqa: E402
 import metrics as mspec  # noqa: E402
+import rebind as rebinding  # noqa: E402
 import stats  # noqa: E402
 
 QUALITY_JSON = pathlib.Path("/home/moritz/.coworker/state/rfd4/QUALITY.json")
@@ -198,6 +199,9 @@ def grade_feature(
     permutations: int = stats.DEFAULT_PERMUTATIONS,
     allow_no_oracle: bool = False,
     allow_no_floor: bool = False,
+    shas: dict | None = None,
+    allow_unbound: bool = False,
+    repo=".",
 ) -> dict:
     result: dict = {"n": min(tt["n"], ref["n"]), "n_tt": tt["n"], "n_ref": ref["n"], "metrics": {}}
     notes: list[str] = []
@@ -210,6 +214,16 @@ def grade_feature(
         result["metrics"][column] = entry
         if entry.get("missing"):
             notes.append(f"{column}: {'no oracle run' if needs_oracle else 'column absent on both arms'}")
+
+    # Every headline number re-derived from the CIF it claims to come from, each design counted once,
+    # each arm's source commit on main. A number that does not match its artifact is not evidence.
+    shas = shas or {}
+    result["rebinding"] = {name: rebinding.check_arm(arm, shas.get(name), repo, allow_unbound)
+                           for name, arm in (("tt", tt), ("ref", ref))}
+    rebind_failed = [n for n, r in result["rebinding"].items() if r["verdict"] != "BOUND"]
+    for name in rebind_failed:
+        notes.append(f"{name} arm not bound to its artifacts: "
+                     + "; ".join(result["rebinding"][name]["reasons"]))
 
     result["diversity"] = _grade_diversity(tt, ref)
     graded = [m for m in result["metrics"].values() if not m.get("missing")]
@@ -239,6 +253,8 @@ def grade_feature(
 
     if not graded or all_filtered:
         result["verdict"] = "NO_DATA"
+    elif rebind_failed:
+        result["verdict"] = "REBIND_FAILED"
     elif failed:
         result["verdict"] = "FAIL"
     elif any("n below" in n for n in notes):
@@ -457,7 +473,7 @@ def overall_verdict(doc: dict) -> str:
     verdicts = {f.get("verdict") for f in feats.values()}
     if verdicts == {"PASS"}:
         return "PASS"
-    for v in ("FAIL", "NO_DATA", "NO_FLOOR", "ORACLE_MISSING", "INSUFFICIENT_N"):
+    for v in ("FAIL", "NO_DATA", "REBIND_FAILED", "NO_FLOOR", "ORACLE_MISSING", "INSUFFICIENT_N"):
         if v in verdicts:
             return v
     return "FAIL"
@@ -497,6 +513,13 @@ def main(argv=None) -> int:
                    help="grade on the oracle-free columns only; the family can then PASS without a refold")
     g.add_argument("--allow-no-floor", action="store_true",
                    help="grade without a calibrated seed floor; every bar is then the bare p-value")
+    g.add_argument("--tt-sha", default=None, help="the commit the TT arm's designs were generated on")
+    g.add_argument("--ref-sha", default=None, help="the commit the reference arm's designs were generated on")
+    g.add_argument("--allow-unbound", action="store_true",
+                   help="grade arms whose source commit is unknown; the numbers are still re-derived "
+                        "from the CIFs, but nothing ties them to the code that wrote them")
+    g.add_argument("--repo", default=str(pathlib.Path(__file__).resolve().parents[2]),
+                   help="the tt-bio checkout whose origin/main a source commit must be on")
     g.add_argument("--label", default=None, help="what the TT arm is (a lever name, a sha)")
     g.add_argument("--out", default=str(QUALITY_JSON))
 
@@ -577,7 +600,9 @@ def main(argv=None) -> int:
 
     tt, ref = load_arm(args.tt, args.chain), load_arm(args.ref, args.chain)
     res = grade_feature(args.feature, tt, ref, doc.get("seed_floor") or {}, args.n_min,
-                        args.permutations, args.allow_no_oracle, args.allow_no_floor)
+                        args.permutations, args.allow_no_oracle, args.allow_no_floor,
+                        shas={"tt": args.tt_sha, "ref": args.ref_sha}, allow_unbound=args.allow_unbound,
+                        repo=args.repo)
     res["allow_no_oracle"] = args.allow_no_oracle
     res["allow_no_floor"] = args.allow_no_floor
     res["label"] = args.label
