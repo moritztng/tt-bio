@@ -19,6 +19,11 @@ counts. The seed is part of the design's identity, not a knob.
 from __future__ import annotations
 
 import logging
+import os
+import sys
+import time
+from collections import namedtuple
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -28,7 +33,7 @@ logger = logging.getLogger(__name__)
 #: The token length a design is padded to is decided by the engine, not here;
 #: prepare_cif pads to the example's own length and fills absent schema keys.
 __all__ = ["DesignInput", "featurize", "load_spec", "prepare_examples", "resolve_inputs",
-           "write_design"]
+           "write_design", "write_designs", "writer_pool"]
 
 
 @dataclass(frozen=True)
@@ -143,3 +148,83 @@ def write_design(output, features: dict, atom_array, path: str | Path, *, row: i
     path = Path(path).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
     return Path(write_cif(output, features, atom_array, path, row=row))
+
+
+#: One design of an engine output: the four fields `write_cif` reads, cut to batch 1.
+_Row = namedtuple("_Row", "coords_nm residue_type atom_mask insertion_logits")
+_POOL = None
+
+
+_AMINO_ACIDS = ("ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS", "ILE", "LEU", "LYS",
+                "MET", "PHE", "PRO", "SER", "THR", "TRP", "TYR", "VAL")
+
+
+def _warm_worker():
+    """What a worker's first write would otherwise load lazily, ~3 s: the stereo templates
+    built when the unindexing transforms import, and the CCD entry of every amino acid."""
+    import torch
+
+    from tt_bio._vendor.atomworks.io.template import get_empty_ccd_template
+    from tt_bio._vendor.rfd4_prep._cif import transforms_unindexing  # noqa: F401
+
+    torch.set_num_threads(1)
+    for code in _AMINO_ACIDS:
+        get_empty_ccd_template(code)
+
+
+@contextmanager
+def _main_hidden():
+    """Start pool workers without re-running the caller's script: a spawned worker executes
+    `__main__` as `__mp_main__` before its first task, and a harness or the CLI imports the
+    device stack at the top. The writer needs none of it."""
+    main = sys.modules["__main__"]
+    saved = {k: main.__dict__[k] for k in ("__file__", "__spec__") if k in main.__dict__}
+    main.__dict__.pop("__file__", None)
+    main.__spec__ = None
+    try:
+        yield
+    finally:
+        main.__dict__.update(saved)
+
+
+def writer_pool():
+    """The worker processes `write_designs` writes on, started on the first call.
+
+    Workers come from a forkserver, so they hold none of this process's device handles or
+    threads. Starting them costs a few seconds of CPU; call this before the card runs and that
+    hides behind the design.
+    """
+    global _POOL
+    if _POOL is None:
+        import multiprocessing
+        from concurrent.futures import ProcessPoolExecutor
+
+        ctx = multiprocessing.get_context("forkserver")
+        ctx.set_forkserver_preload(["tt_bio._vendor.rfd4_prep.processing"])
+        n = min(16, max(1, (os.cpu_count() or 1) - 2))
+        _POOL = ProcessPoolExecutor(n, mp_context=ctx, initializer=_warm_worker)
+        with _main_hidden():
+            for _ in range(n):
+                _POOL.submit(time.sleep, 0.5)  # busy, so every submit starts a worker
+    return _POOL
+
+
+def write_designs(output, features: dict, atom_array, paths) -> list[Path]:
+    """`write_design` for rows 0..len(paths)-1 of `output`, several at a time.
+
+    A write is ~0.2 s of single-threaded Python at 224 tokens and starts only once the card has
+    finished, so a batch written one design after another adds that per design to the wall.
+    Each worker gets its own row (copied, so a view does not ship the whole batch) and the
+    padding mask, which is all `write_cif` reads from `features`. The files are identical to
+    a serial write.
+    """
+    paths = list(paths)
+    if len(paths) <= 1:
+        return [write_design(output, features, atom_array, p, row=k) for k, p in enumerate(paths)]
+    mask = {"padding_mask": features["padding_mask"].clone()}
+    pool = writer_pool()
+    with _main_hidden():
+        jobs = [pool.submit(write_design, _Row(*(getattr(output, f)[k:k + 1].detach().cpu().clone()
+                                                  for f in _Row._fields)), mask, atom_array, p)
+                for k, p in enumerate(paths)]
+    return [j.result() for j in jobs]

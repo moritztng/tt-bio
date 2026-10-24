@@ -66,7 +66,7 @@ def _stub_rfd4(monkeypatch, tmp_path, *, dram_width, per_call_s):
     rfd4 = types.SimpleNamespace(
         prepare_examples=lambda spec, d: [ex],
         featurize=lambda cif, seed: ({"padding_mask": torch.ones(1, 128)}, None),
-        write_design=lambda *a, **k: None)
+        write_design=lambda *a, **k: None, write_designs=lambda *a, **k: None)
     engine = types.SimpleNamespace(DesignEngine=Engine)
     sampler = types.SimpleNamespace(recycle_depths=lambda spec, n: [3] * n)
     import tt_bio
