@@ -1,0 +1,7 @@
+3929 ops, 56 T2 calls
+kernel ms median 1.668 min 1.662 max 1.677
+DEVICE BRISC KERNEL DURATION [ns] median 1.668
+DEVICE NCRISC KERNEL DURATION [ns] median 1.612
+DEVICE TRISC1 KERNEL DURATION [ns] median 1.667
+56 1.668 ('GenericOpDeviceOperation', "ree-cd9b565a4/tt_bio/kernels/bmm_res/compute.cpp']")
+first 12: ['1.676', '1.677', '1.669', '1.670', '1.668', '1.670', '1.669', '1.669', '1.674', '1.667', '1.668', '1.668']
