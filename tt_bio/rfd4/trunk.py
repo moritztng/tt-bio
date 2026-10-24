@@ -155,6 +155,17 @@ class AdaptiveScale(Module):
         return out
 
 
+def _token_weights(mod):
+    """(weight dtype, matmul config) of a token-side linear: bfp8 at HiFi2 under `tok_w8` (HiFi2 covers every
+    mantissa bit a bfp8 weight carries, the bf16 activation loses its low half), else the module's own."""
+    ckc = mod.compute_kernel_config
+    if not lever("tok_w8"):
+        return mod.dtype, ckc
+    w8 = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ckc.math_approx_mode,
+                   fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
+    return ttnn.bfloat8_b, w8
+
+
 class Transition(Module):
     """`Transition` with `layer_norm=False`: linear_out(silu(gates) * x), where x and gates
     are the two halves of one [dim -> 2 * dim_inner] projection. Upstream masks the output; here
@@ -170,17 +181,19 @@ class Transition(Module):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
         inner = self.weights["swish_linear.0.weight"].shape[0] // 2
-        self.fc_x = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[:inner].t(), dtype=self.dtype)
-        self.fc_g = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[inner:].t(), dtype=self.dtype)
-        self.out_w = self.torch_to_tt("linear_out.weight", dtype=self.dtype)
+        wd, self.wckc = _token_weights(self)
+        self.fc_x = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[:inner].t(), dtype=wd)
+        self.fc_g = self.torch_to_tt("swish_linear.0.weight", transform=lambda w: w[inner:].t(), dtype=wd)
+        self.out_w = self.torch_to_tt("linear_out.weight", dtype=wd)
 
     def __call__(self, x):
-        a = self._lin(x, self.fc_x, dtype=self.dtype)
-        g = self._lin(x, self.fc_g, dtype=self.dtype, activation="silu")
+        c = self.wckc
+        a = self._lin(x, self.fc_x, dtype=self.dtype, compute_kernel_config=c)
+        g = self._lin(x, self.fc_g, dtype=self.dtype, activation="silu", compute_kernel_config=c)
         h = ttnn.multiply(g, a)
         ttnn.deallocate(a)
         ttnn.deallocate(g)
-        out = self._lin(h, self.out_w, dtype=self.dtype)
+        out = self._lin(h, self.out_w, dtype=self.dtype, compute_kernel_config=c)
         ttnn.deallocate(h)
         return out
 
@@ -251,15 +264,16 @@ class PairBiasAttention(Module):
         self.inner = inner
         self.head_dim = inner // n_heads
         self.node_norm_w = self.torch_to_tt("node_norm.weight", transform=lambda x: x, dtype=self.dtype)
-        self.q_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[:inner].t(), dtype=self.dtype)
-        self.k_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[inner:2 * inner].t(), dtype=self.dtype)
-        self.v_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[2 * inner:].t(), dtype=self.dtype)
+        wd, self.wckc = _token_weights(self)
+        self.q_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[:inner].t(), dtype=wd)
+        self.k_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[inner:2 * inner].t(), dtype=wd)
+        self.v_w = self.torch_to_tt("to_qkv.weight", transform=lambda w: w[2 * inner:].t(), dtype=wd)
         self.q_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[:inner], dtype=self.dtype)
         self.k_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[inner:2 * inner], dtype=self.dtype)
         self.v_b = self.torch_to_tt("to_qkv.bias", transform=lambda b: b[2 * inner:], dtype=self.dtype)
-        self.g_w = self.torch_to_tt("to_g.weight", dtype=self.dtype)
+        self.g_w = self.torch_to_tt("to_g.weight", dtype=wd)
         self.g_b = self.torch_to_tt("to_g.bias", transform=lambda x: x, dtype=self.dtype)
-        self.out_w = self.torch_to_tt("to_out_node.weight", dtype=self.dtype)
+        self.out_w = self.torch_to_tt("to_out_node.weight", dtype=wd)
         self.out_b = self.torch_to_tt("to_out_node.bias", transform=lambda x: x, dtype=self.dtype)
         self.qk_norm = "q_layer_norm.weight" in self.weights
         if self.qk_norm:
@@ -287,10 +301,11 @@ class PairBiasAttention(Module):
         recomputed nor freed); otherwise it is built from `z` and `pair_bias_mask`."""
         ckc = self.compute_kernel_config
         a = _rms(x, self.node_norm_w, ckc)
-        q = self._lin(a, self.q_w, bias=self.q_b, dtype=self.dtype)
-        k = self._lin(a, self.k_w, bias=self.k_b, dtype=self.dtype)
-        v = self._lin(a, self.v_w, bias=self.v_b, dtype=self.dtype)
-        g = self._lin(a, self.g_w, bias=self.g_b, dtype=self.dtype, activation="sigmoid")
+        c = self.wckc
+        q = self._lin(a, self.q_w, bias=self.q_b, dtype=self.dtype, compute_kernel_config=c)
+        k = self._lin(a, self.k_w, bias=self.k_b, dtype=self.dtype, compute_kernel_config=c)
+        v = self._lin(a, self.v_w, bias=self.v_b, dtype=self.dtype, compute_kernel_config=c)
+        g = self._lin(a, self.g_w, bias=self.g_b, dtype=self.dtype, activation="sigmoid", compute_kernel_config=c)
         ttnn.deallocate(a)
         if self.qk_norm:
             qn, kn = _rms(q, self.q_norm_w, ckc), _rms(k, self.k_norm_w, ckc)
@@ -322,7 +337,7 @@ class PairBiasAttention(Module):
         gated = ttnn.multiply(om, g)
         ttnn.deallocate(om)
         ttnn.deallocate(g)
-        out = self._lin(gated, self.out_w, bias=self.out_b, dtype=self.dtype)
+        out = self._lin(gated, self.out_w, bias=self.out_b, dtype=self.dtype, compute_kernel_config=self.wckc)
         ttnn.deallocate(gated)
         return out
 
