@@ -519,7 +519,8 @@ class PairUpdate(Module):
         if not pair_swiglu_ws.relu_eligible(z, w1, w2, ln, resid=resid):
             return None
         fid = ttnn.MathFidelity.HiFi2 if lever("pair_block_hifi2") else self.compute_kernel_config.math_fidelity
-        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid)
+        return pair_swiglu_ws.pair_relu(z, w1, b1, w2, b2, fidelity=fid, ln=ln + (EPS,), resid=resid,
+                                        fc2_lofi=lever("pair_block_fc2_lofi"))
 
     def _transition(self, z, pair_mask_c):
         """The masked transition update."""

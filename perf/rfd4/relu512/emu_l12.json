@@ -1,0 +1,309 @@
+{
+ "layer": 12,
+ "rows": 16384,
+ "mixes": [
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi4/wA",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.008831270974020658
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi4/wA",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.009601142064519393
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi4/wA",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.008831270974020658
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi4/wA",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.020954661938736442
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi4/wA",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.02382278635255886
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wA",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.00958971286193653
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wA",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.010978894850304864
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wA",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.00958971286193653
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wA",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.023065360326269692
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wA",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.026051695438205572
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wB",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.008831270974020658
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wB",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.009601142064519393
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wB",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.008831270974020658
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wB",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.020954661938736442
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "HiFi2/wB",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.02382278635255886
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wA",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.021319893957167227
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wA",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.02345954791877604
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wA",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.021319893957167227
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wA",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.03569438637628607
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wA",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.038684846641042214
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wB",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.023741617300759608
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wB",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.025980370588982227
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wB",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.023741617300759608
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wB",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.038194866673652184
+  },
+  {
+   "weights": "bfp8",
+   "fc1": "LoFi/wB",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.04140367231948501
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi4/wA",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.0033446294940716955
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi4/wA",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.004904916379190854
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi4/wA",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.004898719953253145
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi4/wA",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.023823468110514504
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi4/wA",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.024639584226941773
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wA",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.004895848557373044
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wA",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.0071613467845672235
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wA",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.007204605926621564
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wA",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.026251541844716984
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wA",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.027057811006644908
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wB",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.004772467113893459
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wB",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.007058028575495347
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wB",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.007079346345711251
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wB",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.02626653580372537
+  },
+  {
+   "weights": "bf16",
+   "fc1": "HiFi2/wB",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.027000094106840865
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wA",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.023766128557916943
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wA",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.026220118934480757
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wA",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.02630817225016919
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wA",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.04397859759195561
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wA",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.044872121959337825
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wB",
+   "fc2": "HiFi4/wA",
+   "rel_rms": 0.024406818221938003
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wB",
+   "fc2": "HiFi2/wA",
+   "rel_rms": 0.026815619832165377
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wB",
+   "fc2": "HiFi2/wB",
+   "rel_rms": 0.0269139639508152
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wB",
+   "fc2": "LoFi/wA",
+   "rel_rms": 0.04463365297422571
+  },
+  {
+   "weights": "bf16",
+   "fc1": "LoFi/wB",
+   "fc2": "LoFi/wB",
+   "rel_rms": 0.04529406178154703
+  }
+ ],
+ "x_std": 0.6069527473834023,
+ "golden": "/home/moritz/rfd4-goldens/unconditional_512/PairReprUpdate__nn_pair_update_layers_12__call0.pt",
+ "script": "perf/rfd4/relu512/mix_emu.py"
+}

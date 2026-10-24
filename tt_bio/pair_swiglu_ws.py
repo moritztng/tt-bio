@@ -261,7 +261,8 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
 
 
 @ops.fused_kernel("pair_relu")
-def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None):
+def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_weights=None, resid=None,
+              fc2_lofi=False):
     """AF2's Transition after its norm, `relu(x @ w1 + b1) @ w2 + b2`, for a bf16 TILE `x` [..., C]; a new bf16 DRAM
     tensor [..., C_out]. Weights as `relu_weights` returns them. `ln` = (gamma, beta, eps) runs the LayerNorm in the
     kernel first, as `pair_swiglu`. Same fp32 dest accumulation, the bias summed into it before the products.
@@ -273,16 +274,19 @@ def pair_relu(x, w1, b1, w2, b2, fidelity=ttnn.MathFidelity.HiFi4, ln=None, bw_w
     `x`; returns `(x, x)`.
 
     Under a tape it runs only through its entry in `taped_ttnn` (`pair_relu`), which needs `bw_weights`
-    (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run."""
+    (`relu_bw_weights`) and `ln`; otherwise it returns None and the caller's composed ops run.
+
+    `fc2_lofi` runs the second matmul alone at LoFi, the first at `fidelity`."""
     if ops.declines_under_tape("pair_relu"):
         return None
+    lofi = (("WS_FC3_LOFI", "1"),) if fc2_lofi else ()
     if resid is not None:
         # generic_op hands back a new handle over resid's buffer; the caller keeps its own two
         defines = (("WS_RESID", "1"), ("WS_RES32", "1")) + ((("WS_RES_NOCOPY", "1"),) if resid is x else ()) + (
-            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ())
+            (("WS_Z8", "1"),) if x.dtype == ttnn.bfloat8_b else ()) + lofi
         _run(x, w1, w2, fidelity, defines, SILU_POLY, ln, resid, (b1, b2))
         return resid, x
-    return _run(x, w1, w2, fidelity, (), SILU_POLY, ln, None, (b1, b2))
+    return _run(x, w1, w2, fidelity, lofi, SILU_POLY, ln, None, (b1, b2))
 
 
 def relu_weights(w1: torch.Tensor, b1: torch.Tensor, w2: torch.Tensor, b2: torch.Tensor, device,

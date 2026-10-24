@@ -1,12 +1,12 @@
 """RFD4's pair transition, the trunk's composed ops against one `pair_relu` program: ms per call and error vs float64.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/pairblock/transition.py --weights ~/rfd4-bundle --out <json> \
-        [--n 128 256 512] [--arms normal fast fused_hifi4 fused_hifi2 fused_lofi] [--tree <tt-bio checkout>]
+        [--n 128 256 512] [--arms normal fast fused_hifi4 fused_hifi2 fused_lofi fused_hifi2lofi] [--tree <tt-bio checkout>]
 
 `normal` / `fast` run `PairUpdate._transition` (LayerNorm, fc1 + relu, fc2, the pair-mask multiply) built and called
 under the trunk's NORMAL_LEVERS / FAST_LEVERS of the tree on the path (`--tree`: a checkout whose tt_bio is imported
 instead of this one's, for a lever set this branch does not carry). `fused_*` run `pair_swiglu_ws.pair_relu` with the
-LayerNorm prologue and bfp8 weights at that fidelity; with every token real the pair mask is all ones and is skipped.
+LayerNorm prologue and bfp8 weights at that fidelity (`fused_hifi2lofi`: fc1 HiFi2, fc2 LoFi); with every token real the pair mask is all ones and is skipped.
 Input: a bf16 pair stream with layer 0's checkpoint weights. Error is relative RMS on a 16384-row sample against the
 float64 transition of the same bf16 input. Time is the median over `--reps` of `--inner` back-to-back calls between
 syncs. AICLK and host load are sampled during the run.
@@ -101,7 +101,8 @@ def main():
                 else:
                     from tt_bio import pair_swiglu_ws as W
                     fid = {"hifi4": ttnn.MathFidelity.HiFi4, "hifi2": ttnn.MathFidelity.HiFi2,
-                           "lofi": ttnn.MathFidelity.LoFi}[arm.split("_")[1]]
+                           "lofi": ttnn.MathFidelity.LoFi, "hifi2lofi": ttnn.MathFidelity.HiFi2}[arm.split("_")[1]]
+                    lofi2 = arm == "fused_hifi2lofi"
                     g = lambda k: w["transition_out." + k]  # noqa: E731
                     w1, b1, w2, b2 = W.relu_weights(g("linear_1.weight").t().float(), g("linear_1.bias").float(),
                                                     g("linear_2.weight").t().float(), g("linear_2.bias").float(),
@@ -113,9 +114,9 @@ def main():
                         rows.append(dict(n=n, arm=arm, declined=True))
                         print(json.dumps(rows[-1]), flush=True)
                         continue
-                    fn = lambda: W.pair_relu(zb, w1, b1, w2, b2, fidelity=fid, ln=ln + (T.EPS,))  # noqa: E731
+                    fn = lambda: W.pair_relu(zb, w1, b1, w2, b2, fidelity=fid, ln=ln + (T.EPS,), fc2_lofi=lofi2)  # noqa: E731
                     out, ms, ms_min = timed(fn, dev, a.reps, a.inner)
-                    extra = {"weights": "bfp8", "fidelity": str(fid)}
+                    extra = {"weights": "bfp8", "fidelity": str(fid), "fc2_lofi": lofi2}
                 got = ttnn.to_torch(out).reshape(-1, 384)[:ROWS].double()
                 ttnn.deallocate(out)
                 err = float(((got - ref).pow(2).mean() / ref.pow(2).mean()).sqrt())

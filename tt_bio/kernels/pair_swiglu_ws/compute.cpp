@@ -35,6 +35,8 @@
 // is x itself, so the sum is rounded once to bfloat16 and written over x; there is no copy (c_25 is not built).
 // WS_Z8 (with WS_RES_NOCOPY; `pair_bfp8z`): x, c_5, c_20 and c_16 are bfloat8_b, the sum packed straight into it; the
 // packer goes back to the bf16 hidden's format after each output group.
+// WS_FC3_LOFI (with WS_RELU; `pair_block_fc2_lofi`): fc3 alone runs at LoFi, the bfp8 weight in srcA cut to its top 5
+// significant bits, the bf16 hidden in srcB to 7; fc1 keeps the kernel's fidelity. Every fc1 init re-arms it.
 // WS_RELU_BW (that Transition's backward to its normed input): ((x @ w1 + b1 > 0) * (dy @ w2t)) @ w3 with w12 =
 // [w1 | w2^T] and w3 = w1^T, the SwiGLU program with b1 seeding fc1, a step function for the silu, and fc2 reading
 // the cotangent dy (c_23, KT tiles a row) instead of x. The hidden pre-activation is recomputed, never stored.
@@ -81,6 +83,37 @@ void seed_res(uint32_t cb_res, uint32_t in0, uint32_t in1, uint32_t K, uint32_t 
 #endif
 }
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
+
+#ifdef WS_FC3_LOFI
+// mm_block_init_short / matmul_block (api/compute/matmul.h) at a fidelity of their own instead of MATH_FIDELITY,
+// Blackhole's firmware throttle kept.
+template <MathFidelity F>
+ALWI void fc3_init(uint32_t in0, uint32_t in1, uint32_t ct, uint32_t kt) {
+    mm_block_init_short(in0, in1, false, ct, 1, kt);
+    MATH((llk_math_matmul_init<F, MM_THROTTLE>(in0, in1, false, ct, 1)));
+}
+
+template <MathFidelity F>
+ALWI void fc3_block(uint32_t in0, uint32_t in1, uint32_t i0, uint32_t i1, uint32_t ct, uint32_t kt) {
+    state_configure(in1, in0);
+    UNPACK((llk_unpack_AB_matmul(in0, in1, i0, i1, ct, 1, kt)));
+#ifdef ARCH_BLACKHOLE
+    if (*(throttle_ptr) % 2) {
+        if (throttled_mop_status != 1) {
+            MATH((llk_math_matmul_init<F, MM_THROTTLE_MAX>(in0, in1, false, ct, 1)));
+            MATH((throttled_mop_status = 1));
+        }
+        MATH((llk_math_matmul<F, MM_THROTTLE_MAX>(0, ct, 1)));
+        return;
+    }
+    if (throttled_mop_status != 0) {
+        MATH((llk_math_matmul_init<F, MM_THROTTLE>(in0, in1, false, ct, 1)));
+        MATH((throttled_mop_status = 0));
+    }
+#endif
+    MATH((llk_math_matmul<F, MM_THROTTLE>(0, ct, 1)));
+}
+#endif
 
 #ifdef WS_L1ACC
 // cb_acc holds SLOT tiles (one fp32 dest half) and every result takes all of them, N <= SLOT used. The packer and
@@ -443,7 +476,11 @@ void kernel_main() {
             for (uint32_t i = 0; i < OG; ++i) {
                 copy_tile(cb_b3, c + i, i);
             }
+#ifdef WS_FC3_LOFI
+            fc3_init<MathFidelity::LoFi>(cb_hid, cb_w3, OG, NH);
+#else
             mm_block_init_short(cb_hid, cb_w3, false, OG, 1, NH);
+#endif
             reconfig_data_format(cb_w3, cb_hid);
 #endif
 #if defined(WS_RESID) && !defined(WS_RES32)
@@ -451,7 +488,11 @@ void kernel_main() {
 #endif
 #ifndef WS_NO_FC3
             for (uint32_t k = 0; k < NH; ++k) {
+#ifdef WS_FC3_LOFI
+                fc3_block<MathFidelity::LoFi>(cb_hid, cb_w3, k, k * CT + c, OG, NH);
+#else
                 matmul_block(cb_hid, cb_w3, k, k * CT + c, 0, false, OG, 1, NH);
+#endif
             }
 #endif
 #endif
