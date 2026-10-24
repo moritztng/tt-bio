@@ -161,3 +161,29 @@ def test_no_command_offers_to_bind_another_interface():
         out = CliRunner().invoke(cli, [cmd, "--help"]).output
         assert "--listen" not in out, cmd
     assert "--lease-s" in CliRunner().invoke(cli, ["controller", "--help"]).output
+
+
+
+def test_no_lease_heartbeat_or_poll_scans_a_table_that_grows_all_day(tmp_path):
+    # A store keeps every job and event for its agent's life. A lease that scanned jobs took 50 ms after 18 h on a
+    # JapanFold agent, 32 workers saturated the lock and served folds slowed by a third. Each lookup must reach its
+    # rows through an index, including on a store opened on a file written before the indexes existed.
+    path = tmp_path / "c.sqlite3"
+    H.ControllerStore(path)
+    with H.sqlite3.connect(path) as conn:
+        for name in ("jobs_worker_status", "jobs_status_lease", "events_run_seq"):
+            conn.execute(f"DROP INDEX {name}")
+    store = H.ControllerStore(path)
+    run_id = _run(store, "x")
+    lookups = {
+        "SELECT 1 FROM jobs j WHERE j.worker_id = ? AND j.status = 'running' AND j.lease_until >= ?": ("w", 0),
+        "UPDATE jobs SET lease_until=? WHERE worker_id=? AND status='running'": (0, "w"),
+        "SELECT run_id, job_id FROM jobs WHERE status='running' AND lease_until < ? AND attempts >= ?": (0, 2),
+        "SELECT job_id FROM jobs WHERE status = 'pending' OR (status = 'running' AND lease_until < ?)": (0,),
+        "SELECT seq, event_json FROM events WHERE run_id=? AND seq>? ORDER BY seq LIMIT 500": (run_id, 0),
+    }
+    with store._connect() as conn:
+        for sql, args in lookups.items():
+            plan = " ".join(r[3] for r in conn.execute("EXPLAIN QUERY PLAN " + sql, args))
+            assert "SCAN" not in plan, (sql, plan)
+    assert [e["event"] for e in store.events(run_id, 0)["events"]] == ["run"]

@@ -18,7 +18,7 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
     monkeypatch.setattr(T, "_FAST_MODE", True)
     assert T.model_levers() == T.FAST_LEVERS
-    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln", "dit_b8", "ws_lofi"}
+    assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.FAST_LEVERS == of3.NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "dit_fuse", "edm_device", "ws_l1dest", "dit_kc", "dit_mask16", "triatt_ln", "dit_b8", "ws_lofi"}
     monkeypatch.setenv("TT_BIO_LEVERS", "fast")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == T.FAST_LEVERS
     monkeypatch.setattr(T, "_FAST_MODE", False)
@@ -263,7 +263,7 @@ def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.protenix import WS_CHAIN
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
-    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "pz_device", "dit_mod16", "triatt_q10"}
+    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "pz_device", "dit_mod16", "triatt_q10", "trunk_hifi2", "bres_ta_hifi3"}
 
 
 def test_triatt_k1_offers_the_one_k_rung_when_a_narrower_fused_q_fits(monkeypatch):

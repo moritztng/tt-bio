@@ -73,11 +73,11 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {
 # CA-lDDT -0.0002, docking 27 -> 28/44, PASS. Wormhole OpenFold3 0.167 A (floor 1.108 A), CA-lDDT +0.0024,
 # docking 21 -> 23/44, PASS; OpenBind-0 0.091 A (floor 0.642 A), CA-lDDT +0.0000, docking 27 -> 27/44, PASS
 # (state/spd/grade-wsd-*-fast.md). 512-token page fold on a p150a at 1350 MHz: OpenFold3 -0.35 s, OpenBind-0 -0.42 s.
-# dit_hifi2 (the bf16 DiT's linears at HiFi2) joins on the Wormhole 11-set fast grade of --fast + dit_hifi2 against
-# --fast, 44 paired folds per model: OpenFold3 CA-lDDT -0.0012 [-0.0029, +0.0009], docking 23 -> 22/44, PASS;
-# OpenBind-0 CA-lDDT +0.0003 [-0.0007, +0.0015], docking 27 -> 27/44, PASS. Same-seed top pose median 0.549 A
-# (floor 1.095 A) and 0.604 A (floor 0.587 A). 512-token page fold on a Galaxy chip at 1000 MHz: OpenFold3 -0.16 s,
-# OpenBind-0 -0.28 s. The DiT applies it on Wormhole only (p150a A/B was noise, ungraded there).
+# dit_hifi2 (the bf16 DiT's linears at HiFi2) graded PASS on the Wormhole fast grade and bought OpenFold3 -0.16 s,
+# OpenBind-0 -0.28 s, but it is out: the Wormhole --fast diffusion step stalled on the device in ~7 % of processes
+# (15 / 210, eager and traced alike), and a bisect of the DiT levers (hbis, 2026-10-24) hung 5 / 56 processes in the
+# arms that kept it against 0 / 58 in the arms without it. Same di/dt class as the LoFi hang: HiFi2 makes the
+# >48-core DiT matmul's MVMUL stream denser (tt-metal compute_throttle_utils.cpp).
 # dit_kc + dit_mask16 (the DiT attention's full k chunk and bf16 pair-bias mask, both Wormhole only) join on the
 # Wormhole 11-set fast grade of --fast + both against --fast, 44 paired folds per model: OpenFold3 top pose median
 # 0.267 A (floor 1.178 A), CA-lDDT +0.0001 [-0.0004, +0.0006], docking 22 -> 22/44, PASS; OpenBind-0 0.207 A (floor
@@ -101,7 +101,7 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {
 # folds of those complexes at 1343-1350 MHz, per-complex median: OpenFold3 -0.16 s, OpenBind-0 -0.28 s (trunk only,
 # so the saving holds at 1 sample). The Wormhole grade is not complete, so Wormhole leaves it out for now.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
-                               "dit_fuse", "edm_device", "ws_l1dest", "dit_hifi2", "dit_kc", "dit_mask16", "triatt_ln",
+                               "dit_fuse", "edm_device", "ws_l1dest", "dit_kc", "dit_mask16", "triatt_ln",
                                "dit_b8", "ws_lofi"}
 # Wormhole --fast adds apb_ln (the attention pair-bias projection reads the pair through the same fused LayerNorm).
 # Wormhole 11-set fast grade of --fast + apb_ln against --fast, 44 paired folds per model (whlg, 2026-10-15), PASS:
