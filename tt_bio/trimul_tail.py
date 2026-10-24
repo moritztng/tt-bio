@@ -906,6 +906,10 @@ T2_LNBLK = 1
 # T2m / T2CM g / z depth in blocks (writer_moved.cpp T2_WDEPTH, plain non-GATE form): the writer's reads run this many
 # blocks ahead of its writes. Same data in the same places, bit-identical.
 T2_WDEPTH = 2
+# T2m / T2CM data-movement placement (bench only, 0 in every model path): 0 the descriptors' defaults; else
+# (reader processor, reader NOC, writer processor, writer NOC) from T2_DMCFGS.
+T2_DMCFG = 0
+T2_DMCFGS = {1: (1, 1, 0, 0), 2: (0, 0, 1, 1), 3: (1, 0, 0, 0), 4: (1, 0, 0, 1), 5: (0, 1, 1, 0)}
 T2_KEYS = {(4, 4), (8, 8)}   # (kt, nt): c_z 128 and 256 (ESMFold2)
 # T2_FOLD (off): fold the LN's centring and gamma into Wp, LN(x) @ Wp = rstd * (x @ Wc) + beta @ Wp with
 # Wc = (I - 11^T / K) diag(gamma) Wp, so compute_ln.cpp only needs rstd and skips four of the LN's five Kt-tile
@@ -1206,14 +1210,14 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             + acc(ex[0] if EXTRA & 1 else wp) + acc(ex[1] if EXTRA & 2 else wp),
             runtime_args=rd, common_runtime_args=[0] * (8 + len(mc)),
             defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow),
-            config=ttnn.ReaderConfigDescriptor())
+            config=_t2_dmcfg(0) or ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer_moved.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, St, Mb, P, int(gate), EXTRA] + acc(g) + acc(resid)
             + acc(ex[2] if EXTRA & 4 else resid) + acc(ex[3] if EXTRA & 8 else resid),
             runtime_args=wr, common_runtime_args=[0] * 4,
             defines=_t2m_dm_defines(False) + ([("T2_WDEPTH", str(wd))] if wd != 2 else []),
-            config=ttnn.WriterConfigDescriptor())
+            config=_t2_dmcfg(2) or ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
                                         dst_full_sync_en=full)
@@ -1264,6 +1268,14 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     if EXTRA & 4:
         cbs.append(_cb(20, core_grid, 2 * nt))
     return {"kernels": [reader, writer, compute], "cbs": cbs, "mc": mc, "sems": sems}
+
+
+def _t2_dmcfg(k):
+    if not T2_DMCFG:
+        return None
+    c = T2_DMCFGS[T2_DMCFG]
+    return ttnn.DataMovementConfigDescriptor(processor=(ttnn.DataMovementProcessor.RISCV_0, ttnn.DataMovementProcessor.RISCV_1)[c[k]],
+                                             noc=(ttnn.NOC.NOC_0, ttnn.NOC.NOC_1)[c[k + 1]])
 
 
 def _t2m_dm_defines(grow):
@@ -1560,7 +1572,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, T2_WDEPTH, _t2_block(kt, nt), P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_LNBLK, T2_WDEPTH, T2_DMCFG, _t2_block(kt, nt), P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)), bool(rot))
     entry = _CACHE.get(key)
