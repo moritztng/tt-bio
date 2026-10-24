@@ -1,0 +1,192 @@
+{
+ "what": "paired fair A/B, A=main 7e7b10a95 (before pair_build in lanes), B=main 95fe840d0 (with it); qb2 chip 1 p300c, 2026-10-23T23:14-23:47Z, perf/rfd4/p256/after.sh",
+ "arms": {
+  "f128-16-16-7e7b10a95-1": [
+   {
+    "designs_per_s": 0.53212,
+    "aiclk_mhz": 1293,
+    "aiclk_min_mhz": 1225,
+    "foreign_cores_median": 1.28
+   },
+   {
+    "designs_per_s": 0.53156,
+    "aiclk_mhz": 1268,
+    "aiclk_min_mhz": 1225,
+    "foreign_cores_median": 1.36
+   },
+   {
+    "designs_per_s": 0.53179,
+    "aiclk_mhz": 1275,
+    "aiclk_min_mhz": 1193,
+    "foreign_cores_median": 1.29
+   }
+  ],
+  "f128-16-16-95fe840d0-1": [
+   {
+    "designs_per_s": 0.5611,
+    "aiclk_mhz": 1275,
+    "aiclk_min_mhz": 1237,
+    "foreign_cores_median": 1.24
+   },
+   {
+    "designs_per_s": 0.545,
+    "aiclk_mhz": 1281,
+    "aiclk_min_mhz": 1231,
+    "foreign_cores_median": 3.56
+   },
+   {
+    "designs_per_s": 0.5606,
+    "aiclk_mhz": 1275,
+    "aiclk_min_mhz": 1225,
+    "foreign_cores_median": 1.37
+   }
+  ],
+  "f256-4-4-7e7b10a95-1": [
+   {
+    "designs_per_s": 0.1425,
+    "aiclk_mhz": 1275,
+    "aiclk_min_mhz": 1243,
+    "foreign_cores_median": 4.88
+   },
+   {
+    "designs_per_s": 0.14146,
+    "aiclk_mhz": 1275,
+    "aiclk_min_mhz": 1237,
+    "foreign_cores_median": 2.39
+   },
+   {
+    "designs_per_s": 0.1315,
+    "aiclk_mhz": 1281,
+    "aiclk_min_mhz": 1231,
+    "foreign_cores_median": 6.52
+   }
+  ],
+  "f256-4-4-95fe840d0-1": [
+   {
+    "designs_per_s": 0.1549,
+    "aiclk_mhz": 1275,
+    "aiclk_min_mhz": 1243,
+    "foreign_cores_median": 1.26
+   },
+   {
+    "designs_per_s": 0.15495,
+    "aiclk_mhz": 1281,
+    "aiclk_min_mhz": 1225,
+    "foreign_cores_median": 2.18
+   },
+   {
+    "designs_per_s": 0.15446,
+    "aiclk_mhz": 1262,
+    "aiclk_min_mhz": 1231,
+    "foreign_cores_median": 1.31
+   }
+  ],
+  "f256-8-4-7e7b10a95-1": [
+   {
+    "designs_per_s": 0.14769,
+    "aiclk_mhz": 1243,
+    "aiclk_min_mhz": 1143,
+    "foreign_cores_median": 2.91
+   },
+   {
+    "designs_per_s": 0.14731,
+    "aiclk_mhz": 1256,
+    "aiclk_min_mhz": 1162,
+    "foreign_cores_median": 3.16
+   },
+   {
+    "designs_per_s": 0.14887,
+    "aiclk_mhz": 1262,
+    "aiclk_min_mhz": 1218,
+    "foreign_cores_median": 1.62
+   }
+  ],
+  "f256-8-4-7e7b10a95-2": [
+   {
+    "designs_per_s": 0.09636,
+    "aiclk_mhz": 1300,
+    "aiclk_min_mhz": 1212,
+    "foreign_cores_median": 0.87
+   },
+   {
+    "designs_per_s": 0.14005,
+    "aiclk_mhz": 1281,
+    "aiclk_min_mhz": 1237,
+    "foreign_cores_median": 3.06
+   },
+   {
+    "designs_per_s": 0.15024,
+    "aiclk_mhz": 1268,
+    "aiclk_min_mhz": 1231,
+    "foreign_cores_median": 1.88
+   }
+  ],
+  "f256-8-4-95fe840d0-1": [
+   {
+    "designs_per_s": 0.15796,
+    "aiclk_mhz": 1237,
+    "aiclk_min_mhz": 1206,
+    "foreign_cores_median": 1.44
+   },
+   {
+    "designs_per_s": 0.15748,
+    "aiclk_mhz": 1243,
+    "aiclk_min_mhz": 1162,
+    "foreign_cores_median": 2.84
+   },
+   {
+    "designs_per_s": 0.1568,
+    "aiclk_mhz": 1250,
+    "aiclk_min_mhz": 1181,
+    "foreign_cores_median": 2.53
+   }
+  ],
+  "f256-8-4-95fe840d0-2": [
+   {
+    "designs_per_s": 0.15777,
+    "aiclk_mhz": 1250,
+    "aiclk_min_mhz": 1143,
+    "foreign_cores_median": 3.25
+   },
+   {
+    "designs_per_s": 0.14315,
+    "aiclk_mhz": 1250,
+    "aiclk_min_mhz": 1206,
+    "foreign_cores_median": 3.67
+   },
+   {
+    "designs_per_s": 0.15661,
+    "aiclk_mhz": 1250,
+    "aiclk_min_mhz": 1212,
+    "foreign_cores_median": 2.03
+   }
+  ]
+ },
+ "pooled_median": {
+  "256_b8_lw4": {
+   "A_dps": 0.1475,
+   "B_dps": 0.15714,
+   "speedup": 1.065,
+   "A_s_per_design": 6.78,
+   "B_s_per_design": 6.364
+  },
+  "256_b4_lw4": {
+   "A_dps": 0.14146,
+   "B_dps": 0.1549,
+   "speedup": 1.095,
+   "A_s_per_design": 7.069,
+   "B_s_per_design": 6.456
+  },
+  "128_b16": {
+   "A_dps": 0.53179,
+   "B_dps": 0.5606,
+   "speedup": 1.054,
+   "A_s_per_design": 1.88,
+   "B_s_per_design": 1.784
+  }
+ },
+ "aiclk_mhz_range": [
+  1237,
+  1300
+ ]
+}
