@@ -141,6 +141,25 @@ def tt_side(paths, repo):
     return per, dict(rejected)
 
 
+def host_control(path, repo, ref, cells):
+    """A control cell: an older main tree re-measured on this run's card, so the host/firmware difference to the
+    card that first measured that tree (`ref`) is separated from the code gain since. Never a fair cell."""
+    v = [r for r in jsonl(path) if admit(r, repo) is None]
+    if len(v) < MIN_BATCHES:
+        return {"status": "short", "n_clean": len(v), "raw": str(path)}
+    d = [r["designs_per_s"] for r in v]
+    c = {"size": v[0]["size"], "batch": v[0]["batch"], "lane_width": v[0].get("lane_width") or v[0]["batch"],
+         "sha": v[0]["sha"], "host": v[0]["host"], "card": v[0]["card"], "n_clean": len(v),
+         "designs_per_s": round(statistics.median(d), 5), "min": round(min(d), 5), "max": round(max(d), 5),
+         "aiclk_mhz": sorted(r["aiclk_mhz"] for r in v), "raw": str(path), "reference": ref}
+    if ref and ref.get("designs_per_s"):
+        c["host_factor"] = round(c["designs_per_s"] / ref["designs_per_s"], 3)
+    main = cells.get(c["size"])
+    if main:
+        c["code_gain"] = round(main["designs_per_s"] / c["designs_per_s"], 3)
+    return c
+
+
 def gpu_side(path):
     groups = defaultdict(list)
     for r in jsonl(path):
@@ -178,6 +197,9 @@ def main():
     ap.add_argument("--deck", help="default <state>/../biodeck/src/extra_cells.json")
     ap.add_argument("--firmware", required=True, help="the card's firmware bundle during the runs, e.g. 19.8.1 (130-core)")
     ap.add_argument("--row", help="also write rows/<ROW>.json: every measured size, gated and realistic, with r_sys")
+    ap.add_argument("--control", help="runs.jsonl of a host-control cell (an older main tree on this card)")
+    ap.add_argument("--control-ref", type=json.loads, default=None,
+                    help='JSON: that tree as first measured, e.g. {"designs_per_s": 0.04408, "what": "pc card 0"}')
     ap.add_argument("--dry", action="store_true")
     a = ap.parse_args()
     state = Path(a.state)
@@ -207,6 +229,7 @@ def main():
            "sizes": sizes, "realistic_binder_sizes": typical,
            "r_sys_formula": "32 x designs_s_p150a / (8 x designs_s_b200) = ratio / 3.5135; >= 1.00 matches a DGX B200",
            "r_sys_crossing": crossing({**sizes, **typical}), "tt_rejected_measure_lines": rejected,
+           "host_control": a.control and host_control(a.control, a.repo, a.control_ref, tt),
            "b200_source": str(gpu_path), "b200_complete": all(s in gpu for s in SIZES) and not gpu_short,
            "written": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     ev = [evidence_line(r) for s in SIZES + TYPICAL if s in tt for r in tt[s]["lines"]]
@@ -242,7 +265,7 @@ def main():
             "ratio": {s: allm[s].get("ratio") for s in meas},
             "ratio_hgx": {s: allm[s].get("ratio") and round(allm[s]["ratio"] / HGX_FACTOR, 3) for s in meas},
             "r_sys": {s: allm[s].get("r_sys") for s in meas},
-            "r_sys_crossing": out["r_sys_crossing"], "verdict": verdict, "verdict_written": out["written"]}
+            "r_sys_crossing": out["r_sys_crossing"], "host_control": out["host_control"], "verdict": verdict, "verdict_written": out["written"]}
     if a.dry:
         print(json.dumps(out, indent=1, default=str))
         print(json.dumps(full, indent=1, default=str))
@@ -309,6 +332,7 @@ def fair_md(v):
           + ("" if v["b200_complete"] else "; it is incomplete (missing sizes or fewer than 5 batches), "
              "so every ratio here is against what it has so far") + ".",
           f"TT measure lines rejected from the evidence: {v['tt_rejected_measure_lines'] or 'none'}.",
+          *control_md(v.get("host_control")),
           "", "## How these ratios can be quoted", "",
           f"Chassis: every ratio/$ prices the B200 side as a DGX B200 at ${DGX_USD:,}. The same eight B200s in an HGX "
           f"chassis cost ${HGX_USD:,} (rfd4-gpu-fair2); on that basis every ratio divides by {HGX_FACTOR:.4f}. "
@@ -317,6 +341,25 @@ def fair_md(v):
           "efficiency is owned by rfd4-bh-scaling (`state/rfd4/SCALING.md`); until it reports, x32 is an "
           "extrapolation."]
     return "\n".join(L) + "\n"
+
+
+def control_md(c):
+    if not c:
+        return []
+    if c.get("status") == "short":
+        return ["", f"Host control: {c['n_clean']} clean batches, short of {MIN_BATCHES}; no host factor."]
+    ref = c.get("reference") or {}
+    L = ["", "## Host control (not a fair cell)", "",
+         f"Main {c['sha'][:9]} re-measured at {c['size']} b{c['batch']} (lanes of {c['lane_width']}) on "
+         f"{c['host']} card {c['card']}: {c['designs_per_s']} designs/s ({c['min']}-{c['max']}, {c['n_clean']}), "
+         f"AICLK {'/'.join(str(x) for x in c['aiclk_mhz'])}."]
+    if "host_factor" in c:
+        L.append(f"The same tree read {ref['designs_per_s']} on {ref.get('what', 'the reference card')}, so this card "
+                 f"and firmware run it at {c['host_factor']}x.")
+    if "code_gain" in c:
+        L.append(f"Main as measured above is {c['code_gain']}x this tree on the same card: the code gain with the "
+                 "host held fixed.")
+    return L
 
 
 def typical_md(v):
