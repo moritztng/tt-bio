@@ -886,6 +886,9 @@ T2_ABL = 0
 # T2m / T2CM data-movement ablation (bench only, 0 in every model path): reader_moved.cpp bits 1 skip the gather's
 # L1 reads, 2 skip the stage's DRAM reads; writer_moved.cpp 4 skips the g / z reads, 8 the writes.
 T2_DMABL = 0
+# T2m / T2CM stage read size (bench only, 0 in every model path): reader_moved.cpp reads the stage's bytes as
+# T2_SBIG-byte contiguous reads with wrong values, to price a layout with a unit's stage in large pages.
+T2_SBIG = 0
 # T2m / T2CM gather grouping (A/B knob, on in production): the reader gathers a whole row's Kt - Cp x tiles under
 # one read barrier into a two-row input CB instead of one tile a barrier into a two-tile CB. Taken only where the
 # larger CB fits at the block and parts chosen without it, so eligibility, Mb and P are unchanged and the output is
@@ -1251,7 +1254,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
 
 
 def _t2m_dm_defines(grow):
-    return [(k, str(int(v))) for k, v in (("T2_DMABL", T2_DMABL), ("T2_GROW", grow), ("T2_S1K", T2_S1K)) if v]
+    return [(k, str(int(v))) for k, v in (("T2_DMABL", T2_DMABL), ("T2_GROW", grow), ("T2_S1K", T2_S1K),
+                                              ("T2_SBIG", T2_SBIG)) if v]
 
 
 def _t2_grow_fits(kt, nt, Mb, gate, cp, P, extra):
@@ -1341,7 +1345,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG,
            None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
            _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)))
     entry = _CACHE.get(key)
@@ -1542,7 +1546,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)))
     entry = _CACHE.get(key)

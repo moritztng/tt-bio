@@ -29,6 +29,12 @@
 #ifndef T2_S1K
 #define T2_S1K 0
 #endif
+// T2_SBIG (bench only, 0 in every model path): the stage reads its bytes as T2_SBIG-byte reads of contiguous DRAM,
+// read k of unit u at tile page (u * reads + k) % 2048, so the reads rotate over the banks. The values are wrong; this
+// prices a layout where a unit's stage sits in T2_SBIG-byte pages.
+#ifndef T2_SBIG
+#define T2_SBIG 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -132,7 +138,13 @@ void kernel_main() {
         {
             uint32_t page = it * St + jt, dst = stage;
             const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
-            for (uint32_t c = 0; c < Clt * 32; ++c) {
+            if constexpr (T2_SBIG) {
+                constexpr uint32_t NR = Clt * 32 * STAGE_TILE / T2_SBIG;
+                for (uint32_t k = 0; k < NR; ++k) {
+                    noc_async_read(sx.get_noc_addr((u * NR + k) % 2048), stage + k * T2_SBIG, T2_SBIG);
+                }
+            }
+            for (uint32_t c = 0; c < (T2_SBIG ? 0 : Clt * 32); ++c) {
                 const uint64_t a = sx.get_noc_addr(page, off);
                 if constexpr (T2_DMABL & 2) {
                     (void)a;
