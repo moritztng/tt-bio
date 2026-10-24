@@ -10982,6 +10982,39 @@ class TriangleMultiplication(Module):
                      and H >= _trimul_tail.MIN_N and add_to_input and not ops.taping()
                      and self.p_out_bias is None and _trimul_tail.t2cm_fit(self.out_p_weight) is None))
         tma_key = ("tma", H, batch, self._hidden, bool(self.ending))
+
+        def rows_tail_now():
+            # The row-blocked tail's test: read after the loop, and before it by `cm_rot`.
+            return (H > SEQ_LEN_MORE_CHUNKING or (x_norm_in is None and t1 is None)
+                    or keep_chunks or (tuple(shp), x.dtype) in _TRIMUL_TAIL_ROWS_SHAPES)
+
+        def moves(xc):
+            # (back_mc, one_pass, into) for channel chunk xc; see the move back below the einsum.
+            back_mc = memory_config if large_seq else ttnn.DRAM_MEMORY_CONFIG
+            one_pass = not _TRIMUL_RAW_CHANNEL_MOVES and (
+                large_seq or (_TRIMUL_BACK_ONE_PASS_L1 and _reblock.eligible_back(xc, back_mc)))
+            into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
+                    and _reblock.eligible_back(xc, back_mc))
+            return back_mc, one_pass, into
+
+        def keeps_whole(xc, into):
+            # Whether T2CM keeps xc, the whole hidden as one chunk, where it is (the move back never runs).
+            return ((into or af2) and cm_on and x_cm is None and x_out is None and c_done == 0
+                    and (g_out_fused is not None or af2) and int(xc.shape[1]) == self._hidden
+                    and _trimul_tail.t2cm_eligible(
+                        xc, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
+                        x_norm_in if af2 else g_out_fused, x_in,
+                        _mm_generic.ckc_args(self.compute_kernel_config),
+                        self.g_out_weight if af2 else None,
+                        (None, None, fused_residual[0], None) if af2 else None,
+                        own_switch=af2, stream16=cm16) is None)
+
+        def cm_rot(out):
+            # `bmm_res.matmul(rot=)`: rotate x only where RFD4's stream16 T2CM keeps it and then reads it (it
+            # reads it unless the row-blocked tail takes over, decided by state fixed before this call).
+            return (cm16 and not af2 and not rows_tail_now() and _bmm_res.rot_pays(out.device(), H)
+                    and keeps_whole(out, moves(out)[2]))
+        x_cm_rot = False             # x_cm was written page-rotated (`cm_rot`)
         pre_split = None
         a_chunk = b_chunk = None
         while True:
@@ -11286,7 +11319,9 @@ class TriangleMultiplication(Module):
                         x_chunk = _bmm_res.matmul(
                             a_chunk, b_chunk,
                             compute_kernel_config=_trimul_bres_ckc(self.compute_kernel_config),
-                            transpose_a=defer_a, transpose_b=defer_b, b8=lever("trimul_bres_b8"))
+                            transpose_a=defer_a, transpose_b=defer_b, b8=lever("trimul_bres_b8"),
+                            rot=cm_rot)
+                    x_rot = x_chunk is not None and cm_rot(x_chunk)
                     if x_chunk is None:
                         x_chunk = ttnn.matmul(
                             a_chunk,
@@ -11312,13 +11347,7 @@ class TriangleMultiplication(Module):
                     # destination itself and the clone below drops out. `ttnn.permute` cannot:
                     # see `_TRIMUL_OUT_MOVE_DRAM`, where the same shortcut is a measured loss
                     # for that op's forced 64-byte stores.
-                    back_mc = memory_config if large_seq else ttnn.DRAM_MEMORY_CONFIG
-                    one_pass = not _TRIMUL_RAW_CHANNEL_MOVES and (
-                        large_seq
-                        or (_TRIMUL_BACK_ONE_PASS_L1
-                            and _reblock.eligible_back(x_chunk, back_mc)))
-                    into = (one_pass and _TRIMUL_BACK_INTO and large_seq and not host_acc and not keep_chunks
-                            and _reblock.eligible_back(x_chunk, back_mc))
+                    back_mc, one_pass, into = moves(x_chunk)
                     if (into and af2 and cm_on and x_cm is None and x_out is not None
                             and c_done + int(x_chunk.shape[1]) == self._hidden
                             and _trimul_tail.t2cm_fit(self.out_p_weight, True, _trimul_tail._extra_bits(cm_ex),
@@ -11330,17 +11359,9 @@ class TriangleMultiplication(Module):
                         continue
                     # AF2 needs no `into`: under its tape the back move is the taped permute, which
                     # a late decline below falls back to.
-                    if ((into or af2) and cm_on and x_cm is None and x_out is None and c_done == 0
-                            and (g_out_fused is not None or af2) and int(x_chunk.shape[1]) == self._hidden
-                            and _trimul_tail.t2cm_eligible(
-                                x_chunk, self.out_norm_weight, self.out_norm_bias, self.out_p_weight,
-                                x_norm_in if af2 else g_out_fused, x_in,
-                                _mm_generic.ckc_args(self.compute_kernel_config),
-                                self.g_out_weight if af2 else None,
-                                (None, None, fused_residual[0], None) if af2 else None,
-                                own_switch=af2, stream16=cm16) is None):
+                    if keeps_whole(x_chunk, into):
                         # T2CM reads this chunk where it is; the move below never runs.
-                        x_cm, cm_mc = x_chunk, back_mc
+                        x_cm, cm_mc, x_cm_rot = x_chunk, back_mc, x_rot
                         c_done += int(x_chunk.shape[1])
                         continue
                     if into:
@@ -11496,7 +11517,7 @@ class TriangleMultiplication(Module):
                 x_out, c_done, x_normed, t2m_pending = None, 0, False, None
                 if x_cm is not None:
                     ttnn.deallocate(x_cm)
-                    x_cm = None
+                    x_cm, x_cm_rot = None, False
                 if x_out_pre is not None:
                     ttnn.deallocate(x_out_pre)
                     x_out_pre = None
@@ -11572,8 +11593,7 @@ class TriangleMultiplication(Module):
         tail_key = (tuple(shp), x.dtype)
         # Under T1 there is no input norm and g_out_fused carries the gate, so only a kept-chunks
         # refusal (`keep_chunks`, which without T1 implies a row-blocked norm) sends it row-wise.
-        rows_tail = (H > SEQ_LEN_MORE_CHUNKING or (x_norm_in is None and t1 is None)
-                     or keep_chunks or tail_key in _TRIMUL_TAIL_ROWS_SHAPES)
+        rows_tail = rows_tail_now()
         if rows_tail and (x_norm_in is not None or t1 is not None):
             # x_norm_in is dead on the row-blocked tail path (both norms are
             # recomputed per row block from x_in). Freeing it before the concat
@@ -11606,7 +11626,9 @@ class TriangleMultiplication(Module):
                 fused = None if rows_tail else _trimul_tail.fused_tail_ln_cm(
                     x_cm, self.out_norm_weight, self.out_norm_bias, self.out_p_weight, g_out_fused,
                     x_in, _mm_generic.ckc_args(self.compute_kernel_config), tuple(COMPUTE_GRID_MAIN),
-                    stream16=cm16)
+                    stream16=cm16, rot=x_cm_rot)
+            # `cm_rot` rotates only an x this call serves: nothing below reads the rotated order.
+            assert fused is not None or not x_cm_rot, "trimul: a page-rotated x reached the move back"
             if fused is not None:
                 TRIMUL_GOUT_STATS[0] += 1
                 self.took_residual = cm16

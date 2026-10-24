@@ -32,6 +32,11 @@
 // T2_SBIG (bench only, 0 in every model path): the stage reads its bytes as T2_SBIG-byte reads of contiguous DRAM,
 // read k of unit u at tile page (u * reads + k) % 2048, so the reads rotate over the banks. The values are wrong; this
 // prices a layout where a unit's stage sits in T2_SBIG-byte pages.
+// T2_ROT (fused_tail_ln_cm(rot=True)): x was written page-rotated (bmm_res.matmul(rot=)), channel c's tile (it, jt)
+// at block slot (it * St + jt + c) % (St * St) of its channel, so a unit's stage reads walk every DRAM bank.
+#ifndef T2_ROT
+#define T2_ROT 0
+#endif
 #ifndef T2_SBIG
 #define T2_SBIG 0
 #endif
@@ -142,6 +147,7 @@ void kernel_main() {
         const uint32_t it = blk / St, jt = blk - (blk / St) * St;
         {
             uint32_t page = it * St + jt, dst = stage;
+            uint32_t slot = page;   // T2_ROT: channel c's block slot, (it * St + jt + c) % StSt
             const uint32_t off = (part * R / 16) * 2 * FACE_BYTES + (part * R % 16) * FACE_ROW_BYTES;
             if constexpr (T2_SBIG) {
                 constexpr uint32_t NR = Clt * 32 * STAGE_TILE / (T2_SBIG ? T2_SBIG : 1);
@@ -150,7 +156,7 @@ void kernel_main() {
                 }
             }
             for (uint32_t c = 0; c < (T2_SBIG ? 0 : Clt * 32); ++c) {
-                const uint64_t a = sx.get_noc_addr(page, off);
+                const uint64_t a = sx.get_noc_addr(T2_ROT ? c * StSt + slot : page, off);
                 if constexpr (T2_DMABL & 2) {
                     (void)a;
                 } else if constexpr (P == 1) {
@@ -162,6 +168,7 @@ void kernel_main() {
                     noc_async_read(a + FACE_BYTES, dst + PART_ROW_BYTES, PART_ROW_BYTES);
                 }
                 page = T2_SSTR ? (page + T2_SSTR) % (Clt * 32 * StSt) : page + StSt;
+                slot = slot + 1 == StSt ? 0 : slot + 1;
                 dst += STAGE_TILE;
             }
             noc_async_read_barrier();

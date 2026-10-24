@@ -1117,7 +1117,7 @@ def _extra_bits(ex):
     return sum(b for b, t in zip((1, 2, 4, 8), ex or (None,) * 4) if t is not None)
 
 
-def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None, ex=None, fold=False,
+def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved=None, ex=None, fold=False, rot=False,
               copy=None):
     """T2's program. `wg`: the GATE form. `moved` (T2m, and T2CM with c_off 0): see `fused_tail_ln`.
     `ex` (moved only) = (bp, bg, mask, out), see `fused_tail_ln_cm`. `fold`: T2_FOLD, `wp` and `ln_b`
@@ -1198,7 +1198,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             + acc(wp) + acc(wg if gate else wp) + acc(ln_w) + acc(ln_b)
             + acc(ex[0] if EXTRA & 1 else wp) + acc(ex[1] if EXTRA & 2 else wp),
             runtime_args=rd, common_runtime_args=[0] * (8 + len(mc)),
-            defines=([("T2MCAST", "1")] if mcast else []) + _t2m_dm_defines(grow), config=ttnn.ReaderConfigDescriptor())
+            defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow),
+            config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer_moved.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, St, Mb, P, int(gate), EXTRA] + acc(g) + acc(resid)
@@ -1517,7 +1518,7 @@ T2CM_MIN_P = 0
 
 
 def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, bp=None, bg=None,
-                     mask=None, out=None, prev=None, stream16=False):
+                     mask=None, out=None, prev=None, stream16=False, rot=False):
     """`fused_tail_ln` on the channel-major [1, K, S, S] x: `resid += (layer_norm(x) @ wp) *
     sigmoid(g)` with x[0, i, j, c] = xcm[0, c, i, j], `resid` written in place and returned. None when
     T2CM is off or does not cover the call; nothing has been touched then. `xcm` is not deallocated.
@@ -1530,7 +1531,8 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     earlier ones are already in x [1, S, S, K] (T2m's split, for a channel loop of several chunks).
 
     `stream16` (RFD4's pair_tail under `pair_bf16z` and `pair_tail_cm`; plain form only): `resid` is the bf16
-    pair stream, admitted at the T2_RES32 keys as `fused_tail_ln(stream16=)` is."""
+    pair stream, admitted at the T2_RES32 keys as `fused_tail_ln(stream16=)` is. `rot`: xcm was written page-rotated
+    (`bmm_res.matmul(rot=)`) and the reader undoes it; same values, same output."""
     ex = (bp, bg, mask, out)
     why = t2cm_eligible(xcm, ln_w, ln_b, wp, g, resid, ckc, wg, ex, prev, own_switch=out is not None,
                         stream16=stream16)
@@ -1550,12 +1552,12 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
            tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
-           str(t2_mm_fid(kt, nt, gate)))
+           str(t2_mm_fid(kt, nt, gate)), bool(rot))
     entry = _CACHE.get(key)
     if entry is None:
         # x is only read for the channels before c_off, so with c_off 0 xcm stands in for it.
         entry = _CACHE[key] = _build_t2(xcm, ln_w, ln_b, wp, g, resid, grid, ckc, _t2_block(kt, nt),
-                                        eps, wg=wg, moved=(xcm, c_off, P), ex=ex)
+                                        eps, wg=wg, moved=(xcm, c_off, P), ex=ex, rot=bool(rot))
     reader, writer, _ = entry["kernels"]
     a, addr = xcm.buffer_address(), lambda t, d: (t if t is not None else d).buffer_address()  # noqa: E731
     reader.common_runtime_args = [a, a if prev is None else prev[0].buffer_address(), wp.buffer_address(), addr(wg, wp), ln_w.buffer_address(),
