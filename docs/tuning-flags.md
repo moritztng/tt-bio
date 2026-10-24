@@ -954,6 +954,12 @@ The triangle multiplication's input kernel forms its gated projections in one ma
 gate's sigmoid before rounding (`trimul_t1_fgate`, RFD4's set only). The 512-token trunk goes from 22.15 to 21.71 s a
 design (1.021x, 1350 MHz, paired), 384 1.022x and 256 1.036x; the pair stream's error against float64 is unchanged,
 and the designed chain moves 2.50 A median against a 39.1 A seed-to-seed spread with the binder grade passing.
+When several designs run as one batch, the triangle multiplication writes its contraction in block-fp8, the move
+back to channel-last order reads it so and writes block-fp8 too, and the output kernel reads that (`pair_x8`,
+`pair_x8t`, RFD4's set only). The 224-token trunk at batch 10 goes from 3.98 to 3.72 s a design (1.069x, paired,
+1293 MHz median), 192 1.064x and 256 1.076x; 384 and 512 run unbatched and do not change. The pair stream's error
+against float64 goes from 0.0536 to 0.0541, and the designed chain moves 2.46 A median against a 20.9 A seed-to-seed
+spread with the binder grade passing.
 `TT_BIO_LEVERS=trimul_t1` restores fp32 numerics. The pair-transition matmul keys are reached
 only through RFD4's set, so no other model's linear changes kernel.
 
