@@ -1,0 +1,99 @@
+{
+ "n": 512,
+ "batch": 1,
+ "levers": {
+  "base": [
+   "pair_batch",
+   "pair_bf16z",
+   "pair_bfp8z",
+   "pair_bias_rms",
+   "pair_block",
+   "pair_block_hifi2",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_tail_small",
+   "pair_write_res",
+   "pair_x8",
+   "pair_x8t",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_fgate",
+   "trimul_t1_psig",
+   "trimul_t1b8",
+   "trimul_t1g8",
+   "trimul_t1w8",
+   "trimul_tail_hifi2"
+  ],
+  "stack": [
+   "dit_sigf32",
+   "pair_batch",
+   "pair_bf16z",
+   "pair_bfp8z",
+   "pair_bias_rms",
+   "pair_block",
+   "pair_block_hifi2",
+   "pair_mm",
+   "pair_mm_tr",
+   "pair_tail",
+   "pair_tail_cm",
+   "pair_tail_small",
+   "pair_write_res",
+   "pair_x8",
+   "pair_x8t",
+   "tok_recycle_mm",
+   "tok_w8",
+   "transition_b8",
+   "trimul_bres",
+   "trimul_bres_hifi2",
+   "trimul_gin",
+   "trimul_gin_hifi2",
+   "trimul_gin_w8",
+   "trimul_t1",
+   "trimul_t1_dram",
+   "trimul_t1_fgate",
+   "trimul_t1_psig",
+   "trimul_t1b8",
+   "trimul_t1g8",
+   "trimul_t1w8",
+   "trimul_tail_hifi2"
+  ]
+ },
+ "base_set": "rfd4.trunk.SDPA_FILL=False",
+ "tt_bio": "/home/ttuser/scratch/rfd4-tok512/tree-30505a30a",
+ "load_start": 2.2939453125,
+ "z_rel_rms_stack_vs_base": 0.042501203295960216,
+ "z_equal": false,
+ "t2cm_served_declined": [
+  84,
+  0
+ ],
+ "base": {
+  "pass_ms_median": 108.76,
+  "pass_ms_min": 108.477,
+  "trunk_s_per_design": 19.577
+ },
+ "stack": {
+  "pass_ms_median": 107.185,
+  "pass_ms_min": 106.884,
+  "trunk_s_per_design": 19.293
+ },
+ "paired_speedup_median": 1.0147,
+ "reps": 30,
+ "load_end": 2.580078125,
+ "aiclk": {
+  "0": {
+   "min": 1306,
+   "max": 1350,
+   "median": 1350,
+   "n": 8
+  }
+ }
+}
