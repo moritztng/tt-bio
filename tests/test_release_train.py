@@ -103,6 +103,31 @@ def test_release_commit_changes_only_the_release_files_and_keeps_the_content_key
     assert 'version = "0.15.0"' in git("show", f"{rel}:pyproject.toml")
 
 
+def test_a_cut_that_would_add_todo_reasons_to_main_refuses_but_carried_todos_cut(tmp_path, monkeypatch, capsys):
+    def git(*a):
+        return subprocess.run(["git", "-C", str(tmp_path), *a], check=True, capture_output=True,
+                              text=True).stdout.strip()
+
+    def frag(*reasons):
+        return {"cards": {"p150a": {"models": {"m": {"levers": {"256": {f"F{i}": {"reason": r}
+                                                                         for i, r in enumerate(reasons)}}}}}}}
+    git("init", "-q"), git("config", "user.email", "t@t"), git("config", "user.name", "t")
+    (tmp_path / "CHANGELOG.md").write_text(CANDIDATE)
+    (tmp_path / "docs" / "size_ladder_baseline.d").mkdir(parents=True)
+    (tmp_path / "docs" / "size_ladder_baseline.d" / "m.json").write_text(json.dumps(frag("TODO: say why", "ok")))
+    git("add", "."), git("commit", "-qm", "c")
+    sha = git("rev-parse", "HEAD")
+    monkeypatch.setattr(rt, "git", lambda *a, **k: git(*a))
+    monkeypatch.setattr(rt, "last_release", lambda: ("", ""))
+    rec = tmp_path / "rec" / "recorded" / "p150a"
+    rec.mkdir(parents=True)
+    for reasons, rc in ((("TODO: say why", "TODO: say why"), 1), (("TODO: say why", "fits"), 0)):
+        (rec / "m.json").write_text(json.dumps(frag(*reasons)))
+        assert rt.cut(sha, str(tmp_path / "gate"), "origin", True, 0, None, str(tmp_path / "rec")) == rc
+        out = capsys.readouterr().out
+        assert ("not cutting" in out and f"+1 docs/size_ladder_baseline.d/m.json: {rec / 'm.json'}" in out) == bool(rc)
+
+
 def test_a_new_head_waits_for_the_running_gate_instead_of_starting_a_second(tmp_path, monkeypatch, capsys):
     import subprocess
     started = []

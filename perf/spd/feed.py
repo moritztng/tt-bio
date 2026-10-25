@@ -97,13 +97,13 @@ def ok(p):
     p = os.path.expanduser(p)
     if any(c in p for c in "*?["):
         return any(ok(q) for q in glob.glob(p))
-    # a result file must be non-empty; a marker (`touch $O/done`, `touch $O/$arm.done`) is empty by design
+    # a result file must be non-empty; a marker (`touch $O/done`, `touch $O/$arm.done`, `touch $T.ok`) is empty by design
     # bench.py writes a "start" record before the device opens, so a bench.jsonl is done only once it holds a rep
     b = os.path.basename(p)
     if b == "bench.jsonl" and os.path.isfile(p):
         with open(p, "rb") as f:
             return b'"ev": "rep"' in f.read()
-    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in b or b.endswith(".done"))
+    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in b or b.endswith((".done", ".ok")))
             or os.path.isdir(p) and bool(os.listdir(p)))
 for p in A["paths"]:
     out["exists"][p] = ok(p)
@@ -441,11 +441,21 @@ def render(s, ctx):
 INPUT = re.compile(r"(?:\bcd|(?:^|[;&|(]\s*)\.|\bsource|\bbash|\bTREE=|--tree|\bPYTHONPATH=)[ =]?\s*((?:~|\$HOME|/home)/[^\s;:&|)\"']+)", re.M)
 
 
+# bench.py's inputs by name: run_chip.sh CHIP OUT ARMS INPUTS ... or bench.py --inputs A,B. They resolve to
+# ~/spd-data/inputs/<name>.yaml with the MSA cache beside it (cache-only), so a box without them fails every cell in a
+# second: .103 10-24 (refcache) and .108 10-25 (9*_512 inputs, ~40 spd-m-protenix cells in 5 min).
+DATA = "~/spd-data"
+BENCH_INPUTS = re.compile(r"run_chip\.sh\s+\S+\s+\S+\s+(?:\"[^\"]*\"|'[^']*'|\S+)\s+([\w.,-]+)|--inputs[ =]([\w.,-]+)")
+
+
 def inputs(cmd):
     optional = set(re.findall(r"\[ -[efsd] (\S+) \] &&", cmd))      # `[ -f X ] && . X` runs without X
     guarded = re.findall(r"\[ -[efsd] ((?:~|\$HOME|/home)/\S+) \] \|\|", cmd)   # `[ -s X ] || exit 1` cannot
-    return {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd) + guarded
-            if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
+    written = set(re.findall(r">>?\s*((?:~|\$HOME|/home)/[^\s;:&|)\"']+)", cmd))  # `cat > X; bash X` writes X itself
+    data = set() if "--data" in cmd else {f"{DATA}/inputs/{n}.yaml" for m in BENCH_INPUTS.findall(cmd)
+                                          for n in (m[0] or m[1]).split(",") if n and not n.isdigit()}
+    return data | {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd) + guarded
+                   if p not in optional | written and "$" not in p.replace("$HOME/", "", 1)}
 
 
 def lead_rows(root):
@@ -469,9 +479,10 @@ def lead_rows(root):
     return out
 
 
-def cells(grid_dir, log=print, lead=frozenset()):
+def cells(grid_dir, log=print, lead=frozenset(), done=frozenset()):
     """All cells of all active experiments, ordered by tier, rows round-robin within a tier. Rows in `lead` may use
-    prio 2 (lead_rows)."""
+    prio 2 (lead_rows). A row in `done` has concluded and nobody reads its cells: on 10-24 spd-gap-esmf (concluded
+    10-15) and spd-pairchain still held ~45 jobs and 6 chips of the one lent Galaxy."""
     by_tier = {}
     for f in sorted(Path(grid_dir).glob("*.yaml")):
         try:  # one unreadable grid file must not stop every row's feed
@@ -479,6 +490,8 @@ def cells(grid_dir, log=print, lead=frozenset()):
             row, tier = g["row"], TIERS[g.get("tier", "amber")]
         except Exception as x:
             log(f"skip {f.name}: {type(x).__name__}: {str(x).splitlines()[0] if str(x) else ''}")
+            continue
+        if row in done:
             continue
         for e in g.get("experiments", []):
             if not e.get("active", True):
@@ -576,6 +589,13 @@ def provision(ssh, trees, files, donors, repo, lockdir):
         remote_cmd = (f"set -e; [ -e {q} ] && exit 0; rm -rf {part}; mkdir -p {part}; tar -x -C {part}; "
                       f"echo {sha} > {part}/TREE_SHA; mv -T {part} {q}")
         steps.append(f"git -C {shlex.quote(repo)} archive {sha} | ssh -o BatchMode=yes {ssh} {shlex.quote(remote_cmd)}")
+    if any(f.startswith(DATA + "/") for f in files):
+        # an input is useless without its MSAs, so bench data ships whole (~250 MB) and never overwrites a file
+        need = shlex.quote(next(f for f in sorted(files) if f.startswith(DATA + "/")).replace("~", "$HOME", 1))
+        steps.append(f"for d in {' '.join(donors)}; do if ssh -o BatchMode=yes -o ConnectTimeout=10 $d test -s {need}; then "
+                     f"ssh -o BatchMode=yes $d 'tar -C ~/spd-data -c .' | ssh -o BatchMode=yes {ssh} "
+                     f"'mkdir -p ~/spd-data && tar -C ~/spd-data -x --skip-old-files'; break; fi; done")
+        files = [f for f in files if not f.startswith(DATA + "/")]
     for f in sorted(files):
         rf = f.replace("~", "$HOME", 1) if f.startswith("~/") else f
         get = shlex.quote(f'f="{rf}"; [ -s "$f" ] && [ -f "$f" ] && [ $(stat -Lc %s "$f") -le 1048576 ] && cat "$f"')
@@ -651,7 +671,8 @@ def main(argv=None):
     def log(m):
         logf.write(f"{stamp} {m}\n"); print(m)
 
-    cs = cells(R / "state/spd/grids", log, lead_rows(R))
+    cs = cells(R / "state/spd/grids", log, lead_rows(R),
+               {f.name for f in (R / "state/concluded").iterdir()} if (R / "state/concluded").is_dir() else set())
     P = pools(R)
     # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch. A dark BH box
     # keeps its results: an experiment with a cell done there waits for it, so its A/B arms stay on one box.
@@ -673,6 +694,9 @@ def main(argv=None):
                                              "concluded": concluded, "lock": p.get("lock", ""), "lend": p.get("lend", False), "sweep": not a.dry_run, "outdirs": outdirs})
         except Exception as e:  # an unreachable box is skipped, never fatal
             log(f"{name}: probe failed: {e}")
+    # a box whose probe failed hides its done files, so its ledger counts as for a dark box: 10-25 13:44Z a qb2 probe timeout
+    # turned 825 qb2-done cells undone and feed queued 29 of them, graded days before, on qb1's four chips
+    dark |= set(P) - set(st)
     # 1. account every ledger entry: done, pending, or a failed attempt
     for c in cs:
         L = ledger.get(c["key"])
@@ -790,22 +814,32 @@ def main(argv=None):
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
     # 3. trees and small files a pending cell needs and a pool of its arch lacks: ship them so a later pass places there
-    ship, copy = {n: {} for n in st}, {n: set() for n in st}
+    # a cell whose requires no pool of its arch has and feed cannot ship waits forever: say so every pass
+    ship, copy, blocked = {n: {} for n in st}, {n: set() for n in st}, {}
     for c in cs:
         L = ledger.get(c["key"], {})
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running"):
             continue
-        for n in st:
-            if runs(P[n], c):
-                for x in c["requires"]:
-                    r = roots[x]
-                    if st[n]["exists"].get(x):
-                        continue
-                    if r and not st[n]["exists"].get(r[0]):
-                        ship[n][r[0]] = r[1]
-                    elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL) and "/trees/" not in x:
-                        # a file under trees/ is part of a tree feed cannot name: a lone copy is a stub that satisfies `requires`
-                        copy[n].add(x)
+        hosts, stuck, fine = [n for n in st if runs(P[n], c)], set(), False
+        for n in hosts:
+            lack = set()
+            for x in c["requires"]:
+                r = roots[x]
+                if st[n]["exists"].get(x):
+                    continue
+                if r and not st[n]["exists"].get(r[0]):
+                    ship[n][r[0]] = r[1]
+                elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL) and "/trees/" not in x:
+                    # a file under trees/ is part of a tree feed cannot name: a lone copy is a stub that satisfies `requires`
+                    copy[n].add(x)
+                else:
+                    lack.add(x)
+            fine |= not lack
+            stuck |= lack
+        if hosts and not fine:
+            blocked.setdefault((c["row"], " ".join(sorted(stuck))), []).append(c["name"])
+    for (row, paths), names in sorted(blocked.items()):
+        log(f"blocked {row}: {len(names)} cell(s) ({min(names)}...), no host has {paths}")
     for n in st:
         if ship[n] or copy[n]:
             log(f"{n}: shipping {len(ship[n])} tree(s), {len(copy[n])} file(s): {' '.join(sorted(ship[n]) + sorted(copy[n]))}")

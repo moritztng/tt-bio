@@ -71,3 +71,41 @@ def test_writer_count(monkeypatch, n_designs, cpus, available_mib, expected):
         available_mib = 2 * (io.SERVER_MIB + 2 * io.WRITER_MIB) + 1
     monkeypatch.setattr(os, "cpu_count", lambda: cpus)
     assert io.writer_count(n_designs, available_mib) == expected
+
+
+_PROBE = '''
+import os
+
+
+def threads_after_torch():
+    import torch
+    torch.ones(256, 256) @ torch.ones(256, 256)
+    return len(os.listdir("/proc/self/task"))
+'''
+
+
+def test_a_writer_stays_single_threaded_when_the_forkserver_started_without_the_preload(tmp_path):
+    """A forkserver started before the writer's (another library, or Python 3.14's default start
+    method) never runs the preload, so the writer has to load it itself before it touches torch.
+    In a subprocess: a forkserver started here would outlive the test."""
+    import subprocess
+    import sys
+
+    (tmp_path / "relprobe.py").write_text(_PROBE)
+    script = f'''
+import os, sys
+sys.path.insert(0, {str(tmp_path)!r})
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
+ProcessPoolExecutor(1, mp_context=mp.get_context("forkserver")).submit(os.getpid).result()
+import relprobe
+from tt_bio.rfd4 import io
+io._available_mib = lambda: 1 << 20
+os.cpu_count = lambda: 2
+print(io.writer_pool(2).submit(relprobe.threads_after_torch).result())
+'''
+    env = {k: v for k, v in os.environ.items() if not k.endswith("_NUM_THREADS")}
+    out = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=600,
+                         env=env, cwd=Path(__file__).resolve().parents[1])
+    assert out.returncode == 0, out.stderr[-2000:]
+    assert out.stdout.split()[-1] == "1"

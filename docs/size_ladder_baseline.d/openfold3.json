@@ -3603,24 +3603,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-10-21",
+      "recorded": "2026-10-24",
       "host": "tt-quietbox2",
-      "commit": "a2b7938f1",
+      "commit": "a06d92c6d",
       "host_threads": 5,
       "models": {
         "openfold3": {
           "grid": "11x10",
-          "recorded": "2026-10-21",
+          "recorded": "2026-10-24",
           "host": "tt-quietbox2",
-          "commit": "a2b7938f1",
+          "commit": "a06d92c6d",
           "host_threads": 5,
           "runtime_s": {
-            "256": 4.3,
-            "512": 8.9,
-            "640": 13.3,
-            "768": 18.6,
-            "896": 25.3,
-            "1024": 33.2
+            "256": 4.0,
+            "512": 7.0,
+            "640": 10.4,
+            "768": 13.8,
+            "896": 18.9,
+            "1024": 24.5
           },
           "levers": {
             "256": {
@@ -3683,13 +3683,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 864,
+                "declined": 1714,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 864
+                  "memory": 1714
                 },
-                "reason": "declines all 864 calls on memory x864: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "reason": "declines all 1714 calls on memory x1714: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -3717,14 +3717,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 232,
+                "declined": 20,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x64": 16,
-                  "l1_dest_is_faster:256x256x128": 216
+                  "l1_dest_is_faster:256x256x128": 4
                 },
-                "reason": "declines all 232 calls on l1_dest_is_faster:256x256x128 x216, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 20 calls on l1_dest_is_faster:256x256x64 x16, l1_dest_is_faster:256x256x128 x4: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3751,7 +3751,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3766,15 +3766,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3456,
+                "declined": 1713,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "gated_window_BufferType.L1": 864,
-                  "window_BufferType.L1": 1728,
-                  "back_l1_src_narrow": 864
+                  "back_l1_src_narrow": 1713
                 },
-                "reason": "declines all 3456 calls on window_BufferType.L1 x1728, gated_window_BufferType.L1 x864, back_l1_src_narrow x864: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+                "reason": "declines all 1713 calls on back_l1_src_narrow x1713: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -3786,19 +3784,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 3426,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is never offered on openfold3's pair track, at any rung"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 3426,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 1728 calls on exactly that clause. It serves 880 per fold from 512 aa up."
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3847,27 +3843,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -3910,7 +3909,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 224,
+                "served": 12,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3938,10 +3937,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 232,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -4010,7 +4010,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4041,14 +4041,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 232,
+                "declined": 20,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:512x512x64": 16,
-                  "l1_dest_is_faster:512x512x128": 216
+                  "l1_dest_is_faster:512x512x128": 4
                 },
-                "reason": "declines all 232 calls on l1_dest_is_faster:512x512x128 x216, l1_dest_is_faster:512x512x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 20 calls on l1_dest_is_faster:512x512x64 x16, l1_dest_is_faster:512x512x128 x4: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4067,11 +4067,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4093,21 +4097,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 440,
+                "served": 24,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4159,27 +4163,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4222,7 +4229,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 224,
+                "served": 12,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4250,10 +4257,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 232,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -4322,7 +4330,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4353,14 +4361,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 232,
+                "declined": 20,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:640x640x64": 16,
-                  "l1_dest_is_faster:640x640x128": 216
+                  "l1_dest_is_faster:640x640x128": 4
                 },
-                "reason": "declines all 232 calls on l1_dest_is_faster:640x640x128 x216, l1_dest_is_faster:640x640x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
+                "reason": "declines all 20 calls on l1_dest_is_faster:640x640x64 x16, l1_dest_is_faster:640x640x128 x4: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4379,11 +4387,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4405,21 +4417,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 440,
+                "served": 24,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4474,27 +4486,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4537,7 +4552,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 224,
+                "served": 12,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4565,10 +4580,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 232,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -4637,7 +4653,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 441,
+                "served": 17,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4667,26 +4683,26 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 231,
-                "declined": 2,
-                "frac": 0.9914163090128756,
+                "served": 12,
+                "declined": 8,
+                "frac": 0.6,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:768x768x64": 2
+                  "l1_dest_is_faster:768x768x64": 8
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 441,
+                "declined": 25,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 1,
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 424
+                  "k_tiles=4:(4,4)": 8
                 },
-                "reason": "declines all 441 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16, k_tiles=2:(2,2) x1: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 25 calls on k_tiles=2:(2,1) x16, k_tiles=4:(4,4) x8, k_tiles=2:(2,2) x1: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4695,13 +4711,15 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 15,
                   "k_tiles=2": 1
                 },
-                "reason": "declines all 1 calls on k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1 calls on t1:key=2x4x2 x16, t2:key=2x2 x15, k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -4723,21 +4741,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 440,
+                "served": 24,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 882,
+                "served": 34,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 882,
+                "served": 34,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4792,27 +4810,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4856,8 +4877,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 8,
-                "declined": 216,
-                "frac": 0.03571428571428571,
+                "declined": 4,
+                "frac": 0.6666666666666666,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -4883,10 +4904,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 232,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -4955,7 +4977,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4985,9 +5007,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 224,
+                "served": 12,
                 "declined": 8,
-                "frac": 0.9655172413793104,
+                "frac": 0.6,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:896x896x64": 8
@@ -4996,14 +5018,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 24,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 424
+                  "k_tiles=4:(4,4)": 8
                 },
-                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 24 calls on k_tiles=2:(2,1) x16, k_tiles=4:(4,4) x8: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5011,11 +5033,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5037,21 +5063,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 440,
+                "served": 24,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5106,27 +5132,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5170,8 +5199,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 8,
-                "declined": 216,
-                "frac": 0.03571428571428571,
+                "declined": 4,
+                "frac": 0.6666666666666666,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -5197,10 +5226,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 232,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -5269,7 +5299,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5299,26 +5329,23 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 224,
-                "declined": 1,
-                "frac": 0.9955555555555555,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:1024x1024x64": 1
-                }
+                "served": 12,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 472,
+                "declined": 56,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 32,
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 424
+                  "k_tiles=4:(4,4)": 8
                 },
-                "reason": "declines all 472 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
+                "reason": "declines all 56 calls on k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16, k_tiles=4:(4,4) x8: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -5326,11 +5353,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5352,21 +5383,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 440,
+                "served": 24,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5421,27 +5452,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5484,10 +5518,11 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 8,
-                "declined": 216,
-                "frac": 0.03571428571428571,
-                "how": "wrap"
+                "served": 0,
+                "declined": 12,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 12 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not [carried from tt-galaxy-wh-l]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5512,10 +5547,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 232,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -5528,35 +5564,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              4.8,
-              4.8,
-              4.3,
-              4.2,
-              4.1
+              4.1,
+              4.1,
+              4.0,
+              4.0,
+              4.0
             ],
             "512": [
-              8.9,
-              8.9,
-              8.9,
-              9.2,
-              9.2
+              7.0,
+              6.9,
+              7.7,
+              7.0,
+              7.0
             ],
             "640": [
-              13.3
+              10.4
             ],
             "768": [
-              18.6
+              13.8
             ],
             "896": [
-              25.3
+              18.9
             ],
             "1024": [
-              33.2
+              24.5
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5566,10 +5602,10 @@
                 1350,
                 1350
               ],
-              "n": 26
+              "n": 25
             },
             "512": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5582,7 +5618,16 @@
               "n": 30
             },
             "640": {
-              "card": "1",
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 6
+            },
+            "768": {
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5590,8 +5635,8 @@
               ],
               "n": 7
             },
-            "768": {
-              "card": "1",
+            "896": {
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5599,68 +5644,59 @@
               ],
               "n": 8
             },
-            "896": {
-              "card": "1",
+            "1024": {
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1325
+                1318
               ],
               "n": 9
-            },
-            "1024": {
-              "card": "1",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1343
-              ],
-              "n": 11
             }
           },
           "load": {
             "256": {
-              "max": 0.48,
+              "max": 0.22,
               "rep_median": [
-                0.35,
-                0.47,
-                0.43,
-                0.38,
-                0.31
+                0.21,
+                0.21,
+                0.2,
+                0.19,
+                0.19
               ]
             },
             "512": {
-              "max": 0.27,
+              "max": 0.28,
               "rep_median": [
-                0.26,
-                0.22,
                 0.21,
-                0.21,
+                0.2,
+                0.27,
+                0.25,
                 0.21
               ]
             },
             "640": {
-              "max": 0.38,
+              "max": 0.2,
               "rep_median": [
-                0.28
+                0.19
               ]
             },
             "768": {
-              "max": 0.45,
+              "max": 0.21,
               "rep_median": [
-                0.41
+                0.21
               ]
             },
             "896": {
-              "max": 0.31,
+              "max": 0.34,
               "rep_median": [
-                0.29
+                0.32
               ]
             },
             "1024": {
-              "max": 0.29,
+              "max": 0.25,
               "rep_median": [
-                0.27
+                0.23
               ]
             }
           },
@@ -5669,30 +5705,30 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 103.2378,
-              "radius_of_gyration_A": 80.931,
-              "plddt_mean": 0.309811,
+              "ca_ca_median_A": 101.8407,
+              "radius_of_gyration_A": 81.188,
+              "plddt_mean": 0.310639,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 103.238 A outside [3.6, 4.0]",
+                "median CA-CA 101.841 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 80.9 A outside [9.0, 45.2]"
+                "radius of gyration 81.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0195,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 100.3755,
-              "radius_of_gyration_A": 82.258,
-              "plddt_mean": 0.29924,
+              "ca_ca_median_A": 101.8285,
+              "radius_of_gyration_A": 82.305,
+              "plddt_mean": 0.298486,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 100.375 A outside [3.6, 4.0]",
+                "median CA-CA 101.828 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 82.3 A outside [11.8, 58.9]"
               ]
@@ -5701,33 +5737,33 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0281,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 98.0685,
-              "radius_of_gyration_A": 81.327,
-              "plddt_mean": 0.293022,
+              "clash_frac": 0.0375,
+              "chain_break_frac": 0.9969,
+              "ca_ca_median_A": 98.21,
+              "radius_of_gyration_A": 81.243,
+              "plddt_mean": 0.292566,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.068 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.8% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 81.3 A outside [12.8, 64.1]"
+                "median CA-CA 98.210 A outside [3.6, 4.0]",
+                "99.7% of consecutive CA pairs exceed 5.0 A",
+                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0365,
+              "clash_frac": 0.0443,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 98.704,
-              "radius_of_gyration_A": 78.701,
-              "plddt_mean": 0.297881,
+              "ca_ca_median_A": 98.2956,
+              "radius_of_gyration_A": 78.748,
+              "plddt_mean": 0.298465,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.704 A outside [3.6, 4.0]",
+                "median CA-CA 98.296 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 78.7 A outside [13.7, 68.7]"
               ]
             },
@@ -5735,16 +5771,16 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0212,
+              "clash_frac": 0.0223,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 102.5808,
-              "radius_of_gyration_A": 84.332,
-              "plddt_mean": 0.287407,
+              "ca_ca_median_A": 102.6947,
+              "radius_of_gyration_A": 84.28,
+              "plddt_mean": 0.285513,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 102.581 A outside [3.6, 4.0]",
+                "median CA-CA 102.695 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 84.3 A outside [14.6, 72.8]"
               ]
             },
@@ -5752,67 +5788,67 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0391,
+              "clash_frac": 0.0459,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 98.8617,
-              "radius_of_gyration_A": 81.532,
-              "plddt_mean": 0.296433,
+              "ca_ca_median_A": 98.5212,
+              "radius_of_gyration_A": 81.429,
+              "plddt_mean": 0.297891,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.862 A outside [3.6, 4.0]",
+                "median CA-CA 98.521 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 81.5 A outside [15.3, 76.6]"
+                "4.6% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.4 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0182,
+          "sigma_runtime_512": 0.0459,
           "exponents": {
             "256->512": {
-              "k": 1.049,
+              "k": 0.807,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.818,
+              "k": 1.674,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0757,
-            "512": 0.0182
+            "256": 0.0136,
+            "512": 0.0459
           },
           "exponents_measured": {
-            "256->512": 1.049,
-            "512->640": 1.8,
-            "640->768": 1.84,
-            "768->896": 1.996,
-            "896->1024": 2.035
+            "256->512": 0.807,
+            "512->640": 1.774,
+            "640->768": 1.551,
+            "768->896": 2.04,
+            "896->1024": 1.943
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-23",
+      "recorded": "2026-10-24",
       "host": "UF-EV-A2-GWH01",
-      "commit": "437a23413",
+      "commit": "a06d92c6d",
       "host_threads": 2,
       "models": {
         "openfold3": {
           "grid": "8x9",
-          "recorded": "2026-10-23",
+          "recorded": "2026-10-24",
           "host": "UF-EV-A2-GWH01",
-          "commit": "437a23413",
+          "commit": "a06d92c6d",
           "host_threads": 2,
           "runtime_s": {
-            "256": 8.6,
-            "512": 20.0,
-            "640": 29.0,
-            "768": 42.3,
-            "896": 55.3,
-            "1024": 72.7,
-            "1280": 155.7,
-            "1536": 248.7
+            "256": 6.6,
+            "512": 14.1,
+            "640": 19.8,
+            "768": 28.2,
+            "896": 36.2,
+            "1024": 48.3,
+            "1280": 138.1,
+            "1536": 225.2
           },
           "levers": {
             "256": {
@@ -5874,14 +5910,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5905,14 +5941,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 232,
+                "declined": 20,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x64": 16,
-                  "l1_dest_is_faster:256x256x128": 216
+                  "l1_dest_is_faster:256x256x128": 4
                 },
-                "reason": "declines all 232 calls on l1_dest_is_faster:256x256x128 x216, l1_dest_is_faster:256x256x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
+                "reason": "declines all 20 calls on l1_dest_is_faster:256x256x64 x16, l1_dest_is_faster:256x256x128 x4: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -5931,11 +5967,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -5964,14 +6004,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6023,27 +6063,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6086,7 +6129,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 224,
+                "served": 12,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6114,10 +6157,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 232,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -6186,14 +6230,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6217,14 +6261,14 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 232,
+                "declined": 20,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:512x512x64": 16,
-                  "l1_dest_is_faster:512x512x128": 216
+                  "l1_dest_is_faster:512x512x128": 4
                 },
-                "reason": "declines all 232 calls on l1_dest_is_faster:512x512x128 x216, l1_dest_is_faster:512x512x64 x16: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
+                "reason": "declines all 20 calls on l1_dest_is_faster:512x512x64 x16, l1_dest_is_faster:512x512x128 x4: the row-major route needs a DRAM destination for a 3-D bf16 tiled pair tensor; wrap-counted, so the clause is not recorded [carried from p150a]"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -6243,11 +6287,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6276,14 +6324,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6335,27 +6383,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6398,7 +6449,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 224,
+                "served": 12,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6427,14 +6478,10 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 232,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 220,
-                  "h-clamped-to-H": 12
-                },
-                "reason": "declines all 232 calls on base-unraised x220, h-clamped-to-H x12: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -6503,14 +6550,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6533,9 +6580,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 224,
+                "served": 12,
                 "declined": 8,
-                "frac": 0.9655172413793104,
+                "frac": 0.6,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:640x640x64": 8
@@ -6544,14 +6591,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 24,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 424
+                  "k_tiles=4:(4,4)": 8
                 },
-                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1282 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
+                "reason": "declines all 24 calls on k_tiles=2:(2,1) x16, k_tiles=4:(4,4) x8: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1282 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6559,11 +6606,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6592,14 +6643,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6654,27 +6705,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6718,8 +6772,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 8,
-                "declined": 216,
-                "frac": 0.03571428571428571,
+                "declined": 4,
+                "frac": 0.6666666666666666,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -6746,14 +6800,10 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 232,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 220,
-                  "h-clamped-to-H": 12
-                },
-                "reason": "declines all 232 calls on base-unraised x220, h-clamped-to-H x12: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -6822,14 +6872,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6852,9 +6902,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 224,
+                "served": 12,
                 "declined": 8,
-                "frac": 0.9655172413793104,
+                "frac": 0.6,
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:768x768x64": 8
@@ -6863,14 +6913,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 440,
+                "declined": 24,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 424
+                  "k_tiles=4:(4,4)": 8
                 },
-                "reason": "declines all 440 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,1) x16: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
+                "reason": "declines all 24 calls on k_tiles=2:(2,1) x16, k_tiles=4:(4,4) x8: it needs an 8-tile weight K dim AND an _MM_BLOCK entry for the shape; wrap-counted, so which of the two fails is not recorded. The call count rises from 440 to ~1288 at 640 and above, which is the pair track taking its row-blocked path [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6878,11 +6928,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6911,14 +6965,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6973,27 +7027,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -7037,8 +7094,8 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 8,
-                "declined": 216,
-                "frac": 0.03571428571428571,
+                "declined": 4,
+                "frac": 0.6666666666666666,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -7065,14 +7122,10 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 232,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 220,
-                  "h-clamped-to-H": 12
-                },
-                "reason": "declines all 232 calls on base-unraised x220, h-clamped-to-H x12: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -7141,14 +7194,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7171,7 +7224,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 224,
+                "served": 12,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7179,15 +7232,15 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 472,
+                "declined": 56,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 32,
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 424
+                  "k_tiles=4:(4,4)": 8
                 },
-                "reason": "declines all 472 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 56 calls on k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16, k_tiles=4:(4,4) x8: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7195,11 +7248,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7228,14 +7285,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7290,27 +7347,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -7354,10 +7414,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 224,
+                "declined": 12,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 224 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not"
+                "reason": "declines all 12 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -7383,15 +7443,10 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 232,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 8,
-                  "h-clamped-to-H": 12,
-                  "ratio-shrunk": 212
-                },
-                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -7460,14 +7515,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 440,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7490,7 +7545,7 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 224,
+                "served": 12,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7498,15 +7553,15 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 472,
+                "declined": 56,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 32,
                   "k_tiles=2:(2,1)": 16,
-                  "k_tiles=4:(4,4)": 424
+                  "k_tiles=4:(4,4)": 8
                 },
-                "reason": "declines all 472 calls on k_tiles=4:(4,4) x424, k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "reason": "declines all 56 calls on k_tiles=2:(2,2) x32, k_tiles=2:(2,1) x16, k_tiles=4:(4,4) x8: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7514,11 +7569,15 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
+                "rejects": {
+                  "t1:key=2x4x2": 16,
+                  "t2:key=2x2": 16
+                },
+                "reason": "declines all 0 calls on t1:key=2x4x2 x16, t2:key=2x2 x16: F1_BLOCK_KEYS allow-lists only (8, 8) and openfold3's trimul tails resolve 4 and 2 K tiles, which are properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c] [carried from p150a]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 472,
+                "served": 48,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7547,14 +7606,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 880,
+                "served": 32,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7609,27 +7668,30 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 16,
-                "frac": 0.9636363636363636,
+                "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "head_dim_or_width": 16
-                }
+                },
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 424,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -7673,10 +7735,10 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 224,
+                "declined": 12,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "declines all 224 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not"
+                "reason": "declines all 12 calls: it is a fit test, not a tuned constant, and the pair tensor stops fitting one rung earlier on this grid. PAIR_TRANSPOSE_VIA_ROW_MAJOR takes over the same calls exactly: TRANSPOSE_L1_RESIDENT serves every call at 256 and 512 and the row-major route serves none, then the two swap, and from 896 up the row-major route serves all of them. One of the pair serves at every rung, so no transpose is unoptimised at any size. The Blackhole cards make the same swap at 768; 8x9 Wormhole cores hold less L1, so the headroom test flips at 640. At 1280 and 1536 it serves again: the row-blocked triangle-attention path transposes one row block at a time, and a block fits L1 where the whole pair tensor did not"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -7702,15 +7764,10 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 232,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 8,
-                  "h-clamped-to-H": 12,
-                  "ratio-shrunk": 212
-                },
-                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -7786,7 +7843,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7809,29 +7866,29 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1296,
-                "declined": 2592,
+                "served": 1516,
+                "declined": 3032,
                 "frac": 0.3333333333333333,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1280x448x64": 32,
-                  "l1_dest_is_faster:1280x384x64": 16,
-                  "l1_dest_is_faster:1280x224x128": 2120,
-                  "l1_dest_is_faster:1280x160x128": 424
+                  "l1_dest_is_faster:1280x416x64": 48,
+                  "l1_dest_is_faster:1280x32x64": 16,
+                  "l1_dest_is_faster:1280x192x128": 2544,
+                  "l1_dest_is_faster:1280x128x128": 424
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1972,
+                "declined": 2192,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 48,
+                  "k_tiles=2:(2,1)": 56,
                   "k_tiles=2:(2,2)": 16,
-                  "k_tiles=4:(4,1)": 1908
+                  "k_tiles=4:(4,1)": 2120
                 },
-                "reason": "declines all 1972 calls on k_tiles=4:(4,1) x1908, k_tiles=2:(2,1) x48, k_tiles=2:(2,2) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 2192 calls on k_tiles=4:(4,1) x2120, k_tiles=2:(2,1) x56, k_tiles=2:(2,2) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7843,7 +7900,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 5820,
+                "served": 6472,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7886,7 +7943,7 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1956,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7901,7 +7958,7 @@
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 1956,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7930,24 +7987,24 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1908,
-                "declined": 48,
-                "frac": 0.9754601226993865,
+                "served": 2120,
+                "declined": 56,
+                "frac": 0.9742647058823529,
                 "how": "stats",
                 "rejects": {
-                  "head_dim_or_width": 48
+                  "head_dim_or_width": 56
                 }
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1908,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1908,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7993,7 +8050,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1296,
+                "served": 1516,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -8022,19 +8079,14 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 232,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 8,
-                  "h-clamped-to-H": 12,
-                  "ratio-shrunk": 212
-                },
-                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
-                "served": 1956,
+                "served": 2176,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -8106,7 +8158,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -8129,27 +8181,29 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1728,
-                "declined": 3456,
+                "served": 2160,
+                "declined": 4320,
                 "frac": 0.3333333333333333,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1536x384x64": 64,
-                  "l1_dest_is_faster:1536x192x128": 3392
+                  "l1_dest_is_faster:1536x352x64": 64,
+                  "l1_dest_is_faster:1536x128x64": 16,
+                  "l1_dest_is_faster:1536x160x128": 3816,
+                  "l1_dest_is_faster:1536x96x128": 424
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2412,
+                "declined": 2844,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 56,
+                  "k_tiles=2:(2,1)": 64,
                   "k_tiles=2:(2,2)": 24,
-                  "k_tiles=4:(4,1)": 2332
+                  "k_tiles=4:(4,1)": 2756
                 },
-                "reason": "declines all 2412 calls on k_tiles=4:(4,1) x2332, k_tiles=2:(2,1) x56, k_tiles=2:(2,2) x24: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 2844 calls on k_tiles=4:(4,1) x2756, k_tiles=2:(2,1) x64, k_tiles=2:(2,2) x24: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -8161,7 +8215,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 7108,
+                "served": 8396,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -8204,7 +8258,7 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2388,
+                "served": 2820,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -8219,7 +8273,7 @@
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 2388,
+                "served": 2820,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -8248,24 +8302,24 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 2332,
-                "declined": 56,
-                "frac": 0.9765494137353434,
+                "served": 2756,
+                "declined": 64,
+                "frac": 0.9773049645390071,
                 "how": "stats",
                 "rejects": {
-                  "head_dim_or_width": 56
+                  "head_dim_or_width": 64
                 }
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 2756,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 2756,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -8311,7 +8365,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1728,
+                "served": 2160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -8340,19 +8394,14 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 232,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 8,
-                  "h-clamped-to-H": 12,
-                  "ratio-shrunk": 212
-                },
-                "reason": "declines all 232 calls on ratio-shrunk x212, h-clamped-to-H x12, base-unraised x8: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
-                "served": 2388,
+                "served": 2820,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-dict"
@@ -8361,53 +8410,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              9.1,
-              8.7,
-              8.6,
-              8.5,
-              8.5
+              6.5,
+              7.3,
+              7.0,
+              6.6,
+              6.4
             ],
             "512": [
-              20.0,
-              20.2,
-              19.7,
-              20.1,
-              20.0
+              14.1,
+              14.3,
+              14.2,
+              14.1,
+              13.7
             ],
             "640": [
-              28.8,
-              29.0,
-              30.1
+              19.8
             ],
             "768": [
-              42.0,
-              42.3,
-              42.3
+              28.2
             ],
             "896": [
-              55.3,
-              55.4,
-              55.2
+              36.2
             ],
             "1024": [
-              72.7,
-              73.6,
-              72.4
+              48.3
             ],
             "1280": [
-              156.1,
-              154.1,
-              155.7
+              138.1
             ],
             "1536": [
-              248.7,
-              249.3,
-              248.4
+              225.2
             ]
           },
           "aiclk": {
             "256": {
-              "card": "16",
+              "card": "27",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8420,7 +8457,7 @@
               "n": 37
             },
             "512": {
-              "card": "16",
+              "card": "27",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8430,142 +8467,118 @@
                 1000,
                 1000
               ],
-              "n": 45
+              "n": 41
             },
             "640": {
-              "card": "16",
+              "card": "27",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000,
-                1000,
                 1000
               ],
-              "n": 33
+              "n": 10
             },
             "768": {
-              "card": "16",
+              "card": "27",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000,
-                1000,
                 1000
               ],
-              "n": 39
+              "n": 12
             },
             "896": {
-              "card": "16",
+              "card": "27",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000,
-                1000,
                 1000
               ],
-              "n": 48
+              "n": 12
             },
             "1024": {
-              "card": "16",
+              "card": "27",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000,
-                1000,
                 1000
               ],
-              "n": 58
+              "n": 16
             },
             "1280": {
-              "card": "16",
+              "card": "27",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000,
-                1000,
                 1000
               ],
-              "n": 104
+              "n": 32
             },
             "1536": {
-              "card": "16",
+              "card": "27",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000,
-                1000,
                 1000
               ],
-              "n": 168
+              "n": 47
             }
           },
           "load": {
             "256": {
-              "max": 0.77,
+              "max": 0.41,
               "rep_median": [
-                0.75,
-                0.69,
-                0.68,
-                0.66,
-                0.59
+                0.41,
+                0.38,
+                0.4,
+                0.39,
+                0.39
               ]
             },
             "512": {
-              "max": 0.61,
+              "max": 0.43,
               "rep_median": [
-                0.53,
-                0.55,
-                0.55,
-                0.58,
-                0.55
+                0.32,
+                0.35,
+                0.36,
+                0.38,
+                0.41
               ]
             },
             "640": {
-              "max": 0.62,
+              "max": 0.39,
               "rep_median": [
-                0.49,
-                0.48,
-                0.53
+                0.38
               ]
             },
             "768": {
-              "max": 0.64,
+              "max": 0.41,
               "rep_median": [
-                0.59,
-                0.54,
-                0.51
+                0.39
               ]
             },
             "896": {
-              "max": 0.59,
+              "max": 0.39,
               "rep_median": [
-                0.53,
-                0.56,
-                0.56
+                0.37
               ]
             },
             "1024": {
-              "max": 0.83,
+              "max": 0.39,
               "rep_median": [
-                0.73,
-                0.78,
-                0.61
+                0.38
               ]
             },
             "1280": {
-              "max": 0.92,
+              "max": 0.49,
               "rep_median": [
-                0.8,
-                0.69,
-                0.75
+                0.41
               ]
             },
             "1536": {
-              "max": 0.7,
+              "max": 0.4,
               "rep_median": [
-                0.54,
-                0.51,
-                0.43
+                0.38
               ]
             }
           },
@@ -8576,64 +8589,63 @@
               "n_ca": 256,
               "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 100.219,
-              "radius_of_gyration_A": 81.103,
-              "plddt_mean": 0.309841,
+              "ca_ca_median_A": 101.504,
+              "radius_of_gyration_A": 80.762,
+              "plddt_mean": 0.309918,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 100.219 A outside [3.6, 4.0]",
+                "median CA-CA 101.504 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 81.1 A outside [9.0, 45.2]"
+                "radius of gyration 80.8 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0352,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 101.5866,
-              "radius_of_gyration_A": 82.202,
-              "plddt_mean": 0.299321,
+              "ca_ca_median_A": 99.9715,
+              "radius_of_gyration_A": 82.559,
+              "plddt_mean": 0.299024,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 101.587 A outside [3.6, 4.0]",
+                "median CA-CA 99.971 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.2 A outside [11.8, 58.9]"
+                "radius of gyration 82.6 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.025,
+              "clash_frac": 0.0437,
               "chain_break_frac": 0.9984,
-              "ca_ca_median_A": 97.912,
-              "radius_of_gyration_A": 81.275,
-              "plddt_mean": 0.292922,
+              "ca_ca_median_A": 97.9242,
+              "radius_of_gyration_A": 81.455,
+              "plddt_mean": 0.293119,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 97.912 A outside [3.6, 4.0]",
+                "median CA-CA 97.924 A outside [3.6, 4.0]",
                 "99.8% of consecutive CA pairs exceed 5.0 A",
-                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 81.3 A outside [12.8, 64.1]"
+                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.5 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0391,
-              "chain_break_frac": 0.9987,
-              "ca_ca_median_A": 98.1448,
-              "radius_of_gyration_A": 78.771,
-              "plddt_mean": 0.29766,
+              "clash_frac": 0.0273,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 98.2956,
+              "radius_of_gyration_A": 78.834,
+              "plddt_mean": 0.297825,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.145 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "median CA-CA 98.296 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 78.8 A outside [13.7, 68.7]"
               ]
             },
@@ -8641,93 +8653,93 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0357,
+              "clash_frac": 0.0446,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 102.5644,
-              "radius_of_gyration_A": 84.207,
-              "plddt_mean": 0.287714,
+              "ca_ca_median_A": 102.4561,
+              "radius_of_gyration_A": 84.504,
+              "plddt_mean": 0.285428,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 102.564 A outside [3.6, 4.0]",
+                "median CA-CA 102.456 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 84.2 A outside [14.6, 72.8]"
+                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 84.5 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0488,
+              "clash_frac": 0.0312,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 98.4721,
-              "radius_of_gyration_A": 81.6,
-              "plddt_mean": 0.29621,
+              "ca_ca_median_A": 98.3589,
+              "radius_of_gyration_A": 81.264,
+              "plddt_mean": 0.296589,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 98.472 A outside [3.6, 4.0]",
+                "median CA-CA 98.359 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 81.6 A outside [15.3, 76.6]"
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 81.3 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0578,
-              "chain_break_frac": 0.9984,
-              "ca_ca_median_A": 97.7126,
-              "radius_of_gyration_A": 83.004,
-              "plddt_mean": 0.302466,
+              "clash_frac": 0.0414,
+              "chain_break_frac": 0.9992,
+              "ca_ca_median_A": 98.8627,
+              "radius_of_gyration_A": 83.119,
+              "plddt_mean": 0.302047,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 97.713 A outside [3.6, 4.0]",
-                "99.8% of consecutive CA pairs exceed 5.0 A",
-                "5.8% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "median CA-CA 98.863 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "4.1% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.056,
+              "clash_frac": 0.0618,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 99.7348,
-              "radius_of_gyration_A": 81.87,
-              "plddt_mean": 0.311745,
+              "ca_ca_median_A": 100.3641,
+              "radius_of_gyration_A": 82.01,
+              "plddt_mean": 0.312126,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 99.735 A outside [3.6, 4.0]",
+                "median CA-CA 100.364 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.6% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "6.2% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0094,
+          "sigma_runtime_512": 0.0162,
           "exponents": {
             "256->512": {
-              "k": 1.218,
+              "k": 1.095,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.847,
+              "k": 1.71,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0287,
-            "512": 0.0094
+            "256": 0.0559,
+            "512": 0.0162
           },
           "exponents_measured": {
-            "256->512": 1.218,
-            "512->640": 1.665,
-            "640->768": 2.07,
-            "768->896": 1.738,
-            "896->1024": 2.049,
-            "1024->1280": 3.413,
-            "1280->1536": 2.569
+            "256->512": 1.095,
+            "512->640": 1.521,
+            "640->768": 1.94,
+            "768->896": 1.62,
+            "896->1024": 2.16,
+            "1024->1280": 4.708,
+            "1280->1536": 2.682
           }
         }
       }

@@ -522,6 +522,10 @@ _ESMC_MM_CFG = env_flag("TT_BIO_ESMC_MM_CFG", True)
 # single sequences to 4000 aa finite. On by default on Wormhole; Blackhole until its own A/B says.
 _ESMC_MM_KB6 = (env_flag("TT_BIO_ESMC_MM_KB6", False)
                 if os.environ.get("TT_BIO_ESMC_MM_KB6", "").strip() else None)
+# The FFN gate's M block covers a core's whole share of 9-12 row tiles (mm_gate.config m_whole). Graded on Blackhole,
+# where the page batch's 119 row tiles give 11-12 a core; Wormhole's 8x9 gives 14 there and keeps its configs.
+_ESMC_GATE_M_WHOLE = (env_flag("TT_BIO_ESMC_GATE_M_WHOLE", False)
+                      if os.environ.get("TT_BIO_ESMC_GATE_M_WHOLE", "").strip() else None)
 # Under bf16 accumulation (--fast's block-fp8 weights) the qkv split runs fastest in 8 x 8 blocks: mm_cfg_sweep on a
 # Galaxy chip at 1000 MHz, 600M 0.540 -> 0.481 ms a call, 300M 0.419 -> 0.406, same rel_l2 vs float64.
 _ESMC_MM_CFG_BF16_ACC_8X8 = env_flag("TT_BIO_ESMC_MM_CFG_8X8", True)
@@ -645,6 +649,13 @@ def _qkrh_dtypes(w, exact: bool, d: int):
               else _ESMC_QKRH_Q_BF16)
     q_dtype = ttnn.bfloat16 if q_bf16 else None
     return (ttnn.bfloat8_b, q_dtype) if qkrh.fits(d, ttnn.bfloat8_b, q_dtype) else (None, None)
+
+
+def _gate_m_whole_on() -> bool:
+    if _ESMC_GATE_M_WHOLE is not None:
+        return _ESMC_GATE_M_WHOLE
+    from tt_bio import tenstorrent
+    return not tenstorrent.is_wormhole()
 
 
 def _kb6_on() -> bool:
@@ -1391,7 +1402,7 @@ class SwiGLUFFN(_MMLin, Module):
         grid = (int(g.x), int(g.y))
         ck = self.compute_kernel_config if large else self._mm_ck(w)
         cfg = mm_gate.config(x_norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // 32, grid,
-                             not large and _mm_bf16_acc(w, self.mm_exact_acc))
+                             not large and _mm_bf16_acc(w, self.mm_exact_acc), _gate_m_whole_on())
         if cfg is None or not mm_gate.overlay_ok():
             MM_GATE_STATS[1] += 1
             return None
@@ -2207,7 +2218,8 @@ _ESMC_6B_B8 = env_flag("TT_BIO_ESMC_6B_B8", True)
 # ESMC-6B embeddings on Wormhole at HiFi3 instead of HiFi4, --fast and normal with block-fp8 weights (same cell):
 # fast 197.3 -> 182.2 ms, pcc vs fp32 0.998849 -> 0.998859; normal 240.7 (bf16) -> 182.3 ms, pcc 0.998936 -> 0.998859,
 # pooled 0.999851 -> 0.999815. At one sequence the two modes now run the same forward. HiFi2 reads 178.2 ms but pcc
-# 0.998539, past the fast bar.
+# 0.998539, past the fast bar. Blackhole too (qb2 p300, 1350 MHz, page batch): normal (bf16 weights) 123.3 -> 109.5 ms,
+# pcc 0.999057 -> 0.999016; fast 117.9 -> 98.8 ms, pcc 0.998943 -> 0.998870.
 _ESMC_6B_FIDELITY = os.environ.get("TT_BIO_ESMC_6B_FIDELITY", "HiFi3")
 
 
@@ -2217,12 +2229,12 @@ def _6b_weights_b8(fast: bool) -> bool:
 
 
 def _embed_6b_mode(model, fast: bool):
-    """The ESMC-6B embed model's per-mode compute on Wormhole: block-fp8 weights under a normal forward keep fp32
-    accumulation, and both run at _ESMC_6B_FIDELITY. ESMFold2 builds its own 6B and is untouched."""
+    """The ESMC-6B embed model's per-mode compute: both modes run at _ESMC_6B_FIDELITY, and on Wormhole block-fp8
+    weights under a normal forward keep fp32 accumulation. ESMFold2 builds its own 6B and is untouched."""
     from tt_bio import tenstorrent
+    model.compute_kernel_config.math_fidelity = getattr(ttnn.MathFidelity, _ESMC_6B_FIDELITY)
     if not (tenstorrent.is_wormhole() and _6b_weights_b8(fast)):
         return model
-    model.compute_kernel_config.math_fidelity = getattr(ttnn.MathFidelity, _ESMC_6B_FIDELITY)
     if not fast:
         for b in model.module.blocks:
             b.attn.mm_exact_acc = b.ffn.mm_exact_acc = True

@@ -198,11 +198,15 @@ def _main_hidden():
         main.__dict__.update(saved)
 
 
+#: What a writer needs loaded before its first write, single-threaded (see the module).
+_PRELOAD = "tt_bio.rfd4._writer_preload"
+
+
 def _context():
     import multiprocessing
 
     ctx = multiprocessing.get_context("forkserver")
-    ctx.set_forkserver_preload(["tt_bio.rfd4._writer_preload"])
+    ctx.set_forkserver_preload([_PRELOAD])
     return ctx
 
 
@@ -227,7 +231,13 @@ def writer_pool(n_designs: int):
 
     Started on the first batch and kept, so later batches pay neither a fork (~20 ms a writer)
     nor a writer's first, colder design. A larger batch, or a writer that died, replaces it.
+
+    Each writer imports `_PRELOAD` before its first task. That is free when the forkserver loaded
+    it, and it is what keeps the writer single-threaded when the forkserver was already running
+    before `_context` named the preload: the preload is then silently skipped, and a writer that
+    imported torch on its own would start a BLAS/OpenMP pool per process.
     """
+    import importlib
     from concurrent.futures import ProcessPoolExecutor
 
     global _POOL
@@ -237,7 +247,8 @@ def writer_pool(n_designs: int):
     if _POOL is None or _POOL._broken or _POOL._max_workers < n:
         if _POOL is not None:
             _POOL.shutdown(wait=False)
-        _POOL = ProcessPoolExecutor(n, mp_context=_context())  # writers start as tasks arrive
+        _POOL = ProcessPoolExecutor(n, mp_context=_context(), initializer=importlib.import_module,
+                                    initargs=(_PRELOAD,))  # writers start as tasks arrive
     return _POOL
 
 

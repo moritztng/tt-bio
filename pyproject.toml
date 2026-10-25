@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tt-bio"
-version = "0.21.1"
+version = "0.22.0"
 description = "Boltz-2, ESMFold2, Protenix-v2, OpenFold3, and OpenDDE structure prediction, BoltzGen/RFdiffusion3 design, and ESMC/SaProt protein embeddings for inference on Tenstorrent Blackhole and Wormhole"
 readme = "README.md"
 requires-python = ">=3.10,<3.13,!=3.11.*"
@@ -131,7 +131,7 @@ include = ["tt_bio*"]
 "tt_bio._vendor.atomworks" = ["py.typed", "io/tools/*.smirks", "ml/datasets/*.md",
                               "experimental/protonation/*.json",
                               "experimental/protonation/external/dimorphite_dl/*.smarts"]
-"tt_bio._vendor.rfd4_prep" = ["resources/*.yaml", "THIRD_PARTY_LICENSES.txt"]
+"tt_bio._vendor.rfd4_prep" = ["resources/*.yaml", "THIRD_PARTY_LICENSES.txt", "LOCAL_CHANGES.md"]
 # runtime data files the package loads by path at import/featurize time — these
 # MUST ship in the wheel/sdist or a clean `pip install` crashes (see v0.3.4 changelog):
 #   - tt_bio/data/protein_ref_conformers.json: protenix-v2 + opendde featurization

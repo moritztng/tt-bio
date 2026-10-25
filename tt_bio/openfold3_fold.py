@@ -38,7 +38,7 @@ from .envflags import env_flag
 # off/on/on/off processes (pnb): OpenFold3 11.39 -> 9.72 s, OpenBind-0 12.67 -> 11.54 s.
 NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {
     "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "ws_l1dest", "triatt_ln", "edm_device",
-    "trimul_t1_2g"}
+    "trimul_t1_2g", "atom_l1"}
 # trimul_t1_2g lets T1 serve above ~1180 tokens, where a + b + g_out pass its 1 GiB cap and every trimul fell back to
 # the gated-move channel loop. Inert at and below 1024 (T1 already serves there). 1536-token OpenFold3 fold, p300c:
 # fast 87.8 -> 64.2 s, normal 89.0 -> 72.1 s. On Wormhole T1 also needs the chunking gate open, which it is only to
@@ -142,8 +142,10 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # atom_l1 (the atom transformer's per-step tensors in L1, placement only): CIFs identical with and without it on both
 # models (512-token --fast fold A/B, a3lw2, 2026-10-19, and at 1024 / 1568 tokens, a3ls). Galaxy chip at 1000 MHz,
 # 2 chips x 5 warm pairs after the compile pair, every pair faster: OpenFold3 -0.36 s, OpenBind-0 -0.38 s mean.
-# Not measured on Blackhole, so Wormhole only. In normal mode too (a3nw, 2026-10-20): CIFs identical, Galaxy chip at
-# 1000 MHz, 4 warm pairs after the compile pair, every pair faster: OpenFold3 -0.31 s, OpenBind-0 -0.28 s mean.
+# In normal mode too (a3nw, 2026-10-20): CIFs identical, Galaxy chip at 1000 MHz, 4 warm pairs after the compile pair,
+# every pair faster: OpenFold3 -0.31 s, OpenBind-0 -0.28 s mean. Blackhole p300 chip at 1350 MHz, 512-token page fold,
+# mirrored off/a/.../a/off processes, 2 warm folds each, CIFs identical (bhl, 2026-10-25): OpenBind-0 fast
+# 8.47 -> 8.27 s, OpenBind-0 normal 9.90 -> 9.72 s, OpenFold3 normal 8.74 -> 8.61 s. So both parts, both modes.
 # ws_psilu (pair SwiGLU's silu on the packer thread, overlapping the matmuls): CIFs identical with and without it on
 # both models (512-token --fast fold A/B, psf2, 2026-10-19). Galaxy chip at 1000 MHz, mean of the 5 warm pairs after
 # the compile pair: OpenFold3 -0.08 s, OpenBind-0 -0.12 s; the kernel alone 2.63 -> 2.23 ms at c_z 128. Flat in normal
@@ -157,7 +159,7 @@ FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul
 # OpenFold3 top pose median 0.398 A (floor 1.010 A), CA-lDDT +0.0005 [-0.0012, +0.0025], docking 20 -> 21/44;
 # OpenBind-0 0.633 A (floor 0.813 A), CA-lDDT -0.0004 [-0.0017, +0.0007], docking 27 -> 27/44. 512-token page fold on a
 # Galaxy chip at 1000 MHz, off/on/on/off processes (pnw): OpenFold3 25.20 -> 20.02 s, OpenBind-0 25.27 -> 20.03 s.
-WH_NORMAL_LEVERS = NORMAL_LEVERS - {"trimul_t2cm"} | {"trimul_bres", "atom_l1"}
+WH_NORMAL_LEVERS = NORMAL_LEVERS - {"trimul_t2cm"} | {"trimul_bres"}
 # Per-model additions to the normal set, each with the grade the other model failed. OpenFold3 takes the bf16 DiT in
 # normal mode; OpenBind-0 failed its Wormhole grade and keeps the fp32 DiT on both parts.
 # Wormhole, the stack dit_s16, diffusion_bf16, dit_fuse, dit_l1 on top of WH_NORMAL_LEVERS, 11-set normal grade, paired
@@ -175,7 +177,7 @@ WH_NORMAL_MODEL_LEVERS = {"openfold3": NORMAL_MODEL_LEVERS["openfold3"] | {"dit_
 # 1000 MHz, 4 warm pairs after the compile pair, CIFs identical (t2cw, 2026-10-20): OpenFold3 -0.21 s, OpenBind-0
 # -0.17 s mean without it.
 WH_FAST_LEVERS = FAST_LEVERS - {"ws_lofi", "trimul_t2cm"} | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32",
-                                  "triatt_ln_b8", "dit_l1", "atom_l1", "ws_psilu", "dit_mask8"}
+                                  "triatt_ln_b8", "dit_l1", "ws_psilu", "dit_mask8"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].

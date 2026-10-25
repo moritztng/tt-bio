@@ -19,7 +19,7 @@ Under the `bres_ta_hifi3` lever a Wormhole transposed-a call asked for at HiFi2 
 transpose_wh <-> matmul switch hangs one core (packer never releases the staging CB): bmm_res alone in a loop at
 [1, 384, 608, 608] hung after 700 to 97600 calls on six Galaxy chips, with or without draining every thread at the
 switch and with a full re-init there; HiFi3, HiFi4 and LoFi transposed-a and HiFi2 transposed-b ran 107k-112k calls
-clean (spd-m-opendde bs, bs2, 2026-10-24, perf/spd_m_opendde/bres_soak.py). HiFi3 costs ~0.8 % a call (5.50 vs 5.46 ms);
+clean (spd-m-opendde bs, bs2, 2026-10-24, bres_soak.py on branch wk/spd-m-opendde-bres). HiFi3 costs ~0.8 % a call (5.50 vs 5.46 ms);
 it is the WH LoFi unpacker stall family (`tenstorrent.lofi_allowed`). It is a lever, not a default, because it moves
 the fold: OpenDDE WH fast graded PASS with it, OpenDDE WH normal (also HiFi2 here, no hang seen in production) did not
 (one 9TH6 docking flip).
