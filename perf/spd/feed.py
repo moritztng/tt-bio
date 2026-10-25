@@ -694,6 +694,9 @@ def main(argv=None):
                                              "concluded": concluded, "lock": p.get("lock", ""), "lend": p.get("lend", False), "sweep": not a.dry_run, "outdirs": outdirs})
         except Exception as e:  # an unreachable box is skipped, never fatal
             log(f"{name}: probe failed: {e}")
+    # a box whose probe failed hides its done files, so its ledger counts as for a dark box: 10-25 13:44Z a qb2 probe timeout
+    # turned 825 qb2-done cells undone and feed queued 29 of them, graded days before, on qb1's four chips
+    dark |= set(P) - set(st)
     # 1. account every ledger entry: done, pending, or a failed attempt
     for c in cs:
         L = ledger.get(c["key"])

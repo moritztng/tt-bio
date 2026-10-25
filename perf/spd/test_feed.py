@@ -517,6 +517,32 @@ def test_a_dark_box_pins_clear_except_for_experiments_begun_there(tmp_path, monk
     assert [(x[0], x[2]["names"]) for x in calls if x[1] is feed.WITHDRAW] == [("qb1", ["4-gone.sh"])]
 
 
+def test_a_cell_done_on_a_box_whose_probe_failed_is_not_placed_elsewhere(tmp_path, monkeypatch):
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(DARK_GRID.format(name="g").replace("hosts: [qb1]", "hosts: [qb1, qb2]"))
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb1": {"ssh": "qb1", "cards": [0], "lock": "/l1_{c}"},
+                                           "qb2": {"ssh": "qb2", "cards": [3], "lock": "/l2_{c}"}})
+    c = feed.cells(tmp_path / "state/spd/grids")[0]
+    placed = []
+
+    def remote(ssh, script, payload, timeout=120):
+        if script is feed.PROBE:
+            if ssh == "qb2":
+                raise subprocess.TimeoutExpired("ssh", 120)
+            return {"healthy": 1, "cards": [0], "queued": 0, "free": [0], "paused": False, "swept": 0, "live": [],
+                    "jobs": {}, "exists": {}}
+        placed.extend(payload["jobs"]); return len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    (tmp_path / "state/spd/feed").mkdir(parents=True)
+    led = tmp_path / "state/spd/feed/ledger.json"
+    led.write_text(json.dumps({c["key"]: {"host": "qb2", "name": c["name"], "state": "done", "hash": c["hash"], "fails": []}}))
+    run(tmp_path)
+    assert placed == []
+    assert json.loads(led.read_text())[c["key"]] | {"fails": []} == {"host": "qb2", "name": c["name"], "state": "done",
+                                                                    "hash": c["hash"], "fails": [], "quarantined": False}
+
+
 def test_a_pinned_experiment_waits_for_its_dark_box(tmp_path, monkeypatch):
     (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
     (tmp_path / "state/spd/grids/spd-x.yaml").write_text(DARK_GRID.format(name="lad").replace("prio: 4", "prio: 4\n    pinned: true"))
