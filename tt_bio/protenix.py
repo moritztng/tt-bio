@@ -3113,9 +3113,8 @@ class Protenix:
 
     def _pz_device(self):
         """Whether the conditioned pair stays on the chip (`_pair_z_seam`): the pz_device lever, for a
-        device DiT whose pair input is bf16, the dtype the pair conditioning already writes."""
-        D = self.diffusion
-        return _T.lever("pz_device") and D.device_dit and D._dit_dtype == ttnn.bfloat16
+        device DiT. The pair conditioning writes the DiT's own dtype, bf16 or normal mode's fp32."""
+        return _T.lever("pz_device") and self.diffusion.device_dit
 
     def _pair_z_seam(self, pz, NT, a2t, nb, nq, nk):
         """The conditioned pair's diffusion consumers: (p_lm z term, cond entries).
@@ -3138,7 +3137,7 @@ class Protenix:
         ln = ttnn.layer_norm(pz, epsilon=1e-5, compute_kernel_config=D._dit_ckc)
         ttnn.deallocate(pz)
         w = (self._w[E + "linear_no_bias_z.weight"].float() * self._w[E + "layernorm_z.weight"].float()).t()
-        w_tt = ttnn.from_torch(w.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=D.dev)
+        w_tt = ttnn.from_torch(w.contiguous(), dtype=D._dit_dtype, layout=ttnn.TILE_LAYOUT, device=D.dev)
         zt = ttnn.linear(ln, w_tt, compute_kernel_config=D._dit_ckc, dtype=ttnn.float32)
         ttnn.deallocate(w_tt)
         ztok = torch.Tensor(_T.download(zt)).float().reshape(NT, NT, -1)
