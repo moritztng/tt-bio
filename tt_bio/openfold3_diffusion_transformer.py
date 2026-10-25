@@ -207,21 +207,21 @@ class _DiTBlock(Module):
                         (bf(self._w[ct + "linear_g.weight"].t()),
                          bf(self._w[ct + "linear_g.bias"].reshape(1, -1))), ckc)
 
-        # dit_fuse (bf16 DiT, the `--fast` stack): the adaLNs read one parameter-free LN(s) per stack call
-        # (`OF3DiffusionTransformer.shared_s`) with their gammas folded into bf16 weights on the host, as
-        # dit_s16 does for the fp32 DiT. Every s-path sigmoid runs in its linear's epilogue, so each adaLN
-        # modulates in one addcmul, the APB gated residual is one addcmul and, where the token mask is all
-        # ones, so is the transition's gated, masked residual; `_sdpa32` writes the attention bf16 itself
-        # (no typecast). 33 -> 23 ttnn calls a block. Not bit-exact: each fused product skips one bf16
-        # rounding (which `gated_add` declines in bf16 for exactly that reason), the sigmoid reads the
-        # fp32 accumulator instead of its bf16 rounding, and LN(s) * gamma is rounded once inside W.
+        # dit_fuse: the adaLNs read one parameter-free LN(s) per stack call (`OF3DiffusionTransformer.shared_s`)
+        # with their gammas folded into the weights on the host, as dit_s16 does. Every s-path sigmoid runs in
+        # its linear's epilogue, so each adaLN modulates in one addcmul, the APB gated residual is one addcmul
+        # and, where the token mask is all ones, so is the transition's gated, masked residual; `_sdpa32` writes
+        # the attention at the stack's dtype itself (no typecast). 33 -> 23 ttnn calls a block, at either dtype.
+        # On the bf16 DiT (the `--fast` stack) it is not bit-exact: each fused product skips one bf16 rounding
+        # (which `gated_add` declines in bf16 for exactly that reason), the sigmoid reads the fp32 accumulator
+        # instead of its bf16 rounding, and LN(s) * gamma is rounded once inside W. On the fp32 DiT (OpenBind-0
+        # normal) the skipped roundings are fp32 ones and the epilogue sigmoid is `mm_sigmoid`'s fp32 one.
         # dit_b8 on dit_fuse: the fused block reads the six weights rounded to bfp8 above through `_lin`, its
         # activations stay bf16 (the fused ops write them) and the precision is `_lin`'s (dit_hifi2 on Wormhole).
         self.fuse = None
-        if (self._act_dtype == ttnn.bfloat16 and self.sdpa32 and self.s16 is None
-                and _T.lever("dit_fuse")):
+        if self.sdpa32 and self.s16 is None and _T.lever("dit_fuse"):
             self.lp = None
-            bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
+            bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=self._act_dtype,  # noqa: E731
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
             ada = []
             for ln in (self.adaln_a, self.adaln_t):
@@ -274,14 +274,14 @@ class _DiTBlock(Module):
         return mt
 
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones, hoist=()):
-        """`__call__` under dit_fuse (bf16, `_sdpa32`): the same block in 23 ttnn calls, 17 with `hoist`."""
+        """`__call__` under dit_fuse (`_sdpa32`): the same block in 23 ttnn calls, 17 with `hoist`."""
         l1 = self.l1(a)
         lin = lambda *a, **k: self._lin(*a, **l1, **k)  # noqa: E731
         a_ln = self._fuse_adaln(a, s_hat, 0, hoist)
         bias = _cached(cache, (id(self), "pair_bias32"), lambda: self._fused_mask(z, mask_bias))
         qkv = lin(a_ln, self.qkv_w, bias=self.qkv_b)
         qkv = ttnn.unsqueeze(qkv, 1)
-        o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=ttnn.bfloat16,
+        o = _T._sdpa32_fused(qkv, bias, HEAD_DIM ** -0.5, N_HEADS, out_dtype=self._act_dtype,
                              memory_config=l1.get("memory_config"))
         ttnn.deallocate(qkv)
         if cache is None:
@@ -369,14 +369,15 @@ class _DiTBlock(Module):
         slack. Decided on the shape alone, so every block of a call and the stack agree."""
         if not (self.fuse and _T.lever("dit_l1")):
             return {}
-        fits = _T._l1_fits(_T._padded_bytes(tuple(a.shape), 2), 12.0, _T._PAIR_L1_CONSUMER_RESERVE)
+        elem = 4 if self._act_dtype == ttnn.float32 else 2
+        fits = _T._l1_fits(_T._padded_bytes(tuple(a.shape), elem), 12.0, _T._PAIR_L1_CONSUMER_RESERVE)
         return {"memory_config": ttnn.L1_MEMORY_CONFIG} if fits else {}
 
     def _lin(self, x, w, bias=None, activation=None, **kw):
         hifi2 = self._wormhole and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_hifi2")
         ckc = self.ckc_hifi2 if hifi2 else self.compute_kernel_config
         if activation == "sigmoid":
-            activation = _T.mm_sigmoid(ckc)
+            activation = _T.mm_sigmoid(ckc, f32=self._act_dtype == ttnn.float32)
         return ops.linear(x, w, bias=bias, activation=activation, compute_kernel_config=ckc, core_grid=CORE_GRID_MAIN,
                           **kw)
 
@@ -598,7 +599,7 @@ class OF3DiffusionTransformer(Module):
         # 2b + 1). The blocks read their columns in place (`addcmul_at`): 144 [N,384]x[384,768]
         # linears a step become 3, 0.48 s of a 512-token p150a fold's device time (cen68).
         self.hoist = None
-        if self.blocks[0].fuse and _T.lever("dit_shoist"):
+        if self.blocks[0].fuse and self._act_dtype == ttnn.bfloat16 and _T.lever("dit_shoist"):
             bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=ttnn.bfloat16,  # noqa: E731
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
             sc_w, sc_b, sb_w, g_w, g_b = [], [], [], [], []

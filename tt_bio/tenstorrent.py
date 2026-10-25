@@ -708,10 +708,10 @@ _FAST_MODE = False
 #   trimul_t2cm     with trimul_t2, T2 reads the einsum's channel-major [1, C, S, S] output itself (T2m's program with
 #                   the whole hidden as its one chunk), so `reblock_permute_back`
 #                   (0.58 ms a call at 512 on p150a) never runs. A pure data move: bit-exact against trimul_t2
-#   dit_fuse        a bf16 token DiT block (OpenFold3's `--fast` stack) in 23 ttnn calls instead of 33: one shared
+#   dit_fuse        OpenFold3's token DiT block in 23 ttnn calls instead of 33, bf16 or fp32: one shared
 #                   parameter-free LN(s) per stack call with the adaLN gammas folded into the weights, every s-path
 #                   sigmoid in its linear's epilogue, the adaLN modulations and gated residuals as one addcmul each,
-#                   `_sdpa32` writing bf16 (`_DiTBlock._call_fused`). Each fused product skips one bf16 rounding
+#                   `_sdpa32` writing the stack's dtype (`_DiTBlock._call_fused`). Each fused product skips one rounding
 #   pair_mm         pair-track linears on minimal_matmul with pair_mm's block table (ReLU at pack); the lever form of
 #                   TT_BIO_PAIR_MM for a model that names it in its own set (AF2 on Wormhole)
 #   pair_mm_tr      under pair_mm, also serve the 384 <-> 768 pair-transition keys swept for RFD4 (bf16 and bfp8);
@@ -1107,12 +1107,13 @@ def silu_ckc(ckc):
 _SIGMOID_F32 = ttnn.UnaryWithParam(ttnn.UnaryOpType.SIGMOID, 4.0, 1.0)   # vector mode RC, approx
 
 
-def mm_sigmoid(ckc):
-    """The `activation` for a matmul with a fused sigmoid run under `ckc`: "sigmoid", or under `dit_sigf32` on an
-    fp32 dest the approx-mode sigmoid that the silu_f32 overlay computes with calculate_silu_f32 (6e-6). On a bf16
-    dest (or ttnn's default config) approx mode is metal's LUT (~2e-2), so those keep "sigmoid"; without the overlay
-    it is the LUT everywhere, so the overlay is put in place first, as `silu_ckc` does."""
-    if not lever("dit_sigf32") or not getattr(ckc, "fp32_dest_acc_en", False):
+def mm_sigmoid(ckc, f32: bool = False):
+    """The `activation` for a matmul with a fused sigmoid run under `ckc`: "sigmoid", or under `dit_sigf32` (always
+    with `f32`, a matmul writing fp32 activations) on an fp32 dest the approx-mode sigmoid that the silu_f32 overlay
+    computes with calculate_silu_f32 (6e-6). On a bf16 dest (or ttnn's default config) approx mode is metal's LUT
+    (~2e-2), so those keep "sigmoid"; without the overlay it is the LUT everywhere, so the overlay is put in place
+    first, as `silu_ckc` does."""
+    if not (f32 or lever("dit_sigf32")) or not getattr(ckc, "fp32_dest_acc_en", False):
         return "sigmoid"
     if "silu_f32" not in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(","):
         _silu_f32_overlay()
