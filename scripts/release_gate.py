@@ -1002,10 +1002,7 @@ L1_BUDGET_MODEL = "protenix-v2"
 # Wormhole's L1), so a grid across it takes different chunk widths by design: 8x8 forced on a
 # Blackhole card folded cdk2x2_512 differently from native (0.07-0.36 A on 9TY2_512, the same split
 # on v0.21.0 with every lever off), and no Blackhole part runs 8x8. A card-dependent fold within one
-# regime (p150a 13x10 vs p300c 11x10, Galaxy 8x9 vs n300 8x8) is what this half catches. fkg's
-# digests are compared the same way, within a regime: a bfp8 lever (transition_b8 in Protenix-v2's
-# Blackhole normal set) folds 8x8 differently from native on Blackhole and identically on every
-# Blackhole part grid (spd-m-protenix gridclass2/3).
+# regime (p150a 13x10 vs p300c 11x10, Galaxy 8x9 vs n300 8x8) is what this half catches.
 L1_BUDGET_WIDE_DATA = REPO_ROOT / "perf" / "size512" / "fixtures" / "cdk2x2_512.yaml"
 # --- nesso1 correctness leg ------------------------------------------------------
 # Nesso-1 folds nothing, so it cannot join MODELS: there is no structure to Kabsch and no
@@ -5338,25 +5335,6 @@ def run_l1_budget_fold(keep: bool) -> list:
         narrow["gate"] = False
         narrow["error"] = (f"retry is NOT numerics-neutral: clash-and-narrow {cold['md5']} != "
                            f"width-capped {narrow['md5']}")
-    return l1_budget_digest_splits(rows, phys)
-
-
-def l1_budget_digest_splits(rows: list, phys) -> list:
-    """Fail every fold of a target whose digests split within one chunk regime. Pure, so it is testable.
-
-    A grid across the small-grid line takes Wormhole's chunk sizes by design, so a forced 8x8 on
-    a Blackhole card is compared only with other small grids, never with the native fold.
-    """
-    def key(r):
-        return r["target"], _l1_budget_small_grid(r.get("grid") or phys)
-    for k in {key(r) for r in rows}:
-        group = [r for r in rows if key(r) == k]
-        md5s = {r["md5"] for r in group if r["md5"]}
-        if len(md5s) > 1:
-            for r in group:
-                r["gate"] = False
-                r["error"] = r["error"] or (
-                    f"grid/width ladder is NOT numerics-neutral on {k[0]}: {sorted(md5s)}")
     return rows
 
 
@@ -5990,6 +5968,14 @@ def main() -> int:
                 sys.exit(f"missing l1-budget gate target {data}")
         ar = run_l1_budget_static()
         frows = run_l1_budget_fold(args.keep)
+        for target in {r["target"] for r in frows}:
+            group = [r for r in frows if r["target"] == target]
+            md5s = {r["md5"] for r in group if r["md5"]}
+            if len(md5s) > 1:
+                for r in group:
+                    r["gate"] = False
+                    r["error"] = r["error"] or (
+                        f"grid/width ladder is NOT numerics-neutral on {target}: {sorted(md5s)}")
         print(f"\n{'#'*78}\nRELEASE GATE — L1 budgets vs part "
               f"({L1_BUDGET_DATA.name} on {L1_BUDGET_MODEL}, "
               f"{len(L1_BUDGET_PARTS)} part classes)\n{'#'*78}")
