@@ -35,7 +35,8 @@ Galaxies: jobs go to ~/spd/pool/queue/ and pool.sh starts them. qb1/qb2 have no 
 a waiter that takes the first usable card of its box to come free (its CHIPS.md flock free, no release leg on it);
 the job itself gets a private LOCK so run_chip.sh does not wait on its own card. Waiters queue for cards through one
 dispatch flock per box, so they start in about the order they were placed. A BH job still waiting after STEAL_S moves
-to a free card on another BH box its cell allows.
+to a free card on another BH box its cell allows; a Galaxy that offers no chip for STEAL_S hands its queued feed jobs
+back to the fill, which places them on a pool with room.
 """
 import argparse
 import hashlib
@@ -318,6 +319,12 @@ PLACE = f"NODE = {NODE!r}\nRUN = {RUN!r}\nGATE_LEG = {GATE_LEG!r}\n" + PLACE   #
 WITHDRAW = r'''
 import json, os, signal, sys, time
 A = json.loads(sys.stdin.readline()); J = os.path.expanduser("~/spd/feed/jobs"); got = []
+if A.get("kind") == "galaxy":   # pool.sh starts only queue/*.sh; a job it already moved to running/ fails the rename
+    for n in A["names"]:
+        q = os.path.expanduser("~/spd/pool/queue/" + n)
+        try: os.rename(q, q + ".moved"); got.append(n)
+        except OSError: pass
+    A["names"] = []
 for n in A["names"]:
     sh = J + "/" + n
     if not os.path.exists(sh) or os.path.exists(sh + ".start") or os.path.exists(sh + ".end"): continue
@@ -434,11 +441,20 @@ def render(s, ctx):
 INPUT = re.compile(r"(?:\bcd|(?:^|[;&|(]\s*)\.|\bsource|\bbash|\bTREE=|--tree|\bPYTHONPATH=)[ =]?\s*((?:~|\$HOME|/home)/[^\s;:&|)\"']+)", re.M)
 
 
+# bench.py's inputs by name: run_chip.sh CHIP OUT ARMS INPUTS ... or bench.py --inputs A,B. They resolve to
+# ~/spd-data/inputs/<name>.yaml with the MSA cache beside it (cache-only), so a box without them fails every cell in a
+# second: .103 10-24 (refcache) and .108 10-25 (9*_512 inputs, ~40 spd-m-protenix cells in 5 min).
+DATA = "~/spd-data"
+BENCH_INPUTS = re.compile(r"run_chip\.sh\s+\S+\s+\S+\s+(?:\"[^\"]*\"|'[^']*'|\S+)\s+([\w.,-]+)|--inputs[ =]([\w.,-]+)")
+
+
 def inputs(cmd):
     optional = set(re.findall(r"\[ -[efsd] (\S+) \] &&", cmd))      # `[ -f X ] && . X` runs without X
     guarded = re.findall(r"\[ -[efsd] ((?:~|\$HOME|/home)/\S+) \] \|\|", cmd)   # `[ -s X ] || exit 1` cannot
-    return {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd) + guarded
-            if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
+    data = set() if "--data" in cmd else {f"{DATA}/inputs/{n}.yaml" for m in BENCH_INPUTS.findall(cmd)
+                                          for n in (m[0] or m[1]).split(",") if n and not n.isdigit()}
+    return data | {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd) + guarded
+                   if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
 
 
 def lead_rows(root):
@@ -462,9 +478,10 @@ def lead_rows(root):
     return out
 
 
-def cells(grid_dir, log=print, lead=frozenset()):
+def cells(grid_dir, log=print, lead=frozenset(), done=frozenset()):
     """All cells of all active experiments, ordered by tier, rows round-robin within a tier. Rows in `lead` may use
-    prio 2 (lead_rows)."""
+    prio 2 (lead_rows). A row in `done` has concluded and nobody reads its cells: on 10-24 spd-gap-esmf (concluded
+    10-15) and spd-pairchain still held ~45 jobs and 6 chips of the one lent Galaxy."""
     by_tier = {}
     for f in sorted(Path(grid_dir).glob("*.yaml")):
         try:  # one unreadable grid file must not stop every row's feed
@@ -472,6 +489,8 @@ def cells(grid_dir, log=print, lead=frozenset()):
             row, tier = g["row"], TIERS[g.get("tier", "amber")]
         except Exception as x:
             log(f"skip {f.name}: {type(x).__name__}: {str(x).splitlines()[0] if str(x) else ''}")
+            continue
+        if row in done:
             continue
         for e in g.get("experiments", []):
             if not e.get("active", True):
@@ -569,6 +588,13 @@ def provision(ssh, trees, files, donors, repo, lockdir):
         remote_cmd = (f"set -e; [ -e {q} ] && exit 0; rm -rf {part}; mkdir -p {part}; tar -x -C {part}; "
                       f"echo {sha} > {part}/TREE_SHA; mv -T {part} {q}")
         steps.append(f"git -C {shlex.quote(repo)} archive {sha} | ssh -o BatchMode=yes {ssh} {shlex.quote(remote_cmd)}")
+    if any(f.startswith(DATA + "/") for f in files):
+        # an input is useless without its MSAs, so bench data ships whole (~250 MB) and never overwrites a file
+        need = shlex.quote(next(f for f in sorted(files) if f.startswith(DATA + "/")).replace("~", "$HOME", 1))
+        steps.append(f"for d in {' '.join(donors)}; do if ssh -o BatchMode=yes -o ConnectTimeout=10 $d test -s {need}; then "
+                     f"ssh -o BatchMode=yes $d 'tar -C ~/spd-data -c .' | ssh -o BatchMode=yes {ssh} "
+                     f"'mkdir -p ~/spd-data && tar -C ~/spd-data -x --skip-old-files'; break; fi; done")
+        files = [f for f in files if not f.startswith(DATA + "/")]
     for f in sorted(files):
         rf = f.replace("~", "$HOME", 1) if f.startswith("~/") else f
         get = shlex.quote(f'f="{rf}"; [ -s "$f" ] && [ -f "$f" ] && [ $(stat -Lc %s "$f") -le 1048576 ] && cat "$f"')
@@ -644,7 +670,8 @@ def main(argv=None):
     def log(m):
         logf.write(f"{stamp} {m}\n"); print(m)
 
-    cs = cells(R / "state/spd/grids", log, lead_rows(R))
+    cs = cells(R / "state/spd/grids", log, lead_rows(R),
+               {f.name for f in (R / "state/concluded").iterdir()} if (R / "state/concluded").is_dir() else set())
     P = pools(R)
     # Galaxies rotate: a pin to one SPD no longer holds lets the cell run on any held pool of its arch. A dark BH box
     # keeps its results: an experiment with a cell done there waits for it, so its A/B arms stay on one box.
@@ -712,12 +739,34 @@ def main(argv=None):
         twins = [m for m, j in s.get("jobs", {}).items() if j["state"] == "queued" and owner.get(m, n) != n]
         if twins and not a.dry_run:
             try:
-                gone = remote(P[n]["ssh"], WITHDRAW, {"names": twins})
+                gone = remote(P[n]["ssh"], WITHDRAW, {"names": twins, "kind": P[n]["kind"]})
             except Exception as e:
                 log(f"{n}: twin withdraw failed: {e}"); continue
             for m in gone:
                 s["jobs"].pop(m); s["queued"] -= 1
             log(f"{n}: withdrew {len(gone)} twin(s) placed elsewhere while it was dark")
+    # a Galaxy that has offered no chip for STEAL_S (lending switched off, every chip recalled) strands its queue: withdraw
+    # its feed jobs and mark them lost, so step 2 places them on a pool with room (10-24: .107 lent 0 chips from 01:10Z
+    # with 92 cells queued while .103 sat lent with 20 healthy)
+    zf = S / "zero.json"
+    zero = json.loads(zf.read_text()) if zf.exists() else {}
+    zero = {n: zero.get(n, now) for n, s in st.items() if P[n]["kind"] == "galaxy" and s["healthy"] <= 0}
+    if not a.dry_run:
+        write_json(zf, zero)
+    for n in [n for n in zero if now - zero[n] >= STEAL_S]:
+        stuck = [m for m, j in st[n]["jobs"].items() if j["state"] == "queued"]
+        if not stuck or a.dry_run:
+            continue
+        try:
+            gone = remote(P[n]["ssh"], WITHDRAW, {"names": stuck, "kind": "galaxy"})
+        except Exception as e:
+            log(f"{n}: stranded withdraw failed: {e}"); continue
+        for m in gone:
+            st[n]["jobs"].pop(m); st[n]["queued"] -= 1
+        for L in ledger.values():
+            if L.get("host") == n and L.get("name") in gone:
+                L["state"] = "lost"
+        log(f"{n}: no chip for {int(now - zero[n]) // 60} min, withdrew {len(gone)} queued job(s) to place elsewhere")
     if not a.dry_run:
         arc(R, st, P, log)
     live = {n for s in st.values() for n in s.get("live", [])}

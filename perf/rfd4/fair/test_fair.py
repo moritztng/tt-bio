@@ -42,8 +42,9 @@ class _Clock:
         return {0: {"min": min(xs), "max": max(xs), "median": xs[len(xs) // 2], "n": len(xs)}}
 
 
-def _stub_rfd4(monkeypatch, tmp_path, *, dram_width, per_call_s):
-    """A DesignEngine whose wall time is per_call_s(width) and whose DRAM fits `dram_width`."""
+def _stub_rfd4(monkeypatch, tmp_path, *, dram_width, per_call_s, passes_run=lambda seed: 180):
+    """A DesignEngine whose wall time is per_call_s(width), whose DRAM fits `dram_width` and whose trunk
+    runs `passes_run(seed)` passes a design (the recipe's 180 unless a test says otherwise)."""
     import torch
 
     clock = {"t": 0.0}
@@ -56,17 +57,25 @@ def _stub_rfd4(monkeypatch, tmp_path, *, dram_width, per_call_s):
             assert recipe == "thinking_medium"
             self.max_parallel_samples, self.chunk_width = 1, 1
 
+            self.ran = {"trunk_passes": 0, "trunk_blocks": 0, "decoded": 0}
+
+        def counted(self):
+            return {**self.ran, "blocks_per_pass": 24}
+
         def design(self, features, *, num_designs, nsteps, seed, rng):
             assert nsteps == 60 and rng == "per_design"
             self.chunk_width = min(self.max_parallel_samples, dram_width)
             clock["t"] += per_call_s(self.max_parallel_samples)
-            return object()
+            p = passes_run(seed) * num_designs
+            self.ran = {"trunk_passes": self.ran["trunk_passes"] + p, "trunk_blocks": self.ran["trunk_blocks"] + 24 * p,
+                        "decoded": self.ran["decoded"] + num_designs}
+            return types.SimpleNamespace(digests=lambda: [f"{seed}:{k}" for k in range(num_designs)])
 
     ex = types.SimpleNamespace(cif="x.cif", example_id="pdl1")
     rfd4 = types.SimpleNamespace(
         prepare_examples=lambda spec, d: [ex],
         featurize=lambda cif, seed: ({"padding_mask": torch.ones(1, 128)}, None),
-        write_design=lambda *a, **k: None)
+        write_design=lambda *a, **k: None, write_designs=lambda *a, **k: None)
     engine = types.SimpleNamespace(DesignEngine=Engine)
     sampler = types.SimpleNamespace(recycle_depths=lambda spec, n: [3] * n)
     import tt_bio
@@ -185,3 +194,38 @@ def test_verdict_takes_the_fastest_arm_on_the_newest_main(tmp_path):
     runs.write_text("".join(json.dumps(x) + "\n" for x in lanes + b1))  # lanes measured first, still wins
     tt, _ = verdict.tt_side([runs], repo)
     assert tt[512]["raw"] == "lanes" and tt[512]["batch"] == 2 and tt[512]["lane_width"] == 1
+
+
+def test_every_line_carries_the_counted_work_and_a_digest(monkeypatch, tmp_path):
+    _stub_rfd4(monkeypatch, tmp_path, dram_width=64, per_call_s=lambda w: 10.0)
+    recs = [r for r in _run(tmp_path, "--batch", "4") if r["kind"] in ("cold", "warm") and "batch" in r]
+    assert recs and all(r["trunk_passes_counted"] == r["trunk_passes"] == 180 for r in recs)
+    assert all(r["trunk_blocks_counted"] == 180 * 24 and r["decoded_counted"] == r["designs"] for r in recs)
+    assert all(len(r["digest"]) == 64 and len(r["design_digests"]) == r["designs"] for r in recs)
+    assert len({r["digest"] for r in recs}) == len(recs)  # one seed a batch, so one digest a batch
+
+
+def test_a_batch_that_ran_fewer_passes_than_the_recipe_fails_the_cell(monkeypatch, tmp_path):
+    _stub_rfd4(monkeypatch, tmp_path, dram_width=64, per_call_s=lambda w: 10.0,
+               passes_run=lambda seed: 179 if seed == 1012 else 180)
+    with pytest.raises(SystemExit, match="trunk_passes counted 716, scheduled 720"):
+        _run(tmp_path, "--batch", "4")
+    recs = [json.loads(x) for x in (tmp_path / "runs.jsonl").read_text().splitlines()]
+    bad = recs[-1]
+    assert bad["seed"] == 1012 and bad["trunk_passes_counted"] == 179 and bad["discard"].startswith("work_mismatch")
+    assert not any(r.get("kind") == "summary" for r in recs)
+    assert verdict.admit({**bad, "discard": None, "tree_dirty": False}, HERE).startswith("work_mismatch")
+
+
+def test_host_control_separates_the_card_from_the_code(tmp_path):
+    repo = str(HERE.parents[2])
+    main = subprocess.run(["git", "rev-parse", "origin/main"], cwd=repo, capture_output=True, text=True).stdout.strip()
+    runs = tmp_path / "ctrl.jsonl"
+    runs.write_text("".join(json.dumps(_line(512, 0.040 + i / 10000, main, host="qb1")) + "\n" for i in range(5)))
+    c = verdict.host_control(runs, repo, {"designs_per_s": 0.0441, "what": "pc"}, {512: {"designs_per_s": 0.0502}})
+    assert c["designs_per_s"] == 0.0402 and c["n_clean"] == 5
+    assert c["host_factor"] == round(0.0402 / 0.0441, 3) and c["code_gain"] == round(0.0502 / 0.0402, 3)
+    assert "Host control" in "\n".join(verdict.control_md(c))
+    short = tmp_path / "short.jsonl"
+    short.write_text(json.dumps(_line(512, 0.04, main)) + "\n")
+    assert verdict.host_control(short, repo, None, {})["status"] == "short"

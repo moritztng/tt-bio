@@ -15,6 +15,15 @@ the 6 MB floor. A split call streams the transposed a in 4-tile groups and drain
 OG) at a time, so b's block fits L1 beside them. The accumulation order over K is unchanged, so a split call returns
 exactly what an unsplit one would.
 
+Under the `bres_ta_hifi3` lever a Wormhole transposed-a call asked for at HiFi2 runs at HiFi3. HiFi2 with the per-row
+transpose_wh <-> matmul switch hangs one core (packer never releases the staging CB): bmm_res alone in a loop at
+[1, 384, 608, 608] hung after 700 to 97600 calls on six Galaxy chips, with or without draining every thread at the
+switch and with a full re-init there; HiFi3, HiFi4 and LoFi transposed-a and HiFi2 transposed-b ran 107k-112k calls
+clean (spd-m-opendde bs, bs2, 2026-10-24, bres_soak.py on branch wk/spd-m-opendde-bres). HiFi3 costs ~0.8 % a call (5.50 vs 5.46 ms);
+it is the WH LoFi unpacker stall family (`tenstorrent.lofi_allowed`). It is a lever, not a default, because it moves
+the fold: OpenDDE WH fast graded PASS with it, OpenDDE WH normal (also HiFi2 here, no hang seen in production) did not
+(one 9TH6 docking flip).
+
 `transpose_a` / `transpose_b` take ttnn.matmul's meaning (the operand is stored [.., K, M] / [.., N, K]), which is
 how the trimul's gin_moved chunks arrive: the reader fetches tiles in the transposed order, the matmul unpacker
 transposes each b tile, and compute transposes each a tile into a bf16 staging CB before it multiplies (ttnn's in0
@@ -23,6 +32,13 @@ transpose). A tile transpose moves values only and bf16 holds every bfp8 value, 
 BRES_B8 (off) keeps a bf16 b resident as bfp8 where that removes a split: the reader stages b[c] in BG-tile groups
 and compute repacks each group into the resident buffer, so at 1024 tokens b[c] (1.06 MB) fits whole and a[c] is
 read once (6 MB of DRAM traffic a channel instead of 8). It rounds b to bfp8, as trimul_b8in does at the in-projection.
+
+`rot` writes the output page-rotated: channel c's tile (i, j) lands where tile (i, j) + c would be, wrapping inside
+the channel. Interleaved DRAM puts page p on bank p % banks, so where a channel's page count is a multiple of the
+bank count every channel's tile (i, j) sits on one bank, and a reader of one (i, j) across all channels (the trimul
+tail's moved reader) queues on that bank. Rotated, it spreads over all of them: RFD4's tail at 512 tokens reads its
+stage in 1.78 ms a call instead of 1.91 (state/rfd4/bets/stage512.md). Only a reader that undoes the rotation
+(`trimul_tail.fused_tail_ln_cm(rot=True)`) may read such a tensor; `rot_pays` says where it moves anything.
 
 The trimul einsum calls it under the `trimul_bres` lever (tenstorrent.py); perf/spd/af2_trimul_bmm_sweep.py --res times it.
 `matmul` returns the product or None, and None means the caller keeps its own path.
@@ -47,6 +63,8 @@ SPLIT_GROUP = 4        # a split call's transposed-a read group in tiles (comput
 #: tokens: ESMFold2-Fast 41.49 -> 42.00 s normal, 31.82 -> 32.30 s --fast, ESMFold2 --fast 54.09 -> 54.72 s.
 BRES_SPLIT = None if os.environ.get("TT_BIO_BRES_SPLIT", "").strip() == "" else env_flag("TT_BIO_BRES_SPLIT", True)
 BRES_B8 = env_flag("TT_BIO_BRES_B8", False)
+#: A/B switch for `rot` (on): False makes `rot_pays` say no, so every caller writes the plain order.
+ROT = True
 #: L1 a core may spend on CBs: b depth * kt * nt + a A_DEPTH * kt (+ kt bf16 staged for transpose_a) + out 2 * nt tiles.
 L1_BUDGET = 1200 * 1024
 _CACHE: dict = {}
@@ -108,7 +126,12 @@ def cb_bytes(kt, nt, a_dtype, b_dtype, transpose_a=False, compute_kernel_config=
     return depth and depth * kt * nb * b_bytes + _rest_bytes(kt, nb, ns, a_bytes, transpose_a)
 
 
-def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl=0, b8=False):
+def rot_pays(device, n) -> bool:
+    """Whether `rot` spreads an [.., n, n] output's channel reads: a channel's page count is a multiple of the banks."""
+    return ROT and (n // 32) ** 2 % int(ttnn.get_memory_view(device, ttnn.BufferType.DRAM).num_banks) == 0
+
+
+def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl=0, b8=False, rot=False):
     g = a.device().compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, C * ns, max_cores)
     nb = nt // ns
@@ -139,7 +162,8 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl
                                    defines=[("BRES_NO_A", "1")] if abl & 4 else [], config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0],
-                                   defines=[("BRES_NO_WRITE", "1")] if abl & 2 else [], config=ttnn.WriterConfigDescriptor())
+                                   defines=([("BRES_NO_WRITE", "1")] if abl & 2 else []) + ([("BRES_ROT", "1")] if rot else []),
+                                   config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=path, core_ranges=grid,
         compile_time_args=[mt, kt, nb, int(ta), int(tb), ag if ns > 1 or b8 else 0, bg], runtime_args=cp,
@@ -158,7 +182,7 @@ STATS = [0, 0]   # calls served, calls declined (None returned)
 
 
 def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=False, budget=L1_BUDGET, max_cores=0,
-           depth=None, abl=0, split=None, b8=None):
+           depth=None, abl=0, split=None, b8=None, rot=False):
     """``a @ b`` over the channel axis as a new bf16 DRAM tensor, or None if the call is outside what the kernel does.
 
     It sums K in an fp32 dest at the caller's fidelity (HiFi4 without a config); a bf16-dest config declines.
@@ -166,17 +190,22 @@ def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=Fals
     knobs that move scheduling, never a number, and so is `split` (see `_plan`). `b8` (None: BRES_B8) rounds a bf16 b
     to bfp8 in L1 where that plans fewer column blocks than bf16 does, and changes the result as that rounding does. `abl` is a bench-only stage mask that does change the result:
     1 skips the matmuls, 2 the output writes, 4 the reads of a (time attribution, af2_trimul_bmm_sweep --abl).
+    `rot` (bool, or a callable asked with the allocated output) writes the output page-rotated (module doc).
     """
     out = _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split,
-                  BRES_B8 if b8 is None else b8)
+                  BRES_B8 if b8 is None else b8, rot)
     STATS[out is None] += 1
     return out
 
 
-def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split, b8):
+def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split, b8, rot):
     if compute_kernel_config is not None and not compute_kernel_config.fp32_dest_acc_en:
         return None
     fidelity = ttnn.MathFidelity.HiFi4 if compute_kernel_config is None else compute_kernel_config.math_fidelity
+    if transpose_a and fidelity == ttnn.MathFidelity.HiFi2:
+        from .tenstorrent import arch_name, lever
+        if lever("bres_ta_hifi3") and arch_name() == "wormhole_b0":
+            fidelity = ttnn.MathFidelity.HiFi3
     for t in (a, b):
         mc = t.memory_config()
         if (t.dtype not in (ttnn.bfloat16, ttnn.bfloat8_b) or t.layout != ttnn.TILE_LAYOUT
@@ -206,10 +235,12 @@ def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_c
     shape = [int(d) for d in a.shape][:-2] + [int(a.shape[am]), int(b.shape[bn])]
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape),
                                          ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+    rot = bool(rot(out) if callable(rot) else rot)
     key = (dev.id(), tuple(sa), tuple(sb), a.dtype, b.dtype, a.memory_config().buffer_type,
-           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8)
+           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8, rot)
     if key not in _CACHE:
-        _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8)
+        _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8,
+                             rot)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [a.buffer_address(), b.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]

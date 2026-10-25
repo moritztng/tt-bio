@@ -33,11 +33,13 @@ already carries the fix) raises rather than serving the unpatched kernel under a
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import importlib.util
 import os
 import re
 import shutil
+import time
 from pathlib import Path
 
 from .envflags import env_flag
@@ -301,7 +303,7 @@ def build(names, root: Path | None = None, cache: Path | None = None) -> Path:
         key.update(rel.encode() + files[rel].encode())
     cache = cache or Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "metal_overlay"
     out = cache / key.hexdigest()[:16]
-    if (out / ".complete").exists():
+    if _use(out):
         return out
     tmp = cache / f".{out.name}.{os.getpid()}"
     for rel, text in files.items():
@@ -314,7 +316,54 @@ def build(names, root: Path | None = None, cache: Path | None = None) -> Path:
         if not (out / ".complete").exists():
             raise
         shutil.rmtree(tmp, ignore_errors=True)
+    _prune(cache, keep=out)
+    _use(out)
     return out
+
+
+# Every venv path keys its own overlay, and each carries its own JIT cache (2-10 GB once a model has run). qb2 builds
+# a venv per release candidate and kept every overlay: 53 of them, 67 GB, / at 18 GB free on 2026-10-24. A process
+# holds a shared lock on the overlay it uses for its whole life; a new overlay prunes any other nobody started in
+# PRUNE_IDLE_S and nobody holds. The JIT cache rebuilds on the next use. An overlay with no .lock was last used by code
+# that neither holds the lock nor stamps .complete (a Galaxy engine still on an older release), so it is never pruned.
+PRUNE_IDLE_S = 6 * 3600
+_HELD: dict[Path, object] = {}
+
+
+def _use(out: Path) -> bool:
+    """Hold ``out`` against pruning for this process's life and stamp it used; False if it is not built."""
+    if out not in _HELD:
+        try:
+            f = open(out / ".lock", "a")
+        except OSError:
+            return False
+        fcntl.flock(f, fcntl.LOCK_SH)
+        _HELD[out] = f
+    try:
+        os.utime(out / ".complete")
+    except OSError:  # pruned before we took the lock: build it again
+        _HELD.pop(out).close()
+        return False
+    return True
+
+
+def _prune(cache: Path, keep: Path) -> None:
+    now = time.time()
+    for old in cache.iterdir():
+        if old == keep or old.name.startswith(".") or not old.is_dir():
+            continue
+        try:
+            if now - (old / ".complete").stat().st_mtime < PRUNE_IDLE_S:
+                continue
+            lockf = open(old / ".lock", "r")
+        except OSError:
+            continue
+        with lockf:
+            try:
+                fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                continue  # a running process uses it
+            shutil.rmtree(old, ignore_errors=True)
 
 
 def _mirror(root: Path, dst: Path, rel: Path) -> None:
@@ -344,7 +393,9 @@ def enable(names) -> Path:
     have = os.environ.get("TT_BIO_METAL_OVERLAY")
     want = sorted(set(names) | set(have.split(",") if have else ()))
     if have == ",".join(want):
-        return Path(os.environ["TT_METAL_RUNTIME_ROOT"])
+        out = Path(os.environ["TT_METAL_RUNTIME_ROOT"])
+        _use(out)
+        return out
     if have is None:
         stock = runtime_root()
         if stock is None:

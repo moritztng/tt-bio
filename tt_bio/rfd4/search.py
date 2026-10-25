@@ -13,6 +13,7 @@ times a late one and a flat per-step count is wrong by a factor of three.
 from __future__ import annotations
 
 import math
+import numbers
 from collections.abc import Mapping
 from typing import Any
 
@@ -57,8 +58,9 @@ class RewardModel:
     """One checkpoint's weighted sum over named metric outputs.
 
     Each `metric.output` key carries a weight, an optional clip and an optional divisor. A weighted
-    key the metrics did not produce returns -inf, which is how a failed oracle fold removes its
-    candidate from the beam instead of ranking it by accident.
+    key the metrics did not produce, or produced as NaN, inf or a non-number, returns -inf, which
+    is how a failed oracle fold removes its candidate from the beam instead of ranking it by
+    accident.
     """
 
     def __init__(self, rewards: Mapping) -> None:
@@ -101,14 +103,32 @@ class RewardModel:
 
     def aggregate_metrics_output(self, metrics_output: dict) -> float:
         """The scalar reward for one candidate. Never mutates `metrics_output`."""
-        reward = 0.0
+        return self.score(metrics_output)[0]
+
+    def score(self, metrics_output: dict) -> tuple[float, str | None]:
+        """`(reward, None)`, or `(-inf, reason)` for a candidate whose reward is invalid.
+
+        A weighted key that is absent, non-numeric or non-finite makes it invalid, and so does a
+        sum that overflows. A NaN reward would compare unordered and leave the beam's survivors to
+        insertion order, and an inf metric would win it; -inf ranks the candidate last instead.
+        """
+        reward, bad = 0.0, []
         for key, weight in self.weights.items():
             if not weight:
                 continue
             if key not in metrics_output:
-                return float("-inf")
-            reward += weight * self._clip(key, metrics_output[key])
-        return reward
+                bad.append(f"{key} missing")
+                continue
+            value = metrics_output[key]
+            if isinstance(value, bool) or not isinstance(value, numbers.Real) or not math.isfinite(value):
+                bad.append(f"{key}={value!r}")
+                continue
+            reward += weight * self._clip(key, value)
+        if bad:
+            return float("-inf"), ", ".join(sorted(bad))
+        if not math.isfinite(reward):
+            return float("-inf"), f"the weighted sum is {reward!r}"
+        return reward, None
 
 
 def recycle_depths(n_recycle_schedule: list, nsteps: int) -> tuple[int, ...]:

@@ -1,0 +1,5 @@
+booked 1792837784 1792844984 2026-10-24T10:29:44Z load 2.12
+start chip 3 tree b1e12a16f 2026-10-24T10:29:44Z load 2.12
+tail rc=137 2026-10-24T10:34:14Z load 4.19
+SPRE did not beat GROW, trunk legs skipped 2026-10-24T10:34:14Z load 4.19
+ALLDONE 2026-10-24T10:34:14Z load 4.19

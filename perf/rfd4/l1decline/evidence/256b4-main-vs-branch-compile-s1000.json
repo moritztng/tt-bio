@@ -1,0 +1,32 @@
+{
+ "a": "main-256b4/run/b4/compile-s1000",
+ "b": "branch-256b4/run/b4/compile-s1000",
+ "n": 4,
+ "equal": 4,
+ "rows": [
+  {
+   "design": 0,
+   "sha_a": "2cc3e06bb26842af",
+   "sha_b": "2cc3e06bb26842af",
+   "equal": true
+  },
+  {
+   "design": 1,
+   "sha_a": "6113db5e55b0a0e6",
+   "sha_b": "6113db5e55b0a0e6",
+   "equal": true
+  },
+  {
+   "design": 2,
+   "sha_a": "82900cfe659f0cc0",
+   "sha_b": "82900cfe659f0cc0",
+   "equal": true
+  },
+  {
+   "design": 3,
+   "sha_a": "617abeb0aea3c7d7",
+   "sha_b": "617abeb0aea3c7d7",
+   "equal": true
+  }
+ ]
+}

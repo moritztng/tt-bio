@@ -3,9 +3,10 @@ default lever set and one on another, each trunk pass captured as a trace and th
 alternately (A B A B ...), so host load and clock drift land on both arms alike.
 
     TT_VISIBLE_DEVICES=<card> python perf/rfd4/bfp8/stack_ab.py --weights <bundle> --out <file.json> \
-        [--n 128] [--reps 40] [--base LEVERS] [--levers LEVERS]
+        [--n 128] [--batch 1] [--reps 40] [--base LEVERS] [--levers LEVERS | +LEVER[,LEVER]]
 
-A design runs 180 passes (60 network calls x 3), so `trunk_s_per_design` is 180 x the median pass.
+A design runs 180 passes (60 network calls x 3), so `trunk_s_per_design` is 180 x the median pass / batch.
+`--levers +X,Y` is the base set plus X and Y.
 Inputs are seeded normals at the released widths (pass time does not depend on values); the two
 arms' outputs on the same input are compared too (rel RMS of z), as a sanity check, not the grade.
 AICLK is sampled for the life of the run (`perf/clocksample.py`).
@@ -56,6 +57,7 @@ def main():
     ap.add_argument("--weights", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--n", type=int, default=128)
+    ap.add_argument("--batch", type=int, default=1, help="designs a trunk call (the sample width)")
     ap.add_argument("--reps", type=int, default=40)
     ap.add_argument("--base", default=None, help="lever set of the base arm (default rfd4.trunk.NORMAL_LEVERS)")
     ap.add_argument("--levers", default=None, help="lever set of the stack arm (default rfd4.trunk.FAST_LEVERS)")
@@ -68,6 +70,8 @@ def main():
     from tt_bio.rfd4 import trunk as TR
     base = ",".join(sorted(TR.NORMAL_LEVERS)) if a.base is None else a.base
     stack = ",".join(sorted(TR.FAST_LEVERS)) if a.levers is None else a.levers
+    if stack.startswith("+"):
+        stack = ",".join(sorted(set(base.split(",")) | set(stack[1:].split(","))))
 
     dev = T.get_device(trace="rf3")
     state, config = N.load_checkpoint(a.weights)
@@ -84,12 +88,12 @@ def main():
             os.environ.pop("TT_BIO_LEVERS", None)
 
     arms = {"base": build(base), "stack": build(stack)}
-    n, tok, pair, dc = a.n, cfg["token_dim"], cfg["pair_repr_dim"], cfg["dim_cond"]
+    n, b, tok, pair, dc = a.n, a.batch, cfg["token_dim"], cfg["pair_repr_dim"], cfg["dim_cond"]
     g = torch.Generator().manual_seed(0)
-    s0, z0 = torch.randn(1, n, tok, generator=g), torch.randn(1, n, n, pair, generator=g)
-    c0 = torch.randn(1, n, dc, generator=g)
+    s0, z0 = torch.randn(b, n, tok, generator=g), torch.randn(b, n, n, pair, generator=g)
+    c0 = torch.randn(b, n, dc, generator=g)
     up = lambda t, dt: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
-    masks = TR.trunk_masks(torch.ones(1, n), dev, residual_dtype=ttnn.float32)
+    masks = TR.trunk_masks(torch.ones(b, n), dev, residual_dtype=ttnn.float32)
     s, cond = up(s0, ttnn.float32), up(c0, ttnn.bfloat16)
     zs = {k: up(z0, tr.pair_residual_dtype) for k, tr in arms.items()}   # each arm's own pair stream dtype
     sync = lambda: ttnn.synchronize_device(dev)  # noqa: E731
@@ -99,7 +103,7 @@ def main():
             if t is not None and t.is_allocated():
                 ttnn.deallocate(t)
 
-    rec = {"n": n, "levers": {"base": sorted(arms["base"]._levers), "stack": sorted(arms["stack"]._levers)},
+    rec = {"n": n, "batch": b, "levers": {"base": sorted(arms["base"]._levers), "stack": sorted(arms["stack"]._levers)},
            "base_set": a.base_set,
            "tt_bio": str(Path(TR.__file__).resolve().parents[2]), "load_start": os.getloadavg()[0]}
     with clocksample.during(period=0.5) as clk:
@@ -132,7 +136,7 @@ def main():
     for k, v in ms.items():
         med = statistics.median(v)
         rec[k] = {"pass_ms_median": round(med, 3), "pass_ms_min": round(min(v), 3),
-                  "trunk_s_per_design": round(PASSES_PER_DESIGN * med / 1e3, 3)}
+                  "trunk_s_per_design": round(PASSES_PER_DESIGN * med / 1e3 / b, 3)}
     rec["paired_speedup_median"] = round(statistics.median(ratios), 4)
     rec["reps"] = a.reps
     rec["load_end"] = os.getloadavg()[0]

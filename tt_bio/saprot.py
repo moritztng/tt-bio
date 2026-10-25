@@ -168,7 +168,7 @@ _QKRH_QSCALE = None
 # HiFi4 needs the fp32 dest (HiFi4 at bf16 dest was worse than HiFi2, HiFi2 at fp32 dest no better). Galaxy chip, 1000 MHz,
 # 2 rounds, --fast, pcc vs fp32 against HiFi2: 650M hPCSK9 +0.000265, hEGFR +0.000093, hTF +0.000035, hTNFa +0.000012,
 # 1.3B hPCSK9 +0.000080, hEGFR +0.000128, at +0.9 to +1.5 % time. None = with the packed RoPE program only.
-_SAPROT_SDPA = None
+_SAPROT_SDPA = env_flag("TT_BIO_SAPROT_SDPA", None)
 _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 
 
@@ -207,8 +207,13 @@ _SAPROT_HALF_ROPE = env_flag("TT_BIO_SAPROT_HALF_ROPE", True)
 _HALF_ROPE_CFG = (5, 5, 4, 1, 4)
 _HALF_ROPE_IN1 = 5
 # Wide: zero-pad 35M's 20 heads to 24 (mm_rope.pad_heads_for) so the qkv's 72 tiles split 9 a core over all 8 in1 cores
-# (grid 8 x 8) instead of 12 over 5; the writer drops the pad heads. Off until graded (ls116 probe, then a page A/B).
-_SAPROT_HALF_WIDE = env_flag("TT_BIO_SAPROT_HALF_WIDE", False)
+# (grid 8 x 8) instead of 12 over 5; the writer drops the pad heads. Same per-head values as the 5-core arm (ls116).
+# Page A/B --fast (ls133, Galaxy chip at 1000 MHz, 4 rounds x 3, mean of round mins off -> on, pcc vs fp32 delta): hHSA
+# 20.59 -> 20.30 (+0.000003), hPCSK9 21.61 -> 20.63 (-0.000001), faster in 7 of 8 rounds; normal (ls117, 2 rounds) 3 of 4,
+# pcc identical. Blackhole (ls135, p300c at 1350 MHz, same protocol, hw + gelu_f32 as one arm): --fast hHSA 14.43 ->
+# 11.73 (+0.000041), hPCSK9 12.88 -> 11.70 (-0.000014), faster in 8 of 8 rounds; normal 4 of 8, not taken.
+# None = Wormhole and Blackhole --fast.
+_SAPROT_HALF_WIDE = env_flag("TT_BIO_SAPROT_HALF_WIDE", None)
 _HALF_TABLES: dict = {}
 _RL_CK = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                           fp32_dest_acc_en=True, packer_l1_acc=False)
@@ -461,6 +466,13 @@ def _normal_hifi3() -> bool:
     return bool(_SAPROT_NORMAL_HIFI3)
 
 
+# Under grade (ls132, off): normal mode's qkv keeps HiFi4 where the other projections take HiFi3, and _QKV_NOACC also
+# drops its packer L1 accumulation (the HiFi4 -2^n sums). BH normal's mm_rope + SFPU sums is -6..-10 % but failed 650M
+# hPCSK9 by 0.00006 (ls124); its q, k error (2.70e-3 vs float64, ls126) is the term left to shrink.
+_SAPROT_QKV_HIFI4 = env_flag("TT_BIO_SAPROT_QKV_HIFI4", False)
+_SAPROT_QKV_NOACC = env_flag("TT_BIO_SAPROT_QKV_NOACC", False)
+
+
 class _SaprotLin(_MMLin):
     MM_BFP8_HIFI2 = False   # SaProt 35M --fast at HiFi2: pooled cos vs fp32 0.999915 -> 0.999879, under the 0.9999 bar
 
@@ -474,6 +486,14 @@ class _SaprotLin(_MMLin):
         on = d >= _HIFI2_MIN_WIDTH if _SAPROT_HIFI2 is None else _SAPROT_HIFI2
         if not (on and w.dtype == ttnn.bfloat8_b and _role(d, int(w.shape[-2]), int(w.shape[-1])) in _hifi2_roles()
                 and ck.math_fidelity in (ttnn.MathFidelity.HiFi3, ttnn.MathFidelity.HiFi4)):
+            if (_SAPROT_QKV_HIFI4 and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4
+                    and _role(d, int(w.shape[-2]), int(w.shape[-1])) == "qkv"):
+                if not _SAPROT_QKV_NOACC:
+                    return ck
+                if getattr(self, "_ck_noacc", None) is None:
+                    self._ck_noacc = type(ck)(math_fidelity=ck.math_fidelity, math_approx_mode=ck.math_approx_mode,
+                                              fp32_dest_acc_en=ck.fp32_dest_acc_en, packer_l1_acc=False)
+                return self._ck_noacc
             if _normal_hifi3() and w.dtype == ttnn.bfloat16 and ck.math_fidelity == ttnn.MathFidelity.HiFi4:
                 if getattr(self, "_ck_hifi3", None) is None:
                     self._ck_hifi3 = type(ck)(math_fidelity=ttnn.MathFidelity.HiFi3, math_approx_mode=ck.math_approx_mode,
@@ -678,10 +698,12 @@ class ESM2Attention(_SaprotLin, Module):
 
     def _half_rope(self, x):
         """(rope(q), rope(k), v) [B, H, L, 32] from one half-pair mm_rope matmul, or None where it is off or declines."""
-        from tt_bio import mm_rope
+        from tt_bio import mm_rope, tenstorrent
         if not (self.rope_pairs and _SAPROT_HALF_ROPE):
             return None
-        cfg, nc = _HALF_ROPE_CFG, 8 if _SAPROT_HALF_WIDE else _HALF_ROPE_IN1
+        wide = (tenstorrent.is_wormhole() or self.qkv_weight.dtype == ttnn.bfloat8_b if _SAPROT_HALF_WIDE is None
+                else _SAPROT_HALF_WIDE)
+        cfg, nc = _HALF_ROPE_CFG, 8 if wide else _HALF_ROPE_IN1
         dev = lambda t, dt: ttnn.from_torch(t.contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device, dtype=dt)
         if not hasattr(self, "qkv_half"):
             self.qkv_half = {}
@@ -879,10 +901,12 @@ _GELU_FUSED = env_flag("TT_BIO_SAPROT_GELU_FUSED", True)
 # 650M --fast hHSA 151.0 -> 146.1 ms (+0.000045), hPCSK9 155.2 -> 146.2 (+0.000074); normal hHSA 175.4 -> 170.2
 # (+0.000019), hPCSK9 175.3 -> 171.4 (+0.000064); 1.3B --fast hPCSK9 284.9 -> 275.7 (-0.000071), normal hHSA 337.3 ->
 # 328.2 (-0.000014); 35M --fast hHSA 29.1 -> 26.3 (-0.000011), normal hPCSK9 29.6 -> 27.6 (+0.000010).
-# None = Wormhole, and Blackhole at width >= 1280: --fast inside _bh_fast's stack, normal on top of mm_resid (alone,
+# None = Wormhole, Blackhole --fast, and Blackhole normal at width >= 1280: --fast inside _bh_fast's stack, normal on top of mm_resid (alone,
 # Blackhole normal 1.3B read pcc -0.000110 in ls124). ls125 (p300c, 1350 MHz at the plateau, 4 rounds x 3, mean of round
 # mins, mm_resid -> + gelu_f32, pcc vs fp32 delta against the old default): normal 650M hHSA 83.1 -> 78.2 ms (+0.000026),
-# hPCSK9 88.3 -> 84.5 (+0.000059), 1.3B hPCSK9 171.1 -> 166.3 (+0.000000), faster in every round.
+# hPCSK9 88.3 -> 84.5 (+0.000059), 1.3B hPCSK9 171.1 -> 166.3 (+0.000000), faster in every round. Blackhole 35M --fast
+# takes it with the wide half-pair qkv (ls135, see _SAPROT_HALF_WIDE); Blackhole normal 35M keeps the accurate GELU
+# (4 of 8 rounds faster).
 _SAPROT_GELU_F32 = env_flag("TT_BIO_SAPROT_GELU_F32", None)
 
 
@@ -890,8 +914,8 @@ def _fc1_act(w=None) -> str:
     if _SAPROT_GELU_F32 is not None:
         return "gelu_approx" if _SAPROT_GELU_F32 else "gelu"
     from tt_bio import tenstorrent
-    wide = w is not None and int(w.shape[-2]) >= _MM_RESID_MIN_WIDTH
-    return "gelu_approx" if tenstorrent.is_wormhole() or wide else "gelu"
+    bh = w is not None and (w.dtype == ttnn.bfloat8_b or int(w.shape[-2]) >= _MM_RESID_MIN_WIDTH)
+    return "gelu_approx" if tenstorrent.is_wormhole() or bh else "gelu"
 
 
 # --fast: fc1's GELU output written as block-fp8 where it goes to DRAM, the [rows, 4d] activation fc2 reads back (half

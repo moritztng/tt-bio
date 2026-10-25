@@ -1,0 +1,58 @@
+{
+ "n": 512,
+ "batch": 2,
+ "nlayers": 14,
+ "tt_bio": "/home/ttuser/.coworker/wt/rfd4-perf-224",
+ "mixed_add_exact": false,
+ "mixed_add_max_abs": 0.00390625,
+ "ops_per_pass": 1153,
+ "ops_by_name": {
+  "linear": 238,
+  "allocate_tensor_on_device": 189,
+  "generic_op": 141,
+  "typecast": 92,
+  "multiply": 91,
+  "rms_norm": 71,
+  "add": 70,
+  "layer_norm": 63,
+  "concat": 28,
+  "slice": 28,
+  "matmul": 28,
+  "multiply_": 28,
+  "unsqueeze": 14,
+  "experimental.nlp_create_qkv_heads": 14,
+  "transformer.scaled_dot_product_attention": 14,
+  "experimental.nlp_concat_heads": 14,
+  "squeeze": 14,
+  "reshape": 14,
+  "clone": 2
+ },
+ "ops_per_call_depth3": 2234,
+ "eager_ms": {
+  "median": 697.54,
+  "min": 697.34
+ },
+ "call_eager_ms": {
+  "median": 772.26,
+  "min": 771.668
+ },
+ "traced_equals_eager": true,
+ "traced_ms": {
+  "median": 697.546,
+  "min": 696.973,
+  "capture_s": 0.03
+ },
+ "call_traced_ms": {
+  "median": 770.927,
+  "min": 769.968,
+  "capture_s": 0.06
+ },
+ "aiclk": {
+  "0": {
+   "min": 1300,
+   "max": 1350,
+   "median": 1337,
+   "n": 9
+  }
+ }
+}

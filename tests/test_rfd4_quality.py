@@ -14,6 +14,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "perf" / "r
 import geometry  # noqa: E402
 import metrics as mspec  # noqa: E402
 import quality  # noqa: E402
+import rebind  # noqa: E402
 import stats  # noqa: E402
 
 FEATURE = "unconditional"
@@ -145,7 +146,7 @@ def test_a_grade_without_a_measured_seed_floor_is_not_a_pass(tmp_path):
     tt = _write_arm(tmp_path, "tt", _rows(40, 1))
     ref = _write_arm(tmp_path, "ref", _rows(40, 2))
     out = tmp_path / "QUALITY.json"
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--permutations", str(FAST), "--out", str(out)])
     assert rc == 1 and json.loads(out.read_text())["features"][FEATURE]["verdict"] == "NO_FLOOR"
 
@@ -155,7 +156,7 @@ def test_two_seeds_of_the_same_distribution_pass(tmp_path):
     ref = _write_arm(tmp_path, "ref", _rows(40, 2))
     out = tmp_path / "QUALITY.json"
     _calibrate(tmp_path, out)
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     assert rc == 0 and doc["verdict"] == "PASS"
@@ -167,7 +168,7 @@ def test_a_shifted_refold_rmsd_fails(tmp_path):
     tt = _write_arm(tmp_path, "tt", _rows(40, 1, rmsd_mu=2.0))
     ref = _write_arm(tmp_path, "ref", _rows(40, 2, rmsd_mu=1.0))
     out = tmp_path / "QUALITY.json"
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     assert rc == 1 and doc["verdict"] == "FAIL"
@@ -178,7 +179,7 @@ def test_a_collapsed_pass_rate_fails(tmp_path):
     tt = _write_arm(tmp_path, "tt", _rows(40, 1, pass_rate=0.1))
     ref = _write_arm(tmp_path, "ref", _rows(40, 2, pass_rate=0.8))
     out = tmp_path / "QUALITY.json"
-    quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                   "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     assert "unconditional.pass" in doc["features"][FEATURE]["failed"]
@@ -191,7 +192,7 @@ def test_unknown_residues_fail_the_guard_even_when_the_reference_has_them_too(tm
         r["amino_acid_composition.n_generated_unknown_residues"] = 2.0
     tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
     out = tmp_path / "QUALITY.json"
-    quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                   "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     assert "amino_acid_composition.n_generated_unknown_residues" in doc["features"][FEATURE]["failed"]
@@ -208,13 +209,13 @@ def test_a_move_inside_the_seed_floor_is_not_a_regression(tmp_path):
     assert floor["delta_median_abs"] > 0
 
     inside = _write_arm(tmp_path, "tt_in", _rows(40, 2, rmsd_mu=1.0))
-    quality.main(["grade", "--feature", FEATURE, "--tt", str(inside), "--ref", str(a),
+    quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(inside), "--ref", str(a),
                   "--permutations", str(FAST), "--out", str(out)])
     entry = json.loads(out.read_text())["features"][FEATURE]["metrics"]["refolded_backbone_rmsd.rmsd"]
     assert entry["pass"] is True and entry["seed_floor"] == floor
 
     far = _write_arm(tmp_path, "tt_far", _rows(40, 2, rmsd_mu=1.0 + 4 * floor["delta_median_abs"] + 0.4))
-    quality.main(["grade", "--feature", FEATURE, "--tt", str(far), "--ref", str(a),
+    quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(far), "--ref", str(a),
                   "--permutations", str(FAST), "--out", str(out)])
     entry = json.loads(out.read_text())["features"][FEATURE]["metrics"]["refolded_backbone_rmsd.rmsd"]
     assert entry["pass"] is False and entry["inside_seed_floor"] is False
@@ -224,7 +225,7 @@ def test_too_few_designs_is_not_a_pass(tmp_path):
     tt = _write_arm(tmp_path, "tt", _rows(10, 1))
     ref = _write_arm(tmp_path, "ref", _rows(10, 2))
     out = tmp_path / "QUALITY.json"
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     assert rc == 1 and doc["features"][FEATURE]["verdict"] == "INSUFFICIENT_N"
@@ -234,12 +235,12 @@ def test_grading_one_feature_leaves_the_others_alone(tmp_path):
     out = tmp_path / "QUALITY.json"
     tt, ref = _write_arm(tmp_path, "tt", _rows(40, 1)), _write_arm(tmp_path, "ref", _rows(40, 2))
     _calibrate(tmp_path, out)
-    quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                   "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     doc["features"]["binder"] = {"verdict": "PASS", "metrics": {}}
     out.write_text(json.dumps(doc))
-    quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                   "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     assert set(doc["features"]) == {FEATURE, "binder"} and doc["verdict"] == "PASS"
@@ -251,7 +252,7 @@ def test_a_feature_with_no_data_is_not_a_pass(tmp_path):
     other = tmp_path / "empty_b"
     (other / "evaluation_metrics").mkdir(parents=True)
     out = tmp_path / "QUALITY.json"
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(empty), "--ref", str(other),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(empty), "--ref", str(other),
                        "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     assert rc == 1 and doc["features"][FEATURE]["verdict"] == "NO_DATA" and doc["verdict"] == "NO_DATA"
@@ -294,13 +295,13 @@ def test_a_family_with_no_oracle_columns_is_not_a_pass(tmp_path):
             r[col] = ""
     tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
     out = tmp_path / "QUALITY.json"
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--permutations", str(FAST), "--out", str(out)])
     doc = json.loads(out.read_text())
     assert rc == 1 and doc["features"][FEATURE]["verdict"] == "ORACLE_MISSING"
     assert "refolded_backbone_rmsd.rmsd" in doc["features"][FEATURE]["missing_oracle_metrics"]
 
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--allow-no-oracle", "--allow-no-floor",
                        "--permutations", str(FAST), "--out", str(out)])
     assert rc == 0 and json.loads(out.read_text())["features"][FEATURE]["verdict"] == "PASS"
@@ -406,7 +407,7 @@ def test_an_arm_rejected_by_a_pre_oracle_filter_is_no_data(tmp_path):
                 r[col] = ""
     tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
     out = tmp_path / "QUALITY.json"
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--permutations", str(FAST), "--out", str(out)])
     res = json.loads(out.read_text())["features"][FEATURE]
     assert rc == 1 and res["verdict"] == "NO_DATA"
@@ -538,7 +539,7 @@ def test_a_pass_criterion_with_no_inputs_is_not_a_clean_rate(tmp_path):
         r["unconditional.all_metrics_present"] = 0.0
     tt, ref = _write_arm(tmp_path, "tt", rows_tt), _write_arm(tmp_path, "ref", rows_ref)
     out = tmp_path / "QUALITY.json"
-    rc = quality.main(["grade", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
                        "--permutations", str(FAST), "--out", str(out)])
     feat = json.loads(out.read_text())["features"][FEATURE]
     assert rc == 1 and feat["verdict"] == "FAIL"
@@ -558,7 +559,8 @@ def test_a_resample_floor_is_labelled_and_reaches_the_grade_that_reads_it(tmp_pa
     with pytest.raises(ValueError):
         quality.calibrate_floor(FEATURE, a, b, permutations=FAST, kind="two_seeds")
 
-    res = quality.grade_feature(FEATURE, a, b, {FEATURE: floor}, permutations=FAST, allow_no_oracle=True)
+    res = quality.grade_feature(FEATURE, a, b, {FEATURE: floor}, permutations=FAST, allow_no_oracle=True,
+                                allow_unbound=True)
     assert res["seed_floor_kind"] == "resample" and res["seed_floor_source"] == "halves"
 
 
@@ -578,3 +580,137 @@ def test_the_floor_watcher_refuses_an_index_kind_it_does_not_know(tmp_path, caps
         ffr.INDEX, quality.QUALITY_JSON = monkey["INDEX"], monkey["QUALITY_JSON"]
     assert "is not one of" in capsys.readouterr().out
     assert not doc.exists()
+
+
+# ----------------------------------------------------------------------------- the paired leg
+def test_the_sign_test_needs_twelve_of_sixteen_and_recomputes_after_ties():
+    worse = [0.4] * 12 + [-0.1] * 4
+    assert stats.sign_test(worse)["verdict"] == "FAIL"
+    assert stats.sign_test([0.4] * 11 + [-0.1] * 5)["verdict"] == "INCONCLUSIVE"
+    assert stats.sign_test([-0.4] * 12 + [0.1] * 4)["verdict"] == "PASS"
+    # two exact ties removed: the threshold moves from 12 of 16 to 11 of 14, so 11 now decides
+    tied = stats.sign_test([0.4] * 11 + [-0.1] * 3 + [0.0, 0.0])
+    assert tied["ties"] == 2 and tied["n"] == 14 and tied["needed_one_side"] == 11
+    assert tied["verdict"] == "FAIL"
+    assert stats.sign_test([0.1, -0.1, 0.1, -0.1])["needed_one_side"] is None  # n=4 cannot reject
+
+
+def test_an_equivalent_arm_reads_inconclusive_not_pass():
+    rng = np.random.default_rng(7)
+    d = rng.normal(0.0, 0.3, 16)
+    assert stats.sign_test(d)["verdict"] == "INCONCLUSIVE"
+
+
+def test_one_huge_difference_cannot_carry_the_verdict_but_moves_hodges_lehmann():
+    d = [-50.0] + [0.2] * 15
+    assert stats.sign_test(d)["verdict"] == "FAIL"  # 15 of 16 worse, whatever the one magnitude says
+    assert stats.hodges_lehmann(d)["estimate"] > 0
+
+
+def _cases(n_worse, n_better, stratum="pdl1-128", seed0=1, incomplete=0):
+    cases = [{"stratum": stratum, "seed": seed0 + i, "tt_value": 1.5, "ref_value": 1.0} for i in range(n_worse)]
+    cases += [{"stratum": stratum, "seed": seed0 + 100 + i, "tt_value": 1.0, "ref_value": 1.5}
+              for i in range(n_better)]
+    cases += [{"stratum": stratum, "seed": seed0 + 200 + i, "tt_value": float("nan"), "ref_value": 1.0}
+              for i in range(incomplete)]
+    return cases
+
+
+def test_the_completeness_floor_overrides_the_signs():
+    res = quality.paired_leg(_cases(11, 0, incomplete=5), "refolded_backbone_rmsd.rmsd")
+    st = res["strata"]["pdl1-128"]
+    assert st["sign_test"]["verdict"] == "FAIL" and st["n_complete"] == 11
+    assert st["verdict"] == "INCONCLUSIVE" and res["verdict"] == "INCONCLUSIVE"
+    assert [c["seed"] for c in st["incomplete"]] == [201, 202, 203, 204, 205]  # named, never dropped
+
+
+def test_a_stratum_that_fails_decides_the_leg_and_the_leg_never_gates():
+    res = quality.paired_leg(_cases(12, 4) + _cases(0, 16, stratum="pdl1-256"),
+                             "refolded_backbone_rmsd.rmsd")
+    assert res["strata"]["pdl1-128"]["verdict"] == "FAIL"
+    assert res["strata"]["pdl1-256"]["verdict"] == "PASS"
+    assert res["verdict"] == "FAIL" and res["gates"] is False
+
+
+def test_the_holdout_seeds_are_refused_without_the_flag(tmp_path, capsys):
+    hold = quality.holdout()
+    ref = _write_arm(tmp_path, "ref", _rows(1, 0))
+    tt = _write_arm(tmp_path, "tt", _rows(1, 1))
+    manifest = tmp_path / "cases.json"
+    manifest.write_text(json.dumps({"cases": [{"stratum": "pdl1-128", "seed": hold["seeds"][0],
+                                               "tt": str(tt), "ref": str(ref)}]}))
+    out = tmp_path / "QUALITY.json"
+    argv = ["paired", "--feature", FEATURE, "--manifest", str(manifest), "--out", str(out)]
+    with pytest.raises(SystemExit) as exc:
+        quality.main(argv)
+    assert exc.value.code == 2 and "allow-holdout" in capsys.readouterr().err
+    assert not out.exists()
+    assert quality.main(argv + ["--allow-holdout"]) == 0
+    doc = json.loads(out.read_text())
+    assert doc["paired"][FEATURE]["on_holdout_seeds"] == [hold["seeds"][0]]
+    assert doc["paired"][FEATURE]["verdict"] == "INCONCLUSIVE"  # one case, far under the floor
+    assert doc["verdict"] == "NOT_GRADED"  # the paired leg does not write a grade of its own
+
+
+# ----------------------------------------------------------------------------- rebinding
+GOLDEN = pathlib.Path(__file__).resolve().parents[1] / "perf" / "rfd4" / "eval_goldens" / "ppi"
+DESIGN_CIF = GOLDEN / "binder_generated.cif"
+REFOLD_CIF = GOLDEN / "refold_binder_generated_975e6ee5" / "binder_generated_975e6ee5_af3_ppi_refolded.cif"
+TRUE_RMSD = 1.390955  # biotite superimpose + rmsd on the same 400 backbone atoms
+
+
+def test_the_rmsd_is_rederived_from_the_two_structures():
+    got = rebind.rederive_rmsd(DESIGN_CIF, REFOLD_CIF)
+    assert got["n_atoms"] == 400 and abs(got["value"] - TRUE_RMSD) < 1e-5
+
+
+def test_a_number_that_does_not_match_its_artifact_is_a_mismatch():
+    row = {"designed_structure_path": str(DESIGN_CIF),
+           "refolded_backbone_rmsd.refolded_structure_path": str(REFOLD_CIF),
+           "refolded_backbone_rmsd.rmsd": TRUE_RMSD}
+    clean = rebind.rederive([row])
+    assert clean["checked"] == 1 and clean["mismatches"] == [] and len(clean["artifact_sha256"]) == 2
+    lied = rebind.rederive([{**row, "refolded_backbone_rmsd.rmsd": 0.42}])
+    assert len(lied["mismatches"]) == 1
+    bad = lied["mismatches"][0]
+    assert bad["reported"] == 0.42 and abs(bad["rederived"] - TRUE_RMSD) < 1e-5
+
+
+def test_a_missing_artifact_is_named_rather_than_passed_over(tmp_path):
+    row = {"designed_structure_path": str(tmp_path / "gone_generated.cif"),
+           "refolded_backbone_rmsd.rmsd": 1.0}
+    got = rebind.rederive([row])
+    assert got["checked"] == 0 and len(got["unavailable"]) == 1
+    assert got["unavailable"][0]["column"] == "refolded_backbone_rmsd.rmsd"
+
+
+def test_one_design_counted_twice_is_caught():
+    rows = [{"designed_structure_path": "/d/a.cif"}, {"designed_structure_path": "/d/a.cif"},
+            {"designed_structure_path": "/d/b.cif"}]
+    assert rebind.duplicates(rows) == ["/d/a.cif"]
+
+
+def test_an_arm_is_unbound_without_a_source_commit_and_rejected_off_main(tmp_path):
+    arm = {"rows": [{"designed_structure_path": str(DESIGN_CIF),
+                     "refolded_backbone_rmsd.refolded_structure_path": str(REFOLD_CIF),
+                     "refolded_backbone_rmsd.rmsd": TRUE_RMSD}]}
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    assert rebind.check_arm(arm, None, repo)["verdict"] == "REBIND_FAILED"
+    assert rebind.check_arm(arm, None, repo, allow_unbound=True)["verdict"] == "BOUND"
+    off = rebind.check_arm(arm, "0" * 40, repo)
+    assert off["verdict"] == "REBIND_FAILED" and off["source_on_main"] is False
+
+
+def test_a_grade_whose_numbers_do_not_match_their_artifacts_is_not_a_pass(tmp_path):
+    rows = _rows(30, 1)
+    rows[0]["designed_structure_path"] = str(DESIGN_CIF)
+    rows[0]["refolded_backbone_rmsd.refolded_structure_path"] = str(REFOLD_CIF)
+    rows[0]["refolded_backbone_rmsd.rmsd"] = 0.42  # the CIFs say 1.39
+    tt = _write_arm(tmp_path, "tt", rows)
+    ref = _write_arm(tmp_path, "ref", _rows(30, 2))
+    out = tmp_path / "QUALITY.json"
+    rc = quality.main(["grade", "--allow-unbound", "--feature", FEATURE, "--tt", str(tt), "--ref", str(ref),
+                       "--permutations", str(FAST), "--allow-no-floor", "--allow-no-oracle", "--out", str(out)])
+    doc = json.loads(out.read_text())
+    assert rc == 1 and doc["features"][FEATURE]["verdict"] == "REBIND_FAILED" and doc["verdict"] == "REBIND_FAILED"
+    assert doc["features"][FEATURE]["rebinding"]["tt"]["mismatches"][0]["reported"] == 0.42

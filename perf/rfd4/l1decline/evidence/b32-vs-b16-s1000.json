@@ -1,0 +1,120 @@
+{
+ "a": "/home/moritz/.cache/l1d-runs/main-192b16/b16/compile-s1000",
+ "b": "/tmp/l1d-t2-192b32/run/b32/compile-s1000",
+ "n": 16,
+ "equal": 0,
+ "rows": [
+  {
+   "design": 0,
+   "sha_a": "dcfc507552e957e4",
+   "sha_b": "cedd6343c57c5754",
+   "equal": false,
+   "ca_rmsd_A": 0.3235
+  },
+  {
+   "design": 1,
+   "sha_a": "222cb00e76b6544f",
+   "sha_b": "d152c70a15a5a02c",
+   "equal": false,
+   "ca_rmsd_A": 1.0723
+  },
+  {
+   "design": 2,
+   "sha_a": "d0e25b26ec861aae",
+   "sha_b": "0071ec6fa9b108ec",
+   "equal": false,
+   "ca_rmsd_A": 2.5949
+  },
+  {
+   "design": 3,
+   "sha_a": "5eeaca5fce72b9ee",
+   "sha_b": "e832d39477bbf239",
+   "equal": false,
+   "ca_rmsd_A": 0.3357
+  },
+  {
+   "design": 4,
+   "sha_a": "2384ae5680dbfea1",
+   "sha_b": "a96265068f11a2b5",
+   "equal": false,
+   "ca_rmsd_A": 1.9983
+  },
+  {
+   "design": 5,
+   "sha_a": "b3ad2042e3a728e1",
+   "sha_b": "76406ab65e223920",
+   "equal": false,
+   "ca_rmsd_A": 1.8636
+  },
+  {
+   "design": 6,
+   "sha_a": "7af0d4752a9af2e1",
+   "sha_b": "51be1b14469158cc",
+   "equal": false,
+   "ca_rmsd_A": 2.7251
+  },
+  {
+   "design": 7,
+   "sha_a": "75a3382a54ceeaf7",
+   "sha_b": "e0bfd3cab8ca1c95",
+   "equal": false,
+   "ca_rmsd_A": 3.5345
+  },
+  {
+   "design": 8,
+   "sha_a": "a47242fc9bf9d3b6",
+   "sha_b": "eeb54a9210655234",
+   "equal": false,
+   "ca_rmsd_A": 4.0056
+  },
+  {
+   "design": 9,
+   "sha_a": "d29757a89c25c398",
+   "sha_b": "2a046119b840ab68",
+   "equal": false,
+   "ca_rmsd_A": 0.2738
+  },
+  {
+   "design": 10,
+   "sha_a": "7e0064263fb8f8b1",
+   "sha_b": "2077803e4cbdca19",
+   "equal": false,
+   "ca_rmsd_A": 4.8652
+  },
+  {
+   "design": 11,
+   "sha_a": "a7f610446408beb4",
+   "sha_b": "cf00f00f9542d514",
+   "equal": false,
+   "ca_rmsd_A": 2.7205
+  },
+  {
+   "design": 12,
+   "sha_a": "239fdef227a8b38a",
+   "sha_b": "a238782ea4c58153",
+   "equal": false,
+   "ca_rmsd_A": 5.1715
+  },
+  {
+   "design": 13,
+   "sha_a": "a0d3a1eddbe18764",
+   "sha_b": "4b4f3dc4585cfd18",
+   "equal": false,
+   "ca_rmsd_A": 2.1865
+  },
+  {
+   "design": 14,
+   "sha_a": "9b93f6238edd6d36",
+   "sha_b": "184b26ce9e95dbe2",
+   "equal": false,
+   "ca_rmsd_A": 1.8167
+  },
+  {
+   "design": 15,
+   "sha_a": "150d6bb375aef7be",
+   "sha_b": "da19280bba6aa187",
+   "equal": false,
+   "ca_rmsd_A": 0.429
+  }
+ ]
+}

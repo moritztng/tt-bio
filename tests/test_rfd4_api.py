@@ -32,7 +32,7 @@ class StubEngine:
 
 @pytest.fixture
 def host(monkeypatch, tmp_path):
-    """The host path stubbed out: spec -> two inputs, featurize, write_design."""
+    """The host path stubbed out: spec -> two inputs, featurize, write_design(s)."""
     written = []
 
     def prepare_examples(spec, out_dir, *, only=None, validate=True):
@@ -54,7 +54,12 @@ def host(monkeypatch, tmp_path):
 
     monkeypatch.setattr(rfd4_io, "prepare_examples", prepare_examples)
     monkeypatch.setattr(rfd4_io, "featurize", featurize)
+    def write_designs(output, features, atom_array, paths):
+        return [write_design(output, features, atom_array, p, row=k) for k, p in enumerate(paths)]
+
     monkeypatch.setattr(rfd4_io, "write_design", write_design)
+    monkeypatch.setattr(rfd4_io, "write_designs", write_designs)
+    monkeypatch.setattr(rfd4_io, "start_writer", lambda n: None)
     return types.SimpleNamespace(written=written, prepare_examples=prepare_examples,
                                  out=tmp_path / "designs", spec=tmp_path / "spec.yaml")
 

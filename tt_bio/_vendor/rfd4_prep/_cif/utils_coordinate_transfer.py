@@ -56,6 +56,19 @@ ANNOTS_TO_KEEP = {
 }
 
 
+# Residue-wise annotations that say where a residue sits, not what it is. A residue template's own
+# annotations and defaults are functions of its names, elements, bonds and type flags, never of these.
+POSITION_ANNOTATIONS = {
+    "res_id",
+    "auth_seq_id",
+    "token_id",
+    "within_chain_source_res_idx",
+    "insertion_source_idx",
+    "original_global_index",
+    "_expseg_uid",
+}
+
+
 def remove_terminal_oxygen_atoms(atom_array: AtomArray) -> AtomArray:
     """Remove protein OXT and nucleic-acid terminal oxygens for refolding comparisons."""
     atom_array = remove_protein_terminal_oxygen(atom_array)
@@ -143,6 +156,14 @@ def get_residue_level_annotations(
         if isinstance(values, np.ndarray) and values.ndim > 1:
             continue
 
+        # Every entry bit for bit the first one is what np.unique would reduce to that entry,
+        # without its sort (~0.1 s a 512-token design); anything else takes upstream's path.
+        if values.dtype != object:
+            raw = np.ascontiguousarray(values).view(np.uint8).reshape(len(values), -1)
+            if (raw == raw[0]).all():
+                residue_annots[annot] = values[0]
+                continue
+
         unique_values = np.unique(values)
 
         # Verify annotation is actually constant across the residue
@@ -158,6 +179,49 @@ def _token_indices(token_id: np.ndarray) -> dict:
     order = np.argsort(token_id, kind="stable")
     ids, starts = np.unique(token_id[order], return_index=True)
     return dict(zip(ids.tolist(), np.split(order, starts[1:])))
+
+
+def _template_key(generated_res_name: str, missing_atoms: np.ndarray, residue_annots: dict) -> tuple | None:
+    """What a residue template is a function of: its type, its atoms and its annotations bit for bit,
+    position labels by dtype only (`set_annotation` promotes to it). None when a value is an object."""
+    key = [generated_res_name, tuple(missing_atoms)]
+    for k, v in residue_annots.items():
+        a = np.asarray(v)
+        if a.dtype == object:
+            return None
+        key.append((k, a.dtype.str) if k in POSITION_ANNOTATIONS else (k, a.dtype.str, a.tobytes()))
+    return tuple(key)
+
+
+def _build_template(
+    input_atom_array: AtomArray, generated_res_name: str, missing_atoms: np.ndarray, residue_annots: dict
+) -> AtomArray:
+    """The atoms `missing_atoms` of a `generated_res_name` residue, annotated like the input's atoms."""
+    # Create template for new residue type with all residue-level annotations
+    template = get_empty_ccd_template(
+        ccd_code=generated_res_name,
+        hydrogen_policy="remove",
+        **residue_annots,
+    )
+
+    # Subset to missing atoms only
+    template = template[np.isin(template.atom_name, missing_atoms)]
+    if "is_token_center" in input_atom_array.get_annotation_categories():
+        annotate_token_centers(template)
+
+    # Spoof all annotations with defaults so they survive insert_atoms()
+    if "occupancy" in get_annotation_categories(input_atom_array, n_body="all"):
+        template.set_annotation("occupancy", np.ones(template.array_length(), dtype=float))
+    if "b_factor" in get_annotation_categories(input_atom_array, n_body="all"):
+        template.set_annotation("b_factor", np.full(template.array_length(), np.nan, dtype=float))
+    annotations_to_default = get_annotation_categories(input_atom_array, n_body="all")
+    existing_annotations = get_annotation_categories(template, n_body="all")
+    annotations_to_default = set(annotations_to_default) - set(existing_annotations)
+    # These two annotations have no obvious defaults for the template and can be removed from the input
+    annotations_to_default -= {"atom_id", "coord_to_be_noised"}
+    template = default_annotations_and_conditions_from_registry(template, annotations=annotations_to_default)
+    SA_SRC.set_annotation(template, SA_SRC.default_annotation(template))
+    return template
 
 
 def copy_generated_coordinates_to_input(
@@ -202,6 +266,7 @@ def copy_generated_coordinates_to_input(
 
     extra_atoms_mask = np.zeros(len(input_atom_array), dtype=bool)
     missing_atoms_and_indices = []
+    templates = {}
 
     # Each token's atom indices, ascending, as `token_id == t` would select them, built once rather
     # than one full-length mask per token.
@@ -269,30 +334,19 @@ def copy_generated_coordinates_to_input(
 
             residue_annots["original_global_index"] = np.full_like(len(input_token_idx), -1, dtype=int)
 
-            # Create template for new residue type with all residue-level annotations
-            template = get_empty_ccd_template(
-                ccd_code=generated_res_name,
-                hydrogen_policy="remove",
-                **residue_annots,
-            )
-
-            # Subset to missing atoms only
-            template = template[np.isin(template.atom_name, missing_atoms)]
-            if "is_token_center" in input_atom_array.get_annotation_categories():
-                annotate_token_centers(template)
-
-            # Spoof all annotations with defaults so they survive insert_atoms()
-            if "occupancy" in get_annotation_categories(input_atom_array, n_body="all"):
-                template.set_annotation("occupancy", np.ones(template.array_length(), dtype=float))
-            if "b_factor" in get_annotation_categories(input_atom_array, n_body="all"):
-                template.set_annotation("b_factor", np.full(template.array_length(), np.nan, dtype=float))
-            annotations_to_default = get_annotation_categories(input_atom_array, n_body="all")
-            existing_annotations = get_annotation_categories(template, n_body="all")
-            annotations_to_default = set(annotations_to_default) - set(existing_annotations)
-            # These two annotations have no obvious defaults for the template and can be removed from the input
-            annotations_to_default -= {"atom_id", "coord_to_be_noised"}
-            template = default_annotations_and_conditions_from_registry(template, annotations=annotations_to_default)
-            SA_SRC.set_annotation(template, SA_SRC.default_annotation(template))
+            # One template per residue type and chemistry, relabelled per residue: building it
+            # (CCD lookup, defaults from the annotation registries) is most of a write, and none of
+            # it reads where the residue sits.
+            key = _template_key(generated_res_name, missing_atoms, residue_annots)
+            if key is None:
+                template = _build_template(input_atom_array, generated_res_name, missing_atoms, residue_annots)
+            else:
+                if key not in templates:
+                    templates[key] = _build_template(input_atom_array, generated_res_name, missing_atoms, residue_annots)
+                template = templates[key].copy()
+                for k, v in residue_annots.items():
+                    if k in POSITION_ANNOTATIONS and v is not None:
+                        template.set_annotation(k, np.full(len(template), v))
 
             # Set coordinates from generated atom array
             _copy_coords_by_atom_name(

@@ -64,7 +64,8 @@ def main() -> int:
                     help="dotted attribute on every transformer Block (e.g. attn.qk_l1): off arm = as loaded, on = True")
     ap.add_argument("--arm", action="append", default=[],
                     help="NAME=mod.ATTR[,mod.ATTR...]: a named arm with those switches True (repeatable; replaces --alt). "
-                         "Every round runs an off arm (all named switches off) and then each arm in order")
+                         "Every round runs an off arm (all named switches off) and then each arm in order. "
+                         "mod.ATTR=0 turns a switch off in its arm and leaves it as loaded in the off arm")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
@@ -109,17 +110,21 @@ def main() -> int:
         off_value, a.on_value = cur, getattr(ttnn.MathFidelity, a.on_value)
     else:   # tri-state switches (None = per-arch default) read off as False
         off_value = False if cur is None else type(cur)()
-    arms = [(n, [(importlib.import_module(m), t) for m, t in (x.rsplit(".", 1) for x in v.split(","))])
-            for n, v in (s.split("=", 1) for s in a.arm)]
-    sw = {(m, t): (False if getattr(m, t) is None else type(getattr(m, t))()) for _, ms in arms for m, t in ms}
+    def _switch(x):   # "mod.ATTR" -> (module, ATTR, True); "mod.ATTR=0" -> (module, ATTR, False)
+        x, _, v = x.partition("=")
+        m, t = x.rsplit(".", 1)
+        return importlib.import_module(m), t, v != "0"
+    arms = [(n, [_switch(x) for x in v.split(",")]) for n, v in (s.split("=", 1) for s in a.arm)]
+    sw = {(m, t): (getattr(m, t) if not on else False if getattr(m, t) is None else type(getattr(m, t))())
+          for _, ms in arms for m, t, on in ms}
     base = None
     for r in range(a.rounds):
         for on in ([None] + [n for n, _ in arms] if arms else (False, True)):
             if arms:
                 for (m, t), v in sw.items():
                     setattr(m, t, v)
-                for m, t in dict(arms).get(on, ()):
-                    setattr(m, t, True)
+                for m, t, v in dict(arms).get(on, ()):
+                    setattr(m, t, v)
             elif a.block_attr:
                 for (o, name), v in zip(battr, boff):
                     setattr(o, name, True if on else v)

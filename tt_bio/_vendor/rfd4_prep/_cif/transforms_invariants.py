@@ -382,15 +382,24 @@ def check_centroid_conditioning_all_or_nothing_violations(
     return violations
 
 
-def _segment_has_one_value(segment: np.ndarray) -> bool:
-    """Whether every entry of one segment of a StandardAnnotation carries the same value."""
-    if segment.ndim == 1:
-        return np.unique(segment).size <= 1
-    first = segment[:1]
-    equal = segment == first
-    if np.issubdtype(segment.dtype, np.floating):
-        equal |= np.isnan(segment) & np.isnan(first)
-    return bool(equal.all())
+def _uniform_per_segment(starts: np.ndarray, values: np.ndarray) -> np.ndarray:
+    """Whether every entry of each segment ``starts[i]:starts[i + 1]`` carries the same value, NaN equal to NaN.
+
+    A segment is uniform exactly when each entry equals the next one inside it, so one comparison of
+    neighbours covers all segments; an ``np.unique`` per segment costs ~0.1 s a 512-token design.
+    """
+    uniform = np.ones(len(starts) - 1, dtype=bool)
+    if len(values) < 2:
+        return uniform
+    same = np.asarray(values[1:] == values[:-1], dtype=bool)
+    if np.issubdtype(values.dtype, np.floating):
+        same |= np.isnan(values[1:]) & np.isnan(values[:-1])
+    same = same.reshape(len(same), -1).all(axis=1)
+    is_start = np.zeros(len(values) + 1, dtype=bool)
+    is_start[starts] = True
+    differs = np.flatnonzero(~same & ~is_start[1:-1])  # neighbours i, i + 1 inside one segment
+    uniform[np.searchsorted(starts, differs, side="right") - 1] = False
+    return uniform
 
 
 def check_standard_annotation_level_violations(aa: AtomArray) -> list[InvariantViolation]:
@@ -424,7 +433,7 @@ def check_standard_annotation_level_violations(aa: AtomArray) -> list[InvariantV
         else:
             continue
 
-        uniform_per_seg = np.asarray(apply_segment_wise(starts, values, _segment_has_one_value), dtype=bool)
+        uniform_per_seg = _uniform_per_segment(starts, values)
         n_bad = int((~uniform_per_seg).sum())
         if n_bad:
             violations.append(

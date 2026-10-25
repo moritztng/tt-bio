@@ -40,6 +40,7 @@ import numpy as np
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import geometry  # noqa: E402
 import metrics as mspec  # noqa: E402
+import rebind as rebinding  # noqa: E402
 import stats  # noqa: E402
 
 QUALITY_JSON = pathlib.Path("/home/moritz/.coworker/state/rfd4/QUALITY.json")
@@ -198,6 +199,9 @@ def grade_feature(
     permutations: int = stats.DEFAULT_PERMUTATIONS,
     allow_no_oracle: bool = False,
     allow_no_floor: bool = False,
+    shas: dict | None = None,
+    allow_unbound: bool = False,
+    repo=".",
 ) -> dict:
     result: dict = {"n": min(tt["n"], ref["n"]), "n_tt": tt["n"], "n_ref": ref["n"], "metrics": {}}
     notes: list[str] = []
@@ -210,6 +214,16 @@ def grade_feature(
         result["metrics"][column] = entry
         if entry.get("missing"):
             notes.append(f"{column}: {'no oracle run' if needs_oracle else 'column absent on both arms'}")
+
+    # Every headline number re-derived from the CIF it claims to come from, each design counted once,
+    # each arm's source commit on main. A number that does not match its artifact is not evidence.
+    shas = shas or {}
+    result["rebinding"] = {name: rebinding.check_arm(arm, shas.get(name), repo, allow_unbound)
+                           for name, arm in (("tt", tt), ("ref", ref))}
+    rebind_failed = [n for n, r in result["rebinding"].items() if r["verdict"] != "BOUND"]
+    for name in rebind_failed:
+        notes.append(f"{name} arm not bound to its artifacts: "
+                     + "; ".join(result["rebinding"][name]["reasons"]))
 
     result["diversity"] = _grade_diversity(tt, ref)
     graded = [m for m in result["metrics"].values() if not m.get("missing")]
@@ -239,6 +253,8 @@ def grade_feature(
 
     if not graded or all_filtered:
         result["verdict"] = "NO_DATA"
+    elif rebind_failed:
+        result["verdict"] = "REBIND_FAILED"
     elif failed:
         result["verdict"] = "FAIL"
     elif any("n below" in n for n in notes):
@@ -373,6 +389,66 @@ def calibrate_floor(feature: str, a: dict, b: dict, permutations: int = stats.DE
     return floor
 
 
+# --------------------------------------------------------------------------- the paired leg
+HOLDOUT_JSON = pathlib.Path(__file__).resolve().parent / "holdout.json"
+
+
+def holdout() -> dict:
+    return json.loads(HOLDOUT_JSON.read_text())
+
+
+def _case_value(arm: dict, column: str) -> float:
+    """One case's value of `column`: the median over the designs this arm produced for it, NaN when
+    the arm produced none. A case is one (stratum, seed), so this is usually a single design."""
+    v = _column(arm, column)
+    return float(np.median(v)) if v.size else float("nan")
+
+
+def paired_leg(cases: list[dict], column: str, alpha: float = 0.05, complete_floor: int = 12,
+               expected: int | None = None) -> dict:
+    """The paired verdict beside the KS one: per case, the difference `tt - ref` of `column` with
+    positive meaning the TT arm is worse, graded per stratum by the exact sign test.
+
+    A case counts only when both arms produced a finite value; an incomplete one is named with the
+    arm that failed, never dropped silently and never replaced by another seed. A stratum with fewer
+    than `complete_floor` complete cases is INCONCLUSIVE whatever the signs say, and so is a stratum
+    where neither direction rejects, which is what equivalence looks like. The Hodges-Lehmann
+    estimate is reported as a magnitude and is never the verdict.
+
+    This leg does not gate: the pooled KS grade against the seed floor stays the bar. It answers the
+    question KS cannot, whether a lever moved the same design. Method: Magnus Bauer,
+    `notes/validation/PROTOCOL-v2.md` sections 4 and 6 (rfd4-experimental @ 7fbfc2704).
+    """
+    strata: dict[str, dict] = {}
+    for case in cases:
+        st = strata.setdefault(case["stratum"], {"d": [], "seeds": [], "incomplete": []})
+        tt, ref = case["tt_value"], case["ref_value"]
+        missing = [n for n, v in (("tt", tt), ("ref", ref)) if not (isinstance(v, float) and math.isfinite(v))]
+        if missing:
+            st["incomplete"].append({"seed": case["seed"], "missing": missing,
+                                     "why": case.get("why") or f"no finite {column} on the {', '.join(missing)} arm"})
+            continue
+        st["d"].append(tt - ref)
+        st["seeds"].append(case["seed"])
+
+    out: dict = {"column": column, "alpha": alpha, "complete_floor": complete_floor, "strata": {}}
+    for name, st in sorted(strata.items()):
+        n_complete = len(st["d"])
+        entry = {"n_complete": n_complete, "n_expected": expected, "seeds": sorted(st["seeds"]),
+                 "incomplete": st["incomplete"], "sign_test": stats.sign_test(st["d"], alpha=alpha),
+                 "hodges_lehmann": stats.hodges_lehmann(st["d"], alpha=alpha),
+                 "median_difference": stats._round(float(np.median(st["d"]))) if n_complete else float("nan")}
+        entry["verdict"] = ("INCONCLUSIVE" if n_complete < complete_floor else entry["sign_test"]["verdict"])
+        if n_complete < complete_floor:
+            entry["why"] = f"{n_complete} complete cases, floor is {complete_floor}"
+        out["strata"][name] = entry
+    verdicts = {e["verdict"] for e in out["strata"].values()}
+    out["verdict"] = ("NO_DATA" if not verdicts else "FAIL" if "FAIL" in verdicts
+                      else "PASS" if verdicts == {"PASS"} else "INCONCLUSIVE")
+    out["gates"] = False  # reported beside the KS leg, never instead of it
+    return out
+
+
 # --------------------------------------------------------------------------- QUALITY.json
 def _empty_doc() -> dict:
     return {"verdict": "FAIL", "seed_floor": {}, "features": {}, "paths": {}, "harness": "perf/rfd4/quality.py"}
@@ -397,7 +473,7 @@ def overall_verdict(doc: dict) -> str:
     verdicts = {f.get("verdict") for f in feats.values()}
     if verdicts == {"PASS"}:
         return "PASS"
-    for v in ("FAIL", "NO_DATA", "NO_FLOOR", "ORACLE_MISSING", "INSUFFICIENT_N"):
+    for v in ("FAIL", "NO_DATA", "REBIND_FAILED", "NO_FLOOR", "ORACLE_MISSING", "INSUFFICIENT_N"):
         if v in verdicts:
             return v
     return "FAIL"
@@ -437,6 +513,13 @@ def main(argv=None) -> int:
                    help="grade on the oracle-free columns only; the family can then PASS without a refold")
     g.add_argument("--allow-no-floor", action="store_true",
                    help="grade without a calibrated seed floor; every bar is then the bare p-value")
+    g.add_argument("--tt-sha", default=None, help="the commit the TT arm's designs were generated on")
+    g.add_argument("--ref-sha", default=None, help="the commit the reference arm's designs were generated on")
+    g.add_argument("--allow-unbound", action="store_true",
+                   help="grade arms whose source commit is unknown; the numbers are still re-derived "
+                        "from the CIFs, but nothing ties them to the code that wrote them")
+    g.add_argument("--repo", default=str(pathlib.Path(__file__).resolve().parents[2]),
+                   help="the tt-bio checkout whose origin/main a source commit must be on")
     g.add_argument("--label", default=None, help="what the TT arm is (a lever name, a sha)")
     g.add_argument("--out", default=str(QUALITY_JSON))
 
@@ -453,6 +536,17 @@ def main(argv=None) -> int:
                    help="what the two seed arms are (recipe, host, session) -- every grade quotes it")
     f.add_argument("--out", default=str(QUALITY_JSON))
 
+    pr = sub.add_parser("paired", help="the paired sign-test leg on a case manifest (reported, never the gate)")
+    pr.add_argument("--feature", required=True)
+    pr.add_argument("--manifest", required=True,
+                    help="JSON: {\"cases\": [{\"stratum\": ..., \"seed\": ..., \"tt\": [roots], \"ref\": [roots]}]}")
+    pr.add_argument("--column", default=None, help="default: the holdout's column")
+    pr.add_argument("--chain", default=None)
+    pr.add_argument("--allow-holdout", action="store_true",
+                    help="required before any case on a frozen holdout seed is read (perf/rfd4/holdout.json)")
+    pr.add_argument("--label", default=None)
+    pr.add_argument("--out", default=str(QUALITY_JSON))
+
     s = sub.add_parser("show", help="print the current verdict")
     s.add_argument("--out", default=str(QUALITY_JSON))
 
@@ -463,6 +557,35 @@ def main(argv=None) -> int:
     if args.cmd == "show":
         print(json.dumps({"verdict": doc.get("verdict"),
                           "features": {k: v.get("verdict") for k, v in (doc.get("features") or {}).items()}}, indent=1))
+        return 0
+
+    if args.cmd == "paired":
+        hold = holdout()
+        manifest = json.loads(pathlib.Path(args.manifest).read_text())
+        cases = manifest["cases"]
+        on_holdout = sorted({int(c["seed"]) for c in cases} & set(hold["seeds"]))
+        if on_holdout and not args.allow_holdout:
+            ap.error(f"cases on frozen holdout seeds {on_holdout} need --allow-holdout "
+                     f"({HOLDOUT_JSON}); the holdout confirms a decision, it does not make one")
+        column = args.column or manifest.get("column") or hold["column"]
+        loaded = []
+        for case in cases:
+            values = {}
+            for side in ("tt", "ref"):
+                try:
+                    values[side] = _case_value(load_arm(case[side], args.chain), column)
+                except FileNotFoundError as exc:
+                    values[side], case = float("nan"), {**case, "why": f"{side} arm missing: {exc}"}
+            loaded.append({**case, "tt_value": values["tt"], "ref_value": values["ref"]})
+        res = paired_leg(loaded, column, alpha=hold["alpha_one_sided"],
+                         complete_floor=hold["complete_floor"], expected=hold["expected_per_stratum"])
+        res.update({"label": args.label, "manifest": str(pathlib.Path(args.manifest)),
+                    "on_holdout_seeds": on_holdout, "holdout": str(HOLDOUT_JSON)})
+        doc.setdefault("paired", {})[args.feature] = res
+        write_doc(doc, out)
+        print(f"{args.feature} paired: {res['verdict']} "
+              + ", ".join(f"{k} {v['verdict']} ({v['n_complete']} complete)" for k, v in res["strata"].items())
+              + f" -> {out}")
         return 0
 
     if args.cmd == "floor":
@@ -477,7 +600,9 @@ def main(argv=None) -> int:
 
     tt, ref = load_arm(args.tt, args.chain), load_arm(args.ref, args.chain)
     res = grade_feature(args.feature, tt, ref, doc.get("seed_floor") or {}, args.n_min,
-                        args.permutations, args.allow_no_oracle, args.allow_no_floor)
+                        args.permutations, args.allow_no_oracle, args.allow_no_floor,
+                        shas={"tt": args.tt_sha, "ref": args.ref_sha}, allow_unbound=args.allow_unbound,
+                        repo=args.repo)
     res["allow_no_oracle"] = args.allow_no_oracle
     res["allow_no_floor"] = args.allow_no_floor
     res["label"] = args.label

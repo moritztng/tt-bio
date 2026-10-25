@@ -1,0 +1,18 @@
+{
+ "cmd": [
+  "/home/ttuser/scratch/shipflow/venv312-2fae3a713044/bin/python",
+  "scripts/ux_regression.py",
+  "--model",
+  "rfd4"
+ ],
+ "rc": 0,
+ "wall_s": 27.1,
+ "aiclk": {
+  "0": {
+   "min": 800,
+   "max": 1350,
+   "median": 1350,
+   "n": 21
+  }
+ }
+}

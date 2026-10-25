@@ -647,7 +647,7 @@ def test_a_pool_leg_whose_host_rebooted_under_it_is_reported_not_waited_for(tmp_
     def pool():  # starts the job's first line only (it dies with the host), then the host reboots
         while not (jobs := list(queue.glob("*.sh"))):
             time.sleep(0.02)
-        first = jobs[0].read_text().splitlines()[2]
+        first = next(l for l in jobs[0].read_text().splitlines() if l.startswith("mkdir"))
         subprocess.run(["bash", "-c", first], check=True)
         assert (rdir / "boot").read_text() == "first\n"
         boot.write_text("second\n")
@@ -677,7 +677,8 @@ def test_a_pool_leg_that_left_the_queue_and_went_quiet_past_its_cap_is_lost(tmp_
     def pool():  # starts the job, which dies before its rc line, and drops it from the queue
         while not (jobs := list(queue.glob("*.sh"))):
             time.sleep(0.02)
-        subprocess.run(["bash", "-c", jobs[0].read_text().splitlines()[2]], check=True)
+        first = next(l for l in jobs[0].read_text().splitlines() if l.startswith("mkdir"))
+        subprocess.run(["bash", "-c", first], check=True)
         jobs[0].unlink()
         (rdir / "leg.log").write_text("##CHIP 3\n")
         old = time.time() - leg.budget - 3600
@@ -782,6 +783,37 @@ def test_a_pool_leg_notes_a_give_back_that_stopped_it(tmp_path, monkeypatch):
         while not (jobs := list(queue.glob("*.sh"))):
             time.sleep(0.02)
         subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "PATH": "/usr/bin:/bin"}, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "ux_x"), f)
+    t.join()
+    assert rc == 130 and gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()
+
+
+def test_a_pool_leg_notes_a_recall_of_its_chip(tmp_path, monkeypatch):
+    """A JapanFold agent that lent the leg's chip to the pool takes it back for its users and touches
+    lend/<chip>.recalled (jf-shared-chips). The leg says it was given back, so it reruns, and its job
+    tells the pool not to requeue it too."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    queue = tmp_path / "pool" / "queue"
+    queue.mkdir(parents=True)
+    lend = tmp_path / "japanfold" / "state" / "agent" / "lend"
+    lend.mkdir(parents=True)
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, sha)
+    leg = gf.Leg("ux:x", ["PY", "-c", f"import pathlib, sys, time; time.sleep(1.1); "
+                          f"pathlib.Path({str(lend / '7.recalled')!r}).touch(); sys.exit(130)"], "ux")
+
+    def pool():
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        assert "\n# requeue: no\n" in jobs[0].read_text()
+        subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "HOME": str(tmp_path),
+                                                    "PATH": "/usr/bin:/bin"}, check=True)
     t = threading.Thread(target=pool)
     t.start()
     with open(tmp_path / "leg.log", "w") as f:
@@ -1521,3 +1553,29 @@ def test_a_worker_on_a_chip_marked_bad_runs_no_leg_and_its_legs_run_elsewhere(tm
 
     res = gf.Gate({"bh": list(legs)}, [(h, 0), (h, 1)], {("qb2", 1)}, execute, tmp_path).run()
     assert set(ran) == {1} and len(res) == len(legs)
+
+
+def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypatch):
+    """pool.sh starts nothing on a JapanFold-serving box with no chip lent, so its legs go elsewhere."""
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "systemctl").write_text("#!/bin/sh\nexit 0\n")
+    (stub / "systemctl").chmod(0o755)
+    lend = tmp_path / "japanfold" / "state" / "agent" / "lend"
+    lend.mkdir(parents=True)
+    (lend / "0.lent").write_text('{"node": "0", "recall_at": 1792800000}')
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PATH", f"{stub}:{os.environ['PATH']}")
+
+    def paused():
+        h = gf.Host("g110", {"arch": "wh", "card_type": "wh", "root": str(tmp_path), "ssh": "localhost",
+                             "pool": {"queue": str(tmp_path / "pool" / "queue")}}, "f" * 40)
+        h.read_lend()
+        return h.lent(3600)
+
+    assert paused()                                   # every chip recalled
+    (lend / "1.lent").write_text('{"node": "1", "recall_at": null}')
+    assert not paused()                               # one chip lent: the pool can start a leg
+    (lend / "1.lent").unlink()
+    (stub / "systemctl").write_text("#!/bin/sh\nexit 3\n")
+    assert not paused()                               # no agent: an SPD box, its own pool rules

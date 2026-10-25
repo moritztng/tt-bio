@@ -220,3 +220,26 @@ def test_bh_eth_dispatch_defaults_to_single_chip_boards(monkeypatch, flag, visib
     monkeypatch.setattr(main, "_detect_p300_devices", lambda: [1, 2])
     monkeypatch.setattr(main, "_visible_tt_devices", lambda: visible)
     assert T.bh_eth_dispatch() is want
+
+
+def test_a_new_overlay_prunes_idle_ones_nobody_holds(tmp_path):
+    cache = tmp_path / "cache"
+    old = {}
+    for name in ("idle", "held", "recent", "legacy"):
+        (tmp_path / name).mkdir()
+        old[name] = MO.build(["silu_f32"], root=_root(tmp_path / name), cache=cache)
+        (old[name] / "jit").mkdir()
+    for name in ("idle", "held", "legacy"):
+        os.utime(old[name] / ".complete", (0, 0))
+    MO._HELD.pop(old["legacy"]).close()
+    (old["legacy"] / ".lock").unlink()  # built by a release that predates the lock: a live process may still use it
+    MO._HELD.pop(old["idle"]).close()  # its process exited
+    MO._HELD.pop(old["recent"]).close()
+    (tmp_path / "new").mkdir()
+    new = MO.build(["silu_f32"], root=_root(tmp_path / "new"), cache=cache)
+    assert not old["idle"].exists()
+    assert (old["legacy"] / "jit").is_dir()
+    assert (old["held"] / "jit").is_dir() and (old["recent"] / "jit").is_dir() and (new / ".complete").exists()
+    # A later process reusing a pruned key rebuilds it rather than trusting the gone directory.
+    again = MO.build(["silu_f32"], root=tmp_path / "idle" / "ttnn", cache=cache)
+    assert again == old["idle"] and (again / ".complete").exists()

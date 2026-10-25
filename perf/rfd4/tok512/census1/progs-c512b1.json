@@ -1,0 +1,517 @@
+{
+ "run": {
+  "n": 512,
+  "batch": 1,
+  "cycles": 2,
+  "tok": 768,
+  "pair": 384,
+  "cond": 256,
+  "aiclk": {
+   "0": {
+    "min": 1350,
+    "max": 1350,
+    "median": 1350,
+    "n": 1
+   }
+  },
+  "load": 5.2685546875,
+  "card": "3"
+ },
+ "token_s_per_design": 2.268,
+ "floor_s_per_design": 0.986,
+ "rows": [
+  {
+   "family": "token_transition",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x3072 BFLOAT16 ; output_0 1x1x512x3072 BFLOAT16",
+   "device_s_per_design": 0.26,
+   "floor_s_per_design": 0.1,
+   "gap_s": 0.16,
+   "x_floor": 2.6,
+   "ms_per_recycled_pass": 1.442,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 242.2,
+   "gb_s": 167.9,
+   "tflop_s": 46.9,
+   "cores": [
+    "88"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "SDPAOperation",
+   "shapes": "SDPA/11x10/q256k256 | HiFi4 | input_0 1x12x512x64 BFLOAT16 ; input_1 1x12x512x64 BFLOAT16 ; input_2 1x12x512x64 BFLOAT16 ; input_3 1x12x512x512 BFLOAT16 ; output_0 1x12x512x64 BFLOAT16",
+   "device_s_per_design": 0.246,
+   "floor_s_per_design": 0.055,
+   "gap_s": 0.192,
+   "x_floor": 4.51,
+   "ms_per_recycled_pass": 1.369,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 132.1,
+   "gb_s": 96.5,
+   "tflop_s": 8.24,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast1D/11x10 | HiFi4 | input_0 1x512x512x384 BFLOAT16 ; input_1 1x1x384x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT16",
+   "device_s_per_design": 0.242,
+   "floor_s_per_design": 0.111,
+   "gap_s": 0.131,
+   "x_floor": 2.18,
+   "ms_per_recycled_pass": 2.014,
+   "ops_per_recycled_pass": 1,
+   "mb_per_recycled_pass": 402.9,
+   "gb_s": 200.1,
+   "tflop_s": 38.38,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.224,
+   "floor_s_per_design": 0.08,
+   "gap_s": 0.145,
+   "x_floor": 2.82,
+   "ms_per_recycled_pass": 1.247,
+   "ops_per_recycled_pass": 70,
+   "mb_per_recycled_pass": 192.8,
+   "gb_s": 154.7,
+   "tflop_s": 33.92,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "BinaryNgDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x512x512x384 BFLOAT8_B ; input_1 1x512x512x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 0.117,
+   "floor_s_per_design": 0.114,
+   "gap_s": 0.003,
+   "x_floor": 1.03,
+   "ms_per_recycled_pass": 0.978,
+   "ops_per_recycled_pass": 1,
+   "mb_per_recycled_pass": 415.2,
+   "gb_s": 424.4,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "LayerNormDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.112,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.085,
+   "x_floor": 4.11,
+   "ms_per_recycled_pass": 0.624,
+   "ops_per_recycled_pass": 42,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 106.0,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "token_transition",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x3072 BFLOAT16 ; input_1 1x1x3072x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.104,
+   "floor_s_per_design": 0.05,
+   "gap_s": 0.054,
+   "x_floor": 2.09,
+   "ms_per_recycled_pass": 0.581,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 121.1,
+   "gb_s": 208.6,
+   "tflop_s": 58.25,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "adaln",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x256 BFLOAT16 ; input_1 1x1x256x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.099,
+   "floor_s_per_design": 0.017,
+   "gap_s": 0.082,
+   "x_floor": 5.9,
+   "ms_per_recycled_pass": 0.548,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 40.4,
+   "gb_s": 73.8,
+   "tflop_s": 10.29,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "ada_scale",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x256 BFLOAT16 ; input_1 1x1x256x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.098,
+   "floor_s_per_design": 0.017,
+   "gap_s": 0.082,
+   "x_floor": 5.9,
+   "ms_per_recycled_pass": 0.546,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 40.4,
+   "gb_s": 74.0,
+   "tflop_s": 10.32,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "adaln",
+   "op": "BinaryNgDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.094,
+   "floor_s_per_design": 0.055,
+   "gap_s": 0.04,
+   "x_floor": 1.73,
+   "ms_per_recycled_pass": 0.523,
+   "ops_per_recycled_pass": 56,
+   "mb_per_recycled_pass": 132.1,
+   "gb_s": 252.6,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "LayerNormDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x512x512x384 BFLOAT8_B ; input_1 1x1x1x384 BFLOAT16 ; output_0 1x512x512x384 BFLOAT8_B",
+   "device_s_per_design": 0.084,
+   "floor_s_per_design": 0.059,
+   "gap_s": 0.025,
+   "x_floor": 1.42,
+   "ms_per_recycled_pass": 0.699,
+   "ops_per_recycled_pass": 1,
+   "mb_per_recycled_pass": 213.9,
+   "gb_s": 306.2,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "NlpCreateHeadsDeviceOperation",
+   "shapes": " |  | input_0 1x1x512x2304 BFLOAT16 ; output_0 1x12x512x64 BFLOAT16 ; output_1 1x12x512x64 BFLOAT16 ; output_2 1x12x512x64 BFLOAT16",
+   "device_s_per_design": 0.082,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.055,
+   "x_floor": 3.01,
+   "ms_per_recycled_pass": 0.457,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 144.6,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "adaln",
+   "op": "LayerNormDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.063,
+   "floor_s_per_design": 0.018,
+   "gap_s": 0.044,
+   "x_floor": 3.44,
+   "ms_per_recycled_pass": 0.347,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 44.0,
+   "gb_s": 126.8,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "token_transition",
+   "op": "BinaryNgDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x3072 BFLOAT16 ; input_1 1x1x512x3072 BFLOAT16 ; output_0 1x1x512x3072 BFLOAT16",
+   "device_s_per_design": 0.06,
+   "floor_s_per_design": 0.055,
+   "gap_s": 0.006,
+   "x_floor": 1.11,
+   "ms_per_recycled_pass": 0.336,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 132.1,
+   "gb_s": 393.4,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "ada_scale",
+   "op": "BinaryNgDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.049,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.022,
+   "x_floor": 1.81,
+   "ms_per_recycled_pass": 0.274,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 240.8,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "adaln",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x256 BFLOAT16 ; input_1 1x1x256x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.045,
+   "floor_s_per_design": 0.017,
+   "gap_s": 0.029,
+   "x_floor": 2.72,
+   "ms_per_recycled_pass": 0.252,
+   "ops_per_recycled_pass": 28,
+   "mb_per_recycled_pass": 40.4,
+   "gb_s": 160.4,
+   "tflop_s": 22.4,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "residual",
+   "op": "BinaryNgDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 FLOAT32 ; input_1 1x1x512x768 FLOAT32 ; output_0 1x1x512x768 FLOAT32",
+   "device_s_per_design": 0.044,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.017,
+   "x_floor": 1.63,
+   "ms_per_recycled_pass": 0.246,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 268.7,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "residual",
+   "op": "GenericOpDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 FLOAT32 ; input_1 1x1x512x768 BFLOAT16 ; input_2 1x1x512x768 BFLOAT16 ; input_3 1x1x512x768 FLOAT32",
+   "device_s_per_design": 0.038,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.011,
+   "x_floor": 1.4,
+   "ms_per_recycled_pass": 0.211,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 312.6,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "cast",
+   "op": "TypecastDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 FLOAT32 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.035,
+   "floor_s_per_design": 0.021,
+   "gap_s": 0.014,
+   "x_floor": 1.67,
+   "ms_per_recycled_pass": 0.198,
+   "ops_per_recycled_pass": 22,
+   "mb_per_recycled_pass": 51.9,
+   "gb_s": 262.4,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "ConcatDeviceOperation",
+   "shapes": " |  | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; input_2 1x1x512x768 BFLOAT16 ; output_0 1x1x512x2304 BFLOAT16",
+   "device_s_per_design": 0.033,
+   "floor_s_per_design": 0.027,
+   "gap_s": 0.006,
+   "x_floor": 1.21,
+   "ms_per_recycled_pass": 0.183,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 66.1,
+   "gb_s": 360.8,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "pair_factors",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x384 BFLOAT16 ; output_0 1x1x512x384 BFLOAT16",
+   "device_s_per_design": 0.032,
+   "floor_s_per_design": 0.01,
+   "gap_s": 0.022,
+   "x_floor": 3.16,
+   "ms_per_recycled_pass": 0.18,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 24.8,
+   "gb_s": 137.9,
+   "tflop_s": 23.53,
+   "cores": [
+    "48"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "NLPConcatHeadsDeviceOperation",
+   "shapes": " |  | input_0 1x12x512x64 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.03,
+   "floor_s_per_design": 0.009,
+   "gap_s": 0.021,
+   "x_floor": 3.27,
+   "ms_per_recycled_pass": 0.166,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 22.0,
+   "gb_s": 132.8,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "pair_factors",
+   "op": "LayerNormDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x1x768 BFLOAT16 ; input_2 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.025,
+   "floor_s_per_design": 0.005,
+   "gap_s": 0.02,
+   "x_floor": 5.39,
+   "ms_per_recycled_pass": 0.136,
+   "ops_per_recycled_pass": 7,
+   "mb_per_recycled_pass": 11.0,
+   "gb_s": 80.9,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "attention",
+   "op": "BinaryNgDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.024,
+   "floor_s_per_design": 0.014,
+   "gap_s": 0.01,
+   "x_floor": 1.76,
+   "ms_per_recycled_pass": 0.133,
+   "ops_per_recycled_pass": 14,
+   "mb_per_recycled_pass": 33.0,
+   "gb_s": 248.4,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "cast",
+   "op": "TypecastDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; output_0 1x1x512x768 FLOAT32",
+   "device_s_per_design": 0.021,
+   "floor_s_per_design": 0.014,
+   "gap_s": 0.006,
+   "x_floor": 1.44,
+   "ms_per_recycled_pass": 0.117,
+   "ops_per_recycled_pass": 15,
+   "mb_per_recycled_pass": 35.4,
+   "gb_s": 302.0,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "LayerNormDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 FLOAT32 ; input_1 1x1x1x768 BFLOAT16 ; output_0 1x1x512x768 FLOAT32",
+   "device_s_per_design": 0.002,
+   "floor_s_per_design": 0.001,
+   "gap_s": 0.001,
+   "x_floor": 2.46,
+   "ms_per_recycled_pass": 0.018,
+   "ops_per_recycled_pass": 1,
+   "mb_per_recycled_pass": 3.1,
+   "gb_s": 177.0,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "MatmulDeviceOperation",
+   "shapes": "MatmulMultiCoreReuseMultiCast/11x10 | HiFi4 | input_0 1x1x512x768 BFLOAT16 ; input_1 1x1x768x768 BFLOAT16 ; output_0 1x1x512x768 BFLOAT16",
+   "device_s_per_design": 0.002,
+   "floor_s_per_design": 0.001,
+   "gap_s": 0.001,
+   "x_floor": 2.26,
+   "ms_per_recycled_pass": 0.014,
+   "ops_per_recycled_pass": 1,
+   "mb_per_recycled_pass": 2.8,
+   "gb_s": 192.8,
+   "tflop_s": 42.31,
+   "cores": [
+    "64"
+   ]
+  },
+  {
+   "family": "recycle",
+   "op": "BinaryNgDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x768 FLOAT32 ; input_1 1x1x512x768 FLOAT32 ; output_0 1x1x512x768 FLOAT32",
+   "device_s_per_design": 0.002,
+   "floor_s_per_design": 0.001,
+   "gap_s": 0.001,
+   "x_floor": 1.68,
+   "ms_per_recycled_pass": 0.018,
+   "ops_per_recycled_pass": 1,
+   "mb_per_recycled_pass": 4.7,
+   "gb_s": 260.0,
+   "tflop_s": null,
+   "cores": [
+    "110"
+   ]
+  },
+  {
+   "family": "pass_glue",
+   "op": "LayerNormDeviceOperation",
+   "shapes": " | HiFi4 | input_0 1x1x512x256 BFLOAT16 ; output_0 1x1x512x256 BFLOAT16",
+   "device_s_per_design": 0.001,
+   "floor_s_per_design": 0.0,
+   "gap_s": 0.001,
+   "x_floor": 5.35,
+   "ms_per_recycled_pass": 0.006,
+   "ops_per_recycled_pass": 1,
+   "mb_per_recycled_pass": 0.5,
+   "gb_s": 81.5,
+   "tflop_s": null,
+   "cores": [
+    "16"
+   ]
+  }
+ ]
+}

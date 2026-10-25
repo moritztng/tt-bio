@@ -26,8 +26,9 @@ class _Shape:
 
 
 def _t(shape, dtype=None, layout=None):
-    return types.SimpleNamespace(shape=_Shape(shape), dtype=dtype or ttnn.bfloat16,
-                                 layout=layout or ttnn.TILE_LAYOUT)
+    return types.SimpleNamespace(shape=_Shape(shape), padded_shape=_Shape(shape),
+                                 dtype=dtype or ttnn.bfloat16, layout=layout or ttnn.TILE_LAYOUT,
+                                 memory_config=lambda: ttnn.DRAM_MEMORY_CONFIG)
 
 
 @pytest.mark.parametrize("x,w,tb", [

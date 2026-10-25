@@ -3,8 +3,10 @@
 `rfproteina/search/beam_search.py:86` branches each beam member into `n_branch` independent
 segments, scores them at a checkpoint, and keeps the best `beam_width` per input. The surface here
 is upstream's (`state/rfd4/BEAM.md` section 1): the same constructor, the same
-`generate(model, batch)`, the same stable-sort tie-break, and the same -inf on a missing weighted
-key, which is how a failed oracle fold removes a candidate instead of ranking it first.
+`generate(model, batch)`, the same tie-break (rewards cast to fp32, then a stable argsort, so a
+difference below fp32 resolution is a tie and the earlier candidate wins), and the same -inf on a missing weighted
+key, which is how a failed oracle fold removes a candidate instead of ranking it first. A NaN, inf
+or non-numeric weighted value is -inf too, with the reason on the design as `invalid_reason`.
 
 What is NOT upstream's is the model seam. Upstream reaches into a Hydra-built flow-matching object;
 here the loop talks to a `FlowModel` protocol of six methods, so the search can be tested, costed
@@ -94,6 +96,7 @@ class Candidate:
     member: int                       # index into the branched state
     metrics: dict = field(default_factory=dict)
     reward: float = float("-inf")
+    invalid_reason: str | None = None  # why the reward is -inf: a weighted metric missing or non-finite
     rollout: Any = None               # the decoded rollout, kept only if it may be returned
 
 
@@ -181,8 +184,7 @@ class BeamSearchStrategy:
 
             keep: list[Candidate] = []
             for input_idx in sorted(live):
-                ranked = sorted((c for c in cands if c.orig_batch_idx == input_idx),
-                                key=lambda c: -c.reward)          # stable, as upstream's argsort
+                ranked = _rank([c for c in cands if c.orig_batch_idx == input_idx])
                 survivors = ranked[:self.beam_width]
                 if not _beam_continues(config.get("continuation_criteria"), survivors):
                     live.discard(input_idx)
@@ -223,14 +225,14 @@ class BeamSearchStrategy:
                 cand.metrics.update(row)
         reward_model = self.rewards[step]
         for cand in cands:
-            cand.reward = reward_model.aggregate_metrics_output(cand.metrics)
+            cand.reward, cand.invalid_reason = reward_model.score(cand.metrics)
             cand.metrics[SEARCH_REWARD_KEY] = cand.reward
 
     def _saved_rollouts(self, dropped: list[Candidate]) -> list[dict]:
         """A non-surviving rollout becomes a design only if it was asked for and it qualifies."""
         if not self.save_rollouts:
             return []
-        return [{"generated_atom_array": c.rollout, "reward": c.reward,
+        return [{"generated_atom_array": c.rollout, "reward": c.reward, "invalid_reason": c.invalid_reason,
                  "orig_batch_idx": c.orig_batch_idx, "metrics": dict(c.metrics), "from_beam": False}
                 for c in dropped if c.rollout is not None and _passes(self.save_criteria, c.metrics)]
 
@@ -241,17 +243,15 @@ class BeamSearchStrategy:
         a structure different from the one the reward was computed on."""
         rollouts = [c.rollout for c in kept]
         if previous < model.nsteps and all(r is not None for r in rollouts) and rollouts:
-            decoded, rewards = rollouts, [c.reward for c in kept]
-            metrics = [dict(c.metrics) for c in kept]
+            decoded = rollouts
         else:
             if previous < model.nsteps:
                 state = model.partial_simulation(state, previous, model.nsteps)
             decoded = model.decode(state)
-            rewards = [c.reward for c in kept] if kept else [None] * len(members)
-            metrics = [dict(c.metrics) for c in kept] if kept else [{}] * len(members)
-        designs = [{"generated_atom_array": array, "reward": reward, "orig_batch_idx": idx,
-                    "metrics": row, "from_beam": True}
-                   for array, idx, reward, row in zip(decoded, members, rewards, metrics)]
+        scored = [(c.reward, c.invalid_reason, dict(c.metrics)) for c in kept] or [(None, None, {})] * len(members)
+        designs = [{"generated_atom_array": array, "reward": reward, "invalid_reason": reason,
+                    "orig_batch_idx": idx, "metrics": row, "from_beam": True}
+                   for array, idx, (reward, reason, row) in zip(decoded, members, scored)]
         return designs + extra
 
     # --- checkpointing ---------------------------------------------------------------------
@@ -271,6 +271,17 @@ class BeamSearchStrategy:
             raise ValueError(f"{path} carries no sampler state; a resumed beam needs the noise "
                              f"states, not only the bookkeeping.")
         return saved
+
+
+def _rank(cands: list[Candidate]) -> list[Candidate]:
+    """Best first, exactly as upstream prunes: the rewards as an fp32 tensor and a stable descending
+    argsort, so rewards equal in fp32 tie and the earlier candidate wins, and -inf ranks last."""
+    import torch
+
+    if not cands:
+        return []
+    rewards = torch.tensor([c.reward for c in cands], dtype=torch.float32)
+    return [cands[i] for i in torch.argsort(rewards, descending=True, stable=True).tolist()]
 
 
 def _beam_continues(criteria: Mapping | None, survivors: list[Candidate]) -> bool:

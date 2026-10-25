@@ -28,7 +28,8 @@ experiments:
 
 class Box:
     def __init__(self, healthy=1):
-        self.healthy, self.queue, self.ended, self.exists, self.live = healthy, [], {}, set(), []
+        self.healthy, self.queue, self.ended, self.live = healthy, [], {}, []
+        self.exists = {"~/spd-data/inputs/A.yaml", "~/spd-data/inputs/B.yaml"}   # the grid's bench inputs
 
     def probe(self, paths):
         jobs = {n: {"state": "queued"} for n in self.queue}
@@ -349,6 +350,65 @@ def test_a_waiter_held_off_by_a_booking_does_not_block_a_lower_prio_one(tmp_path
         assert Path(f"{sh}.log").read_text() == "card 5\n"
     finally:
         subprocess.run(["pkill", "-s", Path(f"{long}.pid").read_text()])
+
+
+def test_withdraw_on_a_galaxy_sets_aside_queued_jobs_and_leaves_started_ones(tmp_path):
+    q = tmp_path / "spd/pool/queue"; q.mkdir(parents=True)
+    (q / "4-a-f-x.sh").write_text("")
+    r = subprocess.run([sys.executable, "-c", feed.WITHDRAW], input=json.dumps({"names": ["4-a-f-x.sh", "4-b-f-x.sh"],
+                       "kind": "galaxy"}) + "\n", capture_output=True, text=True, env={"HOME": str(tmp_path)}, check=True)
+    assert json.loads(r.stdout) == ["4-a-f-x.sh"]
+    assert (q / "4-a-f-x.sh.moved").exists() and not (q / "4-a-f-x.sh").exists()
+
+
+def _two_galaxies(tmp_path, monkeypatch, zero_since):
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/feed").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(GRID.format(tier="red"))
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {"7": {"owner": "spd", "phase": "lent"},
+                                                                            "3": {"owner": "spd", "phase": "lent"}}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {})
+    cs = feed.cells(tmp_path / "state/spd/grids")
+    boxes = {"ubuntu@172.16.102.7": Box(0), "ubuntu@172.16.102.3": Box(4)}
+    boxes["ubuntu@172.16.102.7"].queue = [c["name"] for c in cs]
+    (tmp_path / "state/spd/feed/ledger.json").write_text(json.dumps({c["key"]: {
+        "host": "7", "name": c["name"], "state": "queued", "hash": c["hash"], "fails": [], "row": "spd-x"} for c in cs}))
+    if zero_since is not None:
+        (tmp_path / "state/spd/feed/zero.json").write_text(json.dumps({"7": zero_since}))
+    withdrawn = []
+
+    def remote(ssh, script, payload, timeout=120):
+        b = boxes[ssh]
+        if script is feed.PROBE:
+            return b.probe(payload["paths"])
+        if script is feed.WITHDRAW:
+            assert payload["kind"] == "galaxy"
+            got = [n for n in payload["names"] if n in b.queue]
+            b.queue = [n for n in b.queue if n not in got]; withdrawn.extend(got)
+            return got
+        b.queue += [j["name"] for j in payload["jobs"]]
+        return len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    return cs, boxes, withdrawn
+
+
+def test_a_galaxy_with_no_chip_for_steal_s_hands_its_queue_to_a_pool_with_chips(tmp_path, monkeypatch):
+    # 10-24: .107's lending went off at 01:10Z and 92 feed cells waited there while .103 sat lent with 20 chips
+    cs, boxes, withdrawn = _two_galaxies(tmp_path, monkeypatch, time.time() - feed.STEAL_S - 5)
+    run(tmp_path)
+    names = sorted(c["name"] for c in cs)
+    assert sorted(withdrawn) == names
+    assert boxes["ubuntu@172.16.102.7"].queue == [] and sorted(boxes["ubuntu@172.16.102.3"].queue) == names
+    led = json.loads((tmp_path / "state/spd/feed/ledger.json").read_text())
+    assert {L["host"] for L in led.values()} == {"3"}
+
+
+def test_a_galaxy_just_gone_to_zero_chips_keeps_its_queue(tmp_path, monkeypatch):
+    # lent chips churn: a box reading 0 for one pass gets its chips back minutes later, so the clock starts now
+    cs, boxes, withdrawn = _two_galaxies(tmp_path, monkeypatch, None)
+    run(tmp_path)
+    assert withdrawn == [] and len(boxes["ubuntu@172.16.102.7"].queue) == len(cs)
+    assert "7" in json.loads((tmp_path / "state/spd/feed/zero.json").read_text())
 
 
 def test_withdraw_kills_an_unstarted_waiter_and_sets_it_aside(tmp_path):
@@ -850,6 +910,13 @@ def test_a_bad_grid_file_skips_alone_and_prio_clamps(tmp_path):
     assert lead["spd-a/hiprio/x"] == 2
 
 
+
+def test_a_concluded_rows_grid_places_nothing(tmp_path):
+    (tmp_path / "a.yaml").write_text(LEAD)
+    assert feed.cells(tmp_path, log=lambda m: None)
+    assert feed.cells(tmp_path, log=lambda m: None, done={"spd-a"}) == []
+    assert feed.cells(tmp_path, log=lambda m: None, done={"spd-b"})
+
 def test_lead_rows_are_live_rows_dedicated_to_a_directive(tmp_path):
     (tmp_path / "state/spd/steer").mkdir(parents=True); (tmp_path / "state/concluded").mkdir()
     (tmp_path / "state/spd/steer/config.json").write_text(json.dumps(
@@ -877,3 +944,33 @@ def test_bench_jsonl_is_done_only_with_a_rep(tmp_path):
     assert ok(str(b)) and ok(str(tmp_path / "*" / "bench.jsonl"))
     (tmp_path / "ok").touch()
     assert ok(str(tmp_path / "ok")), "an empty marker is still done"
+
+
+def test_bench_inputs_are_required():
+    # a box without ~/spd-data/inputs/<name>.yaml fails every cell in a second (.108, 10-25)
+    cmd = ('cd /home/u/t && bash /home/u/t/perf/spd/run_chip.sh $CHIP /o "f0:fast:L=a+b f1:fast" 9LLG_512 3000 --seed 1\n'
+           'python perf/spd/bench.py --inputs c730,l512')
+    assert {"~/spd-data/inputs/9LLG_512.yaml", "~/spd-data/inputs/c730.yaml",
+            "~/spd-data/inputs/l512.yaml"} <= feed.inputs(cmd)
+    assert not any("spd-data" in p for p in feed.inputs("python perf/spd/bench.py --inputs 80"))
+    assert not any("spd-data" in p for p in feed.inputs("bench.py --inputs c730 --data /x"))
+
+
+def test_bench_data_ships_whole(monkeypatch):
+    # an input yaml without its MSAs still fails, so a missing input ships all of ~/spd-data, never overwriting
+    got = []
+    monkeypatch.setattr(feed.subprocess, "Popen", lambda argv, **kw: got.append(argv[-1]))
+    feed.provision("box", {}, {"~/spd-data/inputs/9LLG_512.yaml", "~/x/run.sh"}, ["donor"], "/repo", "/tmp")
+    sh = got[0]
+    assert "test -s \"$HOME/spd-data/inputs/9LLG_512.yaml\"" in sh or "$HOME/spd-data/inputs/9LLG_512.yaml" in sh
+    assert "tar -C ~/spd-data -x --skip-old-files" in sh and sh.count("spd-data/inputs") == 1
+    assert "$HOME/x/run.sh" in sh
+
+
+def test_a_pool_without_the_bench_inputs_gets_them_shipped_and_no_cell(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch)
+    box.exists = set()
+    shipped = []
+    monkeypatch.setattr(feed, "provision", lambda ssh, trees, files, *a: shipped.append(set(files)))
+    run(tmp_path)
+    assert box.queue == [] and shipped == [{"~/spd-data/inputs/A.yaml", "~/spd-data/inputs/B.yaml"}]

@@ -212,11 +212,14 @@ against the previous default, while a different seed moves it 38 A, and the bind
 
 A spec can hold any number of designs and `--num_designs` multiplies them. Locally, one card
 denoises several of a spec's designs in one batched step: as many as fit in the pair rows of one
-512-token design and at most 16: 16 up to 128 tokens, 4 at 256 and one from 363 tokens up. Each design keeps its own
-seed and trajectory. At 128 tokens a design then takes 2.3 s of card time instead of 4.9 s one at a
-time (Blackhole p300, 1318-1337 MHz median during the run, 32 designs), and a 256-token design 7.8 s.
+512-token design (twice that below 256 tokens) and at most 16: 16 up to 160 tokens, 14 at 192, 10 at 224, 4 at 256
+and one from 363 tokens up. Each design keeps its own seed and trajectory. At 128 tokens a design then takes 2.3 s of
+card time instead of 4.9 s one at a time (Blackhole p300, 1318-1337 MHz median during the run, 32 designs), and a
+256-token design 7.8 s. Running twice as many designs together below 256 tokens makes a 224-token design 1.056x
+faster on the card than the old width of 5, and a 192-token one 1.024x.
 A batched design is not bit-identical to the same design run alone: on 31 seeds at 128 tokens the
-designed chain moves 0.08 A median against 5.4 A between seeds, and the binder grade passes. Across a fleet, each design becomes its own job:
+designed chain moves 0.08 A median against 5.4 A between seeds, and the binder grade passes. At 224 and 192 tokens
+the wider batch passes the same binder grade on 31 seeds. Across a fleet, each design becomes its own job:
 
 ```bash
 tt-bio design specs.yaml --model rfd4 --num_designs 32 --controller http://127.0.0.1:8765

@@ -44,13 +44,43 @@ class DesignOutput:
     #: (`tt_bio.rfd4.trajectory.write_trajectory` puts them on disk).
     trajectory: list = field(default_factory=list)
 
+    def digests(self) -> list[str]:
+        """sha256 of each design's decoded output: coordinates, residue types, atom mask and insertion logits,
+        as little-endian float32 / int64 / bool bytes. Two runs of one design on one seed at one width agree on
+        it, so a measured batch can be rerun and checked, and skipped or cached work shows."""
+        import hashlib
+
+        import torch
+
+        parts = [(self.coords_nm, torch.float32), (self.residue_type, torch.int64), (self.atom_mask, torch.bool),
+                 (self.insertion_logits, torch.float32)]
+        b = int(self.coords_nm.shape[0])
+        out = []
+        for k in range(b):
+            h = hashlib.sha256()
+            for t, dtype in parts:
+                if isinstance(t, torch.Tensor) and t.dim() and t.shape[0] == b:
+                    a = t[k].detach().to("cpu", dtype).contiguous().numpy()
+                    h.update(str(a.shape).encode())
+                    h.update(a.astype(a.dtype.newbyteorder("<"), copy=False).tobytes())
+            out.append(h.hexdigest())
+        return out
+
+    def digest(self) -> str:
+        """One sha256 over the batch's `digests`, in design order."""
+        import hashlib
+        return hashlib.sha256("".join(self.digests()).encode()).hexdigest()
+
 
 def auto_width(n_tokens: int) -> int:
     """The default sample width at `n_tokens`: the most designs whose pair rows together fit in one 512-token
-    design's, 4 at 256 tokens, 1 from 363, and at most 16, the widest graded (128 tokens). The trunk's triangle multiplication takes such a batch as one
-    call on the 512-token route (`pair_batch`): at 128 tokens a design costs 2.27 s at width 16 against 4.86 s
-    alone (p300c, ~1330 MHz). A width DRAM refuses narrows by itself."""
-    return min(16, max(1, 512 ** 2 // max(1, int(n_tokens)) ** 2))
+    design's, twice that below 256 tokens, and at most 16, the widest graded (128 tokens). That is 10 at 224, 4 at
+    256, 1 from 363. The trunk's triangle multiplication takes such a batch as one call on the 512-token route
+    (`pair_batch`): at 128 tokens a design costs 2.27 s at width 16 against 4.86 s alone (p300c, ~1330 MHz). Below
+    256 a call still pays per launch, so the doubled budget buys 1.056x a design at 224 and 1.024x at 192; from 384
+    a wider call is slower (traced trunk, p300c, 1275-1350 MHz). A width DRAM refuses narrows by itself."""
+    n = max(1, int(n_tokens))
+    return min(16, max(1, 512 ** 2 * (2 if n < 256 else 1) // n ** 2))
 
 
 @runtime_checkable
@@ -59,6 +89,22 @@ class Engine(Protocol):
 
     def design(self, features: dict, *, num_designs: int, nsteps: int, seed: int) -> DesignOutput:
         ...
+
+
+def load_trunk(glue, state: dict, cfg: dict):
+    """The device trunk over the `nn.` weights the heads left to it. Refuses a checkpoint where a
+    weight is read by neither, so a renamed or extra tensor fails the load instead of designing."""
+    import ttnn
+
+    from tt_bio.rfd4 import network as _network
+    from tt_bio.rfd4.trunk import Trunk, compute_kernel_config
+    from tt_bio.tenstorrent import WeightScope
+
+    scope = WeightScope.recording({k: v.float() for k, v in _network._sub(state, "nn.").items()})
+    trunk = Trunk(scope, compute_kernel_config(), nlayers=cfg["nlayers"], n_heads=cfg["nheads"],
+                  every_n=cfg["update_pair_repr_every_n"], residual_dtype=ttnn.float32)
+    glue.check_trunk_reads(scope.reads)
+    return trunk
 
 
 class DesignEngine:
@@ -77,10 +123,6 @@ class DesignEngine:
         from tt_bio.rfd4 import network as _network
         from tt_bio.rfd4 import sampler as _sampler
         from tt_bio.rfd4.autoencoder import RFD4AutoEncoder
-        from tt_bio.rfd4.trunk import Trunk, compute_kernel_config
-
-        import ttnn
-
         path = _resolve_weights(weights)
         state, config = _network.load_checkpoint(path, adapter=adapter)
         cfg = config["nn"]
@@ -91,12 +133,7 @@ class DesignEngine:
                                                            **{_sampler.LOCAL_LATENTS: replace(latents, tsr_k=tsr_k)}))
         self.config = config
         self.glue = _network.FlowGlue(state, config)
-        from tt_bio.tenstorrent import WeightScope
-
-        self.trunk = Trunk(WeightScope({k: v.float() for k, v in _network._sub(state, "nn.").items()}),
-                           compute_kernel_config(), nlayers=cfg["nlayers"], n_heads=cfg["nheads"],
-                           every_n=cfg["update_pair_repr_every_n"],
-                           residual_dtype=ttnn.float32)
+        self.trunk = load_trunk(self.glue, state, cfg)
         # The bundle stores the AE under `autoencoder.`; it is byte-identical to the AE's own
         # checkpoint (699/699 tensors), which is what the AE was graded on.
         self.autoencoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("decoder",))
@@ -129,6 +166,14 @@ class DesignEngine:
             state, _ = _network.load_checkpoint(self._weights)
             self._encoder = RFD4AutoEncoder(_network._sub(state, "autoencoder."), parts=("encoder",))
         return self._encoder
+
+    def counted(self) -> dict:
+        """What this engine has run so far, counted where it runs rather than derived from the recipe:
+        trunk passes and trunk-block forwards summed over designs, and designs decoded. The difference of
+        two readings around a `design` call is what that call did; `perf/rfd4/fair/run.py` fails a batch
+        whose count is not the recipe's."""
+        return {"trunk_passes": self.trunk.counted["passes"], "trunk_blocks": self.trunk.counted["blocks"],
+                "blocks_per_pass": self.trunk.nlayers, "decoded": self.autoencoder.decoded}
 
     @classmethod
     def from_pretrained(cls, weights: str | Path = DEFAULT_WEIGHTS, **kwargs) -> "DesignEngine":
@@ -200,6 +245,7 @@ class DesignEngine:
             # The chunks ChunkedNetwork would run one after another, run as interleaved lanes:
             # same designs, but the host prepares one chunk while the card runs another.
             # Guidance sees the whole batch, so it stays on the chunker.
+            ran = dict(self.trunk.counted)
             try:
                 out = _sampler.generate(spec, network, lane_width=width, **args)
                 self.chunk_width = width
@@ -208,6 +254,7 @@ class DesignEngine:
                     raise
                 logger.info("rfd4: %d-wide lanes refused DRAM, narrowing in chunks instead", width)
             if out is None:  # the refused call's device tensors go before the chunker allocates
+                self.trunk.counted = ran  # an abandoned trajectory produced nothing; the chunker reruns it whole
                 gc.collect()
         if out is None:
             if rng == "upstream":
