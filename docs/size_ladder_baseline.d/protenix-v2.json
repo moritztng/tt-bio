@@ -7874,7 +7874,7 @@
                   "t1:key=2x4x2": 160,
                   "t2:key=2x2": 160
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160, t2:key=2x2 x160)"
+                "reason": "declines all 0 calls: trimul_t1_2g (Protenix-v2 normal on both arches, 03a7ef4e6) lets T1 hold 2 GiB of outputs, so from ~900 to 1152 tokens T1 takes the in-projection and returns g_out with it; F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, so F1 is never offered, as at 512-768. Measured at 1024 on p300 (1275-1350 MHz) 124.7 / 121.7 -> 116.9 / 102.9 s, op error vs float64 matches the incumbent (rel-RMS 0.0037-0.0039 vs 0.0037). Falsifier: F1 calls here mean T1 declined over its 2 GiB budget"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -8196,7 +8196,7 @@
                   "t1:key=2x4x2": 160,
                   "t2:key=2x2": 160
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on t1:key=2x4x2 x160, t2:key=2x2 x160)"
+                "reason": "declines all 0 calls: trimul_t1_2g (Protenix-v2 normal on both arches, 03a7ef4e6) lets T1 hold 2 GiB of outputs, so from ~900 to 1152 tokens T1 takes the in-projection and returns g_out with it; F1's one call site (`fused_tail`) is guarded by `g_out_fused is None`, so F1 is never offered, as at 512-768. Measured at 1024 on p300 (1275-1350 MHz) 124.7 / 121.7 -> 116.9 / 102.9 s, op error vs float64 matches the incumbent (rel-RMS 0.0037-0.0039 vs 0.0037). Falsifier: F1 calls here mean T1 declined over its 2 GiB budget"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
