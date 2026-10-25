@@ -133,6 +133,9 @@ def main() -> int:
             if hasattr(model, "_release_traces"):   # ESMC-6B (ESMCLanguageModel) runs eager
                 model._release_traces()
                 model._trace_seen.clear()
+            if hasattr(model, "_release_trace"):    # SaProt
+                model._release_trace()
+                model._trace_last = None
             for _ in range(2):
                 embed7()
             ts = []
