@@ -1,6 +1,6 @@
 {
   "schema": 3,
-  "updated": "2026-10-24",
+  "updated": "2026-10-25",
   "title": "TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware",
   "subtitle": "Eight structure-prediction models, two binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
@@ -180,12 +180,12 @@
           "when": "2026-10-23T19:49:23Z",
           "parity": "Passes all 6 release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 8.503,
+            "s_per_fold": 8.323,
             "n": 4,
-            "spread_pct": 2.18,
+            "spread_pct": 1.25,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main c639c8c91, ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-10-19T21:22:49Z"
+            "versions": "tt-bio main 4108f6a94, ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-10-25T00:10:26Z"
           }
         },
         "h200": {
