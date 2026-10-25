@@ -169,8 +169,11 @@ WH_NORMAL_LEVERS = NORMAL_LEVERS - {"trimul_t2cm"} | {"trimul_bres"}
 # Blackhole, dit_s16 + diffusion_bf16 on top of NORMAL_LEVERS against the normal set before both (nbg, p300c,
 # 2026-10-23): OpenFold3 PASS, top pose median 0.809 A (floor 1.208 A), CA-lDDT -0.0005 [-0.0031, +0.0033], docking
 # 18 -> 20/44; page fold at 1350 MHz 9.72 -> 9.12 s (pnb).
+# OpenBind-0 on Wormhole takes dit_fuse and dit_l1 on its fp32 DiT alone (ngw, 2026-10-25): PASS, top pose median
+# 0.510 A (floor 1.105 A), CA-lDDT +0.0001 [-0.0007, +0.0009], docking 27 -> 26/44; page fold at 1000 MHz 20.2 -> 17.6 s.
 NORMAL_MODEL_LEVERS = {"openfold3": frozenset({"dit_s16", "diffusion_bf16"})}
-WH_NORMAL_MODEL_LEVERS = {"openfold3": NORMAL_MODEL_LEVERS["openfold3"] | {"dit_fuse", "dit_l1"}}
+WH_NORMAL_MODEL_LEVERS = {"openfold3": NORMAL_MODEL_LEVERS["openfold3"] | {"dit_fuse", "dit_l1"},
+                          "openbind": frozenset({"dit_fuse", "dit_l1"})}
 # ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
 # 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.
 # trimul_t2cm leaves Wormhole fast too: plain T2 + reblock_permute_back is faster there at the page cell. Galaxy chip at

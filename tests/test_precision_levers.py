@@ -29,10 +29,11 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32", "triatt_ln_b8", "dit_l1", "ws_psilu", "dit_mask8"}
     assert of3.NORMAL_LEVERS <= of3.FAST_LEVERS and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
     assert of3.WH_NORMAL_LEVERS ^ of3.NORMAL_LEVERS == {"trimul_bres", "trimul_t2cm"}
-    # OpenFold3 adds the bf16 DiT in normal mode; OpenBind-0 failed its grade and keeps the fp32 DiT.
-    assert set(of3.NORMAL_MODEL_LEVERS) == set(of3.WH_NORMAL_MODEL_LEVERS) == {"openfold3"}
+    # OpenFold3 adds the bf16 DiT in normal mode; OpenBind-0 failed its grade and keeps the fp32 DiT, fused on Wormhole.
+    assert set(of3.NORMAL_MODEL_LEVERS) == {"openfold3"} and set(of3.WH_NORMAL_MODEL_LEVERS) == {"openfold3", "openbind"}
+    assert of3.WH_NORMAL_MODEL_LEVERS["openbind"] == {"dit_fuse", "dit_l1"}
     assert of3.NORMAL_LEVERS | of3.NORMAL_MODEL_LEVERS["openfold3"] <= of3.FAST_LEVERS
-    assert of3.WH_NORMAL_LEVERS | of3.WH_NORMAL_MODEL_LEVERS["openfold3"] <= of3.WH_FAST_LEVERS
+    assert all(of3.WH_NORMAL_LEVERS | v <= of3.WH_FAST_LEVERS for v in of3.WH_NORMAL_MODEL_LEVERS.values())
 
 
 def test_parse_expands_modes_and_rejects_unknown_names():
