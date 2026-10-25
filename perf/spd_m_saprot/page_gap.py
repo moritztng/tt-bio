@@ -12,6 +12,7 @@ Each call is also split into host prep (tokenize + pad), model forward (dispatch
 """
 import argparse
 import json
+import os
 import time
 from pathlib import Path
 
@@ -54,25 +55,38 @@ def main() -> int:
         while time.perf_counter() < t:
             np.sort(x)
 
+    nodes = [n for n in os.environ.get("TT_VISIBLE_DEVICES", "").split(",") if n]
+
+    def aiclk():   # MHz of the pinned node(s) right now; the harness samples only once a second
+        v = []
+        for n in nodes:
+            try:
+                v.append(int(Path(f"/sys/class/tenstorrent/tenstorrent!{n}/tt_aiclk").read_text().split()[0]))
+            except (OSError, ValueError, IndexError):
+                pass
+        return min(v) if v else None
+
     gaps = {"b2b": lambda: None, "sleep": lambda: time.sleep(a.gap), "busy": lambda: busy(a.gap)}
     for _ in range(2):
         S.embed_sequences(model, batch, batch_size=8)
     out = open(a.out, "w")
     for rnd in range(a.rounds):
         for arm, gap in gaps.items():
-            tot, fwd, pre, post = [], [], [], []
+            tot, fwd, pre, post, mhz0, mhz1 = [], [], [], [], [], []
             for _ in range(a.repeat):
                 gap()
+                mhz0.append(aiclk())
                 t0 = time.perf_counter()
                 S.embed_sequences(model, batch, batch_size=8)
                 t1 = time.perf_counter()
+                mhz1.append(aiclk())
                 tot.append(t1 - t0)
                 fwd.append(split["fwd"])
                 post.append(t1 - split["fwd_end"])
                 pre.append(tot[-1] - fwd[-1] - post[-1])
             ms = lambda v: [round(x * 1000, 2) for x in v]
             rec = dict(model=a.model, fast=a.fast, round=rnd, arm=arm, gap_s=a.gap, total_ms=ms(tot), fwd_ms=ms(fwd),
-                       pre_ms=ms(pre), post_ms=ms(post), median_ms=round(sorted(tot)[len(tot) // 2] * 1000, 2))
+                       pre_ms=ms(pre), post_ms=ms(post), mhz_before=mhz0, mhz_after=mhz1, median_ms=round(sorted(tot)[len(tot) // 2] * 1000, 2))
             print(json.dumps(rec), flush=True)
             out.write(json.dumps(rec) + "\n")
     out.close()
