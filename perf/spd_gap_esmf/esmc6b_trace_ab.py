@@ -3,7 +3,7 @@
 The 6B embed path (ESMCLanguageModel, batch 1) runs eager. phase_prof on Blackhole puts its host enqueue at 44 ms against
 ~83 ms of Tracy device time and ~96-104 ms of wall, so the forward is not host-bound end to end, but the ~1,100 ops a
 forward each leave a dispatch gap on the device that a trace replay shortens. This measures what a trace path would pay
-before one is built into the model: arms alternate eager / traced for --rounds, each --repeat timed calls of the full
+before one is built into the model, and where the traced step's own time goes (phases_ms): arms alternate eager / traced for --rounds, each --repeat timed calls of the full
 page step (upload, forward, readback of the final-norm state), and the traced output is compared with the eager one.
 """
 import argparse
@@ -89,9 +89,30 @@ for r in range(a.rounds):
             ts.append((time.perf_counter() - t) * 1e3)
         rows.append({"round": r, "arm": arm, "median_ms": round(statistics.median(ts), 2), "all": [round(x, 2) for x in ts]})
         print(json.dumps(rows[-1]), flush=True)
+# where the traced step's time goes: replay alone (blocking), the per-call uploads, the readback of a finished output
+def timed(fn, n):
+    ts = []
+    for _ in range(n):
+        ttnn.synchronize_device(dev)
+        t = time.perf_counter()
+        fn()
+        ttnn.synchronize_device(dev)
+        ts.append((time.perf_counter() - t) * 1e3)
+    return round(statistics.median(ts), 2)
+
+
+def upload():
+    ttnn.copy_host_to_device_tensor(host_ids(), tok_d)
+    E._lm_mask_into(mask, lens, mask_d)
+
+
+phases = {"replay": timed(lambda: ttnn.execute_trace(dev, tid, cq_id=0, blocking=True), 3 * a.repeat),
+          "upload": timed(upload, 3 * a.repeat),
+          "readback": timed(lambda: torch.Tensor(ttnn.to_torch(out_d)).float()[0, :Lm], 3 * a.repeat)}
+print(json.dumps({"phases_ms": phases}), flush=True)
 med = {arm: statistics.median(x["median_ms"] for x in rows if x["arm"] == arm) for arm in ("eager", "trace")}
 res = {"model": "esmc-6b", "fast": a.fast, "L": Lm, "Lb": Lb, "max_abs_diff": diff, "rel_l2": rel, "median_ms": med,
-       "rows": rows}
+       "phases_ms": phases, "rows": rows}
 Path(a.out).write_text(json.dumps(res, indent=1))
 print(json.dumps({k: res[k] for k in ("fast", "max_abs_diff", "rel_l2", "median_ms")}))
 ttnn.release_trace(dev, tid)
