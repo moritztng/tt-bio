@@ -446,3 +446,66 @@ def test_a_diffused_ligand_can_be_dropped_as_a_frame():
     grade = gc.compare(joined, joined, designed, kind, anchors, kinds)
     assert grade["frame"].startswith("self")
     assert grade["anchor_rmsd_a"] is None
+
+
+# ---- nucleic-acid secondary structure -------------------------------------------------
+# The completeness audit (2026-10-25) found this the one RFD4 feature with no test at all:
+# nothing built or checked na_ss_state / na_ss_pair. These cover the contract a spec writer
+# meets -- the two condition classes a `C_NA_SS_STATE:` or `C_BP:` block resolves to, and the
+# masks that decide whether the model sees a signal at all. What they do NOT cover is the
+# featurization of a real base-paired structure into the [n_tokens, n_tokens] pair matrix;
+# that needs a nucleic-acid input and belongs with the family tests.
+
+
+def _conditions():
+    from tt_bio._vendor.rfd4_prep._cif.conditions import CONDITIONS
+
+    return CONDITIONS
+
+
+def test_the_na_ss_aliases_a_spec_writes_resolve_to_the_right_conditions():
+    """`C_NA_SS_STATE` and `C_BP` are what a condition spec names. An alias that resolved
+    elsewhere would silently condition on something other than secondary structure."""
+    c = _conditions()
+    assert c.na_ss_state.aliases == ("C_NA_SS_STATE",)
+    assert c.na_ss_state.n_body == 1
+    assert c.basepair.aliases == ("C_BP",)
+    assert c.basepair.n_body == 2
+    assert c.basepair.is_symmetric, "a base pair i-j is the same pair as j-i"
+
+
+def test_unspecified_is_the_only_state_that_carries_no_signal():
+    """`na_ss_state_mask` is `annotation != UNSPECIFIED`, so UNSPECIFIED means 'say nothing'
+    while LOOP is a real instruction: this position is explicitly NOT paired. Collapsing the
+    two would turn every unannotated residue into an assertion that it is unpaired."""
+    import numpy as np
+
+    from tt_bio._vendor.rfd4_prep._cif.conditions import BasePairEnum
+
+    state = np.array([BasePairEnum.UNSPECIFIED, BasePairEnum.PAIR, BasePairEnum.LOOP],
+                     dtype=np.int16)
+    mask = _conditions().na_ss_state.mask_from_annotation(state)
+    assert list(mask) == [False, True, True]
+    assert int(BasePairEnum.UNSPECIFIED) == 0, "the default has to be the zero value"
+
+
+def test_an_unconditioned_structure_declares_no_pairs():
+    """The 2-body default is sparse and empty, not a dense zero matrix: a structure nobody
+    annotated must not read as 'every pair is explicitly absent'."""
+    import numpy as np
+
+    class _Fake:
+        def array_length(self):
+            return 7
+
+    default = _conditions().basepair.default_annotation(_Fake())
+    assert default.n_atoms == 7
+    assert len(default.values) == 0
+    assert len(default.pairs) == 0
+
+    pairs = np.array([[0, 6], [1, 5]])
+    ann = type(default)(n_atoms=7, pairs=pairs,
+                        values=np.array([1, 1], dtype=default.values.dtype))
+    mask = _conditions().basepair.mask_from_annotation(ann)
+    assert list(mask.values) == [True, True]
+    assert mask.pairs.tolist() == pairs.tolist(), "the mask marks the pairs that were given"
