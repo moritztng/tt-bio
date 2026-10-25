@@ -449,5 +449,3 @@ perf/train_u_relpos/**/checkpoints/
 perf/bgx_inputs/out/xlacache/
 perf/bgx_inputs/out/run_*/
 
-# RFD4 condition-family inputs, copied out of the upstream clone by perf/rfd4/cond/families.py
-perf/rfd4/cond/inputs/
