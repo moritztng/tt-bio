@@ -57,3 +57,20 @@ def test_galaxy_folds_it_at_native_and_8x8(gate, monkeypatch):
 
 def test_wormhole_skips_it_because_native_is_8x8(gate, monkeypatch):
     assert all(c[2] == gate.L1_BUDGET_DATA.name for c in _folds(gate, monkeypatch, (8, 8)))
+
+
+def _row(label, grid, md5, target="affinity_fkg"):
+    return {"model": f"l1-budget:{label}", "target": target, "grid": grid, "md5": md5, "gate": True, "error": None}
+
+
+def test_a_split_across_the_small_grid_line_passes(gate):
+    rows = gate.l1_budget_digest_splits([_row("native", None, "a"), _row("11x10", (11, 10), "a"),
+                                         _row("8x8", (8, 8), "b"), _row("narrow", None, "a")], (13, 10))
+    assert all(r["gate"] for r in rows)
+
+
+def test_a_split_within_one_regime_fails_the_whole_regime(gate):
+    rows = gate.l1_budget_digest_splits([_row("native", None, "a"), _row("11x10", (11, 10), "c"),
+                                         _row("8x8", (8, 8), "b")], (13, 10))
+    assert [r["gate"] for r in rows] == [False, False, True]
+    assert "NOT numerics-neutral on affinity_fkg" in rows[0]["error"]
