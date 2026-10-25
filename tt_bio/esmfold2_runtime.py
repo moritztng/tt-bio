@@ -1586,6 +1586,8 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # ESMFold2-Fast -0.0014 [-0.0033, +0.0002], 0.58 A vs 1.64 A, docking 24 -> 24. In-process A/B, repeat 4, 1318-1350 MHz
 # (bt1n): ESMFold2 512 aa 14.46 -> 12.78 s, ESMFold2-Fast 512 aa 8.86 -> 7.90 s, 1024 aa 31.75 -> 29.43 s. T1 with the
 # gin-era tail loses 0.5-2.9 s; the T2 tail is what makes T1 pay.
+# Confirmed on fresh seeds 105-108 (bt1nc, 11 x 4): ESMFold2 CA-lDDT -0.0011 [-0.0049, +0.0022], docking 29 -> 30 of 44;
+# ESMFold2-Fast -0.0004 [-0.0014, +0.0005], 24 -> 24 of 43.
 # Normal mode runs the pair SwiGLU kernel (transition_ws + ws_resid) on both archs. Without it the pair FFN runs
 # row-blocked, ~25k ttnn.linear calls a 512 aa ESMFold2 fold on Blackhole. Normal bar on Blackhole against the set
 # without both, 11 complexes x 4 seeds, 44 paired folds per model (p300c, 1350 MHz, bnwg): ESMFold2 CA-lDDT -0.0018
