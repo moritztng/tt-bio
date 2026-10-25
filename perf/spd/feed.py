@@ -451,10 +451,11 @@ BENCH_INPUTS = re.compile(r"run_chip\.sh\s+\S+\s+\S+\s+(?:\"[^\"]*\"|'[^']*'|\S+
 def inputs(cmd):
     optional = set(re.findall(r"\[ -[efsd] (\S+) \] &&", cmd))      # `[ -f X ] && . X` runs without X
     guarded = re.findall(r"\[ -[efsd] ((?:~|\$HOME|/home)/\S+) \] \|\|", cmd)   # `[ -s X ] || exit 1` cannot
+    written = set(re.findall(r">>?\s*((?:~|\$HOME|/home)/[^\s;:&|)\"']+)", cmd))  # `cat > X; bash X` writes X itself
     data = set() if "--data" in cmd else {f"{DATA}/inputs/{n}.yaml" for m in BENCH_INPUTS.findall(cmd)
                                           for n in (m[0] or m[1]).split(",") if n and not n.isdigit()}
     return data | {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd) + guarded
-                   if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
+                   if p not in optional | written and "$" not in p.replace("$HOME/", "", 1)}
 
 
 def lead_rows(root):

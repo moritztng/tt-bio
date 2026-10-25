@@ -143,6 +143,12 @@ def test_inputs_are_what_the_command_reads_first():
     assert feed.inputs("[ -s /home/u/ref/a.npy ] || exit 1\n[ -s /home/u/opt ] && x") == {"/home/u/ref/a.npy"}
 
 
+def test_a_script_the_command_writes_is_not_an_input():
+    # esmc pw6 10-25: `cat > OUT/arms.sh <<ARMS ... bash OUT/arms.sh` sat blocked on its own script, no host had it
+    cmd = "cd /home/u/t\ncat > /home/u/o/arms.sh <<A\nx\nA\nbash run.sh -- bash /home/u/o/arms.sh && touch /home/u/o/done"
+    assert feed.inputs(cmd) == {"/home/u/t"}
+
+
 def test_tree_root_names_the_commit_dir():
     repo = str(Path(feed.__file__).resolve().parents[2])
     sha = subprocess.run(["git", "-C", repo, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
