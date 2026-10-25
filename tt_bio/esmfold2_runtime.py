@@ -1630,7 +1630,7 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # ESMFold2-Fast 9.56 -> 9.31 s. Wormhole loses 2.4 s with them, so it drops them (_BH_ONLY).
 LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gin_hifi2+ws_resid+ws_lofi"
                "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_relpos_lookup+ef2_atom_ffn_split"
-               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm+trimul_bres+trimul_t1w8+trimul_t1_2g")
+               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm+trimul_bres+trimul_t1w8+trimul_t1_2g+dit_qkvf")
 # ws_lofi passes the fast bar on Wormhole too, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
 # ESMFold2-Fast CA-lDDT -0.0001 [-0.0021, +0.0023], docking 24 -> 24. Same chip, 512 aa, 1000 MHz: ESMFold2 33.60 ->
@@ -1652,6 +1652,10 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # Fast-bar grade bt1g (11 complexes x 4 seeds, qb1/qb2): ESMFold2 CA-lDDT -0.0006 [-0.0032, +0.0025], docking 31 -> 31
 # of 44; ESMFold2-Fast -0.0002 [-0.0007, +0.0001], 24 -> 24. At 1024 tokens t1_2g's same-seed CA RMSD sits inside the
 # seed spread on both models (bt2s).
+# dit_qkvf (its Wormhole grade is in the notes above _WH_FAST_EXTRA) on Blackhole --fast, fresh processes A B A B, p150a at 1350
+# MHz (bqkd): diffusion draw ESMFold2-Fast 512 aa 1.98 / 2.04 -> 1.44 / 1.50 s, ESMFold2 1.91 / 2.03 -> 1.47 / 1.67 s.
+# Fast-bar grade bqkg (11 complexes x 4 seeds, qb1/qb2, shipped Blackhole --fast set vs + dit_qkvf): ESMFold2 CA-lDDT
+# +0.0011 [+0.0001, +0.0021], docking 31 -> 32 of 44; ESMFold2-Fast -0.0002 [-0.0008, +0.0004], 23 -> 23 of 43.
 _BH_ONLY = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t1w8", "trimul_t1_2g")
 # Wormhole's normal mode folds with the LM in bfp8 (load_ttnn_esmfold2) and adds ef2_lm_combine to LEVERS_NORMAL.
 # The pair SwiGLU kernel was Wormhole-only in normal mode until bnwg (above); its Wormhole grade:
@@ -1712,7 +1716,7 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu+atom_l1"
 # ESMFold2 512 aa 25.11 -> 24.63 s, -Fast 512 14.74 -> 14.53 s, -Fast 256 5.30 -> 5.17 s, -Fast 1024 52.62 -> 52.47 s.
 # Fast-bar grade wgw8g (same chip, WH --fast set vs + this, 4 seeds x 5 samples): -Fast 11 complexes CA-lDDT +0.0008
 # [-0.0002, +0.0022], docking 23 -> 24 of 44; ESMFold2 10 complexes +0.0028 [-0.0000, +0.0073], docking 28 -> 27 of 40.
-_WH_FAST_EXTRA = "+dit_qkvf+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8"
+_WH_FAST_EXTRA = "+dit_shoist+trunk_hifi2+trimul_t2fold+trimul_bres_b8+trimul_gin_w8"
 # lm_sdpa_stock keeps the LM's stock SDPA over the full mask on both arches (esmc._key_lens, shsdpa elsewhere);
 # lm_ln_stock its ttnn.layer_norm where ESMC runs ln_split (esmc._ln).
 _LM_STOCK = "+lm_sdpa_stock+lm_ln_stock"
