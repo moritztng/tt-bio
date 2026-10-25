@@ -240,6 +240,15 @@ BioNeMo-IR with the trunk captured as a CUDA graph. tt-bio runs `native` on Tens
 `--backend bioir` is declined with that reason rather than quietly ignored; it produces the same
 designs on hardware tt-bio does not target.
 
+## What upstream has and tt-bio does not
+
+Autoencoder-only inference. Upstream's `configs/inference_ae.yaml` reconstructs a structure through
+the autoencoder and reports all-atom RMSD, sequence recovery and KL, with the latents dumped for
+analysis. It is a diagnostic for the AE itself, not a way to design anything, and tt-bio has no
+command for it. The device autoencoder it would need is already here (`tt_bio/rfd4/autoencoder.py`),
+so this is a missing entry point rather than missing work. Nobody has asked for it; say so if you
+want it.
+
 ## Fine-tuned weights
 
 A LoRA fine-tune loads on top of the released weights and is merged once at load, so it costs
