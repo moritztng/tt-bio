@@ -276,12 +276,12 @@
           "when": "2026-10-19T21:00:26Z",
           "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio acbce1322)",
           "fast": {
-            "s_per_fold": 11.38,
+            "s_per_fold": 11.742,
             "n": 4,
-            "spread_pct": 1.71,
+            "spread_pct": 8.37,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main e505373f5, ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-25T07:18:03Z"
+            "versions": "tt-bio main c04531f1b, ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-10-25T14:04:50Z"
           }
         },
         "h200": {
