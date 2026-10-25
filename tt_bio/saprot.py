@@ -188,8 +188,18 @@ _SAPROT_MM_ROPE = (env_flag("TT_BIO_SAPROT_MM_ROPE", False) if os.environ.get("T
 
 # mm_rope writes q and k to L1, where SDPA reads them, as normal's rotary path already does (esmc._ROPE_L1). ls141 (qb2
 # p150a, 1350 MHz, one attention call on the block's own heads): --fast 650M 0.52 ms with its DRAM q / k, normal's L1
-# q / k 0.46, DRAM copies of either 0.50-0.51. Under A/B; off keeps all three heads in DRAM.
-_SAPROT_MM_ROPE_L1 = env_flag("TT_BIO_SAPROT_MM_ROPE_L1", False)
+# q / k 0.46, DRAM copies of either 0.50-0.51. Page A/B (ls142, qb2 p150a, 1350 MHz, 4 rounds x 3, pcc unchanged since it
+# only moves buffers): --fast 650M hHSA 69.0 -> 65.4 ms, hPCSK9 68.3 -> 66.6, 1.3B hHSA 132.3 -> 129.6, hPCSK9 127.0 ->
+# 124.8, 7/8 rounds each; 35M half pairs 3/8 (noise). None = on for the full heads on Blackhole, off on Wormhole (not yet
+# measured) and for 35M's half pairs; off keeps all three heads in DRAM.
+_SAPROT_MM_ROPE_L1 = (env_flag("TT_BIO_SAPROT_MM_ROPE_L1", False)
+                      if os.environ.get("TT_BIO_SAPROT_MM_ROPE_L1", "").strip() else None)
+
+
+def _mm_rope_l1() -> bool:
+    """The full-heads mm_rope writes q and k to L1 (_SAPROT_MM_ROPE_L1)."""
+    from tt_bio import tenstorrent
+    return not tenstorrent.is_wormhole() if _SAPROT_MM_ROPE_L1 is None else _SAPROT_MM_ROPE_L1
 
 
 # SaProt 35M (head_dim 24, padded to 32): q / k dims ordered in NeoX pairs so rotary_embedding_llama's 32 x 32 pair
@@ -713,7 +723,7 @@ class ESM2Attention(_SaprotLin, Module):
         cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
         nc = mm_rope.cols(int(self.qkv_rope[0].padded_shape[-1]) // 32, g.x, cfg[2])
         return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (nc, g.y), ck,
-                                      qk_l1=_SAPROT_MM_ROPE_L1)
+                                      qk_l1=_mm_rope_l1())
 
     def _half_rope(self, x):
         """(rope(q), rope(k), v) [B, H, L, 32] from one half-pair mm_rope matmul, or None where it is off or declines."""
@@ -741,7 +751,7 @@ class ESM2Attention(_SaprotLin, Module):
                                       for t in mm_rope.half_pair_tables(seq_len, self.head_dim, base=ROPE_BASE))
         cos, sin = _HALF_TABLES[key]
         return mm_rope.qkv_rope_heads(x, qw, qb, cos, sin, self.n_heads, cfg, grid, self._ck(self.qkv_weight),
-                                      half=True, ncols=nc, qk_l1=_SAPROT_MM_ROPE_L1)
+                                      half=True, ncols=nc, qk_l1=bool(_SAPROT_MM_ROPE_L1))
 
     def _h3(self) -> bool:
         """Normal mode's qkv runs at HiFi3 (see _ck)."""
