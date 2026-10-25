@@ -3,7 +3,9 @@
 t6c put the 6B's unprofiled forward at ~104 ms (normal) on both builds while dcb4, under the device profiler, read a
 96 ms wall around an 84 ms dense device span. This times the same call the census times, on any tree (--tree), so a
 tree x profiler grid says which of the two carries the difference. With TT_METAL_DEVICE_PROFILER=1 set, the profiler
-buffer is drained after every timed forward (outside the timing), as devcensus does.
+buffer is drained after every timed forward (outside the timing), as devcensus does. --gap-ms sleeps that long after
+every timed forward (also outside the timing), so a plain idle gap can be told apart from the profiler itself; drain_ms
+records how long the untimed drain took.
 
     python perf/spd_m_esmc/wall6b.py --tree TREE --model esmc-6b [--fast] --out wall.json
 """
@@ -20,6 +22,7 @@ ap.add_argument("--model", default="esmc-6b")
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--seq-file", default="scripts/gpu_vs_tt/fixtures/prot512.seq")
 ap.add_argument("--repeat", type=int, default=15)
+ap.add_argument("--gap-ms", type=float, default=0.0)
 ap.add_argument("--out", required=True)
 a = ap.parse_args()
 TREE = Path(a.tree).resolve()
@@ -47,14 +50,19 @@ def drain():
 for _ in range(2):
     E.embed_sequences(model, batch, batch_size=8)
 drain()
-ts = []
+ts, ds = [], []
 for _ in range(a.repeat):
     t = time.perf_counter()
     E.embed_sequences(model, batch, batch_size=8)
     ttnn.synchronize_device(dev)
-    ts.append((time.perf_counter() - t) * 1e3)
+    t1 = time.perf_counter()
+    ts.append((t1 - t) * 1e3)
     drain()
-res = dict(tree=str(TREE), model=a.model, fast=a.fast, profiler=prof, median_ms=sorted(ts)[len(ts) // 2],
-           min_ms=min(ts), all=[round(x, 2) for x in ts])
+    if a.gap_ms:
+        time.sleep(a.gap_ms / 1e3)
+    ds.append((time.perf_counter() - t1) * 1e3)
+res = dict(tree=str(TREE), model=a.model, fast=a.fast, profiler=prof, gap_ms=a.gap_ms,
+           median_ms=sorted(ts)[len(ts) // 2], min_ms=min(ts), all=[round(x, 2) for x in ts],
+           drain_ms=round(sorted(ds)[len(ds) // 2], 2))
 print(json.dumps(res), flush=True)
 Path(a.out).write_text(json.dumps(res, indent=1))
