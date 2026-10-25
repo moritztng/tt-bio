@@ -14,5 +14,6 @@ recursive-include tt_bio/rfd4 *.json
 recursive-include tt_bio/kernels *.cpp *.hpp *.h
 recursive-include tt_bio/_vendor LICENSE
 include tt_bio/_vendor/rfd4_prep/THIRD_PARTY_LICENSES.txt
+include tt_bio/_vendor/rfd4_prep/LOCAL_CHANGES.md
 include tt_bio/_vendor/rfd4_prep/resources/*.yaml
 recursive-include tt_bio/_vendor/atomworks *.smirks *.md py.typed *.json *.smarts
