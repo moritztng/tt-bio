@@ -14,6 +14,10 @@
 #ifndef T2_DMABL
 #define T2_DMABL 0
 #endif
+// T2_ZR (trimul_tail.T2_ZR): reader_moved.cpp reads g / z / mask, this RISC only writes.
+#ifndef T2_ZR
+#define T2_ZR 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -88,10 +92,14 @@ void kernel_main() {
     };
 
     const uint32_t nblocks = num_units * BPU;
-    for (uint32_t b = 0; b < nblocks; ++b) {
-        read_block(block_m(b));
-        if (b > 0) write_block(block_m(b - 1));
+    if constexpr (T2_ZR) {
+        for (uint32_t b = 0; b < nblocks; ++b) write_block(block_m(b));
+    } else {
+        for (uint32_t b = 0; b < nblocks; ++b) {
+            read_block(block_m(b));
+            if (b > 0) write_block(block_m(b - 1));
+        }
+        if (nblocks > 0) write_block(block_m(nblocks - 1));
     }
-    if (nblocks > 0) write_block(block_m(nblocks - 1));
     noc_async_write_barrier();
 }

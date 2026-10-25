@@ -886,6 +886,10 @@ T2_ABL = 0
 # T2m / T2CM data-movement ablation (bench only, 0 in every model path): reader_moved.cpp bits 1 skip the gather's
 # L1 reads, 2 skip the stage's DRAM reads; writer_moved.cpp 4 skips the g / z reads, 8 the writes.
 T2_DMABL = 0
+# T2m / T2CM: the reader reads each block's g / z rows (and the dropout mask) beside its gather, so the writer only
+# writes. A/B knob. bt2abl (p150a, 1350 MHz, c256): the writer, which read g / z and wrote the output, bound the tail
+# (skipping its reads saved 0.5 ms a call at 512, 3.5 ms at 1024; the gather's reads ~0.1 / 0.4).
+T2_ZR = False
 # T2m / T2CM stage read size (bench only, 0 in every model path): reader_moved.cpp reads the stage's bytes as
 # T2_SBIG-byte contiguous reads with wrong values, to price a layout with a unit's stage in large pages.
 T2_SBIG = 0
@@ -1192,19 +1196,21 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
             compile_time_args=[nt, Mb, 1, T2_ABL] + acc(resid) + acc(copy if res32 else resid),
             runtime_args=wr, common_runtime_args=[0, 0], defines=defines, config=ttnn.WriterConfigDescriptor())
     else:
+        zr = [("T2_ZR", "1")] if T2_ZR else []
         reader = ttnn.KernelDescriptor(
             kernel_source=str(d / "reader_moved.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[kt, nt, St, Cp, P, scaler, eps_bits, int(gate), EXTRA] + acc(chunk) + acc(x)
+            compile_time_args=[kt, nt, St, Cp, P, scaler, eps_bits, int(gate), EXTRA, Mb] + acc(chunk) + acc(x)
             + acc(wp) + acc(wg if gate else wp) + acc(ln_w) + acc(ln_b)
-            + acc(ex[0] if EXTRA & 1 else wp) + acc(ex[1] if EXTRA & 2 else wp),
-            runtime_args=rd, common_runtime_args=[0] * (8 + len(mc)),
-            defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow),
-            config=ttnn.ReaderConfigDescriptor())
+            + acc(ex[0] if EXTRA & 1 else wp) + acc(ex[1] if EXTRA & 2 else wp)
+            + acc(g) + acc(resid) + acc(ex[2] if EXTRA & 4 else resid),
+            runtime_args=rd, common_runtime_args=[0] * (8 + 3 * T2_ZR + len(mc)),
+            defines=([("T2MCAST", "1")] if mcast else []) + ([("T2_ROT", "1")] if rot else []) + _t2m_dm_defines(grow)
+            + zr, config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(d / "writer_moved.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[kt, nt, St, Mb, P, int(gate), EXTRA] + acc(g) + acc(resid)
             + acc(ex[2] if EXTRA & 4 else resid) + acc(ex[3] if EXTRA & 8 else resid),
-            runtime_args=wr, common_runtime_args=[0] * 4, defines=_t2m_dm_defines(False),
+            runtime_args=wr, common_runtime_args=[0] * 4, defines=_t2m_dm_defines(False) + zr,
             config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
@@ -1254,6 +1260,11 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     if EXTRA & 4:
         cbs.append(_cb(20, core_grid, 2 * nt))
     return {"kernels": [reader, writer, compute], "cbs": cbs, "mc": mc, "sems": sems}
+
+
+def _zr_args(g, resid, mask=None):
+    """reader_moved.cpp's common args 8..10 under T2_ZR (its weight multicast args follow them)."""
+    return [t.buffer_address() for t in (g, resid, resid if mask is None else mask)] if T2_ZR else []
 
 
 def _t2m_dm_defines(grow):
@@ -1348,7 +1359,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_ZR, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR,
            None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
            _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)))
     entry = _CACHE.get(key)
@@ -1363,8 +1374,9 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
                                       ln_b.buffer_address(), wg_.buffer_address()] + entry["mc"]
         writer.common_runtime_args = [resid.buffer_address(), (resid if copy is None else copy).buffer_address()]
     else:
-        reader.common_runtime_args = [moved[0].buffer_address(), x.buffer_address(), wp.buffer_address(),
-                                      wg_.buffer_address(), ln_w.buffer_address(), ln_b.buffer_address()] + entry["mc"]
+        reader.common_runtime_args = ([moved[0].buffer_address(), x.buffer_address(), wp.buffer_address(),
+                                      wg_.buffer_address(), ln_w.buffer_address(), ln_b.buffer_address(), 0, 0] + _zr_args(g, resid)
+                                      + entry["mc"])
         writer.common_runtime_args = [g.buffer_address(), resid.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"])
     ttnn.generic_op([x, wp, g, ln_w, ln_b] + ([] if copy is None else [copy]) + [resid] + ([wg] if wg is not None else [])
@@ -1550,7 +1562,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_ZR, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)), bool(rot))
     entry = _CACHE.get(key)
@@ -1560,8 +1572,9 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
                                         eps, wg=wg, moved=(xcm, c_off, P), ex=ex, rot=bool(rot))
     reader, writer, _ = entry["kernels"]
     a, addr = xcm.buffer_address(), lambda t, d: (t if t is not None else d).buffer_address()  # noqa: E731
-    reader.common_runtime_args = [a, a if prev is None else prev[0].buffer_address(), wp.buffer_address(), addr(wg, wp), ln_w.buffer_address(),
-                                  ln_b.buffer_address(), addr(bp, wp), addr(bg, wp)] + entry["mc"]
+    reader.common_runtime_args = ([a, a if prev is None else prev[0].buffer_address(), wp.buffer_address(), addr(wg, wp),
+                                   ln_w.buffer_address(), ln_b.buffer_address(), addr(bp, wp), addr(bg, wp)]
+                                  + _zr_args(g, resid, mask) + entry["mc"])
     writer.common_runtime_args = [g.buffer_address(), resid.buffer_address(), addr(mask, resid),
                                   addr(out, resid)]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"])

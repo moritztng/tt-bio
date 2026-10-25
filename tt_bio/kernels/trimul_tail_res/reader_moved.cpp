@@ -10,7 +10,9 @@
 // part), back_ln/reader.cpp's stage and gather: R = 32 / P rows i of tile block (it, jt), per row
 // the Cp prev tiles to c_18 and the Clt gathered tiles M[c, j] = x_chunk[c, i, j] to c_15 (the
 // compute transposes them). g / xb and z rows are the writer's (writer_moved.cpp), so this RISC
-// does nothing but the gather, which is the critical path.
+// does nothing but the gather, which is the critical path on Wormhole. T2_ZR (trimul_tail.T2_ZR): this RISC
+// reads each block's g / xb, z and mask rows too, issued before the block's first gather and pushed after
+// its first barrier, and the writer only writes (on Blackhole the writer's reads and writes bound the tail).
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 #include "../common/weight_mcast.hpp"
@@ -45,6 +47,9 @@
 #ifndef T2_SSTR
 #define T2_SSTR 0
 #endif
+#ifndef T2_ZR
+#define T2_ZR 0
+#endif
 
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
@@ -56,7 +61,8 @@ void kernel_main() {
     constexpr uint32_t EPS = get_compile_time_arg_val(6);
     constexpr uint32_t GATE = get_compile_time_arg_val(7);
     constexpr uint32_t EXTRA = get_compile_time_arg_val(8);  // compute_ln.cpp's; bits 1 / 2 are read here
-    constexpr auto x_args = TensorAccessorArgs<9>();
+    constexpr uint32_t Mb = get_compile_time_arg_val(9);     // rows per compute block (T2_ZR)
+    constexpr auto x_args = TensorAccessorArgs<10>();
     constexpr auto p_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto w_args = TensorAccessorArgs<p_args.next_compile_time_args_offset()>();
     constexpr auto wg_args = TensorAccessorArgs<w_args.next_compile_time_args_offset()>();
@@ -64,6 +70,10 @@ void kernel_main() {
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     constexpr auto bp_args = TensorAccessorArgs<bt_args.next_compile_time_args_offset()>();
     constexpr auto bg_args = TensorAccessorArgs<bp_args.next_compile_time_args_offset()>();
+    constexpr auto g_args = TensorAccessorArgs<bg_args.next_compile_time_args_offset()>();
+    constexpr auto z_args = TensorAccessorArgs<g_args.next_compile_time_args_offset()>();
+    constexpr auto m_args = TensorAccessorArgs<z_args.next_compile_time_args_offset()>();
+    constexpr uint32_t MC = 8 + 3 * T2_ZR;                  // weight_mcast's first common arg
     constexpr uint32_t Clt = Kt - Cp;
     constexpr uint32_t R = 32 / P;
 
@@ -77,6 +87,38 @@ void kernel_main() {
     const auto bg = TensorAccessor(bg_args, get_common_arg_val<uint32_t>(7));
     const uint32_t first_unit = get_arg_val<uint32_t>(0);
     const uint32_t num_units = get_arg_val<uint32_t>(1);
+    // T2_ZR: writer_moved.cpp's read_block, here. The CBs are pushed by flush_gz after the next barrier.
+    constexpr uint32_t gt = GATE ? Kt : Nt;
+    constexpr uint32_t g_cb = GATE ? tt::CBIndex::c_6 : tt::CBIndex::c_5;
+    constexpr uint32_t z_cb = tt::CBIndex::c_7, mask_cb = tt::CBIndex::c_20;
+    const auto g = TensorAccessor(g_args, T2_ZR ? get_common_arg_val<uint32_t>(8) : 0);
+    const auto z = TensorAccessor(z_args, T2_ZR ? get_common_arg_val<uint32_t>(9) : 0);
+    const auto mk = TensorAccessor(m_args, T2_ZR ? get_common_arg_val<uint32_t>(10) : 0);
+    bool gz_pending = false;
+    auto read_gz = [&](uint32_t m) {
+        cb_reserve_back(g_cb, Mb * gt);
+        cb_reserve_back(z_cb, Mb * Nt);
+        uint32_t wg_ = get_write_ptr(g_cb), wz = get_write_ptr(z_cb);
+        const uint32_t tg = get_tile_size(g_cb), tz = get_tile_size(z_cb);
+        if constexpr (EXTRA & 4) {
+            cb_reserve_back(mask_cb, Nt);
+            uint32_t wm = get_write_ptr(mask_cb);
+            const uint32_t tm = get_tile_size(mask_cb), jt = m % St;
+            for (uint32_t t = 0; t < Nt; ++t, wm += tm) noc_async_read_page(jt * Nt + t, mk, wm);
+        }
+        for (uint32_t r = 0; r < ((T2_DMABL & 4) ? 0 : Mb); ++r, m += St) {
+            for (uint32_t t = 0; t < gt; ++t, wg_ += tg) noc_async_read_page(m * gt + t, g, wg_);
+            for (uint32_t t = 0; t < Nt; ++t, wz += tz) noc_async_read_page(m * Nt + t, z, wz);
+        }
+        gz_pending = true;
+    };
+    auto flush_gz = [&]() {   // after a noc_async_read_barrier
+        if (!gz_pending) return;
+        gz_pending = false;
+        cb_push_back(g_cb, Mb * gt);
+        cb_push_back(z_cb, Mb * Nt);
+        if constexpr (EXTRA & 4) cb_push_back(mask_cb, Nt);
+    };
 
     constexpr uint32_t cb_w = tt::CBIndex::c_1, cb_gamma = tt::CBIndex::c_8, cb_beta = tt::CBIndex::c_9,
                        cb_scaler = tt::CBIndex::c_10, cb_eps = tt::CBIndex::c_11, cb_in = tt::CBIndex::c_15,
@@ -127,9 +169,9 @@ void kernel_main() {
         if (sender) {
             const uint32_t addr[] = {get_write_ptr(cb_w), get_write_ptr(cb_gamma), get_write_ptr(cb_beta)};
             const uint32_t bytes[] = {Kt * Nt * TILE_BYTES, Kt * TILE_BYTES, Kt * TILE_BYTES};
-            weight_mcast::send<8>(addr, bytes, 3);
+            weight_mcast::send<MC>(addr, bytes, 3);
         } else {
-            weight_mcast::receive<8>();
+            weight_mcast::receive<MC>();
         }
     }
     if constexpr (NBIAS > 0) cb_push_back(cb_bias, NBIAS * Nt);
@@ -175,12 +217,16 @@ void kernel_main() {
         }
         for (uint32_t il = 0; il < R; ++il) {
             const uint32_t i = it * 32 + part * R + il;
+            if constexpr (T2_ZR) {
+                if (il % Mb == 0) read_gz(i * St + jt);
+            }
             if constexpr (Cp > 0) {
                 cb_reserve_back(cb_prev, Cp);
                 uint32_t d = get_write_ptr(cb_prev);
                 const uint32_t page = (i * St + jt) * Kt;
                 for (uint32_t t = 0; t < Cp; ++t, d += TILE_BYTES) noc_async_read_page(page + t, sp, d);
                 noc_async_read_barrier();
+                if constexpr (T2_ZR) flush_gz();
                 cb_push_back(cb_prev, Cp);
             }
             noc_async_read_one_packet_set_state(stage_noc, FACE_ROW_BYTES);
@@ -203,11 +249,13 @@ void kernel_main() {
                 }
                 if constexpr (!T2_GROW) {
                     noc_async_read_barrier();
+                    if constexpr (T2_ZR) flush_gz();
                     cb_push_back(cb_in, 1);
                 }
             }
             if constexpr (T2_GROW) {
                 noc_async_read_barrier();
+                if constexpr (T2_ZR) flush_gz();
                 cb_push_back(cb_in, Clt);
             }
         }

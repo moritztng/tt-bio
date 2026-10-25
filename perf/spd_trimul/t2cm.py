@@ -24,6 +24,9 @@ ap.add_argument("--variants", default="start,end")
 ap.add_argument("--no-mask", action="store_true")
 ap.add_argument("--abl", default="",
                 help="comma list of T2_ABL:T2_DMABL masks, the lever arm timed under each after the A/B (bench only)")
+ap.add_argument("--zr", action="store_true",
+                help="also run the lever arm under trimul_tail.T2_ZR: bit-exactness vs T2_ZR off, interleaved timing, "
+                     "and the --abl masks again under it")
 ap.add_argument("--out", help="also append each JSON line here (the pool job passes it)")
 A = ap.parse_args()
 
@@ -116,16 +119,40 @@ for n in [int(v) for v in A.ns.split(",") if v]:
             ttnn.deallocate(zb); ttnn.deallocate(zl)
             rec["inc_ms"], rec["lev_ms"] = round(statistics.median(tb), 4), round(statistics.median(tl), 4)
             rec["saved_ms"] = round(rec["inc_ms"] - rec["lev_ms"], 4)
-            for mk in [v for v in A.abl.split(",") if v]:
-                TT.T2_ABL, TT.T2_DMABL = (int(x) for x in mk.split(":"))
-                za = run(mod, WITH, up(z0), m); ttnn.synchronize_device(dev)
-                ta = []
+            if A.zr:
+                TT.T2_ZR = True
+                zr = ttnn.to_torch(run(mod, WITH, up(z0), m)).float()
+                rec["zr_served"] = delta(s2, stats())
+                rec["zr_bit_exact"] = bool(torch.equal(zr, lev))
+                rec["zr_max_abs_diff"] = float((zr - lev).abs().max())
+                zl, zz = up(z0), up(z0)
+                TT.T2_ZR = False; zl = run(mod, WITH, zl, m)
+                TT.T2_ZR = True; zz = run(mod, WITH, zz, m); ttnn.synchronize_device(dev)
+                tl, tz = [], []
                 for _ in range(A.reps):
-                    t0 = time.perf_counter(); za = run(mod, WITH, za, m); ttnn.synchronize_device(dev)
-                    ta.append((time.perf_counter() - t0) * 1e3)
-                ttnn.deallocate(za)
-                rec[f"abl{mk}_ms"] = round(statistics.median(ta), 4)
+                    TT.T2_ZR = False
+                    t0 = time.perf_counter(); zl = run(mod, WITH, zl, m); ttnn.synchronize_device(dev)
+                    tl.append((time.perf_counter() - t0) * 1e3)
+                    TT.T2_ZR = True
+                    t0 = time.perf_counter(); zz = run(mod, WITH, zz, m); ttnn.synchronize_device(dev)
+                    tz.append((time.perf_counter() - t0) * 1e3)
+                ttnn.deallocate(zl); ttnn.deallocate(zz)
+                rec["lev2_ms"], rec["zr_ms"] = round(statistics.median(tl), 4), round(statistics.median(tz), 4)
+                rec["zr_saved_ms"] = round(rec["lev2_ms"] - rec["zr_ms"], 4)
+                bad += not rec["zr_bit_exact"]
+            for zr_on in [False] + [True] * A.zr:
+                TT.T2_ZR = zr_on
+                for mk in [v for v in A.abl.split(",") if v]:
+                    TT.T2_ABL, TT.T2_DMABL = (int(x) for x in mk.split(":"))
+                    za = run(mod, WITH, up(z0), m); ttnn.synchronize_device(dev)
+                    ta = []
+                    for _ in range(A.reps):
+                        t0 = time.perf_counter(); za = run(mod, WITH, za, m); ttnn.synchronize_device(dev)
+                        ta.append((time.perf_counter() - t0) * 1e3)
+                    ttnn.deallocate(za)
+                    rec[f"abl{mk}{'_zr' if zr_on else ''}_ms"] = round(statistics.median(ta), 4)
             TT.T2_ABL = TT.T2_DMABL = 0
+            TT.T2_ZR = False
             rec["aiclk"] = aiclk()
         except Exception as e:                                                # noqa: BLE001
             import traceback
