@@ -526,9 +526,6 @@ _ESMC_MM_KB6 = (env_flag("TT_BIO_ESMC_MM_KB6", False)
 # where the page batch's 119 row tiles give 11-12 a core; Wormhole's 8x9 gives 14 there and keeps its configs.
 _ESMC_GATE_M_WHOLE = (env_flag("TT_BIO_ESMC_GATE_M_WHOLE", False)
                       if os.environ.get("TT_BIO_ESMC_GATE_M_WHOLE", "").strip() else None)
-# A forced gate M block in tiles (0 = mm_gate.config's rule). Experiment only: Wormhole's page share is 14 row tiles a
-# core, which the rule runs as two blocks of 8; esmc_ab --alt tt_bio.esmc._ESMC_GATE_MB --on-value 14 (or 7) grades it.
-_ESMC_GATE_MB = env_int("TT_BIO_ESMC_GATE_MB", 0)
 # Under bf16 accumulation (--fast's block-fp8 weights) the qkv split runs fastest in 8 x 8 blocks: mm_cfg_sweep on a
 # Galaxy chip at 1000 MHz, 600M 0.540 -> 0.481 ms a call, 300M 0.419 -> 0.406, same rel_l2 vs float64.
 _ESMC_MM_CFG_BF16_ACC_8X8 = env_flag("TT_BIO_ESMC_MM_CFG_8X8", True)
@@ -1409,9 +1406,6 @@ class SwiGLUFFN(_MMLin, Module):
         if cfg is None or not mm_gate.overlay_ok():
             MM_GATE_STATS[1] += 1
             return None
-        if _ESMC_GATE_MB:
-            cfg = (_ESMC_GATE_MB, cfg[1], cfg[2], max(h for h in (1, 2, 4, 8) if h <= cfg[3] and _ESMC_GATE_MB % h == 0),
-                   cfg[4])
         group = cfg[2] // 2 * 32
         if getattr(self, "_w12", None) is None or self._w12_group != group:
             w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.fc1_b_weight), group)
