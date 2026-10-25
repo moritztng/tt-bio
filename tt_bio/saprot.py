@@ -40,6 +40,9 @@ from tt_bio.qk_rope_heads import STATS as QKRH_STATS, rope_heads_packed  # noqa:
 from tt_bio import ops
 from tt_bio.tenstorrent import (
     CORE_GRID_MAIN,
+    capture_trace,
+    get_device,
+    trace_region_size,
     Module,
     TorchWrapper,
     Weights,
@@ -50,6 +53,7 @@ from tt_bio.esmc import (
     _MMLin,
     _key_lens,
     _lm_mask,
+    _lm_mask_into,
     lm_sdpa,
     rope_tables,
     _rope,
@@ -277,6 +281,11 @@ _PROGS_HIFI2 = {
 # 134.74 -> 133.12 (-0.000053), 1.3B hPCSK9 252.94 -> 249.38 (-0.000179); normal 650M hHSA 162.24 -> 160.84 (-0.000015),
 # 1.3B hHSA 311.98 -> 307.81 (-0.000042). fc1_check (ls78) against float64: --fast every block's error equals the 2D
 # program's (rel_l2 4.68e-3); normal (8,8,8,1,4) 1.75e-3 against 1.82e-3. Wormhole only (the key below).
+# Replay the whole batch forward from a captured trace (Saprot._dispatch_traced). L6 killed this on paper from a quiet
+# host, where dispatch hides under device time. ls139 (qb1, load 12) reads 35M --fast 15-16 ms a page forward where
+# esmc_ab on qb2 read 11.7: a loaded host may not hide it. Off until a page A/B on a loaded and a quiet host says so.
+_SAPROT_TRACE = env_flag("TT_BIO_SAPROT_TRACE", False)
+
 _SAPROT_FC1_MM = env_flag("TT_BIO_SAPROT_FC1_MM", True)
 _FC1_MM = {False: (8, 8, 8, 1, 4), True: (4, 8, 8, 1, 4)}   # by hifi2
 # The same program on Blackhole, where fc1 runs the 2D pick (ls121 p300c census at 1350 MHz, 650M --fast: fc1 0.58 ms a call
@@ -1149,6 +1158,8 @@ class Saprot(TorchWrapper):
         return (None if logits is None else logits[:, :L]), emb[:, :L]
 
     def _dispatch(self, tokens, attn_mask, key_valid, embed_mask, want_logits=True):
+        if _SAPROT_TRACE and trace_region_size() > 0:
+            return self._dispatch_traced(tokens, attn_mask, key_valid, embed_mask, want_logits)
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
@@ -1165,12 +1176,60 @@ class Saprot(TorchWrapper):
         logits, emb = self.module(tokens_tt, mask_tt, kv_tt, em_tt, want_logits)
         return (None if logits is None else self._to_torch(logits)), self._to_torch(emb)
 
+    def _dispatch_traced(self, tokens, attn_mask, key_valid, embed_mask, want_logits):
+        """Replay one captured forward per input layout. Only one trace is ever live (ESMC._TRACE_CACHE_MAX: a second
+        trace's buffers can land on the first's freed intermediates), so a new layout releases the old trace first."""
+        lens = _key_lens(attn_mask)
+        key = (tuple(tokens.shape), attn_mask is not None, lens is not None, key_valid is not None,
+               embed_mask is not None, want_logits)
+        host = dict(tokens=ttnn.from_torch(tokens.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32),
+                    kv=None if key_valid is None else ttnn.from_torch(
+                        key_valid.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16),
+                    em=None if embed_mask is None else ttnn.from_torch(
+                        embed_mask.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16))
+        tr = getattr(self, "_trace", None)
+        if tr is None or tr["key"] != key:
+            self._release_trace()
+            dev = self.tt_device
+            tr = {k: None if v is None else v.to(dev) for k, v in host.items()}
+            tr["mask"] = _lm_mask(attn_mask, lens, dev)
+            run = lambda: self.module(tr["tokens"], tr["mask"], tr["kv"], tr["em"], want_logits)
+            for _ in range(2):   # compile, fill the program cache and the per-length rope tables outside the capture
+                for t in run():
+                    if t is not None:
+                        ttnn.deallocate(t)
+            ttnn.synchronize_device(dev)
+            tr["tid"], (tr["logits"], tr["emb"]) = capture_trace(dev, run)
+            tr["key"] = key
+            self._trace = tr
+        else:
+            for k in ("tokens", "kv", "em"):
+                if host[k] is not None:
+                    ttnn.copy_host_to_device_tensor(host[k], tr[k])
+            _lm_mask_into(attn_mask, lens, tr["mask"])
+        ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
+        return (None if tr["logits"] is None else self._to_torch(tr["logits"])), self._to_torch(tr["emb"])
+
+    def _release_trace(self):
+        tr, self._trace = getattr(self, "_trace", None), None
+        if tr is None:
+            return
+        ttnn.release_trace(self.tt_device, tr["tid"])   # frees the outputs too
+        for k in ("tokens", "kv", "em", "mask"):
+            self._deallocate_tensor_like(tr[k])
+
+    def reset_static_cache(self):
+        super().reset_static_cache()
+        self._release_trace()
+
 
 def load_saprot(name: str = "saprot-650m", *, fast: bool = False):
     from tt_bio import tenstorrent
     tenstorrent.set_fast_mode(fast)
     if name not in CONFIGS:
         raise ValueError(f"unknown SaProt model {name!r}; choose from {list(MODELS)}")
+    if _SAPROT_TRACE:
+        get_device(trace="saprot")   # reserve the region before the weights open the device
     return Saprot.from_pretrained(name)
 
 
