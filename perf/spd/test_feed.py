@@ -974,3 +974,25 @@ def test_a_pool_without_the_bench_inputs_gets_them_shipped_and_no_cell(tmp_path,
     monkeypatch.setattr(feed, "provision", lambda ssh, trees, files, *a: shipped.append(set(files)))
     run(tmp_path)
     assert box.queue == [] and shipped == [{"~/spd-data/inputs/A.yaml", "~/spd-data/inputs/B.yaml"}]
+
+
+def test_an_empty_ok_marker_counts_as_present(tmp_path):
+    (tmp_path / "t1.ok").touch(); (tmp_path / "r.json").touch()
+    a = {"kind": "bh", "cards": [], "sweep": False, "paths": [str(tmp_path / "t1.ok"), str(tmp_path / "r.json")], "outdirs": {}}
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path)}, check=True)
+    assert json.loads(r.stdout)["exists"] == {str(tmp_path / "t1.ok"): True, str(tmp_path / "r.json"): False}
+
+
+def test_a_cell_whose_requires_no_host_has_is_logged_as_blocked(tmp_path, monkeypatch):
+    """A cell that waits on a marker no pool holds and feed cannot ship never places; the feed log must name it and the path."""
+    box = make_pool(tmp_path, monkeypatch)
+    g = tmp_path / "state/spd/grids/spd-x.yaml"
+    g.write_text(g.read_text().replace("    command:", '    requires: ["~/spd/spd-x/t42.ok"]\n    command:'))
+    run(tmp_path)
+    assert box.queue == []
+    log = (tmp_path / "state/spd/feed/feed.log").read_text()
+    assert "blocked spd-x: 4 cell(s)" in log and "no host has ~/spd/spd-x/t42.ok" in log
+    box.exists.add("~/spd/spd-x/t42.ok")
+    run(tmp_path)
+    assert len(box.queue) > 0

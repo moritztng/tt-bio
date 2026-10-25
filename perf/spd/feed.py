@@ -97,13 +97,13 @@ def ok(p):
     p = os.path.expanduser(p)
     if any(c in p for c in "*?["):
         return any(ok(q) for q in glob.glob(p))
-    # a result file must be non-empty; a marker (`touch $O/done`, `touch $O/$arm.done`) is empty by design
+    # a result file must be non-empty; a marker (`touch $O/done`, `touch $O/$arm.done`, `touch $T.ok`) is empty by design
     # bench.py writes a "start" record before the device opens, so a bench.jsonl is done only once it holds a rep
     b = os.path.basename(p)
     if b == "bench.jsonl" and os.path.isfile(p):
         with open(p, "rb") as f:
             return b'"ev": "rep"' in f.read()
-    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in b or b.endswith(".done"))
+    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in b or b.endswith((".done", ".ok")))
             or os.path.isdir(p) and bool(os.listdir(p)))
 for p in A["paths"]:
     out["exists"][p] = ok(p)
@@ -810,22 +810,32 @@ def main(argv=None):
         ledger[c["key"]] = dict(L, host=n, name=c["name"], hash=c["hash"], state="queued", placed=stamp,
                                 fails=L.get("fails", []), quarantined=False, row=c["row"])
     # 3. trees and small files a pending cell needs and a pool of its arch lacks: ship them so a later pass places there
-    ship, copy = {n: {} for n in st}, {n: set() for n in st}
+    # a cell whose requires no pool of its arch has and feed cannot ship waits forever: say so every pass
+    ship, copy, blocked = {n: {} for n in st}, {n: set() for n in st}, {}
     for c in cs:
         L = ledger.get(c["key"], {})
         if c["is_done"] or L.get("quarantined") or L.get("state") in ("queued", "running"):
             continue
-        for n in st:
-            if runs(P[n], c):
-                for x in c["requires"]:
-                    r = roots[x]
-                    if st[n]["exists"].get(x):
-                        continue
-                    if r and not st[n]["exists"].get(r[0]):
-                        ship[n][r[0]] = r[1]
-                    elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL) and "/trees/" not in x:
-                        # a file under trees/ is part of a tree feed cannot name: a lone copy is a stub that satisfies `requires`
-                        copy[n].add(x)
+        hosts, stuck, fine = [n for n in st if runs(P[n], c)], set(), False
+        for n in hosts:
+            lack = set()
+            for x in c["requires"]:
+                r = roots[x]
+                if st[n]["exists"].get(x):
+                    continue
+                if r and not st[n]["exists"].get(r[0]):
+                    ship[n][r[0]] = r[1]
+                elif not r and P[n]["kind"] == "galaxy" and x.endswith(SMALL) and "/trees/" not in x:
+                    # a file under trees/ is part of a tree feed cannot name: a lone copy is a stub that satisfies `requires`
+                    copy[n].add(x)
+                else:
+                    lack.add(x)
+            fine |= not lack
+            stuck |= lack
+        if hosts and not fine:
+            blocked.setdefault((c["row"], " ".join(sorted(stuck))), []).append(c["name"])
+    for (row, paths), names in sorted(blocked.items()):
+        log(f"blocked {row}: {len(names)} cell(s) ({min(names)}...), no host has {paths}")
     for n in st:
         if ship[n] or copy[n]:
             log(f"{n}: shipping {len(ship[n])} tree(s), {len(copy[n])} file(s): {' '.join(sorted(ship[n]) + sorted(copy[n]))}")
