@@ -185,6 +185,11 @@ _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 # failed its bar there (SFPU-sum packed RoPE, 650M hPCSK9 pcc -0.000161).
 _SAPROT_MM_ROPE = (env_flag("TT_BIO_SAPROT_MM_ROPE", False) if os.environ.get("TT_BIO_SAPROT_MM_ROPE", "").strip() else None)
 
+# mm_rope writes q and k to L1, where SDPA reads them, as normal's rotary path already does (esmc._ROPE_L1). ls141 (qb2
+# p150a, 1350 MHz, one attention call on the block's own heads): --fast 650M 0.52 ms with its DRAM q / k, normal's L1
+# q / k 0.46, DRAM copies of either 0.50-0.51. Under A/B; off keeps all three heads in DRAM.
+_SAPROT_MM_ROPE_L1 = env_flag("TT_BIO_SAPROT_MM_ROPE_L1", False)
+
 
 # SaProt 35M (head_dim 24, padded to 32): q / k dims ordered in NeoX pairs so rotary_embedding_llama's 32 x 32 pair
 # rotation runs RoPE on the padded heads, in place of the folded companion projection (rot_weight), two multiplies and
@@ -703,7 +708,8 @@ class ESM2Attention(_SaprotLin, Module):
         g = c.compute_with_storage_grid_size
         cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
         nc = mm_rope.cols(int(self.qkv_rope[0].padded_shape[-1]) // 32, g.x, cfg[2])
-        return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (nc, g.y), ck)
+        return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (nc, g.y), ck,
+                                      qk_l1=_SAPROT_MM_ROPE_L1)
 
     def _half_rope(self, x):
         """(rope(q), rope(k), v) [B, H, L, 32] from one half-pair mm_rope matmul, or None where it is off or declines."""
@@ -731,7 +737,7 @@ class ESM2Attention(_SaprotLin, Module):
                                       for t in mm_rope.half_pair_tables(seq_len, self.head_dim, base=ROPE_BASE))
         cos, sin = _HALF_TABLES[key]
         return mm_rope.qkv_rope_heads(x, qw, qb, cos, sin, self.n_heads, cfg, grid, self._ck(self.qkv_weight),
-                                      half=True, ncols=nc)
+                                      half=True, ncols=nc, qk_l1=_SAPROT_MM_ROPE_L1)
 
     def _h3(self) -> bool:
         """Normal mode's qkv runs at HiFi3 (see _ck)."""
