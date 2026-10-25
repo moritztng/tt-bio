@@ -14,7 +14,7 @@ from tt_bio.mm_gate import KERNEL_DIR
 
 STATS = [0, 0]   # runs, declines
 _CACHE: dict = {}
-_L1_REFUSED: set = set()   # head shapes whose L1 q / k allocation was refused
+_L1_REFUSED: set = set()   # head shapes whose L1 q / k the device refused (allocation or a CB clash)
 
 
 def layout(n_tiles: int, ncols: int, n_block: int):
@@ -124,7 +124,18 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool =
     if addrs != entry["addrs"] or extra != entry["extra"]:
         MG.rebind(entry, *addrs, extra_addrs=extra)
         entry["extra"] = extra
-    ttnn.generic_op([x, w, *outs], entry["pd"])
+    try:
+        ttnn.generic_op([x, w, *outs], entry["pd"])
+    except RuntimeError as exc:   # q / k placed in L1, but this program's circular buffers reach them: DRAM from now on
+        if outs[0].memory_config().buffer_type != ttnn.BufferType.L1:
+            raise
+        from tt_bio import tenstorrent
+        tenstorrent.absorb_l1_refusal("mm_rope qk L1", exc)
+        _L1_REFUSED.add(tuple(shape))
+        _CACHE.pop(key, None)
+        for t in outs:
+            ttnn.deallocate(t)
+        return qkv_rope_heads(x, w, b, cos, sin, n_heads, cfg, grid, ckc, half, ncols)
     STATS[0] += 1
     return tuple(outs)
 
