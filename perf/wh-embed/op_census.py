@@ -33,6 +33,7 @@ def main() -> int:
     seq = Path(args.seq_file).read_text().strip()
     if args.model.startswith("saprot"):
         from tt_bio import saprot as mod
+        mod._SAPROT_TRACE = False   # a replayed trace never reaches the wrapped ops
         model = mod.load_saprot(args.model, fast=args.fast)
         seqs = {f"s{i}": (seq, "#" * len(seq)) for i in range(args.n_seqs)}
     else:
