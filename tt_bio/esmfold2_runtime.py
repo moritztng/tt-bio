@@ -1640,6 +1640,9 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # declining above ~900. In-process A/B on the Blackhole --fast set, repeat 4, p150a at 1350 MHz, T1 served in both arms
 # (bt1w): t1w8 ESMFold2 512 aa 13.63 -> 12.59 s, ESMFold2-Fast 512 aa 8.75 -> 8.00 s (4 of 4 rounds faster each);
 # t1_2g ESMFold2-Fast 1024 aa 30.06 -> 29.54 s, no-op at 512.
+# Fast-bar grade bt1g (11 complexes x 4 seeds, qb1/qb2): ESMFold2 CA-lDDT -0.0006 [-0.0032, +0.0025], docking 31 -> 31
+# of 44; ESMFold2-Fast -0.0002 [-0.0007, +0.0001], 24 -> 24. At 1024 tokens t1_2g's same-seed CA RMSD sits inside the
+# seed spread on both models (bt2s).
 _BH_ONLY_FAST = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t1w8", "trimul_t1_2g")
 # Wormhole's normal mode folds with the LM in bfp8 (load_ttnn_esmfold2) and adds ef2_lm_combine to LEVERS_NORMAL.
 # The pair SwiGLU kernel was Wormhole-only in normal mode until bnwg (above); its Wormhole grade:
