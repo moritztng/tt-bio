@@ -3,7 +3,8 @@
 ls138 (p300c at 1350 MHz, op_census, 650M page batch): shsdpa reads 11.6 ms over 33 calls in --fast at HiFi2 and 7.5 ms
 in normal mode at the same config and shape. --fast's heads come from mm_rope, normal's from nlp_create_qkv_heads and
 rotary_embedding. This catches the first attention call of a warm forward and times it, synchronised, on the block's
-own tensors and on DRAM copies made by ttnn.clone and by a host round trip, at the config the block passed and at HiFi2.
+own tensors, on DRAM copies made by ttnn.clone and by a host round trip, and with q, k cloned to L1 (l1qk), at the config
+the block passed and at HiFi2.
 
     python perf/spd_m_saprot/sdpa_src.py --model saprot-650m --fast --out src.json
 """
@@ -28,6 +29,7 @@ def main() -> int:
     torch.set_grad_enabled(False)
 
     from tt_bio import saprot as S
+    S._SAPROT_TRACE = False   # a replayed trace never reaches the wrapped lm_sdpa
     model = S.load_saprot(a.model, fast=a.fast)
     dev = model.tt_device
     seq = Path(a.seq_file).read_text().strip()
@@ -62,12 +64,14 @@ def main() -> int:
             arms["clone"] = tuple(ttnn.clone(t, memory_config=ttnn.DRAM_MEMORY_CONFIG) for t in (q, k, v))
             arms["host"] = tuple(ttnn.from_torch(ttnn.to_torch(t), dtype=t.dtype, layout=ttnn.TILE_LAYOUT, device=dev,
                                                  memory_config=ttnn.DRAM_MEMORY_CONFIG) for t in (q, k, v))
+            arms["l1qk"] = (ttnn.clone(q, memory_config=ttnn.L1_MEMORY_CONFIG),
+                            ttnn.clone(k, memory_config=ttnn.L1_MEMORY_CONFIG), arms["clone"][2])
+            res["spec_l1qk"] = [spec(t) for t in arms["l1qk"]]
             for name, (q2, k2, v2) in arms.items():
                 res[name] = timed(q2, k2, v2, mask, kw)
                 res[name + "_hifi2"] = timed(q2, k2, v2, mask, {**kw, "ckc": None})
-            for name in ("clone", "host"):
-                for t in arms[name]:
-                    ttnn.deallocate(t)
+            for t in arms["l1qk"][:2] + arms["clone"] + arms["host"]:
+                ttnn.deallocate(t)
         return orig(q, k, v, mask, **kw)
 
     S.lm_sdpa = probe
