@@ -12,6 +12,7 @@ import argparse, json, os, statistics, subprocess, sys, time
 from pathlib import Path
 
 os.environ.setdefault("TT_BIO_TRIATT_TAIL", "1")
+os.environ.setdefault("TT_BIO_TRIATT_TAIL_T", "1")
 ap = argparse.ArgumentParser()
 ap.add_argument("out")
 ap.add_argument("--n", type=int, default=512)

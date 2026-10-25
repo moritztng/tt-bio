@@ -377,7 +377,9 @@ TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 # and pair_transpose_add read u and z and wrote z (3P). `resid_t` writes it straight into z^T: a unit
 # is a 32 x 32 block whose 32 row tiles stay in L1 (32*Nt tiles) until the writer shuffles them into z's
 # orientation and compute adds z, pair_transpose_add's arithmetic, so the bytes are the same (2P less).
-TAIL_T = int(os.environ.get("TT_BIO_TRIATT_TAIL_T", "1"))
+# Per call at 512 / 736 (perf/spd_m_protenix/tail_t.py, torch.equal): Blackhole -0.10 / -0.9..-1.5 ms;
+# Wormhole +0.31 ms with a bfp8 gate at 512 (the unit's shuffle does not overlap its matmul), so Blackhole only.
+TAIL_T = os.environ.get("TT_BIO_TRIATT_TAIL_T")   # "1" / "0" overrides the per-arch default
 TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
@@ -519,13 +521,13 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None, trans=False):
 
 def _tail_t_ok(o, w, z, bias) -> bool:
     """`z` is the transposed pair `[1?, S, B, N]` of o's `[B, H, S, 32]` and the block fits in L1."""
-    if not (TAIL_T and TAIL_KB1 and _dram_tile_bf16(z)):
+    from .tenstorrent import _l1_bank_bytes, arch_name
+    if not ((int(TAIL_T) if TAIL_T is not None else arch_name() == "blackhole") and TAIL_KB1 and _dram_tile_bf16(z)):
         return False
     po, pz = [int(d) for d in o.padded_shape], [int(d) for d in z.padded_shape]
     nt, kt = int(w.shape[-1]) // TILE, po[1]
     if not (pz[-3:] == [po[2], po[0], nt * TILE] and all(d == 1 for d in pz[:-3]) and po[0] % TILE == 0):
         return False
-    from .tenstorrent import _l1_bank_bytes
     tiles = kt * nt + 5 * kt + (TILE + 2) * nt + 2 * TILE + TAIL_T_GRAN + (nt if bias is not None else 0)
     return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.75 * _l1_bank_bytes()
 
