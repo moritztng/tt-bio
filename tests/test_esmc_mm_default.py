@@ -473,3 +473,12 @@ def test_saprot_wh_fc2_mm_resid_hifi3(fid, dtype, want, monkeypatch):
     monkeypatch.setattr("tt_bio.mm_resid.matmul_add", lambda *a, **k: seen.append((a[4], a[5])) or "out")
     out = lin._mm_resid(x, w, None, None, False)
     assert (out, seen) == (("out", [(want, (8, 9))]) if want else (None, []))
+
+
+@pytest.mark.parametrize("wormhole,switch,want", [(False, None, True), (True, None, False), (False, False, False),
+                                                  (True, True, True)])
+def test_saprot_mm_rope_l1_default(wormhole, switch, want, monkeypatch):
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_MM_ROPE_L1", switch)
+    assert saprot._mm_rope_l1() is want
