@@ -214,14 +214,17 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # Never fires at 512. 1024 tokens, warm, in-process A/B x2: Wormhole (1000 MHz) 257.8 / 259.1 -> 218.9 / 217.2 s, pLDDT 0.786 ->
 # 0.788; Blackhole p300 (1275-1350 MHz) 124.7 / 121.7 -> 116.9 / 102.9 s. Op error at 768 and 1024 vs float64 matches the
 # incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037 at HiFi4). No OOM at 1152 on a 12 GiB Wormhole chip.
+# pz_device in normal mode: the conditioned pair stays on the chip for the fp32 DiT too (device LN, fp32 W_z). Wormhole
+# 512-token normal grade vs the set above (spd-m-protenix gpzn, 2026-10-25), 44 paired folds over 4 seeds, PASS: same-seed
+# top pose median 0.057 A vs the 0.6 A bar (1.296 A A/A floor), every interval covers 0, ipTM +0.0001, docking 36 -> 36.
+# cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz, in-process A/B x3 (pzn): warm -0.89 / -1.02 s on ~50.9 s.
 WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram",
-                          "trimul_t1_2g"})
-# Protenix-v2's Blackhole normal set is trimul_t1_2g alone. The graded dit_shoist + transition_b8 + ws_b8_plain stack
-# (spd-m-protenix gsbn, 0.602 A vs the 1.311 A A/A floor, ~-1.2 s at 512) is out: transition_b8 makes the answer depend
-# on the core grid. Release gate rel-624358ec2 l1-budget on qb2, protenix-v2 fkg: native 4d8f5ebe != 8x8 39109461 with
-# the base set plus transition_b8, one digest 09614098 across all three legs without it. bfp8 shares an exponent per
-# block and the grid moves the block boundaries (the triatt_b8 precedent, 3b1155aa6), so a p150a and a p300c would give
-# two users different structures. The stack was graded as one, so it leaves as one; it stays available per run.
+                          "trimul_t1_2g", "pz_device"})
+# transition_b8 + ws_b8_plain stay out of Protenix-v2's Blackhole normal set. Its fold is the same on every shipped BH
+# grid (p150a and p300 native, forced 10x10; only a forced 8x8 moves it, spd-m-protenix gridclass2/3), and it saves ~1.2 s
+# at 512, but it lowers confidence: Blackhole 512-token normal grade (gtbbh, 2026-10-25, 44 paired folds) ipTM -0.019
+# [-0.044, -0.002], past the 0.005 normal bar. Most of it is 9W8A, which is bistable here (16 seeds: base collapses on
+# 2, with the pair on 4), the rest -0.009 across the other ten complexes. Fast mode runs transition_b8 on both chips.
 # trimul_t1w8 + ws_psilu: Blackhole 512-token normal grade vs that set with the stack still in (spd-m-protenix gt1wbhn,
 # 2026-10-22), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.331 A vs the 0.6 A bar (1.410 A A/A floor),
 # CA-lDDT +0.0001 [-0.0035, +0.0033], docking 36/44 -> 36/44, every interval covers 0. On today's base (gt1wg, p300 chip
@@ -252,7 +255,7 @@ T1_PSIG = frozenset({"trimul_t1_psig"})
 TRIATT_Q10_WH = frozenset({"triatt_q10"})
 # pz_device + dit_mod16 on Wormhole --fast: the diffusion-conditioned pair stays on the chip (one device LN feeds the bf16
 # DiT, no host round trip) and the bf16 AdaLN modulation and the DiT's gated residuals run as one addcmul each, as OpenDDE's
-# DIT_SEAM. Normal mode's DiT is fp32, so neither fires there. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
+# DIT_SEAM. Wormhole normal mode takes pz_device too (WH_V2_NORMAL). Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
 # fast set vs + both, 44 paired folds over 4 seeds (spd-m-protenix gpzf, 2026-10-23), PASS: same-seed top pose median
 # 0.402 A vs the 1.497 A A/A floor, CA-lDDT +0.0013 [+0.0002, +0.0032], lRMSD -0.21 [-0.45, -0.02], docking 37/44 -> 37/44.
 # cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz (pzab), steady warm pairs -0.69 / -0.71 s. On a p300 chip (bhpzab, 9TY2_512,
@@ -3114,9 +3117,8 @@ class Protenix:
 
     def _pz_device(self):
         """Whether the conditioned pair stays on the chip (`_pair_z_seam`): the pz_device lever, for a
-        device DiT whose pair input is bf16, the dtype the pair conditioning already writes."""
-        D = self.diffusion
-        return _T.lever("pz_device") and D.device_dit and D._dit_dtype == ttnn.bfloat16
+        device DiT. The pair conditioning writes the DiT's own dtype, bf16 or normal mode's fp32."""
+        return _T.lever("pz_device") and self.diffusion.device_dit
 
     def _pair_z_seam(self, pz, NT, a2t, nb, nq, nk):
         """The conditioned pair's diffusion consumers: (p_lm z term, cond entries).
@@ -3139,7 +3141,7 @@ class Protenix:
         ln = ttnn.layer_norm(pz, epsilon=1e-5, compute_kernel_config=D._dit_ckc)
         ttnn.deallocate(pz)
         w = (self._w[E + "linear_no_bias_z.weight"].float() * self._w[E + "layernorm_z.weight"].float()).t()
-        w_tt = ttnn.from_torch(w.contiguous(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=D.dev)
+        w_tt = ttnn.from_torch(w.contiguous(), dtype=D._dit_dtype, layout=ttnn.TILE_LAYOUT, device=D.dev)
         zt = ttnn.linear(ln, w_tt, compute_kernel_config=D._dit_ckc, dtype=ttnn.float32)
         ttnn.deallocate(w_tt)
         ztok = torch.Tensor(_T.download(zt)).float().reshape(NT, NT, -1)

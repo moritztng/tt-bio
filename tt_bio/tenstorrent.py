@@ -831,8 +831,9 @@ _FAST_MODE = False
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
 #                   stream-sized tensors fit beside the consumers' circular buffers, else DRAM as before.
 #   pz_device       the diffusion-conditioned pair stays on the chip (`Protenix._pair_z_seam`): one device LN feeds the
-#                   bf16 token DiT and the atom encoder's 16-wide z term, which is all that is downloaded, instead of
-#                   an fp32 download, two host LNs and a re-upload. Device LN and a bf16 W_z, so outputs move.
+#                   token DiT (bf16, or fp32 in normal mode) and the atom encoder's 16-wide z term, which is all
+#                   that is downloaded, instead of an fp32 download, two host LNs and a re-upload. Device LN and W_z
+#                   in the DiT's dtype, so outputs move.
 #   pair_block      RFD4's pair transition (LayerNorm, fc1 + bias, ReLU, fc2 + bias) as one `pair_relu` program with
 #                   bfp8 weights, the only form whose weights fit L1 at c_z 384 / hidden 768; the hidden never leaves
 #                   the core. 512 tokens 6.20 -> 3.85 ms a call against the fast set's composed path, error vs
