@@ -21,10 +21,14 @@ ap.add_argument("--alt", required=True, help="module.ATTR flipped between arms; 
                 "env:NAME sets the environment variable to --a in arm A and to --b (unset when absent) in arm B")
 ap.add_argument("--a", help="string value of ATTR in arm A instead of True (e.g. a lever spec)")
 ap.add_argument("--b", help="string value of ATTR in arm B instead of False")
+ap.add_argument("--literal", action="store_true", help="--a / --b are Python literals (ast.literal_eval), e.g. a knob dict")
 ap.add_argument("--repeat", type=int, default=3)
 ap.add_argument("--size", type=int, default=512)
 ap.add_argument("--out", type=Path, required=True)
 a = ap.parse_args()
+if a.literal:
+    import ast
+    a.a, a.b = (None if v is None else ast.literal_eval(v) for v in (a.a, a.b))
 
 import tt_bio.tenstorrent as T
 import tt_bio.trimul_tail as TL
@@ -61,12 +65,12 @@ def sampler():
         time.sleep(0.5)
 threading.Thread(target=sampler, daemon=True).start()
 
-res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "nodes": nodes, "trace_region": T.trace_region_size(),
+res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": repr(a.a) if a.literal else a.a, "b": repr(a.b) if a.literal else a.b, "nodes": nodes, "trace_region": T.trace_region_size(),
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename, "folds": []}
 def fold(arm, tag):
     setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
     before = {k: dict(v) for k, v in T.LATCH_STATS.items()}
-    t2_before, rej_before = list(TL.T2_STATS), dict(TL.REJECTS)
+    t2_before, rej_before, t1_before = list(TL.T2_STATS), dict(TL.REJECTS), list(TL.T1_STATS)
     t0 = time.monotonic(); s, m = one_fold(); t1 = time.monotonic()
     c = sorted(v for t, v in clk if t0 <= t <= t1)
     rec = {"arm": arm, "tag": tag, "fold_s": round(s, 3), "plddt": m.get("plddt"),
@@ -80,6 +84,7 @@ def fold(arm, tag):
                                  if v.get(f, 0) != before.get(k, {}).get(f, 0)})},
            # trimul T2 / T2m / T2CM output tail: served, declined, and why (a declining lever arm is no arm)
            "t2": [TL.T2_STATS[0] - t2_before[0], TL.T2_STATS[1] - t2_before[1]],
+           "t1": [TL.T1_STATS[0] - t1_before[0], TL.T1_STATS[1] - t1_before[1]],  # trimul in-projection T1 served, declined
            "t2_rejects": {f"{k[0]}@{k[1]}": v - rej_before.get(k, 0) for k, v in TL.REJECTS.items()
                           if v != rej_before.get(k, 0) and str(k[0]).startswith("t2")}}
     swa = getattr(sys.modules.get("tt_bio.esmfold2"), "SWA_STATS", None)
