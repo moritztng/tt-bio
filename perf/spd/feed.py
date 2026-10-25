@@ -441,11 +441,20 @@ def render(s, ctx):
 INPUT = re.compile(r"(?:\bcd|(?:^|[;&|(]\s*)\.|\bsource|\bbash|\bTREE=|--tree|\bPYTHONPATH=)[ =]?\s*((?:~|\$HOME|/home)/[^\s;:&|)\"']+)", re.M)
 
 
+# bench.py's inputs by name: run_chip.sh CHIP OUT ARMS INPUTS ... or bench.py --inputs A,B. They resolve to
+# ~/spd-data/inputs/<name>.yaml with the MSA cache beside it (cache-only), so a box without them fails every cell in a
+# second: .103 10-24 (refcache) and .108 10-25 (9*_512 inputs, ~40 spd-m-protenix cells in 5 min).
+DATA = "~/spd-data"
+BENCH_INPUTS = re.compile(r"run_chip\.sh\s+\S+\s+\S+\s+(?:\"[^\"]*\"|'[^']*'|\S+)\s+([\w.,-]+)|--inputs[ =]([\w.,-]+)")
+
+
 def inputs(cmd):
     optional = set(re.findall(r"\[ -[efsd] (\S+) \] &&", cmd))      # `[ -f X ] && . X` runs without X
     guarded = re.findall(r"\[ -[efsd] ((?:~|\$HOME|/home)/\S+) \] \|\|", cmd)   # `[ -s X ] || exit 1` cannot
-    return {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd) + guarded
-            if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
+    data = set() if "--data" in cmd else {f"{DATA}/inputs/{n}.yaml" for m in BENCH_INPUTS.findall(cmd)
+                                          for n in (m[0] or m[1]).split(",") if n and not n.isdigit()}
+    return data | {re.sub(r"^\$HOME/", "~/", p) for p in INPUT.findall(cmd) + guarded
+                   if p not in optional and "$" not in p.replace("$HOME/", "", 1)}
 
 
 def lead_rows(root):
@@ -579,6 +588,13 @@ def provision(ssh, trees, files, donors, repo, lockdir):
         remote_cmd = (f"set -e; [ -e {q} ] && exit 0; rm -rf {part}; mkdir -p {part}; tar -x -C {part}; "
                       f"echo {sha} > {part}/TREE_SHA; mv -T {part} {q}")
         steps.append(f"git -C {shlex.quote(repo)} archive {sha} | ssh -o BatchMode=yes {ssh} {shlex.quote(remote_cmd)}")
+    if any(f.startswith(DATA + "/") for f in files):
+        # an input is useless without its MSAs, so bench data ships whole (~250 MB) and never overwrites a file
+        need = shlex.quote(next(f for f in sorted(files) if f.startswith(DATA + "/")).replace("~", "$HOME", 1))
+        steps.append(f"for d in {' '.join(donors)}; do if ssh -o BatchMode=yes -o ConnectTimeout=10 $d test -s {need}; then "
+                     f"ssh -o BatchMode=yes $d 'tar -C ~/spd-data -c .' | ssh -o BatchMode=yes {ssh} "
+                     f"'mkdir -p ~/spd-data && tar -C ~/spd-data -x --skip-old-files'; break; fi; done")
+        files = [f for f in files if not f.startswith(DATA + "/")]
     for f in sorted(files):
         rf = f.replace("~", "$HOME", 1) if f.startswith("~/") else f
         get = shlex.quote(f'f="{rf}"; [ -s "$f" ] && [ -f "$f" ] && [ $(stat -Lc %s "$f") -le 1048576 ] && cat "$f"')

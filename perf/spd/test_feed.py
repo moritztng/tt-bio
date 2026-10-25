@@ -28,7 +28,8 @@ experiments:
 
 class Box:
     def __init__(self, healthy=1):
-        self.healthy, self.queue, self.ended, self.exists, self.live = healthy, [], {}, set(), []
+        self.healthy, self.queue, self.ended, self.live = healthy, [], {}, []
+        self.exists = {"~/spd-data/inputs/A.yaml", "~/spd-data/inputs/B.yaml"}   # the grid's bench inputs
 
     def probe(self, paths):
         jobs = {n: {"state": "queued"} for n in self.queue}
@@ -943,3 +944,33 @@ def test_bench_jsonl_is_done_only_with_a_rep(tmp_path):
     assert ok(str(b)) and ok(str(tmp_path / "*" / "bench.jsonl"))
     (tmp_path / "ok").touch()
     assert ok(str(tmp_path / "ok")), "an empty marker is still done"
+
+
+def test_bench_inputs_are_required():
+    # a box without ~/spd-data/inputs/<name>.yaml fails every cell in a second (.108, 10-25)
+    cmd = ('cd /home/u/t && bash /home/u/t/perf/spd/run_chip.sh $CHIP /o "f0:fast:L=a+b f1:fast" 9LLG_512 3000 --seed 1\n'
+           'python perf/spd/bench.py --inputs c730,l512')
+    assert {"~/spd-data/inputs/9LLG_512.yaml", "~/spd-data/inputs/c730.yaml",
+            "~/spd-data/inputs/l512.yaml"} <= feed.inputs(cmd)
+    assert not any("spd-data" in p for p in feed.inputs("python perf/spd/bench.py --inputs 80"))
+    assert not any("spd-data" in p for p in feed.inputs("bench.py --inputs c730 --data /x"))
+
+
+def test_bench_data_ships_whole(monkeypatch):
+    # an input yaml without its MSAs still fails, so a missing input ships all of ~/spd-data, never overwriting
+    got = []
+    monkeypatch.setattr(feed.subprocess, "Popen", lambda argv, **kw: got.append(argv[-1]))
+    feed.provision("box", {}, {"~/spd-data/inputs/9LLG_512.yaml", "~/x/run.sh"}, ["donor"], "/repo", "/tmp")
+    sh = got[0]
+    assert "test -s \"$HOME/spd-data/inputs/9LLG_512.yaml\"" in sh or "$HOME/spd-data/inputs/9LLG_512.yaml" in sh
+    assert "tar -C ~/spd-data -x --skip-old-files" in sh and sh.count("spd-data/inputs") == 1
+    assert "$HOME/x/run.sh" in sh
+
+
+def test_a_pool_without_the_bench_inputs_gets_them_shipped_and_no_cell(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch)
+    box.exists = set()
+    shipped = []
+    monkeypatch.setattr(feed, "provision", lambda ssh, trees, files, *a: shipped.append(set(files)))
+    run(tmp_path)
+    assert box.queue == [] and shipped == [{"~/spd-data/inputs/A.yaml", "~/spd-data/inputs/B.yaml"}]
