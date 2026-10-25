@@ -368,7 +368,8 @@ X_L1_STATS = [0, 0]
 
 
 def _rows(x) -> int:
-    return math.prod(int(d) for d in x.padded_shape[:-1])
+    shape = x.padded_shape
+    return math.prod(int(shape[i]) for i in range(len(shape) - 1))
 
 
 def _refuse_stream_l1(rows: int, exc: BaseException) -> bool:
