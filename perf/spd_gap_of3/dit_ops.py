@@ -2,7 +2,9 @@
 """One OpenFold3 token-DiT block (`_DiTBlock`) under the `--fast` lever set: block time, op table, numerics.
 
     python perf/spd_gap_of3/dit_ops.py --out OUT.json [--n 512] [--reps 20] [--arms off,dit_fuse]
-        [--ckpt of3-p2-155k.pt] [--ops] [--block 0]
+        [--ckpt of3-p2-155k.pt] [--ops] [--block 0] [--normal]
+
+`--normal`: the fp32 DiT OpenBind-0 runs in normal mode instead (the arch's NORMAL set, fp32 inputs and activations).
 
 The block is built the way the fold builds it: `OF3DiffusionTransformer(n_blocks=1)` from the real checkpoint's
 `diffusion_module.diffusion_transformer` (block `--block` renamed to 0), inside `lever_scope(openfold3_fold.FAST_LEVERS
@@ -68,6 +70,8 @@ def main():
     ap.add_argument("--block", type=int, default=0)
     ap.add_argument("--ops", action="store_true")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--normal", action="store_true",
+                    help="the normal-mode fp32 DiT (OpenBind-0's): the arch's NORMAL set, fp32 activations and inputs")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -90,10 +94,13 @@ def main():
     s_h = torch.randn(N, C_S, generator=g)
     z_h = torch.randn(N, N, C_Z, generator=g)
     tok = torch.ones(N)
-    up = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)  # noqa: E731
+    act = ttnn.float32 if a.normal else ttnn.bfloat16
+    up = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=dev, dtype=act)  # noqa: E731
     a_d, s_d, z_d = up(a_h[None]), up(s_h[None]), up(z_h[None])
     tok_d, tmc_d = up(tok[None]), up(tok[None, :, None])
-    rb = lambda x: x.to(torch.bfloat16).double()  # noqa: E731
+    rb = (lambda x: x.float().double()) if a.normal else (lambda x: x.to(torch.bfloat16).double())  # noqa: E731
+    wh = T.is_wormhole()
+    base = (OF.WH_NORMAL_LEVERS if wh else OF.NORMAL_LEVERS) if a.normal else OF.FAST_LEVERS
     ref = ref_block(blk_sd, rb(a_h), rb(s_h), rb(z_h), tok.double())
     a_in = rb(a_h)
 
@@ -101,7 +108,7 @@ def main():
         ttnn.synchronize_device(dev)
 
     res = {"n": N, "reps": a.reps, "host": os.uname().nodename, "card": os.environ.get("TT_VISIBLE_DEVICES"),
-           "arch": str(dev.arch()), "ckpt": a.ckpt, "block": a.block, "arms": {}}
+           "arch": str(dev.arch()), "ckpt": a.ckpt, "block": a.block, "normal": a.normal, "arms": {}}
     try:
         res["aiclk"] = [Path(p).read_text().strip() for p in
                         sorted(Path("/sys/class/tenstorrent").glob("*/tt_aiclk"))][:1]
@@ -113,10 +120,10 @@ def main():
         a.out.write_text(json.dumps(res, indent=1))
 
     for arm in a.arms.split(","):
-        spec = OF.FAST_LEVERS | (T.parse_levers(arm) if arm != "off" else frozenset())
+        spec = base | (T.parse_levers(arm) if arm != "off" else frozenset())
         row = {"levers": sorted(spec)}
         res["arms"][arm] = row
-        with T.lever_scope(spec):
+        with T.lever_scope(spec), T.device_dtype_override(act):
             dit = MDT.OF3DiffusionTransformer(dt_sd, T.lpx_compute_kernel_config(ckc), n_blocks=1)
             blk = dit.blocks[0]
             row["act_dtype"] = str(blk._act_dtype)

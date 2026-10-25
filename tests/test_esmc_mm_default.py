@@ -394,6 +394,22 @@ def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
     assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
 
 
+def test_saprot_stream_l1_clash_reruns_in_dram(monkeypatch):
+    """A circular-buffer clash with SaProt's L1 stream moves the residual, then the pre-LN, to DRAM at that row count and
+    the forward reruns; a third clash, or any other error, propagates."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_X_L1_REFUSED", set())
+    monkeypatch.setattr(sp, "_LN_L1_REFUSED", set())
+    monkeypatch.setattr("tt_bio.tenstorrent.report_l1_refusal", lambda where, exc: "circular buffers" in str(exc))
+    clash = RuntimeError("Statically allocated circular buffers in program 29 clash with L1 buffers")
+    assert sp._refuse_stream_l1(8160, clash) and sp._X_L1_REFUSED == {8160} and not sp._LN_L1_REFUSED
+    assert sp._refuse_stream_l1(8160, clash) and sp._LN_L1_REFUSED == {8160}
+    assert not sp._refuse_stream_l1(8160, clash)
+    with pytest.raises(RuntimeError, match="other"):
+        sp._refuse_stream_l1(3808, RuntimeError("other"))
+    assert 3808 not in sp._X_L1_REFUSED
+
+
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
     """SaProt's page attention runs at HiFi4 fp32 dest behind the packed RoPE program or normal's HiFi3 projections by
@@ -473,3 +489,12 @@ def test_saprot_wh_fc2_mm_resid_hifi3(fid, dtype, want, monkeypatch):
     monkeypatch.setattr("tt_bio.mm_resid.matmul_add", lambda *a, **k: seen.append((a[4], a[5])) or "out")
     out = lin._mm_resid(x, w, None, None, False)
     assert (out, seen) == (("out", [(want, (8, 9))]) if want else (None, []))
+
+
+@pytest.mark.parametrize("wormhole,switch,want", [(False, None, True), (True, None, False), (False, False, False),
+                                                  (True, True, True)])
+def test_saprot_mm_rope_l1_default(wormhole, switch, want, monkeypatch):
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_MM_ROPE_L1", switch)
+    assert saprot._mm_rope_l1() is want

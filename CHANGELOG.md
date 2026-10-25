@@ -17,6 +17,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **`tt-bio evaluate --model rfd4` writes `aggregated_metrics.csv`** beside the per-example CSV:
   per-dataset medians or means as upstream configures them, `frac_under_1/1.5/2` on `min_ipae_coi`
   and per-target solve rates. Credit: Magnus Bauer (see NOTICE #13).
+### Fixed
+- **An RFD4 beam no longer keeps survivors by arrival order when a metric is NaN or infinite.** Such
+  a candidate is now invalid, ranks last and says which metric and value made it so; a non-numeric
+  metric no longer crashes the search. Rewards rank as float32, as upstream does, so values equal at
+  float32 tie and the earlier candidate wins. Credit: Magnus Bauer (see NOTICE #14).
+- **RFD4 refuses a checkpoint with a missing or unused weight.** The host-side heads loaded without
+  a key check, so a renamed or absent weight kept its initial value and designs came out plausible
+  but wrong. Credit: Magnus Bauer (see NOTICE #14).
+
+## [0.22.0] - 2026-10-25
+
+### Added
 - **RFD4-Proteina (`tt-bio design --model rfd4`).** Binders, motif scaffolds, enzymes around a
   ligand, antibody and nanobody CDRs and unconditional monomers, designed through a latent flow at
   the shipped `thinking_medium` budget (60 steps, 180 trunk passes). Input is a design YAML with
@@ -62,15 +74,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   upstream's `per_example_metrics.csv`, same column names and rounding. `--metrics_tags` picks the
   metrics, `--task_csv` maps each structure to a task, and `--job_id` with `--gen_njobs` splits the
   inputs into shards. See [rfd4-evaluate](docs/rfd4-evaluate.md).
-
-### Fixed
-- **An RFD4 beam no longer keeps survivors by arrival order when a metric is NaN or infinite.** Such
-  a candidate is now invalid, ranks last and says which metric and value made it so; a non-numeric
-  metric no longer crashes the search. Rewards rank as float32, as upstream does, so values equal at
-  float32 tie and the earlier candidate wins. Credit: Magnus Bauer (see NOTICE #14).
-- **RFD4 refuses a checkpoint with a missing or unused weight.** The host-side heads loaded without
-  a key check, so a renamed or absent weight kept its initial value and designs came out plausible
-  but wrong. Credit: Magnus Bauer (see NOTICE #14).
 
 ## [0.21.1] - 2026-10-23
 

@@ -26,7 +26,9 @@ numbers for base seed pairs. So a speed run's own folds grade the lever at 256-1
 
 Verdict, from state/spd/CHARTER.md:
   normal  every fold finite and present; DockQ, CA-lDDT, TM, pLDDT, ipTM intervals reach 0 or lie on the better
-          side, LRMSD's likewise (lower is better); pLDDT and ipTM may sit below 0 by at most CONF_TOL
+          side, LRMSD's likewise (lower is better); pLDDT and ipTM fail only on a measurable drop beyond
+          CONF_TOL: mean < -CONF_TOL with the CI excluding 0 (ipTM's seed noise alone moves a null lever's mean
+          past 0.005, and a CI-only test would fail a resolved 1e-4 shift)
           (orchestrator 2026-10-09: 44 near-deterministic pairs resolve a 1e-4 shift, which is no accuracy loss);
           median same-seed pose deviation <= max(0.60 A kill bar,
           this arch's A/A seed floor median) (orchestrator 2026-10-08: on the 11-set a re-seed moves the top pose
@@ -305,8 +307,10 @@ def main():
             why.append(f"{sum(k[0] == arch for k in failed)} failed/non-finite folds" if any(k[0] == arch for k in failed) else "")
         elif a.mode == "normal":
             for m, (mu, lo, hi) in res.items():
-                bad = lo > 0 if m in LOWER_BETTER else hi < (-CONF_TOL if m in ("plddt", "iptm") else 0)
-                if bad:
+                if m in ("plddt", "iptm"):
+                    if mu < -CONF_TOL and hi < 0:
+                        why.append(f"{m} mean drop {-mu:.4f} > {CONF_TOL}, CI [{lo:+.4f}, {hi:+.4f}] excludes 0")
+                elif lo > 0 if m in LOWER_BETTER else hi < 0:
                     why.append(f"{m} worse, CI [{lo:+.4f}, {hi:+.4f}] excludes 0")
             bar = max(KILL_BAR, statistics.median(pose_floor)) if pose_floor else KILL_BAR
             if dev and statistics.median(dev) > bar:

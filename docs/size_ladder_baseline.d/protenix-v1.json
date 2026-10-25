@@ -15,24 +15,24 @@
   ],
   "cards": {
     "p300c": {
-      "recorded": "2026-10-21",
+      "recorded": "2026-10-24",
       "host": "tt-quietbox2",
-      "commit": "a2b7938f1",
+      "commit": "a06d92c6d",
       "host_threads": 5,
       "models": {
         "protenix-v1": {
           "grid": "11x10",
-          "recorded": "2026-10-21",
+          "recorded": "2026-10-24",
           "host": "tt-quietbox2",
-          "commit": "a2b7938f1",
+          "commit": "a06d92c6d",
           "host_threads": 5,
           "runtime_s": {
-            "256": 4.2,
-            "512": 9.1,
-            "640": 12.3,
-            "768": 16.9,
-            "896": 23.2,
-            "1024": 30.3
+            "256": 4.1,
+            "512": 8.7,
+            "640": 11.9,
+            "768": 16.8,
+            "896": 22.7,
+            "1024": 29.8
           },
           "levers": {
             "256": {
@@ -95,13 +95,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 848,
+                "declined": 1698,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 848
+                  "memory": 1698
                 },
-                "reason": "declines all 848 calls on memory x848: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at 256. It serves all 424 calls from 512 upward"
+                "reason": "declines all 1698 calls on memory x1698: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at 256. It serves all 424 calls from 512 upward"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -173,15 +173,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3392,
+                "declined": 1697,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "gated_window_BufferType.L1": 848,
-                  "window_BufferType.L1": 1696,
-                  "back_l1_src_narrow": 848
+                  "back_l1_src_narrow": 1697
                 },
-                "reason": "declines all 3392 calls on window_BufferType.L1 x1696, gated_window_BufferType.L1 x848, back_l1_src_narrow x848: the channel-move window is in L1 at this rung and the ungated permute needs a DRAM window"
+                "reason": "declines all 1697 calls on back_l1_src_narrow x1697: the channel-move window is in L1 at this rung and the ungated permute needs a DRAM window"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -193,19 +191,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 3394,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: not offered at this rung; it serves all 848 calls from 512 upward"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 3394,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "nothing to fuse into at this rung: the counter is `reblock_permute.STATS_GATED`, which counts serves of the fused gated move, and the gated window admits none of this model's 256 aa channel moves. At 256 aa the pair track is N=256 on an L1 destination, below `L1_N_MIN` = 288 (tt_bio/reblock_permute.py:338, the same band enforced for the fused path in `eligible_gated` at :877-878); the band opens at 288 because N=256 on an L1 output is a measured 0.952x loss on 110 cores. The same rung shows the ungated `REBLOCK_PERMUTE` declining 1696 calls on exactly that clause. It serves 848 per fold from 512 aa up."
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -1895,43 +1891,43 @@
           },
           "runtime_reps_s": {
             "256": [
+              4.1,
               4.3,
-              4.2,
               4.1,
               4.1,
-              4.4
+              4.1
             ],
             "512": [
               9.1,
-              9.1,
-              13.1,
-              8.8,
-              8.6
+              8.6,
+              8.7,
+              8.7,
+              8.9
             ],
             "640": [
-              12.0,
-              12.3,
-              12.3
+              11.9,
+              12.4,
+              11.9
             ],
             "768": [
+              16.7,
               16.8,
-              16.9,
-              17.5
+              16.8
             ],
             "896": [
-              22.9,
-              23.2,
-              23.9
+              22.7,
+              22.6,
+              22.9
             ],
             "1024": [
-              30.1,
-              30.3,
-              30.8
+              29.7,
+              29.8,
+              30.3
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -1939,99 +1935,99 @@
                 800,
                 800,
                 800,
-                1343
+                800
               ],
               "n": 15
             },
             "512": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1312,
                 1337,
-                1325,
-                1325
+                1331,
+                1350,
+                1343,
+                1337
               ],
-              "n": 21
+              "n": 20
             },
             "640": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
+                1343,
                 1350,
-                1350,
-                1343
+                1350
               ],
               "n": 12
             },
             "768": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1337,
-                1337,
-                1350
+                1343,
+                1350,
+                1343
               ],
               "n": 15
             },
             "896": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
                 1343,
+                1337,
                 1343
               ],
               "n": 18
             },
             "1024": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1331,
-                1343,
-                1350
+                1350,
+                1325,
+                1343
               ],
               "n": 24
             }
           },
           "load": {
             "256": {
-              "max": 0.28,
+              "max": 0.23,
               "rep_median": [
+                0.22,
                 0.21,
                 0.21,
-                0.23,
-                0.24,
-                0.26
+                0.22,
+                0.2
               ]
             },
             "512": {
-              "max": 0.45,
+              "max": 0.23,
               "rep_median": [
-                0.42,
-                0.39,
-                0.36,
-                0.42,
-                0.41
+                0.22,
+                0.22,
+                0.21,
+                0.21,
+                0.23
               ]
             },
             "640": {
-              "max": 0.31,
+              "max": 0.34,
               "rep_median": [
-                0.31,
-                0.23,
-                0.22
+                0.34,
+                0.29,
+                0.27
               ]
             },
             "768": {
-              "max": 0.28,
+              "max": 0.27,
               "rep_median": [
                 0.24,
                 0.22,
@@ -2039,19 +2035,19 @@
               ]
             },
             "896": {
-              "max": 0.29,
+              "max": 0.21,
               "rep_median": [
-                0.27,
-                0.28,
-                0.24
+                0.21,
+                0.21,
+                0.2
               ]
             },
             "1024": {
-              "max": 0.29,
+              "max": 0.24,
               "rep_median": [
-                0.25,
-                0.24,
-                0.24
+                0.2,
+                0.2,
+                0.23
               ]
             }
           },
@@ -2156,28 +2152,28 @@
               ]
             }
           },
-          "reps": 3,
-          "sigma_runtime_512": 0.1941,
+          "reps": 1,
+          "sigma_runtime_512": 0.0227,
           "exponents": {
             "256->512": {
-              "k": 1.115,
+              "k": 1.085,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.527,
-              "tol": 1.173
+              "k": 1.623,
+              "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0309,
-            "512": 0.1941
+            "256": 0.0216,
+            "512": 0.0227
           },
           "exponents_measured": {
-            "256->512": 1.115,
-            "512->640": 1.35,
-            "640->768": 1.743,
-            "768->896": 2.055,
-            "896->1024": 1.999
+            "256->512": 1.085,
+            "512->640": 1.404,
+            "640->768": 1.891,
+            "768->896": 1.953,
+            "896->1024": 2.038
           }
         }
       }
@@ -5696,26 +5692,26 @@
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-23",
+      "recorded": "2026-10-24",
       "host": "UF-EV-A2-GWH01",
-      "commit": "437a23413",
+      "commit": "a06d92c6d",
       "host_threads": 2,
       "models": {
         "protenix-v1": {
           "grid": "8x9",
-          "recorded": "2026-10-23",
+          "recorded": "2026-10-24",
           "host": "UF-EV-A2-GWH01",
-          "commit": "437a23413",
+          "commit": "a06d92c6d",
           "host_threads": 2,
           "runtime_s": {
-            "256": 8.3,
-            "512": 18.1,
-            "640": 27.1,
-            "768": 38.9,
-            "896": 51.2,
-            "1024": 66.5,
-            "1280": 135.8,
-            "1536": 225.5
+            "256": 8.4,
+            "512": 17.8,
+            "640": 26.7,
+            "768": 38.6,
+            "896": 50.0,
+            "1024": 65.6,
+            "1280": 135.0,
+            "1536": 223.2
           },
           "levers": {
             "256": {
@@ -7676,23 +7672,23 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1272,
-                "declined": 2544,
+                "served": 1484,
+                "declined": 2968,
                 "frac": 0.3333333333333333,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1280x224x128": 2120,
-                  "l1_dest_is_faster:1280x160x128": 424
+                  "l1_dest_is_faster:1280x192x128": 2544,
+                  "l1_dest_is_faster:1280x128x128": 424
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1908,
+                "declined": 2120,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,1)": 1908
+                  "k_tiles=4:(4,1)": 2120
                 },
                 "reason": "declines every call on k_tiles=4: protenix-v1 carries c_z 128, which is 4 tiles, and the guard admits an 8-tile weight K dim only. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs. Same k_tiles=4 refusal as TRIMUL_TAIL_F1; both guards were fitted to protenix-v2's c_z 256 [carried from p300c] [carried from rung 768] [carried from p150a]"
               },
@@ -7706,7 +7702,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 5724,
+                "served": 6360,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7749,21 +7745,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1908,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 1908,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 1908,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7792,21 +7788,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1908,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1908,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1908,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -7852,7 +7848,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1272,
+                "served": 1484,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7986,22 +7982,23 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1696,
-                "declined": 3392,
+                "served": 2120,
+                "declined": 4240,
                 "frac": 0.3333333333333333,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1536x192x128": 3392
+                  "l1_dest_is_faster:1536x160x128": 3816,
+                  "l1_dest_is_faster:1536x96x128": 424
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2332,
+                "declined": 2756,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,1)": 2332
+                  "k_tiles=4:(4,1)": 2756
                 },
                 "reason": "declines every call on k_tiles=4: protenix-v1 carries c_z 128, which is 4 tiles, and the guard admits an 8-tile weight K dim only. Structural to the checkpoint width rather than the sequence length \u2014 0 served at all four rungs. Same k_tiles=4 refusal as TRIMUL_TAIL_F1; both guards were fitted to protenix-v2's c_z 256 [carried from p300c] [carried from rung 768] [carried from p150a]"
               },
@@ -8015,7 +8012,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 6996,
+                "served": 8268,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -8058,21 +8055,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 2756,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 2756,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 2756,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -8101,21 +8098,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 2756,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 2756,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 2332,
+                "served": 2756,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -8161,7 +8158,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1696,
+                "served": 2120,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -8209,54 +8206,54 @@
           },
           "runtime_reps_s": {
             "256": [
+              7.8,
+              8.5,
+              8.8,
               8.4,
-              8.3,
-              8.4,
-              8.2,
-              8.3
+              8.1
             ],
             "512": [
-              18.1,
-              18.1,
-              18.2,
+              17.7,
+              18.0,
               17.8,
-              17.9
+              17.7,
+              18.1
             ],
             "640": [
-              27.1
+              26.7
             ],
             "768": [
-              38.9
+              38.6
             ],
             "896": [
-              51.2
+              50.0
             ],
             "1024": [
-              66.5
+              65.6
             ],
             "1280": [
-              135.8
+              135.0
             ],
             "1536": [
-              225.5
+              223.2
             ]
           },
           "aiclk": {
             "256": {
-              "card": "6",
+              "card": "29",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
                 1000,
+                1000,
                 500,
-                500,
-                500
+                1000
               ],
               "n": 25
             },
             "512": {
-              "card": "6",
+              "card": "29",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8269,16 +8266,16 @@
               "n": 33
             },
             "640": {
-              "card": "6",
+              "card": "29",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 9
+              "n": 8
             },
             "768": {
-              "card": "6",
+              "card": "29",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8287,25 +8284,25 @@
               "n": 11
             },
             "896": {
-              "card": "6",
+              "card": "29",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 14
+              "n": 12
             },
             "1024": {
-              "card": "6",
+              "card": "29",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 16
+              "n": 15
             },
             "1280": {
-              "card": "6",
+              "card": "29",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8314,70 +8311,70 @@
               "n": 28
             },
             "1536": {
-              "card": "6",
+              "card": "29",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 45
+              "n": 44
             }
           },
           "load": {
             "256": {
-              "max": 0.77,
+              "max": 0.41,
               "rep_median": [
-                0.76,
-                0.73,
-                0.69,
-                0.69,
-                0.67
+                0.41,
+                0.39,
+                0.37,
+                0.4,
+                0.4
               ]
             },
             "512": {
-              "max": 0.6,
+              "max": 0.39,
               "rep_median": [
-                0.59,
-                0.56,
-                0.54,
-                0.52,
-                0.56
+                0.35,
+                0.32,
+                0.32,
+                0.34,
+                0.37
               ]
             },
             "640": {
-              "max": 0.61,
+              "max": 0.41,
               "rep_median": [
-                0.58
+                0.4
               ]
             },
             "768": {
-              "max": 0.54,
+              "max": 0.39,
               "rep_median": [
-                0.52
+                0.37
               ]
             },
             "896": {
-              "max": 0.53,
+              "max": 0.39,
               "rep_median": [
-                0.48
+                0.38
               ]
             },
             "1024": {
-              "max": 0.64,
+              "max": 0.39,
               "rep_median": [
-                0.59
+                0.37
               ]
             },
             "1280": {
-              "max": 0.57,
+              "max": 0.41,
               "rep_median": [
-                0.53
+                0.38
               ]
             },
             "1536": {
-              "max": 0.83,
+              "max": 0.38,
               "rep_median": [
-                0.74
+                0.37
               ]
             }
           },
@@ -8514,29 +8511,29 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0091,
+          "sigma_runtime_512": 0.0102,
           "exponents": {
             "256->512": {
-              "k": 1.125,
+              "k": 1.083,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.887,
+              "k": 1.909,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0101,
-            "512": 0.0091
+            "256": 0.0461,
+            "512": 0.0102
           },
           "exponents_measured": {
-            "256->512": 1.125,
-            "512->640": 1.809,
-            "640->768": 1.983,
-            "768->896": 1.782,
-            "896->1024": 1.958,
-            "1024->1280": 3.2,
-            "1280->1536": 2.782
+            "256->512": 1.083,
+            "512->640": 1.817,
+            "640->768": 2.022,
+            "768->896": 1.679,
+            "896->1024": 2.034,
+            "1024->1280": 3.234,
+            "1280->1536": 2.758
           }
         }
       }

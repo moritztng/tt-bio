@@ -169,7 +169,7 @@ ladder then fails with "size-ladder drift". When that is a gate's only failure (
 firing, declines on a new clause, or resolves differently; never a lever that went dark, partial
 darkness, an unmeasured rung or a crash), the train re-records those models on the same commit
 (`--legs 'record:*' --record-full <models>`, into `~/gates/rec-<sha9>`), and once that passes it
-cuts the commit with the spliced fragments in the release commit. Parity, capacity and perf are
+cuts the commit with the spliced fragments in the release commit. It refuses to cut while a fragment carries more `TODO` exemption reasons than the same file at the gated commit, and prints the recorded fragments to fill. Parity, capacity and perf are
 what judge the new lever; the ladder records where it fires. Anything else in the gate failing
 leaves it a FIX, with one exception: a ladder leg the card failed (a hang, a dead card) whose model
 drifted on another arch is already in the record set, so the record run starts alongside that

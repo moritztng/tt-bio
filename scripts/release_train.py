@@ -25,7 +25,7 @@ config is a JSON object of gate_fanout's own flags, {"hosts": "...", "workers": 
 (galaxy_pools), and the run goes to <gates>/rel-<sha9>; while another full gate runs it
 waits for it instead. On RECORD (the gate failed only on size-ladder drift, release_next.py) it
 re-records those models' ladders on the same commit into <gates>/rec-<sha9>, and the release
-commit carries the fragments. When a failed gate's dir lists fixes in FIXES (release_next.py, Fix
+commit carries the fragments, unless they add TODO exemption reasons (new_todos). When a failed gate's dir lists fixes in FIXES (release_next.py, Fix
 forward), the commit it gates is the failed one plus those fixes, pushed first as rel-cand/<sha9> so
 the gate hosts can fetch it. WAIT, FIX and NOTHING are printed and left alone (a FIX is a regression
 for a person or a fix row, who fixes it forward through FIXES; the train never re-cuts around it).
@@ -136,6 +136,25 @@ def rerecorded_files(gate_dir: str, sha: str, records: str = "") -> dict:
     return out
 
 
+def todo_reasons(text: str) -> int:
+    """Exemption reasons in a size-ladder fragment still saying TODO (release_gate's own test for one)."""
+    return sum(str(e.get("reason", "")).startswith("TODO")
+               for card in json.loads(text).get("cards", {}).values()
+               for model in card.get("models", {}).values()
+               for flags in model.get("levers", {}).values() for e in flags.values() if e)
+
+
+def new_todos(files: dict, sha: str) -> dict:
+    """{path: added} for every re-recorded ladder fragment carrying more TODO reasons than at `sha`.
+    A record leg passes with TODOs left in, and the v0.22.0 cut put 78 on main, failing the next gate."""
+    out = {}
+    for f, text in files.items():
+        if f.startswith("docs/size_ladder_baseline.d/"):
+            if (n := todo_reasons(text) - todo_reasons(git("show", f"{sha}:{f}"))) > 0:
+                out[f] = n
+    return out
+
+
 def release_commit(sha: str, version: str, body: str, day: str, records: dict | None = None) -> str:
     """The release commit on `sha`, built in a scratch index: no checkout, no disk. `records`
     ({path: text}, rerecorded_files) replace those files."""
@@ -240,11 +259,16 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
         return 1
     version = next_version(tag or "v0.0.0", body, taken)
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    print(f"train: v{version} from {sha[:12]} (last {tag}), gate {gate_dir}, re-records {sorted(rerecorded_files(gate_dir, sha, records))}, waived {waived or {}}")
+    files = rerecorded_files(gate_dir, sha, records)
+    print(f"train: v{version} from {sha[:12]} (last {tag}), gate {gate_dir}, re-records {sorted(files)}, waived {waived or {}}")
+    if todo := new_todos(files, sha):
+        print(f"CUT {sha[:12]} would add TODO exemption reasons to main; not cutting. Fill them in and rerun:")
+        for f, n in todo.items():
+            print(f"  +{n} {f}: " + " ".join(map(str, sorted(Path(records).glob(f"recorded/*/{Path(f).name}")))))
+        return 1
     if dry:
         print(body)
         return 0
-    files = rerecorded_files(gate_dir, sha, records)
     rel = release_commit(sha, version, body, day, files)
     if content_hash(rel) != content_hash(sha):
         print(f"release commit {rel[:12]} changed gated code; not tagging")
