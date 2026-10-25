@@ -28,7 +28,8 @@ experiments:
 
 class Box:
     def __init__(self, healthy=1):
-        self.healthy, self.queue, self.ended, self.exists, self.live = healthy, [], {}, set(), []
+        self.healthy, self.queue, self.ended, self.live = healthy, [], {}, []
+        self.exists = {"~/spd-data/inputs/A.yaml", "~/spd-data/inputs/B.yaml"}   # the grid's bench inputs
 
     def probe(self, paths):
         jobs = {n: {"state": "queued"} for n in self.queue}
@@ -140,6 +141,12 @@ def test_inputs_are_what_the_command_reads_first():
            "O=/home/u/out/{x}; mkdir -p $O; cd /home/u/trees/abc; TREE=/home/u/t2 bash ~/spd/run_cell.sh $CHIP $O")
     assert feed.inputs(cmd) == {"~/spd/r/common.sh", "/home/u/trees/abc", "/home/u/t2", "~/spd/run_cell.sh"}
     assert feed.inputs("[ -s /home/u/ref/a.npy ] || exit 1\n[ -s /home/u/opt ] && x") == {"/home/u/ref/a.npy"}
+
+
+def test_a_script_the_command_writes_is_not_an_input():
+    # esmc pw6 10-25: `cat > OUT/arms.sh <<ARMS ... bash OUT/arms.sh` sat blocked on its own script, no host had it
+    cmd = "cd /home/u/t\ncat > /home/u/o/arms.sh <<A\nx\nA\nbash run.sh -- bash /home/u/o/arms.sh && touch /home/u/o/done"
+    assert feed.inputs(cmd) == {"/home/u/t"}
 
 
 def test_tree_root_names_the_commit_dir():
@@ -508,6 +515,32 @@ def test_a_dark_box_pins_clear_except_for_experiments_begun_there(tmp_path, monk
     dark[0] = False; (tmp_path / "state/qb1-offline").unlink(); calls.clear()
     run(tmp_path)   # back from dark: the job of the cell its row dropped meanwhile is withdrawn before it runs
     assert [(x[0], x[2]["names"]) for x in calls if x[1] is feed.WITHDRAW] == [("qb1", ["4-gone.sh"])]
+
+
+def test_a_cell_done_on_a_box_whose_probe_failed_is_not_placed_elsewhere(tmp_path, monkeypatch):
+    (tmp_path / "state/spd/grids").mkdir(parents=True); (tmp_path / "state/glx").mkdir(parents=True)
+    (tmp_path / "state/spd/grids/spd-x.yaml").write_text(DARK_GRID.format(name="g").replace("hosts: [qb1]", "hosts: [qb1, qb2]"))
+    (tmp_path / "state/glx/ALLOC.json").write_text(json.dumps({"galaxies": {}}))
+    monkeypatch.setattr(feed, "BH_POOLS", {"qb1": {"ssh": "qb1", "cards": [0], "lock": "/l1_{c}"},
+                                           "qb2": {"ssh": "qb2", "cards": [3], "lock": "/l2_{c}"}})
+    c = feed.cells(tmp_path / "state/spd/grids")[0]
+    placed = []
+
+    def remote(ssh, script, payload, timeout=120):
+        if script is feed.PROBE:
+            if ssh == "qb2":
+                raise subprocess.TimeoutExpired("ssh", 120)
+            return {"healthy": 1, "cards": [0], "queued": 0, "free": [0], "paused": False, "swept": 0, "live": [],
+                    "jobs": {}, "exists": {}}
+        placed.extend(payload["jobs"]); return len(payload["jobs"])
+    monkeypatch.setattr(feed, "remote", remote)
+    (tmp_path / "state/spd/feed").mkdir(parents=True)
+    led = tmp_path / "state/spd/feed/ledger.json"
+    led.write_text(json.dumps({c["key"]: {"host": "qb2", "name": c["name"], "state": "done", "hash": c["hash"], "fails": []}}))
+    run(tmp_path)
+    assert placed == []
+    assert json.loads(led.read_text())[c["key"]] | {"fails": []} == {"host": "qb2", "name": c["name"], "state": "done",
+                                                                    "hash": c["hash"], "fails": [], "quarantined": False}
 
 
 def test_a_pinned_experiment_waits_for_its_dark_box(tmp_path, monkeypatch):
@@ -943,3 +976,78 @@ def test_bench_jsonl_is_done_only_with_a_rep(tmp_path):
     assert ok(str(b)) and ok(str(tmp_path / "*" / "bench.jsonl"))
     (tmp_path / "ok").touch()
     assert ok(str(tmp_path / "ok")), "an empty marker is still done"
+
+
+def test_bench_inputs_are_required():
+    # a box without ~/spd-data/inputs/<name>.yaml fails every cell in a second (.108, 10-25)
+    cmd = ('cd /home/u/t && bash /home/u/t/perf/spd/run_chip.sh $CHIP /o "f0:fast:L=a+b f1:fast" 9LLG_512 3000 --seed 1\n'
+           'python perf/spd/bench.py --inputs c730,l512')
+    assert {"~/spd-data/inputs/9LLG_512.yaml", "~/spd-data/inputs/c730.yaml",
+            "~/spd-data/inputs/l512.yaml"} <= feed.inputs(cmd)
+    assert not any("spd-data" in p for p in feed.inputs("python perf/spd/bench.py --inputs 80"))
+    assert not any("spd-data" in p for p in feed.inputs("bench.py --inputs c730 --data /x"))
+
+
+def test_bench_data_ships_whole(monkeypatch):
+    # an input yaml without its MSAs still fails, so a missing input ships all of ~/spd-data, never overwriting
+    got = []
+    monkeypatch.setattr(feed.subprocess, "Popen", lambda argv, **kw: got.append(argv[-1]))
+    feed.provision("box", {}, {"~/spd-data/inputs/9LLG_512.yaml", "~/x/run.sh"}, ["donor"], "/repo", "/tmp")
+    sh = got[0]
+    assert "test -s \"$HOME/spd-data/inputs/9LLG_512.yaml\"" in sh or "$HOME/spd-data/inputs/9LLG_512.yaml" in sh
+    assert "tar -C ~/spd-data -x --skip-old-files" in sh and sh.count("spd-data/inputs") == 1
+    assert "$HOME/x/run.sh" in sh
+
+
+def test_a_pool_without_the_bench_inputs_gets_them_shipped_and_no_cell(tmp_path, monkeypatch):
+    box = make_pool(tmp_path, monkeypatch)
+    box.exists = set()
+    shipped = []
+    monkeypatch.setattr(feed, "provision", lambda ssh, trees, files, *a: shipped.append(set(files)))
+    run(tmp_path)
+    assert box.queue == [] and shipped == [{"~/spd-data/inputs/A.yaml", "~/spd-data/inputs/B.yaml"}]
+
+
+def test_an_empty_ok_marker_counts_as_present(tmp_path):
+    (tmp_path / "t1.ok").touch(); (tmp_path / "r.json").touch()
+    a = {"kind": "bh", "cards": [], "sweep": False, "paths": [str(tmp_path / "t1.ok"), str(tmp_path / "r.json")], "outdirs": {}}
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path)}, check=True)
+    assert json.loads(r.stdout)["exists"] == {str(tmp_path / "t1.ok"): True, str(tmp_path / "r.json"): False}
+
+
+def test_a_cell_whose_requires_no_host_has_is_logged_as_blocked(tmp_path, monkeypatch):
+    """A cell that waits on a marker no pool holds and feed cannot ship never places; the feed log must name it and the path."""
+    box = make_pool(tmp_path, monkeypatch)
+    g = tmp_path / "state/spd/grids/spd-x.yaml"
+    g.write_text(g.read_text().replace("    command:", '    requires: ["~/spd/spd-x/t42.ok"]\n    command:'))
+    run(tmp_path)
+    assert box.queue == []
+    log = (tmp_path / "state/spd/feed/feed.log").read_text()
+    assert "blocked spd-x: 4 cell(s)" in log and "no host has ~/spd/spd-x/t42.ok" in log
+    box.exists.add("~/spd/spd-x/t42.ok")
+    run(tmp_path)
+    assert len(box.queue) > 0
+
+
+def test_probe_archives_bh_jobs_that_ended_over_a_day_ago(tmp_path):
+    """10-25: qb2 kept 3357 ended job records and the probe tailed each one every tick until it timed out at 120 s.
+    A record that ended over a day ago moves, with its sidecars, to archive/<day>/jobs; a recent one is still reported."""
+    jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
+    for n, age in (("4-old.sh", 90000), ("4-new.sh", 600)):
+        for suf in ("", ".card", ".pid", ".log", ".end"):
+            f = jobs / (n + suf); f.write_text("0\n" if suf == ".end" else "1")
+            t = time.time() - age; subprocess.os.utime(f, (t, t))
+    a = {"kind": "bh", "cards": [], "sweep": True, "paths": [], "outdirs": {}}
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}, check=True)
+    out = json.loads(r.stdout)
+    assert list(out["jobs"]) == ["4-new.sh"] and out["jobs"]["4-new.sh"]["state"] == "ended"
+    assert sorted(p.name for p in jobs.iterdir()) == sorted("4-new.sh" + s for s in ("", ".card", ".pid", ".log", ".end"))
+    arch = list((tmp_path / "spd/feed/archive").glob("*/jobs"))
+    assert len(arch) == 1 and len(list(arch[0].iterdir())) == 5
+    a["sweep"] = False                                # a dry run moves nothing
+    (jobs / "4-new.sh.end").touch(); t = time.time() - 90000; subprocess.os.utime(jobs / "4-new.sh.end", (t, t))
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}, check=True)
+    assert "4-new.sh" in json.loads(r.stdout)["jobs"]

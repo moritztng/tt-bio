@@ -94,7 +94,7 @@ def test_saprot_half_rope_default_and_grid(wormhole, switch, pairs, want, batch,
     monkeypatch.setattr("tt_bio.tenstorrent.is_wormhole", lambda: wormhole)
     monkeypatch.setattr(sp.ttnn, "from_torch", lambda t, **kw: t)
     seen = []
-    monkeypatch.setattr(mm_rope, "qkv_rope_heads", lambda x, w, b, cos, sin, h, cfg, grid, ck, half, ncols: seen.append(
+    monkeypatch.setattr(mm_rope, "qkv_rope_heads", lambda x, w, b, cos, sin, h, cfg, grid, ck, half, ncols, qk_l1: seen.append(
         (tuple(w.shape), tuple(cos.shape), cfg, grid, half, ncols)) or ("q", "k", "v"))
     H, d, D = 20, 24, 480
     attn = types.SimpleNamespace(rope_pairs=pairs, n_heads=H, head_dim=d, device=None,

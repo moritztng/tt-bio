@@ -18,6 +18,7 @@ on host (Foldseek) and is not a ttnn concern -- structure in, fused tokens out.
 from __future__ import annotations
 
 import itertools
+import logging
 import math
 import os
 import pickle
@@ -40,6 +41,9 @@ from tt_bio.qk_rope_heads import STATS as QKRH_STATS, rope_heads_packed  # noqa:
 from tt_bio import ops
 from tt_bio.tenstorrent import (
     CORE_GRID_MAIN,
+    capture_trace,
+    get_device,
+    trace_region_size,
     Module,
     TorchWrapper,
     Weights,
@@ -50,6 +54,7 @@ from tt_bio.esmc import (
     _MMLin,
     _key_lens,
     _lm_mask,
+    _lm_mask_into,
     lm_sdpa,
     rope_tables,
     _rope,
@@ -181,6 +186,21 @@ _SDPA_FP32 = (ttnn.MathFidelity.HiFi4, False, True, False)
 # failed its bar there (SFPU-sum packed RoPE, 650M hPCSK9 pcc -0.000161).
 _SAPROT_MM_ROPE = (env_flag("TT_BIO_SAPROT_MM_ROPE", False) if os.environ.get("TT_BIO_SAPROT_MM_ROPE", "").strip() else None)
 
+# mm_rope writes q and k to L1, where SDPA reads them, as normal's rotary path already does (esmc._ROPE_L1). ls141 (qb2
+# p150a, 1350 MHz, one attention call on the block's own heads): --fast 650M 0.52 ms with its DRAM q / k, normal's L1
+# q / k 0.46, DRAM copies of either 0.50-0.51. Page A/B (ls142, qb2 p150a, 1350 MHz, 4 rounds x 3, pcc unchanged since it
+# only moves buffers): --fast 650M hHSA 69.0 -> 65.4 ms, hPCSK9 68.3 -> 66.6, 1.3B hHSA 132.3 -> 129.6, hPCSK9 127.0 ->
+# 124.8, 7/8 rounds each; 35M half pairs 3/8 (noise). None = on for the full heads on Blackhole, off on Wormhole (not yet
+# measured) and for 35M's half pairs; off keeps all three heads in DRAM.
+_SAPROT_MM_ROPE_L1 = (env_flag("TT_BIO_SAPROT_MM_ROPE_L1", False)
+                      if os.environ.get("TT_BIO_SAPROT_MM_ROPE_L1", "").strip() else None)
+
+
+def _mm_rope_l1() -> bool:
+    """The full-heads mm_rope writes q and k to L1 (_SAPROT_MM_ROPE_L1)."""
+    from tt_bio import tenstorrent
+    return not tenstorrent.is_wormhole() if _SAPROT_MM_ROPE_L1 is None else _SAPROT_MM_ROPE_L1
+
 
 # SaProt 35M (head_dim 24, padded to 32): q / k dims ordered in NeoX pairs so rotary_embedding_llama's 32 x 32 pair
 # rotation runs RoPE on the padded heads, in place of the folded companion projection (rot_weight), two multiplies and
@@ -277,6 +297,14 @@ _PROGS_HIFI2 = {
 # 134.74 -> 133.12 (-0.000053), 1.3B hPCSK9 252.94 -> 249.38 (-0.000179); normal 650M hHSA 162.24 -> 160.84 (-0.000015),
 # 1.3B hHSA 311.98 -> 307.81 (-0.000042). fc1_check (ls78) against float64: --fast every block's error equals the 2D
 # program's (rel_l2 4.68e-3); normal (8,8,8,1,4) 1.75e-3 against 1.82e-3. Wormhole only (the key below).
+# Replay the whole batch forward from a captured trace (Saprot._dispatch_traced) once the same input layout comes twice
+# in a row. Output is bit-identical to eager (ls140b esmc_ab vs_off rel_l2 0 in every round). page_gap forward medians,
+# ms eager -> traced, back to back / after a 1.4 s sleep: p150a on loaded qb1 (load ~5, 1343-1350 MHz) 35M --fast 15.9
+# -> 10.5 / 17.4 -> 11.7, 35M normal 14.0 -> 12.6 / 19.4 -> 13.0, 650M --fast 58.9 -> 55.6; p150a on quiet qb2 35M --fast
+# 10.4 -> 10.1, 650M / 1.3B unchanged; WH Galaxy chip on a quiet host (1000 MHz) 35M --fast 20.3 -> 20.1, 650M --fast
+# 119.9 -> 119.4. Dispatch hides under device time on a quiet host and stops hiding on a loaded one.
+_SAPROT_TRACE = env_flag("TT_BIO_SAPROT_TRACE", True)
+
 _SAPROT_FC1_MM = env_flag("TT_BIO_SAPROT_FC1_MM", True)
 _FC1_MM = {False: (8, 8, 8, 1, 4), True: (4, 8, 8, 1, 4)}   # by hifi2
 # The same program on Blackhole, where fc1 runs the 2D pick (ls121 p300c census at 1350 MHz, 650M --fast: fc1 0.58 ms a call
@@ -694,7 +722,8 @@ class ESM2Attention(_SaprotLin, Module):
         g = c.compute_with_storage_grid_size
         cfg = (c.M_block_size, c.K_block_size, c.N_block_size, c.subblock_h, c.subblock_w)
         nc = mm_rope.cols(int(self.qkv_rope[0].padded_shape[-1]) // 32, g.x, cfg[2])
-        return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (nc, g.y), ck)
+        return mm_rope.qkv_rope_heads(x, *self.qkv_rope, cos, sin, self.n_heads, cfg, (nc, g.y), ck,
+                                      qk_l1=_mm_rope_l1())
 
     def _half_rope(self, x):
         """(rope(q), rope(k), v) [B, H, L, 32] from one half-pair mm_rope matmul, or None where it is off or declines."""
@@ -722,7 +751,7 @@ class ESM2Attention(_SaprotLin, Module):
                                       for t in mm_rope.half_pair_tables(seq_len, self.head_dim, base=ROPE_BASE))
         cos, sin = _HALF_TABLES[key]
         return mm_rope.qkv_rope_heads(x, qw, qb, cos, sin, self.n_heads, cfg, grid, self._ck(self.qkv_weight),
-                                      half=True, ncols=nc)
+                                      half=True, ncols=nc, qk_l1=bool(_SAPROT_MM_ROPE_L1))
 
     def _h3(self) -> bool:
         """Normal mode's qkv runs at HiFi3 (see _ck)."""
@@ -1149,6 +1178,10 @@ class Saprot(TorchWrapper):
         return (None if logits is None else logits[:, :L]), emb[:, :L]
 
     def _dispatch(self, tokens, attn_mask, key_valid, embed_mask, want_logits=True):
+        if _SAPROT_TRACE and trace_region_size() > 0:
+            out = self._dispatch_traced(tokens, attn_mask, key_valid, embed_mask, want_logits)
+            if out is not None:
+                return out
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
@@ -1165,12 +1198,85 @@ class Saprot(TorchWrapper):
         logits, emb = self.module(tokens_tt, mask_tt, kv_tt, em_tt, want_logits)
         return (None if logits is None else self._to_torch(logits)), self._to_torch(emb)
 
+    def _dispatch_traced(self, tokens, attn_mask, key_valid, embed_mask, want_logits):
+        """Replay one captured forward per input layout, captured when a layout comes twice in a row (a stream of
+        changing lengths stays eager). Only one trace is ever live (ESMC._TRACE_CACHE_MAX: a second trace's buffers can
+        land on the first's freed intermediates), so a new layout releases the old trace first and runs eager, and no
+        eager forward runs while a trace is live. A layout whose capture fails stays eager."""
+        lens = _key_lens(attn_mask)
+        key = (tuple(tokens.shape), attn_mask is not None, lens is not None, key_valid is not None,
+               embed_mask is not None, want_logits)
+        tr = getattr(self, "_trace", None)
+        if tr is None or tr["key"] != key:
+            self._release_trace()
+            last, self._trace_last = getattr(self, "_trace_last", None), key
+            refused = self.__dict__.setdefault("_trace_refused", set())
+            if key != last or key in refused:
+                return None
+            try:
+                return self._capture_and_replay(tokens, attn_mask, key_valid, embed_mask, want_logits, key, lens)
+            except Exception as exc:
+                logging.getLogger(__name__).warning("saprot: trace capture failed for %s, staying eager: %s", key, exc)
+                refused.add(key)
+                self._release_trace()
+                return None
+        return self._replay(tokens, attn_mask, key_valid, embed_mask, lens)
+
+    @staticmethod
+    def _host_inputs(tokens, key_valid, embed_mask):
+        return dict(tokens=ttnn.from_torch(tokens.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32),
+                    kv=None if key_valid is None else ttnn.from_torch(
+                        key_valid.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16),
+                    em=None if embed_mask is None else ttnn.from_torch(
+                        embed_mask.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16))
+
+    def _capture_and_replay(self, tokens, attn_mask, key_valid, embed_mask, want_logits, key, lens):
+        dev, host = self.tt_device, self._host_inputs(tokens, key_valid, embed_mask)
+        tr = {k: None if v is None else v.to(dev) for k, v in host.items()}
+        tr["mask"] = _lm_mask(attn_mask, lens, dev)
+        self._trace = tr   # before the capture, so a failure releases the inputs
+        run = lambda: self.module(tr["tokens"], tr["mask"], tr["kv"], tr["em"], want_logits)
+        for t in run():   # the eager forward of this layout just ran; one more on these buffers before the capture
+            if t is not None:
+                ttnn.deallocate(t)
+        ttnn.synchronize_device(dev)
+        tr["tid"], (tr["logits"], tr["emb"]) = capture_trace(dev, run)
+        tr["key"] = key
+        return self._execute_trace(tr)
+
+    def _replay(self, tokens, attn_mask, key_valid, embed_mask, lens):
+        tr, host = self._trace, self._host_inputs(tokens, key_valid, embed_mask)
+        for k in ("tokens", "kv", "em"):
+            if host[k] is not None:
+                ttnn.copy_host_to_device_tensor(host[k], tr[k])
+        _lm_mask_into(attn_mask, lens, tr["mask"])
+        return self._execute_trace(tr)
+
+    def _execute_trace(self, tr):
+        ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
+        return (None if tr["logits"] is None else self._to_torch(tr["logits"])), self._to_torch(tr["emb"])
+
+    def _release_trace(self):
+        tr, self._trace = getattr(self, "_trace", None), None
+        if tr is None:
+            return
+        if "tid" in tr:   # absent when the capture failed (capture_trace released it)
+            ttnn.release_trace(self.tt_device, tr["tid"])   # frees the outputs too
+        for k in ("tokens", "kv", "em", "mask"):
+            self._deallocate_tensor_like(tr[k])
+
+    def reset_static_cache(self):
+        super().reset_static_cache()
+        self._release_trace()
+
 
 def load_saprot(name: str = "saprot-650m", *, fast: bool = False):
     from tt_bio import tenstorrent
     tenstorrent.set_fast_mode(fast)
     if name not in CONFIGS:
         raise ValueError(f"unknown SaProt model {name!r}; choose from {list(MODELS)}")
+    if _SAPROT_TRACE:
+        get_device(trace="saprot")   # reserve the region before the weights open the device
     return Saprot.from_pretrained(name)
 
 

@@ -24,11 +24,11 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     monkeypatch.setattr(T, "_FAST_MODE", False)
     monkeypatch.delenv("TT_BIO_LEVERS")
     assert T.model_levers(of3.NORMAL_LEVERS, of3.FAST_LEVERS) == of3.NORMAL_LEVERS
-    assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "ws_l1dest", "triatt_ln", "edm_device", "trimul_t1_2g"}
+    assert of3.NORMAL_LEVERS == T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {"opm_jd", "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws", "ws_l1dest", "triatt_ln", "edm_device", "trimul_t1_2g", "atom_l1"}
     assert of3.FAST_LEVERS - of3.WH_FAST_LEVERS == {"ws_lofi", "trimul_t2cm"}   # LoFi hangs Wormhole chips; plain T2 is faster there
-    assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32", "triatt_ln_b8", "dit_l1", "atom_l1", "ws_psilu", "dit_mask8"}
+    assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32", "triatt_ln_b8", "dit_l1", "ws_psilu", "dit_mask8"}
     assert of3.NORMAL_LEVERS <= of3.FAST_LEVERS and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
-    assert of3.WH_NORMAL_LEVERS ^ of3.NORMAL_LEVERS == {"trimul_bres", "atom_l1", "trimul_t2cm"}
+    assert of3.WH_NORMAL_LEVERS ^ of3.NORMAL_LEVERS == {"trimul_bres", "trimul_t2cm"}
     # OpenFold3 adds the bf16 DiT in normal mode; OpenBind-0 failed its grade and keeps the fp32 DiT.
     assert set(of3.NORMAL_MODEL_LEVERS) == set(of3.WH_NORMAL_MODEL_LEVERS) == {"openfold3"}
     assert of3.NORMAL_LEVERS | of3.NORMAL_MODEL_LEVERS["openfold3"] <= of3.FAST_LEVERS

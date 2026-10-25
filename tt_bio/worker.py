@@ -1280,8 +1280,13 @@ class _WorkerState:
             self.model = load_esmc(model_id, fast=cfg.get("fast", False))
         elif _is_saprot_model(model_id):
             from tt_bio.saprot import load_saprot
+            from tt_bio.tenstorrent import cleanup as _tt_cleanup
+            from tt_bio.tenstorrent import trace_region_size
 
-            # No trace region: SaProt has no traced forward at any batch size.
+            # A repeated batch layout replays a captured forward, whose region load_saprot reserves only on a fresh
+            # open (as for the ESMC embedders above).
+            if trace_region_size() <= 0:
+                _tt_cleanup()
             self.model = load_saprot(model_id, fast=cfg.get("fast", False))
         else:
             from tt_bio.boltz2 import Boltz2

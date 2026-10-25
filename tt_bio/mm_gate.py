@@ -64,21 +64,24 @@ def plan(x, n2: int, cfg, grid):
     return None
 
 
-def config(x, n2: int, kt: int, grid, bf16_acc: bool):
+def config(x, n2: int, kt: int, grid, bf16_acc: bool, m_whole: bool = False):
     """The block config (M, K, N, subblock_h, subblock_w) for x @ [K, n2], or None where no N block fits `plan`.
     perf/spd_gap_whlm/gate_cfg_sweep.py (Galaxy chip, 1000 MHz, 3808 rows): this rule is the sweep's best or within
     2 % of it on ESMC 300M/600M, normal and --fast. N is the block up to 12 tiles whose `layout` pads the least work
     a core (the largest on a tie), the subblock the widest divisor of it that fits a dest half, K 4 tiles under bf16
     accumulation where K divides.
     M is 8 tiles unless a core's share of the rows is smaller: the ESMC-6B's 544 rows (17 tiles over 8 grid rows)
-    run best at M 2 and K 4 (--shapes 6b: 0.706 ms against 0.834 at M 4 and 0.956 at M 8)."""
+    run best at M 2 and K 4 (--shapes 6b: 0.706 ms against 0.834 at M 4 and 0.956 at M 8).
+    `m_whole`: a core's share of 9-12 row tiles is one M block of 12, not two of 8 whose second is mostly padding.
+    Blackhole p300 chip (11x10, 1350 MHz, HiFi3), share 11-12: 300M 0.407 -> 0.346 ms a layer, --fast 0.433 -> 0.379,
+    600M 0.503 -> 0.469, --fast 0.552 -> 0.508, rel_l2 unchanged; each the sweep's best or within 2 % of it."""
     dmax = 8 if bf16_acc else 4
     rows = x.volume() // int(x.shape[-1])
     fits = [(nb, lay) for nb in (12, 10, 8, 6, 4) if (lay := layout(rows, n2, nb, grid)) is not None]
     if not fits:
         return None
     nb, (_, _, per_core) = min(fits, key=lambda f: f[1][1] * f[1][2])
-    mb = min(8, 1 << (per_core.bit_length() - 1))
+    mb = 12 if m_whole and 8 < per_core <= 12 else min(8, 1 << (per_core.bit_length() - 1))
     kb = 4 if kt % 4 == 0 and (bf16_acc or mb <= 2) else 2
     sw = max(w for w in range(1, dmax + 1) if nb % w == 0)
     return (mb, kb, nb, max(h for h in (1, 2, 4, 8) if h * sw <= dmax and mb % h == 0), sw)

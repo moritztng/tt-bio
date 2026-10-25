@@ -259,6 +259,36 @@ def test_mm_gate_config_wormhole_unchanged(model, want, bf16_acc):
     assert mm_gate.layout(rows, n2, want[bf16_acc][2], (8, 9))[0] is (rows > n2)
 
 
+@pytest.mark.parametrize("model", list(_GATE_SHAPES))
+def test_mm_gate_m_whole_keeps_wormhole(model):
+    """Wormhole's page shares are 14 row tiles (6B: 2), outside m_whole's 9-12, so its configs do not move."""
+    from tt_bio import mm_gate
+    rows, n2, kt = _GATE_SHAPES[model]
+    x = types.SimpleNamespace(volume=lambda: rows * 64, shape=(rows, 64))
+    for bf16_acc in (False, True):
+        assert mm_gate.config(x, n2, kt, (8, 9), bf16_acc, True) == mm_gate.config(x, n2, kt, (8, 9), bf16_acc)
+
+
+@pytest.mark.parametrize("model,want", [("300m", ((12, 2, 8, 1, 4), (12, 2, 8, 1, 8))),
+                                        ("600m", ((12, 2, 6, 1, 3), (12, 4, 6, 1, 6))),
+                                        ("6b", ((2, 4, 8, 1, 4), (2, 4, 8, 1, 4)))])
+def test_mm_gate_m_whole_p300(model, want):
+    """The p300 (11x10) configs gate_cfg_sweep graded: one M block of 12 over the 11-12 row tiles a core."""
+    from tt_bio import mm_gate
+    rows, n2, kt = _GATE_SHAPES[model]
+    x = types.SimpleNamespace(volume=lambda: rows * 64, shape=(rows, 64))
+    for bf16_acc in (False, True):
+        assert mm_gate.config(x, n2, kt, (11, 10), bf16_acc and model != "6b", True) == want[bf16_acc]
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("switch", [None, True, False])
+def test_gate_m_whole_default(wormhole, switch, monkeypatch):
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(esmc, "_ESMC_GATE_M_WHOLE", switch)
+    assert esmc._gate_m_whole_on() is (not wormhole if switch is None else switch)
+
+
 @pytest.mark.parametrize("grid", [(11, 10), (13, 10)])
 @pytest.mark.parametrize("model", list(_GATE_SHAPES))
 def test_mm_gate_layout_blackhole(model, grid):
@@ -443,3 +473,12 @@ def test_saprot_wh_fc2_mm_resid_hifi3(fid, dtype, want, monkeypatch):
     monkeypatch.setattr("tt_bio.mm_resid.matmul_add", lambda *a, **k: seen.append((a[4], a[5])) or "out")
     out = lin._mm_resid(x, w, None, None, False)
     assert (out, seen) == (("out", [(want, (8, 9))]) if want else (None, []))
+
+
+@pytest.mark.parametrize("wormhole,switch,want", [(False, None, True), (True, None, False), (False, False, False),
+                                                  (True, True, True)])
+def test_saprot_mm_rope_l1_default(wormhole, switch, want, monkeypatch):
+    from tt_bio import saprot
+    monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(saprot, "_SAPROT_MM_ROPE_L1", switch)
+    assert saprot._mm_rope_l1() is want
