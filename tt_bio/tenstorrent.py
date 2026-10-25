@@ -2806,9 +2806,6 @@ def _pad_head_lanes(t: torch.Tensor, n_heads: int, head_dim: int, padded_head_di
 # The cast itself is 4.19 MB read + 2.10 MB written at N=512; the win is the re-read, which the
 # SDPA reader pays once per (q_chunk, k_chunk) pair.
 _TRIATT_BIAS_B8 = env_flag("TT_BIO_TRIATT_BIAS_B8", False)
-# Under triatt_ln_b8 the key mask is added to the bf16 bias before it narrows to bfp8, not after:
-# bit-identical, and the bf16 add is a third of the bfp8 one. A module attribute for the A/B.
-TRIATT_MASK_B16 = True
 
 # Triangle attention's INTERIOR in bfp8, and nothing else. This is its own flag and not a mode:
 # `_FAST_MODE` bundles unrelated changes and measures 0.95x on the fold, and `_dtype()` staying
@@ -12610,12 +12607,6 @@ class TriangleAttention(Module):
             if fused is not None and pre_qkv[0].dtype == ttnn.bfloat8_b:
                 # triatt_ln_b8: the fused SDPA serves only uniform operands, and the head-major bias
                 # (H x S x S, 1/16 of the pair at 8 heads) is cheap to narrow after its permute.
-                # The key mask goes in first (TRIATT_MASK_B16): a broadcast add costs 3x as much on
-                # a bfp8 operand (640 x 12 heads, WH: 0.635 -> 0.204 ms) and the narrowed sum is
-                # torch.equal to the shipped narrow-then-add (perf/spd_m_opendde/tab_bench.py).
-                if attn_mask is not None and TRIATT_MASK_B16:
-                    triangle_bias = ttnn.add(triangle_bias, attn_mask)
-                    attn_mask = None
                 narrowed = ttnn.typecast(triangle_bias, ttnn.bfloat8_b)
                 ttnn.deallocate(triangle_bias)
                 triangle_bias = narrowed
