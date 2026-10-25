@@ -519,6 +519,8 @@ WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "
 # now that the kernel does it on OpenDDE's two column groups. At fast's HiFi2 trunk the bf16 write was the cost: 640 x
 # c384 15.76 -> 11.05 ms per call (1000 MHz, spd-m-opendde lbg). Galaxy chip, separate-process ABBA, 2 warm folds per
 # arm, AICLK 1000 MHz (spd-m-opendde lbs, 2026-10-24): fast 608 111.26 -> 109.61 s, 640 124.71 -> 117.51 s (-5.8 %).
+# Fast grade vs the shipped WH fast set, 11 complexes x seeds 109-112, 44 paired folds (spd-m-opendde lbtg2, 2026-10-25):
+# PASS, CA-lDDT -0.0001 [-0.0014, +0.0013], DockQ +0.006, docking 26 -> 26, pLDDT -0.008, top pose median 0.86 A (A/A 1.17).
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median
