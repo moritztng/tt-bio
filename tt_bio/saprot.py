@@ -18,6 +18,7 @@ on host (Foldseek) and is not a ttnn concern -- structure in, fused tokens out.
 from __future__ import annotations
 
 import itertools
+import logging
 import math
 import os
 import pickle
@@ -286,10 +287,13 @@ _PROGS_HIFI2 = {
 # 134.74 -> 133.12 (-0.000053), 1.3B hPCSK9 252.94 -> 249.38 (-0.000179); normal 650M hHSA 162.24 -> 160.84 (-0.000015),
 # 1.3B hHSA 311.98 -> 307.81 (-0.000042). fc1_check (ls78) against float64: --fast every block's error equals the 2D
 # program's (rel_l2 4.68e-3); normal (8,8,8,1,4) 1.75e-3 against 1.82e-3. Wormhole only (the key below).
-# Replay the whole batch forward from a captured trace (Saprot._dispatch_traced). L6 killed this on paper from a quiet
-# host, where dispatch hides under device time. ls139 (qb1, load 12) reads 35M --fast 15-16 ms a page forward where
-# esmc_ab on qb2 read 11.7: a loaded host may not hide it. Off until a page A/B on a loaded and a quiet host says so.
-_SAPROT_TRACE = env_flag("TT_BIO_SAPROT_TRACE", False)
+# Replay the whole batch forward from a captured trace (Saprot._dispatch_traced) once the same input layout comes twice
+# in a row. Output is bit-identical to eager (ls140b esmc_ab vs_off rel_l2 0 in every round). page_gap forward medians,
+# ms eager -> traced, back to back / after a 1.4 s sleep: p150a on loaded qb1 (load ~5, 1343-1350 MHz) 35M --fast 15.9
+# -> 10.5 / 17.4 -> 11.7, 35M normal 14.0 -> 12.6 / 19.4 -> 13.0, 650M --fast 58.9 -> 55.6; p150a on quiet qb2 35M --fast
+# 10.4 -> 10.1, 650M / 1.3B unchanged; WH Galaxy chip on a quiet host (1000 MHz) 35M --fast 20.3 -> 20.1, 650M --fast
+# 119.9 -> 119.4. Dispatch hides under device time on a quiet host and stops hiding on a loaded one.
+_SAPROT_TRACE = env_flag("TT_BIO_SAPROT_TRACE", True)
 
 _SAPROT_FC1_MM = env_flag("TT_BIO_SAPROT_FC1_MM", True)
 _FC1_MM = {False: (8, 8, 8, 1, 4), True: (4, 8, 8, 1, 4)}   # by hifi2
@@ -1165,7 +1169,9 @@ class Saprot(TorchWrapper):
 
     def _dispatch(self, tokens, attn_mask, key_valid, embed_mask, want_logits=True):
         if _SAPROT_TRACE and trace_region_size() > 0:
-            return self._dispatch_traced(tokens, attn_mask, key_valid, embed_mask, want_logits)
+            out = self._dispatch_traced(tokens, attn_mask, key_valid, embed_mask, want_logits)
+            if out is not None:
+                return out
         tokens_tt = ttnn.from_torch(
             tokens.to(torch.int32), device=self.tt_device,
             layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32,
@@ -1183,36 +1189,60 @@ class Saprot(TorchWrapper):
         return (None if logits is None else self._to_torch(logits)), self._to_torch(emb)
 
     def _dispatch_traced(self, tokens, attn_mask, key_valid, embed_mask, want_logits):
-        """Replay one captured forward per input layout. Only one trace is ever live (ESMC._TRACE_CACHE_MAX: a second
-        trace's buffers can land on the first's freed intermediates), so a new layout releases the old trace first."""
+        """Replay one captured forward per input layout, captured when a layout comes twice in a row (a stream of
+        changing lengths stays eager). Only one trace is ever live (ESMC._TRACE_CACHE_MAX: a second trace's buffers can
+        land on the first's freed intermediates), so a new layout releases the old trace first and runs eager, and no
+        eager forward runs while a trace is live. A layout whose capture fails stays eager."""
         lens = _key_lens(attn_mask)
         key = (tuple(tokens.shape), attn_mask is not None, lens is not None, key_valid is not None,
                embed_mask is not None, want_logits)
-        host = dict(tokens=ttnn.from_torch(tokens.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32),
+        tr = getattr(self, "_trace", None)
+        if tr is None or tr["key"] != key:
+            self._release_trace()
+            last, self._trace_last = getattr(self, "_trace_last", None), key
+            refused = self.__dict__.setdefault("_trace_refused", set())
+            if key != last or key in refused:
+                return None
+            try:
+                return self._capture_and_replay(tokens, attn_mask, key_valid, embed_mask, want_logits, key, lens)
+            except Exception as exc:
+                logging.getLogger(__name__).warning("saprot: trace capture failed for %s, staying eager: %s", key, exc)
+                refused.add(key)
+                self._release_trace()
+                return None
+        return self._replay(tokens, attn_mask, key_valid, embed_mask, lens)
+
+    @staticmethod
+    def _host_inputs(tokens, key_valid, embed_mask):
+        return dict(tokens=ttnn.from_torch(tokens.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT, dtype=ttnn.uint32),
                     kv=None if key_valid is None else ttnn.from_torch(
                         key_valid.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16),
                     em=None if embed_mask is None else ttnn.from_torch(
                         embed_mask.to(torch.bfloat16), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16))
-        tr = getattr(self, "_trace", None)
-        if tr is None or tr["key"] != key:
-            self._release_trace()
-            dev = self.tt_device
-            tr = {k: None if v is None else v.to(dev) for k, v in host.items()}
-            tr["mask"] = _lm_mask(attn_mask, lens, dev)
-            run = lambda: self.module(tr["tokens"], tr["mask"], tr["kv"], tr["em"], want_logits)
-            for _ in range(2):   # compile, fill the program cache and the per-length rope tables outside the capture
-                for t in run():
-                    if t is not None:
-                        ttnn.deallocate(t)
-            ttnn.synchronize_device(dev)
-            tr["tid"], (tr["logits"], tr["emb"]) = capture_trace(dev, run)
-            tr["key"] = key
-            self._trace = tr
-        else:
-            for k in ("tokens", "kv", "em"):
-                if host[k] is not None:
-                    ttnn.copy_host_to_device_tensor(host[k], tr[k])
-            _lm_mask_into(attn_mask, lens, tr["mask"])
+
+    def _capture_and_replay(self, tokens, attn_mask, key_valid, embed_mask, want_logits, key, lens):
+        dev, host = self.tt_device, self._host_inputs(tokens, key_valid, embed_mask)
+        tr = {k: None if v is None else v.to(dev) for k, v in host.items()}
+        tr["mask"] = _lm_mask(attn_mask, lens, dev)
+        self._trace = tr   # before the capture, so a failure releases the inputs
+        run = lambda: self.module(tr["tokens"], tr["mask"], tr["kv"], tr["em"], want_logits)
+        for t in run():   # the eager forward of this layout just ran; one more on these buffers before the capture
+            if t is not None:
+                ttnn.deallocate(t)
+        ttnn.synchronize_device(dev)
+        tr["tid"], (tr["logits"], tr["emb"]) = capture_trace(dev, run)
+        tr["key"] = key
+        return self._execute_trace(tr)
+
+    def _replay(self, tokens, attn_mask, key_valid, embed_mask, lens):
+        tr, host = self._trace, self._host_inputs(tokens, key_valid, embed_mask)
+        for k in ("tokens", "kv", "em"):
+            if host[k] is not None:
+                ttnn.copy_host_to_device_tensor(host[k], tr[k])
+        _lm_mask_into(attn_mask, lens, tr["mask"])
+        return self._execute_trace(tr)
+
+    def _execute_trace(self, tr):
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
         return (None if tr["logits"] is None else self._to_torch(tr["logits"])), self._to_torch(tr["emb"])
 
@@ -1220,7 +1250,8 @@ class Saprot(TorchWrapper):
         tr, self._trace = getattr(self, "_trace", None), None
         if tr is None:
             return
-        ttnn.release_trace(self.tt_device, tr["tid"])   # frees the outputs too
+        if "tid" in tr:   # absent when the capture failed (capture_trace released it)
+            ttnn.release_trace(self.tt_device, tr["tid"])   # frees the outputs too
         for k in ("tokens", "kv", "em", "mask"):
             self._deallocate_tensor_like(tr[k])
 
