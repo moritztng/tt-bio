@@ -3850,7 +3850,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -3858,7 +3858,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -3866,7 +3866,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -3941,7 +3941,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: transition_ws (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -4170,7 +4170,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -4178,7 +4178,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -4186,7 +4186,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4493,7 +4493,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -4501,7 +4501,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -4509,7 +4509,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4817,7 +4817,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -4825,7 +4825,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -4833,7 +4833,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5139,7 +5139,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -5147,7 +5147,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -5155,7 +5155,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5459,7 +5459,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -5467,7 +5467,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -5475,7 +5475,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6070,7 +6070,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -6078,7 +6078,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -6086,7 +6086,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6161,7 +6161,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: transition_ws (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "openfold3.confidence,openfold3.msa,openfold3.template,openfold3.trunk",
@@ -6390,7 +6390,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -6398,7 +6398,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -6406,7 +6406,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6712,7 +6712,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -6720,7 +6720,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -6728,7 +6728,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -7034,7 +7034,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -7042,7 +7042,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -7050,7 +7050,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -7354,7 +7354,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -7362,7 +7362,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -7370,7 +7370,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -7675,7 +7675,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on head_dim_or_width x16)"
+                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -7683,7 +7683,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -7691,7 +7691,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 0 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
