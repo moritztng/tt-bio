@@ -19,9 +19,15 @@ set -u
 REPO=${REPO:-$HOME/tt-bio}
 REF=${REF:-$HOME/rfd4-ref-env/venv/bin/python}
 UPSTREAM=${UPSTREAM:-$HOME/rfd4-upstream/RFD4-Proteina}
+# run_upstream_spec_tests.py runs UPSTREAM's own pytest files, so it needs a pytest on the path
+# (the reference env has none) and a PDB mirror holding 6lyz, 1mso and 1ehz for its fixtures.
+MIRROR=${MIRROR:-$HOME/rfd4-io-env/pdb-mirror}
+# A pytest-only path, never a full site-packages: putting another venv's packages on
+# PYTHONPATH shadows the reference env's numpy and breaks its C extension.
+PYTEST_PATH=${PYTEST_PATH:-$HOME/rfd4-ref-env/pytest-venv/lib/python3.12/site-packages}
 STATE=${STATE:-$HOME/.coworker/state/rfd4}
 STAMP=$STATE/.parity_nightly_stamp
-OUT=$STATE/parity
+OUT=$STATE/parity-nightly
 FORCE=${1:-}
 
 ts() { date -u +%FT%TZ; }
@@ -56,7 +62,12 @@ run() {  # run <name> <command...>
 
 FAILED=""
 run prep_parity "$REF" -I scripts/rfd4_port/prep_parity.py
-run upstream_spec_tests "$REF" scripts/rfd4_port/run_upstream_spec_tests.py
+if [ -d "$MIRROR" ] && [ -d "$PYTEST_PATH" ]; then
+    PDB_MIRROR_PATH=$MIRROR PYTHONPATH=$PYTEST_PATH \
+        run upstream_spec_tests "$REF" scripts/rfd4_port/run_upstream_spec_tests.py
+else
+    echo "SKIP upstream_spec_tests (no PDB mirror at $MIRROR, or no pytest at $PYTEST_PATH)"
+fi
 run sampler_upstream_parity "$REF" perf/rfd4/sampler/upstream_parity.py
 for cif in monomer/monomer-long ppi/ppi_all_atom/01_PD1 \
            motif_scaffolding/motif_unindexed/1BCF_AA \
