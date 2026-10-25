@@ -359,9 +359,30 @@ MM_RESID_STATS = [0, 0]   # served, refused (a shape / memory placement the prog
 # 650M 155.2 -> 151.7 (hPCSK9 156.2 -> 152.1), 1.3B 297.5 -> 290.0. None = on with block-fp8 weights (--fast) only, as
 # _SAPROT_LN_L1; normal mode's out/fc2 adds are fused into the matmul (_SAPROT_RESID) where it serves.
 _SAPROT_X_L1 = (env_flag("TT_BIO_SAPROT_X_L1", False) if os.environ.get("TT_BIO_SAPROT_X_L1", "").strip() else None)
+# Keyed by rows (batch x padded length). Past the page cell the stream in L1 can leave a later program too little room for
+# its circular buffers: on a Galaxy chip, 650M --fast at 15 x 544 rows holds 290 KB a core and a later projection clashes with
+# it. Such a forward is rerun with the stream in DRAM at that size (_refuse_stream_l1), then also the pre-LN.
 _X_L1_REFUSED: set = set()
 #: [residual sums written to L1, declined]
 X_L1_STATS = [0, 0]
+
+
+def _rows(x) -> int:
+    shape = x.padded_shape
+    return math.prod(int(shape[i]) for i in range(len(shape) - 1))
+
+
+def _refuse_stream_l1(rows: int, exc: BaseException) -> bool:
+    """A program's circular buffers clashed with the L1-resident stream at `rows`: move the next placement (residual,
+    then the block pre-LN) to DRAM at that size, so the caller reruns the forward. False when nothing is left to move;
+    re-raises what is not an L1 clash."""
+    from tt_bio import tenstorrent
+    for refused in (_X_L1_REFUSED, _LN_L1_REFUSED):
+        if rows not in refused:
+            tenstorrent.absorb_l1_refusal(f"saprot stream L1 at {rows} rows", exc)
+            refused.add(rows)
+            return True
+    return False
 
 
 # A projection small enough for L1 writes there through the linear instead of DRAM through minimal_matmul, and the
@@ -611,7 +632,8 @@ class _SaprotLin(_MMLin):
 
     def _lin_add(self, x, w, bias, resid):
         """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
-        x_l1 = w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1
+        x_l1 = ((w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1)
+                and _rows(resid) not in _X_L1_REFUSED)
         out = self._mm_resid(x, w, bias, resid, x_l1) if self._mm_resid_on() else None
         if out is not None:
             return out
@@ -633,13 +655,13 @@ class _SaprotLin(_MMLin):
                 RESID_REFUSED.add((tuple(w.shape), w.dtype))
         r = self._lin(x, w, bias=bias)
         out = None
-        if x_l1 and tuple(resid.padded_shape) not in _X_L1_REFUSED:
+        if x_l1:
             try:
                 out = ttnn.add(resid, r, memory_config=ttnn.L1_MEMORY_CONFIG)
                 X_L1_STATS[0] += 1
                 ttnn.deallocate(resid)   # the block rebinds x to the sum; the old stream would pin L1 until GC
             except RuntimeError:
-                _X_L1_REFUSED.add(tuple(resid.padded_shape))
+                _X_L1_REFUSED.add(_rows(resid))
                 X_L1_STATS[1] += 1
         if out is None:
             out = ttnn.add(resid, r)
@@ -906,7 +928,7 @@ LN_L1_STATS = [0, 0]
 def _block_ln(x, w, b, ck, proj_w):
     """The block's pre-LN, in L1 where _SAPROT_LN_L1 serves (None: when the next projection's weight proj_w is
     block-fp8) and the shape fits."""
-    key = tuple(x.padded_shape)
+    key = _rows(x)
     l1 = proj_w.dtype == ttnn.bfloat8_b if _SAPROT_LN_L1 is None else _SAPROT_LN_L1
     if l1 and key not in _LN_L1_REFUSED:
         try:
@@ -1195,7 +1217,14 @@ class Saprot(TorchWrapper):
             embed_mask.to(torch.bfloat16), device=self.tt_device,
             layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16,
         )
-        logits, emb = self.module(tokens_tt, mask_tt, kv_tt, em_tt, want_logits)
+        rows = int(tokens.shape[0]) * int(tokens.shape[1])
+        while True:
+            try:
+                logits, emb = self.module(tokens_tt, mask_tt, kv_tt, em_tt, want_logits)
+                break
+            except RuntimeError as exc:
+                if not _refuse_stream_l1(rows, exc):
+                    raise
         return (None if logits is None else self._to_torch(logits)), self._to_torch(emb)
 
     def _dispatch_traced(self, tokens, attn_mask, key_valid, embed_mask, want_logits):

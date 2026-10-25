@@ -394,6 +394,22 @@ def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
     assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
 
 
+def test_saprot_stream_l1_clash_reruns_in_dram(monkeypatch):
+    """A circular-buffer clash with SaProt's L1 stream moves the residual, then the pre-LN, to DRAM at that row count and
+    the forward reruns; a third clash, or any other error, propagates."""
+    from tt_bio import saprot as sp
+    monkeypatch.setattr(sp, "_X_L1_REFUSED", set())
+    monkeypatch.setattr(sp, "_LN_L1_REFUSED", set())
+    monkeypatch.setattr("tt_bio.tenstorrent.report_l1_refusal", lambda where, exc: "circular buffers" in str(exc))
+    clash = RuntimeError("Statically allocated circular buffers in program 29 clash with L1 buffers")
+    assert sp._refuse_stream_l1(8160, clash) and sp._X_L1_REFUSED == {8160} and not sp._LN_L1_REFUSED
+    assert sp._refuse_stream_l1(8160, clash) and sp._LN_L1_REFUSED == {8160}
+    assert not sp._refuse_stream_l1(8160, clash)
+    with pytest.raises(RuntimeError, match="other"):
+        sp._refuse_stream_l1(3808, RuntimeError("other"))
+    assert 3808 not in sp._X_L1_REFUSED
+
+
 @pytest.mark.parametrize("switch", [None, True, False])
 def test_saprot_sdpa_fp32_dest_with_qkrh(switch, monkeypatch):
     """SaProt's page attention runs at HiFi4 fp32 dest behind the packed RoPE program or normal's HiFi3 projections by
