@@ -99,13 +99,19 @@ void kernel_main() {
         }
         return;
     }
-    uint32_t page = r0 * Kt;
+    // Row i is row tile r0 + (i + s) % nrows (runtime arg 5, triatt_ln.STAGGER), as writer.cpp row_of.
+    const uint32_t s = get_arg_val<uint32_t>(5);
     for (uint32_t i = 0; i < nrows; i += RB) {
         const uint32_t n = (nrows - i < RB) ? (nrows - i) : RB;
         cb_reserve_back(x_cb, n * Kt);
         uint32_t dst = get_write_ptr(x_cb);
-        for (uint32_t t = 0; t < n * Kt; ++t, ++page, dst += tb)
-            if constexpr (!ABL_R) noc_async_read_page(page, x, dst);
+        for (uint32_t k = 0; k < n; ++k) {
+            uint32_t ir = i + k + s;
+            if (ir >= nrows) ir -= nrows;
+            const uint32_t page = (r0 + ir) * Kt;
+            for (uint32_t t = 0; t < Kt; ++t, dst += tb)
+                if constexpr (!ABL_R) noc_async_read_page(page + t, x, dst);
+        }
         noc_async_read_barrier();
         cb_push_back(x_cb, n * Kt);
     }
