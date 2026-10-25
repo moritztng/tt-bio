@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-25
+
 ### Added
 - **RFD4-Proteina (`tt-bio design --model rfd4`).** Binders, motif scaffolds, enzymes around a
   ligand, antibody and nanobody CDRs and unconditional monomers, designed through a latent flow at
