@@ -1,26 +1,26 @@
 {
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-23",
+      "recorded": "2026-10-24",
       "host": "UF-EV-A2-GWH01",
-      "commit": "437a23413",
+      "commit": "a06d92c6d",
       "host_threads": 2,
       "models": {
         "boltz2": {
           "grid": "8x9",
-          "recorded": "2026-10-23",
+          "recorded": "2026-10-24",
           "host": "UF-EV-A2-GWH01",
-          "commit": "437a23413",
+          "commit": "a06d92c6d",
           "host_threads": 2,
           "runtime_s": {
-            "256": 7.1,
-            "512": 21.9,
+            "256": 7.0,
+            "512": 22.0,
             "640": 34.7,
-            "768": 51.4,
-            "896": 68.2,
-            "1024": 90.2,
-            "1280": 187.9,
-            "1536": 314.1
+            "768": 51.2,
+            "896": 67.5,
+            "1024": 90.3,
+            "1280": 189.6,
+            "1536": 308.3
           },
           "levers": {
             "256": {
@@ -1207,9 +1207,10 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 296
+                  "base-unraised": 16,
+                  "ratio-shrunk": 280
                 },
-                "reason": "declines all 296 calls on base-unraised x296: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 296 calls on ratio-shrunk x280, base-unraised x16: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1907,25 +1908,25 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 1680,
-                "declined": 3360,
+                "served": 1960,
+                "declined": 3920,
                 "frac": 0.3333333333333333,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1280x224x128": 2800,
-                  "l1_dest_is_faster:1280x160x128": 560
+                  "l1_dest_is_faster:1280x192x128": 3360,
+                  "l1_dest_is_faster:1280x128x128": 560
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2520,
+                "declined": 2800,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,1)": 2520
+                  "k_tiles=4:(4,1)": 2800
                 },
-                "reason": "declines all 2520 calls on k_tiles=4:(4,1) x2520: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent [carried from p300c] [carried from rung 1024] [carried from p150a]"
+                "reason": "declines all 2800 calls on k_tiles=4:(4,1) x2800: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent [carried from p300c] [carried from rung 1024] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -1937,7 +1938,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 7560,
+                "served": 8400,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1980,21 +1981,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 2520,
+                "served": 2800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 2520,
+                "served": 2800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 2520,
+                "served": 2800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2023,21 +2024,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 2520,
+                "served": 2800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 2520,
+                "served": 2800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 2520,
+                "served": 2800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -2079,7 +2080,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 1680,
+                "served": 1960,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2207,24 +2208,25 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 2240,
-                "declined": 4480,
+                "served": 2800,
+                "declined": 5600,
                 "frac": 0.3333333333333333,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1536x192x128": 4480
+                  "l1_dest_is_faster:1536x160x128": 5040,
+                  "l1_dest_is_faster:1536x96x128": 560
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 3080,
+                "declined": 3640,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=4:(4,1)": 3080
+                  "k_tiles=4:(4,1)": 3640
                 },
-                "reason": "declines all 3080 calls on k_tiles=4:(4,1) x3080: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent [carried from p300c] [carried from rung 1024] [carried from p150a]"
+                "reason": "declines all 3640 calls on k_tiles=4:(4,1) x3640: structurally out of scope for this model: the lever needs an 8-tile weight K dim and boltz-2's c_z=128 gives 4, so the key reads k_tiles=4 at every call it does see. Size-independent, so it biases no exponent [carried from p300c] [carried from rung 1024] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2236,7 +2238,7 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 9240,
+                "served": 10920,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2279,21 +2281,21 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 3080,
+                "served": 3640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 3080,
+                "served": 3640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 3080,
+                "served": 3640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2322,21 +2324,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 3080,
+                "served": 3640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 3080,
+                "served": 3640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 3080,
+                "served": 3640,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -2378,7 +2380,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 2240,
+                "served": 2800,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2411,10 +2413,9 @@
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "base-unraised": 16,
-                  "ratio-shrunk": 280
+                  "ratio-shrunk": 296
                 },
-                "reason": "declines all 296 calls on ratio-shrunk x280, base-unraised x16: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and Boltz-2's pair transition is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif reads the same budget the other way round and raises, which is why the Blackhole cells read 1.0 and this board reads 0.0. The lever has no Wormhole raise to decline"
+                "reason": "declines all 296 calls on ratio-shrunk x296: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and Boltz-2's pair transition is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif reads the same budget the other way round and raises, which is why the Blackhole cells read 1.0 and this board reads 0.0. The lever has no Wormhole raise to decline"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2427,41 +2428,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              7.1,
-              7.1,
-              7.1,
+              7.2,
+              7.2,
               7.0,
-              7.1
+              7.0,
+              7.0
             ],
             "512": [
-              21.9,
-              21.9,
-              21.8,
+              22.6,
               22.1,
+              22.0,
+              21.8,
               21.9
             ],
             "640": [
               34.7
             ],
             "768": [
-              51.4
+              51.2
             ],
             "896": [
-              68.2
+              67.5
             ],
             "1024": [
-              90.2
+              90.3
             ],
             "1280": [
-              187.9
+              189.6
             ],
             "1536": [
-              314.1
+              308.3
             ]
           },
           "aiclk": {
             "256": {
-              "card": "13",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2471,10 +2472,10 @@
                 1000,
                 500
               ],
-              "n": 26
+              "n": 25
             },
             "512": {
-              "card": "13",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2484,37 +2485,37 @@
                 1000,
                 1000
               ],
-              "n": 40
+              "n": 43
             },
             "640": {
-              "card": "13",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 10
+              "n": 11
             },
             "768": {
-              "card": "13",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 13
+              "n": 14
             },
             "896": {
-              "card": "13",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 16
+              "n": 18
             },
             "1024": {
-              "card": "13",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2523,79 +2524,79 @@
               "n": 20
             },
             "1280": {
-              "card": "13",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 38
+              "n": 40
             },
             "1536": {
-              "card": "13",
+              "card": "4",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 62
+              "n": 61
             }
           },
           "load": {
             "256": {
-              "max": 0.52,
+              "max": 0.41,
               "rep_median": [
-                0.5,
-                0.51,
-                0.5,
-                0.5,
-                0.51
+                0.38,
+                0.38,
+                0.4,
+                0.39,
+                0.4
               ]
             },
             "512": {
-              "max": 0.54,
+              "max": 0.41,
               "rep_median": [
-                0.51,
-                0.52,
-                0.52,
-                0.5,
-                0.53
+                0.38,
+                0.4,
+                0.38,
+                0.35,
+                0.32
               ]
             },
             "640": {
-              "max": 0.54,
+              "max": 0.38,
               "rep_median": [
-                0.53
+                0.36
               ]
             },
             "768": {
-              "max": 0.54,
+              "max": 0.42,
               "rep_median": [
-                0.52
+                0.39
               ]
             },
             "896": {
-              "max": 0.51,
+              "max": 0.41,
               "rep_median": [
-                0.5
+                0.39
               ]
             },
             "1024": {
-              "max": 0.52,
+              "max": 0.39,
               "rep_median": [
-                0.51
+                0.38
               ]
             },
             "1280": {
-              "max": 0.53,
+              "max": 0.49,
               "rep_median": [
-                0.5
+                0.4
               ]
             },
             "1536": {
-              "max": 0.77,
+              "max": 0.4,
               "rep_median": [
-                0.66
+                0.38
               ]
             }
           },
@@ -2701,17 +2702,17 @@
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0422,
+              "clash_frac": 0.0203,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.2193,
-              "radius_of_gyration_A": 107.029,
-              "plddt_mean": 0.491376,
+              "ca_ca_median_A": 131.6442,
+              "radius_of_gyration_A": 106.806,
+              "plddt_mean": 0.487964,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.219 A outside [3.6, 4.0]",
+                "median CA-CA 131.644 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 107.0 A outside [16.7, 83.4]"
+                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 106.8 A outside [16.7, 83.4]"
               ]
             },
             "1536": {
@@ -2733,29 +2734,29 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.005,
+          "sigma_runtime_512": 0.0141,
           "exponents": {
             "256->512": {
-              "k": 1.625,
+              "k": 1.652,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.104,
+              "k": 2.083,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0063,
-            "512": 0.005
+            "256": 0.0155,
+            "512": 0.0141
           },
           "exponents_measured": {
-            "256->512": 1.625,
-            "512->640": 2.063,
-            "640->768": 2.155,
-            "768->896": 1.835,
-            "896->1024": 2.094,
-            "1024->1280": 3.289,
-            "1280->1536": 2.818
+            "256->512": 1.652,
+            "512->640": 2.042,
+            "640->768": 2.134,
+            "768->896": 1.793,
+            "896->1024": 2.179,
+            "1024->1280": 3.324,
+            "1280->1536": 2.666
           }
         }
       }
@@ -6165,24 +6166,24 @@
       }
     },
     "p300c": {
-      "recorded": "2026-10-15",
+      "recorded": "2026-10-24",
       "host": "tt-quietbox2",
-      "commit": "4ba29781f",
+      "commit": "a06d92c6d",
       "host_threads": 5,
       "models": {
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-10-15",
+          "recorded": "2026-10-24",
           "host": "tt-quietbox2",
-          "commit": "4ba29781f",
+          "commit": "a06d92c6d",
           "host_threads": 5,
           "runtime_s": {
-            "256": 5.8,
-            "512": 11.4,
-            "640": 18.7,
-            "768": 24.1,
-            "896": 34.1,
-            "1024": 45.1
+            "256": 3.7,
+            "512": 9.2,
+            "640": 14.9,
+            "768": 21.0,
+            "896": 29.9,
+            "1024": 39.2
           },
           "levers": {
             "256": {
@@ -6238,13 +6239,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2226,
+                "declined": 2242,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 2226
+                  "memory": 2242
                 },
-                "reason": "declines all 2226 calls on memory x2226: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "reason": "declines all 2242 calls on memory x2242: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -6316,15 +6317,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 8900,
+                "declined": 2241,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "gated_window_BufferType.L1": 2225,
-                  "window_BufferType.L1": 4450,
-                  "back_l1_src_narrow": 2225
+                  "back_l1_src_narrow": 2241
                 },
-                "reason": "declines all 8900 calls on window_BufferType.L1 x4450, gated_window_BufferType.L1 x2225, back_l1_src_narrow x2225: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+                "reason": "declines all 2241 calls on back_l1_src_narrow x2241: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -6336,19 +6335,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 4482,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is only offered once the trimul has moved its pair tensors to DRAM, and at 256 aa they stay L1-resident, so the gate is never reached here. It serves all 1120 calls at every rung from 512 up"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 4482,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident, so nothing is offered here; it serves 1120 at every rung from 512 up. Default on since 7bfa4ad19"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -7979,139 +7976,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              6.2,
-              6.4,
-              5.6,
-              5.4,
-              5.8
+              3.6,
+              3.8,
+              3.7,
+              3.6,
+              3.7
             ],
             "512": [
-              11.0,
-              11.9,
-              11.4,
-              11.5,
-              11.0
+              9.4,
+              9.1,
+              9.2,
+              9.2,
+              9.3
             ],
             "640": [
-              18.7
+              14.9
             ],
             "768": [
-              24.1
+              21.0
             ],
             "896": [
-              34.1
+              29.9
             ],
             "1024": [
-              45.1
+              39.2
             ]
           },
           "aiclk": {
             "256": {
-              "card": "2",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 800,
-                800,
-                800,
+                1350,
                 1343,
-                800
-              ],
-              "n": 25
-            },
-            "512": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1337,
-                1325,
-                1343,
-                1331,
-                1312
-              ],
-              "n": 30
-            },
-            "640": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
+                1350,
                 1350
               ],
-              "n": 7
+              "n": 15
             },
-            "768": {
-              "card": "2",
+            "512": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1350,
+                1306,
+                1350,
+                1350
+              ],
+              "n": 20
+            },
+            "640": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1337
               ],
-              "n": 9
+              "n": 5
+            },
+            "768": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 6
             },
             "896": {
-              "card": "2",
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1343
+              ],
+              "n": 8
+            },
+            "1024": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1337
               ],
               "n": 10
-            },
-            "1024": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 12
             }
           },
           "load": {
             "256": {
-              "max": 0.79,
+              "max": 0.29,
               "rep_median": [
-                0.78,
-                0.72,
-                0.67,
-                0.75,
-                0.71
+                0.29,
+                0.28,
+                0.26,
+                0.23,
+                0.21
               ]
             },
             "512": {
-              "max": 0.84,
+              "max": 0.26,
               "rep_median": [
-                0.75,
-                0.76,
-                0.81,
-                0.8,
-                0.82
+                0.25,
+                0.25,
+                0.22,
+                0.21,
+                0.26
               ]
             },
             "640": {
-              "max": 0.92,
+              "max": 0.27,
               "rep_median": [
-                0.88
+                0.26
               ]
             },
             "768": {
-              "max": 0.89,
+              "max": 0.24,
               "rep_median": [
-                0.86
+                0.24
               ]
             },
             "896": {
-              "max": 0.88,
+              "max": 0.2,
               "rep_median": [
-                0.86
+                0.19
               ]
             },
             "1024": {
-              "max": 0.73,
+              "max": 0.28,
               "rep_median": [
-                0.7
+                0.25
               ]
             }
           },
@@ -8122,78 +8119,77 @@
               "n_ca": 256,
               "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 134.6119,
-              "radius_of_gyration_A": 111.465,
-              "plddt_mean": 0.531182,
+              "ca_ca_median_A": 135.6701,
+              "radius_of_gyration_A": 111.729,
+              "plddt_mean": 0.53253,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 134.612 A outside [3.6, 4.0]",
+                "median CA-CA 135.670 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.5 A outside [9.0, 45.2]"
+                "radius of gyration 111.7 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 134.4231,
-              "radius_of_gyration_A": 107.173,
-              "plddt_mean": 0.505752,
+              "ca_ca_median_A": 133.1395,
+              "radius_of_gyration_A": 106.715,
+              "plddt_mean": 0.50582,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 134.423 A outside [3.6, 4.0]",
+                "median CA-CA 133.139 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.2 A outside [11.8, 58.9]"
+                "radius of gyration 106.7 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0125,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 128.8778,
-              "radius_of_gyration_A": 106.732,
-              "plddt_mean": 0.500626,
+              "clash_frac": 0.0187,
+              "chain_break_frac": 0.9984,
+              "ca_ca_median_A": 128.7551,
+              "radius_of_gyration_A": 106.827,
+              "plddt_mean": 0.499271,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 128.878 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 106.7 A outside [12.8, 64.1]"
+                "median CA-CA 128.755 A outside [3.6, 4.0]",
+                "99.8% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 106.8 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0104,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 128.3989,
-              "radius_of_gyration_A": 103.788,
-              "plddt_mean": 0.490923,
+              "ca_ca_median_A": 128.5418,
+              "radius_of_gyration_A": 103.477,
+              "plddt_mean": 0.49546,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 128.399 A outside [3.6, 4.0]",
+                "median CA-CA 128.542 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 103.8 A outside [13.7, 68.7]"
+                "radius of gyration 103.5 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0201,
-              "chain_break_frac": 0.9989,
-              "ca_ca_median_A": 136.512,
-              "radius_of_gyration_A": 107.514,
-              "plddt_mean": 0.500942,
+              "clash_frac": 0.019,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 135.7081,
+              "radius_of_gyration_A": 107.507,
+              "plddt_mean": 0.503425,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.512 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "median CA-CA 135.708 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 107.5 A outside [14.6, 72.8]"
               ]
             },
@@ -8201,42 +8197,42 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0293,
+              "clash_frac": 0.0254,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.5115,
-              "radius_of_gyration_A": 104.347,
-              "plddt_mean": 0.503253,
+              "ca_ca_median_A": 131.1605,
+              "radius_of_gyration_A": 104.274,
+              "plddt_mean": 0.502649,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.512 A outside [3.6, 4.0]",
+                "median CA-CA 131.160 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.5% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 104.3 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0333,
+          "sigma_runtime_512": 0.0123,
           "exponents": {
             "256->512": {
-              "k": 0.975,
+              "k": 1.314,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.846,
+              "k": 2.035,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0705,
-            "512": 0.0333
+            "256": 0.0227,
+            "512": 0.0123
           },
           "exponents_measured": {
-            "256->512": 0.975,
-            "512->640": 2.218,
-            "640->768": 1.391,
-            "768->896": 2.252,
-            "896->1024": 2.094
+            "256->512": 1.314,
+            "512->640": 2.161,
+            "640->768": 1.882,
+            "768->896": 2.292,
+            "896->1024": 2.028
           }
         }
       }
