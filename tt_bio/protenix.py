@@ -216,12 +216,13 @@ BH_V2_FAST = frozenset({"triatt_ln", "ws_ln", "ws_lofi", "trimul_sig6", "trimul_
 # incumbent path (a rel-RMS 0.0037-0.0039 vs 0.0037 at HiFi4). No OOM at 1152 on a 12 GiB Wormhole chip.
 WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_plain", "ws_psilu", "trimul_t1_dram",
                           "trimul_t1_2g"})
-# Protenix-v2's Blackhole normal set is trimul_t1_2g alone. The graded dit_shoist + transition_b8 + ws_b8_plain stack
-# (spd-m-protenix gsbn, 0.602 A vs the 1.311 A A/A floor, ~-1.2 s at 512) is out: transition_b8 makes the answer depend
-# on the core grid. Release gate rel-624358ec2 l1-budget on qb2, protenix-v2 fkg: native 4d8f5ebe != 8x8 39109461 with
-# the base set plus transition_b8, one digest 09614098 across all three legs without it. bfp8 shares an exponent per
-# block and the grid moves the block boundaries (the triatt_b8 precedent, 3b1155aa6), so a p150a and a p300c would give
-# two users different structures. The stack was graded as one, so it leaves as one; it stays available per run.
+# transition_b8 + ws_b8_plain on Blackhole: bfp8 shares an exponent per block, so the answer follows the core grid. The
+# release gate's forced 8x8 leg (rel-624358ec2) differs from native, but no Blackhole part runs 8x8: tt-bio picks 13x10
+# or 11x10, and the pair folds identically on a p150a at native grid and on a p300 at native 11x10 and forced 10x10
+# (spd-m-protenix gridclass2/3, 2026-10-24, digest a78a50f9). Blackhole 512-token normal grade vs the set below plus
+# triatt_k1 (gtbbh, 2026-10-25), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.554 A vs the 0.6 A bar
+# (1.299 A A/A floor), CA-lDDT -0.0003 [-0.0014, +0.0008], ipTM -0.019 [-0.044, -0.002], docking 36/44 -> 36/44. p300 chip 1,
+# 1300-1331 MHz median, ABBA x4 separate processes (gtbab): 12 of 12 warm pairs faster, median -1.42 s on ~43 s.
 # trimul_t1w8 + ws_psilu: Blackhole 512-token normal grade vs that set with the stack still in (spd-m-protenix gt1wbhn,
 # 2026-10-22), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.331 A vs the 0.6 A bar (1.410 A A/A floor),
 # CA-lDDT +0.0001 [-0.0035, +0.0033], docking 36/44 -> 36/44, every interval covers 0. On today's base (gt1wg, p300 chip
@@ -229,7 +230,7 @@ WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_p
 # across processes. ws_psilu is bit-identical by construction.
 # dit_shoist alone fails Blackhole normal (spd-m-protenix gshbn2, 2026-10-24, 44 paired folds): top pose median 0.063 A,
 # but CA-lDDT -0.0002 [-0.0003, -0.0001] excludes 0.
-BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu"})
+BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu", "transition_b8", "ws_b8_plain"})
 # dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
 # float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
 # mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
