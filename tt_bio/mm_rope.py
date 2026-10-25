@@ -14,6 +14,7 @@ from tt_bio.mm_gate import KERNEL_DIR
 
 STATS = [0, 0]   # runs, declines
 _CACHE: dict = {}
+_L1_REFUSED: set = set()   # head shapes whose L1 q / k allocation was refused
 
 
 def layout(n_tiles: int, ncols: int, n_block: int):
@@ -67,10 +68,11 @@ def plan(x, w, cfg, grid, seq_len, ncols=None):
     return None
 
 
-def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool = False, ncols=None):
+def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool = False, ncols=None, qk_l1: bool = False):
     """(rope(q), rope(k), v), each [B, H, L, 64], from x [B, L, D] and the `permute`d weight / bias; cos / sin are the
     [1, 1, L, 64] tables. `half`: the weight is `half_pairs` (then `permute`d), the tables `half_pair_tables`, and the
-    heads come out [B, H, L, 32] (`w` may carry zero pad heads past H, which are not written). `ncols`: the in1 core count `w` was permuted for (needed when M > N). None where `plan` declines (the caller keeps the unpermuted weight for that)."""
+    heads come out [B, H, L, 32] (`w` may carry zero pad heads past H, which are not written). `ncols`: the in1 core count `w` was permuted for (needed when M > N). `qk_l1`: q and k go to L1, where SDPA reads them (DRAM for a shape whose
+    allocation L1 refuses, from then on). None where `plan` declines (the caller keeps the unpermuted weight for that)."""
     seq_len = int(x.padded_shape[-2])
     why = plan(x, w, cfg, grid, seq_len, ncols)
     if why is not None:
@@ -80,12 +82,27 @@ def qkv_rope_heads(x, w, b, cos, sin, n_heads: int, cfg, grid, ckc, half: bool =
     bsz = 1
     for d in list(x.padded_shape)[:-2]:
         bsz *= int(d)
-    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([bsz, n_heads, seq_len, 32 if half else 64]), ttnn.bfloat16,
-                                           ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG) for _ in range(3)]
+    shape = ttnn.Shape([bsz, n_heads, seq_len, 32 if half else 64])
+    alloc = lambda mc: ttnn.allocate_tensor_on_device(shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, mc)
+    outs = []
+    if qk_l1 and tuple(shape) not in _L1_REFUSED:
+        try:
+            for _ in range(2):
+                outs.append(alloc(ttnn.L1_MEMORY_CONFIG))
+        except Exception as exc:
+            from tt_bio import esmc, tenstorrent
+            if not esmc._is_alloc_refusal(exc):
+                tenstorrent.absorb_l1_refusal("mm_rope qk L1", exc)
+            _L1_REFUSED.add(tuple(shape))
+            for t in outs:
+                ttnn.deallocate(t)
+            outs = []
+    outs += [alloc(ttnn.DRAM_MEMORY_CONFIG) for _ in range(3 - len(outs))]
     t, p, v0 = layout(int(w.padded_shape[-1]) // 32, in1_cores(bsz * seq_len, int(w.padded_shape[-1]), grid), cfg[2])
     spec = lambda u: (str(u.padded_shape), str(u.dtype), str(u.memory_config()))
     ck = MG.ckc_args(ckc)
-    key = (spec(x), spec(w), spec(b), spec(cos), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), half)
+    key = (spec(x), spec(w), spec(b), spec(cos), tuple(cfg), tuple(grid), tuple(str(c) for c in ck), half,
+           tuple(o.memory_config().buffer_type for o in outs))
     entry = _CACHE.get(key)
     rope = {"MM_HEADS_ST": seq_len // 32, "MM_ROPE_T": t, "MM_ROPE_P": p, "MM_ROPE_V0": v0,
             **({"MM_HALF_PAIRS": 1, "MM_HEADS_H": n_heads} if half else {})}
