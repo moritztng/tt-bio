@@ -232,7 +232,11 @@ WH_V2_NORMAL = frozenset({"dit_shoist", "trimul_t1w8", "transition_b8", "ws_b8_p
 # across processes. ws_psilu is bit-identical by construction.
 # dit_shoist alone fails Blackhole normal (spd-m-protenix gshbn2, 2026-10-24, 44 paired folds): top pose median 0.063 A,
 # but CA-lDDT -0.0002 [-0.0003, -0.0001] excludes 0.
-BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu"})
+# pz_device in normal mode, as on Wormhole: Blackhole 512-token normal grade vs the set above (spd-m-protenix gpzbhn,
+# 2026-10-25), 44 paired folds over 4 seeds, PASS: same-seed top pose median 0.080 A vs the 0.6 A bar (1.299 A A/A floor),
+# CA-lDDT +0.0002 [+0.0001, +0.0004], ipTM +0.0002, docking 36 -> 36. 9TY2_512 on a p300 chip, in-process A/B x3 (bhpzn,
+# AICLK not sampled): warm -0.47 / -0.18 s on ~26.4 s.
+BH_V2_NORMAL = frozenset({"trimul_t1_2g", "trimul_t1w8", "ws_psilu", "pz_device"})
 # dit_shoist_mm: the hoisted DiT conditioning linears on minimal_matmul (2 x 16 tile blocks, K block 1), same fidelity and
 # float64 error as ttnn.linear's schedule (shm2). Wormhole 512-token grades vs the shipped Protenix-v2 Wormhole set of each
 # mode, 44 paired folds each over 4 seeds (spd-m-protenix gshmn / gshmf, 2026-10-20), PASS: normal top pose median 0.096 A
@@ -255,7 +259,7 @@ T1_PSIG = frozenset({"trimul_t1_psig"})
 TRIATT_Q10_WH = frozenset({"triatt_q10"})
 # pz_device + dit_mod16 on Wormhole --fast: the diffusion-conditioned pair stays on the chip (one device LN feeds the bf16
 # DiT, no host round trip) and the bf16 AdaLN modulation and the DiT's gated residuals run as one addcmul each, as OpenDDE's
-# DIT_SEAM. Wormhole normal mode takes pz_device too (WH_V2_NORMAL). Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
+# DIT_SEAM. Normal mode takes pz_device too on both chips (WH_V2_NORMAL, BH_V2_NORMAL). Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
 # fast set vs + both, 44 paired folds over 4 seeds (spd-m-protenix gpzf, 2026-10-23), PASS: same-seed top pose median
 # 0.402 A vs the 1.497 A A/A floor, CA-lDDT +0.0013 [+0.0002, +0.0032], lRMSD -0.21 [-0.45, -0.02], docking 37/44 -> 37/44.
 # cdk2x2 512 x 1 on a Galaxy chip at 1000 MHz (pzab), steady warm pairs -0.69 / -0.71 s. On a p300 chip (bhpzab, 9TY2_512,
