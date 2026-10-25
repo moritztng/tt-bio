@@ -182,8 +182,16 @@ else:
         elif os.path.exists("/proc/" + open(f).read().strip()):
             out["arc_busy"].append(c)
     out["healthy"] = len(cards); out["cards"] = cards; queued = 0; held = set(); out["qprio"] = [0] * 9
+    # an ended job older than a day was accounted long ago (the feed reads every 10 min); tailing every one of them
+    # each tick timed the qb2 probe out at 120 s on 10-25 with 3357 records, and the box got no work. Archive them.
+    JA = H + "/spd/feed/archive/" + time.strftime("%Y%m%d") + "/jobs"
     for sh in glob.glob(J + "/*.sh"):
         n = os.path.basename(sh); card = int(open(sh + ".card").read()) if os.path.exists(sh + ".card") else -1
+        if A["sweep"] and os.path.exists(sh + ".end") and now - os.path.getmtime(sh + ".end") > 86400:
+            os.makedirs(JA, exist_ok=True)
+            for f in [sh] + glob.glob(glob.escape(sh) + ".*"):
+                shutil.move(f, os.path.join(JA, os.path.basename(f)))
+            continue
         if os.path.exists(sh + ".end"):
             out["jobs"][n] = ended(sh, sh + ".end", sh + ".start" if os.path.exists(sh + ".start") else sh)
         elif not os.path.exists(sh + ".pid") or not os.path.exists("/proc/" + open(sh + ".pid").read().strip()):

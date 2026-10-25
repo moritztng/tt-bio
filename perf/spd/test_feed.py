@@ -1028,3 +1028,26 @@ def test_a_cell_whose_requires_no_host_has_is_logged_as_blocked(tmp_path, monkey
     box.exists.add("~/spd/spd-x/t42.ok")
     run(tmp_path)
     assert len(box.queue) > 0
+
+
+def test_probe_archives_bh_jobs_that_ended_over_a_day_ago(tmp_path):
+    """10-25: qb2 kept 3357 ended job records and the probe tailed each one every tick until it timed out at 120 s.
+    A record that ended over a day ago moves, with its sidecars, to archive/<day>/jobs; a recent one is still reported."""
+    jobs = tmp_path / "spd/feed/jobs"; jobs.mkdir(parents=True)
+    for n, age in (("4-old.sh", 90000), ("4-new.sh", 600)):
+        for suf in ("", ".card", ".pid", ".log", ".end"):
+            f = jobs / (n + suf); f.write_text("0\n" if suf == ".end" else "1")
+            t = time.time() - age; subprocess.os.utime(f, (t, t))
+    a = {"kind": "bh", "cards": [], "sweep": True, "paths": [], "outdirs": {}}
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}, check=True)
+    out = json.loads(r.stdout)
+    assert list(out["jobs"]) == ["4-new.sh"] and out["jobs"]["4-new.sh"]["state"] == "ended"
+    assert sorted(p.name for p in jobs.iterdir()) == sorted("4-new.sh" + s for s in ("", ".card", ".pid", ".log", ".end"))
+    arch = list((tmp_path / "spd/feed/archive").glob("*/jobs"))
+    assert len(arch) == 1 and len(list(arch[0].iterdir())) == 5
+    a["sweep"] = False                                # a dry run moves nothing
+    (jobs / "4-new.sh.end").touch(); t = time.time() - 90000; subprocess.os.utime(jobs / "4-new.sh.end", (t, t))
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path), "PATH": "/usr/bin:/bin"}, check=True)
+    assert "4-new.sh" in json.loads(r.stdout)["jobs"]
