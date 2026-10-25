@@ -14,6 +14,10 @@
 // OBIAS (KB1 only) seeds that fp32 sum with the out projection's bias: c_7 holds Nt bias tiles with
 // every row equal to b, packed into c_6 before the first K pass, so the bias is added exactly in fp32
 // and rounded once with the sum.
+// TRANS (KB1, no RESID): every 32 units are one 32 x 32 block of the ending block's update; the writer
+// shuffles it into z^T's orientation (c_18) beside the z tiles it lands on (c_3), one channel tile of
+// 32 at a time, and the sums come back here: add_tiles into the 32-bit DEST packed to bf16, the
+// arithmetic of pair_transpose_add, so the bytes are the two-program path's.
 #include "api/compute/compute_kernel_api.h"
 #include "api/compute/matmul.h"
 #include "api/compute/eltwise_binary.h"
@@ -36,6 +40,8 @@ void kernel_main() {
     constexpr uint32_t KB1 = get_compile_time_arg_val(6);
     constexpr uint32_t OBIAS = get_compile_time_arg_val(7);
     constexpr uint32_t GB8 = get_compile_time_arg_val(8);   // g is bfp8: srcA takes g's format for the copy only
+    constexpr uint32_t TRANS = get_compile_time_arg_val(9);
+    constexpr uint32_t GRAN = get_compile_time_arg_val(10);
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
@@ -174,6 +180,33 @@ void kernel_main() {
             cb_push_back(out_cb, Nt);
             cb_pop_front(sum_cb, Nt);
             cb_pop_front(z_cb, Nt);
+        }
+        if constexpr (TRANS) {
+            if ((u & 31) == 31) {
+                constexpr uint32_t t_cb = tt::CBIndex::c_18, s_cb = tt::CBIndex::c_17;
+                reconfig_data_format(z_cb, t_cb);
+                pack_reconfig_data_format(s_cb);
+                add_tiles_init(z_cb, t_cb);
+                for (uint32_t n = 0; n < Nt; ++n) {
+                    cb_wait_front(t_cb, 32);
+                    cb_wait_front(z_cb, 32);
+                    for (uint32_t q = 0; q < 32; q += GRAN) {
+                        cb_reserve_back(s_cb, GRAN);
+                        tile_regs_acquire();
+                        for (uint32_t j = 0; j < GRAN; ++j) add_tiles(z_cb, t_cb, q + j, q + j, j);
+                        tile_regs_commit();
+                        tile_regs_wait();
+                        for (uint32_t j = 0; j < GRAN; ++j) pack_tile(j, s_cb);
+                        tile_regs_release();
+                        if (q + GRAN == 32) {
+                            cb_pop_front(t_cb, 32);
+                            cb_pop_front(z_cb, 32);
+                        }
+                        cb_push_back(s_cb, GRAN);
+                    }
+                }
+                sigmoid_tile_init();
+            }
         }
     }
 }
