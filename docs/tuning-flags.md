@@ -731,6 +731,10 @@ ESMFold2 and 0.25 s off ESMFold2-Fast at 512 residues on p150a. Wormhole leaves 
 `trimul_t1w8` (T1's weights held as bfp8, one launch at c_z 256) and `trimul_t1_2g` (T1 serves up to ~1152
 tokens) it takes another 1.04 s off ESMFold2 and 0.76 s off ESMFold2-Fast at 512 residues, graded on the same
 fast bar: ESMFold2 CA-lDDT -0.0006 [-0.0032, +0.0025], ESMFold2-Fast -0.0002 [-0.0007, +0.0001], docking unchanged.
+Blackhole normal mode runs the same six trimul levers, graded on the normal bar on 11 complexes x 4 seeds per
+model: ESMFold2 CA-lDDT -0.0009 [-0.0051, +0.0019], ESMFold2-Fast -0.0014 [-0.0033, +0.0002], top-pose deviation
+0.54 A and 0.58 A against 1.85 A and 1.64 A between seeds. At 512 residues on p150a it takes 1.68 s off ESMFold2 and
+0.96 s off ESMFold2-Fast, 2.3 s off ESMFold2-Fast at 1024.
 
 **Accuracy: moves, inside the fast bar.** On 11 complexes x 4 seeds on Blackhole, ESMFold2-Fast
 `--fast` against the same mode without the stack: CA-lDDT -0.0000 [-0.0003, +0.0002], TM-score
