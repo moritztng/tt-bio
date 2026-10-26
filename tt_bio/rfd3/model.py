@@ -1579,10 +1579,14 @@ class PairformerAttention(Module):
             m = self._pair_bias_dpb(z, I, n_key, scale=r, raw=True)
             if m is not None:
                 return m
-        bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config, dtype=self.dtype,
-                             core_grid=CORE_GRID_MAIN)
-        bias = ttnn.permute(bias, (0, 3, 1, 2))                          # [B,16,I,I]
-        pb = ttnn.multiply(bias, r)
+        # sqrt(head_dim) folded into the weight in fp32: a bf16 multiply after the linear rounds twice, and its scalar
+        # goes in as bf16 (4.906 for 4.899), a 0.15 % scale on every bias.
+        w = getattr(self, "_b_w_sdpa", None)
+        if w is None:
+            w = self._b_w_sdpa = ttnn.from_torch((self.weights["to_b.weight"].float().t() * r).contiguous(),
+                                                 layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.dtype)
+        bias = _tuned_linear(z, w, ckc=self.compute_kernel_config, dtype=self.dtype, core_grid=CORE_GRID_MAIN)
+        pb = ttnn.permute(bias, (0, 3, 1, 2))                            # [B,16,I,I]
         ttnn.deallocate(bias)
         # not deallocated: a pad inside the tile padding hands back a tensor on pb's own buffer
         return pad_axis(pad_axis(pb, n_key, 3, -1e4), n_key, 2, -1e4)
