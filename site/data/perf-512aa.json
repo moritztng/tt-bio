@@ -1,6 +1,6 @@
 {
   "schema": 3,
-  "updated": "2026-10-25",
+  "updated": "2026-10-26",
   "title": "TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware",
   "subtitle": "Eight structure-prediction models, two binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
@@ -1058,12 +1058,12 @@
             "when": "2026-10-25T07:54:57Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_design": 32.592,
+              "s_per_design": 31.137,
               "n": 4,
-              "spread_pct": 2.99,
+              "spread_pct": 4.82,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 4108f6a94 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-              "when": "2026-10-25T00:31:43Z"
+              "versions": "tt-bio main 01764fa36 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 1",
+              "when": "2026-10-26T00:36:55Z"
             }
           },
           "h200": {
@@ -1202,12 +1202,12 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_fold": 4.999,
+            "s_per_fold": 5.107,
             "n": 4,
-            "spread_pct": 7.82,
+            "spread_pct": 4.5,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main c04531f1b + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-25T14:56:12Z",
+            "versions": "tt-bio main 01764fa36 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 1",
+            "when": "2026-10-26T00:37:45Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)"
           },
           "h200": {
