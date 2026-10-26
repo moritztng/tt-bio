@@ -2,26 +2,26 @@
   "assembled_by": "scripts/release_gate.py --model size-ladder",
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-23",
+      "recorded": "2026-10-25",
       "host": "UF-EV-A2-GWH01",
-      "commit": "437a23413",
+      "commit": "0a3f28e58",
       "host_threads": 2,
       "models": {
         "esmfold2": {
           "grid": "8x9",
-          "recorded": "2026-10-23",
+          "recorded": "2026-10-25",
           "host": "UF-EV-A2-GWH01",
-          "commit": "437a23413",
+          "commit": "0a3f28e58",
           "host_threads": 2,
           "runtime_s": {
-            "256": 14.1,
-            "512": 31.5,
-            "640": 44.5,
-            "768": 64.0,
-            "896": 81.1,
-            "1024": 104.2,
-            "1280": 318.4,
-            "1536": 579.4
+            "256": 9.9,
+            "512": 26.1,
+            "640": 37.1,
+            "768": 57.3,
+            "896": 70.5,
+            "1024": 93.0,
+            "1280": 303.5,
+            "1536": 564.4
           },
           "levers": {
             "256": {
@@ -2504,175 +2504,175 @@
           },
           "runtime_reps_s": {
             "256": [
-              14.1,
-              14.1,
-              14.2,
-              14.1,
-              13.9
+              9.9,
+              9.9,
+              10.0,
+              10.2,
+              9.7
             ],
             "512": [
-              31.5,
-              30.8,
-              30.9,
-              31.7,
-              33.7
+              25.9,
+              26.1,
+              26.5,
+              27.4,
+              25.8
             ],
             "640": [
-              44.5
+              37.1
             ],
             "768": [
-              64.0
+              57.3
             ],
             "896": [
-              81.1
+              70.5
             ],
             "1024": [
-              104.2
+              93.0
             ],
             "1280": [
-              318.4
+              303.5
             ],
             "1536": [
-              579.4
+              564.4
             ]
           },
           "aiclk": {
             "256": {
-              "card": "8",
+              "card": "19",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
                 1000,
                 1000,
-                1000,
-                1000
+                500,
+                500
               ],
-              "n": 126
+              "n": 28
             },
             "512": {
-              "card": "8",
+              "card": "19",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
-                1000,
+                977,
                 1000,
                 1000,
                 1000
               ],
-              "n": 146
+              "n": 44
             },
             "640": {
-              "card": "8",
+              "card": "19",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 33
+              "n": 10
             },
             "768": {
-              "card": "8",
+              "card": "19",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 34
+              "n": 16
             },
             "896": {
-              "card": "8",
+              "card": "19",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 37
+              "n": 17
             },
             "1024": {
-              "card": "8",
+              "card": "19",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 42
+              "n": 21
             },
             "1280": {
-              "card": "8",
+              "card": "19",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 83
+              "n": 60
             },
             "1536": {
-              "card": "8",
+              "card": "19",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 135
+              "n": 108
             }
           },
           "load": {
             "256": {
-              "max": 0.54,
+              "max": 0.63,
               "rep_median": [
-                0.51,
-                0.52,
-                0.52,
-                0.52,
-                0.5
+                0.59,
+                0.63,
+                0.62,
+                0.61,
+                0.58
               ]
             },
             "512": {
-              "max": 0.8,
+              "max": 0.57,
               "rep_median": [
-                0.52,
-                0.53,
-                0.5,
                 0.56,
-                0.74
+                0.53,
+                0.56,
+                0.54,
+                0.57
               ]
             },
             "640": {
-              "max": 0.77,
+              "max": 0.56,
               "rep_median": [
-                0.67
+                0.55
               ]
             },
             "768": {
-              "max": 0.59,
+              "max": 0.61,
               "rep_median": [
                 0.55
               ]
             },
             "896": {
-              "max": 0.64,
+              "max": 0.59,
               "rep_median": [
-                0.5
+                0.57
               ]
             },
             "1024": {
-              "max": 0.58,
+              "max": 0.57,
               "rep_median": [
-                0.55
+                0.56
               ]
             },
             "1280": {
-              "max": 0.91,
+              "max": 0.61,
               "rep_median": [
-                0.7
+                0.57
               ]
             },
             "1536": {
-              "max": 0.55,
+              "max": 0.63,
               "rep_median": [
-                0.51
+                0.6
               ]
             }
           },
@@ -2683,30 +2683,29 @@
               "n_ca": 256,
               "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.3206,
-              "radius_of_gyration_A": 68.006,
-              "plddt_mean": 0.283002,
+              "ca_ca_median_A": 81.6786,
+              "radius_of_gyration_A": 68.064,
+              "plddt_mean": 0.283369,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.321 A outside [3.6, 4.0]",
+                "median CA-CA 81.679 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.0 A outside [9.0, 45.2]"
+                "radius of gyration 68.1 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0273,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.3389,
-              "radius_of_gyration_A": 75.708,
-              "plddt_mean": 0.267591,
+              "ca_ca_median_A": 78.2271,
+              "radius_of_gyration_A": 75.73,
+              "plddt_mean": 0.268639,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.339 A outside [3.6, 4.0]",
+                "median CA-CA 78.227 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 75.7 A outside [11.8, 58.9]"
               ]
             },
@@ -2714,16 +2713,16 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0391,
+              "clash_frac": 0.0203,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.6022,
-              "radius_of_gyration_A": 78.308,
-              "plddt_mean": 0.278336,
+              "ca_ca_median_A": 79.4797,
+              "radius_of_gyration_A": 78.337,
+              "plddt_mean": 0.279193,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.602 A outside [3.6, 4.0]",
+                "median CA-CA 79.480 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
@@ -2731,33 +2730,33 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.043,
+              "clash_frac": 0.0469,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.9198,
-              "radius_of_gyration_A": 73.644,
-              "plddt_mean": 0.25947,
+              "ca_ca_median_A": 81.2054,
+              "radius_of_gyration_A": 73.82,
+              "plddt_mean": 0.260972,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.920 A outside [3.6, 4.0]",
+                "median CA-CA 81.205 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 73.6 A outside [13.7, 68.7]"
+                "4.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 73.8 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0446,
+              "clash_frac": 0.0379,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.7424,
+              "ca_ca_median_A": 79.5212,
               "radius_of_gyration_A": 80.112,
-              "plddt_mean": 0.267824,
+              "plddt_mean": 0.269278,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.742 A outside [3.6, 4.0]",
+                "median CA-CA 79.521 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
@@ -2765,118 +2764,118 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0391,
+              "clash_frac": 0.0371,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.1517,
-              "radius_of_gyration_A": 77.358,
-              "plddt_mean": 0.260489,
+              "ca_ca_median_A": 80.6041,
+              "radius_of_gyration_A": 77.343,
+              "plddt_mean": 0.26205,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.152 A outside [3.6, 4.0]",
+                "median CA-CA 80.604 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 77.4 A outside [15.3, 76.6]"
+                "3.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 77.3 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0555,
+              "clash_frac": 0.05,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.436,
-              "radius_of_gyration_A": 79.312,
-              "plddt_mean": 0.26104,
+              "ca_ca_median_A": 78.3612,
+              "radius_of_gyration_A": 79.087,
+              "plddt_mean": 0.261716,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.436 A outside [3.6, 4.0]",
+                "median CA-CA 78.361 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.5% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.0% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0521,
+              "clash_frac": 0.0534,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.875,
-              "radius_of_gyration_A": 81.653,
-              "plddt_mean": 0.26719,
+              "ca_ca_median_A": 78.6855,
+              "radius_of_gyration_A": 81.612,
+              "plddt_mean": 0.267462,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.875 A outside [3.6, 4.0]",
+                "median CA-CA 78.686 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.2% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.3% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0369,
+          "sigma_runtime_512": 0.0247,
           "exponents": {
             "256->512": {
-              "k": 1.16,
+              "k": 1.399,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.748,
+              "k": 1.939,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0078,
-            "512": 0.0369
+            "256": 0.0183,
+            "512": 0.0247
           },
           "exponents_measured": {
-            "256->512": 1.16,
-            "512->640": 1.548,
-            "640->768": 1.993,
-            "768->896": 1.536,
-            "896->1024": 1.877,
-            "1024->1280": 5.006,
-            "1280->1536": 3.284
+            "256->512": 1.399,
+            "512->640": 1.576,
+            "640->768": 2.384,
+            "768->896": 1.345,
+            "896->1024": 2.074,
+            "1024->1280": 5.301,
+            "1280->1536": 3.403
           }
         }
       }
     },
     "p150a": {
-      "recorded": "2026-10-15",
+      "recorded": "2026-10-25",
       "host": "tt-quietbox",
-      "commit": "4ba29781f",
+      "commit": "0a3f28e58",
       "host_threads": 8,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-10-15",
+          "recorded": "2026-10-25",
           "host": "tt-quietbox",
-          "commit": "4ba29781f",
+          "commit": "0a3f28e58",
           "host_threads": 8,
           "runtime_s": {
-            "256": 22.4,
-            "512": 46.1,
-            "640": 67.7,
-            "768": 93.2,
-            "896": 127.6,
-            "1024": 153.9,
-            "1152": 190.6,
-            "1280": 224.9,
-            "1408": 313.7,
-            "1536": 416.3
+            "256": 9.4,
+            "512": 16.4,
+            "640": 23.2,
+            "768": 34.0,
+            "896": 43.2,
+            "1024": 55.0,
+            "1152": 73.5,
+            "1280": 90.1,
+            "1408": 107.1,
+            "1536": 156.6
           },
           "levers": {
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -2906,10 +2905,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 578 calls: it serves at 512 and above, so this rung's shape is outside what the fused residual covers; the module keeps no reject dict, so the clause is not recorded"
+                "reason": "declines all 0 calls: it serves at 512 and above, so this rung's shape is outside what the fused residual covers; the module keeps no reject dict, so the clause is not recorded"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -2922,13 +2921,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 4656,
+                "declined": 10,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 4656
+                  "memory": 10
                 },
-                "reason": "declines all 4656 calls on memory x4656: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "reason": "declines all 10 calls on memory x10: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -2998,39 +2997,34 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 18624,
+                "declined": 8,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "gated_window_BufferType.L1": 4656,
-                  "window_BufferType.L1": 9312,
-                  "back_l1_src_narrow": 4656
+                  "back_l1_src_narrow": 8
                 },
-                "reason": "declines all 18624 calls on window_BufferType.L1 x9312, gated_window_BufferType.L1 x4656, back_l1_src_narrow x4656: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
+                "reason": "declines all 8 calls on back_l1_src_narrow x8: the gate's L1 leg admits 288 <= N <= 352 only, and its own docstring records N=256 on an L1 output measuring 0.952x, a real loss"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1164,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the move back only runs when the forward move fired, and it did not"
+                "frac": 1.0,
+                "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 16,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is not offered on this model's pair track"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 16,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19 [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -3189,52 +3183,57 @@
             "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 18496,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 9248,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -3493,52 +3492,57 @@
             "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 23120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 11560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -3581,10 +3585,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 23119,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3595,10 +3600,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 23119,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -3795,52 +3801,57 @@
             "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 55490,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 27745,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -3883,10 +3894,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -3897,10 +3909,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -4097,52 +4110,57 @@
             "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 32368,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 16184,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -4185,13 +4203,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 16183,
-                "declined": 16184,
-                "frac": 0.4999845521673309,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "op_threw:(8,32)": 16184
-                }
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4202,10 +4218,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 32367,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -4402,52 +4419,57 @@
             "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 73986,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 36993,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -4490,13 +4512,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1,
-                "declined": 1,
-                "frac": 0.5,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "op_threw:(8,32)": 1
-                }
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4507,10 +4527,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -4707,16 +4728,16 @@
             "1152": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 13,
-                "frac": 0.9806259314456036,
+                "frac": 0.8602150537634409,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 13,
-                "frac": 0.9806259314456036,
+                "frac": 0.8602150537634409,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -4746,10 +4767,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 578 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
+                "reason": "declines all 0 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5016,16 +5037,16 @@
             "1280": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 16,
-                "frac": 0.9762611275964391,
+                "frac": 0.8333333333333334,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 16,
-                "frac": 0.9762611275964391,
+                "frac": 0.8333333333333334,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5055,10 +5076,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 578 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
+                "reason": "declines all 0 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5325,16 +5346,16 @@
             "1408": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 16,
-                "frac": 0.9762611275964391,
+                "frac": 0.8333333333333334,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 16,
-                "frac": 0.9762611275964391,
+                "frac": 0.8333333333333334,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5364,10 +5385,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 578 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
+                "reason": "declines all 0 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5634,16 +5655,16 @@
             "1536": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 19,
-                "frac": 0.9719350073855244,
+                "frac": 0.8080808080808081,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 19,
-                "frac": 0.9719350073855244,
+                "frac": 0.8080808080808081,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -5673,10 +5694,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 578 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
+                "reason": "declines all 0 calls: the same cause counted on the other side of the branch: `residual()` increments this decline (`FUSED_RESID_STATS[1]`, esmc.py:816) for every call the window sends down the plain `x + ffn(x)`, and that is every pair transition in the fold. `PAIR_FFN_ROW_BLOCK_SEQ = (320, 1024)` (esmc.py:320) closes above 1024, so there is no row-blocked output here to fuse the residual into; 256 aa reads the same way one rung below the window's lower edge. Above the window the block is re-entered only after a real DRAM refusal of the unblocked FFN (`_UNBLOCKED_REFUSED`, esmc.py:860-870), which did not fire in the run that recorded this cell; a later run where it does fire reads served > 0 here, and that is the fallback working rather than drift"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -5943,60 +5964,60 @@
           },
           "runtime_reps_s": {
             "256": [
-              23.9,
-              24.3,
-              22.3,
-              22.4,
-              22.2
+              8.9,
+              9.4,
+              9.4,
+              9.4,
+              9.2
             ],
             "512": [
-              46.1,
-              46.5,
-              45.5,
-              45.4,
-              46.1
+              16.4,
+              16.9,
+              16.5,
+              16.4,
+              16.4
             ],
             "640": [
-              67.7
+              23.2
             ],
             "768": [
-              93.2
+              34.0
             ],
             "896": [
-              127.6
+              43.2
             ],
             "1024": [
-              153.9
+              55.0
             ],
             "1152": [
-              190.6
+              73.5
             ],
             "1280": [
-              224.9
+              90.1
             ],
             "1408": [
-              313.7
+              107.1
             ],
             "1536": [
-              416.3
+              156.6
             ]
           },
           "aiclk": {
             "256": {
-              "card": "2",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
+                800,
+                800,
                 1350,
-                1350,
-                1350,
-                1350,
-                1350
+                800,
+                800
               ],
-              "n": 68
+              "n": 25
             },
             "512": {
-              "card": "2",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6006,10 +6027,64 @@
                 1350,
                 1350
               ],
-              "n": 90
+              "n": 30
             },
             "640": {
-              "card": "2",
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 7
+            },
+            "768": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 9
+            },
+            "896": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 12
+            },
+            "1024": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1343
+              ],
+              "n": 13
+            },
+            "1152": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 16
+            },
+            "1280": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 18
+            },
+            "1408": {
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6017,137 +6092,83 @@
               ],
               "n": 21
             },
-            "768": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 26
-            },
-            "896": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 31
-            },
-            "1024": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 36
-            },
-            "1152": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 41
-            },
-            "1280": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 47
-            },
-            "1408": {
-              "card": "2",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 62
-            },
             "1536": {
-              "card": "2",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 79
+              "n": 29
             }
           },
           "load": {
             "256": {
-              "max": 0.3,
+              "max": 0.28,
               "rep_median": [
-                0.25,
-                0.22,
+                0.28,
                 0.24,
-                0.26,
+                0.22,
+                0.21,
                 0.21
               ]
             },
             "512": {
-              "max": 0.38,
+              "max": 0.25,
               "rep_median": [
-                0.29,
-                0.34,
-                0.3,
-                0.26,
-                0.3
+                0.19,
+                0.17,
+                0.19,
+                0.24,
+                0.23
               ]
             },
             "640": {
-              "max": 0.29,
+              "max": 0.28,
               "rep_median": [
                 0.27
               ]
             },
             "768": {
-              "max": 0.38,
+              "max": 0.27,
               "rep_median": [
-                0.32
+                0.24
               ]
             },
             "896": {
-              "max": 0.34,
+              "max": 0.35,
               "rep_median": [
-                0.27
+                0.33
               ]
             },
             "1024": {
-              "max": 0.27,
+              "max": 0.35,
               "rep_median": [
-                0.2
+                0.31
               ]
             },
             "1152": {
-              "max": 0.27,
-              "rep_median": [
-                0.17
-              ]
-            },
-            "1280": {
-              "max": 0.29,
+              "max": 0.24,
               "rep_median": [
                 0.21
               ]
             },
-            "1408": {
-              "max": 0.34,
+            "1280": {
+              "max": 0.27,
               "rep_median": [
-                0.27
+                0.23
+              ]
+            },
+            "1408": {
+              "max": 0.24,
+              "rep_median": [
+                0.23
               ]
             },
             "1536": {
-              "max": 0.31,
+              "max": 0.28,
               "rep_median": [
-                0.22
+                0.24
               ]
             }
           },
@@ -6156,33 +6177,32 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0234,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.3793,
-              "radius_of_gyration_A": 68.209,
-              "plddt_mean": 0.277244,
+              "ca_ca_median_A": 81.4647,
+              "radius_of_gyration_A": 68.37,
+              "plddt_mean": 0.281904,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.379 A outside [3.6, 4.0]",
+                "median CA-CA 81.465 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 68.2 A outside [9.0, 45.2]"
+                "radius of gyration 68.4 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0273,
+              "clash_frac": 0.0312,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.4323,
-              "radius_of_gyration_A": 75.833,
-              "plddt_mean": 0.264394,
+              "ca_ca_median_A": 78.3088,
+              "radius_of_gyration_A": 75.776,
+              "plddt_mean": 0.267742,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.432 A outside [3.6, 4.0]",
+                "median CA-CA 78.309 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 75.8 A outside [11.8, 58.9]"
               ]
             },
@@ -6190,67 +6210,67 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0297,
+              "clash_frac": 0.0391,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.8156,
-              "radius_of_gyration_A": 78.224,
-              "plddt_mean": 0.27557,
+              "ca_ca_median_A": 79.5243,
+              "radius_of_gyration_A": 78.313,
+              "plddt_mean": 0.278982,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.816 A outside [3.6, 4.0]",
+                "median CA-CA 79.524 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.0% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 78.2 A outside [12.8, 64.1]"
+                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0391,
+              "clash_frac": 0.0326,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.2366,
-              "radius_of_gyration_A": 73.854,
-              "plddt_mean": 0.259108,
+              "ca_ca_median_A": 81.2975,
+              "radius_of_gyration_A": 73.781,
+              "plddt_mean": 0.260718,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.237 A outside [3.6, 4.0]",
+                "median CA-CA 81.297 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 73.9 A outside [13.7, 68.7]"
+                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 73.8 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0513,
+              "clash_frac": 0.0402,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.4957,
-              "radius_of_gyration_A": 79.97,
-              "plddt_mean": 0.265937,
+              "ca_ca_median_A": 79.269,
+              "radius_of_gyration_A": 80.11,
+              "plddt_mean": 0.268921,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.496 A outside [3.6, 4.0]",
+                "median CA-CA 79.269 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.0 A outside [14.6, 72.8]"
+                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0508,
+              "clash_frac": 0.0439,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.1531,
-              "radius_of_gyration_A": 77.397,
-              "plddt_mean": 0.258659,
+              "ca_ca_median_A": 80.1443,
+              "radius_of_gyration_A": 77.371,
+              "plddt_mean": 0.261223,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.153 A outside [3.6, 4.0]",
+                "median CA-CA 80.144 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             },
@@ -6258,132 +6278,132 @@
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.0356,
+              "clash_frac": 0.0417,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.8832,
-              "radius_of_gyration_A": 82.6,
-              "plddt_mean": 0.262923,
+              "ca_ca_median_A": 79.935,
+              "radius_of_gyration_A": 82.728,
+              "plddt_mean": 0.263779,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.883 A outside [3.6, 4.0]",
+                "median CA-CA 79.935 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.6% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.6 A outside [16.0, 80.1]"
+                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 82.7 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0477,
+              "clash_frac": 0.0461,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.0493,
-              "radius_of_gyration_A": 79.182,
-              "plddt_mean": 0.260973,
+              "ca_ca_median_A": 78.1136,
+              "radius_of_gyration_A": 79.224,
+              "plddt_mean": 0.262312,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.049 A outside [3.6, 4.0]",
+                "median CA-CA 78.114 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.8% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "4.6% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1408": {
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0533,
+              "clash_frac": 0.049,
               "chain_break_frac": 0.9993,
-              "ca_ca_median_A": 80.3056,
-              "radius_of_gyration_A": 78.856,
-              "plddt_mean": 0.25757,
+              "ca_ca_median_A": 80.1071,
+              "radius_of_gyration_A": 78.963,
+              "plddt_mean": 0.259145,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.306 A outside [3.6, 4.0]",
+                "median CA-CA 80.107 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "5.3% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "4.9% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0534,
+              "clash_frac": 0.0547,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.8288,
-              "radius_of_gyration_A": 81.488,
-              "plddt_mean": 0.265715,
+              "ca_ca_median_A": 79.1453,
+              "radius_of_gyration_A": 81.576,
+              "plddt_mean": 0.267611,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.829 A outside [3.6, 4.0]",
+                "median CA-CA 79.145 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.3% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "5.5% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.01,
+          "sigma_runtime_512": 0.0131,
           "exponents": {
             "256->512": {
-              "k": 1.041,
+              "k": 0.803,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.736,
+              "k": 1.798,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0434,
-            "512": 0.01
+            "256": 0.0237,
+            "512": 0.0131
           },
           "exponents_measured": {
-            "256->512": 1.041,
-            "512->640": 1.722,
-            "640->768": 1.753,
-            "768->896": 2.038,
-            "896->1024": 1.403,
-            "1024->1152": 1.816,
-            "1152->1280": 1.571,
-            "1280->1408": 3.492,
-            "1408->1536": 3.252
+            "256->512": 0.803,
+            "512->640": 1.554,
+            "640->768": 2.096,
+            "768->896": 1.554,
+            "896->1024": 1.809,
+            "1024->1152": 2.462,
+            "1152->1280": 1.933,
+            "1280->1408": 1.813,
+            "1408->1536": 4.366
           }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-10-21",
+      "recorded": "2026-10-25",
       "host": "tt-quietbox2",
-      "commit": "a2b7938f1",
+      "commit": "0a3f28e58",
       "host_threads": 5,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-10-21",
+          "recorded": "2026-10-25",
           "host": "tt-quietbox2",
-          "commit": "a2b7938f1",
+          "commit": "0a3f28e58",
           "host_threads": 5,
           "runtime_s": {
-            "256": 11.4,
-            "512": 21.1,
-            "640": 32.7,
-            "768": 44.1,
-            "896": 63.7,
-            "1024": 73.2
+            "256": 5.9,
+            "512": 14.3,
+            "640": 21.3,
+            "768": 30.3,
+            "896": 41.0,
+            "1024": 52.5
           },
           "levers": {
             "256": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
@@ -6413,10 +6433,10 @@
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 578,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 578 calls: it serves at 512 and above, so this rung's shape is outside what the fused residual covers; the module keeps no reject dict, so the clause is not recorded"
+                "reason": "declines all 0 calls: it serves at 512 and above, so this rung's shape is outside what the fused residual covers; the module keeps no reject dict, so the clause is not recorded"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
@@ -6429,13 +6449,13 @@
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 11,
+                "declined": 10,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "memory": 11
+                  "memory": 10
                 },
-                "reason": "declines all 11 calls on memory x11: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
+                "reason": "declines all 10 calls on memory x10: the dual-NoC in-projection needs a DRAM-interleaved activation and destination, and the pair buffer is L1-resident at this size"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -6505,15 +6525,13 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 36,
+                "declined": 8,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "gated_window_BufferType.L1": 9,
-                  "window_BufferType.L1": 18,
-                  "back_l1_src_narrow": 9
+                  "back_l1_src_narrow": 8
                 },
-                "reason": "declines all 36 calls on window_BufferType.L1 x18, gated_window_BufferType.L1 x9, back_l1_src_narrow x9: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
+                "reason": "declines all 8 calls on back_l1_src_narrow x8: the traffic moved to the gated channel, it did not stop. TRIMUL_MASK_AFTER_MOVE (d86a1eb5f, default on since 7bfa4ad19) moves the pair mask past the channel move, so the fused chunk+gate route is eligible and REBLOCK_PERMUTE_GATED serves the calls this counter served when the baseline was recorded. The handoff is visible across the three cards in commit order: the galaxy entry at f11e5009 reads ungated 2168 / gated 0 at 512, p150a at 9ceae36d reads 16 / 2152, this card reads 0 / 2168. The wrapper is not offered, not refused"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
@@ -6524,19 +6542,17 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 16,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated channel move is not offered on this model's pair track"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 16,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: it unlocks the gated channel move, which is only offered once the trimul's pair tensors are in DRAM. At 256 aa they are L1-resident -- REBLOCK_PERMUTE refuses every call here on window_BufferType.L1 -- so nothing is offered at this rung; it serves every call from 512 up. Default on since 7bfa4ad19"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -6695,52 +6711,57 @@
             "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 18496,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 9248,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -6999,52 +7020,57 @@
             "640": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 23120,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 11560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -7087,10 +7113,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 23119,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7101,10 +7128,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 23119,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -7301,52 +7329,57 @@
             "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 55490,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 27745,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -7389,10 +7422,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7403,10 +7437,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 1,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -7603,52 +7638,57 @@
             "896": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 32368,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 16184,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -7691,13 +7731,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 16183,
-                "declined": 16184,
-                "frac": 0.4999845521673309,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "op_threw:(8,32)": 16184
-                }
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -7708,10 +7746,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 32367,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -7908,52 +7947,57 @@
             "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats"
               },
               "SPLIT_SWIGLU_SMALL_GRID": {
                 "resolved": "True",
-                "served": 658,
+                "served": 80,
                 "declined": 7,
-                "frac": 0.9894736842105263,
+                "frac": 0.9195402298850575,
                 "how": "stats-shared"
               },
               "PAIR_FFN_L1_FC1": {
                 "resolved": "True",
-                "served": 73986,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_LN": {
                 "resolved": "True",
-                "served": 36993,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Inside `_row_blocked`, unreachable below 320 aa. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_L1_SLICE": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It lives inside `_row_blocked` (esmc.py:678), so at 256 aa it is never asked rather than refusing. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FUSED_RESIDUAL": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. Here `residual()` falls to `ttnn.add(x, self(x))` and counts declined (tt_bio/esmc.py:750-755). [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "PAIR_FFN_FILL_ASSEMBLY": {
                 "resolved": "True",
-                "served": 578,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the row-blocked pair-FFN window: that path is entered only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:320, read in `_split_plan` at esmc.py:653-655), and 256 aa is under it. From 512 aa up this lever serves every call. It additionally rides on the fused residual (`filled = fused and ...`, esmc.py:680), so below 320 aa it cannot be reached. [carried from rung 256] [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "not-imported",
@@ -7996,13 +8040,11 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1,
-                "declined": 1,
-                "frac": 0.5,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "op_threw:(8,32)": 1
-                }
+                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -8013,10 +8055,11 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -8213,30 +8256,30 @@
           },
           "runtime_reps_s": {
             "256": [
-              11.1,
-              11.9,
-              11.4,
-              11.1,
-              12.4
+              5.7,
+              5.9,
+              5.9,
+              6.1,
+              6.3
             ],
             "512": [
-              20.9,
-              21.4,
-              21.3,
-              20.9,
-              21.1
+              14.4,
+              14.6,
+              14.1,
+              14.3,
+              14.2
             ],
             "640": [
-              32.7
+              21.3
             ],
             "768": [
-              44.1
+              30.3
             ],
             "896": [
-              63.7
+              41.0
             ],
             "1024": [
-              73.2
+              52.5
             ]
           },
           "aiclk": {
@@ -8245,107 +8288,107 @@
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350,
-                1350,
-                1350,
+                800,
+                1325,
                 1337,
-                1350
+                1350,
+                800
               ],
-              "n": 39
+              "n": 20
             },
             "512": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1318,
-                1350,
-                1343,
-                1300,
+                1268,
+                1281,
+                1268,
+                1281,
                 1306
               ],
-              "n": 49
+              "n": 25
             },
             "640": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1300
+                1306
               ],
-              "n": 11
+              "n": 6
             },
             "768": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1250
+                1275
               ],
-              "n": 14
+              "n": 8
             },
             "896": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1268
+                1256
               ],
-              "n": 17
+              "n": 10
             },
             "1024": {
               "card": "1",
               "min": 800,
-              "max": 1350,
+              "max": 1306,
               "rep_median": [
-                1225
+                1218
               ],
-              "n": 20
+              "n": 12
             }
           },
           "load": {
             "256": {
-              "max": 0.35,
+              "max": 0.28,
               "rep_median": [
-                0.33,
-                0.28,
-                0.28,
-                0.28,
-                0.28
+                0.27,
+                0.25,
+                0.24,
+                0.23,
+                0.21
               ]
             },
             "512": {
-              "max": 0.39,
+              "max": 0.23,
               "rep_median": [
-                0.35,
-                0.33,
-                0.32,
-                0.29,
-                0.37
+                0.21,
+                0.21,
+                0.19,
+                0.21,
+                0.2
               ]
             },
             "640": {
-              "max": 0.36,
+              "max": 0.24,
               "rep_median": [
-                0.31
+                0.23
               ]
             },
             "768": {
-              "max": 0.4,
+              "max": 0.22,
               "rep_median": [
-                0.33
+                0.2
               ]
             },
             "896": {
-              "max": 0.41,
+              "max": 0.29,
               "rep_median": [
-                0.33
+                0.25
               ]
             },
             "1024": {
-              "max": 0.54,
+              "max": 0.28,
               "rep_median": [
-                0.46
+                0.24
               ]
             }
           },
@@ -8356,30 +8399,30 @@
               "n_ca": 256,
               "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.6987,
-              "radius_of_gyration_A": 68.287,
-              "plddt_mean": 0.277593,
+              "ca_ca_median_A": 81.4647,
+              "radius_of_gyration_A": 68.37,
+              "plddt_mean": 0.281904,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.699 A outside [3.6, 4.0]",
+                "median CA-CA 81.465 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.3 A outside [9.0, 45.2]"
+                "radius of gyration 68.4 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0352,
+              "clash_frac": 0.0312,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.348,
-              "radius_of_gyration_A": 75.803,
-              "plddt_mean": 0.263743,
+              "ca_ca_median_A": 78.3088,
+              "radius_of_gyration_A": 75.776,
+              "plddt_mean": 0.267742,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.348 A outside [3.6, 4.0]",
+                "median CA-CA 78.309 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 75.8 A outside [11.8, 58.9]"
               ]
             },
@@ -8387,16 +8430,16 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0328,
+              "clash_frac": 0.0391,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.9749,
-              "radius_of_gyration_A": 78.263,
-              "plddt_mean": 0.275441,
+              "ca_ca_median_A": 79.5243,
+              "radius_of_gyration_A": 78.313,
+              "plddt_mean": 0.278982,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.975 A outside [3.6, 4.0]",
+                "median CA-CA 79.524 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
@@ -8404,16 +8447,16 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0391,
+              "clash_frac": 0.0326,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.0357,
-              "radius_of_gyration_A": 73.774,
-              "plddt_mean": 0.258783,
+              "ca_ca_median_A": 81.2975,
+              "radius_of_gyration_A": 73.781,
+              "plddt_mean": 0.260718,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.036 A outside [3.6, 4.0]",
+                "median CA-CA 81.297 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 73.8 A outside [13.7, 68.7]"
               ]
             },
@@ -8421,59 +8464,59 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0446,
+              "clash_frac": 0.0402,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5932,
-              "radius_of_gyration_A": 79.979,
-              "plddt_mean": 0.265688,
+              "ca_ca_median_A": 79.269,
+              "radius_of_gyration_A": 80.11,
+              "plddt_mean": 0.268921,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.593 A outside [3.6, 4.0]",
+                "median CA-CA 79.269 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.5% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 80.0 A outside [14.6, 72.8]"
+                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0537,
+              "clash_frac": 0.0439,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.9403,
-              "radius_of_gyration_A": 77.474,
-              "plddt_mean": 0.259529,
+              "ca_ca_median_A": 80.1443,
+              "radius_of_gyration_A": 77.371,
+              "plddt_mean": 0.261223,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.940 A outside [3.6, 4.0]",
+                "median CA-CA 80.144 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "5.4% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 77.5 A outside [15.3, 76.6]"
+                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 77.4 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0108,
+          "sigma_runtime_512": 0.0134,
           "exponents": {
             "256->512": {
-              "k": 0.888,
+              "k": 1.277,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.818,
+              "k": 1.852,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0486,
-            "512": 0.0108
+            "256": 0.0381,
+            "512": 0.0134
           },
           "exponents_measured": {
-            "256->512": 0.888,
-            "512->640": 1.963,
-            "640->768": 1.64,
-            "768->896": 2.385,
-            "896->1024": 1.041
+            "256->512": 1.277,
+            "512->640": 1.786,
+            "640->768": 1.933,
+            "768->896": 1.962,
+            "896->1024": 1.852
           }
         }
       }
