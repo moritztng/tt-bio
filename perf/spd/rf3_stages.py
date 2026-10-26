@@ -9,11 +9,15 @@ little pipelining across stage boundaries; the totals are therefore an upper bou
 One line per fold on stdout: `RF3STAGES {json}`, printed when the worker's `_predict_rf3_one` returns. Worker-side
 host stages (featurize, MSA lookup, conformers, confidence summary, structure write) are wall time without a sync.
 
+RF3STAGES_PROFILE=featurize=/tmp/p writes a cProfile of each named stage's latest call to /tmp/p.<stage>.
+
     python perf/spd/rf3_stages.py perf/spd/bench.py --out OUT --chip 0 --model rf3 --inputs s512 --data DATA \\
         --samples 1 --seed 0 --warm 2
 """
 import collections
+import cProfile
 import json
+import os
 import runpy
 import sys
 import time
@@ -38,9 +42,21 @@ def _sync():
         pass
 
 
+PROFILE = os.environ.get("RF3STAGES_PROFILE")  # stage label[,label]=path: cProfile of that stage's last call
+
+
 def timed(owner, name, label, static=False):
     orig = owner.__dict__[name]
     fn = orig.__func__ if isinstance(orig, (classmethod, staticmethod)) else orig
+    if PROFILE and label in PROFILE.split("=")[0].split(","):
+        inner = fn
+
+        def fn(*a, **kw):
+            pr = cProfile.Profile()
+            try:
+                return pr.runcall(inner, *a, **kw)
+            finally:
+                pr.dump_stats(f"{PROFILE.split('=', 1)[1]}.{label}")
 
     def wrapper(*a, **kw):
         _sync()
