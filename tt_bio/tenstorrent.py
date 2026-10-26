@@ -16245,7 +16245,10 @@ class DiffusionTransformerLayer(Module):
         t_attn, s_o_pre, t_trans, s_o2_pre = cond if cond is not None else (None,) * 4
         b = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=t_attn)
         if not self.atom_level:
-            b = self.attn_pair_bias(b, z)
+            # z is the bias the sampler staged once per rollout (`_stage_token_bias`): scaled, permuted and padded
+            # past the sequence, which is what `bias_precomputed` reads (finish_bias is the identity here), so q, k
+            # and v reach that width with one pad of the fused qkv instead of three.
+            b = self.attn_pair_bias(b, z, bias_precomputed=True)
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
         if s_o_pre is not None:
