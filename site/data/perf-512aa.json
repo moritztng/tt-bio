@@ -759,12 +759,12 @@
           "when": "2026-10-26T01:22:03Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 7.644,
+            "s_per_fold": 7.299,
             "n": 4,
-            "spread_pct": 5.13,
+            "spread_pct": 1.63,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 21a10f8f6, ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-26T05:25:42Z"
+            "versions": "tt-bio main 4e84f9e02, ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-10-26T13:02:07Z"
           }
         },
         "h200": {
