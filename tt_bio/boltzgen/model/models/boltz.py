@@ -75,6 +75,11 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
                          "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16", "atom_k1",
                          "dit_b8", "dit_qkv16", "swiglu_fc12g", "msa_sample", "adaln_mod", "dit_cond_hifi2"})
+# Wormhole adds placement-only levers that design byte-identical CIFs on bg_R3 (seed 0, 6 designs, b,l,l,b on a Galaxy
+# chip at 1000 MHz, spd-m-boltzgen lev 2026-10-26), so they need no grade: atom_l1 normal 57.58 -> 56.43 s/design,
+# fast 52.98 -> 51.84; trimul_bres fast 53.00 -> 51.40 (in normal it read +0.3 s, noise, and stays off).
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1"}
+WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres"}
 
 
 def _under_levers(method):
@@ -147,7 +152,8 @@ class Boltz(nn.Module):
         diffusion_trace: bool = False,
     ) -> None:
         super().__init__()
-        self._levers = tenstorrent.model_levers(LEVERS_NORMAL, LEVERS_FAST)
+        self._levers = tenstorrent.model_levers(
+            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, LEVERS_FAST)))
         """
         Module that does either:
         1. Design

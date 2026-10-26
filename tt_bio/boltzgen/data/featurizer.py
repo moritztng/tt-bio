@@ -1447,13 +1447,16 @@ def process_atom_features(
     center = center / resolved_mask.sum().clamp(min=1)
     coords = coords - center[:, None]
 
-    # Apply random roto-translation to the input conformers
+    # Apply random roto-translation to the input conformers. The draws come from a generator seeded off
+    # numpy's global stream, the featurizer's only source, so featurizing on a helper thread while the
+    # model draws from torch's global stream gives every design the same numbers whatever the timing.
+    generator = torch.Generator().manual_seed(int(np.random.randint(2**32)))
     for i in range(torch.max(ref_space_uid)):
         included = ref_space_uid == i
         # TODO: replace this code with the commented out code below when training a new model
         if torch.sum(included) > 0 and torch.any(resolved_mask[included]):
             ref_pos[included] = center_random_augmentation(
-                ref_pos[included][None], resolved_mask[included][None], centering=True
+                ref_pos[included][None], resolved_mask[included][None], centering=True, generator=generator
             )[0]
         # TODO: use this code instead of the above when training a new model (we are keeping the old code for now to avoid a training vs. inference difference)
         # if torch.sum(included) > 0:

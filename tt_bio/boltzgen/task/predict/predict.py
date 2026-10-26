@@ -10,6 +10,7 @@ scaffolding around it stays in fp32 on CPU.
 from tt_bio.boltzgen.utils.quiet import quiet_startup
 quiet_startup()
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
 
 import torch
@@ -107,10 +108,25 @@ class Predict(Task):
 
         total_batches = len(dataloader)
         progress("batch", 0, total_batches)
-        for batch_idx, batch in enumerate(dataloader):
-            prediction = model.predict_step(batch, batch_idx=batch_idx)
-            self.writer.write(prediction, batch, batch_idx)
-            progress("batch", batch_idx + 1, total_batches)
+        # The host work of a design (featurizing the next one, writing the last one) runs on two
+        # helper threads while the card runs this one, as a DataLoader's workers would (see above for
+        # why they cannot be processes). Each thread keeps its own order, the featurizer draws only
+        # from numpy's global stream (its torch draws use a generator seeded from it) and the model
+        # only from torch's, so every design is the same whatever the timing. A design counts as done
+        # when its prediction is; its write finishes behind the next one.
+        items = iter(dataloader)
+        with ThreadPoolExecutor(1) as featurize, ThreadPoolExecutor(1) as write:
+            ahead, written = featurize.submit(next, items, None), None
+            for batch_idx in range(total_batches):
+                batch = ahead.result()
+                ahead = featurize.submit(next, items, None)
+                prediction = model.predict_step(batch, batch_idx=batch_idx)
+                if written is not None:
+                    written.result()
+                written = write.submit(self.writer.write, prediction, batch, batch_idx)
+                progress("batch", batch_idx + 1, total_batches)
+            if written is not None:
+                written.result()
 
         self.writer.finalize()
         del model
