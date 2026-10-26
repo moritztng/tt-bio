@@ -5,6 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **A paired MSA search against a local database reuses chains it has searched before.** Folding one
+  target against many binders used to search the target again for every complex; now only the new
+  chains are searched, so a repeat target's paired search drops from ~40 s to 2-12 s. A complex with
+  no cached chain is also about 2x faster. The alignments are byte-identical to `colabfold_search`'s
+  (graded with `scripts/paired_msa_by_chain_check.py`); this applies to colabfold 1.6.3, and any
+  other release runs the search as before.
+
 ## [0.23.0] - 2026-10-26
 
 ### Added
