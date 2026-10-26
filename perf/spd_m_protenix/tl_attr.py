@@ -29,6 +29,8 @@ ap.add_argument("--stagger", default="1", help="comma list: triatt_ln.STAGGER of
 ap.add_argument("--lnblk", default="1", help="comma list: triatt_ln.LN_BLK (1 or 4). With more than one stagger x lnblk "
                 "arm, ABL 0 rows print exact_vs_first, torch.equal to the first arm")
 ap.add_argument("--share", default="0", help="comma list: triatt_ln.LN_SHARE off (0) / on (1)")
+ap.add_argument("--depth", default="2", help="comma list: triatt_ln.OUT_DEPTH (bf16 output ring, row tiles)")
+ap.add_argument("--rb", default="4", help="comma list: triatt_ln.RB (rows per reader barrier)")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -106,14 +108,15 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
           B8 = b8
           base = None
           arms = [(st, blk, sh) for st in [bool(int(d)) for d in a.stagger.split(",")] for blk in [int(d) for d in a.lnblk.split(",")]
-                  for sh in [bool(int(d)) for d in a.share.split(",")]]
-          for st, blk, sh in arms:
-            TL.STAGGER, TL.LN_BLK, TL.LN_SHARE = st, blk, sh
+                  for sh in [bool(int(d)) for d in a.share.split(",")]
+                  for od in [int(d) for d in a.depth.split(",")] for rb in [int(d) for d in a.rb.split(",")]]
+          for st, blk, sh, od, rb in arms:
+            TL.STAGGER, TL.LN_BLK, TL.LN_SHARE, TL.OUT_DEPTH, TL.RB = st, blk, sh, od, rb
             for abl in [int(m) for m in a.abl.split(",")]:
                 TL.ABL = abl
                 ms = timed(lambda: run(fid, tr))
                 row = dict(n=a.n, c=c, card=os.environ.get("TT_VISIBLE_DEVICES"), fid=str(fid), tr=tr, b8=b8,
-                           abl=abl, stagger=st, lnblk=blk, share=sh, ms=ms)
+                           abl=abl, stagger=st, lnblk=blk, share=sh, depth=od, rb=rb, ms=ms)
                 if abl == 0 and len(arms) > 1:
                     r = run(fid, tr)
                     out = host(r)

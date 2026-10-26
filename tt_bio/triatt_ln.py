@@ -55,6 +55,8 @@ ABL = 0
 STAGGER = True
 #: channel tiles per dest acquire in the LayerNorm's eltwise stages (kernels/common/ln_prologue.hpp LN_BLK), bit-identical
 LN_BLK = 1
+#: bf16 output ring depth in row tiles (c_2 holds OUT_DEPTH x NW tiles); bench probe of the HiFi2 bf16 write stall
+OUT_DEPTH = 2
 #: with two column groups (plain read), the two cores of a pair each read and norm every other row and copy the
 #: partner's normed tiles for the rest over the NOC (reader.cpp), so no row is read or normed twice. Same
 #: tiles into the same projection, so bit-identical. Only with bfp8 q|k|v (`_share`), i.e. OpenDDE WH fast today.
@@ -126,7 +128,7 @@ def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
 
 def _cb_bytes(kt, nw, tr, share=False):
     """L1 bytes per core of `_build`'s circular buffers."""
-    bf = kt * nw + 2 * kt + 2 * nw + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1 + share * (2 * kt + 2)
+    bf = kt * nw + 2 * kt + OUT_DEPTH * nw + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1 + share * (2 * kt + 2)
     return bf * MG.tile_bytes(ttnn.bfloat16) + (4 + 2 * kt) * MG.tile_bytes(ttnn.float32)
 
 
@@ -200,7 +202,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     nq = max(q for _, q, _ in cols) if cols else 0
     lns = _share(g, tr, H, bool(nq))
     phys = lambda c: x.device().worker_core_from_logical_core(ttnn.CoreCoord(c % gx, c // gx))  # noqa: E731
-    c2, c4 = _cb_tiles(cols, nw) if cols else (2 * nw, 0)
+    c2, c4 = _cb_tiles(cols, nw) if cols else (OUT_DEPTH * nw, 0)
     for c in range(gx * gy):
         r0, n = split[c // g]
         cx, cy = c % gx, c // gx
@@ -298,7 +300,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()))
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, OUT_DEPTH, RB, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
