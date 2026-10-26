@@ -57,8 +57,10 @@ STAGGER = True
 LN_BLK = 1
 #: with two column groups (plain read), the two cores of a pair each read and norm every other row and copy the
 #: partner's normed tiles for the rest over the NOC (reader.cpp), so no row is read or normed twice. Same
-#: tiles into the same projection, so bit-identical.
-LN_SHARE = False
+#: tiles into the same projection, so bit-identical. Only with bfp8 q|k|v (`_share`), i.e. OpenDDE WH fast today.
+#: OpenDDE WH fast fold, same chip, 2 paired warm, CIFs identical, 1000 MHz (spd-m-opendde lnf): 512 75.40 -> 74.25 s,
+#: 640 117.96 -> 115.72 s, 288 null.
+LN_SHARE = True
 _CACHE: dict = {}
 #: (served, declined, served with bfp8 q/k/v)
 STATS = [0, 0, 0]
