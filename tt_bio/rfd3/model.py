@@ -456,6 +456,12 @@ _DIT_DPB = env_flag("RFD3_DPB", True)
 # only (a p150a read +0.2 s); RFD3_PF_DPB=0/1 forces it.
 _PF_DPB = env_flag("RFD3_PF_DPB", False) if os.environ.get("RFD3_PF_DPB") else None
 PF_DPB_CALLS = [0, 0]   # served, declined
+# The pairformer's single attention through the fused SDPA, the DiT's way: 24-wide heads zero-padded to 32 in the
+# q/k/v/g weights (zero columns add 0 to every q.k and come back as zero output columns), one nlp_create_qkv_heads,
+# and the pair bias as the SDPA mask pre-scaled by sqrt(head_dim). Replaces q.k^T, the fp32 typecasts, scale, bias add,
+# softmax and attn@v, and the reshape/permute/pad per tensor. RFD3_PF_SDPA=0 restores the manual chain.
+_PF_SDPA = env_flag("RFD3_PF_SDPA", True)
+PF_SDPA_CALLS = [0]
 
 
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
@@ -1442,6 +1448,9 @@ class PairformerAttention(Module):
         ckc = self.compute_kernel_config
         a = ttnn.rms_norm(s, weight=self.ln_1_w, epsilon=1e-6,
                           compute_kernel_config=ckc)
+        B, I = s.shape[0], s.shape[1]
+        if _PF_SDPA:
+            return self._sdpa(a, z, B, I)
         q = ttnn.linear(a, self.to_q_w, bias=self.to_q_b,
                           compute_kernel_config=self.compute_kernel_config,
                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)
@@ -1453,7 +1462,6 @@ class PairformerAttention(Module):
                            dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         v = ttnn.rms_norm(v, weight=self.to_v_ln, epsilon=1e-6,
                             compute_kernel_config=self.compute_kernel_config)
-        B, I = s.shape[0], s.shape[1]
         # split heads: [1,I,384] -> [1,I,16,24] -> [1,16,I,24]
         q = ttnn.reshape(q, (B, I, self.n_head, self.head_dim))
         k = ttnn.reshape(k, (B, I, self.n_head, self.head_dim))
@@ -1506,7 +1514,82 @@ class PairformerAttention(Module):
         return out
 
 
-    def _pair_bias_dpb(self, z, I, n_key):
+    def _padded(self):
+        """q/k/v/g (and q's bias) with zero output columns after each 24-wide head, to_a with zero input rows, so every
+        head is a tile wide. k/v's rms_norm over the padded width sees the same sum of squares over more columns, so
+        its weight is scaled by sqrt(c/padded) and its eps by c/padded (as RFD3AtomBlock._padded_head_weights)."""
+        w = getattr(self, "_pw", None)
+        if w is not None:
+            return w
+        hd, dp, H = self.head_dim, align_tile(self.head_dim), self.n_head
+        s = hd / dp
+        W = self.weights
+
+        def cols(x):                                                     # [..., H*hd] -> [..., H*dp]
+            return F.pad(x.reshape(*x.shape[:-1], H, hd), (0, dp - hd)).reshape(*x.shape[:-1], H * dp)
+
+        def up(x):
+            return ttnn.from_torch(x.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=self.device,
+                                   dtype=self.dtype)
+        w = {k: up(cols(W[n].t())) for k, n in (("q", "to_q.weight"), ("k", "to_k.weight"), ("v", "to_v.weight"),
+                                                  ("g", "to_g.0.weight"))}
+        w["q_b"] = up(cols(W["to_q.bias"].reshape(1, -1)))
+        w["k_ln"] = up(cols(W["to_k.ln.weight"].reshape(1, -1) * s ** 0.5))
+        w["v_ln"] = up(cols(W["to_v.ln.weight"].reshape(1, -1) * s ** 0.5))
+        w["a"] = up(cols(W["to_a.weight"]).t())
+        w["eps"] = 1e-6 * s
+        self._pw = w
+        return w
+
+    def _sdpa(self, a, z, B, I):
+        """The attention through the fused SDPA on tile-wide heads (_PF_SDPA)."""
+        ckc, dt, w = self.compute_kernel_config, self.dtype, self._padded()
+        lin = dict(compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
+        n_key, hp = align_tile(I), self.n_head * align_tile(self.head_dim)
+        q = ttnn.linear(a, w["q"], bias=w["q_b"], **lin)
+        k = ttnn.rms_norm(ttnn.linear(a, w["k"], **lin), weight=w["k_ln"], epsilon=w["eps"],
+                          compute_kernel_config=ckc)
+        v = ttnn.rms_norm(ttnn.linear(a, w["v"], **lin), weight=w["v_ln"], epsilon=w["eps"],
+                          compute_kernel_config=ckc)
+        qkv = ttnn.reshape(ttnn.concat([q, k, v], dim=-1), (B, 1, I, 3 * hp))
+        for x in (q, k, v):
+            ttnn.deallocate(x)
+        q, k, v = ttnn.experimental.nlp_create_qkv_heads(
+            qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(qkv)
+        z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6, compute_kernel_config=ckc)
+        mask = self._sdpa_mask(z, I, n_key)
+        o = fused_sdpa(pad_axis(q, n_key, 2, 0.0), pad_axis(k, n_key, 2, 0.0), pad_axis(v, n_key, 2, 0.0),
+                       attn_mask=mask, scale=self.head_dim ** -0.5,
+                       program_config=_dense_sdpa_config(n_key), compute_kernel_config=ckc)
+        ttnn.deallocate(mask)
+        PF_SDPA_CALLS[0] += 1
+        o = ttnn.experimental.nlp_concat_heads(o)                        # [B, 1, n_key, hp]
+        o = ttnn.reshape(ttnn.slice(o, [0, 0, 0, 0], [B, 1, I, hp]), (B, I, hp))
+        g = ttnn.linear(a, w["g"], **lin)
+        o = ttnn.multiply(o, ttnn.sigmoid(g))
+        return ttnn.linear(o, w["a"], **lin)
+
+    def _sdpa_mask(self, z, I, n_key):
+        """[B, 16, n_key, n_key] bf16 SDPA mask: the pair bias times sqrt(head_dim) (the kernel adds the mask before it
+        scales), keys and rows >= I at -1e4."""
+        r = self.head_dim ** 0.5
+        if _pf_dpb_on():
+            m = self._pair_bias_dpb(z, I, n_key, scale=r, raw=True)
+            if m is not None:
+                return m
+        bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config, dtype=self.dtype,
+                             core_grid=CORE_GRID_MAIN)
+        bias = ttnn.permute(bias, (0, 3, 1, 2))                          # [B,16,I,I]
+        pb = ttnn.multiply(bias, r)
+        ttnn.deallocate(bias)
+        mask = pad_axis(pad_axis(pb, n_key, 3, -1e4), n_key, 2, -1e4)
+        if mask is not pb:
+            ttnn.deallocate(pb)
+        return mask
+
+    def _pair_bias_dpb(self, z, I, n_key, scale=1.0, raw=False):
         """[B, 16, I, n_key] fp32 pair bias, keys >= I at -1e4, from one dit_pair_bias program; None when z
         does not fit it. The bias is bf16 out of the program as out of the linear, so the fp32 cast is exact."""
         B = int(z.shape[0])
@@ -1525,9 +1608,11 @@ class PairformerAttention(Module):
             PF_DPB_CALLS[1] += 1
             return None
         PF_DPB_CALLS[0] += 1
-        bias, scratch = _DPB.dit_pair_bias(z, self._b_wt32, mask, 1.0,
+        bias, scratch = _DPB.dit_pair_bias(z, self._b_wt32, mask, scale,
                                            self.compute_kernel_config.math_fidelity, n_out=2)
         ttnn.deallocate(scratch)
+        if raw:                                                          # the padded bf16 [B,16,n_key,n_key]
+            return bias
         if I != n_key:
             bias = ttnn.reshape(bias, ttnn.Shape([B, self.n_head, I, n_key]),
                                 ttnn.Shape([B, self.n_head, n_key, n_key]))
