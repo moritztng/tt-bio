@@ -236,6 +236,13 @@ _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 # differ at six noise levels). p150a, fast seeds 60,61 x2 @1312-1350 MHz: 31.3-31.8 -> 29.7-30.0 s/design, digests
 # equal. On by default except on Wormhole, where it has not run on a card yet; RFD3_DKNN=0/1 forces it.
 _DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
+# The k-d tree query for step n+1, run during step n's last recycle on the coordinates recycle 0 predicts, for
+# SPEC_KP > k candidates; step n+1 only re-ranks them and queries the rows the prediction cannot certify
+# (tt_bio.rfd3.specidx). Every row equals the tree's query, so the index and the design are unchanged.
+_SPEC_INDEX = env_flag("RFD3_SPEC_INDEX", False)
+_SPEC_KP = int(os.environ.get("RFD3_SPEC_KP", "192"))
+#: [rows re-ranked, rows queried for real] since import, for the A/B record.
+SPEC_INDEX_STATS = [0, 0]
 
 
 def _dknn_on():
@@ -3765,7 +3772,7 @@ def _neighbours_row_blocked(mask, seq_idx, x, k, block=None):
     return out
 
 
-def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
+def _neighbours_kdtree(mask, seq_idx, x, k, workers=None, spec=None):
     """`_extend_with_neighbours` over a k-d tree query, already sorted (see _ATTN_KDTREE).
 
     Row r keeps its sequence entries (seq_idx < L) and adds the first k - n_seq atoms of its
@@ -3780,8 +3787,14 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     length = x.shape[1]
     k = min(k, length)
     xd = x[0].detach().double().cpu().numpy()
-    _, nn = cKDTree(xd).query(xd, k=k, workers=workers or torch.get_num_threads())
-    nn = nn.reshape(length, k)
+    workers = workers or torch.get_num_threads()
+    if spec is not None and len(spec[0]) == length:
+        from .specidx import rescore
+        nn, n_bad = rescore(xd, *spec, k, workers)
+        SPEC_INDEX_STATS[0] += length; SPEC_INDEX_STATS[1] += n_bad
+    else:
+        _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
+        nn = nn.reshape(length, k)
     seq = seq_idx.numpy()
     outside = ~mask.numpy()[np.arange(length)[:, None], nn]
     n_fill = k - (seq < length).sum(1, keepdims=True)
@@ -3844,7 +3857,7 @@ def _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours):
     return parts
 
 
-def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=None):
+def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=None, spec=None):
     """Start the atom index build on a worker thread (see _ATTN_THREAD), or None to build inline.
 
     The coordinate-independent prefix is built (or hit) here on the calling thread, so the
@@ -3867,13 +3880,23 @@ def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=
         from concurrent.futures import ThreadPoolExecutor
         _INDEX_POOL = ThreadPoolExecutor(1, thread_name_prefix="rfd3-attn-index")
     return _INDEX_POOL.submit(_create_attention_indices, f, X_L, tok_idx, n_keys, n_seq_neighbours,
-                              workers=torch.get_num_threads())
+                              workers=torch.get_num_threads(), spec=spec)
+
+
+def _spec_candidates(X_spec, kp, workers):
+    """Per design: (predicted coordinates float64, candidate ids, k'-th distance), see _SPEC_INDEX."""
+    from .specidx import candidates
+    out = []
+    for x in X_spec:
+        xd = x.double().numpy()
+        out.append((xd, *candidates(xd, kp, workers)))
+    return out
 
 
 _INDEX_POOL = None
 
 
-def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=None):
+def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=None, spec=None):
     device = X_L.device; L = len(tok_idx)
     parts = _attention_index_prefix(f, tok_idx, n_keys, n_seq_neighbours)
     if X_L.ndim == 2:
@@ -3886,8 +3909,12 @@ def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers
         # Measured bit-identical indices and 220.7 -> 152.5 ms at 3359 atoms D=8,
         # 142.5 -> 68.9 ms at 2702 (scripts/rfd3_port/p24_attn_indices_variants.py).
         if _ATTN_KDTREE:
-            return torch.cat([_neighbours_kdtree(mask, seq_idx, x, parts["k"], workers)
-                              for x in X_L.unsqueeze(1)], dim=0)
+            spec = spec.result() if spec is not None else None
+            if spec is not None and len(spec) != X_L.shape[0]:
+                spec = None
+            return torch.cat([_neighbours_kdtree(mask, seq_idx, x, parts["k"], workers,
+                                                 spec[b] if spec is not None else None)
+                              for b, x in enumerate(X_L.unsqueeze(1))], dim=0)
         idx = torch.cat([
             _neighbours_row_blocked(mask, seq_idx, x, parts["k"]) if _ATTN_ROW_BLOCK else
             _extend_with_neighbours(mask, seq_idx, torch.cdist(x, x, p=2), parts["k"],
@@ -4172,8 +4199,12 @@ class RFD3DiffusionModule(Module):
         out = self._downcast_q_device(q_g, _dev(A_I, dev, dt), _dev(S_I, dev, dt), mask_dev)
         return out if _RESIDENT_STEP else ttnn.to_torch(out).float()
 
-    def __call__(self, X_noisy_L, t, f, Q_L_init, C_L, P_LL, S_I, Z_II, n_recycle=None):
+    # The sampler hands each call the next step's noise and update coefficient (spec_next) when this is set.
+    TAKES_SPEC_NEXT = property(lambda self: _SPEC_INDEX and _ATTN_OVERLAP and _ATTN_THREAD and _ATTN_KDTREE)
+
+    def __call__(self, X_noisy_L, t, f, Q_L_init, C_L, P_LL, S_I, Z_II, n_recycle=None, spec_next=None):
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
+        self._spec_next = spec_next
         tok_idx = f["atom_to_token_map"]
         L = len(tok_idx); I = int(tok_idx.max().item()) + 1
         # Batch dim B comes from t (the sampler tiles the per-step scalar sigma to
@@ -4195,7 +4226,8 @@ class RFD3DiffusionModule(Module):
         f = dict(f)
         if _ATTN_OVERLAP:
             f["attn_future"] = _attention_indices_future(f, X_noisy_L, tok_idx, self.N_ATTN_KEYS,
-                                                         self.N_ATTN_SEQ, device=dev)
+                                                         self.N_ATTN_SEQ, device=dev,
+                                                         spec=self.__dict__.pop("_spec_fut", None))
             # Recycle 0's DiT index reads the same step-start coordinates, so it queues behind it.
             f["dit_future"] = _attention_indices_future(f, X_noisy_L[..., f["is_ca"], :], torch.arange(I),
                                                         self.DIT_KEYS, self.DIT_SEQ)
@@ -4296,6 +4328,12 @@ class RFD3DiffusionModule(Module):
                                           dtype=self.dtype, core_grid=CORE_GRID_MAIN)).float()
         ttnn.deallocate(Q_L)
         X_out = self.scale_positions_out(R_upd, X_noisy_L, t_L)
+        if X_L_self is None and not last and getattr(self, "_spec_next", None) is not None \
+                and _INDEX_POOL is not None and not _dknn_on():
+            # Recycle 0 predicts the next step's coordinates; query them while the last recycle runs (_SPEC_INDEX).
+            coef, eps = self._spec_next
+            X_spec = (X_noisy_L + coef * (X_noisy_L - X_out) + eps).detach().float()
+            self._spec_fut = _INDEX_POOL.submit(_spec_candidates, X_spec, _SPEC_KP, torch.get_num_threads())
         # Only the last recycle's sequence head is returned and only an earlier recycle's
         # distogram is read (by the next one): each runs where its output is used, so a
         # 2-recycle step saves one blocking logits read and one host distogram.

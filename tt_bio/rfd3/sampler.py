@@ -177,7 +177,7 @@ class RFD3Sampler:
         sym_feats = {k: f[k] for k in ("sym_transform", "sym_transform_id", "sym_entity_id", "is_sym_asu")
                      if k in f} or None
         gamma_min_sym = sched[min(int(len(sched) * sym_step_frac), len(sched) - 1)] if sym_feats else None
-        for step, (c_tm1, c_t) in enumerate(zip(sched, sched[1:])):
+        def noise(c_tm1, c_t):
             gamma = self.gamma_0 if c_t > self.gamma_min else 0.0
             t_hat = c_tm1 * (gamma + 1)
             eps = (
@@ -186,9 +186,23 @@ class RFD3Sampler:
                 * _normal_per_design(tuple(X_L.shape), device, generator)
             )
             eps[..., is_motif_fixed, :] = 0
+            return t_hat, eps
+
+        # Step n+1's noise is drawn before step n's denoiser call, so the module can predict the
+        # next X_noisy from its first recycle (spec_next, see model.RFD3DiffusionModule). The
+        # module draws nothing from the generator, so the stream and every draw are unchanged.
+        steps = list(zip(sched, sched[1:]))
+        spec = getattr(diffusion_module, "TAKES_SPEC_NEXT", False)
+        nxt = noise(*steps[0]) if steps else None
+        for step, (c_tm1, c_t) in enumerate(steps):
+            t_hat, eps = nxt
+            nxt = noise(*steps[step + 1]) if step + 1 < len(steps) else None
             X_noisy = X_L + eps
+            kw = {}
+            if spec:
+                kw["spec_next"] = None if nxt is None else (self.step_scale * (c_t - t_hat) / t_hat, nxt[1])
             outs = diffusion_module(X_noisy_L=X_noisy, t=t_hat.tile(D), f=f,
-                                    n_recycle=n_recycle, **initializer_outputs)
+                                    n_recycle=n_recycle, **initializer_outputs, **kw)
             X_denoised = outs["X_L"]
             if sym_feats is not None and c_t > gamma_min_sym:
                 X_denoised = apply_symmetry_atomwise(
