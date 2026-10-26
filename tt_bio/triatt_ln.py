@@ -48,6 +48,11 @@ RB = 4          # row tiles per reader barrier
 TR = True
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
+#: rotate each core's plain-read rows by its row-split index, so the cores of a group do not all start on the same
+#: row residue and hit the same few DRAM banks in lockstep (head-major pages of one row tile are MT apart). Order
+#: only: every row is read, computed and written exactly as before. OpenDDE WH normal fold, same chip, CIFs identical,
+#: 1000 MHz: 512 -0.75 s, 640 -1.36 s (stgf); per call it moves only the HiFi2 bf16 write (512 9.67 -> 8.77 ms).
+STAGGER = True
 _CACHE: dict = {}
 #: (served, declined, served with bfp8 q/k/v)
 STATS = [0, 0, 0]
@@ -180,8 +185,9 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
         cx, cy = c % gx, c // gx
         rows = 16 * n if tr else n
         n0, q, end = cols[c % g] if cols else ((c % g) * nw, 0, nwf)
-        rd[cx][cy] = [r0, n, int(bool(tr)), MT, n0]
-        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end]
+        s = (c // g) % n if STAGGER and not tr and n else 0
+        rd[cx][cy] = [r0, n, int(bool(tr)), MT, n0, s]
+        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end, s]
         cp[cx][cy] = [rows, q]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -266,7 +272,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, tuple(cols or ()))
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
