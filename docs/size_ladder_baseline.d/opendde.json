@@ -15,24 +15,24 @@
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-10-15",
+      "recorded": "2026-10-25",
       "host": "tt-quietbox",
-      "commit": "4ba29781f",
+      "commit": "0a3f28e58",
       "host_threads": 8,
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-10-15",
+          "recorded": "2026-10-25",
           "host": "tt-quietbox",
-          "commit": "4ba29781f",
+          "commit": "0a3f28e58",
           "host_threads": 8,
           "runtime_s": {
-            "256": 24.2,
-            "512": 55.2,
-            "640": 90.0,
-            "768": 129.1,
-            "896": 171.1,
-            "1024": 227.3
+            "256": 20.3,
+            "512": 55.1,
+            "640": 76.8,
+            "768": 125.5,
+            "896": 167.2,
+            "1024": 221.5
           },
           "levers": {
             "256": {
@@ -94,14 +94,13 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 0,
-                "declined": 6448,
-                "frac": 0.0,
+                "served": 145,
+                "declined": 26,
+                "frac": 0.847953216374269,
                 "how": "stats",
                 "rejects": {
-                  "memory": 6448
-                },
-                "reason": "declines all 6448 calls on memory x6448: at 256 the trimul channel loop runs on L1, and the dual-NOC matmul only takes a DRAM-interleaved activation and output (mm_dualnoc.eligible rejects on `memory`). From 512 the loop is on DRAM and it serves 184. Falsifier: a `memory` decline at 512+ means the DRAM route moved"
+                  "memory": 26
+                }
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
@@ -139,7 +138,7 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 2104,
+                "served": 1057,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -147,18 +146,19 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1208,
+                "declined": 17,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "k_tiles=2": 160,
-                  "k_tiles=12": 1048
+                  "act_memcfg_pair": 16,
+                  "k_tiles=12": 1,
+                  "t1:key=2x4x2": 144
                 },
-                "reason": "declines all 1208 calls on k_tiles=12 x1048, k_tiles=2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 17 calls on t1:key=2x4x2 x144, act_memcfg_pair x16, k_tiles=12 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 3320,
+                "served": 2273,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -173,38 +173,34 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 25792,
+                "declined": 24,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "gated_window_BufferType.L1": 6448,
-                  "window_BufferType.L1": 12896,
-                  "back_l1_src_narrow": 6448
+                  "back_l1_src_narrow": 24
                 },
-                "reason": "declines all 25792 calls on window_BufferType.L1 x12896, gated_window_BufferType.L1 x6448, back_l1_src_narrow x6448: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N"
+                "reason": "declines all 24 calls on back_l1_src_narrow x24: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 8,
+                "served": 1200,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 0,
+                "served": 338,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: the gated move's L1 leg (reblock_permute.eligible_gated) opens for 288 <= N <= 352, or below 288 when the Nt*Nt groups reach L1_GROUPS_PER_CORE=0.68 per core. N=256 is 64 groups: the 110-core p300c needs 75 and the 130-core p150a 88, so the gated move declines (counted under REBLOCK_PERMUTE as gated_window_BufferType.L1 x6448) and the mask-after-move that rides it is never reached. A Wormhole chip's 72 cores need 49, and both serve 25792 there. Falsifier: a call here on Blackhole means the L1 floor or the grid changed"
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 0,
+                "served": 338,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: the gated move's L1 leg (reblock_permute.eligible_gated) opens for 288 <= N <= 352, or below 288 when the Nt*Nt groups reach L1_GROUPS_PER_CORE=0.68 per core. N=256 is 64 groups: the 110-core p300c needs 75 and the 130-core p150a 88, so the gated move declines (counted under REBLOCK_PERMUTE as gated_window_BufferType.L1 x6448) and the mask-after-move that rides it is never reached. A Wormhole chip's 72 cores need 49, and both serve 25792 there. Falsifier: a call here on Blackhole means the L1 floor or the grid changed"
+                "frac": 1.0,
+                "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
@@ -725,7 +721,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2304,
+                "served": 208,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -765,7 +761,7 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 2112,
+                "served": 1064,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -773,18 +769,18 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1056,
+                "declined": 8,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 1056
+                  "k_tiles=12": 8
                 },
-                "reason": "declines all 1056 calls on k_tiles=12 x1056, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 3328,
+                "served": 2280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -806,21 +802,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2304,
+                "served": 1256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4608,
+                "served": 416,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4608,
+                "served": 416,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1029,7 +1025,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2353,
+                "served": 2352,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1070,25 +1066,21 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 2112,
-                "declined": 1,
-                "frac": 0.9995267392333176,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,2)": 1
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1057,
+                "declined": 1056,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=2": 1,
                   "k_tiles=12": 1056
                 },
-                "reason": "declines all 1057 calls on k_tiles=12 x1056, t1:key=2x4x2 x160, k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1056 calls on k_tiles=12 x1056, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -1121,14 +1113,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4706,
+                "served": 4704,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4706,
+                "served": 4704,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1690,12 +1682,9 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 688,
-                "declined": 1,
-                "frac": 0.9985486211901307,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:1024x1024x64": 1
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1874,10 +1863,11 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 580,
-                "frac": 0.12121212121212122,
-                "how": "wrap"
+                "served": 0,
+                "declined": 660,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "dark on 1024x1024x64 since b63dc4021 sized _l1_fits to the allocator bank (1461760 B/core): the 167772160 B slice at x1.25 no longer fits 110 cores (160793600 B). Same CIF digest, and 219.0 s dark against 220.1 s firing on qb2 card 0 at ~1300 MHz (perf/rfd4/opendde-drift/ab), so it costs nothing measurable [carried from p300c]"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1919,35 +1909,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              23.9,
-              24.1,
-              24.2,
-              24.2,
-              24.2
+              20.1,
+              20.4,
+              20.3,
+              20.4,
+              20.3
             ],
             "512": [
-              55.2,
-              55.5,
-              55.2,
-              55.4,
-              55.1
+              57.9,
+              56.4,
+              55.1,
+              51.8,
+              50.8
             ],
             "640": [
-              90.0
+              76.8
             ],
             "768": [
-              129.1
+              125.5
             ],
             "896": [
-              171.1
+              167.2
             ],
             "1024": [
-              227.3
+              221.5
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -1960,7 +1950,7 @@
               "n": 35
             },
             "512": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -1970,28 +1960,28 @@
                 1350,
                 1350
               ],
-              "n": 60
+              "n": 63
             },
             "640": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 18
+              "n": 16
             },
             "768": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 25
+              "n": 24
             },
             "896": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -2000,58 +1990,58 @@
               "n": 31
             },
             "1024": {
-              "card": "0",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 41
+              "n": 40
             }
           },
           "load": {
             "256": {
-              "max": 0.3,
+              "max": 0.28,
               "rep_median": [
-                0.29,
-                0.28,
                 0.27,
-                0.22,
-                0.19
+                0.24,
+                0.23,
+                0.23,
+                0.21
               ]
             },
             "512": {
-              "max": 0.29,
+              "max": 0.28,
               "rep_median": [
-                0.21,
+                0.23,
                 0.26,
-                0.2,
-                0.21,
-                0.23
+                0.25,
+                0.26,
+                0.25
               ]
             },
             "640": {
-              "max": 0.32,
+              "max": 0.38,
+              "rep_median": [
+                0.35
+              ]
+            },
+            "768": {
+              "max": 0.24,
+              "rep_median": [
+                0.22
+              ]
+            },
+            "896": {
+              "max": 0.26,
               "rep_median": [
                 0.23
               ]
             },
-            "768": {
-              "max": 0.36,
-              "rep_median": [
-                0.31
-              ]
-            },
-            "896": {
-              "max": 0.29,
-              "rep_median": [
-                0.24
-              ]
-            },
             "1024": {
-              "max": 0.3,
+              "max": 0.28,
               "rep_median": [
-                0.2
+                0.23
               ]
             }
           },
@@ -2062,12 +2052,12 @@
               "n_ca": 256,
               "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.0324,
-              "radius_of_gyration_A": 114.015,
-              "plddt_mean": 0.58558,
+              "ca_ca_median_A": 133.225,
+              "radius_of_gyration_A": 114.033,
+              "plddt_mean": 0.585489,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.032 A outside [3.6, 4.0]",
+                "median CA-CA 133.225 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 114.0 A outside [9.0, 45.2]"
               ]
@@ -2092,32 +2082,32 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0125,
+              "clash_frac": 0.0094,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 150.3675,
-              "radius_of_gyration_A": 116.968,
-              "plddt_mean": 0.564754,
+              "ca_ca_median_A": 150.2686,
+              "radius_of_gyration_A": 117.081,
+              "plddt_mean": 0.566507,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 150.368 A outside [3.6, 4.0]",
+                "median CA-CA 150.269 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 117.0 A outside [12.8, 64.1]"
+                "radius of gyration 117.1 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0104,
               "chain_break_frac": 0.9987,
-              "ca_ca_median_A": 144.6341,
-              "radius_of_gyration_A": 114.157,
-              "plddt_mean": 0.555847,
+              "ca_ca_median_A": 145.2846,
+              "radius_of_gyration_A": 114.14,
+              "plddt_mean": 0.556165,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 144.634 A outside [3.6, 4.0]",
+                "median CA-CA 145.285 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.2 A outside [13.7, 68.7]"
+                "radius of gyration 114.1 A outside [13.7, 68.7]"
               ]
             },
             "896": {
@@ -2161,52 +2151,369 @@
             "1536": "'cdk2x2_1536.yaml' has 1536 residues, and opendde is measured to handle at most 1024 residues on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run o"
           },
           "reps": 1,
-          "sigma_runtime_512": 0.003,
+          "sigma_runtime_512": 0.0555,
           "exponents": {
             "256->512": {
-              "k": 1.19,
+              "k": 1.441,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.095,
-              "tol": 0.5
+              "k": 2.03,
+              "tol": 0.581
             }
           },
           "sigma_runtime": {
-            "256": 0.0054,
-            "512": 0.003
+            "256": 0.006,
+            "512": 0.0555
           },
           "exponents_measured": {
-            "256->512": 1.19,
-            "512->640": 2.191,
-            "640->768": 1.979,
-            "768->896": 1.827,
-            "896->1024": 2.127
+            "256->512": 1.441,
+            "512->640": 1.488,
+            "640->768": 2.694,
+            "768->896": 1.861,
+            "896->1024": 2.106
           }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-10-24",
+      "recorded": "2026-10-25",
       "host": "tt-quietbox2",
-      "commit": "1a5f54295",
+      "commit": "0a3f28e58",
       "host_threads": 5,
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-10-24",
+          "recorded": "2026-10-25",
           "host": "tt-quietbox2",
-          "commit": "1a5f54295",
+          "commit": "0a3f28e58",
           "host_threads": 5,
           "runtime_s": {
-            "512": 45.5,
-            "768": 120.4,
-            "896": 167.1,
-            "640": 72.5,
-            "1024": 220.8,
-            "256": 14.5
+            "256": 14.2,
+            "512": 45.3,
+            "640": 71.2,
+            "768": 144.2,
+            "896": 168.2,
+            "1024": 219.0
           },
           "levers": {
+            "256": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 145,
+                "declined": 26,
+                "frac": 0.847953216374269,
+                "how": "stats",
+                "rejects": {
+                  "memory": 26
+                }
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 315,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 4,
+                "declined": 604,
+                "frac": 0.006578947368421052,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:256x256x64": 80,
+                  "l1_dest_is_faster:256x256x384": 524
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 1057,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 17,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "act_memcfg_pair": 16,
+                  "k_tiles=12": 1,
+                  "t1:key=2x4x2": 144
+                },
+                "reason": "declines all 17 calls on t1:key=2x4x2 x144, act_memcfg_pair x16, k_tiles=12 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2273,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 24,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "back_l1_src_narrow": 24
+                },
+                "reason": "declines all 24 calls on back_l1_src_narrow x24: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1200,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 338,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 338,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 604,
+                "declined": 4,
+                "frac": 0.993421052631579,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 80,
+                "declined": 524,
+                "frac": 0.13245033112582782,
+                "how": "stats",
+                "rejects": {
+                  "base-unraised": 524
+                }
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
             "512": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
@@ -2517,6 +2824,310 @@
                 "how": "stats-dict"
               }
             },
+            "640": {
+              "SPLIT_SWIGLU": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module"
+              },
+              "SPLIT_SWIGLU_SMALL_GRID": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module"
+              },
+              "PAIR_FFN_L1_FC1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "PAIR_FFN_L1_LN": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "PAIR_FFN_L1_SLICE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "PAIR_FFN_FUSED_RESIDUAL": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "PAIR_FFN_FILL_ASSEMBLY": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
+              },
+              "TRIMUL_IN_PROJ_DUAL_NOC": {
+                "resolved": "True",
+                "served": 208,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "ADALN_S_HOIST": {
+                "resolved": "True",
+                "served": 315,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "FP32_SOFTMAX_BIAS_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path"
+              },
+              "FP32_SOFTMAX_L1_GRID": {
+                "resolved": "(8, 8)",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict",
+                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
+              },
+              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
+                "resolved": "True",
+                "served": 528,
+                "declined": 80,
+                "frac": 0.868421052631579,
+                "how": "wrap",
+                "rejects": {
+                  "l1_dest_is_faster:640x640x64": 80
+                }
+              },
+              "PAIR_PROJ_MINIMAL_MATMUL": {
+                "resolved": "True",
+                "served": 1064,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 8,
+                "frac": 0.0,
+                "how": "stats",
+                "rejects": {
+                  "t1:key=2x4x2": 160,
+                  "k_tiles=12": 8
+                },
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+              },
+              "QKV_MM_CONFIG": {
+                "resolved": "True",
+                "served": 2280,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "DEVICE_LM_HANDOFF": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
+              },
+              "REBLOCK_PERMUTE_BACK": {
+                "resolved": "True",
+                "served": 1256,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "REBLOCK_PERMUTE_GATED": {
+                "resolved": "True",
+                "served": 416,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIMUL_MASK_AFTER_MOVE": {
+                "resolved": "True",
+                "served": 416,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "TRIATT_PERSISTENT_MASK": {
+                "resolved": "True",
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_WIDE_K": {
+                "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_LARGE_S": {
+                "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "SDPA_FUSED_PADDED": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
+              },
+              "RFD3_SPARSE_BIAS": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FUSED_SCORES": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_QKV": {
+                "resolved": "True",
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_HEAD_MAJOR_TAIL": {
+                "resolved": "True",
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_TAIL_OVER_L1": {
+                "resolved": "True",
+                "served": 1216,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats-shared"
+              },
+              "B2_BIAS_SLICE_HOIST": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
+              },
+              "B2_ADALN_S_MEMO": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "wrap",
+                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
+              },
+              "B2_TOKEN_DIT_SDPA": {
+                "resolved": "True",
+                "served": 144,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "APB_CONCAT_HEADS": {
+                "resolved": "False",
+                "served": 0,
+                "declined": 632,
+                "frac": 0.0,
+                "how": "stats"
+              },
+              "ATOM_AXIS_BUCKET": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
+              },
+              "TRANSPOSE_L1_RESIDENT": {
+                "resolved": "1.25",
+                "served": 80,
+                "declined": 528,
+                "frac": 0.13157894736842105,
+                "how": "wrap"
+              },
+              "SDPA_Q_CHUNK_FITS": {
+                "resolved": "True",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "setlen"
+              },
+              "RFD3_SOFTMAX_PV_FUSED": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "RFD3_FC1_SPLIT_SILU": {
+                "resolved": "not-imported",
+                "served": null,
+                "declined": null,
+                "frac": null,
+                "how": "stats"
+              },
+              "TRANSITION_H_CHUNK": {
+                "resolved": "16",
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
+              },
+              "TRIATT_SDPA_HIFI": {
+                "resolved": "none",
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
+                "how": "stats-dict"
+              }
+            },
             "768": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
@@ -2576,7 +3187,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2353,
+                "served": 2352,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -2617,25 +3228,21 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 2112,
-                "declined": 1,
-                "frac": 0.9995267392333176,
-                "how": "wrap",
-                "rejects": {
-                  "k_tiles=2:(2,2)": 1
-                }
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1057,
+                "declined": 1056,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=2": 1,
                   "k_tiles=12": 1056
                 },
-                "reason": "declines all 1057 calls on k_tiles=12 x1056, t1:key=2x4x2 x160, k_tiles=2 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 1056 calls on k_tiles=12 x1056, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -2668,14 +3275,14 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4706,
+                "served": 4704,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4706,
+                "served": 4704,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3147,310 +3754,6 @@
                 "how": "stats-dict"
               }
             },
-            "640": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module"
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module"
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 208,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 315,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path"
-              },
-              "FP32_SOFTMAX_L1_GRID": {
-                "resolved": "(8, 8)",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 528,
-                "declined": 80,
-                "frac": 0.868421052631579,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:640x640x64": 80
-                }
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 1064,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 8,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "t1:key=2x4x2": 160,
-                  "k_tiles=12": 8
-                },
-                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 2280,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 1256,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 416,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 416,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "True",
-                "served": 8,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "SDPA_FUSED_LARGE_S": {
-                "resolved": "True",
-                "served": 8,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "True",
-                "served": 144,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "APB_CONCAT_HEADS": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 632,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "ATOM_AXIS_BUCKET": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 80,
-                "declined": 528,
-                "frac": 0.13157894736842105,
-                "how": "wrap"
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRANSITION_H_CHUNK": {
-                "resolved": "16",
-                "served": 80,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_SDPA_HIFI": {
-                "resolved": "none",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict"
-              }
-            },
             "1024": {
               "SPLIT_SWIGLU": {
                 "resolved": "True",
@@ -3764,482 +4067,163 @@
                 "frac": 0.0,
                 "how": "stats-dict"
               }
-            },
-            "256": {
-              "SPLIT_SWIGLU": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module"
-              },
-              "SPLIT_SWIGLU_SMALL_GRID": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-shared",
-                "reason": "declines all 0 calls: an ESMC lever; opendde does not run that module"
-              },
-              "PAIR_FFN_L1_FC1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "PAIR_FFN_L1_LN": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "PAIR_FFN_L1_SLICE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "PAIR_FFN_FUSED_RESIDUAL": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "PAIR_FFN_FILL_ASSEMBLY": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "declines all 0 calls: an ESMC pair-FFN lever; opendde does not run that module"
-              },
-              "TRIMUL_IN_PROJ_DUAL_NOC": {
-                "resolved": "True",
-                "served": 145,
-                "declined": 26,
-                "frac": 0.847953216374269,
-                "how": "stats",
-                "rejects": {
-                  "memory": 26
-                }
-              },
-              "ADALN_S_HOIST": {
-                "resolved": "True",
-                "served": 315,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "FP32_SOFTMAX_BIAS_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "declines all 0 calls: opendde does not take the hoisted-bias softmax path"
-              },
-              "FP32_SOFTMAX_L1_GRID": {
-                "resolved": "(8, 8)",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict",
-                "reason": "no call site on this path: 0 L1 blocks AND 0 L1 refusals at every rung. The counter advances only inside `_fp32_softmax_attention` (tt_bio/tenstorrent.py:3336), reached only by attentions constructed `fp32_softmax=True` -- an opt-in taken by the AF2 / OpenFold3 stack alone (tt_bio/af2.py:332,336 and tt_bio/openfold3_*.py). opendde runs its triangle attention in bf16 and never enters it, so there is no fp32 softmax for an L1 grid to shard. Control in this same baseline: openfold3 and openbind, which do opt in, serve 1320 to 150040 L1 blocks across these same rungs."
-              },
-              "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
-                "resolved": "True",
-                "served": 4,
-                "declined": 604,
-                "frac": 0.006578947368421052,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:256x256x64": 80,
-                  "l1_dest_is_faster:256x256x384": 524
-                }
-              },
-              "PAIR_PROJ_MINIMAL_MATMUL": {
-                "resolved": "True",
-                "served": 1057,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "TRIMUL_TAIL_F1": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 17,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "act_memcfg_pair": 16,
-                  "k_tiles=12": 1,
-                  "t1:key=2x4x2": 144
-                },
-                "reason": "declines all 17 calls on t1:key=2x4x2 x144, act_memcfg_pair x16, k_tiles=12 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 2273,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "wrap"
-              },
-              "DEVICE_LM_HANDOFF": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 24,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "back_l1_src_narrow": 24
-                },
-                "reason": "declines all 24 calls on back_l1_src_narrow x24: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
-              },
-              "REBLOCK_PERMUTE_BACK": {
-                "resolved": "True",
-                "served": 1200,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "REBLOCK_PERMUTE_GATED": {
-                "resolved": "True",
-                "served": 338,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIMUL_MASK_AFTER_MOVE": {
-                "resolved": "True",
-                "served": 338,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "TRIATT_PERSISTENT_MASK": {
-                "resolved": "True",
-                "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "SDPA_WIDE_K": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
-              },
-              "SDPA_FUSED_LARGE_S": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "below the cap, by construction: 0 served AND 0 declined at this rung. The route is offered only for q_len > `_Q_SPLIT_MAX_S` = 1024 padded tokens (tt_bio/triatt_sdpa.py:88, gate at tt_bio/tenstorrent.py:1843), and at or below the cap the stock ladder already lands on a fused pair -- the shipped bit-exact path this flag was written not to disturb."
-              },
-              "SDPA_FUSED_PADDED": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: the padded pair is offered only right before the first stock rung, and served 0 declined 0 means every triangle-attention call at this rung already runs fused at a dividing pair, so the lever never fires and the numbers are unchanged [carried from p150a]"
-              },
-              "RFD3_SPARSE_BIAS": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FUSED_SCORES": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_QKV": {
-                "resolved": "True",
-                "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_HEAD_MAJOR_TAIL": {
-                "resolved": "True",
-                "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "TRIATT_TAIL_OVER_L1": {
-                "resolved": "True",
-                "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats-shared"
-              },
-              "B2_BIAS_SLICE_HOIST": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
-              },
-              "B2_ADALN_S_MEMO": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: a boltz-2 diffusion lever; opendde does not run that module"
-              },
-              "B2_TOKEN_DIT_SDPA": {
-                "resolved": "True",
-                "served": 144,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
-              },
-              "APB_CONCAT_HEADS": {
-                "resolved": "False",
-                "served": 0,
-                "declined": 632,
-                "frac": 0.0,
-                "how": "stats"
-              },
-              "ATOM_AXIS_BUCKET": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung. The counter sits in `tenstorrent.DiffusionModule._populate_diffusion_cache` (tt_bio/tenstorrent.py:11271-11278), and `tenstorrent.DiffusionModule` is constructed only by Boltz-2 (tt_bio/boltz2.py:4232); opendde runs its own diffusion module and never reaches it. Control in this same baseline: boltz2 serves 6 per fold at every rung."
-              },
-              "TRANSPOSE_L1_RESIDENT": {
-                "resolved": "1.25",
-                "served": 604,
-                "declined": 4,
-                "frac": 0.993421052631579,
-                "how": "wrap"
-              },
-              "SDPA_Q_CHUNK_FITS": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "setlen"
-              },
-              "RFD3_SOFTMAX_PV_FUSED": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "RFD3_FC1_SPLIT_SILU": {
-                "resolved": "not-imported",
-                "served": null,
-                "declined": null,
-                "frac": null,
-                "how": "stats"
-              },
-              "TRANSITION_H_CHUNK": {
-                "resolved": "16",
-                "served": 80,
-                "declined": 524,
-                "frac": 0.13245033112582782,
-                "how": "stats",
-                "rejects": {
-                  "base-unraised": 524
-                }
-              },
-              "TRIATT_SDPA_HIFI": {
-                "resolved": "none",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "stats-dict"
-              }
             }
           },
           "runtime_reps_s": {
+            "256": [
+              14.4,
+              14.2,
+              14.3,
+              14.1,
+              14.2
+            ],
             "512": [
-              45.4,
-              45.6,
-              45.5,
-              45.6,
-              45.5
-            ],
-            "768": [
-              120.4
-            ],
-            "896": [
-              167.8,
-              167.1,
-              166.8
+              45.3,
+              45.2,
+              45.3,
+              45.3,
+              46.0
             ],
             "640": [
-              88.4,
-              72.0,
-              72.5
+              71.2
+            ],
+            "768": [
+              144.2
+            ],
+            "896": [
+              168.2
             ],
             "1024": [
-              221.6,
-              220.8,
-              220.7
-            ],
-            "256": [
-              14.5,
-              14.5,
-              14.4,
-              14.5,
-              14.5
+              219.0
             ]
           },
           "aiclk": {
-            "512": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1318,
-                1293,
-                1306,
-                1306,
-                1306
-              ],
-              "n": 55
-            },
-            "768": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1293
-              ],
-              "n": 25
-            },
-            "896": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1281,
-                1287,
-                1281
-              ],
-              "n": 102
-            },
-            "640": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1318,
-                1306,
-                1306
-              ],
-              "n": 51
-            },
-            "1024": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1275,
-                1287,
-                1293
-              ],
-              "n": 133
-            },
             "256": {
               "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
+                1331,
                 1306,
-                1325,
-                1343,
-                1337,
+                1318,
+                1350,
                 1325
               ],
               "n": 25
+            },
+            "512": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1318,
+                1325,
+                1293,
+                1306,
+                1325
+              ],
+              "n": 55
+            },
+            "640": {
+              "card": "0",
+              "min": 800,
+              "max": 1343,
+              "rep_median": [
+                1306
+              ],
+              "n": 16
+            },
+            "768": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1325
+              ],
+              "n": 31
+            },
+            "896": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1300
+              ],
+              "n": 37
+            },
+            "1024": {
+              "card": "0",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1287
+              ],
+              "n": 44
             }
           },
           "load": {
-            "512": {
-              "max": 0.2,
+            "256": {
+              "max": 0.27,
               "rep_median": [
+                0.26,
+                0.2,
+                0.17,
                 0.15,
-                0.14,
-                0.19,
-                0.18,
-                0.17
+                0.16
               ]
             },
-            "768": {
+            "512": {
               "max": 0.23,
               "rep_median": [
-                0.18
-              ]
-            },
-            "896": {
-              "max": 0.4,
-              "rep_median": [
-                0.32,
-                0.31,
-                0.31
+                0.15,
+                0.2,
+                0.21,
+                0.18,
+                0.16
               ]
             },
             "640": {
-              "max": 0.62,
+              "max": 0.19,
               "rep_median": [
-                0.58,
-                0.4,
-                0.31
+                0.16
+              ]
+            },
+            "768": {
+              "max": 0.53,
+              "rep_median": [
+                0.29
+              ]
+            },
+            "896": {
+              "max": 0.81,
+              "rep_median": [
+                0.46
               ]
             },
             "1024": {
-              "max": 0.4,
+              "max": 0.33,
               "rep_median": [
-                0.29,
-                0.19,
-                0.32
-              ]
-            },
-            "256": {
-              "max": 0.24,
-              "rep_median": [
-                0.2,
-                0.2,
-                0.2,
-                0.23,
-                0.22
+                0.19
               ]
             }
           },
           "structure": {
+            "256": {
+              "file": "cdk2x2_256.cif",
+              "steps": 6,
+              "n_ca": 256,
+              "clash_frac": 0.0078,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 133.225,
+              "radius_of_gyration_A": 114.033,
+              "plddt_mean": 0.585489,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 133.225 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 114.0 A outside [9.0, 45.2]"
+              ]
+            },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
@@ -4256,20 +4240,36 @@
                 "radius of gyration 113.4 A outside [11.8, 58.9]"
               ]
             },
+            "640": {
+              "file": "cdk2x2_640.cif",
+              "steps": 6,
+              "n_ca": 640,
+              "clash_frac": 0.0094,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 150.2686,
+              "radius_of_gyration_A": 117.081,
+              "plddt_mean": 0.566507,
+              "geometry_ok": false,
+              "geometry_fail": [
+                "median CA-CA 150.269 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 117.1 A outside [12.8, 64.1]"
+              ]
+            },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0104,
               "chain_break_frac": 0.9987,
-              "ca_ca_median_A": 144.6341,
-              "radius_of_gyration_A": 114.157,
-              "plddt_mean": 0.555847,
+              "ca_ca_median_A": 145.2846,
+              "radius_of_gyration_A": 114.14,
+              "plddt_mean": 0.556165,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 144.634 A outside [3.6, 4.0]",
+                "median CA-CA 145.285 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.2 A outside [13.7, 68.7]"
+                "radius of gyration 114.1 A outside [13.7, 68.7]"
               ]
             },
             "896": {
@@ -4289,22 +4289,6 @@
                 "radius of gyration 112.9 A outside [14.6, 72.8]"
               ]
             },
-            "640": {
-              "file": "cdk2x2_640.cif",
-              "steps": 6,
-              "n_ca": 640,
-              "clash_frac": 0.0094,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 150.2686,
-              "radius_of_gyration_A": 117.081,
-              "plddt_mean": 0.566507,
-              "geometry_ok": false,
-              "geometry_fail": [
-                "median CA-CA 150.269 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 117.1 A outside [12.8, 64.1]"
-              ]
-            },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
@@ -4320,77 +4304,55 @@
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 115.4 A outside [15.3, 76.6]"
               ]
-            },
-            "256": {
-              "file": "cdk2x2_256.cif",
-              "steps": 6,
-              "n_ca": 256,
-              "clash_frac": 0.0078,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.225,
-              "radius_of_gyration_A": 114.033,
-              "plddt_mean": 0.585489,
-              "geometry_ok": false,
-              "geometry_fail": [
-                "median CA-CA 133.225 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.0 A outside [9.0, 45.2]"
-              ]
             }
           },
-          "rungs_carried": [
-            "256",
-            "640",
-            "896",
-            "1024"
-          ],
           "reps": 1,
-          "sigma_runtime_512": 0.0018,
+          "sigma_runtime_512": 0.0072,
           "exponents": {
             "256->512": {
-              "k": 1.65,
+              "k": 1.674,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.4,
+              "k": 2.856,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0031,
-            "512": 0.0018
+            "256": 0.008,
+            "512": 0.0072
           },
           "exponents_measured": {
-            "256->512": 1.65,
-            "512->640": 2.088,
-            "640->768": 2.782,
-            "768->896": 2.126,
-            "896->1024": 2.087
+            "256->512": 1.674,
+            "512->640": 2.026,
+            "640->768": 3.871,
+            "768->896": 0.999,
+            "896->1024": 1.976
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-23",
+      "recorded": "2026-10-25",
       "host": "UF-EV-A2-GWH01",
-      "commit": "437a23413",
+      "commit": "0a3f28e58",
       "host_threads": 2,
       "models": {
         "opendde": {
           "grid": "8x9",
-          "recorded": "2026-10-23",
+          "recorded": "2026-10-25",
           "host": "UF-EV-A2-GWH01",
-          "commit": "437a23413",
+          "commit": "0a3f28e58",
           "host_threads": 2,
           "runtime_s": {
-            "256": 26.3,
-            "512": 80.6,
-            "640": 131.6,
-            "768": 281.2,
-            "896": 358.5,
-            "1024": 508.9,
-            "1280": 1247.6,
-            "1536": 2354.9
+            "256": 25.2,
+            "512": 72.4,
+            "640": 114.5,
+            "768": 262.7,
+            "896": 351.8,
+            "1024": 490.8,
+            "1280": 1121.2,
+            "1536": 2355.3
           },
           "levers": {
             "256": {
@@ -4562,11 +4524,10 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 8,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -4873,11 +4834,10 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1208,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -5002,14 +4962,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 0,
-                "declined": 80,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "base-unraised": 80
-                },
-                "reason": "declines all 80 calls on base-unraised x80: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5199,7 +5155,7 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 92,
+                "served": 1300,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5322,14 +5278,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 0,
-                "declined": 80,
-                "frac": 0.0,
-                "how": "stats",
-                "rejects": {
-                  "base-unraised": 80
-                },
-                "reason": "declines all 80 calls on base-unraised x80: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "served": 80,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5428,23 +5380,22 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 620,
-                "declined": 192,
-                "frac": 0.7635467980295566,
+                "served": 712,
+                "declined": 376,
+                "frac": 0.6544117647058824,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1504x64x384": 184,
-                  "l1_dest_is_faster:1504x32x384": 8
+                  "l1_dest_is_faster:1504x32x384": 376
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 2096,
-                "declined": 112,
-                "frac": 0.9492753623188406,
+                "declined": 204,
+                "frac": 0.9113043478260869,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=12:(12,1)": 112
+                  "k_tiles=12:(12,1)": 204
                 }
               },
               "TRIMUL_TAIL_F1": {
@@ -5462,12 +5413,12 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2432,
-                "declined": 112,
-                "frac": 0.9559748427672956,
+                "served": 2708,
+                "declined": 204,
+                "frac": 0.929945054945055,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(12,1)": 112
+                  "no_mm_block:(12,1)": 204
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -5508,34 +5459,33 @@
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 1320,
-                "declined": 1320,
-                "frac": 0.5,
+                "served": 1412,
+                "declined": 2620,
+                "frac": 0.3501984126984127,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 2,
-                  "pm_over_l1": 1318
+                  "l1_budget": 3,
+                  "pm_over_l1": 2617
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1208,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 112,
+                "declined": 204,
                 "frac": 0.0,
                 "how": "stats",
                 "reason": "entered and refused, not unreached: 8 calls at this rung are above the 1024-token cap and no fused (q_chunk, k_chunk) pair ran -- an L1 refusal or a token count with no 32-aligned divisor (tt_bio/tenstorrent.py:1855-1858). Each one falls through to the stock ladder, which is byte for byte the pre-flip path, so the refusal costs accuracy nothing. Same model, same baseline: it does serve at 640 aa (8 calls), 1024 aa (56 calls). [carried from p300c] [carried from p150a]"
               },
               "SDPA_FUSED_PADDED": {
                 "resolved": "True",
-                "served": 112,
+                "served": 204,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5556,21 +5506,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 112,
+                "served": 204,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 112,
+                "served": 204,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 112,
+                "served": 204,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -5615,9 +5565,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 96,
+                "served": 188,
                 "declined": 524,
-                "frac": 0.15483870967741936,
+                "frac": 0.2640449438202247,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -5827,22 +5777,21 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1208,
-                "declined": 1929,
-                "frac": 0.3850812878546382,
+                "declined": 3137,
+                "frac": 0.27802071346375146,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 2,
-                  "pm_over_l1": 1207,
+                  "l1_budget": 3,
+                  "pm_over_l1": 2414,
                   "fill_preconditions": 720
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1208,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -6394,13 +6343,13 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 11032,
-                "declined": 22064,
+                "served": 11112,
+                "declined": 22224,
                 "frac": 0.3333333333333333,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1280x448x64": 320,
-                  "l1_dest_is_faster:1280x384x64": 160,
+                  "l1_dest_is_faster:1280x416x64": 480,
+                  "l1_dest_is_faster:1280x32x64": 160,
                   "l1_dest_is_faster:1280x64x384": 20960,
                   "l1_dest_is_faster:2496x32x384": 624
                 }
@@ -6408,14 +6357,14 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 12884,
+                "declined": 12964,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 480,
+                  "k_tiles=2:(2,1)": 560,
                   "k_tiles=12:(12,1)": 12404
                 },
-                "reason": "declines all 12884 calls on k_tiles=12:(12,1) x12404, k_tiles=2:(2,1) x480: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve 12 and 2, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 12964 calls on k_tiles=12:(12,1) x12404, k_tiles=2:(2,1) x560: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve 12 and 2, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6427,9 +6376,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 38652,
+                "served": 38892,
                 "declined": 12404,
-                "frac": 0.7570510811657788,
+                "frac": 0.7581877729257642,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(12,1)": 12404
@@ -6452,30 +6401,30 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 6568,
+                "served": 6544,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 19136,
+                "served": 17888,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 19136,
+                "served": 17888,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 12532,
+                "served": 12612,
                 "declined": 1059,
-                "frac": 0.9220807887572658,
+                "frac": 0.9225367566381392,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 1,
@@ -6484,16 +6433,16 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 12532,
+                "served": 12612,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 12532,
+                "served": 12612,
                 "declined": 352,
-                "frac": 0.9726792921452965,
+                "frac": 0.9728478864547979,
                 "how": "stats"
               },
               "SDPA_FUSED_PADDED": {
@@ -6520,21 +6469,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 12884,
+                "served": 12964,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 12884,
+                "served": 12964,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 12884,
+                "served": 12964,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6579,7 +6528,7 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 11032,
+                "served": 11112,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6684,7 +6633,7 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 12944,
+                "served": 12896,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6714,27 +6663,27 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 13272,
-                "declined": 26544,
-                "frac": 0.3333333333333333,
+                "served": 25720,
+                "declined": 51104,
+                "frac": 0.33479121107987087,
                 "how": "wrap",
                 "rejects": {
-                  "l1_dest_is_faster:1536x384x64": 640,
-                  "l1_dest_is_faster:1536x64x384": 25152,
-                  "l1_dest_is_faster:3008x32x384": 752
+                  "l1_dest_is_faster:1536x352x64": 640,
+                  "l1_dest_is_faster:1536x128x64": 160,
+                  "l1_dest_is_faster:1536x32x384": 50304
                 }
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 15664,
+                "declined": 28000,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
-                  "k_tiles=2:(2,1)": 560,
-                  "k_tiles=12:(12,1)": 15104
+                  "k_tiles=2:(2,1)": 640,
+                  "k_tiles=12:(12,1)": 27360
                 },
-                "reason": "declines all 15664 calls on k_tiles=12:(12,1) x15104, k_tiles=2:(2,1) x560: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve 12 and 2, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
+                "reason": "declines all 28000 calls on k_tiles=12:(12,1) x27360, k_tiles=2:(2,1) x640: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve 12 and 2, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -6746,12 +6695,12 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 46992,
-                "declined": 15104,
-                "frac": 0.7567637206905437,
+                "served": 84000,
+                "declined": 27360,
+                "frac": 0.7543103448275862,
                 "how": "wrap",
                 "rejects": {
-                  "no_mm_block:(12,1)": 15104
+                  "no_mm_block:(12,1)": 27360
                 }
               },
               "DEVICE_LM_HANDOFF": {
@@ -6778,50 +6727,50 @@
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 35854,
+                "served": 36038,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 35854,
+                "served": 36038,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
               },
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
-                "served": 15232,
-                "declined": 438,
-                "frac": 0.9720485003190811,
+                "served": 27888,
+                "declined": 118,
+                "frac": 0.9957866171534672,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "fill_preconditions": 436
+                  "fill_preconditions": 116
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 15232,
-                "declined": 432,
-                "frac": 0.9724208375893769,
+                "served": 27888,
+                "declined": 112,
+                "frac": 0.996,
                 "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
-                "served": 15232,
-                "declined": 432,
-                "frac": 0.9724208375893769,
+                "served": 27888,
+                "declined": 112,
+                "frac": 0.996,
                 "how": "stats"
               },
               "SDPA_FUSED_PADDED": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 432,
+                "declined": 112,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 432 calls: entered and refused by the kernel's own check, so the call takes the stock ladder this board's baseline was timed on. TRIATT_PERSISTENT_MASK counts the refusals as fill_preconditions (tt_bio/triatt_sdpa.py, the hoisted fill's plan check): none at 768, where this lever serves 112 of 112, then 720 at 896 (240 declines), 1120 at 1024 (280), 1058 at 1280 (352) and 436 at 1536 (432). fused_pairs replayed on the CPU at 72 cores still offers pairs at these lengths, so the planner and the kernel disagree on this grid and the lever is a Wormhole opportunity left open, not a size it was tuned and forgotten at. Nothing slower ships: the stock rungs are byte for byte the path before the lever"
+                "reason": "declines all 112 calls: entered and refused by the kernel's own check, so the call takes the stock ladder this board's baseline was timed on. TRIATT_PERSISTENT_MASK counts the refusals as fill_preconditions (tt_bio/triatt_sdpa.py, the hoisted fill's plan check): none at 768, where this lever serves 112 of 112, then 720 at 896 (240 declines), 1120 at 1024 (280), 1058 at 1280 (352) and 436 at 1536 (432). fused_pairs replayed on the CPU at 72 cores still offers pairs at these lengths, so the planner and the kernel disagree on this grid and the lever is a Wormhole opportunity left open, not a size it was tuned and forgotten at. Nothing slower ships: the stock rungs are byte for byte the path before the lever"
               },
               "RFD3_SPARSE_BIAS": {
                 "resolved": "not-imported",
@@ -6839,21 +6788,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 15664,
+                "served": 28000,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 15664,
+                "served": 28000,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 15664,
+                "served": 28000,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -6898,9 +6847,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 13272,
-                "declined": 0,
-                "frac": 1.0,
+                "served": 25552,
+                "declined": 56,
+                "frac": 0.9978131833801936,
                 "how": "wrap"
               },
               "SDPA_Q_CHUNK_FITS": {
@@ -6947,41 +6896,41 @@
           },
           "runtime_reps_s": {
             "256": [
-              26.3,
-              26.1,
-              26.5,
-              26.6,
-              26.1
+              25.3,
+              25.2,
+              25.0,
+              25.2,
+              26.0
             ],
             "512": [
-              80.6,
-              81.8,
-              80.5,
-              80.0,
-              80.8
+              72.4,
+              72.3,
+              72.1,
+              72.4,
+              72.6
             ],
             "640": [
-              131.6
+              114.5
             ],
             "768": [
-              281.2
+              262.7
             ],
             "896": [
-              358.5
+              351.8
             ],
             "1024": [
-              508.9
+              490.8
             ],
             "1280": [
-              1247.6
+              1121.2
             ],
             "1536": [
-              2354.9
+              2355.3
             ]
           },
           "aiclk": {
             "256": {
-              "card": "9",
+              "card": "15",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -6991,10 +6940,10 @@
                 1000,
                 1000
               ],
-              "n": 41
+              "n": 49
             },
             "512": {
-              "card": "9",
+              "card": "15",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7004,28 +6953,28 @@
                 1000,
                 1000
               ],
-              "n": 91
+              "n": 88
             },
             "640": {
-              "card": "9",
+              "card": "15",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 28
+              "n": 25
             },
             "768": {
-              "card": "9",
+              "card": "15",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 56
+              "n": 52
             },
             "896": {
-              "card": "9",
+              "card": "15",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -7034,88 +6983,88 @@
               "n": 70
             },
             "1024": {
-              "card": "9",
+              "card": "15",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 97
+              "n": 95
             },
             "1280": {
-              "card": "9",
+              "card": "15",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 233
+              "n": 212
             },
             "1536": {
-              "card": "9",
+              "card": "15",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 440
+              "n": 438
             }
           },
           "load": {
             "256": {
-              "max": 0.54,
+              "max": 0.62,
               "rep_median": [
+                0.6,
+                0.56,
+                0.56,
                 0.53,
-                0.51,
-                0.52,
-                0.53,
-                0.51
+                0.55
               ]
             },
             "512": {
-              "max": 0.58,
+              "max": 0.62,
               "rep_median": [
-                0.52,
-                0.5,
-                0.5,
-                0.5,
-                0.51
+                0.55,
+                0.56,
+                0.56,
+                0.6,
+                0.56
               ]
             },
             "640": {
-              "max": 0.53,
+              "max": 0.58,
               "rep_median": [
-                0.49
+                0.56
               ]
             },
             "768": {
-              "max": 0.8,
+              "max": 0.59,
               "rep_median": [
-                0.69
+                0.56
               ]
             },
             "896": {
-              "max": 0.61,
+              "max": 0.62,
               "rep_median": [
-                0.54
+                0.59
               ]
             },
             "1024": {
-              "max": 0.83,
+              "max": 0.66,
               "rep_median": [
-                0.66
+                0.59
               ]
             },
             "1280": {
-              "max": 0.56,
+              "max": 0.63,
               "rep_median": [
-                0.5
+                0.58
               ]
             },
             "1536": {
-              "max": 0.51,
+              "max": 0.65,
               "rep_median": [
-                0.47
+                0.59
               ]
             }
           },
@@ -7126,12 +7075,12 @@
               "n_ca": 256,
               "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.1169,
-              "radius_of_gyration_A": 114.102,
-              "plddt_mean": 0.584821,
+              "ca_ca_median_A": 132.5517,
+              "radius_of_gyration_A": 114.061,
+              "plddt_mean": 0.587552,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.117 A outside [3.6, 4.0]",
+                "median CA-CA 132.552 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 114.1 A outside [9.0, 45.2]"
               ]
@@ -7140,14 +7089,14 @@
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.9891,
-              "radius_of_gyration_A": 113.528,
-              "plddt_mean": 0.575618,
+              "ca_ca_median_A": 137.7881,
+              "radius_of_gyration_A": 113.463,
+              "plddt_mean": 0.575938,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.989 A outside [3.6, 4.0]",
+                "median CA-CA 137.788 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 113.5 A outside [11.8, 58.9]"
               ]
@@ -7156,14 +7105,14 @@
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0125,
+              "clash_frac": 0.0063,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 150.0389,
-              "radius_of_gyration_A": 116.906,
-              "plddt_mean": 0.568944,
+              "ca_ca_median_A": 150.0269,
+              "radius_of_gyration_A": 116.889,
+              "plddt_mean": 0.569062,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 150.039 A outside [3.6, 4.0]",
+                "median CA-CA 150.027 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 116.9 A outside [12.8, 64.1]"
               ]
@@ -7172,14 +7121,14 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0052,
               "chain_break_frac": 0.9987,
-              "ca_ca_median_A": 145.5044,
-              "radius_of_gyration_A": 113.909,
-              "plddt_mean": 0.55659,
+              "ca_ca_median_A": 145.5569,
+              "radius_of_gyration_A": 113.876,
+              "plddt_mean": 0.556851,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 145.504 A outside [3.6, 4.0]",
+                "median CA-CA 145.557 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 113.9 A outside [13.7, 68.7]"
               ]
@@ -7190,46 +7139,46 @@
               "n_ca": 896,
               "clash_frac": 0.0134,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.3323,
-              "radius_of_gyration_A": 112.551,
-              "plddt_mean": 0.561327,
+              "ca_ca_median_A": 138.863,
+              "radius_of_gyration_A": 112.495,
+              "plddt_mean": 0.561818,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.332 A outside [3.6, 4.0]",
+                "median CA-CA 138.863 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.6 A outside [14.6, 72.8]"
+                "radius of gyration 112.5 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0107,
+              "clash_frac": 0.0176,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.3636,
-              "radius_of_gyration_A": 115.308,
-              "plddt_mean": 0.561353,
+              "ca_ca_median_A": 135.8978,
+              "radius_of_gyration_A": 115.218,
+              "plddt_mean": 0.560546,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.364 A outside [3.6, 4.0]",
+                "median CA-CA 135.898 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.3 A outside [15.3, 76.6]"
+                "radius of gyration 115.2 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0203,
+              "clash_frac": 0.0312,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.247,
-              "radius_of_gyration_A": 113.409,
-              "plddt_mean": 0.581131,
+              "ca_ca_median_A": 137.1868,
+              "radius_of_gyration_A": 113.369,
+              "plddt_mean": 0.580034,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.247 A outside [3.6, 4.0]",
+                "median CA-CA 137.187 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 113.4 A outside [16.7, 83.4]"
               ]
             },
@@ -7237,43 +7186,43 @@
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0182,
+              "clash_frac": 0.0195,
               "chain_break_frac": 0.9987,
-              "ca_ca_median_A": 143.1206,
-              "radius_of_gyration_A": 114.274,
-              "plddt_mean": 0.579483,
+              "ca_ca_median_A": 143.5093,
+              "radius_of_gyration_A": 114.338,
+              "plddt_mean": 0.579325,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 143.121 A outside [3.6, 4.0]",
+                "median CA-CA 143.509 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 114.3 A outside [17.9, 89.4]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0082,
+          "sigma_runtime_512": 0.0025,
           "exponents": {
             "256->512": {
-              "k": 1.616,
+              "k": 1.523,
               "tol": 0.5
             },
             "512->768": {
-              "k": 3.082,
+              "k": 3.179,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0087,
-            "512": 0.0082
+            "256": 0.0152,
+            "512": 0.0025
           },
           "exponents_measured": {
-            "256->512": 1.616,
-            "512->640": 2.197,
-            "640->768": 4.165,
-            "768->896": 1.575,
-            "896->1024": 2.624,
-            "1024->1280": 4.019,
-            "1280->1536": 3.484
+            "256->512": 1.523,
+            "512->640": 2.054,
+            "640->768": 4.555,
+            "768->896": 1.895,
+            "896->1024": 2.494,
+            "1024->1280": 3.702,
+            "1280->1536": 4.071
           }
         }
       }

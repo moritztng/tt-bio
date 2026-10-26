@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-26
+
 ### Added
 - **RFD4 evidence proves what it used to assume.** A fair cell now counts the trunk passes and
   trunk-block forwards that actually ran (`DesignEngine.counted`) and fails if the count is not the
