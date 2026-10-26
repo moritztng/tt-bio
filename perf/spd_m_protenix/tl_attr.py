@@ -25,7 +25,8 @@ ap.add_argument("--fids", default="HiFi3,HiFi2")
 ap.add_argument("--b8", default="0", help="comma list: lever triatt_ln_b8 off (0) / on (1)")
 ap.add_argument("--tr", default="0,1", help="comma list: plain (0) / transposed (1) read")
 ap.add_argument("--stagger", default="1", help="comma list: triatt_ln.STAGGER off (0) / on (1); on rows print "
-                "stagger_exact, torch.equal to the off arm at ABL 0")
+                "exact_vs_first, torch.equal to the first stagger x dualnoc arm at ABL 0")
+ap.add_argument("--dualnoc", default="0", help="comma list: triatt_ln.DUAL_NOC off (0) / on (1)")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -102,21 +103,23 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
         for b8 in [bool(int(d)) for d in a.b8.split(",")]:
           B8 = b8
           base = None
-          for st in [bool(int(d)) for d in a.stagger.split(",")]:
-            TL.STAGGER = st
+          arms = [(st, dn) for st in [bool(int(d)) for d in a.stagger.split(",")]
+                  for dn in [bool(int(d)) for d in a.dualnoc.split(",")]]
+          for st, dn in arms:
+            TL.STAGGER, TL.DUAL_NOC = st, dn
             for abl in [int(m) for m in a.abl.split(",")]:
                 TL.ABL = abl
                 ms = timed(lambda: run(fid, tr))
                 row = dict(n=a.n, c=c, card=os.environ.get("TT_VISIBLE_DEVICES"), fid=str(fid), tr=tr, b8=b8,
-                           abl=abl, stagger=st, ms=ms)
-                if abl == 0 and a.stagger != "0":
+                           abl=abl, stagger=st, dualnoc=dn, ms=ms)
+                if abl == 0 and len(arms) > 1:
                     r = run(fid, tr)
                     out = host(r)
                     free(r)
                     if base is None:
                         base = out
                     else:
-                        row["stagger_exact"] = all(torch.equal(p, q) for p, q in zip(out, base))
+                        row["exact_vs_first"] = all(torch.equal(p, q) for p, q in zip(out, base))
                 if abl == 0 and (a.b8 != "0"):
                     if ref is None:
                         ref = reference(tr)
@@ -134,4 +137,4 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                         free(r)
                 print(json.dumps(row), flush=True)
 TL.ABL = 0
-TL.STAGGER = True
+TL.STAGGER, TL.DUAL_NOC = True, False

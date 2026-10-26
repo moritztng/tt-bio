@@ -53,6 +53,9 @@ ABL = 0
 #: only: every row is read, computed and written exactly as before. OpenDDE WH normal fold, same chip, CIFs identical,
 #: 1000 MHz: 512 -0.75 s, 640 -1.36 s (stgf); per call it moves only the HiFi2 bf16 write (512 9.67 -> 8.77 ms).
 STAGGER = True
+#: issue every second output tile on the reader's NOC (writer.cpp DUAL_NOC; both DM kernels on DM_DYNAMIC_NOC).
+#: Same pages and bytes, so bit-exact. Bench flag while the WH write ceiling (~127 GB/s on one NOC) is measured.
+DUAL_NOC = False
 _CACHE: dict = {}
 #: (served, declined, served with bfp8 q/k/v)
 STATS = [0, 0, 0]
@@ -141,6 +144,13 @@ def _plan(kt, nw, tr, dev, ncores):
     return None
 
 
+def _dm(risc, noc):
+    """The stock Reader/WriterConfigDescriptor (RISC-V 1 reads on NOC 0, RISC-V 0 writes on NOC 1), dynamic under DUAL_NOC."""
+    if not DUAL_NOC:
+        return ttnn.ReaderConfigDescriptor() if risc == ttnn.DataMovementProcessor.RISCV_1 else ttnn.WriterConfigDescriptor()
+    return ttnn.DataMovementConfigDescriptor(processor=risc, noc=noc, noc_mode=ttnn.NOC_MODE.DM_DYNAMIC_NOC)
+
+
 def _nq(nq):
     return [("NQ", "1")] if nq else []
 
@@ -197,12 +207,13 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
         defines=[("ABL_R", "1")] if ABL & 8 else [],
-        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+        runtime_args=rd, common_runtime_args=[0] * 4, config=_dm(ttnn.DataMovementProcessor.RISCV_1, MG.NOC_FOR_DRAM_READ))
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq),
-        runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + ([("DUAL_NOC", "1")] if DUAL_NOC else []) + _nq(nq),
+        runtime_args=wr, common_runtime_args=[0] * len(outs),
+        config=_dm(ttnn.DataMovementProcessor.RISCV_0, MG.NOC_FOR_DRAM_WRITE))
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -272,7 +283,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, tuple(cols or ()))
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, DUAL_NOC, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
