@@ -256,14 +256,6 @@ def _pf_dpb_on():
     return _PF_DPB if _PF_DPB is not None else is_wormhole()
 
 
-def _pf_sdpa_on():
-    return _PF_SDPA if _PF_SDPA is not None else is_wormhole()
-
-
-def _pair_ws_psilu_on():
-    return _PAIR_WS_PSILU if _PAIR_WS_PSILU is not None else is_wormhole()
-
-
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -433,9 +425,9 @@ _PAIR_WS_LOFI = env_flag("RFD3_PAIR_WS_LOFI", False)
 _PAIR_WS_RESID = env_flag("RFD3_PAIR_WS_RESID", True)
 # RFD3_PAIR_WS with the silu on the packer thread, fc1 of the next hidden group issued before fc2, so the matmuls
 # overlap the SFPU (`pair_swiglu_ws` pack_silu, the shared `ws_psilu`). Bit-identical: CIF digests equal on every
-# fold. Wormhole @1000 A/B/A/B (seeds 60,61): normal 50.15 -> 49.15 s/design, fast flat (49.52 vs 49.55). On by
-# default on Wormhole until a p150a read; RFD3_PAIR_WS_PSILU=0/1 forces it.
-_PAIR_WS_PSILU = env_flag("RFD3_PAIR_WS_PSILU", False) if os.environ.get("RFD3_PAIR_WS_PSILU") else None
+# fold. Wormhole @1000 A/B/A/B (seeds 60,61): normal 50.15 -> 49.15 s/design, fast flat (49.52 vs 49.55); p150a
+# @1350 normal 29.31 -> 28.87.
+_PAIR_WS_PSILU = env_flag("RFD3_PAIR_WS_PSILU", True)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -474,8 +466,9 @@ PF_DPB_CALLS = [0, 0]   # served, declined
 # and the pair bias as the SDPA mask pre-scaled by sqrt(head_dim). Replaces q.k^T, the fp32 typecasts, scale, bias add,
 # softmax and attn@v, and the reshape/permute/pad per tensor. WH page cell @1000 MHz: fast 50.9 -> 49.7, normal
 # 51.8 -> 50.9 s/design; eight paired normal seeds: design drift 3.5-11.4 A against a 12.6-20.3 A seed floor, breaks
-# 3 -> 2, clashes 345 -> 337. On by default on Wormhole until a p150a read; RFD3_PF_SDPA=0/1 forces it.
-_PF_SDPA = env_flag("RFD3_PF_SDPA", False) if os.environ.get("RFD3_PF_SDPA") else None
+# 3 -> 2, clashes 345 -> 337. p150a @1350 (linear bias, no dpb): normal 29.46 -> 28.25, fast 28.08 -> 27.11; eight
+# paired normal seeds: drift 5.2-11.7 A against a 12.5-19.6 A floor, breaks 3 -> 3, clashes 426 -> 453.
+_PF_SDPA = env_flag("RFD3_PF_SDPA", True)
 PF_SDPA_CALLS = [0]
 
 
@@ -1297,9 +1290,9 @@ class Transition(Module):
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
         if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None), resid=r):
             return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6), resid=r,
-                                  pack_silu=_pair_ws_psilu_on())
+                                  pack_silu=_PAIR_WS_PSILU)
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
-        out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid, resid=r, pack_silu=_pair_ws_psilu_on())
+        out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid, resid=r, pack_silu=_PAIR_WS_PSILU)
         ttnn.deallocate(xn)
         return out
 
@@ -1465,7 +1458,7 @@ class PairformerAttention(Module):
         a = ttnn.rms_norm(s, weight=self.ln_1_w, epsilon=1e-6,
                           compute_kernel_config=ckc)
         B, I = s.shape[0], s.shape[1]
-        if _pf_sdpa_on():
+        if _PF_SDPA:
             return self._sdpa(a, z, B, I)
         q = ttnn.linear(a, self.to_q_w, bias=self.to_q_b,
                           compute_kernel_config=self.compute_kernel_config,
