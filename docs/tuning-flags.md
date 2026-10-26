@@ -1000,7 +1000,10 @@ runs the trunk kernels OpenFold3 graded there (`WH_LEVERS_NORMAL` in `tt_bio/rf3
 of 11 complexes the top pose moves 0.23 A median (a different seed moves it 3.0 A), CA-lDDT and docking success
 are unchanged, and a 512-aa fold on a Galaxy chip at 1000 MHz drops from 55.2 to 38.1 s. Its `--fast` set is the
 shared fast set without the three triangle-multiplication levers: on Blackhole it moves the top pose 0.30 A
-median over 40 paired folds (a different seed moves it 2.8 A) and saves about 1.9 s at 512 aa. BoltzGen's normal
+median over 40 paired folds (a different seed moves it 2.8 A) and saves about 1.9 s at 512 aa. On Wormhole
+`--fast` adds the same trunk kernels (`WH_LEVERS_FAST`): over 44 paired folds against the fast set the top pose
+moves 0.23 A median (2.8 A between seeds), CA-lDDT and docking success are unchanged, and a 512-aa fold at
+1000 MHz drops from 48.1 to 36.1 s. BoltzGen's normal
 mode runs the shared normal set and its `--fast` set is the shared fast set without `dit_sdpa_pm`, plus
 `adaln_mod` and `dit_cond_hifi2`. Design outputs at a fixed seed decorrelate under any numeric change, so BoltzGen
 is graded on design confidence and filters, 8 designs per seed against the exact normal path: normal over 64
