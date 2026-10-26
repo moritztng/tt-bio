@@ -68,6 +68,10 @@ def timed(owner, name, label, static=False):
 
 timed(rf3_model.RF3, "predict", "predict")
 timed(rf3_host.HostInputs, "build", "host_inputs")
+for fn in ("to_device", "single_features", "pair_inputs_windowed", "atom_to_token_mean", "token_to_atom_windowed",
+           "window_mask", "get_indexing_matrix", "token_features", "relpos_features", "token_bond_features",
+           "template_features"):  # host_inputs split; to_device also counts the per-step uploads
+    timed(rf3_host, fn, "host." + fn)
 timed(rf3_model.RF3, "trunk", "trunk")
 timed(rf3_model.Recycler, "__call__", "recycle")
 timed(rf3_model.DiffusionModule, "prepare", "diffusion_prepare")
