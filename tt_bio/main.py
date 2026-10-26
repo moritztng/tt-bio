@@ -4676,10 +4676,10 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
               help="boltzgen, rfd3 and rfd4. Faster, slightly lower-precision kernels (boltzgen: "
                    "block-fp8 for some operations; rfd3: fused atom attention; rfd4: block-fp8 "
                    "pair-track matmuls).")
-@click.option("--diffusion_trace", is_flag=True,
+@click.option("--diffusion_trace/--no_diffusion_trace", default=None,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
-                   "DiT device stream (lossless; collapses per-step host dispatch). Opt-in; "
-                   "reserves 0.2-0.3 GB of device memory.")
+                   "DiT device stream (lossless; collapses per-step host dispatch; reserves "
+                   "0.2-0.3 GB of device memory). Default: on for Blackhole normal mode, else off.")
 @click.option("--debug", is_flag=True,
               help="boltzgen only. Debug mode: no Rich display, no output suppression.")
 @click.option("--log", is_flag=True,
@@ -4822,11 +4822,12 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
             argv += ["--seed", str(seed)]
         if _explicit("cache"):
             argv += ["--cache", cache]
-        for flag, on in (("--reuse", reuse), ("--fast", fast),
-                         ("--diffusion_trace", diffusion_trace), ("--debug", debug),
+        for flag, on in (("--reuse", reuse), ("--fast", fast), ("--debug", debug),
                          ("--log", log)):
             if on:
                 argv.append(flag)
+        if diffusion_trace is not None:
+            argv.append("--diffusion_trace" if diffusion_trace else "--no-diffusion_trace")
         if controller:
             argv += ["--controller", controller]
             if run_id:
