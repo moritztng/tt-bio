@@ -88,9 +88,9 @@ def main() -> int:
             for kb in sorted({int(k) for k in args.kb.split(",")} if args.kb else {base.K_block_size, 2, 4}):
                 if (d // 32) % kb:
                     continue
-                for nb in (4, 6, 8, 10, 12):
+                for nb in (4, 6, 8, 10, 12) + ((16, 20) if name == "6b" else ()):   # 6B on BH: 36-40 N tiles a core
                     wd12 = None
-                    for mb in ((1, 2, 4, 8) if name == "6b" else (8, 16)):
+                    for mb in ((1, 2, 4, 8) if name == "6b" else (7, 8, 12, 14, 16)):   # BH: 10-12 M tiles a core, WH: 14
                         for sw in (2, 3, 4, 5, 6, 8):
                             for sh in (1, 2, 4):
                                 if nb % sw or mb % sh or sh * sw > dmax:
