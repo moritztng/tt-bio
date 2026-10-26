@@ -56,6 +56,32 @@ def _merge(sn, sd, mn, md, out, ok):
         ok[r] = good
 
 
+@numba.njit(cache=True, nogil=True)
+def extend_rows(nn, mask, seq, out):
+    """out[r] = sorted(seq[r]'s entries below L, then nn[r]'s first atoms outside mask[r] up to k members), L-padded.
+
+    The row model._neighbours_kdtree builds from a k-nearest list, compiled so the index thread neither holds the GIL
+    against the step's dispatch nor allocates the [L, 2k] numpy temporaries the vectorised form needs.
+    """
+    length, k = out.shape
+    buf = np.empty(k, np.int64)
+    for r in range(length):
+        n = 0
+        for c in range(seq.shape[1]):
+            if seq[r, c] < length:
+                buf[n] = seq[r, c]
+                n += 1
+        for c in range(nn.shape[1]):
+            if n >= k:
+                break
+            v = nn[r, c]
+            if not mask[r, v]:
+                buf[n] = v
+                n += 1
+        out[r, :n] = np.sort(buf[:n])
+        out[r, n:] = length
+
+
 class StaticKnn:
     """One per design stream; reused across steps while the static atoms' coordinates stay identical."""
 
