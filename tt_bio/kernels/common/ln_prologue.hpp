@@ -30,6 +30,11 @@
 #ifndef LN_ABL
 #define LN_ABL 0
 #endif
+// LN_BLK: channel tiles per dest acquire in layer_norm_row's eltwise stages (1 or 4, a half-sync fp32 dest holds 4).
+// Same ops on the same values in other dest slots, so bit-identical; a kernel opts in with the define.
+#ifndef LN_BLK
+#define LN_BLK 1
+#endif
 
 namespace ln_prologue {
 
@@ -110,18 +115,18 @@ template <class C, class Pack>
 ALWI void layer_norm_row(uint32_t out, Pack pack) {
     row_mean<C>(C::x, C::mean, false);                    // mean
     cb_wait_front(C::mean, 1);
-    stage<C, SUB_COL>(C::x, C::mean, C::xc);              // xc = x - mean
+    stage<C, SUB_COL, LN_BLK>(C::x, C::mean, C::xc);              // xc = x - mean
     cb_pop_front(C::x, C::Kt);
     cb_pop_front(C::mean, 1);
     cb_wait_front(C::xc, C::Kt);
     if constexpr (LN_ABL & 2) {
         row_mean<C>(C::xc, C::var, false);
     } else {
-        stage<C, MUL>(C::xc, C::xc, C::tmp);              // xc^2
+        stage<C, MUL, LN_BLK>(C::xc, C::xc, C::tmp);              // xc^2
         row_mean<C>(C::tmp, C::var, true);                // var (biased, as layer_norm)
     }
     rstd<C>();                                            // rstd = rsqrt(var + eps)
-    stage<C, MUL_COL>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
+    stage<C, MUL_COL, LN_BLK>(C::xc, C::rstd, C::tmp);            // norm = xc * rstd
     cb_pop_front(C::xc, C::Kt);
     cb_pop_front(C::rstd, 1);
     cb_wait_front(C::tmp, C::Kt);
@@ -140,7 +145,7 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
         cb_pop_front(C::tmp, C::Kt);
         return;
     }
-    stage<C, MUL_ROW>(C::tmp, C::gamma, C::xc);           // * gamma
+    stage<C, MUL_ROW, LN_BLK>(C::tmp, C::gamma, C::xc);           // * gamma
     cb_pop_front(C::tmp, C::Kt);
     cb_wait_front(C::xc, C::Kt);
     reconfig_data_format(C::xc, C::beta);                 // + beta, packed by the caller's hook

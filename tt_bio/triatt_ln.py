@@ -53,6 +53,8 @@ ABL = 0
 #: only: every row is read, computed and written exactly as before. OpenDDE WH normal fold, same chip, CIFs identical,
 #: 1000 MHz: 512 -0.75 s, 640 -1.36 s (stgf); per call it moves only the HiFi2 bf16 write (512 9.67 -> 8.77 ms).
 STAGGER = True
+#: channel tiles per dest acquire in the LayerNorm's eltwise stages (kernels/common/ln_prologue.hpp LN_BLK), bit-identical
+LN_BLK = 1
 _CACHE: dict = {}
 #: (served, declined, served with bfp8 q/k/v)
 STATS = [0, 0, 0]
@@ -104,6 +106,10 @@ def split_rows(m, ncores):
 def out_page(r, h, H, MT):
     """writer.cpp: head-major page of row tile r, head tile h (kernels/triatt HEAD_MAJOR_MT)."""
     return ((r // MT) * H + h) * MT + r % MT
+
+
+def _lnblk():
+    return [("LN_BLK", str(LN_BLK))] if LN_BLK != 1 else []
 
 
 def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
@@ -206,7 +212,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq),   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq) + _lnblk(),   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
     cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, c2, outs[0].dtype),
@@ -272,7 +278,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, tuple(cols or ()))
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
