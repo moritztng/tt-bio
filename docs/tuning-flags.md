@@ -44,6 +44,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_ESMC_QKV_SPLIT`](#tt_bio_esmc_qkv_split) | on | ESMC 300M / 600M | identical |
 | [`TT_BIO_ESMFOLD2_DEVICE_CONF`](#tt_bio_esmfold2_device_conf) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_ESMFOLD2_DEVICE_TAIL`](#tt_bio_esmfold2_device_tail) | on | ESMFold2 | moves, inside the bar |
+| [`TT_BIO_ESMFOLD2_DIFFUSION_TRACE`](#tt_bio_esmfold2_diffusion_trace) | on | ESMFold2 | identical |
 | [`TT_BIO_ESMFOLD2_BIT_DRAW`, `TT_BIO_ESMFOLD2_PAIR_INIT`, `TT_BIO_ESMFOLD2_LM_COMBINE`, `TT_BIO_ESMFOLD2_OPM`, `TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT`, `TT_BIO_ESMFOLD2_RELPOS_LOOKUP`](#esmfold2---fast-stack) | on with `--fast` on Blackhole | ESMFold2 | moves, inside the fast bar |
 | [`TT_BIO_ESMFOLD2_SWA_WINDOW`](#tt_bio_esmfold2_swa_window) | on | ESMFold2 | moves, inside the bar |
 | [`TT_BIO_FANIN_CAST_FUSED`](#bindcraft-2-round-kernels) | on in a BindCraft 2 round | BindCraft 2 | gradients only |
@@ -690,6 +691,22 @@ docking success 24/44 in both arms. On Wormhole: ESMFold2 (folds --fast there, f
 against 1.34 A, CA-lDDT +0.0002, docking 29/44 in both arms; ESMFold2-Fast (normal bar) median 0.27 A
 against 1.27 A, CA-lDDT +0.0000, docking 25 vs 24/44. `TT_BIO_ESMFOLD2_DEVICE_TAIL=0` restores the host
 tail.
+
+## `TT_BIO_ESMFOLD2_DIFFUSION_TRACE`
+
+Default: on. ESMFold2 and ESMFold2-Fast, both modes, both arches.
+
+The structure module's diffusion step is captured once per draw as a device trace and replayed for
+the remaining steps, so the host stops dispatching the step's ~930 ops one at a time. If the capture
+fails (the step outgrew the trace region), that draw runs every step eagerly.
+`TT_BIO_ESMFOLD2_DIFFUSION_TRACE=0` always runs eagerly.
+
+**Accuracy: identical.** Traced and eager folds write the same CIF.
+
+**Speed:** it pays where the step is bound by host dispatch, which is short chains. On a Blackhole
+p150a at 1350 MHz, warm median of 4 at 64 residues: ESMFold2-Fast `--fast` 2.03 -> 1.25 s, ESMFold2
+normal 2.65 -> 2.21 s. At 512 residues the step is bound by the device: 0 to 0.5 s saved on
+Blackhole, none on Wormhole (256 and 512 residues, 1000 MHz).
 
 ## ESMFold2 `--fast` stack
 
