@@ -243,8 +243,9 @@ _STATIC_KNN = env_flag("RFD3_STATIC_KNN", True)
 _STATIC_KNN_CACHE: dict = {}
 # The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
 # at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the
-# order of additions differs, so 38 of 7.5M pooled values round to a different bf16 on upload. Off until graded.
-_POOL_SCATTER = env_flag("RFD3_POOL_SCATTER", False)
+# order of additions differs, so 38 of 7.5M pooled values round to a different bf16 on upload. The page cell's CIFs
+# stay equal in both modes (WH, .103 @1000 MHz); run_design wall fast 106.5 -> 102.2, normal 105.5 -> 104.0 s/design.
+_POOL_SCATTER = env_flag("RFD3_POOL_SCATTER", True)
 
 
 def _dknn_on():
