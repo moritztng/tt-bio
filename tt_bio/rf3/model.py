@@ -58,6 +58,14 @@ from tt_bio.tenstorrent import (CORE_GRID_MAIN, Module, Pairformer, WeightScope,
 # [+0.0001, +0.0022], docking 28 -> 28 of 40 (9W8A, 778 tokens, crashes in BOTH arms and is not
 # in the count). cdk2x2_512 on p300c: 37.63 -> 35.75 s at AICLK 1350 (spd-gap-inv, 2026-10-11).
 LEVERS_NORMAL = frozenset()
+# Wormhole normal runs the trunk kernels OpenFold3 graded on Wormhole (same shared Pairformer, c_z 128).
+# Wormhole 11-set normal grade against exact, 66 paired folds: same-seed top pose median 0.232 A
+# against the 0.60 A bar (A/A floor 2.985 A), CA-lDDT +0.0003 [-0.0003, +0.0012], docking 28 -> 28
+# of 44. cdk2x2_512 on a Galaxy chip at AICLK 1000: 55.16 -> 38.12 s (2026-10-26).
+WH_LEVERS_NORMAL = frozenset({"trimul_bres", "atom_l1", "triatt_ln", "opm_jd", "dit_qsplit", "trimul_t1",
+                              "trimul_t2", "trimul_t1_2g", "transition_ws", "ws_l1dest", "triatt_k1",
+                              "trimul_ibw", "trimul_tail", "trunk_hifi3", "triatt_tail", "silu_f32",
+                              "dit_sdpa32"})
 LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
                          "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
                          "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "swiglu_fc12g",
@@ -328,7 +336,7 @@ class RF3(Module):
                  sigma_data: float = 16.0, num_timesteps: int = 200,
                  with_confidence: bool = True):
         super().__init__(state_dict, compute_kernel_config)
-        self._levers = _T.model_levers(LEVERS_NORMAL, LEVERS_FAST)
+        self._levers = _T.model_levers(WH_LEVERS_NORMAL if _T.is_wormhole() else LEVERS_NORMAL, LEVERS_FAST)
         with _T.lever_scope(self._levers):
             self._build(compute_kernel_config, n_pairformer_blocks, n_msa_blocks,
                         n_dit_blocks, n_confidence_layers, sigma_data, num_timesteps,
