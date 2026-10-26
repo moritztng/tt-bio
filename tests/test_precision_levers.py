@@ -29,10 +29,11 @@ def test_a_model_names_its_own_sets_and_the_harness_switch_still_wins(monkeypatc
     assert of3.WH_FAST_LEVERS <= set(T.LEVERS) and of3.WH_FAST_LEVERS - of3.FAST_LEVERS == {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32", "triatt_ln_b8", "dit_l1", "ws_psilu", "dit_mask8"}
     assert of3.NORMAL_LEVERS <= of3.FAST_LEVERS and of3.WH_NORMAL_LEVERS <= of3.WH_FAST_LEVERS
     assert of3.WH_NORMAL_LEVERS ^ of3.NORMAL_LEVERS == {"trimul_bres", "trimul_t2cm"}
-    # OpenFold3 adds the bf16 DiT in normal mode; OpenBind-0 failed its grade and keeps the fp32 DiT.
-    assert set(of3.NORMAL_MODEL_LEVERS) == set(of3.WH_NORMAL_MODEL_LEVERS) == {"openfold3"}
+    # OpenFold3 adds the bf16 DiT in normal mode; OpenBind-0 failed its grade and keeps the fp32 DiT, fused on Wormhole.
+    assert set(of3.NORMAL_MODEL_LEVERS) == {"openfold3"} and set(of3.WH_NORMAL_MODEL_LEVERS) == {"openfold3", "openbind"}
+    assert of3.WH_NORMAL_MODEL_LEVERS["openbind"] == {"dit_fuse", "dit_l1"}
     assert of3.NORMAL_LEVERS | of3.NORMAL_MODEL_LEVERS["openfold3"] <= of3.FAST_LEVERS
-    assert of3.WH_NORMAL_LEVERS | of3.WH_NORMAL_MODEL_LEVERS["openfold3"] <= of3.WH_FAST_LEVERS
+    assert all(of3.WH_NORMAL_LEVERS | v <= of3.WH_FAST_LEVERS for v in of3.WH_NORMAL_MODEL_LEVERS.values())
 
 
 def test_parse_expands_modes_and_rejects_unknown_names():
@@ -263,7 +264,8 @@ def test_opendde_fast_set_names_only_known_levers():
     from tt_bio.protenix import WS_CHAIN
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
-    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "pz_device", "dit_mod16", "triatt_q10", "trunk_hifi2", "bres_ta_hifi3"}
+    assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "pz_device", "dit_mod16", "triatt_q10", "trunk_hifi2", "bres_ta_hifi3",
+                                                "triatt_ln_b8", "triatt_ln_b8g"}
 
 
 def test_triatt_k1_offers_the_one_k_rung_when_a_narrower_fused_q_fits(monkeypatch):

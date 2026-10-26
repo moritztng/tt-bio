@@ -236,6 +236,16 @@ _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 # differ at six noise levels). p150a, fast seeds 60,61 x2 @1312-1350 MHz: 31.3-31.8 -> 29.7-30.0 s/design, digests
 # equal. On by default except on Wormhole, where it has not run on a card yet; RFD3_DKNN=0/1 forces it.
 _DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
+# The tree query with the design's static atoms (a binder's target, a fixed motif) answered once per design and only
+# the rows a moving atom can reach queried each step (tt_bio.rfd3.staticknn). Every row and its order equal the full
+# query, so the index is unchanged. WH page cell @1000 MHz, CIFs equal: fast 61.4 -> 56.7, normal 62.7 -> 57.3 s/design.
+_STATIC_KNN = env_flag("RFD3_STATIC_KNN", True)
+_STATIC_KNN_CACHE: dict = {}
+# The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
+# at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the
+# order of additions differs, so 38 of 7.5M pooled values round to a different bf16 on upload. The page cell's CIFs
+# stay equal in both modes (WH, .103 @1000 MHz); run_design wall fast 106.5 -> 102.2, normal 105.5 -> 104.0 s/design.
+_POOL_SCATTER = env_flag("RFD3_POOL_SCATTER", True)
 
 
 def _dknn_on():
@@ -947,6 +957,12 @@ def _build_valid_mask(tok_idx):
 
 def _scatter_mean_pool(pairwise_atom, tok_idx, I):
     """Host: mean-pool [L,L,c] -> [I,I,c] (pairwise_mean_pool)."""
+    if _POOL_SCATTER:
+        t = tok_idx.long()
+        rows = pairwise_atom.new_zeros(I, *pairwise_atom.shape[1:]).index_add_(0, t, pairwise_atom)
+        sums = pairwise_atom.new_zeros(I, I, pairwise_atom.shape[2]).index_add_(1, t, rows)
+        counts = torch.bincount(t, minlength=I).to(sums.dtype)
+        return sums / torch.outer(counts, counts).clamp(min=1).unsqueeze(-1)
     onehot = F.one_hot(tok_idx.long(), num_classes=I).to(torch.float32)
     temp = torch.einsum("ia,bacd->bicd", onehot.T, pairwise_atom.unsqueeze(0))
     sums = torch.einsum("cj,bicd->bijd", onehot, temp)
@@ -2018,11 +2034,40 @@ def _pair_gather_table(cache, p_host, device, dtype):
     if entry is None:
         while len(tables) >= _PAIR_TABLE_SLOTS:
             ttnn.deallocate(tables.pop(next(iter(tables)))[1])
-        entry = (p_host, ttnn.from_torch(
-            p_host.reshape(-1, p_host.shape[-1]).contiguous(),
-            layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=dtype))
+        entry = (p_host, _upload_pair_table(p_host.reshape(-1, p_host.shape[-1]), device))
         tables[key] = entry
     return entry[1]
+
+
+_TABLE_ROWS_PER_PAGE = 16
+_TABLE_CHUNK_ROWS = 1 << 20
+
+
+def _upload_pair_table(flat, device):
+    """Upload a bf16 [N, C] row-major gather table at wide-page speed without a second copy on the card.
+
+    A row-major [N, 16] tensor moves as one 32-byte page per row (~520 MB/s on WH). Each 1M-row chunk goes up as
+    [rows/16, 16*C] instead (512-byte pages), is reshaped on the card and written into the preallocated table, so
+    the peak is the table plus one 32 MB chunk. The torch-side bf16 cast also beats ttnn's own fp32 conversion.
+    Page fixture (36.6M x 16, WH, 2 threads): 5.35 s (fp32 narrow) -> 3.1 (bf16 narrow) -> 0.9 s, gathers equal.
+    Rows past N are padding the gather never indexes.
+    """
+    n, c = flat.shape
+    chunk = min(_TABLE_CHUNK_ROWS, -(-n // _TABLE_ROWS_PER_PAGE) * _TABLE_ROWS_PER_PAGE)
+    n_pad = -(-n // chunk) * chunk
+    table = ttnn.allocate_tensor_on_device(ttnn.Shape([1, 1, n_pad, c]), ttnn.bfloat16, ttnn.ROW_MAJOR_LAYOUT,
+                                           device)
+    for r0 in range(0, n_pad, chunk):
+        part = flat[r0:r0 + chunk].to(torch.bfloat16)
+        if part.shape[0] < chunk:
+            part = torch.cat([part, part.new_zeros(chunk - part.shape[0], c)])
+        wide = ttnn.from_torch(part.reshape(chunk // _TABLE_ROWS_PER_PAGE, _TABLE_ROWS_PER_PAGE * c),
+                               layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+        rows = ttnn.reshape(wide, (1, 1, chunk, c))
+        ttnn.experimental.slice_write(rows, table, [0, 0, r0, 0], [1, 1, r0 + chunk, c], [1, 1, 1, 1])
+        ttnn.deallocate(rows)
+        ttnn.deallocate(wide)
+    return ttnn.reshape(table, (n_pad, c))
 
 
 def _sparse_pair_gather(cache, p_host, indices, device, dtype):
@@ -3780,8 +3825,13 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     length = x.shape[1]
     k = min(k, length)
     xd = x[0].detach().double().cpu().numpy()
-    _, nn = cKDTree(xd).query(xd, k=k, workers=workers or torch.get_num_threads())
-    nn = nn.reshape(length, k)
+    workers = workers or torch.get_num_threads()
+    if _STATIC_KNN:
+        from .staticknn import StaticKnn
+        nn = _STATIC_KNN_CACHE.setdefault((length, k), StaticKnn()).query(xd, k, workers)
+    else:
+        _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
+        nn = nn.reshape(length, k)
     seq = seq_idx.numpy()
     outside = ~mask.numpy()[np.arange(length)[:, None], nn]
     n_fill = k - (seq < length).sum(1, keepdims=True)

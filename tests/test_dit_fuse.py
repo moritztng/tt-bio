@@ -1,6 +1,6 @@
-"""The `dit_fuse` lever (OpenFold3's bf16 token-DiT block in 23 ttnn calls), host side, no device.
+"""The `dit_fuse` lever (OpenFold3's token-DiT block in 23 ttnn calls), host side, no device.
 
-Checked here: the lever is named, ungraded and in no mode; it engages only on the bf16 `_sdpa32` DiT with no
+Checked here: the lever is named, ungraded and in no mode; it engages only on the `_sdpa32` DiT, bf16 or fp32, with no
 other DiT lever owning the s path, and with it off a block keeps `fuse = None` and never enters `_call_fused`;
 the fused call issues the ttnn calls the design says (and the masked transition tail when the token mask is not
 all ones); and the fused algebra -- folded adaLN gammas, sigmoid in the epilogue, the gated residuals as addcmul,
@@ -69,12 +69,13 @@ def test_sdpa32_fused_writes_fp32_unless_asked():
     assert p.default == ttnn.float32
 
 
-def test_engages_only_on_the_bf16_sdpa32_dit(hostblock):
+def test_engages_only_on_the_sdpa32_dit(hostblock):
     assert hostblock(FAST).fuse is None                                   # off: the incumbent block
     assert hostblock(FAST + "+dit_fuse").fuse is not None                 # OpenFold3 --fast + the lever
     assert hostblock(FAST + "-dit_sdpa32+dit_fuse").fuse is None          # needs _sdpa32
     assert hostblock("dit_sdpa32+dit_s16+dit_fuse", ttnn.float32).fuse is None   # fp32 DiT: dit_s16 owns the s path
-    assert hostblock("dit_sdpa32+dit_fuse", ttnn.float32).fuse is None        # fp32 DiT without it: still bf16-only
+    f32 = hostblock("dit_sdpa32+dit_fuse", ttnn.float32).fuse                # fp32 DiT without it: fused at fp32
+    assert f32 is not None and {t[2] for g in f32 for t in g} == {ttnn.float32}
     b8 = hostblock(FAST + "+dit_b8+dit_fuse")                             # dit_b8 joins: bfp8 weights through _lin
     assert b8.fuse is not None and b8.lp is None
 

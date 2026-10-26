@@ -99,14 +99,53 @@ void kernel_main() {
         }
         return;
     }
-    uint32_t page = r0 * Kt;
-    for (uint32_t i = 0; i < nrows; i += RB) {
-        const uint32_t n = (nrows - i < RB) ? (nrows - i) : RB;
+    // Row i is row tile r0 + (i + s) % nrows (runtime arg 5, triatt_ln.STAGGER), as writer.cpp row_of.
+    const uint32_t s = get_arg_val<uint32_t>(5);
+    auto read_rows = [&](uint32_t i, uint32_t n, uint32_t step) {
         cb_reserve_back(x_cb, n * Kt);
         uint32_t dst = get_write_ptr(x_cb);
-        for (uint32_t t = 0; t < n * Kt; ++t, ++page, dst += tb)
-            if constexpr (!ABL_R) noc_async_read_page(page, x, dst);
+        for (uint32_t k = 0; k < n; ++k) {
+            uint32_t ir = i + k * step + s;
+            if (ir >= nrows) ir -= nrows;
+            const uint32_t page = (r0 + ir) * Kt;
+            for (uint32_t t = 0; t < Kt; ++t, dst += tb)
+                if constexpr (!ABL_R) noc_async_read_page(page + t, x, dst);
+        }
         noc_async_read_barrier();
         cb_push_back(x_cb, n * Kt);
+    };
+    const uint32_t lns = get_arg_val<uint32_t>(6);
+    if (!lns) {
+        for (uint32_t i = 0; i < nrows; i += RB) read_rows(i, (nrows - i < RB) ? (nrows - i) : RB, 1);
+        return;
+    }
+    // LN_SHARE (runtime arg 6 = 2 + own): this core reads and norms row 2p + own of each pair p, its partner (NOC x, y
+    // in runtime args 7, 8, same rows) the other. Compute pushes an empty page to c_6 once an own xn is in c_1; this
+    // core then bumps the partner's semaphore 0, waits for the partner's bump and copies the partner's xn out of its
+    // c_1 slot (the k-th row a core norms sits in slot k % 2 of the 2 x Kt ring, at the same L1 address on every
+    // core) into c_5. The partner norms into that slot again two pairs later, after projecting a row this core
+    // bumped for only once this copy had landed. x for the next pair is read before the handshake, so the norm of
+    // pair p + 1 never waits on it. Here and not in the writer: bf16 outputs are bound by the writer's DRAM writes.
+    const uint32_t own = lns - 2;
+    const uint64_t sem_far = get_noc_addr(get_arg_val<uint32_t>(7), get_arg_val<uint32_t>(8), get_semaphore(0));
+    const uint64_t xn_far = get_noc_addr(get_arg_val<uint32_t>(7), get_arg_val<uint32_t>(8), get_read_ptr(tt::CBIndex::c_1));
+    const uint32_t bytes = Kt * get_tile_size(tt::CBIndex::c_1);
+    volatile tt_l1_ptr uint32_t* sem = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
+    uint32_t got = 0;
+    if (own < nrows) read_rows(own, 1, 2);
+    for (uint32_t p = 0; 2 * p < nrows; ++p) {
+        if (2 * p + 2 + own < nrows) read_rows(2 * p + 2 + own, 1, 2);
+        if (2 * p + own < nrows) {
+            cb_wait_front(tt::CBIndex::c_6, 1);
+            cb_pop_front(tt::CBIndex::c_6, 1);
+            noc_semaphore_inc(sem_far, 1);
+        }
+        if (2 * p + 1 - own < nrows) {
+            noc_semaphore_wait_min(sem, ++got);
+            cb_reserve_back(tt::CBIndex::c_5, Kt);
+            noc_async_read(xn_far + ((got - 1) & 1) * bytes, get_write_ptr(tt::CBIndex::c_5), bytes);
+            noc_async_read_barrier();
+            cb_push_back(tt::CBIndex::c_5, Kt);
+        }
     }
 }

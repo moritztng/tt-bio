@@ -42,8 +42,11 @@ def _blocks(obj, depth=3):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--alt", default="tt_bio.esmc._ESMC_QKV_SPLIT", help="module.ATTR flipped between arms (off first)")
-    ap.add_argument("--fidelity", default=None, help="on arm = this ttnn.MathFidelity (HiFi4/HiFi3/HiFi2/LoFi); --alt unused")
+    ap.add_argument("--alt", default=None,
+                    help="module.ATTR flipped between arms, off first (default tt_bio.esmc._ESMC_QKV_SPLIT)")
+    ap.add_argument("--fidelity", default=None,
+                    help="on arm = this ttnn.MathFidelity (HiFi4/HiFi3/HiFi2/LoFi); with an explicit --alt it flips both, "
+                         "so a stack grades against one off arm")
     ap.add_argument("--model", required=True)
     ap.add_argument("--pdb", required=True)
     ap.add_argument("--length", type=int, default=512)
@@ -66,7 +69,8 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     torch.set_grad_enabled(False)
-    mod_name, attr = a.alt.rsplit(".", 1)
+    flip = bool(a.alt) or not (a.fidelity or a.block_attr)   # does the on arm set --alt
+    mod_name, attr = (a.alt or "tt_bio.esmc._ESMC_QKV_SPLIT").rsplit(".", 1)
     alt_mod = importlib.import_module(mod_name)
 
     aa = acc.pdb_sequence(a.pdb)[: a.length]
@@ -101,7 +105,7 @@ def main() -> int:
         battr = [(functools.reduce(getattr, path, b), name) for b in _blocks(model)]
         assert battr, "no transformer blocks found"
     boff = [getattr(o, n) for o, n in battr]
-    cur = getattr(alt_mod, attr) if not (a.fidelity or a.block_attr) else None
+    cur = getattr(alt_mod, attr) if flip else None
     if isinstance(cur, ttnn.MathFidelity):   # a module's fidelity (qk_rope_heads.FIDELITY): off = as shipped, --on-value '"HiFi2"'
         off_value, a.on_value = cur, getattr(ttnn.MathFidelity, a.on_value)
     else:   # tri-state switches (None = per-arch default) read off as False
@@ -121,12 +125,12 @@ def main() -> int:
                     setattr(m, t, v)
                 for m, t, v in dict(arms).get(on, ()):
                     setattr(m, t, v)
-            elif a.fidelity:
-                ckc.math_fidelity = getattr(ttnn.MathFidelity, a.fidelity) if on else fid_off
             elif a.block_attr:
                 for (o, name), v in zip(battr, boff):
                     setattr(o, name, True if on else v)
-            else:
+            if not arms and a.fidelity:
+                ckc.math_fidelity = getattr(ttnn.MathFidelity, a.fidelity) if on else fid_off
+            if not arms and flip:
                 on_value = True if a.on_value is None else tuple(a.on_value) if isinstance(a.on_value, list) else a.on_value
                 setattr(alt_mod, attr, on_value if on else off_value)
             # a captured trace replays the program of the arm it was captured under: drop it so this arm recaptures
@@ -148,7 +152,9 @@ def main() -> int:
             out = one()
             if base is None:
                 base = out
-            row = {"model": a.model, "fast": a.fast, "round": r, "alt": ("off" if on is None else on) if arms else f"fidelity:{a.fidelity}" if a.fidelity else f"block:{a.block_attr}" if a.block_attr else a.alt, "on": on,
+            row = {"model": a.model, "fast": a.fast, "round": r, "alt": ("off" if on is None else on) if arms else "+".join(
+                       ([f"fidelity:{a.fidelity}"] if a.fidelity else []) + ([f"block:{a.block_attr}"] if a.block_attr else [])
+                       + ([f"{mod_name}.{attr}"] if flip else [])), "on": on,
                    "batch7_ms": round(sorted(ts)[len(ts) // 2] * 1000, 2),
                    "batch7_all_ms": [round(t * 1000, 2) for t in ts],
                    "vs_fp32": acc.metrics(out, ref), "vs_off": acc.metrics(out, base),

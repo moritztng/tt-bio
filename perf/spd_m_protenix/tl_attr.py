@@ -8,7 +8,10 @@ layer_norm, 2 the projection, 4 the DRAM writes, 8 the DRAM reads of x, or sever
 output wrong by design, so this prints time only: ms/call, median of --reps after 3 warm calls. One JSON line per arm.
 --b8 0,1 repeats every arm with lever triatt_ln_b8 (bfp8 q, k, v); at ABL 0 each B8 arm also runs on a grid one row
 shorter and prints whether its outputs are torch.equal to the full grid's (grid_invariant), and the bf16 arm's
-deviation from a float64 reference beside the bfp8 arm's (rel_rms_f64).
+deviation from a float64 reference beside the bfp8 arm's (rel_rms_f64, per output q, k, v, gate, bias), and
+whether the bfp8 arm's bf16 outputs (gate, bias) are torch.equal to the bf16 arm's (bf16_rest_exact).
+--tr 0 skips the transposed read, which declines on column groups (OpenDDE's c 384).
+--share 0,1 repeats every arm with triatt_ln.LN_SHARE (ABL 0 rows print exact_vs_first against the first arm).
 """
 import argparse, json, os, statistics, time
 
@@ -21,6 +24,11 @@ ap.add_argument("--reps", type=int, default=10)
 ap.add_argument("--abl", default="0,1,2,4,8,12,3,7,11,14,13", help="comma list of ABL masks")
 ap.add_argument("--fids", default="HiFi3,HiFi2")
 ap.add_argument("--b8", default="0", help="comma list: lever triatt_ln_b8 off (0) / on (1)")
+ap.add_argument("--tr", default="0,1", help="comma list: plain (0) / transposed (1) read")
+ap.add_argument("--stagger", default="1", help="comma list: triatt_ln.STAGGER off (0) / on (1)")
+ap.add_argument("--lnblk", default="1", help="comma list: triatt_ln.LN_BLK (1 or 4). With more than one stagger x lnblk "
+                "arm, ABL 0 rows print exact_vs_first, torch.equal to the first arm")
+ap.add_argument("--share", default="0", help="comma list: triatt_ln.LN_SHARE off (0) / on (1)")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -87,20 +95,33 @@ def reference(tr):
 
 def rel_rms(out, ref):
     o = [t[..., :r.shape[-1]].double().reshape(r.shape) for t, r in zip(out, ref)]
-    return round(max(float((p - q).pow(2).mean().sqrt() / q.pow(2).mean().sqrt()) for p, q in zip(o, ref)), 5)
+    return [round(float((p - q).pow(2).mean().sqrt() / q.pow(2).mean().sqrt()), 5) for p, q in zip(o, ref)]
 
 
 small = (grid[0], grid[1] - 1)
 for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
-    for tr in (False, True):
-        ref = None
+    for tr in [bool(int(d)) for d in a.tr.split(",")]:
+        ref = plain = None
         for b8 in [bool(int(d)) for d in a.b8.split(",")]:
-            B8 = b8
+          B8 = b8
+          base = None
+          arms = [(st, blk, sh) for st in [bool(int(d)) for d in a.stagger.split(",")] for blk in [int(d) for d in a.lnblk.split(",")]
+                  for sh in [bool(int(d)) for d in a.share.split(",")]]
+          for st, blk, sh in arms:
+            TL.STAGGER, TL.LN_BLK, TL.LN_SHARE = st, blk, sh
             for abl in [int(m) for m in a.abl.split(",")]:
                 TL.ABL = abl
                 ms = timed(lambda: run(fid, tr))
                 row = dict(n=a.n, c=c, card=os.environ.get("TT_VISIBLE_DEVICES"), fid=str(fid), tr=tr, b8=b8,
-                           abl=abl, ms=ms)
+                           abl=abl, stagger=st, lnblk=blk, share=sh, ms=ms)
+                if abl == 0 and len(arms) > 1:
+                    r = run(fid, tr)
+                    out = host(r)
+                    free(r)
+                    if base is None:
+                        base = out
+                    else:
+                        row["exact_vs_first"] = all(torch.equal(p, q) for p, q in zip(out, base))
                 if abl == 0 and (a.b8 != "0"):
                     if ref is None:
                         ref = reference(tr)
@@ -108,9 +129,14 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                     out = host(r)
                     free(r)
                     row["rel_rms_f64"] = rel_rms(out, ref)
+                    if not b8:
+                        plain = out
+                    elif plain is not None:
+                        row["bf16_rest_exact"] = all(torch.equal(p, q) for p, q in zip(out[3:], plain[3:]))
                     if b8:
                         r = run(fid, tr, small)
                         row["grid_invariant"] = all(torch.equal(p, q) for p, q in zip(out, host(r)))
                         free(r)
                 print(json.dumps(row), flush=True)
 TL.ABL = 0
+TL.STAGGER, TL.LN_BLK, TL.LN_SHARE = True, 1, False

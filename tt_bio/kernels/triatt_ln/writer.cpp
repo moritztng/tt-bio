@@ -7,13 +7,18 @@
 // HEAD_MAJOR_MT transform of kernels/triatt) and the last tile the [B, S, 32] pair bias (page r).
 // H = 0 (apb_ln, triatt_ln.ln_proj): the NW tiles go row-major to one [B, S, NW * 32] tensor.
 // A core of column group n0 (runtime arg 4) writes output tiles n0 .. n0 + NW - 1 of the NWF a row tile
-// carries; the ones past NWF are padding and are dropped.
+// carries; the ones past NWF are padding and are dropped, and with NQ so are those from runtime arg 6 on
+// (the next group's: a bfp8 split at 2H leaves group 0 one v tile it computes bf16 but does not own).
 #include "api/dataflow/dataflow_api.h"
 
 // Row tile of the i-th row this core writes. Plain: r0 + i. TR (runtime arg 2, reader.cpp): r0 is the first
 // unit, 16 rows a unit, row k of unit (bt, jt, half) is row tile (bt * 32 + half * 16 + k) * MT + jt of z^T.
+// Plain rows rotate by s (runtime arg 7, triatt_ln.STAGGER, 0 under TR): row i is r0 + (i + s) % nrows.
 inline uint32_t row_of(uint32_t r0, uint32_t i) {
-    if (!get_arg_val<uint32_t>(2)) return r0 + i;
+    if (!get_arg_val<uint32_t>(2)) {
+        const uint32_t ir = i + get_arg_val<uint32_t>(7);
+        return r0 + (ir >= get_arg_val<uint32_t>(1) ? ir - get_arg_val<uint32_t>(1) : ir);
+    }
     const uint32_t MT = get_arg_val<uint32_t>(3), u = r0 + i / 16;
     return ((u >> 1) / MT * 32 + (u & 1) * 16 + i % 16) * MT + (u >> 1) % MT;
 }
@@ -22,7 +27,7 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #define ABL_W 0   // bench-only (triatt_ln.ABL bit 4): skip the DRAM writes
 #endif
 #ifndef NQ
-#define NQ 0      // triatt_ln_b8: the first NQ = 3H tiles (q, k, v) come bfp8 from c_2, the rest bf16 from c_4
+#define NQ 0      // triatt_ln_b8: the first nq tiles (runtime arg 5: q, k, v) come bfp8 from c_2, the rest bf16 from c_4
 #endif
 
 // The H = 0 build has one output accessor and must never instantiate the five-accessor body. Outside a
@@ -56,19 +61,20 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
     const auto ov = TensorAccessor(v_args, get_common_arg_val<uint32_t>(2));
     const auto og = TensorAccessor(g_args, get_common_arg_val<uint32_t>(3));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(4));
+    const uint32_t nq = NQ ? get_arg_val<uint32_t>(5) : 0, n_end = NQ ? get_arg_val<uint32_t>(6) : 4 * H + 1;
     const uint32_t hi_cb = NQ ? (uint32_t)tt::CBIndex::c_4 : out_cb;   // g, bias (NQ) or nothing
     const uint32_t tb_hi = get_tile_size(hi_cb);
     for (uint32_t i = 0; i < nrows; ++i) {
         const uint32_t r = row_of(r0, i);
-        cb_wait_front(out_cb, NQ ? NQ : NW);
-        if constexpr (NQ) cb_wait_front(hi_cb, NW - NQ);
+        cb_wait_front(out_cb, NQ ? nq : NW);
+        if constexpr (NQ) cb_wait_front(hi_cb, NW - nq);
         uint32_t src = get_read_ptr(out_cb);
         const uint32_t base = (r / MT) * H * MT + r % MT;
-        for (uint32_t j = 0, n = n0; j < NW && n <= 4 * H; ++j, ++n) {
-            if (NQ && j == NQ) src = get_read_ptr(hi_cb);
+        for (uint32_t j = 0, n = n0; j < NW && n < n_end; ++j, ++n) {
+            if (NQ && j == nq) src = get_read_ptr(hi_cb);
             const uint32_t page = base + (n % H) * MT;
             const uint32_t s = src;
-            src += (NQ && j >= NQ) ? tb_hi : tb;
+            src += (NQ && j >= nq) ? tb_hi : tb;
             if constexpr (ABL_W) continue;
             switch (n / H) {
                 case 0: noc_async_write_page(page, oq, s); break;
@@ -79,8 +85,8 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
             }
         }
         noc_async_writes_flushed();
-        cb_pop_front(out_cb, NQ ? NQ : NW);
-        if constexpr (NQ) cb_pop_front(hi_cb, NW - NQ);
+        cb_pop_front(out_cb, NQ ? nq : NW);
+        if constexpr (NQ) cb_pop_front(hi_cb, NW - nq);
     }
 }
 

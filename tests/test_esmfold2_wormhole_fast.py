@@ -56,9 +56,9 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     assert "ws_resid" in fast_set and fast_set.count("trimul_gin_hifi2") == 1
     assert ("ws_lofi" in fast_set) is not wormhole and "ws_lofi" not in normal_set
     assert "trimul_b8in" in fast_set and "trimul_b8in" not in normal_set
-    # The T1/T2 trimul stack passed the fast bar on Blackhole and loses time on Wormhole.
-    assert all((n in fast_set) is not wormhole for n in ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm"))
-    assert "trimul_t1" not in rt.fold_levers(False).split("+")
+    # The T1/T2 trimul stack passed both bars on Blackhole (bt1g, bt1ng) and loses time on Wormhole.
+    t12 = ("trimul_t1", "trimul_t1_c256", "trimul_t1w8", "trimul_t1_2g", "trimul_t2", "trimul_t2cm")
+    assert all((n in s) is not wormhole for s in (fast_set, normal_set) for n in t12)
     # Wormhole's normal mode takes the --fast trimul pair too (wnsg), Blackhole's does not.
     normal = tenstorrent.parse_levers(rt.fold_levers(False))
     assert all((n in normal) is wormhole for n in ("trimul_t2fold", "trimul_gin_w8"))
@@ -75,8 +75,9 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     assert "lm_sdpa_stock" in normal_set and "lm_sdpa_stock" in fast_set
     assert "lm_ln_stock" in normal_set and "lm_ln_stock" in fast_set
     assert all((n in s) is not wormhole for n in ("lm_k64", "lm_linear") for s in (normal_set, fast_set))
-    # The fused token-DiT attention (dsg) and its hoisted conditioning (dsq2) passed the fast bar on Wormhole only.
-    assert ("dit_qkvf" in fast_set) is wormhole and "dit_qkvf" not in normal_set
+    # The fused token-DiT attention passed the fast bar on both archs (dsg, bqkg); its hoisted conditioning (dsq2) on
+    # Wormhole only.
+    assert "dit_qkvf" in fast_set and "dit_qkvf" not in normal_set
     assert ("dit_shoist" in fast_set) is wormhole and "dit_shoist" not in normal_set
     assert ("trunk_hifi2" in fast_set) is wormhole and "trunk_hifi2" not in normal_set
     assert ("ef2_atom_rope" in fast_set) is wormhole and ("ef2_atom_rope" in normal_set) is wormhole

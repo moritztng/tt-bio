@@ -212,6 +212,41 @@ def test_merge_back_takes_the_release_files_main_left_alone_and_keeps_mains_note
     assert rt.merge_back(rel, sha, "origin") == m          # already merged: nothing new
 
 
+def test_merge_back_splices_rerecorded_cards_into_a_ladder_fragment_main_touched(tmp_path, monkeypatch):
+    """0.23.0 was gated on a candidate off main's line, so no fragment matched main's copy and the
+    merge kept main's v0.22.0 records for eight models. The release's re-recorded card lands; the
+    card it did not re-record keeps main's edit."""
+    origin, repo = tmp_path / "origin.git", tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin), str(repo)], check=True, capture_output=True)
+
+    def git(*a):
+        return subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t", *a],
+                              check=True, capture_output=True, text=True).stdout.strip()
+
+    def commit(files, msg):
+        for f, v in files.items():
+            (repo / f).parent.mkdir(parents=True, exist_ok=True)
+            (repo / f).write_text(v if isinstance(v, str) else json.dumps(v, indent=2) + "\n")
+        git("add", *files)
+        git("commit", "-q", "-m", msg)
+        return git("rev-parse", "HEAD")
+
+    frag = "docs/size_ladder_baseline.d/m.json"
+    sha = commit({"CHANGELOG.md": "## [Unreleased]\n", "pyproject.toml": 'version = "0.1.0"\n', "README.md": "x\n",
+                  frag: {"cards": {"a": "old", "b": "old"}}}, "gated")
+    git("push", "-q", "origin", "HEAD:main")
+    rel = commit({"pyproject.toml": 'version = "0.2.0"\n', frag: {"cards": {"a": "recorded", "b": "old"}}},
+                 "Release 0.2.0")
+    git("checkout", "-q", "--detach", sha)
+    commit({frag: {"cards": {"a": "old", "b": "reason filled"}}}, "later on main")
+    git("push", "-q", "origin", "HEAD:main")
+    monkeypatch.setattr(rt, "REPO", repo)
+
+    m = rt.merge_back(rel, sha, "origin")
+    assert json.loads(git("show", f"{m}:{frag}")) == {"cards": {"a": "recorded", "b": "reason filled"}}
+
+
 def test_galaxy_pools_list_every_galaxy_pool(tmp_path):
     """Every Galaxy with a pool gets slots, lent or not: the gate reads each pool's PAUSE while it
     runs, so a leg taken back from a Galaxy returned to JapanFold goes to whichever pool is open."""

@@ -17,7 +17,8 @@ device.
 import torch
 import ttnn
 
-from .protenix import NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, WS_CHAIN, _KeyedWeights
+from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST, WS_CHAIN,
+                       _KeyedWeights)
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -513,7 +514,13 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # Wormhole fast takes DIT_SEAM too (above).
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
                                    "trimul_t1_dram", "trunk_hifi2", "bres_ta_hifi3"}
-                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10)
+                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10 | TRIATT_LN_B8_FAST)
+# Wormhole fast writes triangle attention's q, k, v and gate bfp8 out of the fused LayerNorm (protenix.TRIATT_LN_B8_FAST),
+# now that the kernel does it on OpenDDE's two column groups. At fast's HiFi2 trunk the bf16 write was the cost: 640 x
+# c384 15.76 -> 11.05 ms per call (1000 MHz, spd-m-opendde lbg). Galaxy chip, separate-process ABBA, 2 warm folds per
+# arm, AICLK 1000 MHz (spd-m-opendde lbs, 2026-10-24): fast 608 111.26 -> 109.61 s, 640 124.71 -> 117.51 s (-5.8 %).
+# Fast grade vs the shipped WH fast set, 11 complexes x seeds 109-112, 44 paired folds (spd-m-opendde lbtg2, 2026-10-25):
+# PASS, CA-lDDT -0.0001 [-0.0014, +0.0013], DockQ +0.006, docking 26 -> 26, pLDDT -0.008, top pose median 0.86 A (A/A 1.17).
 # Both Wormhole modes fuse triangle attention's LayerNorm into its qkvgb projection (triatt_ln), now that the
 # kernel splits OpenDDE's 1.2 MB weight over column groups instead of declining. WH 11-set grades vs the model set
 # before T2_TAIL / trimul_t1_c384, 4 seeds, 44 paired folds each, 1000 MHz (spd-m-opendde tlng, 2026-10-17): normal PASS, same-seed top pose median

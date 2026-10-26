@@ -25,11 +25,13 @@ Each tile is one core's full-K dot product packed once, so the bytes do not depe
 Where the whole weight does not fit a core's L1 (OpenDDE: K 384, [12 x 49] tiles, 1.2 MB), the cores
 split into G column groups: each holds 1/G of the weight's columns and norms the same rows, so x is read
 G times instead of being normed into DRAM and read back. Each output tile is still one core's full-K
-dot product, so the split changes no value.
+dot product, so the split changes no value. With triatt_ln_b8 two groups split at 2H instead (`b8_cols`),
+so each group's bfp8 tiles form one run that ends on a DST block.
 """
 
 from __future__ import annotations
 
+import math
 import struct
 from pathlib import Path
 
@@ -46,6 +48,19 @@ RB = 4          # row tiles per reader barrier
 TR = True
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
+#: rotate each core's plain-read rows by its row-split index, so the cores of a group do not all start on the same
+#: row residue and hit the same few DRAM banks in lockstep (head-major pages of one row tile are MT apart). Order
+#: only: every row is read, computed and written exactly as before. OpenDDE WH normal fold, same chip, CIFs identical,
+#: 1000 MHz: 512 -0.75 s, 640 -1.36 s (stgf); per call it moves only the HiFi2 bf16 write (512 9.67 -> 8.77 ms).
+STAGGER = True
+#: channel tiles per dest acquire in the LayerNorm's eltwise stages (kernels/common/ln_prologue.hpp LN_BLK), bit-identical
+LN_BLK = 1
+#: with two column groups (plain read), the two cores of a pair each read and norm every other row and copy the
+#: partner's normed tiles for the rest over the NOC (reader.cpp), so no row is read or normed twice. Same
+#: tiles into the same projection, so bit-identical. Only with bfp8 q|k|v (`_share`), i.e. OpenDDE WH fast today.
+#: OpenDDE WH fast fold, same chip, 2 paired warm, CIFs identical, 1000 MHz (spd-m-opendde lnf): 512 75.40 -> 74.25 s,
+#: 640 117.96 -> 115.72 s, 288 null.
+LN_SHARE = True
 _CACHE: dict = {}
 #: (served, declined, served with bfp8 q/k/v)
 STATS = [0, 0, 0]
@@ -99,16 +114,25 @@ def out_page(r, h, H, MT):
     return ((r // MT) * H + h) * MT + r % MT
 
 
+def _lnblk():
+    return [("LN_BLK", str(LN_BLK))] if LN_BLK != 1 else []
+
+
 def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
     fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=MG.tile_bytes(dtype))
     return ttnn.CBDescriptor(total_size=tiles * MG.tile_bytes(dtype), core_ranges=core_grid,
                              format_descriptors=[fmt])
 
 
-def _cb_bytes(kt, nw, tr):
+def _cb_bytes(kt, nw, tr, share=False):
     """L1 bytes per core of `_build`'s circular buffers."""
-    bf = kt * nw + 2 * kt + 2 * nw + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1
+    bf = kt * nw + 2 * kt + 2 * nw + (tr * 16 * kt + 16 if tr else 2 * RB * kt) + 2 * kt + 1 + share * (2 * kt + 2)
     return bf * MG.tile_bytes(ttnn.bfloat16) + (4 + 2 * kt) * MG.tile_bytes(ttnn.float32)
+
+
+def _lcf(dev):
+    lcf = ttnn.get_memory_view(dev, ttnn.BufferType.L1).largest_contiguous_bytes_free_per_bank
+    return min(lcf) if isinstance(lcf, (list, tuple)) else lcf
 
 
 def _plan(kt, nw, tr, dev, ncores):
@@ -118,23 +142,50 @@ def _plan(kt, nw, tr, dev, ncores):
     actually free now: the CBs sit below every live L1 buffer, so the largest free block is what
     they may take. At 8 heads x 32 (w 33 tiles wide, Protenix-v2) and K 256 one unit needs 1.12 MB
     of a 1.40 MB Wormhole bank, which a fixed fraction of the bank refused."""
-    lcf = ttnn.get_memory_view(dev, ttnn.BufferType.L1).largest_contiguous_bytes_free_per_bank
-    lcf = min(lcf) if isinstance(lcf, (list, tuple)) else lcf
+    lcf = _lcf(dev)
     for g in (1, 2, 4):
         if ncores % g:
             continue
         nwg = -(-nw // g)
         for nb in ((2, 1) if tr else (0,)):
-            if _cb_bytes(kt, nwg, nb) <= lcf:
+            if _cb_bytes(kt, nwg, nb, _share(g, tr, 1)) <= lcf:
                 return g, nwg, nb
     return None
 
 
+def _share(g, tr, H, b8=True):
+    """LN_SHARE applies: two column groups, plain read, head outputs, bfp8 q|k|v. With bf16 outputs the call is
+    bound by its DRAM writes and sharing is slower (512 x c384: HiFi3 7.93 -> 8.72 ms, HiFi2 8.71 -> 9.12), with
+    bfp8 it is not (HiFi3 8.02 -> 6.45, HiFi2 7.21 -> 5.66; lnsh3, .103, 1000 MHz)."""
+    return LN_SHARE and g == 2 and not tr and H > 0 and b8
+
+
 def _nq(nq):
-    return [("NQ", str(nq))] if nq else []
+    return [("NQ", "1")] if nq else []
 
 
-def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
+def b8_cols(g, nw, H, gate=False):
+    """Per column group (first tile, bfp8 tiles, end tile) for bfp8 q, k, v (and the gate), or None.
+
+    One group: q|k|v(|g) are its first tiles. Two groups split at 2H instead of nw, so group 0 is q|k (and
+    one v tile it computes bf16 but leaves to group 1) and group 1 is v(|g), then the bf16 rest. Each group's
+    bfp8 run starts its row and ends on a DST block."""
+    nb = (4 if gate else 3) * H
+    if g == 1:
+        return [(0, nb, 4 * H + 1)] if nb % 4 == 0 else None
+    if g == 2 and H % 4 == 0 and nw == 2 * H + 1:
+        return [(0, 2 * H, 2 * H), (2 * H, nb - 2 * H, 4 * H + 1)]
+    return None
+
+
+def _cb_tiles(cols, nw):
+    """Tiles of c_2 (bfp8) and c_4 (bf16 rest) under `cols`: two rows of every group's chunk, since a ring
+    whose size is not a multiple of a core's reservation would run that reservation past its end."""
+    lcm = lambda v: math.lcm(*v) if v else 0   # noqa: E731
+    return 2 * lcm([q for _, q, _ in cols]), 2 * lcm([nw - q for _, q, _ in cols if nw > q])
+
+
+def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
     for d in list(x.padded_shape)[:-1]:
@@ -146,13 +197,21 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
     # TR splits 16-row units (2 per x^T row-tile pair (bt, jt)), the rest splits row tiles. Core c is in
     # column group c % g, and every group splits the same rows.
     split = split_rows(m // 16 if tr else m, gx * gy // g)
+    nq = max(q for _, q, _ in cols) if cols else 0
+    lns = _share(g, tr, H, bool(nq))
+    phys = lambda c: x.device().worker_core_from_logical_core(ttnn.CoreCoord(c % gx, c // gx))  # noqa: E731
+    c2, c4 = _cb_tiles(cols, nw) if cols else (2 * nw, 0)
     for c in range(gx * gy):
         r0, n = split[c // g]
         cx, cy = c % gx, c // gx
         rows = 16 * n if tr else n
-        rd[cx][cy] = [r0, n, int(bool(tr)), MT, (c % g) * nw]
-        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, (c % g) * nw]
-        cp[cx][cy] = [rows]
+        n0, q, end = cols[c % g] if cols else ((c % g) * nw, 0, nwf)
+        s = (c // g) % n if STAGGER and not tr and n else 0
+        own = 2 + c % 2 if lns else 0
+        p = phys(c ^ 1) if lns else ttnn.CoreCoord(0, 0)
+        rd[cx][cy] = [r0, n, int(bool(tr)), MT, n0, s, own, p.x, p.y]
+        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end, s]
+        cp[cx][cy] = [rows, q, c % 2]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())  # noqa: E731
@@ -170,18 +229,21 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq=0):
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq),   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq) + _lnblk() + [("LNS", "1")] * lns,   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
-    cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, 2 * (nq or nw), outs[0].dtype),
+    cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, c2, outs[0].dtype),
            _cb(7, core_grid, tr * 16 * kt if tr else 2 * RB * kt), _cb(8, core_grid, kt), _cb(9, core_grid, kt),
            _cb(10, core_grid, 1)]
     if tr:
         cbs.append(_cb(3, core_grid, 16))   # the 32 half tiles of one channel tile
-    if nq:
-        cbs.append(_cb(4, core_grid, 2 * (nw - nq)))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
+    if c4:
+        cbs.append(_cb(4, core_grid, c4))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
+    if lns:
+        cbs += [_cb(5, core_grid, 2 * kt), _cb(6, core_grid, 2)]   # the partner's xn, own-xn tokens
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
-    return {"kernels": [reader, writer, compute], "cbs": cbs}
+    sems = [ttnn.SemaphoreDescriptor(id=0, core_ranges=core_grid, initial_value=0)] if lns else []
+    return {"kernels": [reader, writer, compute], "cbs": cbs, "sems": sems}
 
 
 def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid, eps=1e-5, transposed=False):
@@ -214,31 +276,37 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if plan is None:
         return _reject(f"l1:kt{K // TILE}:nw{int(w.padded_shape[-1]) // TILE}:tr{int(transposed)}", x)
     dev = x.device()
-    # bfp8 q, k, v need the whole row in one group (plan g 1) and q|k|v ending on a DST block (3H % 4)
-    nq = 3 * H if lever("triatt_ln_b8") and plan[0] == 1 and 3 * H % 4 == 0 else 0
-    if nq and lever("triatt_ln_b8g"):
-        nq = 4 * H   # the gate too: gated_out_proj reads a bfp8 g
+    # bfp8 q, k, v: each group's bfp8 run must start its row and end on a DST block (b8_cols)
+    gate = lever("triatt_ln_b8g")   # the gate too: gated_out_proj reads a bfp8 g
+    cols = b8_cols(plan[0], plan[1], H, gate) if lever("triatt_ln_b8") else None
+    if cols and plan[0] > 1:
+        # c_2 and c_4 against the bf16 c_2 that _plan priced
+        c2, c4 = _cb_tiles(cols, plan[1])
+        extra = (c2 - 2 * plan[1]) * MG.tile_bytes(ttnn.bfloat8_b) + c4 * MG.tile_bytes(ttnn.bfloat16)
+        if _cb_bytes(K // TILE, plan[1], plan[2], _share(plan[0], transposed, H)) + extra > _lcf(x.device()):
+            cols = None
+    nq = (4 if gate else 3) * H if cols else 0
     STATS[2] += bool(nq)
     hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, nq)
+    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, cols)
 
 
-def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, nq=0):
+def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, nq)
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, nq)
+        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), w.buffer_address(), ln_w.buffer_address(),
                                   ln_b.buffer_address()]
     writer.common_runtime_args = [o.buffer_address() for o in outs]
-    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
+    pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"])
     ttnn.generic_op([x, w, ln_w, ln_b] + outs, pd)
     STATS[0] += 1
     if H:
