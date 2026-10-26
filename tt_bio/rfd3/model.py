@@ -256,6 +256,10 @@ def _pf_dpb_on():
     return _PF_DPB if _PF_DPB is not None else is_wormhole()
 
 
+def _pf_sdpa_on():
+    return _PF_SDPA if _PF_SDPA is not None else is_wormhole()
+
+
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -459,8 +463,10 @@ PF_DPB_CALLS = [0, 0]   # served, declined
 # The pairformer's single attention through the fused SDPA, the DiT's way: 24-wide heads zero-padded to 32 in the
 # q/k/v/g weights (zero columns add 0 to every q.k and come back as zero output columns), one nlp_create_qkv_heads,
 # and the pair bias as the SDPA mask pre-scaled by sqrt(head_dim). Replaces q.k^T, the fp32 typecasts, scale, bias add,
-# softmax and attn@v, and the reshape/permute/pad per tensor. RFD3_PF_SDPA=0 restores the manual chain.
-_PF_SDPA = env_flag("RFD3_PF_SDPA", True)
+# softmax and attn@v, and the reshape/permute/pad per tensor. WH page cell @1000 MHz: fast 50.9 -> 49.7, normal
+# 51.8 -> 50.9 s/design; eight paired normal seeds: design drift 3.5-11.4 A against a 12.6-20.3 A seed floor, breaks
+# 3 -> 2, clashes 345 -> 337. On by default on Wormhole until a p150a read; RFD3_PF_SDPA=0/1 forces it.
+_PF_SDPA = env_flag("RFD3_PF_SDPA", False) if os.environ.get("RFD3_PF_SDPA") else None
 PF_SDPA_CALLS = [0]
 
 
@@ -1449,7 +1455,7 @@ class PairformerAttention(Module):
         a = ttnn.rms_norm(s, weight=self.ln_1_w, epsilon=1e-6,
                           compute_kernel_config=ckc)
         B, I = s.shape[0], s.shape[1]
-        if _PF_SDPA:
+        if _pf_sdpa_on():
             return self._sdpa(a, z, B, I)
         q = ttnn.linear(a, self.to_q_w, bias=self.to_q_b,
                           compute_kernel_config=self.compute_kernel_config,
