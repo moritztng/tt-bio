@@ -147,3 +147,15 @@ def test_dknn_default_off_on_wormhole_only(monkeypatch):
     assert M._dknn_on() is False
     monkeypatch.setattr(M, "_DKNN", True)
     assert M._dknn_on() is True
+
+
+def test_pf_dpb_default_on_wormhole_only(monkeypatch):
+    """The pairformer pair bias through dit_pair_bias is on by default on Wormhole, where it graded and paid."""
+    monkeypatch.setattr(M, "_PF_DPB", None)
+    assert "_PF_DPB" not in M._FAST_SET
+    monkeypatch.setattr(M, "is_wormhole", lambda: True)
+    assert M._pf_dpb_on() is True
+    monkeypatch.setattr(M, "is_wormhole", lambda: False)
+    assert M._pf_dpb_on() is False
+    monkeypatch.setattr(M, "_PF_DPB", True)
+    assert M._pf_dpb_on() is True

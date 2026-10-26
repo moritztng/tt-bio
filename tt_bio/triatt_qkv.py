@@ -466,7 +466,7 @@ def _tail_dw(kt, nt):
     return next(d for d in (4, 2, 1) if kt % d == 0 and nt % d == 0)
 
 
-def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None, trans=False):
+def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=False):
     B, kt, St = int(o.padded_shape[0]), int(o.padded_shape[1]), int(o.padded_shape[2]) // TILE
     nt = int(w.shape[-1]) // TILE
     nu = B * St // TILE if trans else B * St   # trans: a unit is a 32 x 32 block, 32 row tiles
@@ -487,13 +487,13 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None, trans=False):
     src = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nt, St, int(resid), int(_g3d(o, g)), int(brows is not None), int(trans)]
-        + acc(o) + acc(g) + acc(w) + acc(z) + acc(brows if brows is not None else w),
-        runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
+        compile_time_args=[kt, nt, St, int(_g3d(o, g)), int(brows is not None), int(trans)]
+        + acc(o) + acc(g) + acc(w) + acc(brows if brows is not None else w),
+        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / ("writer_t.cpp" if trans else "writer.cpp")), source_type=src,
         core_ranges=core_grid,
-        compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN] if trans else [nt]) + acc(out),
+        compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN] if trans else [nt, int(resid)]) + acc(out),
         runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
@@ -559,11 +559,10 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
            resid_t is not None)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
-        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None, brows,
+        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, ckc, grid, resid is not None, brows,
                                                trans=resid_t is not None)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [o.buffer_address(), g.buffer_address(), w.buffer_address(),
-                                  out.buffer_address(),
                                   brows.buffer_address() if brows is not None else 0]
     writer.common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])

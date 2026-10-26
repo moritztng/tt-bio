@@ -252,6 +252,10 @@ def _dknn_on():
     return _DKNN if _DKNN is not None else not is_wormhole()
 
 
+def _pf_dpb_on():
+    return _PF_DPB if _PF_DPB is not None else is_wormhole()
+
+
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -447,7 +451,10 @@ _DIT_DPB = env_flag("RFD3_DPB", True)
 # The token encoder's pairformer pair bias through the same program: 16 heads (W^T zero-padded to one 32-head tile,
 # the second half written to a scratch output), scale 1, the key pad at -1e4 from the mask. Replaces the linear
 # [I*I, 128] @ [128, 16] (2.03 ms a call on WH @1000 against a 0.62 ms roof), its permute and the fp32 pad.
-_PF_DPB = env_flag("RFD3_PF_DPB", False)
+# WH page cell @1000 MHz: fast 51.3 -> 50.7, normal 52.4 -> 51.8 s/design. Eight paired normal seeds on the WH defaults:
+# design drift 4.0-13.7 A against a 13.0-20.7 A seed floor, breaks 4 -> 3, clashes 433 -> 345. On by default on Wormhole
+# only (a p150a read +0.2 s); RFD3_PF_DPB=0/1 forces it.
+_PF_DPB = env_flag("RFD3_PF_DPB", False) if os.environ.get("RFD3_PF_DPB") else None
 PF_DPB_CALLS = [0, 0]   # served, declined
 
 
@@ -1458,7 +1465,7 @@ class PairformerAttention(Module):
         z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6,
                            compute_kernel_config=self.compute_kernel_config)
         n_key = align_tile(I)
-        bias_f = self._pair_bias_dpb(z, I, n_key) if _PF_DPB else None
+        bias_f = self._pair_bias_dpb(z, I, n_key) if _pf_dpb_on() else None
         if bias_f is None:
             bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config,
                                  dtype=self.dtype, core_grid=CORE_GRID_MAIN)
@@ -2034,13 +2041,40 @@ def _pair_gather_table(cache, p_host, device, dtype):
     if entry is None:
         while len(tables) >= _PAIR_TABLE_SLOTS:
             ttnn.deallocate(tables.pop(next(iter(tables)))[1])
-        # Cast in torch before the upload: ttnn's own host conversion of the fp32 table is the slow half of it.
-        # Page fixture (36.6M x 16, WH, 2 threads): 5.35 -> 3.27 s a design, the uploaded bits equal.
-        flat = p_host.reshape(-1, p_host.shape[-1])
-        entry = (p_host, ttnn.from_torch(flat.to(_TORCH_DTYPE.get(dtype, flat.dtype)).contiguous(),
-                                         layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=dtype))
+        entry = (p_host, _upload_pair_table(p_host.reshape(-1, p_host.shape[-1]), device))
         tables[key] = entry
     return entry[1]
+
+
+_TABLE_ROWS_PER_PAGE = 16
+_TABLE_CHUNK_ROWS = 1 << 20
+
+
+def _upload_pair_table(flat, device):
+    """Upload a bf16 [N, C] row-major gather table at wide-page speed without a second copy on the card.
+
+    A row-major [N, 16] tensor moves as one 32-byte page per row (~520 MB/s on WH). Each 1M-row chunk goes up as
+    [rows/16, 16*C] instead (512-byte pages), is reshaped on the card and written into the preallocated table, so
+    the peak is the table plus one 32 MB chunk. The torch-side bf16 cast also beats ttnn's own fp32 conversion.
+    Page fixture (36.6M x 16, WH, 2 threads): 5.35 s (fp32 narrow) -> 3.1 (bf16 narrow) -> 0.9 s, gathers equal.
+    Rows past N are padding the gather never indexes.
+    """
+    n, c = flat.shape
+    chunk = min(_TABLE_CHUNK_ROWS, -(-n // _TABLE_ROWS_PER_PAGE) * _TABLE_ROWS_PER_PAGE)
+    n_pad = -(-n // chunk) * chunk
+    table = ttnn.allocate_tensor_on_device(ttnn.Shape([1, 1, n_pad, c]), ttnn.bfloat16, ttnn.ROW_MAJOR_LAYOUT,
+                                           device)
+    for r0 in range(0, n_pad, chunk):
+        part = flat[r0:r0 + chunk].to(torch.bfloat16)
+        if part.shape[0] < chunk:
+            part = torch.cat([part, part.new_zeros(chunk - part.shape[0], c)])
+        wide = ttnn.from_torch(part.reshape(chunk // _TABLE_ROWS_PER_PAGE, _TABLE_ROWS_PER_PAGE * c),
+                               layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.bfloat16)
+        rows = ttnn.reshape(wide, (1, 1, chunk, c))
+        ttnn.experimental.slice_write(rows, table, [0, 0, r0, 0], [1, 1, r0 + chunk, c], [1, 1, 1, 1])
+        ttnn.deallocate(rows)
+        ttnn.deallocate(wide)
+    return ttnn.reshape(table, (n_pad, c))
 
 
 def _sparse_pair_gather(cache, p_host, indices, device, dtype):

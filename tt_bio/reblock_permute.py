@@ -780,11 +780,13 @@ def set_enabled_back(on: bool) -> bool:
     return prev
 
 
-def back_x8_ok(memory_config) -> bool:
-    """Whether a batched move back takes a bfp8 x (lever `pair_x8`): the batch kernel, DRAM interleaved, no tape."""
+def back_x8_ok(memory_config, batch: int = 2) -> bool:
+    """Whether the move back takes a bfp8 x: a batch under `pair_x8` (RFD4), one fold under `trimul_x8`. The kernel,
+    DRAM interleaved, no tape."""
     from . import ops
     from .tenstorrent import lever
-    return bool(lever("pair_x8") and lever("pair_batch") and _pbpk() and _ENABLED_BACK and not ops.taping()
+    on = lever("pair_x8") and lever("pair_batch") if batch > 1 else lever("trimul_x8")
+    return bool(on and _pbpk() and _ENABLED_BACK and not ops.taping()
                 and memory_config.buffer_type == ttnn.BufferType.DRAM
                 and memory_config.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
@@ -829,7 +831,8 @@ def eligible_back(x, memory_config, taped_ok: bool = False) -> bool:
                 == ttnn.TensorMemoryLayout.INTERLEAVED):
             return _reject("back_batch", shape)
         return True
-    if x.dtype != _DTYPE or x.layout != ttnn.TILE_LAYOUT:
+    if (x.dtype != _DTYPE and not (x.dtype == ttnn.bfloat8_b and back_x8_ok(memory_config, 1))
+            or x.layout != ttnn.TILE_LAYOUT):
         return _reject("back_dtype_layout", shape)
     if memory_config.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED:
         return _reject("back_sharded_out", shape)

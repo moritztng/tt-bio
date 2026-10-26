@@ -12,6 +12,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   no cached chain is also about 2x faster. The alignments are byte-identical to `colabfold_search`'s
   (graded with `scripts/paired_msa_by_chain_check.py`); this applies to colabfold 1.6.3, and any
   other release runs the search as before.
+- **ESMFold2 and ESMFold2-Fast replay the diffusion step from a device trace by default.** Short
+  chains fold up to 1.6x faster (64 residues on Blackhole, ESMFold2-Fast `--fast`: 2.03 -> 1.25 s)
+  with identical output; at 512 residues the gain is 0 to 0.5 s. `TT_BIO_ESMFOLD2_DIFFUSION_TRACE=0`
+  restores the eager step.
 
 ## [0.23.0] - 2026-10-26
 
