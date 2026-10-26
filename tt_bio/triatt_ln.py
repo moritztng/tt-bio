@@ -20,7 +20,6 @@ Lever `triatt_ln_b8` writes q, k and v bfp8 (gate and bias stay bf16, the gated 
 gate; the caller narrows the head-major bias after its permute and triatt_sdpa keeps a bf16 destination, so
 the fused SDPA and out-projection both still serve): the kernel is bound by its DRAM writes, which cap near 120 GB/s on Wormhole, and this cuts them by 35 %.
 Each tile is one core's full-K dot product packed once, so the bytes do not depend on the core grid.
-`triatt_ln_b8g` adds the gate to those; on its own it writes only the gate bfp8 (normal mode's candidate).
 `ln_proj` is the same kernel for a narrow [K, n <= 64] weight with a plain [B, S, n] output
 (lever `apb_ln`: the attention-pair-bias projection of the normed pair).
 Where the whole weight does not fit a core's L1 (OpenDDE: K 384, [12 x 49] tiles, 1.2 MB), the cores
@@ -48,10 +47,7 @@ TR = True
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
 _CACHE: dict = {}
-#: weight buffer address -> (weight, its gate-first copy) for `triatt_ln_b8g` alone; holding the weight
-#: keeps its address from being reused by another tensor
-_GATE_FIRST: dict = {}
-#: (served, declined, served with bfp8 q/k/v or gate)
+#: (served, declined, served with bfp8 q/k/v)
 STATS = [0, 0, 0]
 REJECTS: dict = {}
 
@@ -222,32 +218,13 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     nq = 3 * H if lever("triatt_ln_b8") and plan[0] == 1 and 3 * H % 4 == 0 else 0
     if nq and lever("triatt_ln_b8g"):
         nq = 4 * H   # the gate too: gated_out_proj reads a bfp8 g
-    # triatt_ln_b8g alone: only the gate bfp8. The kernel writes its first nq columns bfp8, so it runs on a
-    # gate-first copy of the weight and the outputs go g, q, k, v; same dot products, q/k/v stay bit-exact.
-    gate_first = not nq and lever("triatt_ln_b8g") and plan[0] == 1 and H % 4 == 0
-    if gate_first:
-        nq, w = H, _gate_first(w, H)
     STATS[2] += bool(nq)
     hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g (g, q, k, v gate-first)
+    outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    qkv, g, bias = _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, nq)
-    return ((qkv[1], qkv[2], g), qkv[0], bias) if gate_first else (qkv, g, bias)
-
-
-def _gate_first(w, H):
-    """`w` ([K, 4c + 32], columns q | k | v | g | bias) with the gate's columns moved to the front."""
-    entry = _GATE_FIRST.get(w.buffer_address())
-    if entry is None or entry[0] is not w:
-        c = H * TILE
-        n = int(w.shape[-1])
-        parts = [ttnn.slice(w, [0, a], [int(w.shape[0]), b]) for a, b in ((3 * c, 4 * c), (0, 3 * c), (4 * c, n))]
-        entry = _GATE_FIRST[w.buffer_address()] = (w, ttnn.concat(parts, dim=-1, memory_config=ttnn.DRAM_MEMORY_CONFIG))
-        for t in parts:
-            ttnn.deallocate(t)
-    return entry[1]
+    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, nq)
 
 
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, nq=0):
