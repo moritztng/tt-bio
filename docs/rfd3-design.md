@@ -221,15 +221,14 @@ in both modes. Over eight paired default seeds the design moves 4.0 to 13.7 A at
 for a seed change, with chain breaks 4 -> 3 and fewer clashes. It is off on a p150a, where it does not pay;
 `RFD3_PF_DPB=0/1` forces it either way.
 
-On Wormhole the pairformer's attention in the token encoder runs as one fused attention kernel, with the heads
+The pairformer's attention in the token encoder runs as one fused attention kernel, with the heads
 padded to a tile width and the pair bias as the mask. It is closer to a float64 reference than the chain of
-separate ops it replaces and saves about 1 s per design in both modes. Over eight paired default seeds the design
-moves 3.5 to 11.4 A at the same seed against 12.6 to 20.3 A for a seed change, with chain breaks 3 -> 2 and clashes
-unchanged. It is off on a p150a until it is measured there; `RFD3_PF_SDPA=0/1` forces it either way.
+separate ops it replaces and saves about 1 s per design in both modes on both chips. Over eight paired default seeds
+the design moves 3.5 to 11.7 A at the same seed against 12.5 to 20.3 A for a seed change, with chain breaks
+unchanged and clashes within seed noise. `RFD3_PF_SDPA=0` turns it off.
 
-On Wormhole the pair Transition also runs its SiLU on the packer thread so the matmuls overlap it. Results are
-bit-identical; a default design is about 1 s faster in normal mode and unchanged in `--fast`. It is off on a
-p150a until it is measured there; `RFD3_PAIR_WS_PSILU=0/1` forces it either way.
+The pair Transition also runs its SiLU on the packer thread so the matmuls overlap it. Results are bit-identical;
+a default design is up to 1 s faster in normal mode and unchanged in `--fast`. `RFD3_PAIR_WS_PSILU=0` turns it off.
 
 Atom attention scores only the 64 x 64 tiles that hold a neighbour, about a quarter of them, and reads keys,
 values and mask in place; the skipped tiles carry zero softmax weight. It matches a float64 reference as
