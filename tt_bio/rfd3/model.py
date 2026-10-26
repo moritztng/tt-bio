@@ -3789,12 +3789,11 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     Row r keeps its sequence entries (seq_idx < L) and adds the first k - n_seq atoms of its
     k-nearest list that lie outside mask[r]; the union has exactly k members, so sorting the
     two lists side by side and keeping k gives the row _create_attention_indices returns.
-    Everything after the query is numpy and numba (staticknn.extend_rows), neither of which
-    starts an OpenMP team, so the build can run on a worker thread (_ATTN_THREAD).
+    Everything after the query is numpy, which starts no OpenMP team, so the build can run
+    on a worker thread (_ATTN_THREAD).
     """
     import numpy as np
     from scipy.spatial import cKDTree
-    from .staticknn import extend_rows
 
     length = x.shape[1]
     k = min(k, length)
@@ -3806,9 +3805,13 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     else:
         _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
         nn = nn.reshape(length, k)
-    out = np.empty((length, k), np.int64)
-    extend_rows(nn, mask.numpy(), seq_idx.numpy(), out)
-    return torch.from_numpy(out).unsqueeze(0)
+    seq = seq_idx.numpy()
+    outside = ~mask.numpy()[np.arange(length)[:, None], nn]
+    n_fill = k - (seq < length).sum(1, keepdims=True)
+    keep = outside & (np.cumsum(outside, 1) <= n_fill)
+    vals = np.concatenate([seq.astype(np.int32), np.where(keep, nn.astype(np.int32), length)], 1)
+    vals.sort(1)
+    return torch.from_numpy(vals[:, :k].astype(np.int64)).unsqueeze(0)
 
 
 def _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, length):
