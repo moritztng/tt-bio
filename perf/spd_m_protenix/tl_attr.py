@@ -103,14 +103,14 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
         for b8 in [bool(int(d)) for d in a.b8.split(",")]:
           B8 = b8
           base = None
-          arms = [(st, lb) for st in [bool(int(d)) for d in a.stagger.split(",")] for lb in [int(d) for d in a.lnblk.split(",")]]
-          for st, lb in arms:
-            TL.STAGGER, TL.LN_BLK = st, lb
+          arms = [(st, blk) for st in [bool(int(d)) for d in a.stagger.split(",")] for blk in [int(d) for d in a.lnblk.split(",")]]
+          for st, blk in arms:
+            TL.STAGGER, TL.LN_BLK = st, blk
             for abl in [int(m) for m in a.abl.split(",")]:
                 TL.ABL = abl
                 ms = timed(lambda: run(fid, tr))
                 row = dict(n=a.n, c=c, card=os.environ.get("TT_VISIBLE_DEVICES"), fid=str(fid), tr=tr, b8=b8,
-                           abl=abl, stagger=st, lnblk=lb, ms=ms)
+                           abl=abl, stagger=st, lnblk=blk, ms=ms)
                 if abl == 0 and len(arms) > 1:
                     r = run(fid, tr)
                     out = host(r)
