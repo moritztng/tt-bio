@@ -78,11 +78,14 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # Wormhole adds placement-only levers that design byte-identical CIFs on bg_R3 (seed 0, 6 designs, b,l,l,b on a Galaxy
 # chip at 1000 MHz, spd-m-boltzgen lev 2026-10-26), so they need no grade: atom_l1 normal 57.58 -> 56.43 s/design,
 # fast 52.98 -> 51.84; trimul_bres fast 53.00 -> 51.40 (in normal it read +0.3 s, noise, and stays off).
-# Wormhole normal also takes the weight-stationary transition, the fused triangle-attention LN and dit_cond_steps
-# (not the T1/T2 trimul kernels: with them the normal grade failed, design_ptm -0.019 [-0.034, -0.005]). Graded as one
-# stack by the normal protocol (bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact WH normal, 2026-10-26): design_ptm
-# -0.008, complex_plddt +0.003, iptm +0.002, filter 32/32 vs 32/32. Galaxy chip at 1000 MHz: 55.80 -> 53.26 s/design.
-WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps"}
+# Wormhole normal also takes the weight-stationary transition, the fused triangle-attention LN and dit_cond_steps,
+# graded as one stack by the normal protocol (bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact WH normal,
+# 2026-10-26): design_ptm -0.008, complex_plddt +0.003, iptm +0.002, filter 32/32 vs 32/32. Galaxy chip at 1000 MHz:
+# 55.80 -> 53.26 s/design. The T1/T2 trimul kernels on top of that set pass the normal grade pooled over seeds 0-7
+# (64 designs; design_ptm -0.002 [-0.016, +0.012], iptm -0.007, complex_plddt -0.001, filter 64/64). An earlier
+# 4-seed grade of a five-lever stack failed on design_ptm alone; the 8-seed retest was pre-registered.
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
+                                    "trimul_t2"}
 # Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
 # attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
@@ -94,6 +97,10 @@ WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t
 # residual, two-buffer L1) plus atom_l1 and dit_cond_steps. Graded as one stack by the fast protocol (bg_grade.py,
 # bg_R3, seeds 0-3 x 8 designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004,
 # filter 32/32 vs 32/32. Speed on a p300 chip (AICLK mean 1323 MHz): 23.93 -> 20.68 s/design.
+# Blackhole normal runs the T1/T2 trimul kernels with the column-major T2: normal grade PASS pooled over seeds 0-7 vs
+# plain BH normal (64 designs, 2026-10-26): design_ptm +0.019, iptm +0.025, complex_plddt -0.004 [-0.008, +0.001],
+# filter 64/64.
+BH_LEVERS_NORMAL = LEVERS_NORMAL | {"trimul_t1", "trimul_t2", "trimul_t2cm"}
 BH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
                                 "dit_cond_steps"}
 
@@ -165,11 +172,11 @@ class Boltz(nn.Module):
         inference_logging: bool = False,
         use_kernels: bool = False,
         use_resident_trunk: bool = True,
-        diffusion_trace: bool = False,
+        diffusion_trace: Optional[bool] = False,
     ) -> None:
         super().__init__()
         self._levers = tenstorrent.model_levers(
-            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, BH_LEVERS_FAST)))
+            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (BH_LEVERS_NORMAL, BH_LEVERS_FAST)))
         """
         Module that does either:
         1. Design
@@ -177,6 +184,11 @@ class Boltz(nn.Module):
         3. Inverse folding
         4. Affinity prediction
         """
+        # None (the design step's default) replays the DiT trace on Blackhole: lossless, -0.5 s
+        # a design on a p300 chip, and the 1831-residue ceiling holds with the region reserved.
+        # Wormhole stays opt-in until its ceiling is re-walked.
+        if diffusion_trace is None:
+            diffusion_trace = not tenstorrent.is_wormhole()
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
         if diffusion_trace:

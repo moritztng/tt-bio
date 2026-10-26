@@ -41,6 +41,9 @@ sampling_steps: 500
 diffusion_samples: 1
 
 override:
+  # null: on for Blackhole, off for Wormhole (Boltz.__init__)
+  diffusion_trace: null
+
   masker_args:
     mask: true
     mask_backbone: false

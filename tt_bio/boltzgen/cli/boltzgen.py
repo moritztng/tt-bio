@@ -276,10 +276,12 @@ def add_configure_arguments(
     )
     p.add_argument(
         "--diffusion_trace",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Replay a captured ttnn trace of the per-step diffusion DiT device "
-        "stream (lossless; collapses per-step host dispatch). Opt-in; reserves "
-        "0.2-0.3 GB of device memory.",
+        "stream in the design step (lossless; collapses per-step host dispatch; "
+        "reserves 0.2-0.3 GB of device memory). Default: on for Blackhole, off "
+        "for Wormhole.",
     )
 
     # Inverse folding configuration options
@@ -1402,9 +1404,9 @@ class BinderDesignPipeline:
             design_step_and_noise_scale_args.append(
                 f"override.noise_scale_schedule=null"
             )
-        if getattr(args, "diffusion_trace", False):
+        if getattr(args, "diffusion_trace", None) is not None:
             design_step_and_noise_scale_args.append(
-                f"override.diffusion_trace=true"
+                f"override.diffusion_trace={str(args.diffusion_trace).lower()}"
             )
 
         if args.only_inverse_fold:
