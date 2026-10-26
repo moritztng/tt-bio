@@ -78,6 +78,23 @@ def _pcc(a, b):
     return torch.corrcoef(torch.stack([a.flatten(), b.flatten()]))[0, 1].item()
 
 
+#: The token-side weights `tok_w8` stores as bfp8 (`rfd4.trunk._token_weights`).
+TOK_W8 = ("swish_linear.0.weight", "linear_out.weight", "to_qkv.weight", "to_g.weight", "to_out_node.weight")
+
+
+def _bfp8(w):
+    """The value a bfp8 tile of `w` holds, laid out as the card stores it (transposed: a block runs along outputs)."""
+    t = ttnn.from_torch(w.t().float().contiguous(), dtype=ttnn.bfloat8_b, layout=ttnn.TILE_LAYOUT)
+    return ttnn.to_torch(t).double().t()
+
+
+def _floor_weights(w, levers):
+    """The floor's weights: bf16, and bfp8 where `levers` puts the card on bfp8 weights, so the floor runs the
+    precision recipe the module runs and a graded weight-format lever is not read as an arithmetic error."""
+    w8 = "tok_w8" in levers
+    return {k: _bfp8(v) if w8 and k.endswith(TOK_W8) else REF.bf16(v) for k, v in w.items()}
+
+
 def _sub(w, prefix):
     p = prefix + "."
     return {k[len(p):]: v for k, v in w.items() if k.startswith(p)}
@@ -100,7 +117,7 @@ def test_golden_trunk_block(weights, layer):
     dev = T.get_device()
     (x, z, cond, mask), out = _golden(f"MultiheadAttnAndTransition__nn_transformer_layers_{layer}__call0.pt")
     wl = _sub(weights, f"transformer_layers.{layer}")
-    wb = {k: REF.bf16(v) for k, v in wl.items()}
+    wb = _floor_weights(wl, T._LEVERS)
     mask = mask.double()
     ref64 = REF.trunk_block(wl, x, z, cond, mask, HEADS)
     floor = REF.trunk_block(wb, x, z, cond, mask, HEADS, "", REF.bf16_mixed)
@@ -121,7 +138,7 @@ def test_golden_pair_update(weights, layer):
     (x, z, mask), out = _golden(f"PairReprUpdate__nn_pair_update_layers_{layer}__call0.pt")
     p = f"pair_update_layers.{layer}"
     wl = {k: v for k, v in weights.items() if k.startswith(p + ".")}
-    wb = {k: REF.bf16(v) for k, v in wl.items()}
+    wb = _floor_weights(wl, T._LEVERS)
     mask = mask.double()
     ref64 = REF.pair_update(wl, p, x, z, mask)
     floor = REF.pair_update(wb, p, x, z, mask, REF.bf16_mixed)
@@ -153,7 +170,7 @@ def test_golden_chain_blocks_1_to_12(weights):
     s = _dev(_pad(x, n, [1]), dev, ttnn.float32)
     zt = _dev(_pad(z, n, [1, 2]), dev, ttnn.float32)
     ct = _dev(_pad(cond, n, [1]), dev)
-    wb = {kk: REF.bf16(v) for kk, v in weights.items()}
+    wb = _floor_weights(weights, T._LEVERS)
     fs, fz = x, z
     for i in range(1, 13):
         blk = TR.TrunkBlock(T.WeightScope({kk: v.float() for kk, v in _sub(weights, f"transformer_layers.{i}").items()}),
@@ -196,10 +213,10 @@ def test_released_trunk_14x6_recycles(weights):
     cycles = 6
     k, n = x.shape[1], _bucket(x.shape[1])
     ref_s, ref_z = REF.trunk(weights, x, z, [cond] * cycles, mask, 14, n_heads=HEADS)
-    wb = {kk: REF.bf16(v) for kk, v in weights.items()}
-    fl_s, fl_z = REF.trunk(wb, x, z, [cond] * cycles, mask, 14, n_heads=HEADS, rnd=REF.bf16_mixed)
     mod = TR.Trunk(T.WeightScope({kk: v.float() for kk, v in weights.items()}), TR.compute_kernel_config(), 14,
                    HEADS, residual_dtype=ttnn.float32)
+    wb = _floor_weights(weights, mod._levers)
+    fl_s, fl_z = REF.trunk(wb, x, z, [cond] * cycles, mask, 14, n_heads=HEADS, rnd=REF.bf16_mixed)
     masks = TR.trunk_masks(_pad(mask, n, [1]), dev, residual_dtype=ttnn.float32)
     ct = _dev(_pad(cond, n, [1]), dev)
     s, zt = mod(_dev(_pad(x, n, [1]), dev, ttnn.float32), _dev(_pad(z, n, [1, 2]), dev, ttnn.float32),

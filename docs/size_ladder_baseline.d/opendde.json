@@ -4458,7 +4458,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "unreached, not declined: on Wormhole normal no OpenDDE call at 256 reaches _pair_proj_linear's minimal_matmul leg. The trimul output projections run inside the T1/T2 trimul kernels on the DRAM path (trimul_t1_dram), triangle attention's bias and gate come from triatt_ln or qkvgb_heads, and its out projection is head-major. Went dark between a2b7938f1 and 0a3f28e58, with 256 at 40.4 -> 25.2 s."
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -4875,7 +4875,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "unreached: at 512 every triangle attention takes the whole-tensor path, where triatt_ln (in OpenDDE's WH normal set, aa3dffe06) fuses the LayerNorm with the qkv/gate/bias projection and returns q, k, v itself, so qkv_heads and qkvgb_heads are never called (QKV_MM_CONFIG counts only the 16 pair projections here). At 256 the ending calls still land here because their transposed pair sits in L1, which triatt_ln declines. Blackhole's set has no triatt_ln, so p300c serves these."
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -4883,7 +4883,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "unreached: triatt_ln (WH normal set, aa3dffe06) writes the head-major gate itself and it goes straight to gated_out_proj, so triatt_qkv.gate_proj, the only code outside the fused qkvg/qkvgb calls that counts this lever, never runs at 512."
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
@@ -4891,7 +4891,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats-shared",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: triatt_ln (WH normal set, aa3dffe06) produces the gate, so the gate_proj tail and its over-L1 decision are never reached at 512."
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4937,7 +4937,7 @@
                 "declined": 528,
                 "frac": 0.0,
                 "how": "wrap",
-                "reason": "TODO: say why this is legitimate at this size"
+                "reason": "declines all 528 calls: they transpose the 512x512x384 bf16 pair (201 MB) for the ending triangle attention, more than the 8x9 grid's whole L1, so they go to DRAM by the row-major route (PAIR_TRANSPOSE_VIA_ROW_MAJOR serves the same 528). The same 528 declined at 0.18.0; the 80 c=64 transposes that served then no longer occur once triatt_ln norms from z directly."
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5082,7 +5082,7 @@
                 "rejects": {
                   "k_tiles=12:(12,1)": 92
                 },
-                "reason": "TODO: say why this is legitimate at this size (declines on k_tiles=12:(12,1) x92)"
+                "reason": "declines all 92 calls: the refiner's pair-bias projection [*, 384] x [384, 12 heads] on the row-blocked triangle attention path (the 92 calls SDPA_FUSED_LARGE_S serves). kt 12 is admitted, but _qkv_mm_config has no _MM_BLOCK entry for (12, 1) (QKV_MM_CONFIG declines the same 92 as no_mm_block:(12,1)); the k_tiles label is lever_census's older kt != 8 test. These 92 also declined at 0.18.0."
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
