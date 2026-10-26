@@ -23,36 +23,6 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
     return ((u >> 1) / MT * 32 + (u & 1) * 16 + i % 16) * MT + (u >> 1) % MT;
 }
 
-// LN_SHARE (runtime arg 8 = 2 + own, 0 off): this core norms rows i % 2 == own and its partner (NOC x, y in runtime
-// args 9, 10, same rows) the others; Kt is runtime arg 11. Own row: compute pushes an empty page to c_6 once the xn
-// is in c_1, and this core bumps the partner's semaphore 0. Partner row: wait for the bump, copy the partner's xn
-// out of its c_1 slot (the k-th row it norms sits in slot k % 2 of the 2 x Kt ring, at the same L1 address on
-// every core) into c_5. The partner norms into that slot again only after projecting a row this core bumped for,
-// and this core bumps only after its compute projected the copied row, so the copy always reads the right xn.
-struct Share {
-    const uint32_t lns = get_arg_val<uint32_t>(8);
-    const uint64_t sem_far = get_noc_addr(get_arg_val<uint32_t>(9), get_arg_val<uint32_t>(10), get_semaphore(0));
-    const uint64_t xn_far = get_noc_addr(get_arg_val<uint32_t>(9), get_arg_val<uint32_t>(10), get_read_ptr(tt::CBIndex::c_1));
-    const uint32_t kt = get_arg_val<uint32_t>(11), bytes = kt * get_tile_size(tt::CBIndex::c_1);
-    volatile tt_l1_ptr uint32_t* sem = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_semaphore(0));
-    uint32_t got = 0;
-
-    void step(uint32_t i, uint32_t nrows) {
-        if (!lns || i >= nrows) return;
-        if ((i & 1) == lns - 2) {
-            cb_wait_front(tt::CBIndex::c_6, 1);
-            cb_pop_front(tt::CBIndex::c_6, 1);
-            noc_semaphore_inc(sem_far, 1);
-            return;
-        }
-        noc_semaphore_wait_min(sem, ++got);
-        cb_reserve_back(tt::CBIndex::c_5, kt);
-        noc_async_read(xn_far + ((got - 1) & 1) * bytes, get_write_ptr(tt::CBIndex::c_5), bytes);
-        noc_async_read_barrier();
-        cb_push_back(tt::CBIndex::c_5, kt);
-    }
-};
-
 #ifndef ABL_W
 #define ABL_W 0   // bench-only (triatt_ln.ABL bit 4): skip the DRAM writes
 #endif
@@ -94,10 +64,7 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
     const uint32_t nq = NQ ? get_arg_val<uint32_t>(5) : 0, n_end = NQ ? get_arg_val<uint32_t>(6) : 4 * H + 1;
     const uint32_t hi_cb = NQ ? (uint32_t)tt::CBIndex::c_4 : out_cb;   // g, bias (NQ) or nothing
     const uint32_t tb_hi = get_tile_size(hi_cb);
-    Share share;
-    share.step(0, nrows);
     for (uint32_t i = 0; i < nrows; ++i) {
-        share.step(i + 1, nrows);
         const uint32_t r = row_of(r0, i);
         cb_wait_front(out_cb, NQ ? nq : NW);
         if constexpr (NQ) cb_wait_front(hi_cb, NW - nq);

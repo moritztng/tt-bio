@@ -56,7 +56,7 @@ STAGGER = True
 #: channel tiles per dest acquire in the LayerNorm's eltwise stages (kernels/common/ln_prologue.hpp LN_BLK), bit-identical
 LN_BLK = 1
 #: with two column groups (plain read), the two cores of a pair each read and norm every other row and copy the
-#: partner's normed tiles for the rest over the NOC (writer.cpp Share), so no row is read or normed twice. Same
+#: partner's normed tiles for the rest over the NOC (reader.cpp), so no row is read or normed twice. Same
 #: tiles into the same projection, so bit-identical.
 LN_SHARE = False
 _CACHE: dict = {}
@@ -205,8 +205,8 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
         s = (c // g) % n if STAGGER and not tr and n else 0
         own = 2 + c % 2 if lns else 0
         p = phys(c ^ 1) if lns else ttnn.CoreCoord(0, 0)
-        rd[cx][cy] = [r0, n, int(bool(tr)), MT, n0, s, own]
-        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end, s, own, p.x, p.y, kt]
+        rd[cx][cy] = [r0, n, int(bool(tr)), MT, n0, s, own, p.x, p.y]
+        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end, s]
         cp[cx][cy] = [rows, q, c % 2]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
