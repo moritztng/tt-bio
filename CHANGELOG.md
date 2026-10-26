@@ -16,6 +16,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   chains fold up to 1.6x faster (64 residues on Blackhole, ESMFold2-Fast `--fast`: 2.03 -> 1.25 s)
   with identical output; at 512 residues the gain is 0 to 0.5 s. `TT_BIO_ESMFOLD2_DIFFUSION_TRACE=0`
   restores the eager step.
+- **BoltzGen `--fast` on Wormhole runs the faster triangle-multiplication and transition kernels.** A 514-token
+  design on a Galaxy chip drops from about 50 to 42 s. Designs change at the precision level; graded over 32
+  designs against normal mode, every confidence metric stays within 0.03 and the filter passes the same number.
 
 ## [0.23.0] - 2026-10-26
 
