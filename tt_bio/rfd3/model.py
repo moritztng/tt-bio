@@ -236,6 +236,11 @@ _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 # differ at six noise levels). p150a, fast seeds 60,61 x2 @1312-1350 MHz: 31.3-31.8 -> 29.7-30.0 s/design, digests
 # equal. On by default except on Wormhole, where it has not run on a card yet; RFD3_DKNN=0/1 forces it.
 _DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
+# The tree query with the design's static atoms (a binder's target, a fixed motif) answered once per design and only
+# the rows a moving atom can reach queried each step (tt_bio.rfd3.staticknn). Every row and its order equal the full
+# query, so the index is unchanged. WH page cell @1000 MHz, CIFs equal: fast 61.4 -> 56.7, normal 62.7 -> 57.3 s/design.
+_STATIC_KNN = env_flag("RFD3_STATIC_KNN", True)
+_STATIC_KNN_CACHE: dict = {}
 
 
 def _dknn_on():
@@ -3780,8 +3785,13 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     length = x.shape[1]
     k = min(k, length)
     xd = x[0].detach().double().cpu().numpy()
-    _, nn = cKDTree(xd).query(xd, k=k, workers=workers or torch.get_num_threads())
-    nn = nn.reshape(length, k)
+    workers = workers or torch.get_num_threads()
+    if _STATIC_KNN:
+        from .staticknn import StaticKnn
+        nn = _STATIC_KNN_CACHE.setdefault((length, k), StaticKnn()).query(xd, k, workers)
+    else:
+        _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
+        nn = nn.reshape(length, k)
     seq = seq_idx.numpy()
     outside = ~mask.numpy()[np.arange(length)[:, None], nn]
     n_fill = k - (seq < length).sum(1, keepdims=True)
