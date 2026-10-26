@@ -5,6 +5,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **ESMFold2 and ESMFold2-Fast replay the diffusion step from a device trace by default.** Short
+  chains fold up to 1.6x faster (64 residues on Blackhole, ESMFold2-Fast `--fast`: 2.03 -> 1.25 s)
+  with identical output; at 512 residues the gain is 0 to 0.5 s. `TT_BIO_ESMFOLD2_DIFFUSION_TRACE=0`
+  restores the eager step.
+
 ## [0.23.0] - 2026-10-26
 
 ### Added

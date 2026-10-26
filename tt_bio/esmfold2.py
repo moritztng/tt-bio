@@ -100,9 +100,10 @@ def gate(flag, name):
 
 
 #: Replay the diffusion step from a ttnn trace (StructureHead._step) when the device was opened
-#: with get_device(trace="esmfold2"). Lossless. Off: it lost 0.46 s/fold on p150a while the dense
-#: atom SDPA kept the step device-bound; re-measured with the windowed atom attention.
-DIFFUSION_TRACE = env_flag("TT_BIO_ESMFOLD2_DIFFUSION_TRACE", False)
+#: with get_device(trace="esmfold2"). Lossless. Pays where the step is host-dispatch bound: at
+#: 64 aa on p150a the fold drops 2.03 -> 1.25 s (-Fast --fast) and 2.65 -> 2.21 s (ESMFold2
+#: normal); at 256-512 aa the step is device-bound and it is flat on both arches.
+DIFFUSION_TRACE = env_flag("TT_BIO_ESMFOLD2_DIFFUSION_TRACE", True)
 DIFFUSION_TRACE_STATS = [0, 0]  # [steps replayed, steps run eager]
 
 
@@ -2158,13 +2159,14 @@ class StructureHead(TorchWrapper):
             tr = None
         if tr is None:
             self._eager_steps = getattr(self, "_eager_steps", 0) + 1
-            if not (DIFFUSION_TRACE and trace_region_size() > 0 and self._eager_steps > 2):
+            if self._eager_steps > 2 and DIFFUSION_TRACE and trace_region_size() > 0:
+                tr = self._capture_step(n_raw, r_input, key)
+            if tr is None:
                 DIFFUSION_TRACE_STATS[1] += 1
                 out = self.module.step(self._from_torch(n_raw), self._from_torch(r_input))
                 res = self._to_torch(out)
                 ttnn.deallocate(out)
                 return res
-            tr = self._capture_step(n_raw, r_input, key)
         host = lambda x: ttnn.from_torch(x, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
         ttnn.copy_host_to_device_tensor(host(n_raw), tr["n"])
         ttnn.copy_host_to_device_tensor(host(r_input), tr["r"])
@@ -2173,16 +2175,27 @@ class StructureHead(TorchWrapper):
         return self._to_torch(tr["out"])
 
     def _capture_step(self, n_raw, r_input, key):
+        """The captured step, or None when this draw runs eager: a capture that fails (the step
+        outgrew the trace region) is not retried until the next draw."""
+        if getattr(self, "_trace_failed", False):
+            return None
         dev = self.tt_device
         n_t, r_t = self._from_torch(n_raw), self._from_torch(r_input)
         ttnn.synchronize_device(dev)
-        tid, out = capture_trace(dev, lambda: self.module.step(n_t, r_t))
+        try:
+            tid, out = capture_trace(dev, lambda: self.module.step(n_t, r_t))
+        except Exception as e:
+            print(f"  [esmfold2 diffusion] trace capture failed, steps run eagerly: {e}")
+            ttnn.deallocate(n_t)
+            ttnn.deallocate(r_t)
+            self._trace_failed = True
+            return None
         self._trace = {"tid": tid, "n": n_t, "r": r_t, "out": out, "key": key}
         return self._trace
 
     def _release_trace(self):
         tr = getattr(self, "_trace", None)
-        self._trace, self._eager_steps = None, 0
+        self._trace, self._eager_steps, self._trace_failed = None, 0, False
         if tr is None:
             return
         ttnn.synchronize_device(self.tt_device)
