@@ -100,13 +100,15 @@ void kernel_main() {
         return;
     }
     // Row i is row tile r0 + (i + s) % nrows (runtime arg 5, triatt_ln.STAGGER), as writer.cpp row_of.
+    // LN_SHARE (runtime arg 6 = 2 + own): only rows i % 2 == own, the partner core norms the rest.
     const uint32_t s = get_arg_val<uint32_t>(5);
-    for (uint32_t i = 0; i < nrows; i += RB) {
-        const uint32_t n = (nrows - i < RB) ? (nrows - i) : RB;
+    const uint32_t lns = get_arg_val<uint32_t>(6), step = lns ? 2 : 1;
+    for (uint32_t i = lns ? lns - 2 : 0; i < nrows; i += RB * step) {
+        const uint32_t left = (nrows - i + step - 1) / step, n = left < RB ? left : RB;
         cb_reserve_back(x_cb, n * Kt);
         uint32_t dst = get_write_ptr(x_cb);
         for (uint32_t k = 0; k < n; ++k) {
-            uint32_t ir = i + k + s;
+            uint32_t ir = i + k * step + s;
             if (ir >= nrows) ir -= nrows;
             const uint32_t page = (r0 + ir) * Kt;
             for (uint32_t t = 0; t < Kt; ++t, dst += tb)
