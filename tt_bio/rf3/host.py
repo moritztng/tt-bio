@@ -19,6 +19,7 @@ from dataclasses import dataclass
 import torch
 import ttnn
 
+from tt_bio import tenstorrent as T
 from tt_bio.boltz2 import get_indexing_matrix
 from tt_bio.rf3.atom_encoder import window_mask
 from tt_bio.rf3.atom_encoder_host import (ATOM_KEYS, ATOM_WINDOW,
@@ -38,8 +39,9 @@ C_PAIR_IN = 32
 
 
 def to_device(x: torch.Tensor, device) -> ttnn.Tensor:
-    return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=device,
-                           dtype=ttnn.bfloat16)
+    # Through the shared upload so the per-recycle MSA sample (64 MB in TILE at 512 aa) is tilized
+    # on the chip: tilized on a loaded Galaxy host, the 11 of them took 4.2 s of a 36.6 s fold.
+    return T.upload(x.float(), device=device)
 
 
 @dataclass
