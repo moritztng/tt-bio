@@ -261,6 +261,35 @@ def test_a_test_only_fix_forward_is_gated_not_judged_by_the_verdict_it_fixes(tmp
     assert d["do"] == "CUT" and d["sha"] == c
 
 
+def test_a_baseline_only_fix_forward_is_gated_not_judged_by_an_older_candidates_verdict(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "docs" / "size_ladder_baseline.d").mkdir(parents=True)
+    rec = tmp_path / "docs" / "size_ladder_baseline.d" / "m.json"
+    rec.write_text('{"old": 1}\n')
+    (tmp_path / "harness.py").write_text("bug = 1\n")
+    git("add", "."), git("commit", "-qm", "staging1")
+    x = git("rev-parse", "HEAD")
+    rec.write_text('{"new": 1}\n')
+    git("commit", "-qam", "re-record")
+    records = git("rev-parse", "HEAD")
+    (tmp_path / "harness.py").write_text("bug = 0\n")
+    git("commit", "-qam", "fix the harness")
+    fix = git("rev-parse", "HEAD")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "gx", x, tmp_path)
+    fail = json.dumps({"pass": False, "results": [{"leg": "ladder:m", "verdict": "FAIL"}]})
+    (g / "verdict.json").write_text(fail)
+    (g / "FIXES").write_text(fix + "\n")                                 # the records line forgotten
+    old = rn.decide(tmp_path, gates, "main")["sha"]
+    (_plan(gates, "go", old, tmp_path) / "verdict.json").write_text(fail)
+    (g / "FIXES").write_text(f"{records}\n{fix}\n")
+    d = rn.decide(tmp_path, gates, "main")
+    c = d["sha"]
+    assert rn.content_hash(c, tmp_path) == rn.content_hash(old, tmp_path)   # the case: same content key
+    assert d["do"] == "GATE" and c != old
+    assert git("show", f"{c}:docs/size_ladder_baseline.d/m.json") == '{"new": 1}'
+
+
 def test_a_fix_that_does_not_apply_on_the_frozen_commit_is_a_fix(tmp_path):
     git = _repo(tmp_path)
     (tmp_path / "a.py").write_text("x = 2\n")
