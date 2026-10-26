@@ -506,7 +506,8 @@ def _lowest_priority() -> None:
 
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
-                        pairing_strategy: str = "greedy", pair: bool = False) -> None:
+                        pairing_strategy: str = "greedy", pair: bool = False,
+                        chain_cache: Path | None = None) -> None:
     """Generate MSAs locally via colabfold_search against a local database.
 
     By default every sequence is searched on its own in one batched call: one unpaired
@@ -519,6 +520,9 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
     nothing: each chain's "paired" file was its own unpaired hits, at its own depth. OpenBind
     refused that (the depths differ), and ESMFold-2 and OpenDDE read row j of each as one
     genome.
+
+    ``chain_cache`` lets a paired search reuse each chain's own search from an earlier complex
+    (:func:`_paired_by_chain`); the output is the same bytes either way.
     """
     click.echo(f"MSA for {target_id} ({len(seqs)} sequences, offline, "
                f"pairing={pairing_strategy if pair else 'none'})")
@@ -547,6 +551,13 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
         # fleet share each host's cores instead of oversubscribing them. A
         # plain single-run CLI leaves the env unset and gets all cores.
         threads = int(os.environ.get("OMP_NUM_THREADS") or os.cpu_count() or 1)
+        if paired and chain_cache is not None:
+            msa = _paired_by_chain(list(seqs.values()), Path(db_path), mmseqs_bin, colabfold_bin,
+                                   tmp, Path(chain_cache), threads, strategy_val)
+            if msa is not None:
+                for name, text in zip(seqs, split_paired_a3m(msa, [len(q) for q in seqs.values()])):
+                    publish_text(msa_dir / f"{name}.a3m", text)
+                return
         cmd_base = [
             colabfold_bin, str(fasta), db_path, str(a3m_out),
             "--use-env", "1" if use_env else "0", "--use-templates", "0",
@@ -591,6 +602,126 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                 click.echo(f"  warning: no A3M for {name}")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+#: The colabfold release whose ``mmseqs_search_pair`` :func:`_paired_by_chain` re-runs step by
+#: step. Any other release takes the stock colabfold_search path.
+PAIRED_BY_CHAIN_COLABFOLD = "1.6.3"
+
+
+def _colabfold_version(colabfold_bin: str) -> str | None:
+    root = Path(colabfold_bin).resolve().parent.parent
+    for d in root.glob("lib/python*/site-packages/colabfold-*.dist-info"):
+        return d.name[len("colabfold-"):-len(".dist-info")]
+    return None
+
+
+def _mmseqs_run(mmseqs: str, *args) -> str:
+    r = subprocess.run([mmseqs, *map(str, args)], capture_output=True, text=True,
+                       preexec_fn=_lowest_priority)
+    if r.returncode:
+        raise RuntimeError(f"mmseqs {args[0]} failed: {(r.stderr or r.stdout)[-500:]}")
+    return r.stdout
+
+
+def pair_rows(paired: list[str], lengths: list[int]) -> str:
+    """colabfold 1.6.3 ``msa_to_str(None, paired, ...)`` for unique chains: the length line,
+    then row i of every chain's paired a3m joined (headers by tabs)."""
+    rows = [""] * len(paired[0].splitlines())
+    for n, text in enumerate(paired):
+        for i, line in enumerate(text.splitlines()):
+            rows[i] += line.replace(">", "\t", 1) if n and line.startswith(">") else line
+    return "#" + ",".join(map(str, lengths)) + "\t" + ",".join("1" * len(lengths)) + "\n" + "\n".join(rows)
+
+
+def _paired_by_chain(seqs: list[str], dbbase: Path, mmseqs: str | None, colabfold_bin: str,
+                     tmp: Path, cache: Path, threads: int, strategy: str) -> str | None:
+    """``colabfold_search --pair-mode paired`` of one complex, byte for byte, with each chain's
+    search, expandaln and align cached by sequence.
+
+    colabfold 1.6.3's ``mmseqs_search_pair`` is per query until ``pairaln``: a chain's profile
+    search and its realigned expansion do not depend on its partners (graded byte-identical on
+    the served DB, state/spd-bet-clientwall.md). A binder campaign folds one target against
+    many binders, and stock re-searched the target every time, on one core per chain since
+    ``align`` threads over queries: ~26 of a served OpenDDE job's ~30 s before its chip. Here
+    only the chains not cached are searched, side by side, and the pairing runs on the merged
+    per-chain results. Returns the complex a3m text, or None to fall back to colabfold_search
+    (another colabfold, no index, an unexpected sequence, any mmseqs failure)."""
+    db = dbbase / "uniref30_2302_db"
+    if (not mmseqs or _colabfold_version(colabfold_bin) != PAIRED_BY_CHAIN_COLABFOLD
+            or not Path(f"{db}.idx").is_file() or os.environ.get("MMSEQS_IGNORE_INDEX")
+            or not all(s.isalpha() and s.isupper() for s in seqs)):
+        return None
+    try:
+        version = _mmseqs_run(mmseqs, "version").strip()
+        dbv = (dbbase / "VERSION").read_text().strip() if (dbbase / "VERSION").is_file() else ""
+        tag = f"{PAIRED_BY_CHAIN_COLABFOLD}|{version}|{dbbase.resolve()}|{dbv}"
+        keys = [hashlib.sha256(f"{tag}|{s}".encode()).hexdigest()[:24] for s in seqs]
+        idx, load, thr = f"{db}.idx", ("--db-load-mode", "2"), ("--threads", threads)
+
+        def chain(seq: str, key: str) -> Path:
+            done = cache / key
+            if (done / "ok").is_file():
+                return done
+            c = tmp / f"chain_{key}"
+            c.mkdir(parents=True)
+            (c / "q.fas").write_text(f">101\n{seq}\n")
+            _mmseqs_run(mmseqs, "createdb", c / "q.fas", c / "qdb", "--shuffle", "0", "--dbtype", "1")
+            _mmseqs_run(mmseqs, "search", c / "qdb", db, c / "res", c / "tmp", *thr, "--num-iterations", "3",
+                        *load, "-a", "-e", "0.1", "--max-seqs", "10000", "--prefilter-mode", "0",
+                        "--k-score", "'seq:96,prof:80'")
+            _mmseqs_run(mmseqs, "mvdb", c / "tmp/latest/profile_1", c / "prof")
+            _mmseqs_run(mmseqs, "expandaln", c / "qdb", idx, c / "res", idx, c / "exp", *load, *thr,
+                        "--expansion-mode", "0", "-e", "inf", "--expand-filter-clusters", "0",
+                        "--max-seq-id", "0.95")
+            _mmseqs_run(mmseqs, "align", c / "prof", idx, c / "exp", c / "ral", *load,
+                        "--alignment-mode", "1", "-e", "0.001", "--max-accept", "1000000", *thr)
+            keep = c / "keep"
+            keep.mkdir()
+            for f in [*c.glob("prof*"), *c.glob("ral*")]:
+                f.rename(keep / f.name)
+            (keep / "ok").touch()
+            shutil.rmtree(done, ignore_errors=True)   # a half-pruned entry
+            cache.mkdir(parents=True, exist_ok=True)
+            try:
+                keep.rename(done)
+            except OSError:                            # a concurrent search published it first
+                return keep
+            return done
+
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(len(seqs)) as pool:
+            dirs = list(pool.map(chain, seqs, keys))
+
+        w = tmp / "pair"
+        w.mkdir()
+        (w / "query.fas").write_text("".join(f">{101 + j}\n{s}\n" for j, s in enumerate(seqs)))
+        _mmseqs_run(mmseqs, "createdb", w / "query.fas", w / "qdb", "--shuffle", "0", "--dbtype", "1")
+        (w / "qdb.lookup").write_text("".join(f"{j}\tcomplex\t0\n" for j in range(len(seqs))))
+        # concatdbs keeps the first DB's keys and moves the second's past them, so chain j ends up
+        # under key j, as in the joint query DB.
+        for name in ("prof", "ral"):
+            cur = dirs[0] / name
+            for j, d in enumerate(dirs[1:], 1):
+                _mmseqs_run(mmseqs, "concatdbs", cur, d / name, w / f"{name}{j}", "--threads", "1")
+                cur = w / f"{name}{j}"
+            _mmseqs_run(mmseqs, "cpdb" if len(dirs) == 1 else "mvdb", cur, w / name)
+        _mmseqs_run(mmseqs, "lndb", w / "qdb_h", w / "prof_h")
+        _mmseqs_run(mmseqs, "pairaln", w / "qdb", db, w / "ral", w / "pair", *load,
+                    "--pairing-mode", strategy, "--pairing-dummy-mode", "0", *thr)
+        _mmseqs_run(mmseqs, "align", w / "prof", idx, w / "pair", w / "pair_bt", *load, "-e", "inf", "-a", *thr)
+        _mmseqs_run(mmseqs, "pairaln", w / "qdb", db, w / "pair_bt", w / "final", *load,
+                    "--pairing-mode", strategy, "--pairing-dummy-mode", "1", *thr)
+        _mmseqs_run(mmseqs, "result2msa", w / "qdb", idx, w / "final", w / "pair.a3m", *load,
+                    "--msa-format-mode", "5", *thr, "--filter-msa", "0", "--filter-min-enable", "1000",
+                    "--diff", "3000", "--qid", "0.2,0.4,0.6,0.8,1.0", "--qsc", "0", "--max-seq-id", "0.95")
+        _mmseqs_run(mmseqs, "unpackdb", w / "pair.a3m", w / "out", "--unpack-name-mode", "0",
+                    "--unpack-suffix", ".paired.a3m")
+        return pair_rows([(w / "out" / f"{j}.paired.a3m").read_text() for j in range(len(seqs))],
+                         [len(s) for s in seqs])
+    except Exception as e:  # noqa: BLE001 -- the stock search below is always correct
+        click.echo(f"  per-chain paired search failed ({e}); running colabfold_search")
+        return None
 
 
 def split_paired_a3m(text: str, lengths: list[int]) -> list[str]:
@@ -2897,7 +3028,8 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
         pdir.mkdir(parents=True, exist_ok=True)
         if msa_db_path:
             compute_msa_offline(seqs, target_id, pdir, msa_db_path, use_env=use_envdb,
-                                pairing_strategy=msa_pairing_strategy, pair=True)
+                                pairing_strategy=msa_pairing_strategy, pair=True,
+                                chain_cache=Path(msa_dir) / "paired-chain-v1")
         else:
             headers = ({"Content-Type": "application/json", "X-API-Key": api_key_value}
                        if api_key_value else None)

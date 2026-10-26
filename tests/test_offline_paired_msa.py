@@ -58,3 +58,23 @@ def test_pair_true_searches_one_complex_record(tmp_path, monkeypatch):
     assert "--pair-mode paired" in argv
     rows = [(out / f"{h}.a3m").read_text().splitlines()[1::2] for h in ("ha", "hb")]
     assert len(rows[0]) == len(rows[1]) == 3 and rows[0][0] == A and rows[1][0] == B
+
+
+def test_pair_rows_is_colabfolds_paired_msa_to_str():
+    # The per-chain a3m colabfold unpacks for PAIRED, joined back the way msa_to_str does.
+    a = f">101\n{A}\n>UniRef100_X\t51\t0.9\n---{A[3:10]}kk{A[10:]}\n>UniRef100_Z\t40\n{A}\n"
+    b = f">102\n{B}\n>UniRef100_Y\t62\t0.8\n{B[:5]}aa{B[5:]}\n>UniRef100_W\t30\n{'-' * len(B)}\n"
+    assert m.pair_rows([a, b], [len(A), len(B)]) == PAIRED.rstrip("\n")
+
+
+def test_chain_cache_falls_back_to_stock_off_the_graded_colabfold(tmp_path, monkeypatch):
+    # The stub has no colabfold dist-info beside it, so the per-chain path declines.
+    log = tmp_path / "argv"
+    monkeypatch.setenv("PATH", f"{_stub(tmp_path, log)}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(m, "_find_mmseqs", lambda _c: "/bin/false")
+    out = tmp_path / "pdir"
+    out.mkdir()
+    m.compute_msa_offline({"ha": A, "hb": B}, "t", out, str(tmp_path), pair=True,
+                          chain_cache=tmp_path / "cc")
+    assert "--pair-mode paired" in log.read_text()
+    assert not (tmp_path / "cc").exists()
