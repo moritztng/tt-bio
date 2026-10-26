@@ -53,30 +53,35 @@ from tt_bio.tenstorrent import (CORE_GRID_MAIN, Module, Pairformer, WeightScope,
 # folded slower than normal mode (p150a 54.40 vs 45.21 s): its bfp8 operands are refused by every
 # fused kernel the normal fold runs on (triangle-attention SDPA, the gated channel move), so fast
 # fell back to the stock ttnn ops.
-# Fast is the global fast set without the three trimul levers, the set graded here. Blackhole p300c 11-set fast grade against exact, 40 paired folds:
-# same-seed top pose median 0.304 A against the 0.60 A bar (A/A floor 2.802 A), CA-lDDT +0.0009
-# [+0.0001, +0.0022], docking 28 -> 28 of 40 (9W8A, 778 tokens, crashes in BOTH arms and is not
-# in the count). cdk2x2_512 on p300c: 37.63 -> 35.75 s at AICLK 1350 (spd-gap-inv, 2026-10-11).
-LEVERS_NORMAL = frozenset()
-# Wormhole normal runs the trunk kernels OpenFold3 graded on Wormhole (same shared Pairformer, c_z 128).
-# Wormhole 11-set normal grade against exact, 66 paired folds: same-seed top pose median 0.232 A
+# Every arch and mode runs the trunk kernels OpenFold3 graded (same shared Pairformer, c_z 128). On
+# Blackhole the trimul output tail also reads the einsum's channel-major output itself (trimul_t2cm);
+# on Wormhole the einsum keeps b resident in L1 (trimul_bres), as each arch graded.
+_TRUNK = frozenset({"atom_l1", "triatt_ln", "opm_jd", "dit_qsplit", "trimul_t1", "trimul_t2", "trimul_t1_2g",
+                    "transition_ws", "ws_l1dest", "triatt_k1"})
+_NORMAL_EXTRA = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "triatt_tail", "silu_f32", "dit_sdpa32"})
+# Blackhole normal, grade against exact on p150a at 1350 MHz, 32 paired folds of 8 complexes: same-seed top
+# pose median 0.207 A against the 0.60 A bar (A/A floor 2.459 A), CA-lDDT -0.0001 [-0.0004, +0.0002],
+# docking 24 -> 24 of 32. cdk2x2_512: 27.5 -> 22.2 s (2026-10-26).
+LEVERS_NORMAL = _TRUNK | _NORMAL_EXTRA | {"trimul_t2cm"}
+# Wormhole normal, 11-set grade against exact, 66 paired folds: same-seed top pose median 0.232 A
 # against the 0.60 A bar (A/A floor 2.985 A), CA-lDDT +0.0003 [-0.0003, +0.0012], docking 28 -> 28
 # of 44. cdk2x2_512 on a Galaxy chip at AICLK 1000: 55.16 -> 38.12 s (2026-10-26).
-WH_LEVERS_NORMAL = frozenset({"trimul_bres", "atom_l1", "triatt_ln", "opm_jd", "dit_qsplit", "trimul_t1",
-                              "trimul_t2", "trimul_t1_2g", "transition_ws", "ws_l1dest", "triatt_k1",
-                              "trimul_ibw", "trimul_tail", "trunk_hifi3", "triatt_tail", "silu_f32",
-                              "dit_sdpa32"})
-LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
-                         "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
-                         "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "swiglu_fc12g",
-                         "msa_sample", "dit_sdpa_pm"})
-# Wormhole fast adds the normal set's trunk kernels the fast set lacks. Wormhole 11-set fast grade
-# against fast, 44 paired folds: same-seed top pose median 0.230 A against the 0.60 A bar (A/A floor
-# 2.796 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking 28 -> 28 of 44. cdk2x2_512 on a Galaxy chip
-# at AICLK 1000: 48.1 -> 36.1 s (2026-10-26).
-WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "dit_qsplit", "opm_jd", "triatt_ln", "trimul_bres", "trimul_t1",
-                                "trimul_t2", "trimul_t1_2g", "transition_ws", "ws_l1dest", "triatt_k1",
-                                "trimul_ibw", "trimul_tail"}
+WH_LEVERS_NORMAL = _TRUNK | _NORMAL_EXTRA | {"trimul_bres"}
+# The shared fast set's precision levers without the three trimul levers. Alone on Blackhole p300c
+# against exact, 40 paired folds: same-seed top pose median 0.304 A against the 0.60 A bar (A/A floor
+# 2.802 A), CA-lDDT +0.0009 [+0.0001, +0.0022] (spd-gap-inv, 2026-10-11).
+_FAST_BASE = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
+                        "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
+                        "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "swiglu_fc12g",
+                        "msa_sample", "dit_sdpa_pm"})
+# Blackhole fast, grade against the base on p150a at 1350 MHz, 32 paired folds of 8 complexes: same-seed
+# top pose median 0.249 A against the 0.60 A bar (A/A floor 2.550 A), CA-lDDT -0.0002 [-0.0008, +0.0006],
+# docking 24 -> 24 of 32. ws_lofi on top bought no time and moved the pose 0.373 A.
+LEVERS_FAST = _FAST_BASE | _TRUNK | {"trimul_t2cm"}
+# Wormhole fast, 11-set grade against the base, 44 paired folds: same-seed top pose median 0.230 A
+# against the 0.60 A bar (A/A floor 2.796 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking 28 -> 28 of
+# 44. cdk2x2_512 on a Galaxy chip at AICLK 1000: 48.1 -> 36.1 s (2026-10-26).
+WH_LEVERS_FAST = _FAST_BASE | _TRUNK | {"trimul_bres", "trimul_ibw", "trimul_tail"}
 
 
 def _pairformer_stack(scope: WeightScope, n_blocks: int, cfg, prefix: str
