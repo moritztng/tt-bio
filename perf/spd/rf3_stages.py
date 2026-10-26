@@ -25,10 +25,10 @@ import time
 import ttnn
 
 from tt_bio import tenstorrent as T
-from tt_bio import worker
+from tt_bio import token_axis, worker
 from tt_bio._vendor.atomworks.ml.transforms import af3_reference_molecule as af3_ref
 from tt_bio.rf3 import confidence as rf3_confidence, featurize as rf3_featurize, host as rf3_host, \
-    model as rf3_model, sampler as rf3_sampler
+    model as rf3_model, msa as rf3_msa, template as rf3_template, sampler as rf3_sampler
 
 ACC = collections.defaultdict(float)
 CNT = collections.Counter()
@@ -90,6 +90,13 @@ for fn in ("to_device", "single_features", "pair_inputs_windowed", "atom_to_toke
     timed(rf3_host, fn, "host." + fn)
 timed(rf3_model.RF3, "trunk", "trunk")
 timed(rf3_model.Recycler, "__call__", "recycle")
+# Recycle split: template, MSA module (and its sublayers, which run 4x per recycle) and the 48-block Pairformer.
+timed(rf3_template.TemplateEmbedder, "__call__", "recycle.template")
+timed(rf3_msa.MSAModule, "__call__", "recycle.msa_module")
+for cls, label in ((rf3_msa.MSASubsampleEmbedder, "msa.subsample"), (T.OuterProductMean, "msa.opm"),
+                   (T.PairWeightedAveraging, "msa.pwa")):
+    timed(cls, "__call__", label)
+timed(token_axis, "bucketed_pairformer", "recycle.pairformer")
 timed(rf3_model.DiffusionModule, "prepare", "diffusion_prepare")
 timed(rf3_model.DiffusionModule, "__call__", "diffusion_step")
 timed(rf3_sampler.DiffusionSampler, "sample", "diffusion_total")
