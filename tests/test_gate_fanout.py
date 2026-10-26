@@ -729,7 +729,7 @@ def test_a_pool_leg_whose_chip_was_recalled_waits_for_the_requeued_run(tmp_path,
     job back into the queue. rel-f2fd17ff3 (10-22 21:22Z) recorded ladder:openbind FAIL from that attempt
     while the rerun on chip 28 went unread. A queued job no older than the rc is a requeue: wait for the rerun."""
     monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
-    monkeypatch.setattr(gf, "REQUEUE_GRACE_S", 0.5)
+    monkeypatch.setattr(gf, "REQUEUE_GRACE_S", 2)
     queue = tmp_path / "queue"
     queue.mkdir()
     sha = "b" * 40
@@ -742,6 +742,8 @@ def test_a_pool_leg_whose_chip_was_recalled_waits_for_the_requeued_run(tmp_path,
                           "sys.exit(0) if os.path.exists(p) else (open(p, 'w').close(), sys.exit(1))"], "ux")
     rdir = tmp_path / "o" / "run1" / "wh" / "ux_x"
 
+    # The requeued job stays queued until run_in_pool has seen it: a fixed 1 s hold against a 0.5 s grace
+    # failed under load (rel-8812d72f2 pytest_device:1/4 bh, qb1 load 11).
     def pool():  # first attempt is recalled (rc 1) and requeued; the rerun passes
         while not (jobs := list(queue.glob("*.sh"))):
             time.sleep(0.02)
@@ -752,7 +754,9 @@ def test_a_pool_leg_whose_chip_was_recalled_waits_for_the_requeued_run(tmp_path,
         subprocess.run(["bash", str(running)], env=env)
         shutil.copy(running, f"{job}.tmp")
         os.replace(f"{job}.tmp", job)
-        time.sleep(1.0)
+        deadline = time.time() + 60
+        while f"# {gf.REQUEUED}:" not in (tmp_path / "leg.log").read_text() and time.time() < deadline:
+            time.sleep(0.05)
         os.replace(job, running)
         subprocess.run(["bash", str(running)], env=env, check=True)
     t = threading.Thread(target=pool)
