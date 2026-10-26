@@ -79,7 +79,13 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # chip at 1000 MHz, spd-m-boltzgen lev 2026-10-26), so they need no grade: atom_l1 normal 57.58 -> 56.43 s/design,
 # fast 52.98 -> 51.84; trimul_bres fast 53.00 -> 51.40 (in normal it read +0.3 s, noise, and stays off).
 WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1"}
-WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres"}
+# Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
+# attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
+# fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
+# metric within 0.03 of base (design_ptm -0.016, complex_plddt -0.007, iptm +0.031), filter 32/32 vs 32/32. Speed on a
+# Galaxy chip at 1000 MHz: 50.2 -> 42.1 s/design.
+WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
+                                "dit_cond_steps"}
 
 
 def _under_levers(method):
