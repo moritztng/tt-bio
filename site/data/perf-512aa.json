@@ -951,19 +951,19 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_design": 33.52,
+            "s_per_design": 30.11,
             "n": 4,
-            "spread_pct": 1.75,
+            "spread_pct": 4.19,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main e505373f5 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-25T06:50:04Z",
+            "versions": "tt-bio main 4e84f9e02 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-10-26T13:07:21Z",
             "fast": {
-              "s_per_design": 32.376,
+              "s_per_design": 28.534,
               "n": 4,
-              "spread_pct": 5.38,
+              "spread_pct": 3.26,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 9695ccdd9 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-              "when": "2026-10-23T19:18:14Z"
+              "versions": "tt-bio main 4e84f9e02 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+              "when": "2026-10-26T13:12:20Z"
             }
           },
           "h200": {
