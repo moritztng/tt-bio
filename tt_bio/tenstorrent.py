@@ -870,6 +870,9 @@ _FAST_MODE = False
 #                   layer-norms the result next (state/rfd4/bets/tri224.md)
 #   pair_x8t        with pair_x8, the move writes bfp8 too and the tail (T2, stream16) reads it so: blocks then run along
 #                   channels before the tail's LayerNorm, and the packer truncates (state/rfd4/bets/tri224.md)
+#   trimul_x8       pair_x8 for one fold: where the one-pass move back (`permute_back_pk`) takes the triangle
+#                   contraction's channel-major output into the bf16 pair, the contraction (bmm_res or ttnn.matmul)
+#                   writes it as bfp8, halving the one tensor written and read between them. Never where T2CM reads x.
 #   tok_recycle_mm  RFD4's pair recycle projection ([n*n, 384] x [384, 384]) on `_pair_proj_minimal_matmul`, one K block
 #                   like the shipped linear (state/rfd4/bets/tok512.md)
 #   tok_w8          RFD4's token transition and attention projections with bfp8 weights at HiFi2 (state/rfd4/bets/tok512.md)
@@ -891,7 +894,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
-           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8")
+           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -918,7 +921,7 @@ UNGRADED_LEVERS = frozenset({"bres_ta_hifi3", "pz_device", "trimul_b8in", "inpro
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
-                             "tok_recycle_mm", "tok_w8"})
+                             "tok_recycle_mm", "tok_w8", "trimul_x8"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -11033,6 +11036,13 @@ class TriangleMultiplication(Module):
                     and _reblock.eligible_back(xc, back_mc))
             return back_mc, one_pass, into
 
+        def x8(out_mc):
+            # Whether the contraction writes x as bfp8: RFD4's batch under `pair_x8`, or one fold under `trimul_x8`
+            # where the one-pass move back takes x into a bf16 pair (never T2CM, which reads bf16 only).
+            return _reblock.back_x8_ok(out_mc, batch) and (batch > 1 or (
+                not cm_on and large_seq and _TRIMUL_BACK_INTO and not _TRIMUL_RAW_CHANNEL_MOVES and not host_acc
+                and not keep_chunks))
+
         def keeps_whole(xc, into):
             # Whether T2CM keeps xc, the whole hidden as one chunk, where it is (the move back never runs).
             return ((into or af2) and cm_on and x_cm is None and x_out is None and c_done == 0
@@ -11356,7 +11366,7 @@ class TriangleMultiplication(Module):
                             a_chunk, b_chunk,
                             compute_kernel_config=_trimul_bres_ckc(self.compute_kernel_config),
                             transpose_a=defer_a, transpose_b=defer_b, b8=lever("trimul_bres_b8"),
-                            rot=cm_rot)
+                            rot=cm_rot, out_dtype=ttnn.bfloat8_b if x8(out_mc) else ttnn.bfloat16)
                     x_rot = x_chunk is not None and cm_rot(x_chunk)
                     if x_chunk is None:
                         # `program_config` is priced against an empty bank. An operand or the result
@@ -11377,8 +11387,7 @@ class TriangleMultiplication(Module):
                             program_config=program_config if not live else
                             _triangle_mul_program_config(seq_len_tiles, _trimul_ibw_full(),
                                                          _trimul_subblock(), not large_seq, live),
-                            dtype=ttnn.bfloat8_b if (lever("pair_x8") and batch > 1
-                                                     and _reblock.back_x8_ok(out_mc)) else ttnn.bfloat16,
+                            dtype=ttnn.bfloat8_b if x8(out_mc) else ttnn.bfloat16,
                             transpose_a=defer_a,
                             transpose_b=defer_b,
                         )

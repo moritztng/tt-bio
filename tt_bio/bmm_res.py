@@ -170,7 +170,7 @@ def _build(a, b, out, C, mt, kt, nt, ta, tb, ns, depth, fidelity, max_cores, abl
         defines=[("BRES_NO_MM", "1")] if abl & 1 else [],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
     a_cb = cb(A_CB, kt, ttnn.bfloat16) if ta else cb(A_CB, A_DEPTH * kt, a.dtype)
-    cbs = [a_cb, cb(B_CB, depth * kt * nb, ttnn.bfloat8_b if b8 else b.dtype), cb(OUT_CB, 2 * w, ttnn.bfloat16)]
+    cbs = [a_cb, cb(B_CB, depth * kt * nb, ttnn.bfloat8_b if b8 else b.dtype), cb(OUT_CB, 2 * w, out.dtype)]
     if ta:
         cbs.append(cb(A_RAW_CB, A_DEPTH * ag, a.dtype))
     if b8:
@@ -182,7 +182,7 @@ STATS = [0, 0]   # calls served, calls declined (None returned)
 
 
 def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=False, budget=L1_BUDGET, max_cores=0,
-           depth=None, abl=0, split=None, b8=None, rot=False):
+           depth=None, abl=0, split=None, b8=None, rot=False, out_dtype=ttnn.bfloat16):
     """``a @ b`` over the channel axis as a new bf16 DRAM tensor, or None if the call is outside what the kernel does.
 
     It sums K in an fp32 dest at the caller's fidelity (HiFi4 without a config); a bf16-dest config declines.
@@ -191,14 +191,16 @@ def matmul(a, b, compute_kernel_config=None, transpose_a=False, transpose_b=Fals
     to bfp8 in L1 where that plans fewer column blocks than bf16 does, and changes the result as that rounding does. `abl` is a bench-only stage mask that does change the result:
     1 skips the matmuls, 2 the output writes, 4 the reads of a (time attribution, af2_trimul_bmm_sweep --abl).
     `rot` (bool, or a callable asked with the allocated output) writes the output page-rotated (module doc).
+    `out_dtype` bfloat8_b packs the fp32 dest straight to bfp8 (`trimul_x8`, `pair_x8`).
     """
     out = _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split,
-                  BRES_B8 if b8 is None else b8, rot)
+                  BRES_B8 if b8 is None else b8, rot, out_dtype)
     STATS[out is None] += 1
     return out
 
 
-def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split, b8, rot):
+def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_cores, depth, abl, split, b8, rot,
+            out_dtype=ttnn.bfloat16):
     if compute_kernel_config is not None and not compute_kernel_config.fp32_dest_acc_en:
         return None
     fidelity = ttnn.MathFidelity.HiFi4 if compute_kernel_config is None else compute_kernel_config.math_fidelity
@@ -234,10 +236,10 @@ def _matmul(a, b, compute_kernel_config, transpose_a, transpose_b, budget, max_c
     am, bn = (-1 if transpose_a else -2), (-2 if transpose_b else -1)
     shape = [int(d) for d in a.shape][:-2] + [int(a.shape[am]), int(b.shape[bn])]
     out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape),
-                                         ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+                                         out_dtype, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     rot = bool(rot(out) if callable(rot) else rot)
     key = (dev.id(), tuple(sa), tuple(sb), a.dtype, b.dtype, a.memory_config().buffer_type,
-           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8, rot)
+           b.memory_config().buffer_type, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8, rot, out_dtype)
     if key not in _CACHE:
         _CACHE[key] = _build(a, b, out, C, mt, kt, nt, transpose_a, transpose_b, ns, depth, fidelity, max_cores, abl, b8,
                              rot)
