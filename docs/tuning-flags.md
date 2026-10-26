@@ -995,15 +995,16 @@ fast set folds the same input in 123.4 s, and 168.3 s instead of 181.6 s at 1024
 median same-seed top-pose deviation of 1.29 A against 1.70 A between two seeds of normal mode.
 
 **RoseTTAFold3 and BoltzGen** take a lever set per mode too, pinned by name in each model so a lever added to the
-shared sets later does not reach them ungraded. RoseTTAFold3's normal mode is empty on Blackhole. On Wormhole it
-runs the trunk kernels OpenFold3 graded there (`WH_LEVERS_NORMAL` in `tt_bio/rf3/model.py`): over 66 paired folds
-of 11 complexes the top pose moves 0.23 A median (a different seed moves it 3.0 A), CA-lDDT and docking success
-are unchanged, and a 512-aa fold on a Galaxy chip at 1000 MHz drops from 55.2 to 38.1 s. Its `--fast` set is the
-shared fast set without the three triangle-multiplication levers: on Blackhole it moves the top pose 0.30 A
-median over 40 paired folds (a different seed moves it 2.8 A) and saves about 1.9 s at 512 aa. On Wormhole
-`--fast` adds the same trunk kernels (`WH_LEVERS_FAST`): over 44 paired folds against the fast set the top pose
-moves 0.23 A median (2.8 A between seeds), CA-lDDT and docking success are unchanged, and a 512-aa fold at
-1000 MHz drops from 48.1 to 36.1 s. BoltzGen's normal
+shared sets later does not reach them ungraded. RoseTTAFold3 runs the trunk kernels OpenFold3 graded (same
+Pairformer) in both modes on both archs, with one difference per arch in how the triangle multiplication moves its
+channels (`tt_bio/rf3/model.py`). On Wormhole, over 66 paired folds of 11 complexes, normal mode moves the top pose
+0.23 A median (a different seed moves it 3.0 A), CA-lDDT and docking success are unchanged, and a 512-aa fold on a
+Galaxy chip at 1000 MHz drops from 55.2 to 38.1 s. On Blackhole, over 32 paired folds of 8 complexes, the top pose
+moves 0.21 A median (2.5 A between seeds), CA-lDDT and docking success are unchanged, and a 512-aa fold on a p150a
+at 1350 MHz drops from 27.5 to 22.2 s. `--fast` adds the shared fast set's precision levers without the three
+triangle-multiplication ones. Against that set alone, the trunk kernels move the Wormhole top pose 0.23 A median
+over 44 paired folds (2.8 A between seeds) and take a 512-aa fold from 48.1 to 36.1 s; on Blackhole 0.25 A over 32
+paired folds (2.6 A between seeds), CA-lDDT and docking unchanged. BoltzGen's normal
 mode runs the shared normal set and its `--fast` set is the shared fast set without `dit_sdpa_pm`, plus
 `adaln_mod` and `dit_cond_hifi2`. Design outputs at a fixed seed decorrelate under any numeric change, so BoltzGen
 is graded on design confidence and filters, 8 designs per seed against the exact normal path: normal over 64
