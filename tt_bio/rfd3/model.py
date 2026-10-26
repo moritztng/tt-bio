@@ -252,6 +252,10 @@ def _dknn_on():
     return _DKNN if _DKNN is not None else not is_wormhole()
 
 
+def _pf_dpb_on():
+    return _PF_DPB if _PF_DPB is not None else is_wormhole()
+
+
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -447,7 +451,10 @@ _DIT_DPB = env_flag("RFD3_DPB", True)
 # The token encoder's pairformer pair bias through the same program: 16 heads (W^T zero-padded to one 32-head tile,
 # the second half written to a scratch output), scale 1, the key pad at -1e4 from the mask. Replaces the linear
 # [I*I, 128] @ [128, 16] (2.03 ms a call on WH @1000 against a 0.62 ms roof), its permute and the fp32 pad.
-_PF_DPB = env_flag("RFD3_PF_DPB", False)
+# WH page cell @1000 MHz: fast 51.3 -> 50.7, normal 52.4 -> 51.8 s/design. Eight paired normal seeds on the WH defaults:
+# design drift 4.0-13.7 A against a 13.0-20.7 A seed floor, breaks 4 -> 3, clashes 433 -> 345. On by default on Wormhole
+# only (a p150a read +0.2 s); RFD3_PF_DPB=0/1 forces it.
+_PF_DPB = env_flag("RFD3_PF_DPB", False) if os.environ.get("RFD3_PF_DPB") else None
 PF_DPB_CALLS = [0, 0]   # served, declined
 
 
@@ -1458,7 +1465,7 @@ class PairformerAttention(Module):
         z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6,
                            compute_kernel_config=self.compute_kernel_config)
         n_key = align_tile(I)
-        bias_f = self._pair_bias_dpb(z, I, n_key) if _PF_DPB else None
+        bias_f = self._pair_bias_dpb(z, I, n_key) if _pf_dpb_on() else None
         if bias_f is None:
             bias = _tuned_linear(z, self.to_b_w, ckc=self.compute_kernel_config,
                                  dtype=self.dtype, core_grid=CORE_GRID_MAIN)

@@ -216,6 +216,11 @@ change, with chain breaks, clashes and CA-CA geometry unchanged. On a p150a the 
 about 4 to 6 s, and twelve paired seeds read the same geometry. It is on by default on both;
 `RFD3_DPB=0` restores the chain.
 
+On Wormhole the pairformer's pair bias in the token encoder goes through the same kernel, about 0.6 s per design
+in both modes. Over eight paired default seeds the design moves 4.0 to 13.7 A at the same seed against 13 to 21 A
+for a seed change, with chain breaks 4 -> 3 and fewer clashes. It is off on a p150a, where it does not pay;
+`RFD3_PF_DPB=0/1` forces it either way.
+
 Atom attention scores only the 64 x 64 tiles that hold a neighbour, about a quarter of them, and reads keys,
 values and mask in place; the skipped tiles carry zero softmax weight. It matches a float64 reference as
 closely as the dense kernel (largest error 0.048 against 0.050) and saves about 4 s per design on Wormhole
