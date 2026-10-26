@@ -151,9 +151,11 @@ def _plan(kt, nw, tr, dev, ncores):
     return None
 
 
-def _share(g, tr, H):
-    """LN_SHARE applies: two column groups, plain read, head outputs (writer.cpp write_heads)."""
-    return LN_SHARE and g == 2 and not tr and H > 0
+def _share(g, tr, H, b8=True):
+    """LN_SHARE applies: two column groups, plain read, head outputs, bfp8 q|k|v. With bf16 outputs the call is
+    bound by its DRAM writes and sharing is slower (512 x c384: HiFi3 7.93 -> 8.72 ms, HiFi2 8.71 -> 9.12), with
+    bfp8 it is not (HiFi3 8.02 -> 6.45, HiFi2 7.21 -> 5.66; lnsh3, .103, 1000 MHz)."""
+    return LN_SHARE and g == 2 and not tr and H > 0 and b8
 
 
 def _nq(nq):
@@ -193,9 +195,9 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     # TR splits 16-row units (2 per x^T row-tile pair (bt, jt)), the rest splits row tiles. Core c is in
     # column group c % g, and every group splits the same rows.
     split = split_rows(m // 16 if tr else m, gx * gy // g)
-    lns = _share(g, tr, H)
-    phys = lambda c: x.device().worker_core_from_logical_core(ttnn.CoreCoord(c % gx, c // gx))  # noqa: E731
     nq = max(q for _, q, _ in cols) if cols else 0
+    lns = _share(g, tr, H, bool(nq))
+    phys = lambda c: x.device().worker_core_from_logical_core(ttnn.CoreCoord(c % gx, c // gx))  # noqa: E731
     c2, c4 = _cb_tiles(cols, nw) if cols else (2 * nw, 0)
     for c in range(gx * gy):
         r0, n = split[c // g]
