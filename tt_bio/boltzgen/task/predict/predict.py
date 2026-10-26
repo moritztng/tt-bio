@@ -111,7 +111,9 @@ class Predict(Task):
         # The host work of a design (featurizing the next one, writing the last one) runs on two
         # helper threads while the card runs this one, as a DataLoader's workers would (see above for
         # why they cannot be processes). Each thread keeps its own order, the featurizer draws only
-        # from numpy's global stream and the model only from torch's, so every design is the same.
+        # from numpy's global stream (its torch draws use a generator seeded from it) and the model
+        # only from torch's, so every design is the same whatever the timing. A design counts as done
+        # when its prediction is; its write finishes behind the next one.
         items = iter(dataloader)
         with ThreadPoolExecutor(1) as featurize, ThreadPoolExecutor(1) as write:
             ahead, written = featurize.submit(next, items, None), None
@@ -121,11 +123,10 @@ class Predict(Task):
                 prediction = model.predict_step(batch, batch_idx=batch_idx)
                 if written is not None:
                     written.result()
-                    progress("batch", batch_idx, total_batches)
                 written = write.submit(self.writer.write, prediction, batch, batch_idx)
+                progress("batch", batch_idx + 1, total_batches)
             if written is not None:
                 written.result()
-                progress("batch", total_batches, total_batches)
 
         self.writer.finalize()
         del model
