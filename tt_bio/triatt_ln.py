@@ -61,6 +61,8 @@ LN_BLK = 1
 #: OpenDDE WH fast fold, same chip, 2 paired warm, CIFs identical, 1000 MHz (spd-m-opendde lnf): 512 75.40 -> 74.25 s,
 #: 640 117.96 -> 115.72 s, 288 null.
 LN_SHARE = True
+#: bench-only: the writer sends every other output tile on the reader's NOC (both kernels DM_DYNAMIC_NOC)
+WSPLIT = 0
 _CACHE: dict = {}
 #: (served, declined, served with bfp8 q/k/v)
 STATS = [0, 0, 0]
@@ -185,6 +187,17 @@ def _cb_tiles(cols, nw):
     return 2 * lcm([q for _, q, _ in cols]), 2 * lcm([nw - q for _, q, _ in cols if nw > q])
 
 
+def _dm(risc):
+    """Writer (0) / reader (1) config; WSPLIT puts both on dynamic NOC so the writer may use the reader's NOC too."""
+    if not WSPLIT:
+        return ttnn.WriterConfigDescriptor() if risc == 0 else ttnn.ReaderConfigDescriptor()
+    d = ttnn.DataMovementConfigDescriptor()
+    d.processor = ttnn.DataMovementProcessor.RISCV_1 if risc else ttnn.DataMovementProcessor.RISCV_0
+    d.noc = ttnn.NOC.RISCV_1_default if risc else ttnn.NOC.RISCV_0_default
+    d.noc_mode = ttnn.NOC_MODE.DM_DYNAMIC_NOC
+    return d
+
+
 def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
@@ -220,12 +233,12 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
         defines=[("ABL_R", "1")] if ABL & 8 else [],
-        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
+        runtime_args=rd, common_runtime_args=[0] * 4, config=_dm(1))
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq),
-        runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq) + [("WSPLIT", "1")] * bool(WSPLIT and H),
+        runtime_args=wr, common_runtime_args=[0] * len(outs), config=_dm(0))
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -298,7 +311,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()))
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, WSPLIT, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)

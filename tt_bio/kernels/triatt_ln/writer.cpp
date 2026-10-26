@@ -26,6 +26,9 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #ifndef ABL_W
 #define ABL_W 0   // bench-only (triatt_ln.ABL bit 4): skip the DRAM writes
 #endif
+#ifndef WSPLIT
+#define WSPLIT 0  // bench-only (triatt_ln.WSPLIT, DM_DYNAMIC_NOC): odd output tiles go out on the other NOC
+#endif
 #ifndef NQ
 #define NQ 0      // triatt_ln_b8: the first nq tiles (runtime arg 5: q, k, v) come bfp8 from c_2, the rest bf16 from c_4
 #endif
@@ -76,15 +79,17 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
             const uint32_t s = src;
             src += (NQ && j >= nq) ? tb_hi : tb;
             if constexpr (ABL_W) continue;
+            const uint8_t nc = (WSPLIT && (j & 1)) ? 1 - noc_index : noc_index;
             switch (n / H) {
-                case 0: noc_async_write_page(page, oq, s); break;
-                case 1: noc_async_write_page(page, ok, s); break;
-                case 2: noc_async_write_page(page, ov, s); break;
-                case 3: noc_async_write_page(page, og, s); break;
-                default: noc_async_write_page(r, ob, s);
+                case 0: noc_async_write_page(page, oq, s, 0, 0, nc); break;
+                case 1: noc_async_write_page(page, ok, s, 0, 0, nc); break;
+                case 2: noc_async_write_page(page, ov, s, 0, 0, nc); break;
+                case 3: noc_async_write_page(page, og, s, 0, 0, nc); break;
+                default: noc_async_write_page(r, ob, s, 0, 0, nc);
             }
         }
         noc_async_writes_flushed();
+        if constexpr (WSPLIT) noc_async_writes_flushed(1 - noc_index);
         cb_pop_front(out_cb, NQ ? nq : NW);
         if constexpr (NQ) cb_pop_front(hi_cb, NW - nq);
     }
@@ -111,4 +116,5 @@ void kernel_main() {
     const uint32_t tb = get_tile_size(out_cb);
     write<H, MT, NW, NWF>(r0, nrows, out_cb, tb, get_arg_val<uint32_t>(4));
     noc_async_write_barrier();
+    if constexpr (WSPLIT) noc_async_write_barrier(1 - noc_index);
 }
