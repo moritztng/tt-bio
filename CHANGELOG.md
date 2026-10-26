@@ -34,8 +34,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   514-token design on a Galaxy chip drops from 51.6 to 45.6 s. Designs change at the precision level; over 64
   designs graded against the previous normal mode, every confidence metric stays within 0.03 and the filter passes
   the same number on both archs.
-- **BoltzGen on Blackhole replays the diffusion step from a device trace by default.** Output is identical and
-  the 1831-residue size ceiling holds. `--no_diffusion_trace` restores the eager step.
+- **BoltzGen normal mode on Blackhole replays the diffusion step from a device trace by default.** Output is
+  identical, the 1831-residue size ceiling holds, and with the triangle-multiplication change above a 514-token
+  design on a p300 chip drops from 25.2 to 23.0 s. `--no_diffusion_trace` restores the eager step. Fast mode keeps
+  the eager step: its per-step conditioning is computed ahead, which the captured step cannot replay.
 
 ## [0.23.0] - 2026-10-26
 

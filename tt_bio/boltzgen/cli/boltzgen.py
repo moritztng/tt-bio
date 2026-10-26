@@ -280,8 +280,8 @@ def add_configure_arguments(
         default=None,
         help="Replay a captured ttnn trace of the per-step diffusion DiT device "
         "stream in the design step (lossless; collapses per-step host dispatch; "
-        "reserves 0.2-0.3 GB of device memory). Default: on for Blackhole, off "
-        "for Wormhole.",
+        "reserves 0.2-0.3 GB of device memory). Default: on for Blackhole "
+        "normal mode, else off.",
     )
 
     # Inverse folding configuration options

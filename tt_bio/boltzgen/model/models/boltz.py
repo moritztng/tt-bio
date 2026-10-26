@@ -184,11 +184,13 @@ class Boltz(nn.Module):
         3. Inverse folding
         4. Affinity prediction
         """
-        # None (the design step's default) replays the DiT trace on Blackhole: lossless, -0.5 s
-        # a design on a p300 chip, and the 1831-residue ceiling holds with the region reserved.
-        # Wormhole stays opt-in until its ceiling is re-walked.
+        # None (the design step's default) replays the DiT trace on Blackhole: lossless, -0.4 s
+        # a normal design on a p300 chip, and the 1831-residue ceiling holds with the region reserved.
+        # Not under dit_cond_steps: the captured step computes its own conditioning, so it would
+        # drop that lever (BH fast CIFs move, no faster). Wormhole stays opt-in until its ceiling
+        # is re-walked.
         if diffusion_trace is None:
-            diffusion_trace = not tenstorrent.is_wormhole()
+            diffusion_trace = not tenstorrent.is_wormhole() and "dit_cond_steps" not in self._levers
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.
         if diffusion_trace:

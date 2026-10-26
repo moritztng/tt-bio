@@ -4679,7 +4679,7 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
 @click.option("--diffusion_trace/--no_diffusion_trace", default=None,
               help="boltzgen only. Replay a captured ttnn trace of the per-step diffusion "
                    "DiT device stream (lossless; collapses per-step host dispatch; reserves "
-                   "0.2-0.3 GB of device memory). Default: on for Blackhole, off for Wormhole.")
+                   "0.2-0.3 GB of device memory). Default: on for Blackhole normal mode, else off.")
 @click.option("--debug", is_flag=True,
               help="boltzgen only. Debug mode: no Rich display, no output suppression.")
 @click.option("--log", is_flag=True,
