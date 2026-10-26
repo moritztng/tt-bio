@@ -1658,6 +1658,8 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # +0.0011 [+0.0001, +0.0021], docking 31 -> 32 of 44; ESMFold2-Fast -0.0002 [-0.0008, +0.0004], 23 -> 23 of 43.
 # trimul_t1_psig runs T1's gate sigmoid on the packer thread, overlapping the FPU's next matmul block. Same
 # sigmoid_poly on the same values, so a, b and g_out are bit-identical (Protenix-v2 took it on the same c_z 256 T1).
+# p150a 1350 MHz, CIFs identical on every fold: T1 3.31 -> 3.06 ms a call at 512; paired fold median ESMFold2 512
+# --fast -0.23 s, normal -0.34 s; -Fast 512 --fast -0.02 s, normal +0.02 s, 256 --fast -0.01 s (repeat 9, noise).
 _BH_ONLY = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t1w8", "trimul_t1_2g", "trimul_t1_psig")
 # Wormhole's normal mode folds with the LM in bfp8 (load_ttnn_esmfold2) and adds ef2_lm_combine to LEVERS_NORMAL.
 # The pair SwiGLU kernel was Wormhole-only in normal mode until bnwg (above); its Wormhole grade:
