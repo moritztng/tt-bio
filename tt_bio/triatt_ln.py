@@ -50,8 +50,9 @@ TR = True
 ABL = 0
 #: rotate each core's plain-read rows by its row-split index, so the cores of a group do not all start on the same
 #: row residue and hit the same few DRAM banks in lockstep (head-major pages of one row tile are MT apart). Order
-#: only: every row is read, computed and written exactly as before.
-STAGGER = False
+#: only: every row is read, computed and written exactly as before. OpenDDE WH normal fold, same chip, CIFs identical,
+#: 1000 MHz: 512 -0.75 s, 640 -1.36 s (stgf); per call it moves only the HiFi2 bf16 write (512 9.67 -> 8.77 ms).
+STAGGER = True
 _CACHE: dict = {}
 #: (served, declined, served with bfp8 q/k/v)
 STATS = [0, 0, 0]

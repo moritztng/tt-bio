@@ -24,7 +24,7 @@ ap.add_argument("--abl", default="0,1,2,4,8,12,3,7,11,14,13", help="comma list o
 ap.add_argument("--fids", default="HiFi3,HiFi2")
 ap.add_argument("--b8", default="0", help="comma list: lever triatt_ln_b8 off (0) / on (1)")
 ap.add_argument("--tr", default="0,1", help="comma list: plain (0) / transposed (1) read")
-ap.add_argument("--stagger", default="0", help="comma list: triatt_ln.STAGGER off (0) / on (1); on rows print "
+ap.add_argument("--stagger", default="1", help="comma list: triatt_ln.STAGGER off (0) / on (1); on rows print "
                 "stagger_exact, torch.equal to the off arm at ABL 0")
 a = ap.parse_args()
 
@@ -134,4 +134,4 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                         free(r)
                 print(json.dumps(row), flush=True)
 TL.ABL = 0
-TL.STAGGER = False
+TL.STAGGER = True
