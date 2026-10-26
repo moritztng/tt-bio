@@ -170,3 +170,15 @@ def test_pf_sdpa_default_on_wormhole_only(monkeypatch):
     assert M._pf_sdpa_on() is False
     monkeypatch.setattr(M, "_PF_SDPA", True)
     assert M._pf_sdpa_on() is True
+
+
+def test_pair_ws_psilu_default_on_wormhole_only(monkeypatch):
+    """The pair Transition's packer silu is bit-identical and paid on Wormhole; p150a has no read yet."""
+    monkeypatch.setattr(M, "_PAIR_WS_PSILU", None)
+    monkeypatch.setattr(M, "is_wormhole", lambda: True)
+    assert M._pair_ws_psilu_on() is True
+    monkeypatch.setattr(M, "is_wormhole", lambda: False)
+    assert M._pair_ws_psilu_on() is False
+    monkeypatch.setattr(M, "_PAIR_WS_PSILU", False)
+    monkeypatch.setattr(M, "is_wormhole", lambda: True)
+    assert M._pair_ws_psilu_on() is False

@@ -260,6 +260,10 @@ def _pf_sdpa_on():
     return _PF_SDPA if _PF_SDPA is not None else is_wormhole()
 
 
+def _pair_ws_psilu_on():
+    return _PAIR_WS_PSILU if _PAIR_WS_PSILU is not None else is_wormhole()
+
+
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -427,6 +431,11 @@ _PAIR_WS_LOFI = env_flag("RFD3_PAIR_WS_LOFI", False)
 # normal seeds: breaks 3 -> 4, clash delta +11 (se 9.8, median -3), drift 5.7-14.5 A against an 11.5-19.8 A
 # seed floor. On in both modes.
 _PAIR_WS_RESID = env_flag("RFD3_PAIR_WS_RESID", True)
+# RFD3_PAIR_WS with the silu on the packer thread, fc1 of the next hidden group issued before fc2, so the matmuls
+# overlap the SFPU (`pair_swiglu_ws` pack_silu, the shared `ws_psilu`). Bit-identical: CIF digests equal on every
+# fold. Wormhole @1000 A/B/A/B (seeds 60,61): normal 50.15 -> 49.15 s/design, fast flat (49.52 vs 49.55). On by
+# default on Wormhole until a p150a read; RFD3_PAIR_WS_PSILU=0/1 forces it.
+_PAIR_WS_PSILU = env_flag("RFD3_PAIR_WS_PSILU", False) if os.environ.get("RFD3_PAIR_WS_PSILU") else None
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -1287,9 +1296,10 @@ class Transition(Module):
         # The input RMSNorm as the program's prologue: bit-identical to ttnn.rms_norm first, and the normalised
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
         if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None), resid=r):
-            return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6), resid=r)
+            return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6), resid=r,
+                                  pack_silu=_pair_ws_psilu_on())
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
-        out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid, resid=r)
+        out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid, resid=r, pack_silu=_pair_ws_psilu_on())
         ttnn.deallocate(xn)
         return out
 

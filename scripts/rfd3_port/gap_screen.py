@@ -22,6 +22,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   rs        RFD3_RESIDENT_STEP, the denoise step stays on the card between modules (on by default)
   pws       RFD3_PAIR_WS, the token pair Transition as one weight-stationary program (tt_bio.pair_swiglu_ws)
   pwb8      RFD3_PAIR_WS_B8, pws with bfp8 weights at HiFi2
+  pps       RFD3_PAIR_WS_PSILU, pws with the silu on the packer, overlapping the matmuls (bit-identical)
   at        RFD3_ATTN_THREAD, the atom neighbour index built on a worker thread
   dpb       RFD3_DPB, the DiT SDPA masks as one program (tt_bio.dit_pair_bias)
   apb       RFD3_ATOM_PB_FUSED, one pair-bias projection for all three atom blocks (default on)
