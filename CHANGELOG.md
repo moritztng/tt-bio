@@ -23,6 +23,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **BoltzGen `--fast` on Wormhole runs the faster triangle-multiplication and transition kernels.** A 514-token
   design on a Galaxy chip drops from about 50 to 42 s. Designs change at the precision level; graded over 32
   designs against normal mode, every confidence metric stays within 0.03 and the filter passes the same number.
+- **BoltzGen `--fast` on Blackhole runs the same faster triangle-multiplication kernels.** A 514-token design on
+  a p300 chip drops from 23.9 to 20.7 s. Graded the same way as Wormhole `--fast`: over 32 designs against normal
+  mode, every confidence metric stays within 0.01 and the filter passes the same number.
+- **BoltzGen normal mode on Wormhole runs the weight-stationary transition and fused triangle-attention LayerNorm.**
+  A 514-token design on a Galaxy chip drops from 55.8 to 53.3 s. Over 32 designs graded against the previous normal
+  mode, every confidence metric stays within 0.01 and the filter passes the same number.
 
 ## [0.23.0] - 2026-10-26
 
