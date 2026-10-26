@@ -44,6 +44,15 @@ _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
 _L1_BUDGET = 1100 * 1024
 
 
+def _ln_budget() -> int:
+    """The budget a plan with the LayerNorm prologue checks against. On Blackhole it is T1's rule, 0.85 of the
+    allocator's bank (1242496 B on a p150a), which T1 holds in the same trunk: ESMFold2's c_z 256 bfp8 transition
+    with the prologue and its residual takes 1230848 B. Wormhole keeps `_L1_BUDGET`, and plans without the
+    prologue keep it on both arches, so no model's chunking or routing moves."""
+    from .tenstorrent import _l1_bank_bytes, is_wormhole
+    return _L1_BUDGET if is_wormhole() else max(_L1_BUDGET, int(0.85 * _l1_bank_bytes()))
+
+
 # One core reads the weights from DRAM and multicasts them to the grid, where every core would otherwise read all of them
 # (110 x 256 KB a call for AF2's c_z 128 transition: 0.069 of its 0.33 ms on a p300c). Same bytes in the same CBs.
 # Only where the program fills the whole grid rectangle. torch.equal to the per-core read on both arches (Blackhole:
@@ -123,7 +132,7 @@ def eligible(x, w12, w3, ln=(), l1acc=False, resid=None, resid2=None) -> bool:
     base = (_l1_bytes(kt, nh, ct, w12.dtype, x.dtype) + (ln_bytes(kt) if ln else 0)
             + (_SW * 2 * _TILE if l1acc else 0))
     n_res = (resid is not None) + (resid2 is not None)
-    return base + n_res * _res_depth(base, ct, n_res) * ct * _TILE <= _L1_BUDGET
+    return base + n_res * _res_depth(base, ct, n_res) * ct * _TILE <= (_ln_budget() if ln else _L1_BUDGET)
 
 
 def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
