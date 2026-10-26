@@ -13,6 +13,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("out"); ap.add_argument("--sizes", default="512,480,640,608,448")
 ap.add_argument("--abl", default="0", help="comma list of TAIL_ABL masks; above 0 runs 512 resid only, stagger off")
 ap.add_argument("--zord", default="", help="comma list of TAIL_ZORD values: resid only, stagger off")
+ap.add_argument("--oop", action="store_true", help="resid only: in place vs a new output tensor")
 ap.add_argument("--ncall", type=int, default=10); ap.add_argument("--reps", type=int, default=5)
 a = ap.parse_args()
 
@@ -50,14 +51,16 @@ for S in [int(s) for s in a.sizes.split(",")]:
             abls = [int(x) for x in a.abl.split(",")]
             zords = [int(x) for x in a.zord.split(",")] if a.zord else []
             plan = ([(False, m, 0) for m in abls] * 2 if abls != [0] else [(False, 0, z_) for z_ in zords] * 2 if zords
+                    else [(False, 0, -1), (False, 0, -2)] * 2 if a.oop
                     else [(s_, 0, 0) for s_ in (False, True, False, True)])
-            if (abls != [0] or zords) and not resid:
+            if (abls != [0] or zords or a.oop) and not resid:
                 continue
             with T.levers(",".join(sorted(names))):
                 for stg, abl, zo in plan:
-                    Q.TAIL_STAGGER, Q.TAIL_ABL, Q.TAIL_ZORD = stg, abl, zo
+                    Q.TAIL_STAGGER, Q.TAIL_ABL, Q.TAIL_ZORD, Q.TAIL_OOP = stg, abl, max(zo, 0), zo == -2
                     Q._TAIL_CACHE.clear()
-                    name = f"abl{abl}" if abls != [0] else f"zord{zo}" if zords else "stagger" if stg else "ship"
+                    name = (f"abl{abl}" if abls != [0] else f"zord{zo}" if zords else ("inplace", "oop")[zo == -2] if a.oop
+                            else "stagger" if stg else "ship")
 
                     def call():
                         z = up(hz) if resid else None
@@ -69,6 +72,8 @@ for S in [int(s) for s in a.sizes.split(",")]:
                         continue
                     outs.setdefault(name, ttnn.to_torch(r))
                     r.deallocate()
+                    if z is not None and Q.TAIL_OOP:
+                        z.deallocate()
                     # time with a preallocated z per call (in place), as the fold does
                     zs = [up(hz) for _ in range(a.ncall)] if resid else [None] * a.ncall
                     ms = []
@@ -76,7 +81,7 @@ for S in [int(s) for s in a.sizes.split(",")]:
                         ttnn.synchronize_device(dev); t0 = time.perf_counter()
                         for i in range(a.ncall):
                             y = Q.gated_out_proj(o, g, w, ckc, resid=zs[i])
-                            if not resid:
+                            if not resid or Q.TAIL_OOP:
                                 y.deallocate()
                         ttnn.synchronize_device(dev)
                         ms.append((time.perf_counter() - t0) / a.ncall * 1e3)
@@ -87,7 +92,9 @@ for S in [int(s) for s in a.sizes.split(",")]:
             for v in arms.values():
                 if "ms" in v:
                     v["ms_min"] = min(v["ms"]); v["ms_med"] = sorted(v["ms"])[len(v["ms"]) // 2]
-            Q.TAIL_ABL = Q.TAIL_ZORD = 0
+            Q.TAIL_ABL = Q.TAIL_ZORD = 0; Q.TAIL_OOP = False
+            if "inplace" in outs and "oop" in outs:
+                arms["equal_oop"] = bool(torch.equal(outs["inplace"], outs["oop"]))
             for k in [k for k in outs if k.startswith("zord") and k != "zord0"]:
                 if "zord0" in outs:
                     arms[f"equal_{k}"] = bool(torch.equal(outs["zord0"], outs[k]))

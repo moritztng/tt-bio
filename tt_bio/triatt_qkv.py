@@ -393,6 +393,7 @@ TAIL_STAGGER = os.environ.get("TT_BIO_TRIATT_TAIL_STAGGER", "1") == "1"
 #: the output, 4 compute copies the sum instead of adding z
 TAIL_ABL = 0
 TAIL_ZORD = 0   # bench-only reader order for z (reader.cpp ZORD)
+TAIL_OOP = False   # bench-only: with resid, write z + update to a new tensor instead of into z
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
@@ -571,20 +572,24 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
     elif resid is None:
         out = ttnn.allocate_tensor_on_device(ttnn.Shape([B, S, int(w.shape[-1])]), ttnn.bfloat16,
                                              ttnn.TILE_LAYOUT, o.device(), ttnn.DRAM_MEMORY_CONFIG)
+    elif TAIL_OOP:
+        out = ttnn.allocate_tensor_on_device(resid.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, o.device(),
+                                             ttnn.DRAM_MEMORY_CONFIG)
     else:
         out = resid
+    zt = resid if resid is not None else out
     grid = tuple(COMPUTE_GRID_MAIN)
     brows = _bias_rows(bias) if bias is not None else None
     key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
            G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1,
-           resid_t is not None, TAIL_STAGGER, TAIL_ABL, TAIL_ZORD)
+           resid_t is not None, TAIL_STAGGER, TAIL_ABL, TAIL_ZORD, TAIL_OOP)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
-        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None, brows,
+        entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, zt, ckc, grid, resid is not None, brows,
                                                trans=resid_t is not None)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [o.buffer_address(), g.buffer_address(), w.buffer_address(),
-                                  out.buffer_address(),
+                                  zt.buffer_address(),
                                   brows.buffer_address() if brows is not None else 0]
     writer.common_runtime_args = [out.buffer_address()]
     pd = ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=[], cbs=entry["cbs"])
