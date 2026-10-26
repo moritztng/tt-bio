@@ -61,6 +61,9 @@ void kernel_main() {
 #ifndef ZORD
 #define ZORD 0
 #endif
+#ifndef ZW
+#define ZW 0
+#endif
         // ZORD (bench): 0 z in o and g's barrier, 1 z after o and g are pushed, 2 z issued first
         if constexpr (RESID && ZORD == 2) {
             cb_reserve_back(z_cb, Nt);
@@ -75,7 +78,7 @@ void kernel_main() {
             noc_async_read_page(G3D ? u * Kt + h : page, g, gp);
             noc_async_read_page(page, o, op);
         }
-        if constexpr (RESID && ZORD == 0) {
+        if constexpr (RESID && ZORD == 0 && !ZW) {
             cb_reserve_back(z_cb, Nt);
             uint32_t zp = get_write_ptr(z_cb);
 #ifndef ABL_Z
@@ -91,6 +94,6 @@ void kernel_main() {
             for (uint32_t n = 0; n < Nt; ++n, zp += tb) noc_async_read_page(u * Nt + n, z, zp);
             noc_async_read_barrier();
         }
-        if constexpr (RESID) cb_push_back(z_cb, Nt);
+        if constexpr (RESID && !ZW) cb_push_back(z_cb, Nt);
     }
 }

@@ -14,6 +14,7 @@ ap.add_argument("out"); ap.add_argument("--sizes", default="512,480,640,608,448"
 ap.add_argument("--abl", default="0", help="comma list of TAIL_ABL masks; above 0 runs 512 resid only, stagger off")
 ap.add_argument("--zord", default="", help="comma list of TAIL_ZORD values: resid only, stagger off")
 ap.add_argument("--oop", action="store_true", help="resid only: in place vs a new output tensor")
+ap.add_argument("--zw", action="store_true", help="resid only: z read by the reader vs by the writer (other NOC)")
 ap.add_argument("--ncall", type=int, default=10); ap.add_argument("--reps", type=int, default=5)
 a = ap.parse_args()
 
@@ -51,15 +52,17 @@ for S in [int(s) for s in a.sizes.split(",")]:
             abls = [int(x) for x in a.abl.split(",")]
             zords = [int(x) for x in a.zord.split(",")] if a.zord else []
             plan = ([(False, m, 0) for m in abls] * 2 if abls != [0] else [(False, 0, z_) for z_ in zords] * 2 if zords
+                    else [(False, 0, -1), (False, 0, -3)] * 2 if a.zw
                     else [(False, 0, -1), (False, 0, -2)] * 2 if a.oop
                     else [(s_, 0, 0) for s_ in (False, True, False, True)])
-            if (abls != [0] or zords or a.oop) and not resid:
+            if (abls != [0] or zords or a.oop or a.zw) and not resid:
                 continue
             with T.levers(",".join(sorted(names))):
                 for stg, abl, zo in plan:
                     Q.TAIL_STAGGER, Q.TAIL_ABL, Q.TAIL_ZORD, Q.TAIL_OOP = stg, abl, max(zo, 0), zo == -2
+                    Q.TAIL_ZW = zo == -3
                     Q._TAIL_CACHE.clear()
-                    name = (f"abl{abl}" if abls != [0] else f"zord{zo}" if zords else ("inplace", "oop")[zo == -2] if a.oop
+                    name = (f"abl{abl}" if abls != [0] else f"zord{zo}" if zords else ("reader_z", "writer_z")[zo == -3] if a.zw else ("inplace", "oop")[zo == -2] if a.oop
                             else "stagger" if stg else "ship")
 
                     def call():
@@ -92,7 +95,9 @@ for S in [int(s) for s in a.sizes.split(",")]:
             for v in arms.values():
                 if "ms" in v:
                     v["ms_min"] = min(v["ms"]); v["ms_med"] = sorted(v["ms"])[len(v["ms"]) // 2]
-            Q.TAIL_ABL = Q.TAIL_ZORD = 0; Q.TAIL_OOP = False
+            Q.TAIL_ABL = Q.TAIL_ZORD = 0; Q.TAIL_OOP = Q.TAIL_ZW = False
+            if "reader_z" in outs and "writer_z" in outs:
+                arms["equal_zw"] = bool(torch.equal(outs["reader_z"], outs["writer_z"]))
             if "inplace" in outs and "oop" in outs:
                 arms["equal_oop"] = bool(torch.equal(outs["inplace"], outs["oop"]))
             for k in [k for k in outs if k.startswith("zord") and k != "zord0"]:
