@@ -106,7 +106,7 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
         for b8 in [bool(int(d)) for d in a.b8.split(",")]:
           B8 = b8
           base = None
-          arms = [(st, blk, sh) for st in [bool(int(d)) for d in a.stagger.split(",")] for blk in [int(d) for d in a.lnblk.split(",")]
+          arms = [(st, blk, sh, ws) for st in [bool(int(d)) for d in a.stagger.split(",")] for blk in [int(d) for d in a.lnblk.split(",")]
                   for sh in [bool(int(d)) for d in a.share.split(",")] for ws in [int(d) for d in a.wsplit.split(",")]]
           for st, blk, sh, ws in arms:
             TL.STAGGER, TL.LN_BLK, TL.LN_SHARE, TL.WSPLIT = st, blk, sh, ws
