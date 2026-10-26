@@ -5,6 +5,10 @@ inside a warm design (default steps 600-619 of the run = design 2, steps 100-119
 ids are matched to the profiler's programs, so every kernel nanosecond lands on (op, tt_bio call site, block). Needs a
 profiler build of tt-metal and TT_METAL_DEVICE_PROFILER=1 (perf/spd_census/run.sh sets up the same environment).
 
+BGCENSUS_TRUNK=1 windows trunk recycle passes instead (BGCENSUS_FROM/STEPS count TrunkModule passes, 4 per design;
+default 4-7 = design 2's trunk), blocks are the trunk modules (pf, tri_mul, tri_att, trans, opm, pwa, msa, apb, tokdist,
+recycle), and each pass also records its synchronized wall time, so kernel time and wall time sit side by side.
+
 Writes $BGCENSUS_OUT (json): window, per-step device kernel ns, and rows [op, site, block, calls, kernel_ns] sorted
 by kernel time. Blocks are the shared Diffusion module's (encoder, token_transformer, decoder, attn, trans, adaln).
 
@@ -22,14 +26,16 @@ import ttnn.decorators as D
 from tt_bio import tenstorrent as T
 
 OUT = os.environ.get("BGCENSUS_OUT", "bg_census.json")
-S0 = int(os.environ.get("BGCENSUS_FROM", "600"))
-NSTEP = int(os.environ.get("BGCENSUS_STEPS", "20"))
+TRUNK = os.environ.get("BGCENSUS_TRUNK") == "1"
+S0 = int(os.environ.get("BGCENSUS_FROM", "4" if TRUNK else "600"))
+NSTEP = int(os.environ.get("BGCENSUS_STEPS", "4" if TRUNK else "20"))
 OPID = ttnn._ttnn.get_device_operation_id
 ST = {"step": -1, "on": False, "depth": 0, "done": False, "flushed": 0}
 KERN = {}                   # device operation id -> kernel ns (a mesh program's runtime id is (op id << 10) | sub)
 REG = []
 CALLS = []                  # (id0, id1, op, site, block)
 NAMES = {}
+WALL = []                   # trunk mode: synchronized wall seconds per windowed pass
 
 
 def site():
@@ -77,8 +83,13 @@ def region(cls, label):
     cls.__call__ = w
 
 
-for cls, label in ((T.DiffusionTransformer, "dt"), (T.AttentionPairBias, "attn"),
-                   (T.ConditionedTransitionBlock, "trans"), (T.AdaLN, "adaln")):
+REGIONS = (((T.PairformerLayer, "pf"), (T.MSALayer, "msa"), (T.TriangleMultiplication, "tri_mul"),
+            (T.TriangleAttention, "tri_att"), (T.Transition, "trans"), (T.OuterProductMean, "opm"),
+            (T.PairWeightedAveraging, "pwa"), (T.AttentionPairBias, "apb"), (T.TokenDistanceRecycle, "tokdist"),
+            (T.TrunkRecycle, "recycle")) if TRUNK else
+           ((T.DiffusionTransformer, "dt"), (T.AttentionPairBias, "attn"),
+            (T.ConditionedTransitionBlock, "trans"), (T.AdaLN, "adaln")))
+for cls, label in REGIONS:
     region(cls, label)
 
 
@@ -107,9 +118,9 @@ def finish():
         agg[(op, st, blk)][1] += ns
         total += ns
     rows = sorted(([*key, c, ns] for key, (c, ns) in agg.items()), key=lambda r: -r[4])
-    json.dump(dict(window=[S0, S0 + NSTEP], steps=NSTEP, calls=len(CALLS), ids_missing=missing,
+    json.dump(dict(mode="trunk" if TRUNK else "diffusion", wall_s=WALL, window=[S0, S0 + NSTEP], steps=NSTEP, calls=len(CALLS), ids_missing=missing,
                    kernel_ns_per_step=total / NSTEP, rows=rows), open(OUT, "w"), indent=0)
-    print(f"BGCENSUS {OUT}: {len(CALLS)} calls, {total / NSTEP / 1e6:.3f} ms device kernel per step, "
+    print(f"BGCENSUS {OUT}: {len(CALLS)} calls, {total / NSTEP / 1e6:.3f} ms device kernel per step, wall {WALL}, "
           f"{missing} ids without a program", flush=True)
 
 
@@ -131,6 +142,32 @@ def _diffusion(self, *a, **kw):
     return _diff_call(self, *a, **kw)
 
 
-T.Diffusion.__call__ = _diffusion
+_iter = T.TrunkModule._iteration
+
+
+def _trunk_pass(self, *a, **kw):
+    ST["step"] += 1
+    if ST["step"] == S0:
+        drain(keep=False)
+        ST["on"] = True
+    if not ST["on"]:
+        return _iter(self, *a, **kw)
+    import time
+    ttnn.synchronize_device(T.get_device())
+    t0 = time.perf_counter()
+    out = _iter(self, *a, **kw)
+    ttnn.synchronize_device(T.get_device())
+    WALL.append(time.perf_counter() - t0)
+    if ST["step"] == S0 + NSTEP - 1:
+        ST["on"] = False
+        ST["done"] = True
+        finish()
+    return out
+
+
+if TRUNK:
+    T.TrunkModule._iteration = _trunk_pass
+else:
+    T.Diffusion.__call__ = _diffusion
 sys.argv = ["tt_bio.main"] + sys.argv[1:]
 runpy.run_module("tt_bio.main", run_name="__main__")

@@ -78,13 +78,23 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # Wormhole adds placement-only levers that design byte-identical CIFs on bg_R3 (seed 0, 6 designs, b,l,l,b on a Galaxy
 # chip at 1000 MHz, spd-m-boltzgen lev 2026-10-26), so they need no grade: atom_l1 normal 57.58 -> 56.43 s/design,
 # fast 52.98 -> 51.84; trimul_bres fast 53.00 -> 51.40 (in normal it read +0.3 s, noise, and stays off).
-WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1"}
+# Wormhole normal also takes the weight-stationary transition, the fused triangle-attention LN and dit_cond_steps
+# (not the T1/T2 trimul kernels: with them the normal grade failed, design_ptm -0.019 [-0.034, -0.005]). Graded as one
+# stack by the normal protocol (bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact WH normal, 2026-10-26): design_ptm
+# -0.008, complex_plddt +0.003, iptm +0.002, filter 32/32 vs 32/32. Galaxy chip at 1000 MHz: 55.80 -> 53.26 s/design.
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps"}
 # Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
 # attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
 # metric within 0.03 of base (design_ptm -0.016, complex_plddt -0.007, iptm +0.031), filter 32/32 vs 32/32. Speed on a
 # Galaxy chip at 1000 MHz: 50.2 -> 42.1 s/design.
 WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
+                                "dit_cond_steps"}
+# Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
+# residual, two-buffer L1) plus atom_l1 and dit_cond_steps. Graded as one stack by the fast protocol (bg_grade.py,
+# bg_R3, seeds 0-3 x 8 designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004,
+# filter 32/32 vs 32/32. Speed on a p300 chip (AICLK mean 1323 MHz): 23.93 -> 20.68 s/design.
+BH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
                                 "dit_cond_steps"}
 
 
@@ -159,7 +169,7 @@ class Boltz(nn.Module):
     ) -> None:
         super().__init__()
         self._levers = tenstorrent.model_levers(
-            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, LEVERS_FAST)))
+            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, BH_LEVERS_FAST)))
         """
         Module that does either:
         1. Design
