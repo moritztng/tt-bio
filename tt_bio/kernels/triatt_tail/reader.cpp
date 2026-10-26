@@ -31,6 +31,7 @@ void kernel_main() {
     const auto bias = TensorAccessor(b_args, get_common_arg_val<uint32_t>(4));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
+    const uint32_t rot = get_arg_val<uint32_t>(2);   // start the run rot units in, then wrap (STAGGER)
 
     constexpr uint32_t w_cb = tt::CBIndex::c_0;
     constexpr uint32_t o_cb = tt::CBIndex::c_1;
@@ -53,7 +54,7 @@ void kernel_main() {
         cb_push_back(b_cb, Nt);
     }
 
-    for (uint32_t v = u0; v < u0 + nunits; ++v) {
+    for (uint32_t k = 0, v = u0 + rot; k < nunits; ++k, v = v + 1 == u0 + nunits ? u0 : v + 1) {
         const uint32_t b = TRANS ? (v >> 5) / St * 32 + (v & 31) : v / St;
         const uint32_t jt = TRANS ? (v >> 5) % St : v % St;
         const uint32_t u = b * St + jt;

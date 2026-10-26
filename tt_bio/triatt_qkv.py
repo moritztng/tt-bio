@@ -25,6 +25,7 @@ destination and is one rounding at the pack stage, scored against float64 in
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 
@@ -381,6 +382,13 @@ TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 # Wormhole +0.31 ms with a bfp8 gate at 512 (the unit's shuffle does not overlap its matmul), so Blackhole only.
 TAIL_T = os.environ.get("TT_BIO_TRIATT_TAIL_T")   # "1" / "0" overrides the per-arch default
 TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
+# A unit's Kt head tiles of o and g sit St pages apart, so they land on gcd(St, banks) residues of the DRAM
+# bank count: at S 512 on Wormhole (St 16, 12 banks) one unit reads 3 banks. Cores split the units into
+# contiguous runs and advance in lockstep, and at 512 56 of the 72 runs start on an even row tile, so at
+# any moment most cores read the same half of the banks. STAGGER rotates each core's run so core c starts
+# on a row tile = c mod gcd(St, banks): the same units in another order, every unit read, computed and
+# written exactly as before, so bit-identical (as triatt_ln.STAGGER).
+TAIL_STAGGER = os.environ.get("TT_BIO_TRIATT_TAIL_STAGGER", "1") == "1"
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
@@ -475,12 +483,18 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None, trans=False):
     ncores = gx * gy
     core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
+    if TAIL_STAGGER and not trans:
+        dg = o.device().dram_grid_size()
+        gb = math.gcd(St, int(dg.x) * int(dg.y))
+    else:
+        gb = 1
     u0 = 0
     for c in range(ncores):
         n = nu // ncores + (c < nu % ncores)
         x_, y_ = c % gx, c // gx
-        rd[x_][y_] = [u0 * sub, n * sub]
-        wr[x_][y_] = [u0 * sub, n * sub]
+        r = (c - u0) % gb if n > gb else 0
+        rd[x_][y_] = [u0 * sub, n * sub, r]
+        wr[x_][y_] = [u0 * sub, n * sub, r]
         cp[x_][y_] = [n * sub]
         u0 += n
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
@@ -556,7 +570,7 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
     brows = _bias_rows(bias) if bias is not None else None
     key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
            G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1,
-           resid_t is not None)
+           resid_t is not None, TAIL_STAGGER)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
         entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None, brows,

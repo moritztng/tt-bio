@@ -13,11 +13,12 @@ void kernel_main() {
     const auto out = TensorAccessor(out_args, get_common_arg_val<uint32_t>(0));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
+    const uint32_t rot = get_arg_val<uint32_t>(2);   // the reader's order (STAGGER)
 
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
     const uint32_t tb = get_tile_size(out_cb);
 
-    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+    for (uint32_t k = 0, u = u0 + rot; k < nunits; ++k, u = u + 1 == u0 + nunits ? u0 : u + 1) {
         cb_wait_front(out_cb, Nt);
         uint32_t rp = get_read_ptr(out_cb);
         for (uint32_t n = 0; n < Nt; ++n, rp += tb) noc_async_write_page(u * Nt + n, out, rp);
