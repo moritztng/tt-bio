@@ -11,6 +11,7 @@ import argparse, json, os, time
 
 ap = argparse.ArgumentParser()
 ap.add_argument("out"); ap.add_argument("--sizes", default="512,480,640,608,448")
+ap.add_argument("--abl", default="0", help="comma list of TAIL_ABL masks; above 0 runs 512 resid only, stagger off")
 ap.add_argument("--ncall", type=int, default=10); ap.add_argument("--reps", type=int, default=5)
 a = ap.parse_args()
 
@@ -45,11 +46,15 @@ for S in [int(s) for s in a.sizes.split(",")]:
             cell = f"{S}/{gdt}/{'resid' if resid else 'out'}"
             names = {"triatt_tail"} | ({"triatt_ln_b8g"} if gdt == "bfp8" else set())
             arms, outs = {}, {}
+            abls = [int(x) for x in a.abl.split(",")]
+            plan = ([(False, m) for m in abls] * 2 if abls != [0] else [(s_, 0) for s_ in (False, True, False, True)])
+            if abls != [0] and not resid:
+                continue
             with T.levers(",".join(sorted(names))):
-                for stg in (False, True, False, True):
-                    Q.TAIL_STAGGER = stg
+                for stg, abl in plan:
+                    Q.TAIL_STAGGER, Q.TAIL_ABL = stg, abl
                     Q._TAIL_CACHE.clear()
-                    name = "stagger" if stg else "ship"
+                    name = f"abl{abl}" if abls != [0] else "stagger" if stg else "ship"
 
                     def call():
                         z = up(hz) if resid else None
@@ -79,6 +84,7 @@ for S in [int(s) for s in a.sizes.split(",")]:
             for v in arms.values():
                 if "ms" in v:
                     v["ms_min"] = min(v["ms"]); v["ms_med"] = sorted(v["ms"])[len(v["ms"]) // 2]
+            Q.TAIL_ABL = 0
             if "ship" in outs and "stagger" in outs:
                 arms["equal"] = bool(torch.equal(outs["ship"], outs["stagger"]))
             res["cells"][cell] = arms

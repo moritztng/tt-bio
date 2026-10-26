@@ -165,10 +165,18 @@ void kernel_main() {
             cb_wait_front(z_cb, Nt);
             cb_reserve_back(out_cb, Nt);
             if constexpr (KB1) reconfig_data_format(z_cb, acc_cb);
+#ifdef ABL_ADD
+            copy_tile_to_dst_init_short_with_dt(z_cb, sum_cb);
+#else
             add_tiles_init(z_cb, sum_cb);
+#endif
             for (uint32_t n0 = 0; n0 < Nt; n0 += DW) {
                 tile_regs_acquire();
+#ifdef ABL_ADD
+                for (uint32_t i = 0; i < DW; ++i) copy_tile(sum_cb, n0 + i, i);
+#else
                 for (uint32_t i = 0; i < DW; ++i) add_tiles(z_cb, sum_cb, n0 + i, n0 + i, i);
+#endif
                 if constexpr (RNE & 2) {
                     for (uint32_t i = 0; i < DW; ++i) round_bf16_rne_tile(i);
                 }

@@ -69,7 +69,9 @@ void kernel_main() {
         if constexpr (RESID) {
             cb_reserve_back(z_cb, Nt);
             uint32_t zp = get_write_ptr(z_cb);
+#ifndef ABL_Z
             for (uint32_t n = 0; n < Nt; ++n, zp += tb) noc_async_read_page(u * Nt + n, z, zp);
+#endif
         }
         noc_async_read_barrier();
         cb_push_back(g_cb, Kt);

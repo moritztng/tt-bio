@@ -21,7 +21,9 @@ void kernel_main() {
     for (uint32_t k = 0, u = u0 + rot; k < nunits; ++k, u = u + 1 == u0 + nunits ? u0 : u + 1) {
         cb_wait_front(out_cb, Nt);
         uint32_t rp = get_read_ptr(out_cb);
+#ifndef ABL_W
         for (uint32_t n = 0; n < Nt; ++n, rp += tb) noc_async_write_page(u * Nt + n, out, rp);
+#endif
         noc_async_writes_flushed();
         cb_pop_front(out_cb, Nt);
     }

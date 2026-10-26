@@ -389,6 +389,9 @@ TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
 # on a row tile = c mod gcd(St, banks): the same units in another order, every unit read, computed and
 # written exactly as before, so bit-identical (as triatt_ln.STAGGER).
 TAIL_STAGGER = os.environ.get("TT_BIO_TRIATT_TAIL_STAGGER", "1") == "1"
+#: bench-only stage skips (perf/spd_m_opendde/gop_stagger.py), 0 in production: 1 reader skips z, 2 writer skips
+#: the output, 4 compute copies the sum instead of adding z
+TAIL_ABL = 0
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
@@ -503,11 +506,13 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None, trans=False):
         kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, St, int(resid), int(_g3d(o, g)), int(brows is not None), int(trans)]
         + acc(o) + acc(g) + acc(w) + acc(z) + acc(brows if brows is not None else w),
+        defines=[("ABL_Z", "1")] if TAIL_ABL & 1 else [],
         runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / ("writer_t.cpp" if trans else "writer.cpp")), source_type=src,
         core_ranges=core_grid,
         compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN] if trans else [nt]) + acc(out),
+        defines=[("ABL_W", "1")] if TAIL_ABL & 2 else [],
         runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
@@ -515,6 +520,7 @@ def _build_tail(o, g, w, out, z, ckc, grid, resid, brows=None, trans=False):
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1,
                            int(brows is not None), int(g.dtype == ttnn.bfloat8_b), int(trans), TAIL_T_GRAN],
+        defines=[("ABL_ADD", "1")] if TAIL_ABL & 4 else [],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=fp32, dst_full_sync_en=full))
@@ -570,7 +576,7 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
     brows = _bias_rows(bias) if bias is not None else None
     key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
            G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1,
-           resid_t is not None, TAIL_STAGGER)
+           resid_t is not None, TAIL_STAGGER, TAIL_ABL)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
         entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, out, ckc, grid, resid is not None, brows,
