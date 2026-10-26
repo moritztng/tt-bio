@@ -181,6 +181,19 @@ def release_commit(sha: str, version: str, body: str, day: str, records: dict | 
                      "-m", f"Release {version}\n\nGated at {sha}.")
 
 
+LADDER_DIR = "docs/size_ladder_baseline.d/"
+
+
+def resplice(main: str, at_sha: str, rel: str) -> str:
+    """Ladder fragment `main` with every card entry the release re-recorded (changed from `at_sha`, the
+    gated commit's copy) taken from `rel`, the release's; main's other cards and keys stay."""
+    m, s, r = json.loads(main), json.loads(at_sha), json.loads(rel)
+    for card, entry in r.get("cards", {}).items():
+        if s.get("cards", {}).get(card) != entry:
+            m.setdefault("cards", {})[card] = entry
+    return json.dumps(m, indent=2) + "\n"
+
+
 def merge_back(rel: str, sha: str, remote: str) -> str:
     """Merge release commit `rel` (on gated `sha`) into <remote>/main and push it; the merge's sha.
 
@@ -189,7 +202,9 @@ def merge_back(rel: str, sha: str, remote: str) -> str:
     already accepted. Each file the release changed is taken where main has not touched it since
     `sha`. The release's own files are main's with the release on top (carry): main had moved README.md
     and pyproject.toml since 0.19.0's gated commit, and taking main's whole file left main pinning
-    v0.18.0 after 0.19.0 shipped."""
+    v0.18.0 after 0.19.0 shipped. A ladder fragment main has touched gets the card entries the release
+    re-recorded spliced into main's copy (resplice): 0.23.0 was gated on a candidate off main's line, none
+    of its fragments matched main's, and main kept eight models' v0.22.0 records."""
     with tempfile.TemporaryDirectory() as d:
         env = {**os.environ, "GIT_INDEX_FILE": str(Path(d) / "index")}
 
@@ -200,6 +215,12 @@ def merge_back(rel: str, sha: str, remote: str) -> str:
         def show(c, f):
             return subprocess.run(["git", "-C", str(REPO), "show", f"{c}:{f}"], check=True, capture_output=True,
                                   text=True).stdout
+
+        def put(f, text):
+            """Stage `text` as `f` in the scratch index, with main's file mode."""
+            blob = subprocess.run(["git", "-C", str(REPO), "hash-object", "-w", "--stdin"], input=text,
+                                  check=True, capture_output=True, text=True).stdout.strip()
+            plumb("update-index", "--cacheinfo", f"{plumb('ls-tree', main, '--', f).split()[0]},{blob},{f}")
         version = re.search(r'^version = "([^"]*)"', show(rel, "pyproject.toml"), re.M)[1]
         for _ in range(3):
             plumb("fetch", "-q", remote, "main")
@@ -209,10 +230,10 @@ def merge_back(rel: str, sha: str, remote: str) -> str:
             plumb("read-tree", main)
             for f in plumb("diff", "--name-only", sha, rel).splitlines():
                 if f in RELEASE_FILES:
-                    text = carry(f, show(main, f), show(rel, f), version)
-                    blob = subprocess.run(["git", "-C", str(REPO), "hash-object", "-w", "--stdin"], input=text,
-                                          check=True, capture_output=True, text=True).stdout.strip()
-                    plumb("update-index", "--cacheinfo", f"{plumb('ls-tree', main, '--', f).split()[0]},{blob},{f}")
+                    put(f, carry(f, show(main, f), show(rel, f), version))
+                elif f.startswith(LADDER_DIR) and plumb("ls-tree", main, "--", f) and plumb("ls-tree", sha, "--", f) \
+                        != plumb("ls-tree", main, "--", f):
+                    put(f, resplice(show(main, f), show(sha, f), show(rel, f)))
                 elif plumb("ls-tree", sha, "--", f) == plumb("ls-tree", main, "--", f):
                     if entry := plumb("ls-tree", rel, "--", f).split():
                         plumb("update-index", "--cacheinfo", f"{entry[0]},{entry[2]},{f}")
