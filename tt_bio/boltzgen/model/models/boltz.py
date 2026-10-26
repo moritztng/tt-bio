@@ -78,7 +78,11 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # Wormhole adds placement-only levers that design byte-identical CIFs on bg_R3 (seed 0, 6 designs, b,l,l,b on a Galaxy
 # chip at 1000 MHz, spd-m-boltzgen lev 2026-10-26), so they need no grade: atom_l1 normal 57.58 -> 56.43 s/design,
 # fast 52.98 -> 51.84; trimul_bres fast 53.00 -> 51.40 (in normal it read +0.3 s, noise, and stays off).
-WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1"}
+# Wormhole normal also takes the weight-stationary transition, the fused triangle-attention LN and dit_cond_steps
+# (not the T1/T2 trimul kernels: with them the normal grade failed, design_ptm -0.019 [-0.034, -0.005]). Graded as one
+# stack by the normal protocol (bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact WH normal, 2026-10-26): design_ptm
+# -0.008, complex_plddt +0.003, iptm +0.002, filter 32/32 vs 32/32. Galaxy chip at 1000 MHz: 55.80 -> 53.26 s/design.
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps"}
 # Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
 # attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
