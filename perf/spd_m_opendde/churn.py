@@ -22,6 +22,8 @@ def main():
     ap.add_argument("--size", type=int, default=480)
     ap.add_argument("--fast", action="store_true")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--order", default="base,base,base,same,same,atom,atom,ns,ns,base",
+                    help="comma-separated variants folded in this order in one process")
     a = ap.parse_args()
     tree = a.tree.resolve()
     sys.path.insert(0, str(tree))
@@ -65,7 +67,7 @@ def main():
            "variants": {n: {"n_gly": s.count("G"), "ns": 2 * len(s) - s.count("G"),
                             "ns_bucket": -(-(2 * len(s) - s.count("G")) // 32) * 32}
                         for n, s in variants.items()}}
-    order = ["base", "base", "base", "same", "same", "atom", "atom", "ns", "ns", "base"]
+    order = a.order.split(",")
     for i, name in enumerate(order):
         t0 = time.perf_counter()
         m, _best, _f = state.predict_one(paths[name][0], job_cfg)
