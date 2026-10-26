@@ -13,11 +13,14 @@
 
 // Row tile of the i-th row this core writes. Plain: r0 + i. TR (runtime arg 2, reader.cpp): r0 is the first
 // unit, 16 rows a unit, row k of unit (bt, jt, half) is row tile (bt * 32 + half * 16 + k) * MT + jt of z^T.
-// Plain rows rotate by s (runtime arg 7, triatt_ln.STAGGER, 0 under TR): row i is r0 + (i + s) % nrows.
+// Plain rows rotate by s (runtime arg 7, triatt_ln.STAGGER, 0 under TR): row i is r0 + (i + s) % nrows. Under
+// LN_SHARE the odd core of a pair (runtime arg 8) projects its own row of each pair first, so it writes i ^ 1.
 inline uint32_t row_of(uint32_t r0, uint32_t i) {
     if (!get_arg_val<uint32_t>(2)) {
+        const uint32_t n = get_arg_val<uint32_t>(1);
+        if (get_arg_val<uint32_t>(8) && (i ^ 1) < n) i ^= 1;
         const uint32_t ir = i + get_arg_val<uint32_t>(7);
-        return r0 + (ir >= get_arg_val<uint32_t>(1) ? ir - get_arg_val<uint32_t>(1) : ir);
+        return r0 + (ir >= n ? ir - n : ir);
     }
     const uint32_t MT = get_arg_val<uint32_t>(3), u = r0 + i / 16;
     return ((u >> 1) / MT * 32 + (u & 1) * 16 + i % 16) * MT + (u >> 1) % MT;

@@ -91,12 +91,14 @@ void kernel_main() {
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
 
-    // LNS walks rows in pairs (2p, 2p + 1): norm this core's row of the pair first, then project both, so the two
-    // cores of a pair norm at the same time instead of each waiting on the other's norm between projections.
+    // LNS walks rows in pairs (2p, 2p + 1): norm this core's row of the pair and project it, then project the
+    // partner's. The two cores of a pair norm at the same time, neither waits on the other's xn before its first
+    // projection, and they write different row tiles at once (writer.cpp row_of).
     const uint32_t own = LNS ? get_arg_val<uint32_t>(2) : 0;
-    for (uint32_t r = 0; r < nrows; ++r) {
-        const uint32_t o = LNS ? (r & ~1u) + own : r;   // the row this core norms in r's pair
-        if (r == (LNS ? (r & ~1u) : r) && o < nrows) {
+    for (uint32_t i = 0; i < nrows; ++i) {
+        const uint32_t r = (own && (i ^ 1) < nrows) ? i ^ 1 : i;   // the row projected i-th
+        const uint32_t o = LNS ? (i & ~1u) + own : r;   // the row this core norms in i's pair
+        if ((!LNS || !(i & 1)) && o < nrows) {
             cb_reserve_back(xn_cb, Kt);
             if constexpr (ABL & 1) {
                 cb_wait_front(cb_x, Kt);
