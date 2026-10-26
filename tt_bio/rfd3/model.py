@@ -1584,10 +1584,8 @@ class PairformerAttention(Module):
         bias = ttnn.permute(bias, (0, 3, 1, 2))                          # [B,16,I,I]
         pb = ttnn.multiply(bias, r)
         ttnn.deallocate(bias)
-        mask = pad_axis(pad_axis(pb, n_key, 3, -1e4), n_key, 2, -1e4)
-        if mask is not pb:
-            ttnn.deallocate(pb)
-        return mask
+        # not deallocated: a pad inside the tile padding hands back a tensor on pb's own buffer
+        return pad_axis(pad_axis(pb, n_key, 3, -1e4), n_key, 2, -1e4)
 
     def _pair_bias_dpb(self, z, I, n_key, scale=1.0, raw=False):
         """[B, 16, I, n_key] fp32 pair bias, keys >= I at -1e4, from one dit_pair_bias program; None when z
