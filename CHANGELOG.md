@@ -8,7 +8,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ### Changed
 - **RoseTTAFold3 on Wormhole runs the fast triangle and transition kernels in normal mode.** A 512-residue fold
   on a Galaxy chip drops from 55.2 to 38.1 s. Structures change at the precision level: over 66 paired folds the
-  top pose moves 0.23 A median, against 3.0 A between two seeds, with docking success unchanged. Blackhole is
+  top pose moves 0.23 A median, against 3.0 A between two seeds, with docking success unchanged. `--fast` on
+  Wormhole takes the same kernels: 48.1 to 36.1 s, top pose 0.23 A median over 44 paired folds. Blackhole is
   unchanged.
 - **A paired MSA search against a local database reuses chains it has searched before.** Folding one
   target against many binders used to search the target again for every complex; now only the new

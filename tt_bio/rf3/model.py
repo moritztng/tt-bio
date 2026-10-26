@@ -70,6 +70,13 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
                          "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
                          "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "swiglu_fc12g",
                          "msa_sample", "dit_sdpa_pm"})
+# Wormhole fast adds the normal set's trunk kernels the fast set lacks. Wormhole 11-set fast grade
+# against fast, 44 paired folds: same-seed top pose median 0.230 A against the 0.60 A bar (A/A floor
+# 2.796 A), CA-lDDT -0.0002 [-0.0009, +0.0005], docking 28 -> 28 of 44. cdk2x2_512 on a Galaxy chip
+# at AICLK 1000: 48.1 -> 36.1 s (2026-10-26).
+WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "dit_qsplit", "opm_jd", "triatt_ln", "trimul_bres", "trimul_t1",
+                                "trimul_t2", "trimul_t1_2g", "transition_ws", "ws_l1dest", "triatt_k1",
+                                "trimul_ibw", "trimul_tail"}
 
 
 def _pairformer_stack(scope: WeightScope, n_blocks: int, cfg, prefix: str
@@ -336,7 +343,9 @@ class RF3(Module):
                  sigma_data: float = 16.0, num_timesteps: int = 200,
                  with_confidence: bool = True):
         super().__init__(state_dict, compute_kernel_config)
-        self._levers = _T.model_levers(WH_LEVERS_NORMAL if _T.is_wormhole() else LEVERS_NORMAL, LEVERS_FAST)
+        wh = _T.is_wormhole()
+        self._levers = _T.model_levers(WH_LEVERS_NORMAL if wh else LEVERS_NORMAL,
+                                       WH_LEVERS_FAST if wh else LEVERS_FAST)
         with _T.lever_scope(self._levers):
             self._build(compute_kernel_config, n_pairformer_blocks, n_msa_blocks,
                         n_dit_blocks, n_confidence_layers, sigma_data, num_timesteps,
