@@ -241,6 +241,11 @@ _DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
 # query, so the index is unchanged. WH page cell @1000 MHz, CIFs equal: fast 61.4 -> 56.7, normal 62.7 -> 57.3 s/design.
 _STATIC_KNN = env_flag("RFD3_STATIC_KNN", True)
 _STATIC_KNN_CACHE: dict = {}
+# The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
+# at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the
+# order of additions differs, so 38 of 7.5M pooled values round to a different bf16 on upload. The page cell's CIFs
+# stay equal in both modes (WH, .103 @1000 MHz); run_design wall fast 106.5 -> 102.2, normal 105.5 -> 104.0 s/design.
+_POOL_SCATTER = env_flag("RFD3_POOL_SCATTER", True)
 
 
 def _dknn_on():
@@ -952,6 +957,12 @@ def _build_valid_mask(tok_idx):
 
 def _scatter_mean_pool(pairwise_atom, tok_idx, I):
     """Host: mean-pool [L,L,c] -> [I,I,c] (pairwise_mean_pool)."""
+    if _POOL_SCATTER:
+        t = tok_idx.long()
+        rows = pairwise_atom.new_zeros(I, *pairwise_atom.shape[1:]).index_add_(0, t, pairwise_atom)
+        sums = pairwise_atom.new_zeros(I, I, pairwise_atom.shape[2]).index_add_(1, t, rows)
+        counts = torch.bincount(t, minlength=I).to(sums.dtype)
+        return sums / torch.outer(counts, counts).clamp(min=1).unsqueeze(-1)
     onehot = F.one_hot(tok_idx.long(), num_classes=I).to(torch.float32)
     temp = torch.einsum("ia,bacd->bicd", onehot.T, pairwise_atom.unsqueeze(0))
     sums = torch.einsum("cj,bicd->bijd", onehot, temp)
