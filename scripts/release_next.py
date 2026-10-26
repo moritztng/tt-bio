@@ -453,9 +453,12 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
             out["fixes"] = {"base": base, "gate": str(fd), "commits": fl}
     state, d = gate_state(gates, content_hash(target, repo))
     if (out.get("fixes") and d is not None and (gsha := json.loads((d / "plan.json").read_text())["sha"]) != target
-            and content_hash(gsha, repo, tests=True) != content_hash(target, repo, tests=True)):
-        # Test-only fixes leave the content key alone, so the verdict found is the one they fix
-        # (469ed1356, 10-15: two test fixes held the train at FIX on the base's own pytest failures).
+            and content_hash(gsha, repo, tests=True, baselines=True)
+            != content_hash(target, repo, tests=True, baselines=True)):
+        # Test-only and baseline-only fixes leave the content key alone, so the verdict found is the
+        # one they fix (469ed1356, 10-15: two test fixes held the train at FIX on the base's own pytest
+        # failures; 59d6264ae, 10-26: re-recorded ladder baselines took gate rel-8812d72f2's verdict,
+        # graded on the old records, as their own).
         state, d = "none", None
     why = {"none": f"no gate has run on {what}",
            "running": f"gate running in {d}",
