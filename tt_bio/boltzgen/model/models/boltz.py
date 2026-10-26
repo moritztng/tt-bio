@@ -86,6 +86,12 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1"}
 # Galaxy chip at 1000 MHz: 50.2 -> 42.1 s/design.
 WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
                                 "dit_cond_steps"}
+# Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
+# residual, two-buffer L1) plus atom_l1 and dit_cond_steps. Graded as one stack by the fast protocol (bg_grade.py,
+# bg_R3, seeds 0-3 x 8 designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004,
+# filter 32/32 vs 32/32. Speed on a p300 chip (AICLK mean 1323 MHz): 23.93 -> 20.68 s/design.
+BH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
+                                "dit_cond_steps"}
 
 
 def _under_levers(method):
@@ -159,7 +165,7 @@ class Boltz(nn.Module):
     ) -> None:
         super().__init__()
         self._levers = tenstorrent.model_levers(
-            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, LEVERS_FAST)))
+            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, BH_LEVERS_FAST)))
         """
         Module that does either:
         1. Design
