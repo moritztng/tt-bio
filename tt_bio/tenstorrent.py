@@ -572,7 +572,8 @@ _FAST_MODE = False
 #                   stop, so it is in no mode until the region is grid-invariant.
 #   triatt_ln_b8    triatt_ln writes q, k and v bfp8 (gate and bias bf16). Unlike triatt_b8 the bytes are
 #                   grid-invariant: each tile is one core's full-K dot product packed once.
-#   triatt_ln_b8g   with triatt_ln_b8, the gate bfp8 too; gated_out_proj reads it at its own format
+#   triatt_ln_b8g   with triatt_ln_b8, the gate bfp8 too; gated_out_proj reads it at its own format. Alone,
+#                   only the gate bfp8 (q, k, v bit-exact, triatt_ln runs a gate-first copy of the weight)
 #   trimul_gin_w8   gin_moved holds its resident in-projection weights bfp8, so c_z 256 fits one launch and
 #                   reads the normed pair once instead of once per channel slice
 #   transition_b8   transition weights and both hidden activations in bfp8, written by the matmuls
