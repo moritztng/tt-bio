@@ -238,8 +238,8 @@ _ATTN_KDTREE = env_flag("RFD3_ATTN_KDTREE", True)
 _DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
 # The tree query with the design's static atoms (a binder's target, a fixed motif) answered once per design and only
 # the rows a moving atom can reach queried each step (tt_bio.rfd3.staticknn). Every row and its order equal the full
-# query, so the index is unchanged.
-_STATIC_KNN = env_flag("RFD3_STATIC_KNN", False)
+# query, so the index is unchanged. WH page cell @1000 MHz, CIFs equal: fast 61.4 -> 56.7, normal 62.7 -> 57.3 s/design.
+_STATIC_KNN = env_flag("RFD3_STATIC_KNN", True)
 _STATIC_KNN_CACHE: dict = {}
 
 

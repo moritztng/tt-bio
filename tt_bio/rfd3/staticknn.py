@@ -12,6 +12,8 @@ of a merge come from cKDTree's own float64 metric, so they compare exactly as th
 
 from __future__ import annotations
 
+import threading
+
 import numba
 import numpy as np
 from scipy.spatial import cKDTree
@@ -63,6 +65,7 @@ class StaticKnn:
         self.xs = None        # their coordinates at build time
         self.nn = self.dk = self.clean = None
         self.stats = [0, 0]   # rows answered, rows queried on the full tree
+        self.lock = threading.Lock()  # the index thread and a synchronous first step can share one cache
 
     def _build(self, x, still, k, workers):
         ids = np.flatnonzero(still)
@@ -77,6 +80,10 @@ class StaticKnn:
 
     def query(self, x: np.ndarray, k: int, workers: int) -> np.ndarray:
         """x float64 [L, 3] -> nn [L, k] int64, equal to cKDTree(x).query(x, k=k)[1]."""
+        with self.lock:
+            return self._query(x, k, workers)
+
+    def _query(self, x, k, workers):
         L = len(x)
         tree = cKDTree(x)
         last, self.last = self.last, x
@@ -96,9 +103,9 @@ class StaticKnn:
         ok = self.clean.copy()
         if len(mid):
             q = min(MAX_MOVERS, len(mid))
-            # every mover up to a row's k-th static distance (a hair past it, so the bound's own rounding cannot drop
-            # one at exactly that distance: the merge then sees the tie and sends the row to the full tree)
-            # one); scipy before 1.9 takes only a scalar bound, so query to the largest and mask each row to its own
+            # every mover up to a row's k-th static distance, a hair past it so rounding cannot drop one at exactly
+            # that distance (the merge then sees the tie and sends the row to the full tree); scipy before 1.9 takes
+            # only a scalar bound, so query to the largest and mask each row to its own
             bound = self.dk * (1 + 1e-9)
             md, mj = cKDTree(x[mid]).query(self.xs, k=q, distance_upper_bound=float(bound.max()), workers=workers)
             md, mj = md.reshape(len(self.ids), q), mj.reshape(len(self.ids), q)

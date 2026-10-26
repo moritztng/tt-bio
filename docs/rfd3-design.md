@@ -246,6 +246,12 @@ overlaps the token encoder. On a p150a a fast-mode design drops from about 31.5 
 except on Wormhole, where it has not yet run on a card; designs above about 18,000 atoms keep the host tree.
 `RFD3_DKNN=0` restores the tree everywhere, `RFD3_DKNN=1` turns the card index on for Wormhole too.
 
+Where the host tree is used, the atoms that do not move (a binder's target, a fixed motif) have their
+neighbours found once per design, and each step only re-queries the moving atoms and the target rows they
+come close to. Every row is the same as the full tree's, order included. On Wormhole the binder page cell drops
+from 61.4 to 56.7 s per design in fast mode and from 62.7 to 57.3 s in normal mode, with identical structures.
+`RFD3_STATIC_KNN=0` restores the full query every step.
+
 The token transformer's conditioning is the same for all 18 blocks of a step, so its adaLN gains, shifts and
 output gates come from three wide projections per step instead of six small ones and two norms per block,
 with each block's normalisation folded into the weights. That changes rounding, so it was graded: over eight
