@@ -1106,12 +1106,12 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_design": 14.809,
+            "s_per_design": 15.279,
             "n": 4,
-            "spread_pct": 1.11,
+            "spread_pct": 6.9,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 9695ccdd9 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-23T20:11:48Z",
+            "versions": "tt-bio main 4e84f9e02 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-10-26T16:38:07Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)"
           },
           "h200": {
