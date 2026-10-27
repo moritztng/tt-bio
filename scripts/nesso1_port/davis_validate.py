@@ -167,6 +167,8 @@ def main() -> int:
     ap.add_argument("--affinity", default="fp32", choices=("fp32", "bf16"),
                     help="the two affinity heads' pairformer precision (screen ships fp32)")
     ap.add_argument("--esm-cache", type=Path, default=None)
+    ap.add_argument("--esm", default="device", choices=("device", "cpu"),
+                    help="where the ESM-2 650M runs (screen() runs it on the card)")
     ap.add_argument("--out", type=Path, default=REPO / "perf/nesso1")
     ap.add_argument("--seed", type=int, default=None,
                     help="featurizer seed (default the screen's); a second seed is the A/A floor a "
@@ -189,7 +191,7 @@ def main() -> int:
               "metric": ("within-target Pearson of predicted pAffinity (= -affinity_pred_value) "
                          "against pKd = 9 - log10(Kd_nM)"),
               "control": "molecular weight alone (RDKit Descriptors.MolWt) vs pKd, same ligands",
-              "trunk": args.trunk, "affinity": args.affinity, "seed": seed,
+              "trunk": args.trunk, "affinity": args.affinity, "seed": seed, "esm": args.esm,
               "levers": os.environ.get("TT_BIO_LEVERS", ""), "targets": []}
 
     for target_id, recs in targets:
@@ -202,7 +204,7 @@ def main() -> int:
 
         t0 = time.perf_counter()
         dataset, manifest, failed = prepare(
-            work / "yaml", work, num_workers=0, esm_cache=args.esm_cache)
+            work / "yaml", work, num_workers=0, esm_cache=args.esm_cache, esm_on_device=args.esm == "device")
         feat_s = time.perf_counter() - t0
         by_id = {p["record"]: p for p in pairs}
         row = {"target_id": target_id, "seq_len": len(recs[0]["seq"]),
