@@ -210,7 +210,7 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.LEVERS_NORMAL <= set(T.LEVERS) and not B.LEVERS_NORMAL & T.UNGRADED_LEVERS
     assert B.LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps",
-                                                    "trimul_t1", "trimul_t2", "dit_pad_short"}
+                                                    "trimul_t1", "trimul_t2", "dit_pad_short", "adaln_mod"}
     assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf",
                                                   "dit_pad_short"}
