@@ -15,6 +15,9 @@
 // WS_LN (the `ws_ln` lever): the caller's LayerNorm runs here instead, per row tile, from the raw x in c_5 into
 // c_0 (kernels/common/ln_prologue.hpp, shared with trimul T1/T2), so the normalised x never goes to DRAM.
 // WS_RMS with it: the norm is an RMSNorm (RFdiffusion3's pair Transition); the beta CB is loaded and unused.
+// WS_LN_PIPE (with WS_RMS and WS_PACK_SILU): the next row's x^2 and mean(x^2) (FPU only) run inside this row's first
+// fc12 group, where the math thread waits on the packer's silu, and only rsqrt, x * rstd and * gamma stay between
+// rows. Same ops on the same values: bit-identical to the unpipelined prologue.
 // WS_L1ACC (the `ws_l1acc` lever): every matmul sums at most KC K tiles in dest and the packer adds the chunks into the
 // fp32 c_19, which then comes back into dest by a copy (no accumulation) for the silu, the gate multiply or the bf16
 // pack. On Wormhole an fp32 dest summing all of K writes exact +-1 / 2 / 4 into ~1e-8 of the outputs (dest_guard.py).
@@ -235,8 +238,16 @@ void kernel_main() {
     cb_wait_front(LnCbs::eps, 1);
 #endif
 
+#ifdef WS_LN_PIPE
+#if !defined(WS_RMS) || !defined(WS_PACK_SILU) || defined(WS_L1ACC) || defined(WS_RES32)
+#error "WS_LN_PIPE is the RMS prologue under WS_PACK_SILU, without L1ACC or RES32"
+#endif
+    cb_reserve_back(cb_x, KT);
+    ln_prologue::rms_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+    cb_push_back(cb_x, KT);
+#endif
     for (uint32_t r = 0; r < count; ++r) {
-#ifdef WS_LN
+#if defined(WS_LN) && !defined(WS_LN_PIPE)
         cb_reserve_back(cb_x, KT);
 #ifdef WS_RMS
         ln_prologue::rms_norm_row<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
@@ -256,6 +267,13 @@ void kernel_main() {
             if (j + SW < NH) {
                 fc1_gate<KT, NH, SW, SILU_POLY>(j + SW);
             }
+#ifdef WS_LN_PIPE
+            // the next row's x^2 and mean on the FPU while the packer runs this row's silu
+            if (j == 0 && r + 1 < count) {
+                ln_prologue::rms_stats<LnCbs>();
+                pack_reconfig_data_format(cb_hid);
+            }
+#endif
 #ifdef WS_L1ACC
             mm_acc<KT, SW>(cb_x, cb_w12, 2 * NH, NH + j);
             tile_regs_acquire();
@@ -495,5 +513,12 @@ void kernel_main() {
 #endif
         }
         cb_pop_front(cb_hid, NH);
+#ifdef WS_LN_PIPE
+        if (r + 1 < count) {   // the SFPU half of the next row's prologue: this row's last silu is long packed
+            cb_reserve_back(cb_x, KT);
+            ln_prologue::rms_apply<LnCbs>(cb_x, [](uint32_t i) { pack_tile<true>(0, cb_x, i); });
+            cb_push_back(cb_x, KT);
+        }
+#endif
     }
 }
