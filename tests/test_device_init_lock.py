@@ -13,6 +13,7 @@ measures 6s of overlap against the old code and none against the new.
 Run: python3 tests/test_device_init_lock.py, or as part of the release suite via pytest.
 """
 import contextlib
+import fcntl
 import io
 import json
 import os
@@ -32,12 +33,38 @@ import json, os, sys, time
 sys.path.insert(0, os.environ["REPO"])
 from tt_bio import device_lease as dl
 dl.DEVICE_INIT_LOCK_PATH = os.environ["LOCK"]
+if os.environ.get("READY"):
+    open(os.environ["READY"], "w").close()
 with dl.device_init_lock():
     t0 = time.time()
-    time.sleep(float(os.environ["HOLD"]))
+    if os.environ.get("RELEASE"):               # hold until the test says so
+        while not os.path.exists(os.environ["RELEASE"]):
+            time.sleep(0.01)
+    else:
+        time.sleep(float(os.environ["HOLD"]))
     t1 = time.time()
 open(os.environ["OUT"], "w").write(json.dumps([t0, t1]))
 """
+
+
+def _until(cond, what, timeout=60.0):
+    end = time.time() + timeout
+    while not cond():
+        assert time.time() < end, f"timed out waiting for {what}"
+        time.sleep(0.01)
+
+
+def _held(path):
+    """True while another process holds a lock on `path`, shared or exclusive."""
+    if not os.path.exists(path):
+        return False
+    with open(path, "a") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(f, fcntl.LOCK_UN)
+        return False
 
 
 @contextlib.contextmanager
@@ -146,22 +173,30 @@ def test_two_processes_serialize_when_shared_path_unwritable():
 def test_a_serving_open_goes_before_a_borrowing_one_that_waited_longer():
     """.107 2026-10-24: release legs on lent chips queued their bring-ups ahead of the
     JapanFold agent's canaries, which gave up after 300 s. A holds the lock; B (borrow) starts
-    waiting, then C (serve). When A lets go, C must hold it before B."""
+    waiting, then C (serve). When A lets go, C must hold it before B.
+
+    Each step waits on observable state, not a sleep: in a loaded release gate a child took
+    over a second to start, C was not waiting yet when A let go, and B rightly took the lock."""
     with tempfile.TemporaryDirectory() as d:
         lock = os.path.join(d, "tt-bio-device-open.lock")
+        release = os.path.join(d, "release")
 
-        def start(name, hold, cls):
-            env = dict(os.environ, REPO=REPO, LOCK=lock, HOLD=str(hold), OUT=os.path.join(d, name))
+        def start(name, cls, **extra):
+            env = dict(os.environ, REPO=REPO, LOCK=lock, HOLD="0.5", OUT=os.path.join(d, name),
+                       READY=os.path.join(d, name + ".ready"), **extra)
             env.pop("TT_BIO_DEVICE_CLASS", None)
             if cls:
                 env["TT_BIO_DEVICE_CLASS"] = cls
             return subprocess.Popen([sys.executable, "-c", HOLDER], env=env, stderr=subprocess.DEVNULL)
 
-        a = start("a", 2.0, None)
-        time.sleep(0.7)
-        b = start("b", 0.5, "borrow")
-        time.sleep(0.7)
-        c = start("c", 0.5, None)
+        a = start("a", None, RELEASE=release)
+        _until(lambda: _held(lock), "A to hold the lock")
+        b = start("b", "borrow")
+        _until(lambda: os.path.exists(os.path.join(d, "b.ready")), "B to start waiting")
+        time.sleep(2 * dl.BORROW_POLL_S)            # B is polling before C exists
+        c = start("c", None)
+        _until(lambda: _held(lock + ".serve"), "C to announce its serving wait")
+        open(release, "w").close()
         for p in (a, b, c):
             assert p.wait(timeout=60) == 0
         (a0, a1), (b0, b1), (c0, c1) = [json.load(open(os.path.join(d, n))) for n in "abc"]
