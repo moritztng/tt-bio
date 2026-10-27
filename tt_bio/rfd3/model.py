@@ -2445,8 +2445,8 @@ class GatedCrossAttention(Module):
         kv_pack = pack takes a flat atom kv [B,L,Ckv]: ln_kv, to_k, to_v, k_norm run on L rows and
         `pack` maps [k|v] to [B,T,K,2C]."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
-        flat = len(q.shape) == 3 and _GCA_FLAT_Q
-        if len(q.shape) == 3 and not flat:
+        flat = len(q.shape) == 3 and _GCA_FLAT_Q and q_pack is None
+        if len(q.shape) == 3 and not flat and q_pack is None:
             return ttnn.squeeze(self.run_device(ttnn.unsqueeze(q, 2), kv, attn_mask, attn_mask_dev, n_key), 2)
         if flat:
             batch, tokens, _ = q.shape
