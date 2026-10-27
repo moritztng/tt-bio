@@ -235,6 +235,12 @@ unchanged and clashes within seed noise. `RFD3_PF_SDPA=0` turns it off.
 The pair Transition also runs its SiLU on the packer thread so the matmuls overlap it. Results are bit-identical;
 a default design is up to 1 s faster in normal mode and unchanged in `--fast`. `RFD3_PAIR_WS_PSILU=0` turns it off.
 
+The cross attention between tokens and atoms runs its per-token query side (one query per token) and the upcasts'
+key side (three key rows per token) on flat rows instead of padding each group to a full tile, which ran those
+norms and linears on 10 to 32 times the rows. About 2.7 s per design on Wormhole in both modes. Over eight paired
+default seeds the design moves 4.2 to 9.9 A at the same seed against 13.2 to 20.0 A for a seed change, with chain
+breaks unchanged (3 -> 3) and clashes within seed noise. `RFD3_GCA_FLAT_Q=0` restores the padded form.
+
 Atom attention scores only the 64 x 64 tiles that hold a neighbour, about a quarter of them, and reads keys,
 values and mask in place; the skipped tiles carry zero softmax weight. It matches a float64 reference as
 closely as the dense kernel (largest error 0.048 against 0.050) and saves about 4 s per design on Wormhole
