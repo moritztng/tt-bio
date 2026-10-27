@@ -1476,17 +1476,12 @@ _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 # general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
 # path: c730 on Wormhole 157.95 -> 152.61 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
 _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
-# `_heads_unpadded`'s three projections on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
+# PWA's three projections (both head paths) on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
 # `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
 # 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Fold, 3 paired warm, CIFs identical:
-# OpenDDE n608 -0.29 s, f608 / n288 / Protenix-v2 f512 within noise. False = core_grid as before.
+# OpenDDE n608 -0.29 s, f608 / n288 / Protenix-v2 f512 within noise. On the fused path, RF3 1024 x 512:
+# 19.3 -> 17.9 ms a call on p150a, bit-identical (perf/spd/rf3_pwa_ab.py). False = core_grid as before.
 _PWA_PROJ = True
-# Candidates under A/B (spd-m-rf3, perf/spd/rf3_pwa_ab.py), off until measured. _PWA_BMM: the head contraction
-# [H, rows*32, T] x [H, T, T]^T on `batched_matmul`'s grid-spread plan (weights transposed once, 4 MB at 512
-# tokens) instead of ttnn's, which walks the 8 heads through one head's cores. _PWA_FUSED_PROJ: the fused path's
-# v / g / o projections on `_narrow_proj_linear`, as `_heads_unpadded` already does.
-_PWA_BMM = env_flag("TT_BIO_PWA_BMM", False)
-_PWA_FUSED_PROJ = env_flag("TT_BIO_PWA_FUSED_PROJ", False)
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
 # Bytes per core that must stay free when a pair tensor is left L1-resident for a narrow
@@ -16748,12 +16743,7 @@ class PairWeightedAveraging(Module):
             return out
         w_v, w_g, w_o = packed
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-
-        def proj(x, w):
-            o = (_narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype)
-                 if _PWA_FUSED_PROJ else None)
-            return ttnn.linear(x, w, **lin) if o is None else o
-
+        proj = functools.partial(self._proj, lin=lin)
         v = proj(mc, w_v)                                        # [rows, T, H*S]
         vt = ttnn.permute(v, (0, 2, 1))                          # [rows, H*S, T]
         ttnn.deallocate(v)
@@ -16775,16 +16765,16 @@ class PairWeightedAveraging(Module):
         ttnn.deallocate(o)
         return out
 
-    def _head_contract(self, vh, ws, H, M, T, lin):
+    def _proj(self, x, w, lin):
+        """A v / g / o projection, on `_narrow_proj_linear`'s plan when `_PWA_PROJ`."""
+        o = _narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype) if _PWA_PROJ else None
+        return ttnn.linear(x, w, **lin) if o is None else o
+
+    @staticmethod
+    def _head_contract(vh, ws, H, M, T, lin):
         """`vh` [H, M, T] against every head's token weights: [H, M, T], vh freed."""
-        if _PWA_BMM:
-            w = ttnn.transpose(ttnn.concat(list(ws), dim=0), -2, -1)   # [H, j, i]
-            o = batched_matmul(ttnn.reshape(vh, (1, H, M, T)), ttnn.reshape(w, (1, H, T, T)),
-                               self.compute_kernel_config)
-            o = ttnn.reshape(o, (H, M, T))
-        else:
-            w = ttnn.concat(list(ws), dim=0)                     # [H, T, T]
-            o = ttnn.matmul(vh, w, transpose_b=True, **lin)
+        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
+        o = ttnn.matmul(vh, w, transpose_b=True, **lin)
         ttnn.deallocate(vh)
         ttnn.deallocate(w)
         return o
@@ -16794,12 +16784,7 @@ class PairWeightedAveraging(Module):
         H, hd = self.n_heads, self.head_dim
         rows, T = int(mc.shape[0]), int(mc.shape[1])
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-
-        def proj(x, w):
-            o = (_narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype)
-                 if _PWA_PROJ else None)
-            return ttnn.linear(x, w, **lin) if o is None else o
-
+        proj = functools.partial(self._proj, lin=lin)
         v = proj(mc, self.m_weight)                              # [rows, T, H*hd]
         vh = ttnn.permute(v, (2, 0, 1))                          # [H*hd, rows, T]
         ttnn.deallocate(v)

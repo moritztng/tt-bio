@@ -4,8 +4,8 @@ RF3's MSA module runs PWA 40 times a fold at depth 1024 x 512 tokens, c_m 64, 8 
 dim 32 sends it down `_heads_fused` (`_PWA_FULL_HEADS_FUSED`, measured on Wormhole Boltz-2 only),
 four general permutes of a [rows, T, 256] tensor. `_heads_unpadded` pays two, and on Blackhole
 `permute_120` is a tile-transpose chain (2.9x the permute there). Wormhole, 10-27: fused 44.3 ms,
-unpadded 59.5, bit-identical. The bmm / proj arms are `_PWA_BMM` and `_PWA_FUSED_PROJ` on the fused
-path. Arms rotate per rep so clock drift hits all; each is graded against a float64 reference built
+unpadded 59.5, bit-identical. `fused_linear` is the fused path on plain `ttnn.linear` projections
+(`_PWA_PROJ` off): 10-27 p150a 19.3 ms vs 17.9 with them, WH 44.2 vs 43.9, all arms bit-identical. Arms rotate per rep so clock drift hits all; each is graded against a float64 reference built
 from the device's own token weights. AICLK of every node is sampled while the timed loops run, and
 the loop runs on until the sampler has a few rows (a 32-chip Galaxy takes ~1 s a sweep).
 
@@ -81,12 +81,11 @@ g = torch.sigmoid(mn @ sd["proj_g.weight"].double().t()).reshape(ROWS, T_, H, HD
 ref = (torch.einsum("hij,rjhc->rihc", w_host, v) * g).reshape(ROWS, T_, H * HD) @ sd["proj_o.weight"].double().t()
 del x, mu, var, mn, v, g
 
-ARMS = {"fused": (True, False, False), "unpadded": (False, False, False), "bmm": (True, True, False),
-        "proj": (True, False, True), "bmm_proj": (True, True, True)}
+ARMS = {"fused": (True, True), "fused_linear": (True, False), "unpadded": (False, True)}
 
 
 def call(arm):
-    T._PWA_FULL_HEADS_FUSED, T._PWA_BMM, T._PWA_FUSED_PROJ = ARMS[arm]
+    T._PWA_FULL_HEADS_FUSED, T._PWA_PROJ = ARMS[arm]
     t0 = time.perf_counter()
     out = pwa(m_tt, None, weights=ws)
     ttnn.synchronize_device(dev)
