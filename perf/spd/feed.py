@@ -97,13 +97,13 @@ def ok(p):
     p = os.path.expanduser(p)
     if any(c in p for c in "*?["):
         return any(ok(q) for q in glob.glob(p))
-    # a result file must be non-empty; a marker (`touch $O/done`, `touch $O/$arm.done`, `touch $T.ok`) is empty by design
+    # a result file must be non-empty; a marker (`touch $O/done`, `touch $O/$arm.done`, `touch $T.ok`, `touch trees/<sha>/.staged`) is empty by design
     # bench.py writes a "start" record before the device opens, so a bench.jsonl is done only once it holds a rep
     b = os.path.basename(p)
     if b == "bench.jsonl" and os.path.isfile(p):
         with open(p, "rb") as f:
             return b'"ev": "rep"' in f.read()
-    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in b or b.endswith((".done", ".ok")))
+    return (os.path.isfile(p) and (os.path.getsize(p) > 0 or "." not in b or b.endswith((".done", ".ok", ".staged")))
             or os.path.isdir(p) and bool(os.listdir(p)))
 for p in A["paths"]:
     out["exists"][p] = ok(p)
