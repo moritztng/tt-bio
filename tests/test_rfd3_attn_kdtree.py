@@ -31,3 +31,17 @@ def test_kdtree_rows_are_k_distinct_sorted_and_keep_the_sequence_entries():
         seq = set(seq_idx[r][seq_idx[r] < 700].tolist())
         assert seq <= set(row.tolist())
         assert not mask[r, sorted(set(row.tolist()) - seq)].any()
+
+
+def test_rows_rebuilt_from_the_previous_step_equal_a_fresh_build():
+    # A docking trajectory: the target never moves, so most rows keep last step's neighbours and come from the cache.
+    n, k = 900, 64
+    mask, seq_idx, x0 = _case(n, 4, k, 5, 0.0)
+    g = torch.Generator().manual_seed(6)
+    binder = torch.arange(600, n)
+    for sigma in (40.0, 10.0, 2.0, 0.5, 0.5):
+        x = x0.clone()
+        x[0, binder] += torch.randn(len(binder), 3, generator=g) * sigma
+        got = M._neighbours_kdtree(mask, seq_idx, x, k)
+        M._NN_ROWS_CACHE.clear(); M._STATIC_KNN_CACHE.clear()
+        assert torch.equal(got, M._neighbours_kdtree(mask, seq_idx, x, k)), sigma

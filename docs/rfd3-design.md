@@ -278,7 +278,8 @@ Where the host tree is used, the atoms that do not move (a binder's target, a fi
 neighbours found once per design, and each step only re-queries the moving atoms and the target rows they
 come close to. Every row is the same as the full tree's, order included. On Wormhole the binder page cell drops
 from 61.4 to 56.7 s per design in fast mode and from 62.7 to 57.3 s in normal mode, with identical structures.
-`RFD3_STATIC_KNN=0` restores the full query every step.
+`RFD3_STATIC_KNN=0` restores the full query every step. Only the index rows whose
+neighbour list changed are rebuilt each step, which takes another 1.2 s off fast and 1.3 s off normal mode there.
 
 The token transformer's conditioning is the same for all 18 blocks of a step, so its adaLN gains, shifts and
 output gates come from three wide projections per step instead of six small ones and two norms per block,
