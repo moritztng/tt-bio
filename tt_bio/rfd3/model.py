@@ -3694,7 +3694,7 @@ class DiffusionTokenEncoder(Module):
             self._release_memo()
             held = self._memo = (dkey, {})
         ent = held[1].get(slot)
-        B, I, J = (int(d) for d in z.padded_shape[:3])
+        B, I, J = (int(d) for d in list(z.padded_shape)[:3])
         jt = J // 32
         if ent is None or not all(t.is_allocated() for t in ent[:2]):
             bufs = [ttnn.allocate_tensor_on_device(z.shape, z.dtype, ttnn.TILE_LAYOUT, self.device,
