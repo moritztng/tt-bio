@@ -301,3 +301,10 @@ def test_lofi_levers_are_inert_on_wormhole(monkeypatch):
         monkeypatch.setattr(T, "is_wormhole", lambda: False)
         assert T.lpx_compute_kernel_config(base).math_fidelity == ttnn.MathFidelity.LoFi
         assert triatt_sdpa._ckc(None) == triatt_sdpa._CKC_LOFI
+
+
+def test_dit_bias_pad_len_takes_the_first_length_a_wide_chunk_divides():
+    assert T.dit_bias_pad_len(512) == 512                 # 256 divides it
+    assert T.dit_bias_pad_len(514) == 576                 # 544 is 17 tiles: 288 divides 576, the 256 grid is 768
+    assert T.dit_bias_pad_len(1199) == 1280               # 1248 only has 96, measured slower than 1280
+    assert T._dit_sdpa_chunk(T.dit_bias_pad_len(514)) == 288
