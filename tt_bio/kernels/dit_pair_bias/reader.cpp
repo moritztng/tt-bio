@@ -7,10 +7,8 @@
 // the CB never wraps mid-unit; rows past I are not read and compute skips them), and the padded mask tile
 // (ib, jb) to c_2. z's j axis is valid up to J; in the last j tile the rows j >= J are tile padding holding
 // whatever the op that wrote z left there, so they are zeroed in L1 and those columns come out as the mask's pad.
-// Common runtime args: z, W^T, mask addresses. Per-core runtime args: first unit, unit count (or the UNIT_LIST
-// form, common/unit_list.hpp).
+// Common runtime args: z, W^T, mask addresses. Per-core runtime args: first unit, unit count.
 #include "api/dataflow/dataflow_api.h"
-#include "../common/unit_list.hpp"
 
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);   // c_pair / 32
@@ -25,7 +23,8 @@ void kernel_main() {
     const auto sz = TensorAccessor(z_args, get_common_arg_val<uint32_t>(0));
     const auto sw = TensorAccessor(w_args, get_common_arg_val<uint32_t>(1));
     const auto sm = TensorAccessor(m_args, get_common_arg_val<uint32_t>(2));
-    const CoreUnits units = core_units();
+    const uint32_t u0 = get_arg_val<uint32_t>(0);
+    const uint32_t nunits = get_arg_val<uint32_t>(1);
     constexpr uint32_t cb_w = 0, cb_z = 1, cb_m = 2;
     const uint32_t ts = get_tile_size(cb_z);
 
@@ -37,8 +36,7 @@ void kernel_main() {
     noc_async_read_barrier();
     cb_push_back(cb_w, HT * KT);
 
-    for (uint32_t k = 0; k < units.n; ++k) {
-        const uint32_t u = units[k];
+    for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t b = u / (NT * NT);
         const uint32_t ib = (u / NT) % NT;
         const uint32_t jb = u % NT;

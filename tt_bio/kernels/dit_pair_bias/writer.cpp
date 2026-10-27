@@ -6,7 +6,6 @@
 // hb * 32 .. + 31 in head order. The heads are split over consecutive outputs of HO heads each ([B, HO, n, n], one
 // address per output in the common args): head h goes to page ((b * HO + h % HO) * NT + ib) * NT + jb of output h / HO.
 #include "api/dataflow/dataflow_api.h"
-#include "../common/unit_list.hpp"
 
 void kernel_main() {
     constexpr uint32_t HT = get_compile_time_arg_val(0);
@@ -14,11 +13,11 @@ void kernel_main() {
     constexpr uint32_t SW = get_compile_time_arg_val(2);
     constexpr uint32_t HO = get_compile_time_arg_val(3);
     constexpr auto o_args = TensorAccessorArgs<4>();
-    const CoreUnits units = core_units();
+    const uint32_t u0 = get_arg_val<uint32_t>(0);
+    const uint32_t nunits = get_arg_val<uint32_t>(1);
     constexpr uint32_t cb_out = 16;
     const uint32_t ts = get_tile_size(cb_out);
-    for (uint32_t k = 0; k < units.n; ++k) {
-        const uint32_t u = units[k];
+    for (uint32_t u = u0; u < u0 + nunits; ++u) {
         const uint32_t b = u / (NT * NT);
         const uint32_t ib = (u / NT) % NT;
         const uint32_t jb = u % NT;
