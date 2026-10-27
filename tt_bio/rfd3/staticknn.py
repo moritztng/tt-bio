@@ -78,12 +78,24 @@ class StaticKnn:
         # a row whose first k + 1 distances are not strictly increasing has an order the tree picks: query it
         self.clean = (np.diff(d, axis=1) > 0).all(1) if kk > k else np.zeros(len(ids), bool)
 
-    def query(self, x: np.ndarray, k: int, workers: int) -> np.ndarray:
-        """x float64 [L, 3] -> nn [L, k] int64, equal to cKDTree(x).query(x, k=k)[1]."""
-        with self.lock:
-            return self._query(x, k, workers)
+    def query(self, x: np.ndarray, k: int, workers: int, skip_movers: bool = False) -> np.ndarray:
+        """x float64 [L, 3] -> nn [L, k] int64, equal to cKDTree(x).query(x, k=k)[1].
 
-    def _query(self, x, k, workers):
+        `skip_movers`: the moving atoms' own rows are not queried and come back as -1 (another index answers them);
+        only where `movers(x)` returned them for this x."""
+        with self.lock:
+            return self._query(x, k, workers, skip_movers)
+
+    def movers(self, x: np.ndarray):
+        """The moving atoms' ids if the cache answers this x (its static atoms are where it was built), else None."""
+        with self.lock:
+            if self.ids is None or self.ids[-1] >= len(x) or not np.array_equal(x[self.ids], self.xs):
+                return None
+            moving = np.ones(len(x), bool)
+            moving[self.ids] = False
+            return np.flatnonzero(moving)
+
+    def _query(self, x, k, workers, skip_movers=False):
         L = len(x)
         tree = cKDTree(x)
         last, self.last = self.last, x
@@ -123,7 +135,10 @@ class StaticKnn:
         else:
             ok_plain = ok
         nn[self.ids[ok_plain]] = self.nn[ok_plain]
-        redo = np.concatenate([mid, self.ids[~ok]])
+        if skip_movers:
+            assert valid, "skip_movers needs the cache built before this call"
+            nn[mid] = -1
+        redo = self.ids[~ok] if skip_movers else np.concatenate([mid, self.ids[~ok]])
         if len(redo):
             _, nb = tree.query(x[redo], k=k, workers=workers)
             nn[redo] = nb.reshape(len(redo), k)
