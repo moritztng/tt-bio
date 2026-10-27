@@ -1299,6 +1299,26 @@ class Saprot(TorchWrapper):
         self._release_trace()
 
 
+def load_esm2(repo: str = "facebook/esm2_t33_650M_UR50D", cache_dir=None) -> Saprot:
+    """A facebook ESM-2 checkpoint (vocab 33) on this encoder: same blocks, its own embedding table.
+
+    Nesso-1 conditions on the 650M's final hidden state, which is ``emb`` here (post
+    ``emb_layer_norm_after``, the last entry of HF's ``hidden_states``). Tokenize with the HF
+    tokenizer; ``<pad>`` is 1 in both vocabularies, so the bucketing pad is the same token.
+    """
+    from transformers import EsmForMaskedLM
+
+    hf = EsmForMaskedLM.from_pretrained(repo, cache_dir=None if cache_dir is None else str(cache_dir))
+    c = hf.config
+    # The encoder hard-codes what ESM-2 650M does: rotary positions, no pre-LN on the embedding,
+    # the 0.88 token-dropout scale. Refuse a checkpoint that differs rather than run it wrong.
+    if (c.position_embedding_type, c.emb_layer_norm_before, c.token_dropout, c.pad_token_id) != ("rotary", False, True, PAD):
+        raise ValueError(f"{repo}: not an ESM-2 layout this encoder implements")
+    model = Saprot(c.hidden_size, c.num_attention_heads, c.num_hidden_layers, c.intermediate_size)
+    model.load_state_dict(_remap_state_dict(hf.state_dict(), c.num_hidden_layers), strict=False)
+    return model
+
+
 def load_saprot(name: str = "saprot-650m", *, fast: bool = False):
     from tt_bio import tenstorrent
     tenstorrent.set_fast_mode(fast)

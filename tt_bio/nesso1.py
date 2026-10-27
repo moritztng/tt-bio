@@ -896,6 +896,7 @@ def screen(
         ccd_pkl=ccd_pkl,
         num_workers=num_workers,
         esm_cache=cache,
+        esm_on_device=use_tenstorrent,
     )
     model = Nesso1.from_pretrained(
         weights,
