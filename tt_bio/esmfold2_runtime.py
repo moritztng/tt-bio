@@ -1630,7 +1630,7 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # ESMFold2-Fast 9.56 -> 9.31 s. Wormhole loses 2.4 s with them, so it drops them (_BH_ONLY).
 LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gin_hifi2+ws_resid+ws_lofi"
                "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_relpos_lookup+ef2_atom_ffn_split"
-               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm+trimul_bres+trimul_t1w8+trimul_t1_2g+trimul_t1_psig+dit_qkvf")
+               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm+trimul_bres+trimul_t1w8+trimul_t1_2g+trimul_t1_psig+dit_qkvf+ws_ln_resid")
 # ws_lofi passes the fast bar on Wormhole too, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
 # ESMFold2-Fast CA-lDDT -0.0001 [-0.0021, +0.0023], docking 24 -> 24. Same chip, 512 aa, 1000 MHz: ESMFold2 33.60 ->
@@ -1660,7 +1660,13 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # sigmoid_poly on the same values, so a, b and g_out are bit-identical (Protenix-v2 took it on the same c_z 256 T1).
 # p150a 1350 MHz, CIFs identical on every fold: T1 3.31 -> 3.06 ms a call at 512; paired fold median ESMFold2 512
 # --fast -0.23 s, normal -0.34 s; -Fast 512 --fast -0.02 s, normal +0.02 s, 256 --fast -0.01 s (repeat 9, noise).
-_BH_ONLY = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t1w8", "trimul_t1_2g", "trimul_t1_psig")
+# ws_ln_resid moves the pair transition's input LN into the SwiGLU kernel's prologue, where ws_resid adds into the same
+# z. Blackhole only: Wormhole's plan with the prologue is over its L1 budget, so the lever declines there. In-process
+# A/B on the Blackhole --fast set, repeat 5, p150a at 1275-1350 MHz (bwlr2): ESMFold2 512 aa -0.26 s, ESMFold2-Fast
+# 512 aa -0.13 s, 1024 aa -0.52 s. Fast-bar grade bwlg (11 complexes x 4 seeds, qb2, the Blackhole --fast set vs +
+# ws_ln_resid): ESMFold2 CA-lDDT +0.0009 [-0.0019, +0.0038], docking 32 -> 31 of 44; ESMFold2-Fast -0.0005 [-0.0029,
+# +0.0018], top-pose median 0.98 A vs 1.42 A seed floor, docking 24 -> 24.
+_BH_ONLY = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t1w8", "trimul_t1_2g", "trimul_t1_psig", "ws_ln_resid")
 # Wormhole's normal mode folds with the LM in bfp8 (load_ttnn_esmfold2) and adds ef2_lm_combine to LEVERS_NORMAL.
 # The pair SwiGLU kernel was Wormhole-only in normal mode until bnwg (above); its Wormhole grade:
 # Without transition_ws ESMFold2's pair FFN runs row-blocked, 65 ms a call against 10 ms, and a 512 aa fold takes

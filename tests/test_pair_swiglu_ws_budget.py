@@ -62,3 +62,20 @@ def test_resid_must_match_the_output():
     assert not W.eligible(x, w12, w3, resid=_t([1, 64, 512, 256]))                        # wrong width
     assert not W.eligible(x, w12, w3, resid=_t([1, 64, 512, 128], ttnn.bfloat8_b))        # not bf16
     assert not W.eligible(x, w12, w3, resid=_t([1, 64, 512, 128], buffer_type=ttnn.BufferType.L1))
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+def test_ln_resid_budget_is_blackhole_only(monkeypatch, wormhole):
+    # ws_ln_resid: ESMFold2's c_z 256 bfp8 transition with the LN prologue and x as its residual takes 1230848 B.
+    # Blackhole admits it under T1's rule (0.85 of a p150a bank, 1461760 B); Wormhole keeps 1100 KiB and declines.
+    from tt_bio import tenstorrent as T
+    monkeypatch.setattr(T, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(T, "_l1_bank_bytes", lambda: 1461760)
+    b8 = ttnn.bfloat8_b
+    x, w12, w3 = _t([1, 512, 512, 256]), _t([256, 2048], b8), _t([1024, 256], b8)
+    g = _t([1, 256])
+    assert W.eligible(x, w12, w3, ln=(g, g), resid=x) is not wormhole
+    assert W.eligible(x, w12, w3, ln=(g, g), resid=x, l1acc=True) is not wormhole
+    # Plans without the prologue keep the shared budget on both arches.
+    assert W.eligible(x, w12, w3, resid=x)
+    assert W._ln_budget() == (W._L1_BUDGET if wormhole else int(0.85 * 1461760))
