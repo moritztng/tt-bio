@@ -433,9 +433,6 @@ _PAIR_WS_RESID = env_flag("RFD3_PAIR_WS_RESID", True)
 # fold. Wormhole @1000 A/B/A/B (seeds 60,61): normal 50.15 -> 49.15 s/design, fast flat (49.52 vs 49.55); p150a
 # @1350 normal 29.31 -> 28.87.
 _PAIR_WS_PSILU = env_flag("RFD3_PAIR_WS_PSILU", True)
-# With the RMS prologue in the program: the next row tile's x^2 and mean(x^2) (FPU only) run inside this row tile's
-# first fc12 group, under the packer's silu (`pair_swiglu_ws` ln_pipe). Bit-identical. Off until A/B'd.
-_PAIR_WS_LNPIPE = env_flag("RFD3_PAIR_WS_LNPIPE", False)
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -1313,7 +1310,7 @@ class Transition(Module):
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
         if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None), resid=r):
             return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6), resid=r,
-                                  pack_silu=_PAIR_WS_PSILU, ln_pipe=_PAIR_WS_LNPIPE)
+                                  pack_silu=_PAIR_WS_PSILU)
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
         out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid, resid=r, pack_silu=_PAIR_WS_PSILU)
         ttnn.deallocate(xn)
