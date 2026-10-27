@@ -27,6 +27,7 @@ from __future__ import annotations
 import torch
 import ttnn
 
+from .. import tenstorrent as _T
 from ..protenix import (AtomAttentionEncoder, AtomFeaturization, DiffusionModule, Protenix,
                         edm_sample)
 from .featurize import condition_template_index
@@ -69,7 +70,7 @@ class ProtenixDesign(Protenix):
     C_S = 384          # s_trunk width; zeros, but the conditioning LN expects the channels
 
     def __init__(self, model_state_dict, compute_kernel_config, device=None,
-                 diffusion_fp32=None):
+                 diffusion_fp32=None, levers=None):
         # Deliberately not Protenix.__init__: there is no trunk and no confidence head in
         # this checkpoint, and building either from an empty state dict would silently make
         # a wrong module rather than fail.
@@ -83,6 +84,14 @@ class ProtenixDesign(Protenix):
                          if diffusion_fp32 is None else diffusion_fp32)
         self._fast = _TT._FAST_MODE
         _TT.set_fast_mode(False)     # --fast is a trunk lever, and there is no trunk here
+        # The diffusion module is Protenix's, so it builds and samples under the family's
+        # normal lever set (`levers` / TT_BIO_LEVERS override it); the trunk levers in that
+        # set have nothing to act on here.
+        self._levers = _TT.model_levers(spec=levers)
+        with _TT.levers(self._levers):
+            self._build(resolved_fp32, compute_kernel_config)
+
+    def _build(self, resolved_fp32, compute_kernel_config):
         # Skipping Protenix.__init__ means state added there has to be mirrored here, and this
         # memo is read by an INHERITED method: _diffusion_pair_cond (protenix.py:2221) passes
         # it to row_block_after_refusal. pxdesign's diffusion is fp32 by default, which is the
@@ -248,13 +257,15 @@ class ProtenixDesign(Protenix):
         out["structural_pair_attn_bias"] = additive.reshape(1, NTp)
         return out
 
+    @_T.under_levers
     def design(self, feats, *, n_step=DESIGN_N_STEP, n_sample=1, seed=None,
-               eta_schedule=None, progress_fn=None, max_parallel_samples=None):
+               eta_schedule=None, progress_fn=None, max_parallel_samples=None, trace=False):
         """Generate binder coordinates. Returns (n_sample, N_atom, 3) host fp32.
 
         Defaults are what an upstream run uses: 400 steps, eta constant 2.5, gamma0 1.0,
         gamma_min 0.01. The design_token_mask half of the output is the designed binder;
-        the rest reproduces the conditioned target.
+        the rest reproduces the conditioned target. trace=True replays a captured trace of
+        each denoise step (needs a device opened with get_device(trace="protenix")).
 
         Sample k is meant to come from seed + k whether it was generated alone or in a
         batch, so that `--num_designs` changes how many designs come back and not which
@@ -264,11 +275,13 @@ class ProtenixDesign(Protenix):
         device denoise is batch-invariant, so the difference is the seeding branch below,
         where n_sample 1 takes the single-stream `member_seeds=None` path. Do not rely on
         a design surviving a change of --num_designs until that is closed."""
+        if trace:
+            _T.require_trace_region("design(trace=True)")
         cond, aux = self._trunk_cond(feats, progress_fn=progress_fn)
         eta = DESIGN_ETA_SCHEDULE if eta_schedule is None else eta_schedule
         M = int(n_sample)
         sampler = dict(n_step=n_step, step_scale=eta, gamma0=DESIGN_GAMMA0,
-                       gamma_min=DESIGN_GAMMA_MIN, progress_fn=progress_fn)
+                       gamma_min=DESIGN_GAMMA_MIN, progress_fn=progress_fn, trace=trace)
         if M > 1 and getattr(self.diffusion, "supports_multiplicity", False):
             # Design k draws from its own `seed + k` stream, the same one it would draw
             # from as a run of its own, so --num_designs is a throughput knob and not a
