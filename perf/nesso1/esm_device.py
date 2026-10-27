@@ -19,17 +19,30 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--out", required=True)
 ap.add_argument("--fixture", default="perf/nesso1/inputs/ladder/aa512/cdk2_512.yaml")
 ap.add_argument("--lengths", default="64,300,512")
+ap.add_argument("--override", choices=["none", "f32"], default="none",
+                help="f32: build and run the encoder under device_dtype_override(float32), weights included")
 a = ap.parse_args()
 ensure_p300_mesh_descriptor()
+import contextlib
+
+import ttnn
+
 import tt_bio.nesso1_input as NI
+from tt_bio.tenstorrent import device_dtype_override
 from tt_bio._vendor.nesso.data.esm import extract_esm_embedding, setup_esm_model
 
 y = yaml.safe_load(open(a.fixture))
 full = next(s["protein"]["sequence"] for s in y["sequences"] if "protein" in s)
 cpu, tok = setup_esm_model(NI.ESM2_MODEL, torch.device("cpu"))
+ctx = (lambda: device_dtype_override(ttnn.float32)) if a.override == "f32" else contextlib.nullcontext
 t = time.perf_counter()
-dev = NI.device_esm()
-res = {"load_s": round(time.perf_counter() - t, 3), "rows": []}
+with ctx():
+    enc = NI.device_esm()
+    enc(full[:64])
+def dev(seq):
+    with ctx():
+        return enc(seq)
+res = {"override": a.override, "load_s": round(time.perf_counter() - t, 3), "rows": []}
 for n in (int(x) for x in a.lengths.split(",")):
     seq = full[:n]
     ref = extract_esm_embedding(seq, cpu, tok)[0].double()
