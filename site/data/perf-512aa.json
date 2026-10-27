@@ -1,6 +1,6 @@
 {
   "schema": 3,
-  "updated": "2026-10-26",
+  "updated": "2026-10-27",
   "title": "TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware",
   "subtitle": "Eight structure-prediction models, two binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
@@ -951,19 +951,19 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_design": 30.11,
+            "s_per_design": 29.311,
             "n": 4,
-            "spread_pct": 4.19,
+            "spread_pct": 2.5,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 4e84f9e02 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-26T13:07:21Z",
+            "versions": "tt-bio main f4d64b196 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-10-27T00:19:20Z",
             "fast": {
-              "s_per_design": 28.534,
+              "s_per_design": 27.742,
               "n": 4,
-              "spread_pct": 3.26,
+              "spread_pct": 4.79,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 4e84f9e02 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-              "when": "2026-10-26T13:12:20Z"
+              "versions": "tt-bio main f4d64b196 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+              "when": "2026-10-27T00:25:20Z"
             }
           },
           "h200": {
