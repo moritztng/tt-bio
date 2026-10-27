@@ -63,7 +63,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "hsplit", "dtrace", "dsync"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "hsplit", "dtrace", "dsync", "ttsite"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -170,6 +170,22 @@ if "dsync" in knobs:
         return _dit_call(self, *a, **k)
     M.LocalTokenTransformer.__call__ = _dit_synced
 
+# ttsite: host time of every _tt upload, booked by the model line that asked for it (through _dev / _tt_cached) and shape.
+if "ttsite" in knobs:
+    _tt_fn = M._tt
+
+    def _tt_sited(x, *a, **k):
+        fr = sys._getframe(1)
+        while fr.f_code.co_name in ("_dev", "_tt_cached"):
+            fr = fr.f_back
+        key = "tt:%s:%d %s" % (fr.f_code.co_name, fr.f_lineno, "x".join(map(str, x.shape)))
+        t0 = time.perf_counter()
+        try:
+            return _tt_fn(x, *a, **k)
+        finally:
+            HOST[key] = HOST.get(key, 0.0) + time.perf_counter() - t0
+    M._tt = _tt_sited
+
 WALL = []
 _sample = RFD3Sampler.sample
 
@@ -213,7 +229,7 @@ for seed in SEEDS:
     for i, c in enumerate(cifs[:BATCH]):
         shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed if BATCH == 1 else 10 * seed + i)))
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
-    if knobs & {"hsplit", "dtrace", "dsync"}:
+    if knobs & {"hsplit", "dtrace", "dsync", "ttsite"}:
         rec["folds"][-1]["host_ms_per_step"] = {k: round(1e3 * v / STEPS, 2) for k, v in HOST.items()}
         print("[screen %s] host ms/step %s" % (ARM, rec["folds"][-1]["host_ms_per_step"]), flush=True)
     print("[screen %s] seed %d %.3f s %s" % (ARM, seed, s, d), flush=True)
