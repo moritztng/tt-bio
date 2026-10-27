@@ -1528,13 +1528,13 @@
             "when": "2026-10-15T21:03:25Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.0259,
+              "s_per_batch": 0.01401,
               "n": 7,
-              "spread_pct": 14.09,
+              "spread_pct": 52.25,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 46808d8af, ttnn None, qb1 p150a card 3",
-              "when": "2026-10-16T13:52:09Z"
+              "versions": "tt-bio main c687674ca, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-27T16:45:20Z"
             }
           },
           "h200": {
@@ -1582,22 +1582,22 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.08089,
+            "s_per_batch": 0.07589,
             "n": 7,
-            "spread_pct": 18.41,
+            "spread_pct": 7.52,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main fc3d9a072, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-25T04:47:18Z",
+            "versions": "tt-bio main c687674ca, ttnn None, qb1 p150a card 1",
+            "when": "2026-10-27T16:46:09Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.08071,
+              "s_per_batch": 0.05979,
               "n": 7,
-              "spread_pct": 2.29,
+              "spread_pct": 26.11,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main c639c8c91, ttnn None, qb1 p150a card 2",
-              "when": "2026-10-19T20:46:15Z"
+              "versions": "tt-bio main c687674ca, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-27T16:38:10Z"
             }
           },
           "h200": {
@@ -1653,13 +1653,13 @@
             "versions": "tt-bio main e560e9275, ttnn None, qb1 p150a card 3",
             "when": "2026-10-27T14:04:31Z",
             "fast": {
-              "s_per_batch": 0.14875,
+              "s_per_batch": 0.10916,
               "n": 7,
-              "spread_pct": 8.97,
+              "spread_pct": 11.11,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main c639c8c91, ttnn None, qb1 p150a card 2",
-              "when": "2026-10-19T20:58:55Z"
+              "versions": "tt-bio main c687674ca, ttnn None, qb1 p150a card 1",
+              "when": "2026-10-27T16:39:22Z"
             }
           },
           "h200": {
