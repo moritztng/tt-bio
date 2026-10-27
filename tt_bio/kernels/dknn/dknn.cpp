@@ -51,6 +51,7 @@ void kernel_main() {
     const auto sx = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0), L * 16);
     const auto sm = TensorAccessor(m_args, get_common_arg_val<uint32_t>(1), MW * 4);
     const auto so = TensorAccessor(o_args, get_common_arg_val<uint32_t>(2), WO * 4);
+    const uint32_t o0 = get_common_arg_val<uint32_t>(3);     // first row of the output (a row range's start)
 
     const uint32_t x_l1 = get_write_ptr(CB_X), m_l1 = get_write_ptr(CB_M), o_l1 = get_write_ptr(CB_O);
     noc_async_read(sx.get_noc_addr(0), x_l1, L * 16);
@@ -136,7 +137,7 @@ void kernel_main() {
             o[b] = v;
         }
         for (uint32_t t = w; t < WO; ++t) o[t] = L;
-        noc_async_write(o_l1, so.get_noc_addr(r), WO * 4);
+        noc_async_write(o_l1, so.get_noc_addr(r - o0), WO * 4);
         noc_async_write_barrier();
     }
 }

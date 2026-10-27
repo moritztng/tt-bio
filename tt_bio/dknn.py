@@ -58,9 +58,10 @@ def fits(L, k):
     return len(_CB) * sum(_cb_sizes(L, MW, WO)) + PROGRAM_RESERVE <= L1_PER_CORE
 
 
-def _build(device, L, K, MW, WO, xt, mt, ot):
+def _build(device, L, K, MW, WO, xt, mt, ot, rows=None):
     g = device.compute_with_storage_grid_size()
-    _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, L, 0)
+    r0, r1 = rows or (0, L)
+    _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, r1 - r0, 0)
     sizes = _cb_sizes(L, MW, WO)
     cbs = []
     for base in _CB:
@@ -68,7 +69,7 @@ def _build(device, L, K, MW, WO, xt, mt, ot):
             fmt = ttnn.CBFormatDescriptor(buffer_index=base + i, data_format=ttnn.uint32, page_size=size)
             cbs.append(ttnn.CBDescriptor(total_size=size, core_ranges=grid, format_descriptors=[fmt]))
     rts = [ttnn.RuntimeArgs(), ttnn.RuntimeArgs()]
-    first = 0
+    first = r0
     for group, per in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
@@ -77,12 +78,12 @@ def _build(device, L, K, MW, WO, xt, mt, ot):
                     rts[0][cx][cy] = [first, half]
                     rts[1][cx][cy] = [first + half, per - half]
                     first += per
-    assert first == L, (first, L)
+    assert first == r1, (first, r1)
     acc = [a for t in (xt, mt, ot) for a in ttnn.TensorAccessorArgs(t).get_compile_time_args()]
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     kernels = [ttnn.KernelDescriptor(kernel_source=KERNEL, source_type=path, core_ranges=grid,
                                      compile_time_args=[L, K, MW, WO, base] + acc, runtime_args=rt,
-                                     common_runtime_args=[0, 0, 0], config=cfg)
+                                     common_runtime_args=[0, 0, 0, 0], config=cfg)
                for base, rt, cfg in zip(_CB, rts, (ttnn.ReaderConfigDescriptor(), ttnn.WriterConfigDescriptor()))]
     return kernels, cbs
 
@@ -92,11 +93,12 @@ def _upload(a, device):
                            device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
 
-def outside_neighbours(device, x, mask, seq, k):
+def outside_neighbours(device, x, mask, seq, k, rows=None):
     """Device [L, WO] int32: per row the kept outside-mask neighbours ascending, padded with L (not read back).
 
     x [L, 3] float; mask [L, L] bool and seq [L, k] (the sequence entries, L = none) are the design-level torch
-    tensors of _attention_index_prefix, uploaded once per design (keyed on the mask object)."""
+    tensors of _attention_index_prefix, uploaded once per design (keyed on the mask object).
+    `rows` (r0, r1): only those rows, against every atom, into a [r1 - r0, WO] result."""
     L = len(x)
     hit = _MASKS.get(id(mask))
     if hit is None or hit[0] is not mask:
@@ -106,15 +108,16 @@ def outside_neighbours(device, x, mask, seq, k):
                                   _align(int(n_fill.max()) or 1))
     _, mt, WO = hit
     xt = _upload(fixed_point(x).reshape(1, L * 4), device)
-    ot = ttnn.allocate_tensor_on_device(ttnn.Shape([L, WO]), ttnn.int32, ttnn.ROW_MAJOR_LAYOUT, device,
+    r0, r1 = rows or (0, L)
+    ot = ttnn.allocate_tensor_on_device(ttnn.Shape([r1 - r0, WO]), ttnn.int32, ttnn.ROW_MAJOR_LAYOUT, device,
                                         ttnn.DRAM_MEMORY_CONFIG)
     MW = int(mt.shape[1])
-    ck = (device.id(), L, k, MW, WO)
+    ck = (device.id(), L, k, MW, WO, r0, r1)
     if ck not in _CACHE:
-        _CACHE[ck] = _build(device, L, k, MW, WO, xt, mt, ot)
+        _CACHE[ck] = _build(device, L, k, MW, WO, xt, mt, ot, rows)
     kernels, cbs = _CACHE[ck]
     for kd in kernels:
-        kd.common_runtime_args = [xt.buffer_address(), mt.buffer_address(), ot.buffer_address()]
+        kd.common_runtime_args = [xt.buffer_address(), mt.buffer_address(), ot.buffer_address(), r0]
     ttnn.generic_op([xt, mt, ot], ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs))
     return ot
 
