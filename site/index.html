@@ -12,7 +12,7 @@
 <title>TT-Bio</title>
 <meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware, with throughput per dollar measured against NVIDIA DGX systems and accuracy checked against reference implementations.">
 <link rel="preload" href="assets/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=48659a9a?v=rf1">
+<link rel="stylesheet" href="assets/site.css?v=12112f56?v=rf1">
 <style>
 .hero{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,.68fr);gap:24px;align-items:center;padding:56px 0 8px}
 .hero .art{position:relative;aspect-ratio:9/10;margin-right:-28px}
@@ -119,7 +119,7 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
    through :target when the server redirects a no-JavaScript post back here, and through .show when
    the script sends it inline. */
 #contact{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:28px 72px;align-items:start;
-  padding:var(--s-4) 0 var(--s-6)}
+  padding:var(--s-4) 0 var(--s-6);scroll-margin-top:24px}
 #contact h2{margin:0 0 18px}
 #contact .say{max-width:40ch}
 .aside{font-size:.94rem;color:var(--ink-3);margin:22px 0 0;max-width:40ch}
@@ -187,7 +187,8 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
         Tenstorrent hardware. On <b>OpenFold3</b> and <b>Boltz-2</b>, one Blackhole Galaxy has higher
         throughput than an NVIDIA DGX B200, for under a third of the price.</p>
       <div class="cta">
-        <a class="btn solid" href="https://japanfold.com">Try it free</a>
+        <a class="btn accent" href="#contact">Contact us</a>
+        <a class="btn line" href="https://japanfold.com">Try it free</a>
         <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
       </div>
     </div>
@@ -479,6 +480,12 @@ document.querySelectorAll(".reveal").forEach(el => io.observe(el));
  * Here the same request asks for JSON instead, and the answer replaces the form in place. */
 (() => {
   const form = document.getElementById("contact-form");
+  /* A "Contact" link scrolls to the section (CSS smooth scroll) and puts the cursor in the first field.
+     A tap skips the focus: a phone keyboard opening mid-scroll is a jolt. The timeout lets the fragment
+     navigation, which resets focus, run first. */
+  document.querySelectorAll('a[href="#contact"]').forEach(a => a.addEventListener("click", e => {
+    if (e.pointerType !== "touch") setTimeout(() => form.elements.name.focus({preventScroll: true}));
+  }));
   const status = document.getElementById("contact-status");
   const button = form.querySelector("button[type=submit]");
   form.addEventListener("submit", async e => {
