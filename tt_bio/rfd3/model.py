@@ -244,8 +244,9 @@ _STATIC_KNN_CACHE: dict = {}
 _NN_ROWS_CACHE: dict = {}
 # With the host tree (Wormhole) and static atoms: the moving atoms' own rows, the bulk of what the host still queries
 # each step (1400 of the page fixture's 6051 rows, k 128), go to the card (tt_bio.dknn over that row range) while the
-# host answers the static rows. Needs the movers to be one contiguous id range, as a binder is. Off until A/B'd.
-_DKNN_MOVERS = env_flag("RFD3_DKNN_MOVERS", False)
+# host answers the static rows. Needs the movers to be one contiguous id range, as a binder is. Same rows, so the
+# CIFs are unchanged; WH page cell @1000 MHz, seeds 60,61 x2: fast 43.98 -> 42.70, normal 44.70 -> 43.65 s/design.
+_DKNN_MOVERS = env_flag("RFD3_DKNN_MOVERS", True)
 _DKNN_MOVERS_MIN_L = 2048   # the atom index; the DiT's token index is too small to pay for a launch
 # The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
 # at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the

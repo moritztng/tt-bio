@@ -44,3 +44,19 @@ def test_nothing_static_is_a_plain_query():
         _, ref = cKDTree(x).query(x, k=16, workers=1)
         assert np.array_equal(sk.query(x, 16, 1), ref)
     assert sk.ids is None
+
+
+def test_skip_movers_answers_every_static_row():
+    """With skip_movers the moving atoms' rows come back -1 (the card answers them) and every other row is the tree's."""
+    sk, k = S.StaticKnn(), 64
+    for i, x in enumerate(_trajectory(steps=6, seed=4)):
+        _, ref = cKDTree(x).query(x, k=k, workers=1)
+        mid = sk.movers(x)
+        if mid is None:
+            assert np.array_equal(sk.query(x, k, 1), ref)
+            continue
+        assert np.array_equal(mid, np.arange(900, 1200))
+        got = sk.query(x, k, 1, skip_movers=True)
+        assert (got[mid] == -1).all()
+        assert np.array_equal(np.delete(got, mid, 0), np.delete(ref, mid, 0))
+    assert i == 5 and sk.ids is not None
