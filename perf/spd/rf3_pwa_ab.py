@@ -3,9 +3,11 @@
 RF3's MSA module runs PWA 40 times a fold at depth 1024 x 512 tokens, c_m 64, 8 heads x 32. Head
 dim 32 sends it down `_heads_fused` (`_PWA_FULL_HEADS_FUSED`, measured on Wormhole Boltz-2 only),
 four general permutes of a [rows, T, 256] tensor. `_heads_unpadded` pays two, and on Blackhole
-`permute_120` is a tile-transpose chain (2.9x the permute there). Arms alternate per rep so clock
-drift hits both; each is graded against a float64 reference built from the device's own token
-weights. AICLK of every node is sampled while the timed loops run.
+`permute_120` is a tile-transpose chain (2.9x the permute there). Wormhole, 10-27: fused 44.3 ms,
+unpadded 59.5, bit-identical. The bmm / proj arms are `_PWA_BMM` and `_PWA_FUSED_PROJ` on the fused
+path. Arms rotate per rep so clock drift hits all; each is graded against a float64 reference built
+from the device's own token weights. AICLK of every node is sampled while the timed loops run, and
+the loop runs on until the sampler has a few rows (a 32-chip Galaxy takes ~1 s a sweep).
 
 usage: TT_VISIBLE_DEVICES=<chip> python rf3_pwa_ab.py OUT [TOKENS=512] [ROWS=1024] [REPS=7]
 """
@@ -79,11 +81,12 @@ g = torch.sigmoid(mn @ sd["proj_g.weight"].double().t()).reshape(ROWS, T_, H, HD
 ref = (torch.einsum("hij,rjhc->rihc", w_host, v) * g).reshape(ROWS, T_, H * HD) @ sd["proj_o.weight"].double().t()
 del x, mu, var, mn, v, g
 
-ARMS = {"fused": True, "unpadded": False}
+ARMS = {"fused": (True, False, False), "unpadded": (False, False, False), "bmm": (True, True, False),
+        "proj": (True, False, True), "bmm_proj": (True, True, True)}
 
 
 def call(arm):
-    T._PWA_FULL_HEADS_FUSED = ARMS[arm]
+    T._PWA_FULL_HEADS_FUSED, T._PWA_BMM, T._PWA_FUSED_PROJ = ARMS[arm]
     t0 = time.perf_counter()
     out = pwa(m_tt, None, weights=ws)
     ttnn.synchronize_device(dev)
@@ -96,14 +99,19 @@ for arm in ARMS:                                   # warm the program cache, kee
     outs[arm] = ttnn.to_torch(outs[arm]).reshape(ROWS, T_, C_M)
 ms = {a: [] for a in ARMS}
 SAMPLES.clear()
-for r in range(REPS):
-    for arm in (ARMS if r % 2 == 0 else reversed(list(ARMS))):
+r = 0
+while r < REPS or (len(SAMPLES) < 4 and r < 60):
+    names = list(ARMS)
+    for arm in names[r % len(names):] + names[:r % len(names)]:
         o, t = call(arm); ms[arm].append(t); ttnn.deallocate(o)
+    r += 1
 clk = {n: (min(v), int(statistics.median(v)), max(v)) for n in NODES
        if (v := [s[n] for s in SAMPLES if s.get(n, 0) > 0])}
 for arm in ARMS:
     log(ev="pwa", arm=arm, ms=ms[arm], ms_med=statistics.median(ms[arm]), err=err(outs[arm], ref),
         stats=list(T.PWA_FUSED_STATS) + list(T.PWA_UNPADDED_STATS))
-log(ev="pwa_ab", aiclk=clk, delta_ms=statistics.median(ms["unpadded"]) - statistics.median(ms["fused"]),
-    unpadded_vs_fused=err(outs["unpadded"], outs["fused"].double()),
-    bitident=bool(torch.equal(outs["unpadded"], outs["fused"])))
+base = statistics.median(ms["fused"])
+log(ev="pwa_ab", aiclk=clk, reps=r, samples=len(SAMPLES),
+    delta_ms={a: statistics.median(ms[a]) - base for a in ARMS if a != "fused"},
+    bitident={a: bool(torch.equal(outs[a], outs["fused"])) for a in ARMS if a != "fused"},
+    vs_fused={a: err(outs[a], outs["fused"].double()) for a in ARMS if a != "fused"})
