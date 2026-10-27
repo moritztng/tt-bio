@@ -988,6 +988,17 @@ def test_bench_inputs_are_required():
     assert not any("spd-data" in p for p in feed.inputs("bench.py --inputs c730 --data /x"))
 
 
+def test_tree_ships_by_checksum_against_the_newest_tree(monkeypatch):
+    # streaming git archive sent all ~880 MB per main move over pc's Wi-Fi (10-27); only changed files may travel
+    got = []
+    monkeypatch.setattr(feed.subprocess, "Popen", lambda argv, **kw: got.append(argv[-1]))
+    feed.provision("box", {"~/spd/r/trees/abc": "abc"}, set(), [], "/repo", "/tmp")
+    sh = got[0]
+    assert "| ssh" not in sh and "| tar -x -C $t" in sh
+    assert "rsync -a -c --delete" in sh and "--copy-dest=${b%/TREE_SHA}" in sh and "box:spd/r/trees/abc.part/" in sh
+    assert "echo HAVE" in sh and "mv -T" in sh
+
+
 def test_bench_data_ships_whole(monkeypatch):
     # an input yaml without its MSAs still fails, so a missing input ships all of ~/spd-data, never overwriting
     got = []

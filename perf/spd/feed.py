@@ -592,11 +592,18 @@ def provision(ssh, trees, files, donors, repo, lockdir):
     A box lent after a row set up its jobs has neither, and every job of that row would end in a second there."""
     steps = []
     for d, sha in sorted(trees.items()):
+        # Main moves ~50 times a day and two trees differ in ~10 files, yet streaming the archive sent all ~880 MB over
+        # pc's Wi-Fi each time and starved every other ssh (10-27). So extract on pc and rsync by checksum (git archive
+        # stamps every file with the commit time, a quick check matches nothing) against the box's newest tree.
+        rd = d[2:] if d.startswith("~/") else d
         d = d.replace("~", "$HOME", 1) if d.startswith("~/") else d
         q, part = f'"{d}"', f'"{d}.part"'
-        remote_cmd = (f"set -e; [ -e {q} ] && exit 0; rm -rf {part}; mkdir -p {part}; tar -x -C {part}; "
-                      f"echo {sha} > {part}/TREE_SHA; mv -T {part} {q}")
-        steps.append(f"git -C {shlex.quote(repo)} archive {sha} | ssh -o BatchMode=yes {ssh} {shlex.quote(remote_cmd)}")
+        probe = (f"[ -e {q} ] && echo HAVE && exit 0; mkdir -p \"$(dirname {q})\"; "
+                 f"ls -dt \"$(dirname {q})\"/*/TREE_SHA 2>/dev/null | grep -v '[.]part/' | head -1")
+        steps.append(f"b=$(ssh -o BatchMode=yes {ssh} {shlex.quote(probe)}); [ \"$b\" = HAVE ] || {{ t=$(mktemp -d) && "
+                     f"git -C {shlex.quote(repo)} archive {sha} | tar -x -C $t && echo {sha} > $t/TREE_SHA && "
+                     f"rsync -a -c --delete -e 'ssh -o BatchMode=yes' ${{b:+--copy-dest=${{b%/TREE_SHA}}}} $t/ {ssh}:{rd}.part/ && "
+                     f"ssh -o BatchMode=yes {ssh} {shlex.quote(f'mv -T {part} {q}')}; rm -rf $t; }}")
     if any(f.startswith(DATA + "/") for f in files):
         # an input is useless without its MSAs, so bench data ships whole (~250 MB) and never overwrites a file
         need = shlex.quote(next(f for f in sorted(files) if f.startswith(DATA + "/")).replace("~", "$HOME", 1))
