@@ -42,8 +42,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   the same number on both archs.
 - **BoltzGen normal mode on Blackhole replays the diffusion step from a device trace by default.** Output is
   identical, the 1831-residue size ceiling holds, and with the triangle-multiplication change above a 514-token
-  design on a p300 chip drops from 25.2 to 23.0 s. `--no_diffusion_trace` restores the eager step. Fast mode keeps
-  the eager step: its per-step conditioning is computed ahead, which the captured step cannot replay.
+  design on a p300 chip drops from 25.2 to 23.0 s. `--no_diffusion_trace` restores the eager step. `--fast` replays it too, and
+  computes each step's conditioning inside the trace instead of several steps ahead: a 514-token fast design on a
+  p300 chip drops from 32.4 to 23.3 s on a host-bound machine.
 
 ## [0.23.0] - 2026-10-26
 

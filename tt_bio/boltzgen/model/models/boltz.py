@@ -94,9 +94,11 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "transition_ws", "triatt_ln", "di
 WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
                                 "dit_cond_steps"}
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
-# residual, two-buffer L1) plus atom_l1 and dit_cond_steps. Graded as one stack by the fast protocol (bg_grade.py,
-# bg_R3, seeds 0-3 x 8 designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004,
-# filter 32/32 vs 32/32. Speed on a p300 chip (AICLK mean 1323 MHz): 23.93 -> 20.68 s/design.
+# residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
+# designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.
+# Speed on a p300 chip (AICLK mean 1323 MHz): 23.93 -> 20.68 s/design. It replays the diffusion step from a trace, which
+# computes each step's own conditioning, so dit_cond_steps is not in the set: on a host-bound p300 box (qb1, ~1349 MHz)
+# the trace takes a fast design from 32.4 to 23.3 s.
 # Blackhole normal runs the T1/T2 trimul kernels with the column-major T2: normal grade PASS pooled over seeds 0-7 vs
 # plain BH normal (64 designs, 2026-10-26): design_ptm +0.019, iptm +0.025, complex_plddt -0.004 [-0.008, +0.001],
 # filter 64/64.
@@ -107,7 +109,7 @@ WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t
 # 22.9 -> 21.2 s/design from dit_qkvf and -0.6 s from the stage, fast 21.3 -> 19.8.
 BH_LEVERS_NORMAL = LEVERS_NORMAL | {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf"}
 BH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
-                                "dit_cond_steps", "dit_qkvf"}
+                                "dit_qkvf"}
 
 
 def _under_levers(method):
@@ -189,10 +191,9 @@ class Boltz(nn.Module):
         3. Inverse folding
         4. Affinity prediction
         """
-        # None (the design step's default) replays the DiT trace on Blackhole: lossless, -0.4 s
-        # a normal design on a p300 chip, and the 1831-residue ceiling holds with the region reserved.
-        # Not under dit_cond_steps: the captured step computes its own conditioning, so it would
-        # drop that lever (BH fast CIFs move, no faster). Wormhole stays opt-in until its ceiling
+        # None (the design step's default) replays the DiT trace on Blackhole, and the 1831-residue
+        # ceiling holds with the region reserved. Not under dit_cond_steps: the captured step computes
+        # its own conditioning, so it would drop that lever. Wormhole stays opt-in until its ceiling
         # is re-walked.
         if diffusion_trace is None:
             diffusion_trace = not tenstorrent.is_wormhole() and "dit_cond_steps" not in self._levers
