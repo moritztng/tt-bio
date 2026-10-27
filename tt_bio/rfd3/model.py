@@ -448,7 +448,8 @@ _PAIR_WS_PSILU = env_flag("RFD3_PAIR_WS_PSILU", True)
 # Bit-exact memo: per recycle slot the outputs after block 0 and block 1 stay on the card, and a step recomputes only
 # the 32-pair row tiles holding a pair whose bin changed (pair_swiglu_ws `rows`). On the page trajectory 58 % of row
 # tiles change per step on average, ~0 % over the last 40 steps. Holds 4 copies of z; off above RFD3_PAIR_MEMO_MB.
-_PAIR_MEMO = env_flag("RFD3_PAIR_MEMO", False)
+# Wormhole @1000 (seed 60, digests equal every fold): fast 42.32 -> 40.54 s/design, normal 43.14 -> 40.64.
+_PAIR_MEMO = env_flag("RFD3_PAIR_MEMO", True)
 _PAIR_MEMO_MB = int(os.environ.get("RFD3_PAIR_MEMO_MB", "1200"))
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
