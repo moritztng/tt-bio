@@ -451,6 +451,31 @@ _PAIR_WS_PSILU = env_flag("RFD3_PAIR_WS_PSILU", True)
 # Wormhole @1000 (seed 60, digests equal every fold): fast 42.32 -> 40.54 s/design, normal 43.14 -> 40.64.
 _PAIR_MEMO = env_flag("RFD3_PAIR_MEMO", True)
 _PAIR_MEMO_MB = int(os.environ.get("RFD3_PAIR_MEMO_MB", "1200"))
+# On top of the pair memo, the DiT's 18 SDPA masks (dit_pair_bias) stay on the card per recycle slot and a step
+# recomputes only the 32 x 32 tiles whose z rows or dense attention mask changed (dit_pair_bias `units`). Bit-exact.
+_BIAS_MEMO = env_flag("RFD3_BIAS_MEMO", False)
+_MEMO_OWNED: dict = {}      # id -> memo buffer that a consumer must not deallocate
+BIAS_MEMO = [0, 0]          # DiT mask tiles recomputed, tiles seen
+
+
+def _dealloc_unowned(t):
+    if id(t) not in _MEMO_OWNED:
+        ttnn.deallocate(t)
+
+
+class _DitMemo:
+    """One recycle slot's DiT masks: `tiles` [B, nt, nt] bool, the tiles whose z rows changed this step; `outs` and
+    `mask` (host keep mask) what the slot's last DiT call wrote and saw."""
+
+    def __init__(self):
+        self.tiles, self.outs, self.mask = None, None, None
+
+    def release(self):
+        for t in self.outs or ():
+            _MEMO_OWNED.pop(id(t), None)
+            if t.is_allocated():
+                ttnn.deallocate(t)
+        self.outs = self.mask = None
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -2962,7 +2987,7 @@ class RFD3AtomBlock(Module):
                                scale=self.head_dim**-0.5,
                                program_config=_dense_sdpa_config(n_key),
                                compute_kernel_config=ckc)
-                ttnn.deallocate(mask)
+                _dealloc_unowned(mask)
                 bs_out = ttnn.slice(o, [0, 0, 0, 0], [batch, self.n_head, length, self.head_dim])
                 DIT_SDPA_CALLS[0] += 1
         if bs_out is not None:
@@ -3107,7 +3132,7 @@ class RFD3AtomBlock(Module):
         o = fused_sdpa(pad_axis(qq, n_key, 2, 0.0), pad_axis(kk, n_key, 2, 0.0), pad_axis(vv, n_key, 2, 0.0),
                        attn_mask=mask, scale=self.head_dim**-0.5,
                        program_config=_dense_sdpa_config(n_key), compute_kernel_config=ckc)
-        ttnn.deallocate(mask)
+        _dealloc_unowned(mask)
         DIT_SDPA_CALLS[0] += 1
         o = ttnn.experimental.nlp_concat_heads(o)                            # [B, 1, n_key, hp]
         o = ttnn.reshape(ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp]), (batch, length, hp))
@@ -3697,16 +3722,24 @@ class DiffusionTokenEncoder(Module):
         ent = held[1].get(slot)
         B, I, J = (int(d) for d in list(z.padded_shape)[:3])
         jt = J // 32
+        dit = ent[3] if ent is not None else _DitMemo()
         if ent is None or not all(t.is_allocated() for t in ent[:2]):
             bufs = [ttnn.allocate_tensor_on_device(z.shape, z.dtype, ttnn.TILE_LAYOUT, self.device,
                                                    ttnn.DRAM_MEMORY_CONFIG) for _ in range(2)]
             rows = torch.arange(B * I * jt)
+            dit.release()
+            dit.tiles = None
         else:
             bufs, prev = ent[:2], ent[2]
             ch = torch.zeros(B, I, jt * 32, dtype=torch.bool)
             ch[..., :key.shape[-1]] = key != prev
-            rows = ch.view(B * I, jt, 32).any(-1).flatten().nonzero().flatten()
-        held[1][slot] = (bufs[0], bufs[1], key.clone())
+            rt = ch.view(B, I, jt, 32).any(-1)
+            rows = rt.flatten().nonzero().flatten()
+            pad = torch.zeros(B, jt * 32, jt, dtype=torch.bool)
+            pad[:, :I] = rt
+            dit.tiles = pad.view(B, jt, 32, jt).any(2)
+        held[1][slot] = (bufs[0], bufs[1], key.clone(), dit)
+        self.dit_memo = dit if _BIAS_MEMO else None
         PAIRMEMO[0] += int(rows.numel())
         PAIRMEMO[1] += B * I * jt
         return bufs[0], bufs[1], _WS.row_list(self.device, z, rows)
@@ -3716,7 +3749,8 @@ class DiffusionTokenEncoder(Module):
             for t in ent[:2]:
                 if t.is_allocated():
                     ttnn.deallocate(t)
-        self._memo = None
+            ent[3].release()
+        self._memo = self.dit_memo = None
 
     def owns(self, z):
         """True when `z` is a pair memo buffer, which the caller must not deallocate."""
@@ -3776,6 +3810,7 @@ class DiffusionTokenEncoder(Module):
         recycle, four crossings of an I^2 tensor per step."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         f32 = self.fp32_residual
+        self.dit_memo = None
         B, I = R_L_ca.shape[0], R_L_ca.shape[1]
         if not isinstance(S_init_I, ttnn.Tensor) and S_init_I.ndim == 2:
             S_init_I = S_init_I.unsqueeze(0).expand(B, -1, -1).contiguous()
@@ -3880,7 +3915,7 @@ class LocalTokenTransformer(Module):
             self.b_w_fused = ttnn.from_torch(cols, layout=ttnn.TILE_LAYOUT, device=self.device,
                                              dtype=self.dtype)
 
-    def _dit_sdpa_masks(self, z, additive_mask, n_key):
+    def _dit_sdpa_masks(self, z, additive_mask, n_key, memo=None):
         """Every block's SDPA mask from one projection, yielded as [B, N_HEAD, n_key, n_key] per
         block. The ttnn path runs the per-block elementwise ops once over the stack [B, n_block *
         N_HEAD, n_key, n_key] and slices it, so the DiT pays one permute, scale, add and pad pair per
@@ -3899,8 +3934,10 @@ class LocalTokenTransformer(Module):
                                                     device=self.device, dtype=self.dtype)
             mask = pad_axis(pad_axis(additive_mask, n_key, 3, -1e4), n_key, 2, -1e4)
             if _DPB.eligible(z, self._b_wt_packed, mask):
-                out = _DPB.dit_pair_bias(z, self._b_wt_packed, mask, self.blocks[0].head_dim ** 0.5,
-                                         self.compute_kernel_config.math_fidelity, n_out=len(self.blocks))
+                dpb = lambda **kw: _DPB.dit_pair_bias(  # noqa: E731
+                    z, self._b_wt_packed, mask, self.blocks[0].head_dim ** 0.5,
+                    self.compute_kernel_config.math_fidelity, n_out=len(self.blocks), **kw)
+                out = dpb() if memo is None else self._dpb_memo(dpb, memo, n_key)
             else:
                 out = None
             if mask is not additive_mask:
@@ -3939,14 +3976,38 @@ class LocalTokenTransformer(Module):
         ttnn.deallocate(s_n)
         return out
 
-    def run_device(self, a, s, z, additive_mask):
+    def _dpb_memo(self, dpb, memo, n_key):
+        """The DiT masks through the slot's _DitMemo: in full the first time, then only the tiles whose z rows
+        (memo.tiles) or host keep mask changed, written over the slot's previous masks."""
+        dm, hm = memo
+        nt = n_key // 32
+        if dm.outs is None or dm.tiles is None or dm.mask is None or dm.mask.shape != hm.shape \
+                or tuple(dm.tiles.shape[1:]) != (nt, nt):
+            dm.release()
+            dm.outs = dpb()
+            for t in dm.outs:
+                _MEMO_OWNED[id(t)] = t
+            BIAS_MEMO[0] += nt * nt * int(hm.shape[0])
+        else:
+            B, I = int(hm.shape[0]), int(hm.shape[-1])
+            mc = torch.zeros(B, nt * 32, nt * 32, dtype=torch.bool)
+            mc[:, :I, :I] = (hm != dm.mask)[:, 0]
+            tiles = dm.tiles | mc.view(B, nt, 32, nt, 32).any(4).any(2)
+            units = tiles.flatten().nonzero().flatten().tolist()
+            dpb(units=units, outs=dm.outs)
+            BIAS_MEMO[0] += len(units)
+        BIAS_MEMO[1] += nt * nt * int(hm.shape[0])
+        dm.mask = hm
+        return dm.outs
+
+    def run_device(self, a, s, z, additive_mask, memo=None):
         n_key = align_tile(int(a.shape[1]))
         B = int(z.shape[0])
         if (_DIT_SDPA and self.dtype == ttnn.bfloat16
                 and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
             wide = 3 * 2 * len(self.blocks) * self.C_TOKEN * int(s.shape[0]) * int(s.shape[1]) * 2
             hoist = self._hoist(s) if _DIT_SHOIST and wide <= _DIT_SHOIST_BYTES else None
-            for m, block in zip(self._dit_sdpa_masks(z, additive_mask, n_key), self.blocks):
+            for m, block in zip(self._dit_sdpa_masks(z, additive_mask, n_key, memo), self.blocks):
                 a = block(a, s, z, additive_mask, sdpa_mask=m, hoist=hoist)
             for t in hoist or ():
                 ttnn.deallocate(t)
@@ -3966,10 +4027,10 @@ class LocalTokenTransformer(Module):
             ttnn.deallocate(fused)
         return a
 
-    def __call__(self, a_host, s_host, z, indices, resident=False):
+    def __call__(self, a_host, s_host, z, indices, resident=False, memo=None):
         """z (and a, s) may be host tensors (the parity-script path) or already-resident ttnn
         tensors handed straight over by DiffusionTokenEncoder.run_device; `resident` returns
-        the device tensor."""
+        the device tensor. `memo` is the token encoder's _DitMemo for z's recycle slot (RFD3_BIAS_MEMO)."""
         dev, dt = self.device, self.dtype
         a = _dev(a_host, dev, dt)
         s = _dev(s_host, dev, dt)
@@ -3978,8 +4039,9 @@ class LocalTokenTransformer(Module):
                 z = ttnn.typecast(z, dt)
         else:
             z = _tt(z.unsqueeze(0) if z.ndim == 2 else z, dev, dt)
-        mask = _tt(_dense_attention_mask(indices), dev, dt)
-        out = self.run_device(a, s, z, mask)
+        hm = _dense_attention_mask(indices)
+        mask = _tt(hm, dev, dt)
+        out = self.run_device(a, s, z, mask, memo=None if memo is None else (memo, hm))
         return out if resident else ttnn.to_torch(out).float()
 
 
@@ -4677,7 +4739,8 @@ class RFD3DiffusionModule(Module):
         dit_idx = fut.result() if fut is not None else _create_attention_indices(
             f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device), self.DIT_KEYS, self.DIT_SEQ)
         S_I = s_dev if _RESIDENT_STEP else ttnn.to_torch(s_dev).float()
-        A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx, resident=_RESIDENT_STEP)
+        A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx, resident=_RESIDENT_STEP,
+                                         memo=getattr(self.diffusion_token_encoder, "dit_memo", None))
         if not self.diffusion_token_encoder.owns(z_dev):
             ttnn.deallocate(z_dev)
         # Both of the decoder's outputs feed device consumers only -- q the R update below,
