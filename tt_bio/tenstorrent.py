@@ -759,8 +759,9 @@ _FAST_MODE = False
 #                   key tile. The PV product then accumulates k_chunk / 32 tiles in the fp32 dest, which is the
 #                   erratum dest_guard.py describes (rare -2/-4/-8 pixels); the rest of the fold runs unguarded
 #                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
-#   dit_mask16      under dit_fuse on Wormhole, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16,
-#                   not fp32 (Blackhole ignores it).
+#   dit_mask16      on Wormhole, an fp32 token DiT's `_sdpa32` attention reads its cached pair-bias mask bf16, not
+#                   fp32 (`sdpa32_mask_lowp`: OpenFold3 under dit_fuse, the Protenix family's `finish_bias`).
+#                   Blackhole ignores it.
 #   dit_mask8       the same mask bfp8 on either arch (overrides dit_mask16).
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
@@ -3215,6 +3216,18 @@ def sdpa32_mask(b: ttnn.Tensor) -> ttnn.Tensor:
     if r.buffer_address() not in (b.buffer_address(), m.buffer_address()):
         ttnn.deallocate(r)
     return ttnn.clone(m) if m.buffer_address() == b.buffer_address() else m
+
+
+def sdpa32_mask_lowp(m: ttnn.Tensor) -> ttnn.Tensor:
+    """An `_sdpa32` mask the attention reads in every block of every step, at the format `dit_mask8` (bfp8) or
+    `dit_mask16` (bf16, Wormhole only) names; `m` itself otherwise. The token axis buckets to 32, so padded keys sit
+    in whole tiles and no 16-wide bfp8 exponent block mixes the pad mask with a real bias."""
+    dt = ttnn.bfloat8_b if lever("dit_mask8") else (ttnn.bfloat16 if is_wormhole() and lever("dit_mask16") else None)
+    if dt is None:
+        return m
+    mt = ttnn.typecast(m, dt)
+    ttnn.deallocate(m)
+    return mt
 
 
 def _sdpa32_chunks(dev, B: int, heads: int, n: int):
@@ -13326,7 +13339,7 @@ class AttentionPairBias(Module):
         tokens on Wormhole). Every other path reads the bias as computed."""
         if self.compute_pair_bias and self._raw_fp32():
             # `_sdpa32` scales its mask with the scores, so it keeps the compensation.
-            return sdpa32_mask(b) if self.sdpa32 else ttnn.multiply(b, self.head_dim ** -0.5)
+            return sdpa32_mask_lowp(sdpa32_mask(b)) if self.sdpa32 else ttnn.multiply(b, self.head_dim ** -0.5)
         return b
 
     def _attention(
