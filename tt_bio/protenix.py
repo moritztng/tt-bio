@@ -282,6 +282,23 @@ DIT_SEAM_FAST = frozenset({"pz_device", "dit_mod16"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
+class _Sig(tuple):
+    """An atom transformer output gate that already went through its sigmoid (`adaln_mod`)."""
+
+
+def _sigmoid_own(t):
+    out = ttnn.sigmoid(t)
+    ttnn.deallocate(t)
+    return out
+
+
+def _gated_residual(res, x, gate):
+    """`res + x * sigmoid(gate)`: one addcmul when the gate's sigmoid was taken once per fold (`_Sig`)."""
+    if isinstance(gate, _Sig):
+        return gated_add(res, x, gate[0])
+    return ttnn.add(ttnn.multiply(x, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]), res)
+
+
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
@@ -889,17 +906,27 @@ class AtomTransformer(_KeyedWeights, Module):
         every sample, yet these were computed for each of the M samples at every step: 8
         projections and 3 layer norms of (M,N,128) per block. Computed once here, at the
         leading dim `s` has, they broadcast over M in the block's binary ops. Same ops on the
-        same values, so the result does not change."""
+        same values, so the result does not change.
+
+        `adaln_mod`: the sigmoids run here too, once per fold, so every apply is one addcmul (the
+        AdaLN modulation and both gated residuals) instead of a multiply with a fused sigmoid and an add."""
+        sig = _T.lever("adaln_mod")
         terms = []
         for b in range(self.n_blocks):
             apb, ctb = self._prefixes(b)
-            terms.append({
+            t = {
                 "a": self._adaln_mod(apb + "layernorm_a.").s_terms(s),
                 "kv": self._adaln_mod(apb + "layernorm_kv.").s_terms(s),
                 "ctb": self._adaln_mod(ctb + "adaln.").s_terms(s),
                 "gate": self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias"),
                 "cg": self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias"),
-            })
+            }
+            if sig:
+                for k in ("a", "kv", "ctb"):
+                    t[k] = _T._SigTerms((_sigmoid_own(t[k][0]), t[k][1]))
+                for k in ("gate", "cg"):
+                    t[k] = _Sig((_sigmoid_own(t[k]),))
+            terms.append(t)
         return terms
 
     def _windows_q(self, x, N, NP):
@@ -1103,15 +1130,13 @@ class AtomTransformer(_KeyedWeights, Module):
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
-        attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a1 = ttnn.add(attn, a)
+        a1 = _gated_residual(a, attn, gate)
         an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"))
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
         out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
         cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
-        out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        return ttnn.add(out, a1)
+        return _gated_residual(a1, out, cg)
 
     def _make_pad_bias(self, mask_trunked):
         pad = torch.where(mask_trunked < 0.5, torch.full_like(mask_trunked, -1e9),
@@ -1255,15 +1280,13 @@ class AtomTransformer(_KeyedWeights, Module):
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight", dtype=self.dtype)
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
-        attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a1 = ttnn.add(attn, a)
+        a1 = _gated_residual(a, attn, gate)
         an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"), dtype=lo)
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
         out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight", dtype=self.dtype)
         cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
-        out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        return ttnn.add(out, a1)
+        return _gated_residual(a1, out, cg)
 
     def __call__(self, a, s, p, mask_trunked, bias_cache=None, multiplicity=1, terms=None):
         """a,s: (1,N,c_atom) at M=1, (M,N,c_atom) at M>1; p: (nb,nq,nk,c_atompair) shared;
