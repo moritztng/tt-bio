@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-27
+
 ### Changed
 - **RoseTTAFold3 on Wormhole runs the fast triangle and transition kernels in normal mode.** A 512-residue fold
   on a Galaxy chip drops from 55.2 to 38.1 s. Structures change at the precision level: over 66 paired folds the
