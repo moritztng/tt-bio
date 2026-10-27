@@ -247,6 +247,10 @@ _NN_ROWS_CACHE: dict = {}
 # host answers the static rows. Needs the movers to be one contiguous id range, as a binder is. Same rows, so the
 # CIFs are unchanged; WH page cell @1000 MHz, seeds 60,61 x2: fast 43.98 -> 42.70, normal 44.70 -> 43.65 s/design.
 _DKNN_MOVERS = env_flag("RFD3_DKNN_MOVERS", True)
+# With the card index: the static rows scored against their nearest static atoms (found once per design) and the
+# movers only, under a bound that proves the row (tt_bio.dknn.Static); a row it cannot prove runs in full. Same rows.
+_DKNN_STATIC = env_flag("RFD3_DKNN_STATIC", True)
+_DKNN_STATIC_CACHE: dict = {}
 _DKNN_MOVERS_MIN_L = 2048   # the atom index; the DiT's token index is too small to pay for a launch
 # The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
 # at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the
@@ -4108,7 +4112,8 @@ def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=
         from .. import dknn
         mask, seq_idx = parts["single"]
         if dknn.fits(len(tok_idx), parts["k"]):
-            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"])
+            static = _DKNN_STATIC_CACHE.setdefault((len(tok_idx), parts["k"]), dknn.Static()) if _DKNN_STATIC else None
+            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"], static)
     if not (_ATTN_THREAD and _ATTN_KDTREE):
         return None
     if _INDEX_POOL is None:
