@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **ESMFold2 and ESMFold2-Fast normal mode on Wormhole run the token attention as one fused program.** A 512-residue
+  fold on a Wormhole Galaxy chip drops about 0.85 s (ESMFold2 25.9 -> 25.0 s, ESMFold2-Fast 16.0 -> 15.1 s). Structures
+  change at the precision level: graded over 44 paired folds per model in normal mode, accuracy and docking success
+  unchanged. Blackhole and `--fast` already ran it.
 - **BoltzGen's token diffusion transformer does less attention work.** In normal mode its pair bias was padded to
   768 tokens for a 544-token design; it now pads to 576, and on Blackhole the attention runs as one fused program
   in both modes. A 514-token design drops about 1.2 s on a Wormhole Galaxy chip (46 -> 45 s) and on a Blackhole
