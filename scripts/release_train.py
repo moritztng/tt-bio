@@ -47,30 +47,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gate_fanout import REPO, content_hash  # noqa: E402
-from release_next import decide, git, last_release  # noqa: E402
+from release_next import SECTION, BULLET, decide, git, last_release, notes  # noqa: E402
 from splice_ladder_fragments import splice  # noqa: E402
 
 PYPI = "https://pypi.org/pypi/tt-bio/json"
-SECTION = re.compile(r"^## \[(?P<name>[^\]]+)\][^\n]*\n(?P<body>.*?)(?=^## \[|\Z)", re.M | re.S)
-BULLET = re.compile(r"^- .*?(?=^- |^#|\Z)", re.M | re.S)
-
-
-def notes(changelog: str, released: str) -> str:
-    """The [Unreleased] body at the candidate, minus bullets an earlier release already carried."""
-    secs = {m["name"]: m["body"] for m in SECTION.finditer(changelog)}
-    old = {b.strip() for m in SECTION.finditer(released) if m["name"] != "Unreleased"
-           for b in BULLET.findall(m["body"])}
-    out, keep = [], True
-    for block in re.split(r"(?=^### |^- )", secs.get("Unreleased", ""), flags=re.M):
-        if block.startswith("- "):
-            keep = block.strip() not in old
-        if keep or block.startswith("### "):
-            out.append(block)
-    body = "".join(out)
-    # a heading whose bullets were all dropped goes too
-    return re.sub(r"^### [^\n]*\n\s*(?=^### |\Z)", "", body, flags=re.M).strip()
-
-
 def next_version(tag: str, body: str, taken: set) -> str:
     major, minor, patch = (int(x) for x in tag.lstrip("v").split("."))
     if re.search(r"^### (Added|Changed|Removed)", body, re.M):

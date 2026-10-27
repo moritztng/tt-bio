@@ -283,6 +283,36 @@ def _plans(gates: Path | None, partial: bool = False) -> list:
     return out
 
 
+SECTION = re.compile(r"^## \[(?P<name>[^\]]+)\][^\n]*\n(?P<body>.*?)(?=^## \[|\Z)", re.M | re.S)
+BULLET = re.compile(r"^- .*?(?=^- |^#|\Z)", re.M | re.S)
+
+
+def notes(changelog: str, released: str) -> str:
+    """The [Unreleased] body at the candidate, minus bullets an earlier release already carried."""
+    secs = {m["name"]: m["body"] for m in SECTION.finditer(changelog)}
+    old = {b.strip() for m in SECTION.finditer(released) if m["name"] != "Unreleased"
+           for b in BULLET.findall(m["body"])}
+    out, keep = [], True
+    for block in re.split(r"(?=^### |^- )", secs.get("Unreleased", ""), flags=re.M):
+        if block.startswith("- "):
+            keep = block.strip() not in old
+        if keep or block.startswith("### "):
+            out.append(block)
+    body = "".join(out)
+    # a heading whose bullets were all dropped goes too
+    return re.sub(r"^### [^\n]*\n\s*(?=^### |\Z)", "", body, flags=re.M).strip()
+
+
+def releasable(sha: str, tsha: str, repo: Path = REPO) -> bool:
+    """False when sha's CHANGELOG adds nothing to the last release's: a CUT on it never cuts, and
+    on 10-27 one held main's head ungated (e806a5e19, a fix-forward of ff573d26f, both note-less)."""
+    try:
+        return not tsha or bool(notes(git("show", f"{sha}:CHANGELOG.md", repo=repo),
+                                      git("show", f"{tsha}:CHANGELOG.md", repo=repo)))
+    except subprocess.CalledProcessError:
+        return True                                    # no CHANGELOG to read: the cut decides
+
+
 def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
                  ) -> tuple[str, Path] | None:
     """(sha, dir) of the newest commit after the last release whose full gate passed, or None.
@@ -295,6 +325,8 @@ def passed_since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "o
         sha = plan["sha"]
         try:
             if not ((p.parent / "verdict.json").exists() and passed(gates, p.parent, sha, repo, ref)):
+                continue
+            if not releasable(sha, tsha, repo):
                 continue
             ahead = git("rev-list", "--count", f"{plan['base']}..{sha}" if plan["base"] else sha, repo=repo)
             done.append((int(git("show", "-s", "--format=%ct", sha, repo=repo)), int(ahead), sha, p.parent))
@@ -451,6 +483,9 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
                         "why": f"{fd}/FIXES does not apply on {base[:9]}: {(e.stderr or '').strip()[-300:]}"}
             what = f"{base[:9]} + {len(fl)} fix(es) from {fd}/FIXES"
             out["fixes"] = {"base": base, "gate": str(fd), "commits": fl}
+        if not releasable(target, tsha, repo):
+            target, what = head, "main's head"
+            out.pop("fixes", None)
     state, d = gate_state(gates, content_hash(target, repo))
     if (out.get("fixes") and d is not None and (gsha := json.loads((d / "plan.json").read_text())["sha"]) != target
             and content_hash(gsha, repo, tests=True, baselines=True)

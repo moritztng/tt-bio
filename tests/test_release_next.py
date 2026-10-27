@@ -484,3 +484,17 @@ def test_a_newer_gate_carries_an_older_gates_fixes_that_never_reached_main(tmp_p
     d = rn.decide(tmp_path, gates, "main")
     assert d["do"] == "GATE" and d["fixes"] == {"base": y, "gate": str(gy), "commits": [fix]}
     assert git("show", f"{d['sha']}:harness.py") == "drop = 0" and git("show", f"{d['sha']}:a.py") == "x = 3"
+
+
+def test_a_candidate_with_no_new_release_notes_is_not_releasable(tmp_path):
+    git = _repo(tmp_path)
+    log = "# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-10-01\n- **Old.**\n"
+    (tmp_path / "CHANGELOG.md").write_text(log)
+    git("add", "."), git("commit", "-qm", "release"), git("tag", "-f", "v0.1.0")
+    tsha = git("rev-parse", "HEAD")
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("add", "."), git("commit", "-qm", "code, no notes")
+    assert not rn.releasable(git("rev-parse", "HEAD"), tsha, tmp_path)
+    (tmp_path / "CHANGELOG.md").write_text(log.replace("## [Unreleased]\n", "## [Unreleased]\n- **New.**\n"))
+    git("add", "."), git("commit", "-qm", "notes")
+    assert rn.releasable(git("rev-parse", "HEAD"), tsha, tmp_path)
