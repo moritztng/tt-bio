@@ -63,7 +63,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "hsplit"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -126,6 +126,33 @@ if "idxfree" in knobs:
 if "binsfree" in knobs:
     M._scaled_distogram_bins = _replayed(M._scaled_distogram_bins, lambda R_L, *r: R_L, lambda *a: ())
 
+# hsplit: host seconds inside each region's call (enqueue only for device regions; no sync is added), so a region whose
+# enqueue time is close to its Tracy device time is dispatch-bound. to_torch is the blocking readback (waits on the card).
+HOST = {}
+
+
+def _host_timed(owner, name, key):
+    fn = getattr(owner, name)
+
+    def run(*a, **k):
+        t0 = time.perf_counter()
+        try:
+            return fn(*a, **k)
+        finally:
+            HOST[key] = HOST.get(key, 0.0) + time.perf_counter() - t0
+    setattr(owner, name, run)
+
+
+if "hsplit" in knobs:
+    for owner, name, key in ((M.DiffusionTokenEncoder, "run_device", "token_encoder"),
+                             (M.LocalTokenTransformer, "__call__", "dit"),
+                             (M.LocalAtomTransformer, "__call__", "encoder"),
+                             (M.CompactStreamingDecoder, "run_full_device", "decoder"),
+                             (M, "_create_attention_indices", "attn_idx_all_threads"),
+                             (M, "_scaled_distogram_bins", "bins"),
+                             (ttnn, "to_torch", "to_torch")):
+        _host_timed(owner, name, key)
+
 WALL = []
 _sample = RFD3Sampler.sample
 
@@ -145,6 +172,7 @@ def fold(tag, seed):
     out_dir = "/tmp/gap_screen_%s_%s_%d" % (ARM, tag, os.getpid())   # parallel jobs of one arm share a box
     shutil.rmtree(out_dir, ignore_errors=True)
     WALL.clear()
+    HOST.clear()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
                            num_timesteps=STEPS, seed=seed, num_designs=BATCH, batch_size=BATCH,
                            fast=FAST, verbose=False)
@@ -168,6 +196,9 @@ for seed in SEEDS:
     for i, c in enumerate(cifs[:BATCH]):
         shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed if BATCH == 1 else 10 * seed + i)))
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
+    if "hsplit" in knobs:
+        rec["folds"][-1]["host_ms_per_step"] = {k: round(1e3 * v / STEPS, 2) for k, v in HOST.items()}
+        print("[screen %s] host ms/step %s" % (ARM, rec["folds"][-1]["host_ms_per_step"]), flush=True)
     print("[screen %s] seed %d %.3f s %s" % (ARM, seed, s, d), flush=True)
 rec["w8_counts"] = W8
 rec["idx_replayed_built"] = IDX

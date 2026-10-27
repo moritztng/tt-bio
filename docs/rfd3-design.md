@@ -221,6 +221,11 @@ in both modes. Over eight paired default seeds the design moves 4.0 to 13.7 A at
 for a seed change, with chain breaks 4 -> 3 and fewer clashes. It is off on a p150a, where it does not pay;
 `RFD3_PF_DPB=0/1` forces it either way.
 
+On Wormhole the token encoder's distogram embedding is scaled and shifted by one fused multiply-add instead of two
+passes, about 0.7 s per design in `--fast` and unchanged in normal mode. Over eight paired default seeds the design
+moves 4.7 to 11.5 A at the same seed against 13.4 to 21.3 A for a seed change, with chain breaks 2 -> 3 and clashes
+within seed noise. `RFD3_PZ_ADDCMUL=0/1` forces it either way.
+
 The pairformer's attention in the token encoder runs as one fused attention kernel, with the heads
 padded to a tile width and the pair bias as the mask. It is closer to a float64 reference than the chain of
 separate ops it replaces and saves about 1 s per design in both modes on both chips. Over eight paired default seeds
@@ -229,6 +234,15 @@ unchanged and clashes within seed noise. `RFD3_PF_SDPA=0` turns it off.
 
 The pair Transition also runs its SiLU on the packer thread so the matmuls overlap it. Results are bit-identical;
 a default design is up to 1 s faster in normal mode and unchanged in `--fast`. `RFD3_PAIR_WS_PSILU=0` turns it off.
+
+The cross attention between tokens and atoms runs its per-token query side (one query per token) and the upcasts'
+key side (three key rows per token) on flat rows instead of padding each group to a full tile, which ran those
+norms and linears on 10 to 32 times the rows. About 2.7 s per design on Wormhole in both modes. Over eight paired
+default seeds the design moves 4.2 to 9.9 A at the same seed against 13.2 to 20.0 A for a seed change, with chain
+breaks unchanged (3 -> 3) and clashes within seed noise. `RFD3_GCA_FLAT_Q=0` restores the padded form.
+The atom side of the same cross attention (an upcast's queries, a downcast's keys) runs its norms and linears on
+the real atoms only and is grouped by token afterwards. Results are bit-identical; a default design is about 1 s
+faster on Wormhole in normal mode and 0.4 s in `--fast`. `RFD3_GCA_ATOM_ROWS=0` restores the grouped form.
 
 Atom attention scores only the 64 x 64 tiles that hold a neighbour, about a quarter of them, and reads keys,
 values and mask in place; the skipped tiles carry zero softmax weight. It matches a float64 reference as
@@ -264,7 +278,8 @@ Where the host tree is used, the atoms that do not move (a binder's target, a fi
 neighbours found once per design, and each step only re-queries the moving atoms and the target rows they
 come close to. Every row is the same as the full tree's, order included. On Wormhole the binder page cell drops
 from 61.4 to 56.7 s per design in fast mode and from 62.7 to 57.3 s in normal mode, with identical structures.
-`RFD3_STATIC_KNN=0` restores the full query every step.
+`RFD3_STATIC_KNN=0` restores the full query every step. Only the index rows whose
+neighbour list changed are rebuilt each step, which takes another 1.2 s off fast and 1.3 s off normal mode there.
 
 The token transformer's conditioning is the same for all 18 blocks of a step, so its adaLN gains, shifts and
 output gates come from three wide projections per step instead of six small ones and two norms per block,

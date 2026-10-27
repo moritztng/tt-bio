@@ -729,6 +729,9 @@ _FAST_MODE = False
 #   ws_ln           with transition_ws, its layer norm as the kernel's prologue (ln_prologue.hpp, as trimul
 #                   T1/T2): the normalised x never goes to DRAM. One-chunk weights only. WH c_z 128 fast: slower
 #                   (4.31 -> 4.48 ms) and less accurate (rel_rms 0.020 -> 0.028) than the separate norm.
+#   ws_ln_resid     ws_ln where ws_resid adds into the same x (x + f(LN(x))): the prologue reads the raw x, fc3's
+#                   fp32 dest adds into it, and neither the normalised x nor a separate LN pass goes to DRAM.
+#                   One-chunk weights only; on Wormhole ESMFold2's c_z 256 plan is over L1 and declines
 #   ws_l1dest       transition_ws also takes a call whose caller asked for an L1 result (the pair residual update
 #                   where it fits L1) and writes it to DRAM instead of declining to the row-blocked path
 #   edm_device      OpenFold3's traced rollout keeps the coordinates on the card: augment + EDM step in fp32 inside
@@ -899,7 +902,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
-           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8")
+           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -927,7 +930,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
-                             "tok_recycle_mm", "tok_w8", "trimul_x8"})
+                             "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -1481,10 +1484,11 @@ _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 # general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
 # path: c730 on Wormhole 157.95 -> 152.61 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
 _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
-# `_heads_unpadded`'s three projections on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
+# PWA's three projections (both head paths) on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
 # `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
 # 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Fold, 3 paired warm, CIFs identical:
-# OpenDDE n608 -0.29 s, f608 / n288 / Protenix-v2 f512 within noise. False = core_grid as before.
+# OpenDDE n608 -0.29 s, f608 / n288 / Protenix-v2 f512 within noise. On the fused path, RF3 1024 x 512:
+# 19.3 -> 17.9 ms a call on p150a, bit-identical (perf/spd/rf3_pwa_ab.py). False = core_grid as before.
 _PWA_PROJ = True
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
@@ -14219,9 +14223,12 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     if lever("ws_lofi") and lofi_allowed():   # LoFi drops the low bits of every operand
         fid = ttnn.MathFidelity.LoFi
     ps = lever("ws_psilu")   # silu on the packer, overlapping the matmuls; bit-identical
-    if (resid is None and lever("ws_ln") and len(parts) == 1
-            and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc)):
-        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc, pack_silu=ps)
+    if (((resid is None and lever("ws_ln")) or (resid is x and lever("ws_ln_resid"))) and len(parts) == 1
+            and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc, resid=resid)):
+        out = _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc, pack_silu=ps,
+                                   resid=resid)
+        # generic_op hands back a new handle over resid's buffer; the caller owns (and frees) its own
+        return out if resid is None else resid
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
@@ -16759,49 +16766,53 @@ class PairWeightedAveraging(Module):
             return out
         w_v, w_g, w_o = packed
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-        v = ttnn.linear(mc, w_v, **lin)                          # [rows, T, H*S]
+        proj = functools.partial(self._proj, lin=lin)
+        v = proj(mc, w_v)                                        # [rows, T, H*S]
         vt = ttnn.permute(v, (0, 2, 1))                          # [rows, H*S, T]
         ttnn.deallocate(v)
         vt = ttnn.reshape(vt, (rows, H, S, T))
         vh = ttnn.permute(vt, (1, 0, 2, 3))                      # [H, rows, S, T]
         ttnn.deallocate(vt)
         vh = ttnn.reshape(vh, (H, rows * S, T))
-        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
-        o = ttnn.matmul(vh, w, transpose_b=True, **lin)          # [H, rows*S, T]
-        ttnn.deallocate(vh)
-        ttnn.deallocate(w)
+        o = self._head_contract(vh, ws, H, rows * S, T, lin)    # [H, rows*S, T]
         o = ttnn.reshape(o, (H, rows, S, T))
         ot = ttnn.permute(o, (1, 0, 2, 3))                       # [rows, H, S, T]
         ttnn.deallocate(o)
         ot = ttnn.reshape(ot, (rows, H * S, T))
         o = ttnn.permute(ot, (0, 2, 1))                          # [rows, T, H*S]
         ttnn.deallocate(ot)
-        g = ttnn.linear(mc, w_g, **lin)
+        g = proj(mc, w_g)
         o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(g)
-        out = ttnn.linear(o, w_o, **lin)                         # heads summed in the matmul
+        out = proj(o, w_o)                                       # heads summed in the matmul
         ttnn.deallocate(o)
         return out
+
+    def _proj(self, x, w, lin):
+        """A v / g / o projection, on `_narrow_proj_linear`'s plan when `_PWA_PROJ`."""
+        o = _narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype) if _PWA_PROJ else None
+        return ttnn.linear(x, w, **lin) if o is None else o
+
+    @staticmethod
+    def _head_contract(vh, ws, H, M, T, lin):
+        """`vh` [H, M, T] against every head's token weights: [H, M, T], vh freed."""
+        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
+        o = ttnn.matmul(vh, w, transpose_b=True, **lin)
+        ttnn.deallocate(vh)
+        ttnn.deallocate(w)
+        return o
 
     def _heads_unpadded(self, mc, ws):
         """`_heads_fused` without the head padding (see `_PWA_UNPADDED`)."""
         H, hd = self.n_heads, self.head_dim
         rows, T = int(mc.shape[0]), int(mc.shape[1])
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-
-        def proj(x, w):
-            o = (_narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype)
-                 if _PWA_PROJ else None)
-            return ttnn.linear(x, w, **lin) if o is None else o
-
+        proj = functools.partial(self._proj, lin=lin)
         v = proj(mc, self.m_weight)                              # [rows, T, H*hd]
         vh = ttnn.permute(v, (2, 0, 1))                          # [H*hd, rows, T]
         ttnn.deallocate(v)
         vh = ttnn.reshape(vh, (H, hd * rows, T))                 # a view when rows % 32 == 0
-        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
-        o = ttnn.matmul(vh, w, transpose_b=True, **lin)          # [H, hd*rows, T]
-        ttnn.deallocate(vh)
-        ttnn.deallocate(w)
+        o = self._head_contract(vh, ws, H, hd * rows, T, lin)   # [H, hd*rows, T]
         ot = permute_120(ttnn.reshape(o, (H * hd, rows, T)))     # [rows, T, H*hd]
         g = proj(mc, self.g_weight)
         ot = ttnn.multiply_(ot, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
