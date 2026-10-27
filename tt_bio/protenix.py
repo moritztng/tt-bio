@@ -1512,7 +1512,7 @@ class DiffusionModule(_KeyedWeights):
         # device_dit path. The paired HSA accuracy and performance gates passed; bf16 remains
         # available as an explicit A/B opt-out through PROTENIX_DIFFUSION_FP32_DEVICE=0.
         self._dit_fp32 = self._diffusion_fp32
-        self._dit_dtype = self.dtype
+        self._dit_dtype = ttnn.bfloat16 if _T.lever("dit_bf16") else self.dtype
         self._dit_ckc = compute_kernel_config   # HiFi4 + fp32_dest_acc_en: dtype is on the tensors
         self.device_dit = True
         DT = "diffusion_transformer."
@@ -1550,15 +1550,16 @@ class DiffusionModule(_KeyedWeights):
         """Upload an activation/host tensor at the DiT dtype (fp32 when the gate is on)."""
         return _T.upload(t, self._dit_dtype)
 
-    def _w_tt_dit(self, key, transpose=True):
-        """Dedicated DiT weight-upload cache at the active diffusion dtype."""
+    def _w_tt_dit(self, key, transpose=True, dtype=None):
+        """Dedicated DiT weight-upload cache at the DiT dtype (or `dtype`)."""
+        dtype = self._dit_dtype if dtype is None else dtype
         cache = self.__dict__.setdefault("_wc_dit", {})
-        v = cache.get((key, transpose))
+        v = cache.get((key, transpose, dtype))
         if v is None:
             w = self._w[key]
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
-            cache[(key, transpose)] = v
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=dtype)
+            cache[(key, transpose, dtype)] = v
         return v
 
     def _w_tt_lp(self, key):
@@ -1573,8 +1574,8 @@ class DiffusionModule(_KeyedWeights):
 
     def _ln_dit(self, x, wkey, bkey=None):
         """Layer norm at the DiT dtype (used for the DiT-output layernorm_a when fp32)."""
-        return ops.layer_norm(x, self._w_tt_dit(wkey, False),
-                              (self._w_tt_dit(bkey, False) if bkey else None),
+        return ops.layer_norm(x, self._w_tt_dit(wkey, False, self.dtype),
+                              (self._w_tt_dit(bkey, False, self.dtype) if bkey else None),
                               epsilon=1e-5, compute_kernel_config=self._dit_ckc)
 
     def _atom_cond(self, cond):
@@ -2021,7 +2022,8 @@ class DiffusionModule(_KeyedWeights):
         if wide:
             for t in wide:
                 ttnn.deallocate(t)
-        return a_t[:, :NT, :] if NP != NT else a_t
+        a_t = a_t[:, :NT, :] if NP != NT else a_t
+        return ttnn.typecast(a_t, self.dtype) if a_t.dtype != self.dtype else a_t
 
     def _dit_shoist(self, s_t):
         """`dit_shoist`: `(sigmoid scales, shifts, sigmoid gates)` of all 24 blocks as three wide
