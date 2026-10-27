@@ -524,6 +524,11 @@ _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
 # to_k and to_v (WH fast census ~11 ms/step together). Flat [B,rows,C] inputs run them on the real rows.
 # RFD3_GCA_FLAT_Q=0 restores the padded form.
 _GCA_FLAT_Q = env_flag("RFD3_GCA_FLAT_Q", True)
+# The atom side of a GCA (an upcast's queries, a downcast's keys) is packed into a [tokens, 32] grid where only the
+# real atoms are rows (6051 of 21920 on the page cell). Its row-wise ops commute with the pack gather, and a pad row
+# stays zero through them (no bias before attention), so they run on the flat atom stream and the pack moves after
+# them; an upcast's output is unpacked before its gate and to_out. RFD3_GCA_ATOM_ROWS=0 restores the packed form.
+_GCA_ATOM_ROWS = env_flag("RFD3_GCA_ATOM_ROWS", True)
 # The collapsed process_z's table lookup as one gather that writes TILE layout (tt_bio/gather_tiled.py) instead of
 # ttnn.embedding + to_layout: WH fast census 5.07 + 4.77 ms/step of embedding against a 0.5 ms roof each, plus
 # 2.7 ms/step of tilize. Same values (data movement only): gather 4.76 -> 1.28 ms/call on WH, digests equal to
@@ -2426,7 +2431,7 @@ class GatedCrossAttention(Module):
         cache[ck] = (mask, out)
         return out
 
-    def run_device(self, q, kv, attn_mask=None, attn_mask_dev=None, n_key=None):
+    def run_device(self, q, kv, attn_mask=None, attn_mask_dev=None, n_key=None, q_pack=None, kv_pack=None):
         """q [B,T,Q,Cq], kv [B,T,K,Ckv]; return device [B,T,Q,Cq].
         A 3D q [B,T,Cq] is one query per token (the downcasts) and returns [B,T,Cq]. Its
         row-wise ops (norms, to_q, to_g, to_out) then run on T rows: the same call on
@@ -2434,7 +2439,11 @@ class GatedCrossAttention(Module):
         Likewise a 3D kv [B,T*K,Ckv] with `n_key`=K (the upcasts' 3 keys a token) runs
         ln_kv, to_k, to_v and k_norm on T*K rows instead of T tile-padded groups of K.
         attn_mask_dev (already-uploaded additive mask) takes priority over
-        attn_mask (host bool mask, uploaded here) when both are given."""
+        attn_mask (host bool mask, uploaded here) when both are given.
+        q_pack = (pack, unpack) takes a flat atom q [B,L,Cq]: the q-side row ops run on L rows, `pack` maps
+        qq to [B,T,Q,C] and `unpack` brings the attention output back to [B,L,C]; returns [B,L,Cq].
+        kv_pack = pack takes a flat atom kv [B,L,Ckv]: ln_kv, to_k, to_v, k_norm run on L rows and
+        `pack` maps [k|v] to [B,T,K,2C]."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
         flat = len(q.shape) == 3 and _GCA_FLAT_Q
         if len(q.shape) == 3 and not flat:
@@ -2442,9 +2451,9 @@ class GatedCrossAttention(Module):
         if flat:
             batch, tokens, _ = q.shape
             n_query = 1
-        else:
+        elif q_pack is None:
             batch, tokens, n_query, _ = q.shape
-        if n_key is None:
+        if n_key is None and kv_pack is None:
             n_key = kv.shape[2]
         q = ttnn.rms_norm(q, weight=self.ln_q, epsilon=1e-6, compute_kernel_config=ckc)
         kv = ttnn.rms_norm(kv, weight=self.ln_kv, epsilon=1e-6, compute_kernel_config=ckc)
@@ -2457,6 +2466,15 @@ class GatedCrossAttention(Module):
 
         if flat:
             qq = ttnn.reshape(qq, (batch, tokens, 1, self.n_head * self.head_dim))
+        if q_pack is not None:
+            qq = q_pack[0](qq)
+            batch, tokens, n_query, _ = qq.shape
+        kvh = None
+        if kv_pack is not None:
+            kvh = kv_pack(ttnn.concat([kk, vv], dim=-1))
+            ttnn.deallocate(kk)
+            ttnn.deallocate(vv)
+            n_key = kvh.shape[2]
 
         def split(x, count):
             x = ttnn.reshape(
@@ -2473,9 +2491,10 @@ class GatedCrossAttention(Module):
             # Both row counts pad to one tile, which is all the kernel checks; it labels every output with
             # q's row count, so k and v get theirs back by a view (same padded shape).
             bt, hp = batch * tokens, self.n_head * self.head_dim
-            kvh = ttnn.concat([kk, vv], dim=-1)
-            ttnn.deallocate(kk)
-            ttnn.deallocate(vv)
+            if kvh is None:
+                kvh = ttnn.concat([kk, vv], dim=-1)
+                ttnn.deallocate(kk)
+                ttnn.deallocate(vv)
             qq, kt, vv = ttnn.experimental.nlp_create_qkv_heads(
                 ttnn.reshape(qq, (bt, 1, n_query, hp)), ttnn.reshape(kvh, (bt, 1, n_key, 2 * hp)),
                 num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=True,
@@ -2487,6 +2506,9 @@ class GatedCrossAttention(Module):
             vv = ttnn.reshape(vv, ttnn.Shape([bt, self.n_head, n_key, self.head_dim]),
                               ttnn.Shape([bt, self.n_head, pad, self.head_dim]))
         else:
+            if kvh is not None:
+                hp = self.n_head * self.head_dim
+                kk, vv = kvh[:, :, :, :hp], kvh[:, :, :, hp:]
             qq = split(qq, n_query)
             kt = ttnn.permute(split(kk, n_key), (0, 1, 3, 2))
             vv = split(vv, n_key)
@@ -2505,6 +2527,8 @@ class GatedCrossAttention(Module):
         out = _merge_heads(out, (batch, tokens, n_query, self.c_model))
         if flat:
             out = ttnn.reshape(out, (batch, tokens, self.c_model))
+        if q_pack is not None:
+            out = q_pack[1](out)
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
         out = ttnn.linear(
             out,
@@ -3259,12 +3283,17 @@ class CompactStreamingDecoder(Module):
         # The upcasts' keys: each token's 768 channels as 3 rows of 256, flat when _GCA_FLAT_Q.
         a_split = ttnn.reshape(a, (a.shape[0], a.shape[1] * 3, 256) if _GCA_FLAT_Q else (a.shape[0], a.shape[1], 3, 256))
         primed = _prime_atom_pair_bias(self, self.atom_blocks, p, bias_cache) if sparse_qk is not None else ()
+        q_pack = (lambda x: self._pack_atoms_device(x, pack_idx_dev, valid),
+                  lambda x: self._unpack_atoms_device(x, unpack_idx_dev, length))
         for upcast, atom_block in zip(self.upcast, self.atom_blocks):
-            q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
-            q_grouped = ttnn.add(
-                q_grouped, upcast.run_device(q_grouped, a_split, attn_mask_dev=upcast_mask_dev, n_key=3)
-            )
-            q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
+            if _GCA_ATOM_ROWS:
+                q = ttnn.add(q, upcast.run_device(q, a_split, attn_mask_dev=upcast_mask_dev, n_key=3, q_pack=q_pack))
+            else:
+                q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
+                q_grouped = ttnn.add(
+                    q_grouped, upcast.run_device(q_grouped, a_split, attn_mask_dev=upcast_mask_dev, n_key=3)
+                )
+                q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
             q = atom_block(q, c, p, mask, sparse_qk=sparse_qk, bias_cache=bias_cache)
         _unprime_atom_pair_bias(primed)
         return q
@@ -3317,9 +3346,12 @@ class CompactStreamingDecoder(Module):
             mask = _tt(_dense_attention_mask(indices), dev, dt)
             q = self.run_device(a, q, c, p, mask, upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
 
-        q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
         down_mask = valid.unsqueeze(1)
-        a_update = self.downcast.run_device(a, q_grouped, down_mask)
+        if _GCA_ATOM_ROWS:
+            a_update = self.downcast.run_device(
+                a, q, down_mask, kv_pack=lambda x: self._pack_atoms_device(x, pack_idx_dev, valid))
+        else:
+            a_update = self.downcast.run_device(a, self._pack_atoms_device(q, pack_idx_dev, valid), down_mask)
         s = _dev(s_host, dev, dt)
         s = ttnn.rms_norm(
             s, weight=self.process_s_n, epsilon=1e-6, compute_kernel_config=ckc
@@ -4334,12 +4366,12 @@ class RFD3DiffusionModule(Module):
         upd = ttnn.squeeze(self.downcast_c.run_device(q, c_g, attn_mask_dev=mask_dev), 2)
         return ttnn.add(S_I_dev, upd)
 
-    def _downcast_q_device(self, q_g, a, s, mask_dev):
+    def _downcast_q_device(self, q, a, s, mask_dev, kv_pack=None):
         """Pure-device tail of downcast_q (GCA + s-norm/linear). mask_dev is the
         already-persisted additive mask from _grouping_buffers, passed via attn_mask_dev so
-        run_device never uploads a fresh mask itself."""
+        run_device never uploads a fresh mask itself. q is packed, or flat atoms with kv_pack."""
         ckc, dt = self.compute_kernel_config, self.dtype
-        upd = self.downcast_q.run_device(a, q_g, attn_mask_dev=mask_dev)
+        upd = self.downcast_q.run_device(a, q, attn_mask_dev=mask_dev, kv_pack=kv_pack)
         a = ttnn.add(a, upd)
         s = ttnn.rms_norm(s, weight=self.downcast_q_s_n, epsilon=1e-6, compute_kernel_config=ckc)
         s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
@@ -4349,8 +4381,10 @@ class RFD3DiffusionModule(Module):
         dev, dt = self.device, self.dtype
         B, I, _ = A_I.shape
         valid, pack_idx_dev, mask_dev = self._grouping_buffers(tok_idx, B)
-        q_g = _pack_atoms_dev_core(_dev(Q_L, dev, dt), pack_idx_dev, valid)
-        out = self._downcast_q_device(q_g, _dev(A_I, dev, dt), _dev(S_I, dev, dt), mask_dev)
+        q, kv_pack = _dev(Q_L, dev, dt), lambda x: _pack_atoms_dev_core(x, pack_idx_dev, valid)
+        if not _GCA_ATOM_ROWS:
+            q, kv_pack = kv_pack(q), None
+        out = self._downcast_q_device(q, _dev(A_I, dev, dt), _dev(S_I, dev, dt), mask_dev, kv_pack)
         return out if _RESIDENT_STEP else ttnn.to_torch(out).float()
 
     def __call__(self, X_noisy_L, t, f, Q_L_init, C_L, P_LL, S_I, Z_II, n_recycle=None):
