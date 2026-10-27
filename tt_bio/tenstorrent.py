@@ -14207,8 +14207,10 @@ def ws_swiglu(x, norm_weight, norm_bias, ckc, parts, resid=None):
     ps = lever("ws_psilu")   # silu on the packer, overlapping the matmuls; bit-identical
     if (((resid is None and lever("ws_ln")) or (resid is x and lever("ws_ln_resid"))) and len(parts) == 1
             and _pair_ws.eligible(x, *parts[0], ln=(norm_weight, norm_bias), l1acc=acc, resid=resid)):
-        return _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc, pack_silu=ps,
-                                    resid=resid)
+        out = _pair_ws.pair_swiglu(x, *parts[0], fid, ln=(norm_weight, norm_bias, 1e-5), l1acc=acc, pack_silu=ps,
+                                   resid=resid)
+        # generic_op hands back a new handle over resid's buffer; the caller owns (and frees) its own
+        return out if resid is None else resid
     x_norm = ttnn.layer_norm(x, weight=norm_weight, bias=norm_bias, epsilon=1e-5, compute_kernel_config=ckc,
                              memory_config=ttnn.DRAM_MEMORY_CONFIG)
     out = None
