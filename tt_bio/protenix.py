@@ -1025,11 +1025,19 @@ class AtomTransformer(_KeyedWeights, Module):
             return ttnn.reshape(win(ttnn.reshape(heads(x, lead, nbk * nq), (M * H, nbk, nq, dh))), (M, H * nb, W, dh))
 
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
-        K = self._lin(kv_norm, apb + "attention.linear_k.weight")
-        V = self._lin(kv_norm, apb + "attention.linear_v.weight")
+        if self._tile_heads and _T.lever("atom_kvcat"):
+            # K and V read the same kv_norm: one linear over their stacked weights writes [K | V].
+            kv = apb + "attention.linear_kv.weight"
+            if kv not in self._w:
+                self._w[kv] = torch.cat([self._w[apb + "attention.linear_k.weight"],
+                                         self._w[apb + "attention.linear_v.weight"]], 0)
+            KV = (self._lin(kv_norm, kv),)
+        else:
+            KV = (self._lin(kv_norm, apb + "attention.linear_k.weight"),
+                  self._lin(kv_norm, apb + "attention.linear_v.weight"))
         if self._tile_heads:
             # Rows [lead, lead + NP) of the frame are Q's; key window i is frame tile rows i .. i+S-1.
-            x = ttnn.pad(ttnn.concat([Q, K, V], dim=-1), [[0, 0], [0, NP - N], [0, 0]], 0.0)
+            x = ttnn.pad(ttnn.concat([Q, *KV], dim=-1), [[0, 0], [0, NP - N], [0, 0]], 0.0)
             x = ttnn.concat([self._zero_rows(M, lead, x), x, self._zero_rows(M, nbk * nq - lead - NP, x)], dim=1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 ttnn.reshape(x, (M, 1, nbk * nq, 3 * H * dh)), num_heads=H, num_kv_heads=H,
@@ -1041,7 +1049,7 @@ class AtomTransformer(_KeyedWeights, Module):
                 Ks, Vs = (ttnn.reshape(win(ttnn.reshape(t, (M * H, nbk, nq, dh))), (M, H * nb, W, dh)) for t in (k, v))
         else:
             Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
-            Ks, Vs = windows(K), windows(V)
+            Ks, Vs = (windows(t) for t in KV)
         kvw = (nb, W, lead, nq) if self._tile_heads and self._kvwin and (self._sdpa or self._sdpa32) else None
         if self._sdpa and kvw is None:
             o = _T.fused_sdpa(Qs, Ks, Vs, attn_mask=zs, scale=dh ** -0.5,
