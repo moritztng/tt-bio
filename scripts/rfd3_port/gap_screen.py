@@ -63,7 +63,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "hsplit"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "hsplit", "dtrace", "dsync"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -153,6 +153,23 @@ if "hsplit" in knobs:
                              (ttnn, "to_torch", "to_torch")):
         _host_timed(owner, name, key)
 
+# dtrace: host time of the DiT entry's pieces (mask build, every _tt upload, the hoist enqueue, run_device). dsync adds a
+# synchronize at DiT entry and books the wait: how far the host runs ahead of the card there (perturbs the fold).
+if "dtrace" in knobs:
+    for owner, name, key in ((M, "_dense_attention_mask", "dit_mask_build"), (M, "_tt", "tt_all"),
+                             (M.LocalTokenTransformer, "_hoist", "dit_hoist"),
+                             (M.LocalTokenTransformer, "run_device", "dit_run_device")):
+        _host_timed(owner, name, key)
+if "dsync" in knobs:
+    _dit_call = M.LocalTokenTransformer.__call__
+
+    def _dit_synced(self, *a, **k):
+        t0 = time.perf_counter()
+        ttnn.synchronize_device(self.device)
+        HOST["dit_entry_sync"] = HOST.get("dit_entry_sync", 0.0) + time.perf_counter() - t0
+        return _dit_call(self, *a, **k)
+    M.LocalTokenTransformer.__call__ = _dit_synced
+
 WALL = []
 _sample = RFD3Sampler.sample
 
@@ -196,7 +213,7 @@ for seed in SEEDS:
     for i, c in enumerate(cifs[:BATCH]):
         shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed if BATCH == 1 else 10 * seed + i)))
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
-    if "hsplit" in knobs:
+    if knobs & {"hsplit", "dtrace", "dsync"}:
         rec["folds"][-1]["host_ms_per_step"] = {k: round(1e3 * v / STEPS, 2) for k, v in HOST.items()}
         print("[screen %s] host ms/step %s" % (ARM, rec["folds"][-1]["host_ms_per_step"]), flush=True)
     print("[screen %s] seed %d %.3f s %s" % (ARM, seed, s, d), flush=True)
