@@ -28,8 +28,8 @@ import torch
 import ttnn
 
 from .. import tenstorrent as _T
-from ..protenix import (AtomAttentionEncoder, AtomFeaturization, DiffusionModule, Protenix,
-                        edm_sample)
+from ..protenix import (DIT_MM_WH, QSPLIT_NORMAL, AtomAttentionEncoder, AtomFeaturization, DiffusionModule,
+                        Protenix, edm_sample)
 from .featurize import condition_template_index
 from ..envflags import env_flag
 
@@ -54,6 +54,16 @@ DESIGN_ETA_SCHEDULE_CONFIG = {"type": "piecewise_65", "min": 1.0, "max": 2.5}
 # effectively the whole trajectory instead of stopping once sigma drops below 1.0.
 DESIGN_GAMMA0 = 1.0
 DESIGN_GAMMA_MIN = 0.01
+
+# PXDesign's Wormhole set (both modes: --fast is a trunk lever and there is no trunk): the family normal set plus the
+# Protenix diffusion levers that act on a design. Graded on the design page cell (laczc_512_nomsa, 400 steps), 8 seeds
+# pooled against the family set with a second family arm as the floor (perf/pxdesign/lever_grade.py): a design's
+# trajectory re-rolls on any numeric change, so no same-seed bar can pass. Galaxy chip at 1000 MHz (spd-m-pxdesign lv5,
+# 2026-10-27), PASS: CA-CA bond error 0.0258 -> 0.0257 A, fit-RMSD -0.03 [-0.63, +0.58] A, radius of gyration -0.08
+# [-0.39, +0.24] A, contact residues +0.1 [-4.1, +4.3]; warm 23.00 -> 21.43 s a design. atom_kvcat is bit-identical on
+# top of adaln_mod. Blackhole takes the family set until its own grade.
+WH_DESIGN_LEVERS = (_T.NORMAL_LEVERS | QSPLIT_NORMAL | DIT_MM_WH
+                    | {"adaln_mod", "atom_kvcat", "pz_device", "dit_shoist"})
 
 _EMBEDDER = "design_condition_embedder.condition_template_embedder.embedder.weight"
 _INPUT_MAP = "design_condition_embedder.input_embedder.input_map."
@@ -85,9 +95,9 @@ class ProtenixDesign(Protenix):
         self._fast = _TT._FAST_MODE
         _TT.set_fast_mode(False)     # --fast is a trunk lever, and there is no trunk here
         # The diffusion module is Protenix's, so it builds and samples under the family's
-        # normal lever set (`levers` / TT_BIO_LEVERS override it); the trunk levers in that
-        # set have nothing to act on here.
-        self._levers = _TT.model_levers(spec=levers)
+        # normal lever set, plus WH_DESIGN_LEVERS on Wormhole (`levers` / TT_BIO_LEVERS
+        # override it); the trunk levers in that set have nothing to act on here.
+        self._levers = _TT.model_levers(normal=WH_DESIGN_LEVERS if _TT.is_wormhole() else None, spec=levers)
         with _TT.levers(self._levers):
             self._build(resolved_fp32, compute_kernel_config)
 
