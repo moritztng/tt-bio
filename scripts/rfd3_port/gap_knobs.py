@@ -13,7 +13,7 @@ ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "pza": "RFD3_PZ_ADDCMUL", "psd": "RFD3_PF_SDPA", "pps": "RFD3_PAIR_WS_PSILU", "dkm": "RFD3_DKNN_MOVERS",
              "gfq": "RFD3_GCA_FLAT_Q", "gar": "RFD3_GCA_ATOM_ROWS",
              "dkst": "RFD3_DKNN_STATIC", "pmemo": "RFD3_PAIR_MEMO",
-             "rmsb": "RFD3_PF_RMSB"}
+             "rmsb": "RFD3_PF_RMSB", "dkar": "RFD3_DKNN_ASYNC_READ"}
 
 
 def apply(arm):

@@ -4263,8 +4263,8 @@ class _MoverIndex:
     """The atom index split by row: the moving atoms' rows on the card (tt_bio.dknn over their id range), every other
     row on the host thread (_neighbours_kdtree with those rows skipped). .result() as a Future's."""
 
-    def __init__(self, out, host, rows, seq, k):
-        self.out, self.host, self.rows, self.seq, self.k = out, host, rows, seq, k
+    def __init__(self, read, host, rows, seq, k):
+        self.read, self.host, self.rows, self.seq, self.k = read, host, rows, seq, k
 
     @classmethod
     def launch(cls, device, X_L, parts):
@@ -4284,14 +4284,13 @@ class _MoverIndex:
         rows = (int(mid[0]), int(mid[-1]) + 1)
         out = dknn.outside_neighbours(device, xd, mask, seq_idx, k, rows)
         host = _INDEX_POOL.submit(_neighbours_kdtree, mask, seq_idx, X_L, k, torch.get_num_threads(), rows)
-        return cls(out, host, rows, seq_idx.cpu().numpy(), k)
+        return cls(dknn.read_later(device, [out]), host, rows, seq_idx.cpu().numpy(), k)
 
     def result(self):
         from .. import dknn
         idx = self.host.result()
         r0, r1 = self.rows
-        idx[0, r0:r1] = dknn.join(self.seq[r0:r1], ttnn.to_torch(self.out).numpy(), len(self.seq), self.k)[0]
-        ttnn.deallocate(self.out)
+        idx[0, r0:r1] = dknn.join(self.seq[r0:r1], self.read()[0].numpy(), len(self.seq), self.k)[0]
         return idx
 
 
