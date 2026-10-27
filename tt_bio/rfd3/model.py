@@ -256,6 +256,10 @@ def _pf_dpb_on():
     return _PF_DPB if _PF_DPB is not None else is_wormhole()
 
 
+def _pz_addcmul_on():
+    return _PZ_ADDCMUL if _PZ_ADDCMUL is not None else is_wormhole()
+
+
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -531,8 +535,11 @@ _PZ_SPREAD = env_flag("RFD3_PZ_SPREAD", True)
 _BINS_NB = env_flag("RFD3_BINS_NB", True)
 # The collapsed process_z's em * inv + ainv as one ttnn.addcmul (eltwise_fusion.mask_add): WH fast census multiply
 # 2.84 + add 1.52 ms/call, two calls a step, and the [B,I,I,128] product is written and read back between them.
-# One bf16 rounding instead of two, so the digest moves. Off while measured.
-_PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False)
+# One bf16 rounding instead of two, so the digest moves. WH page cell @1000 MHz: fast 48.06 -> 47.36, normal flat
+# (47.92 vs 48.20) s/design. Eight paired normal seeds on the WH defaults: design drift 4.7-11.5 A against a 13.4-21.3 A
+# seed floor, breaks 2 -> 3, clashes 337 -> 355. On by default on Wormhole (p150a not read yet); RFD3_PZ_ADDCMUL=0/1
+# forces it.
+_PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False) if os.environ.get("RFD3_PZ_ADDCMUL") else None
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -3574,7 +3581,7 @@ class DiffusionTokenEncoder(Module):
                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
             em = ttnn.to_layout(ttnn.reshape(em, (batch, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
         ttnn.deallocate(idx)
-        if _PZ_ADDCMUL:
+        if _pz_addcmul_on():
             out = _EF.mask_add(ainv, em, inv)
             ttnn.deallocate(em)
             return out
