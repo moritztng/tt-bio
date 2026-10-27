@@ -63,9 +63,11 @@ DESIGN_GAMMA_MIN = 0.01
 # [-0.39, +0.24] A, contact residues +0.1 [-4.1, +4.3]; warm 23.00 -> 21.43 s a design. atom_kvcat is bit-identical on
 # top of adaln_mod. atom_mm16 on top of that set, same protocol (lv6, chip 13 at 1000 MHz), PASS: CA-CA bond error
 # +0.0007 [-0.0018, +0.0031] A, fit-RMSD -0.03 [-0.62, +0.56] A, contact residues -0.1 [-5.1, +4.8]; warm 20.78 -> 19.18 s.
+# dit_kc + dit_mask8 on top (lv7, chip 29 at 1000 MHz), PASS: CA-CA bond error -0.0010 [-0.0045, +0.0024] A, fit-RMSD
+# +0.08 [-0.49, +0.65] A, contact residues -0.1 [-4.5, +4.2]; warm 19.08 -> 17.96 s.
 # Blackhole takes the family set until its own grade.
 WH_DESIGN_LEVERS = (_T.NORMAL_LEVERS | QSPLIT_NORMAL | DIT_MM_WH
-                    | {"adaln_mod", "atom_kvcat", "atom_mm16", "pz_device", "dit_shoist"})
+                    | {"adaln_mod", "atom_kvcat", "atom_mm16", "pz_device", "dit_shoist", "dit_kc", "dit_mask8"})
 
 _EMBEDDER = "design_condition_embedder.condition_template_embedder.embedder.weight"
 _INPUT_MAP = "design_condition_embedder.input_embedder.input_map."
