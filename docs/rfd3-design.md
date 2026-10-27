@@ -280,6 +280,9 @@ come close to. Every row is the same as the full tree's, order included. On Worm
 from 61.4 to 56.7 s per design in fast mode and from 62.7 to 57.3 s in normal mode, with identical structures.
 `RFD3_STATIC_KNN=0` restores the full query every step. Only the index rows whose
 neighbour list changed are rebuilt each step, which takes another 1.2 s off fast and 1.3 s off normal mode there.
+When the moving atoms are one contiguous range, as a binder is, their rows go to the card index while the host
+tree answers the rest, with the same rows. That takes another 1.3 s off fast and 1.0 s off normal mode on
+Wormhole. `RFD3_DKNN_MOVERS=0` keeps every row on the host.
 
 The token transformer's conditioning is the same for all 18 blocks of a step, so its adaLN gains, shifts and
 output gates come from three wide projections per step instead of six small ones and two norms per block,
