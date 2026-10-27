@@ -16,6 +16,7 @@ ap.add_argument("--fixture", default="laczc_512_nomsa")
 a = ap.parse_args()
 if a.bf16:
     os.environ["PROTENIX_DIFFUSION_FP32_DEVICE"] = "0"
+os.environ["TT_BIO_LEVERS"] = a.levers
 TREE = Path.cwd()
 sys.path.insert(0, str(TREE))
 
@@ -66,7 +67,7 @@ class Timed:
 D.atxE = Timed("atom_encoder", D.atxE)
 D.atxD = Timed("atom_decoder", D.atxD)
 D._token_dit_device = timed("token_dit", D._token_dit_device)
-D._denoise_device = timed("denoise_total", D._denoise_device)
+D.denoise = timed("denoise_total", D.denoise)
 
 
 def design():

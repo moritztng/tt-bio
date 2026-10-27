@@ -259,12 +259,13 @@ class ProtenixDesign(Protenix):
 
     @_T.under_levers
     def design(self, feats, *, n_step=DESIGN_N_STEP, n_sample=1, seed=None,
-               eta_schedule=None, progress_fn=None, max_parallel_samples=None):
+               eta_schedule=None, progress_fn=None, max_parallel_samples=None, trace=False):
         """Generate binder coordinates. Returns (n_sample, N_atom, 3) host fp32.
 
         Defaults are what an upstream run uses: 400 steps, eta constant 2.5, gamma0 1.0,
         gamma_min 0.01. The design_token_mask half of the output is the designed binder;
-        the rest reproduces the conditioned target.
+        the rest reproduces the conditioned target. trace=True replays a captured trace of
+        each denoise step (needs a device opened with get_device(trace="protenix")).
 
         Sample k is meant to come from seed + k whether it was generated alone or in a
         batch, so that `--num_designs` changes how many designs come back and not which
@@ -274,11 +275,13 @@ class ProtenixDesign(Protenix):
         device denoise is batch-invariant, so the difference is the seeding branch below,
         where n_sample 1 takes the single-stream `member_seeds=None` path. Do not rely on
         a design surviving a change of --num_designs until that is closed."""
+        if trace:
+            _T.require_trace_region("design(trace=True)")
         cond, aux = self._trunk_cond(feats, progress_fn=progress_fn)
         eta = DESIGN_ETA_SCHEDULE if eta_schedule is None else eta_schedule
         M = int(n_sample)
         sampler = dict(n_step=n_step, step_scale=eta, gamma0=DESIGN_GAMMA0,
-                       gamma_min=DESIGN_GAMMA_MIN, progress_fn=progress_fn)
+                       gamma_min=DESIGN_GAMMA_MIN, progress_fn=progress_fn, trace=trace)
         if M > 1 and getattr(self.diffusion, "supports_multiplicity", False):
             # Design k draws from its own `seed + k` stream, the same one it would draw
             # from as a run of its own, so --num_designs is a throughput knob and not a
