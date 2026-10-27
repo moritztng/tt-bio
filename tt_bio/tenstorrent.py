@@ -16760,6 +16760,7 @@ class PairWeightedAveraging(Module):
         vt = ttnn.reshape(vt, (rows, H, S, T))
         vh = ttnn.permute(vt, (1, 0, 2, 3))                      # [H, rows, S, T]
         ttnn.deallocate(vt)
+        vh = ttnn.reshape(vh, (H, rows * S, T))
         o = self._head_contract(vh, ws, H, rows * S, T, lin)    # [H, rows*S, T]
         o = ttnn.reshape(o, (H, rows, S, T))
         ot = ttnn.permute(o, (1, 0, 2, 3))                       # [rows, H, S, T]
