@@ -172,11 +172,8 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
 
 // RMSNorm, as ttnn.rms_norm: x * rsqrt(mean(x^2) + eps) * gamma, no centring and no beta. Same CBs
 // and contract as layer_norm_row; C::beta and C::xc are not touched.
-// Split in two for a caller that overlaps them with other work: rms_stats leaves mean(x^2) in C::var with x still at
-// the front of C::x and uses only the FPU (no SFPU, so it can run while the packer thread owns the SFPU);
-// rms_apply does the rest.
-template <class C>
-ALWI void rms_stats() {
+template <class C, class Pack>
+ALWI void rms_norm_row(uint32_t out, Pack pack) {
     cb_wait_front(C::x, C::Kt);
     if constexpr (RMS_ABL & 2) {
         row_mean<C>(C::x, C::var, false);
@@ -184,10 +181,6 @@ ALWI void rms_stats() {
         stage<C, MUL, LN_BLK>(C::x, C::x, C::tmp);        // x^2
         row_mean<C>(C::tmp, C::var, true);                // mean(x^2)
     }
-}
-
-template <class C, class Pack>
-ALWI void rms_apply(uint32_t out, Pack pack) {
     rstd<C>();
     if constexpr (RMS_ABL & 1) {
         reconfig_data_format(C::x, C::rstd);
@@ -221,12 +214,6 @@ ALWI void rms_apply(uint32_t out, Pack pack) {
         tile_regs_release();
     }
     cb_pop_front(C::tmp, C::Kt);
-}
-
-template <class C, class Pack>
-ALWI void rms_norm_row(uint32_t out, Pack pack) {
-    rms_stats<C>();
-    rms_apply<C>(out, pack);
 }
 
 }  // namespace ln_prologue
