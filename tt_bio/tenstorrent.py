@@ -13572,28 +13572,30 @@ class AttentionPairBias(Module):
         if lp is not None and s.dtype != lp.act:
             s = ttnn.typecast(s, lp.act)
         if not self.atom_level:
-            qkv = (lp.linear(s, lw["qkv_weight"], lw["qkv_bias"],
+            seq = int(s.shape[-2])
+            s_in = s
+            if (bias_precomputed and self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
+                    and seq_mask is None and not self._raw_fp32() and int(z.shape[-1]) > seq):
+                # The bias was padded past the sequence once per rollout (`_stage_token_bias`). Padding the
+                # projection's input rather than its output gives q, k and v that width from a pad a quarter
+                # the size (768 wide, not the 3072 of padded qkv): the extra query rows are dropped after
+                # attention and the extra key columns carry the bias's mask, so the real rows do not see them.
+                s_in = ttnn.pad(s, [(0, 0)] * (len(s.shape) - 2) + [(0, int(z.shape[-1]) - seq), (0, 0)],
+                                value=0.0)
+            qkv = (lp.linear(s_in, lw["qkv_weight"], lw["qkv_bias"],
                              dtype=lp.qkv if self.sdpa32 and not self.kq_norm else lp.out)
                    if lp is not None else
                    ttnn.linear(
-                s,
+                s_in,
                 self.qkv_weight,
                 bias=self.qkv_bias,
                 compute_kernel_config=self.compute_kernel_config,
                 core_grid=CORE_GRID_MAIN,
             ))
+            if s_in is not s:
+                ttnn.deallocate(s_in)
             if self.kq_norm:
                 qkv = self._apply_kq_norm(qkv)
-            seq = int(qkv.shape[-2])
-            if (bias_precomputed and self.token_dit and _B2_TOKEN_DIT_SDPA and z is not None
-                    and seq_mask is None and not self._raw_fp32() and int(z.shape[-1]) > seq):
-                # The bias was padded past the sequence once per rollout (`_stage_token_bias`).
-                # One pad of the fused qkv here gives q, k and v that width with the same zero
-                # rows `_sdpa_to_bias_width` would add, for one op instead of three.
-                padded = ttnn.pad(qkv, [(0, 0)] * (len(qkv.shape) - 2)
-                                  + [(0, int(z.shape[-1]) - seq), (0, 0)], value=0.0)
-                ttnn.deallocate(qkv)
-                qkv = padded
             if cat_w is not None and lever("dit_qkvf") and self.token_dit:
                 o = self._qkvf(qkv, z, seq, bias_precomputed, seq_mask)
                 if o is not None:
