@@ -2,8 +2,6 @@
 when rows is a multiple of 32, and with permute (1, 2, 0) otherwise. Both are pure data movement, so the transposed
 path must equal the permute bit for bit, and both must match float64.
 """
-from types import SimpleNamespace
-
 import pytest
 import torch
 import ttnn
@@ -11,6 +9,13 @@ import ttnn
 from tt_bio import tenstorrent as T
 
 H, HD, C_M, TOK = 8, 8, 128, 64
+
+
+def _module(**attrs):
+    """A PairWeightedAveraging without the checkpoint load: the real methods, the given attributes."""
+    mod = object.__new__(T.PairWeightedAveraging)
+    vars(mod).update(attrs)
+    return mod
 
 
 def _setup(rows):
@@ -24,7 +29,7 @@ def _setup(rows):
     wv, wg = bf(torch.randn(C_M, H * HD) / C_M ** 0.5), bf(torch.randn(C_M, H * HD) / C_M ** 0.5)
     wo = bf(torch.randn(H * HD, C_M) / (H * HD) ** 0.5)
     w = bf(torch.softmax(torch.randn(H, TOK, TOK), -1))
-    mod = SimpleNamespace(n_heads=H, head_dim=HD, compute_kernel_config=ckc,
+    mod = _module(n_heads=H, head_dim=HD, compute_kernel_config=ckc,
                           m_weight=up(wv), g_weight=up(wg), o_weight=up(wo))
     ws = [up(w[h:h + 1]) for h in range(H)]
     v = mn.double() @ wv.double()
