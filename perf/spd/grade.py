@@ -211,13 +211,17 @@ def main():
 
     # Score every sample once; cache next to the data so a re-grade costs nothing.
     cache_f = a.data / "grade_cache.json"
-    cache = json.loads(cache_f.read_text()) if cache_f.exists() else {}
+    # Rows grade at once against one data dir: read what parses (an older non-atomic write could leave a tail) and
+    # replace the file atomically below, so a concurrent reader never sees half of it.
+    cache = json.JSONDecoder().raw_decode(cache_f.read_text())[0] if cache_f.exists() else {}
     jobs = [(str(c), str(a.data / "ref" / f"{k[2]}.cif"), k[2]) for k, f in folds.items() for c in f["cifs"]
             if str(c) not in cache]
     with ProcessPoolExecutor(a.jobs) as ex:
         for cif, s in ex.map(score_one, jobs, chunksize=2):
             cache[cif] = s
-    cache_f.write_text(json.dumps(cache))
+    tmp = cache_f.with_name(f"{cache_f.name}.{os.getpid()}")
+    tmp.write_text(json.dumps(cache))
+    os.replace(tmp, cache_f)
 
     refkeys = {p: ref_keys(a.data / "ref" / f"{p}.cif", p) for p in {k[2] for k in folds}}
     fold_m = {}
