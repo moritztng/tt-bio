@@ -178,12 +178,13 @@ def run_esm(
     The embedding is a pure function of the sequence, and a screen re-runs the same target
     with every new batch of ligands, so it is also kept per user under the cache root and
     linked in from there: 7.6 s of a 512 aa invocation on qb1 (transformers import, the 650M
-    load, the forward) is paid once per target rather than once per run. Returns how many
-    were computed.
+    load, the forward) is paid once per target rather than once per run. The card's embedding
+    is not the CPU's (rel_fro 2.4 % at 512 aa), so each backend keeps its own store: a shared
+    one handed a device run whatever the CPU had written first. Returns how many were computed.
     """
     from tt_bio.weights import cache_root
 
-    store = cache_root() / "nesso1" / "esm2" / model_name.replace("/", "--")
+    store = cache_root() / "nesso1" / "esm2" / (model_name.replace("/", "--") + ("-tt" if on_device else ""))
     todo = {m: s for m, s in seqs.items() if not cached(esm_dir / f"{m}.safetensors")}
     missing = {m: s for m, s in todo.items() if not cached(store / f"{m}.safetensors")}
     if missing:
