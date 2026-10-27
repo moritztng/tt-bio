@@ -908,9 +908,10 @@ class AtomTransformer(_KeyedWeights, Module):
         leading dim `s` has, they broadcast over M in the block's binary ops. Same ops on the
         same values, so the result does not change.
 
-        `adaln_mod`: the sigmoids run here too, once per fold, so every apply is one addcmul (the
-        AdaLN modulation and both gated residuals) instead of a multiply with a fused sigmoid and an add."""
-        sig = _T.lever("adaln_mod")
+        `adaln_mod` on an fp32 stack: the sigmoids run here too, once per fold, so every apply is one
+        addcmul (the AdaLN modulation and both gated residuals) instead of a multiply with a fused sigmoid
+        and an add. Every shipped --fast set that names adaln_mod runs this stack bf16 (`diffusion_bf16`)."""
+        sig = self.dtype == ttnn.float32 and _T.lever("adaln_mod")
         terms = []
         for b in range(self.n_blocks):
             apb, ctb = self._prefixes(b)
