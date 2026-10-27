@@ -243,6 +243,11 @@ breaks unchanged (3 -> 3) and clashes within seed noise. `RFD3_GCA_FLAT_Q=0` res
 The atom side of the same cross attention (an upcast's queries, a downcast's keys) runs its norms and linears on
 the real atoms only and is grouped by token afterwards. Results are bit-identical; a default design is about 1 s
 faster on Wormhole in normal mode and 0.4 s in `--fast`. `RFD3_GCA_ATOM_ROWS=0` restores the grouped form.
+The token encoder's pair path depends on each token pair only through its distance bin, so it keeps its
+outputs on the card between steps and recomputes only the rows holding a pair whose bin changed, about 58 % of
+them on the page design and almost none over the last 40 steps. Results are bit-identical; a default design is
+1.8 s faster on Wormhole in `--fast` and 2.5 s in normal mode. It holds four extra copies of the pair tensor and
+turns itself off above 1200 MB of them (`RFD3_PAIR_MEMO_MB`); `RFD3_PAIR_MEMO=0` turns it off.
 
 Atom attention scores only the 64 x 64 tiles that hold a neighbour, about a quarter of them, and reads keys,
 values and mask in place; the skipped tiles carry zero softmax weight. It matches a float64 reference as

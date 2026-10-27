@@ -8,6 +8,10 @@
 // outside the row's mask whose key is <= it; if more than n_fill, the n_fill smallest (ties to the lower index).
 // That is what _neighbours_kdtree keeps from a k-nearest query. The row is written ascending, padded with L.
 // The same source runs on BRISC and NCRISC; each takes its own row range and its own L1 buffers.
+// Candidate mode (CW > 0, a design's static atoms): row i of the candidate table names a static row r, a key bound
+// and that row's nearest static atoms; the keys are taken over those and the mover range [m0, m1) only. When the
+// k-th of them is under the bound, no other atom can be within it (the host set the bound below every other static
+// atom's key at this step's scale), so the row is the full one; otherwise the row is computed in full.
 #include "api/dataflow/dataflow_api.h"
 
 namespace {
@@ -40,10 +44,12 @@ void kernel_main() {
     constexpr uint32_t MW = get_compile_time_arg_val(2);      // mask row words: [n_fill, bits of L...], padded to 8
     constexpr uint32_t WO = get_compile_time_arg_val(3);      // output row width (>= max n_fill), padded to 8
     constexpr uint32_t CB_X = get_compile_time_arg_val(4);    // this RISC-V's CBs: coords, keys, scratch, mask, out
-    constexpr uint32_t CB_D = CB_X + 1, CB_S = CB_X + 2, CB_M = CB_X + 3, CB_O = CB_X + 4;
-    constexpr auto x_args = TensorAccessorArgs<5>();
+    constexpr uint32_t CW = get_compile_time_arg_val(5);      // candidate row words [r, bound lo, hi, 0, ids...]; 0 = off
+    constexpr uint32_t CB_D = CB_X + 1, CB_S = CB_X + 2, CB_M = CB_X + 3, CB_O = CB_X + 4, CB_C = CB_X + 5;
+    constexpr auto x_args = TensorAccessorArgs<6>();
     constexpr auto m_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto o_args = TensorAccessorArgs<m_args.next_compile_time_args_offset()>();
+    constexpr auto c_args = TensorAccessorArgs<o_args.next_compile_time_args_offset()>();
 
     const uint32_t r0 = get_arg_val<uint32_t>(0);
     const uint32_t nr = get_arg_val<uint32_t>(1);
@@ -52,8 +58,11 @@ void kernel_main() {
     const auto sm = TensorAccessor(m_args, get_common_arg_val<uint32_t>(1), MW * 4);
     const auto so = TensorAccessor(o_args, get_common_arg_val<uint32_t>(2), WO * 4);
     const uint32_t o0 = get_common_arg_val<uint32_t>(3);     // first row of the output (a row range's start)
+    const auto sc = TensorAccessor(c_args, get_common_arg_val<uint32_t>(4), (CW > 0 ? CW : 1) * 4);
+    const uint32_t m0 = get_common_arg_val<uint32_t>(5), m1 = get_common_arg_val<uint32_t>(6);   // candidate mode movers
 
     const uint32_t x_l1 = get_write_ptr(CB_X), m_l1 = get_write_ptr(CB_M), o_l1 = get_write_ptr(CB_O);
+    const uint32_t c_l1 = CW > 0 ? get_write_ptr(CB_C) : 0;
     noc_async_read(sx.get_noc_addr(0), x_l1, L * 16);
     noc_async_read_barrier();
     const int32_t* x = reinterpret_cast<const int32_t*>(x_l1);
@@ -69,7 +78,16 @@ void kernel_main() {
     constexpr uint32_t SS = 8, NS = (L + SS - 1) / SS, TS = 2 * KK / SS - 1;
     constexpr bool SAMPLED = L >= 4 * KK && TS < NS;
 
-    for (uint32_t r = r0; r < r0 + nr; ++r) {
+    for (uint32_t i = r0; i < r0 + nr; ++i) {
+        uint32_t r = i;
+        uint64_t cbound = 0;
+        volatile tt_l1_ptr uint32_t* cw = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(c_l1);
+        if constexpr (CW > 0) {
+            noc_async_read(sc.get_noc_addr(i), c_l1, CW * 4);
+            noc_async_read_barrier();
+            r = cw[0];
+            cbound = uint64_t(cw[1]) | (uint64_t(cw[2]) << 32);
+        }
         noc_async_read(sm.get_noc_addr(r), m_l1, MW * 4);
         const int32_t qx = x[4 * r], qy = x[4 * r + 1], qz = x[4 * r + 2];
         auto key = [&](uint32_t j) {
@@ -91,15 +109,39 @@ void kernel_main() {
             }
             return c;
         };
-        uint64_t bound = ~uint64_t(0);
-        if constexpr (SAMPLED) {
-            for (uint32_t i = 0; i < NS; ++i) d[i] = key(i * SS);
-            bound = kth(d, int32_t(NS), int32_t(TS));
+        uint32_t c = 0;
+        uint64_t dk = 0;
+        bool done = false;
+        if constexpr (CW > 0) {
+            // the row's static candidates and every mover; the selection below does not depend on their order
+            for (uint32_t t = 4; t < CW && cw[t] < L; ++t) {
+                const uint32_t j = cw[t];
+                s[2 * c] = key(j);
+                s[2 * c + 1] = j;
+                ++c;
+            }
+            for (uint32_t j = m0; j < m1; ++j) {
+                s[2 * c] = key(j);
+                s[2 * c + 1] = j;
+                ++c;
+            }
+            if (c >= KK) {
+                for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
+                dk = kth(d, int32_t(c), int32_t(KK) - 1);
+                done = dk < cbound;
+            }
         }
-        uint32_t c = collect(bound);
-        if (c < KK) c = collect(~uint64_t(0));
-        for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
-        const uint64_t dk = kth(d, int32_t(c), int32_t(KK) - 1);
+        if (!done) {
+            uint64_t bound = ~uint64_t(0);
+            if constexpr (SAMPLED) {
+                for (uint32_t t = 0; t < NS; ++t) d[t] = key(t * SS);
+                bound = kth(d, int32_t(NS), int32_t(TS));
+            }
+            c = collect(bound);
+            if (c < KK) c = collect(~uint64_t(0));
+            for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
+            dk = kth(d, int32_t(c), int32_t(KK) - 1);
+        }
         noc_async_read_barrier();
         const uint32_t n_fill = m[0];
         // outside-mask candidates within the k-th key, compacted in place (still ascending by index)
