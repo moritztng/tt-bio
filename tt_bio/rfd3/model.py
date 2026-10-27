@@ -241,6 +241,7 @@ _DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
 # query, so the index is unchanged. WH page cell @1000 MHz, CIFs equal: fast 61.4 -> 56.7, normal 62.7 -> 57.3 s/design.
 _STATIC_KNN = env_flag("RFD3_STATIC_KNN", True)
 _STATIC_KNN_CACHE: dict = {}
+_NN_ROWS_CACHE: dict = {}
 # The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
 # at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the
 # order of additions differs, so 38 of 7.5M pooled values round to a different bf16 on upload. The page cell's CIFs
@@ -3997,13 +3998,32 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     else:
         _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
         nn = nn.reshape(length, k)
-    seq = seq_idx.numpy()
-    outside = ~mask.numpy()[np.arange(length)[:, None], nn]
+    # A row's output depends only on its nn row (mask and seq_idx are fixed per design), and in a binder or motif
+    # design most rows keep last step's neighbours, so only the rows whose nn changed are rebuilt. One tuple read and
+    # one write: a concurrent caller sees a consistent previous step or none.
+    prev = _NN_ROWS_CACHE.get((length, k))
+    if prev is not None and prev[0] is mask and prev[1] is seq_idx:
+        rows = np.flatnonzero((nn != prev[2]).any(1))
+        vals = prev[3].copy()
+        vals[rows] = _fill_rows(mask, seq_idx, nn, rows, length, k)
+    else:
+        vals = _fill_rows(mask, seq_idx, nn, slice(None), length, k)
+    _NN_ROWS_CACHE[(length, k)] = (mask, seq_idx, nn, vals)
+    return torch.from_numpy(vals.astype(np.int64)).unsqueeze(0)
+
+
+def _fill_rows(mask, seq_idx, nn, rows, length, k):
+    """Rows `rows` of _neighbours_kdtree's output, int32 [len(rows), k]."""
+    import numpy as np
+
+    nn, seq = nn[rows], seq_idx.numpy()[rows]
+    r = np.arange(length)[rows]
+    outside = ~mask.numpy()[r[:, None], nn]
     n_fill = k - (seq < length).sum(1, keepdims=True)
     keep = outside & (np.cumsum(outside, 1) <= n_fill)
     vals = np.concatenate([seq.astype(np.int32), np.where(keep, nn.astype(np.int32), length)], 1)
     vals.sort(1)
-    return torch.from_numpy(vals[:, :k].astype(np.int64)).unsqueeze(0)
+    return np.ascontiguousarray(vals[:, :k])
 
 
 def _mask_and_seq_idx(tok_idx, n_seq_neighbours, k, chain, base_mask, length):
