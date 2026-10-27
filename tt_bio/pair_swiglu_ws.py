@@ -409,18 +409,17 @@ def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=Fals
     g, b = (0, 0) if ln is None else (ln[0].buffer_address(), ln[1].buffer_address())
     b1, b3 = (0, 0) if bias is None else (bias[0].buffer_address(), bias[1].buffer_address())
     src = out if resid_src is None else resid_src
-    kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b,
-                                      src.buffer_address(), b1, b3, 0 if resid2 is None else resid2.buffer_address()
-                                      ] + mc_args
-    kernels[1].common_runtime_args = [out.buffer_address(), x.buffer_address()]
     extra = [] if resid_src is None else [resid_src]
+    tail = []
     if rows is not None:
         lst, n = rows
         tail = [lst.buffer_address(), n, int(lst.shape[0])]
-        kernels[0].common_runtime_args = kernels[0].common_runtime_args + tail
-        kernels[1].common_runtime_args = kernels[1].common_runtime_args + tail
         kernels[2].common_runtime_args = tail[1:]
         extra.append(lst)
+    kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b,
+                                      src.buffer_address(), b1, b3, 0 if resid2 is None else resid2.buffer_address()
+                                      ] + mc_args + tail
+    kernels[1].common_runtime_args = [out.buffer_address(), x.buffer_address()] + tail
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=sems, cbs=cbs)
     return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + ([] if bias is None else list(bias))
                            + ([] if resid2 is None else [resid2]) + extra + [out], pd)
