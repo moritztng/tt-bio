@@ -3376,13 +3376,21 @@ def dit_bias_pad_len(n: int) -> int:
     MEASURED (perf/spd_m_opendde/ditpad_sweep.py, Wormhole 1000 MHz, q/k/v [B, 16, Np, 64] vs a bias
     staged at Np, 1199 tokens): B 1, ship 1216 q = k = 256 1038 us + 256 us bias tail re-fill per
     call; at 1280 q320 k256 378 us, q = k = 320 421 us, pm 572 us. B 5: 2583 -> pm 1372 us. 1248,
-    1344 and 1536 are slower than 1280 at every chunk pair. Float64 rel_rms at k256 equals ship's."""
+    1344 and 1536 are slower than 1280 at every chunk pair. Float64 rel_rms at k256 equals ship's.
+
+    Short of the 256 grid, the first tile multiple a chunk of 192 to 320 divides comes first: 544 tokens
+    (17 tiles, BoltzGen's page design) run at 576 with q = k = 288 instead of 768, half the attention
+    work. 1248 (divisor 96) is passed over for 1280 as measured above."""
     if DIT_BPAD_LEN:
         return DIT_BPAD_LEN
     p = _padded_sdpa_len(n)
     if any(p % c == 0 for c in range(320, 95, -SDPA_CHUNK_TILE)):
         return p
-    return _sdpa_chunk_pad_len(n) or p
+    grid = _sdpa_chunk_pad_len(n) or p
+    for q in range(p + SDPA_CHUNK_TILE, grid, SDPA_CHUNK_TILE):
+        if any(q % c == 0 for c in range(320, 191, -SDPA_CHUNK_TILE)):
+            return q
+    return grid
 
 
 def pad_dit_bias(b, n: int, to: int):
@@ -18737,7 +18745,11 @@ class DiffusionModule(TorchWrapper):
             None if self.module.token_transformer_fp32 else self.module.token_transformer)
         # Stock SDPA only: `dit_sdpa_pm` picks its own chunks and read slower padded on a p150a
         # (BoltzGen fast, 52 -> 56-62 ms a step), so it keeps the unpadded bias.
-        to = _sdpa_chunk_pad_len(padded_seq) if _B2_TOKEN_DIT_SDPA and not lever("dit_sdpa_pm") else 0
+        to = 0
+        if _B2_TOKEN_DIT_SDPA and not lever("dit_sdpa_pm"):
+            # dit_chunk picks its chunk from the length, so the length can be the short one it divides.
+            to = dit_bias_pad_len(padded_seq) if lever("dit_chunk") else _sdpa_chunk_pad_len(padded_seq)
+            to = 0 if to == padded_seq else to
         if to and isinstance(parts, list):
             # The fused SDPA's k chunk does not divide the sequence: pad each layer's bias here, once
             # per rollout and one layer at a time (no full-size second copy), new keys masked, so no
