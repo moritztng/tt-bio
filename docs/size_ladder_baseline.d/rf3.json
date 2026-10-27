@@ -676,7 +676,7 @@
                 "rejects": {
                   "h-clamped-to-H": 4
                 },
-                "reason": "declines all 4 calls on h-clamped-to-H x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 4 calls on h-clamped-to-H x4: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1001,7 +1001,7 @@
                 "rejects": {
                   "h-clamped-to-H": 4
                 },
-                "reason": "declines all 4 calls on h-clamped-to-H x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 4 calls on h-clamped-to-H x4: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1328,7 +1328,7 @@
                 "rejects": {
                   "h-clamped-to-H": 4
                 },
-                "reason": "declines all 4 calls on h-clamped-to-H x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 4 calls on h-clamped-to-H x4: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1654,7 +1654,7 @@
                 "rejects": {
                   "h-clamped-to-H": 4
                 },
-                "reason": "declines all 4 calls on h-clamped-to-H x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 4 calls on h-clamped-to-H x4: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1981,7 +1981,7 @@
                 "rejects": {
                   "h-clamped-to-H": 4
                 },
-                "reason": "declines all 4 calls on h-clamped-to-H x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 4 calls on h-clamped-to-H x4: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2302,7 +2302,7 @@
                 "rejects": {
                   "h-clamped-to-H": 4
                 },
-                "reason": "declines all 4 calls on h-clamped-to-H x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline"
+                "reason": "declines all 4 calls on h-clamped-to-H x4: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2622,7 +2622,7 @@
                 "rejects": {
                   "h-clamped-to-H": 4
                 },
-                "reason": "declines all 4 calls on h-clamped-to-H x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from rung 1088]"
+                "reason": "declines all 4 calls on h-clamped-to-H x4: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2943,7 +2943,7 @@
                 "rejects": {
                   "h-clamped-to-H": 4
                 },
-                "reason": "declines all 4 calls on h-clamped-to-H x4: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from rung 1088]"
+                "reason": "declines all 4 calls on h-clamped-to-H x4: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3995,7 +3995,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4317,7 +4317,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4638,7 +4638,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4960,7 +4960,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5283,7 +5283,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5601,7 +5601,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5919,7 +5919,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l] [carried from rung 1088]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6236,7 +6236,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from rung 1088] [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6553,7 +6553,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l] [carried from rung 1088]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6871,7 +6871,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from rung 1088] [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -7990,7 +7990,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -8312,7 +8312,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -8633,7 +8633,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -8955,7 +8955,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -9278,7 +9278,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -9596,7 +9596,7 @@
                 "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "reason": "declines all 0 calls: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tt_bio/tenstorrent.py:8628). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 from 512 up on every model and the lever has no Wormhole raise to decline [carried from tt-galaxy-wh-l]"
+                "reason": "declines all 0 calls: the counter is the row-block height chosen in Transition.__call__, and since the trunk-kernel sets (8262adcac on Blackhole, baa9f173d + 404f56f1d on Wormhole) rf3 runs transition_ws, the pair SwiGLU kernel, so its pair and MSA transitions no longer reach that height derivation. Only a few calls still reach it (none on Blackhole, 4 on Wormhole), each clamped to an H at or below the 16-row floor, so no height above the base exists to serve. Path-level and intended (512 aa normal 27.5 -> 22.2 s on p150a, 55.2 -> 38.1 s on a Galaxy chip)"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
