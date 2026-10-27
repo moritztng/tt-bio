@@ -36,6 +36,7 @@ B1_CB, B3_CB = 21, 22     # bf16, `pair_relu`'s biases as row-replicated tiles
 DY_CB = 23                # bf16, 2 row tiles of `pair_relu_bw`'s cotangent
 RES2_CB = 24              # bf16, the second residual (`resid2`), as deep as RES_CB
 OUTB_CB = 25              # bf16, `pair_relu`'s copy of its float32 residual sum (`resid` float32)
+LIST_CB_R, LIST_CB_W = 26, 27   # uint32, a core's page of the `rows` work list (reader, writer)
 _NUM_CBS = 64             # unpack_to_dest_mode is indexed by CB id
 _TILE = 32 * 32 * 2
 _SW = 4                   # hidden tiles per dest pass (one fp32 dest half)
@@ -141,7 +142,7 @@ def _l1_bytes(kt, nh, ct, wdtype, xdtype=ttnn.bfloat16) -> int:
 
 
 def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias=None, bw=False,
-           resid2=None):
+           resid2=None, rows=None):
     g = device.compute_with_storage_grid_size()
     num_cores, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, mt, 0)
 
@@ -187,15 +188,18 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         defines = tuple(defines) + (("WS_LN", "1"),)
     mcast = WEIGHTS_MCAST and num_cores == g.x * g.y and num_cores > 1
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    first = 0
+    first = ordinal = 0
     for group, per in ((cg1, work1), (cg2, work2)):
         for cr in group.ranges():
             for cx in range(cr.start.x, cr.end.x + 1):
                 for cy in range(cr.start.y, cr.end.y + 1):
-                    cp[cx][cy] = wr[cx][cy] = [first, per]
-                    rd[cx][cy] = [first, per, int(cx == 0 and cy == 0)]
+                    f = ordinal if rows is not None else first   # under `rows`: the core's page of the list
+                    cp[cx][cy] = wr[cx][cy] = [f, per]
+                    rd[cx][cy] = [f, per, int(cx == 0 and cy == 0)]
                     first += per
+                    ordinal += 1
     assert first == mt, (first, mt)
+    assert rows is None or int(rows.shape[0]) == num_cores, (rows.shape, num_cores)
     mc_args, sems = [], []
     if mcast:
         phys = lambda x, y: device.worker_core_from_logical_core(ttnn.CoreCoord(x, y))  # noqa: E731
@@ -210,14 +214,27 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
     wct = [ct] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     if res32 and not nocopy:
         wct += list(ttnn.TensorAccessorArgs(x).get_compile_time_args())
+    rdef = wdef = cdef = list(defines)
+    if rows is not None:
+        page = int(rows.shape[1]) * 4
+        lfmt = lambda i: ttnn.CBFormatDescriptor(buffer_index=i, data_format=ttnn.uint32, page_size=page)  # noqa: E731
+        cbs += [ttnn.CBDescriptor(total_size=page, core_ranges=grid, format_descriptors=[lfmt(i)])
+                for i in (LIST_CB_R, LIST_CB_W)]
+        lb = [("WS_LIST_BYTES", str(page))]
+        rdef = rdef + lb + [("WS_ROWLIST", str(len(rct)))]
+        wdef = wdef + lb + [("WS_ROWLIST", str(len(wct)))]
+        cdef = cdef + [("WS_ROWLIST", "1")]
+        rct.extend(ttnn.TensorAccessorArgs(rows).get_compile_time_args())
+        wct.extend(ttnn.TensorAccessorArgs(rows).get_compile_time_args())
+        mc_args = mc_args or [0] * 6        # the list's common args sit at fixed slots after them
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 9 + mc_args,
-                                   defines=list(defines), config=ttnn.ReaderConfigDescriptor())
+                                   defines=rdef, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0, 0],
-                                   defines=list(defines), config=ttnn.WriterConfigDescriptor())
+                                   defines=wdef, config=ttnn.WriterConfigDescriptor())
     ccfg = ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True)
     if res32 and not nocopy:   # the float32 residual straight to dest: through srcA it would lose 13 mantissa bits
         modes = [ttnn.UnpackToDestMode.Default] * _NUM_CBS
@@ -225,12 +242,12 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
         ccfg.unpack_to_dest_mode = modes
     compute = ttnn.KernelDescriptor(
         kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid, compile_time_args=[kt, nh, ct, silu_poly],
-        runtime_args=cp, defines=list(defines), config=ccfg)
+        runtime_args=cp, common_runtime_args=[0, 0] if rows is not None else [], defines=cdef, config=ccfg)
     return [reader, writer, compute], cbs, sems, mc_args
 
 
 def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None, ln=None, l1acc=False,
-                resid=None, resid2=None, pack_silu=False):
+                resid=None, resid2=None, pack_silu=False, rows=None, resid_src=None):
     """`fc3(silu(x @ w1) * (x @ w2))` for a TILE `x` [..., C]; a new bfloat16 DRAM tensor [..., C_out].
 
     Accumulation is fp32 in dest at every fidelity; `fidelity` is the caller's matmul fidelity. `defines` are
@@ -252,7 +269,11 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     z as `resid` and the chain's partial sum as `resid2`, so the residual add is not a pass of its own.
     `pack_silu`: the polynomial silu runs from the packer thread and fc1 of the next hidden group is issued before fc2,
     so the FPU's matmuls overlap the SFPU's silu (WS_PACK_SILU in the compute kernel); bit-identical. Also with `ln`
-    and `l1acc`; ignored with metal's silu."""
+    and `l1acc`; ignored with metal's silu.
+    `rows` = `row_list(...)`: only those row tiles are computed and written, every other row tile of the output keeps
+    what it held. Each row tile's result is the one the full call writes, bit for bit.
+    `resid_src` (with `resid`): the residual is read from `resid_src`, a tensor of `resid`'s form, and `resid` is only
+    written: `resid = resid_src + f(x)` out of place."""
     if resid is not None:
         defines = tuple(defines) + (("WS_RESID", "1"),)
     if resid2 is not None:
@@ -266,7 +287,28 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     if ln is not None and ln[1] is None:
         ln = (ln[0], ln[0], ln[2])   # the reader loads a beta either way; the RMS prologue never reads it
         defines = tuple(defines) + (("WS_RMS", "1"),)
-    return _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, resid2=resid2)
+    assert resid_src is None or resid is not None
+    return _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, resid2=resid2, rows=rows, resid_src=resid_src)
+
+
+def row_list(device, x, rows):
+    """`pair_swiglu`'s `rows` over `x`: the row tiles `rows` (flattened row tile indices, 32 rows of x's flattened
+    leading dims each), sorted and dealt round-robin to the cores the program splits over, as a uint32 ROW_MAJOR
+    [ncores, P] DRAM tensor (P a multiple of 16, so each core's page is 64-byte aligned). Returns (tensor, n)."""
+    mt = 1
+    for d in x.padded_shape[:-1]:
+        mt *= int(d)
+    mt //= 32
+    ncores = core_split.split_work_to_cores(device.compute_with_storage_grid_size(), mt, 0)[0]
+    rows = torch.as_tensor(rows, dtype=torch.int64).sort().values
+    n = int(rows.numel())
+    p = -(-mt // ncores)
+    p += -p % 16
+    tab = torch.zeros(ncores * p, dtype=torch.int64)
+    k = torch.arange(n)
+    tab[(k % ncores) * p + k // ncores] = rows
+    return ttnn.from_torch(tab.view(ncores, p).to(torch.int32), dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT,
+                           device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG), n
 
 
 @ops.fused_kernel("pair_relu")
@@ -345,7 +387,8 @@ def relu_bw_weights(w1: torch.Tensor, w2: torch.Tensor, device):
     return up(torch.cat([w1, w2.t()], 1)), up(w1.t())
 
 
-def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=False, resid2=None):
+def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=False, resid2=None, rows=None,
+         resid_src=None):
     device = x.device()
     xs = [int(d) for d in x.padded_shape]
     mt = 1
@@ -357,17 +400,27 @@ def _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, bias=None, bw=Fals
         ttnn.Shape([int(d) for d in x.shape][:-1] + [int(w3.shape[-1])]), ttnn.bfloat16, ttnn.TILE_LAYOUT, device,
         ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), tuple(xs), nh, ct, x.memory_config().buffer_type, fidelity, w12.dtype, x.dtype,
-           tuple(defines), silu_poly, None if ln is None else float(ln[2]), bias is not None, bw, WEIGHTS_MCAST)
+           tuple(defines), silu_poly, None if ln is None else float(ln[2]), bias is not None, bw, WEIGHTS_MCAST,
+           None if rows is None else tuple(rows[0].shape))
     if key not in _CACHE:
         _CACHE[key] = _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly, ln, bias, bw,
-                             resid2)
+                             resid2, None if rows is None else rows[0])
     kernels, cbs, sems, mc_args = _CACHE[key]
     g, b = (0, 0) if ln is None else (ln[0].buffer_address(), ln[1].buffer_address())
     b1, b3 = (0, 0) if bias is None else (bias[0].buffer_address(), bias[1].buffer_address())
+    src = out if resid_src is None else resid_src
     kernels[0].common_runtime_args = [x.buffer_address(), w12.buffer_address(), w3.buffer_address(), g, b,
-                                      out.buffer_address(), b1, b3, 0 if resid2 is None else resid2.buffer_address()
+                                      src.buffer_address(), b1, b3, 0 if resid2 is None else resid2.buffer_address()
                                       ] + mc_args
     kernels[1].common_runtime_args = [out.buffer_address(), x.buffer_address()]
+    extra = [] if resid_src is None else [resid_src]
+    if rows is not None:
+        lst, n = rows
+        tail = [lst.buffer_address(), n, int(lst.shape[0])]
+        kernels[0].common_runtime_args = kernels[0].common_runtime_args + tail
+        kernels[1].common_runtime_args = kernels[1].common_runtime_args + tail
+        kernels[2].common_runtime_args = tail[1:]
+        extra.append(lst)
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=sems, cbs=cbs)
     return ttnn.generic_op([x, w12, w3] + ([] if ln is None else list(ln[:2])) + ([] if bias is None else list(bias))
-                           + ([] if resid2 is None else [resid2]) + [out], pd)
+                           + ([] if resid2 is None else [resid2]) + extra + [out], pd)

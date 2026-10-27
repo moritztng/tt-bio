@@ -25,6 +25,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   pps       RFD3_PAIR_WS_PSILU, pws with the silu on the packer, overlapping the matmuls (bit-identical)
   dkm       RFD3_DKNN_MOVERS, the moving atoms' index rows on the card (dknn row range), static rows on the host tree
   dkst      RFD3_DKNN_STATIC, the card index's static rows against their static candidates and the movers only
+  pmemo     RFD3_PAIR_MEMO, the token encoder pair path recomputed only on row tiles whose distance bins changed
   at        RFD3_ATTN_THREAD, the atom neighbour index built on a worker thread
   dpb       RFD3_DPB, the DiT SDPA masks as one program (tt_bio.dit_pair_bias)
   apb       RFD3_ATOM_PB_FUSED, one pair-bias projection for all three atom blocks (default on)
@@ -198,6 +199,10 @@ for seed in SEEDS:
     for i, c in enumerate(cifs[:BATCH]):
         shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed if BATCH == 1 else 10 * seed + i)))
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
+    if "pmemo" in knobs:
+        from tt_bio.rfd3 import model as _m
+        rec["folds"][-1]["pair_memo_rows"] = list(_m.PAIRMEMO)
+        _m.PAIRMEMO[:] = [0, 0]
     if "hsplit" in knobs:
         rec["folds"][-1]["host_ms_per_step"] = {k: round(1e3 * v / STEPS, 2) for k, v in HOST.items()}
         print("[screen %s] host ms/step %s" % (ARM, rec["folds"][-1]["host_ms_per_step"]), flush=True)

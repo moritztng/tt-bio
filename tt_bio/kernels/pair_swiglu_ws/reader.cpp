@@ -21,7 +21,13 @@
 // Common runtime args: x, w12, w3, gamma, beta, residual, b1, b3 (WS_RELU_BW: dy), resid2 addresses, then under WS_MCAST
 // the grid's NOC corners x0, y0, x1, y1, its core count and the sender (x << 16 | y). Per-core runtime args: first row
 // tile, row tile count, sender.
+// Under WS_ROWLIST (the define is the list accessor's compile-time arg offset) the core does only the row tiles of a
+// host list (common args 15-17: list address, n, core count; see common/row_list.hpp), and the per-core first arg
+// is the core's ordinal.
 #include "api/dataflow/dataflow_api.h"
+#ifdef WS_ROWLIST
+#include "../common/row_list.hpp"
+#endif
 #ifdef WS_LN
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 #endif
@@ -182,7 +188,15 @@ void kernel_main() {
     cb_push_back(cb_w12, KT * W12);
     cb_push_back(cb_w3, NH * CT);
 
+#ifdef WS_ROWLIST
+    const auto rows = row_list_read<WS_ROWLIST, WS_LIST_BYTES>(first, get_common_arg_val<uint32_t>(15),
+                                                               get_write_ptr(26));
+    const uint32_t nrows = row_list_count(first, get_common_arg_val<uint32_t>(16), get_common_arg_val<uint32_t>(17));
+    for (uint32_t i = 0; i < nrows; ++i) {
+        const uint32_t r = rows[i];
+#else
     for (uint32_t r = first; r < first + count; ++r) {
+#endif
         cb_reserve_back(cb_x, KT);
         w = get_write_ptr(cb_x);
 #ifndef WS_NO_XREAD  // time attribution only (ws_attr.py)
