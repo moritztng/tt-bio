@@ -3,6 +3,7 @@
 A downcast passes one query per token as [B,T,C] instead of q.unsqueeze(2); an upcast passes its 3 keys a token
 as [B,T*3,C] with n_key=3 instead of [B,T,3,C]. Both run the row-wise ops on the real rows only. The answer has
 to match the padded form to bf16 rounding (a different row count may pick a different matmul blocking).
+The atom side (an upcast's queries, a downcast's keys) runs on the flat atom stream and is packed afterwards.
 """
 import pytest
 import torch
@@ -58,4 +59,50 @@ def test_upcast_flat_keys(T):
     q, a = torch.randn(1, T, 32, 128, generator=g), torch.randn(1, T, 768, generator=g)
     ref = gca.run_device(up(q), ttnn.reshape(up(a), (1, T, 3, 256)))
     out = gca.run_device(up(q), ttnn.reshape(up(a), (1, T * 3, 256)), n_key=3)
+    assert _rel(out, ref) < 1e-2
+
+
+def _atoms(T, g):
+    """A token map with 1-14 atoms a token, its pack/unpack gathers on the card, and the valid grid."""
+    dev = M.get_device()
+    tok_idx = torch.repeat_interleave(torch.arange(T), torch.randint(1, 15, (T,), generator=g))
+    valid, pack, unpack = M._grouping_indices(tok_idx, 1, dev)
+    pack_dev, unpack_dev, L = M._tt_idx(pack, dev), M._tt_idx(unpack, dev), tok_idx.numel()
+    return (L, valid, lambda x: M._pack_atoms_dev_core(x, pack_dev, valid),
+            lambda x: M.CompactStreamingDecoder._unpack_atoms_device(None, x, unpack_dev, L))
+
+
+@pytest.mark.parametrize("T", [70, 96])
+def test_upcast_atom_rows(T):
+    """An upcast's q-side ops on the flat atoms, packed after them, give the packed form's update."""
+    ensure_p300_mesh_descriptor()
+    dev = M.get_device()
+    g = torch.Generator().manual_seed(T + 2)
+    gca = M.GatedCrossAttention(_weights(g, 128, 256), M._default_compute_kernel_config(),
+                                c_query=128, c_kv=256, dtype=ttnn.bfloat16)
+    up = lambda t: ttnn.from_torch(t.bfloat16(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa
+    L, valid, pack, unpack = _atoms(T, g)
+    q, a = up(torch.randn(1, L, 128, generator=g)), ttnn.reshape(up(torch.randn(1, T, 768, generator=g)), (1, T * 3, 256))
+    mask = gca._prepare_additive_mask(valid.unsqueeze(-1).expand(-1, -1, 3), 1, T, valid.shape[1], 3)
+    ref = unpack(gca.run_device(pack(q), a, attn_mask_dev=mask, n_key=3))
+    out = gca.run_device(q, a, attn_mask_dev=mask, n_key=3, q_pack=(pack, unpack))
+    assert tuple(out.shape) == (1, L, 128)
+    assert _rel(out, ref) < 1e-2
+
+
+@pytest.mark.parametrize("T", [70, 96])
+def test_downcast_atom_rows(T):
+    """A downcast's key-side ops on the flat atoms, packed after them, give the packed form's update."""
+    ensure_p300_mesh_descriptor()
+    dev = M.get_device()
+    g = torch.Generator().manual_seed(T + 3)
+    gca = M.GatedCrossAttention(_weights(g, 768, 128), M._default_compute_kernel_config(),
+                                c_query=768, c_kv=128, dtype=ttnn.bfloat16)
+    up = lambda t: ttnn.from_torch(t.bfloat16(), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa
+    L, valid, pack, _ = _atoms(T, g)
+    a, q = up(torch.randn(1, T, 768, generator=g)), up(torch.randn(1, L, 128, generator=g))
+    mask = valid.unsqueeze(1).unsqueeze(0)
+    ref = gca.run_device(a, pack(q), mask)
+    out = gca.run_device(a, q, mask, kv_pack=pack)
+    assert tuple(out.shape) == (1, T, 768)
     assert _rel(out, ref) < 1e-2
