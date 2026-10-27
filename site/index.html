@@ -127,7 +127,7 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
 #contact .panel{margin-top:0;padding:30px 32px 30px}
 .cform{display:grid;gap:20px}
 .cform .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.field label,.topics legend{display:block;font-size:.86rem;font-weight:600;color:var(--ink-2);margin:0 0 8px;padding:0}
+.field label{display:block;font-size:.86rem;font-weight:600;color:var(--ink-2);margin:0 0 8px;padding:0}
 .field .opt{font-weight:400;color:var(--ink-3)}
 .field input,.field textarea{display:block;width:100%;font:inherit;font-size:1rem;color:var(--ink);
   background:var(--paper);border:1px solid var(--rule-2);border-radius:10px;padding:11px 14px;
@@ -135,14 +135,6 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
 .field textarea{resize:vertical;min-height:150px;line-height:1.55}
 .field input:hover,.field textarea:hover{border-color:var(--ink-4)}
 .field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash)}
-.topics{border:0;margin:0;padding:0;min-width:0}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chips label{font-size:.9rem;padding:7px 15px;border:1px solid var(--rule-2);border-radius:99px;
-  color:var(--ink-2);cursor:pointer;transition:.18s;user-select:none}
-.chips input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
-.chips label:hover{border-color:var(--ink-4);color:var(--ink)}
-.chips label:has(:checked){background:var(--accent-wash);border-color:var(--accent);color:var(--accent-ink)}
-.chips label:has(:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 .hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 .csend{display:flex;align-items:center;gap:8px 20px;flex-wrap:wrap}
 .csend .btn{cursor:pointer}
@@ -333,15 +325,6 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
         button still has your message: check it and send it again.</p>
       <!-- Backend: site-contact/ (a Worker on tt-bio.com/api/contact). Caps match its MAX. -->
       <form class="panel cform" id="contact-form" action="https://tt-bio.com/api/contact" method="post">
-        <fieldset class="topics">
-          <legend>About <span class="opt">(optional)</span></legend>
-          <div class="chips">
-            <label><input type="radio" name="topic" value="hardware">Your hardware</label>
-            <label><input type="radio" name="topic" value="model">A new model</label>
-            <label><input type="radio" name="topic" value="training">Training</label>
-            <label><input type="radio" name="topic" value="other">Something else</label>
-          </div>
-        </fieldset>
         <div class="two">
           <div class="field"><label for="c-name">Name</label>
             <input id="c-name" name="name" type="text" required maxlength="120" autocomplete="name"></div>

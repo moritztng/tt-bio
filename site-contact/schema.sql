@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS messages (
   name    TEXT NOT NULL,
   email   TEXT NOT NULL,
   org     TEXT NOT NULL,
-  topic   TEXT NOT NULL,
   message TEXT NOT NULL,
   ip      TEXT NOT NULL,
   mail    TEXT,              -- "ok" or the failure, written once the leg settles

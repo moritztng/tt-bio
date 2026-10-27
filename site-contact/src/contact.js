@@ -23,12 +23,6 @@
  */
 
 export const MAX = { name: 120, email: 200, org: 160, message: 5000 };
-export const TOPICS = {
-  hardware: "Your hardware",
-  model: "A new model",
-  training: "Training",
-  other: "Something else",
-};
 const PER_IP_PER_HOUR = 5;
 const ALL_PER_HOUR = 300;
 const HOUR_MS = 3600_000;
@@ -69,7 +63,6 @@ export async function handle(request, env, EmailMessage) {
     name: oneLine(str(form, "name")),
     email: str(form, "email"),
     org: oneLine(str(form, "org")),
-    topic: TOPICS[str(form, "topic")] ? str(form, "topic") : "",
     message: str(form, "message"),
   };
   const bad = invalid(msg);
@@ -141,21 +134,17 @@ async function rateLimited(db, ip, now) {
 
 function store(db, m, ip, now) {
   return db.prepare(
-    "INSERT INTO messages (ref, at, name, email, org, topic, message, ip) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-  ).bind(m.ref, now, m.name, m.email, m.org, m.topic, m.message, ip).run();
+    "INSERT INTO messages (ref, at, name, email, org, message, ip) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).bind(m.ref, now, m.name, m.email, m.org, m.message, ip).run();
 }
 
-function summary(m) {
-  const who = m.org ? `${m.name} (${m.org})` : m.name;
-  return m.topic ? `${who}, ${TOPICS[m.topic]}` : who;
-}
+const summary = m => m.org ? `${m.name} (${m.org})` : m.name;
 
 export function mime(env, m) {
   const date = new Date().toUTCString().replace("GMT", "+0000");
   const body = [
     `${m.name} <${m.email}>`,
     m.org ? `Organisation: ${m.org}` : null,
-    m.topic ? `About: ${TOPICS[m.topic]}` : null,
     "",
     m.message,
     "",

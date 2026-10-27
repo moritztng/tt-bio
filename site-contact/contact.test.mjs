@@ -44,7 +44,7 @@ function setup({ mailDown = false, tgDown = false } = {}) {
 }
 
 const FIELDS = { name: "Ada Lovelace", email: "ada@example.org", org: "Analytical Bio",
-  topic: "hardware", message: "We want to size a Galaxy for Boltz-2 screening." };
+  message: "We want to size a Galaxy for Boltz-2 screening." };
 
 function post(env, fields = {}, { json = true, origin = "https://moritztng.github.io", ip = IP } = {}) {
   const headers = { Origin: origin, "CF-Connecting-IP": ip,
@@ -69,7 +69,6 @@ test("a valid message lands on all three legs", async () => {
   const [row] = rows(env);
   assert.equal(row.ref, ref);
   assert.equal(row.ip, IP);
-  assert.equal(row.topic, "hardware");
   assert.equal(row.mail, "ok");
   assert.equal(row.notify, "ok");
 
@@ -82,7 +81,7 @@ test("a valid message lands on all three legs", async () => {
 
   assert.equal(pinged.length, 1);
   assert.equal(pinged[0].body.chat_id, "42");
-  assert.match(pinged[0].body.text, new RegExp(`${ref}: Ada Lovelace \\(Analytical Bio\\), Your hardware`));
+  assert.match(pinged[0].body.text, new RegExp(`${ref}: Ada Lovelace \\(Analytical Bio\\) <ada@example\\.org>`));
   assert.ok(!pinged[0].body.text.includes(IP));
 });
 
@@ -118,12 +117,6 @@ test("too long, bad email and missing fields are refused with a reason", async (
   const r = await post(env, { message: "x".repeat(5001) }, { json: false });
   assert.equal(r.headers.get("Location"), SITE + "#contact-error");
   assert.equal(rows(env).length, 0);
-});
-
-test("an unknown topic is dropped, not refused", async () => {
-  const { env } = setup();
-  assert.equal((await post(env, { topic: "<script>" })).status, 200);
-  assert.equal(rows(env)[0].topic, "");
 });
 
 test("a name cannot inject a mail header", async () => {
