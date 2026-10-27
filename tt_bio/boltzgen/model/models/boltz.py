@@ -86,8 +86,10 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # 4-seed grade of a five-lever stack failed on design_ptm alone; the 8-seed retest was pre-registered.
 # dit_pad_short stages the token DiT bias at 576 rather than 768 for the 544-token page design: normal grade over seeds
 # 0-7 (2026-10-27) design_ptm +0.002, iptm +0.013, complex_plddt -0.002, filter 64/64; 46.4 -> 45.2 s/design.
+# adaln_mod fuses each fp32 AdaLN modulation into one addcmul and so lets dit_cond_steps condition several DiT steps
+# ahead (without it dit_cond_steps does nothing in normal): 43.3 -> 40.9 s/design at 1000 MHz.
 WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
-                                    "trimul_t2", "dit_pad_short"}
+                                    "trimul_t2", "dit_pad_short", "adaln_mod"}
 # Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
 # attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
