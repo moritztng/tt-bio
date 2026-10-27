@@ -7,6 +7,11 @@ deviation (all binder atoms, both already in the input target's frame, no furthe
 bar, beside the seed floor (the median deviation between two different seeds of the base arm), plus paired
 per-seed deltas of what makes a backbone usable: the target-fit residual, CA-CA bond error, CA clashes, radius of
 gyration and CA contacts with the target. `--floor` adds the A/A same-seed deviation between two base runs.
+
+A diffusion trajectory re-rolls on any numeric change, so a same-seed deviation near the seed floor says the arm
+drew a different design, not a worse one. `pooled` therefore compares each quality metric's distribution across
+all seeds unpaired (mean difference, Welch 95 % interval); `pass_pooled` holds when every interval covers 0 or
+leans the good way (lower fit residual, bond error and clashes; more contacts).
 """
 import argparse, json, statistics
 from pathlib import Path
@@ -61,5 +66,15 @@ for k in qB[seeds[0]]:
     delta = [qA[s][k] - qB[s][k] for s in seeds]
     out[f"d_{k}"] = {"mean": round(statistics.mean(delta), 4), "min": round(min(delta), 4),
                      "max": round(max(delta), 4), "base_mean": round(statistics.mean(qB[s][k] for s in seeds), 4)}
+BETTER = {"fit_rmsd": -1, "ca_bond_err": -1, "ca_clash": -1, "rg": 0, "contact_res": 1}
+out["pooled"], ok = {}, True
+for k, sign in BETTER.items():
+    xa, xb = [qA[s][k] for s in seeds], [qB[s][k] for s in seeds]
+    d = statistics.mean(xa) - statistics.mean(xb)
+    half = 1.96 * (statistics.variance(xa) / len(xa) + statistics.variance(xb) / len(xb)) ** 0.5
+    out["pooled"][k] = [round(d - half, 4), round(d, 4), round(d + half, 4)]
+    worse = (d - half > 0) if sign < 0 else (d + half < 0) if sign > 0 else False
+    ok &= not worse
 out["pass_pose"] = out["same_seed_median"] <= 0.60
+out["pass_pooled"] = ok
 print(json.dumps(out, indent=1))
