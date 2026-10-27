@@ -240,6 +240,9 @@ key side (three key rows per token) on flat rows instead of padding each group t
 norms and linears on 10 to 32 times the rows. About 2.7 s per design on Wormhole in both modes. Over eight paired
 default seeds the design moves 4.2 to 9.9 A at the same seed against 13.2 to 20.0 A for a seed change, with chain
 breaks unchanged (3 -> 3) and clashes within seed noise. `RFD3_GCA_FLAT_Q=0` restores the padded form.
+The atom side of the same cross attention (an upcast's queries, a downcast's keys) runs its norms and linears on
+the real atoms only and is grouped by token afterwards. Results are bit-identical; a default design is about 1 s
+faster on Wormhole in normal mode and 0.4 s in `--fast`. `RFD3_GCA_ATOM_ROWS=0` restores the grouped form.
 
 Atom attention scores only the 64 x 64 tiles that hold a neighbour, about a quarter of them, and reads keys,
 values and mask in place; the skipped tiles carry zero softmax weight. It matches a float64 reference as

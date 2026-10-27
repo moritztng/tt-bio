@@ -527,7 +527,9 @@ _GCA_FLAT_Q = env_flag("RFD3_GCA_FLAT_Q", True)
 # The atom side of a GCA (an upcast's queries, a downcast's keys) is packed into a [tokens, 32] grid where only the
 # real atoms are rows (6051 of 21920 on the page cell). Its row-wise ops commute with the pack gather, and a pad row
 # stays zero through them (no bias before attention), so they run on the flat atom stream and the pack moves after
-# them; an upcast's output is unpacked before its gate and to_out. RFD3_GCA_ATOM_ROWS=0 restores the packed form.
+# them; an upcast's output is unpacked before its gate and to_out.
+# Bit-identical (CIF digests equal on every fold). Wormhole @1000 A/B/A/B (seeds 60,61): fast 45.73 -> 45.32 s/design,
+# normal 46.74 -> 45.77. RFD3_GCA_ATOM_ROWS=0 restores the packed form.
 _GCA_ATOM_ROWS = env_flag("RFD3_GCA_ATOM_ROWS", True)
 # The collapsed process_z's table lookup as one gather that writes TILE layout (tt_bio/gather_tiled.py) instead of
 # ttnn.embedding + to_layout: WH fast census 5.07 + 4.77 ms/step of embedding against a 0.5 ms roof each, plus
