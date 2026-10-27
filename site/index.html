@@ -321,10 +321,9 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
   <section id="contact" aria-labelledby="contact-h">
     <div>
       <p class="eyebrow">Contact</p>
-      <h2 id="contact-h">Talk to the team</h2>
+      <h2 id="contact-h">Talk to the people who build TT-Bio</h2>
       <p class="say">Bringing these models onto your own hardware, need one TT-Bio does not run yet, or
-        want to train on your own data? Tell us what you are working on. The people who build TT-Bio
-        read every message and reply by email.</p>
+        want to train on your own data? Tell us what you are working on, and we will reply by email.</p>
       <p class="aside">To run the models without hardware, use <a href="https://japanfold.com">JapanFold</a>.
         For a bug, <a href="https://github.com/moritztng/tt-bio/issues">open an issue</a>.</p>
     </div>
@@ -336,7 +335,7 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
         <fieldset class="topics">
           <legend>About <span class="opt">(optional)</span></legend>
           <div class="chips">
-            <label><input type="radio" name="topic" value="hardware">Own hardware</label>
+            <label><input type="radio" name="topic" value="hardware">Your hardware</label>
             <label><input type="radio" name="topic" value="model">A new model</label>
             <label><input type="radio" name="topic" value="training">Training</label>
             <label><input type="radio" name="topic" value="other">Something else</label>
@@ -345,7 +344,7 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
         <div class="two">
           <div class="field"><label for="c-name">Name</label>
             <input id="c-name" name="name" type="text" required maxlength="120" autocomplete="name"></div>
-          <div class="field"><label for="c-email">Work email</label>
+          <div class="field"><label for="c-email">Email</label>
             <input id="c-email" name="email" type="email" required maxlength="200" autocomplete="email"></div>
         </div>
         <div class="field"><label for="c-org">Organisation <span class="opt">(optional)</span></label>
@@ -360,8 +359,8 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
         </div>
       </form>
       <div class="panel cnote" id="contact-sent">
-        <h3 id="contact-sent-h" tabindex="-1">Thanks, it is with the team.</h3>
-        <p>A person reads every message and will reply to <span id="contact-to">the address you gave</span>.</p>
+        <h3 id="contact-sent-h" tabindex="-1">Sent, thank you.</h3>
+        <p>We will reply to <span id="contact-to">the address you gave</span>.</p>
         <p class="ref" id="contact-ref"></p>
       </div>
     </div>

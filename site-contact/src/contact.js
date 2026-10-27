@@ -15,7 +15,7 @@
  *
  * One handler serves both ways the page posts. With JavaScript the page asks for JSON and shows
  * the answer inline; without it the browser posts the form and is redirected back to the page
- * at #contact-sent or #contact-failed, which the page styles with :target.
+ * at #contact-sent or #contact-error, which the page styles with :target.
  *
  * Abuse: only the site's own origins may post, a filled honeypot gets a quiet fake success,
  * fields are length-capped, and one IP gets 5 messages an hour (300 an hour across everyone,
@@ -24,7 +24,7 @@
 
 export const MAX = { name: 120, email: 200, org: 160, message: 5000 };
 export const TOPICS = {
-  hardware: "Own hardware",
+  hardware: "Your hardware",
   model: "A new model",
   training: "Training",
   other: "Something else",
@@ -49,8 +49,10 @@ export async function handle(request, env, EmailMessage) {
   }
   const reply = (status, body) => wantsJson
     ? Response.json(body, { status, headers: cors })
-    : Response.redirect(env.SITE_URL + (status === 200 ? "#contact-sent" : "#contact-failed"), 303);
+    : Response.redirect(env.SITE_URL + (status === 200 ? "#contact-sent" : "#contact-error"), 303);
 
+  // Someone who opens the endpoint itself is sent to the form.
+  if (request.method === "GET") return Response.redirect(env.SITE_URL + "#contact", 302);
   if (request.method !== "POST") return reply(405, { error: "Use POST." });
   if (!allowed) return reply(403, { error: "This form only accepts messages from tt-bio.com." });
 

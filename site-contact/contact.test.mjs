@@ -82,7 +82,7 @@ test("a valid message lands on all three legs", async () => {
 
   assert.equal(pinged.length, 1);
   assert.equal(pinged[0].body.chat_id, "42");
-  assert.match(pinged[0].body.text, new RegExp(`${ref}: Ada Lovelace \\(Analytical Bio\\), Own hardware`));
+  assert.match(pinged[0].body.text, new RegExp(`${ref}: Ada Lovelace \\(Analytical Bio\\), Your hardware`));
   assert.ok(!pinged[0].body.text.includes(IP));
 });
 
@@ -116,7 +116,7 @@ test("too long, bad email and missing fields are refused with a reason", async (
     assert.match((await r.json()).error, re);
   }
   const r = await post(env, { message: "x".repeat(5001) }, { json: false });
-  assert.equal(r.headers.get("Location"), SITE + "#contact-failed");
+  assert.equal(r.headers.get("Location"), SITE + "#contact-error");
   assert.equal(rows(env).length, 0);
 });
 

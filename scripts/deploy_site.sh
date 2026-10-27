@@ -40,8 +40,25 @@ set -a; . "$HOME/.coworker/cloudflare.env"; set +a
 npx --yes wrangler@latest pages deploy "$root/site-redirect" \
   --project-name=tt-bio --branch=main --commit-dirty=true
 
+echo "==> Cloudflare: the contact form's Worker (site-contact/)"
+# Separate from the Pages project, so a site deploy cannot drop it, and redeployed here so it never
+# lags the form. It needs D1 and zone-route rights, which the Pages token lacks.
+if [ ! -r "$HOME/.coworker/cloudflare-admin.env" ]; then
+  echo "missing ~/.coworker/cloudflare-admin.env (CLOUDFLARE_ADMIN_TOKEN)" >&2
+  exit 1
+fi
+(
+  set -a; . "$HOME/.coworker/cloudflare-admin.env"; set +a
+  export CLOUDFLARE_API_TOKEN="$CLOUDFLARE_ADMIN_TOKEN"
+  cd "$root/site-contact"
+  npx --yes wrangler@latest d1 execute tt-bio-contact --remote --file=schema.sql -y >/dev/null
+  npx --yes wrangler@latest deploy
+)
+
 echo "==> verify"
 printf '    %-46s %s\n' "moritztng.github.io/tt-bio/" \
   "$(curl -s -o /dev/null -w 'http=%{http_code}' https://moritztng.github.io/tt-bio/)"
 printf '    %-46s %s\n' "tt-bio.com (expect 302 -> Pages)" \
   "$(curl -s -o /dev/null -w 'http=%{http_code} -> %{redirect_url}' https://tt-bio.com/)"
+printf '    %-46s %s\n' "tt-bio.com/api/contact (expect 302 -> #contact)" \
+  "$(curl -s -o /dev/null -w 'http=%{http_code} -> %{redirect_url}' https://tt-bio.com/api/contact)"
