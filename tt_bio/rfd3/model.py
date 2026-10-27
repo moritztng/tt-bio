@@ -242,6 +242,12 @@ _DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
 _STATIC_KNN = env_flag("RFD3_STATIC_KNN", True)
 _STATIC_KNN_CACHE: dict = {}
 _NN_ROWS_CACHE: dict = {}
+# With the host tree (Wormhole) and static atoms: the moving atoms' own rows, the bulk of what the host still queries
+# each step (1400 of the page fixture's 6051 rows, k 128), go to the card (tt_bio.dknn over that row range) while the
+# host answers the static rows. Needs the movers to be one contiguous id range, as a binder is. Same rows, so the
+# CIFs are unchanged; WH page cell @1000 MHz, seeds 60,61 x2: fast 43.98 -> 42.70, normal 44.70 -> 43.65 s/design.
+_DKNN_MOVERS = env_flag("RFD3_DKNN_MOVERS", True)
+_DKNN_MOVERS_MIN_L = 2048   # the atom index; the DiT's token index is too small to pay for a launch
 # The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
 # at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the
 # order of additions differs, so 38 of 7.5M pooled values round to a different bf16 on upload. The page cell's CIFs
@@ -3976,7 +3982,7 @@ def _neighbours_row_blocked(mask, seq_idx, x, k, block=None):
     return out
 
 
-def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
+def _neighbours_kdtree(mask, seq_idx, x, k, workers=None, skip=None):
     """`_extend_with_neighbours` over a k-d tree query, already sorted (see _ATTN_KDTREE).
 
     Row r keeps its sequence entries (seq_idx < L) and adds the first k - n_seq atoms of its
@@ -3984,6 +3990,7 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     two lists side by side and keeping k gives the row _create_attention_indices returns.
     Everything after the query is numpy, which starts no OpenMP team, so the build can run
     on a worker thread (_ATTN_THREAD).
+    `skip` (r0, r1): the design's moving atoms, whose rows the card answers (_MoverIndex); they come back as L.
     """
     import numpy as np
     from scipy.spatial import cKDTree
@@ -3994,7 +4001,7 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     workers = workers or torch.get_num_threads()
     if _STATIC_KNN:
         from .staticknn import StaticKnn
-        nn = _STATIC_KNN_CACHE.setdefault((length, k), StaticKnn()).query(xd, k, workers)
+        nn = _STATIC_KNN_CACHE.setdefault((length, k), StaticKnn()).query(xd, k, workers, skip is not None)
     else:
         _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
         nn = nn.reshape(length, k)
@@ -4002,12 +4009,18 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     # design most rows keep last step's neighbours, so only the rows whose nn changed are rebuilt. One tuple read and
     # one write: a concurrent caller sees a consistent previous step or none.
     prev = _NN_ROWS_CACHE.get((length, k))
+    # skipped rows hold nn -1, so a later step that answers them itself sees them changed and fills them
+    live = np.ones(length, bool)
+    if skip is not None:
+        live[skip[0]:skip[1]] = False
     if prev is not None and prev[0] is mask and prev[1] is seq_idx:
-        rows = np.flatnonzero((nn != prev[2]).any(1))
+        rows = np.flatnonzero((nn != prev[2]).any(1) & live)
         vals = prev[3].copy()
         vals[rows] = _fill_rows(mask, seq_idx, nn, rows, length, k)
     else:
-        vals = _fill_rows(mask, seq_idx, nn, slice(None), length, k)
+        vals = np.full((length, k), length, np.int32)
+        rows = np.flatnonzero(live)
+        vals[rows] = _fill_rows(mask, seq_idx, nn, rows, length, k)
     _NN_ROWS_CACHE[(length, k)] = (mask, seq_idx, nn, vals)
     return torch.from_numpy(vals.astype(np.int64)).unsqueeze(0)
 
@@ -4101,11 +4114,52 @@ def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=
     if _INDEX_POOL is None:
         from concurrent.futures import ThreadPoolExecutor
         _INDEX_POOL = ThreadPoolExecutor(1, thread_name_prefix="rfd3-attn-index")
+    if (_DKNN_MOVERS and device is not None and _STATIC_KNN and len(tok_idx) >= _DKNN_MOVERS_MIN_L
+            and (X_L.ndim == 2 or X_L.shape[0] == 1)):
+        hybrid = _MoverIndex.launch(device, X_L.reshape(1, -1, 3), parts)
+        if hybrid is not None:
+            return hybrid
     return _INDEX_POOL.submit(_create_attention_indices, f, X_L, tok_idx, n_keys, n_seq_neighbours,
                               workers=torch.get_num_threads())
 
 
 _INDEX_POOL = None
+
+
+class _MoverIndex:
+    """The atom index split by row: the moving atoms' rows on the card (tt_bio.dknn over their id range), every other
+    row on the host thread (_neighbours_kdtree with those rows skipped). .result() as a Future's."""
+
+    def __init__(self, out, host, rows, seq, k):
+        self.out, self.host, self.rows, self.seq, self.k = out, host, rows, seq, k
+
+    @classmethod
+    def launch(cls, device, X_L, parts):
+        import numpy as np
+        from .. import dknn
+        from .staticknn import StaticKnn
+
+        mask, seq_idx = parts["single"]
+        L, k = X_L.shape[1], min(parts["k"], X_L.shape[1])
+        sk = _STATIC_KNN_CACHE.get((L, k))
+        if sk is None or not dknn.fits(L, k):
+            return None
+        xd = X_L[0].detach().double().cpu().numpy()
+        mid = sk.movers(xd)
+        if mid is None or not len(mid) or mid[-1] - mid[0] + 1 != len(mid):
+            return None
+        rows = (int(mid[0]), int(mid[-1]) + 1)
+        out = dknn.outside_neighbours(device, xd, mask, seq_idx, k, rows)
+        host = _INDEX_POOL.submit(_neighbours_kdtree, mask, seq_idx, X_L, k, torch.get_num_threads(), rows)
+        return cls(out, host, rows, seq_idx.cpu().numpy(), k)
+
+    def result(self):
+        from .. import dknn
+        idx = self.host.result()
+        r0, r1 = self.rows
+        idx[0, r0:r1] = dknn.join(self.seq[r0:r1], ttnn.to_torch(self.out).numpy(), len(self.seq), self.k)[0]
+        ttnn.deallocate(self.out)
+        return idx
 
 
 def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=None):
