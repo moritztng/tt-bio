@@ -75,9 +75,9 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     assert "lm_sdpa_stock" in normal_set and "lm_sdpa_stock" in fast_set
     assert "lm_ln_stock" in normal_set and "lm_ln_stock" in fast_set
     assert all((n in s) is not wormhole for n in ("lm_k64", "lm_linear") for s in (normal_set, fast_set))
-    # The fused token-DiT attention passed the fast bar on both archs (dsg, bqkg); its hoisted conditioning (dsq2) on
-    # Wormhole only.
-    assert "dit_qkvf" in fast_set and "dit_qkvf" not in normal_set
+    # The fused token-DiT attention passed the fast bar on both archs (dsg, bqkg) and the normal bar on Blackhole
+    # (bqng); its hoisted conditioning (dsq2) on Wormhole only.
+    assert "dit_qkvf" in fast_set and ("dit_qkvf" in normal_set) is not wormhole
     assert ("dit_shoist" in fast_set) is wormhole and "dit_shoist" not in normal_set
     assert ("trunk_hifi2" in fast_set) is wormhole and "trunk_hifi2" not in normal_set
     assert ("ef2_atom_rope" in fast_set) is wormhole and ("ef2_atom_rope" in normal_set) is wormhole
