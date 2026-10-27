@@ -221,6 +221,11 @@ in both modes. Over eight paired default seeds the design moves 4.0 to 13.7 A at
 for a seed change, with chain breaks 4 -> 3 and fewer clashes. It is off on a p150a, where it does not pay;
 `RFD3_PF_DPB=0/1` forces it either way.
 
+On Wormhole the token encoder's distogram embedding is scaled and shifted by one fused multiply-add instead of two
+passes, about 0.7 s per design in `--fast` and unchanged in normal mode. Over eight paired default seeds the design
+moves 4.7 to 11.5 A at the same seed against 13.4 to 21.3 A for a seed change, with chain breaks 2 -> 3 and clashes
+within seed noise. `RFD3_PZ_ADDCMUL=0/1` forces it either way.
+
 The pairformer's attention in the token encoder runs as one fused attention kernel, with the heads
 padded to a tile width and the pair bias as the mask. It is closer to a float64 reference than the chain of
 separate ops it replaces and saves about 1 s per design in both modes on both chips. Over eight paired default seeds
