@@ -4,8 +4,6 @@ form is a different rounding of the same algebra, so it is not bit-exact with th
 least as close to float64 as the loop was. Heads of width 8 are Protenix-v2's (the unpadded path), width
 32 Boltz-2's (the fused path with no padding); rows=1 is a single-sequence fold.
 """
-from types import SimpleNamespace
-
 import pytest
 import torch
 import ttnn
@@ -13,6 +11,13 @@ import ttnn
 from tt_bio import tenstorrent as T
 
 H, TOK = 8, 64
+
+
+def _module(**attrs):
+    """A PairWeightedAveraging without the checkpoint load: the real methods, the given attributes."""
+    mod = object.__new__(T.PairWeightedAveraging)
+    vars(mod).update(attrs)
+    return mod
 
 
 def _setup(rows, hd, c_m):
@@ -26,7 +31,7 @@ def _setup(rows, hd, c_m):
     wv, wg = bf(torch.randn(c_m, H * hd) / c_m ** 0.5), bf(torch.randn(c_m, H * hd) / c_m ** 0.5)
     wo = bf(torch.randn(H * hd, c_m) / (H * hd) ** 0.5)
     w = bf(torch.softmax(torch.randn(H, TOK, TOK), -1))
-    mod = SimpleNamespace(n_heads=H, head_dim=hd, compute_kernel_config=ckc,
+    mod = _module(n_heads=H, head_dim=hd, compute_kernel_config=ckc,
                           m_weight=up(wv), g_weight=up(wg), o_weight=up(wo))
     ws = [up(w[h:h + 1]) for h in range(H)]
     v = mn.double() @ wv.double()
