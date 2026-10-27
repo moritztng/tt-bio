@@ -21,6 +21,7 @@
 #include "api/compute/tile_move_copy.h"
 #include "api/compute/eltwise_binary_sfpu.h"
 #include "api/compute/eltwise_unary/binop_with_scalar.h"
+#include "../common/unit_list.hpp"
 
 constexpr uint32_t KT = get_compile_time_arg_val(0);
 constexpr uint32_t HT = get_compile_time_arg_val(1);
@@ -31,11 +32,11 @@ constexpr uint32_t SW = 4;                                // tiles per fp32 half
 constexpr uint32_t cb_w = 0, cb_z = 1, cb_m = 2, cb_rm = 3, cb_t = 4, cb_out = 16;
 
 void kernel_main() {
-    const uint32_t u0 = get_arg_val<uint32_t>(0);
-    const uint32_t nunits = get_arg_val<uint32_t>(1);
+    const CoreUnits units = core_units();
     mm_init(cb_w, cb_z, cb_rm, 1);
     cb_wait_front(cb_w, HT * KT);
-    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+    for (uint32_t k = 0; k < units.n; ++k) {
+        const uint32_t u = units[k];
         const uint32_t ib = (u / NT) % NT;
         const uint32_t nv = I - ib * 32 < 32 ? I - ib * 32 : 32;
         cb_wait_front(cb_z, 32 * KT);

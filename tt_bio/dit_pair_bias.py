@@ -48,10 +48,28 @@ def eligible(z, wt, mask) -> bool:
             and zs[1] <= n and _l1_bytes(c // 32, h // 32) <= _L1_BUDGET)
 
 
+def _cores(cg1, cg2, work1, work2):
+    """[(x, y, per)] in the order the units are dealt."""
+    return [(cx, cy, per) for group, per in ((cg1, work1), (cg2, work2)) for cr in group.ranges()
+            for cx in range(cr.start.x, cr.end.x + 1) for cy in range(cr.start.y, cr.end.y + 1)]
+
+
+def _deal(cores, units):
+    """Per-core runtime args (count, u_0, ...) for the UNIT_LIST form: the sorted `units` dealt round-robin (core c
+    takes entries c, c + ncores, ...), each core's list padded to the capacity its contiguous share had."""
+    rt, nc = ttnn.RuntimeArgs(), len(cores)
+    cap = max(per for _, _, per in cores)
+    for c, (cx, cy, _) in enumerate(cores):
+        mine = units[c::nc]
+        rt[cx][cy] = [len(mine)] + mine + [0] * (cap - len(mine))
+    return rt
+
+
 def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, fidelity, raw=False, k1=True,
-           n_out=1):
+           n_out=1, listed=False):
     g = device.compute_with_storage_grid_size()
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, units, 0)
+    cores = _cores(cg1, cg2, work1, work2)
 
     def cb(idx, tiles):
         fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=ttnn.bfloat16, page_size=_TILE)
@@ -60,13 +78,12 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
     cbs = [cb(W_CB, ht * kt), cb(Z_CB, 2 * 32 * kt), cb(M_CB, 2), cb(RM_CB, 32), cb(T_CB, 32), cb(OUT_CB, 2 * 32)]
     rd, cp, wr = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
     first = 0
-    for group, per in ((cg1, work1), (cg2, work2)):
-        for cr in group.ranges():
-            for cx in range(cr.start.x, cr.end.x + 1):
-                for cy in range(cr.start.y, cr.end.y + 1):
-                    rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [first, per]
-                    first += per
+    for cx, cy, per in cores:
+        rd[cx][cy] = cp[cx][cy] = wr[cx][cy] = [first, per]
+        first += per
     assert first == units, (first, units)
+    if listed:
+        rd, cp, wr = (_deal(cores, list(range(units))) for _ in range(3))
     rct = [kt, ht, nt, rows, mb, cols]
     for t in (z, wt, mask):
         rct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
@@ -77,27 +94,34 @@ def _build(z, wt, mask, out, device, units, kt, ht, nt, rows, cols, mb, scale, f
     defines = [("DPB_K1", "1")] if device.arch() == ttnn.Arch.WORMHOLE_B0 and kt <= 4 and k1 else []
     if raw:
         defines.append(("DPB_RAW", "1"))
+    if listed:
+        defines.append(("UNIT_LIST", "1"))
     src = lambda n: str(KERNEL_DIR / n)  # noqa: E731
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     reader = ttnn.KernelDescriptor(kernel_source=src("reader.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=rct, runtime_args=rd, common_runtime_args=[0] * 3,
-                                   config=ttnn.ReaderConfigDescriptor())
+                                   defines=defines, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(kernel_source=src("writer.cpp"), source_type=path, core_ranges=grid,
                                    compile_time_args=wct, runtime_args=wr, common_runtime_args=[0] * n_out,
-                                   config=ttnn.WriterConfigDescriptor())
+                                   defines=defines, config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=src("compute.cpp"), source_type=path, core_ranges=grid,
         compile_time_args=[kt, ht, nt, rows, sbits], runtime_args=cp, defines=defines,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fidelity, fp32_dest_acc_en=True))
-    return [reader, writer, compute], cbs
+    return [reader, writer, compute], cbs, cores
 
 
-def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=False, k1=True, n_out=1):
+def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=False, k1=True, n_out=1, units=None,
+                  outs=None):
     """[B, H, n, n] bf16 = (z @ W) * scale + mask, head-first, for z [B, I, n, C], wt = W^T as [1, 1, H, C] and
     mask [1 or B, 1, n, n] already padded (rows i >= I take the mask alone). With `n_out` > 1 the heads come back
     as a list of n_out tensors [B, H / n_out, n, n], one per consumer, written in place of slicing the stack.
     `raw` (bench only) skips the scale and the mask: the head-first projection with zero padding. `k1=False`
-    (bench only) keeps the K sum in the FPU on Wormhole too."""
+    (bench only) keeps the K sum in the FPU on Wormhole too.
+
+    `units` (sorted flat indices b * nt^2 + ib * nt + jb of 32 x 32 output tiles) computes only those tiles, into
+    `outs` (a previous call's outputs, which keep every other tile): a memo of the bias across calls whose z changed
+    only in those tiles' rows. Each listed tile is bit for bit the full call's."""
     device = z.device()
     zs = [int(d) for d in z.padded_shape]
     B, rows, n, c = zs
@@ -106,13 +130,24 @@ def dit_pair_bias(z, wt, mask, scale, fidelity=ttnn.MathFidelity.HiFi4, raw=Fals
     cols = int(z.shape[2])
     mb = int(int(mask.padded_shape[0]) == B and B > 1)
     assert h % n_out == 0, (h, n_out)
-    outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, h // n_out, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
-                                           device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
-    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity, raw, k1, n_out)
+    listed = units is not None
+    assert listed == (outs is not None), "units and outs go together"
+    if outs is None:
+        outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, h // n_out, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
+                                               device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
+    assert len(outs) == n_out
+    key = (device.id(), tuple(zs), cols, h, mb, float(scale), fidelity, raw, k1, n_out, listed)
     if key not in _CACHE:
         _CACHE[key] = _build(z, wt, mask, outs[0], device, B * nt * nt, kt, ht, nt, rows, cols, mb, float(scale),
-                             fidelity, raw, k1, n_out)
-    kernels, cbs = _CACHE[key]
+                             fidelity, raw, k1, n_out, listed)
+    kernels, cbs, cores = _CACHE[key]
+    if listed:
+        units = [int(u) for u in units]
+        if not units:
+            return outs if n_out > 1 else outs[0]
+        rt = _deal(cores, units)
+        for kd in kernels:
+            kd.runtime_args = rt
     kernels[0].common_runtime_args = [z.buffer_address(), wt.buffer_address(), mask.buffer_address()]
     kernels[1].common_runtime_args = [o.buffer_address() for o in outs]
     pd = ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs)
