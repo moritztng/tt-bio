@@ -88,7 +88,7 @@ def _pre_fix_width(seq_len: int, hidden: int) -> int:
 
 @pytest.mark.parametrize("grid", [(13, 10), (11, 10), (8, 8), (7, 7)])
 @pytest.mark.parametrize("fast", [False, True])
-def test_batch_one_is_a_no_op_on_every_grid(monkeypatch, grid, fast):
+def test_batch_one_is_a_no_op_on_every_grid(monkeypatch, grid, fast, clean_memos):
     """Single-sample folds must resolve to the EXACT width the pre-fix budget picked.
 
     Every model that passed before this fix folds its trunk at batch 1, so this is what makes
