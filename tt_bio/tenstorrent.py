@@ -1476,10 +1476,11 @@ _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 # general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
 # path: c730 on Wormhole 157.95 -> 152.61 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
 _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
-# `_heads_unpadded`'s three projections on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
+# PWA's three projections (both head paths) on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
 # `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
 # 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Fold, 3 paired warm, CIFs identical:
-# OpenDDE n608 -0.29 s, f608 / n288 / Protenix-v2 f512 within noise. False = core_grid as before.
+# OpenDDE n608 -0.29 s, f608 / n288 / Protenix-v2 f512 within noise. On the fused path, RF3 1024 x 512:
+# 19.3 -> 17.9 ms a call on p150a, bit-identical (perf/spd/rf3_pwa_ab.py). False = core_grid as before.
 _PWA_PROJ = True
 PWA_UNPADDED_STATS = [0, 0]             # [unpadded, padded fused]
 _SHIPPED_TTNN = ttnn                    # the tape rebinds the name `ttnn`, never this one
@@ -16742,49 +16743,53 @@ class PairWeightedAveraging(Module):
             return out
         w_v, w_g, w_o = packed
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-        v = ttnn.linear(mc, w_v, **lin)                          # [rows, T, H*S]
+        proj = functools.partial(self._proj, lin=lin)
+        v = proj(mc, w_v)                                        # [rows, T, H*S]
         vt = ttnn.permute(v, (0, 2, 1))                          # [rows, H*S, T]
         ttnn.deallocate(v)
         vt = ttnn.reshape(vt, (rows, H, S, T))
         vh = ttnn.permute(vt, (1, 0, 2, 3))                      # [H, rows, S, T]
         ttnn.deallocate(vt)
         vh = ttnn.reshape(vh, (H, rows * S, T))
-        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
-        o = ttnn.matmul(vh, w, transpose_b=True, **lin)          # [H, rows*S, T]
-        ttnn.deallocate(vh)
-        ttnn.deallocate(w)
+        o = self._head_contract(vh, ws, H, rows * S, T, lin)    # [H, rows*S, T]
         o = ttnn.reshape(o, (H, rows, S, T))
         ot = ttnn.permute(o, (1, 0, 2, 3))                       # [rows, H, S, T]
         ttnn.deallocate(o)
         ot = ttnn.reshape(ot, (rows, H * S, T))
         o = ttnn.permute(ot, (0, 2, 1))                          # [rows, T, H*S]
         ttnn.deallocate(ot)
-        g = ttnn.linear(mc, w_g, **lin)
+        g = proj(mc, w_g)
         o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         ttnn.deallocate(g)
-        out = ttnn.linear(o, w_o, **lin)                         # heads summed in the matmul
+        out = proj(o, w_o)                                       # heads summed in the matmul
         ttnn.deallocate(o)
         return out
+
+    def _proj(self, x, w, lin):
+        """A v / g / o projection, on `_narrow_proj_linear`'s plan when `_PWA_PROJ`."""
+        o = _narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype) if _PWA_PROJ else None
+        return ttnn.linear(x, w, **lin) if o is None else o
+
+    @staticmethod
+    def _head_contract(vh, ws, H, M, T, lin):
+        """`vh` [H, M, T] against every head's token weights: [H, M, T], vh freed."""
+        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
+        o = ttnn.matmul(vh, w, transpose_b=True, **lin)
+        ttnn.deallocate(vh)
+        ttnn.deallocate(w)
+        return o
 
     def _heads_unpadded(self, mc, ws):
         """`_heads_fused` without the head padding (see `_PWA_UNPADDED`)."""
         H, hd = self.n_heads, self.head_dim
         rows, T = int(mc.shape[0]), int(mc.shape[1])
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-
-        def proj(x, w):
-            o = (_narrow_proj_linear(x, w, self.compute_kernel_config, x.dtype)
-                 if _PWA_PROJ else None)
-            return ttnn.linear(x, w, **lin) if o is None else o
-
+        proj = functools.partial(self._proj, lin=lin)
         v = proj(mc, self.m_weight)                              # [rows, T, H*hd]
         vh = ttnn.permute(v, (2, 0, 1))                          # [H*hd, rows, T]
         ttnn.deallocate(v)
         vh = ttnn.reshape(vh, (H, hd * rows, T))                 # a view when rows % 32 == 0
-        w = ttnn.concat(list(ws), dim=0)                         # [H, T, T]
-        o = ttnn.matmul(vh, w, transpose_b=True, **lin)          # [H, hd*rows, T]
-        ttnn.deallocate(vh)
-        ttnn.deallocate(w)
+        o = self._head_contract(vh, ws, H, hd * rows, T, lin)   # [H, hd*rows, T]
         ot = permute_120(ttnn.reshape(o, (H * hd, rows, T)))     # [rows, T, H*hd]
         g = proj(mc, self.g_weight)
         ot = ttnn.multiply_(ot, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
