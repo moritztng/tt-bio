@@ -465,7 +465,10 @@ document.getElementById("metric").addEventListener("click", e => {
 fetch("data/perf-512aa.json", {cache:"no-store"})
   .then(r => r.json())
   .then(D => { build(D); drawChart();
-    document.getElementById("prov").textContent = D.scope.nvidia_code; })
+    document.getElementById("prov").textContent = D.scope.nvidia_code;
+    /* The rows just drawn push everything below them down. A visit to #contact (the hero button, a
+       shared link) that scrolled before they arrived would be left short, so finish the trip. */
+    document.getElementById(location.hash.slice(1))?.scrollIntoView(); })
   .catch(e => {
     document.getElementById("cap").textContent =
       "Could not load data/perf-512aa.json (" + e.message + "). Serve this directory over HTTP.";
