@@ -5,10 +5,9 @@ compatibility_date = "2026-10-01"
 workers_dev = false
 routes = [{ pattern = "tt-bio.com/api/contact", zone_name = "tt-bio.com" }]
 
-# Sends only to verified Email Routing destinations. The recipient is the MAIL_TO secret, so the
-# address is in neither this repo nor the page. TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are
-# secrets too.
-send_email = [{ name = "MAIL" }]
+# The binding can send to bio@tenstorrent.com and nowhere else (a verified Email Routing
+# destination). TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are secrets.
+send_email = [{ name = "MAIL", destination_address = "bio@tenstorrent.com" }]
 
 [[d1_databases]]
 binding = "DB"
@@ -19,6 +18,7 @@ database_id = "93af66d4-6e36-4b7b-918c-f4f01b67140a"
 SITE_URL = "https://moritztng.github.io/tt-bio/"
 ALLOWED_ORIGINS = "https://moritztng.github.io https://tt-bio.com https://www.tt-bio.com"
 MAIL_FROM = "contact@tt-bio.com"
+MAIL_TO = "bio@tenstorrent.com"
 
 [observability]
 enabled = true

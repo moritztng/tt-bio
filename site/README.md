@@ -41,11 +41,11 @@ The landing page ends with a contact form, "Talk to the people who build TT-Bio"
 things someone writes to this project about: running the models on their own hardware, a model it
 does not run yet, and training on their own data. One line sends hosted use to JapanFold and bugs to
 GitHub issues. The form posts to `https://tt-bio.com/api/contact`, a Cloudflare Worker in
-`site-contact/` that stores each message in D1, mails it to Moritz with Reply-To set to the sender,
+`site-contact/` that stores each message in D1, mails it to bio@tenstorrent.com with Reply-To set to the sender,
 and posts a Telegram line, so one leg failing loses nothing (the header of `site-contact/src/contact.js`
 has the details). The hero's "Contact us" button, the page's one accent-filled button, scrolls down to it. It works without JavaScript: the server redirects back to `#contact-sent` or
 `#contact-error`, which the page shows with `:target`. `deploy_site.sh` redeploys the Worker; its
-secrets (`MAIL_TO`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) live in Cloudflare and survive deploys.
+secrets (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) live in Cloudflare and survive deploys.
 Run its tests with `node --test site-contact/contact.test.mjs`.
 
 Keep both pages short. Long notes, per-run detail and campaign history belong in the JSON, the board
