@@ -17,6 +17,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   design on a p300 chip drops from 25.2 to 23.0 s. `--no_diffusion_trace` restores the eager step. `--fast` replays it too, and
   computes each step's conditioning inside the trace instead of several steps ahead: a 514-token fast design on a
   p300 chip drops from 32.4 to 23.3 s on a host-bound machine.
+- **BoltzGen normal mode on Wormhole conditions its diffusion steps ahead of time.** A 514-token design on a
+  Galaxy chip at 1000 MHz drops from 43.3 to 40.9 s. Designs change at the precision level: graded over 64 paired
+  designs, design pTM, ipTM and complex pLDDT unchanged within the seed-to-seed spread.
 
 ## [0.24.0] - 2026-10-27
 
