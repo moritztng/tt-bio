@@ -30,6 +30,12 @@
 #ifndef LN_ABL
 #define LN_ABL 0
 #endif
+// RMS_ABL (bench-only, 0 in every model path; ws_attr.py --rmsabl): rms_norm_row's stages dropped for time attribution,
+// output wrong by design. Bit 0 packs x * rstd straight to the hook (no gamma stage: what fusing x * rstd * gamma into one
+// stage saves), bit 1 reduces x instead of x^2 (no square stage), bit 2 skips the rsqrt.
+#ifndef RMS_ABL
+#define RMS_ABL 0
+#endif
 // LN_BLK: channel tiles per dest acquire in layer_norm_row's and rms_norm_row's eltwise stages (1 or 4, a half-sync fp32 dest holds 4).
 // Same ops on the same values in other dest slots, so bit-identical; a kernel opts in with the define.
 #ifndef LN_BLK
@@ -98,8 +104,10 @@ ALWI void rstd() {
     cb_reserve_back(C::rstd, 1);
     tile_regs_acquire();
     add_tiles(C::var, C::eps, 0, 0, 0);
-    rsqrt_tile_init();
-    rsqrt_tile(0);
+    if constexpr (!(RMS_ABL & 4)) {
+        rsqrt_tile_init();
+        rsqrt_tile(0);
+    }
     tile_regs_commit();
     tile_regs_wait();
     pack_tile(0, C::rstd);
@@ -167,9 +175,29 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
 template <class C, class Pack>
 ALWI void rms_norm_row(uint32_t out, Pack pack) {
     cb_wait_front(C::x, C::Kt);
-    stage<C, MUL, LN_BLK>(C::x, C::x, C::tmp);            // x^2
-    row_mean<C>(C::tmp, C::var, true);                    // mean(x^2)
+    if constexpr (RMS_ABL & 2) {
+        row_mean<C>(C::x, C::var, false);
+    } else {
+        stage<C, MUL, LN_BLK>(C::x, C::x, C::tmp);        // x^2
+        row_mean<C>(C::tmp, C::var, true);                // mean(x^2)
+    }
     rstd<C>();
+    if constexpr (RMS_ABL & 1) {
+        reconfig_data_format(C::x, C::rstd);
+        pack_reconfig_data_format(out);
+        mul_bcast_cols_init_short(C::x, C::rstd);
+        for (uint32_t i = 0; i < C::Kt; ++i) {
+            tile_regs_acquire();
+            mul_tiles_bcast_cols(C::x, C::rstd, i, 0, 0);
+            tile_regs_commit();
+            tile_regs_wait();
+            pack(i);
+            tile_regs_release();
+        }
+        cb_pop_front(C::x, C::Kt);
+        cb_pop_front(C::rstd, 1);
+        return;
+    }
     stage<C, MUL_COL, LN_BLK>(C::x, C::rstd, C::tmp);     // x * rstd
     cb_pop_front(C::x, C::Kt);
     cb_pop_front(C::rstd, 1);

@@ -10,6 +10,7 @@ output wrong by design, so this prints time only: ms/call, median of --reps afte
 --l1acc times only the `ws_l1acc` kernel (WS_L1ACC, Protenix-v2 normal) on the first hidden chunk, math-thread silu vs the
 packer's (`ws_psilu`), with the packer's output checked equal bit for bit.
 --psilu runs the dropped-phase arms with the packer's silu (`ws_psilu`): what the silu still costs once it overlaps the matmuls.
+--rmsabl (with --rms) times the RMS prologue with one stage dropped (RMS_ABL bits).
 --lnblk (with --rms or --ln) adds an arm with the norm prologue's stages at LN_BLK 4, checked equal to pack_silu bit for bit.
 """
 import argparse, json, os, statistics, time
@@ -26,6 +27,7 @@ ap.add_argument("--ln", action="store_true")
 ap.add_argument("--l1acc", action="store_true")
 ap.add_argument("--psilu", action="store_true")
 ap.add_argument("--lnblk", action="store_true")
+ap.add_argument("--rmsabl", action="store_true")
 a = ap.parse_args()
 
 from tt_bio.main import ensure_p300_mesh_descriptor  # noqa: E402
@@ -109,6 +111,11 @@ for mode, dt, fid in MODES if not a.l1acc else ():
         got = ttnn.to_torch(W.pair_swiglu(xin, w12, w3t, fid, (), 2, pack_silu=True))
         emit(arm=mode + tag + "-pack_silu", fidelity=str(fid), equal_poly6=bool(torch.equal(ref, got)),
              ms=timed(lambda: W.pair_swiglu(xin, w12, w3t, fid, (), 2, pack_silu=True)))
+        if a.rmsabl and a.rms:   # rms_norm_row's stages dropped one at a time (RMS_ABL bits, output wrong by design)
+            for bits, tag2 in ((1, "nogamma"), (2, "nosquare"), (4, "norsqrt"), (7, "noall")):
+                d = (("RMS_ABL", str(bits)),)
+                emit(arm=mode + tag + "-rms-" + tag2 + "-pack_silu", fidelity=str(fid),
+                     ms=timed(lambda: W.pair_swiglu(xin, w12, w3t, fid, d, 2, pack_silu=True)))
         if a.lnblk and (a.rms or a.ln):   # the prologue's stages 4 channel tiles per dest acquire: must equal pack_silu
             blk = (("LN_BLK", "4"),)
             got4 = ttnn.to_torch(W.pair_swiglu(xin, w12, w3t, fid, blk, 2, pack_silu=True))
