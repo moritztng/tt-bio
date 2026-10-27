@@ -5,6 +5,8 @@ featurize (the dataloader's next item, serial: predict sets num_workers 0), trun
 last progress event), cond (trunk end to the first diffusion step), diffusion (first step to the end of the last; `ms_step`
 per step), post (last step to predict_step's return) and write (DesignWriter.write). The device is
 synchronised at each boundary only (a few per design), so the stages add up to the design wall within noise.
+The writer runs on a thread beside the next design's predict, so each design's stamps are snapshotted at predict_step's
+return and `wall`/`featurize` are measured from the previous predict's end; `write` is the overlapped writer time.
 
 One line per design on stdout, `BGSPLIT {json}`, also appended to $BGSPLIT_OUT when set.
 
@@ -16,6 +18,7 @@ import os
 import runpy
 import sys
 import time
+from collections import deque
 
 import ttnn
 
@@ -26,6 +29,7 @@ from tt_bio.boltzgen.task.predict import writer as W
 
 OUT = os.environ.get("BGSPLIT_OUT")
 EV = {}
+DONE = deque()
 LAST = {"end": time.perf_counter(), "n": 0}
 
 
@@ -60,6 +64,7 @@ def predict_step(self, *a, **k):
     out = _predict(self, *a, **k)
     _sync()
     EV["t1"] = time.perf_counter()
+    DONE.append(dict(EV))
     return out
 
 
@@ -71,16 +76,17 @@ def write(self, *a, **k):
     t = time.perf_counter()
     out = _write(self, *a, **k)
     t2 = time.perf_counter()
-    n = EV.get("steps", 0)
-    trunk_end = max((v for kk, v in EV.items() if isinstance(kk, tuple) and kk[0] == "trunk"), default=None)
-    d1, dn = EV.get(("diffusion", 0)), EV.get(("diffusion", n))
+    ev = DONE.popleft()
+    n = ev.get("steps", 0)
+    trunk_end = max((v for kk, v in ev.items() if isinstance(kk, tuple) and kk[0] == "trunk"), default=None)
+    d1, dn = ev.get(("diffusion", 0)), ev.get(("diffusion", n))
     LAST["n"] += 1
-    rec = {"design": LAST["n"], "wall": round(t2 - LAST["end"], 3), "featurize": round(EV["t0"] - LAST["end"], 3),
-           "write": round(t2 - t, 3), "predict": round(EV["t1"] - EV["t0"], 3), "steps": n}
+    rec = {"design": LAST["n"], "wall": round(ev["t1"] - LAST["end"], 3), "featurize": round(ev["t0"] - LAST["end"], 3),
+           "write": round(t2 - t, 3), "predict": round(ev["t1"] - ev["t0"], 3), "steps": n}
     if trunk_end and d1 and dn and n:
-        rec.update(trunk=round(trunk_end - EV["t0"], 3), cond=round(d1 - trunk_end, 3), diffusion=round(dn - d1, 3),
-                   ms_step=round(1e3 * (dn - d1) / n, 2), post=round(EV["t1"] - dn, 3))
-    LAST["end"] = t2
+        rec.update(trunk=round(trunk_end - ev["t0"], 3), cond=round(d1 - trunk_end, 3), diffusion=round(dn - d1, 3),
+                   ms_step=round(1e3 * (dn - d1) / n, 2), post=round(ev["t1"] - dn, 3))
+    LAST["end"] = ev["t1"]
     line = "BGSPLIT " + json.dumps(rec)
     print(line, flush=True)
     if OUT:
