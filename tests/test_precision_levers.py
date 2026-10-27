@@ -201,7 +201,7 @@ def test_pxdesign_wormhole_set_names_only_known_levers():
 
     assert WH_DESIGN_LEVERS <= set(T.LEVERS)
     assert WH_DESIGN_LEVERS - T.NORMAL_LEVERS == {"adaln_mod", "atom_kvcat", "atom_mm16", "pz_device", "dit_shoist", "dit_qsplit",
-                                                   "dit_shoist_mm", "dit_step_mm"}
+                                                   "dit_shoist_mm", "dit_step_mm", "dit_kc", "dit_mask8"}
 
 
 def test_boltzgen_mode_sets_name_only_known_levers():
