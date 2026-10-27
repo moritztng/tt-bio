@@ -37,7 +37,7 @@ from ..addcmul_at import addcmul_at as _addcmul_at
 from .. import eltwise_fusion as _EF
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc, mm_sigmoid,
                            atom_pair_budget_bytes, l1_resident_budget_bytes, row_block,
-                           _dram_oom, fused_sdpa, _sdpa_program_config, is_wormhole)
+                           _dram_oom, fused_sdpa, _sdpa_program_config, is_wormhole, _silu_f32_overlay)
 
 # This is a SNAPSHOT, and deliberately left as one. `_configure_active_compute_grid` widens
 # tenstorrent.CORE_GRID_MAIN to 13x10 when a Blackhole device opens, after this import has
@@ -2562,6 +2562,11 @@ _SIGMOID_FOLD = env_flag("RFD3_SIGMOID_FOLD", True)
 # Folding ln_s and the fused sigmoid move rounding: graded on the normal bar (8 paired p150a seeds), so on in both modes.
 _DIT_SHOIST = env_flag("RFD3_DIT_SHOIST", True)
 _DIT_SHOIST_BYTES = 384 << 20   # the three wide bf16 tensors of one call; 685 tokens x 1 design is 114 MB
+# The two sigmoid hoist linears' epilogue on calculate_silu_f32's sigmoid (mm_sigmoid f32, 6e-6 of float64) instead of the
+# wheel's accurate one: on WH the accurate epilogue is ~0.4 of the 1.57 ms a [704,384]x[384,27648] call takes (hoistw).
+_HOIST_SIGF32 = env_flag("RFD3_HOIST_SIGF32", False)
+if _HOIST_SIGF32 and "silu_f32" not in os.environ.get("TT_BIO_METAL_OVERLAY", "").split(","):
+    _silu_f32_overlay()   # kernels compile against the overlay from the first device open on
 
 
 def _gated(x, gate):
@@ -3825,7 +3830,7 @@ class LocalTokenTransformer(Module):
         lin = lambda x, w, b=None, act=None: ttnn.linear(x, w, bias=b, activation=act, compute_kernel_config=ckc,  # noqa
                                                          dtype=self.dtype, core_grid=CORE_GRID_MAIN)
         s_n = ttnn.rms_norm(s, epsilon=1e-6, compute_kernel_config=ckc)
-        sig = mm_sigmoid(ckc)
+        sig = mm_sigmoid(ckc, f32=_HOIST_SIGF32)
         out = (lin(s_n, sc_w, sc_b, sig), lin(s_n, sb_w), lin(s, g_w, g_b, sig))
         ttnn.deallocate(s_n)
         return out
