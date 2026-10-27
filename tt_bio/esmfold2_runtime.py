@@ -1579,11 +1579,16 @@ LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", None)
 # ESMFold2 30.36 -> 29.24 s, ESMFold2-Fast 18.25 -> 17.65 s (1000 MHz, wbx).
 LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
                  "+ef2_bit_draw+ef2_pair_init+ef2_relpos_lookup+ef2_atom_ffn_split+trimul_bres+transition_ws+ws_resid"
-                 "+trimul_t1+trimul_t1_c256+trimul_t1w8+trimul_t1_2g+trimul_t1_psig+trimul_t2+trimul_t2cm+ws_ln_resid")
+                 "+trimul_t1+trimul_t1_c256+trimul_t1w8+trimul_t1_2g+trimul_t1_psig+trimul_t2+trimul_t2cm+ws_ln_resid+dit_qkvf")
 # ws_ln_resid (described above _BH_ONLY) passes the normal bar on Blackhole against the set without it, 11 complexes x
 # 4 seeds, 44 paired folds per model (qb2, bwlng): ESMFold2 CA-lDDT +0.0034 [+0.0006, +0.0065], top-pose median 0.41 A
 # vs 1.17 A seed floor, docking 31 -> 31 of 44; ESMFold2-Fast +0.0011 [+0.0002, +0.0022], 0.89 A vs 1.50 A, 24 -> 24.
 # In-process A/B on the Blackhole normal set, repeat 5 (bwln): ESMFold2 512 aa -0.20 s, ESMFold2-Fast 1024 aa -0.45 s.
+# dit_qkvf (described above _WH_FAST_EXTRA) passes the normal bar on Blackhole against the set without it, 11 complexes
+# x 4 seeds, 44 paired folds per model (qb2, bqng): ESMFold2 CA-lDDT +0.0007 [-0.0002, +0.0016], top-pose median 0.59 A
+# vs 1.23 A seed floor, docking 31 -> 31 of 44; ESMFold2-Fast -0.0004 [-0.0011, +0.0003], 0.63 A vs 1.66 A, 24 -> 24.
+# In-process A/B on the Blackhole normal set, repeat 5, p150a at 1256-1350 MHz (bqn): ESMFold2 512 aa 12.47 -> 12.05 s,
+# ESMFold2-Fast 512 aa 7.79 -> 7.32 s. Wormhole's normal set drops it (its ESMFold2 L-RMSD reading, see there).
 # Blackhole's normal mode takes the --fast trimul route (T1 front with bfp8 weights, T2 tail; Wormhole drops it,
 # _BH_ONLY). Normal bar against the set without it, 11 complexes x 4 seeds, 44 paired folds per model (qb1/qb2, bt1ng):
 # ESMFold2 CA-lDDT -0.0009 [-0.0051, +0.0019], top-pose median 0.54 A vs 1.85 A seed floor, docking 32 -> 31 of 44;
@@ -1706,7 +1711,7 @@ _WH_EXTRA = "+lm_gate_ng+ef2_atom_rope+ws_psilu+atom_l1"
 # Wormhole against the WH fast set without it, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-bet-ditpersist dsg): ESMFold2-Fast CA-lDDT -0.0002 [-0.0006, +0.0003], top-pose median 0.55 A vs 1.46 A
 # seed floor, docking 24 -> 24 of 44; ESMFold2 --fast CA-lDDT +0.0016 [+0.0009, +0.0022], 0.69 A vs 1.33 A, docking
-# 32 -> 32 (its L-RMSD reads +2.5 A [+0.4, +5.4], so the normal set does not take it). Same chip, -Fast, 1000 MHz:
+# 32 -> 32 (its L-RMSD reads +2.5 A [+0.4, +5.4], so Wormhole's normal set does not take it). Same chip, -Fast, 1000 MHz:
 # diffusion draw 2.52 -> 1.97 s at 384 aa, 3.04 -> 2.15 s at 512 (dst).
 # dit_shoist (the DiT conditioning as three wide linears a step) on top, fast bar on Wormhole against that set, 11
 # complexes x 4 seeds per model (.107, 1000 MHz, dsq2): ESMFold2-Fast CA-lDDT +0.0005 [-0.0003, +0.0016], top-pose
@@ -1747,7 +1752,7 @@ def fold_levers(fast: bool) -> str:
     levers = LEVERS_FAST if fast else LEVERS_NORMAL
     if is_wormhole():
         # ws_lofi too, since 2026-10-20: LoFi hangs Wormhole chips (tenstorrent.lofi_allowed)
-        drop = _BH_ONLY + ("ws_lofi",) if fast else _BH_ONLY + ("ef2_pair_init",)
+        drop = _BH_ONLY + ("ws_lofi",) if fast else _BH_ONLY + ("ef2_pair_init", "dit_qkvf")
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     else:
