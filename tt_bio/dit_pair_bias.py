@@ -137,33 +137,37 @@ def rms_weight(ws, device):
     return ttnn.from_torch(wt.reshape(1, 1, 32, -1), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=device)
 
 
-def rms_eligible(z, wt) -> bool:
-    """z [B, n, n, C] bf16 (or bfloat8_b, `pair_bfp8z`) TILE in DRAM with n and C tile multiples (no padding anywhere), W^T [1, 1, 32, C]."""
+def rms_eligible(z, wt, rows=False) -> bool:
+    """z [B, n, n, C] bf16 (or bfloat8_b, `pair_bfp8z`) TILE in DRAM with n and C tile multiples (no padding anywhere), W^T [1, 1, 32, C].
+    `rows` also takes z [B, I, I, C] padded to [B, I, n, C]: the output is [B, H, n, n] and its rows and keys >= I are
+    finite values the caller masks."""
     ts = [z, wt]
     if any(t.dtype != ttnn.bfloat16 and not (t is z and t.dtype == ttnn.bfloat8_b) or t.layout != ttnn.TILE_LAYOUT
            or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED
            or t.memory_config().buffer_type != ttnn.BufferType.DRAM for t in ts):
         return False
     zs, ls, ws = [int(d) for d in z.padded_shape], [int(d) for d in z.shape], [int(d) for d in wt.padded_shape]
-    if len(zs) != 4 or len(ws) != 4 or zs != ls:
+    if len(zs) != 4 or len(ws) != 4:
+        return False
+    if zs != ls and not (rows and zs[:2] == ls[:2] and zs[3] == ls[3] and ls[1] == ls[2] and zs[2] - ls[2] < 32):
         return False
     kt = zs[3] // 32
     l1 = (kt + 1 + _Z_DEPTH * _R * kt + _R * kt + 32 + 2 * _SW) * _TILE
-    return zs[1] == zs[2] and zs[2] % 32 == 0 and zs[3] % 32 == 0 and ws[2] == 32 and ws[3] == zs[3] and l1 <= _L1_BUDGET
+    return (zs[1] == zs[2] or rows and zs[1] < zs[2]) and zs[2] % 32 == 0 and zs[3] % 32 == 0 and ws[2] == 32 and ws[3] == zs[3] and l1 <= _L1_BUDGET
 
 
 def rms_pair_bias(z, wt, eps, heads, n_out=1, fidelity=ttnn.MathFidelity.HiFi4):
     """rms0(z) @ W head-first for z [B, n, n, C], rms0 being the RMSNorm without a weight (fold it into W): a list of
     `n_out` bf16 tensors [B, heads, n, n], one per consumer, from wt = `rms_weight(...)`. One program in place of
     rms_norm, linear, permute (0, 3, 1, 2) and the slices: z is read once and only the biases are written. Check
-    `rms_eligible` first."""
+    `rms_eligible` first; z [B, I, n, C] with I < n gives [B, heads, n, n] whose rows and keys >= I the caller masks."""
     device = z.device()
-    B, n, _, c = (int(d) for d in z.padded_shape)
+    B, rows, n, c = (int(d) for d in z.padded_shape)
     kt, nt, ho = c // 32, n // 32, 32 // n_out
     assert heads <= ho, (heads, n_out)
     outs = [ttnn.allocate_tensor_on_device(ttnn.Shape([B, heads, n, n]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                            device, ttnn.DRAM_MEMORY_CONFIG) for _ in range(n_out)]
-    key = ("rms", device.id(), B, n, c, float(eps), fidelity, n_out, heads, str(z.dtype))
+    key = ("rms", device.id(), B, rows, n, c, float(eps), fidelity, n_out, heads, str(z.dtype))
     z8 = z.dtype == ttnn.bfloat8_b
     if key not in _CACHE:
         g = device.compute_with_storage_grid_size()
@@ -187,7 +191,7 @@ def rms_pair_bias(z, wt, eps, heads, n_out=1, fidelity=ttnn.MathFidelity.HiFi4):
                         first += per
         assert first == units, (first, units)
         bits = lambda f: struct.unpack("<I", struct.pack("<f", f))[0]  # noqa: E731
-        rct = [kt, nt] + list(ttnn.TensorAccessorArgs(z).get_compile_time_args()) \
+        rct = [kt, nt, rows] + list(ttnn.TensorAccessorArgs(z).get_compile_time_args()) \
             + list(ttnn.TensorAccessorArgs(wt).get_compile_time_args())
         wct = [nt, _SW, ho, heads] + list(ttnn.TensorAccessorArgs(outs[0]).get_compile_time_args())
         path = ttnn.KernelDescriptor.SourceType.FILE_PATH

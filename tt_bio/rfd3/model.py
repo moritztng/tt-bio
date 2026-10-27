@@ -493,6 +493,11 @@ PF_DPB_CALLS = [0, 0]   # served, declined
 # paired normal seeds: drift 5.2-11.7 A against a 12.5-19.6 A floor, breaks 3 -> 3, clashes 426 -> 453.
 _PF_SDPA = env_flag("RFD3_PF_SDPA", True)
 PF_SDPA_CALLS = [0]
+# The SDPA path's mask from rms0(z) @ (ln_0 * W_b * sqrt(head_dim)) in one `rms_pair_bias` program (the norm weight and
+# the scale folded into the projection in fp32), plus one add of the key/row pad. Replaces the standalone rms_norm over
+# [I, I, 128] and the dit_pair_bias pass that re-read its output.
+_PF_RMSB = env_flag("RFD3_PF_RMSB", False)
+PF_RMSB_CALLS = [0]
 
 
 # The DiT builds all 18 blocks' masks in one pass while the stack fits under this many bytes
@@ -1616,8 +1621,10 @@ class PairformerAttention(Module):
             qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
             memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(qkv)
-        z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6, compute_kernel_config=ckc)
-        mask = self._sdpa_mask(z, I, n_key)
+        mask = self._sdpa_mask_rms(z, I, n_key) if _PF_RMSB else None
+        if mask is None:
+            z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6, compute_kernel_config=ckc)
+            mask = self._sdpa_mask(z, I, n_key)
         o = fused_sdpa(pad_axis(q, n_key, 2, 0.0), pad_axis(k, n_key, 2, 0.0), pad_axis(v, n_key, 2, 0.0),
                        attn_mask=mask, scale=self.head_dim ** -0.5,
                        program_config=_dense_sdpa_config(n_key), compute_kernel_config=ckc)
@@ -1628,6 +1635,28 @@ class PairformerAttention(Module):
         g = ttnn.linear(a, w["g"], **lin)
         o = ttnn.multiply(o, ttnn.sigmoid(g))
         return ttnn.linear(o, w["a"], **lin)
+
+    def _sdpa_mask_rms(self, z, I, n_key):
+        """`_sdpa_mask` straight from the un-normalised z through `rms_pair_bias` (_PF_RMSB); None when z does not
+        fit it."""
+        if getattr(self, "_b_wt_rms", None) is None:
+            w = self.weights["ln_0.weight"].double()[:, None] * self.weights["to_b.weight"].double().t()
+            self._b_wt_rms = _DPB.rms_weight([(w * self.head_dim ** 0.5).float()], self.device)
+            self._pf_pads = {}
+        if int(z.padded_shape[2]) != n_key or not _DPB.rms_eligible(z, self._b_wt_rms, rows=True):
+            return None
+        pad = self._pf_pads.get((I, n_key))
+        if pad is None:
+            m = torch.full((1, 1, n_key, n_key), -1e4)
+            m[..., :I, :I] = 0.0
+            pad = self._pf_pads[(I, n_key)] = ttnn.from_torch(m, layout=ttnn.TILE_LAYOUT, device=self.device,
+                                                              dtype=self.dtype)
+        PF_RMSB_CALLS[0] += 1
+        bias, = _DPB.rms_pair_bias(z, self._b_wt_rms, 1e-6, self.n_head,
+                                   fidelity=self.compute_kernel_config.math_fidelity)
+        mask = ttnn.add(bias, pad)
+        ttnn.deallocate(bias)
+        return mask
 
     def _sdpa_mask(self, z, I, n_key):
         """[B, 16, n_key, n_key] bf16 SDPA mask: the pair bias times sqrt(head_dim) (the kernel adds the mask before it
