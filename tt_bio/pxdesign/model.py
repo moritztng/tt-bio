@@ -61,9 +61,11 @@ DESIGN_GAMMA_MIN = 0.01
 # trajectory re-rolls on any numeric change, so no same-seed bar can pass. Galaxy chip at 1000 MHz (spd-m-pxdesign lv5,
 # 2026-10-27), PASS: CA-CA bond error 0.0258 -> 0.0257 A, fit-RMSD -0.03 [-0.63, +0.58] A, radius of gyration -0.08
 # [-0.39, +0.24] A, contact residues +0.1 [-4.1, +4.3]; warm 23.00 -> 21.43 s a design. atom_kvcat is bit-identical on
-# top of adaln_mod. Blackhole takes the family set until its own grade.
+# top of adaln_mod. atom_mm16 on top of that set, same protocol (lv6, chip 13 at 1000 MHz), PASS: CA-CA bond error
+# +0.0007 [-0.0018, +0.0031] A, fit-RMSD -0.03 [-0.62, +0.56] A, contact residues -0.1 [-5.1, +4.8]; warm 20.78 -> 19.18 s.
+# Blackhole takes the family set until its own grade.
 WH_DESIGN_LEVERS = (_T.NORMAL_LEVERS | QSPLIT_NORMAL | DIT_MM_WH
-                    | {"adaln_mod", "atom_kvcat", "pz_device", "dit_shoist"})
+                    | {"adaln_mod", "atom_kvcat", "atom_mm16", "pz_device", "dit_shoist"})
 
 _EMBEDDER = "design_condition_embedder.condition_template_embedder.embedder.weight"
 _INPUT_MAP = "design_condition_embedder.input_embedder.input_map."
