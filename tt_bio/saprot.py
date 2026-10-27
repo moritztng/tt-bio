@@ -117,30 +117,16 @@ class SaprotEmbeddingLayer(Module):
 
     Rotary position embeddings -> no learned position embeddings are added.
     Weight key: ``embed.weight`` of shape [446, hidden].
+    """
 
-    ``fp32`` (SaprotModel.fp32_stream) returns a float32 embedding. ttnn.embedding reads only bf16 tables, so the
-    float32 table is held as a bf16 head and the bf16 rounding of its remainder: two lookups summed in float32 carry
-    16 mantissa bits where one bf16 lookup carries 8."""
-
-    def __init__(self, state_dict: Weights, compute_kernel_config, fp32: bool = False):
+    def __init__(self, state_dict: Weights, compute_kernel_config):
         super().__init__(state_dict, compute_kernel_config)
-        self.weight = self.torch_to_tt("weight", transform=lambda x: x, dtype=ttnn.bfloat16)
-        self.weight_lo = (self.torch_to_tt("weight", transform=lambda x: x - x.bfloat16().float(), dtype=ttnn.bfloat16)
-                          if fp32 else None)
-
-    def _lookup(self, tokens, w):
-        return ttnn.embedding(tokens, w, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        self.weight = self.torch_to_tt("weight", transform=lambda x: x)
 
     def __call__(self, tokens: ttnn.Tensor, embed_mask: ttnn.Tensor | None = None) -> ttnn.Tensor:
-        x = self._lookup(tokens, self.weight)
-        if self.weight_lo is not None:
-            parts = []
-            for t in (x, self._lookup(tokens, self.weight_lo)):
-                parts.append(ttnn.typecast(t, ttnn.float32))
-                ttnn.deallocate(t)
-            x = ttnn.add(*parts, dtype=ttnn.float32)
-            for t in parts:
-                ttnn.deallocate(t)
+        x = ttnn.embedding(
+            tokens, self.weight, layout=ttnn.TILE_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG,
+        )
         x = ttnn.multiply(x, _EMBED_SCALE)
         if embed_mask is not None:
             x = ttnn.multiply(x, embed_mask)
@@ -1091,7 +1077,7 @@ class SaprotModel(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
         self.fp32_stream = fp32_stream
-        self.embed = SaprotEmbeddingLayer(self.scope("embed"), compute_kernel_config, fp32=fp32_stream)
+        self.embed = SaprotEmbeddingLayer(self.scope("embed"), compute_kernel_config)
         self.blocks = [
             ESM2Block(n_heads, self.scope(f"blocks.{i}"), compute_kernel_config)
             for i in range(n_layers)
@@ -1125,7 +1111,7 @@ class SaprotModel(Module):
             self._rope[seq_len] = rope
         cos, sin = rope
         x = self.embed(tokens, embed_mask)
-        if x.dtype != ttnn.float32 and self.fp32_stream:
+        if self.fp32_stream:
             x = ttnn.typecast(x, ttnn.float32)
         for block in self.blocks:
             x = block(x, cos, sin, attn_mask, key_valid)
