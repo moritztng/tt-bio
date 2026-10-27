@@ -767,6 +767,37 @@ def test_a_pool_leg_whose_chip_was_recalled_waits_for_the_requeued_run(tmp_path,
     assert rc == 0 and f"# {gf.REQUEUED}:" in (tmp_path / "leg.log").read_text()
 
 
+def test_a_pool_leg_reads_a_boot_file_caught_mid_write_as_not_started(tmp_path, monkeypatch):
+    """The job writes its boot id with `cat > boot`, so a poll can find the file empty. That read printed no line,
+    the next field slid into its place and the leg FAILed as rebooted (rel-eb6700ab1 pytest_cpu)."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    queue = tmp_path / "queue"
+    queue.mkdir()
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, sha)
+    leg = gf.Leg("ux:x", ["PY", "-c", "pass"], "ux")
+    rdir = tmp_path / "o" / "run1" / "wh" / "ux_x"
+
+    def pool():  # the job's `>` has created boot and not yet written it, for several polls
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        running = tmp_path / jobs[0].name
+        os.replace(jobs[0], running)
+        (rdir / "boot").write_text("")
+        time.sleep(0.5)
+        subprocess.run(["bash", str(running)], env={"CHIP": "7", "PATH": "/usr/bin:/bin"}, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(rdir), f)
+    t.join()
+    log = (tmp_path / "leg.log").read_text()
+    assert rc == 0 and gf.REBOOTED not in log, log
+
+
 def test_a_pool_leg_notes_a_give_back_that_stopped_it(tmp_path, monkeypatch):
     """glx_elastic SIGINTs a lent box's pool jobs and touches the pool's RETURNED (.107, 10-16 07:34Z,
     14 WH legs recorded FAIL). A job whose leg ended after that touch says so in its log."""

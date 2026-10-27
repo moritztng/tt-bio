@@ -1636,9 +1636,12 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
         # job back into the queue within milliseconds, so a queued job no older than the rc is a requeue, not a
         # verdict (file times tick per jiffy, hence "no older"). rel-f2fd17ff3, 10-22 21:22Z: ladder:openbind
         # recorded FAIL from a recalled attempt while its rerun went unread.
+        # The job writes its boot id with `cat > boot`, which leaves the file empty for a moment; a bare `cat` of it
+        # then prints no line at all, the idle count read as the boot id and the leg FAILed as rebooted
+        # (rel-8812d72f2, rel-eb6700ab1 pytest: the recalled-chip test). Every field prints its own line.
         rc_f = f"{q(rdir)}/rc"
         try:
-            r = host.ssh(f"cat {BOOT_ID}; cat {q(rdir)}/boot 2>/dev/null || echo; "
+            r = host.ssh(f"cat {BOOT_ID}; echo \"$(cat {q(rdir)}/boot 2>/dev/null)\"; "
                          f"[ -e {q(job)} ] && echo 0 || echo $(( $(date +%s) - $(stat -c %Y {q(rdir)}/leg.log 2>/dev/null || date +%s) )); "
                          f"[ -s {rc_f} ] && sleep {REQUEUE_GRACE_S} && "
                          f"if [ -e {q(job)} ] && ! [ {rc_f} -nt {q(job)} ]; then rm -f {rc_f}; echo {REQUEUED}; else cat {rc_f}; fi",
