@@ -564,6 +564,8 @@ _FAST_MODE = False
 #                   for ~5 s at c730 (state/spd-fast.md).
 #   acc_off         ... with fp32 dest accumulation off
 #   diffusion_bf16  the diffusion stack in bf16 instead of fp32 (what `--diffusion_precision bf16` does)
+#   dit_bf16        an fp32 Protenix-family diffusion with its token DiT in bf16: the atom encoder, decoder and
+#                   everything that writes coordinates stay fp32 (the stream is cast at the DiT's edges)
 #   dit_sdpa        the bf16 token DiT's attention on the fused SDPA, not matmul/softmax/matmul
 #   triatt_bias_b8  triangle attention's bias in bfp8. Out of the fast set: it moves the structure
 #                   and bought no time at c730 on Wormhole (state/spd-fast.md, LOO 21:20Z).
@@ -879,10 +881,12 @@ _FAST_MODE = False
 #   tok_recycle_mm  RFD4's pair recycle projection ([n*n, 384] x [384, 384]) on `_pair_proj_minimal_matmul`, one K block
 #                   like the shipped linear (state/rfd4/bets/tok512.md)
 #   tok_w8          RFD4's token transition and attention projections with bfp8 weights at HiFi2 (state/rfd4/bets/tok512.md)
-LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
+#   atom_kvcat      Protenix-family atom attention: K and V as one linear over their stacked weights, one op and one
+#                   concat input fewer per block (spd-m-pxdesign lv5)
+LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
-          "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod",
+          "transition_shard", "dit_mm16", "atom_k1", "dit_b8", "dit_qkv16", "atom_mm16", "adaln_mod", "atom_kvcat",
           "swiglu_fc12g", "msa_sample", "dit_sdpa_pm", "dit_s16", "dit_chunk", "dit_bpad", "conf_bins", "trimul_t1", "trimul_t2",
           "trimul_t2g", "triatt_tail_bias", "dit_cond_hifi2", "transition_ws", "ws_ln", "trimul_t1_dram",
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
@@ -910,7 +914,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
 # graded on OpenFold3 / OpenBind-0, and the bit-exact triatt_ln (openfold3_fold.FAST_LEVERS).
 # ref_memo is host featurisation, OpenFold3 / OpenBind-0 only: one reference conformer per residue type
 # (vendored query.REF_MOL_MEMO), read by worker._predict_openfold3_one off the model's lever set.
-UNGRADED_LEVERS = frozenset({"bres_ta_hifi3", "pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
+UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_device", "trimul_b8in", "inproj_k6", "inproj_split", "dit_bpad", "atom_mm16", "triatt_tail_bias", "dit_cond_hifi2", "ws_ln", "dit_fuse",
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",

@@ -282,6 +282,23 @@ DIT_SEAM_FAST = frozenset({"pz_device", "dit_mod16"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
+class _Sig(tuple):
+    """An atom transformer output gate that already went through its sigmoid (`adaln_mod`)."""
+
+
+def _sigmoid_own(t):
+    out = ttnn.sigmoid(t)
+    ttnn.deallocate(t)
+    return out
+
+
+def _gated_residual(res, x, gate):
+    """`res + x * sigmoid(gate)`: one addcmul when the gate's sigmoid was taken once per fold (`_Sig`)."""
+    if isinstance(gate, _Sig):
+        return gated_add(res, x, gate[0])
+    return ttnn.add(ttnn.multiply(x, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]), res)
+
+
 def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
@@ -889,17 +906,28 @@ class AtomTransformer(_KeyedWeights, Module):
         every sample, yet these were computed for each of the M samples at every step: 8
         projections and 3 layer norms of (M,N,128) per block. Computed once here, at the
         leading dim `s` has, they broadcast over M in the block's binary ops. Same ops on the
-        same values, so the result does not change."""
+        same values, so the result does not change.
+
+        `adaln_mod` on an fp32 stack: the sigmoids run here too, once per fold, so every apply is one
+        addcmul (the AdaLN modulation and both gated residuals) instead of a multiply with a fused sigmoid
+        and an add. Every shipped --fast set that names adaln_mod runs this stack bf16 (`diffusion_bf16`)."""
+        sig = self.dtype == ttnn.float32 and _T.lever("adaln_mod")
         terms = []
         for b in range(self.n_blocks):
             apb, ctb = self._prefixes(b)
-            terms.append({
+            t = {
                 "a": self._adaln_mod(apb + "layernorm_a.").s_terms(s),
                 "kv": self._adaln_mod(apb + "layernorm_kv.").s_terms(s),
                 "ctb": self._adaln_mod(ctb + "adaln.").s_terms(s),
                 "gate": self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias"),
                 "cg": self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias"),
-            })
+            }
+            if sig:
+                for k in ("a", "kv", "ctb"):
+                    t[k] = _T._SigTerms((_sigmoid_own(t[k][0]), t[k][1]))
+                for k in ("gate", "cg"):
+                    t[k] = _Sig((_sigmoid_own(t[k]),))
+            terms.append(t)
         return terms
 
     def _windows_q(self, x, N, NP):
@@ -998,11 +1026,19 @@ class AtomTransformer(_KeyedWeights, Module):
             return ttnn.reshape(win(ttnn.reshape(heads(x, lead, nbk * nq), (M * H, nbk, nq, dh))), (M, H * nb, W, dh))
 
         Q = self._lin(q_norm, apb + "attention.linear_q.weight", apb + "attention.linear_q.bias")
-        K = self._lin(kv_norm, apb + "attention.linear_k.weight")
-        V = self._lin(kv_norm, apb + "attention.linear_v.weight")
+        if self._tile_heads and _T.lever("atom_kvcat"):
+            # K and V read the same kv_norm: one linear over their stacked weights writes [K | V].
+            kv = apb + "attention.linear_kv.weight"
+            if kv not in self._w:
+                self._w[kv] = torch.cat([self._w[apb + "attention.linear_k.weight"],
+                                         self._w[apb + "attention.linear_v.weight"]], 0)
+            KV = (self._lin(kv_norm, kv),)
+        else:
+            KV = (self._lin(kv_norm, apb + "attention.linear_k.weight"),
+                  self._lin(kv_norm, apb + "attention.linear_v.weight"))
         if self._tile_heads:
             # Rows [lead, lead + NP) of the frame are Q's; key window i is frame tile rows i .. i+S-1.
-            x = ttnn.pad(ttnn.concat([Q, K, V], dim=-1), [[0, 0], [0, NP - N], [0, 0]], 0.0)
+            x = ttnn.pad(ttnn.concat([Q, *KV], dim=-1), [[0, 0], [0, NP - N], [0, 0]], 0.0)
             x = ttnn.concat([self._zero_rows(M, lead, x), x, self._zero_rows(M, nbk * nq - lead - NP, x)], dim=1)
             q, k, v = ttnn.experimental.nlp_create_qkv_heads(
                 ttnn.reshape(x, (M, 1, nbk * nq, 3 * H * dh)), num_heads=H, num_kv_heads=H,
@@ -1014,7 +1050,7 @@ class AtomTransformer(_KeyedWeights, Module):
                 Ks, Vs = (ttnn.reshape(win(ttnn.reshape(t, (M * H, nbk, nq, dh))), (M, H * nb, W, dh)) for t in (k, v))
         else:
             Qs = ttnn.reshape(heads(Q, 0, NP), (M, H * nb, nq, dh))
-            Ks, Vs = windows(K), windows(V)
+            Ks, Vs = (windows(t) for t in KV)
         kvw = (nb, W, lead, nq) if self._tile_heads and self._kvwin and (self._sdpa or self._sdpa32) else None
         if self._sdpa and kvw is None:
             o = _T.fused_sdpa(Qs, Ks, Vs, attn_mask=zs, scale=dh ** -0.5,
@@ -1103,15 +1139,13 @@ class AtomTransformer(_KeyedWeights, Module):
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight")
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
-        attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a1 = ttnn.add(attn, a)
+        a1 = _gated_residual(a, attn, gate)
         an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"))
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
         out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight")
         cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
-        out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        return ttnn.add(out, a1)
+        return _gated_residual(a1, out, cg)
 
     def _make_pad_bias(self, mask_trunked):
         pad = torch.where(mask_trunked < 0.5, torch.full_like(mask_trunked, -1e9),
@@ -1255,15 +1289,13 @@ class AtomTransformer(_KeyedWeights, Module):
         o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
         attn = self._lin(o, apb + "attention.linear_o.weight", dtype=self.dtype)
         gate = t["gate"] if t else self._lin(s, apb + "linear_a_last.weight", apb + "linear_a_last.bias")
-        attn = ttnn.multiply(attn, gate, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        a1 = ttnn.add(attn, a)
+        a1 = _gated_residual(a, attn, gate)
         an = self._adaln(a1, s, ctb + "adaln.", t.get("ctb"), dtype=lo)
         b1 = self._lin(an, ctb + "linear_nobias_a1.weight", activation="silu")
         b2 = self._lin(an, ctb + "linear_nobias_a2.weight")
         out = self._lin(ttnn.multiply(b1, b2), ctb + "linear_nobias_b.weight", dtype=self.dtype)
         cg = t["cg"] if t else self._lin(s, ctb + "linear_s.weight", ctb + "linear_s.bias")
-        out = ttnn.multiply(out, cg, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
-        return ttnn.add(out, a1)
+        return _gated_residual(a1, out, cg)
 
     def __call__(self, a, s, p, mask_trunked, bias_cache=None, multiplicity=1, terms=None):
         """a,s: (1,N,c_atom) at M=1, (M,N,c_atom) at M>1; p: (nb,nq,nk,c_atompair) shared;
@@ -1512,7 +1544,7 @@ class DiffusionModule(_KeyedWeights):
         # device_dit path. The paired HSA accuracy and performance gates passed; bf16 remains
         # available as an explicit A/B opt-out through PROTENIX_DIFFUSION_FP32_DEVICE=0.
         self._dit_fp32 = self._diffusion_fp32
-        self._dit_dtype = self.dtype
+        self._dit_dtype = ttnn.bfloat16 if _T.lever("dit_bf16") else self.dtype
         self._dit_ckc = compute_kernel_config   # HiFi4 + fp32_dest_acc_en: dtype is on the tensors
         self.device_dit = True
         DT = "diffusion_transformer."
@@ -1550,15 +1582,16 @@ class DiffusionModule(_KeyedWeights):
         """Upload an activation/host tensor at the DiT dtype (fp32 when the gate is on)."""
         return _T.upload(t, self._dit_dtype)
 
-    def _w_tt_dit(self, key, transpose=True):
-        """Dedicated DiT weight-upload cache at the active diffusion dtype."""
+    def _w_tt_dit(self, key, transpose=True, dtype=None):
+        """Dedicated DiT weight-upload cache at the DiT dtype (or `dtype`)."""
+        dtype = self._dit_dtype if dtype is None else dtype
         cache = self.__dict__.setdefault("_wc_dit", {})
-        v = cache.get((key, transpose))
+        v = cache.get((key, transpose, dtype))
         if v is None:
             w = self._w[key]
             v = ttnn.from_torch(w.t().contiguous() if transpose else w,
-                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=self._dit_dtype)
-            cache[(key, transpose)] = v
+                                layout=ttnn.TILE_LAYOUT, device=get_device(), dtype=dtype)
+            cache[(key, transpose, dtype)] = v
         return v
 
     def _w_tt_lp(self, key):
@@ -1573,8 +1606,8 @@ class DiffusionModule(_KeyedWeights):
 
     def _ln_dit(self, x, wkey, bkey=None):
         """Layer norm at the DiT dtype (used for the DiT-output layernorm_a when fp32)."""
-        return ops.layer_norm(x, self._w_tt_dit(wkey, False),
-                              (self._w_tt_dit(bkey, False) if bkey else None),
+        return ops.layer_norm(x, self._w_tt_dit(wkey, False, self.dtype),
+                              (self._w_tt_dit(bkey, False, self.dtype) if bkey else None),
                               epsilon=1e-5, compute_kernel_config=self._dit_ckc)
 
     def _atom_cond(self, cond):
@@ -2021,7 +2054,8 @@ class DiffusionModule(_KeyedWeights):
         if wide:
             for t in wide:
                 ttnn.deallocate(t)
-        return a_t[:, :NT, :] if NP != NT else a_t
+        a_t = a_t[:, :NT, :] if NP != NT else a_t
+        return ttnn.typecast(a_t, self.dtype) if a_t.dtype != self.dtype else a_t
 
     def _dit_shoist(self, s_t):
         """`dit_shoist`: `(sigmoid scales, shifts, sigmoid gates)` of all 24 blocks as three wide

@@ -196,6 +196,14 @@ def test_boltz2_mode_sets_name_only_known_levers():
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist", "ie_dev"}
 
 
+def test_pxdesign_wormhole_set_names_only_known_levers():
+    from tt_bio.pxdesign.model import WH_DESIGN_LEVERS
+
+    assert WH_DESIGN_LEVERS <= set(T.LEVERS)
+    assert WH_DESIGN_LEVERS - T.NORMAL_LEVERS == {"adaln_mod", "atom_kvcat", "pz_device", "dit_shoist", "dit_qsplit",
+                                                   "dit_shoist_mm", "dit_step_mm"}
+
+
 def test_boltzgen_mode_sets_name_only_known_levers():
     from tt_bio.boltzgen.model.models import boltz as B
 
