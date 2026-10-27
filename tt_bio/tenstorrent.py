@@ -776,6 +776,8 @@ _FAST_MODE = False
 #   dit_qkvf        the bf16 token DiT's attention as OpenFold3's dit_fuse runs it: one `_sdpa32_fused` program reads
 #                   the fused qkv projection and writes the heads concatenated on their padded lanes, so neither
 #                   nlp_create_qkv_heads nor the head re-assembly runs; gate and output projection as apb_cat
+#   dit_pad_short   with dit_chunk, Boltz-2 / BoltzGen's token DiT stages its bias at the first tile multiple a 192-320
+#                   chunk divides rather than the 256 grid (`dit_bias_pad_len`): BoltzGen's 544 tokens at 576, not 768
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
 #                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
 #                   [N, N, 139] one-hot and multiplying it.
@@ -894,12 +896,12 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
-           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8")
+           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "dit_pad_short")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2 and its Wormhole sets triatt_ln, graded on
-# BoltzGen's designs.
+# BoltzGen's designs, and its normal sets dit_pad_short.
 # RFD4's own set (rfd4.trunk.NORMAL_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms, pair_write_res,
 # trimul_bres_hifi2, pair_bf16z, pair_tail_cm, trimul_t1b8, pair_block_hifi2, trimul_t1g8, trimul_tail_hifi2 and
 # pair_bfp8z (that pair stream as bfloat8_b) and trimul_t1_fgate, graded on RFD4's designs.
@@ -922,7 +924,7 @@ UNGRADED_LEVERS = frozenset({"bres_ta_hifi3", "pz_device", "trimul_b8in", "inpro
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
-                             "tok_recycle_mm", "tok_w8", "trimul_x8"})
+                             "tok_recycle_mm", "tok_w8", "trimul_x8", "dit_pad_short"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -3368,7 +3370,7 @@ def _sdpa_chunk_pad_len(seq_len: int) -> int:
 DIT_BPAD_LEN = None
 
 
-def dit_bias_pad_len(n: int) -> int:
+def dit_bias_pad_len(n: int, short: bool = False) -> int:
     """The token axis `dit_bpad` runs the DiT at for `n` tokens: the tile multiple when a dit_chunk
     chunk divides it, else the next multiple of the capped 256 chunk (`_sdpa_chunk_pad_len`), the
     grid the stock op would pad to inside, at a cost far beyond the padding's share.
@@ -3378,16 +3380,16 @@ def dit_bias_pad_len(n: int) -> int:
     call; at 1280 q320 k256 378 us, q = k = 320 421 us, pm 572 us. B 5: 2583 -> pm 1372 us. 1248,
     1344 and 1536 are slower than 1280 at every chunk pair. Float64 rel_rms at k256 equals ship's.
 
-    Short of the 256 grid, the first tile multiple a chunk of 192 to 320 divides comes first: 544 tokens
-    (17 tiles, BoltzGen's page design) run at 576 with q = k = 288 instead of 768, half the attention
-    work. 1248 (divisor 96) is passed over for 1280 as measured above."""
+    `short` (`dit_pad_short`) takes, short of the 256 grid, the first tile multiple a chunk of 192 to 320
+    divides: 544 tokens (17 tiles, BoltzGen's page design) run at 576 with q = k = 288 instead of 768,
+    half the attention work. 1248 (divisor 96) is passed over for 1280 as measured above."""
     if DIT_BPAD_LEN:
         return DIT_BPAD_LEN
     p = _padded_sdpa_len(n)
     if any(p % c == 0 for c in range(320, 95, -SDPA_CHUNK_TILE)):
         return p
     grid = _sdpa_chunk_pad_len(n) or p
-    for q in range(p + SDPA_CHUNK_TILE, grid, SDPA_CHUNK_TILE):
+    for q in range(p + SDPA_CHUNK_TILE, grid if short else p, SDPA_CHUNK_TILE):
         if any(q % c == 0 for c in range(320, 191, -SDPA_CHUNK_TILE)):
             return q
     return grid
@@ -18747,8 +18749,9 @@ class DiffusionModule(TorchWrapper):
         # (BoltzGen fast, 52 -> 56-62 ms a step), so it keeps the unpadded bias.
         to = 0
         if _B2_TOKEN_DIT_SDPA and not lever("dit_sdpa_pm"):
-            # dit_chunk picks its chunk from the length, so the length can be the short one it divides.
-            to = dit_bias_pad_len(padded_seq) if lever("dit_chunk") else _sdpa_chunk_pad_len(padded_seq)
+            # dit_chunk picks its chunk from the length, so the length can be a shorter one it divides.
+            to = (dit_bias_pad_len(padded_seq, short=True) if lever("dit_pad_short") and lever("dit_chunk")
+                  else _sdpa_chunk_pad_len(padded_seq))
             to = 0 if to == padded_seq else to
         if to and isinstance(parts, list):
             # The fused SDPA's k chunk does not divide the sequence: pad each layer's bias here, once
