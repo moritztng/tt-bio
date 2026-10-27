@@ -231,6 +231,17 @@ every worker. Design *k* gets seed `seed + k`, so a single design out of a 32-de
 reproduces on its own. `<out_dir>/metrics.json` lists every design that landed with its token
 count and runtime.
 
+Without a controller, a local run uses one card. `--devices N` makes card N the only one the
+process opens, so a scheduler can pack a multi-card host with one process per card:
+
+```bash
+for card in 0 1 2 3; do
+  tt-bio design spec.yaml --model rfd4 --devices $card --seed $((1000 * card)) --out_dir run$card &
+done
+```
+
+A list such as `--devices 0,1` is refused: one process runs on one card.
+
 From Python: `rfd4.design_via_controller(spec, out_dir, controller_url=...)`.
 
 ## Backends
