@@ -100,9 +100,14 @@ WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t
 # Blackhole normal runs the T1/T2 trimul kernels with the column-major T2: normal grade PASS pooled over seeds 0-7 vs
 # plain BH normal (64 designs, 2026-10-26): design_ptm +0.019, iptm +0.025, complex_plddt -0.004 [-0.008, +0.001],
 # filter 64/64.
-BH_LEVERS_NORMAL = LEVERS_NORMAL | {"trimul_t1", "trimul_t2", "trimul_t2cm"}
+# Both Blackhole sets also run the token DiT's attention as one fused q|k|v program (dit_qkvf), on the bias staged at
+# 576 rather than 768 for BoltzGen's 544 tokens. Graded per mode vs exact BH normal, bg_R3, 2026-10-27: normal (seeds
+# 0-7, with the 576 stage) design_ptm +0.003, iptm +0.009, complex_plddt -0.002, filter 64/64; fast (seeds 0-3)
+# design_ptm +0.022, iptm +0.011, complex_plddt +0.002, filter 32/32. Speed on a p300 chip at ~1320 MHz: normal
+# 22.9 -> 21.2 s/design from dit_qkvf and -0.6 s from the stage, fast 21.3 -> 19.8.
+BH_LEVERS_NORMAL = LEVERS_NORMAL | {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf"}
 BH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
-                                "dit_cond_steps"}
+                                "dit_cond_steps", "dit_qkvf"}
 
 
 def _under_levers(method):
