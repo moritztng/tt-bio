@@ -9,6 +9,7 @@ little pipelining across stage boundaries; the totals are therefore an upper bou
 One line per fold on stdout: `RF3STAGES {json}`, printed when the worker's `_predict_rf3_one` returns. Worker-side
 host stages (featurize, MSA lookup, conformers, confidence summary, structure write) are wall time without a sync.
 
+RF3STAGES_OPS=msa.opm,msa.pwa,recycle.template splits those stages per ttnn call (op.<stage>.<fn>).
 RF3STAGES_PROFILE=featurize=/tmp/p writes a cProfile of each named stage's latest call to /tmp/p.<stage>.
 
     python perf/spd/rf3_stages.py perf/spd/bench.py --out OUT --chip 0 --model rf3 --inputs s512 --data DATA \\
@@ -81,6 +82,55 @@ def timed(owner, name, label, static=False):
     else:
         setattr(owner, name, wrapper)
 
+
+# RF3STAGES_OPS=label[,label]: inside those stages, every outermost ttnn call below is synced and charged to
+# `op.<label>.<fn>`; whatever the list misses (custom kernels, tensor methods) shows as the stage minus the ops.
+OPS = set(filter(None, os.environ.get("RF3STAGES_OPS", "").split(",")))
+IN_OPS = [None, 0]  # (stage label, ttnn call depth)
+
+
+def _op_wrap(name):
+    inner = getattr(ttnn, name)
+
+    def op(*a, **kw):
+        if IN_OPS[0] is None or IN_OPS[1]:
+            return inner(*a, **kw)
+        _sync()
+        t0 = time.monotonic()
+        IN_OPS[1] += 1
+        try:
+            return inner(*a, **kw)
+        finally:
+            IN_OPS[1] -= 1
+            _sync()
+            k = f"op.{IN_OPS[0]}.{name}"
+            ACC[k] += time.monotonic() - t0
+            CNT[k] += 1
+    setattr(ttnn, name, op)
+
+
+if OPS:
+    for _n in ("linear", "matmul", "layer_norm", "softmax", "permute", "reshape", "transpose", "concat", "repeat",
+               "to_layout", "typecast", "multiply", "multiply_", "add", "add_", "sum", "sigmoid", "slice", "zeros",
+               "deallocate", "to_memory_config"):
+        if callable(getattr(ttnn, _n, None)):
+            _op_wrap(_n)
+
+    def _scoped(owner, name, label):
+        fn = owner.__dict__[name]
+
+        def wrapper(*a, **kw):
+            prev, IN_OPS[0] = IN_OPS[0], label
+            try:
+                return fn(*a, **kw)
+            finally:
+                IN_OPS[0] = prev
+        setattr(owner, name, wrapper)
+
+    for _cls, _label in ((T.OuterProductMean, "msa.opm"), (T.PairWeightedAveraging, "msa.pwa"),
+                         (rf3_template.TemplateEmbedder, "recycle.template")):
+        if _label in OPS:
+            _scoped(_cls, "__call__", _label)
 
 timed(rf3_model.RF3, "predict", "predict")
 timed(rf3_host.HostInputs, "build", "host_inputs")
