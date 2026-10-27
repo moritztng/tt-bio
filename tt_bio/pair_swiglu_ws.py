@@ -230,7 +230,7 @@ def _build(x, w12, w3, out, device, mt, kt, nh, ct, fidelity, defines, silu_poly
 
 
 def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_poly=None, ln=None, l1acc=False,
-                resid=None, resid2=None, pack_silu=False):
+                resid=None, resid2=None, pack_silu=False, ln_pipe=False):
     """`fc3(silu(x @ w1) * (x @ w2))` for a TILE `x` [..., C]; a new bfloat16 DRAM tensor [..., C_out].
 
     Accumulation is fp32 in dest at every fidelity; `fidelity` is the caller's matmul fidelity. `defines` are
@@ -252,7 +252,9 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     z as `resid` and the chain's partial sum as `resid2`, so the residual add is not a pass of its own.
     `pack_silu`: the polynomial silu runs from the packer thread and fc1 of the next hidden group is issued before fc2,
     so the FPU's matmuls overlap the SFPU's silu (WS_PACK_SILU in the compute kernel); bit-identical. Also with `ln`
-    and `l1acc`; ignored with metal's silu."""
+    and `l1acc`; ignored with metal's silu.
+    `ln_pipe` (RMS `ln` with `pack_silu`, no `l1acc`): the next row tile's x^2 and mean run inside this row tile's
+    first fc12 group, where the math thread waits on the packer's silu (WS_LN_PIPE); bit-identical."""
     if resid is not None:
         defines = tuple(defines) + (("WS_RESID", "1"),)
     if resid2 is not None:
@@ -266,6 +268,8 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
     if ln is not None and ln[1] is None:
         ln = (ln[0], ln[0], ln[2])   # the reader loads a beta either way; the RMS prologue never reads it
         defines = tuple(defines) + (("WS_RMS", "1"),)
+        if ln_pipe and pack_silu and silu_poly in (1, 2) and not l1acc:
+            defines = tuple(defines) + (("WS_LN_PIPE", "1"),)
     return _run(x, w12, w3, fidelity, defines, silu_poly, ln, resid, resid2=resid2)
 
 
