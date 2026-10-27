@@ -1579,7 +1579,11 @@ LM_COMBINE = env_flag("TT_BIO_ESMFOLD2_LM_COMBINE", None)
 # ESMFold2 30.36 -> 29.24 s, ESMFold2-Fast 18.25 -> 17.65 s (1000 MHz, wbx).
 LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
                  "+ef2_bit_draw+ef2_pair_init+ef2_relpos_lookup+ef2_atom_ffn_split+trimul_bres+transition_ws+ws_resid"
-                 "+trimul_t1+trimul_t1_c256+trimul_t1w8+trimul_t1_2g+trimul_t1_psig+trimul_t2+trimul_t2cm")
+                 "+trimul_t1+trimul_t1_c256+trimul_t1w8+trimul_t1_2g+trimul_t1_psig+trimul_t2+trimul_t2cm+ws_ln_resid")
+# ws_ln_resid (described above _BH_ONLY) passes the normal bar on Blackhole against the set without it, 11 complexes x
+# 4 seeds, 44 paired folds per model (qb2, bwlng): ESMFold2 CA-lDDT +0.0034 [+0.0006, +0.0065], top-pose median 0.41 A
+# vs 1.17 A seed floor, docking 31 -> 31 of 44; ESMFold2-Fast +0.0011 [+0.0002, +0.0022], 0.89 A vs 1.50 A, 24 -> 24.
+# In-process A/B on the Blackhole normal set, repeat 5 (bwln): ESMFold2 512 aa -0.20 s, ESMFold2-Fast 1024 aa -0.45 s.
 # Blackhole's normal mode takes the --fast trimul route (T1 front with bfp8 weights, T2 tail; Wormhole drops it,
 # _BH_ONLY). Normal bar against the set without it, 11 complexes x 4 seeds, 44 paired folds per model (qb1/qb2, bt1ng):
 # ESMFold2 CA-lDDT -0.0009 [-0.0051, +0.0019], top-pose median 0.54 A vs 1.85 A seed floor, docking 32 -> 31 of 44;
