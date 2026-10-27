@@ -519,6 +519,11 @@ _QKV_HEADS = env_flag("RFD3_QKV_HEADS", True)
 # 32 rows) + permute + reshape per tensor and a transpose of k. ~15 ms/step on WH fast; digests equal (WH, p150a).
 # RFD3_GCA_HEADS=0 restores it.
 _GCA_HEADS = env_flag("RFD3_GCA_HEADS", True)
+# A downcast GCA has one query per token. Passed as q.unsqueeze(2), each token's row is tile-padded to 32, so
+# ln_q, to_q, to_g and to_out ran on 32x the rows; an upcast's 3 keys a token pad the same way 3 -> 32 for ln_kv,
+# to_k and to_v (WH fast census ~11 ms/step together). Flat [B,rows,C] inputs run them on the real rows.
+# RFD3_GCA_FLAT_Q=0 restores the padded form.
+_GCA_FLAT_Q = env_flag("RFD3_GCA_FLAT_Q", True)
 # The collapsed process_z's table lookup as one gather that writes TILE layout (tt_bio/gather_tiled.py) instead of
 # ttnn.embedding + to_layout: WH fast census 5.07 + 4.77 ms/step of embedding against a 0.5 ms roof each, plus
 # 2.7 ms/step of tilize. Same values (data movement only): gather 4.76 -> 1.28 ms/call on WH, digests equal to
@@ -2421,13 +2426,26 @@ class GatedCrossAttention(Module):
         cache[ck] = (mask, out)
         return out
 
-    def run_device(self, q, kv, attn_mask=None, attn_mask_dev=None):
+    def run_device(self, q, kv, attn_mask=None, attn_mask_dev=None, n_key=None):
         """q [B,T,Q,Cq], kv [B,T,K,Ckv]; return device [B,T,Q,Cq].
+        A 3D q [B,T,Cq] is one query per token (the downcasts) and returns [B,T,Cq]. Its
+        row-wise ops (norms, to_q, to_g, to_out) then run on T rows: the same call on
+        q.unsqueeze(2) tile-pads every token's single row to 32 and does 32x the work.
+        Likewise a 3D kv [B,T*K,Ckv] with `n_key`=K (the upcasts' 3 keys a token) runs
+        ln_kv, to_k, to_v and k_norm on T*K rows instead of T tile-padded groups of K.
         attn_mask_dev (already-uploaded additive mask) takes priority over
         attn_mask (host bool mask, uploaded here) when both are given."""
         dev, ckc, dt = self.device, self.compute_kernel_config, self.dtype
-        batch, tokens, n_query, _ = q.shape
-        n_key = kv.shape[2]
+        flat = len(q.shape) == 3 and _GCA_FLAT_Q
+        if len(q.shape) == 3 and not flat:
+            return ttnn.squeeze(self.run_device(ttnn.unsqueeze(q, 2), kv, attn_mask, attn_mask_dev, n_key), 2)
+        if flat:
+            batch, tokens, _ = q.shape
+            n_query = 1
+        else:
+            batch, tokens, n_query, _ = q.shape
+        if n_key is None:
+            n_key = kv.shape[2]
         q = ttnn.rms_norm(q, weight=self.ln_q, epsilon=1e-6, compute_kernel_config=ckc)
         kv = ttnn.rms_norm(kv, weight=self.ln_kv, epsilon=1e-6, compute_kernel_config=ckc)
         qq = ttnn.linear(q, self.to_q, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
@@ -2436,6 +2454,9 @@ class GatedCrossAttention(Module):
         gg = ttnn.linear(q, self.to_g, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
         qq = ttnn.rms_norm(qq, weight=self.q_norm, epsilon=1e-6, compute_kernel_config=ckc)
         kk = ttnn.rms_norm(kk, weight=self.k_norm, epsilon=1e-6, compute_kernel_config=ckc)
+
+        if flat:
+            qq = ttnn.reshape(qq, (batch, tokens, 1, self.n_head * self.head_dim))
 
         def split(x, count):
             x = ttnn.reshape(
@@ -2482,6 +2503,8 @@ class GatedCrossAttention(Module):
         out = ttnn.matmul(attention, vv, compute_kernel_config=ckc, dtype=dt,
                           core_grid=_grid_if_single_k_tile(attention))
         out = _merge_heads(out, (batch, tokens, n_query, self.c_model))
+        if flat:
+            out = ttnn.reshape(out, (batch, tokens, self.c_model))
         out = ttnn.multiply(out, ttnn.sigmoid(gg))
         out = ttnn.linear(
             out,
@@ -3233,12 +3256,13 @@ class CompactStreamingDecoder(Module):
     ):
         """Pure-device core loop (pack -> upcast -> unpack -> atom_block, x3).
         `a` is the FLAT (not pre-split) atom-pair stream."""
-        a_split = ttnn.reshape(a, (a.shape[0], a.shape[1], 3, 256))
+        # The upcasts' keys: each token's 768 channels as 3 rows of 256, flat when _GCA_FLAT_Q.
+        a_split = ttnn.reshape(a, (a.shape[0], a.shape[1] * 3, 256) if _GCA_FLAT_Q else (a.shape[0], a.shape[1], 3, 256))
         primed = _prime_atom_pair_bias(self, self.atom_blocks, p, bias_cache) if sparse_qk is not None else ()
         for upcast, atom_block in zip(self.upcast, self.atom_blocks):
             q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
             q_grouped = ttnn.add(
-                q_grouped, upcast.run_device(q_grouped, a_split, attn_mask_dev=upcast_mask_dev)
+                q_grouped, upcast.run_device(q_grouped, a_split, attn_mask_dev=upcast_mask_dev, n_key=3)
             )
             q = self._unpack_atoms_device(q_grouped, unpack_idx_dev, length)
             q = atom_block(q, c, p, mask, sparse_qk=sparse_qk, bias_cache=bias_cache)
@@ -3294,11 +3318,8 @@ class CompactStreamingDecoder(Module):
             q = self.run_device(a, q, c, p, mask, upcast_mask_dev, pack_idx_dev, unpack_idx_dev, valid, length)
 
         q_grouped = self._pack_atoms_device(q, pack_idx_dev, valid)
-        query = ttnn.unsqueeze(a, 2)
         down_mask = valid.unsqueeze(1)
-        a_update = ttnn.squeeze(
-            self.downcast.run_device(query, q_grouped, down_mask), 2
-        )
+        a_update = self.downcast.run_device(a, q_grouped, down_mask)
         s = _dev(s_host, dev, dt)
         s = ttnn.rms_norm(
             s, weight=self.process_s_n, epsilon=1e-6, compute_kernel_config=ckc
@@ -4318,7 +4339,7 @@ class RFD3DiffusionModule(Module):
         already-persisted additive mask from _grouping_buffers, passed via attn_mask_dev so
         run_device never uploads a fresh mask itself."""
         ckc, dt = self.compute_kernel_config, self.dtype
-        upd = ttnn.squeeze(self.downcast_q.run_device(ttnn.unsqueeze(a, 2), q_g, attn_mask_dev=mask_dev), 2)
+        upd = self.downcast_q.run_device(a, q_g, attn_mask_dev=mask_dev)
         a = ttnn.add(a, upd)
         s = ttnn.rms_norm(s, weight=self.downcast_q_s_n, epsilon=1e-6, compute_kernel_config=ckc)
         s = ttnn.linear(s, self.downcast_q_s_w, compute_kernel_config=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
