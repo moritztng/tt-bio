@@ -263,16 +263,16 @@ def _dknn_on():
     return _DKNN if _DKNN is not None else not is_wormhole()
 
 
+def _pz_rows_on():
+    return _PZ_ROWS if _PZ_ROWS is not None else _pz_addcmul_on()
+
+
 def _pf_dpb_on():
     return _PF_DPB if _PF_DPB is not None else is_wormhole()
 
 
 def _pz_addcmul_on():
     return _PZ_ADDCMUL if _PZ_ADDCMUL is not None else is_wormhole()
-
-
-def _pf_rmsb_on():
-    return _PF_RMSB if _PF_RMSB is not None else is_wormhole()
 
 
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
@@ -501,8 +501,9 @@ PF_SDPA_CALLS = [0]
 # the scale folded into the projection in fp32), plus one add of the key/row pad. Replaces the standalone rms_norm over
 # [I, I, 128] and the dit_pair_bias pass that re-read its output. WH page cell @1000 MHz: fast 40.1 -> 38.9, normal
 # 40.5 -> 39.7 s/design; eight paired normal seeds: design drift 3.4-12.9 A against a 13.9-18.4 A seed floor, breaks
-# 3 -> 2, clashes 390 -> 370. On by default on Wormhole; RFD3_PF_RMSB=0/1 forces it.
-_PF_RMSB = env_flag("RFD3_PF_RMSB", False) if os.environ.get("RFD3_PF_RMSB") else None
+# 3 -> 2, clashes 390 -> 370. p150a @1350: fast 25.5 -> 24.4, normal 25.5 -> 24.8 s/design; eight paired normal seeds:
+# drift 2.7-13.6 A against a 13.3-20.6 A floor, breaks 2 -> 4, clashes 372 -> 423. RFD3_PF_RMSB=0 restores the chain.
+_PF_RMSB = env_flag("RFD3_PF_RMSB", True)
 PF_RMSB_CALLS = [0]
 
 
@@ -572,8 +573,10 @@ _PZ_GATHER = env_flag("RFD3_PZ_GATHER", True)
 # WH @1000 fast 57.9 -> 57.0, normal 57.6 -> 56.4 s/design; p150a fast 30.0 -> 29.1. RFD3_PZ_SPREAD=0 restores it.
 _PZ_SPREAD = env_flag("RFD3_PZ_SPREAD", True)
 # Under the pair memo, process_z as one gather_tiled program that also applies `ainv + em * inv`, on the memo's changed
-# row tiles only: the rest of its output is never read (the transitions read those rows only).
-_PZ_ROWS = env_flag("RFD3_PZ_ROWS", False)
+# row tiles only: the rest of its output is never read (the transitions read those rows only). The product goes to an
+# fp32 dest and the add runs on the SFPU, so the bits equal the addcmul path's (digests equal on WH, seed 60 both modes).
+# WH @1000 normal 39.68 -> 38.41 s/design. Follows the addcmul default (same rounding); RFD3_PZ_ROWS=0/1 forces it.
+_PZ_ROWS = env_flag("RFD3_PZ_ROWS", False) if os.environ.get("RFD3_PZ_ROWS") else None
 # The distogram bins of the token encoder (2 host calls per step while the card waits) as one numba pass with the
 # near-edge pairs recomputed by torch: equal to the torch chain, 4-5.7 -> 0.7-1.7 ms/call at 685 tokens on 2 cores
 # (rfd3/distbins.py). RFD3_BINS_NB=0 restores the torch chain.
@@ -1630,7 +1633,7 @@ class PairformerAttention(Module):
             qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
             memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(qkv)
-        mask = self._sdpa_mask_rms(z, I, n_key) if _pf_rmsb_on() else None
+        mask = self._sdpa_mask_rms(z, I, n_key) if _PF_RMSB else None
         if mask is None:
             z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6, compute_kernel_config=ckc)
             mask = self._sdpa_mask(z, I, n_key)
@@ -3844,7 +3847,7 @@ class DiffusionTokenEncoder(Module):
             if _PAIR_MEMO and not f32:
                 self._process_z_invariant(Z_init_II, 1 if D_II_self is None else 2, B)   # the memo keys on its design
                 memo = self._pair_memo([B, I, I, self.C_Z], self.dtype, bins, D_II_self)
-            part = memo is not None and _PZ_ROWS and _PZ_GATHER
+            part = memo is not None and _pz_rows_on() and _PZ_GATHER
             z = self._process_z_collapsed(Z_init_II, bins, D_II_self, B, I, rows=memo[2] if part else None)
             if memo is not None:
                 full = (lambda: self._process_z_collapsed(Z_init_II, bins, D_II_self, B, I)) if part else None
