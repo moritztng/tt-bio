@@ -5,7 +5,8 @@ gap_ditlin on WH chip 18 read max |err| 4.0 for the shipped call and every 2D co
 at this shape, against 0.016 for bw in {1,8,12} and for every other shape and on BH. This reproduces ditlin's exact
 inputs (same generator sequence) and a fresh pair, runs the shipped call and two 2D configs three times each, and
 records the count, rows, tile coordinates and values of every element off by more than 0.1, plus whether repeated
-calls agree bit for bit. Card-dependence is read by running it on several chips.
+calls agree bit for bit. The expected cause is the Wormhole fp32-dest cancellation fault (tt_bio/dest_guard.py: any
+K block > 1, deterministic, every chip, ~1e-7 of outputs); bw 8 and 12 only dodge it for this input.
     python scripts/rfd3_port/gap_mmbad.py OUT.json
 """
 import json, os, pathlib, sys
