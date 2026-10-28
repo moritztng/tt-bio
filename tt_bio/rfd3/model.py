@@ -809,9 +809,15 @@ def _mm2d_on():
 
 
 def _mm2d_config(x, w, silu=False):
-    """The pinned 2D config for a DiT linear, or None for every other call. `silu` fuses it on the accumulator."""
-    xs, ws = list(x.padded_shape), list(w.padded_shape)
-    if not _mm2d_on() or len(ws) != 2 or (ws[0], ws[1]) not in _MM2D_SHAPES or math.prod(xs[:-2]) != 1:
+    """The pinned 2D config for a DiT linear, or None for every other call. `silu` fuses it on the accumulator.
+    Every linear asks, so the cheap refusals come first (a shape read is a host call)."""
+    if not _mm2d_on():
+        return None
+    ws = list(w.padded_shape)
+    if len(ws) != 2 or (ws[0], ws[1]) not in _MM2D_SHAPES:
+        return None
+    xs = list(x.padded_shape)
+    if math.prod(xs[:-2]) != 1:
         return None
     key = (xs[-2], ws[0], ws[1], silu)
     if key not in _MM2D_CACHE:
