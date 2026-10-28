@@ -4207,7 +4207,8 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None, skip=None):
         from .staticknn import StaticKnn
         nn = _STATIC_KNN_CACHE.setdefault((length, k), StaticKnn()).query(xd, k, workers, skip is not None)
     else:
-        _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
+        from .staticknn import threads
+        _, nn = cKDTree(xd).query(xd, k=k, workers=threads(length, k, workers))
         nn = nn.reshape(length, k)
     # A row's output depends only on its nn row (mask and seq_idx are fixed per design), and in a binder or motif
     # design most rows keep last step's neighbours, so only the rows whose nn changed are rebuilt. One tuple read and
