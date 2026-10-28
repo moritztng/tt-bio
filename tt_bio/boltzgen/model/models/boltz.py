@@ -589,7 +589,9 @@ class Boltz(nn.Module):
                 # builds z_init where it consumes it, so the [1, n, n, token_z] host sum and its
                 # 134 MB upload never happen. The host relative position encoding is then only
                 # built for the one reader that still needs it, the token-distance features.
-                device_zinit = self.use_resident_trunk and _device_zinit()
+                # Blackhole only until the Wormhole grade (bf16 device sum moves the CIFs) passes.
+                device_zinit = (self.use_resident_trunk and _device_zinit()
+                                and not tenstorrent.is_wormhole())
                 z_init = z_init_build = relative_position_encoding = None
                 if device_zinit:
                     z_init_build = self._tt_zinit_module()
