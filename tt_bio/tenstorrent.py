@@ -2760,6 +2760,8 @@ def _win_addcmul(x, y, win):
 _DIT_SHARED_COND = env_flag("TT_BIO_DIT_SHARED_COND", True)
 #: dit_cond_steps: rows a stacked conditioning linear runs (G steps x tokens).
 _DIT_COND_STEPS_ROWS = 4096
+#: Most steps a traced `dit_cond_steps` chunk stacks: one capture per row block, all live at once.
+_DIT_TRACE_STEPS = 8
 
 # S6: route the token-level diffusion transformer's attention through the fused ttnn SDPA,
 # deleting the materialised [1, 16, 512, 512] logits tensor and its five DRAM traversals.
@@ -4706,7 +4708,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_cond_steps")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_cond_steps", "diffusion_trace")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -8732,6 +8734,8 @@ def _assert_local_dispatch(dev, timeout_s=None):
 #: chip's first dispatch never completes. So a caller names its capture and never passes bytes.
 TRACE_REGIONS = {
     "diffusion": {"wormhole_b0": 16 << 20, "blackhole": 27 << 20},    # boltz2 / boltzgen DiT step
+    # One DiT step per row block of the conditioning `dit_cond_steps` computes ahead: _DIT_TRACE_STEPS of them.
+    "diffusion_steps": {"wormhole_b0": 128 << 20, "blackhole": 216 << 20},
     "protenix": {"wormhole_b0": 20 << 20, "blackhole": 36 << 20},     # protenix-v1/v2, opendde step
     "openfold3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},    # openfold3 / openbind step
     "rf3": {"wormhole_b0": 48 << 20, "blackhole": 64 << 20},          # rf3 denoiser step, ~1,600 ops like of3's
@@ -18843,6 +18847,8 @@ class DiffusionModule(TorchWrapper):
         # 344 us against 8 x 64.6 at M 512), and G x 113 MB of terms at 512 tokens. Past 1024 tokens G < 4 and each
         # step's linear is already past that cost, so there is nothing to amortize (cs3x: 1536 x 1, G 2, +2.1 s).
         G = _DIT_COND_STEPS_ROWS // int(s_trunk.shape[-2])
+        if getattr(self, "_diff_steps_traced", False):
+            G = min(G, _DIT_TRACE_STEPS)
         t = float(times.reshape(-1)[0])
         k = next((i for i, x in enumerate(sched) if x == t), None)
         if k is None or G < 4:
@@ -18853,6 +18859,7 @@ class DiffusionModule(TorchWrapper):
             ts = torch.tensor(sched[k0:k0 + G], dtype=times.dtype)
             self.module.cond_steps(self._from_torch(ts), s_trunk, self._cache_get("s_inputs"), self._cache_get("c"))
             self._steps_k0 = k0
+            self._steps_tail = len(ts) < G
             _latch("dit_cond_steps", "served")
         return k - k0
 
@@ -18928,28 +18935,19 @@ class DiffusionModule(TorchWrapper):
         return ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
 
     def _release_trace(self):
-        tr = getattr(self, "_diff_trace", None)
-        if tr is not None:
+        for tr in getattr(self, "_diff_traces", {}).values():
             try:
                 ttnn.release_trace(self.tt_device, tr["tid"])
             except Exception:
                 pass
-            self._diff_trace = None
+        self._diff_traces, self._diff_sig = {}, None
 
-    def _capture_diff_trace(
-        self, r_padded: torch.Tensor, times: torch.Tensor,
-        large_seq_len: bool, B: int, N_padded: int,
-    ) -> dict:
-        in_r = self._from_torch(r_padded)        # persistent input buffer
-        in_times = self._from_torch(times)
-        _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # warmup / compile
-        _ = self._run_diffusion_device(in_r, in_times, large_seq_len)   # 2nd warmup: populate lazy _s_conditioned/_c_reshaped + per-layer s_o
-        ttnn.synchronize_device(self.tt_device)
-        tid, out = capture_trace(self.tt_device,
-                                 lambda: self._run_diffusion_device(in_r, in_times, large_seq_len))
-        self._diff_trace = {"tid": tid, "in_r": in_r, "in_times": in_times,
-                            "out": out, "B": B, "N_padded": N_padded}
-        return self._diff_trace
+    def _steps_sig(self):
+        """Where the conditioning computed ahead lives. A captured step reads its row block at these addresses, so
+        a chunk the allocator places elsewhere needs new captures."""
+        chunk = self.module._steps
+        return tuple((t.buffer_address(), tuple(t.shape))
+                     for t in (chunk["s_to_a"], *(t for parts in chunk["cond"] for t in parts)))
 
     def forward_traced(
         self,
@@ -18966,10 +18964,11 @@ class DiffusionModule(TorchWrapper):
         mask: torch.Tensor,
         atom_to_token: torch.Tensor,
     ) -> torch.Tensor:
-        """Traced equivalent of ``forward``. Captures the per-step DiT device
-        graph once per (B, N_padded) and replays it each step with the new
-        ``r`` / ``times`` staged into the captured input buffers. Requires a
-        device opened with get_device(trace="diffusion")."""
+        """Traced equivalent of ``forward``: the per-step DiT device graph is captured and replayed each step with
+        the new ``r`` / ``times`` staged into its input buffers. Requires a device opened with
+        get_device(trace="diffusion"), or "diffusion_steps" to keep `dit_cond_steps`: then each row block of a
+        conditioning chunk gets its own capture (the slice is baked into the graph). A step without a capture runs
+        eagerly, which also compiles and warms the lazy caches, and is captured after two such steps."""
         require_trace_region("the diffusion trace")
         seq_len, N, N_padded = self._populate_diffusion_cache(
             r.shape[0], s_inputs, s_trunk, q, c,
@@ -18979,12 +18978,25 @@ class DiffusionModule(TorchWrapper):
         if atom_pad_cached:
             r = torch.nn.functional.pad(r, (0, 0, 0, atom_pad_cached))
         large = seq_len > SEQ_LEN_MORE_CHUNKING
-        B = r.shape[0]
-        tr = getattr(self, "_diff_trace", None)
-        if tr is None or tr["B"] != B or tr["N_padded"] != N_padded:
-            if tr is not None:
-                self._release_trace()
-            tr = self._capture_diff_trace(r, times, large, B, N_padded)
+        self._diff_steps_traced = trace_region_size() >= TRACE_REGIONS["diffusion_steps"].get(arch_name(), 1 << 62)
+        step = self._cond_step(times) if self._diff_steps_traced else None
+        # The tail of the schedule is a shorter chunk, and a chunk the allocator moved has new addresses.
+        sig = (r.shape[0], N_padded, step is not None and self._steps_sig())
+        if sig != getattr(self, "_diff_sig", None):
+            self._release_trace()
+            self._diff_sig = sig
+        tr = self._diff_traces.get(step)
+        if tr is None:
+            out = self._run_diffusion_device(self._from_torch(r), self._from_torch(times), large, step=step)
+            result = self._to_torch(out)[:, :N, :]
+            self._diff_warm = getattr(self, "_diff_warm", 0) + 1
+            if self._diff_warm >= 2 and not (step is not None and self._steps_tail):
+                in_r, in_times = self._from_torch(r), self._from_torch(times)
+                tid, out = capture_trace(self.tt_device,
+                                         lambda: self._run_diffusion_device(in_r, in_times, large, step=step))
+                self._diff_traces[step] = {"tid": tid, "in_r": in_r, "in_times": in_times, "out": out}
+                _latch("diffusion_trace", "served", f"captured step {step}")
+            return result
         ttnn.copy_host_to_device_tensor(self._host_tt(r), tr["in_r"])
         ttnn.copy_host_to_device_tensor(self._host_tt(times), tr["in_times"])
         ttnn.execute_trace(self.tt_device, tr["tid"], cq_id=0, blocking=False)
@@ -19003,6 +19015,7 @@ class DiffusionModule(TorchWrapper):
     def reset_static_cache(self):
         super().reset_static_cache()
         self._release_trace()
+        self._diff_warm = 0
         self._steps_k0 = None
         if self.module is not None:
             self.module.release_steps()

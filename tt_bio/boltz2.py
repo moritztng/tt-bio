@@ -5515,7 +5515,7 @@ class Boltz2(nn.Module):
         # get_device() opens, so this must precede module construction.
         if diffusion_trace:
             from tt_bio.tenstorrent import get_device
-            get_device(trace="diffusion")
+            get_device(trace="diffusion_steps" if "dit_cond_steps" in self._levers else "diffusion")
         
         # Store all hyperparameters for checkpoint loading
         self.hparams = {
