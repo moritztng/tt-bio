@@ -254,9 +254,14 @@ if knobs & {"idxfree", "binsfree", "dkfree"}:
 for seed in SEEDS:
     if PROF is not None:
         PROF = cProfile.Profile()
+        from tt_bio import mm_generic as _mmg
+        _bs0 = dict(_mmg.BOUND_STATS)
     s, d, cifs = fold("s%d" % seed, seed)
     if PROF is not None:
         with open(OUT / ("%s.s%d.dprof.txt" % (ARM, seed)), "w") as f:
+            # a generic_op launch at an address set it has not bound before rebuilds every core's runtime args
+            print("bound descriptors this fold: %s, %d held" % ({k: v - _bs0.get(k, 0) for k, v in
+                                                                _mmg.BOUND_STATS.items()}, len(_mmg._BOUND)), file=f)
             st = pstats.Stats(PROF, stream=f).sort_stats("tottime")
             st.print_stats(60)
             st.sort_stats("cumulative").print_stats(80)
