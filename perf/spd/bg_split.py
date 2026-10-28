@@ -26,6 +26,7 @@ import ttnn
 from tt_bio import tenstorrent as T
 from tt_bio.boltzgen.model.models import boltz as B
 from tt_bio.boltzgen.model.modules import diffusion as D
+from tt_bio.boltzgen.task.predict import predict as P
 from tt_bio.boltzgen.task.predict import writer as W
 
 OUT = os.environ.get("BGSPLIT_OUT")
@@ -91,6 +92,36 @@ T.TrunkModule._build_static = _stamp("st", T.TrunkModule._build_static)
 T.TrunkModule._iteration = _stamp("it", T.TrunkModule._iteration)
 # `td`: BoltzGen's token-distance precompute inside the static build (host a_ij, its cache check, the upload).
 T.TokenDistanceRecycle.precompute = _stamp("td", T.TokenDistanceRecycle.precompute)
+# Helper-thread intervals (the next design's featurize, the last design's write), to see how much of each one lands
+# inside this design's host-bound trunk stages (pre, static), where it competes for the GIL.
+SPANS = []
+
+
+class _Pool(P.ThreadPoolExecutor):
+    def submit(self, fn, *a, **k):
+        name = getattr(fn, "__name__", "?")
+
+        def run():
+            t = time.perf_counter()
+            try:
+                return fn(*a, **k)
+            finally:
+                SPANS.append((name, t, time.perf_counter()))
+        return super().submit(run)
+
+
+P.ThreadPoolExecutor = _Pool
+
+
+def _overlap(lo, hi):
+    out = {}
+    for name, a, b in SPANS:
+        o = min(b, hi) - max(a, lo)
+        if o > 0:
+            out[name] = round(out.get(name, 0) + o, 3)
+    return out
+
+
 _write = W.DesignWriter.write
 
 
@@ -116,6 +147,8 @@ def write(self, *a, **k):
                    after=round(trunk_end - ev["tf"], 3) if trunk_end else None)
         if "td" in ev:
             rec["td"] = round(ev["td"] - ev["td0"], 3)
+        rec["pre_ov"] = _overlap(ev["t0"], ev["tf0"])
+        rec["static_ov"] = _overlap(ev["st0"], ev["st"])
     LAST["end"] = ev["t1"]
     line = "BGSPLIT " + json.dumps(rec)
     print(line, flush=True)
