@@ -253,7 +253,7 @@ class Pending:
 
 
 def join(seq, out, L, k):
-    """Host side, as _neighbours_kdtree: sequence entries + kept neighbours, ascending, first k."""
-    vals = np.concatenate([seq.astype(np.int32), out], 1)
-    vals.sort(1)
-    return torch.from_numpy(vals[:, :k].astype(np.int64)).unsqueeze(0)
+    """Host side, as _neighbours_kdtree: sequence entries + kept neighbours, ascending, first k. torch's sort, because
+    it uses the host's threads (6051 x 256 values: 14.6 ms on one thread, 5.5 on four) and numpy's does not."""
+    vals = torch.cat([torch.from_numpy(np.asarray(seq, np.int32)), torch.from_numpy(np.asarray(out, np.int32))], 1)
+    return vals.sort(1).values[:, :k].long().unsqueeze(0)
