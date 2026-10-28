@@ -19762,8 +19762,10 @@ class PairAssemblyDevice:
         self.cutoff_min, self.cutoff_max = cc.cutoff_min, cc.cutoff_max
         # encoder input is cat([cc[2:], threshold, fourier]), so its non-Fourier width fixes the
         # contact one-hot's: n_small = (n_cc - 2) + 1. Read it off the module rather than
-        # importing the constant table, so the pack follows the checkpoint.
-        n_small = cc.encoder.in_features - cc.fourier_embedding.proj.out_features
+        # importing the constant table, so the pack follows the checkpoint. The Fourier width comes
+        # from the weight's shape: Boltz-2's proj is an nn.Linear, BoltzGen's a bare buffer pair.
+        n_fourier = cc.fourier_embedding.proj.weight.shape[0]
+        n_small = cc.encoder.in_features - n_fourier
         n_cc = n_small + 1
         n_tb = conf.token_bonds.in_features
         self.n_pack = n_cc + 2 + n_tb           # cc | threshold | keep | token_bonds
@@ -19783,8 +19785,7 @@ class PairAssemblyDevice:
         self.contact_weight = packed({2: ew[:, :n_small - 1].t(),
                                       i_thr: ew[:, n_small - 1:n_small].t()}, ew.shape[0])
         self.fourier_in_weight = packed(
-            {i_thr: cc.fourier_embedding.proj.weight.detach().t()},
-            cc.fourier_embedding.proj.out_features)
+            {i_thr: cc.fourier_embedding.proj.weight.detach().t()}, n_fourier)
         self.fourier_bias = row(cc.fourier_embedding.proj.bias)
         self.fourier_out_weight = w(ew[:, n_small:], transpose=True)
         self.contact_bias = row(cc.encoder.bias)
