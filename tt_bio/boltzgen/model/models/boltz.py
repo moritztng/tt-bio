@@ -210,6 +210,7 @@ class Boltz(nn.Module):
             get_device(trace="diffusion")
         self.inverse_fold = inverse_fold
         self.inference_logging = inference_logging
+        self.host_free = None  # threading.Event set at the sampler (predict.py)
         self.use_kernels = use_kernels
         self.use_resident_trunk = use_resident_trunk
         self.ignore_ckpt_shape_mismatch = ignore_ckpt_shape_mismatch
@@ -748,6 +749,8 @@ class Boltz(nn.Module):
                 print("\nRunning Structure Module.\n")
             with torch.autocast("cuda", enabled=False):
                 if not self.inverse_fold:
+                    if self.host_free is not None:  # predict.py's next-design featurize may start
+                        self.host_free.set()
                     struct_out = self.structure_module.sample(
                         s_trunk=s.float(),
                         s_inputs=s_inputs.float(),
