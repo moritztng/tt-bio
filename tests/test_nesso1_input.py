@@ -188,3 +188,31 @@ def test_esm_embedding_is_computed_once_per_sequence_across_runs(tmp_path, monke
     assert calls == ["MENFQK"]
     a, b = (load_file(tmp_path / r / "m1.safetensors")["embeddings"] for r in ("run1", "run2"))
     assert torch.equal(a, b)
+
+
+def test_device_and_cpu_embeddings_keep_separate_stores(tmp_path, monkeypatch):
+    """The card's ESM-2 is not the CPU's to the bit. A run on one backend must never be
+    handed the other's stored embedding: a DAVIS grade of the device encoder once read the
+    CPU arm's store and came out identical to it."""
+    import torch
+    from safetensors.torch import load_file
+
+    import tt_bio._vendor.nesso.data.esm as esm
+    import tt_bio.nesso1_input as NI
+
+    calls = []
+    monkeypatch.setattr(esm, "setup_esm_model", lambda *a, **k: (None, None))
+    monkeypatch.setattr(esm, "extract_esm_embedding",
+                        lambda seq, m, t: calls.append("cpu") or torch.zeros(1, len(seq) + 2, 4))
+    monkeypatch.setattr(NI, "device_esm",
+                        lambda *a, **k: lambda seq: calls.append("tt") or torch.ones(1, len(seq) + 2, 4))
+    seqs = {"m1": "MENFQK"}
+    runs = {}
+    for i, dev in enumerate((False, True, False, True)):
+        d = tmp_path / f"run{i}"
+        d.mkdir()
+        NI.run_esm(seqs, d, on_device=dev)
+        runs[i] = load_file(d / "m1.safetensors")["embeddings"]
+    assert calls == ["cpu", "tt"]
+    assert torch.equal(runs[0], runs[2]) and torch.equal(runs[1], runs[3])
+    assert not torch.equal(runs[0], runs[1])

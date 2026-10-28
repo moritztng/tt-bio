@@ -11,10 +11,16 @@ per-ligand deltas sit inside the floor's and its Pearson vs pKd is not below bas
 floor arm is. `pred` falls as pKd rises, so the correlation is compared by magnitude.
 With several floor arms (other seeds), each bound is the widest any of them shows: the arm has to
 move the model no further than a reseed already did.
+
+--gt grades against ground truth instead (the charter's normal-mode bar): per arm and per metric
+(pred, prob), d|r| vs pKd = arm minus base, pooled as the mean over targets, with a paired
+bootstrap over ligands. An arm passes when its pooled d|r| is no lower than the lowest floor
+arm's, or its 95 % CI covers 0, for both metrics.
 """
 import argparse
 import json
 import math
+import random
 import statistics
 from pathlib import Path
 
@@ -62,6 +68,35 @@ def compare(base, arm):
     return rows
 
 
+def gt_shift(base, arm, metric, boots=4000, seed=0):
+    """Pooled d|r| (arm - base, metric vs pKd) over shared targets, with its bootstrap 95 % CI."""
+    data = [[(arm[t][r][metric], base[t][r][metric], base[t][r]["pkd"]) for r in base[t] if r in arm[t]]
+            for t in base if t in arm]
+
+    def d(rows):
+        pk = [x[2] for x in rows]
+        return abs(pearson([x[0] for x in rows], pk)) - abs(pearson([x[1] for x in rows], pk))
+
+    rng = random.Random(seed)
+    bs = sorted(sum(d([v[rng.randrange(len(v))] for _ in v]) for v in data) / len(data) for _ in range(boots))
+    return sum(d(v) for v in data) / len(data), bs[int(0.025 * boots)], bs[int(0.975 * boots) - 1]
+
+
+def main_gt(a, base):
+    floors = {f: load(a.dv / f) for f in a.floor.split(",")}
+    arms = {n: load(a.dv / n) for n in a.arms}
+    rep = {}
+    print("%-8s %-5s %8s %18s %s" % ("arm", "metric", "pooled", "CI95", "pass"))
+    for metric in ("pred", "prob"):
+        low = min(gt_shift(base, f, metric)[0] for f in floors.values())
+        for name, arm in list(floors.items()) + list(arms.items()):
+            m, lo, hi = gt_shift(base, arm, metric)
+            ok = "floor" if name in floors else (m >= low or lo <= 0 <= hi)
+            rep.setdefault(name, {})[metric] = {"d_r": m, "ci": [lo, hi], "pass": ok}
+            print("%-8s %-5s %+8.4f [%+8.4f,%+8.4f] %s" % (name, metric, m, lo, hi, ok))
+    return rep
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("dv", type=Path)
@@ -69,8 +104,14 @@ def main():
     ap.add_argument("--base", default="base")
     ap.add_argument("--floor", default="seed2", help="comma-separated floor arms")
     ap.add_argument("--json", type=Path)
+    ap.add_argument("--gt", action="store_true", help="grade d|r| vs pKd against ground truth (see module doc)")
     a = ap.parse_args()
     base = load(a.dv / a.base)
+    if a.gt:
+        rep = main_gt(a, base)
+        if a.json:
+            a.json.write_text(json.dumps(rep, indent=1) + "\n")
+        return
     floors = {f: compare(base, load(a.dv / f)) for f in a.floor.split(",")}
     floor = {}
     for tid in set.intersection(*(set(f) for f in floors.values())):

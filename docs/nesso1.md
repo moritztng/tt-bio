@@ -16,19 +16,17 @@ The torch reference is bit-exact against upstream, and `tt-bio affinity` reprodu
 upstream scalars end to end from a YAML. On device the model is deterministic run to run: the
 solo-vs-solo delta is exactly 0.0 at every size and in both precisions.
 
-Speed is settled, and it is not a win against a GPU. One prediction is 8.34 s at 532 tokens on one
-p150a against 1.05 s of H200 device time, so the port sits **7.9x off an H200** and does not clear
-the 4x gap tt-bio holds itself to. The pairformer alone accounts for 6.50 s of that, and it is a
-floor rather than a first attempt: the workload is tt-bio's own tuned pair-only pairformer block run
-304 times per prediction, measured on the same block class and the same lever settings the fold runs,
-and the last named lever left (the trimul tail fused at `k_tiles=4`) came out bit-exact and 1.74x
-slower. So 6.19x is the best a lever-only pass could reach, and 7.9x is what it costs today.
+One prediction at 532 tokens, from YAML to affinity with a fresh ESM-2 embedding, takes 3.06 s on one
+p150a at 1350 MHz and 5.75 s on one Wormhole chip at 1000 MHz, against 7.90 s on an A100 SXM4 80 GB
+(`perf/bmk/design_cell.py --model nesso1`, warm median). On Tenstorrent the ESM-2 650M embedding runs on
+the card. Its embedding sits 1.65 % (relative Frobenius) from the CPU fp32 one, and the affinity and
+binder correlation against measured Kd on held-out DAVIS targets stays inside what a different seed
+moves it (`perf/nesso1/davis_arms.py --gt`).
 
 Two of the shipped fused kernels do not serve this path at all: the triangle-attention persistent
 mask needs a batch-broadcast bias and the affinity stack builds one bias per row, and the trimul
 tail fusion refuses this block's contraction width. Both refuse for the same reason at every size,
-and the floor above already reflects that, so it is a description of the workload rather than
-headroom to go and get.
+so this describes the workload rather than headroom to go and get.
 
 It is still the right model to run here, because the alternative is much worse. Scoring the same
 protein-ligand pair through Boltz-2 affinity costs 386.3 s on a p150a
@@ -140,7 +138,7 @@ Supported:
 |---|---|
 | protein chains | one or more; identical copies via `id: [A, B]` |
 | ligands | one or more, as `smiles:`, `ccd:`, `sdf:`, or a pickled RDKit conformer via `conformer:` |
-| ESM embedding | computed for you, or supply a precomputed one with `esm:` |
+| ESM embedding | computed for you (on the card when running on Tenstorrent), or supply a precomputed one with `esm:` |
 | output | an affinity value (mean of two ensemble members, plus each member), a binary binder logit and probability, and six distogram entropies |
 
 Not supported, and these are all upstream limits rather than porting gaps:

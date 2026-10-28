@@ -252,7 +252,7 @@ def nesso1():
     for i in range(a.repeat + 1):
         store = work / f"esm{i}"
         t0 = time.perf_counter()
-        dataset, manifest, failed = prepare(src, work / f"r{i}", num_workers=0)
+        dataset, manifest, failed = prepare(src, work / f"r{i}", num_workers=0, esm_on_device=True)
         # where screen() seeds torch (the featuriser's random roto-translation); the vendored featuriser also draws
         # from numpy's and Python's global RNGs, which screen() leaves running, so rep i would differ from rep 0
         torch.manual_seed(DEFAULT_SEED); np.random.seed(DEFAULT_SEED); random.seed(DEFAULT_SEED)
