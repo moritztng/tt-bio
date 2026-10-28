@@ -793,7 +793,10 @@ def _tuned_declined(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
 # under `_TUNE_MIN_MS`, so calibration never sees them. The config regroups K, so it is graded on accuracy, not
 # bits. `_MM2D_PIN` holds the per-arch winner of scripts/rfd3_port/gap_ditlin.py as (grid x, grid y, in0_block_w,
 # subblock h, subblock w); a shape it does not name takes the full grid, the widest K block and a 1-high subblock.
+# RFD3_DIT_MM2D_L1 also writes their outputs to L1 (WH: 36 vs 48 us at q/k/v/g); the explicit config fixes the
+# blocking, so the destination does not move bits.
 _MM2D = env_flag("RFD3_DIT_MM2D", False)
+_MM2D_L1 = env_flag("RFD3_DIT_MM2D_L1", False)
 _MM2D_SHAPES = {(768, 1024), (768, 1536), (1536, 768), (1024, 768)}
 _MM2D_PIN = {}
 _MM2D_CACHE = {}
@@ -849,6 +852,7 @@ def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVA
         kw["bias"] = bias
     pc = _mm2d_config(x, w)
     if pc is not None:
+        mem = mem or (ttnn.L1_MEMORY_CONFIG if _MM2D_L1 else None)
         return ttnn.linear(x, w, program_config=pc, **kw, **({} if mem is None else {"memory_config": mem}))
     if not _TUNE_MATMUL or not _tunable(x, w):
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
@@ -2861,7 +2865,8 @@ class RFD3AtomBlock(Module):
         pc = _mm2d_config(norm, self.t_fc1, silu=True)
         left = ttnn.linear(
             norm, self.t_fc1, compute_kernel_config=silu_ckc(ckc), dtype=dt,
-            **(dict(activation="silu", core_grid=BATCH_INVARIANT_GRID) if pc is None else dict(program_config=pc)),
+            **(dict(activation="silu", core_grid=BATCH_INVARIANT_GRID) if pc is None else
+               dict(program_config=pc, **(dict(memory_config=ttnn.L1_MEMORY_CONFIG) if _MM2D_L1 else {}))),
         )
         right = _tuned_linear(
             norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
