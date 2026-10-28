@@ -70,7 +70,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "dkfree", "hsplit"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "dkfree", "hsplit", "dprof"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -185,6 +185,32 @@ if "hsplit" in knobs:
                              (ttnn, "to_torch", "to_torch")):
         _host_timed(owner, name, key)
 
+# dprof: cProfile over the device regions' host calls only (enqueue side), written per fold to <arm>.dprof.txt by
+# tottime, to name the Python spent per op where an enqueue runs slower than its region's device time.
+PROF = None
+if "dprof" in knobs:
+    import cProfile
+    import pstats
+    PROF, _depth = cProfile.Profile(), [0]
+
+    def _profiled(owner, name):
+        fn = getattr(owner, name)
+
+        def run(*a, **k):
+            _depth[0] += 1
+            if _depth[0] == 1:
+                PROF.enable()
+            try:
+                return fn(*a, **k)
+            finally:
+                _depth[0] -= 1
+                if _depth[0] == 0:
+                    PROF.disable()
+        setattr(owner, name, run)
+    for owner, name in ((M.DiffusionTokenEncoder, "run_device"), (M.LocalTokenTransformer, "__call__"),
+                        (M.LocalAtomTransformer, "__call__"), (M.CompactStreamingDecoder, "run_full_device")):
+        _profiled(owner, name)
+
 WALL = []
 _sample = RFD3Sampler.sample
 
@@ -224,7 +250,14 @@ if knobs & {"idxfree", "binsfree", "dkfree"}:
     rec["idx_warm_built"] = IDX[1]
     IDX[:] = [0, 0]
 for seed in SEEDS:
+    if PROF is not None:
+        PROF = cProfile.Profile()
     s, d, cifs = fold("s%d" % seed, seed)
+    if PROF is not None:
+        with open(OUT / ("%s.s%d.dprof.txt" % (ARM, seed)), "w") as f:
+            st = pstats.Stats(PROF, stream=f).sort_stats("tottime")
+            st.print_stats(60)
+            st.sort_stats("cumulative").print_stats(80)
     for i, c in enumerate(cifs[:BATCH]):
         shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed if BATCH == 1 else 10 * seed + i)))
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
