@@ -154,7 +154,7 @@ def compute_distogram_entropy(
 # LCK/BLK (BLK p90 0.0651 against 0.1086) and on ABL1p/YSK4 against the four reseeds (YSK4 p90 0.0379
 # against 0.0930). Wormhole warm forward 8.62-8.84 -> 7.12-7.23 s.
 # transition_ws + ws_resid + ws_l1dest (the weight-stationary transition) with ESM-2 on the card pass the
-# ground-truth grade (davis_arms.py --gt) on held-out SRC/MEK5/CLK1 on both archs. Page cell 532 tokens:
+# ground-truth grade (davis_arms.py --gt) on held-out SRC/MEK5/CLK1 on Wormhole. Page cell 532 tokens:
 # Wormhole 1000 MHz 10.84 -> 6.0 s, p150a 1350 MHz 5.08 -> 3.27 s. triatt_ln and trimul_bres are close to
 # bit-equal on DAVIS (Wormhole) and take the 532-token block 41.7 -> 38.3 ms on Wormhole, 20.0 -> 18.6 ms on p150a.
 LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "silu_f32", "trimul_t1", "trimul_t2",
