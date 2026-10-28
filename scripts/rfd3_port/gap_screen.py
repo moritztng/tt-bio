@@ -70,7 +70,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "hsplit"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "dkfree", "hsplit"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -132,6 +132,31 @@ if "idxfree" in knobs:
                                             lambda f, X_L, tok_idx, n_keys, *r: (n_keys, len(tok_idx)))
 if "binsfree" in knobs:
     M._scaled_distogram_bins = _replayed(M._scaled_distogram_bins, lambda R_L, *r: R_L, lambda *a: ())
+# dkfree: the same for the card atom index (dknn.Pending, which idxfree never sees): a replayed step launches no dknn
+# program and reads nothing back, so the warm seed's saving is the most the card index can still cost.
+if "dkfree" in knobs:
+    from tt_bio import dknn as _dk
+    _Pending = _dk.Pending
+
+    class _Replay:
+        book = {}
+
+        def __init__(self, device, X_L, mask, seq, k, static=None):
+            self.key = (hashlib.sha256(X_L.detach().float().contiguous().numpy().tobytes()).hexdigest(), tuple(X_L.shape), k)
+            hit = self.book.get(self.key)
+            self.hit = None if _rec[0] or hit is None else hit
+            self.real = _Pending(device, X_L, mask, seq, k, static) if self.hit is None else None
+
+        def result(self):
+            if self.hit is not None:
+                IDX[0] += 1
+                return self.hit.clone()
+            IDX[1] += 1
+            out = self.real.result()
+            if _rec[0]:
+                self.book[self.key] = out.clone()
+            return out
+    _dk.Pending = _Replay
 
 # hsplit: host seconds inside each region's call (enqueue only for device regions; no sync is added), so a region whose
 # enqueue time is close to its Tracy device time is dispatch-bound. to_torch is the blocking readback (waits on the card).
@@ -194,7 +219,7 @@ rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "fast": F
 s, d, _ = fold("warm", SEEDS[0])
 rec["warm_s"] = s
 print("[screen %s] warmup %.3f s %s  w8 %s" % (ARM, s, d, W8), flush=True)
-if knobs & {"idxfree", "binsfree"}:
+if knobs & {"idxfree", "binsfree", "dkfree"}:
     _rec[0] = False
     rec["idx_warm_built"] = IDX[1]
     IDX[:] = [0, 0]
