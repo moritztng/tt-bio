@@ -4,8 +4,9 @@
 
 // gather_tiled compute: tilize each 32-row block of CT tiles. Data movement only, every value passes unchanged.
 // GT_FMA: the tilized block goes to an intermediate CB and comes out as a + block * inv (inv one tile, its first column
-// broadcast across the columns): the product on the FPU into dest, a added with dest reused as srcB, one rounding to
-// bf16 at the pack. GT_ROWLIST: runtime arg 1 is replaced by the core's share of the host list (common args n, ncores).
+// broadcast across the columns): the product on the FPU into the 32-bit dest (exact for bf16 x bf16), a copied into the
+// next dest slot and added on the SFPU, one rounding to bf16 at the pack. The FPU add (dest reused as srcB) is not
+// exact: it lost ~1 bf16 ulp against float64 where ttnn.addcmul lost half of one (see rne_add's header). GT_ROWLIST: runtime arg 1 is replaced by the core's share of the host list (common args n, ncores).
 #include <cstdint>
 
 #define REDUCE_OP PoolType::SUM          // tilize.h guards tilize_block on these
@@ -15,7 +16,8 @@
 #include "api/compute/compute_kernel_hw_startup.h"
 #ifdef GT_FMA
 #include "api/compute/bcast.h"
-#include "api/compute/eltwise_binary.h"
+#include "api/compute/eltwise_binary_sfpu.h"
+#include "api/compute/tile_move_copy.h"
 #endif
 
 void kernel_main() {
@@ -30,7 +32,7 @@ void kernel_main() {
 #endif
 #ifdef GT_FMA
     constexpr uint32_t cb_a = 3, cb_inv = 4, cb_em = 24;
-    constexpr uint32_t GRAN = 4;   // tiles per dest acquire: four fp32 tiles fill half of Blackhole's dest
+    constexpr uint32_t GRAN = 2;   // tiles per dest acquire, two fp32 slots each (product, a): Wormhole's half dest
     // compute_kernel_hw_startup first: tilize_init configures no unpacker/math/packer state (pzgchk4, 10-17).
     compute_kernel_hw_startup(cb_rm, cb_inv, cb_out);
     for (uint32_t u = 0; u < nunits; ++u) {
@@ -49,14 +51,14 @@ void kernel_main() {
             const uint32_t g = CT - t0 < GRAN ? CT - t0 : GRAN;
             tile_regs_acquire();
             mul_bcast_cols_init_short(cb_em, cb_inv);
-            for (uint32_t j = 0; j < g; ++j) mul_tiles_bcast_cols(cb_em, cb_inv, t0 + j, 0, j);
-            binary_dest_reuse_tiles_init<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(cb_a);
-            for (uint32_t j = 0; j < g; ++j)
-                binary_dest_reuse_tiles<EltwiseBinaryType::ELWADD, EltwiseBinaryReuseDestType::DEST_TO_SRCB>(
-                    cb_a, t0 + j, j);
+            for (uint32_t j = 0; j < g; ++j) mul_tiles_bcast_cols(cb_em, cb_inv, t0 + j, 0, 2 * j);
+            copy_tile_to_dst_init_short_with_dt(cb_em, cb_a);
+            for (uint32_t j = 0; j < g; ++j) copy_tile(cb_a, t0 + j, 2 * j + 1);
+            add_binary_tile_init();
+            for (uint32_t j = 0; j < g; ++j) add_binary_tile(2 * j, 2 * j + 1, 2 * j);
             tile_regs_commit();
             tile_regs_wait();
-            for (uint32_t j = 0; j < g; ++j) pack_tile(j, cb_out);
+            for (uint32_t j = 0; j < g; ++j) pack_tile(2 * j, cb_out);
             tile_regs_release();
         }
         cb_push_back(cb_out, CT);
