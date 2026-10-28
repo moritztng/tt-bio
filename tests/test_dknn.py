@@ -1,5 +1,5 @@
-"""tt_bio.dknn's contract, host only: its fixed point, packed mask and join, with the kernel's per-row rule run in
-numpy, reproduce _neighbours_kdtree (the float64 k-d tree the model uses today) row for row."""
+"""tt_bio.dknn's contract, host only: its fixed point and packed mask, with the kernel's per-row rule run in numpy,
+reproduce _neighbours_kdtree (the float64 k-d tree the model uses today) row for row."""
 import numpy as np
 import pytest
 import torch
@@ -8,9 +8,19 @@ dknn = pytest.importorskip("tt_bio.dknn")
 M = pytest.importorskip("tt_bio.rfd3.model")
 
 
+def _row(mw, r, c, L, K, WO):
+    """dknn.cpp's output row: kept atoms c merged with the row's first K - n_fill mask bits, padded with L."""
+    j = np.arange(L)
+    bits = np.flatnonzero((mw[r, 1 + (j >> 5)] >> (j & 31).astype(np.uint32)) & 1)[: K - mw[r, 0]]
+    row = np.full(WO, L, np.int32)
+    row[: len(bits) + len(c)] = np.sort(np.concatenate([bits, c]))
+    return row
+
+
 def _kernel_rows(q, mw, L, K, WO):
     """dknn.cpp per row: k-th uint64 key (quickselect on the atoms under a 1-in-8 sample's bound, or on every atom if
-    fewer than K are under it), outside-mask atoms within it, the n_fill nearest (ties to the lower index)."""
+    fewer than K are under it), outside-mask atoms within it, the n_fill nearest (ties to the lower index), merged
+    with the sequence entries."""
     out = np.full((L, WO), L, np.int32)
     j = np.arange(L)
     ts, sampled = 2 * K // 8 - 1, L >= 4 * K
@@ -25,7 +35,7 @@ def _kernel_rows(q, mw, L, K, WO):
         c = np.where((d <= dk) & (bit == 0))[0]
         if len(c) > mw[r, 0]:
             c = c[np.lexsort((c, d[c]))][: mw[r, 0]]
-        out[r, : len(c)] = np.sort(c)
+        out[r] = _row(mw, r, c, L, K, WO)
     return out
 
 
@@ -39,12 +49,13 @@ def test_dknn_rule_equals_kdtree(sigma):
     mask = torch.from_numpy(np.abs(tok[:, None] - tok[None, :]) <= 2)
     seq = torch.where(mask, torch.arange(L).expand(L, L), L).topk(K, dim=1, largest=False, sorted=True).values
     n_fill = (K - (seq < L).sum(1)).numpy()
+    assert (n_fill == K - np.minimum(mask.numpy().sum(1), K)).all()   # how dknn.neighbours derives it
     mw = dknn.mask_words(mask.numpy(), n_fill).view(np.uint32)
     assert (mw[:, 0] == n_fill).all()
     q = dknn.fixed_point(x.numpy())
     assert np.abs(q).max() <= 2 ** 30
-    out = _kernel_rows(q, mw, L, K, dknn._align(int(n_fill.max())))
-    got = dknn.join(seq.numpy(), out, L, K)
+    out = _kernel_rows(q, mw, L, K, dknn._align(K))
+    got = torch.from_numpy(out[:, :K]).long().unsqueeze(0)
     ref = M._neighbours_kdtree(mask, seq, x.unsqueeze(0), K)
     assert torch.equal(got, ref)
 
@@ -79,9 +90,7 @@ def _cand_rows(q, mw, L, K, WO, table, m0, m1, full):
         cc, dd = c[keep], d[keep]
         if len(cc) > mw[r, 0]:
             cc = cc[np.lexsort((cc, dd))][: mw[r, 0]]
-        row = np.full(WO, L, np.int32)
-        row[: len(cc)] = np.sort(cc)
-        out[r] = row
+        out[r] = _row(mw, r, cc, L, K, WO)
     return out, proved
 
 
@@ -100,7 +109,7 @@ def test_static_candidates_equal_full(monkeypatch, sigma):
     seq = torch.where(mask, torch.arange(L).expand(L, L), L).topk(K, dim=1, largest=False, sorted=True).values
     n_fill = (K - (seq < L).sum(1)).numpy()
     mw = dknn.mask_words(mask.numpy(), n_fill).view(np.uint32)
-    WO = dknn._align(int(n_fill.max()))
+    WO = dknn._align(K)
     st = dknn.Static()
     for step in range(3):
         x = base.copy()
@@ -131,7 +140,7 @@ def test_static_candidates_fall_back_on_ties(monkeypatch):
     seq = torch.where(mask, torch.arange(L).expand(L, L), L).topk(K, dim=1, largest=False, sorted=True).values
     n_fill = (K - (seq < L).sum(1)).numpy()
     mw = dknn.mask_words(mask.numpy(), n_fill).view(np.uint32)
-    WO = dknn._align(int(n_fill.max()))
+    WO = dknn._align(K)
     st = dknn.Static()
     st.plan(None, g.astype(np.float32), K)
     x = g.copy()
