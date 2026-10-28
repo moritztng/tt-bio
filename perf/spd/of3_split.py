@@ -61,10 +61,23 @@ openfold3_trunk.msa_embed = timed("msa_embed_s", openfold3_trunk.msa_embed)
 _init = openfold3_trunk.OF3Trunk.__init__
 
 
+class Timed:
+    """Times calls to a trunk module; every other attribute (template.features, ...) passes through."""
+
+    def __init__(self, name, mod):
+        self._mod, self._call = mod, timed(name, mod)
+
+    def __call__(self, *a, **k):
+        return self._call(*a, **k)
+
+    def __getattr__(self, name):
+        return getattr(self._mod, name)
+
+
 def init(self, *a, **k):
     _init(self, *a, **k)
     for attr in ("msa_module", "template", "pairformer"):
-        setattr(self, attr, timed(f"{attr}_s", getattr(self, attr)))
+        setattr(self, attr, Timed(f"{attr}_s", getattr(self, attr)))
 
 
 openfold3_trunk.OF3Trunk.__init__ = init
