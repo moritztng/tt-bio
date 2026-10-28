@@ -78,6 +78,28 @@ void kernel_main() {
     constexpr uint32_t SS = 8, NS = (L + SS - 1) / SS, TS = 2 * KK / SS - 1;
     constexpr bool SAMPLED = L >= 4 * KK && TS < NS;
 
+    // Candidate mode: the movers' bounding box, so a row can bound every mover's key from below with one key.
+    int32_t lo[3] = {0, 0, 0}, hi[3] = {-1, -1, -1};
+    if constexpr (CW > 0) {
+        for (uint32_t j = m0; j < m1; ++j) {
+            for (uint32_t a = 0; a < 3; ++a) {
+                const int32_t v = x[4 * j + a];
+                if (j == m0 || v < lo[a]) lo[a] = v;
+                if (j == m0 || v > hi[a]) hi[a] = v;
+            }
+        }
+    }
+    auto box_key = [&](int32_t qx, int32_t qy, int32_t qz) {   // ~0 (never skip) when there are no movers
+        if (m1 <= m0) return ~uint64_t(0);
+        const int32_t q[3] = {qx, qy, qz};
+        uint64_t b = 0;
+        for (uint32_t a = 0; a < 3; ++a) {
+            const uint32_t g = q[a] < lo[a] ? uint32_t(lo[a] - q[a]) : q[a] > hi[a] ? uint32_t(q[a] - hi[a]) : 0u;
+            b += uint64_t(g) * g;
+        }
+        return b;
+    };
+
     for (uint32_t i = r0; i < r0 + nr; ++i) {
         uint32_t r = i;
         uint64_t cbound = 0;
@@ -113,21 +135,36 @@ void kernel_main() {
         uint64_t dk = 0;
         bool done = false;
         if constexpr (CW > 0) {
-            // the row's static candidates and every mover; the selection below does not depend on their order
+            // the row's static candidates, then the movers; the selection below does not depend on their order
             for (uint32_t t = 4; t < CW && cw[t] < L; ++t) {
                 const uint32_t j = cw[t];
                 s[2 * c] = key(j);
                 s[2 * c + 1] = j;
                 ++c;
             }
-            for (uint32_t j = m0; j < m1; ++j) {
-                s[2 * c] = key(j);
-                s[2 * c + 1] = j;
-                ++c;
-            }
+            // Adding atoms only lowers the k-th key, so a mover above the static candidates' k-th key cannot enter
+            // the row: only movers at or under it are kept, and none are scored when the movers' box is beyond it.
+            uint64_t mb = ~uint64_t(0);
             if (c >= KK) {
                 for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
-                dk = kth(d, int32_t(c), int32_t(KK) - 1);
+                mb = dk = kth(d, int32_t(c), int32_t(KK) - 1);
+            }
+            const uint32_t c0 = c;
+            if (box_key(qx, qy, qz) <= mb) {
+                for (uint32_t j = m0; j < m1; ++j) {
+                    const uint64_t v = key(j);
+                    if (v <= mb) {
+                        s[2 * c] = v;
+                        s[2 * c + 1] = j;
+                        ++c;
+                    }
+                }
+            }
+            if (c >= KK) {
+                if (c != c0) {
+                    for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
+                    dk = kth(d, int32_t(c), int32_t(KK) - 1);
+                }
                 done = dk < cbound;
             }
         }
