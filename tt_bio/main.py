@@ -65,6 +65,7 @@ import base64
 import hashlib
 import importlib.util
 import json
+import math
 import multiprocessing as mp
 import os
 import random
@@ -504,6 +505,26 @@ def _lowest_priority() -> None:
     os.nice(19)
 
 
+# More align threads stop paying past here: 8 took a served search from 22.2 s to 13.0 s with
+# the few-query align patch, a3m byte-identical at every thread count.
+_SEARCH_MAX_THREADS = 8
+
+
+def _search_threads() -> int:
+    """Threads for one search: the worker's share, plus cores the host leaves idle.
+
+    _spawn_worker_processes sets OMP_NUM_THREADS = cores // workers, 2 on a Galaxy, so
+    concurrent searches never oversubscribe a host. The search is niced, so an idle core it
+    borrows costs no fold anything. A plain CLI run leaves the env unset and gets every core.
+    """
+    cores = os.cpu_count() or 1
+    share = int(os.environ.get("OMP_NUM_THREADS") or 0)
+    if not share:
+        return cores
+    idle = cores - math.ceil(os.getloadavg()[0])
+    return max(share, min(idle, _SEARCH_MAX_THREADS))
+
+
 def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                         db_path: str, use_env: bool = False,
                         pairing_strategy: str = "greedy", pair: bool = False,
@@ -546,11 +567,7 @@ def compute_msa_offline(seqs: dict[str, str], target_id: str, msa_dir: Path,
                     f.write(f">{name}\n{seq}\n")
         a3m_out = tmp / "a3m"
         a3m_out.mkdir(exist_ok=True)
-        # Honor the per-worker thread cap (set by _spawn_worker_processes as
-        # OMP_NUM_THREADS = cores // workers) so many concurrent MSAs across a
-        # fleet share each host's cores instead of oversubscribing them. A
-        # plain single-run CLI leaves the env unset and gets all cores.
-        threads = int(os.environ.get("OMP_NUM_THREADS") or os.cpu_count() or 1)
+        threads = _search_threads()
         if paired and chain_cache is not None:
             msa = _paired_by_chain(list(seqs.values()), Path(db_path), mmseqs_bin, colabfold_bin,
                                    tmp, Path(chain_cache), threads, strategy_val)
