@@ -59,3 +59,30 @@ def test_pf_sdpa_matches_float64(I, dpb, monkeypatch):
         assert torch.isfinite(out).all()
         err[sdpa] = float((out - ref).norm() / ref.norm())
     assert err[True] <= 1.25 * err[False] + 1e-3, err
+
+
+@pytest.mark.parametrize("I", [96, 70])
+def test_pf_rmsb_matches_float64(I, monkeypatch):
+    """The SDPA mask from rms_pair_bias (RFD3_PF_RMSB), the norm weight folded into the projection, is as close to the
+    float64 reference as the rms_norm + dit_pair_bias mask, at a whole and a partial tile."""
+    ensure_p300_mesh_descriptor()
+    from tt_bio.tenstorrent import get_device
+    dev = get_device()
+    g = torch.Generator().manual_seed(I + 1)
+    w = _weights(g)
+    s_t = torch.randn(1, I, CS, generator=g).bfloat16()
+    z_t = torch.randn(1, I, I, CZ, generator=g).bfloat16()
+    ref = _reference(w, s_t, z_t)
+    attn = M.PairformerAttention(w, M._default_compute_kernel_config(), dtype=ttnn.bfloat16)
+    up = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
+    monkeypatch.setattr(M, "_PF_SDPA", True)
+    monkeypatch.setattr(M, "_PF_DPB", True)
+    err = {}
+    for rmsb in (False, True):
+        monkeypatch.setattr(M, "_PF_RMSB", rmsb)
+        n0 = M.PF_RMSB_CALLS[0]
+        out = ttnn.to_torch(attn(up(s_t), up(z_t))).double()[:, :I, :CS]
+        assert torch.isfinite(out).all()
+        assert M.PF_RMSB_CALLS[0] - n0 == int(rmsb)
+        err[rmsb] = float((out - ref).norm() / ref.norm())
+    assert err[True] <= 1.25 * err[False] + 1e-3, err

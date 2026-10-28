@@ -54,3 +54,25 @@ def test_static_candidates_equal_full(sigma):
         full = ttnn.to_torch(dknn.outside_neighbours(dev, x, mask, seq, K)).numpy()
         assert np.array_equal(got, full), step
     assert st.ids is not None and len(st.ids) == L - NM
+
+
+@pytest.mark.parametrize("async_read", [True, False])
+def test_pending_read_later_equals_blocking(monkeypatch, async_read):
+    """Pending's readback (dknn.read_later) returns the blocking read's index, with card work queued after the launch
+    and before .result()."""
+    ensure_p300_mesh_descriptor()
+    monkeypatch.setattr(dknn, "ASYNC_READ", async_read)
+    dev = M.get_device()
+    L, K, NT = 2400, 128, 240
+    rng = np.random.default_rng(9)
+    tok = np.repeat(np.arange(NT), L // NT)
+    x = torch.from_numpy((np.cumsum(rng.normal(size=(NT, 3)) * 2.2, 0)[tok] + rng.normal(size=(L, 3))).astype(np.float32))
+    mask = torch.from_numpy(np.abs(tok[:, None] - tok[None, :]) <= 2)
+    seq = torch.where(mask, torch.arange(L).expand(L, L), L).topk(K, dim=1, largest=False, sorted=True).values
+    p = dknn.Pending(dev, x.unsqueeze(0), mask, seq, K)
+    a = ttnn.from_torch(torch.randn(1024, 1024), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+    for _ in range(20):
+        a = ttnn.matmul(a, a)
+    got = p.result()
+    ttnn.deallocate(a)
+    assert torch.equal(got, M._neighbours_kdtree(mask, seq, x.unsqueeze(0), K))

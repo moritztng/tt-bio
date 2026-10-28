@@ -231,6 +231,11 @@ padded to a tile width and the pair bias as the mask. It is closer to a float64 
 separate ops it replaces and saves about 1 s per design in both modes on both chips. Over eight paired default seeds
 the design moves 3.5 to 11.7 A at the same seed against 12.5 to 20.3 A for a seed change, with chain breaks
 unchanged and clashes within seed noise. `RFD3_PF_SDPA=0` turns it off.
+On Wormhole that attention's mask comes from one kernel that normalises the pair tensor and projects it in the same
+pass, with the norm weight and the score scale folded into the projection, instead of a separate norm and a second
+read of its output. About 1.2 s per design in `--fast` and 0.8 s in normal mode. Over eight paired default seeds the
+design moves 3.4 to 12.9 A at the same seed against 13.9 to 18.4 A for a seed change, with chain breaks 3 -> 2 and
+clashes within seed noise. `RFD3_PF_RMSB=0/1` forces it either way.
 
 The pair Transition also runs its SiLU on the packer thread so the matmuls overlap it. Results are bit-identical;
 a default design is up to 1 s faster in normal mode and unchanged in `--fast`. `RFD3_PAIR_WS_PSILU=0` turns it off.
@@ -288,6 +293,9 @@ neighbour list changed are rebuilt each step, which takes another 1.2 s off fast
 When the moving atoms are one contiguous range, as a binder is, their rows go to the card index while the host
 tree answers the rest, with the same rows. That takes another 1.3 s off fast and 1.0 s off normal mode on
 Wormhole. `RFD3_DKNN_MOVERS=0` keeps every row on the host.
+The card index is read back behind an event instead of a blocking read, so the step does not also wait for the work
+queued after the index. Same rows; about 0.4 s per design in normal mode on Wormhole. `RFD3_DKNN_ASYNC_READ=0`
+restores the blocking read.
 
 The token transformer's conditioning is the same for all 18 blocks of a step, so its adaLN gains, shifts and
 output gates come from three wide projections per step instead of six small ones and two norms per block,
