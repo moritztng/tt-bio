@@ -794,18 +794,24 @@ def _tuned_declined(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
 # bits. `_MM2D_PIN` holds the per-arch winner of scripts/rfd3_port/gap_ditlin.py as (grid x, grid y, in0_block_w,
 # subblock h, subblock w); a shape it does not name takes the full grid, the widest K block and a 1-high subblock.
 # RFD3_DIT_MM2D_L1 also writes their outputs to L1 (WH: 36 vs 48 us at q/k/v/g); the explicit config fixes the
-# blocking, so the destination does not move bits.
-_MM2D = env_flag("RFD3_DIT_MM2D", False)
+# blocking, so the destination does not move bits. On by default except on Wormhole (p150a grade, 8 paired normal
+# seeds: drift 6.5-13.8 A against a 14.2-19.8 A floor, breaks 4 -> 3, clashes 423 -> 390; -0.7 s/design normal);
+# RFD3_DIT_MM2D=0/1 forces it.
+_MM2D_ENV = env_flag("RFD3_DIT_MM2D", False) if os.environ.get("RFD3_DIT_MM2D") else None
 _MM2D_L1 = env_flag("RFD3_DIT_MM2D_L1", False)
 _MM2D_SHAPES = {(768, 1024), (768, 1536), (1536, 768), (1024, 768)}
 _MM2D_PIN = {}
 _MM2D_CACHE = {}
 
 
+def _mm2d_on():
+    return _MM2D_ENV if _MM2D_ENV is not None else not is_wormhole()
+
+
 def _mm2d_config(x, w, silu=False):
     """The pinned 2D config for a DiT linear, or None for every other call. `silu` fuses it on the accumulator."""
     xs, ws = list(x.padded_shape), list(w.padded_shape)
-    if not _MM2D or len(ws) != 2 or (ws[0], ws[1]) not in _MM2D_SHAPES or math.prod(xs[:-2]) != 1:
+    if not _mm2d_on() or len(ws) != 2 or (ws[0], ws[1]) not in _MM2D_SHAPES or math.prod(xs[:-2]) != 1:
         return None
     key = (xs[-2], ws[0], ws[1], silu)
     if key not in _MM2D_CACHE:

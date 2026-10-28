@@ -28,11 +28,11 @@ def test_mm2d_matches_default(monkeypatch, rows, k, n, silu):
     ref = torch.nn.functional.silu(ref) if silu else ref
     xd, wd = _up(x, dev), _up(w, dev)
 
-    monkeypatch.setattr(M, "_MM2D", False)
+    monkeypatch.setattr(M, "_MM2D_ENV", False)
     assert M._mm2d_config(xd, wd) is None
     base = ttnn.to_torch(ttnn.linear(xd, wd, compute_kernel_config=ckc, dtype=ttnn.bfloat16,
                                      activation="silu" if silu else None, core_grid=M.BATCH_INVARIANT_GRID))
-    monkeypatch.setattr(M, "_MM2D", True)
+    monkeypatch.setattr(M, "_MM2D_ENV", True)
     pc = M._mm2d_config(xd, wd, silu=silu)
     assert pc is not None
     got = ttnn.to_torch(ttnn.linear(xd, wd, compute_kernel_config=ckc, dtype=ttnn.bfloat16, program_config=pc))
