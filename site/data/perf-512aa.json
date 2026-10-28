@@ -1,6 +1,6 @@
 {
   "schema": 3,
-  "updated": "2026-10-27",
+  "updated": "2026-10-28",
   "title": "TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware",
   "subtitle": "Eight structure-prediction models, two binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
@@ -654,12 +654,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 12.821,
+          "s_per_fold": 12.473,
           "n": 4,
-          "spread_pct": 2.01,
+          "spread_pct": 0.87,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 775d70edd, ttnn 0.68.0, qb1 p150a card 0",
-          "when": "2026-10-27T18:07:11Z",
+          "versions": "tt-bio main aab6e1b3f, ttnn 0.68.0, qb1 p150a card 0",
+          "when": "2026-10-28T00:40:51Z",
           "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 11.596,
@@ -759,12 +759,12 @@
           "when": "2026-10-27T12:57:21Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
-            "s_per_fold": 7.261,
+            "s_per_fold": 7.108,
             "n": 4,
-            "spread_pct": 2.33,
+            "spread_pct": 0.76,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 96d157b9c, ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-10-27T10:59:16Z"
+            "versions": "tt-bio main aab6e1b3f, ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-10-28T00:43:56Z"
           }
         },
         "h200": {
