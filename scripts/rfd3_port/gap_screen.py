@@ -191,6 +191,7 @@ PROF = None
 if "dprof" in knobs:
     import cProfile
     import pstats
+    from tt_bio import dknn as _dkm
     PROF, _depth = cProfile.Profile(), [0]
 
     def _profiled(owner, name):
@@ -208,7 +209,8 @@ if "dprof" in knobs:
                     PROF.disable()
         setattr(owner, name, run)
     for owner, name in ((M.DiffusionTokenEncoder, "run_device"), (M.LocalTokenTransformer, "__call__"),
-                        (M.LocalAtomTransformer, "__call__"), (M.CompactStreamingDecoder, "run_full_device")):
+                        (M.LocalAtomTransformer, "__call__"), (M.CompactStreamingDecoder, "run_full_device"),
+                        (_dkm.Pending, "__init__"), (_dkm.Pending, "result"), (_dkm.Static, "plan")):
         _profiled(owner, name)
 
 WALL = []
