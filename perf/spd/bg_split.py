@@ -89,6 +89,8 @@ def _stamp(name, fn):
 T.TrunkModule.forward = _stamp("tf", T.TrunkModule.forward)
 T.TrunkModule._build_static = _stamp("st", T.TrunkModule._build_static)
 T.TrunkModule._iteration = _stamp("it", T.TrunkModule._iteration)
+# `td`: BoltzGen's token-distance precompute inside the static build (host a_ij, its cache check, the upload).
+T.TokenDistanceRecycle.precompute = _stamp("td", T.TokenDistanceRecycle.precompute)
 _write = W.DesignWriter.write
 
 
@@ -112,6 +114,8 @@ def write(self, *a, **k):
         rec.update(pre=round(ev["tf0"] - ev["t0"], 3), static=round(ev["st"] - ev["st0"], 3),
                    loop=round(ev["it"] - ev["st"], 3), down=round(ev["tf"] - ev["it"], 3),
                    after=round(trunk_end - ev["tf"], 3) if trunk_end else None)
+        if "td" in ev:
+            rec["td"] = round(ev["td"] - ev["td0"], 3)
     LAST["end"] = ev["t1"]
     line = "BGSPLIT " + json.dumps(rec)
     print(line, flush=True)
