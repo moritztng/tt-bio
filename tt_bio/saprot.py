@@ -631,7 +631,13 @@ class _SaprotLin(_MMLin):
         return None
 
     def _lin_add(self, x, w, bias, resid):
-        """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add."""
+        """resid + (x @ w + bias), in one matmul where _SAPROT_RESID serves, else as the projection and an add.
+        A float32 resid (SaprotModel.fp32_stream) stays float32: the add is its own op."""
+        if resid.dtype == ttnn.float32:
+            r = self._lin(x, w, bias=bias)
+            out = ttnn.add(resid, r, dtype=ttnn.float32)
+            ttnn.deallocate(r)
+            return out
         x_l1 = ((w.dtype == ttnn.bfloat8_b if _SAPROT_X_L1 is None else _SAPROT_X_L1)
                 and _rows(resid) not in _X_L1_REFUSED)
         out = self._mm_resid(x, w, bias, resid, x_l1) if self._mm_resid_on() else None
@@ -929,6 +935,11 @@ def _block_ln(x, w, b, ck, proj_w):
     """The block's pre-LN, in L1 where _SAPROT_LN_L1 serves (None: when the next projection's weight proj_w is
     block-fp8) and the shape fits."""
     key = _rows(x)
+    if x.dtype == ttnn.float32:   # SaprotModel.fp32_stream: the projections still read bf16
+        y = ttnn.layer_norm(x, weight=w, bias=b, epsilon=1e-5, compute_kernel_config=ck)
+        out = ttnn.typecast(y, ttnn.bfloat16)
+        ttnn.deallocate(y)
+        return out
     l1 = proj_w.dtype == ttnn.bfloat8_b if _SAPROT_LN_L1 is None else _SAPROT_LN_L1
     if l1 and key not in _LN_L1_REFUSED:
         try:
@@ -1055,11 +1066,17 @@ class SaprotModel(Module):
 
     __call__ returns (logits[B,L,446], embeddings[B,L,hidden]); embeddings are the
     post-``emb_layer_norm_after`` hidden states (the structure-aware per-residue
-    representation)."""
+    representation).
 
-    def __init__(self, n_heads, n_layers, state_dict: Weights, compute_kernel_config):
+    ``fp32_stream`` keeps the residual stream in float32 between blocks (the projections are
+    unchanged). ESM-2 650M's stream reaches |x| ~ 960 by the last block, where a bf16 step is 4:
+    at 512 aa a bf16 stream puts the final hidden state 1.7 % (rel Frobenius) off float32 on CPU,
+    bf16 matmul operands on a float32 stream 0.6 %."""
+
+    def __init__(self, n_heads, n_layers, state_dict: Weights, compute_kernel_config, fp32_stream: bool = False):
         super().__init__(state_dict, compute_kernel_config)
         self.n_heads = n_heads
+        self.fp32_stream = fp32_stream
         self.embed = SaprotEmbeddingLayer(self.scope("embed"), compute_kernel_config)
         self.blocks = [
             ESM2Block(n_heads, self.scope(f"blocks.{i}"), compute_kernel_config)
@@ -1094,6 +1111,8 @@ class SaprotModel(Module):
             self._rope[seq_len] = rope
         cos, sin = rope
         x = self.embed(tokens, embed_mask)
+        if self.fp32_stream:
+            x = ttnn.typecast(x, ttnn.float32)
         for block in self.blocks:
             x = block(x, cos, sin, attn_mask, key_valid)
         emb = ttnn.layer_norm(x, weight=self.norm_weight, bias=self.norm_bias,
@@ -1153,6 +1172,7 @@ class Saprot(TorchWrapper):
         self.n_heads = n_heads
         self.n_layers = n_layers
         self.intermediate = intermediate
+        self.fp32_stream = False   # see SaprotModel; load_esm2 turns it on
 
     @classmethod
     def from_pretrained(cls, name: str = "saprot-650m") -> "Saprot":
@@ -1186,7 +1206,8 @@ class Saprot(TorchWrapper):
         return model
 
     def _create_module(self, weights: WeightScope) -> SaprotModel:
-        return SaprotModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config)
+        return SaprotModel(self.n_heads, self.n_layers, weights, self.compute_kernel_config,
+                           fp32_stream=self.fp32_stream)
 
     def forward(self, tokens, attn_mask=None, key_valid=None, embed_mask=None,
                 want_logits: bool = True):
@@ -1297,6 +1318,29 @@ class Saprot(TorchWrapper):
     def reset_static_cache(self):
         super().reset_static_cache()
         self._release_trace()
+
+
+def load_esm2(repo: str = "facebook/esm2_t33_650M_UR50D", cache_dir=None) -> Saprot:
+    """A facebook ESM-2 checkpoint (vocab 33) on this encoder: same blocks, its own embedding table.
+
+    Nesso-1 conditions on the 650M's final hidden state, which is ``emb`` here (post
+    ``emb_layer_norm_after``, the last entry of HF's ``hidden_states``). Tokenize with the HF
+    tokenizer; ``<pad>`` is 1 in both vocabularies, so the bucketing pad is the same token.
+    """
+    from transformers import EsmForMaskedLM
+
+    hf = EsmForMaskedLM.from_pretrained(repo, cache_dir=None if cache_dir is None else str(cache_dir))
+    c = hf.config
+    # The encoder hard-codes what ESM-2 650M does: rotary positions, no pre-LN on the embedding,
+    # the 0.88 token-dropout scale. Refuse a checkpoint that differs rather than run it wrong.
+    if (c.position_embedding_type, c.emb_layer_norm_before, c.token_dropout, c.pad_token_id) != ("rotary", False, True, PAD):
+        raise ValueError(f"{repo}: not an ESM-2 layout this encoder implements")
+    model = Saprot(c.hidden_size, c.num_attention_heads, c.num_hidden_layers, c.intermediate_size)
+    # Nesso-1 regresses affinity off this state, so its error reaches the prediction: a bf16 stream (2.4 % at 512 aa on
+    # the card) moved two DAVIS ABL1p ligands 0.28 in pred, 2.5x the widest reseed.
+    model.fp32_stream = True
+    model.load_state_dict(_remap_state_dict(hf.state_dict(), c.num_hidden_layers), strict=False)
+    return model
 
 
 def load_saprot(name: str = "saprot-650m", *, fast: bool = False):

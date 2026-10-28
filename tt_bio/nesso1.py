@@ -153,8 +153,12 @@ def compute_distogram_entropy(
 # trimul_t1_dram moves the five 256-token crop passes onto the DRAM path so T1/T2 serve them too: PASS on
 # LCK/BLK (BLK p90 0.0651 against 0.1086) and on ABL1p/YSK4 against the four reseeds (YSK4 p90 0.0379
 # against 0.0930). Wormhole warm forward 8.62-8.84 -> 7.12-7.23 s.
+# transition_ws + ws_resid + ws_l1dest (the weight-stationary transition), triatt_ln and trimul_bres with ESM-2
+# on the card pass the ground-truth grade (davis_arms.py --gt) on held-out SRC/MEK5/CLK1 on Wormhole and p150a.
+# Page cell 532 tokens: Wormhole 1000 MHz 10.84 -> 5.75 s, p150a 1350 MHz 5.08 -> 3.06 s.
 LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "silu_f32", "trimul_t1", "trimul_t2",
-                           "triatt_tail", "transition_bw", "trimul_t1_dram"})
+                           "triatt_tail", "transition_bw", "trimul_t1_dram",
+                           "transition_ws", "ws_resid", "ws_l1dest", "triatt_ln", "trimul_bres"})
 
 
 def _pairformer(
@@ -896,6 +900,7 @@ def screen(
         ccd_pkl=ccd_pkl,
         num_workers=num_workers,
         esm_cache=cache,
+        esm_on_device=use_tenstorrent,
     )
     model = Nesso1.from_pretrained(
         weights,
