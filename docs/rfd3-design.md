@@ -224,18 +224,20 @@ for a seed change, with chain breaks 4 -> 3 and fewer clashes. It is off on a p1
 On Wormhole the token encoder's distogram embedding is scaled and shifted by one fused multiply-add instead of two
 passes, about 0.7 s per design in `--fast` and unchanged in normal mode. Over eight paired default seeds the design
 moves 4.7 to 11.5 A at the same seed against 13.4 to 21.3 A for a seed change, with chain breaks 2 -> 3 and clashes
-within seed noise. `RFD3_PZ_ADDCMUL=0/1` forces it either way.
+within seed noise. `RFD3_PZ_ADDCMUL=0/1` forces it either way. With it on, that embedding is computed only for the
+pair rows the recycle cache marks as changed, in one kernel with the same rounding (results bit-identical), about
+1.3 s per design in normal mode. `RFD3_PZ_ROWS=0/1` forces it.
 
 The pairformer's attention in the token encoder runs as one fused attention kernel, with the heads
 padded to a tile width and the pair bias as the mask. It is closer to a float64 reference than the chain of
 separate ops it replaces and saves about 1 s per design in both modes on both chips. Over eight paired default seeds
 the design moves 3.5 to 11.7 A at the same seed against 12.5 to 20.3 A for a seed change, with chain breaks
 unchanged and clashes within seed noise. `RFD3_PF_SDPA=0` turns it off.
-On Wormhole that attention's mask comes from one kernel that normalises the pair tensor and projects it in the same
-pass, with the norm weight and the score scale folded into the projection, instead of a separate norm and a second
-read of its output. About 1.2 s per design in `--fast` and 0.8 s in normal mode. Over eight paired default seeds the
-design moves 3.4 to 12.9 A at the same seed against 13.9 to 18.4 A for a seed change, with chain breaks 3 -> 2 and
-clashes within seed noise. `RFD3_PF_RMSB=0/1` forces it either way.
+That attention's mask comes from one kernel that normalises the pair tensor and projects it in the same pass, with
+the norm weight and the score scale folded into the projection, instead of a separate norm and a second read of its
+output. About 1 s per design on both chips. Over eight paired default seeds the design moves 2.7 to 13.6 A at the
+same seed against 13.3 to 20.6 A for a seed change on either chip; chain breaks go 3 -> 2 on Wormhole and 2 -> 4 on
+a p150a, clashes flat on Wormhole and up about 6 per design on a p150a. `RFD3_PF_RMSB=0` restores the separate norm.
 
 The pair Transition also runs its SiLU on the packer thread so the matmuls overlap it. Results are bit-identical;
 a default design is up to 1 s faster in normal mode and unchanged in `--fast`. `RFD3_PAIR_WS_PSILU=0` turns it off.

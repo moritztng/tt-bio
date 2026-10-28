@@ -292,11 +292,11 @@ def pair_swiglu(x, w12, w3, fidelity=ttnn.MathFidelity.HiFi4, defines=(), silu_p
 
 
 def row_list(device, x, rows):
-    """`pair_swiglu`'s `rows` over `x`: the row tiles `rows` (flattened row tile indices, 32 rows of x's flattened
+    """`pair_swiglu`'s `rows` over `x` (a tensor, or its padded shape): the row tiles `rows` (flattened row tile indices, 32 rows of x's flattened
     leading dims each), sorted and dealt round-robin to the cores the program splits over, as a uint32 ROW_MAJOR
     [ncores, P] DRAM tensor (P a multiple of 16, so each core's page is 64-byte aligned). Returns (tensor, n)."""
     mt = 1
-    for d in list(x.padded_shape)[:-1]:
+    for d in list(x if isinstance(x, (list, tuple)) else x.padded_shape)[:-1]:
         mt *= int(d)
     mt //= 32
     ncores = core_split.split_work_to_cores(device.compute_with_storage_grid_size(), mt, 0)[0]

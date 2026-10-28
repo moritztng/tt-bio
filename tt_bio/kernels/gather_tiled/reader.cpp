@@ -8,7 +8,14 @@
 // The table may hold COPIES identical replicas STRIDE pages apart (STRIDE coprime to the DRAM bank count): read k of
 // unit u goes to replica (u + k) % COPIES, so an index that names one row over and over (RFD3's CA distance bins,
 // where every pair past the top edge takes the last row) spreads over every bank instead of queueing on one.
+// GT_FMA (the define is the compile-time arg offset of a's accessor, inv's follows): also read unit u's CT tiles of a
+// and its one tile of inv for the compute's a + gathered * inv. GT_ROWLIST (offset of the list's accessor): the core
+// walks a host list of units (common/row_list.hpp; common args 2-4 list address, n, core count, runtime arg 2 its
+// ordinal) instead of a contiguous range.
 #include "api/dataflow/dataflow_api.h"
+#ifdef GT_ROWLIST
+#include "../common/row_list.hpp"
+#endif
 
 void kernel_main() {
     constexpr uint32_t W = get_compile_time_arg_val(0);    // index row width (logical columns of the output)
@@ -26,6 +33,14 @@ void kernel_main() {
     const auto s_tab = TensorAccessor(tab_args, get_common_arg_val<uint32_t>(1), ROW);
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
+#ifdef GT_FMA
+    constexpr uint32_t cb_a = 3, cb_inv = 4;
+    constexpr auto a_args = TensorAccessorArgs<GT_FMA>();
+    constexpr auto i_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
+    const auto s_a = TensorAccessor(a_args, get_common_arg_val<uint32_t>(5));
+    const auto s_inv = TensorAccessor(i_args, get_common_arg_val<uint32_t>(6));
+    const uint32_t ta = get_tile_size(cb_a);
+#endif
 
     const uint32_t zero_l1 = get_write_ptr(cb_zero);
     volatile tt_l1_ptr uint32_t* z = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(zero_l1);
@@ -37,7 +52,15 @@ void kernel_main() {
     volatile tt_l1_ptr uint32_t* idx = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(idx_l1);
 
     uint32_t row = 0xFFFFFFFFu;
+#ifdef GT_ROWLIST
+    const uint32_t me = get_arg_val<uint32_t>(2);
+    const auto list = row_list_read<GT_ROWLIST, GT_LIST_BYTES>(me, get_common_arg_val<uint32_t>(2), get_write_ptr(5));
+    const uint32_t nl = row_list_count(me, get_common_arg_val<uint32_t>(3), get_common_arg_val<uint32_t>(4));
+    for (uint32_t i = 0; i < nl; ++i) {
+        const uint32_t u = list[i];
+#else
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
+#endif
         const uint32_t r = u / JT;
         const uint32_t jt = u % JT;
         if (r != row) {
@@ -54,7 +77,20 @@ void kernel_main() {
             noc_async_read(k < n ? s_tab.get_noc_addr(rep + idx[c0 + k]) : zero_noc, wp, ROW);
             rep = rep + STRIDE == COPIES * STRIDE ? 0 : rep + STRIDE;
         }
+#ifdef GT_FMA
+        cb_reserve_back(cb_a, CT);
+        cb_reserve_back(cb_inv, 1);
+        uint32_t ap = get_write_ptr(cb_a);
+        for (uint32_t t = 0; t < CT; ++t, ap += ta) {
+            noc_async_read_page(u * CT + t, s_a, ap);
+        }
+        noc_async_read_page(u, s_inv, get_write_ptr(cb_inv));
+#endif
         noc_async_read_barrier();
         cb_push_back(cb_rm, CT);
+#ifdef GT_FMA
+        cb_push_back(cb_a, CT);
+        cb_push_back(cb_inv, 1);
+#endif
     }
 }

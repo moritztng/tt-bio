@@ -263,16 +263,16 @@ def _dknn_on():
     return _DKNN if _DKNN is not None else not is_wormhole()
 
 
+def _pz_rows_on():
+    return _PZ_ROWS if _PZ_ROWS is not None else _pz_addcmul_on()
+
+
 def _pf_dpb_on():
     return _PF_DPB if _PF_DPB is not None else is_wormhole()
 
 
 def _pz_addcmul_on():
     return _PZ_ADDCMUL if _PZ_ADDCMUL is not None else is_wormhole()
-
-
-def _pf_rmsb_on():
-    return _PF_RMSB if _PF_RMSB is not None else is_wormhole()
 
 
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
@@ -501,8 +501,9 @@ PF_SDPA_CALLS = [0]
 # the scale folded into the projection in fp32), plus one add of the key/row pad. Replaces the standalone rms_norm over
 # [I, I, 128] and the dit_pair_bias pass that re-read its output. WH page cell @1000 MHz: fast 40.1 -> 38.9, normal
 # 40.5 -> 39.7 s/design; eight paired normal seeds: design drift 3.4-12.9 A against a 13.9-18.4 A seed floor, breaks
-# 3 -> 2, clashes 390 -> 370. On by default on Wormhole; RFD3_PF_RMSB=0/1 forces it.
-_PF_RMSB = env_flag("RFD3_PF_RMSB", False) if os.environ.get("RFD3_PF_RMSB") else None
+# 3 -> 2, clashes 390 -> 370. p150a @1350: fast 25.5 -> 24.4, normal 25.5 -> 24.8 s/design; eight paired normal seeds:
+# drift 2.7-13.6 A against a 13.3-20.6 A floor, breaks 2 -> 4, clashes 372 -> 423. RFD3_PF_RMSB=0 restores the chain.
+_PF_RMSB = env_flag("RFD3_PF_RMSB", True)
 PF_RMSB_CALLS = [0]
 
 
@@ -571,6 +572,11 @@ _PZ_GATHER = env_flag("RFD3_PZ_GATHER", True)
 # index; bench at 685 x 4225 rel: 5.22 -> 1.28 ms/call). Same bits, different bank: digests equal on WH and p150a.
 # WH @1000 fast 57.9 -> 57.0, normal 57.6 -> 56.4 s/design; p150a fast 30.0 -> 29.1. RFD3_PZ_SPREAD=0 restores it.
 _PZ_SPREAD = env_flag("RFD3_PZ_SPREAD", True)
+# Under the pair memo, process_z as one gather_tiled program that also applies `ainv + em * inv`, on the memo's changed
+# row tiles only: the rest of its output is never read (the transitions read those rows only). The product goes to an
+# fp32 dest and the add runs on the SFPU, so the bits equal the addcmul path's (digests equal on WH, seed 60 both modes).
+# WH @1000 normal 39.68 -> 38.41 s/design. Follows the addcmul default (same rounding); RFD3_PZ_ROWS=0/1 forces it.
+_PZ_ROWS = env_flag("RFD3_PZ_ROWS", False) if os.environ.get("RFD3_PZ_ROWS") else None
 # The distogram bins of the token encoder (2 host calls per step while the card waits) as one numba pass with the
 # near-edge pairs recomputed by torch: equal to the torch chain, 4-5.7 -> 0.7-1.7 ms/call at 685 tokens on 2 cores
 # (rfd3/distbins.py). RFD3_BINS_NB=0 restores the torch chain.
@@ -1627,7 +1633,7 @@ class PairformerAttention(Module):
             qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
             memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(qkv)
-        mask = self._sdpa_mask_rms(z, I, n_key) if _pf_rmsb_on() else None
+        mask = self._sdpa_mask_rms(z, I, n_key) if _PF_RMSB else None
         if mask is None:
             z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6, compute_kernel_config=ckc)
             mask = self._sdpa_mask(z, I, n_key)
@@ -3669,7 +3675,7 @@ class DiffusionTokenEncoder(Module):
         held[1][n_ones] = ent = (inv, ainv)
         return ent
 
-    def _process_z_collapsed(self, Z_init_II, bins, bins_self, batch, I):
+    def _process_z_collapsed(self, Z_init_II, bins, bins_self, batch, I, rows=None):
         """process_z in three device ops instead of six.
 
         The shipped route builds a [B,I,I,288] concat and a [B,I,I,258] slice of it so rms_norm
@@ -3678,6 +3684,8 @@ class DiffusionTokenEncoder(Module):
         (perf/p89/process_z.json). Not bit-exact -- one fp32 accumulation becomes two
         bf16-rounded halves, ~1 bf16 ulp -- and graded on the normal bar; RFD3_PROCESS_Z_COLLAPSE=0
         restores the six-op route.
+
+        `rows` (a pair memo row list, _PZ_ROWS): gather and `ainv + em * inv` in one program, on those row tiles only.
         """
         dev, n = self.device, self.N_BINS
         inv, ainv = self._process_z_invariant(Z_init_II, 1 if bins_self is None else 2, batch)
@@ -3695,7 +3703,11 @@ class DiffusionTokenEncoder(Module):
             idx = ttnn.from_torch(_gather_tiled.pad_index(flat, batch * I, I), layout=ttnn.ROW_MAJOR_LAYOUT,
                                   device=dev, dtype=ttnn.uint32)
             em = _gather_tiled.gather_tiled(idx, rm, batch, I,
-                                            copies=_gather_tiled.SPREAD_COPIES if _PZ_SPREAD else 1)
+                                            copies=_gather_tiled.SPREAD_COPIES if _PZ_SPREAD else 1,
+                                            fma=None if rows is None else (ainv, inv), rows=rows)
+            if rows is not None:
+                ttnn.deallocate(idx)
+                return em
         else:
             idx = _tt_idx(flat, dev)
             em = ttnn.embedding(idx, tab, layout=ttnn.ROW_MAJOR_LAYOUT,
@@ -3712,15 +3724,16 @@ class DiffusionTokenEncoder(Module):
         ttnn.deallocate(scaled)
         return out
 
-    def _pair_memo(self, z, bins, bins_self):
+    def _pair_memo(self, shape, dtype, bins, bins_self):
         """(Z3, Z4, rows) for this step's pair path under RFD3_PAIR_MEMO, or None to run it in full. Z3 / Z4 are the
         recycle slot's z after transition_2 + block 0 and after block 1, kept on the card between steps; rows lists
         the row tiles holding a pair whose bin key changed since the slot last ran (every row tile the first time).
-        The slot belongs to the design _process_z_invariant holds (self._zinv), and goes with it."""
-        nbytes = 1
-        for d in z.padded_shape:
-            nbytes *= int(d)
-        if 4 * 2 * nbytes > _PAIR_MEMO_MB << 20 or z.dtype != ttnn.bfloat16:
+        The slot belongs to the design _process_z_invariant holds (self._zinv), and goes with it. `shape` is z's logical
+        shape [B, I, I, C]."""
+        B, I, J, C = (int(d) for d in shape)
+        pshape = [B, I, -(-J // 32) * 32, -(-C // 32) * 32]
+        nbytes = pshape[0] * pshape[1] * pshape[2] * pshape[3]
+        if 4 * 2 * nbytes > _PAIR_MEMO_MB << 20 or dtype != ttnn.bfloat16:
             return None
         slot = int(bins_self is not None)
         key = bins if bins_self is None else bins * self.N_BINS + bins_self      # [B, I, I] int, as process_z's
@@ -3730,10 +3743,9 @@ class DiffusionTokenEncoder(Module):
             self._release_memo()
             held = self._memo = (dkey, {})
         ent = held[1].get(slot)
-        B, I, J = (int(d) for d in list(z.padded_shape)[:3])
-        jt = J // 32
+        jt = pshape[2] // 32
         if ent is None or not all(t.is_allocated() for t in ent[:2]):
-            bufs = [ttnn.allocate_tensor_on_device(z.shape, z.dtype, ttnn.TILE_LAYOUT, self.device,
+            bufs = [ttnn.allocate_tensor_on_device(ttnn.Shape(shape), dtype, ttnn.TILE_LAYOUT, self.device,
                                                    ttnn.DRAM_MEMORY_CONFIG) for _ in range(2)]
             rows = torch.arange(B * I * jt)
         else:
@@ -3744,7 +3756,7 @@ class DiffusionTokenEncoder(Module):
         held[1][slot] = (bufs[0], bufs[1], key.clone())
         PAIRMEMO[0] += int(rows.numel())
         PAIRMEMO[1] += B * I * jt
-        return bufs[0], bufs[1], _WS.row_list(self.device, z, rows)
+        return bufs[0], bufs[1], _WS.row_list(self.device, pshape, rows)
 
     def _release_memo(self):
         for ent in (self._memo[1].values() if getattr(self, "_memo", None) is not None else ()):
@@ -3758,14 +3770,17 @@ class DiffusionTokenEncoder(Module):
         m = getattr(self, "_memo", None)
         return m is not None and any(z is t for ent in m[1].values() for t in ent[:2])
 
-    def _pairformer_memo(self, s, z0, Z3, Z4, rows):
+    def _pairformer_memo(self, s, z0, Z3, Z4, rows, full_z=None):
         """run_device's pair path on `rows` only: Z3 = transition_2 then block 0's z_transition of z0, Z4 = Z3 plus
         block 1's, each row tile bit for bit what the full path writes. Falls back to the full path (and drops the
-        slot) if a transition declines its rows."""
+        slot) if a transition declines its rows; `full_z` then recomputes z0 when it holds `rows` only (_PZ_ROWS)."""
         steps = [(tr, src) for tr, src in zip(self.transition_2, (z0, Z3))]
         for tr, src in steps:
             if tr.add_rows(src, Z3, rows) is None:
                 ttnn.deallocate(rows[0])
+                if full_z is not None:
+                    ttnn.deallocate(z0)
+                    z0 = full_z()
                 return self._memo_fallback(s, z0)
         ttnn.deallocate(z0)
         for blk, (src, dst) in zip(self.pairformer_stack, ((Z3, Z3), (Z3, Z4))):
@@ -3828,11 +3843,15 @@ class DiffusionTokenEncoder(Module):
             Z_init_II = Z_init_II.unsqueeze(0)
         if _PROCESS_Z_COLLAPSE:
             PZSTATS[0] += 1
-            z = self._process_z_collapsed(Z_init_II, bins, D_II_self, B, I)
+            memo = None
             if _PAIR_MEMO and not f32:
-                memo = self._pair_memo(z, bins, D_II_self)
-                if memo is not None:
-                    return self._pairformer_memo(s, z, *memo)
+                self._process_z_invariant(Z_init_II, 1 if D_II_self is None else 2, B)   # the memo keys on its design
+                memo = self._pair_memo([B, I, I, self.C_Z], self.dtype, bins, D_II_self)
+            part = memo is not None and _pz_rows_on() and _PZ_GATHER
+            z = self._process_z_collapsed(Z_init_II, bins, D_II_self, B, I, rows=memo[2] if part else None)
+            if memo is not None:
+                full = (lambda: self._process_z_collapsed(Z_init_II, bins, D_II_self, B, I)) if part else None
+                return self._pairformer_memo(s, z, *memo, full_z=full)
         else:
             PZSTATS[1] += 1
             z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
