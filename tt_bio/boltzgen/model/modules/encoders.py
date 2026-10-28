@@ -8,6 +8,7 @@ from torch import nn
 from torch.nn import Linear, Module, ModuleList
 from torch.nn.functional import one_hot
 
+from tt_bio.boltz2 import RelativePositionEncoder as _RelativePositionEncoder
 from tt_bio.data import const
 import tt_bio.boltzgen.model.layers.initialize as init
 from tt_bio.boltzgen.model.layers.transition import Transition
@@ -39,93 +40,23 @@ class FourierEmbedding(Module):
         return torch.cos(2 * pi * rand_proj)
 
 
-class RelativePositionEncoder(Module):
-    """Algorithm 3."""
+class RelativePositionEncoder(_RelativePositionEncoder):
+    """Algorithm 3: Boltz-2's encoder read through BoltzGen's feature names.
+
+    BoltzGen indexes chains and residues by ``feature_asym_id``/``feature_residue_index`` and
+    the cyclic period by ``cyclic``, always treats every cross-entity pair as its own chain
+    bucket (Boltz-2's ``fix_sym_check``) and always honours cyclic chains. Everything else is
+    the same encoder, so the device gathers (``tables``/``joint_table``) serve both models.
+    """
+
+    _KEYS = {"asym_id": "feature_asym_id", "residue_index": "feature_residue_index",
+             "cyclic_period": "cyclic"}
 
     def __init__(self, token_z, r_max=32, s_max=2):
-        super().__init__()
-        self.r_max = r_max
-        self.s_max = s_max
-        self.linear_layer = LinearNoBias(4 * (r_max + 1) + 2 * (s_max + 1) + 1, token_z)
+        super().__init__(token_z, r_max, s_max, fix_sym_check=True, cyclic_pos_enc=True)
 
-    def forward(self, feats):
-        b_same_chain = torch.eq(
-            feats["feature_asym_id"][:, :, None], feats["feature_asym_id"][:, None, :]
-        )
-        b_same_residue = torch.eq(
-            feats["feature_residue_index"][:, :, None],
-            feats["feature_residue_index"][:, None, :],
-        )
-        b_same_entity = torch.eq(
-            feats["entity_id"][:, :, None], feats["entity_id"][:, None, :]
-        )
-
-        d_residue = (
-            feats["feature_residue_index"][:, :, None]
-            - feats["feature_residue_index"][:, None, :]
-        )
-
-        if torch.any(feats["cyclic"] > 0):
-            period = torch.where(
-                feats["cyclic"] > 0,
-                feats["cyclic"],
-                torch.zeros_like(feats["cyclic"]) + 10000,
-            ).unsqueeze(1)
-            d_residue = (d_residue - period * torch.round(d_residue / period)).long()
-
-        d_residue = torch.clip(
-            d_residue + self.r_max,
-            0,
-            2 * self.r_max,
-        )
-        d_residue = torch.where(
-            b_same_chain,
-            d_residue,
-            torch.zeros_like(d_residue) + 2 * self.r_max + 1,
-        )
-
-        a_rel_pos = one_hot(d_residue, 2 * self.r_max + 2)
-
-        d_token = torch.clip(
-            feats["token_index"][:, :, None]
-            - feats["token_index"][:, None, :]
-            + self.r_max,
-            0,
-            2 * self.r_max,
-        )
-        d_token = torch.where(
-            b_same_chain & b_same_residue,
-            d_token,
-            torch.zeros_like(d_token) + 2 * self.r_max + 1,
-        )
-        a_rel_token = one_hot(d_token, 2 * self.r_max + 2)
-
-        d_chain = torch.clip(
-            feats["sym_id"][:, :, None] - feats["sym_id"][:, None, :] + self.s_max,
-            0,
-            2 * self.s_max,
-        )
-
-        d_chain = torch.where(
-            (~b_same_entity),
-            torch.zeros_like(d_chain) + 2 * self.s_max + 1,
-            d_chain,
-        )
-        # Note: added  | (~b_same_entity) based on observation of ProteinX manuscript
-        a_rel_chain = one_hot(d_chain, 2 * self.s_max + 2)
-
-        p = self.linear_layer(
-            torch.cat(
-                [
-                    a_rel_pos.float(),
-                    a_rel_token.float(),
-                    b_same_entity.unsqueeze(-1).float(),
-                    a_rel_chain.float(),
-                ],
-                dim=-1,
-            )
-        )
-        return p
+    def index_features(self, feats):
+        return super().index_features({**feats, **{k: feats[v] for k, v in self._KEYS.items()}})
 
 
 class SingleConditioning(Module):
