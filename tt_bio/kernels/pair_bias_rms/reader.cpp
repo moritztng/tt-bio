@@ -4,14 +4,16 @@
 
 // pair_bias_rms reader. W^T ([32, C] tiles, KT of them) is read once into c_0 and a tile of bf16 ones written to
 // c_2; both stay. Per unit (b, ib, jb) the z tiles (b, i, jb, :) of its 32 rows i stream to c_1, two rows (2 * KT
-// tiles) per push. z is square and tile-aligned (the host checks), so there is no row or column padding.
+// tiles) per push. z is [B, ROWS, n, C] with n and C tile multiples and ROWS <= n (the host checks); a row i >= ROWS
+// re-reads row ROWS - 1, so the output rows past the real ones hold finite values the caller masks.
 // Common runtime args: z, W^T addresses. Per-core runtime args: first unit, unit count.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);   // c_pair / 32
     constexpr uint32_t NT = get_compile_time_arg_val(1);   // n / 32
-    constexpr auto z_args = TensorAccessorArgs<2>();
+    constexpr uint32_t ROWS = get_compile_time_arg_val(2);   // z's dim 1, NT * 32 when z is square
+    constexpr auto z_args = TensorAccessorArgs<3>();
     constexpr auto w_args = TensorAccessorArgs<z_args.next_compile_time_args_offset()>();
     const auto sz = TensorAccessor(z_args, get_common_arg_val<uint32_t>(0));
     const auto sw = TensorAccessor(w_args, get_common_arg_val<uint32_t>(1));
@@ -40,11 +42,12 @@ void kernel_main() {
         const uint32_t b = u / (NT * NT);
         const uint32_t ib = (u / NT) % NT;
         const uint32_t jb = u % NT;
-        uint32_t page = ((b * NT * 32 + ib * 32) * NT + jb) * KT;
         for (uint32_t il = 0; il < 32; il += R) {
             cb_reserve_back(cb_z, R * KT);
             uint32_t zp = get_write_ptr(cb_z);
-            for (uint32_t r = 0; r < R; ++r, page += NT * KT) {
+            for (uint32_t r = 0; r < R; ++r) {
+                const uint32_t i = ib * 32 + il + r;
+                const uint32_t page = ((b * ROWS + (i < ROWS ? i : ROWS - 1)) * NT + jb) * KT;
                 for (uint32_t c = 0; c < KT; ++c, zp += ts) {
                     noc_async_read_page(page + c, sz, zp);
                 }

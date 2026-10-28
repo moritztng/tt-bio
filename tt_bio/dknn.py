@@ -21,9 +21,13 @@ import torch
 import ttnn
 
 from . import core_split
+from .envflags import env_flag
 from .sdpa_generic import L1_PER_CORE, PROGRAM_RESERVE
 
 KERNEL = str(Path(__file__).resolve().parent / "kernels" / "dknn" / "dknn.cpp")
+# Read the index back behind an event (read_later) instead of with a blocking to_torch at .result(). A blocking read
+# waits for everything queued before it, which by then includes the token encoder; the event waits for the index only.
+ASYNC_READ = env_flag("RFD3_DKNN_ASYNC_READ", True)
 _CB = (0, 8)   # first CB of BRISC's and NCRISC's six
 _CACHE: dict = {}
 _MASKS: dict = {}
@@ -212,22 +216,40 @@ class Static:
         return (self.tables[s],) + ((int(mid[0]), int(mid[-1]) + 1) if len(mid) else (0, 0))
 
 
+def read_later(device, ts):
+    """Queue the readback of device tensors `ts` now and return a callable giving them as torch tensors. With
+    ASYNC_READ the callable waits on an event recorded right after the reads, so work enqueued between this call and
+    it is not waited for; the bytes are the same either way."""
+    if not ASYNC_READ:
+        def get():
+            out = [ttnn.to_torch(t) for t in ts]
+            for t in ts:
+                ttnn.deallocate(t)
+            return out
+        return get
+    hs = [ttnn.from_device(t, blocking=False) for t in ts]
+    ev = ttnn.record_event(device)
+
+    def get():
+        ttnn.event_synchronize(ev)
+        for t in ts:
+            ttnn.deallocate(t)
+        return [ttnn.to_torch(h) for h in hs]
+    return get
+
+
 class Pending:
     """The index of each design, launched; .result() reads back and joins (the same call as a Future's)."""
 
     def __init__(self, device, X_L, mask, seq, k, static=None):
         self.seq, self.k = seq.cpu().numpy(), k
         static = static if len(X_L) == 1 else None
-        self.outs = [outside_neighbours(device, x.detach().float().cpu().numpy(), mask, seq, k, static=static)
-                     for x in X_L]
+        self.read = read_later(device, [
+            outside_neighbours(device, x.detach().float().cpu().numpy(), mask, seq, k, static=static) for x in X_L])
 
     def result(self):
         L = self.seq.shape[0]
-        rows = []
-        for o in self.outs:
-            rows.append(join(self.seq, ttnn.to_torch(o).numpy(), L, self.k))
-            ttnn.deallocate(o)
-        return torch.cat(rows, 0)
+        return torch.cat([join(self.seq, o.numpy(), L, self.k) for o in self.read()], 0)
 
 
 def join(seq, out, L, k):
