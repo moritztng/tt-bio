@@ -45,17 +45,17 @@ for sig in (0.0, 0.3, 1.0, 5.0, 30.0, 160.0):
     t_ref, ref = med(lambda: M._neighbours_kdtree(mask, seq, x.unsqueeze(0), K), 5)
 
     def run():
-        o = dknn.outside_neighbours(dev, x.numpy(), mask, seq, K)
+        o = dknn.neighbours(dev, x.numpy(), mask, K)
         ttnn.synchronize_device(dev)
         return o
     ttnn.deallocate(run())
     t_dev, o = med(run, N_REP)
-    t_join, got = med(lambda: dknn.join(seq.numpy(), ttnn.to_torch(o).numpy(), L, K), 5)
+    t_join, got = med(lambda: ttnn.to_torch(o)[:, :K].long().unsqueeze(0), 5)
     neq = (got != ref).any(-1).squeeze(0)
     r = {"sigma": sig, "rows_differ": int(neq.sum()), "elements_differ": int((got != ref).sum()),
-         "device_ms": t_dev, "readback_join_ms": t_join, "kdtree_ms": t_ref}
+         "device_ms": t_dev, "readback_ms": t_join, "kdtree_ms": t_ref}
     rec["sigmas"].append(r)
-    print("[dknn] sigma %6.1f rows_differ %d device %.2f ms readback+join %.2f ms kdtree %.2f ms"
+    print("[dknn] sigma %6.1f rows_differ %d device %.2f ms readback %.2f ms kdtree %.2f ms"
           % (sig, r["rows_differ"], t_dev, t_join, t_ref), flush=True)
     ttnn.deallocate(o)
 OUT.parent.mkdir(parents=True, exist_ok=True)

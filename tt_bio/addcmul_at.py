@@ -40,16 +40,18 @@ ADDR_WRITE_MODE = None
 STATS = [0, 0]
 
 
-def _grid(t):
-    """(row tiles over all leading dims, column tiles) of a TILE tensor."""
+def _facts(t):
+    """What the checks and the cache key read off an operand, each read once (a ttnn attribute read is a host call):
+    (shape, row tiles over all leading dims, column tiles, leading blocks, dtype, layout, memory config)."""
     shape = [int(d) for d in t.shape]
     lead = 1
     for d in shape[:-2]:
         lead *= d
-    return lead * ((shape[-2] + TILE - 1) // TILE), (shape[-1] + TILE - 1) // TILE
+    return (shape, lead * ((shape[-2] + TILE - 1) // TILE), (shape[-1] + TILE - 1) // TILE, lead, t.dtype, t.layout,
+            t.memory_config())
 
 
-def _build(x, y, z, out, device, ht, wt, x_row, z_row):
+def _build(x, y, z, out, device, ht, wt, x_row, z_row, fx, fy, fz):
     f32 = y.dtype == ttnn.float32
     num_tiles = ht * wt
     g = device.compute_with_storage_grid_size()
@@ -72,7 +74,7 @@ def _build(x, y, z, out, device, ht, wt, x_row, z_row):
                     first += per_core
     assert first == num_tiles, (first, num_tiles)
 
-    reader_ct = [_GRAN, wt] + [_grid(t)[1] for t in (x, y, z)] + [_rows(t, ht, r) for t, r in ((x, x_row), (y, None), (z, z_row))]
+    reader_ct = [_GRAN, wt] + [f[2] for f in (fx, fy, fz)] + [_rows(f, ht, r) for f, r in ((fx, x_row), (fy, None), (fz, z_row))]
     for t in (x, y, z):
         reader_ct.extend(ttnn.TensorAccessorArgs(t).get_compile_time_args())
     writer_ct = [_GRAN] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
@@ -110,21 +112,17 @@ def _build(x, y, z, out, device, ht, wt, x_row, z_row):
     return {"pd": pd, "kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def _rows(t, ht, row=None):
-    """The row tiles `t` contributes to one sample of the output: all of y's, or one block of them."""
-    return ht if _grid(t)[0] == ht and row is None else -(-int(t.shape[-2]) // TILE)
+def _rows(f, ht, row=None):
+    """The row tiles an operand (its `_facts`) contributes to one sample of the output: all of y's, or one block."""
+    return ht if f[1] == ht and row is None else -(-f[0][-2] // TILE)
 
 
-def _ok(t, y, ht, row=None, dtype=ttnn.bfloat16):
-    """`t` has y's row tiles, or (when `t` is not y) holds blocks of one sample's rows (y's row count a block): one
-    (leading dims 1), which every sample of y reads, or several, of which `t` is read at block `row`."""
-    blocks = 1
-    for d in list(t.shape)[:-2]:
-        blocks *= int(d)
-    rows = ((_grid(t)[0] == ht and row is None)
-            or (t is not y and int(t.shape[-2]) == int(y.shape[-2]) and 0 <= (row or 0) < blocks))
-    return (t.dtype == dtype and t.layout == ttnn.TILE_LAYOUT and rows
-            and t.memory_config().memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
+def _ok(f, fy, is_y, ht, row=None):
+    """An operand (its `_facts`) has y's row tiles, or (when it is not y) holds blocks of one sample's rows (y's row
+    count a block): one (leading dims 1), which every sample of y reads, or several, of which it is read at block `row`."""
+    rows = (f[1] == ht and row is None) or (not is_y and f[0][-2] == fy[0][-2] and 0 <= (row or 0) < f[3])
+    return (f[4] == fy[4] and f[5] == ttnn.TILE_LAYOUT and rows
+            and f[6].memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED)
 
 
 @_ops.fused_kernel("addcmul_at")
@@ -137,31 +135,31 @@ def addcmul_at(x, y, z, width, x_off=0, y_off=0, z_off=0, out_dtype=None, x_row=
     FPU, or float32 on the SFPU at full precision (all three operands the same dtype). None when
     the kernel declines; no operand is deallocated.
     """
-    ht = _grid(y)[0]
+    fx, fy, fz = _facts(x), _facts(y), _facts(z)
+    ht = fy[1]
     if (width % TILE or any(o % TILE for o in (x_off, y_off, z_off))
-            or y.dtype not in (ttnn.bfloat16, ttnn.float32)
-            or (out_dtype or y.dtype) not in _TILE_BYTES
-            or not all(_ok(t, y, ht, r, y.dtype) for t, r in ((x, x_row), (y, None), (z, z_row)))
-            or any(o + width > int(t.shape[-1]) for t, o in ((x, x_off), (y, y_off), (z, z_off)))
+            or fy[4] not in (ttnn.bfloat16, ttnn.float32)
+            or (out_dtype or fy[4]) not in _TILE_BYTES
+            or not all(_ok(f, fy, t is y, ht, r) for t, f, r in ((x, fx, x_row), (y, fy, None), (z, fz, z_row)))
+            or any(o + width > f[0][-1] for f, o in ((fx, x_off), (fy, y_off), (fz, z_off)))
             or _ops.declines_under_tape("addcmul_at")):
         STATS[1] += 1
         return None
     STATS[0] += 1
     wt = width // TILE
     device = y.device()
-    shape = list(y.shape)[:-1] + [width]
-    out = ttnn.allocate_tensor_on_device(ttnn.Shape(shape), out_dtype or y.dtype, ttnn.TILE_LAYOUT, device,
+    out_dtype = out_dtype or fy[4]
+    out = ttnn.allocate_tensor_on_device(ttnn.Shape(fy[0][:-1] + [width]), out_dtype, ttnn.TILE_LAYOUT, device,
                                          ttnn.DRAM_MEMORY_CONFIG)
+    rx, rz = _rows(fx, ht, x_row), _rows(fz, ht, z_row)
     # The buffer types are compile-time args of the TensorAccessors: an L1 operand must not reuse a DRAM program.
-    key = (device.id(), ht, wt, _grid(x), _grid(y)[1], _grid(z), _rows(x, ht, x_row), _rows(z, ht, z_row),
-           str(y.dtype), str(out.dtype),
-           *(str(t.memory_config().buffer_type) for t in (x, y, z)))
+    key = (device.id(), ht, wt, fx[1:3], fy[2], fz[1:3], rx, rz, fy[4], out_dtype, *(f[6].buffer_type for f in (fx, fy, fz)))
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(x, y, z, out, device, ht, wt, x_row, z_row)
+        entry = _CACHE[key] = _build(x, y, z, out, device, ht, wt, x_row, z_row, fx, fy, fz)
     # A row block is a page offset: block b of a stacked operand starts b * (its rows) * (its width) pages in.
-    common_r = [x.buffer_address(), x_off // TILE + (x_row or 0) * _rows(x, ht, x_row) * _grid(x)[1], y.buffer_address(),
-                y_off // TILE, z.buffer_address(), z_off // TILE + (z_row or 0) * _rows(z, ht, z_row) * _grid(z)[1]]
+    common_r = [x.buffer_address(), x_off // TILE + (x_row or 0) * rx * fx[2], y.buffer_address(),
+                y_off // TILE, z.buffer_address(), z_off // TILE + (z_row or 0) * rz * fz[2]]
     common_w = [out.buffer_address()]
     if ADDR_WRITE_MODE == "in_place":
         pd = entry["pd"]

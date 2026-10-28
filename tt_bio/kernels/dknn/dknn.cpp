@@ -6,7 +6,9 @@
 // Coordinates arrive as int32 fixed point (|q| <= 2^30), so |dx| < 2^31 and dx^2 + dy^2 + dz^2 < 2^64 is an
 // exact uint64 key. Per row: key of every atom, the k-th smallest key (quickselect), then the atoms
 // outside the row's mask whose key is <= it; if more than n_fill, the n_fill smallest (ties to the lower index).
-// That is what _neighbours_kdtree keeps from a k-nearest query. The row is written ascending, padded with L.
+// That is what _neighbours_kdtree keeps from a k-nearest query. Merged with the row's sequence entries (its first
+// K - n_fill mask bits, which is how seq_idx is built), that is _neighbours_kdtree's row: written ascending, padded
+// with L.
 // The same source runs on BRISC and NCRISC; each takes its own row range and its own L1 buffers.
 // Candidate mode (CW > 0, a design's static atoms): row i of the candidate table names a static row r, a key bound
 // and that row's nearest static atoms; the keys are taken over those and the mover range [m0, m1) only. When the
@@ -42,7 +44,7 @@ void kernel_main() {
     constexpr uint32_t L = get_compile_time_arg_val(0);       // atoms
     constexpr uint32_t K = get_compile_time_arg_val(1);       // neighbours of the k-nearest query
     constexpr uint32_t MW = get_compile_time_arg_val(2);      // mask row words: [n_fill, bits of L...], padded to 8
-    constexpr uint32_t WO = get_compile_time_arg_val(3);      // output row width (>= max n_fill), padded to 8
+    constexpr uint32_t WO = get_compile_time_arg_val(3);      // output row width (>= K), padded to 8
     constexpr uint32_t CB_X = get_compile_time_arg_val(4);    // this RISC-V's CBs: coords, keys, scratch, mask, out
     constexpr uint32_t CW = get_compile_time_arg_val(5);      // candidate row words [r, bound lo, hi, 0, ids...]; 0 = off
     constexpr uint32_t CB_D = CB_X + 1, CB_S = CB_X + 2, CB_M = CB_X + 3, CB_O = CB_X + 4, CB_C = CB_X + 5;
@@ -178,7 +180,19 @@ void kernel_main() {
             while (b > 0 && o[b - 1] > v) { o[b] = o[b - 1]; --b; }
             o[b] = v;
         }
-        for (uint32_t t = w; t < WO; ++t) o[t] = L;
+        // the sequence entries (ascending, disjoint from the kept atoms, ns + w <= K) merged in from the back
+        const uint32_t ns = K - n_fill;
+        uint32_t* q = reinterpret_cast<uint32_t*>(s);
+        uint32_t n = 0;
+        for (uint32_t wd = 0; n < ns; ++wd) {
+            for (uint32_t b = m[1 + wd], j = wd << 5; b != 0 && n < ns; b >>= 1, ++j) {
+                if (b & 1u) q[n++] = j;
+            }
+        }
+        for (int32_t a = int32_t(w) - 1, b = int32_t(ns) - 1, t = int32_t(ns + w) - 1; b >= 0; --t) {
+            o[t] = (a >= 0 && o[a] > q[b]) ? o[a--] : q[b--];
+        }
+        for (uint32_t t = ns + w; t < WO; ++t) o[t] = L;
         noc_async_write(o_l1, so.get_noc_addr(r - o0), WO * 4);
         noc_async_write_barrier();
     }

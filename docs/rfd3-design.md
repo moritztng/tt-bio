@@ -291,6 +291,8 @@ waits on. Distances are exact integers, so the neighbour lists are the same as t
 overlaps the token encoder. On a p150a a fast-mode design drops from about 31.5 s to 30 s. It is on by default
 except on Wormhole, where it has not yet run on a card; designs above about 18,000 atoms keep the host tree.
 `RFD3_DKNN=0` restores the tree everywhere, `RFD3_DKNN=1` turns the card index on for Wormhole too.
+The card also writes each final row itself, merging in the sequence neighbours, so the host no longer joins two
+lists per step. Same rows; on a p150a that takes about 1.5 s off a fast-mode design and 1.3 s off normal mode.
 
 Where the host tree is used, the atoms that do not move (a binder's target, a fixed motif) have their
 neighbours found once per design, and each step only re-queries the moving atoms and the target rows they

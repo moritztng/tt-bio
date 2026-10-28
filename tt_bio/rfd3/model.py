@@ -809,9 +809,15 @@ def _mm2d_on():
 
 
 def _mm2d_config(x, w, silu=False):
-    """The pinned 2D config for a DiT linear, or None for every other call. `silu` fuses it on the accumulator."""
-    xs, ws = list(x.padded_shape), list(w.padded_shape)
-    if not _mm2d_on() or len(ws) != 2 or (ws[0], ws[1]) not in _MM2D_SHAPES or math.prod(xs[:-2]) != 1:
+    """The pinned 2D config for a DiT linear, or None for every other call. `silu` fuses it on the accumulator.
+    Every linear asks, so the cheap refusals come first (a shape read is a host call)."""
+    if not _mm2d_on():
+        return None
+    ws = list(w.padded_shape)
+    if len(ws) != 2 or (ws[0], ws[1]) not in _MM2D_SHAPES:
+        return None
+    xs = list(x.padded_shape)
+    if math.prod(xs[:-2]) != 1:
         return None
     key = (xs[-2], ws[0], ws[1], silu)
     if key not in _MM2D_CACHE:
@@ -4311,10 +4317,10 @@ def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=
         return None
     if device is not None and _dknn_on():
         from .. import dknn
-        mask, seq_idx = parts["single"]
+        mask, _ = parts["single"]
         if dknn.fits(len(tok_idx), parts["k"]):
             static = _DKNN_STATIC_CACHE.setdefault((len(tok_idx), parts["k"]), dknn.Static()) if _DKNN_STATIC else None
-            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"], static)
+            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, parts["k"], static)
     if not (_ATTN_THREAD and _ATTN_KDTREE):
         return None
     if _INDEX_POOL is None:
@@ -4336,8 +4342,8 @@ class _MoverIndex:
     """The atom index split by row: the moving atoms' rows on the card (tt_bio.dknn over their id range), every other
     row on the host thread (_neighbours_kdtree with those rows skipped). .result() as a Future's."""
 
-    def __init__(self, read, host, rows, seq, k):
-        self.read, self.host, self.rows, self.seq, self.k = read, host, rows, seq, k
+    def __init__(self, read, host, rows, k):
+        self.read, self.host, self.rows, self.k = read, host, rows, k
 
     @classmethod
     def launch(cls, device, X_L, parts):
@@ -4355,15 +4361,14 @@ class _MoverIndex:
         if mid is None or not len(mid) or mid[-1] - mid[0] + 1 != len(mid):
             return None
         rows = (int(mid[0]), int(mid[-1]) + 1)
-        out = dknn.outside_neighbours(device, xd, mask, seq_idx, k, rows)
+        out = dknn.neighbours(device, xd, mask, k, rows)
         host = _INDEX_POOL.submit(_neighbours_kdtree, mask, seq_idx, X_L, k, torch.get_num_threads(), rows)
-        return cls(dknn.read_later(device, [out]), host, rows, seq_idx.cpu().numpy(), k)
+        return cls(dknn.read_later(device, [out]), host, rows, k)
 
     def result(self):
-        from .. import dknn
         idx = self.host.result()
         r0, r1 = self.rows
-        idx[0, r0:r1] = dknn.join(self.seq[r0:r1], self.read()[0].numpy(), len(self.seq), self.k)[0]
+        idx[0, r0:r1] = self.read()[0][:, :self.k]
         return idx
 
 

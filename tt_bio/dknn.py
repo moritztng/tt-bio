@@ -1,10 +1,11 @@
-"""RFD3's atom neighbour index (the outside-mask half of _neighbours_kdtree) as one RISC-V program on the card.
+"""RFD3's atom neighbour index (_neighbours_kdtree) as one RISC-V program on the card.
 
 Coordinates go up as int32 fixed point at the largest power-of-two scale with |q| <= 2^30, so every squared
 distance is an exact uint64 and the k-th-nearest cut is decided on integers. On six noise levels (0-160 A, 6051
 atoms, k 128) that reproduces the float64 k-d tree's rows exactly; a 2^14 scale flips 1-5 rows at near-ties.
 Per row the kernel finds the k-th smallest key, keeps the atoms outside the row's mask within it and, if more
-than n_fill remain, the n_fill nearest. The host joins that with the sequence entries exactly as before.
+than n_fill remain, the n_fill nearest, and merges them with the row's sequence entries. Those are the row's first
+k - n_fill mask bits (how _mask_and_seq_idx builds seq_idx), so the card writes the final row and the host only reads it.
 
 In a binder or motif design most atoms do not move (the page fixture: 4651 of 6051, bit for bit over all steps).
 `Static` finds each static atom's nearest static atoms once per design, and a step scores a static row against
@@ -132,21 +133,22 @@ def _launch(device, L, k, xt, mt, WO, ot, o0, rows=None, cand=None):
                     ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs))
 
 
-def outside_neighbours(device, x, mask, seq, k, rows=None, static=None):
-    """Device [L, WO] int32: per row the kept outside-mask neighbours ascending, padded with L (not read back).
+def neighbours(device, x, mask, k, rows=None, static=None):
+    """Device [L, align(k)] int32 whose first k columns are _neighbours_kdtree's rows (not read back).
 
-    x [L, 3] float; mask [L, L] bool and seq [L, k] (the sequence entries, L = none) are the design-level torch
-    tensors of _attention_index_prefix, uploaded once per design (keyed on the mask object).
+    x [L, 3] float; mask [L, L] bool is the design-level torch tensor of _attention_index_prefix, uploaded once per
+    design (keyed on the mask object). A row's sequence entries are its first min(k, popcount) mask bits.
     `rows` (r0, r1): only those rows, against every atom, into a [r1 - r0, WO] result.
     `static` (a Static): when it answers x, the static rows run in candidate mode; same result."""
     L = len(x)
     hit = _MASKS.get(id(mask))
     if hit is None or hit[0] is not mask:
         _MASKS.clear()
-        n_fill = (k - (seq < L).sum(1)).cpu().numpy()
-        hit = _MASKS[id(mask)] = (mask, _upload(mask_words(mask.cpu().numpy(), n_fill), device),
-                                  _align(int(n_fill.max()) or 1))
-    _, mt, WO = hit
+        m = mask.cpu().numpy()
+        n_fill = k - np.minimum(m.sum(1), k)
+        hit = _MASKS[id(mask)] = (mask, _upload(mask_words(m, n_fill), device))
+    _, mt = hit
+    WO = _align(k)
     xt = _upload(fixed_point(x).reshape(1, L * 4), device)
     plan = static.plan(device, x, k) if static is not None and rows is None else None
     r0, r1 = rows or (0, L)
@@ -239,21 +241,13 @@ def read_later(device, ts):
 
 
 class Pending:
-    """The index of each design, launched; .result() reads back and joins (the same call as a Future's)."""
+    """The index of each design, launched; .result() reads it back (the same call as a Future's)."""
 
-    def __init__(self, device, X_L, mask, seq, k, static=None):
-        self.seq, self.k = seq.cpu().numpy(), k
+    def __init__(self, device, X_L, mask, k, static=None):
+        self.k = k
         static = static if len(X_L) == 1 else None
         self.read = read_later(device, [
-            outside_neighbours(device, x.detach().float().cpu().numpy(), mask, seq, k, static=static) for x in X_L])
+            neighbours(device, x.detach().float().cpu().numpy(), mask, k, static=static) for x in X_L])
 
     def result(self):
-        L = self.seq.shape[0]
-        return torch.cat([join(self.seq, o.numpy(), L, self.k) for o in self.read()], 0)
-
-
-def join(seq, out, L, k):
-    """Host side, as _neighbours_kdtree: sequence entries + kept neighbours, ascending, first k."""
-    vals = np.concatenate([seq.astype(np.int32), out], 1)
-    vals.sort(1)
-    return torch.from_numpy(vals[:, :k].astype(np.int64)).unsqueeze(0)
+        return torch.stack([o[:, :self.k].long() for o in self.read()], 0)
