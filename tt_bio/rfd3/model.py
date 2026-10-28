@@ -794,7 +794,9 @@ def _tuned_declined(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
 # bits. `_MM2D_PIN` holds the per-arch winner of scripts/rfd3_port/gap_ditlin.py as (grid x, grid y, in0_block_w,
 # subblock h, subblock w); a shape it does not name takes the full grid, the widest K block and a 1-high subblock.
 # RFD3_DIT_MM2D_L1 also writes their outputs to L1 (WH: 36 vs 48 us at q/k/v/g); the explicit config fixes the
-# blocking, so the destination does not move bits. On by default except on Wormhole (p150a grade, 8 paired normal
+# blocking, so the destination does not move bits. Wormhole takes K block 1: every caller accumulates in an fp32 dest,
+# and a wider block there hits the cancellation fault (forced at 768->1024, max |err| 2.0 against float64 at bw 8,
+# 0.017 for ttnn's pick). On by default except on Wormhole (p150a grade, 8 paired normal
 # seeds: drift 6.5-13.8 A against a 14.2-19.8 A floor, breaks 4 -> 3, clashes 423 -> 390; -0.7 s/design normal);
 # RFD3_DIT_MM2D=0/1 forces it.
 _MM2D_ENV = env_flag("RFD3_DIT_MM2D", False) if os.environ.get("RFD3_DIT_MM2D") else None
@@ -826,6 +828,8 @@ def _mm2d_config(x, w, silu=False):
         mt, kt, nt = xs[-2] // TILE, ws[0] // TILE, ws[1] // TILE
         pin = _MM2D_PIN.get((str(dev.arch()), ws[0], ws[1]))
         gx, gy, bw, sh, sw = pin or (grid.x, grid.y, max(d for d in (1, 2, 3, 4, 6, 8) if kt % d == 0), 1, None)
+        if is_wormhole():   # fp32 dest past one K tile writes -2/-4/-8 on Wormhole (tt_bio/dest_guard.py)
+            bw = 1
         pm, pn = -(-mt // gy), -(-nt // gx)
         sw = sw or max(d for d in (1, 2, 3, 4) if pn % d == 0)
         _MM2D_CACHE[key] = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
