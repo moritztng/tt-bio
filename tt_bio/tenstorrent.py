@@ -3236,8 +3236,15 @@ def sdpa32_mask_lowp(m: ttnn.Tensor) -> ttnn.Tensor:
     return mt
 
 
+def sdpa32_chunk(n: int) -> int | None:
+    """The chunk `_sdpa32` / `_sdpa32_fused` run a token axis of `n` at: 256 where it divides, else 128, else
+    192 (BoltzGen's 544 tokens staged at 576 by dit_pad_short), None when none does. Every chunk divides `n`
+    exactly because the kernel's own padded-mask path is wrong at fp32 operands (`sdpa32_rows`)."""
+    return next((c for c in (256, 128, 192) if n % c == 0), None)
+
+
 def _sdpa32_chunks(dev, B: int, heads: int, n: int):
-    """(q chunk, k chunk, grid) for `_sdpa32` / `_sdpa32_fused`: 256 where it divides the token axis, else 128.
+    """(q chunk, k chunk, grid) for `_sdpa32` / `_sdpa32_fused`: the `sdpa32_chunk` of the token axis.
 
     On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
     occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
@@ -3250,7 +3257,7 @@ def _sdpa32_chunks(dev, B: int, heads: int, n: int):
     work moves between cores, not arithmetic.
     """
     g = dev.compute_with_storage_grid_size()
-    big = 256 if n % 256 == 0 else 128
+    big = sdpa32_chunk(n)
     k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 and not lever("dit_kc") else big
     cores = g.x * g.y
 
@@ -3275,7 +3282,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     reference 0.77x that chain's mean error (perf/spd_diffusion/sdpa32.py)."""
     from . import sdpa_generic as SG
     n = int(q.shape[2])
-    assert n % 128 == 0 and int(mask.shape[-1]) == n == int(k.shape[2]), \
+    assert sdpa32_chunk(n) and int(mask.shape[-1]) == n == int(k.shape[2]), \
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
     dev = q.device()
     chunk, k_chunk, grid = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
@@ -3293,7 +3300,7 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, c
     output (default DRAM); the kernels address it through a TensorAccessor either way."""
     from . import sdpa_generic as SG
     S, _, n, w = (int(d) for d in qkv.shape)
-    assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
+    assert sdpa32_chunk(n) and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
     dev = qkv.device()
     chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
@@ -13841,7 +13848,7 @@ class AttentionPairBias(Module):
         """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` bf16, or None where it does not apply."""
         n = int(qkv.shape[-2])
         ok = (bias_precomputed and _B2_TOKEN_DIT_SDPA and z is not None and seq_mask is None
-              and not self._raw_fp32() and not self.kq_norm and len(qkv.shape) == 3 and n % 128 == 0
+              and not self._raw_fp32() and not self.kq_norm and len(qkv.shape) == 3 and sdpa32_chunk(n)
               and int(qkv.shape[-1]) == 3 * self.n_heads * self.padded_head_dim
               and len(z.shape) == 4 and int(z.shape[-1]) == n and int(z.shape[1]) == self.n_heads)
         DIT_QKVF_STATS[0 if ok else 1] += 1
