@@ -22,7 +22,7 @@ import torch
 from torch import Tensor, nn
 
 from tt_bio import tenstorrent
-from tt_bio.boltz2 import _device_conditioning, _fuse_bias_stack
+from tt_bio.boltz2 import _device_conditioning, _device_zinit, _fuse_bias_stack
 from tt_bio.tenstorrent import (
     MiniformerModule as TTMiniformerModule,
     MSAModule as TTMSAModule,
@@ -546,6 +546,11 @@ class Boltz(nn.Module):
             use_kernels=self.use_kernels,
         )
 
+    def _tt_zinit_module(self):
+        """The device z_init assembly. Built per call like the trunk driver above: BoltzGen
+        swaps checkpoints mid-run, and the assembly holds device copies of the weights."""
+        return tenstorrent.PairAssemblyDevice.for_trunk(self, self.msa_module.compute_kernel_config)
+
     @_under_levers
     def load_state_dict(self, *a, **kw):
         return super().load_state_dict(*a, **kw)
@@ -580,21 +585,34 @@ class Boltz(nn.Module):
                 # Initialize the sequence embeddings
                 s_init = self.s_init(s_inputs)
 
-                # Initialize pairwise embeddings
-                z_init = (
-                    self.z_init_1(s_inputs)[:, :, None]
-                    + self.z_init_2(s_inputs)[:, None, :]
-                )
-                relative_position_encoding = self.rel_pos(feats)
-                z_init = z_init + relative_position_encoding
-                z_init = z_init + self.token_bonds(feats["token_bonds"].float())
-                if self.bond_type_feature:
-                    z_init = z_init + self.token_bonds_type(feats["type_bonds"].long())
-                z_init = z_init + self.contact_conditioning(feats)
+                # Initialize pairwise embeddings. Boltz-2's `device_zinit`: the resident trunk
+                # builds z_init where it consumes it, so the [1, n, n, token_z] host sum and its
+                # 134 MB upload never happen. The host relative position encoding is then only
+                # built for the one reader that still needs it, the token-distance features.
+                # Blackhole only until the Wormhole grade (bf16 device sum moves the CIFs) passes.
+                device_zinit = (self.use_resident_trunk and _device_zinit()
+                                and not tenstorrent.is_wormhole())
+                z_init = z_init_build = relative_position_encoding = None
+                if device_zinit:
+                    z_init_build = self._tt_zinit_module()
+                    if self.use_token_distances and (
+                            self.token_distance_module.use_token_distance_feats):
+                        relative_position_encoding = self.rel_pos(feats)
+                else:
+                    z_init = (
+                        self.z_init_1(s_inputs)[:, :, None]
+                        + self.z_init_2(s_inputs)[:, None, :]
+                    )
+                    relative_position_encoding = self.rel_pos(feats)
+                    z_init = z_init + relative_position_encoding
+                    z_init = z_init + self.token_bonds(feats["token_bonds"].float())
+                    if self.bond_type_feature:
+                        z_init = z_init + self.token_bonds_type(feats["type_bonds"].long())
+                    z_init = z_init + self.contact_conditioning(feats)
 
                 # Perform rounds of the pairwise stack
                 s = torch.zeros_like(s_init)
-                z = torch.zeros_like(z_init)
+                z = None if z_init is None else torch.zeros_like(z_init)
 
                 # Compute pairwise mask
                 mask = feats["token_pad_mask"].float()
@@ -617,6 +635,7 @@ class Boltz(nn.Module):
                     s, z = _trunk(
                         s_inputs, s_init, z_init, feats, recycling_steps,
                         relative_position_encoding, keep_device_z=device_conditioning,
+                        z_init_build=z_init_build,
                     )
                     if device_conditioning:
                         device_z = _trunk.pop_device_z()
@@ -661,6 +680,9 @@ class Boltz(nn.Module):
                 dict_out["pdistogram"] = pdistogram.float()
 
             if not self.inverse_fold:
+                if relative_position_encoding is None and device_z is None:
+                    # `device_zinit` skipped it; the host conditioning is the only other reader.
+                    relative_position_encoding = self.rel_pos(feats)
                 if self.checkpoint_diffusion_conditioning:
                     # TODO decide whether this should be with bf16 or not
                     (
@@ -686,7 +708,9 @@ class Boltz(nn.Module):
                         self.msa_module.compute_kernel_config,
                     )
                     z_to_p, token_trans_bias = cond(
-                        device_z[0], relative_position_encoding, z.shape[1], device_z[1])
+                        device_z[0], relative_position_encoding
+                        if relative_position_encoding is not None else (self.rel_pos, feats),
+                        z.shape[1], device_z[1])
                     tenstorrent.free(device_z[0])
                     device_z = None
                     q, c, to_keys, atom_enc_bias, atom_dec_bias = dc.forward_atoms(

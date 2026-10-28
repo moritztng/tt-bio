@@ -3236,8 +3236,15 @@ def sdpa32_mask_lowp(m: ttnn.Tensor) -> ttnn.Tensor:
     return mt
 
 
+def sdpa32_chunk(n: int) -> int | None:
+    """The chunk `_sdpa32` / `_sdpa32_fused` run a token axis of `n` at: 256 where it divides, else 128, else
+    192 (BoltzGen's 544 tokens staged at 576 by dit_pad_short), None when none does. Every chunk divides `n`
+    exactly because the kernel's own padded-mask path is wrong at fp32 operands (`sdpa32_rows`)."""
+    return next((c for c in (256, 128, 192) if n % c == 0), None)
+
+
 def _sdpa32_chunks(dev, B: int, heads: int, n: int):
-    """(q chunk, k chunk, grid) for `_sdpa32` / `_sdpa32_fused`: 256 where it divides the token axis, else 128.
+    """(q chunk, k chunk, grid) for `_sdpa32` / `_sdpa32_fused`: the `sdpa32_chunk` of the token axis.
 
     On Wormhole the PV product accumulates k_chunk / 32 tiles in the fp32 dest, which writes an
     occasional wrong value (tt_bio/dest_guard.py); one key tile per chunk keeps it out of dest.
@@ -3250,7 +3257,7 @@ def _sdpa32_chunks(dev, B: int, heads: int, n: int):
     work moves between cores, not arithmetic.
     """
     g = dev.compute_with_storage_grid_size()
-    big = 256 if n % 256 == 0 else 128
+    big = sdpa32_chunk(n)
     k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 and not lever("dit_kc") else big
     cores = g.x * g.y
 
@@ -3275,7 +3282,7 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     reference 0.77x that chain's mean error (perf/spd_diffusion/sdpa32.py)."""
     from . import sdpa_generic as SG
     n = int(q.shape[2])
-    assert n % 128 == 0 and int(mask.shape[-1]) == n == int(k.shape[2]), \
+    assert sdpa32_chunk(n) and int(mask.shape[-1]) == n == int(k.shape[2]), \
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
     dev = q.device()
     chunk, k_chunk, grid = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
@@ -3293,7 +3300,7 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, c
     output (default DRAM); the kernels address it through a TensorAccessor either way."""
     from . import sdpa_generic as SG
     S, _, n, w = (int(d) for d in qkv.shape)
-    assert n % 128 == 0 and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
+    assert sdpa32_chunk(n) and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
     dev = qkv.device()
     chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
@@ -13841,7 +13848,7 @@ class AttentionPairBias(Module):
         """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` bf16, or None where it does not apply."""
         n = int(qkv.shape[-2])
         ok = (bias_precomputed and _B2_TOKEN_DIT_SDPA and z is not None and seq_mask is None
-              and not self._raw_fp32() and not self.kq_norm and len(qkv.shape) == 3 and n % 128 == 0
+              and not self._raw_fp32() and not self.kq_norm and len(qkv.shape) == 3 and sdpa32_chunk(n)
               and int(qkv.shape[-1]) == 3 * self.n_heads * self.padded_head_dim
               and len(z.shape) == 4 and int(z.shape[-1]) == n and int(z.shape[1]) == self.n_heads)
         DIT_QKVF_STATS[0 if ok else 1] += 1
@@ -19762,8 +19769,10 @@ class PairAssemblyDevice:
         self.cutoff_min, self.cutoff_max = cc.cutoff_min, cc.cutoff_max
         # encoder input is cat([cc[2:], threshold, fourier]), so its non-Fourier width fixes the
         # contact one-hot's: n_small = (n_cc - 2) + 1. Read it off the module rather than
-        # importing the constant table, so the pack follows the checkpoint.
-        n_small = cc.encoder.in_features - cc.fourier_embedding.proj.out_features
+        # importing the constant table, so the pack follows the checkpoint. The Fourier width comes
+        # from the weight's shape: Boltz-2's proj is an nn.Linear, BoltzGen's a bare buffer pair.
+        n_fourier = cc.fourier_embedding.proj.weight.shape[0]
+        n_small = cc.encoder.in_features - n_fourier
         n_cc = n_small + 1
         n_tb = conf.token_bonds.in_features
         self.n_pack = n_cc + 2 + n_tb           # cc | threshold | keep | token_bonds
@@ -19783,8 +19792,7 @@ class PairAssemblyDevice:
         self.contact_weight = packed({2: ew[:, :n_small - 1].t(),
                                       i_thr: ew[:, n_small - 1:n_small].t()}, ew.shape[0])
         self.fourier_in_weight = packed(
-            {i_thr: cc.fourier_embedding.proj.weight.detach().t()},
-            cc.fourier_embedding.proj.out_features)
+            {i_thr: cc.fourier_embedding.proj.weight.detach().t()}, n_fourier)
         self.fourier_bias = row(cc.fourier_embedding.proj.bias)
         self.fourier_out_weight = w(ew[:, n_small:], transpose=True)
         self.contact_bias = row(cc.encoder.bias)
@@ -20222,7 +20230,6 @@ class TokenDistanceRecycle:
         self.v_norm_b = w(token_distance_module.v_norm.bias)
         self.z_proj_w = w(token_distance_module.z_proj.weight, transpose=True)
         self.u_proj_w = w(token_distance_module.u_proj.weight, transpose=True)
-        self._a_ij_host = None  # (weights key, input copies, padded host a_ij), see precompute
 
     def precompute(self, feats, relative_position_encoding, seq_pad, mask_tt, attn_tt):
         """Host once-per-protein: a_ij = a_proj(distance features), padded + uploaded.
@@ -20238,18 +20245,18 @@ class TokenDistanceRecycle:
         # A design run calls this once per design with the same target: every input below is a
         # deterministic function of the target (coords are centred, never re-posed), so the
         # host a_ij from the last call is reused when the inputs and weights are unchanged.
-        # The upload is redone because the trunk frees its statics after every design.
+        # The upload is redone because the trunk frees its statics after every design; the cache
+        # keeps a_ij already tiled in bf16, so a hit is a plain copy, not a host fp32 tilize.
+        # It lives on the torch module: this wrapper is rebuilt for every trunk call.
         srcs = (token_coords, token_distance_mask) + (
             (relative_position_encoding, feats["coords"], feats["token_to_bb4_atoms"])
             if mod.use_token_distance_feats else ())
         wkey = (seq_pad, tuple((q.data_ptr(), q._version) for q in mod.parameters()))
-        hit = self._a_ij_host
+        hit = getattr(mod, "_tt_a_ij_host", None)  # (weights key, input copies, tiled bf16 a_ij)
         if hit is not None and hit[0] == wkey and all(
                 a.shape == b.shape and a.dtype == b.dtype and torch.equal(a, b)
                 for a, b in zip(hit[1], srcs)):
-            a_ij_tt = ttnn.from_torch(hit[2], layout=ttnn.TILE_LAYOUT, device=device,
-                                      dtype=ttnn.bfloat16)
-            return {"a_ij_tt": a_ij_tt, "mask_tt": mask_tt, "attn_tt": attn_tt}
+            return {"a_ij_tt": ttnn.to_device(hit[2], device), "mask_tt": mask_tt, "attn_tt": attn_tt}
         with torch.autocast(device_type="cuda", enabled=False):
             dists = torch.cdist(token_coords, token_coords)
             boundaries = torch.linspace(mod.min_dist, mod.max_dist, mod.num_bins - 1).to(dists.device)
@@ -20264,9 +20271,9 @@ class TokenDistanceRecycle:
             a_ij = mod.a_proj(a_ij.float())
         if seq_pad:
             a_ij = torch.nn.functional.pad(a_ij, (0, 0, 0, seq_pad, 0, seq_pad))
-        self._a_ij_host = (wkey, tuple(s.clone() for s in srcs), a_ij)
-        a_ij_tt = ttnn.from_torch(a_ij, layout=ttnn.TILE_LAYOUT, device=device, dtype=ttnn.bfloat16)
-        return {"a_ij_tt": a_ij_tt, "mask_tt": mask_tt, "attn_tt": attn_tt}
+        a_ij = ttnn.from_torch(a_ij, layout=ttnn.TILE_LAYOUT, dtype=ttnn.bfloat16)
+        mod._tt_a_ij_host = (wkey, tuple(s.clone() for s in srcs), a_ij)
+        return {"a_ij_tt": ttnn.to_device(a_ij, device), "mask_tt": mask_tt, "attn_tt": attn_tt}
 
     def __call__(self, z, td):
         """z [1,P,P,token_z] -> token-distance delta u [1,P,P,token_z], fully on device."""

@@ -37,7 +37,7 @@ move against the accuracy bar and the seed-to-seed spread.
 | [`TT_BIO_DEVICE_CONDITIONING`](#tt_bio_device_conditioning) | on | Boltz-2, BoltzGen | moves, closer to the experimental structure |
 | [`TT_BIO_DEVICE_CONFIDENCE`, `TT_BIO_DEVICE_CONF_HEADS`](#tt_bio_device_confidence-tt_bio_device_conf_heads) | on | Boltz-2 | coordinates identical, confidence scores move |
 | [`TT_BIO_DEVICE_TILIZE`](#tt_bio_device_tilize) | on | Protenix-v2, OpenDDE, PXDesign | identical |
-| [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2 | moves, flat against the experimental structure |
+| [`TT_BIO_DEVICE_ZINIT`](#tt_bio_device_zinit) | on | Boltz-2, BoltzGen (Blackhole) | moves, flat against the experimental structure |
 | [`TT_BIO_DIT_COND_HOIST`](#tt_bio_dit_cond_hoist) | on | Boltz-2, RF3 token DiT | moves, inside the 298-residue bar |
 | [`TT_BIO_DIT_SHARED_COND`](#tt_bio_dit_shared_cond) | on | Boltz-2, BoltzGen | identical |
 | [`TT_BIO_ESMC_MM`](#tt_bio_esmc_mm) | on for Wormhole | ESMC 300M / 600M | identical at the page batch |
@@ -543,7 +543,7 @@ Measured together with `TT_BIO_HOST_LANE`; see that section for the numbers.
 
 ## `TT_BIO_DEVICE_ZINIT`
 
-Default: on, Boltz-2 only.
+Default: on for Boltz-2, and for BoltzGen on Blackhole.
 
 Boltz-2 starts the trunk from `z_init`, a `[1, n, n, token_z]` pair tensor built by summing five
 per-`(i, j)` terms: two broadcasts of a `[1, n, c]` projection, the relative-position tables,
@@ -557,9 +557,11 @@ It is the same construction the confidence head does with different weights, so 
 through one `PairAssemblyDevice` and there is no second copy of the assembly.
 
 The flag declines rather than diverging: the device path needs the resident trunk to be the
-consumer, and it needs nothing else on the host to want the relative-position encoding it skips.
-BoltzGen's token-distance recycle does want it, so BoltzGen takes the host path and says so on
-stdout. Boltz-2 has no such module and templates do not read it.
+consumer. BoltzGen uses it on Blackhole too, through the same relative-position class; its
+token-distance recycle still builds the host encoding for its own features. On Wormhole BoltzGen
+keeps the host path until its design grade there passes. Graded on Blackhole over eight seeds of
+the bg_R3 page fixture against exact normal mode: design pTM +0.025, ipTM +0.008, complex pLDDT
+-0.002, every design through the filter.
 
 **Accuracy: not identical.** The device sums in bf16 where the host summed in fp32, and it sums in
 a different order. `cdk2x2_298` moves 0.264577 Å all-atom (CA 0.107924) against a 0.000000 Å A/A
