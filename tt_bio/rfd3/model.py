@@ -788,6 +788,47 @@ def _tuned_declined(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
     return key in _TUNED_MM_CACHE and _TUNED_MM_CACHE[key] is None
 
 
+# The DiT's single-design linears ([1, I, K] @ [K, N] at K, N in 768/1024/1536) through an explicit 2D multicast
+# config. At 704 rows ttnn's own pick runs 50-85 us a call against a ~20-30 us HiFi4 roof, and these shapes sit
+# under `_TUNE_MIN_MS`, so calibration never sees them. The config regroups K, so it is graded on accuracy, not
+# bits. `_MM2D_PIN` holds the per-arch winner of scripts/rfd3_port/gap_ditlin.py as (grid x, grid y, in0_block_w,
+# subblock h, subblock w); a shape it does not name takes the full grid, the widest K block and a 1-high subblock.
+# RFD3_DIT_MM2D_L1 also writes their outputs to L1 (WH: 36 vs 48 us at q/k/v/g); the explicit config fixes the
+# blocking, so the destination does not move bits. On by default except on Wormhole (p150a grade, 8 paired normal
+# seeds: drift 6.5-13.8 A against a 14.2-19.8 A floor, breaks 4 -> 3, clashes 423 -> 390; -0.7 s/design normal);
+# RFD3_DIT_MM2D=0/1 forces it.
+_MM2D_ENV = env_flag("RFD3_DIT_MM2D", False) if os.environ.get("RFD3_DIT_MM2D") else None
+_MM2D_L1 = env_flag("RFD3_DIT_MM2D_L1", False)
+_MM2D_SHAPES = {(768, 1024), (768, 1536), (1536, 768), (1024, 768)}
+_MM2D_PIN = {}
+_MM2D_CACHE = {}
+
+
+def _mm2d_on():
+    return _MM2D_ENV if _MM2D_ENV is not None else not is_wormhole()
+
+
+def _mm2d_config(x, w, silu=False):
+    """The pinned 2D config for a DiT linear, or None for every other call. `silu` fuses it on the accumulator."""
+    xs, ws = list(x.padded_shape), list(w.padded_shape)
+    if not _mm2d_on() or len(ws) != 2 or (ws[0], ws[1]) not in _MM2D_SHAPES or math.prod(xs[:-2]) != 1:
+        return None
+    key = (xs[-2], ws[0], ws[1], silu)
+    if key not in _MM2D_CACHE:
+        dev = get_device()
+        grid = dev.compute_with_storage_grid_size()
+        mt, kt, nt = xs[-2] // TILE, ws[0] // TILE, ws[1] // TILE
+        pin = _MM2D_PIN.get((str(dev.arch()), ws[0], ws[1]))
+        gx, gy, bw, sh, sw = pin or (grid.x, grid.y, max(d for d in (1, 2, 3, 4, 6, 8) if kt % d == 0), 1, None)
+        pm, pn = -(-mt // gy), -(-nt // gx)
+        sw = sw or max(d for d in (1, 2, 3, 4) if pn % d == 0)
+        _MM2D_CACHE[key] = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=bw, out_subblock_h=sh, out_subblock_w=sw,
+            per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+            fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None)
+    return _MM2D_CACHE[key]
+
+
 def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID,
                   mem=None):
     """`ttnn.linear` with a calibrated, bit-exact program config where one helps.
@@ -815,6 +856,10 @@ def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVA
     kw = dict(compute_kernel_config=ckc, dtype=dtype)
     if bias is not None:
         kw["bias"] = bias
+    pc = _mm2d_config(x, w)
+    if pc is not None:
+        mem = mem or (ttnn.L1_MEMORY_CONFIG if _MM2D_L1 else None)
+        return ttnn.linear(x, w, program_config=pc, **kw, **({} if mem is None else {"memory_config": mem}))
     if not _TUNE_MATMUL or not _tunable(x, w):
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
     key = _tuned_key(x, w, dtype, bias, core_grid, ckc)
@@ -2823,9 +2868,11 @@ class RFD3AtomBlock(Module):
 
     def _transition(self, norm):
         ckc, dt = self.compute_kernel_config, self.dtype
+        pc = _mm2d_config(norm, self.t_fc1, silu=True)
         left = ttnn.linear(
-            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+            norm, self.t_fc1, compute_kernel_config=silu_ckc(ckc), dtype=dt,
+            **(dict(activation="silu", core_grid=BATCH_INVARIANT_GRID) if pc is None else
+               dict(program_config=pc, **(dict(memory_config=ttnn.L1_MEMORY_CONFIG) if _MM2D_L1 else {}))),
         )
         right = _tuned_linear(
             norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
