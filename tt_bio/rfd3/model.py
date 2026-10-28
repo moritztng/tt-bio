@@ -271,6 +271,10 @@ def _pz_addcmul_on():
     return _PZ_ADDCMUL if _PZ_ADDCMUL is not None else is_wormhole()
 
 
+def _pf_rmsb_on():
+    return _PF_RMSB if _PF_RMSB is not None else is_wormhole()
+
+
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
 # projection is the largest single op in the model: 36 calls/step (18 blocks x 2 recycles),
 # 26.742 ms/step, 42.6 % of this card's measured 390.0 GB/s read roof (perf/p56/linear_census.json).
@@ -495,8 +499,10 @@ _PF_SDPA = env_flag("RFD3_PF_SDPA", True)
 PF_SDPA_CALLS = [0]
 # The SDPA path's mask from rms0(z) @ (ln_0 * W_b * sqrt(head_dim)) in one `rms_pair_bias` program (the norm weight and
 # the scale folded into the projection in fp32), plus one add of the key/row pad. Replaces the standalone rms_norm over
-# [I, I, 128] and the dit_pair_bias pass that re-read its output.
-_PF_RMSB = env_flag("RFD3_PF_RMSB", False)
+# [I, I, 128] and the dit_pair_bias pass that re-read its output. WH page cell @1000 MHz: fast 40.1 -> 38.9, normal
+# 40.5 -> 39.7 s/design; eight paired normal seeds: design drift 3.4-12.9 A against a 13.9-18.4 A seed floor, breaks
+# 3 -> 2, clashes 390 -> 370. On by default on Wormhole; RFD3_PF_RMSB=0/1 forces it.
+_PF_RMSB = env_flag("RFD3_PF_RMSB", False) if os.environ.get("RFD3_PF_RMSB") else None
 PF_RMSB_CALLS = [0]
 
 
@@ -1621,7 +1627,7 @@ class PairformerAttention(Module):
             qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
             memory_config=ttnn.DRAM_MEMORY_CONFIG)
         ttnn.deallocate(qkv)
-        mask = self._sdpa_mask_rms(z, I, n_key) if _PF_RMSB else None
+        mask = self._sdpa_mask_rms(z, I, n_key) if _pf_rmsb_on() else None
         if mask is None:
             z = ttnn.rms_norm(z, weight=self.ln_0_w, epsilon=1e-6, compute_kernel_config=ckc)
             mask = self._sdpa_mask(z, I, n_key)
