@@ -1,0 +1,24 @@
+# The tt-bio.com contact form's backend. Deployed by scripts/deploy_site.sh; see src/contact.js.
+name = "tt-bio-contact"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [{ pattern = "tt-bio.com/api/contact", zone_name = "tt-bio.com" }]
+
+# The binding can send to bio@tenstorrent.com and nowhere else (a verified Email Routing
+# destination). TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are secrets.
+send_email = [{ name = "MAIL", destination_address = "bio@tenstorrent.com" }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tt-bio-contact"
+database_id = "93af66d4-6e36-4b7b-918c-f4f01b67140a"
+
+[vars]
+SITE_URL = "https://moritztng.github.io/tt-bio/"
+ALLOWED_ORIGINS = "https://moritztng.github.io https://tt-bio.com https://www.tt-bio.com"
+MAIL_FROM = "contact@tt-bio.com"
+MAIL_TO = "bio@tenstorrent.com"
+
+[observability]
+enabled = true

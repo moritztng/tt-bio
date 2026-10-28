@@ -187,7 +187,12 @@ void kernel_main() {
     constexpr uint32_t CT = get_compile_time_arg_val(2);
     // 0: metal's silu_tile, 1: sigmoid_poly.hpp's degree-8 silu (3e-4), 2: its degree-6 fp16-coefficient silu (7.4e-4)
     constexpr uint32_t SILU_POLY = get_compile_time_arg_val(3);
+#ifdef WS_ROWLIST   // the reader's row list: this core's share of n entries dealt round-robin (common/row_list.hpp)
+    const uint32_t me = get_arg_val<uint32_t>(0), nl = get_common_arg_val<uint32_t>(0);
+    const uint32_t count = me < nl ? (nl - 1 - me) / get_common_arg_val<uint32_t>(1) + 1 : 0;
+#else
     const uint32_t count = get_arg_val<uint32_t>(1);
+#endif
     constexpr uint32_t SW = 4;
 #ifdef WS_RES32
     constexpr uint32_t OG = CT < 2 ? CT : 2, cb_outb = 25;

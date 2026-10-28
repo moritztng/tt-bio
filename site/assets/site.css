@@ -92,6 +92,9 @@ nav a.lnk[aria-current="page"]{color:var(--ink);font-weight:600;border-bottom-co
 }
 .btn.solid{background:var(--ink);color:var(--paper)}
 .btn.solid:hover{background:var(--accent-ink);color:#fff}
+.btn.accent{background:var(--accent-ink);color:#fff}
+.btn.accent:hover{background:var(--ink);color:var(--paper)}
+@media (prefers-color-scheme:dark){.btn.accent{background:var(--accent);color:var(--paper)}}
 .btn.line{border-color:var(--rule-2);color:var(--ink)}
 .btn.line:hover{border-color:var(--ink)}
 

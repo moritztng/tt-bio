@@ -2,26 +2,26 @@
   "assembled_by": "scripts/release_gate.py --model size-ladder",
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-25",
-      "host": "UF-EV-A2-GWH01",
-      "commit": "0a3f28e58",
+      "recorded": "2026-10-27",
+      "host": "UF-EV-A4-GWH01",
+      "commit": "eb6700ab1",
       "host_threads": 2,
       "models": {
         "esmfold2": {
           "grid": "8x9",
-          "recorded": "2026-10-25",
-          "host": "UF-EV-A2-GWH01",
-          "commit": "0a3f28e58",
+          "recorded": "2026-10-27",
+          "host": "UF-EV-A4-GWH01",
+          "commit": "eb6700ab1",
           "host_threads": 2,
           "runtime_s": {
             "256": 9.9,
-            "512": 26.1,
-            "640": 37.1,
-            "768": 57.3,
-            "896": 70.5,
-            "1024": 93.0,
-            "1280": 303.5,
-            "1536": 564.4
+            "512": 26.2,
+            "640": 37.2,
+            "768": 57.2,
+            "896": 73.2,
+            "1024": 93.6,
+            "1280": 306.9,
+            "1536": 564.9
           },
           "levers": {
             "256": {
@@ -2505,58 +2505,58 @@
           "runtime_reps_s": {
             "256": [
               9.9,
-              9.9,
+              9.8,
               10.0,
-              10.2,
-              9.7
+              9.9,
+              9.9
             ],
             "512": [
+              26.0,
               25.9,
-              26.1,
-              26.5,
-              27.4,
-              25.8
+              26.3,
+              26.2,
+              26.2
             ],
             "640": [
-              37.1
+              37.2
             ],
             "768": [
-              57.3
+              57.2
             ],
             "896": [
-              70.5
+              73.2
             ],
             "1024": [
-              93.0
+              93.6
             ],
             "1280": [
-              303.5
+              306.9
             ],
             "1536": [
-              564.4
+              564.9
             ]
           },
           "aiclk": {
             "256": {
-              "card": "19",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
+                991,
                 1000,
                 1000,
-                500,
-                500
+                982
               ],
-              "n": 28
+              "n": 27
             },
             "512": {
-              "card": "19",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000,
-                977,
+                1000,
                 1000,
                 1000,
                 1000
@@ -2564,25 +2564,25 @@
               "n": 44
             },
             "640": {
-              "card": "19",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 10
+              "n": 11
             },
             "768": {
-              "card": "19",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 16
+              "n": 14
             },
             "896": {
-              "card": "19",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2591,7 +2591,7 @@
               "n": 17
             },
             "1024": {
-              "card": "19",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -2600,79 +2600,79 @@
               "n": 21
             },
             "1280": {
-              "card": "19",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 60
+              "n": 61
             },
             "1536": {
-              "card": "19",
+              "card": "9",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 108
+              "n": 107
             }
           },
           "load": {
             "256": {
-              "max": 0.63,
+              "max": 0.55,
               "rep_median": [
-                0.59,
-                0.63,
-                0.62,
-                0.61,
-                0.58
+                0.54,
+                0.52,
+                0.5,
+                0.48,
+                0.47
               ]
             },
             "512": {
-              "max": 0.57,
+              "max": 0.54,
               "rep_median": [
-                0.56,
                 0.53,
-                0.56,
-                0.54,
-                0.57
+                0.51,
+                0.47,
+                0.47,
+                0.48
               ]
             },
             "640": {
-              "max": 0.56,
+              "max": 0.49,
               "rep_median": [
-                0.55
+                0.47
               ]
             },
             "768": {
-              "max": 0.61,
+              "max": 0.47,
               "rep_median": [
-                0.55
+                0.46
               ]
             },
             "896": {
-              "max": 0.59,
+              "max": 0.74,
               "rep_median": [
-                0.57
+                0.59
               ]
             },
             "1024": {
-              "max": 0.57,
+              "max": 0.45,
               "rep_median": [
-                0.56
+                0.4
               ]
             },
             "1280": {
-              "max": 0.61,
+              "max": 0.47,
               "rep_median": [
-                0.57
+                0.35
               ]
             },
             "1536": {
-              "max": 0.63,
+              "max": 0.61,
               "rep_median": [
-                0.6
+                0.43
               ]
             }
           },
@@ -2811,56 +2811,56 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0247,
+          "sigma_runtime_512": 0.0063,
           "exponents": {
             "256->512": {
-              "k": 1.399,
+              "k": 1.404,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.939,
+              "k": 1.926,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0183,
-            "512": 0.0247
+            "256": 0.0071,
+            "512": 0.0063
           },
           "exponents_measured": {
-            "256->512": 1.399,
-            "512->640": 1.576,
-            "640->768": 2.384,
-            "768->896": 1.345,
-            "896->1024": 2.074,
-            "1024->1280": 5.301,
-            "1280->1536": 3.403
+            "256->512": 1.404,
+            "512->640": 1.571,
+            "640->768": 2.36,
+            "768->896": 1.6,
+            "896->1024": 1.841,
+            "1024->1280": 5.322,
+            "1280->1536": 3.346
           }
         }
       }
     },
     "p150a": {
-      "recorded": "2026-10-25",
+      "recorded": "2026-10-27",
       "host": "tt-quietbox",
-      "commit": "0a3f28e58",
+      "commit": "eb6700ab1",
       "host_threads": 8,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-10-25",
+          "recorded": "2026-10-27",
           "host": "tt-quietbox",
-          "commit": "0a3f28e58",
+          "commit": "eb6700ab1",
           "host_threads": 8,
           "runtime_s": {
-            "256": 9.4,
-            "512": 16.4,
-            "640": 23.2,
-            "768": 34.0,
-            "896": 43.2,
-            "1024": 55.0,
-            "1152": 73.5,
-            "1280": 90.1,
-            "1408": 107.1,
-            "1536": 156.6
+            "256": 12.3,
+            "512": 15.1,
+            "640": 20.9,
+            "768": 30.3,
+            "896": 38.5,
+            "1024": 47.8,
+            "1152": 60.0,
+            "1280": 90.2,
+            "1408": 107.8,
+            "1536": 155.4
           },
           "levers": {
             "256": {
@@ -2971,13 +2971,10 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 1,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats",
-                "rejects": {
-                  "t2:g_not_f1": 1156
-                }
+                "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -3007,7 +3004,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3276,26 +3273,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -3314,7 +3310,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3585,26 +3581,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -3623,7 +3618,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3894,26 +3889,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -3932,7 +3926,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4203,26 +4197,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -4241,7 +4234,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4512,26 +4505,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -4550,7 +4542,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4821,26 +4813,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: above the row-blocked pair-FFN window: `_split_plan` plans that path only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:321, read at esmc.py:687), so past 1024 aa the unblocked FFN runs, the same state as 256 aa below the window. The row block is taken above the window only after a DRAM refusal (esmc.py:871), and none fired at this rung. This model reaches the projection only through the split fc1 inside `_row_blocked` (esmc.py:650), so it is never entered; inside the window it is called and refuses on `dtype:(8,32)` [carried from rung 1280]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: above the row-blocked pair-FFN window: `_split_plan` plans that path only for 320 <= L <= 1024 (`PAIR_FFN_ROW_BLOCK_SEQ`, tt_bio/esmc.py:321, read at esmc.py:687), so past 1024 aa the unblocked FFN runs, the same state as 256 aa below the window. The row block is taken above the window only after a DRAM refusal (esmc.py:871), and none fired at this rung. This model reaches the projection only through the split fc1 inside `_row_blocked` (esmc.py:650), so it is never entered; inside the window it is called and refuses on `dtype:(8,32)` [carried from rung 1280]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -4859,7 +4850,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 4656,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -5964,60 +5955,47 @@
           },
           "runtime_reps_s": {
             "256": [
-              8.9,
-              9.4,
-              9.4,
-              9.4,
-              9.2
+              12.8,
+              12.5,
+              11.9,
+              11.7,
+              12.3
             ],
             "512": [
-              16.4,
-              16.9,
-              16.5,
-              16.4,
-              16.4
+              15.2,
+              15.3,
+              14.8,
+              15.1,
+              14.8
             ],
             "640": [
-              23.2
+              20.9
             ],
             "768": [
-              34.0
+              30.3
             ],
             "896": [
-              43.2
+              38.5
             ],
             "1024": [
-              55.0
+              47.8
             ],
             "1152": [
-              73.5
+              60.0
             ],
             "1280": [
-              90.1
+              90.2
             ],
             "1408": [
-              107.1
+              107.8
             ],
             "1536": [
-              156.6
+              155.4
             ]
           },
           "aiclk": {
             "256": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                800,
-                800,
-                1350,
-                800,
-                800
-              ],
-              "n": 25
-            },
-            "512": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6029,8 +6007,21 @@
               ],
               "n": 30
             },
+            "512": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350,
+                1343,
+                1343,
+                1350,
+                1350
+              ],
+              "n": 30
+            },
             "640": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6039,43 +6030,43 @@
               "n": 7
             },
             "768": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 9
+              "n": 8
             },
             "896": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 12
+              "n": 10
             },
             "1024": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1343
+                1350
+              ],
+              "n": 11
+            },
+            "1152": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
               ],
               "n": 13
             },
-            "1152": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 16
-            },
             "1280": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6084,7 +6075,7 @@
               "n": 18
             },
             "1408": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6093,7 +6084,7 @@
               "n": 21
             },
             "1536": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -6104,71 +6095,71 @@
           },
           "load": {
             "256": {
-              "max": 0.28,
+              "max": 0.39,
               "rep_median": [
-                0.28,
-                0.24,
-                0.22,
-                0.21,
-                0.21
+                0.33,
+                0.33,
+                0.34,
+                0.31,
+                0.36
               ]
             },
             "512": {
-              "max": 0.25,
+              "max": 0.38,
               "rep_median": [
-                0.19,
-                0.17,
-                0.19,
-                0.24,
-                0.23
+                0.37,
+                0.33,
+                0.31,
+                0.27,
+                0.26
               ]
             },
             "640": {
               "max": 0.28,
               "rep_median": [
-                0.27
+                0.26
               ]
             },
             "768": {
-              "max": 0.27,
+              "max": 0.28,
+              "rep_median": [
+                0.27
+              ]
+            },
+            "896": {
+              "max": 0.28,
+              "rep_median": [
+                0.26
+              ]
+            },
+            "1024": {
+              "max": 0.26,
               "rep_median": [
                 0.24
               ]
             },
-            "896": {
-              "max": 0.35,
-              "rep_median": [
-                0.33
-              ]
-            },
-            "1024": {
-              "max": 0.35,
-              "rep_median": [
-                0.31
-              ]
-            },
             "1152": {
-              "max": 0.24,
+              "max": 0.27,
               "rep_median": [
-                0.21
+                0.26
               ]
             },
             "1280": {
               "max": 0.27,
               "rep_median": [
-                0.23
+                0.26
               ]
             },
             "1408": {
-              "max": 0.24,
+              "max": 0.28,
               "rep_median": [
-                0.23
+                0.26
               ]
             },
             "1536": {
-              "max": 0.28,
+              "max": 0.24,
               "rep_median": [
-                0.24
+                0.23
               ]
             }
           },
@@ -6177,49 +6168,50 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.4647,
-              "radius_of_gyration_A": 68.37,
-              "plddt_mean": 0.281904,
+              "ca_ca_median_A": 81.4525,
+              "radius_of_gyration_A": 68.207,
+              "plddt_mean": 0.282957,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.465 A outside [3.6, 4.0]",
+                "median CA-CA 81.452 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.4 A outside [9.0, 45.2]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 68.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0312,
+              "clash_frac": 0.0273,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.3088,
-              "radius_of_gyration_A": 75.776,
-              "plddt_mean": 0.267742,
+              "ca_ca_median_A": 78.5588,
+              "radius_of_gyration_A": 75.851,
+              "plddt_mean": 0.268439,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.309 A outside [3.6, 4.0]",
+                "median CA-CA 78.559 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 75.8 A outside [11.8, 58.9]"
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 75.9 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0391,
+              "clash_frac": 0.0266,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5243,
-              "radius_of_gyration_A": 78.313,
-              "plddt_mean": 0.278982,
+              "ca_ca_median_A": 79.4852,
+              "radius_of_gyration_A": 78.28,
+              "plddt_mean": 0.27863,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.524 A outside [3.6, 4.0]",
+                "median CA-CA 79.485 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
@@ -6227,16 +6219,16 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0326,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.2975,
-              "radius_of_gyration_A": 73.781,
-              "plddt_mean": 0.260718,
+              "ca_ca_median_A": 81.1989,
+              "radius_of_gyration_A": 73.776,
+              "plddt_mean": 0.261707,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.297 A outside [3.6, 4.0]",
+                "median CA-CA 81.199 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 73.8 A outside [13.7, 68.7]"
               ]
             },
@@ -6244,16 +6236,16 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0402,
+              "clash_frac": 0.0335,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.269,
-              "radius_of_gyration_A": 80.11,
-              "plddt_mean": 0.268921,
+              "ca_ca_median_A": 79.7655,
+              "radius_of_gyration_A": 80.103,
+              "plddt_mean": 0.269548,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.269 A outside [3.6, 4.0]",
+                "median CA-CA 79.765 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.4% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
@@ -6261,33 +6253,33 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0439,
+              "clash_frac": 0.0547,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.1443,
-              "radius_of_gyration_A": 77.371,
-              "plddt_mean": 0.261223,
+              "ca_ca_median_A": 80.1474,
+              "radius_of_gyration_A": 77.526,
+              "plddt_mean": 0.261661,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.144 A outside [3.6, 4.0]",
+                "median CA-CA 80.147 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 77.4 A outside [15.3, 76.6]"
+                "5.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 77.5 A outside [15.3, 76.6]"
               ]
             },
             "1152": {
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.0417,
+              "clash_frac": 0.0399,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.935,
+              "ca_ca_median_A": 79.6273,
               "radius_of_gyration_A": 82.728,
-              "plddt_mean": 0.263779,
+              "plddt_mean": 0.265341,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.935 A outside [3.6, 4.0]",
+                "median CA-CA 79.627 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 82.7 A outside [16.0, 80.1]"
               ]
             },
@@ -6341,54 +6333,54 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0131,
+          "sigma_runtime_512": 0.0153,
           "exponents": {
             "256->512": {
-              "k": 0.803,
+              "k": 0.296,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.798,
+              "k": 1.718,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0237,
-            "512": 0.0131
+            "256": 0.0364,
+            "512": 0.0153
           },
           "exponents_measured": {
-            "256->512": 0.803,
-            "512->640": 1.554,
-            "640->768": 2.096,
+            "256->512": 0.296,
+            "512->640": 1.457,
+            "640->768": 2.037,
             "768->896": 1.554,
-            "896->1024": 1.809,
-            "1024->1152": 2.462,
-            "1152->1280": 1.933,
-            "1280->1408": 1.813,
-            "1408->1536": 4.366
+            "896->1024": 1.62,
+            "1024->1152": 1.93,
+            "1152->1280": 3.869,
+            "1280->1408": 1.87,
+            "1408->1536": 4.203
           }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-10-25",
+      "recorded": "2026-10-27",
       "host": "tt-quietbox2",
-      "commit": "0a3f28e58",
+      "commit": "eb6700ab1",
       "host_threads": 5,
       "models": {
         "esmfold2": {
           "grid": "11x10",
-          "recorded": "2026-10-25",
+          "recorded": "2026-10-27",
           "host": "tt-quietbox2",
-          "commit": "0a3f28e58",
+          "commit": "eb6700ab1",
           "host_threads": 5,
           "runtime_s": {
-            "256": 5.9,
-            "512": 14.3,
-            "640": 21.3,
-            "768": 30.3,
-            "896": 41.0,
-            "1024": 52.5
+            "256": 6.8,
+            "512": 13.8,
+            "640": 19.9,
+            "768": 29.0,
+            "896": 37.7,
+            "1024": 49.0
           },
           "levers": {
             "256": {
@@ -6499,13 +6491,10 @@
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 1,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats",
-                "rejects": {
-                  "t2:g_not_f1": 1156
-                }
+                "how": "stats"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
@@ -6535,7 +6524,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6804,26 +6793,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "declines all 0 calls: the wrapped helper is not called anywhere in this model's fold at this rung; it is reached only once the pair track switches to row-blocked execution at 768"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -6842,7 +6830,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7113,26 +7101,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -7151,7 +7138,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1164,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7422,26 +7409,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -7460,7 +7446,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7731,26 +7717,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -7769,7 +7754,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -8040,26 +8025,25 @@
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
+                "served": 8,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
+              },
+              "TRIMUL_TAIL_F1": {
+                "resolved": "True",
                 "served": 0,
                 "declined": 0,
                 "frac": 0.0,
-                "how": "wrap",
-                "reason": "right shape, wrong dtype \u2014 the same forced --fast as TRIMUL_IN_PROJ_DUAL_NOC. The clause is `dtype:(8,32)`, and that 8 is `k_tiles`, which is exactly what this lever requires (it is scoped to a single K block; boltz-2 is permanently excluded because c_z=128 gives 4). So ESMFold2 is the one model whose pair projection fits this lever and it is refused only because Wormhole forces bf8 weights. Widening the guard is a PARITY decision, not an engineering one \u2014 the tuned config and the fallback accumulate K in different block orders, so it will not be torch.equal. Predicted from the code in wh-perf-esmfold2.md 4.2 on 2026-08-16 and left unmeasured; this clause count is the measurement it was missing. [carried from tt-galaxy-wh-l]"
+                "how": "stats",
+                "reason": "declines all 0 calls: since f1526e15b Blackhole's normal mode takes the --fast trimul route (trimul_t1 front with a fused g_out, trimul_t2 tail; _BH_ONLY in esmfold2_runtime.py), so every trimul output tail at this size goes to T2 (_t2_serves, tenstorrent.py:11880, from MIN_N=160 up) and F1's fused_tail is never called. Path-level and intended: the T2 tail is what made the 512 aa normal fold 14.46 -> 12.78 s on p150a. Wormhole drops those levers and still serves F1"
               },
-              "TRIMUL_TAIL_F1": {
+              "QKV_MM_CONFIG": {
                 "resolved": "True",
                 "served": 8,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
-              },
-              "QKV_MM_CONFIG": {
-                "resolved": "True",
-                "served": 0,
-                "declined": 0,
-                "frac": 0.0,
-                "how": "wrap",
-                "reason": "no call site on this path: 0 served AND 0 declined at every rung \u2014 `_qkv_mm_config` is not reached by ESMFold2's attention, which builds its own padded q/kv projections (tt_bio/esmfold2.py:254-280). [carried from tt-galaxy-wh-l]"
+                "how": "wrap"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "True",
@@ -8078,7 +8062,7 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2328,
+                "served": 8,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -8256,139 +8240,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              5.7,
-              5.9,
-              5.9,
-              6.1,
-              6.3
+              7.6,
+              6.8,
+              6.6,
+              6.3,
+              7.0
             ],
             "512": [
-              14.4,
-              14.6,
-              14.1,
-              14.3,
-              14.2
+              13.8,
+              14.5,
+              12.4,
+              13.8,
+              13.5
             ],
             "640": [
-              21.3
+              19.9
             ],
             "768": [
-              30.3
+              29.0
             ],
             "896": [
-              41.0
+              37.7
             ],
             "1024": [
-              52.5
+              49.0
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                800,
-                1325,
-                1337,
                 1350,
-                800
+                1343,
+                1350,
+                1350,
+                1337
               ],
               "n": 20
             },
             "512": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1268,
-                1281,
-                1268,
-                1281,
-                1306
+                1331,
+                1343,
+                1306,
+                1312,
+                1350
               ],
               "n": 25
             },
             "640": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1306
+                1337
               ],
               "n": 6
             },
             "768": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1275
+                1325
               ],
               "n": 8
             },
             "896": {
-              "card": "1",
+              "card": "0",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1256
+                1268
               ],
               "n": 10
             },
             "1024": {
-              "card": "1",
+              "card": "0",
               "min": 800,
-              "max": 1306,
+              "max": 1350,
               "rep_median": [
-                1218
+                1287
               ],
               "n": 12
             }
           },
           "load": {
             "256": {
-              "max": 0.28,
+              "max": 0.34,
               "rep_median": [
+                0.32,
+                0.3,
                 0.27,
-                0.25,
-                0.24,
-                0.23,
-                0.21
+                0.31,
+                0.29
               ]
             },
             "512": {
-              "max": 0.23,
+              "max": 0.2,
               "rep_median": [
-                0.21,
-                0.21,
-                0.19,
-                0.21,
-                0.2
+                0.2,
+                0.18,
+                0.16,
+                0.16,
+                0.15
               ]
             },
             "640": {
+              "max": 0.17,
+              "rep_median": [
+                0.16
+              ]
+            },
+            "768": {
               "max": 0.24,
               "rep_median": [
                 0.23
               ]
             },
-            "768": {
+            "896": {
               "max": 0.22,
               "rep_median": [
-                0.2
-              ]
-            },
-            "896": {
-              "max": 0.29,
-              "rep_median": [
-                0.25
+                0.21
               ]
             },
             "1024": {
-              "max": 0.28,
+              "max": 0.23,
               "rep_median": [
-                0.24
+                0.19
               ]
             }
           },
@@ -8397,49 +8381,50 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.4647,
-              "radius_of_gyration_A": 68.37,
-              "plddt_mean": 0.281904,
+              "ca_ca_median_A": 81.4525,
+              "radius_of_gyration_A": 68.207,
+              "plddt_mean": 0.282957,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.465 A outside [3.6, 4.0]",
+                "median CA-CA 81.452 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 68.4 A outside [9.0, 45.2]"
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 68.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0312,
+              "clash_frac": 0.0273,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 78.3088,
-              "radius_of_gyration_A": 75.776,
-              "plddt_mean": 0.267742,
+              "ca_ca_median_A": 78.5588,
+              "radius_of_gyration_A": 75.851,
+              "plddt_mean": 0.268439,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 78.309 A outside [3.6, 4.0]",
+                "median CA-CA 78.559 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 75.8 A outside [11.8, 58.9]"
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 75.9 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0391,
+              "clash_frac": 0.0266,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.5243,
-              "radius_of_gyration_A": 78.313,
-              "plddt_mean": 0.278982,
+              "ca_ca_median_A": 79.4852,
+              "radius_of_gyration_A": 78.28,
+              "plddt_mean": 0.27863,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.524 A outside [3.6, 4.0]",
+                "median CA-CA 79.485 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 78.3 A outside [12.8, 64.1]"
               ]
             },
@@ -8447,16 +8432,16 @@
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0326,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 81.2975,
-              "radius_of_gyration_A": 73.781,
-              "plddt_mean": 0.260718,
+              "ca_ca_median_A": 81.1989,
+              "radius_of_gyration_A": 73.776,
+              "plddt_mean": 0.261707,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 81.297 A outside [3.6, 4.0]",
+                "median CA-CA 81.199 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 73.8 A outside [13.7, 68.7]"
               ]
             },
@@ -8464,16 +8449,16 @@
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0402,
+              "clash_frac": 0.0335,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 79.269,
-              "radius_of_gyration_A": 80.11,
-              "plddt_mean": 0.268921,
+              "ca_ca_median_A": 79.7655,
+              "radius_of_gyration_A": 80.103,
+              "plddt_mean": 0.269548,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 79.269 A outside [3.6, 4.0]",
+                "median CA-CA 79.765 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.4% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 80.1 A outside [14.6, 72.8]"
               ]
             },
@@ -8481,42 +8466,42 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0439,
+              "clash_frac": 0.0547,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 80.1443,
-              "radius_of_gyration_A": 77.371,
-              "plddt_mean": 0.261223,
+              "ca_ca_median_A": 80.1474,
+              "radius_of_gyration_A": 77.526,
+              "plddt_mean": 0.261661,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 80.144 A outside [3.6, 4.0]",
+                "median CA-CA 80.147 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.4% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 77.4 A outside [15.3, 76.6]"
+                "5.5% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 77.5 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0134,
+          "sigma_runtime_512": 0.0562,
           "exponents": {
             "256->512": {
-              "k": 1.277,
+              "k": 1.021,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.852,
-              "tol": 0.5
+              "k": 1.832,
+              "tol": 0.588
             }
           },
           "sigma_runtime": {
-            "256": 0.0381,
-            "512": 0.0134
+            "256": 0.0711,
+            "512": 0.0562
           },
           "exponents_measured": {
-            "256->512": 1.277,
-            "512->640": 1.786,
-            "640->768": 1.933,
-            "768->896": 1.962,
-            "896->1024": 1.852
+            "256->512": 1.021,
+            "512->640": 1.64,
+            "640->768": 2.065,
+            "768->896": 1.702,
+            "896->1024": 1.963
           }
         }
       }

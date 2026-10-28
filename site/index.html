@@ -12,7 +12,7 @@
 <title>TT-Bio</title>
 <meta name="description" content="Open-source biomolecular AI: folding, binder design and protein embeddings on Tenstorrent hardware, with throughput per dollar measured against NVIDIA DGX systems and accuracy checked against reference implementations.">
 <link rel="preload" href="assets/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/site.css?v=48659a9a?v=rf1">
+<link rel="stylesheet" href="assets/site.css?v=12112f56?v=rf1">
 <style>
 .hero{display:grid;grid-template-columns:minmax(0,1.32fr) minmax(0,.68fr);gap:24px;align-items:center;padding:56px 0 8px}
 .hero .art{position:relative;aspect-ratio:9/10;margin-right:-28px}
@@ -109,8 +109,48 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
   .finale .art{width:min(70%,260px);margin:0 auto}}
 .finale .art{aspect-ratio:1}
 
-.reveal{opacity:0;transform:translateY(12px);transition:opacity .7s ease,transform .7s ease}
-.reveal.in{opacity:1;transform:none}
+/* Only a page that can run the observer hides what it will reveal; with scripting off it all shows. */
+@media (scripting:enabled){
+  .reveal{opacity:0;transform:translateY(12px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+}
+
+/* Contact: intro on the left, the form on a panel on the right. The sent and error notes show
+   through :target when the server redirects a no-JavaScript post back here, and through .show when
+   the script sends it inline. */
+#contact{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:28px 72px;align-items:start;
+  padding:var(--s-4) 0 var(--s-6);scroll-margin-top:24px}
+#contact h2{margin:0 0 18px}
+#contact .say{max-width:40ch}
+.aside{font-size:.94rem;color:var(--ink-3);margin:22px 0 0;max-width:40ch}
+.aside a{color:var(--accent-ink)}
+#contact .panel{margin-top:0;padding:30px 32px 30px}
+.cform{display:grid;gap:20px}
+.cform .two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.field label{display:block;font-size:.86rem;font-weight:600;color:var(--ink-2);margin:0 0 8px;padding:0}
+.field .opt{font-weight:400;color:var(--ink-3)}
+.field input,.field textarea{display:block;width:100%;font:inherit;font-size:1rem;color:var(--ink);
+  background:var(--paper);border:1px solid var(--rule-2);border-radius:10px;padding:11px 14px;
+  transition:border-color .18s,box-shadow .18s}
+.field textarea{resize:vertical;min-height:150px;line-height:1.55}
+.field input:hover,.field textarea:hover{border-color:var(--ink-4)}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash)}
+.hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+.csend{display:flex;align-items:center;gap:8px 20px;flex-wrap:wrap}
+.csend .btn{cursor:pointer}
+.csend .btn:disabled{opacity:.6;cursor:progress}
+.cstatus{margin:0;font-size:.92rem;color:var(--ink);flex:1 1 220px}
+.cstatus:empty{display:none}
+.cnote{display:none}
+.cnote:target,.cnote.show{display:block}
+#contact:has(#contact-sent:target) .cform{display:none}
+#contact-sent h3{font-size:1.3rem;margin:0 0 10px;outline:none}
+#contact-sent p{margin:0;color:var(--ink-2)}
+#contact-sent .ref:empty{display:none}
+#contact-sent .ref{margin-top:18px;font-size:.86rem;color:var(--ink-3)}
+#contact-error{margin:0 0 16px;padding:14px 18px;border-radius:12px;background:var(--wash);color:var(--ink);font-size:.95rem}
+@media (max-width:860px){#contact{grid-template-columns:1fr;padding-top:var(--s-2)}}
+@media (max-width:640px){#contact .panel{padding:22px 18px 22px}.cform .two{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}.bfill{transition:none}}
 @media (max-width:640px){
   .cta .btn{flex:1 1 auto;text-align:center}
@@ -127,6 +167,7 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
     <a class="lnk" href="benchmarks/">Benchmarks</a>
     <a class="lnk" href="https://japanfold.com">JapanFold</a>
     <a class="lnk" href="https://github.com/moritztng/tt-bio">GitHub</a>
+    <a class="lnk" href="#contact">Contact</a>
   </nav>
 
   <div class="hero">
@@ -138,7 +179,8 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
         Tenstorrent hardware. On <b>OpenFold3</b> and <b>Boltz-2</b>, one Blackhole Galaxy has higher
         throughput than an NVIDIA DGX B200, for under a third of the price.</p>
       <div class="cta">
-        <a class="btn solid" href="https://japanfold.com">Try it free</a>
+        <a class="btn accent" href="#contact">Contact us</a>
+        <a class="btn line" href="https://japanfold.com">Try it free</a>
         <a class="btn line" href="https://github.com/moritztng/tt-bio">Read the code</a>
       </div>
     </div>
@@ -269,11 +311,51 @@ h2{font-size:clamp(1.9rem,3.6vw,2.7rem);margin:0 0 18px;max-width:24ch}
     <div class="art"><img src="assets/art/pdl1-binder.svg" width="900" height="900" alt="" loading="lazy"></div>
   </div>
 
+  <section id="contact" aria-labelledby="contact-h">
+    <div>
+      <p class="eyebrow">Contact</p>
+      <h2 id="contact-h">Talk to the people who build TT-Bio</h2>
+      <p class="say">Bringing these models onto your own hardware, need one TT-Bio does not run yet, or
+        want to train on your own data? Tell us what you are working on, and we will reply by email.</p>
+      <p class="aside">To run the models without hardware, use <a href="https://japanfold.com">JapanFold</a>.
+        For a bug, <a href="https://github.com/moritztng/tt-bio/issues">open an issue</a>.</p>
+    </div>
+    <div>
+      <p class="cnote" id="contact-error" role="alert">That did not go through. Your browser's back
+        button still has your message: check it and send it again.</p>
+      <!-- Backend: site-contact/ (a Worker on tt-bio.com/api/contact). Caps match its MAX. -->
+      <form class="panel cform" id="contact-form" action="https://tt-bio.com/api/contact" method="post">
+        <div class="two">
+          <div class="field"><label for="c-name">Name</label>
+            <input id="c-name" name="name" type="text" required maxlength="120" autocomplete="name"></div>
+          <div class="field"><label for="c-email">Email</label>
+            <input id="c-email" name="email" type="email" required maxlength="200" autocomplete="email"></div>
+        </div>
+        <div class="field"><label for="c-org">Organisation <span class="opt">(optional)</span></label>
+          <input id="c-org" name="org" type="text" maxlength="160" autocomplete="organization"></div>
+        <div class="field"><label for="c-message">What are you working on?</label>
+          <textarea id="c-message" name="message" rows="5" required maxlength="5000"></textarea></div>
+        <div class="hp" aria-hidden="true"><label for="c-website">Website</label>
+          <input id="c-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
+        <div class="csend">
+          <button class="btn solid" type="submit">Send</button>
+          <p class="cstatus" id="contact-status" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+      <div class="panel cnote" id="contact-sent">
+        <h3 id="contact-sent-h" tabindex="-1">Sent, thank you.</h3>
+        <p>We will reply to <span id="contact-to">the address you gave</span>.</p>
+        <p class="ref" id="contact-ref"></p>
+      </div>
+    </div>
+  </section>
+
   <footer>
     <span>TT-Bio, open source</span>
     <a href="https://github.com/moritztng/tt-bio">GitHub</a>
     <a href="benchmarks/">Benchmarks</a>
     <a href="https://japanfold.com">JapanFold</a>
+    <a href="#contact">Contact</a>
   </footer>
   <p class="disclaim">Tenstorrent, Blackhole and Galaxy are trademarks of Tenstorrent Inc. NVIDIA, DGX, H200, B200
     and A100 are trademarks of NVIDIA Corporation. Hardware names are used to identify the systems
@@ -366,7 +448,10 @@ document.getElementById("metric").addEventListener("click", e => {
 fetch("data/perf-512aa.json", {cache:"no-store"})
   .then(r => r.json())
   .then(D => { build(D); drawChart();
-    document.getElementById("prov").textContent = D.scope.nvidia_code; })
+    document.getElementById("prov").textContent = D.scope.nvidia_code;
+    /* The rows just drawn push everything below them down. A visit to #contact (the hero button, a
+       shared link) that scrolled before they arrived would be left short, so finish the trip. */
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView(); })
   .catch(e => {
     document.getElementById("cap").textContent =
       "Could not load data/perf-512aa.json (" + e.message + "). Serve this directory over HTTP.";
@@ -375,6 +460,44 @@ const io = new IntersectionObserver(es => es.forEach(e => {
   if (e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); }
 }), {rootMargin:"0px 0px -6% 0px", threshold:.05});
 document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+</script>
+<script>
+/* The contact form works as a plain post: the server answers it with a redirect to #contact-sent.
+ * Here the same request asks for JSON instead, and the answer replaces the form in place. */
+(() => {
+  const form = document.getElementById("contact-form");
+  /* A "Contact" link scrolls to the section (CSS smooth scroll) and puts the cursor in the first field.
+     A tap skips the focus: a phone keyboard opening mid-scroll is a jolt. The timeout lets the fragment
+     navigation, which resets focus, run first. */
+  document.querySelectorAll('a[href="#contact"]').forEach(a => a.addEventListener("click", e => {
+    if (e.pointerType !== "touch") setTimeout(() => form.elements.name.focus({preventScroll: true}));
+  }));
+  const status = document.getElementById("contact-status");
+  const button = form.querySelector("button[type=submit]");
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    button.disabled = true;
+    button.textContent = "Sending\u2026";
+    status.textContent = "";
+    try {
+      const r = await fetch(form.action, {method: "POST", headers: {Accept: "application/json"},
+                                          body: new URLSearchParams(new FormData(form))});
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok) throw new Error(d.error || "Something went wrong on our side. Please try again in a few minutes.");
+      document.getElementById("contact-to").textContent = form.elements.email.value.trim();
+      document.getElementById("contact-ref").textContent = "Reference " + d.ref;
+      form.hidden = true;
+      document.getElementById("contact-sent").classList.add("show");
+      document.getElementById("contact-sent-h").focus();
+    } catch (err) {
+      status.textContent = err instanceof TypeError
+        ? "Could not reach the server. Check your connection and try again." : err.message;
+    } finally {
+      button.disabled = false;
+      button.textContent = "Send";
+    }
+  });
+})();
 </script>
 </body>
 </html>

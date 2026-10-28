@@ -762,8 +762,9 @@ _FAST_MODE = False
 #                   key tile. The PV product then accumulates k_chunk / 32 tiles in the fp32 dest, which is the
 #                   erratum dest_guard.py describes (rare -2/-4/-8 pixels); the rest of the fold runs unguarded
 #                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
-#   dit_mask16      under dit_fuse on Wormhole, OpenFold3's token-DiT attention reads its cached pair-bias mask bf16,
-#                   not fp32 (Blackhole ignores it).
+#   dit_mask16      on Wormhole, an fp32 token DiT's `_sdpa32` attention reads its cached pair-bias mask bf16, not
+#                   fp32 (`sdpa32_mask_lowp`: OpenFold3 under dit_fuse, the Protenix family's `finish_bias`).
+#                   Blackhole ignores it.
 #   dit_mask8       the same mask bfp8 on either arch (overrides dit_mask16).
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
@@ -781,6 +782,8 @@ _FAST_MODE = False
 #   dit_qkvf        the bf16 token DiT's attention as OpenFold3's dit_fuse runs it: one `_sdpa32_fused` program reads
 #                   the fused qkv projection and writes the heads concatenated on their padded lanes, so neither
 #                   nlp_create_qkv_heads nor the head re-assembly runs; gate and output projection as apb_cat
+#   dit_pad_short   with dit_chunk, Boltz-2 / BoltzGen's token DiT stages its bias at the first tile multiple a 192-320
+#                   chunk divides rather than the 256 grid (`dit_bias_pad_len`): BoltzGen's 544 tokens at 576, not 768
 #   relp_gather     the Protenix family's trunk input projects relative position by one row gather from a per-fold
 #                   table (each distinct one-hot row summed once on the host lane) instead of uploading the
 #                   [N, N, 139] one-hot and multiplying it.
@@ -901,12 +904,12 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
-           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid")
+           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
 # model's matching op. BoltzGen's own --fast set names dit_cond_hifi2 and its Wormhole sets triatt_ln, graded on
-# BoltzGen's designs.
+# BoltzGen's designs, and its normal sets dit_pad_short.
 # RFD4's own set (rfd4.trunk.NORMAL_LEVERS) names pair_block, pair_tail, pair_tail_small, pair_bias_rms, pair_write_res,
 # trimul_bres_hifi2, pair_bf16z, pair_tail_cm, trimul_t1b8, pair_block_hifi2, trimul_t1g8, trimul_tail_hifi2 and
 # pair_bfp8z (that pair stream as bfloat8_b) and trimul_t1_fgate, graded on RFD4's designs.
@@ -929,7 +932,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
-                             "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid"})
+                             "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -3221,6 +3224,18 @@ def sdpa32_mask(b: ttnn.Tensor) -> ttnn.Tensor:
     return ttnn.clone(m) if m.buffer_address() == b.buffer_address() else m
 
 
+def sdpa32_mask_lowp(m: ttnn.Tensor) -> ttnn.Tensor:
+    """An `_sdpa32` mask the attention reads in every block of every step, at the format `dit_mask8` (bfp8) or
+    `dit_mask16` (bf16, Wormhole only) names; `m` itself otherwise. The token axis buckets to 32, so padded keys sit
+    in whole tiles and no 16-wide bfp8 exponent block mixes the pad mask with a real bias."""
+    dt = ttnn.bfloat8_b if lever("dit_mask8") else (ttnn.bfloat16 if is_wormhole() and lever("dit_mask16") else None)
+    if dt is None:
+        return m
+    mt = ttnn.typecast(m, dt)
+    ttnn.deallocate(m)
+    return mt
+
+
 def _sdpa32_chunks(dev, B: int, heads: int, n: int):
     """(q chunk, k chunk, grid) for `_sdpa32` / `_sdpa32_fused`: 256 where it divides the token axis, else 128.
 
@@ -3376,7 +3391,7 @@ def _sdpa_chunk_pad_len(seq_len: int) -> int:
 DIT_BPAD_LEN = None
 
 
-def dit_bias_pad_len(n: int) -> int:
+def dit_bias_pad_len(n: int, short: bool = False) -> int:
     """The token axis `dit_bpad` runs the DiT at for `n` tokens: the tile multiple when a dit_chunk
     chunk divides it, else the next multiple of the capped 256 chunk (`_sdpa_chunk_pad_len`), the
     grid the stock op would pad to inside, at a cost far beyond the padding's share.
@@ -3384,13 +3399,21 @@ def dit_bias_pad_len(n: int) -> int:
     MEASURED (perf/spd_m_opendde/ditpad_sweep.py, Wormhole 1000 MHz, q/k/v [B, 16, Np, 64] vs a bias
     staged at Np, 1199 tokens): B 1, ship 1216 q = k = 256 1038 us + 256 us bias tail re-fill per
     call; at 1280 q320 k256 378 us, q = k = 320 421 us, pm 572 us. B 5: 2583 -> pm 1372 us. 1248,
-    1344 and 1536 are slower than 1280 at every chunk pair. Float64 rel_rms at k256 equals ship's."""
+    1344 and 1536 are slower than 1280 at every chunk pair. Float64 rel_rms at k256 equals ship's.
+
+    `short` (`dit_pad_short`) takes, short of the 256 grid, the first tile multiple a chunk of 192 to 320
+    divides: 544 tokens (17 tiles, BoltzGen's page design) run at 576 with q = k = 288 instead of 768,
+    half the attention work. 1248 (divisor 96) is passed over for 1280 as measured above."""
     if DIT_BPAD_LEN:
         return DIT_BPAD_LEN
     p = _padded_sdpa_len(n)
     if any(p % c == 0 for c in range(320, 95, -SDPA_CHUNK_TILE)):
         return p
-    return _sdpa_chunk_pad_len(n) or p
+    grid = _sdpa_chunk_pad_len(n) or p
+    for q in range(p + SDPA_CHUNK_TILE, grid if short else p, SDPA_CHUNK_TILE):
+        if any(q % c == 0 for c in range(320, 191, -SDPA_CHUNK_TILE)):
+            return q
+    return grid
 
 
 def pad_dit_bias(b, n: int, to: int):
@@ -13330,7 +13353,7 @@ class AttentionPairBias(Module):
         tokens on Wormhole). Every other path reads the bias as computed."""
         if self.compute_pair_bias and self._raw_fp32():
             # `_sdpa32` scales its mask with the scores, so it keeps the compensation.
-            return sdpa32_mask(b) if self.sdpa32 else ttnn.multiply(b, self.head_dim ** -0.5)
+            return sdpa32_mask_lowp(sdpa32_mask(b)) if self.sdpa32 else ttnn.multiply(b, self.head_dim ** -0.5)
         return b
 
     def _attention(
@@ -16256,7 +16279,10 @@ class DiffusionTransformerLayer(Module):
         t_attn, s_o_pre, t_trans, s_o2_pre = cond if cond is not None else (None,) * 4
         b = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=t_attn)
         if not self.atom_level:
-            b = self.attn_pair_bias(b, z)
+            # z is the bias the sampler staged once per rollout (`_stage_token_bias`): scaled, permuted and padded
+            # past the sequence, which is what `bias_precomputed` reads (finish_bias is the identity here), so q, k
+            # and v reach that width with one pad of the fused qkv instead of three.
+            b = self.attn_pair_bias(b, z, bias_precomputed=True)
         else:
             b = self.attn_pair_bias(b, z, keys_indexing)
         if s_o_pre is not None:
@@ -18749,7 +18775,12 @@ class DiffusionModule(TorchWrapper):
             None if self.module.token_transformer_fp32 else self.module.token_transformer)
         # Stock SDPA only: `dit_sdpa_pm` picks its own chunks and read slower padded on a p150a
         # (BoltzGen fast, 52 -> 56-62 ms a step), so it keeps the unpadded bias.
-        to = _sdpa_chunk_pad_len(padded_seq) if _B2_TOKEN_DIT_SDPA and not lever("dit_sdpa_pm") else 0
+        to = 0
+        if _B2_TOKEN_DIT_SDPA and not lever("dit_sdpa_pm"):
+            # dit_chunk picks its chunk from the length, so the length can be a shorter one it divides.
+            to = (dit_bias_pad_len(padded_seq, short=True) if lever("dit_pad_short") and lever("dit_chunk")
+                  else _sdpa_chunk_pad_len(padded_seq))
+            to = 0 if to == padded_seq else to
         if to and isinstance(parts, list):
             # The fused SDPA's k chunk does not divide the sequence: pad each layer's bias here, once
             # per rollout and one layer at a time (no full-size second copy), new keys masked, so no

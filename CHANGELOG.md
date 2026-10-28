@@ -6,6 +6,28 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **ESMFold2 and ESMFold2-Fast normal mode on Wormhole run the token attention as one fused program.** A 512-residue
+  fold on a Wormhole Galaxy chip drops about 0.85 s (ESMFold2 25.9 -> 25.0 s, ESMFold2-Fast 16.0 -> 15.1 s). Structures
+  change at the precision level: graded over 44 paired folds per model in normal mode, accuracy and docking success
+  unchanged. Blackhole and `--fast` already ran it.
+- **BoltzGen's token diffusion transformer does less attention work.** In normal mode its pair bias was padded to
+  768 tokens for a 544-token design; it now pads to 576, and on Blackhole the attention runs as one fused program
+  in both modes. A 514-token design drops about 1.2 s on a Wormhole Galaxy chip (46 -> 45 s) and on a Blackhole
+  chip about 2 s in normal mode (22.9 -> 21 s) and 1.5 s with `--fast`. Designs change at the precision level:
+  graded over 64 paired designs per arch in normal mode and 32 with `--fast`, confidence metrics and filter pass
+  counts unchanged. Other models keep their padding.
+- **BoltzGen normal mode on Blackhole replays the diffusion step from a device trace by default.** Output is
+  identical, the 1831-residue size ceiling holds, and with the triangle-multiplication change above a 514-token
+  design on a p300 chip drops from 25.2 to 23.0 s. `--no_diffusion_trace` restores the eager step. `--fast` replays it too, and
+  computes each step's conditioning inside the trace instead of several steps ahead: a 514-token fast design on a
+  p300 chip drops from 32.4 to 23.3 s on a host-bound machine.
+- **BoltzGen normal mode on Wormhole conditions its diffusion steps ahead of time.** A 514-token design on a
+  Galaxy chip at 1000 MHz drops from 43.3 to 40.9 s. Designs change at the precision level: graded over 64 paired
+  designs, design pTM, ipTM and complex pLDDT unchanged within the seed-to-seed spread.
+
+## [0.24.0] - 2026-10-27
+
+### Changed
 - **RoseTTAFold3 on Wormhole runs the fast triangle and transition kernels in normal mode.** A 512-residue fold
   on a Galaxy chip drops from 55.2 to 38.1 s. Structures change at the precision level: over 66 paired folds the
   top pose moves 0.23 A median, against 3.0 A between two seeds, with docking success unchanged. `--fast` on

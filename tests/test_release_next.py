@@ -261,6 +261,25 @@ def test_a_test_only_fix_forward_is_gated_not_judged_by_the_verdict_it_fixes(tmp
     assert d["do"] == "CUT" and d["sha"] == c
 
 
+def test_a_runner_only_fix_forward_is_gated_not_judged_by_the_verdict_it_fixes(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "gate_fanout.py").write_text("bug = 1\n")
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("add", "."), git("commit", "-qm", "staging1")
+    x = git("rev-parse", "HEAD")
+    (tmp_path / "scripts" / "gate_fanout.py").write_text("bug = 0\n")
+    git("commit", "-qam", "fix the runner")
+    fix = git("rev-parse", "HEAD")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "gx", x, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [{"leg": "pytest_cpu", "verdict": "FAIL"}]}))
+    (g / "FIXES").write_text(fix + "\n")
+    d = rn.decide(tmp_path, gates, "main")
+    assert rn.content_hash(d["sha"], tmp_path, tests=True, baselines=True) == rn.content_hash(x, tmp_path, tests=True, baselines=True)
+    assert d["do"] == "GATE" and d["fixes"]["base"] == x and d["sha"] != x
+
+
 def test_a_baseline_only_fix_forward_is_gated_not_judged_by_an_older_candidates_verdict(tmp_path):
     git = _repo(tmp_path)
     (tmp_path / "docs" / "size_ladder_baseline.d").mkdir(parents=True)

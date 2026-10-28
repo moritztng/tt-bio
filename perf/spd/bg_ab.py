@@ -19,6 +19,7 @@ ap.add_argument("--arm", action="append", required=True, help="NAME=TREE[:fast,f
 ap.add_argument("--order", required=True, help="comma-separated arm names, e.g. a,b,b,a")
 ap.add_argument("--designs", type=int, default=6)
 ap.add_argument("--wh", action="store_true", help="base an @ arm on the tree's Wormhole set (WH_LEVERS_*) where it has one")
+ap.add_argument("--bh", action="store_true", help="base an @ arm on the tree's Blackhole set (BH_LEVERS_*) where it has one")
 ap.add_argument("--seed", type=int, default=0)
 ap.add_argument("--timeout", type=int, default=1500)
 ap.add_argument("--out", type=Path, required=True)
@@ -35,7 +36,7 @@ for spec in a.arm:
     if extra:
         base = subprocess.run([sys.executable, "-c", "from tt_bio.boltzgen.model.models import boltz as b; "
                                f"m = '{'FAST' if fast else 'NORMAL'}'; print('+'.join(sorted(getattr(b, "
-                               f"{'WH_' if a.wh else ''!r} + 'LEVERS_' + m, getattr(b, 'LEVERS_' + m)))))"],
+                               f"{'WH_' if a.wh else 'BH_' if a.bh else ''!r} + 'LEVERS_' + m, getattr(b, 'LEVERS_' + m)))))"],
                               cwd=tree, env=dict(os.environ, PYTHONPATH=str(tree)), capture_output=True, text=True,
                               check=True).stdout.strip().splitlines()[-1]
         env["TT_BIO_LEVERS"] = "+".join(sorted(set(base.split("+")) | {x for x in extra.split("+") if x}))

@@ -65,9 +65,9 @@ function runPage(file) {
    * elements it watches are already in the markup. */
   const IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
   try {
-    new Function("document", "window", "fetch", "setTimeout", "clearTimeout", "console",
+    new Function("document", "window", "location", "fetch", "setTimeout", "clearTimeout", "console",
                  "IntersectionObserver", script)(
-      document, window, fetchStub, (f) => f, () => {}, console, IntersectionObserver);
+      document, window, {hash: ""}, fetchStub, (f) => f, () => {}, console, IntersectionObserver);
   } catch (e) {
     console.error(file + " threw while rendering: " + (e && e.stack || e));
     process.exit(1);

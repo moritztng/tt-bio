@@ -1224,6 +1224,30 @@ def _visible_tt_devices() -> list[int]:
     return sorted(int(p.name) for p in Path("/dev/tenstorrent").glob("[0-9]*"))
 
 
+def _pin_one_card(devices: str | None, model: str) -> None:
+    """Make ``--devices N`` the only card this process can open, for a model that runs in-process
+    on one card.
+
+    get_device() opens and leases every visible chip, so choosing only which chip to compute on
+    still held the whole host: ``design --model rfd4 --devices 1`` opened all four nodes of a
+    4-card Blackhole box (issue #26). The id is validated against the cards present (and an
+    ambient TT_VISIBLE_DEVICES) before anything opens; more than one id is refused, since one
+    process runs on one card.
+    """
+    if not devices:
+        return
+    from tt_bio.runtime import detect_tenstorrent_devices
+
+    if "," in devices.strip(", "):
+        raise click.UsageError(f"--model {model} runs on one card per process; pass one id "
+                               "(e.g. --devices 1) and start one process per card.")
+    try:
+        (card,) = detect_tenstorrent_devices(devices, 0, 1)
+    except ValueError as e:
+        raise click.UsageError(str(e))
+    os.environ["TT_VISIBLE_DEVICES"] = str(card)
+
+
 def _p300_mesh_descriptor(device: int | None = None) -> str | None:
     """The 1x1 mesh-graph descriptor a lone P300 chip needs to open, or None.
 
@@ -4237,11 +4261,7 @@ def affinity_cmd(data, model, out_dir, accelerator, trunk, recycling_steps, toke
 
     for yp in find_yamls(Path(data)):
         check_capabilities(yp, None, model)
-    if devices and "TT_VISIBLE_DEVICES" not in os.environ:
-        ids = [x for x in str(devices).split(",") if x.strip()]
-        if len(ids) > 1:
-            raise click.UsageError("--model nesso1 is batch-1 by construction; pass one card id")
-        os.environ["TT_VISIBLE_DEVICES"] = ids[0]
+    _pin_one_card(devices, "nesso1")
     _cap_worker_threads(1, host_threads)
     bind_host_threads()
     use_tt = accelerator == "tenstorrent"
@@ -4558,7 +4578,9 @@ def _run_rfd4_cli(inputs: Path, out_dir, num_designs, backend, recipe, lora, nst
 @click.option("--devices", "--device_ids", "devices", default=None,
               help="Comma-separated physical TT card ids to fan the designs across, e.g. "
                    "'0,1,2,3' (data-parallel, the same pattern `tt-bio predict` uses). "
-                   "Default: all detected cards (boltzgen) or this machine's single card (rfd3).")
+                   "Default: all detected cards (boltzgen) or this machine's single card (rfd3). "
+                   "pxdesign and rfd4 run on one card: --devices N opens only card N, so one "
+                   "process per card packs a multi-card host.")
 # ---- rfd3-scoped options ----
 @click.option("--checkpoint", "checkpoint", default=None, metavar="DIR",
               help="rfd3 only. Directory of extracted RFD3 device weights. Default: "
@@ -4837,6 +4859,14 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
         _run_boltzgen_cli("tt-bio design", argv)
         return
 
+    if model in ("pxdesign", "rfd4"):
+        # One card per local process: --devices names it, and nothing else is opened.
+        if not controller:
+            _pin_one_card(devices, model)
+        elif _explicit("devices"):
+            click.secho("Note: with --controller the fleet's workers pick the cards; "
+                        "ignoring --devices.", fg="yellow")
+
     if model == "pxdesign":
         for flag, name in (("--protocol", "protocol"), ("--steps", "steps"),
                            ("--config", "configs"), ("--budget", "budget"),
@@ -4847,7 +4877,6 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--spec", "spec_subset"), ("--from_pdb", "from_pdb"),
                            ("--batch_size", "batch_size"), ("--host_threads", "host_threads"),
-                           ("--devices", "devices"),
                            ("--backend", "backend"), ("--recipe", "recipe"), ("--lora", "lora"),
                            ("--nsteps", "nsteps"), ("--annotated_cif", "annotated_cif"),
                            ("--no_validate", "no_validate"),
@@ -4893,7 +4922,7 @@ def design_cmd(inputs, model, out_dir, cache, num_designs, devices,
                            ("--partial_t", "partial_t"), ("--fp32_residual", "fp32_residual"),
                            ("--from_pdb", "from_pdb"), ("--batch_size", "batch_size"),
                            ("--host_threads", "host_threads"), ("--n_step", "n_step"),
-                           ("--devices", "devices"), ("--cache", "cache")):
+                           ("--cache", "cache")):
             if _explicit(name):
                 click.secho(f"Note: --model rfd4 does not use {flag}; ignoring.", fg="yellow")
         _run_rfd4_cli(Path(inputs), out_dir,

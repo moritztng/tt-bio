@@ -259,19 +259,10 @@ class _DiTBlock(Module):
         return out
 
     def _fused_mask(self, z, mask_bias):
-        """`_sdpa32_mask`, bf16 under dit_mask16 on Wormhole: the attention reads the [1, 16, N, N] mask in every
-        block of every step (16 MB fp32 at 512 tokens), the rollout builds it once per block. On a p150a the A/B was
-        noise (< 0.1 s), so Blackhole keeps fp32 and its digest. dit_mask8 (either arch) reads it bfp8: half the
-        bytes again. Padded keys sit in whole tiles (the token axis buckets to 32), so no 16-wide exponent block
-        mixes the pad mask with a real bias."""
-        m = self._sdpa32_mask(z, mask_bias)
-        dt = ttnn.bfloat8_b if _T.lever("dit_mask8") else (
-            ttnn.bfloat16 if self._wormhole and _T.lever("dit_mask16") else None)
-        if dt is None:
-            return m
-        mt = ttnn.typecast(m, dt)
-        ttnn.deallocate(m)
-        return mt
+        """`_sdpa32_mask` at the format `dit_mask16` / `dit_mask8` name (`sdpa32_mask_lowp`): the attention reads the
+        [1, 16, N, N] mask in every block of every step (16 MB fp32 at 512 tokens), the rollout builds it once per
+        block. On a p150a the bf16 A/B was noise (< 0.1 s), so Blackhole keeps fp32 and its digest."""
+        return _T.sdpa32_mask_lowp(self._sdpa32_mask(z, mask_bias))
 
     def _call_fused(self, a, s, z, mask_bias, tok_mask_col, cache, s_hat, tok_ones, hoist=()):
         """`__call__` under dit_fuse (`_sdpa32`): the same block in 23 ttnn calls, 17 with `hoist`."""

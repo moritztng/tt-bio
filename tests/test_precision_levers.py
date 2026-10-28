@@ -201,7 +201,7 @@ def test_pxdesign_wormhole_set_names_only_known_levers():
 
     assert WH_DESIGN_LEVERS <= set(T.LEVERS)
     assert WH_DESIGN_LEVERS - T.NORMAL_LEVERS == {"adaln_mod", "atom_kvcat", "atom_mm16", "pz_device", "dit_shoist", "dit_qsplit",
-                                                   "dit_shoist_mm", "dit_step_mm"}
+                                                   "dit_shoist_mm", "dit_step_mm", "dit_kc", "dit_mask8"}
 
 
 def test_boltzgen_mode_sets_name_only_known_levers():
@@ -210,14 +210,15 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.LEVERS_NORMAL <= set(T.LEVERS) and not B.LEVERS_NORMAL & T.UNGRADED_LEVERS
     assert B.LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps",
-                                                    "trimul_t1", "trimul_t2"}
+                                                    "trimul_t1", "trimul_t2", "dit_pad_short", "adaln_mod"}
     assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
-    assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"trimul_t1", "trimul_t2", "trimul_t2cm"}
+    assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf",
+                                                  "dit_pad_short"}
     assert B.BH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert B.WH_LEVERS_FAST - B.LEVERS_FAST == {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws",
                                                 "triatt_ln", "dit_cond_steps"}
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2",
-                                                "trimul_t2cm", "dit_cond_steps"}
+                                                "trimul_t2cm", "dit_qkvf"}
     assert B.BH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 
@@ -309,3 +310,11 @@ def test_lofi_levers_are_inert_on_wormhole(monkeypatch):
         monkeypatch.setattr(T, "is_wormhole", lambda: False)
         assert T.lpx_compute_kernel_config(base).math_fidelity == ttnn.MathFidelity.LoFi
         assert triatt_sdpa._ckc(None) == triatt_sdpa._CKC_LOFI
+
+
+def test_dit_pad_short_takes_the_first_length_a_wide_chunk_divides():
+    assert T.dit_bias_pad_len(512, short=True) == 512     # 256 divides it
+    assert T.dit_bias_pad_len(514, short=True) == 576     # 544 is 17 tiles: 288 divides 576, the 256 grid is 768
+    assert T.dit_bias_pad_len(514) == 768                 # dit_bpad (OpenDDE, Protenix) keeps the grid
+    assert T.dit_bias_pad_len(1199, short=True) == 1280   # 1248 only has 96, measured slower than 1280
+    assert T._dit_sdpa_chunk(T.dit_bias_pad_len(514, short=True)) == 288

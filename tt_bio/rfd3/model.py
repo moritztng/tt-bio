@@ -242,6 +242,16 @@ _DKNN = env_flag("RFD3_DKNN", False) if os.environ.get("RFD3_DKNN") else None
 _STATIC_KNN = env_flag("RFD3_STATIC_KNN", True)
 _STATIC_KNN_CACHE: dict = {}
 _NN_ROWS_CACHE: dict = {}
+# With the host tree (Wormhole) and static atoms: the moving atoms' own rows, the bulk of what the host still queries
+# each step (1400 of the page fixture's 6051 rows, k 128), go to the card (tt_bio.dknn over that row range) while the
+# host answers the static rows. Needs the movers to be one contiguous id range, as a binder is. Same rows, so the
+# CIFs are unchanged; WH page cell @1000 MHz, seeds 60,61 x2: fast 43.98 -> 42.70, normal 44.70 -> 43.65 s/design.
+_DKNN_MOVERS = env_flag("RFD3_DKNN_MOVERS", True)
+# With the card index: the static rows scored against their nearest static atoms (found once per design) and the
+# movers only, under a bound that proves the row (tt_bio.dknn.Static); a row it cannot prove runs in full. Same rows.
+_DKNN_STATIC = env_flag("RFD3_DKNN_STATIC", True)
+_DKNN_STATIC_CACHE: dict = {}
+_DKNN_MOVERS_MIN_L = 2048   # the atom index; the DiT's token index is too small to pay for a launch
 # The token initializer's pair mean-pool as two index_adds instead of one-hot einsums over every atom pair (~800 GFLOP
 # at 6051 atoms): 3.74 -> 0.14 s a call at 2 threads. Same error against float64 (7.71e-9 vs 7.73e-9 mean), but the
 # order of additions differs, so 38 of 7.5M pooled values round to a different bf16 on upload. The page cell's CIFs
@@ -433,6 +443,14 @@ _PAIR_WS_RESID = env_flag("RFD3_PAIR_WS_RESID", True)
 # fold. Wormhole @1000 A/B/A/B (seeds 60,61): normal 50.15 -> 49.15 s/design, fast flat (49.52 vs 49.55); p150a
 # @1350 normal 29.31 -> 28.87.
 _PAIR_WS_PSILU = env_flag("RFD3_PAIR_WS_PSILU", True)
+# The token encoder's pair path (process_z, transition_2 x2, each Pairformer block's z_transition) is pointwise per
+# token pair, a function of Z_init (fixed for a design) and that pair's distance bin (and self-conditioning bin).
+# Bit-exact memo: per recycle slot the outputs after block 0 and block 1 stay on the card, and a step recomputes only
+# the 32-pair row tiles holding a pair whose bin changed (pair_swiglu_ws `rows`). On the page trajectory 58 % of row
+# tiles change per step on average, ~0 % over the last 40 steps. Holds 4 copies of z; off above RFD3_PAIR_MEMO_MB.
+# Wormhole @1000 (seed 60, digests equal every fold): fast 42.32 -> 40.54 s/design, normal 43.14 -> 40.64.
+_PAIR_MEMO = env_flag("RFD3_PAIR_MEMO", True)
+_PAIR_MEMO_MB = int(os.environ.get("RFD3_PAIR_MEMO_MB", "1200"))
 # Every RFD3 matmul at HiFi2 instead of HiFi4: two multiplier passes per bf16 product instead of
 # four. Off, and not in --fast: on top of the fast set it saved nothing on a p300c (4 seeds, 685
 # tokens) and doubled the clashes of one 418-token design.
@@ -578,6 +596,7 @@ def set_gathered_softmax(on):
 # process_z branches count themselves: the on arm must show shipped == 0 and the off arm
 # collapsed == 0, at the same total.
 PZSTATS = [0, 0]
+PAIRMEMO = [0, 0]   # row tiles the pair memo recomputed, row tiles a full pair path would have
 
 
 # `--fast` for RFD3: the levers that pass the fast accuracy bar but not (yet) the normal one. Same
@@ -1290,7 +1309,14 @@ class Transition(Module):
                 return out
         return ttnn.add(x, self(x))
 
-    def _weight_stationary(self, x, resid=False):
+    def add_rows(self, x, out, rows):
+        """`out = x + self(x)` on the row tiles of `rows` (pair_swiglu_ws.row_list) only; `out` may be `x`. None where
+        the weight-stationary program with its RMS prologue declines, and then nothing was written."""
+        if not (_PAIR_WS and len(x.shape) == 4):
+            return None
+        return self._weight_stationary(x, resid=True, out=out, rows=rows)
+
+    def _weight_stationary(self, x, resid=False, out=None, rows=None):
         """`_swiglu` through `pair_swiglu_ws`, every batch element in one program (rows are tile-aligned per
         element, so the flattened tensor splits into whole row tiles); None where it declines."""
         if getattr(self, "_ws12", None) is None:
@@ -1299,7 +1325,7 @@ class Transition(Module):
             if _PAIR_WS_B8 or _PAIR_WS_LOFI:
                 self._ws12 = ttnn.typecast(self._ws12, ttnn.bfloat8_b)
                 self._ws3 = ttnn.typecast(self.fc3_w, ttnn.bfloat8_b)
-        r = x if resid else None
+        r = (x if out is None else out) if resid else None
         if not _WS.eligible(x, self._ws12, self._ws3, resid=r):
             return None
         from ..tenstorrent import lofi_allowed   # Wormhole: the bfp8 weights at HiFi2 instead
@@ -1310,7 +1336,10 @@ class Transition(Module):
         # tensor never goes to DRAM. p150a @1350 2.65 -> 2.39 ms (hidden 256), 4.38 -> 4.09 (512); flat on WH.
         if _WS.eligible(x, self._ws12, self._ws3, ln=(self.norm_w, None), resid=r):
             return _WS.pair_swiglu(x, self._ws12, self._ws3, fid, ln=(self.norm_w, None, 1e-6), resid=r,
-                                  pack_silu=_PAIR_WS_PSILU)
+                                  pack_silu=_PAIR_WS_PSILU, rows=rows,
+                                  resid_src=None if r is None or r is x else x)
+        if rows is not None:
+            return None
         xn = ttnn.rms_norm(x, weight=self.norm_w, epsilon=1e-6, compute_kernel_config=self.compute_kernel_config)
         out = _WS.pair_swiglu(xn, self._ws12, self._ws3, fid, resid=r, pack_silu=_PAIR_WS_PSILU)
         ttnn.deallocate(xn)
@@ -1662,9 +1691,10 @@ class PairformerBlock(Module):
         self.s_transition = Transition(self.scope("s_transition"), ckc, c_s, n=4, dtype=self.dtype)
         self.attn = PairformerAttention(self.scope("attention_pair_bias"), ckc, c_s, c_z, n_head, dtype=self.dtype)
 
-    def __call__(self, s, z):
+    def __call__(self, s, z, z_update=None):
+        """`z_update(z_transition)`, if given, replaces `z_transition.add_into(z)` (the token encoder's pair memo)."""
         if not self.fp32_residual:
-            z = self.z_transition.add_into(z)
+            z = self.z_transition.add_into(z) if z_update is None else z_update(self.z_transition)
             s = ttnn.add(s, self.attn(s, z))
             s = ttnn.add(s, self.s_transition(s))
             return s, z
@@ -3647,6 +3677,81 @@ class DiffusionTokenEncoder(Module):
         ttnn.deallocate(scaled)
         return out
 
+    def _pair_memo(self, z, bins, bins_self):
+        """(Z3, Z4, rows) for this step's pair path under RFD3_PAIR_MEMO, or None to run it in full. Z3 / Z4 are the
+        recycle slot's z after transition_2 + block 0 and after block 1, kept on the card between steps; rows lists
+        the row tiles holding a pair whose bin key changed since the slot last ran (every row tile the first time).
+        The slot belongs to the design _process_z_invariant holds (self._zinv), and goes with it."""
+        nbytes = 1
+        for d in z.padded_shape:
+            nbytes *= int(d)
+        if 4 * 2 * nbytes > _PAIR_MEMO_MB << 20 or z.dtype != ttnn.bfloat16:
+            return None
+        slot = int(bins_self is not None)
+        key = bins if bins_self is None else bins * self.N_BINS + bins_self      # [B, I, I] int, as process_z's
+        dkey = self._zinv[0]
+        held = self._memo if getattr(self, "_memo", None) is not None and self._memo[0] == dkey else None
+        if held is None:
+            self._release_memo()
+            held = self._memo = (dkey, {})
+        ent = held[1].get(slot)
+        B, I, J = (int(d) for d in list(z.padded_shape)[:3])
+        jt = J // 32
+        if ent is None or not all(t.is_allocated() for t in ent[:2]):
+            bufs = [ttnn.allocate_tensor_on_device(z.shape, z.dtype, ttnn.TILE_LAYOUT, self.device,
+                                                   ttnn.DRAM_MEMORY_CONFIG) for _ in range(2)]
+            rows = torch.arange(B * I * jt)
+        else:
+            bufs, prev = ent[:2], ent[2]
+            ch = torch.zeros(B, I, jt * 32, dtype=torch.bool)
+            ch[..., :key.shape[-1]] = key != prev
+            rows = ch.view(B * I, jt, 32).any(-1).flatten().nonzero().flatten()
+        held[1][slot] = (bufs[0], bufs[1], key.clone())
+        PAIRMEMO[0] += int(rows.numel())
+        PAIRMEMO[1] += B * I * jt
+        return bufs[0], bufs[1], _WS.row_list(self.device, z, rows)
+
+    def _release_memo(self):
+        for ent in (self._memo[1].values() if getattr(self, "_memo", None) is not None else ()):
+            for t in ent[:2]:
+                if t.is_allocated():
+                    ttnn.deallocate(t)
+        self._memo = None
+
+    def owns(self, z):
+        """True when `z` is a pair memo buffer, which the caller must not deallocate."""
+        m = getattr(self, "_memo", None)
+        return m is not None and any(z is t for ent in m[1].values() for t in ent[:2])
+
+    def _pairformer_memo(self, s, z0, Z3, Z4, rows):
+        """run_device's pair path on `rows` only: Z3 = transition_2 then block 0's z_transition of z0, Z4 = Z3 plus
+        block 1's, each row tile bit for bit what the full path writes. Falls back to the full path (and drops the
+        slot) if a transition declines its rows."""
+        steps = [(tr, src) for tr, src in zip(self.transition_2, (z0, Z3))]
+        for tr, src in steps:
+            if tr.add_rows(src, Z3, rows) is None:
+                ttnn.deallocate(rows[0])
+                return self._memo_fallback(s, z0)
+        ttnn.deallocate(z0)
+        for blk, (src, dst) in zip(self.pairformer_stack, ((Z3, Z3), (Z3, Z4))):
+            def upd(zt, src=src, dst=dst):
+                out = zt.add_rows(src, dst, rows)
+                assert out is not None, "pair memo: a Pairformer z_transition declined after transition_2 ran"
+                return out
+            s, _ = blk(s, None, z_update=upd)
+        ttnn.deallocate(rows[0])
+        return s, Z4
+
+    def _memo_fallback(self, s, z0):
+        self._release_memo()
+        global _PAIR_MEMO
+        _PAIR_MEMO = False
+        for tr in self.transition_2:
+            z0 = tr.add_into(z0)
+        for blk in self.pairformer_stack:
+            s, z0 = blk(s, z0)
+        return s, z0
+
     def __call__(self, R_L_ca, S_init_I, Z_init_II, D_II_self=None):
         """R_L_ca: [B, I, 3] (scaled C-alpha positions), S_init_I: [B, I, c_s],
         Z_init_II: [I, I, c_z] or [1, I, I, c_z] (batch 1 -- replicated on device),
@@ -3689,6 +3794,10 @@ class DiffusionTokenEncoder(Module):
         if _PROCESS_Z_COLLAPSE:
             PZSTATS[0] += 1
             z = self._process_z_collapsed(Z_init_II, bins, D_II_self, B, I)
+            if _PAIR_MEMO and not f32:
+                memo = self._pair_memo(z, bins, D_II_self)
+                if memo is not None:
+                    return self._pairformer_memo(s, z, *memo)
         else:
             PZSTATS[1] += 1
             z = self._batched(_tt_cached(Z_init_II, dev, dt), B)
@@ -3976,7 +4085,7 @@ def _neighbours_row_blocked(mask, seq_idx, x, k, block=None):
     return out
 
 
-def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
+def _neighbours_kdtree(mask, seq_idx, x, k, workers=None, skip=None):
     """`_extend_with_neighbours` over a k-d tree query, already sorted (see _ATTN_KDTREE).
 
     Row r keeps its sequence entries (seq_idx < L) and adds the first k - n_seq atoms of its
@@ -3984,6 +4093,7 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     two lists side by side and keeping k gives the row _create_attention_indices returns.
     Everything after the query is numpy, which starts no OpenMP team, so the build can run
     on a worker thread (_ATTN_THREAD).
+    `skip` (r0, r1): the design's moving atoms, whose rows the card answers (_MoverIndex); they come back as L.
     """
     import numpy as np
     from scipy.spatial import cKDTree
@@ -3994,7 +4104,7 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     workers = workers or torch.get_num_threads()
     if _STATIC_KNN:
         from .staticknn import StaticKnn
-        nn = _STATIC_KNN_CACHE.setdefault((length, k), StaticKnn()).query(xd, k, workers)
+        nn = _STATIC_KNN_CACHE.setdefault((length, k), StaticKnn()).query(xd, k, workers, skip is not None)
     else:
         _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
         nn = nn.reshape(length, k)
@@ -4002,12 +4112,18 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None):
     # design most rows keep last step's neighbours, so only the rows whose nn changed are rebuilt. One tuple read and
     # one write: a concurrent caller sees a consistent previous step or none.
     prev = _NN_ROWS_CACHE.get((length, k))
+    # skipped rows hold nn -1, so a later step that answers them itself sees them changed and fills them
+    live = np.ones(length, bool)
+    if skip is not None:
+        live[skip[0]:skip[1]] = False
     if prev is not None and prev[0] is mask and prev[1] is seq_idx:
-        rows = np.flatnonzero((nn != prev[2]).any(1))
+        rows = np.flatnonzero((nn != prev[2]).any(1) & live)
         vals = prev[3].copy()
         vals[rows] = _fill_rows(mask, seq_idx, nn, rows, length, k)
     else:
-        vals = _fill_rows(mask, seq_idx, nn, slice(None), length, k)
+        vals = np.full((length, k), length, np.int32)
+        rows = np.flatnonzero(live)
+        vals[rows] = _fill_rows(mask, seq_idx, nn, rows, length, k)
     _NN_ROWS_CACHE[(length, k)] = (mask, seq_idx, nn, vals)
     return torch.from_numpy(vals.astype(np.int64)).unsqueeze(0)
 
@@ -4095,17 +4211,59 @@ def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=
         from .. import dknn
         mask, seq_idx = parts["single"]
         if dknn.fits(len(tok_idx), parts["k"]):
-            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"])
+            static = _DKNN_STATIC_CACHE.setdefault((len(tok_idx), parts["k"]), dknn.Static()) if _DKNN_STATIC else None
+            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"], static)
     if not (_ATTN_THREAD and _ATTN_KDTREE):
         return None
     if _INDEX_POOL is None:
         from concurrent.futures import ThreadPoolExecutor
         _INDEX_POOL = ThreadPoolExecutor(1, thread_name_prefix="rfd3-attn-index")
+    if (_DKNN_MOVERS and device is not None and _STATIC_KNN and len(tok_idx) >= _DKNN_MOVERS_MIN_L
+            and (X_L.ndim == 2 or X_L.shape[0] == 1)):
+        hybrid = _MoverIndex.launch(device, X_L.reshape(1, -1, 3), parts)
+        if hybrid is not None:
+            return hybrid
     return _INDEX_POOL.submit(_create_attention_indices, f, X_L, tok_idx, n_keys, n_seq_neighbours,
                               workers=torch.get_num_threads())
 
 
 _INDEX_POOL = None
+
+
+class _MoverIndex:
+    """The atom index split by row: the moving atoms' rows on the card (tt_bio.dknn over their id range), every other
+    row on the host thread (_neighbours_kdtree with those rows skipped). .result() as a Future's."""
+
+    def __init__(self, out, host, rows, seq, k):
+        self.out, self.host, self.rows, self.seq, self.k = out, host, rows, seq, k
+
+    @classmethod
+    def launch(cls, device, X_L, parts):
+        import numpy as np
+        from .. import dknn
+        from .staticknn import StaticKnn
+
+        mask, seq_idx = parts["single"]
+        L, k = X_L.shape[1], min(parts["k"], X_L.shape[1])
+        sk = _STATIC_KNN_CACHE.get((L, k))
+        if sk is None or not dknn.fits(L, k):
+            return None
+        xd = X_L[0].detach().double().cpu().numpy()
+        mid = sk.movers(xd)
+        if mid is None or not len(mid) or mid[-1] - mid[0] + 1 != len(mid):
+            return None
+        rows = (int(mid[0]), int(mid[-1]) + 1)
+        out = dknn.outside_neighbours(device, xd, mask, seq_idx, k, rows)
+        host = _INDEX_POOL.submit(_neighbours_kdtree, mask, seq_idx, X_L, k, torch.get_num_threads(), rows)
+        return cls(out, host, rows, seq_idx.cpu().numpy(), k)
+
+    def result(self):
+        from .. import dknn
+        idx = self.host.result()
+        r0, r1 = self.rows
+        idx[0, r0:r1] = dknn.join(self.seq[r0:r1], ttnn.to_torch(self.out).numpy(), len(self.seq), self.k)[0]
+        ttnn.deallocate(self.out)
+        return idx
 
 
 def _create_attention_indices(f, X_L, tok_idx, n_keys, n_seq_neighbours, workers=None):
@@ -4520,7 +4678,8 @@ class RFD3DiffusionModule(Module):
             f, X_L_ca, torch.arange(S_I.shape[-2], device=X_L_ca.device), self.DIT_KEYS, self.DIT_SEQ)
         S_I = s_dev if _RESIDENT_STEP else ttnn.to_torch(s_dev).float()
         A_I = self.diffusion_transformer(A_I, S_I, z_dev, dit_idx, resident=_RESIDENT_STEP)
-        ttnn.deallocate(z_dev)
+        if not self.diffusion_token_encoder.owns(z_dev):
+            ttnn.deallocate(z_dev)
         # Both of the decoder's outputs feed device consumers only -- q the R update below,
         # a the sequence head -- so neither crosses. Each ttnn.to_torch is a blocking drain,
         # and at 3359 atoms the fifteen of them in a step cost 129 ms for 9.8 MB (p20 s2):

@@ -1020,11 +1020,14 @@ def test_a_pool_without_the_bench_inputs_gets_them_shipped_and_no_cell(tmp_path,
 
 
 def test_an_empty_ok_marker_counts_as_present(tmp_path):
-    (tmp_path / "t1.ok").touch(); (tmp_path / "r.json").touch()
-    a = {"kind": "bh", "cards": [], "sweep": False, "paths": [str(tmp_path / "t1.ok"), str(tmp_path / "r.json")], "outdirs": {}}
+    """`touch trees/<sha>/.staged` too: an empty one read as absent and blocked spd-m-nesso1's cells ~70 min (10-27)."""
+    (tmp_path / "t1.ok").touch(); (tmp_path / "r.json").touch(); (tmp_path / ".staged").touch()
+    a = {"kind": "bh", "cards": [], "sweep": False, "paths": [str(tmp_path / "t1.ok"), str(tmp_path / "r.json"), str(tmp_path / ".staged")],
+         "outdirs": {}}
     r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
                        env={"HOME": str(tmp_path)}, check=True)
-    assert json.loads(r.stdout)["exists"] == {str(tmp_path / "t1.ok"): True, str(tmp_path / "r.json"): False}
+    assert json.loads(r.stdout)["exists"] == {str(tmp_path / "t1.ok"): True, str(tmp_path / "r.json"): False,
+                                              str(tmp_path / ".staged"): True}
 
 
 def test_a_cell_whose_requires_no_host_has_is_logged_as_blocked(tmp_path, monkeypatch):
