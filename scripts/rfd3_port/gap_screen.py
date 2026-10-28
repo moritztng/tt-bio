@@ -141,11 +141,11 @@ if "dkfree" in knobs:
     class _Replay:
         book = {}
 
-        def __init__(self, device, X_L, mask, seq, k, static=None):
+        def __init__(self, device, X_L, mask, k, static=None):
             self.key = (hashlib.sha256(X_L.detach().float().contiguous().numpy().tobytes()).hexdigest(), tuple(X_L.shape), k)
             hit = self.book.get(self.key)
             self.hit = None if _rec[0] or hit is None else hit
-            self.real = _Pending(device, X_L, mask, seq, k, static) if self.hit is None else None
+            self.real = _Pending(device, X_L, mask, k, static) if self.hit is None else None
 
         def result(self):
             if self.hit is not None:
