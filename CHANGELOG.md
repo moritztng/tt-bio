@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-28
+
 ### Changed
 - **BoltzGen's token diffusion transformer does less attention work.** In normal mode its pair bias was padded to
   768 tokens for a 544-token design; it now pads to 576, and on Blackhole the attention runs as one fused program

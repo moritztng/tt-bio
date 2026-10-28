@@ -1,6 +1,6 @@
 # scripts/abb3_port/step_gate.py at its default and at the --micro 8 value that does not fit, on
 # qb2 card 3 (/dev/tenstorrent/3), Blackhole p300c, 34.23 GB of DRAM (8 banks x 4 278 190 016 B).
-RECORDED-AT: eb6700ab1b0cd78860ca4611a7234c8f14771e8f scripts/abb3_port/step_gate.py
+RECORDED-AT: 8208d6ed318686a2c0fd30b82341fc9af6f9a468 scripts/abb3_port/step_gate.py
 #
 # TREE: wk/bcp-land 3e617f520, origin/main 2e2cbacb4 plus BCP (lnbw). Replaces the record taken at
 # 93edb1b24, whose import closure changed in tt_bio/autograd.py when lnbw was wired into the layer-norm
@@ -105,6 +105,12 @@ RECORDED-AT: eb6700ab1b0cd78860ca4611a7234c8f14771e8f scripts/abb3_port/step_gat
 # qb2:0, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
 # steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the a06d92c6d record; --micro 8
 # still OOMs, on a 67,108,864 B request. Median 18.561 s at AICLK median 1350 (min 1343). A fit record,
+# not a perf claim.
+#
+# RE-RECORDED by the release gate (gate_fanout.py record:abb3) at 8208d6ed3, 00:47-00:56Z 2026-10-28,
+# qb2:0, p300c, the gate's wheel venv with the tree on PYTHONPATH. Losses 4.9937 / 4.9918 / 4.9911 at
+# steps 1, 5, 10, 500 taped parameters and the 30981 MB DRAM peak as in the eb6700ab1 record; --micro 8
+# still OOMs, on a 67,108,864 B request. Median 18.759 s at AICLK median 1350 (min 1287). A fit record,
 # not a perf claim.
 #
 == --micro 8 --accumulate 8 --steps 1 --warmup 1 ==
