@@ -40,6 +40,7 @@ import torch
 
 from .model import (build_diffusion_module, build_token_initializer, set_fast,
                     set_tune_matmul_for_atoms)
+from . import model as _M
 from .input import InputSpecification
 from .sampler import RFD3Sampler
 
@@ -574,6 +575,9 @@ def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_time
     are reused across that spec's design_idx draws (they don't depend on the
     noise seed); only the sampler re-runs per design."""
     set_fast(fast)
+    if _M._DIT_TRACE:          # the trace region is reserved at open, so before anything asks for the device
+        from ..tenstorrent import get_device
+        get_device(trace="rfd3")
     cap = Path(checkpoint_dir)
     dm_weights = torch.load(cap / "diffusion_module.real_weights.pt", map_location="cpu", weights_only=True)
     ti_weights = torch.load(cap / "token_initializer.real_weights.pt", map_location="cpu", weights_only=True)

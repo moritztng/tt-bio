@@ -2683,6 +2683,11 @@ _SIGMOID_FOLD = env_flag("RFD3_SIGMOID_FOLD", True)
 # sigmoids in the linear) and each block reads its 768 columns in place (addcmul_at), as OpenFold3's dit_shoist.
 # Folding ln_s and the fused sigmoid move rounding: graded on the normal bar (8 paired p150a seeds), so on in both modes.
 _DIT_SHOIST = env_flag("RFD3_DIT_SHOIST", True)
+# RFD3_DIT_TRACE: the DiT replays from a ttnn trace (`LocalTokenTransformer._traced`). Its ~900 ops cost more to
+# enqueue on Blackhole than the card takes to run them (dprofbh: 38 ms host against 27 ms device per step), so a
+# replay hands the card the DiT at once and lets the host get on with the decoder. Needs a device opened with
+# `get_device(trace="rfd3")`.
+_DIT_TRACE = env_flag("RFD3_DIT_TRACE", False)
 _DIT_SHOIST_BYTES = 384 << 20   # the three wide bf16 tensors of one call; 685 tokens x 1 design is 114 MB
 
 
@@ -3972,6 +3977,7 @@ class LocalTokenTransformer(Module):
         for i, block in enumerate(self.blocks):
             block.idx = i
         self._hoist_w = None            # _DIT_SHOIST's wide weights, built on the first call that takes it
+        self._trace = None              # _DIT_TRACE's capture: input signature, buffers, trace id
 
         # One [c_pair, 32 * n_block] weight holding every block's pair-bias projection, block i
         # in columns [32*i, 32*i + N_HEAD) and zeros in the rest. Built straight from the torch
@@ -4086,8 +4092,70 @@ class LocalTokenTransformer(Module):
         else:
             z = _tt(z.unsqueeze(0) if z.ndim == 2 else z, dev, dt)
         mask = _tt(_dense_attention_mask(indices), dev, dt)
-        out = self.run_device(a, s, z, mask)
+        out = self._traced(a, s, z, mask) if _DIT_TRACE else self.run_device(a, s, z, mask)
         return out if resident else ttnn.to_torch(out).float()
+
+    def _traced(self, a, s, z, mask):
+        """`run_device` replayed from a trace. The first call at an input signature runs eagerly (it compiles every
+        program, calibrates the linears and builds the packed weights), the second is captured and every later one
+        copies its inputs into the captured ones and replays: the same programs in the same order, so the output is
+        the eager one bit for bit. Eager work runs between replays, so the capture allocates only inside the
+        device's `TraceScratch` fence, sized from the eager call's DRAM high-water. The output is cloned out because
+        the captured one lives in the fence: a caller freeing it would hand part of the fence to an eager tensor the
+        next replay overwrites. A refused capture leaves the DiT eager."""
+        from .. import autograd as _AG
+        from ..tenstorrent import TraceScratch
+        ins = (a, s, z, mask)
+        sig = tuple((tuple(t.padded_shape), t.dtype, t.layout) for t in ins)
+        T = self._trace
+        if T is not None and T["sig"] != sig:
+            self.release_trace()
+            T = None
+        if T is None:
+            dram = _AG._in_dram(ins) and not _MM2D_L1      # L1 is not fenced
+            self._trace = T = {"sig": sig, "failed": not dram}
+            if not dram:
+                return self.run_device(*ins)
+            out, T["need"] = _AG._rise(self.device, lambda: self.run_device(*ins))
+            return out
+        if T["failed"]:
+            return self.run_device(*ins)
+        if "tid" not in T:
+            T["in"] = [ttnn.clone(t) for t in ins]
+            if _AG._SCRATCH[0] is None:
+                _AG._SCRATCH[0] = TraceScratch(self.device)
+            sc = _AG._SCRATCH[0]
+            need = T["need"] + T["need"] // 4 + sc.CHUNK
+
+            def run():
+                T["out"] = self.run_device(*T["in"])
+            try:
+                tids = sc.capture(need, need, [run])
+            except RuntimeError as e:      # e.g. the DiT outgrew the trace region
+                print(f"  [rfd3 DiT] trace capture failed, the DiT runs eagerly: {e}")
+                tids = None
+            if not tids:
+                self.release_trace()
+                self._trace = {"sig": sig, "failed": True}
+                return self.run_device(*ins)
+            T["tid"] = tids[0]
+        else:
+            for t, b in zip(ins, T["in"]):
+                if t.buffer_address() != b.buffer_address():
+                    ttnn.copy(t, b)
+        ttnn.execute_trace(self.device, T["tid"], cq_id=0, blocking=False)
+        return ttnn.clone(T["out"])
+
+    def release_trace(self):
+        """Drop the DiT's trace and its buffers (a new input signature, or the end of a design)."""
+        T, self._trace = self._trace, None
+        if not T:
+            return
+        if T.get("tid") is not None:
+            ttnn.release_trace(self.device, T["tid"])
+        for t in T.get("in", ()):
+            ttnn.deallocate(t)
+        T.pop("out", None)
 
 
 def _default_compute_kernel_config():
