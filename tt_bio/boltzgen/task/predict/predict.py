@@ -10,7 +10,6 @@ scaffolding around it stays in fp32 on CPU.
 from tt_bio.boltzgen.utils.quiet import quiet_startup
 quiet_startup()
 
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
 
@@ -115,25 +114,13 @@ class Predict(Task):
         # from numpy's global stream (its torch draws use a generator seeded from it) and the model
         # only from torch's, so every design is the same whatever the timing. A design counts as done
         # when its prediction is; its write finishes behind the next one.
-        # The next design's featurize holds the GIL for most of its ~1.7 s, so it waits for
-        # `host_free`: the model sets it when it reaches the sampler, where the host mostly waits on
-        # the card, instead of slowing the trunk's host-bound start (0.65 s a design on Blackhole).
-        items, host_free = iter(dataloader), threading.Event()
-        model.host_free = host_free
-
-        def featurize_next():
-            host_free.wait()
-            return next(items, None)
-
-        host_free.set()
+        items = iter(dataloader)
         with ThreadPoolExecutor(1) as featurize, ThreadPoolExecutor(1) as write:
-            ahead, written = featurize.submit(featurize_next), None
+            ahead, written = featurize.submit(next, items, None), None
             for batch_idx in range(total_batches):
                 batch = ahead.result()
-                host_free.clear()
-                ahead = featurize.submit(featurize_next)
+                ahead = featurize.submit(next, items, None)
                 prediction = model.predict_step(batch, batch_idx=batch_idx)
-                host_free.set()
                 if written is not None:
                     written.result()
                 written = write.submit(self.writer.write, prediction, batch, batch_idx)
