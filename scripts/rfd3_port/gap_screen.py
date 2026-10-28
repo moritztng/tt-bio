@@ -27,6 +27,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   dkst      RFD3_DKNN_STATIC, the card index's static rows against their static candidates and the movers only
   pmemo     RFD3_PAIR_MEMO, the token encoder pair path recomputed only on row tiles whose distance bins changed
   rmsb      RFD3_PF_RMSB, the pairformer SDPA mask from one rms_pair_bias program (norm weight folded into W)
+  pzr       RFD3_PZ_ROWS, process_z as one gather + a + em * inv program on the pair memo's changed row tiles
   at        RFD3_ATTN_THREAD, the atom neighbour index built on a worker thread
   dpb       RFD3_DPB, the DiT SDPA masks as one program (tt_bio.dit_pair_bias)
   apb       RFD3_ATOM_PB_FUSED, one pair-bias projection for all three atom blocks (default on)
