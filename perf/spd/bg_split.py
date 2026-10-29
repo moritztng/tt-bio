@@ -32,7 +32,7 @@ from tt_bio.boltzgen.task.predict import writer as W
 OUT = os.environ.get("BGSPLIT_OUT")
 EV = {}
 DONE = deque()
-LAST = {"end": time.perf_counter(), "n": 0}
+LAST = {"end": time.perf_counter(), "n": 0, "latch": {}}
 
 
 def _sync():
@@ -149,6 +149,12 @@ def write(self, *a, **k):
             rec["td"] = round(ev["td"] - ev["td0"], 3)
         rec["pre_ov"] = _overlap(ev["t0"], ev["tf0"])
         rec["static_ov"] = _overlap(ev["st0"], ev["st"])
+    # Latch counters since the previous design: e.g. diffusion_trace captures (one per row block if the chunk's
+    # addresses hold, every step if they move) and dit_cond_steps chunks.
+    from tt_bio import tenstorrent as T
+    lat = {k: v["served"] for k, v in T.LATCH_STATS.items() if v["served"]}
+    rec["latch"] = {k: v - LAST["latch"].get(k, 0) for k, v in lat.items() if v - LAST["latch"].get(k, 0)}
+    LAST["latch"] = lat
     LAST["end"] = ev["t1"]
     line = "BGSPLIT " + json.dumps(rec)
     print(line, flush=True)

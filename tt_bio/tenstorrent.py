@@ -676,7 +676,9 @@ _FAST_MODE = False
 #                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
 #   dit_bpad        the bf16 token DiT's block biases padded ONCE per fold to `dit_bias_pad_len` (new keys
 #                   masked), so no call re-fills the bias' ragged key tail and the fused SDPA runs at a length
-#                   its chunks divide (q/k/v follow the bias per call, `_sdpa_to_bias_width`)
+#                   its chunks divide (q/k/v follow the bias per call, `_sdpa_to_bias_width`). On Boltz-2 /
+#                   BoltzGen, whose bias is staged wide already, the token activations follow it once per step
+#                   instead: the per-layer q/k/v pad goes and the transition's row tiles divide (`dit_shard`)
 #   trimul_t1       the triangle multiplication's input layer_norm, gated a/b projection, mask, channel moves
 #                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
@@ -834,6 +836,8 @@ _FAST_MODE = False
 #                   float64 error than the site at every shape (spd-m-protenix dms). Other shapes keep their program.
 #   dit_shard       the token DiT's conditioned transition (Boltz-2) with its three [N, 2D] hidden products
 #                   block-sharded in L1 (`_dit_transition_sharded`); the adaLN before it and the gate after it as before.
+#   dit_fc123g      under dit_shard, the three hidden products and both multiplies as one fc12g pass over the
+#                   interleaved [gates | swish | a_to_b] weight, the multiplies in fp32 on the SFPU (kernels/fc12g).
 #   dit_l1          under dit_fuse, OpenFold3's token DiT keeps the stream, the conditioning and every tensor a block
 #                   makes in L1 (interleaved) for the stack call; weights and the cached pair-bias masks stay in DRAM.
 #                   Placement only: the same programs on the same operands, so the same bits. Only where 12
@@ -900,7 +904,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm",
+            "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm", "dit_fc123g",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
@@ -927,7 +931,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
-                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "trimul_t1_2g",
+                             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "dit_fc123g", "trimul_t1_2g",
                              "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
@@ -3423,6 +3427,13 @@ def dit_bias_pad_len(n: int, short: bool = False) -> int:
     return grid
 
 
+def dit_rows(bias, n: int) -> int:
+    """The token rows Boltz-2 / BoltzGen's DiT runs `n` tokens at: under `dit_bpad` its staged bias width when that
+    is wider (rows are independent everywhere but the attention, whose bias masks the new keys), else `n`."""
+    w = int((bias[0] if isinstance(bias, (list, tuple)) else bias).shape[-1])
+    return w if lever("dit_bpad") and w > n else n
+
+
 def pad_dit_bias(b, n: int, to: int):
     """A `[.., n, n]` additive bias as `[.., to, to]`: new query rows 0, new key columns masked, the
     order `_stage_token_bias` pads in. Inside the last tile a pad relabels its source rather than
@@ -4706,7 +4717,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_cond_steps")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_fc123g", "dit_cond_steps")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
@@ -14194,11 +14205,20 @@ def _transition_swiglu_sharded(x, w1, w2, w3, ckc, silu_ckc, hidden, dtype, w12=
     return out
 
 
-def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
+# fc12g's in1 CB holds two K blocks of the three products (the 5-sample pm 10 shape clashes in L1 beside it).
+_DIT_FC123G_IN1_BYTES = 900 * 1024
+_DIT_FC123G_REFUSED: set = set()
+
+
+def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc, w3=None):
     """`b_to_a((silu(a w_gt) * (a w_sw)) * (a w_ab))`, the token DiT's conditioned transition (`dit_shard`), with
     the three [N, 2D] hidden products block-sharded in L1, or None where no grid fits. `a` is read from wherever it
     is and the output goes to DRAM. Shipped, each hidden product goes to DRAM and back (ditshard.py: the whole block
-    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1)."""
+    419.8 -> 237.0 us block-sharded on a Galaxy chip at 512 x 1).
+
+    `w3` (w_gt, w_sw and w_ab interleaved per core column, `_fc12_interleave`) computes the hidden product in one
+    fc12g pass (`dit_fc123g`): no hidden tensors and no separate multiplies. A shape fc12g cannot build falls back
+    to the three linears, and only that shape."""
     xs = [int(d) for d in a.padded_shape]
     mt, kt = prod(xs[:-1]) // 32, xs[-1] // 32
     nt, ct = int(w_sw.shape[-1]) // 32, int(w_ba.shape[-1]) // 32
@@ -14218,11 +14238,25 @@ def _dit_transition_sharded(a, w_sw, w_gt, w_ab, w_ba, ckc):
     bw = _transition_kb("fc1", kt)
     hid = []
     try:
-        for w in (w_sw, w_gt, w_ab):
-            hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc, memory_config=mc,
-                                   dtype=a.dtype))
-        b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
-        b = ttnn.multiply_(b, hid[2])
+        b = None
+        if (w3 is not None and key not in _DIT_FC123G_REFUSED and gx == 8 and prod(_fc12g_subblock(pm, pn)) < 4
+                and 2 * 3 * pn * bw * 2048 <= _DIT_FC123G_IN1_BYTES):
+            try:
+                b = _fc12g(a, w3, mc, pm, pn, bw, gx, gy, ckc, a.dtype, products=3, defines={"FC12G_MUL_SFPU": "1"})
+            except Exception as e:  # noqa: BLE001
+                _DIT_FC123G_REFUSED.add(key)
+                _latch("dit_fc123g", "refused", e)
+        if b is not None:
+            hid.append(b)
+            _latch("dit_fc123g", "served")
+        else:
+            if w3 is not None:
+                _latch("dit_fc123g", "declined")
+            for w in (w_sw, w_gt, w_ab):
+                hid.append(ttnn.linear(a, w, program_config=cfg(bw, pn), compute_kernel_config=ckc,
+                                       memory_config=mc, dtype=a.dtype))
+            b = ttnn.multiply_(hid[1], hid[0], input_tensor_a_activations=[ttnn.UnaryOpType.SILU])
+            b = ttnn.multiply_(b, hid[2])
         out = ttnn.linear(b, w_ba, program_config=cfg(pn, ct // gx), compute_kernel_config=ckc, dtype=a.dtype,
                           memory_config=ttnn.DRAM_MEMORY_CONFIG)
     except Exception as e:  # noqa: BLE001  a circular-buffer clash beside live L1: the interleaved path from then on
@@ -16168,6 +16202,18 @@ class ConditionedTransitionBlock(Module):
         self.output_projection_weight = self.torch_to_tt("output_projection.0.weight")
         self.output_projection_bias = self.torch_to_tt("output_projection.0.bias")
 
+    def _w123(self):
+        """gates | swish | a_to_b interleaved for the fc12g kernel's three-product pass, built on first use; None
+        unless `dit_fc123g` is on (and silu_f32, whose PACK-thread silu the kernel runs)."""
+        if not (lever("dit_fc123g") and lever("silu_f32")):
+            return None
+        if getattr(self, "_w3", None) is None:
+            swish, gates = torch.chunk(self.weights["swish_gate.0.weight"], chunks=2, dim=0)
+            self._w3 = ttnn.from_torch(
+                _fc12_interleave(gates.t(), swish.t(), self.weights["a_to_b.weight"].t(), gx=8),
+                layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.a_to_b_weight.dtype)
+        return self._w3
+
     def __call__(
         self, a: ttnn.Tensor, s: ttnn.Tensor, large_seq_len: bool = False, cond=None, residual=None
     ) -> ttnn.Tensor:
@@ -16178,7 +16224,7 @@ class ConditionedTransitionBlock(Module):
         s_terms, s_out = cond if cond is not None else (None, None)
         a = self.adaln(a, s, large_seq_len=large_seq_len, s_terms=s_terms)
         b_a = (_dit_transition_sharded(a, self.swish_weight, self.gates_weight, self.a_to_b_weight,
-                                       self.b_to_a_weight, self.compute_kernel_config)
+                                       self.b_to_a_weight, self.compute_kernel_config, self._w123())
                if lever("dit_shard") and not self.atom_level and self.a_to_b_gate else None)
         if b_a is not None:
             ttnn.deallocate(a)
@@ -18053,11 +18099,12 @@ class Diffusion(Module):
         )
         return s_to_a
 
-    def cond_steps(self, times, s_trunk, s_inputs, c):
+    def cond_steps(self, times, s_trunk, s_inputs, c, rows=None):
         """`dit_cond_steps`: every step's conditioning for `times` ([G] noise levels, one sample's row block each),
         stacked on the leading dim: `s_to_a` and the token DiT's per-layer terms. The schedule fixes the noise levels
         before sampling starts and nothing here reads the coordinates, so G steps' 72 projections run as 72 linears
-        of G x 512 rows instead of G x 72 of 512, where a Wormhole linear pays ~24 us of fixed cost each (matlim)."""
+        of G x 512 rows instead of G x 72 of 512, where a Wormhole linear pays ~24 us of fixed cost each (matlim).
+        `rows` (`dit_rows`): the token rows the DiT runs at; the terms are staged with zero rows up to it."""
         self.release_steps()
         self._condition_once(s_trunk, s_inputs, c)
         s = self._conditioning(times)
@@ -18065,11 +18112,17 @@ class Diffusion(Module):
         # (cen16: 558 us at G 8 against 8 x 74.5, matlim: 344 us as 4096 rows). On tile-aligned rows both
         # reshapes are views.
         G, n, d = (int(x) for x in s.shape)
-        s = ttnn.reshape(s, (1, G * n, d))
-        stack = lambda t: ttnn.reshape(t, (G, n, int(t.shape[-1])))  # noqa: E731
-        self._steps = {"s_to_a": stack(self._s_to_a(s)),
-                       "cond": [tuple(map(stack, parts)) for parts in self.token_transformer.cond_steps(s)]}
+        m = rows or n
+        flat = lambda t: ttnn.reshape(t, (1, G * int(t.shape[-2]), d))  # noqa: E731
+        stack = lambda t, r: ttnn.reshape(t, (G, r, int(t.shape[-1])))  # noqa: E731
+        s_w = flat(ttnn.pad(s, [(0, 0), (0, m - n), (0, 0)], value=0.0)) if m > n else None
+        s = flat(s)
+        s_w = s if s_w is None else s_w
+        self._steps = {"s_to_a": stack(self._s_to_a(s), n),
+                       "cond": [tuple(stack(x, m) for x in parts) for parts in self.token_transformer.cond_steps(s_w)]}
         ttnn.deallocate(s)
+        if m > n:
+            ttnn.deallocate(s_w)
 
     def release_steps(self):
         chunk, self._steps = getattr(self, "_steps", None), None
@@ -18150,10 +18203,23 @@ class Diffusion(Module):
             )
             for tensor in (a_fp32, s_fp32, bias_fp32):
                 ttnn.deallocate(tensor)
-        elif step is not None:
-            a = self.token_transformer(a, None, bias_token, steps=(chunk["cond"], step))
         else:
-            a = self.token_transformer(a, s, bias_token)
+            # dit_bpad: the rows the DiT runs at, which dit_cond_steps' terms were staged at already.
+            n = int(a.shape[-2])
+            w = dit_rows(bias_token, n) if step is None else int(chunk["cond"][0][0].shape[-2])
+            if w > n:
+                # Rows are independent everywhere but the attention, whose staged bias masks the new keys.
+                pad = [(0, 0), (0, w - n), (0, 0)]
+                a_n, a = a, ttnn.pad(a, pad, value=0.0)
+                ttnn.deallocate(a_n)
+                if s is not None:
+                    s_n, s = s, ttnn.pad(s, pad, value=0.0)
+                    ttnn.deallocate(s_n)
+            a_w = (self.token_transformer(a, s, bias_token) if step is None
+                   else self.token_transformer(a, None, bias_token, steps=(chunk["cond"], step)))
+            a = a_w[:, :n, :] if w > n else a_w
+            if w > n:
+                ttnn.deallocate(a_w)
         if s is not None:
             ttnn.deallocate(s)
         a = ttnn.layer_norm(
@@ -18888,7 +18954,8 @@ class DiffusionModule(TorchWrapper):
         k0 = k - k % G
         if self._steps_k0 != k0:
             ts = torch.tensor(sched[k0:k0 + G], dtype=times.dtype)
-            self.module.cond_steps(self._from_torch(ts), s_trunk, self._cache_get("s_inputs"), self._cache_get("c"))
+            self.module.cond_steps(self._from_torch(ts), s_trunk, self._cache_get("s_inputs"), self._cache_get("c"),
+                                   rows=dit_rows(self._cache_get("bias_token"), int(s_trunk.shape[-2])))
             self._steps_k0 = k0
             _latch("dit_cond_steps", "served")
         return k - k0
