@@ -114,8 +114,12 @@ WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t
 # design_ptm +0.022, iptm +0.011, complex_plddt +0.002, filter 32/32. Speed on a p300 chip at ~1320 MHz: normal
 # 22.9 -> 21.2 s/design from dit_qkvf and -0.6 s from the stage, fast 21.3 -> 19.8.
 BH_LEVERS_NORMAL = LEVERS_NORMAL | {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf", "dit_pad_short"}
+# Blackhole fast also chunks the token DiT's fused SDPA and stages its bias at 576 (dit_chunk + dit_pad_short, the
+# pair normal already runs). On a p300 chip (AICLK mean 1321 MHz, 56 of 1152 samples below 1300): 18.28/18.46 -> 17.64/17.77
+# s/design (-0.6, -3.4 %), 19.9 -> 18.8 ms/diffusion step. Fast grade vs exact BH normal (bg_grade.py, bg_R3, seeds 0-3 x 8 designs,
+# 2026-10-29): PASS, design_ptm +0.014 [-0.006, +0.038], iptm +0.013, complex_plddt -0.002, filter 32/32 vs 32/32.
 BH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
-                                "dit_qkvf"}
+                                "dit_qkvf", "dit_chunk", "dit_pad_short"}
 
 
 def _under_levers(method):
