@@ -130,7 +130,7 @@
                   "l1_dest_is_faster:288x288x128": 48,
                   "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:288x288x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:288x288x128 x48: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -153,7 +153,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -242,21 +243,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -302,7 +306,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -330,7 +335,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -431,7 +437,7 @@
                   "l1_dest_is_faster:544x544x128": 48,
                   "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:544x544x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:544x544x128 x48: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -454,7 +460,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -547,21 +554,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -607,7 +617,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -635,7 +646,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -736,7 +748,7 @@
                   "l1_dest_is_faster:672x672x128": 48,
                   "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:672x672x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:672x672x128 x48: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -759,7 +771,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -853,21 +866,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -913,7 +929,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -941,7 +958,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1040,7 +1058,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1063,7 +1082,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1157,21 +1177,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1217,7 +1240,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1245,7 +1269,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1344,7 +1369,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1367,7 +1393,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1460,21 +1487,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1520,7 +1550,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1548,7 +1579,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1647,7 +1679,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1670,7 +1703,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1758,21 +1792,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1818,7 +1855,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1846,7 +1884,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3425,7 +3464,7 @@
                   "l1_dest_is_faster:288x288x128": 48,
                   "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:288x288x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:288x288x128 x48: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3448,7 +3487,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -3537,21 +3577,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -3597,7 +3640,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -3625,7 +3669,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3726,7 +3771,7 @@
                   "l1_dest_is_faster:544x544x128": 48,
                   "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:544x544x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:544x544x128 x48: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3749,7 +3794,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -3842,21 +3888,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -3902,7 +3951,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -3930,7 +3980,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4031,7 +4082,7 @@
                   "l1_dest_is_faster:672x672x128": 48,
                   "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:672x672x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so TRANSPOSE_L1_RESIDENT serves them all instead. Inert here rather than degraded"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:672x672x128 x48: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4054,7 +4105,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4148,21 +4200,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4208,7 +4263,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -4236,7 +4292,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4335,7 +4392,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4358,7 +4416,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4452,21 +4511,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4512,7 +4574,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -4540,7 +4603,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4639,7 +4703,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4662,7 +4727,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -4755,21 +4821,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -4815,7 +4884,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -4843,7 +4913,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4942,7 +5013,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -4965,7 +5037,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -5053,21 +5126,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5113,7 +5189,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5141,7 +5218,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5430,7 +5508,7 @@
                   "l1_dest_is_faster:288x288x128": 48,
                   "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:288x288x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM [carried from p150a]"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:288x288x128 x48: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -5453,7 +5531,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -5542,21 +5621,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5602,7 +5684,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5630,7 +5713,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5731,7 +5815,7 @@
                   "l1_dest_is_faster:544x544x128": 48,
                   "l1_dest_is_faster:256x256x128": 240
                 },
-                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:544x544x128 x48: every decline is an L1 destination, and the L1 route is the strictly faster one (2.47-2.74x against this route's 1.60x), so this is inert here rather than degraded. It starts serving 96 of 576 calls at 768, where the pair buffer moves to DRAM [carried from p150a]"
+                "reason": "declines all 288 calls on l1_dest_is_faster:256x256x128 x240, l1_dest_is_faster:544x544x128 x48: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -5754,7 +5838,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -5847,21 +5932,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -5907,7 +5995,8 @@
                 "served": 288,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -5938,7 +6027,8 @@
                 "how": "stats",
                 "rejects": {
                   "base-unraised": 48
-                }
+                },
+                "reason": "declines all 48 calls on base-unraised x48: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6037,7 +6127,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -6060,7 +6151,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6154,21 +6246,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6214,7 +6309,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -6245,7 +6341,8 @@
                 "how": "stats",
                 "rejects": {
                   "base-unraised": 48
-                }
+                },
+                "reason": "declines all 48 calls on base-unraised x48: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6344,7 +6441,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -6367,7 +6465,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6461,21 +6560,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6521,7 +6623,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -6552,7 +6655,8 @@
                 "how": "stats",
                 "rejects": {
                   "ratio-shrunk": 48
-                }
+                },
+                "reason": "declines all 48 calls on ratio-shrunk x48: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6651,7 +6755,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -6674,7 +6779,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -6767,21 +6873,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -6827,7 +6936,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -6858,7 +6968,8 @@
                 "how": "stats",
                 "rejects": {
                   "ratio-shrunk": 48
-                }
+                },
+                "reason": "declines all 48 calls on ratio-shrunk x48: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -6957,7 +7068,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 240
-                }
+                },
+                "reason": "declines all 240 calls on l1_dest_is_faster:256x256x128 x240: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -6980,7 +7092,8 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -7068,21 +7181,24 @@
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 576,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "declines all 0 calls: triatt_ln (Nesso-1 normal on both archs, 08efaf31b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called. Where triangle attention is chunked triatt_ln is not reached and these serve. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls served here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -7128,7 +7244,8 @@
                 "served": 240,
                 "declined": 48,
                 "frac": 0.8333333333333334,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "declines all 48 calls: triatt_ln's TR mode (Nesso-1 normal on both archs, 08efaf31b) norms x^T straight from x, so the ending triangle attention's pair transpose, the only one Nesso-1 runs, is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean triatt_ln declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -7159,7 +7276,8 @@
                 "how": "stats",
                 "rejects": {
                   "ratio-shrunk": 48
-                }
+                },
+                "reason": "declines all 48 calls on ratio-shrunk x48: transition_ws (Nesso-1 normal on both archs, 08efaf31b) runs every pair Transition as one weight-stationary program, so the chunked Transition that reads this height is never called. Graded on ground truth (davis_arms.py --gt, held-out SRC/MEK5/CLK1) on both archs. Falsifier: calls here mean transition_ws refused a pair shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
