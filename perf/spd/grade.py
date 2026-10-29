@@ -133,22 +133,34 @@ def boot(vals, n=20000, seed=0):
 
 def no_truth(free, failed, a):
     """Inputs without a deposited structure (the size ladder, c730, PopVax): the test arm's top pose against the
-    base's at the same seed, beside what a re-seed of the base moves. Informational; the verdict is the 11-set's."""
-    top = {k: (all_ca(f["cifs"][0]), statistics.mean(c["plddt"] for c in f["conf"])) for k, f in free.items()}
+    base's at the same seed, beside what a re-seed of the base moves. Informational; the verdict is the 11-set's.
+
+    A re-seed can move a fold far less than its own samples differ: on l1536 (OF3, 10-23) the base re-seeded at 0.8 A
+    while one fold's five samples spread 18 A, so a test top pose 13-17 A away read as wrong when one of its samples
+    matched the base top pose better than the base's own did. In-fold is the base's other samples against its top
+    pose; best is the test's closest sample to it. A test whose best sits at or above in-fold is inside the base's
+    sample distribution."""
+    poses = {k: [all_ca(c) for c in f["cifs"]] for k, f in free.items()}
+    top = {k: (poses[k][0], statistics.mean(c["plddt"] for c in f["conf"])) for k, f in free.items()}
     out = [f"## No ground truth: {a.test} vs {a.base} top pose, same seed (A/A = {a.base} across seeds)\n",
            "| arch | input | A/A pairs | A/A CA RMSD med (A) | A/A CA-lDDT med | paired | CA RMSD med / max (A) | "
-           "CA-lDDT med / min | pLDDT delta mean | failed |", "|---|---|---|---|---|---|---|---|---|---|"]
+           "CA-lDDT med / min | in-fold CA-lDDT med | best-sample CA-lDDT med | pLDDT delta mean | failed |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for arch, inp in sorted({(k[0], k[2]) for k in top}):
         B = {k[3]: v for k, v in top.items() if k[0] == arch and k[2] == inp and k[1] == a.base}
         T = {k[3]: v for k, v in top.items() if k[0] == arch and k[2] == inp and k[1] == a.test}
         aa = [self_pair(B[s1][0], B[s2][0]) for s1, s2 in itertools.combinations(sorted(B), 2)]
         pr = [self_pair(T[s][0], B[s][0]) for s in sorted(set(B) & set(T))]
         dp = [T[s][1] - B[s][1] for s in sorted(set(B) & set(T))]
+        kb = lambda s, t: poses[(arch, t, inp, s)]  # noqa: E731
+        inf = [self_pair(x, kb(s, a.base)[0])[1] for s in B for x in kb(s, a.base)[1:]]
+        best = [max(self_pair(x, B[s][0])[1] for x in kb(s, a.test)) for s in sorted(set(B) & set(T))]
+        md = lambda v: f"{statistics.median(v):.3f}" if v else "-"  # noqa: E731
         nf = sum(1 for k in failed if k[0] == arch and k[2] == inp)
         f = lambda v, i, g: f"{g([x[i] for x in v]):.3f}" if v else "-"
         out.append(f"| {arch} | {inp} | {len(aa)} | {f(aa, 0, statistics.median)} | {f(aa, 1, statistics.median)} | "
                    f"{len(pr)} | {f(pr, 0, statistics.median)} / {f(pr, 0, max)} | {f(pr, 1, statistics.median)} / "
-                   f"{f(pr, 1, min)} | {f'{statistics.mean(dp):+.4f}' if dp else '-'} | {nf} |")
+                   f"{f(pr, 1, min)} | {md(inf)} | {md(best)} | {f'{statistics.mean(dp):+.4f}' if dp else '-'} | {nf} |")
     return "\n".join(out) + "\n"
 
 
