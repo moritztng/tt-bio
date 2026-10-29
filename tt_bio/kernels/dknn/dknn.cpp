@@ -276,17 +276,21 @@ void kernel_main() {
         uint32_t w = 0;
         if (c <= n_fill) {
             for (uint32_t t = 0; t < c; ++t) o[w++] = uint32_t(s[2 * t + 1]);
-        } else {
-            // n_fill smallest of c (at most ~K) pairs: partial selection sort by (key, index), c is small
-            for (uint32_t t = 0; t < n_fill; ++t) {
-                uint32_t b = t;
-                for (uint32_t u = t + 1; u < c; ++u) {
-                    if (s[2 * u] < s[2 * b] || (s[2 * u] == s[2 * b] && s[2 * u + 1] < s[2 * b + 1])) b = u;
+        } else if (n_fill > 0) {
+            // the n_fill smallest of c pairs by (key, index): every key under the n_fill-th, then the ties at it by
+            // ascending index (usually one), O(c) where a selection sort was O(n_fill c)
+            for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
+            const uint64_t kf = kth(d, int32_t(c), int32_t(n_fill) - 1);
+            for (uint32_t t = 0; t < c; ++t) {
+                if (s[2 * t] < kf) o[w++] = uint32_t(s[2 * t + 1]);
+            }
+            for (uint32_t last = 0, first = 1; w < n_fill; first = 0) {
+                uint32_t best = ~0u;
+                for (uint32_t t = 0; t < c; ++t) {
+                    const uint32_t j = uint32_t(s[2 * t + 1]);
+                    if (s[2 * t] == kf && j < best && (first || j > last)) best = j;
                 }
-                const uint64_t k0 = s[2 * t], i0 = s[2 * t + 1];
-                s[2 * t] = s[2 * b]; s[2 * t + 1] = s[2 * b + 1];
-                s[2 * b] = k0; s[2 * b + 1] = i0;
-                o[w++] = uint32_t(s[2 * t + 1]);
+                o[w++] = last = best;
             }
         }
         // ascending by index (insertion sort, w <= K), then pad
