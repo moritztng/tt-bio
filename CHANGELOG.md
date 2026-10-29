@@ -5,6 +5,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Fixed
+- **ESMFold2 no longer runs out of device memory on a worker that has folded many different inputs.** A worker keeps
+  its chip open across jobs, and the compiled programs for every input shape it has folded stay in device memory.
+  After about ten hours of mixed lengths a Wormhole chip had too little room left for a 722-residue fold, and JapanFold
+  failed up to 65 % of such tasks with "Ran out of device memory". A fold that is refused memory while programs are
+  cached now drops them and runs again; folds that fit are unchanged.
+
 ## [0.26.0] - 2026-10-29
 
 ### Changed
