@@ -1653,13 +1653,13 @@
             "versions": "tt-bio main 58c4a5210, ttnn None, qb1 p150a card 0",
             "when": "2026-10-29T00:10:11Z",
             "fast": {
-              "s_per_batch": 0.11214,
+              "s_per_batch": 0.10889,
               "n": 7,
-              "spread_pct": 11.09,
+              "spread_pct": 2.79,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 9a893ef57, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-29T06:14:49Z"
+              "versions": "tt-bio main f18cb07d0, ttnn None, qb1 p150a card 0",
+              "when": "2026-10-29T08:20:50Z"
             }
           },
           "h200": {
