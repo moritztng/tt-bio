@@ -14,7 +14,10 @@ import json
 import time
 
 import torch
-import ttnn
+
+from tt_bio.main import ensure_p300_mesh_descriptor
+ensure_p300_mesh_descriptor()   # before ttnn: a lone p300 chip needs the 1x1 mesh descriptor
+import ttnn  # noqa: E402
 
 from tt_bio import tenstorrent as T
 
@@ -24,6 +27,7 @@ ap.add_argument("--heads", type=int, default=16)
 ap.add_argument("--reps", type=int, default=20)
 ap.add_argument("--out", default="dit_sdpa_sweep.json")
 ap.add_argument("--arms", default="", help="q:k:pad,... instead of the full sweep (the shipped pick always runs first)")
+ap.add_argument("--mask8", action="store_true", help="also time every arm with the bias in bfloat8_b (arm key mask8)")
 a = ap.parse_args()
 
 dev = T.get_device()
@@ -37,6 +41,7 @@ b = 2.0 * torch.randn(1, H, S, S, generator=g)
 scale = HD ** -0.5
 up = lambda x: ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
 qt, kt, vt, bt = up(q), up(k), up(v), up(b)
+bt8 = ttnn.typecast(bt, ttnn.bfloat8_b) if a.mask8 else None
 # reference on the bf16-rounded inputs, in float64. The op scales the mask with the scores, softmax((q k^T + b) *
 # scale), which is why the DiT hands it a bias pre-multiplied by head_dim**0.5 (p150a 544: rel_l2 0.027 against
 # this reading, 0.925 against q k^T * scale + b).
@@ -49,7 +54,7 @@ ALT = {"head0_bias": torch.softmax((sc + r[3][:, :1]) * scale, -1) @ r[2],
        "no_bias": torch.softmax(sc * scale, -1) @ r[2]}
 
 
-def run(qc, kc, pad_to):
+def run(qc, kc, pad_to, bt=bt):
     cfg = ttnn.SDPAProgramConfig(compute_with_storage_grid_size=T.COMPUTE_GRID_MAIN, exp_approx_mode=False,
                                  q_chunk_size=qc, k_chunk_size=kc)
     if pad_to > S:
@@ -88,18 +93,18 @@ for qc in (() if a.arms else (32, 64, 128, 256)):
         if (qc, kc, S) not in arms:
             arms.append((qc, kc, S))     # non-dividing: ttnn pads internally
 res, base = [], None
-for qc, kc, p in arms:
+for (qc, kc, p), m8 in [(x, m8) for x in arms for m8 in ((False, True) if a.mask8 else (False,))]:
     try:
-        ms, out = run(qc, kc, p)
+        ms, out = run(qc, kc, p, bt8) if m8 else run(qc, kc, p)
     except Exception as e:
-        res.append(dict(q=qc, k=kc, pad=p, err=str(e).splitlines()[0][:200])); print(res[-1], flush=True)
+        res.append(dict(q=qc, k=kc, pad=p, mask8=m8, err=str(e).splitlines()[0][:200])); print(res[-1], flush=True)
         continue
     if base is None:
         base = out
     err = (out.double()[..., :HD] - ref[..., :HD]).abs()
     rel = (err.norm() / ref[..., :HD].norm()).item()
     alt = {n: ((out.double()[..., :HD] - x[..., :HD]).norm() / x[..., :HD].norm()).item() for n, x in ALT.items()}
-    res.append(dict(q=qc, k=kc, pad=p, ms=round(ms, 4), finite=bool(torch.isfinite(out).all()),
+    res.append(dict(q=qc, k=kc, pad=p, mask8=m8, ms=round(ms, 4), finite=bool(torch.isfinite(out).all()),
                     rel_l2_f64=rel, max_abs_f64=err.max().item(), equal_ship=bool(torch.equal(out, base)),
                     rel_l2_alt=alt))
     print(res[-1], flush=True)
