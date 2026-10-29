@@ -676,7 +676,9 @@ _FAST_MODE = False
 #                   to 320 (`_dit_sdpa_chunk`) instead of 256, which pads every length 256 does not divide
 #   dit_bpad        the bf16 token DiT's block biases padded ONCE per fold to `dit_bias_pad_len` (new keys
 #                   masked), so no call re-fills the bias' ragged key tail and the fused SDPA runs at a length
-#                   its chunks divide (q/k/v follow the bias per call, `_sdpa_to_bias_width`)
+#                   its chunks divide (q/k/v follow the bias per call, `_sdpa_to_bias_width`). On Boltz-2 /
+#                   BoltzGen, whose bias is staged wide already, the token activations follow it once per step
+#                   instead: the per-layer q/k/v pad goes and the transition's row tiles divide (`dit_shard`)
 #   trimul_t1       the triangle multiplication's input layer_norm, gated a/b projection, mask, channel moves
 #                   and g_out as one kernel reading z once (kernels/trimul_in_t1; c_z = hidden = 128, N >= 160)
 #   trimul_t2       its output tail, layer_norm + p projection + sigmoid(g_out) gate + residual add, as one
@@ -18153,7 +18155,17 @@ class Diffusion(Module):
         elif step is not None:
             a = self.token_transformer(a, None, bias_token, steps=(chunk["cond"], step))
         else:
-            a = self.token_transformer(a, s, bias_token)
+            n, w = int(a.shape[-2]), int((bias_token[0] if isinstance(bias_token, list) else bias_token).shape[-1])
+            if lever("dit_bpad") and w > n:
+                # Rows are independent everywhere but the attention, whose staged bias masks the new keys.
+                a_p, s_p = (ttnn.pad(x, [(0, 0), (0, w - n), (0, 0)], value=0.0) for x in (a, s))
+                ttnn.deallocate(a)
+                a_p = self.token_transformer(a_p, s_p, bias_token)
+                ttnn.deallocate(s_p)
+                a = a_p[:, :n, :]
+                ttnn.deallocate(a_p)
+            else:
+                a = self.token_transformer(a, s, bias_token)
         if s is not None:
             ttnn.deallocate(s)
         a = ttnn.layer_norm(
