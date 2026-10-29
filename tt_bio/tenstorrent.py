@@ -3425,6 +3425,13 @@ def dit_bias_pad_len(n: int, short: bool = False) -> int:
     return grid
 
 
+def dit_rows(bias, n: int) -> int:
+    """The token rows Boltz-2 / BoltzGen's DiT runs `n` tokens at: under `dit_bpad` its staged bias width when that
+    is wider (rows are independent everywhere but the attention, whose bias masks the new keys), else `n`."""
+    w = int((bias[0] if isinstance(bias, (list, tuple)) else bias).shape[-1])
+    return w if lever("dit_bpad") and w > n else n
+
+
 def pad_dit_bias(b, n: int, to: int):
     """A `[.., n, n]` additive bias as `[.., to, to]`: new query rows 0, new key columns masked, the
     order `_stage_token_bias` pads in. Inside the last tile a pad relabels its source rather than
@@ -18055,11 +18062,12 @@ class Diffusion(Module):
         )
         return s_to_a
 
-    def cond_steps(self, times, s_trunk, s_inputs, c):
+    def cond_steps(self, times, s_trunk, s_inputs, c, rows=None):
         """`dit_cond_steps`: every step's conditioning for `times` ([G] noise levels, one sample's row block each),
         stacked on the leading dim: `s_to_a` and the token DiT's per-layer terms. The schedule fixes the noise levels
         before sampling starts and nothing here reads the coordinates, so G steps' 72 projections run as 72 linears
-        of G x 512 rows instead of G x 72 of 512, where a Wormhole linear pays ~24 us of fixed cost each (matlim)."""
+        of G x 512 rows instead of G x 72 of 512, where a Wormhole linear pays ~24 us of fixed cost each (matlim).
+        `rows` (`dit_rows`): the token rows the DiT runs at; the terms are staged with zero rows up to it."""
         self.release_steps()
         self._condition_once(s_trunk, s_inputs, c)
         s = self._conditioning(times)
@@ -18067,11 +18075,17 @@ class Diffusion(Module):
         # (cen16: 558 us at G 8 against 8 x 74.5, matlim: 344 us as 4096 rows). On tile-aligned rows both
         # reshapes are views.
         G, n, d = (int(x) for x in s.shape)
-        s = ttnn.reshape(s, (1, G * n, d))
-        stack = lambda t: ttnn.reshape(t, (G, n, int(t.shape[-1])))  # noqa: E731
-        self._steps = {"s_to_a": stack(self._s_to_a(s)),
-                       "cond": [tuple(map(stack, parts)) for parts in self.token_transformer.cond_steps(s)]}
+        m = rows or n
+        flat = lambda t: ttnn.reshape(t, (1, G * int(t.shape[-2]), d))  # noqa: E731
+        stack = lambda t, r: ttnn.reshape(t, (G, r, int(t.shape[-1])))  # noqa: E731
+        s_w = flat(ttnn.pad(s, [(0, 0), (0, m - n), (0, 0)], value=0.0)) if m > n else None
+        s = flat(s)
+        s_w = s if s_w is None else s_w
+        self._steps = {"s_to_a": stack(self._s_to_a(s), n),
+                       "cond": [tuple(stack(x, m) for x in parts) for parts in self.token_transformer.cond_steps(s_w)]}
         ttnn.deallocate(s)
+        if m > n:
+            ttnn.deallocate(s_w)
 
     def release_steps(self):
         chunk, self._steps = getattr(self, "_steps", None), None
@@ -18152,20 +18166,23 @@ class Diffusion(Module):
             )
             for tensor in (a_fp32, s_fp32, bias_fp32):
                 ttnn.deallocate(tensor)
-        elif step is not None:
-            a = self.token_transformer(a, None, bias_token, steps=(chunk["cond"], step))
         else:
-            n, w = int(a.shape[-2]), int((bias_token[0] if isinstance(bias_token, list) else bias_token).shape[-1])
-            if lever("dit_bpad") and w > n:
+            # dit_bpad: the rows the DiT runs at, which dit_cond_steps' terms were staged at already.
+            n = int(a.shape[-2])
+            w = dit_rows(bias_token, n) if step is None else int(chunk["cond"][0][0].shape[-2])
+            if w > n:
                 # Rows are independent everywhere but the attention, whose staged bias masks the new keys.
-                a_p, s_p = (ttnn.pad(x, [(0, 0), (0, w - n), (0, 0)], value=0.0) for x in (a, s))
-                ttnn.deallocate(a)
-                a_p = self.token_transformer(a_p, s_p, bias_token)
-                ttnn.deallocate(s_p)
-                a = a_p[:, :n, :]
-                ttnn.deallocate(a_p)
-            else:
-                a = self.token_transformer(a, s, bias_token)
+                pad = [(0, 0), (0, w - n), (0, 0)]
+                a_n, a = a, ttnn.pad(a, pad, value=0.0)
+                ttnn.deallocate(a_n)
+                if s is not None:
+                    s_n, s = s, ttnn.pad(s, pad, value=0.0)
+                    ttnn.deallocate(s_n)
+            a_w = (self.token_transformer(a, s, bias_token) if step is None
+                   else self.token_transformer(a, None, bias_token, steps=(chunk["cond"], step)))
+            a = a_w[:, :n, :] if w > n else a_w
+            if w > n:
+                ttnn.deallocate(a_w)
         if s is not None:
             ttnn.deallocate(s)
         a = ttnn.layer_norm(
@@ -18900,7 +18917,8 @@ class DiffusionModule(TorchWrapper):
         k0 = k - k % G
         if self._steps_k0 != k0:
             ts = torch.tensor(sched[k0:k0 + G], dtype=times.dtype)
-            self.module.cond_steps(self._from_torch(ts), s_trunk, self._cache_get("s_inputs"), self._cache_get("c"))
+            self.module.cond_steps(self._from_torch(ts), s_trunk, self._cache_get("s_inputs"), self._cache_get("c"),
+                                   rows=dit_rows(self._cache_get("bias_token"), int(s_trunk.shape[-2])))
             self._steps_k0 = k0
             _latch("dit_cond_steps", "served")
         return k - k0
