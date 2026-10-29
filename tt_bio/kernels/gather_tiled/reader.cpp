@@ -4,7 +4,8 @@
 
 // gather_tiled reader: for each unit (row r of the index, 32-wide column block jt) fetch the 32 table rows the
 // index names into one row-major block of CT tiles, every read in flight behind one barrier. Columns past the
-// index's width take a zero row, the value ttnn's own tilize pads with.
+// index's width take a zero row, the value ttnn's own tilize pads with. A table row narrower than the block's
+// (TROW < ROW, e.g. 16 channels) fills the front of its slot; the rest of the CB is zeroed once and never written.
 // The table may hold COPIES identical replicas STRIDE pages apart (STRIDE coprime to the DRAM bank count): read k of
 // unit u goes to replica (u + k) % COPIES, so an index that names one row over and over (RFD3's CA distance bins,
 // where every pair past the top edge takes the last row) spreads over every bank instead of queueing on one.
@@ -24,13 +25,14 @@ void kernel_main() {
     constexpr uint32_t IDX_BYTES = get_compile_time_arg_val(3);   // one index row, W padded to 8 entries
     constexpr uint32_t COPIES = get_compile_time_arg_val(4);
     constexpr uint32_t STRIDE = get_compile_time_arg_val(5);   // table pages between replicas
-    constexpr auto idx_args = TensorAccessorArgs<6>();
+    constexpr uint32_t TROW = get_compile_time_arg_val(6);     // bytes of one table row (page)
+    constexpr auto idx_args = TensorAccessorArgs<7>();
     constexpr auto tab_args = TensorAccessorArgs<idx_args.next_compile_time_args_offset()>();
     constexpr uint32_t cb_rm = 0, cb_idx = 1, cb_zero = 2;
     constexpr uint32_t ROW = CT * 32 * 2;
 
     const auto s_idx = TensorAccessor(idx_args, get_common_arg_val<uint32_t>(0), IDX_BYTES);
-    const auto s_tab = TensorAccessor(tab_args, get_common_arg_val<uint32_t>(1), ROW);
+    const auto s_tab = TensorAccessor(tab_args, get_common_arg_val<uint32_t>(1), TROW);
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
 #ifdef GT_FMA
@@ -48,6 +50,12 @@ void kernel_main() {
         z[w] = 0;
     }
     const uint64_t zero_noc = get_noc_addr(zero_l1);
+    if constexpr (TROW < ROW) {
+        volatile tt_l1_ptr uint32_t* rm = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(get_write_ptr(cb_rm));
+        for (uint32_t w = 0; w < 2 * CT * 32 * 32 * 2 / 4; ++w) {   // the CB: 2 * CT tiles
+            rm[w] = 0;
+        }
+    }
     const uint32_t idx_l1 = get_write_ptr(cb_idx);
     volatile tt_l1_ptr uint32_t* idx = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(idx_l1);
 
@@ -74,7 +82,7 @@ void kernel_main() {
         uint32_t wp = get_write_ptr(cb_rm);
         uint32_t rep = (u % COPIES) * STRIDE;
         for (uint32_t k = 0; k < 32; ++k, wp += ROW) {
-            noc_async_read(k < n ? s_tab.get_noc_addr(rep + idx[c0 + k]) : zero_noc, wp, ROW);
+            noc_async_read(k < n ? s_tab.get_noc_addr(rep + idx[c0 + k]) : zero_noc, wp, TROW);
             rep = rep + STRIDE == COPIES * STRIDE ? 0 : rep + STRIDE;
         }
 #ifdef GT_FMA

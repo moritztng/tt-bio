@@ -588,6 +588,10 @@ _BINS_NB = env_flag("RFD3_BINS_NB", True)
 # seed floor, breaks 2 -> 3, clashes 337 -> 355. On by default on Wormhole (p150a not read yet); RFD3_PZ_ADDCMUL=0/1
 # forces it.
 _PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False) if os.environ.get("RFD3_PZ_ADDCMUL") else None
+# The encoder/decoder's neighbour pair features off the resident P_LL table through gather_tiled (16-channel rows into
+# zero-padded tiles) instead of ttnn.embedding + to_layout: WH fast census 5.4 + 1.0 ms/step. Data movement only, the
+# same bits. RFD3_PLL_GATHER=0 restores the embedding.
+_PLL_GATHER = env_flag("RFD3_PLL_GATHER", True)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -2329,6 +2333,12 @@ def _sparse_pair_gather(cache, p_host, indices, device, dtype):
     batch, length, n_keys = indices.shape
     row_offset = (torch.arange(length, dtype=torch.int64) * length).reshape(1, length, 1)
     flat = (indices.long().cpu() + row_offset).reshape(1, batch * length * n_keys)
+    if _PLL_GATHER and _gather_tiled.eligible_shape(table, n_keys):
+        idx = ttnn.from_torch(_gather_tiled.pad_index(flat.to(torch.int32), batch * length, n_keys),
+                              layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
+        out = _gather_tiled.gather_tiled(idx, table, batch, n_keys)
+        ttnn.deallocate(idx)
+        return out
     idx = ttnn.from_torch(flat.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
                           device=device, dtype=ttnn.uint32)
     rows = ttnn.embedding(idx, table, layout=ttnn.ROW_MAJOR_LAYOUT,
