@@ -594,8 +594,8 @@ _PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False) if os.environ.get("RFD3_PZ_ADDC
 _PLL_GATHER = env_flag("RFD3_PLL_GATHER", True)
 # TokenInitializer writes that table on the card from its own P_LL blocks (TokenInitializer.pair_cache), so the first
 # diffusion step no longer casts and uploads the 1.17 GB of P_LL it had just downloaded (page fixture, 6051 atoms).
-# A copy of the same bf16 values.
-_PLL_INIT_TABLE = env_flag("RFD3_PLL_INIT_TABLE", False)
+# A copy of the same bf16 values: BH sampler -1.1 s fast at equal digests. RFD3_PLL_INIT_TABLE=0 restores the upload.
+_PLL_INIT_TABLE = env_flag("RFD3_PLL_INIT_TABLE", True)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
