@@ -198,15 +198,16 @@ class Boltz(nn.Module):
         4. Affinity prediction
         """
         # None (the design step's default) replays the DiT trace on Blackhole, and the 1831-residue
-        # ceiling holds with the region reserved. Wormhole stays opt-in until its ceiling is re-walked.
+        # ceiling holds with the region reserved. Not under dit_cond_steps: the captured step computes
+        # its own conditioning, so it would drop that lever. Wormhole stays opt-in until its ceiling
+        # is re-walked.
         if diffusion_trace is None:
-            diffusion_trace = not tenstorrent.is_wormhole()
+            diffusion_trace = not tenstorrent.is_wormhole() and "dit_cond_steps" not in self._levers
         # Reserve the DiT trace region BEFORE any module opens the device: the first
-        # get_device() opens, so this must precede module construction. Under dit_cond_steps
-        # each row block of a conditioning chunk is its own capture.
+        # get_device() opens, so this must precede module construction.
         if diffusion_trace:
             from tt_bio.tenstorrent import get_device
-            get_device(trace="diffusion_steps" if "dit_cond_steps" in self._levers else "diffusion")
+            get_device(trace="diffusion")
         self.inverse_fold = inverse_fold
         self.inference_logging = inference_logging
         self.use_kernels = use_kernels
