@@ -8,6 +8,12 @@
 #include "matmul_dataflow_common.hpp"
 #include "ttnn/operations/experimental/ccl/strided_all_gather_async/device/kernels/fused_receiver_utils.hpp"
 
+// MM_DM_PROBE (benchmarks only, wrong output): bit 1 skips in0's DRAM read, bit 2 in1's, bit 4 the core-to-core
+// forwarding (every core computes on whatever its CBs hold). Times what a perfect reader could save.
+#ifndef MM_DM_PROBE
+#define MM_DM_PROBE 0
+#endif
+
 void kernel_main() {
     constexpr uint32_t M_tiles = get_compile_time_arg_val(0);
     constexpr uint32_t padded_M_tiles = get_compile_time_arg_val(1);
@@ -279,6 +285,7 @@ void kernel_main() {
 
                 uint32_t in0_start_address = get_write_ptr(cb_id_in0);
                 if constexpr (is_injector_core) {
+#if !(MM_DM_PROBE & 1)
 #ifdef FUSE_AG
                     if (is_injector_core) {
                         k_block =
@@ -300,18 +307,21 @@ void kernel_main() {
                         m_tile_end,
                         k_block * K_block_tiles,
                         (k_block + 1) * K_block_tiles);
+#endif
                 } else {
                     // Get from previous device
+#if !(MM_DM_PROBE & 4)
                     noc_semaphore_set(in0_receiver_semaphore_addr_ptr, INVALID);
                     noc_semaphore_inc(in0_sender_semaphore_noc_addr, 1);
                     noc_semaphore_wait(in0_receiver_semaphore_addr_ptr, VALID);
+#endif
                 }
 
                 // Critical to performance for sender to push data to compute before mcasting
                 // This frees sender to start next read earlier
                 cb_push_back(cb_id_in0, in0_block_num_tiles);
 
-                if (!is_sink_core) {
+                if (!is_sink_core && !(MM_DM_PROBE & 4)) {
                     noc_semaphore_wait(in0_sender_semaphore_addr_ptr, 1);
                     noc_semaphore_set(in0_sender_semaphore_addr_ptr, 0);
 
