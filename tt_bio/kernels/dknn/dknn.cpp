@@ -91,6 +91,15 @@ void kernel_main() {
     uint64_t* s = reinterpret_cast<uint64_t*>(get_write_ptr(CB_S));
     volatile tt_l1_ptr uint32_t* m = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(m_l1);
     volatile tt_l1_ptr uint32_t* o = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(o_l1);
+#ifdef DKNN_CELLS
+    // a table that is not a grid of at most L cells with ascending starts would walk without end: every row is written
+    // as padding instead, so the fault shows as wrong rows (gap_dknn, test_dknn_rows) rather than a core that never ends
+    bool sane = gr[3] > 0 && gr[4] > 0 && gr[5] > 0 && gr[6] > 0 && gr[7] >= 1 && uint32_t(gr[7]) + 9 <= GW &&
+                int64_t(gr[4]) * gr[5] * gr[6] == gr[7] && gr[8] == 0;
+    for (int32_t t = 0; sane && t < gr[7]; ++t) sane = gr[8 + t] <= gr[9 + t] && uint32_t(gr[9 + t]) <= L;
+#else
+    constexpr bool sane = true;
+#endif
 
     // The k-th key is bounded by a sample: the TS-th smallest key of every SS-th atom. Collect only the atoms at or
     // under that bound; if fewer than K made it, the bound was too tight and every atom is collected instead. Either
@@ -108,6 +117,12 @@ void kernel_main() {
             noc_async_read_barrier();
             r = cw[0];
             cbound = uint64_t(cw[1]) | (uint64_t(cw[2]) << 32);
+        }
+        if (!sane) {
+            for (uint32_t t = 0; t < WO; ++t) o[t] = L;
+            noc_async_write(o_l1, so.get_noc_addr(r - o0), WO * 4);
+            noc_async_write_barrier();
+            continue;
         }
         noc_async_read(sm.get_noc_addr(r), m_l1, MW * 4);
         const int32_t qx = x[4 * r], qy = x[4 * r + 1], qz = x[4 * r + 2];
