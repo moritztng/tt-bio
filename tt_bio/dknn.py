@@ -29,6 +29,10 @@ KERNEL = str(Path(__file__).resolve().parent / "kernels" / "dknn" / "dknn.cpp")
 # Read the index back behind an event (read_later) instead of with a blocking to_torch at .result(). A blocking read
 # waits for everything queued before it, which by then includes the token encoder; the event waits for the index only.
 ASYNC_READ = env_flag("RFD3_DKNN_ASYNC_READ", True)
+# Full rows walk a grid of cells around the query instead of every atom (the kernel's DKNN_CELLS); same rows.
+CELLS = env_flag("RFD3_DKNN_CELLS", False)
+#: Atoms per cell the grid aims for over the coordinates' bounding box.
+CELL_OCC = 2
 _CB = (0, 8)   # first CB of BRISC's and NCRISC's six
 _CACHE: dict = {}
 _MASKS: dict = {}
@@ -51,6 +55,38 @@ def fixed_point(x):
     return q
 
 
+def grid_words(L):
+    """Words of the cell table for L atoms: [lo x, y, z, side, nx, ny, nz, cells] + cells + 1 starts, padded."""
+    return _align(8 + L + 1)
+
+
+def cells(q):
+    """[L, 4] int32 fixed point -> [L, 4] atoms sorted by cell ([x, y, z, index]) and the cell table (grid_words).
+
+    The side is set for about CELL_OCC atoms per cell over the bounding box and grown until the grid has at most L
+    cells, so the table's size depends on L only."""
+    L = len(q)
+    x = q[:, :3].astype(np.int64)
+    lo, hi = x.min(0), x.max(0)
+    ext = (hi - lo + 1).astype(np.float64)
+    side = max(1, int(np.ceil((ext.prod() * CELL_OCC / L) ** (1 / 3))))
+    while True:
+        n = (hi - lo) // side + 1
+        if int(n.prod()) <= L:
+            break
+        side += side // 8 + 1
+    c = (x - lo) // side
+    cid = (c[:, 0] * n[1] + c[:, 1]) * n[2] + c[:, 2]
+    order = np.argsort(cid, kind="stable")
+    xs = np.empty((L, 4), np.int32)
+    xs[:, :3] = q[order, :3]
+    xs[:, 3] = order
+    g = np.zeros(grid_words(L), np.int64)
+    g[:8] = [*lo, side, *n, int(n.prod())]
+    g[8:8 + int(n.prod()) + 1] = np.searchsorted(cid[order], np.arange(int(n.prod()) + 1))
+    return xs, g.astype(np.int32)
+
+
 def mask_words(mask, n_fill):
     """[L, L] bool mask + [L] n_fill -> [L, MW] int32 rows [n_fill, bit-packed mask...]."""
     L = mask.shape[0]
@@ -69,15 +105,17 @@ SLACK = 8
 MIN_STATIC = 0.25
 
 
-def _cb_sizes(L, MW, WO, CW=0):
-    sizes = (L * 16, L * 8, L * 16, MW * 4, WO * 4)   # coords, keys, scratch, mask row, out row
-    return sizes + (CW * 4,) if CW else sizes          # candidate row
+def _cb_sizes(L, MW, WO, CW=0, cells=False):
+    sizes = (L * 16, L * 8, L * 16, MW * 4, WO * 4, CW * 4 or 4)   # coords, keys, scratch, mask row, out row, cand row
+    if cells:
+        sizes += (L * 16, grid_words(L) * 4)                           # atoms by cell, cell table
+    return sizes if cells or CW else sizes[:5]
 
 
 def fits(L, k):
     """True when both RISC-Vs' buffers fit one core's L1 (about 18k atoms at k 128)."""
     MW, WO, CW = _align(1 + (L + 31) // 32), _align(k), _align(4 + k + SLACK)
-    return len(_CB) * sum(_cb_sizes(L, MW, WO, CW)) + PROGRAM_RESERVE <= L1_PER_CORE
+    return len(_CB) * sum(_cb_sizes(L, MW, WO, CW, CELLS)) + PROGRAM_RESERVE <= L1_PER_CORE
 
 
 def _build(device, L, K, MW, WO, xt, mt, ot, ct=None, rows=None):
@@ -85,7 +123,7 @@ def _build(device, L, K, MW, WO, xt, mt, ot, ct=None, rows=None):
     CW = int(ct.shape[1]) if ct is not None else 0
     r0, r1 = rows or (0, L)
     _, grid, cg1, cg2, work1, work2 = core_split.split_work_to_cores(g, r1 - r0, 0)
-    sizes = _cb_sizes(L, MW, WO, CW)
+    sizes = _cb_sizes(L, MW, WO, CW, CELLS)
     cbs = []
     for base in _CB:
         for i, size in enumerate(sizes):
@@ -106,7 +144,8 @@ def _build(device, L, K, MW, WO, xt, mt, ot, ct=None, rows=None):
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     kernels = [ttnn.KernelDescriptor(kernel_source=KERNEL, source_type=path, core_ranges=grid,
                                      compile_time_args=[L, K, MW, WO, base, CW] + acc, runtime_args=rt,
-                                     common_runtime_args=[0] * 7, config=cfg)
+                                     common_runtime_args=[0] * 7, config=cfg,
+                                     defines=[("DKNN_CELLS", str(grid_words(L)))] if CELLS else [])
                for base, rt, cfg in zip(_CB, rts, (ttnn.ReaderConfigDescriptor(), ttnn.WriterConfigDescriptor()))]
     return kernels, cbs
 
@@ -122,7 +161,7 @@ def _launch(device, L, k, xt, mt, WO, ot, o0, rows=None, cand=None):
     MW = int(mt.shape[1])
     ct, m0, m1 = cand or (None, 0, 0)
     rows = (0, int(ct.shape[0])) if ct is not None else rows or (0, L)
-    ck = (device.id(), L, k, MW, WO, rows, None if ct is None else int(ct.shape[1]))
+    ck = (device.id(), L, k, MW, WO, rows, None if ct is None else int(ct.shape[1]), CELLS)
     if ck not in _CACHE:
         _CACHE[ck] = _build(device, L, k, MW, WO, xt, mt, ot, ct, rows)
     kernels, cbs = _CACHE[ck]
@@ -149,7 +188,9 @@ def neighbours(device, x, mask, k, rows=None, static=None):
         hit = _MASKS[id(mask)] = (mask, _upload(mask_words(m, n_fill), device))
     _, mt = hit
     WO = _align(k)
-    xt = _upload(fixed_point(x).reshape(1, L * 4), device)
+    q = fixed_point(x)
+    xt = _upload(np.concatenate([q.reshape(-1), *(a.reshape(-1) for a in cells(q))])[None] if CELLS
+                 else q.reshape(1, L * 4), device)
     plan = static.plan(device, x, k) if static is not None and rows is None else None
     r0, r1 = rows or (0, L)
     ot = ttnn.allocate_tensor_on_device(ttnn.Shape([r1 - r0, WO]), ttnn.int32, ttnn.ROW_MAJOR_LAYOUT, device,

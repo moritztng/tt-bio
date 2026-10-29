@@ -14,6 +14,11 @@
 // and that row's nearest static atoms; the keys are taken over those and the mover range [m0, m1) only. When the
 // k-th of them is under the bound, no other atom can be within it (the host set the bound below every other static
 // atom's key at this step's scale), so the row is the full one; otherwise the row is computed in full.
+// Cell walk (DKNN_CELLS): the coordinate tensor also carries the atoms sorted by grid cell ([x, y, z, index] each) and
+// the grid ([lo x, y, z, side, nx, ny, nz, cells] then the cells' first sorted atom, ncells + 1 of them). A full row
+// takes its keys from rings of cells around the query until K are in hand; their k-th is an upper bound on the row's,
+// and every further cell whose box lies within that bound is walked. Any atom left out is farther than the bound, so
+// the k-th key and every key under it are the same as the full scan's, and so is the row.
 #include "api/dataflow/dataflow_api.h"
 
 namespace {
@@ -65,7 +70,18 @@ void kernel_main() {
 
     const uint32_t x_l1 = get_write_ptr(CB_X), m_l1 = get_write_ptr(CB_M), o_l1 = get_write_ptr(CB_O);
     const uint32_t c_l1 = CW > 0 ? get_write_ptr(CB_C) : 0;
+#ifdef DKNN_CELLS
+    constexpr uint32_t GW = DKNN_CELLS;   // grid words: 8 + cells + 1, padded
+    const auto sxc = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0), L * 32 + GW * 4);
+    const uint32_t xs_l1 = get_write_ptr(CB_X + 6), g_l1 = get_write_ptr(CB_X + 7);
+    noc_async_read(sxc.get_noc_addr(0), x_l1, L * 16);
+    noc_async_read(sxc.get_noc_addr(0) + L * 16, xs_l1, L * 16);
+    noc_async_read(sxc.get_noc_addr(0) + L * 32, g_l1, GW * 4);
+    const int32_t* xs = reinterpret_cast<const int32_t*>(xs_l1);
+    const int32_t* gr = reinterpret_cast<const int32_t*>(g_l1);
+#else
     noc_async_read(sx.get_noc_addr(0), x_l1, L * 16);
+#endif
     noc_async_read_barrier();
     const int32_t* x = reinterpret_cast<const int32_t*>(x_l1);
     uint64_t* d = reinterpret_cast<uint64_t*>(get_write_ptr(CB_D));
@@ -78,7 +94,9 @@ void kernel_main() {
     // way the k-th key is the k-th of the collected keys, so the row is the same, and quickselect runs on ~2K keys.
     constexpr uint32_t KK = K < L ? K : L;
     constexpr uint32_t SS = 8, NS = (L + SS - 1) / SS, TS = 2 * KK / SS - 1;
+#ifndef DKNN_CELLS
     constexpr bool SAMPLED = L >= 4 * KK && TS < NS;
+#endif
 
     for (uint32_t i = r0; i < r0 + nr; ++i) {
         uint32_t r = i;
@@ -99,6 +117,7 @@ void kernel_main() {
             const uint32_t uz = az < 0 ? uint32_t(-az) : uint32_t(az);
             return uint64_t(ux) * ux + uint64_t(uy) * uy + uint64_t(uz) * uz;
         };
+#ifndef DKNN_CELLS
         auto collect = [&](uint64_t bound) {   // (key, index) pairs with key <= bound, ascending by index
             uint32_t c = 0;
             for (uint32_t j = 0; j < L; ++j) {
@@ -111,6 +130,7 @@ void kernel_main() {
             }
             return c;
         };
+#endif
         uint32_t c = 0;
         uint64_t dk = 0;
         bool done = false;
@@ -134,6 +154,64 @@ void kernel_main() {
             }
         }
         if (!done) {
+#ifdef DKNN_CELLS
+            const int64_t glo[3] = {gr[0], gr[1], gr[2]};
+            const int64_t side = gr[3];
+            const int32_t gn[3] = {gr[4], gr[5], gr[6]};
+            const int32_t* start = gr + 8;
+            const int32_t q3[3] = {qx, qy, qz};
+            int32_t qc[3];
+            for (uint32_t a = 0; a < 3; ++a) qc[a] = int32_t(uint32_t(int64_t(q3[a]) - glo[a]) / uint32_t(side));
+            const int32_t nmax = gn[0] > gn[1] ? (gn[0] > gn[2] ? gn[0] : gn[2]) : (gn[1] > gn[2] ? gn[1] : gn[2]);
+            // every cell at Chebyshev distance R from the query's; take(cell) adds its atoms when keep(box gap^2) holds
+            auto ring = [&](int32_t R, uint64_t bound, bool all) {
+                for (int32_t a = qc[0] - R; a <= qc[0] + R; ++a) {
+                    if (a < 0 || a >= gn[0]) continue;
+                    const bool ea = a == qc[0] - R || a == qc[0] + R;
+                    for (int32_t b = qc[1] - R; b <= qc[1] + R; ++b) {
+                        if (b < 0 || b >= gn[1]) continue;
+                        const bool eb = ea || b == qc[1] - R || b == qc[1] + R;
+                        for (int32_t e = qc[2] - R; e <= qc[2] + R; e += (eb || R == 0) ? 1 : 2 * R) {
+                            if (e < 0 || e >= gn[2]) continue;
+                            if (!all) {
+                                const int32_t cc[3] = {a, b, e};
+                                uint64_t g2 = 0;
+                                for (uint32_t ax = 0; ax < 3; ++ax) {
+                                    const int64_t bl = glo[ax] + int64_t(cc[ax]) * side, bh = bl + side - 1;
+                                    const int64_t g = q3[ax] < bl ? bl - q3[ax] : (q3[ax] > bh ? q3[ax] - bh : 0);
+                                    g2 += uint64_t(g) * uint64_t(g);
+                                }
+                                if (g2 > bound) continue;
+                            }
+                            const int32_t cell = (a * gn[1] + b) * gn[2] + e;
+                            for (int32_t t = start[cell]; t < start[cell + 1]; ++t) {
+                                const int32_t ax = xs[4 * t] - qx, ay = xs[4 * t + 1] - qy, az = xs[4 * t + 2] - qz;
+                                const uint32_t ux = ax < 0 ? uint32_t(-ax) : uint32_t(ax);
+                                const uint32_t uy = ay < 0 ? uint32_t(-ay) : uint32_t(ay);
+                                const uint32_t uz = az < 0 ? uint32_t(-az) : uint32_t(az);
+                                const uint64_t v = uint64_t(ux) * ux + uint64_t(uy) * uy + uint64_t(uz) * uz;
+                                if (all || v <= bound) {
+                                    s[2 * c] = v;
+                                    s[2 * c + 1] = uint32_t(xs[4 * t + 3]);
+                                    ++c;
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            c = 0;
+            int32_t R = 0;
+            for (; c < KK && R <= nmax; ++R) ring(R, 0, true);
+            for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
+            const uint64_t bound = kth(d, int32_t(c), int32_t(KK) - 1);
+            // ring R's cells all lie at least (R - 1) * side away along one axis
+            for (; R <= nmax; ++R) {
+                const uint64_t g = uint64_t(R - 1) * uint64_t(side);
+                if (g * g > bound) break;
+                ring(R, bound, false);
+            }
+#else
             uint64_t bound = ~uint64_t(0);
             if constexpr (SAMPLED) {
                 for (uint32_t t = 0; t < NS; ++t) d[t] = key(t * SS);
@@ -141,6 +219,7 @@ void kernel_main() {
             }
             c = collect(bound);
             if (c < KK) c = collect(~uint64_t(0));
+#endif
             for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
             dk = kth(d, int32_t(c), int32_t(KK) - 1);
         }
