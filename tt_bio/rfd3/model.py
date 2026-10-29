@@ -2793,6 +2793,7 @@ _DIT_SHOIST = env_flag("RFD3_DIT_SHOIST", True)
 # replay hands the card the DiT at once and lets the host get on with the decoder. Needs a device opened with
 # `get_device(trace="rfd3")`.
 _DIT_TRACE = env_flag("RFD3_DIT_TRACE", False)
+_DIT_TRACE_WARM = 4   # eager calls a signature gets to stop compiling before the DiT gives up on tracing
 _DIT_SHOIST_BYTES = 384 << 20   # the three wide bf16 tensors of one call; 685 tokens x 1 design is 114 MB
 
 
@@ -4213,9 +4214,10 @@ class LocalTokenTransformer(Module):
         return out if resident else ttnn.to_torch(out).float()
 
     def _traced(self, a, s, z, mask):
-        """`run_device` replayed from a trace. The first call at an input signature runs eagerly (it compiles every
-        program, calibrates the linears and builds the packed weights), the second is captured and every later one
-        copies its inputs into the captured ones and replays: the same programs in the same order, so the output is
+        """`run_device` replayed from a trace. Calls at an input signature run eagerly until one adds nothing to the
+        program cache (the first compiles, calibrates the linears and builds the packed weights; a later one can still
+        meet a new program, and a capture that loads a binary is refused). The next call is captured and every later
+        one copies its inputs into the captured ones and replays: the same programs in the same order, so the output is
         the eager one bit for bit. Eager work runs between replays, so the capture allocates only inside the
         device's `TraceScratch` fence, sized from the eager call's DRAM high-water. The output is cloned out because
         the captured one lives in the fence: a caller freeing it would hand part of the fence to an eager tensor the
@@ -4230,13 +4232,18 @@ class LocalTokenTransformer(Module):
             T = None
         if T is None:
             dram = _AG._in_dram(ins) and not _MM2D_L1      # L1 is not fenced
-            self._trace = T = {"sig": sig, "failed": not dram}
-            if not dram:
-                return self.run_device(*ins)
-            out, T["need"] = _AG._rise(self.device, lambda: self.run_device(*ins))
-            return out
+            self._trace = T = {"sig": sig, "failed": not dram, "need": 0, "eager": 0}
         if T["failed"]:
             return self.run_device(*ins)
+        if not T.get("warm"):
+            n0 = self.device.num_program_cache_entries()
+            out, need = _AG._rise(self.device, lambda: self.run_device(*ins))
+            T["need"], T["eager"] = max(T["need"], need), T["eager"] + 1
+            T["warm"] = self.device.num_program_cache_entries() == n0
+            if not T["warm"] and T["eager"] >= _DIT_TRACE_WARM:
+                print(f"  [rfd3 DiT] still compiling after {T['eager']} eager calls, the DiT stays eager")
+                T["failed"] = True
+            return out
         if "tid" not in T:
             T["in"] = [ttnn.clone(t) for t in ins]
             if _AG._SCRATCH[0] is None:

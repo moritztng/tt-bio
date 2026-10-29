@@ -32,19 +32,20 @@ def test_dit_trace_matches_eager(monkeypatch):
     dev = get_device(trace="rfd3")
     from tt_bio.rfd3 import model as M
     dit = M.build_diffusion_module(torch.load(WEIGHTS, map_location="cpu", weights_only=True)).diffusion_transformer
-    sets = [_inputs(seed) for seed in (1, 2, 3, 2)]
+    sets = [_inputs(seed) for seed in (1, 2, 3, 2, 1)]
 
-    monkeypatch.setattr(M, "_DIT_TRACE", False)
-    ref = [dit(*x) for x in sets]
-
+    # Traced first, on a cold program cache: the full fold met a program that only compiled at the capture.
     monkeypatch.setattr(M, "_DIT_TRACE", True)
     want = torch.arange(32 * 1024.0).reshape(32, 1024)
     got, held = [], None
-    for x in sets:          # eager, capture + replay, then replays at moved input addresses
+    for x in sets:          # eager until warm, capture + replay, then replays at moved input addresses
         got.append(dit(*x))
-        if len(got) == 2:   # allocated after the capture, alive across the replays that follow
-            assert dit._trace.get("tid") is not None, "capture refused"
+        if held is None and dit._trace.get("tid") is not None:   # alive across the replays that follow
             held = ttnn.from_torch(want, dtype=ttnn.float32, layout=ttnn.TILE_LAYOUT, device=dev)
+    assert held is not None and len(got) - dit._trace["eager"] >= 2, ("capture refused", dit._trace)
+
+    monkeypatch.setattr(M, "_DIT_TRACE", False)
+    ref = [dit(*x) for x in sets]
     for i, (r, o) in enumerate(zip(ref, got)):
         assert torch.equal(r, o), (i, (r - o).abs().max().item())
     assert torch.equal(ttnn.to_torch(held), want)
