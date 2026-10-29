@@ -8502,6 +8502,43 @@ def program_cache_for(shapes, dev=None) -> None:
     _PROGRAM_CACHE_SHAPES[0] = shapes
 
 
+def is_dram_refusal(exc: BaseException) -> bool:
+    """Whether `exc` is the allocator refusing a DRAM buffer (bank_manager's TT_FATAL)."""
+    s = str(exc)
+    return "Out of Memory" in s and "DRAM buffer" in s
+
+
+def evicting_programs_on_refusal(run, dev=None):
+    """``run()``, and once more on an empty program cache if the device refused it DRAM while
+    the cache held programs. ``run`` must be safe to repeat.
+
+    Every cached program keeps its kernel binaries in a DRAM buffer of its own, allocated from
+    the top of each bank (tt-metal ``ProgramImpl::allocate_kernel_bin_buf_on_device``), and none
+    is freed until the cache is cleared. A worker that keeps its chip open across jobs and never
+    clears holds the binaries of every shape it has run: on JapanFold's Wormhole Galaxies the
+    ESMFold2 workers had 1.1 to 4.5 GB free between tasks after 17 h, and a 722-residue
+    ESMFold2-Fast fold was refused 22 MiB per bank at trunk start with 77.9 MiB free in pieces
+    of at most 21.6 MiB (2026-10-29, 55-65 % of tasks failing on some boxes). Clearing on every
+    shape change, as `program_cache_for` does for Protenix, would make most folds of a
+    mixed-length queue cold; evicting on refusal recompiles only when the binaries are what
+    stands in the way, and a refusal with nothing cached is re-raised as it was.
+    """
+    try:
+        return run()
+    except RuntimeError as e:
+        dev = dev or get_device()
+        n = int(dev.num_program_cache_entries()) if is_dram_refusal(e) else 0
+        if not n:
+            raise
+    gc.collect()   # the failed attempt's tensors, before measuring what the eviction frees
+    before = dram_free()
+    program_cache_for(None, dev)
+    print(f"  [tt-bio] DRAM refused with {n} programs cached: evicted them, largest free "
+          f"{before / 2**20:.0f} -> {dram_free() / 2**20:.0f} MiB across the banks; running again",
+          file=sys.stderr, flush=True)
+    return run()
+
+
 def capture_trace(dev, run):
     """Record ``run()`` into a trace and return ``(tid, run's result)``.
 

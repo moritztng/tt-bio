@@ -1828,10 +1828,12 @@ def fold_complex(model, chains, *, num_loops=3, num_sampling_steps=20,
         esmc._persistent = False
     from tt_bio import tenstorrent
     try:
+        # A worker folds many inputs on one open chip, and the kernel binaries of every shape it
+        # has folded stay in DRAM until the program cache is cleared (evicting_programs_on_refusal).
         with fold_scope(getattr(model, "_tt_fast", False)):
-            res = ESMFold2InputBuilder().fold(
+            res = tenstorrent.evicting_programs_on_refusal(lambda: ESMFold2InputBuilder().fold(
                 model, spi, num_loops=num_loops, num_sampling_steps=num_sampling_steps,
-                num_diffusion_samples=num_diffusion_samples, seed=seed)
+                num_diffusion_samples=num_diffusion_samples, seed=seed))
     finally:
         if release_lm:
             esmc._persistent = True
