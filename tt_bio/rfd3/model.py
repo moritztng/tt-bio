@@ -592,6 +592,10 @@ _PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False) if os.environ.get("RFD3_PZ_ADDC
 # zero-padded tiles) instead of ttnn.embedding + to_layout: WH fast census 5.4 + 1.0 ms/step. Data movement only, the
 # same bits. RFD3_PLL_GATHER=0 restores the embedding.
 _PLL_GATHER = env_flag("RFD3_PLL_GATHER", True)
+# TokenInitializer writes that table on the card from its own P_LL blocks (TokenInitializer.pair_cache), so the first
+# diffusion step no longer casts and uploads the 1.17 GB of P_LL it had just downloaded (page fixture, 6051 atoms).
+# A copy of the same bf16 values: BH sampler -1.1 s fast at equal digests. RFD3_PLL_INIT_TABLE=0 restores the upload.
+_PLL_INIT_TABLE = env_flag("RFD3_PLL_INIT_TABLE", True)
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -1829,6 +1833,9 @@ class TokenInitializer(Module):
     def __init__(self, state_dict, ckc, dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
+        # The diffusion module's sparse-QK cache (RFD3DiffusionModule.pair_cache). Set, P_LL's gather table is
+        # written on the card here from the blocks that build P_LL instead of uploaded again by the first step.
+        self.pair_cache = None
         dev = self.device
 
         # OneD embedder weights (each feature -> linear to its channel). nn.Linear (out,in);
@@ -2111,6 +2118,12 @@ class TokenInitializer(Module):
                          atom_pair_budget_bytes())
         ATOM_PAIR_BLOCK_STATS[:] = [rows, -(-L // rows)]
         p_blocks, pll_blocks = [], []
+        table = None
+        if self.pair_cache is not None and dt == ttnn.bfloat16:
+            _pair_tables(self.pair_cache)
+            table = ttnn.allocate_tensor_on_device(
+                ttnn.Shape([1, 1, _pair_table_rows(L * L)[1], self.C_ATOMPAIR]), ttnn.bfloat16,
+                ttnn.ROW_MAJOR_LAYOUT, dev)
         for a0 in range(0, L, rows):
             a1 = min(a0 + rows, L)
             # motif_pos_embedder (SinusoidalDistEmbed): host sincos -> device output_proj + valid_mask linears
@@ -2154,6 +2167,8 @@ class TokenInitializer(Module):
                 ttnn.deallocate(r)
             p = _pair_add(p, m)
             p_blocks.append(ttnn.to_torch(p).float().squeeze(0))            # [R,L,16]
+            if table is not None:
+                _write_pair_rows(table, p, a0 * L)
             pll = ttnn.linear(p, self.proc_pll_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
             ttnn.deallocate(p)
             pll_blocks.append(ttnn.to_torch(pll).float().squeeze(0))        # [R,L,16]
@@ -2172,6 +2187,9 @@ class TokenInitializer(Module):
         Q_L_init = ttnn.to_torch(ql_init).float().squeeze(0)  # [L,128]
         C_L = ttnn.to_torch(c_l).float().squeeze(0)          # [L,128]
         P_LL = p_h                                          # [L,L,16]
+        if table is not None:
+            self.pair_cache["tables"][_pair_table_key(P_LL, dt)] = (
+                P_LL, ttnn.reshape(table, (int(table.shape[2]), self.C_ATOMPAIR)))
         return {"Q_L_init": Q_L_init, "C_L": C_L, "P_LL": P_LL, "S_I": S_init_I, "Z_II": Z_II}
 
 
@@ -2281,15 +2299,39 @@ def _pair_gather_table(cache, p_host, device, dtype):
     would rebuild both; a third distinct table (the next design shape) evicts the
     oldest.
     """
-    key = (p_host.data_ptr(), tuple(p_host.shape), dtype)
-    tables = cache.setdefault("tables", {})
-    entry = tables.get(key)
+    key = _pair_table_key(p_host, dtype)
+    entry = cache.get("tables", {}).get(key)
     if entry is None:
-        while len(tables) >= _PAIR_TABLE_SLOTS:
-            ttnn.deallocate(tables.pop(next(iter(tables)))[1])
-        entry = (p_host, _upload_pair_table(p_host.reshape(-1, p_host.shape[-1]), device))
-        tables[key] = entry
+        tables = _pair_tables(cache)
+        entry = tables[key] = (p_host, _upload_pair_table(p_host.reshape(-1, p_host.shape[-1]), device))
     return entry[1]
+
+
+def _pair_tables(cache):
+    """The cache's table dict with room made for one more table, the oldest freed first."""
+    tables = cache.setdefault("tables", {})
+    while len(tables) >= _PAIR_TABLE_SLOTS:
+        ttnn.deallocate(tables.pop(next(iter(tables)))[1])
+    return tables
+
+
+def _write_pair_rows(table, p, row0):
+    """Write a tiled [1, R, L, C] pair block into rows row0 .. row0 + R*L of a [1, 1, N, C] row-major table."""
+    _, r, length, c = (int(d) for d in p.shape)
+    rows = ttnn.reshape(ttnn.to_layout(p, ttnn.ROW_MAJOR_LAYOUT), (1, 1, r * length, c))
+    ttnn.experimental.slice_write(rows, table, [0, 0, row0, 0], [1, 1, row0 + r * length, c], [1, 1, 1, 1])
+    ttnn.deallocate(rows)
+
+
+def _pair_table_key(p_host, dtype):
+    p4 = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
+    return (p4.data_ptr(), tuple(p4.shape), dtype)
+
+
+def _pair_table_rows(n):
+    """(chunk, padded rows) of the gather table for n pair rows; both builders size it the same way."""
+    chunk = min(_TABLE_CHUNK_ROWS, -(-n // _TABLE_ROWS_PER_PAGE) * _TABLE_ROWS_PER_PAGE)
+    return chunk, -(-n // chunk) * chunk
 
 
 _TABLE_ROWS_PER_PAGE = 16
@@ -2306,8 +2348,7 @@ def _upload_pair_table(flat, device):
     Rows past N are padding the gather never indexes.
     """
     n, c = flat.shape
-    chunk = min(_TABLE_CHUNK_ROWS, -(-n // _TABLE_ROWS_PER_PAGE) * _TABLE_ROWS_PER_PAGE)
-    n_pad = -(-n // chunk) * chunk
+    chunk, n_pad = _pair_table_rows(n)
     table = ttnn.allocate_tensor_on_device(ttnn.Shape([1, 1, n_pad, c]), ttnn.bfloat16, ttnn.ROW_MAJOR_LAYOUT,
                                            device)
     for r0 in range(0, n_pad, chunk):
@@ -4559,6 +4600,7 @@ class RFD3DiffusionModule(Module):
         # one (see _sparse_qk_inputs) and leaves one -1e4 scatter template alive
         # instead of two.
         self.decoder._mask_cache = self.encoder._mask_cache
+        self.pair_cache = self.encoder._mask_cache if _PLL_INIT_TABLE else None
         self.sequence_head = LinearSequenceHead(self.scope("sequence_head"), ckc, dtype=dt)
 
     def scale_positions_in(self, X, t):

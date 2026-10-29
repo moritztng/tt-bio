@@ -580,6 +580,7 @@ def _run_design_jobs(jobs, specs, out_dir, *, checkpoint_dir, from_pdb, num_time
     ti_weights = torch.load(cap / "token_initializer.real_weights.pt", map_location="cpu", weights_only=True)
     dev_ti = build_token_initializer(ti_weights)
     dev_dm = build_diffusion_module(dm_weights)
+    dev_ti.pair_cache = dev_dm.pair_cache
     sampler = RFD3Sampler(num_timesteps=num_timesteps)
 
     # golden-bridge path: one captured f + init shared across specs/designs
