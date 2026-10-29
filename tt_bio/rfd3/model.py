@@ -4103,17 +4103,18 @@ class LocalTokenTransformer(Module):
         return out if resident else ttnn.to_torch(out).float()
 
     def _traced(self, a, s, z, mask):
-        """`run_device` replayed from a trace. Calls at an input signature run eagerly until one adds nothing to the
-        program cache (the first compiles, calibrates the linears and builds the packed weights; a later one can still
-        meet a new program, and a capture that loads a binary is refused). The next call is captured and every later
-        one copies its inputs into the captured ones and replays: the same programs in the same order, so the output is
-        the eager one bit for bit. Eager work runs between replays, so the capture allocates only inside the
+        """`run_device` replayed from a trace. Every call copies its inputs into the DiT's own input buffers and runs
+        on those, so the eager calls and the capture see the same tensors. Calls at an input signature run eagerly
+        until one adds nothing to the program cache (the first compiles, calibrates the linears and builds the packed
+        weights; a later one can still meet a new program, and a capture that loads a binary is refused). The next
+        call is captured and every later one replays: the same programs in the same order, so the output is the eager
+        one bit for bit. Eager work runs between replays, so the capture allocates only inside the
         device's `TraceScratch` fence, sized from the eager call's DRAM high-water. The output is cloned out because
         the captured one lives in the fence: a caller freeing it would hand part of the fence to an eager tensor the
         next replay overwrites. A refused capture leaves the DiT eager."""
         from .. import autograd as _AG
         from ..tenstorrent import TraceScratch
-        ins = (a, s, z, mask)
+        args = ins = (a, s, z, mask)
         sig = tuple((tuple(t.padded_shape), t.dtype, t.layout) for t in ins)
         T = self._trace
         if T is not None and T["sig"] != sig:
@@ -4122,8 +4123,14 @@ class LocalTokenTransformer(Module):
         if T is None:
             dram = _AG._in_dram(ins) and not _MM2D_L1      # L1 is not fenced
             self._trace = T = {"sig": sig, "failed": not dram, "need": 0, "eager": 0}
+            if dram:
+                T["in"] = [ttnn.clone(t) for t in ins]
         if T["failed"]:
             return self.run_device(*ins)
+        for t, b in zip(ins, T["in"]):
+            if t.buffer_address() != b.buffer_address():
+                ttnn.copy(t, b)
+        ins = T["in"]
         if not T.get("warm"):
             n0 = self.device.num_program_cache_entries()
             out, need = _AG._rise(self.device, lambda: self.run_device(*ins))
@@ -4134,14 +4141,13 @@ class LocalTokenTransformer(Module):
                 T["failed"] = True
             return out
         if "tid" not in T:
-            T["in"] = [ttnn.clone(t) for t in ins]
             if _AG._SCRATCH[0] is None:
                 _AG._SCRATCH[0] = TraceScratch(self.device)
             sc = _AG._SCRATCH[0]
             need = T["need"] + T["need"] // 4 + sc.CHUNK
 
             def run():
-                T["out"] = self.run_device(*T["in"])
+                T["out"] = self.run_device(*ins)
             try:
                 tids = sc.capture(need, need, [run])
             except RuntimeError as e:      # e.g. the DiT outgrew the trace region
@@ -4150,12 +4156,8 @@ class LocalTokenTransformer(Module):
             if not tids:
                 self.release_trace()
                 self._trace = {"sig": sig, "failed": True}
-                return self.run_device(*ins)
+                return self.run_device(*args)
             T["tid"] = tids[0]
-        else:
-            for t, b in zip(ins, T["in"]):
-                if t.buffer_address() != b.buffer_address():
-                    ttnn.copy(t, b)
         ttnn.execute_trace(self.device, T["tid"], cq_id=0, blocking=False)
         return ttnn.clone(T["out"])
 
