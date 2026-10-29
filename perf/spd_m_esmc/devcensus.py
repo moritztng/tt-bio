@@ -4,6 +4,9 @@ op_census.py times each op on the host with a sync after it, which inflates smal
 eager forward of 128). This reads the device's own kernel duration per program and groups it by the ttnn op that
 launched it, so a share here is a share of chip time. Two warm forwards (compile, not recorded), then --repeat recorded.
 
+Every profiler analysis is kept per op too (``analyses``: per-RISC kernel spans, compute CB waits, in ms), which says
+whether an op's span is the math RISC or a reader/packer waiting on it.
+
 Needs the Tracy tt-metal build and TT_METAL_DEVICE_PROFILER=1 (see the dc1 grid job for the environment).
 
     python perf/spd_m_esmc/devcensus.py --model esmc-300m [--fast] --out dc.json
@@ -71,13 +74,16 @@ def drain():
         except RuntimeError as e:
             if attempt == 3: raise
             time.sleep(2)
-    progs = {}
+    progs = {}   # op id -> {analysis: ns}; KERNEL is the program span, the per-RISC spans and CB waits split it
     for _chip, ps in ttnn.get_latest_programs_perf_data().items():
         for p in ps:
-            r = p.program_analyses_results.get("DEVICE KERNEL DURATION [ns]")
-            if r is not None:
-                rid = p.program_execution_uid.runtime_id >> 10   # mesh workloads carry (op id << 10) | sub-id
-                progs[rid] = progs.get(rid, 0) + r.duration
+            res = p.program_analyses_results
+            if "DEVICE KERNEL DURATION [ns]" not in res:
+                continue
+            rid = p.program_execution_uid.runtime_id >> 10   # mesh workloads carry (op id << 10) | sub-id
+            acc = progs.setdefault(rid, collections.Counter())
+            for key, r in res.items():
+                acc[key] += r.duration
     return progs
 
 
@@ -91,15 +97,20 @@ for i in range(a.repeat):
     REC["on"] = False
     progs = drain()
     by = collections.defaultdict(lambda: [0.0, 0])
+    keys = collections.defaultdict(collections.Counter)   # op -> analysis -> ns, summed over its calls
     seen = 0
     for name, id0, id1 in REC["ops"]:
-        ns = sum(progs.get(j, 0) for j in range(id0, id1))
-        seen += sum(1 for j in range(id0, id1) if j in progs)
-        by[name][0] += ns / 1e6; by[name][1] += 1
+        for j in range(id0, id1):
+            if j in progs:
+                seen += 1
+                by[name][0] += progs[j]["DEVICE KERNEL DURATION [ns]"] / 1e6
+                keys[name].update(progs[j])
+        by[name][1] += 1
     total = sum(v[0] for v in by.values())
     runs.append(dict(wall_ms=wall * 1e3, device_ms=total, programs=len(progs), matched=seen,
-                     ops=sorted(([k, round(v[0], 3), v[1]] for k, v in by.items()), key=lambda r: -r[1])))
-    print(json.dumps({k: v for k, v in runs[-1].items() if k != "ops"}), flush=True)
+                     ops=sorted(([k, round(v[0], 3), v[1]] for k, v in by.items()), key=lambda r: -r[1]),
+                     analyses={k: {a: round(ns / 1e6, 3) for a, ns in sorted(c.items())} for k, c in keys.items()}))
+    print(json.dumps({k: v for k, v in runs[-1].items() if k not in ("ops", "analyses")}), flush=True)
     for name, ms, n in runs[-1]["ops"][:15]:
         print(f"  {ms:8.2f} ms  {n:5d}  {name}", flush=True)
 Path(a.out).write_text(json.dumps(dict(model=a.model, fast=a.fast, runs=runs), indent=1))
