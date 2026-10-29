@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Host cost of every sdpa_generic.sdpa call in an RFD3 design, split by what the call did.
 
-    gap_sgprof.py ARM OUT.json [STEPS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json]
+    gap_sgprof.py ARM OUT.json [STEPS] [--fixture=perf/dsfix/fixtures/rfd3_R4.json] [--fast=1]
 
 Tracy shows the card idle ~0.7 ms before each atom-SDPA generic_op on Blackhole (cenbh3). This prices the host side
 of those calls: per call site (shape key), how often the descriptor was rebuilt, reused from the bound cache, or
@@ -33,6 +33,7 @@ opts = dict(a[2:].split("=", 1) for a in sys.argv[1:] if a.startswith("--") and 
 ARM, OUT = args[0], pathlib.Path(args[1])
 STEPS = int(args[2]) if len(args) > 2 else 200
 FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
+FAST = opts.get("fast", "0") == "1"
 
 ON = [False]
 CUR = {}
@@ -104,7 +105,7 @@ def fold(tag):
     shutil.rmtree(out_dir, ignore_errors=True)
     WALL.clear()
     rfd3_design.run_design(specs, out_dir, checkpoint_dir=str(WEIGHTS), from_pdb=True,
-                           num_timesteps=STEPS, seed=42, num_designs=1, batch_size=1, verbose=False)
+                           num_timesteps=STEPS, seed=42, num_designs=1, batch_size=1, fast=FAST, verbose=False)
     shutil.rmtree(out_dir, ignore_errors=True)
     return WALL[0]
 
@@ -126,7 +127,7 @@ for site, paths in ACC.items():
               % (site, path, n / STEPS, 1e6 * s / n, 1e6 * g / n, 1e3 * s / STEPS, cores), flush=True)
 print("[sgprof] %s: warm %.2f s, measured %.2f s, sdpa_generic host %.2f ms/step" % (ARM, warm_s, meas_s,
                                                                                     1e3 * tot / STEPS))
-rec = {"arm": ARM, "fixture": FIXTURE, "steps": STEPS, "warm_s": warm_s, "measured_s": meas_s,
+rec = {"arm": ARM, "fast": FAST, "fixture": FIXTURE, "steps": STEPS, "warm_s": warm_s, "measured_s": meas_s,
        "host_ms_per_step": 1e3 * tot / STEPS, "sites": rows, "bound_stats": dict(MG.BOUND_STATS),
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename}
 OUT.parent.mkdir(parents=True, exist_ok=True)
