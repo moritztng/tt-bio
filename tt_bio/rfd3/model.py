@@ -4020,7 +4020,9 @@ class LocalTokenTransformer(Module):
                                          self.compute_kernel_config.math_fidelity, n_out=len(self.blocks))
             else:
                 out = None
-            if mask is not additive_mask:
+            # A pad that stays inside the tile padding (685 -> 704) returns a view on additive_mask's buffer, so
+            # freeing it would free the caller's mask (under RFD3_DIT_TRACE, the captured input).
+            if mask.buffer_address() != additive_mask.buffer_address():
                 ttnn.deallocate(mask)
             if out is not None:
                 yield from out
