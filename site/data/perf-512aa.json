@@ -951,12 +951,12 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_design": 24.301,
+            "s_per_design": 21.368,
             "n": 4,
-            "spread_pct": 2.11,
+            "spread_pct": 5.08,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main b3ab14893 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-            "when": "2026-10-28T12:56:44Z",
+            "versions": "tt-bio main 9a893ef57 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-10-29T01:18:36Z",
             "fast": {
               "s_per_design": 24.4,
               "n": 4,
