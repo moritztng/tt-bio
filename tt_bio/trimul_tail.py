@@ -1734,7 +1734,7 @@ T1_G8_KEYS = {(12, 16, 12)}
 # DST, no p / g round trip through L1 and no FPU gate multiply (kernels/trimul_in_t1 T1FGATE). Unmasked calls with the
 # packer sigmoid only: the mask multiply has no room in a 4-tile fp32 DST half. T1_FG forces it on for the benches.
 T1_FG = False
-T1_FG_KEYS = {(12, 16, 12)}
+T1_FG_KEYS = {(12, 16, 12), (8, 16, 8)}
 T1_FGD = 2                        # channel tiles in each a / b CB under t1_fgate
 # Bench knobs for T1's reader under T1_SPLIT (kernels/trimul_in_t1/reader.cpp): T1_ZPRE barriers of the next item read
 # ahead of the gathers (c_7 holds max(2, T1_ZPRE)), T1_ZIL the rest read between gather tiles. Bit-identical.
