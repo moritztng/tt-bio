@@ -169,8 +169,10 @@ def test_qkrh_default(wormhole, switch, monkeypatch):
 
 @pytest.mark.parametrize("wormhole", [True, False])
 def test_qkrh_dtypes_fit_l1(wormhole, monkeypatch):
-    """Block-fp8 q, k, v from qk_rope_heads, bf16 q on Wormhole bf16-accumulation forwards, and all bf16 where that mix
-    would not fit the kernel's L1 (the 6B width), so qk_rope_heads never declines a dtype choice made here."""
+    """Block-fp8 q, k, v from qk_rope_heads, bf16 q on Wormhole bf16-accumulation forwards (minimal_matmul's rows and
+    up), and all bf16 where that mix would not fit the kernel's L1 (the 6B width), so qk_rope_heads never declines a
+    dtype choice made here. Under ESMC_MM_MIN_ROWS (the 6B's page sequence) the projections keep fp32 accumulation, so
+    --fast takes normal mode's block-fp8 q."""
     from tt_bio import qk_rope_heads
     monkeypatch.setattr(tenstorrent, "is_wormhole", lambda: wormhole)
     monkeypatch.setattr(esmc, "_ESMC_QKRH_BF8", None)
@@ -179,13 +181,14 @@ def test_qkrh_dtypes_fit_l1(wormhole, monkeypatch):
     b8 = type("W", (), {"dtype": ttnn.bfloat8_b})()
     for d in (960, 1152, 2560):
         for exact in (False, True):
-            got = esmc._qkrh_dtypes(b8, exact, d)
-            q_bf16 = wormhole and not exact
-            if q_bf16 and d == 2560:
-                assert got == (None, None)
-            else:
-                assert got == (ttnn.bfloat8_b, ttnn.bfloat16 if q_bf16 else None)
-            assert got == (None, None) or qk_rope_heads.fits(d, *got)
+            for rows in (544, esmc.ESMC_MM_MIN_ROWS, 3808):
+                got = esmc._qkrh_dtypes(b8, exact, d, rows)
+                q_bf16 = wormhole and not exact and rows >= esmc.ESMC_MM_MIN_ROWS
+                if q_bf16 and d == 2560:
+                    assert got == (None, None)
+                else:
+                    assert got == (ttnn.bfloat8_b, ttnn.bfloat16 if q_bf16 else None)
+                assert got == (None, None) or qk_rope_heads.fits(d, *got)
 
 
 @pytest.mark.parametrize("wormhole", [True, False])

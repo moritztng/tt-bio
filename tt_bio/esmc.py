@@ -638,15 +638,17 @@ def _mm_bf16_acc(w, exact: bool = False) -> bool:
     return w.dtype == ttnn.bfloat8_b and not exact if _ESMC_MM_BF16_ACC is None else _ESMC_MM_BF16_ACC
 
 
-def _qkrh_dtypes(w, exact: bool, d: int):
-    """(out_dtype, q_dtype) for qk_rope_heads at width `d`: block-fp8 q, k, v, except bf16 q on Wormhole
-    bf16-accumulation forwards. Where that mix does not fit L1 (the 6B on Wormhole --fast) all three stay bf16: the
-    kernel would decline and the forward fall back to the six-op chain (gapboard 6B fast 0.177 -> 0.198 s)."""
+def _qkrh_dtypes(w, exact: bool, d: int, rows: int):
+    """(out_dtype, q_dtype) for qk_rope_heads at width `d` over `rows` tokens: block-fp8 q, k, v, except bf16 q on
+    Wormhole bf16-accumulation forwards. Those start at ESMC_MM_MIN_ROWS, where minimal_matmul takes the projections;
+    under it (the 6B's page sequence) every projection accumulates in fp32 as in normal mode. Where the bf16 q mix does
+    not fit L1 (the 6B at d 2560) all three would stay bf16: the kernel would decline and the forward fall back to the
+    six-op chain (gapboard 6B fast 0.177 -> 0.198 s)."""
     if _ESMC_QKRH_BF8 is False:
         return None, None
     from tt_bio import qk_rope_heads as qkrh, tenstorrent
-    q_bf16 = (tenstorrent.is_wormhole() and _mm_bf16_acc(w, exact) if _ESMC_QKRH_Q_BF16 is None
-              else _ESMC_QKRH_Q_BF16)
+    q_bf16 = (tenstorrent.is_wormhole() and rows >= ESMC_MM_MIN_ROWS and _mm_bf16_acc(w, exact)
+              if _ESMC_QKRH_Q_BF16 is None else _ESMC_QKRH_Q_BF16)
     q_dtype = ttnn.bfloat16 if q_bf16 else None
     return (ttnn.bfloat8_b, q_dtype) if qkrh.fits(d, ttnn.bfloat8_b, q_dtype) else (None, None)
 
@@ -905,7 +907,8 @@ class Attention(_MMLin, Module):
                 q, k, v = self._qkv(x)
         else:
             q, k, v = self._qkv(x)
-        out_dtype, q_dtype = (_qkrh_dtypes(self.out_weight, self.mm_exact_acc, int(q.padded_shape[-1]))
+        d = int(q.padded_shape[-1])
+        out_dtype, q_dtype = (_qkrh_dtypes(self.out_weight, self.mm_exact_acc, d, q.volume() // d)
                               if isinstance(attn_mask, KeyPad) else (None, None))
         heads = (qk_rope_heads(q, k, v, self.q_ln_weight, self.k_ln_weight, cos, sin,
                                out_dtype=out_dtype, q_dtype=q_dtype) if _qkrh() else None)
