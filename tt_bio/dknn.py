@@ -56,8 +56,8 @@ def fixed_point(x):
 
 
 def grid_words(L):
-    """Words of the cell table for L atoms: [lo x, y, z, side, nx, ny, nz, cells] + cells + 1 starts, padded."""
-    return _align(8 + L + 1)
+    """Words of the cell table for L atoms: [lo x, y, z, side, nx, ny, nz, cells] + cells + 1 starts, padded to 64 B."""
+    return _align(8 + _align(L, 4) + 1, 16)
 
 
 def cells(q, n_rows=None, first=0):
@@ -208,7 +208,10 @@ def neighbours(device, x, mask, k, rows=None, static=None):
     q = fixed_point(x)
     if _cells(L, k):   # [coords | atoms by cell | cell table | movers by cell | movers' cell table], fixed size
         m0, m1 = plan[1:] if plan is not None else (0, 0)
-        q = np.concatenate([q.reshape(-1)] + [a.reshape(-1) for a in cells(q) + cells(q[m0:m1], L, m0)])
+        # each part starts on a 64 B boundary, the alignment the kernel's DRAM reads need (atoms padded to 4 rows)
+        LA = _align(L, 4)
+        q = np.concatenate([np.pad(q, ((0, LA - L), (0, 0))).reshape(-1)]
+                           + [a.reshape(-1) for a in cells(q, LA) + cells(q[m0:m1], LA, m0)])
     xt = _upload(q.reshape(1, -1), device)
     r0, r1 = rows or (0, L)
     ot = ttnn.allocate_tensor_on_device(ttnn.Shape([r1 - r0, WO]), ttnn.int32, ttnn.ROW_MAJOR_LAYOUT, device,

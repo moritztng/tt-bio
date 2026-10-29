@@ -71,13 +71,15 @@ void kernel_main() {
     const uint32_t x_l1 = get_write_ptr(CB_X), m_l1 = get_write_ptr(CB_M), o_l1 = get_write_ptr(CB_O);
     const uint32_t c_l1 = CW > 0 ? get_write_ptr(CB_C) : 0;
 #ifdef DKNN_CELLS
-    constexpr uint32_t GW = DKNN_CELLS;   // grid words: 8 + cells + 1, padded
-    const auto sxc = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0), L * 64 + GW * 8);
+    // every part of the row starts on a 64 B boundary (DRAM read alignment): atoms padded to LA, the table to 16 words
+    constexpr uint32_t GW = DKNN_CELLS;   // grid words: 8 + cells + 1, padded to 16
+    constexpr uint32_t LA = (L + 3) & ~3u;
+    const auto sxc = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0), LA * 48 + GW * 8);
     const uint32_t xs_l1 = get_write_ptr(CB_X + 6), g_l1 = get_write_ptr(CB_X + 7);
-    constexpr uint32_t GOFF = CW > 0 ? L * 16 + GW * 4 : 0;   // candidate mode walks the movers' grid
+    constexpr uint32_t GOFF = CW > 0 ? LA * 16 + GW * 4 : 0;   // candidate mode walks the movers' grid
     noc_async_read(sxc.get_noc_addr(0), x_l1, L * 16);
-    noc_async_read(sxc.get_noc_addr(0) + L * 16 + GOFF, xs_l1, L * 16);
-    noc_async_read(sxc.get_noc_addr(0) + L * 32 + GOFF, g_l1, GW * 4);
+    noc_async_read(sxc.get_noc_addr(0) + LA * 16 + GOFF, xs_l1, L * 16);
+    noc_async_read(sxc.get_noc_addr(0) + LA * 32 + GOFF, g_l1, GW * 4);
     const int32_t* xs = reinterpret_cast<const int32_t*>(xs_l1);
     const int32_t* gr = reinterpret_cast<const int32_t*>(g_l1);
 #else
