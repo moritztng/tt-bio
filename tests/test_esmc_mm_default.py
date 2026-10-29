@@ -371,7 +371,7 @@ def test_saprot_ln_l1_fast_only(wdtype, want_l1, monkeypatch):
     monkeypatch.setattr(sp, "_LN_L1_REFUSED", set())
     seen = []
     monkeypatch.setattr(sp.ttnn, "layer_norm", lambda x, **kw: seen.append(kw.get("memory_config")) or x)
-    x = types.SimpleNamespace(padded_shape=(7, 544, 1280))
+    x = types.SimpleNamespace(padded_shape=(7, 544, 1280), dtype=ttnn.bfloat16)
     sp._block_ln(x, None, None, None, _T(1280, 3840, getattr(ttnn, wdtype)))
     assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
 
@@ -389,7 +389,7 @@ def test_saprot_x_l1_fast_only(wdtype, want_l1, monkeypatch):
     monkeypatch.setattr(sp.ttnn, "deallocate", lambda t: None)
     lin = sp._SaprotLin()
     lin._lin = lambda x, w, bias=None: x
-    resid = types.SimpleNamespace(padded_shape=(7, 544, 1280))
+    resid = types.SimpleNamespace(padded_shape=(7, 544, 1280), dtype=ttnn.bfloat16)
     lin._lin_add(resid, _T(1280, 1280, getattr(ttnn, wdtype)), None, resid)
     assert (seen == [ttnn.L1_MEMORY_CONFIG]) == want_l1 and len(seen) == 1
 
