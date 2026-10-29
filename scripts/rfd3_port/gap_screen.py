@@ -32,6 +32,7 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   mm2l      RFD3_DIT_MM2D_L1, with mm2d: those linears write their output to L1
   dtr       RFD3_DIT_TRACE, the DiT replayed from a ttnn trace (exact by construction: digests must match)
   pllg      RFD3_PLL_GATHER, the atom neighbour pair features through gather_tiled, not embedding + to_layout (exact)
+  dkc       RFD3_DKNN_CELLS, the card atom index walks a grid of cells per full row, not every atom (exact)
   at        RFD3_ATTN_THREAD, the atom neighbour index built on a worker thread
   dpb       RFD3_DPB, the DiT SDPA masks as one program (tt_bio.dit_pair_bias)
   apb       RFD3_ATOM_PB_FUSED, one pair-bias projection for all three atom blocks (default on)
