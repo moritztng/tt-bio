@@ -239,6 +239,12 @@ output. About 1 s per design on both chips. Over eight paired default seeds the 
 same seed against 13.3 to 20.6 A for a seed change on either chip; chain breaks go 3 -> 2 on Wormhole and 2 -> 4 on
 a p150a, clashes flat on Wormhole and up about 6 per design on a p150a. `RFD3_PF_RMSB=0` restores the separate norm.
 
+On a p150a the diffusion transformer's single-design linears run with a fixed 2D multicast program config instead of
+ttnn's own pick, about 0.7 s per design in normal mode and 0.2 s in `--fast`. It regroups the inner sum, so it is
+graded on accuracy: over eight paired default seeds the design moves 6.5 to 13.8 A at the same seed against 14.2 to
+19.8 A for a seed change, chain breaks 4 -> 3, clashes flat. Wormhole keeps ttnn's pick for now; `RFD3_DIT_MM2D=0/1`
+forces it either way.
+
 The pair Transition also runs its SiLU on the packer thread so the matmuls overlap it. Results are bit-identical;
 a default design is up to 1 s faster in normal mode and unchanged in `--fast`. `RFD3_PAIR_WS_PSILU=0` turns it off.
 
@@ -285,6 +291,8 @@ waits on. Distances are exact integers, so the neighbour lists are the same as t
 overlaps the token encoder. On a p150a a fast-mode design drops from about 31.5 s to 30 s. It is on by default
 except on Wormhole, where it has not yet run on a card; designs above about 18,000 atoms keep the host tree.
 `RFD3_DKNN=0` restores the tree everywhere, `RFD3_DKNN=1` turns the card index on for Wormhole too.
+The card also writes each final row itself, merging in the sequence neighbours, so the host no longer joins two
+lists per step. Same rows; on a p150a that takes about 1.5 s off a fast-mode design and 1.3 s off normal mode.
 
 Where the host tree is used, the atoms that do not move (a binder's target, a fixed motif) have their
 neighbours found once per design, and each step only re-queries the moving atoms and the target rows they

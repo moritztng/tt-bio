@@ -857,6 +857,39 @@ def test_a_pool_leg_notes_a_recall_of_its_chip(tmp_path, monkeypatch):
     assert rc == 130 and gf.GIVEN_BACK in (tmp_path / "leg.log").read_text()
 
 
+def test_a_recalled_legs_straggling_child_does_not_overwrite_the_give_back_note(tmp_path, monkeypatch):
+    """A recalled fold's child outlives the SIGINT (the agent SIGTERMs it seconds later) and still holds the
+    leg's log. Opened with `>`, its last line overwrote the give-back note at the shared offset and the
+    leg read as a FAIL (rel-cc3cbaf09 parity:opendde-abag wh, .110 chip 18, 10-28)."""
+    monkeypatch.setattr(gf, "POOL_POLL_S", 0.05)
+    queue = tmp_path / "pool" / "queue"
+    queue.mkdir(parents=True)
+    lend = tmp_path / "japanfold" / "state" / "agent" / "lend"
+    lend.mkdir(parents=True)
+    sha = "b" * 40
+    (tmp_path / "trees" / sha[:12]).mkdir(parents=True)
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(queue), "prio": 0}}, sha)
+    straggler = "tt-bio worker was stopped by SIGTERM while running job x.yaml and the fold did not finish " * 2
+    leg = gf.Leg("ux:x", ["PY", "-c", f"import pathlib, subprocess, sys, time; time.sleep(1.1); "
+                          f"subprocess.Popen(['sh', '-c', 'sleep 0.5; echo {straggler}']); "
+                          f"pathlib.Path({str(lend / '7.recalled')!r}).touch(); sys.exit(130)"], "ux")
+
+    def pool():
+        while not (jobs := list(queue.glob("*.sh"))):
+            time.sleep(0.02)
+        subprocess.run(["bash", str(jobs[0])], env={"CHIP": "7", "HOME": str(tmp_path),
+                                                    "PATH": "/usr/bin:/bin"}, check=True)
+    t = threading.Thread(target=pool)
+    t.start()
+    with open(tmp_path / "leg.log", "w") as f:
+        rc = gf.run_in_pool(h, gf.POOL, leg, str(tmp_path / "o" / "run1" / "wh" / "ux_x"), f)
+    t.join()
+    text = (tmp_path / "leg.log").read_text()
+    assert rc == 130 and gf.GIVEN_BACK in text and straggler.strip() in text
+
+
 def test_a_pool_leg_stopped_by_a_give_back_runs_again(tmp_path, monkeypatch):
     calls, backs = [], gf.GIVEN_BACK_TRIES
 

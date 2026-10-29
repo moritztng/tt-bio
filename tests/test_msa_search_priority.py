@@ -42,3 +42,14 @@ def test_a_search_runs_at_the_lowest_cpu_priority(tmp_path):
     assert (tmp_path / "msa" / "s0.a3m").exists()
     before, after = r.stdout.split()[-2:]
     assert before == after            # the caller's own priority is untouched
+
+
+def test_a_search_borrows_idle_cores_above_its_share(monkeypatch):
+    from tt_bio import main as m
+    monkeypatch.setattr(m.os, "cpu_count", lambda: 64)
+    monkeypatch.setenv("OMP_NUM_THREADS", "2")
+    for load, want in [(0.0, 8), (58.2, 5), (63.0, 2), (90.0, 2)]:
+        monkeypatch.setattr(m.os, "getloadavg", lambda load=load: (load, 0.0, 0.0))
+        assert m._search_threads() == want, load
+    monkeypatch.delenv("OMP_NUM_THREADS")
+    assert m._search_threads() == 64      # a plain CLI run gets every core

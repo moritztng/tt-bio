@@ -24,13 +24,13 @@ def test_row_range_equals_full_and_kdtree(rows):
     mask = torch.from_numpy(np.abs(tok[:, None] - tok[None, :]) <= 2)
     seq = torch.where(mask, torch.arange(L).expand(L, L), L).topk(K, dim=1, largest=False, sorted=True).values
     xd = x.double().numpy()
-    full = ttnn.to_torch(dknn.outside_neighbours(dev, xd, mask, seq, K)).numpy()
+    full = ttnn.to_torch(dknn.neighbours(dev, xd, mask, K)).numpy()
     r0, r1 = rows
-    part = ttnn.to_torch(dknn.outside_neighbours(dev, xd, mask, seq, K, rows)).numpy()
+    part = ttnn.to_torch(dknn.neighbours(dev, xd, mask, K, rows)).numpy()
     assert part.shape[0] == r1 - r0
     assert np.array_equal(part, full[r0:r1])
     ref = M._neighbours_kdtree(mask, seq, x.unsqueeze(0), K)
-    assert torch.equal(dknn.join(seq.numpy(), full, L, K), ref)
+    assert torch.equal(torch.from_numpy(full[:, :K]).long().unsqueeze(0), ref)
 
 
 @pytest.mark.parametrize("sigma", [0.5, 400.0])
@@ -50,8 +50,8 @@ def test_static_candidates_equal_full(sigma):
         x = x0.copy()
         x[L - NM:] += rng.normal(size=(NM, 3)) * sigma / (1 + step)
         x = x.astype(np.float32)
-        got = ttnn.to_torch(dknn.outside_neighbours(dev, x, mask, seq, K, static=st)).numpy()
-        full = ttnn.to_torch(dknn.outside_neighbours(dev, x, mask, seq, K)).numpy()
+        got = ttnn.to_torch(dknn.neighbours(dev, x, mask, K, static=st)).numpy()
+        full = ttnn.to_torch(dknn.neighbours(dev, x, mask, K)).numpy()
         assert np.array_equal(got, full), step
     assert st.ids is not None and len(st.ids) == L - NM
 
@@ -69,7 +69,7 @@ def test_pending_read_later_equals_blocking(monkeypatch, async_read):
     x = torch.from_numpy((np.cumsum(rng.normal(size=(NT, 3)) * 2.2, 0)[tok] + rng.normal(size=(L, 3))).astype(np.float32))
     mask = torch.from_numpy(np.abs(tok[:, None] - tok[None, :]) <= 2)
     seq = torch.where(mask, torch.arange(L).expand(L, L), L).topk(K, dim=1, largest=False, sorted=True).values
-    p = dknn.Pending(dev, x.unsqueeze(0), mask, seq, K)
+    p = dknn.Pending(dev, x.unsqueeze(0), mask, K)
     a = ttnn.from_torch(torch.randn(1024, 1024), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
     for _ in range(20):
         a = ttnn.matmul(a, a)

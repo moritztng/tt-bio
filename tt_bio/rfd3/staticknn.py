@@ -22,6 +22,15 @@ from scipy.spatial import cKDTree
 MIN_STATIC = 0.25
 #: Movers merged into a static row per step; a row reached by more is queried on the full tree.
 MAX_MOVERS = 16
+#: Neighbour slots (rows x k) per query thread. cKDTree starts one Python thread per worker on every call, which costs
+#: more than a small query: the DiT's token index (685 x 32) took 3.0 ms with 16 workers and 1.6 with one on qb1, and
+#: more while the step's enqueue thread holds the GIL. 6051 x 128 still gets every thread.
+SLOTS_PER_THREAD = 8192
+
+
+def threads(rows: int, k: int, workers: int) -> int:
+    """cKDTree workers for a query of `rows` rows of k neighbours, at most `workers`."""
+    return max(1, min(workers, rows * k // SLOTS_PER_THREAD))
 
 
 @numba.njit(cache=True, nogil=True)
@@ -71,7 +80,7 @@ class StaticKnn:
         ids = np.flatnonzero(still)
         xs = x[ids]
         kk = min(k + 1, len(ids))
-        d, j = cKDTree(xs).query(xs, k=kk, workers=workers)
+        d, j = cKDTree(xs).query(xs, k=kk, workers=threads(len(xs), kk, workers))
         d, j = d.reshape(len(ids), kk), j.reshape(len(ids), kk)
         self.ids, self.xs, self.nn, self.d = ids, xs, ids[j[:, :k]], np.ascontiguousarray(d[:, :k])
         self.dk = d[:, k - 1].copy()
@@ -106,7 +115,7 @@ class StaticKnn:
             if still is not None and still.sum() >= max(MIN_STATIC * L, k + 1):
                 self._build(x, still, k, workers)
         if self.ids is None:
-            _, nn = tree.query(x, k=k, workers=workers)
+            _, nn = tree.query(x, k=k, workers=threads(L, k, workers))
             self.stats[0] += L; self.stats[1] += L
             return nn.reshape(L, k)
         moving = np.ones(L, bool); moving[self.ids] = False
@@ -119,7 +128,8 @@ class StaticKnn:
             # that distance (the merge then sees the tie and sends the row to the full tree); scipy before 1.9 takes
             # only a scalar bound, so query to the largest and mask each row to its own
             bound = self.dk * (1 + 1e-9)
-            md, mj = cKDTree(x[mid]).query(self.xs, k=q, distance_upper_bound=float(bound.max()), workers=workers)
+            md, mj = cKDTree(x[mid]).query(self.xs, k=q, distance_upper_bound=float(bound.max()),
+                                         workers=threads(len(self.xs), q, workers))
             md, mj = md.reshape(len(self.ids), q), mj.reshape(len(self.ids), q)
             md[md > bound[:, None]] = np.inf
             hit = np.flatnonzero(ok & (md[:, 0] < np.inf))
@@ -140,7 +150,7 @@ class StaticKnn:
             nn[mid] = -1
         redo = self.ids[~ok] if skip_movers else np.concatenate([mid, self.ids[~ok]])
         if len(redo):
-            _, nb = tree.query(x[redo], k=k, workers=workers)
+            _, nb = tree.query(x[redo], k=k, workers=threads(len(redo), k, workers))
             nn[redo] = nb.reshape(len(redo), k)
         self.stats[0] += L; self.stats[1] += len(redo)
         return nn

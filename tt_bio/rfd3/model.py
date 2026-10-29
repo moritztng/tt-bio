@@ -788,6 +788,57 @@ def _tuned_declined(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
     return key in _TUNED_MM_CACHE and _TUNED_MM_CACHE[key] is None
 
 
+# The DiT's single-design linears ([1, I, K] @ [K, N] at K, N in 768/1024/1536) through an explicit 2D multicast
+# config. At 704 rows ttnn's own pick runs 50-85 us a call against a ~20-30 us HiFi4 roof, and these shapes sit
+# under `_TUNE_MIN_MS`, so calibration never sees them. The config regroups K, so it is graded on accuracy, not
+# bits. `_MM2D_PIN` holds the per-arch winner of scripts/rfd3_port/gap_ditlin.py as (grid x, grid y, in0_block_w,
+# subblock h, subblock w); a shape it does not name takes the full grid, the widest K block and a 1-high subblock.
+# RFD3_DIT_MM2D_L1 also writes their outputs to L1 (WH: 36 vs 48 us at q/k/v/g); the explicit config fixes the
+# blocking, so the destination does not move bits. Wormhole takes K block 1: every caller accumulates in an fp32 dest,
+# and a wider block there hits the cancellation fault (forced at 768->1024, max |err| 2.0 against float64 at bw 8,
+# 0.017 for ttnn's pick). On by default except on Wormhole (p150a grade, 8 paired normal
+# seeds: drift 6.5-13.8 A against a 14.2-19.8 A floor, breaks 4 -> 3, clashes 423 -> 390; -0.7 s/design normal);
+# RFD3_DIT_MM2D=0/1 forces it.
+_MM2D_ENV = env_flag("RFD3_DIT_MM2D", False) if os.environ.get("RFD3_DIT_MM2D") else None
+_MM2D_L1 = env_flag("RFD3_DIT_MM2D_L1", False)
+_MM2D_SHAPES = {(768, 1024), (768, 1536), (1536, 768), (1024, 768)}
+_MM2D_PIN = {}
+_MM2D_CACHE = {}
+
+
+def _mm2d_on():
+    return _MM2D_ENV if _MM2D_ENV is not None else not is_wormhole()
+
+
+def _mm2d_config(x, w, silu=False):
+    """The pinned 2D config for a DiT linear, or None for every other call. `silu` fuses it on the accumulator.
+    Every linear asks, so the cheap refusals come first (a shape read is a host call)."""
+    if not _mm2d_on():
+        return None
+    ws = list(w.padded_shape)
+    if len(ws) != 2 or (ws[0], ws[1]) not in _MM2D_SHAPES:
+        return None
+    xs = list(x.padded_shape)
+    if math.prod(xs[:-2]) != 1:
+        return None
+    key = (xs[-2], ws[0], ws[1], silu)
+    if key not in _MM2D_CACHE:
+        dev = get_device()
+        grid = dev.compute_with_storage_grid_size()
+        mt, kt, nt = xs[-2] // TILE, ws[0] // TILE, ws[1] // TILE
+        pin = _MM2D_PIN.get((str(dev.arch()), ws[0], ws[1]))
+        gx, gy, bw, sh, sw = pin or (grid.x, grid.y, max(d for d in (1, 2, 3, 4, 6, 8) if kt % d == 0), 1, None)
+        if is_wormhole():   # fp32 dest past one K tile writes -2/-4/-8 on Wormhole (tt_bio/dest_guard.py)
+            bw = 1
+        pm, pn = -(-mt // gy), -(-nt // gx)
+        sw = sw or max(d for d in (1, 2, 3, 4) if pn % d == 0)
+        _MM2D_CACHE[key] = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
+            compute_with_storage_grid_size=(gx, gy), in0_block_w=bw, out_subblock_h=sh, out_subblock_w=sw,
+            per_core_M=pm, per_core_N=pn, transpose_mcast=False,
+            fused_activation=ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if silu else None)
+    return _MM2D_CACHE[key]
+
+
 def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVARIANT_GRID,
                   mem=None):
     """`ttnn.linear` with a calibrated, bit-exact program config where one helps.
@@ -815,6 +866,10 @@ def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVA
     kw = dict(compute_kernel_config=ckc, dtype=dtype)
     if bias is not None:
         kw["bias"] = bias
+    pc = _mm2d_config(x, w)
+    if pc is not None:
+        mem = mem or (ttnn.L1_MEMORY_CONFIG if _MM2D_L1 else None)
+        return ttnn.linear(x, w, program_config=pc, **kw, **({} if mem is None else {"memory_config": mem}))
     if not _TUNE_MATMUL or not _tunable(x, w):
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
     key = _tuned_key(x, w, dtype, bias, core_grid, ckc)
@@ -2823,9 +2878,11 @@ class RFD3AtomBlock(Module):
 
     def _transition(self, norm):
         ckc, dt = self.compute_kernel_config, self.dtype
+        pc = _mm2d_config(norm, self.t_fc1, silu=True)
         left = ttnn.linear(
-            norm, self.t_fc1, activation="silu", compute_kernel_config=silu_ckc(ckc),
-            dtype=dt, core_grid=BATCH_INVARIANT_GRID,
+            norm, self.t_fc1, compute_kernel_config=silu_ckc(ckc), dtype=dt,
+            **(dict(activation="silu", core_grid=BATCH_INVARIANT_GRID) if pc is None else
+               dict(program_config=pc, **(dict(memory_config=ttnn.L1_MEMORY_CONFIG) if _MM2D_L1 else {}))),
         )
         right = _tuned_linear(
             norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
@@ -4160,7 +4217,8 @@ def _neighbours_kdtree(mask, seq_idx, x, k, workers=None, skip=None):
         from .staticknn import StaticKnn
         nn = _STATIC_KNN_CACHE.setdefault((length, k), StaticKnn()).query(xd, k, workers, skip is not None)
     else:
-        _, nn = cKDTree(xd).query(xd, k=k, workers=workers)
+        from .staticknn import threads
+        _, nn = cKDTree(xd).query(xd, k=k, workers=threads(length, k, workers))
         nn = nn.reshape(length, k)
     # A row's output depends only on its nn row (mask and seq_idx are fixed per design), and in a binder or motif
     # design most rows keep last step's neighbours, so only the rows whose nn changed are rebuilt. One tuple read and
@@ -4263,10 +4321,10 @@ def _attention_indices_future(f, X_L, tok_idx, n_keys, n_seq_neighbours, device=
         return None
     if device is not None and _dknn_on():
         from .. import dknn
-        mask, seq_idx = parts["single"]
+        mask, _ = parts["single"]
         if dknn.fits(len(tok_idx), parts["k"]):
             static = _DKNN_STATIC_CACHE.setdefault((len(tok_idx), parts["k"]), dknn.Static()) if _DKNN_STATIC else None
-            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, seq_idx, parts["k"], static)
+            return dknn.Pending(device, X_L if X_L.ndim == 3 else X_L.unsqueeze(0), mask, parts["k"], static)
     if not (_ATTN_THREAD and _ATTN_KDTREE):
         return None
     if _INDEX_POOL is None:
@@ -4288,8 +4346,8 @@ class _MoverIndex:
     """The atom index split by row: the moving atoms' rows on the card (tt_bio.dknn over their id range), every other
     row on the host thread (_neighbours_kdtree with those rows skipped). .result() as a Future's."""
 
-    def __init__(self, read, host, rows, seq, k):
-        self.read, self.host, self.rows, self.seq, self.k = read, host, rows, seq, k
+    def __init__(self, read, host, rows, k):
+        self.read, self.host, self.rows, self.k = read, host, rows, k
 
     @classmethod
     def launch(cls, device, X_L, parts):
@@ -4307,15 +4365,14 @@ class _MoverIndex:
         if mid is None or not len(mid) or mid[-1] - mid[0] + 1 != len(mid):
             return None
         rows = (int(mid[0]), int(mid[-1]) + 1)
-        out = dknn.outside_neighbours(device, xd, mask, seq_idx, k, rows)
+        out = dknn.neighbours(device, xd, mask, k, rows)
         host = _INDEX_POOL.submit(_neighbours_kdtree, mask, seq_idx, X_L, k, torch.get_num_threads(), rows)
-        return cls(dknn.read_later(device, [out]), host, rows, seq_idx.cpu().numpy(), k)
+        return cls(dknn.read_later(device, [out]), host, rows, k)
 
     def result(self):
-        from .. import dknn
         idx = self.host.result()
         r0, r1 = self.rows
-        idx[0, r0:r1] = dknn.join(self.seq[r0:r1], self.read()[0].numpy(), len(self.seq), self.k)[0]
+        idx[0, r0:r1] = self.read()[0][:, :self.k]
         return idx
 
 

@@ -1591,13 +1591,17 @@ def cardfree(workers: list, arch: str) -> list:
 
 def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     """A job file for the host's chip pool (CHIPS.md "Chip pool"): the pool starts it as
-    `CHIP=<umd> bash <job>` on an idle healthy chip, and it leaves its log and exit code in rdir."""
+    `CHIP=<umd> bash <job>` on an idle healthy chip, and it leaves its log and exit code in rdir.
+    The log is opened for append: a recalled leg's fold child outlives the SIGINT by up to the agent's
+    SIGTERM delay, and with a plain `>` its last line landed on top of the give-back note at the shared
+    offset, so the leg read as a FAIL (rel-cc3cbaf09 parity:opendde-abag wh, .110 chip 18, 10-28 02:53Z)."""
     cmd = host.command(leg, POOL_CARD, rdir)
     q = shlex.quote
     returned = q(str(Path(host.cfg["pool"]["queue"]).parent / "RETURNED"))
     return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n# requeue: no\n"
             f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
-            f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} > {q(rdir)}/leg.log 2>&1\n"
+            f": > {q(rdir)}/leg.log\n"
+            f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} >> {q(rdir)}/leg.log 2>&1\n"
             f"rc=$?; {{ [ {returned} -nt {q(rdir)}/boot ] || [ \"{RECALLED}\" -nt {q(rdir)}/boot ]; }} && "
             f"echo \"##{GIVEN_BACK}\" >> {q(rdir)}/leg.log\n"
             f"echo $rc > {q(rdir)}/rc.tmp && mv {q(rdir)}/rc.tmp {q(rdir)}/rc\n")

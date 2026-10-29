@@ -28,6 +28,8 @@ ARM is a '+'-joined set of knobs applied before the denoiser is built:
   pmemo     RFD3_PAIR_MEMO, the token encoder pair path recomputed only on row tiles whose distance bins changed
   rmsb      RFD3_PF_RMSB, the pairformer SDPA mask from one rms_pair_bias program (norm weight folded into W)
   pzr       RFD3_PZ_ROWS, process_z as one gather + a + em * inv program on the pair memo's changed row tiles
+  mm2d      RFD3_DIT_MM2D, the DiT linears through a pinned 2D multicast config (regroups K, graded on accuracy)
+  mm2l      RFD3_DIT_MM2D_L1, with mm2d: those linears write their output to L1
   at        RFD3_ATTN_THREAD, the atom neighbour index built on a worker thread
   dpb       RFD3_DPB, the DiT SDPA masks as one program (tt_bio.dit_pair_bias)
   apb       RFD3_ATOM_PB_FUSED, one pair-bias projection for all three atom blocks (default on)
@@ -68,7 +70,7 @@ FIXTURE = opts.get("fixture", "perf/dsfix/fixtures/rfd3_R4.json")
 BATCH = int(opts.get("batch", 1))
 FAST = opts.get("fast", "0") == "1"
 knobs = set(ARM.split("+")) - {"exact"}
-assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "hsplit"} | set(ENV_KNOBS), knobs
+assert knobs <= {"lofi", "w8", "acco", "idxfree", "binsfree", "dkfree", "hsplit", "dprof"} | set(ENV_KNOBS), knobs
 
 pick = [ttnn.MathFidelity.LoFi] if "lofi" in knobs else []
 if pick or "acco" in knobs:
@@ -130,6 +132,31 @@ if "idxfree" in knobs:
                                             lambda f, X_L, tok_idx, n_keys, *r: (n_keys, len(tok_idx)))
 if "binsfree" in knobs:
     M._scaled_distogram_bins = _replayed(M._scaled_distogram_bins, lambda R_L, *r: R_L, lambda *a: ())
+# dkfree: the same for the card atom index (dknn.Pending, which idxfree never sees): a replayed step launches no dknn
+# program and reads nothing back, so the warm seed's saving is the most the card index can still cost.
+if "dkfree" in knobs:
+    from tt_bio import dknn as _dk
+    _Pending = _dk.Pending
+
+    class _Replay:
+        book = {}
+
+        def __init__(self, device, X_L, mask, k, static=None):
+            self.key = (hashlib.sha256(X_L.detach().float().contiguous().numpy().tobytes()).hexdigest(), tuple(X_L.shape), k)
+            hit = self.book.get(self.key)
+            self.hit = None if _rec[0] or hit is None else hit
+            self.real = _Pending(device, X_L, mask, k, static) if self.hit is None else None
+
+        def result(self):
+            if self.hit is not None:
+                IDX[0] += 1
+                return self.hit.clone()
+            IDX[1] += 1
+            out = self.real.result()
+            if _rec[0]:
+                self.book[self.key] = out.clone()
+            return out
+    _dk.Pending = _Replay
 
 # hsplit: host seconds inside each region's call (enqueue only for device regions; no sync is added), so a region whose
 # enqueue time is close to its Tracy device time is dispatch-bound. to_torch is the blocking readback (waits on the card).
@@ -157,6 +184,34 @@ if "hsplit" in knobs:
                              (M, "_scaled_distogram_bins", "bins"),
                              (ttnn, "to_torch", "to_torch")):
         _host_timed(owner, name, key)
+
+# dprof: cProfile over the device regions' host calls only (enqueue side), written per fold to <arm>.dprof.txt by
+# tottime, to name the Python spent per op where an enqueue runs slower than its region's device time.
+PROF = None
+if "dprof" in knobs:
+    import cProfile
+    import pstats
+    from tt_bio import dknn as _dkm
+    PROF, _depth = cProfile.Profile(), [0]
+
+    def _profiled(owner, name):
+        fn = getattr(owner, name)
+
+        def run(*a, **k):
+            _depth[0] += 1
+            if _depth[0] == 1:
+                PROF.enable()
+            try:
+                return fn(*a, **k)
+            finally:
+                _depth[0] -= 1
+                if _depth[0] == 0:
+                    PROF.disable()
+        setattr(owner, name, run)
+    for owner, name in ((M.DiffusionTokenEncoder, "run_device"), (M.LocalTokenTransformer, "__call__"),
+                        (M.LocalAtomTransformer, "__call__"), (M.CompactStreamingDecoder, "run_full_device"),
+                        (_dkm.Pending, "__init__"), (_dkm.Pending, "result"), (_dkm.Static, "plan")):
+        _profiled(owner, name)
 
 WALL = []
 _sample = RFD3Sampler.sample
@@ -192,12 +247,24 @@ rec = {"arm": ARM, "steps": STEPS, "fixture": FIXTURE, "batch": BATCH, "fast": F
 s, d, _ = fold("warm", SEEDS[0])
 rec["warm_s"] = s
 print("[screen %s] warmup %.3f s %s  w8 %s" % (ARM, s, d, W8), flush=True)
-if knobs & {"idxfree", "binsfree"}:
+if knobs & {"idxfree", "binsfree", "dkfree"}:
     _rec[0] = False
     rec["idx_warm_built"] = IDX[1]
     IDX[:] = [0, 0]
 for seed in SEEDS:
+    if PROF is not None:
+        PROF = cProfile.Profile()
+        from tt_bio import mm_generic as _mmg
+        _bs0 = dict(_mmg.BOUND_STATS)
     s, d, cifs = fold("s%d" % seed, seed)
+    if PROF is not None:
+        with open(OUT / ("%s.s%d.dprof.txt" % (ARM, seed)), "w") as f:
+            # a generic_op launch at an address set it has not bound before rebuilds every core's runtime args
+            print("bound descriptors this fold: %s, %d held" % ({k: v - _bs0.get(k, 0) for k, v in
+                                                                _mmg.BOUND_STATS.items()}, len(_mmg._BOUND)), file=f)
+            st = pstats.Stats(PROF, stream=f).sort_stats("tottime")
+            st.print_stats(60)
+            st.sort_stats("cumulative").print_stats(80)
     for i, c in enumerate(cifs[:BATCH]):
         shutil.copy(c, OUT / ("%s_s%d.cif" % (ARM, seed if BATCH == 1 else 10 * seed + i)))
     rec["folds"].append({"seed": seed, "sampler_s": s, "digest": d})
