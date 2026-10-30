@@ -203,6 +203,9 @@ _ATTN_THREAD = env_flag("RFD3_ATTN_THREAD", True)
 # inside the seed floor, design quality equal to exact. On by default; RFD3_RESIDENT_STEP=0 restores
 # the host round trips.
 _RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
+# The DiT stack runs on tile-aligned rows (685 -> 704 at the page cell), padded once on entry and sliced once on exit,
+# so its 36 SDPA calls a step skip the per-call q/k/v pad and output slice. Valid rows exact. RFD3_DIT_PAD_ONCE=0 restores.
+_DIT_PAD_ONCE = env_flag("RFD3_DIT_PAD_ONCE", True)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -3208,7 +3211,9 @@ class RFD3AtomBlock(Module):
         ttnn.deallocate(mask)
         DIT_SDPA_CALLS[0] += 1
         o = ttnn.experimental.nlp_concat_heads(o)                            # [B, 1, n_key, hp]
-        o = ttnn.reshape(ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp]), (batch, length, hp))
+        if length != n_key:
+            o = ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp])
+        o = ttnn.reshape(o, (batch, length, hp))
         return _tuned_linear(_gated(o, gg), w["o"], **lin)
 
     def _padded_head_weights(self, a):
@@ -4055,12 +4060,20 @@ class LocalTokenTransformer(Module):
         B = int(z.shape[0])
         if (_DIT_SDPA and self.dtype == ttnn.bfloat16
                 and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
+            # The stack runs on n_key rows: every block's q/k/v then needs no pad to the SDPA's key width and its
+            # output no slice back, one pad and one slice per call instead of 144 ops a step. The pad rows start at 0
+            # and only ever meet the valid rows as keys, which the -1e4 mask columns weigh 0, as the zero pads did.
+            length = int(a.shape[1])
+            if _DIT_PAD_ONCE:
+                a, s = pad_axis(a, n_key, 1, 0.0), pad_axis(s, n_key, 1, 0.0)
             wide = 3 * 2 * len(self.blocks) * self.C_TOKEN * int(s.shape[0]) * int(s.shape[1]) * 2
             hoist = self._hoist(s) if _DIT_SHOIST and wide <= _DIT_SHOIST_BYTES else None
             for m, block in zip(self._dit_sdpa_masks(z, additive_mask, n_key), self.blocks):
                 a = block(a, s, z, additive_mask, sdpa_mask=m, hoist=hoist)
             for t in hoist or ():
                 ttnn.deallocate(t)
+            if int(a.shape[1]) != length:
+                a = ttnn.slice(a, [0, 0, 0], [int(a.shape[0]), length, int(a.shape[2])])
             return a
         fused, end = None, None
         if self.b_w_fused is not None:
