@@ -1058,12 +1058,12 @@
             "when": "2026-10-29T21:20:14Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_design": 19.945,
+              "s_per_design": 19.371,
               "n": 4,
-              "spread_pct": 9.64,
+              "spread_pct": 10.81,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main 14ecd717d + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
-              "when": "2026-10-29T23:19:59Z"
+              "versions": "tt-bio main 33e0bcf00 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+              "when": "2026-10-30T10:43:25Z"
             }
           },
           "h200": {
