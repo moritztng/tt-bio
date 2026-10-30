@@ -204,8 +204,9 @@ _ATTN_THREAD = env_flag("RFD3_ATTN_THREAD", True)
 # the host round trips.
 _RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
 # The DiT stack runs on tile-aligned rows (685 -> 704 at the page cell), padded once on entry and sliced once on exit,
-# so its 36 SDPA calls a step skip the per-call q/k/v pad and output slice. Valid rows exact. RFD3_DIT_PAD_ONCE=0 restores.
-_DIT_PAD_ONCE = env_flag("RFD3_DIT_PAD_ONCE", True)
+# so its 36 SDPA calls a step skip the per-call q/k/v pad and output slice. Valid rows exact. On by default except on
+# Wormhole, where it has not been graded yet; RFD3_DIT_PAD_ONCE=0/1 forces it.
+_DIT_PAD_ONCE = env_flag("RFD3_DIT_PAD_ONCE", False) if os.environ.get("RFD3_DIT_PAD_ONCE") else None
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -264,6 +265,10 @@ _POOL_SCATTER = env_flag("RFD3_POOL_SCATTER", True)
 
 def _dknn_on():
     return _DKNN if _DKNN is not None else not is_wormhole()
+
+
+def _dit_pad_once():
+    return _DIT_PAD_ONCE if _DIT_PAD_ONCE is not None else not is_wormhole()
 
 
 def _pz_rows_on():
@@ -593,12 +598,21 @@ _BINS_NB = env_flag("RFD3_BINS_NB", True)
 _PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False) if os.environ.get("RFD3_PZ_ADDCMUL") else None
 # The encoder/decoder's neighbour pair features off the resident P_LL table through gather_tiled (16-channel rows into
 # zero-padded tiles) instead of ttnn.embedding + to_layout: WH fast census 5.4 + 1.0 ms/step. Data movement only, the
-# same bits. RFD3_PLL_GATHER=0 restores the embedding.
-_PLL_GATHER = env_flag("RFD3_PLL_GATHER", True)
+# same bits. On by default except on Wormhole, where it has not been graded yet; RFD3_PLL_GATHER=0/1 forces it.
+_PLL_GATHER = env_flag("RFD3_PLL_GATHER", False) if os.environ.get("RFD3_PLL_GATHER") else None
 # TokenInitializer writes that table on the card from its own P_LL blocks (TokenInitializer.pair_cache), so the first
 # diffusion step no longer casts and uploads the 1.17 GB of P_LL it had just downloaded (page fixture, 6051 atoms).
-# A copy of the same bf16 values: BH sampler -1.1 s fast at equal digests. RFD3_PLL_INIT_TABLE=0 restores the upload.
-_PLL_INIT_TABLE = env_flag("RFD3_PLL_INIT_TABLE", True)
+# A copy of the same bf16 values: BH sampler -1.1 s fast at equal digests. On by default except on Wormhole, where it
+# has not been graded yet; RFD3_PLL_INIT_TABLE=0/1 forces it.
+_PLL_INIT_TABLE = env_flag("RFD3_PLL_INIT_TABLE", False) if os.environ.get("RFD3_PLL_INIT_TABLE") else None
+
+
+def _pll_gather():
+    return _PLL_GATHER if _PLL_GATHER is not None else not is_wormhole()
+
+
+def _pll_init_table():
+    return _PLL_INIT_TABLE if _PLL_INIT_TABLE is not None else not is_wormhole()
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -2382,7 +2396,7 @@ def _sparse_pair_gather(cache, p_host, indices, device, dtype):
     batch, length, n_keys = indices.shape
     row_offset = (torch.arange(length, dtype=torch.int64) * length).reshape(1, length, 1)
     flat = (indices.long().cpu() + row_offset).reshape(1, batch * length * n_keys)
-    if _PLL_GATHER and _gather_tiled.eligible_shape(table, n_keys):
+    if _pll_gather() and _gather_tiled.eligible_shape(table, n_keys):
         idx = ttnn.from_torch(_gather_tiled.pad_index(flat.to(torch.int32), batch * length, n_keys),
                               layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
         out = _gather_tiled.gather_tiled(idx, table, batch, n_keys)
@@ -4120,7 +4134,7 @@ class LocalTokenTransformer(Module):
             # output no slice back, one pad and one slice per call instead of 144 ops a step. The pad rows start at 0
             # and only ever meet the valid rows as keys, which the -1e4 mask columns weigh 0, as the zero pads did.
             length = int(a.shape[1])
-            if _DIT_PAD_ONCE:
+            if _dit_pad_once():
                 a, s = pad_axis(a, n_key, 1, 0.0), pad_axis(s, n_key, 1, 0.0)
             wide = 3 * 2 * len(self.blocks) * self.C_TOKEN * int(s.shape[0]) * int(s.shape[1]) * 2
             hoist = self._hoist(s) if _DIT_SHOIST and wide <= _DIT_SHOIST_BYTES else None
@@ -4618,7 +4632,7 @@ class RFD3DiffusionModule(Module):
         # one (see _sparse_qk_inputs) and leaves one -1e4 scatter template alive
         # instead of two.
         self.decoder._mask_cache = self.encoder._mask_cache
-        self.pair_cache = self.encoder._mask_cache if _PLL_INIT_TABLE else None
+        self.pair_cache = self.encoder._mask_cache if _pll_init_table() else None
         self.sequence_head = LinearSequenceHead(self.scope("sequence_head"), ckc, dtype=dt)
 
     def scale_positions_in(self, X, t):
