@@ -206,9 +206,6 @@ _RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
 # The DiT stack runs on tile-aligned rows (685 -> 704 at the page cell), padded once on entry and sliced once on exit,
 # so its 36 SDPA calls a step skip the per-call q/k/v pad and output slice. Valid rows exact. RFD3_DIT_PAD_ONCE=0 restores.
 _DIT_PAD_ONCE = env_flag("RFD3_DIT_PAD_ONCE", True)
-# The token and atom transitions' silu(x @ fc1) * (x @ fc2) as ONE matmul with the gate in its epilogue (tt_bio/mm_gate.py,
-# the ESMC FFN's kernel): neither half is written to DRAM and two ops a block go. RFD3_MM_GATE=0 restores the three ops.
-_MM_GATE = env_flag("RFD3_MM_GATE", True)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -2939,35 +2936,8 @@ class RFD3AtomBlock(Module):
             out = ttnn.add(q, ttnn.multiply(upd, hoist[2][..., off:off + w]))
         return out
 
-    def _mm_gate(self, norm):
-        """silu(norm @ fc1) * (norm @ fc2) as one gated minimal_matmul (tt_bio/mm_gate.py), or None where it does not
-        serve. The interleaved weight is built on the first call from the two device weights, an exact round trip:
-        every interleave group is whole tiles."""
-        from .. import mm_gate
-        w = self.t_fc1
-        if not (_MM_GATE and len(norm.shape) == 3 and int(norm.shape[1]) % TILE == 0 and norm.dtype == ttnn.bfloat16
-                and mm_gate.overlay_ok()):
-            return None
-        ck = silu_ckc(self.compute_kernel_config)
-        g = norm.device().compute_with_storage_grid_size()
-        grid = (int(g.x), int(g.y))
-        cfg = mm_gate.config(norm, 2 * int(w.shape[-1]), int(w.shape[-2]) // TILE, grid,
-                             not ck.fp32_dest_acc_en)
-        if cfg is None:
-            return None
-        group = cfg[2] // 2 * TILE
-        if getattr(self, "_w12", None) is None or self._w12[0] != group:
-            w12 = mm_gate.interleave(ttnn.to_torch(w), ttnn.to_torch(self.t_fc2), group)
-            self._w12 = (group, ttnn.from_torch(w12, dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=norm.device()))
-        return mm_gate.gated(norm, self._w12[1], cfg, ck, grid, pack_sfpu=True)
-
     def _transition(self, norm):
         ckc, dt = self.compute_kernel_config, self.dtype
-        gated = self._mm_gate(norm)
-        if gated is not None:
-            out = _tuned_linear(gated, self.t_fc3, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
-            ttnn.deallocate(gated)
-            return out
         pc = _mm2d_config(norm, self.t_fc1, silu=True)
         left = ttnn.linear(
             norm, self.t_fc1, compute_kernel_config=silu_ckc(ckc), dtype=dt,
