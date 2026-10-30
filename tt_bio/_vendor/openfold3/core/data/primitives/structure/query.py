@@ -22,6 +22,7 @@ import logging
 import os
 import random
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Iterable
 from functools import lru_cache
@@ -235,12 +236,47 @@ def _template_job(chunk):
     return out
 
 
-def _procs_init():
+def _procs_init(owner=None):
     # A pickled Mol carries atom properties only when asked to (the annot_* properties are
     # features: atom names, used-atom mask), and its coordinates as float32 unless asked
     # for doubles.
     Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps
                                     | Chem.PropertyPickleOptions.CoordsAsDouble)
+    if owner:
+        # These workers are children of the forkserver, not of the process that uses them, so
+        # nothing tells them when it dies. They used to outlive it: every `tt-bio predict --model
+        # openfold3` on a host where a worker gets >= 24 threads (one or two cards of a 64-thread
+        # box) left a forkserver, 16 of these and a resource tracker behind, holding each other's
+        # pipes open forever (and the caller's stdout, so `predict ... | tee log` never returned).
+        def _watch():
+            while True:
+                time.sleep(2.0)
+                try:
+                    os.kill(owner, 0)
+                except ProcessLookupError:
+                    os._exit(0)
+                except PermissionError:
+                    pass
+        threading.Thread(target=_watch, daemon=True, name="of3-conformer-owner").start()
+
+
+def _stop_procs(pool):
+    """At the owner's exit: stop the pool's processes and the forkserver that made them."""
+    procs = list((getattr(pool, "_processes", None) or {}).values())
+    try:
+        pool.shutdown(wait=False, cancel_futures=True)
+    except Exception:
+        pass
+    for p in procs:
+        try:
+            p.terminate()
+        except Exception:
+            pass
+    try:
+        from multiprocessing import forkserver
+        forkserver._forkserver._stop()
+    except Exception:
+        pass
 
 
 def _start_procs():
@@ -250,7 +286,10 @@ def _start_procs():
     from concurrent.futures import ProcessPoolExecutor
     ctx = mp.get_context("forkserver")
     ctx.set_forkserver_preload([__name__])
-    pool = ProcessPoolExecutor(CONFORMER_PROCS, mp_context=ctx, initializer=_procs_init)
+    pool = ProcessPoolExecutor(CONFORMER_PROCS, mp_context=ctx, initializer=_procs_init,
+                               initargs=(os.getpid(),))
+    import atexit
+    atexit.register(_stop_procs, pool)
     # submit() starts a worker whenever none is idle, so tasks that outlast the submits start
     # all of them now and none later. A started worker re-imports the caller's __main__
     # unless there is none to import, and an unguarded script (a perf harness) would run
