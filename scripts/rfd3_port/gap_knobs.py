@@ -16,7 +16,7 @@ ENV_KNOBS = {"gsm": "RFD3_GATHERED_SOFTMAX", "bs": "RFD3_BLOCK_SPARSE",
              "rmsb": "RFD3_PF_RMSB", "dkar": "RFD3_DKNN_ASYNC_READ", "pzr": "RFD3_PZ_ROWS",
              "mm2d": "RFD3_DIT_MM2D", "mm2l": "RFD3_DIT_MM2D_L1",
              "dtr": "RFD3_DIT_TRACE", "pllg": "RFD3_PLL_GATHER", "dkc": "RFD3_DKNN_CELLS",
-             "plli": "RFD3_PLL_INIT_TABLE"}
+             "plli": "RFD3_PLL_INIT_TABLE", "dqh": "RFD3_DIT_QKV_HEADS"}
 
 
 def apply(arm):
