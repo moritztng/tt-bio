@@ -958,12 +958,12 @@
             "versions": "tt-bio main e3cf53704 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 1",
             "when": "2026-10-30T17:40:04Z",
             "fast": {
-              "s_per_design": 18.169,
+              "s_per_design": 19.012,
               "n": 4,
-              "spread_pct": 8.96,
+              "spread_pct": 10.97,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main e3cf53704 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 1",
-              "when": "2026-10-30T17:44:20Z"
+              "versions": "tt-bio main b459e5a01 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
+              "when": "2026-10-30T21:34:38Z"
             }
           },
           "h200": {
@@ -1266,13 +1266,13 @@
             "when": "2026-10-29T21:33:50Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.04265,
+              "s_per_batch": 0.05241,
               "n": 7,
-              "spread_pct": 71.51,
+              "spread_pct": 74.15,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main d13f5f640, ttnn None, qb1 p150a card 0",
-              "when": "2026-10-28T15:15:02Z"
+              "versions": "tt-bio main b459e5a01, ttnn None, qb1 p150a card 2",
+              "when": "2026-10-30T21:42:57Z"
             }
           },
           "h200": {
@@ -1645,13 +1645,13 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.14901,
+            "s_per_batch": 0.14512,
             "n": 7,
-            "spread_pct": 10.9,
+            "spread_pct": 3.24,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main 351c24ed3, ttnn None, qb1 p150a card 1",
-            "when": "2026-10-30T05:06:45Z",
+            "versions": "tt-bio main b459e5a01, ttnn None, qb1 p150a card 2",
+            "when": "2026-10-30T21:40:19Z",
             "fast": {
               "s_per_batch": 0.10872,
               "n": 7,
