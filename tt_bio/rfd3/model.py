@@ -2338,10 +2338,22 @@ def _pair_tables(cache):
 
 
 def _write_pair_rows(table, p, row0):
-    """Write a tiled [1, R, L, C] pair block into rows row0 .. row0 + R*L of a [1, 1, N, C] row-major table."""
+    """Write a tiled [1, R, L, C] pair block into rows row0 .. row0 + R*L of a [1, 1, N, C] row-major table.
+
+    At most _TABLE_CHUNK_ROWS rows per slice_write, the chunk the upload path already uses. One
+    slice_write of the whole block hangs the card above a few million rows: a 2458-atom design
+    (a 169-residue target plus an 80-residue binder) wrote 6.04M rows in one call and never
+    returned on any of eight p150b cards, while 4.74M (2178 atoms) went through; the same 6.04M
+    rows written in 1M-row chunks land exactly."""
     _, r, length, c = (int(d) for d in p.shape)
-    rows = ttnn.reshape(ttnn.to_layout(p, ttnn.ROW_MAJOR_LAYOUT), (1, 1, r * length, c))
-    ttnn.experimental.slice_write(rows, table, [0, 0, row0, 0], [1, 1, row0 + r * length, c], [1, 1, 1, 1])
+    n = r * length
+    rows = ttnn.reshape(ttnn.to_layout(p, ttnn.ROW_MAJOR_LAYOUT), (1, 1, n, c))
+    for s in range(0, n, _TABLE_CHUNK_ROWS):
+        e = min(n, s + _TABLE_CHUNK_ROWS)
+        part = rows if (s == 0 and e == n) else ttnn.slice(rows, [0, 0, s, 0], [1, 1, e, c])
+        ttnn.experimental.slice_write(part, table, [0, 0, row0 + s, 0], [1, 1, row0 + e, c], [1, 1, 1, 1])
+        if part is not rows:
+            ttnn.deallocate(part)
     ttnn.deallocate(rows)
 
 
