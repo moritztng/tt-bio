@@ -548,12 +548,6 @@ _CSS_STEP = {}
 # head_dim is a tile multiple (the DiT's 48 has its own padded path). WH @1000, seeds 60,61 x2 in both modes:
 # digests equal to the reshape path. RFD3_QKV_HEADS=0 restores it.
 _QKV_HEADS = env_flag("RFD3_QKV_HEADS", True)
-# The atom SDPA path pads q, k and v out to the tile-aligned key axis one by one (3 pads a block) and slices the output
-# back (1 slice). Padding the adaLN output once instead gives q/k/v/g zero pad rows by construction (the projections
-# carry no bias and rms_norm maps a zero row to zero), the same values the per-tensor pads wrote; merge, gate and the
-# output projection then run on the padded rows (row-independent) and one slice drops them. 2 ops a block fewer,
-# valid rows exact. RFD3_ATOM_PAD_NORM=0 restores the per-tensor pads.
-_ATOM_PAD_NORM = env_flag("RFD3_ATOM_PAD_NORM", True)
 # The same for the gated cross attention (downcast/upcast, ~13 calls a step): q and the k|v concat go through
 # one `nlp_create_qkv_heads` that also hands back k transposed, instead of a 5D reshape (heads tile-padded to
 # 32 rows) + permute + reshape per tensor and a transpose of k. ~15 ms/step on WH fast; digests equal (WH, p150a).
@@ -3027,13 +3021,6 @@ class RFD3AtomBlock(Module):
                    batch, length):
         """Attention with pair bias on the adaLN'd stream, through the output projection."""
         ckc, dt = self.compute_kernel_config, self.dtype
-        rows = length
-        if (_ATOM_PAD_NORM and sparse_qk is not None and sparse_qk[2] is None
-                and (len(sparse_qk) <= 4 or sparse_qk[4] is None) and _ATOM_SDPA
-                and rfd3_bias.fused_enabled() and dt == ttnn.bfloat16
-                and 2 * self.n_head * align_tile(length) ** 2 <= _ATOM_SDPA_MAX_MASK_BYTES):
-            rows = align_tile(length)
-            norm = pad_axis(norm, rows, 1, 0.0)
         qq = _tuned_linear(norm, self.q_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         kk = _tuned_linear(norm, self.k_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         vv = _tuned_linear(norm, self.v_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
@@ -3043,7 +3030,7 @@ class RFD3AtomBlock(Module):
 
         def heads(x):
             x = ttnn.reshape(
-                x, (batch, rows, self.n_head, self.head_dim)
+                x, (batch, length, self.n_head, self.head_dim)
             )
             return ttnn.permute(x, (0, 2, 1, 3))
 
@@ -3053,7 +3040,7 @@ class RFD3AtomBlock(Module):
         # bit-exact by construction rather than by measurement.
         if _QKV_HEADS and self.head_dim % TILE == 0:
             hp = self.n_head * self.head_dim
-            qkv = ttnn.reshape(ttnn.concat([qq, kk, vv], dim=-1), (batch, 1, rows, 3 * hp))
+            qkv = ttnn.reshape(ttnn.concat([qq, kk, vv], dim=-1), (batch, 1, length, 3 * hp))
             for x in (qq, kk, vv):
                 ttnn.deallocate(x)
             qq, kk, vv = ttnn.experimental.nlp_create_qkv_heads(
@@ -3104,7 +3091,7 @@ class RFD3AtomBlock(Module):
                          (ckc.math_fidelity, ckc.math_approx_mode, ckc.fp32_dest_acc_en, False),
                          self.head_dim**-0.5, css=css[1])
                 CSS_CALLS[0] += 1
-            bs_out = o if rows == n_key else ttnn.slice(o, [0, 0, 0, 0], [batch, self.n_head, length, self.head_dim])
+            bs_out = ttnn.slice(o, [0, 0, 0, 0], [batch, self.n_head, length, self.head_dim])
             ATOM_SDPA_CALLS[0] += 1
         elif bs_out is not None:
             _BS.STATS[0] += 1
@@ -3240,13 +3227,11 @@ class RFD3AtomBlock(Module):
                 out = attn_value_matmul(attention, vv, ckc, dt)
         else:
             out = bs_out
-        out = _merge_heads(out, (batch, rows, self.n_head * self.head_dim))
+        out = _merge_heads(out, (batch, length, self.n_head * self.head_dim))
         out = _gated(out, gg)
         out = _tuned_linear(
             out, self.o_w, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID
         )
-        if rows != length:
-            out = ttnn.slice(out, [0, 0, 0], [batch, length, int(out.shape[2])])
         return out
 
     def _dense_sdpa_padded(self, norm, p, additive_mask, pair_bias, sdpa_mask, batch, length):
