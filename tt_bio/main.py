@@ -2683,7 +2683,11 @@ def _read_bio_chains(path, what="input"):
                     cid, buf, msa = parts[0].strip(), [], None
                     mt = "_ccd" if typ in ("ccd", "ion") else "ligand"
                 else:
-                    cid, buf = None, []
+                    # Refused, not skipped: skipping folded the rest of the complex without
+                    # this chain and reported success, and a UniProt header
+                    # (>sp|P69905|HBA_HUMAN) on a single-chain file ended in "no sequences".
+                    from tt_bio.data.parse import fasta_header_error
+                    raise click.ClickException(fasta_header_error(line[1:], path.name))
             elif line and cid is not None:
                 buf.append(line)
         flush()

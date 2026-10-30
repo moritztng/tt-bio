@@ -317,6 +317,23 @@ def parse_csv(
 
 
 
+def fasta_header_error(header: str, path) -> str:
+    """The refusal for a FASTA record whose header is not ``CHAIN|TYPE[|MSA]``.
+
+    The common case is a header pasted from UniProt or NCBI (``>sp|P69905|HBA_HUMAN ...``),
+    whose second field is an accession rather than an entity type. The message says what
+    the header was read as and the one-line fix, because "Invalid entity type: P69905" left
+    a first-time user guessing which part of the file was wrong."""
+    parts = header.split("|")
+    typ = parts[1].split()[0] if len(parts) > 1 and parts[1].split() else ""
+    return (f"{path}: FASTA header '>{header[:80]}' is not in tt-bio's '>CHAIN|TYPE' form: "
+            f"its second field '{typ}' is not an entity type (protein, dna, rna, ccd, smiles). "
+            "Every record in one FASTA file is a chain of ONE complex. For a protein from "
+            "UniProt, write the header as '>A|protein' (and '>B|protein' for a second chain); "
+            "to fold several separate proteins, put each in its own file in one directory and "
+            "pass the directory.")
+
+
 def parse_fasta(  # noqa: C901, PLR0912
     path: Path,
     ccd: Mapping[str, Mol],
@@ -370,8 +387,7 @@ def parse_fasta(  # noqa: C901, PLR0912
 
         chain_id, entity_type = header[:2]
         if entity_type.lower() not in {"protein", "dna", "rna", "ccd", "smiles"}:
-            msg = f"Invalid entity type: {entity_type}"
-            raise ValueError(msg)
+            raise ValueError(fasta_header_error(seq_record.description, path.name))
         if chain_id == "":
             msg = "Empty chain id in input fasta!"
             raise ValueError(msg)
