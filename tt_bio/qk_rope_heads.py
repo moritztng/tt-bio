@@ -14,7 +14,8 @@ the cos products go through an fp32 CB and the sin products are added in dest. W
 beside a row's fp32 statistics (the 6B, D = 2560), each q / k row re-reads its gamma (QKRH_RELOAD).
 
 SaProt (ESM-2) has no q / k LayerNorm and one packed qkv: `rope_heads_packed` runs the same program on it with the
-norm compiled out (QKRH_NO_LN) and the reader striding over the packed row.
+norm compiled out (QKRH_NO_LN) and the reader striding over the packed row. The RFdiffusion3 DiT has an RMSNorm on q
+and k and no RoPE: `rms_heads_packed` runs it on a packed qkv with QKRH_RMS_HEADS.
 """
 
 from __future__ import annotations
@@ -79,7 +80,7 @@ def _l1_bytes(kt: int, reload: bool = False, xb: int = 2) -> int:
     return bf16 + fp32
 
 
-def eligible(q, k, v, cos, packed: bool = False, vpack: bool = False, qcb: bool = False) -> bool:
+def eligible(q, k, v, cos, packed: bool = False, vpack: bool = False, qcb: bool = False, rms: bool = False) -> bool:
     """bf16 TILE interleaved [B, L, D] q, k, v of one shape (or one [B, L, 3D] qkv, passed three times), D / 64 heads, a
     cos table covering L, CBs in budget."""
     shape = [int(d) for d in q.padded_shape]
@@ -93,12 +94,13 @@ def eligible(q, k, v, cos, packed: bool = False, vpack: bool = False, qcb: bool 
         if (t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT or [int(d) for d in t.padded_shape] != shape
                 or t.memory_config().memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
             return False
-    if int(cos.padded_shape[-1]) != 64 or int(cos.padded_shape[-2]) < shape[1]:
+    if not rms and (int(cos.padded_shape[-1]) != 64 or int(cos.padded_shape[-2]) < shape[1]):
         return False
-    return _plan(shape[-1] // (96 if packed else 32), vpack, qcb) is not None
+    plan = _plan(shape[-1] // (96 if packed else 32), vpack, qcb)
+    return plan is not None and not (rms and plan[0])
 
 
-def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloat16, qd=None):
+def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloat16, qd=None, rms=False):
     g = device.compute_with_storage_grid_size()
     grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(g.x - 1, g.y - 1))])
 
@@ -122,6 +124,7 @@ def _build(device, kt, lt, r, eps, tensors, packed=False, ln=True, od=ttnn.bfloa
     defines += [("QKRH_SFPU", "1")] if _sfpu() else []
     defines += [("QKRH_V_PACK", "1")] if vpack else []
     defines += [("QKRH_Q_CB", "1")] if qcb else []
+    defines += [("QKRH_RMS_HEADS", "1")] if rms else []
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / (32 * kt)))[0] >> 16
     scaler = (inv << 16) | inv
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
@@ -171,10 +174,17 @@ def rope_heads_packed(qkv, cos, sin):
     return _run(qkv, qkv, qkv, None, None, cos, sin, 0.0, packed=True)
 
 
-def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed, out_dtype=None, q_dtype=None):
+def rms_heads_packed(qkv, q_gamma, k_gamma, eps: float):
+    """(rms_norm(q) * q_gamma, rms_norm(k) * k_gamma, v) per head, [B, H, L, 64] DRAM each, from a packed [B, L, 3D]
+    qkv, in place of two rms_norm calls, a concat and nlp_create_qkv_heads (the RFdiffusion3 DiT); or None where
+    declined. The statistics are fp32 over the full D. gamma bf16 TILE [1, D]. Does not free qkv."""
+    return _run(qkv, qkv, qkv, q_gamma, k_gamma, q_gamma, q_gamma, eps, packed=True, rms=True)
+
+
+def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed, out_dtype=None, q_dtype=None, rms=False):
     od = out_dtype or ttnn.bfloat16
     qd = q_dtype or od
-    if not eligible(q, k, v, cos, packed, od != ttnn.bfloat16, qd != od):
+    if not eligible(q, k, v, cos, packed, od != ttnn.bfloat16, qd != od, rms):
         STATS[1] += 1
         return None
     ln = q_gamma is not None
@@ -186,9 +196,10 @@ def _run(q, k, v, q_gamma, k_gamma, cos, sin, eps, packed, out_dtype=None, q_dty
                                            ttnn.DRAM_MEMORY_CONFIG) for dt in (qd, od, od)]
     # without a LayerNorm the gamma slots are never read; cos stands in so every accessor has a tensor
     tensors = [q, k, v, q_gamma if ln else cos, k_gamma if ln else cos, cos, sin] + outs
-    key = (device.id(), b, length, d, float(eps), packed, ln, str(FIDELITY), BLOCK, _sfpu(), str(od), str(qd), tuple(t.memory_config().buffer_type for t in tensors[:7]))
+    key = (device.id(), b, length, d, float(eps), packed, ln, rms, str(FIDELITY), BLOCK, _sfpu(), str(od), str(qd),
+           tuple(t.memory_config().buffer_type for t in tensors[:7]))
     if key not in _CACHE:
-        _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln, od, qd)
+        _CACHE[key] = _build(device, kt, lt, b * lt, eps, tensors, packed, ln, od, qd, rms)
     kernels, cbs = _CACHE[key]
     kernels[0].common_runtime_args = [t.buffer_address() for t in tensors[:7]]
     kernels[1].common_runtime_args = [t.buffer_address() for t in outs]
