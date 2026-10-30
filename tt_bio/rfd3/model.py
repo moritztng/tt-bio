@@ -267,15 +267,11 @@ def _dknn_on():
 
 
 def _pz_rows_on():
-    return _PZ_ROWS if _PZ_ROWS is not None else _pz_addcmul_on()
+    return _PZ_ROWS if _PZ_ROWS is not None else _PZ_ADDCMUL
 
 
 def _pf_dpb_on():
     return _PF_DPB if _PF_DPB is not None else is_wormhole()
-
-
-def _pz_addcmul_on():
-    return _PZ_ADDCMUL if _PZ_ADDCMUL is not None else is_wormhole()
 
 
 # The 18 DiT blocks project the SAME pair tensor with their own [c_pair, n_head] weight, and that
@@ -588,9 +584,9 @@ _BINS_NB = env_flag("RFD3_BINS_NB", True)
 # 2.84 + add 1.52 ms/call, two calls a step, and the [B,I,I,128] product is written and read back between them.
 # One bf16 rounding instead of two, so the digest moves. WH page cell @1000 MHz: fast 48.06 -> 47.36, normal flat
 # (47.92 vs 48.20) s/design. Eight paired normal seeds on the WH defaults: design drift 4.7-11.5 A against a 13.4-21.3 A
-# seed floor, breaks 2 -> 3, clashes 337 -> 355. On by default on Wormhole (p150a not read yet); RFD3_PZ_ADDCMUL=0/1
-# forces it.
-_PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False) if os.environ.get("RFD3_PZ_ADDCMUL") else None
+# seed floor, breaks 2 -> 3, clashes 337 -> 355. p150a @1350 with the row form, seeds 60,61 x2 interleaved: fast
+# 17.99 -> 17.78, normal 18.65 -> 18.14 s/design. RFD3_PZ_ADDCMUL=0 restores multiply + add.
+_PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", True)
 # The encoder/decoder's neighbour pair features off the resident P_LL table through gather_tiled (16-channel rows into
 # zero-padded tiles) instead of ttnn.embedding + to_layout: WH fast census 5.4 + 1.0 ms/step. Data movement only, the
 # same bits. RFD3_PLL_GATHER=0 restores the embedding.
@@ -3838,7 +3834,7 @@ class DiffusionTokenEncoder(Module):
                                 memory_config=ttnn.DRAM_MEMORY_CONFIG)
             em = ttnn.to_layout(ttnn.reshape(em, (batch, I, I, self.C_Z)), ttnn.TILE_LAYOUT)
         ttnn.deallocate(idx)
-        if _pz_addcmul_on():
+        if _PZ_ADDCMUL:
             out = _EF.mask_add(ainv, em, inv)
             ttnn.deallocate(em)
             return out
