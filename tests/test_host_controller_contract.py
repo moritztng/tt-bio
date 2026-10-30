@@ -187,3 +187,15 @@ def test_no_lease_heartbeat_or_poll_scans_a_table_that_grows_all_day(tmp_path):
             plan = " ".join(r[3] for r in conn.execute("EXPLAIN QUERY PLAN " + sql, args))
             assert "SCAN" not in plan, (sql, plan)
     assert [e["event"] for e in store.events(run_id, 0)["events"]] == ["run"]
+
+
+def test_a_worker_reloading_its_model_puts_the_task_in_prepare(tmp_path, clock):
+    """The worker announces a model reload with a bare ``loading`` event, before
+    ``start``. It used to set no phase, so a task waiting minutes on a reload
+    showed none, and JapanFold's stall watchdog read it as wedged."""
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    run = _run(store, "x")
+    store.lease({"worker": _worker("a")})
+    assert store.run_jobs(run) == [{"id": "x", "status": "running", "stage": None}]
+    store.record_event({"run_id": run, "worker_id": "a", "event": {"event": "loading"}})
+    assert store.run_jobs(run)[0]["stage"] == "prepare"

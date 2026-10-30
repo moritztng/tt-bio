@@ -106,7 +106,10 @@ _STAGE_MAP = {
 
 def _coarse_stage(event: dict[str, Any]) -> str | None:
     """The coarse phase an event implies, or None if it isn't a stage signal."""
-    if event.get("event") == "start":
+    # A model reload is announced as a bare "loading" event, before the job's
+    # "start". Read only as a stage word it set nothing, so a task waiting on a
+    # reload showed no phase and JapanFold's stall watchdog took it for wedged.
+    if event.get("event") in ("start", "loading"):
         return "prepare"
     s = str(event.get("stage") or "").lower()
     for key, phase in _STAGE_MAP.items():
