@@ -328,12 +328,19 @@ class ControllerStore:
             # users get a fair share, and each device tends to stay on one model
             # (reloading only when its model has no waiting work). A device idles
             # while a job waits only for the second an idle warm one takes to poll.
+            # (4) Within one submission, the largest input first. A run's jobs share one
+            # updated_at, so job_id (the file name) used to decide, and the biggest protein of a
+            # batch could start last and run alone while every other chip idled: 32 proteins of
+            # 98-585 aa on 8 cards ended on the 585-aa fold. Longest-first is the classic bound
+            # for that tail. The input's size stands in for its cost (residues dominate a
+            # YAML/FASTA); a retried job's newer updated_at still puts it behind.
             def rank(row):
-                return (load.get(row["owner"], 0), cold(row), row["updated_at"], row["job_id"])
+                return (load.get(row["owner"], 0), cold(row), row["updated_at"],
+                        -len(row["input_b64"]), row["job_id"])
             chosen = min(rows, key=rank)
             run_id = chosen["run_id"]
             config_json = chosen["config_json"]
-            picked = [row for row in rows if row["run_id"] == run_id][:batch_size]
+            picked = sorted((row for row in rows if row["run_id"] == run_id), key=rank)[:batch_size]
             jobs = []
             for row in picked:
                 conn.execute(

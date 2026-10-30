@@ -199,3 +199,17 @@ def test_a_worker_reloading_its_model_puts_the_task_in_prepare(tmp_path, clock):
     assert store.run_jobs(run) == [{"id": "x", "status": "running", "stage": None}]
     store.record_event({"run_id": run, "worker_id": "a", "event": {"event": "loading"}})
     assert store.run_jobs(run)[0]["stage"] == "prepare"
+
+
+def test_the_largest_input_of_a_submission_is_leased_first(tmp_path, clock):
+    """Jobs of one run share a timestamp, so the file name used to pick the order and the
+    biggest protein of a batch could start last and run alone while the other chips idled."""
+    import base64
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    seqs = {"a": "M" * 110, "b": "M" * 585, "c": "M" * 263}
+    store.create_run({"data": "d", "out_dir": "o", "result_dir": "r", "config": {"model": "esmfold2"},
+                      "jobs": [{"id": i, "name": f"{i}.fasta",
+                                "input_b64": base64.b64encode(f">A|protein\n{s}\n".encode()).decode()}
+                               for i, s in seqs.items()]})
+    order = [store.lease({"worker": _worker(f"w{n}")})["jobs"][0]["id"] for n in range(3)]
+    assert order == ["b", "c", "a"]
