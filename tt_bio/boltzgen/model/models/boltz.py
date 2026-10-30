@@ -134,14 +134,16 @@ BH_LEVERS_NORMAL = LEVERS_NORMAL | {"trimul_t1", "trimul_t2", "trimul_t2cm", "di
 # 18.07, all of it in the trunk. Graded as the whole Blackhole stack vs exact BH normal (2026-10-30): normal seeds 0-7
 # PASS, design_ptm +0.024 [+0.006, +0.046], iptm +0.017, complex_plddt -0.000, filter 64/64; fast seeds 0-3 PASS,
 # design_ptm +0.012 [-0.007, +0.032], iptm +0.025, complex_plddt -0.006, filter 32/32.
-# Normal runs the pair transition weight-stationary (transition_ws). At 514 tokens the pair update fits L1 and the
+# Both sets run the pair transition weight-stationary (transition_ws). At 514 tokens the pair update fits L1 and the
 # pairformer asks for an L1 result, so ws_l1dest is what lets it serve; ws_resid folds the residual add in. On a p300
-# chip (AICLK mean 1330 MHz): 17.91 -> 17.09 s/design, trunk 7.87 -> 6.99. Graded as the whole Blackhole stack vs exact
-# BH normal (2026-10-30): seeds 0-7 PASS, design_ptm +0.019 [+0.001, +0.041], iptm -0.003, complex_plddt +0.001,
-# filter 64/64.
+# chip (AICLK mean 1330-1337 MHz): normal 17.91 -> 17.09 s/design, trunk 7.87 -> 6.99; fast 16.47 -> 15.9, trunk
+# 7.40 -> 6.59. Graded as the whole Blackhole stack vs exact BH normal (2026-10-30): normal seeds 0-7 PASS, design_ptm
+# +0.019 [+0.001, +0.041], iptm -0.003, complex_plddt +0.001, filter 64/64; fast seeds 0-3 PASS, design_ptm +0.024
+# [+0.004, +0.044], iptm +0.022, complex_plddt +0.026, filter 32/32.
 BH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
                                 "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard", "dit_fc123g",
-                                "triatt_ln", "apb_ln", "triatt_ln_b8", "triatt_ln_b8g"}
+                                "triatt_ln", "apb_ln", "triatt_ln_b8", "triatt_ln_b8g",
+                                "transition_ws", "ws_l1dest", "ws_resid"}
 
 
 def _under_levers(method):
