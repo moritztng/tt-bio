@@ -142,8 +142,8 @@ for c in CHUNKS:
         occ = torch.zeros(N // c, N // c, dtype=torch.bool)
         for i, ks in enumerate(chunk_lists(c)):
             occ[i, ks] = True
-        rows, counts = SG.css_lists(occ)
-        return ttnn.from_torch(rows, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev), counts
+        rows = SG.css_lists(occ)
+        return ttnn.from_torch(rows, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
 
     css = css_up()
     r = {"density": round(sum(map(len, lists)) / (len(lists) * (N // c)), 4),
@@ -167,7 +167,7 @@ for c in CHUNKS:
         pbs = ttnn.multiply(pbd, D ** 0.5)
 
         def mask_css():
-            return rfd3_bias.sparse_mask_bf16(pbs, idx_rm, css=(css[0], c))
+            return rfd3_bias.sparse_mask_bf16(pbs, idx_rm, css=(css, c))
 
         def mask_full():
             return rfd3_bias.sparse_mask_bf16(pbs, idx_rm)

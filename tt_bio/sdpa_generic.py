@@ -268,8 +268,10 @@ def css_kernel_dir() -> Path:
 
     Generated from the running wheel's reader and compute source, three lines patched, so it follows
     the wheel. Row `q_chunk` of the list tensor is `[n, c_0, ..., c_{n-1}, pad]`: the reader walks
-    those key chunks in that order, reading K, V and the mask tiles in place, and the compute kernel
-    runs `n` iterations, its per-q-chunk count coming from runtime args. A skipped chunk is one whose
+    those key chunks in that order, reading K, V and the mask tiles in place, and pushes the row to
+    the compute kernel, which runs `n` iterations. The counts live only in that device tensor, so a
+    step whose lists change rebinds nothing on the host: per-core runtime args carrying them made
+    every call rebuild the program descriptor, 0.8 ms of host each on Blackhole. A skipped chunk is one whose
     mask is -1e4 everywhere: in the online softmax it adds exp(-1e4 - max) = 0 to the sum and a zero
     block to the output, so leaving it out changes nothing but the work."""
     kd = _kdir()
@@ -285,6 +287,7 @@ def css_kernel_dir() -> Path:
         "                    const uint32_t css_l1 = get_write_ptr(CSS_CB);\n"
         "                    noc_async_read(css_reader.get_noc_addr(q_chunk), css_l1, CSS_W * 4);\n"
         "                    noc_async_read_barrier();\n"
+        "                    cb_push_back(CSS_CB, 1);\n"
         "                    volatile tt_l1_ptr uint32_t* css = reinterpret_cast<volatile tt_l1_ptr uint32_t*>(css_l1);\n"
         "                    const uint32_t css_n = css[0];\n"
         "                    for (uint32_t k_pos = 0; k_pos < css_n; ++k_pos) {\n"
@@ -296,7 +299,9 @@ def css_kernel_dir() -> Path:
     reader = reader.replace(_CSS_FIRST_ORIG, "if (k_pos == 0) {", 1)
     common = common.replace(_CSS_END_ORIG, (
         "#ifdef CSS_W\n"
-        "            k_chunk_end = get_arg_val<uint32_t>(CSS_COUNT_ARG + q_low_idx / Sq_chunk_t);\n"
+        "            cb_wait_front(CSS_CB, 1);\n"
+        "            k_chunk_end = read_tile_value(CSS_CB, 0, 0);\n"
+        "            cb_pop_front(CSS_CB, 1);\n"
         "#else\n"
         "            " + _CSS_END_ORIG + "\n"
         "#endif"), 1)
@@ -320,8 +325,8 @@ def css_width(k_num_chunks):
 
 
 def css_lists(occ):
-    """Bool `[nq, nk]` chunk occupancy (q chunk i reads key chunk j) -> (host int32 [1, 1, nq, W] list
-    rows, counts).
+    """Bool `[nq, nk]` chunk occupancy (q chunk i reads key chunk j) -> host int32 [1, 1, nq, W] list
+    rows.
 
     A row is its count, then its key chunk ids ascending. W fits every chunk plus the count word,
     rounded to 16 words so a row is a 64-byte page (the DRAM read alignment on Blackhole, twice
@@ -335,7 +340,7 @@ def css_lists(occ):
     rows = torch.zeros(nq, css_width(nk), dtype=torch.int32)
     rows[:, 0] = counts
     rows[:, 1:1 + nk] = torch.where(ids < nk, ids, 0)
-    return rows.reshape(1, 1, nq, -1), tuple(counts.tolist())
+    return rows.reshape(1, 1, nq, -1)
 
 
 _QKV_ROW_SKIPS = (
@@ -547,7 +552,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     compute kernel's pack stage multiplies in as `out * sigmoid(g)` instead of the caller running
     that multiply as its own program. Head-major and DHt == 1, so gate tile i is output tile i.
 
-    `css` is `(lists, counts)` from `css_lists` (lists on device, ROW_MAJOR uint32): q chunk i visits
+    `css` is the `css_lists` rows on device (ROW_MAJOR uint32): q chunk i visits
     only the key chunks its row lists (`css_kernel_dir`).
 
     `qkv_fused` is the head count NH: `q` is a fused `[B, 1, S, 3*NH*DH]` projection (`k` and `v`
@@ -602,8 +607,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if css is not None:
         assert kv_window is None and qkv_fused is None and fuse_qkv is None and gate is None
         css_w = css_width(p["k_num_chunks"])
-        assert [int(d) for d in css[0].padded_shape] == [1, 1, p["q_num_chunks"], css_w], css[0].shape
-        assert len(css[1]) == p["q_num_chunks"], (len(css[1]), p["q_num_chunks"])
+        assert [int(d) for d in css.padded_shape] == [1, 1, p["q_num_chunks"], css_w], css.shape
         kernel_dir = kernel_dir or css_kernel_dir()
     if kv_window is not None and len(kv_window) == 4:
         q = q_frame
@@ -644,7 +648,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
             (gate_t.padded_shape, (p["B"], p["NQH"], p["Sq"], p["DH"]))
         extra_cbs = list(extra_cbs) + gate_cbs(p, gate_buffer_factor, gate_t.dtype)
     if css is not None:
-        extra_cbs = list(extra_cbs) + [(CB_CSS, 1, 4 * css_w, ttnn.uint32)]
+        extra_cbs = list(extra_cbs) + [(CB_CSS, 2, 4 * css_w, ttnn.uint32)]
     kp_w = None if keypad is None else int(keypad.padded_shape[-1])
     if keypad is not None:
         assert 2 * p["B"] <= kp_w and kp_w % 8 == 0, (keypad.padded_shape, p["B"])
@@ -696,7 +700,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         reader_ct += acc(gate[0])
     css_acc = len(reader_ct)
     if css is not None:
-        reader_ct += acc(css[0])
+        reader_ct += acc(css)
     kp_acc = len(reader_ct)
     if keypad is not None:
         reader_ct += acc(keypad)
@@ -779,9 +783,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
                        OUT_FUSED_W=str(int(out.padded_shape[-1]) // TILE),
                        QKV_ROWS_T=str(int(out.padded_shape[2]) // TILE))
     if css is not None:
-        # Reader args: 17 base + 14 chain, then the list address; compute args: 10, then the counts.
-        defines.update(CSS_W=str(css_w), CSS_CB=str(CB_CSS), CSS_ACC=str(css_acc),
-                       CSS_ADDR_ARG="31", CSS_COUNT_ARG="10")
+        # Reader args: 17 base + 14 chain, then the list address.
+        defines.update(CSS_W=str(css_w), CSS_CB=str(CB_CSS), CSS_ACC=str(css_acc), CSS_ADDR_ARG="31")
     if keypad is not None:
         # `shsdpa`: a [1, 1, 1, W] uint32 table, per batch (key chunk count, boundary chunk), after the
         # 31 base reader args. It shares CB 13 with css, which it excludes.
@@ -813,7 +816,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         x_a, w_a = fuse_qkv[0].buffer_address(), fuse_qkv[1].buffer_address()
     if gate is not None:
         g_a = gate[0].buffer_address()
-    css_tail = ([], []) if css is None else ([css[0].buffer_address()], list(css[1]))
+    css_tail = [] if css is None else [css.buffer_address()]
 
     kp_tail = [] if keypad is None else [keypad.buffer_address()]
     rr, wr, cr = [], [], []
@@ -829,9 +832,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
                    + [0] * 14                          # chain metadata, all no-chain (0/0 chains)
                    + ([] if fuse_qkv is None else [x_a, w_a])
-                   + ([] if gate is None else [g_a]) + css_tail[0] + kp_tail))
+                   + ([] if gate is None else [g_a]) + css_tail + kp_tail))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
-        cr.append((core, [i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0] + css_tail[1]))
+        cr.append((core, [i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]))
 
     kernels = [
         ttnn.KernelDescriptor(
@@ -854,7 +857,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
             "rt": (rr, wr, cr), "addrs": (q_a, k_a, v_a, m_a, o_a),
             "fuse": None if fuse_qkv is None else (Ct, proj_h, x_a, w_a),
             "gate": None if gate is None else g_a,
-            "css": None if css is None else (css_tail[0][0], tuple(css_tail[1])),
+            "css": None if css is None else css_tail[0],
             "kp": None if keypad is None else kp_tail[0]}
 
 
@@ -925,7 +928,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     gate = kw.get("gate")
     gate_addr = None if gate is None else gate[0].buffer_address()
     css = kw.get("css")
-    css_bind = None if css is None else (css[0].buffer_address(), tuple(css[1]))
+    css_bind = None if css is None else css.buffer_address()
     kp = kw.get("keypad")
     kp_addr = None if kp is None else kp.buffer_address()
     bound = (addrs, fuse_addrs, gate_addr, css_bind, kp_addr)
@@ -945,15 +948,11 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
                 elif gate is not None:
                     a[-1] = gate_addr
                 elif css is not None:
-                    a[-1] = css_bind[0]
+                    a[-1] = css_bind
                 elif kp is not None:
                     a[-1] = kp_addr
             for _, a in wr:
                 a[0] = addrs[4]
-            if css is not None:
-                for _, a in cr:
-                    a[10:] = css_bind[1]
-                e["kernels"][2].runtime_args = cr
             e["kernels"][0].runtime_args = rr
             e["kernels"][1].runtime_args = wr
             e["pd"] = ttnn.ProgramDescriptor(kernels=e["kernels"], semaphores=e["semaphores"],
@@ -979,7 +978,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
     if gate is not None:
         operands = operands + [gate[0]]
     if css is not None:
-        operands = operands + [css[0]]
+        operands = operands + [css]
     if kp is not None:
         operands = operands + [kp]
     ttnn.generic_op(operands, e["pd"])

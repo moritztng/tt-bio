@@ -64,7 +64,7 @@ def main():
     occ = torch.zeros(N // C, N // C, dtype=torch.bool)
     occ[(torch.arange(L) // C).unsqueeze(1).expand(L, K), idx // C] = True
     occ[occ.sum(1) == 0, 0] = True                                         # padded q chunks, as p109
-    rows, counts = SG.css_lists(occ)
+    rows = SG.css_lists(occ)
     css = (ttnn.from_torch(rows, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev), C)
     # The tiles the css SDPA reads: (q tile, k tile) whose chunks are listed.
     need = occ.repeat_interleave(C // 32, 0).repeat_interleave(C // 32, 1)

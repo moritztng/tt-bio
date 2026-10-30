@@ -533,12 +533,13 @@ def _dense_sdpa_config(n):
 # css), with the mask writer skipping the rest. On the real index in sequence order 24 % of the
 # 64 x 64 score tiles hold a neighbour (p108, mean over a 200-step design); every other tile is the
 # -1e4 fill, whose weight in the online softmax is exactly 0, so skipping it changes only the work.
-# One design per call (the per-q-chunk counts are runtime args); an axis 64 does not divide keeps the
+# One design per call (the lists are one design's chunks); an axis 64 does not divide keeps the
 # chunked SDPA. Bit-equal to the dense chunk-64 program, float64 maxabs 0.048 vs 0.050 for the shipped
 # q160/k320 one. p150a @1350, 10 paired normal seeds: breaks 5 -> 4, clashes 53.0 -> 53.4 (se 5.7),
 # drift 5.3-9.6 A against a 14.4-19.9 A seed floor; WH @1000 -4 s/design in both modes. RFD3_CSS=0 restores it.
 _CSS = env_flag("RFD3_CSS", True)
 _CSS_STEP = {}
+_CSS_BUF = {}
 # Split the atom attention's q, k and v into heads with one `nlp_create_qkv_heads` over their concat instead
 # of a reshape + permute each: the 4D reshape tile-pads the 4-head axis to 32 rows, 8x the bytes (WH census:
 # 0.40 + 0.10 ms per tensor at 6051 atoms, 27 tensors a step). Data movement only, same values. Only where
@@ -2436,7 +2437,10 @@ def _sparse_attn_index_rm(indices, device):
 def _css_plan(indices, attn_idx_dev, device):
     """Chunk lists of one step's [1, L, K] neighbour index for the css atom SDPA, kept until the
     next step's index replaces it. Chunk 64 only: at 32 the generic SDPA is off by ~1.0 against
-    float64 dense or not (p109), so an axis 64 does not divide keeps the shipped SDPA."""
+    float64 dense or not (p109), so an axis 64 does not divide keeps the shipped SDPA.
+
+    The lists are written into one held device tensor per shape, so the SDPA and mask programs see
+    the same address every step and launch from their bound descriptors."""
     L = int(indices.shape[-2])
     n = align_tile(L)
     c = 64
@@ -2447,9 +2451,14 @@ def _css_plan(indices, attn_idx_dev, device):
     occ = torch.zeros(nq, nq, dtype=torch.bool)
     ki = indices[0].long() // c
     occ[(torch.arange(L) // c).unsqueeze(1).expand_as(ki), ki] = True
-    rows, counts = _SG.css_lists(occ)
-    lists = ttnn.from_torch(rows, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=device)
-    _CSS_STEP["step"] = (attn_idx_dev, (lists, counts), c)
+    rows = ttnn.from_torch(_SG.css_lists(occ), dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT)
+    key = (tuple(rows.shape), device.id())
+    lists = _CSS_BUF.get(key)
+    if lists is None:
+        lists = _CSS_BUF[key] = ttnn.to_device(rows, device)
+    else:
+        ttnn.copy_host_to_device_tensor(rows, lists)
+    _CSS_STEP["step"] = (attn_idx_dev, lists, c)
 
 
 def _css_for(attn_idx_dev):
@@ -2862,7 +2871,7 @@ class RFD3AtomBlock(Module):
                 return hit[2]
         pb = ttnn.multiply(self._sparse_pair_bias(p, cache), self.head_dim**0.5)
         bias = rfd3_bias.sparse_mask_bf16(pb, attn_idx_dev,
-                                          css=None if css is None else (css[1][0], css[2]))
+                                          css=None if css is None else (css[1], css[2]))
         ttnn.deallocate(pb)
         if cache is not None:
             cache[(id(self), "sdpa")] = (key, p, bias)
