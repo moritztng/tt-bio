@@ -11,6 +11,7 @@ from tt_bio.boltzgen.utils.quiet import quiet_startup
 quiet_startup()
 
 import multiprocessing
+import pickle
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from typing import List, Optional, Union
 
@@ -32,8 +33,15 @@ def _writer_open(writer) -> None:
     _writer = writer
 
 
-def _writer_call(method: str, *args) -> None:
-    getattr(_writer, method)(*args)
+def _writer_call(method: str, args: bytes) -> None:
+    getattr(_writer, method)(*pickle.loads(args))
+
+
+def _copy(*args) -> bytes:
+    # Plain pickle copies each tensor's bytes. The pool's own pickler would share each one through
+    # a file descriptor this process holds open, and a design's few hundred tensors run a 1024-fd
+    # limit out by the second design.
+    return pickle.dumps(args, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 class Predict(Task):
@@ -141,9 +149,9 @@ class Predict(Task):
                 prediction = model.predict_step(batch, batch_idx=batch_idx)
                 if written is not None:
                     written.result()
-                written = write.submit(_writer_call, "write", prediction, batch, batch_idx)
+                written = write.submit(_writer_call, "write", _copy(prediction, batch, batch_idx))
                 progress("batch", batch_idx + 1, total_batches)
             if written is not None:
                 written.result()
-            write.submit(_writer_call, "finalize").result()
+            write.submit(_writer_call, "finalize", _copy()).result()
         del model
