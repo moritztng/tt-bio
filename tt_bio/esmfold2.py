@@ -1743,23 +1743,36 @@ class OuterProductMean(Module):
         return ttnn.multiply(out, recip_blk)
 
     def _rows_pk(self, a_blk, b2, recip_blk, L, M):
-        """`_rows` with the tile -> row move on `permute_back_pk.tile_rows`; `_rows` where that kernel does not serve."""
+        """`_rows` with the tile -> row move on `permute_back_pk.tile_rows`; `_rows` where that kernel does not serve.
+
+        `b2` may carry zero columns past L*32 (the caller pads L up to a tile so tile_rows serves it);
+        the output is sliced back to L."""
         from . import permute_back_pk as PK
         from .tenstorrent import COMPUTE_GRID_MAIN
         ck = self.compute_kernel_config
         B, Bl = int(a_blk.shape[0]), int(a_blk.shape[1])
+        Lw = int(b2.shape[-1]) // 32
         a2 = ttnn.reshape(ttnn.permute(a_blk, (0, 1, 3, 2)), (B, Bl * 32, M))
-        prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl*32,L*32]
-        outer = ttnn.allocate_tensor_on_device(ttnn.Shape([B, Bl, L, 1024]), _DTYPE, ttnn.TILE_LAYOUT,
+        prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl*32,Lw*32]
+        outer = ttnn.allocate_tensor_on_device(ttnn.Shape([B, Bl, Lw, 1024]), _DTYPE, ttnn.TILE_LAYOUT,
                                                prod.device(), prod.memory_config())
         if not PK.tile_rows_ok(prod, outer):
             ttnn.deallocate(outer)
             ttnn.deallocate(prod)
-            return self._rows(a_blk, b2, recip_blk, L, M)
+            if Lw == L:
+                return self._rows(a_blk, b2, recip_blk, L, M)
+            b2l = ttnn.slice(b2, [0, 0, 0], [int(b2.shape[0]), int(b2.shape[1]), L * 32])
+            out = self._rows(a_blk, b2l, recip_blk, L, M)
+            ttnn.deallocate(b2l)
+            return out
         PK.tile_rows(prod, outer, tuple(COMPUTE_GRID_MAIN))
         ttnn.deallocate(prod)
-        out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
+        out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,Lw,256]
         ttnn.deallocate(outer)
+        if Lw != L:
+            real = ttnn.slice(out, [0, 0, 0, 0], [B, Bl, L, int(out.shape[-1])])
+            ttnn.deallocate(out)
+            out = real
         return ttnn.multiply(out, recip_blk)
 
     def _project(self, mm, mf=None):  # [B,rows,M,128] -> a, b each [B,rows,M,32]
@@ -1789,6 +1802,17 @@ class OuterProductMean(Module):
         else:
             b2 = ttnn.reshape(ttnn.permute(b, (0, 2, 1, 3)), (B, M, L * 32))   # [B,M,L*32]
             rows = {"rm": self._rows_rm, "tile": self._rows}.get(path, self._rows_pk)  # a deep MSA under kq too
+            if rows == self._rows_pk and L % 32:
+                # tile_rows serves only a tile-aligned L. Any other length fell back to `_rows`, whose
+                # 5-D permute of the [B, L*32, L*32] product costs ~22 s to set up the first time a
+                # process sees that L (a fresh 585-aa fold: prep 25 s, 41 s in all; 576 aa: 3 s and
+                # 17.5 s), so every worker paid it again for every new protein length. Zero columns
+                # out to the next tile: column j of the product reads only b[:, :, j], so the real
+                # columns are what they were, and _rows_pk slices the padding off its output.
+                pad = (-L % 32) * 32
+                b2p = ttnn.pad(b2, [(0, 0), (0, 0), (0, pad)], 0.0)
+                ttnn.deallocate(b2)
+                b2 = b2p
         # The a2@b2 product is [B,L*32,L*32] (~2 GiB at L=1024), which OOMs the
         # 12 GB/chip Wormhole DRAM. Output row i depends only on a[i] and b, so
         # tiling over the i (row) dim is bit-exact. Pair op -> area-bounded tile
