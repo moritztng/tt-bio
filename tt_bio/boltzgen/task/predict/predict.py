@@ -10,9 +10,13 @@ scaffolding around it stays in fp32 on CPU.
 from tt_bio.boltzgen.utils.quiet import quiet_startup
 quiet_startup()
 
-from concurrent.futures import ThreadPoolExecutor
+import multiprocessing
+import pickle
+import random
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from typing import List, Optional, Union
 
+import numpy as np
 import torch
 
 from tt_bio.boltzgen.adapter import load_boltz_checkpoint
@@ -20,6 +24,26 @@ from tt_bio.boltzgen.progress import progress
 from tt_bio.boltzgen.task.predict.data_from_generated import FromGeneratedDataModule
 from tt_bio.boltzgen.task.predict.writer import DesignWriter, FoldingWriter
 from tt_bio.boltzgen.task.task import Task
+from tt_bio.tenstorrent import lever
+
+
+_items = None
+
+
+def _featurize_open(data: bytes, rng: tuple) -> None:
+    """Spawned featurize worker: own the data module and continue the parent's numpy / random streams from where
+    the parent stood, so every design draws exactly what the in-process featurizer would."""
+    global _items
+    torch.set_num_threads(1)
+    np.random.set_state(rng[0])
+    random.setstate(rng[1])
+    _items = iter(pickle.loads(data).predict_dataloader())
+
+
+def _featurize_next() -> bytes:
+    # Plain pickle copies each tensor's bytes. The pool's own pickler would share each one through a file
+    # descriptor held while the tensor lives, and a design's few hundred tensors run a 1024-fd limit out.
+    return pickle.dumps(next(_items, None), protocol=pickle.HIGHEST_PROTOCOL)
 
 
 class Predict(Task):
@@ -88,6 +112,18 @@ class Predict(Task):
         if _cfg is not None and hasattr(_cfg, "num_workers"):
             _cfg.num_workers = 0
 
+        # With bg_featproc the featurizer runs in a spawned process (spawn, not fork: nothing of this process's
+        # threads is copied), so its seconds of Python no longer take the GIL from the thread that dispatches a
+        # design; only the pickled batch crosses. It starts here, so its imports and the first design's features
+        # are ready behind the checkpoint load.
+        featurize = None
+        if run_prediction and lever("bg_featproc"):
+            rng = (np.random.get_state(), random.getstate())
+            featurize = ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn"),
+                                            initializer=_featurize_open, initargs=(pickle.dumps(self.data), rng))
+            fetch, get = (lambda: featurize.submit(_featurize_next)), (lambda f: pickle.loads(f.result()))
+            ahead = fetch()
+
         # Build model with convert_to_tt applied; load_boltz_checkpoint filters
         # legacy hparams and applies the legacy-key remap on the state_dict.
         model = load_boltz_checkpoint(
@@ -109,17 +145,22 @@ class Predict(Task):
         total_batches = len(dataloader)
         progress("batch", 0, total_batches)
         # The host work of a design (featurizing the next one, writing the last one) runs on two
-        # helper threads while the card runs this one, as a DataLoader's workers would (see above for
-        # why they cannot be processes). Each thread keeps its own order, the featurizer draws only
+        # helpers while the card runs this one, as a DataLoader's workers would (see above for why
+        # they cannot be forked). Each helper keeps its own order, the featurizer draws only
         # from numpy's global stream (its torch draws use a generator seeded from it) and the model
         # only from torch's, so every design is the same whatever the timing. A design counts as done
         # when its prediction is; its write finishes behind the next one.
+        # The iterator draws its base seed from torch's global stream, so it is built here in both modes.
         items = iter(dataloader)
-        with ThreadPoolExecutor(1) as featurize, ThreadPoolExecutor(1) as write:
-            ahead, written = featurize.submit(next, items, None), None
+        if featurize is None:
+            featurize = ThreadPoolExecutor(1)
+            fetch, get = (lambda: featurize.submit(next, items, None)), (lambda f: f.result())
+            ahead = fetch()
+        with featurize, ThreadPoolExecutor(1) as write:
+            written = None
             for batch_idx in range(total_batches):
-                batch = ahead.result()
-                ahead = featurize.submit(next, items, None)
+                batch = get(ahead)
+                ahead = fetch()
                 prediction = model.predict_step(batch, batch_idx=batch_idx)
                 if written is not None:
                     written.result()
