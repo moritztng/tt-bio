@@ -3,10 +3,10 @@
 Runs `tt-bio design` in-process (same argv as perf/bmk/design_cell.py) and stamps each design at its stage boundaries:
 featurize (the dataloader's next item, serial: predict sets num_workers 0), trunk (predict_step start to the trunk's
 last progress event), cond (trunk end to the first diffusion step), diffusion (first step to the end of the last; `ms_step`
-per step), post (last step to predict_step's return) and write (DesignWriter.write). The device is
-synchronised at each boundary only (a dozen per design), so the stages add up to the design wall within noise.
-The writer runs on a thread beside the next design's predict, so each design's stamps are snapshotted at predict_step's
-return and `wall`/`featurize` are measured from the previous predict's end; `write` is the overlapped writer time.
+per step) and post (last step to predict_step's return). The device is synchronised at each boundary only (a dozen
+per design), so the stages add up to the design wall within noise. Each design is recorded at predict_step's return
+and `wall`/`featurize` are measured from the previous predict's end. The writer runs in its own process beside the
+next design's predict, so its time is not in the record.
 The trunk stage is split further into pre / static / loop / down / after (see the stamps on TrunkModule below).
 
 One line per design on stdout, `BGSPLIT {json}`, also appended to $BGSPLIT_OUT when set.
@@ -19,7 +19,6 @@ import os
 import runpy
 import sys
 import time
-from collections import deque
 
 import ttnn
 
@@ -27,11 +26,9 @@ from tt_bio import tenstorrent as T
 from tt_bio.boltzgen.model.models import boltz as B
 from tt_bio.boltzgen.model.modules import diffusion as D
 from tt_bio.boltzgen.task.predict import predict as P
-from tt_bio.boltzgen.task.predict import writer as W
 
 OUT = os.environ.get("BGSPLIT_OUT")
 EV = {}
-DONE = deque()
 LAST = {"end": time.perf_counter(), "n": 0, "latch": {}}
 
 
@@ -66,7 +63,7 @@ def predict_step(self, *a, **k):
     out = _predict(self, *a, **k)
     _sync()
     EV["t1"] = time.perf_counter()
-    DONE.append(dict(EV))
+    _record(dict(EV))
     return out
 
 
@@ -92,7 +89,7 @@ T.TrunkModule._build_static = _stamp("st", T.TrunkModule._build_static)
 T.TrunkModule._iteration = _stamp("it", T.TrunkModule._iteration)
 # `td`: BoltzGen's token-distance precompute inside the static build (host a_ij, its cache check, the upload).
 T.TokenDistanceRecycle.precompute = _stamp("td", T.TokenDistanceRecycle.precompute)
-# Helper-thread intervals (the next design's featurize, the last design's write), to see how much of each one lands
+# Helper-thread intervals (the next design's featurize), to see how much of each one lands
 # inside this design's host-bound trunk stages (pre, static), where it competes for the GIL.
 SPANS = []
 
@@ -122,20 +119,13 @@ def _overlap(lo, hi):
     return out
 
 
-_write = W.DesignWriter.write
-
-
-def write(self, *a, **k):
-    t = time.perf_counter()
-    out = _write(self, *a, **k)
-    t2 = time.perf_counter()
-    ev = DONE.popleft()
+def _record(ev):
     n = ev.get("steps", 0)
     trunk_end = max((v for kk, v in ev.items() if isinstance(kk, tuple) and kk[0] == "trunk"), default=None)
     d1, dn = ev.get(("diffusion", 0)), ev.get(("diffusion", n))
     LAST["n"] += 1
     rec = {"design": LAST["n"], "wall": round(ev["t1"] - LAST["end"], 3), "featurize": round(ev["t0"] - LAST["end"], 3),
-           "write": round(t2 - t, 3), "predict": round(ev["t1"] - ev["t0"], 3), "steps": n}
+           "predict": round(ev["t1"] - ev["t0"], 3), "steps": n}
     if trunk_end and d1 and dn and n:
         rec.update(trunk=round(trunk_end - ev["t0"], 3), cond=round(d1 - trunk_end, 3), diffusion=round(dn - d1, 3),
                    ms_step=round(1e3 * (dn - d1) / n, 2), post=round(ev["t1"] - dn, 3))
@@ -161,10 +151,7 @@ def write(self, *a, **k):
     if OUT:
         with open(OUT, "a") as f:
             f.write(line[8:] + "\n")
-    return out
 
-
-W.DesignWriter.write = write
-
-sys.argv = ["tt-bio"] + sys.argv[1:]
-runpy.run_module("tt_bio.main", run_name="__main__")
+if __name__ == "__main__":   # the design's writer process re-imports this file
+    sys.argv = ["tt-bio"] + sys.argv[1:]
+    runpy.run_module("tt_bio.main", run_name="__main__")
