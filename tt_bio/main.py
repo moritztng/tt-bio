@@ -397,6 +397,15 @@ def _ensure_offline_tools(install_tools: bool) -> None:
         )
 
     pixi = _ensure_pixi()
+    # `pixi global install` puts aria2c and pigz in ~/.pixi/bin, which the pixi installer
+    # adds to ~/.bashrc and so to the NEXT shell, never to this process. Without it on
+    # PATH, the shutil.which() in the download and extract paths missed the tools this
+    # function had just installed: on a fresh host the 107 GB UniRef30 tarball came down
+    # over single-stream curl at 4 MB/s (~7 h) instead of aria2c at ~68 MB/s, and was
+    # unpacked by single-threaded gzip instead of pigz.
+    pixi_bin = str(Path(os.environ.get("PIXI_HOME", Path.home() / ".pixi")) / "bin")
+    if pixi_bin not in os.environ.get("PATH", "").split(os.pathsep):
+        os.environ["PATH"] = pixi_bin + os.pathsep + os.environ.get("PATH", "")
     _ensure_aria2(pixi)
     _ensure_pigz(pixi)
 
@@ -2674,7 +2683,11 @@ def _read_bio_chains(path, what="input"):
                     cid, buf, msa = parts[0].strip(), [], None
                     mt = "_ccd" if typ in ("ccd", "ion") else "ligand"
                 else:
-                    cid, buf = None, []
+                    # Refused, not skipped: skipping folded the rest of the complex without
+                    # this chain and reported success, and a UniProt header
+                    # (>sp|P69905|HBA_HUMAN) on a single-chain file ended in "no sequences".
+                    from tt_bio.data.parse import fasta_header_error
+                    raise click.ClickException(fasta_header_error(line[1:], path.name))
             elif line and cid is not None:
                 buf.append(line)
         flush()

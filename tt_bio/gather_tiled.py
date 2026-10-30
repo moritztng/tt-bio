@@ -56,7 +56,7 @@ def _build(idx, table, out, device, units, W, Wp, JT, CT, copies, fma=None, rows
                     first += per
                     ordinal += 1
     assert first == units, (first, units)
-    rct = [W, JT, CT, Wp * 4, copies, int(table.shape[0]) // copies] + list(ttnn.TensorAccessorArgs(idx).get_compile_time_args()) \
+    rct = [W, JT, CT, Wp * 4, copies, int(table.shape[0]) // copies, int(table.shape[1]) * 2] + list(ttnn.TensorAccessorArgs(idx).get_compile_time_args()) \
         + list(ttnn.TensorAccessorArgs(table).get_compile_time_args())
     wct = [CT] + list(ttnn.TensorAccessorArgs(out).get_compile_time_args())
     rdef, wdef, cdef = [], [], []
@@ -94,11 +94,19 @@ def _build(idx, table, out, device, units, W, Wp, JT, CT, copies, fma=None, rows
 
 
 def eligible(idx, table) -> bool:
-    """idx uint32 ROW_MAJOR [B * R, Wp], Wp a multiple of 8, and table bf16 ROW_MAJOR [N, C], C a tile multiple, both in DRAM."""
+    """idx uint32 ROW_MAJOR [B * R, Wp], Wp a multiple of 8, and table bf16 ROW_MAJOR [N, C], C a multiple of 16 (one
+    32-byte DRAM word), both in DRAM. A C under a tile multiple comes out zero-padded in the tile, as ttnn's tilize pads."""
     ok = (idx.dtype == ttnn.uint32 and table.dtype == ttnn.bfloat16
           and idx.layout == table.layout == ttnn.ROW_MAJOR_LAYOUT and len(idx.shape) == 2 and len(table.shape) == 2)
-    return ok and int(table.shape[1]) % 32 == 0 and int(idx.shape[1]) % 8 == 0 and all(
+    return ok and int(table.shape[1]) % 16 == 0 and int(idx.shape[1]) % 8 == 0 and all(
         t.memory_config().buffer_type == ttnn.BufferType.DRAM for t in (idx, table))
+
+
+def eligible_shape(table, width) -> bool:
+    """`eligible` for a host index of `width` columns not yet uploaded (pad_index pads it to a multiple of 8)."""
+    return (table.dtype == ttnn.bfloat16 and table.layout == ttnn.ROW_MAJOR_LAYOUT and len(table.shape) == 2
+            and int(table.shape[1]) % 16 == 0 and width > 0
+            and table.memory_config().buffer_type == ttnn.BufferType.DRAM)
 
 
 def pad_index(flat, rows, width):
@@ -135,7 +143,7 @@ def gather_tiled(idx, table, batch, width, copies=1, fma=None, rows=None):
     BR, W, Wp = int(idx.shape[0]), width, int(idx.shape[1])
     assert Wp == _align(W, 8), (W, Wp)
     C = int(table.shape[1])
-    R, JT, CT = BR // batch, _align(W) // 32, C // 32
+    R, JT, CT = BR // batch, _align(W) // 32, _align(C) // 32
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([batch, R, W, C]), ttnn.bfloat16, ttnn.TILE_LAYOUT,
                                          device, ttnn.DRAM_MEMORY_CONFIG)
     key = (device.id(), BR, W, C, int(table.shape[0]), copies, fma is not None,

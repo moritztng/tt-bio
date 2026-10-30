@@ -5,9 +5,11 @@ compatibility_date = "2026-10-01"
 workers_dev = false
 routes = [{ pattern = "tt-bio.com/api/contact", zone_name = "tt-bio.com" }]
 
-# The binding can send to bio@tenstorrent.com and nowhere else (a verified Email Routing
-# destination). TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are secrets.
-send_email = [{ name = "MAIL", destination_address = "bio@tenstorrent.com" }]
+# The binding can send only to these verified Email Routing destinations; MAIL_TO picks one.
+# bio@ is the intended inbox, but its Google Group refuses outside senders (Workspace admin policy,
+# waiting on IT); until then mail goes to mthuening@. Switch back by setting MAIL_TO only.
+# TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are secrets.
+send_email = [{ name = "MAIL", allowed_destination_addresses = ["bio@tenstorrent.com", "mthuening@tenstorrent.com"] }]
 
 [[d1_databases]]
 binding = "DB"
@@ -18,7 +20,7 @@ database_id = "93af66d4-6e36-4b7b-918c-f4f01b67140a"
 SITE_URL = "https://moritztng.github.io/tt-bio/"
 ALLOWED_ORIGINS = "https://moritztng.github.io https://tt-bio.com https://www.tt-bio.com"
 MAIL_FROM = "contact@tt-bio.com"
-MAIL_TO = "bio@tenstorrent.com"
+MAIL_TO = "mthuening@tenstorrent.com"  # bio@ once IT allows outside posting
 
 [observability]
 enabled = true

@@ -203,6 +203,10 @@ _ATTN_THREAD = env_flag("RFD3_ATTN_THREAD", True)
 # inside the seed floor, design quality equal to exact. On by default; RFD3_RESIDENT_STEP=0 restores
 # the host round trips.
 _RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
+# The DiT stack runs on tile-aligned rows (685 -> 704 at the page cell), padded once on entry and sliced once on exit,
+# so its 36 SDPA calls a step skip the per-call q/k/v pad and output slice. Valid rows exact. On by default except on
+# Wormhole, where it has not been graded yet; RFD3_DIT_PAD_ONCE=0/1 forces it.
+_DIT_PAD_ONCE = env_flag("RFD3_DIT_PAD_ONCE", False) if os.environ.get("RFD3_DIT_PAD_ONCE") else None
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -261,6 +265,10 @@ _POOL_SCATTER = env_flag("RFD3_POOL_SCATTER", True)
 
 def _dknn_on():
     return _DKNN if _DKNN is not None else not is_wormhole()
+
+
+def _dit_pad_once():
+    return _DIT_PAD_ONCE if _DIT_PAD_ONCE is not None else not is_wormhole()
 
 
 def _pz_rows_on():
@@ -588,6 +596,23 @@ _BINS_NB = env_flag("RFD3_BINS_NB", True)
 # seed floor, breaks 2 -> 3, clashes 337 -> 355. On by default on Wormhole (p150a not read yet); RFD3_PZ_ADDCMUL=0/1
 # forces it.
 _PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", False) if os.environ.get("RFD3_PZ_ADDCMUL") else None
+# The encoder/decoder's neighbour pair features off the resident P_LL table through gather_tiled (16-channel rows into
+# zero-padded tiles) instead of ttnn.embedding + to_layout: WH fast census 5.4 + 1.0 ms/step. Data movement only, the
+# same bits. On by default except on Wormhole, where it has not been graded yet; RFD3_PLL_GATHER=0/1 forces it.
+_PLL_GATHER = env_flag("RFD3_PLL_GATHER", False) if os.environ.get("RFD3_PLL_GATHER") else None
+# TokenInitializer writes that table on the card from its own P_LL blocks (TokenInitializer.pair_cache), so the first
+# diffusion step no longer casts and uploads the 1.17 GB of P_LL it had just downloaded (page fixture, 6051 atoms).
+# A copy of the same bf16 values: BH sampler -1.1 s fast at equal digests. On by default except on Wormhole, where it
+# has not been graded yet; RFD3_PLL_INIT_TABLE=0/1 forces it.
+_PLL_INIT_TABLE = env_flag("RFD3_PLL_INIT_TABLE", False) if os.environ.get("RFD3_PLL_INIT_TABLE") else None
+
+
+def _pll_gather():
+    return _PLL_GATHER if _PLL_GATHER is not None else not is_wormhole()
+
+
+def _pll_init_table():
+    return _PLL_INIT_TABLE if _PLL_INIT_TABLE is not None else not is_wormhole()
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
@@ -793,14 +818,15 @@ def _tuned_declined(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
 # under `_TUNE_MIN_MS`, so calibration never sees them. The config regroups K, so it is graded on accuracy, not
 # bits. `_MM2D_PIN` holds the per-arch winner of scripts/rfd3_port/gap_ditlin.py as (grid x, grid y, in0_block_w,
 # subblock h, subblock w); a shape it does not name takes the full grid, the widest K block and a 1-high subblock.
-# RFD3_DIT_MM2D_L1 also writes their outputs to L1 (WH: 36 vs 48 us at q/k/v/g); the explicit config fixes the
-# blocking, so the destination does not move bits. Wormhole takes K block 1: every caller accumulates in an fp32 dest,
+# Their outputs go to L1 (WH: 36 vs 48 us at q/k/v/g); the explicit config fixes the blocking, so the destination
+# does not move bits (p150a, seeds 60,61 x2: digests equal, -0.28 s/design fast, -0.09 normal). RFD3_DIT_MM2D_L1=0/1
+# forces it. Wormhole takes K block 1: every caller accumulates in an fp32 dest,
 # and a wider block there hits the cancellation fault (forced at 768->1024, max |err| 2.0 against float64 at bw 8,
 # 0.017 for ttnn's pick). On by default except on Wormhole (p150a grade, 8 paired normal
 # seeds: drift 6.5-13.8 A against a 14.2-19.8 A floor, breaks 4 -> 3, clashes 423 -> 390; -0.7 s/design normal);
 # RFD3_DIT_MM2D=0/1 forces it.
 _MM2D_ENV = env_flag("RFD3_DIT_MM2D", False) if os.environ.get("RFD3_DIT_MM2D") else None
-_MM2D_L1 = env_flag("RFD3_DIT_MM2D_L1", False)
+_MM2D_L1 = env_flag("RFD3_DIT_MM2D_L1", False) if os.environ.get("RFD3_DIT_MM2D_L1") else None
 _MM2D_SHAPES = {(768, 1024), (768, 1536), (1536, 768), (1024, 768)}
 _MM2D_PIN = {}
 _MM2D_CACHE = {}
@@ -808,6 +834,10 @@ _MM2D_CACHE = {}
 
 def _mm2d_on():
     return _MM2D_ENV if _MM2D_ENV is not None else not is_wormhole()
+
+
+def _mm2d_l1():
+    return _MM2D_L1 if _MM2D_L1 is not None else not is_wormhole()
 
 
 def _mm2d_config(x, w, silu=False):
@@ -868,7 +898,7 @@ def _tuned_linear(x, w, *, bias=None, ckc=None, dtype=None, core_grid=BATCH_INVA
         kw["bias"] = bias
     pc = _mm2d_config(x, w)
     if pc is not None:
-        mem = mem or (ttnn.L1_MEMORY_CONFIG if _MM2D_L1 else None)
+        mem = mem or (ttnn.L1_MEMORY_CONFIG if _mm2d_l1() else None)
         return ttnn.linear(x, w, program_config=pc, **kw, **({} if mem is None else {"memory_config": mem}))
     if not _TUNE_MATMUL or not _tunable(x, w):
         return ttnn.linear(x, w, core_grid=core_grid, **kw)
@@ -1825,6 +1855,9 @@ class TokenInitializer(Module):
     def __init__(self, state_dict, ckc, dtype=None):
         super().__init__(state_dict, ckc)
         self.dtype = dtype or ttnn.bfloat16
+        # The diffusion module's sparse-QK cache (RFD3DiffusionModule.pair_cache). Set, P_LL's gather table is
+        # written on the card here from the blocks that build P_LL instead of uploaded again by the first step.
+        self.pair_cache = None
         dev = self.device
 
         # OneD embedder weights (each feature -> linear to its channel). nn.Linear (out,in);
@@ -2107,6 +2140,12 @@ class TokenInitializer(Module):
                          atom_pair_budget_bytes())
         ATOM_PAIR_BLOCK_STATS[:] = [rows, -(-L // rows)]
         p_blocks, pll_blocks = [], []
+        table = None
+        if self.pair_cache is not None and dt == ttnn.bfloat16:
+            _pair_tables(self.pair_cache)
+            table = ttnn.allocate_tensor_on_device(
+                ttnn.Shape([1, 1, _pair_table_rows(L * L)[1], self.C_ATOMPAIR]), ttnn.bfloat16,
+                ttnn.ROW_MAJOR_LAYOUT, dev)
         for a0 in range(0, L, rows):
             a1 = min(a0 + rows, L)
             # motif_pos_embedder (SinusoidalDistEmbed): host sincos -> device output_proj + valid_mask linears
@@ -2150,6 +2189,8 @@ class TokenInitializer(Module):
                 ttnn.deallocate(r)
             p = _pair_add(p, m)
             p_blocks.append(ttnn.to_torch(p).float().squeeze(0))            # [R,L,16]
+            if table is not None:
+                _write_pair_rows(table, p, a0 * L)
             pll = ttnn.linear(p, self.proc_pll_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
             ttnn.deallocate(p)
             pll_blocks.append(ttnn.to_torch(pll).float().squeeze(0))        # [R,L,16]
@@ -2168,6 +2209,9 @@ class TokenInitializer(Module):
         Q_L_init = ttnn.to_torch(ql_init).float().squeeze(0)  # [L,128]
         C_L = ttnn.to_torch(c_l).float().squeeze(0)          # [L,128]
         P_LL = p_h                                          # [L,L,16]
+        if table is not None:
+            self.pair_cache["tables"][_pair_table_key(P_LL, dt)] = (
+                P_LL, ttnn.reshape(table, (int(table.shape[2]), self.C_ATOMPAIR)))
         return {"Q_L_init": Q_L_init, "C_L": C_L, "P_LL": P_LL, "S_I": S_init_I, "Z_II": Z_II}
 
 
@@ -2277,15 +2321,39 @@ def _pair_gather_table(cache, p_host, device, dtype):
     would rebuild both; a third distinct table (the next design shape) evicts the
     oldest.
     """
-    key = (p_host.data_ptr(), tuple(p_host.shape), dtype)
-    tables = cache.setdefault("tables", {})
-    entry = tables.get(key)
+    key = _pair_table_key(p_host, dtype)
+    entry = cache.get("tables", {}).get(key)
     if entry is None:
-        while len(tables) >= _PAIR_TABLE_SLOTS:
-            ttnn.deallocate(tables.pop(next(iter(tables)))[1])
-        entry = (p_host, _upload_pair_table(p_host.reshape(-1, p_host.shape[-1]), device))
-        tables[key] = entry
+        tables = _pair_tables(cache)
+        entry = tables[key] = (p_host, _upload_pair_table(p_host.reshape(-1, p_host.shape[-1]), device))
     return entry[1]
+
+
+def _pair_tables(cache):
+    """The cache's table dict with room made for one more table, the oldest freed first."""
+    tables = cache.setdefault("tables", {})
+    while len(tables) >= _PAIR_TABLE_SLOTS:
+        ttnn.deallocate(tables.pop(next(iter(tables)))[1])
+    return tables
+
+
+def _write_pair_rows(table, p, row0):
+    """Write a tiled [1, R, L, C] pair block into rows row0 .. row0 + R*L of a [1, 1, N, C] row-major table."""
+    _, r, length, c = (int(d) for d in p.shape)
+    rows = ttnn.reshape(ttnn.to_layout(p, ttnn.ROW_MAJOR_LAYOUT), (1, 1, r * length, c))
+    ttnn.experimental.slice_write(rows, table, [0, 0, row0, 0], [1, 1, row0 + r * length, c], [1, 1, 1, 1])
+    ttnn.deallocate(rows)
+
+
+def _pair_table_key(p_host, dtype):
+    p4 = p_host.unsqueeze(0) if p_host.ndim == 3 else p_host
+    return (p4.data_ptr(), tuple(p4.shape), dtype)
+
+
+def _pair_table_rows(n):
+    """(chunk, padded rows) of the gather table for n pair rows; both builders size it the same way."""
+    chunk = min(_TABLE_CHUNK_ROWS, -(-n // _TABLE_ROWS_PER_PAGE) * _TABLE_ROWS_PER_PAGE)
+    return chunk, -(-n // chunk) * chunk
 
 
 _TABLE_ROWS_PER_PAGE = 16
@@ -2302,8 +2370,7 @@ def _upload_pair_table(flat, device):
     Rows past N are padding the gather never indexes.
     """
     n, c = flat.shape
-    chunk = min(_TABLE_CHUNK_ROWS, -(-n // _TABLE_ROWS_PER_PAGE) * _TABLE_ROWS_PER_PAGE)
-    n_pad = -(-n // chunk) * chunk
+    chunk, n_pad = _pair_table_rows(n)
     table = ttnn.allocate_tensor_on_device(ttnn.Shape([1, 1, n_pad, c]), ttnn.bfloat16, ttnn.ROW_MAJOR_LAYOUT,
                                            device)
     for r0 in range(0, n_pad, chunk):
@@ -2329,6 +2396,12 @@ def _sparse_pair_gather(cache, p_host, indices, device, dtype):
     batch, length, n_keys = indices.shape
     row_offset = (torch.arange(length, dtype=torch.int64) * length).reshape(1, length, 1)
     flat = (indices.long().cpu() + row_offset).reshape(1, batch * length * n_keys)
+    if _pll_gather() and _gather_tiled.eligible_shape(table, n_keys):
+        idx = ttnn.from_torch(_gather_tiled.pad_index(flat.to(torch.int32), batch * length, n_keys),
+                              layout=ttnn.ROW_MAJOR_LAYOUT, device=device, dtype=ttnn.uint32)
+        out = _gather_tiled.gather_tiled(idx, table, batch, n_keys)
+        ttnn.deallocate(idx)
+        return out
     idx = ttnn.from_torch(flat.to(torch.int32), layout=ttnn.ROW_MAJOR_LAYOUT,
                           device=device, dtype=ttnn.uint32)
     rows = ttnn.embedding(idx, table, layout=ttnn.ROW_MAJOR_LAYOUT,
@@ -2882,7 +2955,7 @@ class RFD3AtomBlock(Module):
         left = ttnn.linear(
             norm, self.t_fc1, compute_kernel_config=silu_ckc(ckc), dtype=dt,
             **(dict(activation="silu", core_grid=BATCH_INVARIANT_GRID) if pc is None else
-               dict(program_config=pc, **(dict(memory_config=ttnn.L1_MEMORY_CONFIG) if _MM2D_L1 else {}))),
+               dict(program_config=pc, **(dict(memory_config=ttnn.L1_MEMORY_CONFIG) if _mm2d_l1() else {}))),
         )
         right = _tuned_linear(
             norm, self.t_fc2, ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID,
@@ -3208,7 +3281,9 @@ class RFD3AtomBlock(Module):
         ttnn.deallocate(mask)
         DIT_SDPA_CALLS[0] += 1
         o = ttnn.experimental.nlp_concat_heads(o)                            # [B, 1, n_key, hp]
-        o = ttnn.reshape(ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp]), (batch, length, hp))
+        if length != n_key:
+            o = ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp])
+        o = ttnn.reshape(o, (batch, length, hp))
         return _tuned_linear(_gated(o, gg), w["o"], **lin)
 
     def _padded_head_weights(self, a):
@@ -4055,12 +4130,20 @@ class LocalTokenTransformer(Module):
         B = int(z.shape[0])
         if (_DIT_SDPA and self.dtype == ttnn.bfloat16
                 and 2 * B * self.N_HEAD * len(self.blocks) * n_key * n_key <= _DIT_SDPA_STACK_BYTES):
+            # The stack runs on n_key rows: every block's q/k/v then needs no pad to the SDPA's key width and its
+            # output no slice back, one pad and one slice per call instead of 144 ops a step. The pad rows start at 0
+            # and only ever meet the valid rows as keys, which the -1e4 mask columns weigh 0, as the zero pads did.
+            length = int(a.shape[1])
+            if _dit_pad_once():
+                a, s = pad_axis(a, n_key, 1, 0.0), pad_axis(s, n_key, 1, 0.0)
             wide = 3 * 2 * len(self.blocks) * self.C_TOKEN * int(s.shape[0]) * int(s.shape[1]) * 2
             hoist = self._hoist(s) if _DIT_SHOIST and wide <= _DIT_SHOIST_BYTES else None
             for m, block in zip(self._dit_sdpa_masks(z, additive_mask, n_key), self.blocks):
                 a = block(a, s, z, additive_mask, sdpa_mask=m, hoist=hoist)
             for t in hoist or ():
                 ttnn.deallocate(t)
+            if int(a.shape[1]) != length:
+                a = ttnn.slice(a, [0, 0, 0], [int(a.shape[0]), length, int(a.shape[2])])
             return a
         fused, end = None, None
         if self.b_w_fused is not None:
@@ -4549,6 +4632,7 @@ class RFD3DiffusionModule(Module):
         # one (see _sparse_qk_inputs) and leaves one -1e4 scatter template alive
         # instead of two.
         self.decoder._mask_cache = self.encoder._mask_cache
+        self.pair_cache = self.encoder._mask_cache if _pll_init_table() else None
         self.sequence_head = LinearSequenceHead(self.scope("sequence_head"), ckc, dtype=dt)
 
     def scale_positions_in(self, X, t):

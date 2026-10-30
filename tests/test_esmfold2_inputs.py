@@ -147,3 +147,21 @@ def test_ligand_only_input_has_no_protein_chain(tmp_path):
     """)
     chains = _read_bio_chains(p)
     assert not any(c[3] == "protein" for c in chains)
+
+
+def test_fasta_record_with_unknown_type_is_refused_not_dropped(tmp_path):
+    """A record whose type field is not an entity type used to be skipped: a UniProt header
+    on a one-chain file ended in "no sequences", and on a complex the chain vanished and the
+    fold reported success. It is refused by name, with the header format that works."""
+    import click
+
+    uniprot = _write(tmp_path, ">sp|P69905|HBA_HUMAN Hemoglobin subunit alpha\nMVLSPADKTNVKAAW\n",
+                     name="hba.fasta")
+    with pytest.raises(click.ClickException, match=r"'P69905' is not an entity type.*>A\|protein"):
+        _read_bio_chains(uniprot)
+    mixed = _write(tmp_path, ">A|protein\nMVLSPADKTNVKAAW\n>B|P68871\nMVHLTPEEKSAV\n",
+                   name="mixed.fasta")
+    with pytest.raises(click.ClickException, match="'P68871' is not an entity type"):
+        _read_bio_chains(mixed)
+    plain = _write(tmp_path, ">my_protein\nMVLSPADKTNVKAAW\n", name="plain.fasta")
+    assert [c[1] for c in _read_bio_chains(plain)] == ["MVLSPADKTNVKAAW"]
