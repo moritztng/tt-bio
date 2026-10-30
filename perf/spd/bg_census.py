@@ -169,6 +169,5 @@ if TRUNK:
     T.TrunkModule._iteration = _trunk_pass
 else:
     T.Diffusion.__call__ = _diffusion
-if __name__ == "__main__":   # the design's writer process re-imports this file
-    sys.argv = ["tt_bio.main"] + sys.argv[1:]
-    runpy.run_module("tt_bio.main", run_name="__main__")
+sys.argv = ["tt_bio.main"] + sys.argv[1:]
+runpy.run_module("tt_bio.main", run_name="__main__")

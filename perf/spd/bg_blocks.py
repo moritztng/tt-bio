@@ -102,9 +102,8 @@ timed(T.AdaLN, "adaln")
 if hasattr(T, "Transition"):
     timed(T.Transition, "transition")
 
-if __name__ == "__main__":   # the design's writer process re-imports this file
-    sys.argv = ["tt_bio.main"] + sys.argv[1:]
-    try:
-        runpy.run_module("tt_bio.main", run_name="__main__")
-    finally:
-        flush()
+sys.argv = ["tt_bio.main"] + sys.argv[1:]
+try:
+    runpy.run_module("tt_bio.main", run_name="__main__")
+finally:
+    flush()

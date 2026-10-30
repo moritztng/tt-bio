@@ -28,6 +28,5 @@ def run(self, config=None, run_prediction=True):
     print("RNGCHECK same_features_under_perturb", a == b, flush=True)
     raise SystemExit(0)
 P.Predict.run = run
-if __name__ == "__main__":   # the design's writer process re-imports this file
-    sys.argv = ["tt-bio"] + sys.argv[1:]
-    runpy.run_module("tt_bio.main", run_name="__main__")
+sys.argv = ["tt-bio"] + sys.argv[1:]
+runpy.run_module("tt_bio.main", run_name="__main__")

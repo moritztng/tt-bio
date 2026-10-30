@@ -10,8 +10,7 @@ scaffolding around it stays in fp32 on CPU.
 from tt_bio.boltzgen.utils.quiet import quiet_startup
 quiet_startup()
 
-import multiprocessing
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
 
 import torch
@@ -21,19 +20,6 @@ from tt_bio.boltzgen.progress import progress
 from tt_bio.boltzgen.task.predict.data_from_generated import FromGeneratedDataModule
 from tt_bio.boltzgen.task.predict.writer import DesignWriter, FoldingWriter
 from tt_bio.boltzgen.task.task import Task
-
-
-_writer = None
-
-
-def _writer_open(writer) -> None:
-    global _writer
-    torch.set_num_threads(1)
-    _writer = writer
-
-
-def _writer_call(method: str, *args) -> None:
-    getattr(_writer, method)(*args)
 
 
 class Predict(Task):
@@ -122,18 +108,14 @@ class Predict(Task):
 
         total_batches = len(dataloader)
         progress("batch", 0, total_batches)
-        # The host work of a design (featurizing the next one, writing the last one) runs while the
-        # card runs this one. The featurizer is a helper thread, as a DataLoader's worker would be (see
-        # above for why it cannot be a forked process); it draws only from numpy's global stream (its
-        # torch draws use a generator seeded from it) and the model only from torch's, so every design
-        # is the same whatever the timing. The writer holds the GIL for seconds per design, which the
-        # dispatching thread would wait on, so it runs in a spawned process (spawn, not fork: nothing
-        # of this process's threads is copied) that keeps the writer's state across designs. A design
-        # counts as done when its prediction is; its write finishes behind the next one.
+        # The host work of a design (featurizing the next one, writing the last one) runs on two
+        # helper threads while the card runs this one, as a DataLoader's workers would (see above for
+        # why they cannot be processes). Each thread keeps its own order, the featurizer draws only
+        # from numpy's global stream (its torch draws use a generator seeded from it) and the model
+        # only from torch's, so every design is the same whatever the timing. A design counts as done
+        # when its prediction is; its write finishes behind the next one.
         items = iter(dataloader)
-        spawn = multiprocessing.get_context("spawn")
-        with ThreadPoolExecutor(1) as featurize, ProcessPoolExecutor(
-                1, mp_context=spawn, initializer=_writer_open, initargs=(self.writer,)) as write:
+        with ThreadPoolExecutor(1) as featurize, ThreadPoolExecutor(1) as write:
             ahead, written = featurize.submit(next, items, None), None
             for batch_idx in range(total_batches):
                 batch = ahead.result()
@@ -141,9 +123,10 @@ class Predict(Task):
                 prediction = model.predict_step(batch, batch_idx=batch_idx)
                 if written is not None:
                     written.result()
-                written = write.submit(_writer_call, "write", prediction, batch, batch_idx)
+                written = write.submit(self.writer.write, prediction, batch, batch_idx)
                 progress("batch", batch_idx + 1, total_batches)
             if written is not None:
                 written.result()
-            write.submit(_writer_call, "finalize").result()
+
+        self.writer.finalize()
         del model
