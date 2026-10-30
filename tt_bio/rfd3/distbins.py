@@ -5,11 +5,13 @@ the real float32 edges. It does not reproduce torch.linalg.norm's rounding, so a
 edge (a few hundred of 469k at 685 tokens) is recomputed with torch.linalg.norm + torch.bucketize on the gathered
 pairs, which gives the same bits as the full call. Pairs past the last edge, 77-81 % of them, cost one compare.
 
-The kernel is serial on purpose. A parallel=True kernel makes numba launch its OpenMP pool at one thread per logical
-core whatever torch was given, and that pool's spinning threads then slow every later torch CPU op in the process
-about 20x: on qb1 one call turned rfd3's 0.1 s DiT weight fold into 2.1 s, +3 s a design, and sent the tfg tests
-sharing a pytest process past the gate's timeout. Serial it is 3 ms against torch's 2 ms at 685 tokens on a busy
-host and faster at larger B x N, where the parallel kernel was slower than both.
+Numba's own threads are off on purpose. A parallel=True kernel makes numba launch its OpenMP pool at one thread per
+logical core whatever torch was given, and that pool's spinning threads then slow every later torch CPU op in the
+process about 20x: on qb1 one call turned rfd3's 0.1 s DiT weight fold into 2.1 s, +3 s a design, and sent the tfg
+tests sharing a pytest process past the gate's timeout. Instead the kernel releases the GIL and up to four Python
+threads each take a share of the upper triangle, mirroring every result (the distance is symmetric to the bit). At
+704 tokens on pc that is 0.27 ms of kernel against 1.27 ms serial over the full matrix. The call sits right before
+the token encoder is enqueued, twice a step, so the card waits for it.
 """
 
 from __future__ import annotations
@@ -19,27 +21,31 @@ import numpy as np
 import torch
 
 _TOL = 1e-5
+# Python threads over row ranges, the kernel releasing the GIL: numba's own pool stays unlaunched (see above).
+_THREADS = max(1, min(4, torch.get_num_threads()))
 
 
-@numba.njit(cache=True)
-def _kernel(R, edges, tol, out, flag):
-    B, N = R.shape[0], R.shape[1]
+@numba.njit(cache=True, nogil=True)
+def _kernel(R, edges, tol, out, flag, b, i0, i1):
+    """Rows [i0, i1) of design b against every j >= i, each result written to (i, j) and (j, i): the distance is
+    symmetric to the bit (R_j - R_i is R_i - R_j negated, so the squares agree). Returns the flagged entries."""
+    N = R.shape[1]
     E = edges.shape[0]
     lo = edges[0]
     inv = np.float32((E - 1) / (edges[E - 1] - edges[0]))
     far = edges[E - 1] + tol[E - 1]
-    nflag = np.zeros(B * N, np.int64)
-    for bi in range(B * N):
-        b, i = bi // N, bi % N
-        c = 0
-        for j in range(N):
+    c = 0
+    for i in range(i0, i1):
+        for j in range(i, N):
             dx = R[b, i, 0] - R[b, j, 0]
             dy = R[b, i, 1] - R[b, j, 1]
             dz = R[b, i, 2] - R[b, j, 2]
             d = np.sqrt(np.float32(dx * dx + dy * dy + dz * dz))
             if d > far:
                 out[b, i, j] = E
+                out[b, j, i] = E
                 flag[b, i, j] = False
+                flag[b, j, i] = False
                 continue
             k = min(max(int((d - lo) * inv) + 1, 0), E)
             while k > 0 and not edges[k - 1] < d:
@@ -48,10 +54,22 @@ def _kernel(R, edges, tol, out, flag):
                 k += 1
             f = (k > 0 and d - edges[k - 1] <= tol[k - 1]) or (k < E and edges[k] - d <= tol[k])
             out[b, i, j] = k
+            out[b, j, i] = k
             flag[b, i, j] = f
+            flag[b, j, i] = f
             c += f
-        nflag[bi] = c
-    return nflag.sum()
+    return c
+
+
+_POOL = None
+
+
+def _chunks(N, n):
+    """n row ranges holding about equal shares of the upper triangle (row i owns N - i pairs)."""
+    w = np.cumsum(np.arange(N, 0, -1))
+    cut = np.searchsorted(w, w[-1] * np.arange(1, n) / n) + 1
+    edges = [0, *sorted(set(int(c) for c in cut if 0 < c < N)), N]
+    return list(zip(edges[:-1], edges[1:]))
 
 
 def bins(R_L: torch.Tensor, edges: torch.Tensor) -> torch.Tensor:
@@ -61,7 +79,16 @@ def bins(R_L: torch.Tensor, edges: torch.Tensor) -> torch.Tensor:
     B, N = R.shape[:2]
     out = np.empty((B, N, N), np.int32)
     flag = np.empty((B, N, N), np.bool_)
-    n = _kernel(R.numpy(), e, (np.abs(e) * _TOL).astype(np.float32), out, flag)
+    args = (R.numpy(), e, (np.abs(e) * _TOL).astype(np.float32), out, flag)
+    jobs = [(b, i0, i1) for b in range(B) for i0, i1 in _chunks(N, _THREADS if N >= 128 else 1)]
+    if len(jobs) == 1:
+        n = _kernel(*args, *jobs[0])
+    else:
+        global _POOL
+        if _POOL is None:
+            from concurrent.futures import ThreadPoolExecutor
+            _POOL = ThreadPoolExecutor(_THREADS, thread_name_prefix="rfd3-distbins")
+        n = sum(_POOL.map(lambda j: _kernel(*args, *j), jobs))
     out = torch.from_numpy(out)
     if n:
         b, i, j = torch.from_numpy(flag).nonzero(as_tuple=True)
