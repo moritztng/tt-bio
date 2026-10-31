@@ -29,6 +29,8 @@ always-on padding.
 
 from __future__ import annotations
 
+import functools
+import json
 import math
 
 import torch
@@ -425,7 +427,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             n = rt_idx.shape[0]
             n_res = len(res_tok)
             if mbonds is not None:                            # modified residues: CCD bonds
-                block_bonds.append((tok_off, mbonds))         # + the backbone link, block-placed
+                block_bonds.append((tok_off, mbonds))         # block-placed
         eid = entity_of.setdefault((mt, seq), len(entity_of))
         sid = sym_counter.get(eid, 0); sym_counter[eid] = sid + 1
         restype.append(torch.nn.functional.one_hot(rt_idx.clamp(max=RESTYPE_DIM - 1), RESTYPE_DIM).float())
@@ -758,11 +760,20 @@ def na_atom_features(res_codes: list, mols: dict, first_res: bool = True) -> dic
                                    ref_charge, ref_mask, a2t, ruid, tokatom, disto_rep, name_chars)
 
 
-#: The atom that bonds a residue to the previous one, and the one that bonds it to the next.
-#: Used to link a modified residue's ATOM tokens into the chain, since only that residue is
-#: tokenized per atom and its neighbours are single residue tokens.
-_BACKBONE_LINK = {"protein": ("N", "C"), "rna": ("P", "O3'"), "dna": ("P", "O3'")}
-_MOL_UNK = {"protein": 20, "rna": 25, "dna": 30}
+@functools.cache
+def _ccd_one_letter() -> dict:
+    """CCD code -> its single-letter `_chem_comp.one_letter_code`, for the components that have one.
+
+    Extracted from the components.cif Mol-1 / Protenix ship (common/components.cif); a code that
+    is absent has no single-letter parent, which upstream maps to X (protein) or N (nucleic)."""
+    return json.loads((Path(__file__).parent / "data" / "ccd_one_letter.json").read_text())
+
+
+def parent_restype(ccd: str, mol_type: str) -> int:
+    """The restype a modified residue's atom tokens carry: its CCD parent's, as upstream's
+    `add_cano_seq_resname` assigns it (SEP -> SER, 2MG -> G, 6OG -> DG), else the modality's UNK."""
+    letter = _ccd_one_letter().get(ccd.upper(), "X" if mol_type == "protein" else "N")
+    return int(seq_to_restype(letter, mol_type)[0])
 
 
 def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dict,
@@ -782,13 +793,13 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
 
     Returns ``(af, restype_idx, residue_index, bonds, res_tok, res_atoms, msa_col)``:
       af           per-atom features, chain-local atom_to_token_idx / ref_space_uid
-      restype_idx  (n_tok,) restype per token; a modified residue's atoms are the
-                   modality's UNK, exactly as a ligand atom is
+      restype_idx  (n_tok,) restype per token; a modified residue's atoms carry its CCD
+                   parent's (parent_restype), as upstream Protenix and Mol-1 assign it
       residue_index(n_tok,) the 1-indexed residue each token belongs to
       bonds        (n_tok, n_tok) token adjacency, or None when the chain has no
-                   modification: the CCD's own heavy-atom bonds plus the backbone link to
-                   each neighbouring residue, so the covalent attachment is a signal the
-                   trunk reads rather than something inferred from numbering
+                   modification: the CCD's own heavy-atom bonds. The backbone links to the
+                   neighbouring residues are polymer-polymer bonds, which upstream leaves
+                   out of token_bonds
       res_tok      1-indexed residue -> chain-local first token
       res_atoms    1-indexed residue -> {atom name: chain-local token}, modified residues only
       msa_col      (n_tok,) alignment column each token reads, -1 for an atom token
@@ -825,7 +836,6 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
     parts, restype, resindex, msa_col = [], [], [], []
     res_tok: list[int] = []
     res_atoms: dict[int, dict] = {}
-    link_tok: dict[int, tuple[int, int]] = {}    # residue -> (token bonded to prev, to next)
     local_bonds = []                             # (offset, intra-residue adjacency)
     tok = 0
     lo = 0
@@ -835,7 +845,6 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
             parts.append(_standard(lo, hi))
             for k in range(lo, hi):
                 res_tok.append(tok)
-                link_tok[k + 1] = (tok, tok)     # a residue token is both ends of its links
                 restype.append(int(rt_all[k])); resindex.append(k + 1); msa_col.append(k)
                 tok += 1
         if stop > n_res:
@@ -853,9 +862,7 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
         local_bonds.append((tok, adj))
         res_tok.append(tok)
         res_atoms[stop] = {nm: tok + i for i, nm in enumerate(names)}
-        prev_at, next_at = _BACKBONE_LINK[mt]
-        link_tok[stop] = (res_atoms[stop].get(prev_at, tok), res_atoms[stop].get(next_at, tok))
-        restype += [_MOL_UNK[mt]] * n_atom
+        restype += [parent_restype(code, mt)] * n_atom
         resindex += [stop] * n_atom
         msa_col += [-1] * n_atom
         tok += n_atom
@@ -879,11 +886,6 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
         bonds = torch.zeros(n_tok, n_tok)
         for start, adj in local_bonds:           # the CCD component's own heavy-atom bonds
             bonds[start:start + adj.shape[0], start:start + adj.shape[1]] = adj
-        for pos in mod_ccd:                      # and its backbone link to each neighbour
-            for a, b in ((pos - 1, pos), (pos, pos + 1)):
-                if 1 <= a and b <= n_res:
-                    u, v = link_tok[a][1], link_tok[b][0]
-                    bonds[u, v] = bonds[v, u] = 1.0
     return (merged, torch.tensor(restype, dtype=torch.long),
             torch.tensor(resindex, dtype=torch.long), bonds, res_tok, res_atoms,
             torch.tensor(msa_col, dtype=torch.long))
