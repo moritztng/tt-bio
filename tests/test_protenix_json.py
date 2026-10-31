@@ -97,3 +97,22 @@ def test_stage_writes_yaml_the_bio_reader_accepts(tmp_path):
     mods = _read_bio_chains(out / "doc_ptm_dna_rna.yaml")[0][4]
     assert mods == [{"position": 1, "ccd": "HY3"}, {"position": 5, "ccd": "P1L"}]
     assert sidecar(g) == {"seeds": None, "paired_msa": {}, "unpaired_msa": {}, "templates": {}}
+
+
+def test_predict_stages_upstream_json(tmp_path, monkeypatch):
+    """`tt-bio predict jobs.json` hands the per-job YAML directory to everything after the size guard."""
+    from click.testing import CliRunner
+
+    from tt_bio import main as m
+
+    seen = {}
+
+    def stop(data, model, **_kw):
+        seen["data"] = data
+        raise SystemExit(0)
+
+    monkeypatch.setattr(m.size_limits, "check_input", stop)
+    CliRunner().invoke(m.predict, [str(CASES), "--model", "protenix-v2", "--out_dir", str(tmp_path)])
+    staged = Path(seen["data"])
+    assert staged == tmp_path / ".upstream_inputs" / "synthetic"
+    assert (staged / "glycan_bonds.yaml").exists() and (staged / "glycan_bonds.upstream.json").exists()
