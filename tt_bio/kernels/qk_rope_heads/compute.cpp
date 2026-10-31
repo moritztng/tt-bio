@@ -11,8 +11,6 @@
 // reuses dest as srcB; both operands then pass the 19-bit srcA / srcB, which truncates them toward zero. Two output
 // tiles per head into c_16. v units are the reader's and the writer's alone, except under QKRH_V_PACK (a block-fp8
 // output), where this kernel copies them c_21 -> c_22 through the packer, VC tiles at a time.
-// QKRH_RMS_HEADS (the RFdiffusion3 DiT): RMSNorm with gamma in place of the LayerNorm and no RoPE, every normalised tile
-// packed straight to c_16; never with QKRH_RELOAD, QKRH_V_PACK or QKRH_Q_CB (the host does not ask).
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -90,21 +88,6 @@ void kernel_main() {
 #endif
     cb_wait_front(cb_scaler, 1);
     cb_wait_front(cb_eps, 1);
-#ifdef QKRH_RMS_HEADS
-    // The DiT form: RMSNorm with gamma, no RoPE, each normalised tile packed straight to c_16 for the writer.
-    for (uint32_t u = first; u < first + count; ++u) {
-        const auto pack = [](uint32_t) {
-            cb_reserve_back(cb_out, 1);
-            pack_tile(0, cb_out);
-            cb_push_back(cb_out, 1);
-        };
-        if (u / R == 0) {
-            ln_prologue::rms_norm_row<Ln<cb_gq>>(cb_out, pack);
-        } else {
-            ln_prologue::rms_norm_row<Ln<cb_gk>>(cb_out, pack);
-        }
-    }
-#else
     for (uint32_t u = first; u < first + count; ++u) {   // the q / k units; v is the reader's and the writer's
         [[maybe_unused]] const uint32_t t = u / R;   // 0 q, 1 k
 #ifdef QKRH_Q_CB
@@ -203,7 +186,6 @@ void kernel_main() {
         cb_pop_front(cb_cos, 1);
         cb_pop_front(cb_sin, 1);
     }
-#endif
 #ifdef QKRH_V_PACK
     constexpr uint32_t VC = get_compile_time_arg_val(2), cb_v = 21, cb_vo = 22, DST = 4;
     reconfig_data_format_srca(cb_v);

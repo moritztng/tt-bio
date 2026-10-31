@@ -8,7 +8,7 @@
 // the writer untouched. Once, first: the 1/D reduce scaler (c_10), an fp32 eps tile (c_11) and both gammas (c_8 q,
 // c_15 k, KT tiles, row 0 carries the vector); under QKRH_RELOAD (both would not fit L1 beside the rest, the 6B)
 // the unit's gamma is read again into c_8 with every q / k row instead; under QKRH_NO_LN (SaProt: RoPE without a q / k
-// LayerNorm) no gamma is read at all; under QKRH_RMS_HEADS (the RFdiffusion3 DiT: RMSNorm, no RoPE) no cos / sin. q, k and v may be one packed [B, L, 3D] qkv (RS = 3 * KT, TO = KT).
+// LayerNorm) no gamma is read at all. q, k and v may be one packed [B, L, 3D] qkv (RS = 3 * KT, TO = KT).
 // Common runtime args: q, k, v, gamma q, gamma k, cos, sin addresses. Per core: first q / k unit, q / k unit count,
 // first v unit, v unit count.
 #include "api/dataflow/dataflow_api.h"
@@ -79,12 +79,10 @@ void kernel_main() {
             }
             continue;
         }
-        [[maybe_unused]] const uint32_t lt = r % LT;
+        const uint32_t lt = r % LT;
         cb_reserve_back(cb_x, KT);
-#ifndef QKRH_RMS_HEADS
         cb_reserve_back(cb_cos, 1);
         cb_reserve_back(cb_sin, 1);
-#endif
         w = get_write_ptr(cb_x);
         if (t == 0) {
             for (uint32_t c = 0; c < KT; ++c, w += tx) noc_async_read_page(r * RS + c, sq, w);
@@ -100,18 +98,14 @@ void kernel_main() {
             for (uint32_t p = 0; p < KT; ++p, wg += tx) noc_async_read_page(p, sgk, wg);
         }
 #endif
-#ifndef QKRH_RMS_HEADS
         noc_async_read_page(lt * 2, sc, get_write_ptr(cb_cos));
         noc_async_read_page(lt * 2, ss, get_write_ptr(cb_sin));
-#endif
         noc_async_read_barrier();
 #ifdef QKRH_RELOAD
         cb_push_back(cb_gq, KT);
 #endif
         cb_push_back(cb_x, KT);
-#ifndef QKRH_RMS_HEADS
         cb_push_back(cb_cos, 1);
         cb_push_back(cb_sin, 1);
-#endif
     }
 }

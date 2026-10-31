@@ -33,7 +33,6 @@ from .tiles import TILE, align_tile, pad_axis
 from .. import pair_swiglu_ws as _WS
 from .. import dit_pair_bias as _DPB
 from .. import gather_tiled as _gather_tiled
-from .. import qk_rope_heads as _QKRH
 from ..addcmul_at import addcmul_at as _addcmul_at
 from .. import eltwise_fusion as _EF
 from ..tenstorrent import (Module, get_device, CORE_GRID_MAIN, attn_value_matmul, silu_ckc, mm_sigmoid,
@@ -207,10 +206,6 @@ _RESIDENT_STEP = env_flag("RFD3_RESIDENT_STEP", True)
 # The DiT stack runs on tile-aligned rows (685 -> 704 at the page cell), padded once on entry and sliced once on exit,
 # so its 36 SDPA calls a step skip the per-call q/k/v pad and output slice. Valid rows exact. RFD3_DIT_PAD_ONCE=0 restores.
 _DIT_PAD_ONCE = env_flag("RFD3_DIT_PAD_ONCE", True)
-# The DiT's q, k and v come out of one [768, 3 * 1024] projection and one program (qk_rope_heads.rms_heads_packed) does
-# both RMSNorms in fp32 and writes the per-head SDPA inputs, in place of three linears, two rms_norm, a concat and
-# nlp_create_qkv_heads: 7 ops a block become 2. Needs the tile-aligned rows of RFD3_DIT_PAD_ONCE.
-_DIT_QKV_HEADS = env_flag("RFD3_DIT_QKV_HEADS", False)
 # The per-step neighbour graph is the largest single host cost in a design. At the page fixture
 # (6051 atoms) the ledger puts it at 51.9 + 19.8 ms of an 84.8 ms host body, and P3.7 measured
 # 54.3 ms/step of that reaching the wall. It is one chain -- cdist -> masked_fill_ -> topk -- over
@@ -814,7 +809,7 @@ def _tuned_declined(x, w, dtype, ckc, core_grid=BATCH_INVARIANT_GRID):
 # RFD3_DIT_MM2D=0/1 forces it.
 _MM2D_ENV = env_flag("RFD3_DIT_MM2D", False) if os.environ.get("RFD3_DIT_MM2D") else None
 _MM2D_L1 = env_flag("RFD3_DIT_MM2D_L1", False) if os.environ.get("RFD3_DIT_MM2D_L1") else None
-_MM2D_SHAPES = {(768, 1024), (768, 1536), (1536, 768), (1024, 768), (768, 3072)}
+_MM2D_SHAPES = {(768, 1024), (768, 1536), (1536, 768), (1024, 768)}
 _MM2D_PIN = {}
 _MM2D_CACHE = {}
 
@@ -3248,13 +3243,19 @@ class RFD3AtomBlock(Module):
         ckc, dt, w = self.compute_kernel_config, self.dtype, self.pad_w
         lin = dict(ckc=ckc, dtype=dt, core_grid=BATCH_INVARIANT_GRID)
         n_key, hp = align_tile(length), self.n_head * align_tile(self.head_dim)
-        heads = None
-        if "qkv" in w and length == n_key:
-            qkv = _tuned_linear(norm, w["qkv"], **lin)
-            heads = _QKRH.rms_heads_packed(qkv, w["q_ln"], w["k_ln"], w["eps"])
-            ttnn.deallocate(qkv)
-        qq, kk, vv = heads or self._dense_heads(norm, batch, length, hp)
+        qq = ttnn.rms_norm(_tuned_linear(norm, w["q"], **lin), weight=w["q_ln"], epsilon=w["eps"],
+                           compute_kernel_config=ckc)
+        kk = ttnn.rms_norm(_tuned_linear(norm, w["k"], **lin), weight=w["k_ln"], epsilon=w["eps"],
+                           compute_kernel_config=ckc)
+        vv = _tuned_linear(norm, w["v"], **lin)
         gg = _tuned_linear(norm, w["g"], **lin)
+        qkv = ttnn.reshape(ttnn.concat([qq, kk, vv], dim=-1), (batch, 1, length, 3 * hp))
+        for x in (qq, kk, vv):
+            ttnn.deallocate(x)
+        qq, kk, vv = ttnn.experimental.nlp_create_qkv_heads(
+            qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
+            memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(qkv)
         mask = sdpa_mask
         if mask is None:
             if pair_bias is None:
@@ -3272,24 +3273,6 @@ class RFD3AtomBlock(Module):
             o = ttnn.slice(o, [0, 0, 0, 0], [batch, 1, length, hp])
         o = ttnn.reshape(o, (batch, length, hp))
         return _tuned_linear(_gated(o, gg), w["o"], **lin)
-
-    def _dense_heads(self, norm, batch, length, hp):
-        """q, k, v per head through three linears, two rms_norm, a concat and nlp_create_qkv_heads."""
-        ckc, w = self.compute_kernel_config, self.pad_w
-        lin = dict(ckc=ckc, dtype=self.dtype, core_grid=BATCH_INVARIANT_GRID)
-        qq = ttnn.rms_norm(_tuned_linear(norm, w["q"], **lin), weight=w["q_ln"], epsilon=w["eps"],
-                           compute_kernel_config=ckc)
-        kk = ttnn.rms_norm(_tuned_linear(norm, w["k"], **lin), weight=w["k_ln"], epsilon=w["eps"],
-                           compute_kernel_config=ckc)
-        vv = _tuned_linear(norm, w["v"], **lin)
-        qkv = ttnn.reshape(ttnn.concat([qq, kk, vv], dim=-1), (batch, 1, length, 3 * hp))
-        for x in (qq, kk, vv):
-            ttnn.deallocate(x)
-        heads = ttnn.experimental.nlp_create_qkv_heads(
-            qkv, num_heads=self.n_head, num_kv_heads=self.n_head, transpose_k_heads=False,
-            memory_config=ttnn.DRAM_MEMORY_CONFIG)
-        ttnn.deallocate(qkv)
-        return heads
 
     def _padded_head_weights(self, a):
         """q/k/v/g with zero output columns after each head and o with zero input rows, so every
@@ -3309,9 +3292,6 @@ class RFD3AtomBlock(Module):
             out[k] = self.torch_to_tt(a + n, transform=lambda w: cols(w.reshape(1, -1) * s ** 0.5)[0],
                                       dtype=dt)
         out["eps"] = 1e-6 * s
-        if _DIT_QKV_HEADS and _DIT_PAD_ONCE:
-            out["qkv"] = self.torch_to_tt(a + "to_q.weight", dtype=dt, transform=lambda _: torch.cat(
-                [cols(self.weights[a + n].t()) for n in ("to_q.weight", "to_k.weight", "to_v.weight")], dim=1))
         return out
 
 
