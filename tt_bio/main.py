@@ -3789,7 +3789,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         steering_args={"fk_steering": use_potentials, "physical_guidance_update": use_potentials,
                        "contact_guidance_update": True, "num_particles": 3, "fk_lambda": 4.0,
                        "fk_resampling_interval": 3, "num_gd_steps": 20},
-        use_kernels=not no_kernels, use_tenstorrent=use_tt, trace=bool(trace),
+        use_kernels=not no_kernels and accelerator == "gpu", use_tenstorrent=use_tt, trace=bool(trace),
         diffusion_trace=diffusion_trace,
     )
     aff_kwargs = dict(
