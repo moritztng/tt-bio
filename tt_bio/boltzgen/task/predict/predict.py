@@ -13,7 +13,7 @@ quiet_startup()
 import multiprocessing
 import pickle
 import random
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
 
 import numpy as np
@@ -50,9 +50,62 @@ def _featurize_next(rng: tuple = None) -> bytes:
     if rng is not None:
         np.random.set_state(rng[0])
         random.setstate(rng[1])
-    # Plain pickle copies each tensor's bytes. The pool's own pickler would share each one through a file
+    # Plain pickle copies each tensor's bytes. multiprocessing's own pickler would share each one through a file
     # descriptor held while the tensor lives, and a design's few hundred tensors run a 1024-fd limit out.
     return pickle.dumps(next(_items, None), protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def _featurize_serve(conn, data: bytes) -> None:
+    _featurize_open(data)
+    while True:
+        try:
+            rng = conn.recv()
+        except EOFError:
+            return
+        conn.send_bytes(_featurize_next(rng))
+
+
+class _FeatureProcess:
+    """bg_featproc's worker: a spawned process that owns the data module and featurizes one design per request.
+
+    It talks over a pipe, which is a pair of file descriptors. A process pool's queues are named POSIX semaphores, and
+    systemd-logind removes a user's named IPC objects when their last login session closes (RemoveIPC, the default for
+    a non-system user without linger). On a Galaxy that happened between a pool's start and its worker's, the worker
+    died opening them and the design waited for it until its timeout. ``submit`` / ``result`` mirror the thread path's
+    future, and a worker that exits without replying raises rather than hangs."""
+
+    def __init__(self, data) -> None:
+        ctx = multiprocessing.get_context("spawn")
+        self._conn, child = ctx.Pipe()
+        self._proc = ctx.Process(target=_featurize_serve, args=(child, pickle.dumps(data)), daemon=True)
+        self._proc.start()
+        child.close()
+
+    def submit(self, rng: tuple = None) -> "_FeatureProcess":
+        try:
+            self._conn.send(rng)
+        except OSError as e:
+            raise self._died() from e
+        return self
+
+    def result(self):
+        try:
+            return pickle.loads(self._conn.recv_bytes())
+        except (EOFError, OSError) as e:
+            raise self._died() from e
+
+    def _died(self) -> RuntimeError:
+        self._proc.join(10)
+        return RuntimeError(f"bg_featproc worker exited with code {self._proc.exitcode} before featurizing a design")
+
+    def __enter__(self) -> "_FeatureProcess":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self._conn.close()
+        self._proc.join(10)
+        if self._proc.is_alive():
+            self._proc.terminate()
 
 
 class Predict(Task):
@@ -129,9 +182,7 @@ class Predict(Task):
         featurize = None
         if run_prediction and "bg_featproc" in model_levers():
             _pickle_mol_props()
-            featurize = ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn"),
-                                            initializer=_featurize_open, initargs=(pickle.dumps(self.data),))
-            fetch, get = (lambda: featurize.submit(_featurize_next)), (lambda f: pickle.loads(f.result()))
+            featurize = _FeatureProcess(self.data)
 
         # Build model with convert_to_tt applied; load_boltz_checkpoint filters
         # legacy hparams and applies the legacy-key remap on the state_dict.
@@ -163,14 +214,15 @@ class Predict(Task):
         items = iter(dataloader)
         if featurize is None:
             featurize = ThreadPoolExecutor(1)
-            fetch, get = (lambda: featurize.submit(next, items, None)), (lambda f: f.result())
+            fetch = lambda: featurize.submit(next, items, None)  # noqa: E731
             ahead = fetch()
         else:
-            ahead = featurize.submit(_featurize_next, (np.random.get_state(), random.getstate()))
+            fetch = featurize.submit
+            ahead = featurize.submit((np.random.get_state(), random.getstate()))
         with featurize, ThreadPoolExecutor(1) as write:
             written = None
             for batch_idx in range(total_batches):
-                batch = get(ahead)
+                batch = ahead.result()
                 ahead = fetch()
                 prediction = model.predict_step(batch, batch_idx=batch_idx)
                 if written is not None:
