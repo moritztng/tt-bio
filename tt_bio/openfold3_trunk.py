@@ -49,12 +49,14 @@ from .tenstorrent import (Module, Pairformer, accurate_softmax_site, msa_embed,
                           triatt_sdpa_hifi_site)
 from .openfold3_weights import remap_pairformer_stack, is_openbind, _sub
 
-# `m` up to this size stays on the chip for the whole trunk; past it, it waits on the host and every
-# MSA block streams it up and back one depth chunk at a time. Most Galaxy chips sit on a PCIe Gen4 x1
-# link, where that round trip cost the served 835-token fold 20 s of a 65 s trunk (10,186 rows,
-# 1.09 GB of m). 1.25 GiB holds every served alignment at that size and stays clear of the 1.98 GiB
-# `m` (1088 tokens x 14,191 rows) that a 12 GiB Wormhole part refuses.
+# `m` up to this size stays on the chip for the whole trunk, up to this many tokens; past either, it
+# waits on the host and every MSA block streams it up and back one depth chunk at a time. Most Galaxy
+# chips sit on a PCIe Gen4 x1 link, where that round trip cost the served 835-token fold 26 s of a
+# 66 s trunk (10,186 rows, 1.09 GB of m). 1.25 GiB holds every served alignment at that size. The
+# token line is the largest size measured to fit with `m` at the cap (1184 tokens x 8,855 rows); at
+# 1536 tokens the cycle's updated copy of a 1.34 GB `m` no longer fits on a 12 GiB Wormhole part.
 M_KEEP_BYTES = 5 << 28
+M_KEEP_MAX_TOKENS = 1184
 from .openfold3_template import TemplateEmbedder
 from .openfold3_msa_embedder import MSAModuleEmbedder, MSAModule
 
@@ -240,7 +242,8 @@ class OF3Trunk(Module):
         # MSA block works on depth chunks (openfold3_msa_embedder.MSAModuleBlock), as in the
         # protenix trunk. A device `msa_feat` is embedded whole and consumed: at 1024 tokens x
         # 14191 alignment rows it is 1 860 042 752 B that must not be held across the trunk.
-        m = msa_embed(msa_feat, lambda x: self.msa_embedder(x, s_input), keep=M_KEEP_BYTES)
+        keep = M_KEEP_BYTES if msa_feat.shape[2] <= M_KEEP_MAX_TOKENS else None
+        m = msa_embed(msa_feat, lambda x: self.msa_embedder(x, s_input), keep=keep)
         # the template feature half is a function of template_feat alone, so it is the
         # same tensor in every cycle -- compute it once, exactly like m above.
         a_tmpl = self.template.features(template_feat)
