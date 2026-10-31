@@ -82,6 +82,12 @@ N_BLOCKS = 24
 
 # Pair shapes whose single-pass pair-bias projection DRAM refused, and the block they settled at.
 _PAIR_BIAS_ROWS_REFUSED: dict = {}
+# dit_l1 shapes (samples, rows, width, dtype) the device refused; `_DiTBlock.l1` sends them to DRAM.
+_DIT_L1_REFUSED: set = set()
+
+
+def _dit_l1_key(a) -> tuple:
+    return (*tuple(a.shape), str(a.dtype))
 
 
 def _sub(sd: dict, prefix: str) -> dict:
@@ -357,8 +363,13 @@ class _DiTBlock(Module):
         Only where the block's live set fits beside the consumers' circular buffers. Priced in stream-sized
         tensors `a` [S, rows, 768]: a, s and s_hat for the call, then at most the transition's a_t, b1, b2
         (two each) and their product (two), or the attention's a_ln, qkv (four, padded heads) and o; 12 with
-        slack. Decided on the shape alone, so every block of a call and the stack agree."""
-        if not (self.fuse and _T.lever("dit_l1")):
+        slack. Decided on the shape alone, so every block of a call and the stack agree.
+
+        The byte price cannot see the linears' circular buffers, which grow with the rows each core
+        owns: on a p150a the bf16 stream at 5 samples x 768 rows was admitted and the QKV linear's
+        buffers then ran 195072 B/core into it (nfb, OpenFold3 at 679-791 tokens). So a shape the
+        device refuses is latched here and the stack reruns it in DRAM (`_DIT_L1_REFUSED`)."""
+        if not (self.fuse and _T.lever("dit_l1")) or _dit_l1_key(a) in _DIT_L1_REFUSED:
             return {}
         elem = 4 if self._act_dtype == ttnn.float32 else 2
         fits = _T._l1_fits(_T._padded_bytes(tuple(a.shape), elem), 12.0, _T._PAIR_L1_CONSUMER_RESERVE)
@@ -659,6 +670,40 @@ class OF3DiffusionTransformer(Module):
                                   ttnn.bfloat16))
         return None
 
+    def _blocks(self, a_d, s_d, z_d, mask_bias, tmc_d, cache, rows):
+        """The 24 blocks on the padded stream, under dit_l1 where `l1` admits the shape. A shape the
+        device refuses (its circular buffers clash with the resident stream) is latched and rerun in
+        DRAM. Only step 0 of a rollout can throw, since it compiles every program and runs eagerly."""
+        if self.blocks[0].l1(a_d):
+            try:
+                return self._blocks_on(a_d, s_d, z_d, mask_bias, tmc_d, cache, rows, True)
+            except RuntimeError as e:
+                if _T.describe_l1_clash(e) is None:
+                    raise
+                _DIT_L1_REFUSED.add(_dit_l1_key(a_d))
+                _T._latch("dit_l1", "refused", e)
+        return self._blocks_on(a_d, s_d, z_d, mask_bias, tmc_d, cache, rows, False)
+
+    def _blocks_on(self, a_d, s_d, z_d, mask_bias, tmc_d, cache, rows, l1):
+        if l1:
+            # dit_l1: copies, so the caller's tensors are untouched; ours are freed below.
+            a_d, s_d = (ttnn.to_memory_config(x, ttnn.L1_MEMORY_CONFIG) for x in (a_d, s_d))
+        x = a_d
+        s16 = self.shared_s(s_d)
+        for blk in self.blocks:
+            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16,
+                    tok_ones=self._tok_ones.get(rows, False))
+        for t in s16 or ():
+            ttnn.deallocate(t)
+        if l1:
+            _T._latch("dit_l1", "served")
+            ttnn.deallocate(s_d)
+            if x is not a_d:
+                ttnn.deallocate(a_d)
+            x, x_l1 = ttnn.to_memory_config(x, ttnn.DRAM_MEMORY_CONFIG), x
+            ttnn.deallocate(x_l1)
+        return x
+
     def __call__(self, a, s, z, token_mask, tok_mask_col, cache=None):
         # Pad to the tile-aligned logical width so the SDPA's tiled key extent is
         # fully masked. from_torch pads *storage* with 0 (="unmasked" for an additive
@@ -692,23 +737,7 @@ class OF3DiffusionTransformer(Module):
         if rows != padded_N:
             a_d, s_d = (ttnn.pad(x, [(0, 0), (0, rows - padded_N), (0, 0)], value=0.0)
                         for x in (a_d, s_d))
-        l1 = self.blocks[0].l1(a_d)
-        if l1:
-            # dit_l1: copies, so the caller's tensors are untouched; ours are freed below.
-            a_d, s_d = (ttnn.to_memory_config(x, l1["memory_config"]) for x in (a_d, s_d))
-        x = a_d
-        s16 = self.shared_s(s_d)
-        for blk in self.blocks:
-            x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16,
-                    tok_ones=self._tok_ones.get(rows, False))
-        for t in s16 or ():
-            ttnn.deallocate(t)
-        if l1:
-            ttnn.deallocate(s_d)
-            if x is not a_d:
-                ttnn.deallocate(a_d)
-            x, x_l1 = ttnn.to_memory_config(x, ttnn.DRAM_MEMORY_CONFIG), x
-            ttnn.deallocate(x_l1)
+        x = self._blocks(a_d, s_d, z_d, mask_bias, tmc_d, cache, rows)
         if rows == N:
             return x
         x = ttnn.to_layout(x, ttnn.ROW_MAJOR_LAYOUT)

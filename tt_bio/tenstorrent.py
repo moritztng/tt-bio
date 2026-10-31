@@ -4720,7 +4720,7 @@ _BMM_CFG_REFUSED: set = set()
 LATCH_STATS: dict = {n: {"served": 0, "refused": 0, "blocked": 0, "declined": 0, "why": []}
                      for n in ("l1_out", "narrow_l1_out", "transpose_l1", "transpose_stage",
                                "pair_bias_ln_l1", "bmm_cfg", "sdpa_q_chunk", "transition_bw",
-                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_fc123g", "dit_cond_steps")}
+                               "transition_shard", "swiglu_fc12g", "dit_shard", "dit_fc123g", "dit_cond_steps", "dit_l1")}
 
 
 def _latch(name: str, field: str, why: object = None) -> None:
