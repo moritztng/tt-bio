@@ -1897,6 +1897,8 @@ class _WorkerState:
                 # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
                 # above forwards it, which is why the flag looked plumbed.
                 trace=_protenix_trace(cfg) and _protenix_region_reserved(),
+                # upstream's own output layout (D6) is Mol-1's contract; other models keep the memory
+                return_logits=cfg.get("model") == "mol1",
             )
         confs = conf if isinstance(conf, list) else [conf]
         return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)
