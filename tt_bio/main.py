@@ -2930,7 +2930,7 @@ def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
 
 
 def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
-                              mod_names=None, chain_ids=None):
+                              mod_names=None, chain_ids=None, mirror_carboxylates=False):
     """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
@@ -2950,7 +2950,8 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     a chain by the id it submitted read the wrong one.
 
     A protein chain's terminal OXT that fails OpenDDE's geometry gates is rebuilt from the
-    CCD ideal carboxylate before writing (tt_bio.oxt), on a copy of `coords`."""
+    CCD ideal carboxylate before writing (tt_bio.oxt), on a copy of `coords`. `mirror_carboxylates` applies
+    Mol-1's unconditional O/OXT mirror instead (tt_bio.oxt.mirror_terminal_carboxylates), as its writer does."""
     import biotite.structure as struc
     import biotite.structure.io.pdbx as _pdbx
     import numpy as np
@@ -2994,9 +2995,12 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     outpath = Path(outpath)
     # an OXT the diffusion left on O/C or detached is rebuilt from the CCD geometry
     # (OpenDDE 6685cef); arr.coord is already a copy, the caller's coords are untouched
-    from tt_bio.oxt import repair_terminal_oxt_from_feats
-    arr.coord, _ = repair_terminal_oxt_from_feats(arr.coord, feats, arr.atom_name, arr.res_name,
-                                                  where=outpath)
+    from tt_bio.oxt import mirror_terminal_carboxylates, repair_terminal_oxt_from_feats
+    if mirror_carboxylates:
+        arr.coord = mirror_terminal_carboxylates(arr.coord, arr.atom_name, arr.chain_id, arr.res_id)
+    else:
+        arr.coord, _ = repair_terminal_oxt_from_feats(arr.coord, feats, arr.atom_name, arr.res_name,
+                                                      where=outpath)
     if output_format == "pdb":
         write_atom_array(arr, outpath)
     else:
