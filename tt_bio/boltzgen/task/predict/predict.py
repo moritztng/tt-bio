@@ -18,6 +18,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 import torch
+from rdkit import Chem
 
 from tt_bio.boltzgen.adapter import load_boltz_checkpoint
 from tt_bio.boltzgen.progress import progress
@@ -30,11 +31,17 @@ from tt_bio.tenstorrent import model_levers
 _items = None
 
 
+def _pickle_mol_props() -> None:
+    # A pickled rdkit Mol drops its atom properties (the featurizer looks atoms up by "name") unless asked to keep them.
+    Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
+
+
 def _featurize_open(data: bytes, rng: tuple) -> None:
     """Spawned featurize worker: own the data module and continue the parent's numpy / random streams from where
     the parent stood, so every design draws exactly what the in-process featurizer would."""
     global _items
     torch.set_num_threads(1)
+    _pickle_mol_props()
     np.random.set_state(rng[0])
     random.setstate(rng[1])
     _items = iter(pickle.loads(data).predict_dataloader())
@@ -120,6 +127,7 @@ class Predict(Task):
         featurize = None
         if run_prediction and "bg_featproc" in model_levers():
             rng = (np.random.get_state(), random.getstate())
+            _pickle_mol_props()
             featurize = ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn"),
                                             initializer=_featurize_open, initargs=(pickle.dumps(self.data), rng))
             fetch, get = (lambda: featurize.submit(_featurize_next)), (lambda f: pickle.loads(f.result()))
