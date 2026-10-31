@@ -19,8 +19,8 @@ rec = idx.get("recipes", {})
 for cid, f in sorted(idx["cases"].items()):
     if cid in idx.get("headline_only", ()):  # GPU-only set
         continue
-    print(f, {"use_msa_false": "--use_msa false", "use_template_true": "--use_template true",
-              "use_rna_msa_true": "--use_rna_msa true"}.get(rec.get(cid, "default"), ""))
+    print(f, {"use_msa_false": "--single_sequence", "use_template_true": "--use_template",
+              "use_rna_msa_true": "--use_rna_msa"}.get(rec.get(cid, "default"), ""))
 PY
 )
 worker() {  # chip index-in-list
