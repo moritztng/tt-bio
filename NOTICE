@@ -175,7 +175,8 @@ MIT-licensed and credited in the top-level LICENSE.
 
 15. tt_bio/_vendor/mol1/ — Mol-1's input pipeline: the numpy MSA assembly line
    (deduplication, species pairing, row caps) and the template pipeline (.a3m/.hhr
-   hit parsing, release-date filter, kalign realignment, template features), so a
+   hit parsing, release-date filter, kalign realignment, template features) and the
+   hmmsearch template and nhmmer RNA MSA searches, so a
    Protenix-family fold reads upstream Protenix / Mol-1 JSON inputs exactly as
    upstream does. Copied by scripts/mol1_io/vendor_msa.py and vendor_templates.py.
    Source:        github.com/molence/Mol-1 @ e6e64866 (derived from Protenix)

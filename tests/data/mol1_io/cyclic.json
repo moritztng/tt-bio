@@ -1,0 +1,31 @@
+[
+ {
+  "name": "cyclic_pep",
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "GCAKWCPG",
+     "count": 1
+    }
+   }
+  ],
+  "covalent_bonds": [
+   {
+    "entity1": "1",
+    "position1": "1",
+    "atom1": "N",
+    "entity2": "1",
+    "position2": "8",
+    "atom2": "C"
+   },
+   {
+    "entity1": "1",
+    "position1": "2",
+    "atom1": "SG",
+    "entity2": "1",
+    "position2": "6",
+    "atom2": "SG"
+   }
+  ]
+ }
+]

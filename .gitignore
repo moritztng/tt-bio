@@ -449,3 +449,4 @@ perf/train_u_relpos/**/checkpoints/
 perf/bgx_inputs/out/xlacache/
 perf/bgx_inputs/out/run_*/
 
+!tests/data/mol1_io/features/msa/
