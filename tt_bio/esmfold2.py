@@ -93,6 +93,12 @@ _DUMP = None
 # ttnn.chunk: 6 atom blocks x every sampler step, the chunk was 0.30 s of device time per 512-aa fold (census c3).
 ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the ef2_atom_ffn_split lever
 
+# The MSA encoder's two SwiGLU transitions (MSA and pair) on the trunk's own pair-FFN path (split fc1, row-blocked,
+# pair SwiGLU kernel and its folded residual where the mode's levers serve them) instead of one fc1 linear, a chunk,
+# a silu and a multiply over the whole tensor. With an MSA deeper than max_depth the encoder runs every loop, and on
+# p150a those ops were 2.2 s of a 5.6 s encoder (512 aa, 4096 rows, 1350 MHz, dmc).
+MSA_FFN_FUSED = env_flag("TT_BIO_ESMFOLD2_MSA_FFN_FUSED", None)  # unset: the ef2_msa_ffn lever
+
 
 def gate(flag, name):
     """A branch-stack switch: its setting when given, else whether lever `name` is active in the fold's scope.
@@ -1889,12 +1895,34 @@ class MSAEncoderBlock(Module):
         super().__init__(state_dict, compute_kernel_config)
         self.is_final = is_final
         self.opm = OuterProductMean(self.scope("outer_product_mean"), compute_kernel_config)
+        # Both builds of each transition, at construction: a lazy build would take its weights out of turn
+        # under the shared tile cache, which keys every weight on its construction order. ~0.3 MB a block.
+        names = ("pair_transition",) if is_final else ("msa_transition", "pair_transition")
+        self._ffns = {(n, f): SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), n), compute_kernel_config,
+                                        fuse_swiglu=f) for n in names for f in (False, True)}
         if not is_final:
             self.mpwa = MSAPairWeightedAveraging(n_heads_msa, msa_head_width, self.scope("msa_pair_weighted_averaging"), compute_kernel_config)
-            self.msa_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "msa_transition"), compute_kernel_config)
         self.tri_out = TriangleMultiplication(False, _remap_trimul(self.weights.as_dict(), "tri_mul_out._engine"), compute_kernel_config)
         self.tri_in = TriangleMultiplication(True, _remap_trimul(self.weights.as_dict(), "tri_mul_in._engine"), compute_kernel_config)
-        self.pair_transition = SwiGLUFFN(_remap_transition_named(self.weights.as_dict(), "pair_transition"), compute_kernel_config)
+
+    def _residual(self, name, x):
+        """`x + transition(x)`. Under ef2_msa_ffn, the trunk's `SwiGLUFFN.residual` wherever its row block serves
+        the shape; elsewhere (and with the lever off) the original path, which a DRAM-bound shape needs: it
+        updates the pair in place, and `_msa_transition_residual` frees the MSA as it goes."""
+        if gate(MSA_FFN_FUSED, "ef2_msa_ffn"):
+            ffn = self._ffns[name, True]
+            if ffn._split_plan(x)[1]:
+                out = ffn.residual(x)
+                if out is not x:
+                    ttnn.deallocate(x)
+                return out
+        ffn = self._ffns[name, False]
+        if name == "msa_transition":
+            return _msa_transition_residual(x, ffn)
+        u = ffn(x)
+        ttnn.add_(x, u)
+        ttnn.deallocate(u)
+        return x
 
     def __call__(self, m, pair, recip_nvalid, mf=None):
         # `pair` is the encoder's own tensor (block 0 gets MSAEncoder.forward's upload), so every
@@ -1906,12 +1934,12 @@ class MSAEncoderBlock(Module):
         ttnn.deallocate(u)
         if not self.is_final:
             m = self.mpwa(m, pair)  # residual included
-            m = _msa_transition_residual(m, self.msa_transition)
-        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None), self.pair_transition):
+            m = self._residual("msa_transition", m)
+        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None)):
             u = f(pair)
             ttnn.add_(pair, u)
             ttnn.deallocate(u)
-        return m, pair
+        return m, self._residual("pair_transition", pair)
 
 
 def _remap_transition_named(sd: dict, prefix: str) -> WeightScope:
