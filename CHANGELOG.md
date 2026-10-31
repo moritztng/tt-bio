@@ -5,6 +5,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **ESMFold2 and ESMFold2-Fast send a smaller language-model dropout mask for lengths off the 16-residue grid.** The
+  mask now crosses to the device bit-packed at every length (at 748 residues 18 MB a loop instead of 286 MB). A
+  748-residue fold on a Blackhole p150a drops about 0.5 s (ESMFold2 normal 0.47 s, ESMFold2-Fast normal 0.57 s).
+  Off-grid lengths draw a different dropout mask, so their structures change at the seed level: graded over 44 paired
+  folds in normal mode, accuracy and docking success unchanged. Lengths on the grid are unchanged.
+
 ## [0.26.1] - 2026-10-29
 
 ### Fixed
