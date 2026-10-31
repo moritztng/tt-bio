@@ -9,9 +9,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **Mol-1 (`--model mol1`).** Molence Bio's Protenix-derived structure model folds protein, DNA, RNA, ligand and ion
   complexes on the Protenix engine. It reads upstream's job-list JSON unchanged, writes upstream's per-seed output
   layout with its summary and full-data confidence files, and defaults to upstream's 20 recycles, 200 steps and 5
-  samples. The weights download on first use; Molence has not stated a licence for them yet. See `docs/mol1.md`.
+  samples. For Protenix and Mol-1 job JSON, `--use_seeds_in_json` runs every seed in a job's
+  `modelSeeds` instead of `--seed`, one result per seed. The weights download on first use; Molence has not stated a
+  licence for them yet. See `docs/mol1.md`.
 - **`tt-bio json`** turns PDB and mmCIF structures into Protenix / Mol-1 job JSON with Mol-1's own converter
-  (`mol json`), so the output is identical to upstream's. The first run downloads the Chemical Component Dictionary.
+  (`mol json`), so the output is identical to upstream's. `--altloc` picks the alternate location, `--assembly_id`
+  expands to a biological assembly and `--include_discont_poly_poly_bonds` keeps bonds between non-consecutive polymer
+  residues (disulfides, cyclic peptides), as upstream's options of the same names do. The first run downloads the
+  Chemical Component Dictionary.
 - **`tt-bio prep`** searches the MSAs of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold and writes them
   where upstream's `mol msa` does, so a prepared job folds without searching. With `--use_template` and
   `--use_rna_msa` it also runs upstream's template and RNA MSA searches, which is `mol prep`. Needs no device.
