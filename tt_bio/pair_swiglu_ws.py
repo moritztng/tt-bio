@@ -104,7 +104,7 @@ def _res_depth(base, ct, n_res) -> int:
 
 def eligible(x, w12, w3, ln=(), l1acc=False, resid=None, resid2=None) -> bool:
     """bfloat16 TILE interleaved x, bf16/bfp8 TILE interleaved weights, hidden a multiple of 4 tiles, output
-    width at most 4 tiles or a multiple of 4, and the weights plus the streaming CBs inside `_L1_BUDGET`. With
+    width at most 4 tiles or a multiple of 2, and the weights plus the streaming CBs inside `_L1_BUDGET`. With
     `ln` = (gamma, beta) also the LayerNorm prologue (beta None: RMSNorm): bf16 x, bf16 [1, C] gamma / beta, and its
     CBs in budget. `l1acc` adds its fp32 accumulator CB; `resid` (bf16, TILE, interleaved DRAM, the output's padded
     shape) its two row tiles; `resid2` (same form, needs `resid`) one or two row tiles beside it."""
@@ -119,7 +119,7 @@ def eligible(x, w12, w3, ln=(), l1acc=False, resid=None, resid2=None) -> bool:
     kt, ct = int(x.padded_shape[-1]) // 32, int(w3.shape[-1]) // 32
     nh = int(w3.shape[0]) // 32
     if not (kt == int(w12.shape[0]) // 32 and int(w12.shape[1]) == 2 * int(w3.shape[0])
-            and nh % _SW == 0 and (ct <= 4 or ct % 4 == 0)):
+            and nh % _SW == 0 and (ct <= 4 or ct % 2 == 0)):
         return False
     if ln and (x.dtype != ttnn.bfloat16 or not all(_ln_vec_ok(v, 32 * kt) for v in ln if v is not None)):
         return False

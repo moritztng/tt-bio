@@ -197,7 +197,8 @@ void kernel_main() {
 #ifdef WS_RES32
     constexpr uint32_t OG = CT < 2 ? CT : 2, cb_outb = 25;
 #else
-    constexpr uint32_t OG = CT < 4 ? CT : 4;
+    // Groups of 4 output tiles (one fp32 dest half), or of 2 where CT is not a multiple of 4 (Mol-1: c_z 448 = 14, 320 = 10).
+    constexpr uint32_t OG = CT < 4 ? CT : CT % 4 == 0 ? 4 : 2;
 #endif
     static_assert(NH % SW == 0 && CT % OG == 0);
     constexpr uint32_t cb_x = 0, cb_w12 = 1, cb_w3 = 2, cb_gate = 3, cb_hid = 4, cb_out = 16, cb_res = 20;
