@@ -175,6 +175,25 @@ OF3_FAMILY = ("openfold3", "openbind")
 # "any Protenix-family checkpoint" reads this tuple.
 PROTENIX_FAMILY = ("protenix-v1", "protenix-v2", "mol1")
 
+
+def _upstream_search_options(f):
+    """Upstream ``mol pred``'s template and RNA MSA search options (tt_bio.protenix_json.search), same names."""
+    helps = {"hmmsearch_binary_path": "hmmsearch for template search (default: PATH)",
+             "hmmbuild_binary_path": "hmmbuild for template search (default: PATH)",
+             "seqres_database_path": "template search database (default: $MOL_ROOT_DIR/search_database/"
+                                     "pdb_seqres_20261001.fasta)",
+             "nhmmer_binary_path": "nhmmer for RNA MSA search (default: PATH)",
+             "hmmalign_binary_path": "hmmalign for RNA MSA search (default: PATH)",
+             "hmmbuild_rna_binary_path": "RNA hmmbuild (default: --hmmbuild_binary_path)",
+             "ntrna_database_path": "NT-RNA database (default: under $MOL_ROOT_DIR/search_database)",
+             "rfam_database_path": "Rfam database (default: under $MOL_ROOT_DIR/search_database)",
+             "rna_central_database_path": "RNAcentral database (default: under $MOL_ROOT_DIR/search_database)"}
+    f = click.option("--nhmmer_n_cpu", type=int, default=None, help="Upstream JSON input: nhmmer threads.")(f)
+    for name, h in reversed(helps.items()):
+        f = click.option(f"--{name}", default=None, type=click.Path(),
+                         help=f"Upstream JSON input with --use_template/--use_rna_msa: {h}.")(f)
+    return f
+
 # Single source of truth for the other two model-choice CLI surfaces (`embed`,
 # `saprot`), for the same reason: anything that needs "every model we ship"
 # (perf gate coverage, docs, future audits) should import these instead of
@@ -3382,6 +3401,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--use_rna_msa", is_flag=True,
               help="Upstream Protenix/Mol-1 JSON input: use each RNA chain's `unpairedMsa`/`unpairedMsaPath` "
                    "(upstream's flag of the same name; off, an RNA chain is its query row only).")
+@_upstream_search_options
 @click.option("--use_msa_server", is_flag=True, help="Generate MSAs via ColabFold API (requires internet)")
 @click.option("--msa_db_path", default=None, type=click.Path(exists=True), help="Local ColabFold DB for offline MSA (default: auto-detect ~/.boltz/msa_db)")
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
@@ -3496,7 +3516,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             use_tfg_guidance, trunk_cache, write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
             sampling_steps_affinity, diffusion_samples_affinity, affinity_checkpoint,
             num_devices, device_ids, host_threads, fast, diffusion_precision, debug, log,
-            report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model):
+            report_energy, energy_sample_hz, energy_metric, controller, run_id, owner, model, **search_tools):
     """Run structure prediction.
 
     DATA is a YAML/FASTA file or a directory of them.
@@ -3536,10 +3556,12 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if protenix_json.is_job_list(Path(data).expanduser()):
         src = Path(data).expanduser()
         try:
-            data = str(protenix_json.stage(src, Path(out_dir).expanduser() / ".upstream_inputs" / src.stem,
+            staged = Path(out_dir).expanduser() / ".upstream_inputs" / src.stem
+            src = protenix_json.search(src, staged, use_template, use_rna_msa, **search_tools)
+            data = str(protenix_json.stage(src, staged,
                                            seeds=[seed] if seed is not None else None,
                                            use_seeds_in_json=use_seeds_in_json))
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:
             raise click.ClickException(f"{src.name}: {e}") from e
     size_limits.check_input(data, model)
 
