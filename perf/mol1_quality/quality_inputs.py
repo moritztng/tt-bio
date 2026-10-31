@@ -58,7 +58,9 @@ def base_case(c, a):
     raw.write_text(json.dumps([job], indent=1))
     searched, _ = update_infer_json(str(raw), str(d / "search"), use_msa=True)
     job = localise(json.loads(Path(searched).read_text())[0], d, a.out, d)
-    shutil.rmtree(d / "search", ignore_errors=True); raw.unlink()
+    shutil.rmtree(d / "search", ignore_errors=True)
+    for p in d.glob("raw*.json"):
+        p.unlink()
     return job
 
 
@@ -119,6 +121,9 @@ def main():
     jobs, failed = {}, {}
 
     def run(c):
+        done = a.out / f"{safe(c['id'])}.json"
+        if done.exists():  # resumable: a frozen case is never searched twice
+            return c["id"], json.loads(done.read_text())[0]
         try:
             if c["id"].startswith("upstream:"):
                 return c["id"], upstream_case(c, a)
@@ -130,6 +135,8 @@ def main():
     with ThreadPoolExecutor(a.jobs) as ex:
         for cid, r in ex.map(run, plain):
             (jobs if isinstance(r, dict) else failed)[cid] = r
+            if isinstance(r, dict):
+                (a.out / f"{safe(cid)}.json").write_text(json.dumps([r], indent=1))
             print(cid, "ok" if isinstance(r, dict) else "FAILED", flush=True)
     for c in (c for c in cases if "base" in c):
         try:
