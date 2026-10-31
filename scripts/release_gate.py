@@ -276,6 +276,11 @@ MODELS = {
     # not a run-to-run wobble. Floor = ~2x measured, same discipline as boltz2 (1.55 -> 3.0),
     # protenix-v2 (3.87 -> 6.0) and openfold3 (1.775 -> 3.5).
     "protenix-v1":   {"max_rmsd": 5.0, "min_tm": 0.60},
+    # Mol-1, shipped as `predict --model mol1`: a Protenix-v2 variant (PairMixer trunk at pair widths 448 and
+    # 320, 20 recycles) through the same tt_bio/protenix.py class. Its port grade folded 1UBQ at 0.68-1.06 A CA-RMSD
+    # on Blackhole and Wormhole (state/mol1). Until this gate has measured it on 7ROA it carries protenix-v2's floor,
+    # the family's loosest, which a correct fold clears.
+    "mol1":          {"max_rmsd": 6.0, "min_tm": 0.50},
     "opendde":       {"max_rmsd": 6.0, "min_tm": 0.50},
     # OpenFold3 (polymer-only port; protenix-v2 is the 1:1 architectural analogue).
     # Measured on this gate 2026-08-07 (qb2 p150a, MSA on): RMSD 1.775 A / TM 0.890.
