@@ -22,9 +22,13 @@ import argparse
 import json
 import statistics
 import subprocess
+import sys
 import time
 from collections import defaultdict
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # perf/, for fairbox
+from fairbox import carry_history  # noqa: E402
 
 SIZES = (128, 256, 512)
 # Realistic binder sizes (rfd4-size-typical, state/rfd4/SIZE-TYPICAL.md): reported in their own table, never
@@ -59,26 +63,6 @@ def crossing(cells):
             f = math.log(r0) / (math.log(r0) - math.log(r1))
             return {"tokens": round(s0 + f * (s1 - s0)), "between": [s0, s1], "r_sys": [r0, r1]}
     return None
-
-
-HISTORY = "## Earlier verdicts"
-
-
-def carry_history(path, fair, written):
-    """The new FAIR.md, with every earlier verdict kept under one history heading.
-
-    A fair number is evidence: rerunning this script must not delete the verdict it supersedes
-    (it did, 2026-10-23, and the history had to be pasted back from a tool log).
-    """
-    if not path.exists():
-        return fair
-    old = path.read_text()
-    head, _, tail = old.partition(HISTORY)
-    older = tail.strip()
-    block = [HISTORY, "", f"### Superseded at {written}", "", head.strip()]
-    if older:
-        block += ["", older]
-    return fair.rstrip() + "\n\n" + "\n".join(block) + "\n"
 
 
 def jsonl(path):
