@@ -228,7 +228,7 @@ def download_mols(cache: Path) -> Path:
     return weights.fetch("mols", root=cache)
 
 
-def download_all(cache: Path, model: str = "boltz2") -> None:
+def download_all(cache: Path, model: str = "boltz2", checkpoint: str | None = None) -> None:
     """Fetch every artifact `model` needs, in the parent, before any worker starts.
 
     Fanning out first has N local workers each see the same multi-GB file missing and
@@ -236,8 +236,11 @@ def download_all(cache: Path, model: str = "boltz2") -> None:
     without another special case here; the hand-written version covered protenix-v2 and
     rf3 only, and downloaded the 4.2 GB of Boltz-2 checkpoints for every model whether
     or not they were needed. A row tt-bio does not download (protenix-v2) is checked
-    earlier, in `predict`, before the MSA search."""
-    weights.fetch_models(model, root=cache)
+    earlier, in `predict`, before the MSA search. A ``--checkpoint`` replaces the model's own
+    row, so that one is not fetched."""
+    for art in weights.artifacts_for(model):
+        if art.source != "manual" and not (checkpoint and art.key == model):
+            weights.fetch(art.key, root=cache)
 
 
 def ensure_pxdesign_weights(cache: Path) -> Path:
@@ -3344,7 +3347,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
 @click.option("--checkpoint", type=click.Path(exists=True, dir_okay=False), default=None,
               help="Weights to fold with instead of the shipped ones (boltz2, openfold3, "
-                   "openbind). For openfold3 this can be a checkpoint `tt-bio train` wrote.")
+                   "openbind, protenix-v1/v2, mol1). For openfold3 this can be a checkpoint "
+                   "`tt-bio train` wrote.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
               help="Trunk recycling iterations. Default: "
@@ -3622,7 +3626,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # without one is told in a second why not and what to use instead.
     if not controller:
         for art in weights.artifacts_for(model):
-            if art.source == "manual":
+            if art.source == "manual" and not (checkpoint and art.key == model):
                 try:
                     weights.fetch(art.key, root=Path(cache).expanduser())
                 except (FileNotFoundError, RuntimeError) as e:
@@ -3661,7 +3665,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 f"on the card; --model boltz2 is the one model with a CPU/GPU path."
             )
         for n, on in [("--use_potentials", use_potentials),
-                      ("--checkpoint", bool(checkpoint) and model not in OF3_FAMILY)]:
+                      ("--checkpoint", bool(checkpoint) and model not in (*OF3_FAMILY, *PROTENIX_FAMILY))]:
             if on:
                 click.secho(f"Note: --model {model} does not read {n}; ignoring it", fg="yellow")
         # --max_msa_seqs left at its default means "the depth this model already uses", not
@@ -3777,7 +3781,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
         # --controller mode: the controller's workers fetch their own.
         if not controller:
-            download_all(Path(cache).expanduser(), model)
+            download_all(Path(cache).expanduser(), model, checkpoint)
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)

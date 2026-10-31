@@ -168,7 +168,7 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     # loaded as if it were complete.
     if cfg.get("model") in _protenix_family():
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        cfg["protenix_ckpt"] = str(weights.fetch(cfg["model"]))
+        cfg["protenix_ckpt"] = cfg.get("checkpoint") or str(weights.fetch(cfg["model"]))
         cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
         # A checkpoint that ships its own reference conformers (Mol-1) reads them instead of the
         # CCD ideal coordinates, as upstream does.
