@@ -2610,7 +2610,7 @@ _NA_HEADER_TYPES = {"rna": "rna", "rnasequence": "rna", "dna": "dna", "dnasequen
 _DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates", "constraint"})
 _ENTRY_KEYS = frozenset({"protein", "rna", "dna", "ligand"})
 _POLYMER_KEYS = frozenset({"id", "sequence", "msa", "modifications", "cyclic", "templates"})
-_LIGAND_KEYS = frozenset({"id", "ccd", "smiles"})
+_LIGAND_KEYS = frozenset({"id", "ccd", "smiles", "file"})
 
 
 def _check_yaml_keys(doc: dict, path) -> None:
@@ -2713,11 +2713,14 @@ def _read_bio_chains(path, what="input"):
                            else str(ids).split(","))
                 for c in id_list:
                     chains.append((c.strip(), str(sub.get("sequence") or "").upper(), m, mt, mods))
-            lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]} or {smiles: STR}
-            if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles")):
+            lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]}, {smiles: STR} or {file: PATH}
+            if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles") or lig.get("file")):
                 if lig.get("ccd"):
                     codes = lig["ccd"] if isinstance(lig["ccd"], (list, tuple)) else [lig["ccd"]]
                     spec = "CCD_" + ",".join(str(x).strip().upper() for x in codes)
+                elif lig.get("file"):                       # a 3D .sdf/.mol/.mol2/.pdb, relative to the input
+                    f = Path(str(lig["file"])).expanduser()
+                    spec = "FILE_" + str(f if f.is_absolute() else (path.parent / f).resolve())
                 else:
                     spec = str(lig["smiles"])
                 ids = lig.get("id", "L")

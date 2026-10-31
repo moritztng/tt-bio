@@ -32,6 +32,7 @@ _HEAD = f"version: 1\nsequences:\n  - protein:\n      id: A\n      sequence: {SE
 #: constraint refusal.
 INPUTS: dict[str, str] = {
     "ligand": _HEAD + "  - ligand:\n      id: B\n      ccd: ATP\n",
+    "ligand_file": _HEAD + "  - ligand:\n      id: B\n      file: /nonexistent/lig.sdf\n",
     "rna": _HEAD + "  - rna:\n      id: R\n      sequence: GAUC\n",
     "dna": _HEAD + "  - dna:\n      id: D\n      sequence: GATC\n",
     "cyclic": _HEAD + "      cyclic: true\n",
@@ -95,8 +96,10 @@ def test_boltz2_honours_the_whole_input_language():
     would still pass. Boltz-2 has the upstream parser, the constraint embedder, the template
     pipeline and the affinity head. It refuses the per-chain template npz, which its parser
     never reads (it takes the same template as a structure file), and OpenDDE's guided
-    `constraint:` block; its own binding constraints are `constraints: pocket/contact`."""
-    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == {"templates", "constraint"}
+    `constraint:` block; its own binding constraints are `constraints: pocket/contact`. A ligand
+    from a 3D file is upstream Protenix's `FILE_` input, which only that featurizer reads."""
+    assert {f for f, v in CAPABILITY["boltz2"].items() if v != HONOURED} == \
+        {"templates", "constraint", "ligand_file"}
 
 
 @pytest.mark.parametrize("model", sorted(CAPABILITY))

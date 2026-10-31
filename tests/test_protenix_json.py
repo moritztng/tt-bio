@@ -116,3 +116,34 @@ def test_predict_stages_upstream_json(tmp_path, monkeypatch):
     staged = Path(seen["data"])
     assert staged == tmp_path / ".upstream_inputs" / "synthetic"
     assert (staged / "glycan_bonds.yaml").exists() and (staged / "glycan_bonds.upstream.json").exists()
+
+
+def test_file_ligand_and_integer_bond_atoms(tmp_path):
+    pytest.importorskip("rdkit")
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    from tt_bio import protenix_data as pdata
+    m = Chem.AddHs(Chem.MolFromSmiles("CCO"))
+    AllChem.EmbedMolecule(m, randomSeed=1)
+    sdf = tmp_path / "eth.sdf"
+    w = Chem.SDWriter(str(sdf)); w.write(m); w.close()
+    job = {"name": "f", "sequences": [{"proteinChain": {"sequence": "MCKL", "count": 1}},
+                                      {"ligand": {"ligand": f"FILE_{sdf}", "count": 1}},
+                                      {"ligand": {"ligand": "[CH3:7]C(=O)O", "count": 1}}],
+           "covalent_bonds": [{"entity1": 1, "position1": 2, "atom1": "SG",
+                               "entity2": 2, "position2": 1, "atom2": 2},
+                              {"entity1": 1, "position1": 3, "atom1": "NZ",
+                               "entity2": 3, "position2": 1, "atom2": "7"}]}
+    import torch
+    j = job_to_doc(job)
+    assert j.doc["sequences"][1]["ligand"]["file"] == str(sdf.resolve())
+    (b1,), (b2,) = [c["bond"]["atom2"] for c in j.doc["constraints"][:1]], \
+        [c["bond"]["atom2"] for c in j.doc["constraints"][1:]]
+    assert b1 == ["B", 1, "O1"] and b2 == ["C", 1, "C1"]
+    f = pdata.build_complex_features([("MCKL", None, "protein"), (f"FILE_{sdf}", None, "ligand")],
+                                     chain_ids=["A", "B"], bonds=[(("A", 2, "SG"), ("B", 1, "O1"))])
+    lig = f["asym_id"] == 1
+    assert int(lig.sum()) == 3
+    pos = f["ref_pos"][lig[f["atom_to_token_idx"]]]
+    ref = torch.tensor([list(m.GetConformer().GetAtomPosition(i)) for i in range(3)], dtype=torch.float32)
+    assert torch.allclose(pos - pos.mean(0), ref - ref.mean(0), atol=1e-4)

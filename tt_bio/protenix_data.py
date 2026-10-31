@@ -931,11 +931,47 @@ def _smiles_to_mol(smiles: str):
     return mol
 
 
+def _name_atoms(mol):
+    """Upstream's ligand atom names: element + per-element ordinal over every atom in file
+    order (``json_parser.rdkit_mol_to_atom_info``). Hydrogens count on their own 'H' tally, so a
+    heavy atom's name does not depend on whether the file carries hydrogens."""
+    from collections import Counter
+    cnt = Counter()
+    for a in mol.GetAtoms():
+        s = a.GetSymbol().upper(); cnt[s] += 1
+        a.SetProp("name", f"{s}{cnt[s]}")
+    return mol
+
+
+def _file_to_mol(path: str):
+    """A ligand from a 3D file (upstream ``FILE_`` ligand, ``lig_file_to_atom_info``): .mol,
+    .sdf (first record), .pdb or .mol2, read by RDKit as upstream reads it. Its own conformer is
+    the reference conformer, so the file must carry 3D coordinates."""
+    from rdkit import Chem
+    p = str(path)
+    readers = {".mol": Chem.MolFromMolFile, ".pdb": Chem.MolFromPDBFile, ".mol2": Chem.MolFromMol2File,
+               ".sdf": lambda f: next(iter(Chem.SDMolSupplier(f)), None)}
+    ext = Path(p).suffix.lower()
+    if ext not in readers:
+        raise ValueError(f"ligand file {p}: use one of .sdf, .mol, .mol2, .pdb")
+    if not Path(p).is_file():
+        raise ValueError(f"ligand file {p} does not exist")
+    mol = readers[ext](p)
+    if mol is None:
+        raise ValueError(f"ligand file {p}: RDKit could not read a molecule from it")
+    if mol.GetNumConformers() == 0 or not mol.GetConformer().Is3D():
+        raise ValueError(f"ligand file {p} has no 3D coordinates")
+    return _name_atoms(mol)
+
+
 def _ligand_mol(spec: str, mols: dict):
     """Resolve a ligand spec to an rdkit Mol: 'CCD_<code>' -> the CCD template Mol,
-    otherwise a SMILES string -> a freshly embedded Mol."""
+    'FILE_<path>' -> the file's own molecule and conformer, otherwise a SMILES string -> a
+    freshly embedded Mol."""
     if spec.startswith("CCD_"):
         return mols[spec[4:]]
+    if spec.startswith("FILE_"):
+        return _file_to_mol(spec[5:])
     return _smiles_to_mol(spec)
 
 

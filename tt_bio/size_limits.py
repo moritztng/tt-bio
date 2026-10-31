@@ -1525,6 +1525,9 @@ def _heavy_atoms(spec: str) -> int:
             codes = [x.strip().upper() for x in spec[4:].split(",") if x.strip()]
             mols = load_molecules(_default_mol_dir(), codes)
             return sum(sum(1 for a in mols[c].GetAtoms() if a.GetAtomicNum() > 1) for c in codes)
+        if spec.startswith("FILE_"):
+            from .protenix_data import _file_to_mol
+            return _file_to_mol(spec[5:]).GetNumHeavyAtoms()
         from rdkit import Chem
         mol = Chem.MolFromSmiles(spec)
         return mol.GetNumHeavyAtoms() if mol is not None else 0

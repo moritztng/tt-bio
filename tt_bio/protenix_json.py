@@ -136,7 +136,7 @@ def job_to_doc(job: dict) -> Job:
             elif spec.upper().startswith("CCD_"):
                 lig = {"ccd": [c.upper() for c in spec[4:].split("_") if c]}
             elif spec.startswith("FILE_"):
-                lig = {"file": spec[5:]}
+                lig = {"file": str(Path(spec[5:]).expanduser().resolve())}
             else:
                 lig = {"smiles": spec}
             out.doc["sequences"].append({"ligand": {"id": cids, **lig}})
@@ -188,8 +188,35 @@ def _bond(b: dict, ids: list, seqs: list) -> list:
         pairs = list(zip(ids[e1], ids[e2]))
     else:
         pairs = [(ids[e1][int(c1) - 1], ids[e2][int(c2) - 1])]
-    p1, p2, a1, a2 = int(b["position1"]), int(b["position2"]), str(b["atom1"]), str(b["atom2"])
+    p1, p2 = int(b["position1"]), int(b["position2"])
+    a1, a2 = _atom_name(b["atom1"], seqs[e1]), _atom_name(b["atom2"], seqs[e2])
     return [([x, p1, a1], [y, p2, a2]) for x, y in pairs]
+
+
+def _atom_name(atom, entity: dict) -> str:
+    """A bond atom as a name. Upstream also takes an integer (or a digit string) on a SMILES or
+    FILE_ ligand: the SMILES atom-map number when the SMILES carries maps, otherwise the RDKit
+    atom index, resolved to the element+ordinal name the featurizer gives that atom."""
+    if not (isinstance(atom, int) or (isinstance(atom, str) and atom.isdigit())):
+        return str(atom)
+    (body,) = entity.values()
+    spec = str(body.get("ligand") or "")
+    if not spec or spec.upper().startswith("CCD_"):
+        raise ValueError(f"bond atom {atom!r}: an integer atom names an atom only on a SMILES or FILE_ ligand")
+    from rdkit import Chem
+    from tt_bio.protenix_data import _file_to_mol, _name_atoms
+    if spec.startswith("FILE_"):
+        mol = _file_to_mol(str(Path(spec[5:]).expanduser().resolve()))
+    else:
+        mol = Chem.MolFromSmiles(spec)
+        if mol is None:
+            raise ValueError(f"could not parse SMILES ligand: {spec!r}")
+        mol = _name_atoms(Chem.AddHs(mol))
+    maps = {a.GetAtomMapNum(): a.GetProp("name") for a in mol.GetAtoms() if a.GetAtomMapNum()}
+    table = maps or {a.GetIdx(): a.GetProp("name") for a in mol.GetAtoms()}
+    if int(atom) not in table:
+        raise ValueError(f"bond atom {atom!r} is not an atom {'map number' if maps else 'index'} of ligand {spec!r}")
+    return table[int(atom)]
 
 
 def read_jobs(path) -> list[Job]:
