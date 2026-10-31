@@ -14,9 +14,23 @@
 // and that row's nearest static atoms; the keys are taken over those and the mover range [m0, m1) only. When the
 // k-th of them is under the bound, no other atom can be within it (the host set the bound below every other static
 // atom's key at this step's scale), so the row is the full one; otherwise the row is computed in full.
+// The movers all sit inside one sphere (centre and radius from the host, common args 7..10), so a row further from
+// that sphere than its k-th candidate key is outside every mover and skips the mover loop. The row is the same:
+// a mover whose key exceeds the k-th is kept by neither path.
 #include "api/dataflow/dataflow_api.h"
 
 namespace {
+
+inline uint64_t isqrt(uint64_t v) {          // floor(sqrt v), Newton from a power-of-two seed
+    if (v < 2) return v;
+    uint64_t r = uint64_t(1) << ((63 - __builtin_clzll(v)) / 2 + 1);
+    for (;;) {
+        const uint64_t n = (r + v / r) >> 1;
+        if (n >= r) break;
+        r = n;
+    }
+    return r;
+}
 
 inline uint64_t kth(uint64_t* a, int32_t n, int32_t t) {   // the t-th smallest (0-based) of a[0..n); reorders a
     int32_t lo = 0, hi = n - 1;
@@ -62,6 +76,10 @@ void kernel_main() {
     const uint32_t o0 = get_common_arg_val<uint32_t>(3);     // first row of the output (a row range's start)
     const auto sc = TensorAccessor(c_args, get_common_arg_val<uint32_t>(4), (CW > 0 ? CW : 1) * 4);
     const uint32_t m0 = get_common_arg_val<uint32_t>(5), m1 = get_common_arg_val<uint32_t>(6);   // candidate mode movers
+    // the movers' bounding sphere at this step's scale, centre then radius; radius ~0 = no sphere, run every mover
+    const int32_t sphx = get_common_arg_val<int32_t>(7), sphy = get_common_arg_val<int32_t>(8);
+    const int32_t sphz = get_common_arg_val<int32_t>(9);
+    const uint32_t sphr = get_common_arg_val<uint32_t>(10);
 
     const uint32_t x_l1 = get_write_ptr(CB_X), m_l1 = get_write_ptr(CB_M), o_l1 = get_write_ptr(CB_O);
     const uint32_t c_l1 = CW > 0 ? get_write_ptr(CB_C) : 0;
@@ -122,10 +140,25 @@ void kernel_main() {
                 s[2 * c + 1] = j;
                 ++c;
             }
-            for (uint32_t j = m0; j < m1; ++j) {
-                s[2 * c] = key(j);
-                s[2 * c + 1] = j;
-                ++c;
+            // Every mover lies within sphr of (sphx, sphy, sphz), so none is nearer this row than
+            // floor(sqrt(key of the centre)) - 1 - sphr (the -1 absorbs the floor). When the k-th candidate key is
+            // under that, no mover can be at or under it, and the mover loop would only add keys the row discards.
+            bool movers = sphr == 0 || c < KK;
+            if (!movers) {
+                const int32_t ax = sphx - qx, ay = sphy - qy, az = sphz - qz;
+                const uint64_t ux = uint64_t(ax < 0 ? -ax : ax), uy = uint64_t(ay < 0 ? -ay : ay);
+                const uint64_t uz = uint64_t(az < 0 ? -az : az);
+                const uint64_t far = isqrt(ux * ux + uy * uy + uz * uz);
+                const uint64_t gap = far > uint64_t(sphr) + 1 ? far - sphr - 1 : 0;
+                for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
+                movers = gap * gap <= kth(d, int32_t(c), int32_t(KK) - 1);
+            }
+            if (movers) {
+                for (uint32_t j = m0; j < m1; ++j) {
+                    s[2 * c] = key(j);
+                    s[2 * c + 1] = j;
+                    ++c;
+                }
             }
             if (c >= KK) {
                 for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];

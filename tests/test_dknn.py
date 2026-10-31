@@ -71,15 +71,27 @@ def test_fits_l1_bound():
     assert 2 * sum(dknn._cb_sizes(big, MW, WO)) + dknn.PROGRAM_RESERVE <= dknn.L1_PER_CORE
 
 
-def _cand_rows(q, mw, L, K, WO, table, m0, m1, full):
+def _cand_rows(q, mw, L, K, WO, table, m0, m1, full, sphere=(0, 0, 0, 0)):
     """dknn.cpp's candidate mode: per table row, keys over its static candidates and the movers; the full row when
-    the k-th of them is not under the row's bound. Returns the output and how many rows the bound proved."""
+    the k-th of them is not under the row's bound. A row further from the movers' bounding sphere than its k-th
+    candidate key skips the movers. Returns the output, how many rows the bound proved and how many skipped."""
     out = full.copy()
     j = np.arange(L)
-    proved = 0
+    proved = skipped = 0
+    cx, cy, cz = (int(np.int32(np.uint32(v))) for v in sphere[:3])
+    rad = sphere[3]
     for w in table.view(np.uint32):
         r, bound = int(w[0]), int(w[1]) | (int(w[2]) << 32)
-        c = np.concatenate([w[4:][w[4:] < L].astype(np.int64), np.arange(m0, m1)])
+        cand = w[4:][w[4:] < L].astype(np.int64)
+        skip = False
+        if rad and len(cand) >= K:
+            dc = ((np.array([cx, cy, cz], np.int64) - q[r, :3].astype(np.int64)) ** 2).sum()
+            far = math.isqrt(int(dc))
+            gap = far - rad - 1 if far > rad + 1 else 0
+            dcand = ((q[cand, :3].astype(np.int64) - q[r, :3]) ** 2).sum(1).astype(np.uint64)
+            skip = gap * gap > int(np.sort(dcand)[K - 1])
+        skipped += skip
+        c = cand if skip else np.concatenate([cand, np.arange(m0, m1)])
         d = ((q[c, :3].astype(np.int64) - q[r, :3]) ** 2).sum(1).astype(np.uint64)
         if len(c) < K or not int(np.sort(d)[K - 1]) < bound:
             continue
@@ -91,7 +103,7 @@ def _cand_rows(q, mw, L, K, WO, table, m0, m1, full):
         if len(cc) > mw[r, 0]:
             cc = cc[np.lexsort((cc, dd))][: mw[r, 0]]
         out[r] = _row(mw, r, cc, L, K, WO)
-    return out, proved
+    return out, proved, skipped
 
 
 @pytest.mark.parametrize("sigma", [0.3, 8.0, 3000.0])
@@ -119,13 +131,16 @@ def test_static_candidates_equal_full(monkeypatch, sigma):
         assert (plan is None) == (step == 0)
         if plan is None:
             continue
-        table, m0, m1 = plan
+        table, m0, m1, sphere = plan
         assert (m0, m1) == (L - NM, L)
         q = dknn.fixed_point(x)
         full = _kernel_rows(q, mw, L, K, WO)
-        got, proved = _cand_rows(q, mw, L, K, WO, table, m0, m1, full)
-        assert np.array_equal(got, full)
-        assert proved >= 0.5 * (L - NM), proved
+        for sph in ((0, 0, 0, 0), sphere):
+            got, proved, skipped = _cand_rows(q, mw, L, K, WO, table, m0, m1, full, sph)
+            assert np.array_equal(got, full), (sph, sigma, step)
+            assert proved >= 0.5 * (L - NM), proved
+        # the sphere is only a saving when the movers sit apart; pressed onto the target it may skip nothing
+        assert skipped <= L - NM
 
 
 def test_static_candidates_fall_back_on_ties(monkeypatch):
@@ -146,9 +161,9 @@ def test_static_candidates_fall_back_on_ties(monkeypatch):
     x = g.copy()
     x[L - NM:] += rng.normal(size=(NM, 3)) * 0.7
     x = x.astype(np.float32)
-    table, m0, m1 = st.plan(None, x, K)
+    table, m0, m1, _sphere = st.plan(None, x, K)
     q = dknn.fixed_point(x)
     full = _kernel_rows(q, mw, L, K, WO)
-    got, proved = _cand_rows(q, mw, L, K, WO, table, m0, m1, full)
+    got, proved, _ = _cand_rows(q, mw, L, K, WO, table, m0, m1, full)
     assert np.array_equal(got, full)
     assert 0 < proved < L - NM, proved
