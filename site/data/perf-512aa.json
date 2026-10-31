@@ -1582,13 +1582,13 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.0787,
+            "s_per_batch": 0.07624,
             "n": 7,
-            "spread_pct": 30.37,
+            "spread_pct": 17.12,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main f3d7c6beb, ttnn None, qb1 p150a card 0",
-            "when": "2026-10-31T05:25:16Z",
+            "versions": "tt-bio main 53e4dc0de, ttnn None, qb1 p150a card 3",
+            "when": "2026-10-31T11:31:22Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.06004,
