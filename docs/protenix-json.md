@@ -16,8 +16,9 @@ multi-component glycans such as `CCD_NAG_NAG`, SMILES, or `FILE_` paths to an .s
 |---|---|
 | `--use_msa` (on) | on by default; `--single_sequence` turns it off |
 | `pairedMsaPath` / `unpairedMsaPath` | used as given; a chain without them is searched like any other input |
-| `--use_rna_msa` | `--use_rna_msa` |
-| `--use_template` and `templatesPath` (.a3m, .hhr, .json) | `--use_template`; needs `kalign` on PATH for .a3m/.hhr |
+| `--use_rna_msa` | `--use_rna_msa`; an RNA chain without `unpairedMsaPath` is searched with nhmmer against Rfam, RNAcentral and NT-RNA, as upstream does |
+| `--use_template` and `templatesPath` (.a3m, .hhr, .json) | `--use_template`; needs `kalign` on PATH for .a3m/.hhr. A chain without `templatesPath` whose MSA directory holds `pairing.a3m`/`non_pairing.a3m` (for example from `tt-bio prep`) is searched with hmmsearch against the PDB seqres database |
+| `--hmmsearch_binary_path`, `--seqres_database_path`, `--nhmmer_binary_path`, `--rfam_database_path` and the other search paths | same names; unset, binaries come from PATH and databases from `$MOL_ROOT_DIR/search_database` |
 | `--use_seeds_in_json` and `modelSeeds` | `--use_seeds_in_json`; otherwise `--seed`, default 101 for JSON |
 | `-c` / `-p` / `-e` | `--recycling_steps` / `--sampling_steps` / `--diffusion_samples`; the `mol1` defaults are upstream's 20 / 200 / 5 |
 

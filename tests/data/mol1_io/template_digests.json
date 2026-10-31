@@ -1,0 +1,98 @@
+{
+ "9fm7": {
+  "template_aatype": "11eaf4d6546b838a817f81ce343e89d78ddd46f541e7ceb6da68c0dc8cbf6bd4",
+  "template_atom_positions": "ac98a6da6db53dbf99ad186396832aeb23556543d2e969a7f3a483d4b7336eee",
+  "template_atom_mask": "0fc0dbe0a266a2e477a411e275a8f9542730c7cf27e26ffc04f2c0c48bb2e725",
+  "template_pseudo_beta_mask": "392e1eabd95355f9e8d85f4cd8712044a169a9a002738a0a23dea68090ded531",
+  "template_distogram": "69073803d9135ab1e4c75bdd3d57c72f213b0a88d3f718ed7ff0d07f9be06487",
+  "template_unit_vector": "b34b614389b4c496f72ac3097e619213622859f39667dd6e55c223f60a973655",
+  "template_backbone_frame_mask": "392e1eabd95355f9e8d85f4cd8712044a169a9a002738a0a23dea68090ded531",
+  "shapes": {
+   "template_aatype": [
+    4,
+    644
+   ],
+   "template_atom_positions": [
+    4,
+    644,
+    24,
+    3
+   ],
+   "template_atom_mask": [
+    4,
+    644,
+    24
+   ],
+   "template_pseudo_beta_mask": [
+    4,
+    644,
+    644
+   ],
+   "template_distogram": [
+    4,
+    644,
+    644,
+    39
+   ],
+   "template_unit_vector": [
+    4,
+    644,
+    644,
+    3
+   ],
+   "template_backbone_frame_mask": [
+    4,
+    644,
+    644
+   ]
+  }
+ },
+ "MGYP004658859411": {
+  "template_aatype": "ccd9b56384dd6647a12445b4eb1bc3d90e0b8b536d1701d098f8e395434c6e73",
+  "template_atom_positions": "1e7d9e3392e0ae2db1d89b60a003d8e103f4b1ddf1b253b8b97db4433c70dfd5",
+  "template_atom_mask": "c6c64cf619f0c1a8852ff69d9cb3f7a1bd6cc15e651db187c68df90a2ff9b18e",
+  "template_pseudo_beta_mask": "823acb194c7e5b7eb72581dfdebed305279fd83612eb800df1de9f29d8199e1a",
+  "template_distogram": "f60dd5f25fb70ffdcc329c9aa2be1ac29aaab39bb3b31ed99ed82ff235fe076d",
+  "template_unit_vector": "d6b733a6d17eb8be49621cfd860b5539ff0de80a09f603cffca47a592bbbc553",
+  "template_backbone_frame_mask": "823acb194c7e5b7eb72581dfdebed305279fd83612eb800df1de9f29d8199e1a",
+  "shapes": {
+   "template_aatype": [
+    4,
+    345
+   ],
+   "template_atom_positions": [
+    4,
+    345,
+    24,
+    3
+   ],
+   "template_atom_mask": [
+    4,
+    345,
+    24
+   ],
+   "template_pseudo_beta_mask": [
+    4,
+    345,
+    345
+   ],
+   "template_distogram": [
+    4,
+    345,
+    345,
+    39
+   ],
+   "template_unit_vector": [
+    4,
+    345,
+    345,
+    3
+   ],
+   "template_backbone_frame_mask": [
+    4,
+    345,
+    345
+   ]
+  }
+ }
+}

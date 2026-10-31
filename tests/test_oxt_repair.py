@@ -252,3 +252,18 @@ def test_matches_upstream_on_the_same_reference():
             worst = max(worst, float(np.abs(ours - arr.coord).max()))
     print(f"max |ours - upstream| = {worst:.3g} A")
     assert worst == 0.0
+
+
+def test_mirror_terminal_carboxylates_equals_mol1():
+    """Mol-1 e6e64866's fix_cterminal_carboxyl_oxygens on four seeded samples (scripts/mol1_io/carboxylate_golden.py):
+    chain A's terminal residue is rebuilt, chain B (no OXT) and the ligand are untouched."""
+    from pathlib import Path
+
+    from tt_bio.oxt import mirror_terminal_carboxylates
+    g = np.load(Path(__file__).parent / "data/mol1_io/carboxylate_golden.npz")
+    out = mirror_terminal_carboxylates(g["coords"], g["atom_name"], g["chain"], g["res_id"])
+    np.testing.assert_allclose(out, g["out"], atol=1e-6, rtol=0)
+    assert not np.allclose(g["out"], g["coords"])
+    for s in range(4):  # one sample at a time, as the writer calls it
+        np.testing.assert_allclose(mirror_terminal_carboxylates(g["coords"][s], g["atom_name"], g["chain"], g["res_id"]),
+                                   g["out"][s], atol=1e-6, rtol=0)

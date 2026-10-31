@@ -180,3 +180,34 @@ def repair_terminal_oxt_from_feats(coord, feats, atom_name, res_name, where=None
         logger.warning("Rebuilt %d invalid terminal OXT coordinate(s) before saving %s",
                        repaired, where)
     return out, repaired
+
+
+def mirror_terminal_carboxylates(coord, atom_name, chain, res_id):
+    """Mol-1's C-terminal carboxylate rebuild (``mol/runner/inference.py::fix_cterminal_carboxyl_oxygens``, Mol-1
+    e6e64866), applied to every sample before writing. ``coord`` is (..., N, 3); per-atom ``atom_name``, ``chain``,
+    ``res_id``. For each chain's last residue holding C, CA, O and OXT, the oxygen nearer C is kept as O and OXT
+    becomes its mirror image across the C->CA axis. Unconditional, unlike the OpenDDE gate above: the O/OXT
+    permutation symmetry can leave either oxygen loose. Returns a float32 copy."""
+    out = np.array(coord, dtype=np.float32, copy=True)
+    atom_name = np.asarray(atom_name); chain = np.asarray(chain); res_id = np.asarray(res_id)
+    if out.shape[-2] != len(atom_name):
+        return out
+    ends = np.flatnonzero(np.append(chain[1:] != chain[:-1], True))  # chains are contiguous blocks
+    quartets = []
+    for e in ends:
+        pos = np.flatnonzero((chain == chain[e]) & (res_id == res_id[e]))
+        at = {atom_name[p]: p for p in pos}
+        if {"C", "CA", "O", "OXT"} <= at.keys():
+            quartets.append([at["C"], at["CA"], at["O"], at["OXT"]])
+    if not quartets:
+        return out
+    c, ca, o, oxt = np.asarray(quartets).T
+    a = out[..., c, :]
+    keep = np.where(np.linalg.norm(out[..., o, :] - a, axis=-1, keepdims=True)
+                    <= np.linalg.norm(out[..., oxt, :] - a, axis=-1, keepdims=True), out[..., o, :], out[..., oxt, :])
+    u = out[..., ca, :] - a
+    u = u / np.maximum(np.linalg.norm(u, axis=-1, keepdims=True), 1e-8)
+    v = keep - a
+    out[..., o, :] = keep
+    out[..., oxt, :] = a + 2.0 * (v * u).sum(-1, keepdims=True) * u - v
+    return out

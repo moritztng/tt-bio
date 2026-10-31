@@ -40,6 +40,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   fold drops about 1 s (ESMFold2 24.6 -> 23.5 s, ESMFold2-Fast 14.7 -> 13.7 s); `--fast` already did this.
   Structures stay within the accuracy bar for both changes.
 
+### Added
+- **`tt-bio predict jobs.json --use_template` and `--use_rna_msa` search what the JSON leaves out, as Mol-1 does.** A
+  protein chain with an MSA directory but no `templatesPath` gets hmmsearch hits against the PDB seqres database, an RNA
+  chain without `unpairedMsaPath` an nhmmer MSA. The binaries and databases take upstream's option names.
+- **`--model mol1` writes the C-terminal O/OXT the way Mol-1 does**: the oxygen nearer C stays, OXT becomes its mirror
+  across the C-CA axis. Other models keep the gated OpenDDE rebuild.
+
 ## [0.26.1] - 2026-10-29
 
 ### Fixed
