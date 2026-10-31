@@ -319,11 +319,18 @@ def split_stem(stem: str):
     return (job, int(s)) if sep and job and s.lstrip("-").isdigit() else (str(stem), None)
 
 
+def sidecar_path(yaml_path):
+    """Where ``stage`` puts the sidecar of a staged input (it may not exist), or None for a stem that is not
+    ``<job>__seed_<s>``."""
+    job, seed = split_stem(Path(yaml_path).stem)
+    return None if seed is None else Path(yaml_path).parent / (job + SIDECAR)
+
+
 def sidecar(yaml_path):
     """The staged extras for an input written by ``stage`` (with ``job`` and ``seed`` added), or None for an
     ordinary YAML input."""
-    job, seed = split_stem(Path(yaml_path).stem)
-    p = Path(yaml_path).parent / (job + SIDECAR)
-    if seed is None or not p.exists():
+    p = sidecar_path(yaml_path)
+    if p is None or not p.exists():
         return None
+    job, seed = split_stem(Path(yaml_path).stem)
     return {**json.loads(p.read_text()), "job": job, "seed": seed}
