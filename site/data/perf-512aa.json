@@ -1353,13 +1353,13 @@
             "when": "2026-10-31T08:38:28Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
-              "s_per_batch": 0.0618,
+              "s_per_batch": 0.0638,
               "n": 7,
-              "spread_pct": 62.83,
+              "spread_pct": 15.85,
               "batch": 7,
               "aiclk_mhz": 1350,
-              "versions": "tt-bio main b459e5a01, ttnn None, qb1 p150a card 2",
-              "when": "2026-10-30T21:44:38Z"
+              "versions": "tt-bio main 94d0b2a29, ttnn None, qb1 p150a card 0",
+              "when": "2026-10-31T09:36:35Z"
             }
           },
           "h200": {
