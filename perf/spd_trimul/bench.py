@@ -49,6 +49,10 @@ ap.add_argument("--fast", action="store_true",
                 help="build and run the module as Protenix's --fast trunk does: FAST_LEVERS active, fast mode off")
 ap.add_argument("--levers", default=None,
                 help="build and run under lever_scope(LEVERS), e.g. ESMFold2's Wormhole --fast set from fold_levers")
+ap.add_argument("--opendde", action="store_true",
+                help="build and run under OpenDDE's Wormhole normal lever set (opendde.NORMAL_LEVERS), as the served trunk does")
+ap.add_argument("--no-ref", action="store_true",
+                help="skip the float64 reference (timing / op split only; arms are still compared to base)")
 ap.add_argument("--legacy-fast", action="store_true",
                 help="the older bfp8-trunk --fast (fast mode on, no levers), which OpenDDE still runs")
 A = ap.parse_args()
@@ -163,11 +167,27 @@ def _lever_setter(name):
     return f
 
 
+def _global_setter(attr, cast=int):
+    """`smc:N` / `g:N` arms: a module-global size knob of tenstorrent, read live per call."""
+    def f(v):
+        prev = getattr(T, attr)
+        setattr(T, attr, cast(v))
+        return prev
+    return f
+
+
+_KNOBS = {"smc": "SEQ_LEN_MORE_CHUNKING", "g": "_TRIMUL_INPROJ_GROUP"}
+
+
 def arm_setters(name):
     if name in ("base", "base'"):
         return []
     out = []
     for part in name.split("+"):
+        if part.split(":")[0] in _KNOBS:
+            k, v = part.split(":")
+            out.append((_global_setter(_KNOBS[k]), int(v)))
+            continue
         if part.startswith("lv:"):
             out.append((_lever_setter(part[3:]), True))
             continue
@@ -270,6 +290,9 @@ if A.fast:
     _SCOPES.append(T.levers("fast"))
 if A.levers:
     _SCOPES.append(T.lever_scope(A.levers))
+if A.opendde:
+    from tt_bio import opendde as _ODDE
+    _SCOPES.append(T.levers(_ODDE.NORMAL_LEVERS))
 for _s in _SCOPES:
     _s.__enter__()
 log(ev="levers", active=sorted(T._LEVERS))
@@ -352,7 +375,7 @@ for var in A.variants.split(","):
     ending = var == "end"
     mod = T.TriangleMultiplication(ending, W0, CKC, gated_move=A.gated_move)
     t0 = time.time()
-    ref = reference(ending)
+    ref = None if A.no_ref else reference(ending)
     log(ev="reference", variant=var, s=round(time.time() - t0, 1))
     outs = {}
     for arm in arms:                                   # warm + accuracy, one arm at a time
@@ -381,12 +404,12 @@ for var in A.variants.split(","):
         finally:
             restore(prev)
         outs[arm] = yt
-        e = err(yt, ref)
+        e = err(yt, ref) if ref is not None else {"finite": bool(torch.isfinite(yt).all())}
         e["fired"] = fired
         e["vs_base_max_abs"] = (yt - outs["base"]).abs().max().item() if "base" in outs else None
         e["equal_base"] = bool(torch.equal(yt, outs["base"])) if "base" in outs else None
         log(ev="accuracy", variant=var, arm=arm, **e)
-        if arm == "base" and not (e["finite"] and e["rel_rms"] < (0.15 if A.fast or A.legacy_fast or A.levers else 0.05)):  # bfp8 + LoFi
+        if arm == "base" and ref is not None and not (e["finite"] and e["rel_rms"] < (0.15 if A.fast or A.legacy_fast or A.levers or A.opendde else 0.05)):  # bfp8 + LoFi
             log(ev="abort", why="baseline misses the float64 reference: reference convention wrong", **e)
             raise SystemExit(2)
     if A.opsplit:                                      # one synced call per arm, per-op wall
