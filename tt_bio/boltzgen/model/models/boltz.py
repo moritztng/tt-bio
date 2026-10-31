@@ -145,10 +145,14 @@ BH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"trimul_t1", "trimul_t2", "tri
 # 7.40 -> 6.59. Graded as the whole Blackhole stack vs exact BH normal (2026-10-30): normal seeds 0-7 PASS, design_ptm
 # +0.019 [+0.001, +0.041], iptm -0.003, complex_plddt +0.001, filter 64/64; fast seeds 0-3 PASS, design_ptm +0.024
 # [+0.004, +0.044], iptm +0.022, complex_plddt +0.026, filter 32/32.
+# Fast also runs the token DiT's conditioning as three wide linears a step that each layer reads in place (dit_shoist,
+# on fast's adaln_mod). On a p300 chip under the diffusion trace (~1315 MHz): 15.71 -> 14.91 s/design, 17.3 -> 15.9 ms
+# a diffusion step. Fast grade vs exact BH normal (seeds 0-3, 2026-10-31): PASS, design_ptm +0.023 [+0.005, +0.046],
+# iptm -0.002, complex_plddt -0.002, filter 32/32.
 BH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
                                 "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard", "dit_fc123g",
                                 "triatt_ln", "apb_ln", "triatt_ln_b8", "triatt_ln_b8g",
-                                "transition_ws", "ws_l1dest", "ws_resid"}
+                                "transition_ws", "ws_l1dest", "ws_resid", "dit_shoist"}
 
 
 def _under_levers(method):
