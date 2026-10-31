@@ -76,14 +76,16 @@ class _LogitStub:
     """Protenix.fold with the network replaced: random coordinates and the confidence logits the engine hands the
     upstream writer (per-sample pae/pde/plddt logits, the fold's contact probabilities)."""
 
-    def fold(self, feats, n_sample=1, **_kw):
+    def fold(self, feats, n_sample=1, return_logits=False, **_kw):
         g = torch.Generator().manual_seed(0)
         na, nt = feats["atom_to_token_idx"].shape[0], feats["restype"].shape[0]
         contact = torch.rand(nt, nt, generator=g)
-        confs = [{"plddt": 0.5, "plddt_atom": torch.zeros(na), "pae": torch.zeros(nt, nt), "pde": torch.zeros(nt, nt),
-                  "pae_logits": torch.randn(nt, nt, 64, generator=g),
-                  "pde_logits": torch.randn(nt, nt, 64, generator=g), "plddt_logits": torch.randn(na, 50, generator=g),
-                  "contact_probs": contact} for _ in range(n_sample)]
+        confs = [{"plddt": 0.5, "plddt_atom": torch.zeros(na), "pae": torch.zeros(nt, nt), "pde": torch.zeros(nt, nt)}
+                 for _ in range(n_sample)]
+        if return_logits:   # the engine only keeps them when the worker asks
+            for c in confs:
+                c.update(pae_logits=torch.randn(nt, nt, 64, generator=g), pde_logits=torch.randn(nt, nt, 64, generator=g),
+                         plddt_logits=torch.randn(na, 50, generator=g), contact_probs=contact)
         return [torch.randn(na, 3, generator=g) * 10 for _ in range(n_sample)], confs
 
 
@@ -98,16 +100,47 @@ def test_a_mol1_fold_writes_upstreams_layout(tmp_path):
     yaml = sorted(protenix_json.stage(src, tmp_path / "staged").glob("dimer*.yaml"))[0]
     state = object.__new__(_WorkerState)
     state.model, state.accelerator = _LogitStub(), "cpu"
-    res = tmp_path / "mol1_results_jobs"
-    (res / "structures").mkdir(parents=True)
-    cfg = {"model": "mol1", "msa_dir": str(tmp_path), "struct_dir": str(res / "structures"), "output_format": "cif",
+    # the worker folds in a scratch dir and ships what it wrote there; the CLI writes it under the results dir
+    work, res = tmp_path / "scratch" / "out", tmp_path / "mol1_results_jobs"
+    work.mkdir(parents=True)
+    cfg = {"model": "mol1", "msa_dir": str(tmp_path), "struct_dir": str(work), "output_format": "cif",
            "recycling_steps": 20, "sampling_steps": 1, "diffusion_samples": 3, "single_sequence": True,
            "template_structures": str(tmp_path), "write_pae": True}
     state.predict_one(yaml, cfg)
+    from types import SimpleNamespace
+
+    from tt_bio.main import _write_job_outputs
+    from tt_bio.worker import _read_outputs
+    shipped = _read_outputs(work)
+    _write_job_outputs(SimpleNamespace(job_outputs=lambda _r, _j: shipped), "run", "job", res / "structures")
     pred = res / "dimer" / "seed_101" / "predictions"
+    assert not (res / "structures" / po.SHIPPED).exists()
     names = {p.name for p in pred.iterdir()}
     assert names == {f"dimer_{part}sample_{k}.{ext}" for k in range(3)
                      for part, ext in (("", "cif"), ("summary_confidence_", "json"), ("full_data_", "json"))}
     s = [json.loads((pred / f"dimer_summary_confidence_sample_{k}.json").read_text()) for k in range(3)]
     assert [x["ranking_score"] for x in s] == sorted((x["ranking_score"] for x in s), reverse=True)
     assert s[0]["num_recycles"] == 20 and len(s[0]["chain_plddt"]) == 3 and 0 <= s[0]["plddt"] <= 100
+
+
+def test_engine_heads_hand_the_writer_its_logits():
+    """`_postprocess(keep_logits=True)` returns the logits it was given, and `distogram_logits` is upstream's
+    DistogramHead (linear on z, plus its token-axis transpose)."""
+    from types import SimpleNamespace
+
+    from tt_bio.protenix import ConfidenceHead, Protenix
+
+    g = torch.Generator().manual_seed(1)
+    n, na = 6, 9
+    feats = {"asym_id": torch.tensor([0, 0, 0, 1, 1, 1])}
+    pae, pde, pl = torch.randn(n, n, 64, generator=g), torch.randn(n, n, 64, generator=g), torch.randn(na, 50, generator=g)
+    head = object.__new__(ConfidenceHead)
+    assert "pae_logits" not in head._postprocess(pae, pde, pl, feats)
+    out = head._postprocess(pae, pde, pl, feats, keep_logits=True)
+    assert all(torch.equal(out[k], v) for k, v in (("pae_logits", pae), ("pde_logits", pde), ("plddt_logits", pl)))
+    z = torch.randn(n, n, 16, generator=g, dtype=torch.float64)
+    w, b = torch.randn(64, 16, generator=g, dtype=torch.float64), torch.randn(64, generator=g, dtype=torch.float64)
+    d = Protenix.distogram_logits(SimpleNamespace(_w={"distogram_head.linear.weight": w,
+                                                      "distogram_head.linear.bias": b}), z)
+    ref = z @ w.T + b
+    assert torch.allclose(d.double(), ref + ref.transpose(0, 1), atol=1e-4)

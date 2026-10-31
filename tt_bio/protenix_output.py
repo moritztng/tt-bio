@@ -17,6 +17,7 @@ diagonal is 0.0. A run given upstream JSON input reports this, so its files read
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -270,6 +271,24 @@ def _jsonable(d, round2=False):
 
 def predictions_dir(out_dir, job, seed) -> Path:
     return Path(out_dir) / job / f"seed_{seed}" / "predictions"
+
+
+#: where a worker writes the layout inside its job output dir, so it ships with the job's other outputs; `land`
+#: moves it to its upstream place beside the structures dir once those are written
+SHIPPED = "upstream_layout"
+
+
+def land(struct_dir) -> None:
+    """Move a job's shipped layout from ``struct_dir/SHIPPED`` to ``<struct_dir's parent>/<job>/seed_<s>/...``."""
+    src = Path(struct_dir) / SHIPPED
+    if not src.is_dir():
+        return
+    for p in sorted(src.rglob("*")):
+        if p.is_file():
+            t = Path(struct_dir).parent / p.relative_to(src)
+            t.parent.mkdir(parents=True, exist_ok=True)
+            p.replace(t)
+    shutil.rmtree(src, ignore_errors=True)
 
 
 def write(out_dir, job, seed, summaries, fulls, write_structure=None, need_atom_confidence=False):

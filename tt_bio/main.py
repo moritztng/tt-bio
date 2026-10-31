@@ -1968,6 +1968,8 @@ def _write_job_outputs(client: ControllerClient, run_id: str, job_id: str,
             target.write_bytes(base64.b64decode(content_b64))
         except Exception:
             pass
+    from tt_bio.protenix_output import land
+    land(struct_dir)    # Mol-1's upstream layout ships inside the job outputs; its place is beside struct_dir
 
 
 @contextmanager
