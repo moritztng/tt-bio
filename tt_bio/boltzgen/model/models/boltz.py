@@ -101,8 +101,13 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "t
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
 # metric within 0.03 of base (design_ptm -0.016, complex_plddt -0.007, iptm +0.031), filter 32/32 vs 32/32. Speed on a
 # Galaxy chip at 1000 MHz: 50.2 -> 42.1 s/design.
+# Fast also takes Blackhole's DiT linears (dit_qkvf, dit_chunk, dit_pad_short, dit_bpad, dit_shard, dit_fc123g) and its
+# trunk four (apb_ln, ws_l1dest, ws_resid, trimul_t2cm): 37.2 -> 33.2 s/design on a Galaxy chip at 1000 MHz (whx2,
+# 2026-10-31), 41.6 -> 35.0 ms a diffusion step. Fast grade vs exact WH normal (seeds 0-3, 32 designs): PASS,
+# design_ptm +0.016 [+0.001, +0.032], iptm -0.027 [-0.062, +0.004], complex_plddt +0.010, filter 32/32.
 WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
-                                "dit_cond_steps"}
+                                "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard",
+                                "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm"}
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
 # residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
 # designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.

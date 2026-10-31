@@ -219,7 +219,9 @@ def test_boltzgen_mode_sets_name_only_known_levers():
                                                   "dit_shoist"}
     assert B.BH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert B.WH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws",
-                                                "triatt_ln", "dit_cond_steps"}
+                                                "triatt_ln", "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short",
+                                                "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid",
+                                                "trimul_t2cm"}
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2",
                                                 "trimul_t2cm", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad",
                                                 "dit_shard", "dit_fc123g", "triatt_ln", "apb_ln", "triatt_ln_b8",

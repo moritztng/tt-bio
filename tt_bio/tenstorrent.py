@@ -14135,8 +14135,14 @@ def _fc12g(x, w12, mc, pm, pn, bw, gx, gy, silu_ckc, hidden, products=2, defines
     key = ("fc12g", tuple(shape), x.dtype, x.memory_config().buffer_type, w12.dtype, hidden, pm, pn, sh, bw, gx,
            gy, silu_ckc.math_fidelity, silu_ckc.math_approx_mode, silu_ckc.fp32_dest_acc_en, silu_ckc.packer_l1_acc,
            tuple(sorted(defines.items())))
-    return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=pn // sw, compute_src=_FC12G_SRC,
-                             compute_defines=defines, gate_tiles=2 * sh * sw, key=key)
+    try:
+        return generic_matmul_2d(x.device(), x, w12, out, pc, silu_ckc, out_nzsb_w=pn // sw,
+                                 compute_src=_FC12G_SRC, compute_defines=defines, gate_tiles=2 * sh * sw, key=key)
+    except Exception:
+        # A refused pass never hands `out` back, so the caller cannot free it: without this it stays in L1
+        # for the rest of the process, below whatever the next programs allocate.
+        ttnn.deallocate(out)
+        raise
 
 
 def _fc12_interleave(*ws: torch.Tensor, gx: int) -> torch.Tensor:
