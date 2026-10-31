@@ -1,0 +1,49 @@
+[
+    {
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "RSSAFWRSFPIFEEFDSETLCELSGIASYRKWSAGTVIFQRGDQGDYMIVVVSGRIKLSLFTPQGRELMLRQHEAGALFGEMALLDGQPRSADATAVTAAEGYVIGKKDFLALITQRPKTAEAVIRFLCAQLRDTTDRLETIALYDLNARVARFFLATLRQIHGSEMPQSANLRLTLSQTDIASILGASRPKVNRAILSLEESGAIKRADGIICCNVGRLLSIADPE",
+                    "count": 1
+                }
+            },
+            {
+                "proteinChain": {
+                    "sequence": "RSSAFWRSFPIFEEFDSETLCELSGIASYRKWSAGTVIFQRGDQGDYMIVVVSGRIKLSLFTPQGRELMLRQHEAGALFGEMALLDGQPRSADATAVTAAEGYVIGKKDFLALITQRPKTAEAVIRFLCAQLRDTTDRLETIALYDLNARVARFFLATLRQIHGSEMPQSANLRLTLSQTDIASILGASRPKVNRAILSLEESGAIKRADGIICCNVGRLLSIADP",
+                    "count": 1
+                }
+            },
+            {
+                "dnaSequence": {
+                    "sequence": "CTAGGTAACATTACTCGCG",
+                    "count": 1
+                }
+            },
+            {
+                "dnaSequence": {
+                    "sequence": "GCGAGTAATGTTAC",
+                    "count": 1
+                }
+            },
+            {
+                "dnaSequence": {
+                    "sequence": "CTAGGTAACATTAC",
+                    "count": 1
+                }
+            },
+            {
+                "dnaSequence": {
+                    "sequence": "GTAATGTTAC",
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_PCG",
+                    "count": 2
+                }
+            }
+        ],
+        "name": "7pzb"
+    }
+]

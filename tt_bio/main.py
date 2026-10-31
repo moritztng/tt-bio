@@ -247,7 +247,7 @@ def download_mols(cache: Path) -> Path:
     return weights.fetch("mols", root=cache)
 
 
-def download_all(cache: Path, model: str = "boltz2") -> None:
+def download_all(cache: Path, model: str = "boltz2", checkpoint: str | None = None) -> None:
     """Fetch every artifact `model` needs, in the parent, before any worker starts.
 
     Fanning out first has N local workers each see the same multi-GB file missing and
@@ -255,8 +255,11 @@ def download_all(cache: Path, model: str = "boltz2") -> None:
     without another special case here; the hand-written version covered protenix-v2 and
     rf3 only, and downloaded the 4.2 GB of Boltz-2 checkpoints for every model whether
     or not they were needed. A row tt-bio does not download (protenix-v2) is checked
-    earlier, in `predict`, before the MSA search."""
-    weights.fetch_models(model, root=cache)
+    earlier, in `predict`, before the MSA search. A ``--checkpoint`` replaces the model's own
+    row, so that one is not fetched."""
+    for art in weights.artifacts_for(model):
+        if art.source != "manual" and not (checkpoint and art.key == model):
+            weights.fetch(art.key, root=cache)
 
 
 def ensure_pxdesign_weights(cache: Path) -> Path:
@@ -1896,6 +1899,7 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path, output_format=
                     f"refuses; folding the other {len(keep)}:", fg="red", err=True)
         for job_id, why in refused.items():
             click.secho(f"  ✗ {job_id}: {why}", fg="red", err=True)
+    if refused:
         rows = {r["id"]: r for r in _load_results_resilient(results_path)
                 if isinstance(r, dict) and "id" in r}
         rows.update({j: {"id": j, "status": "failed", "error": why}
@@ -1904,11 +1908,31 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path, output_format=
     return keep, refused
 
 
-def _exit_for_failed_jobs(failed: int, total: int) -> None:
+def _write_error_reports(results_path: Path) -> None:
+    """``<results>/ERR/<job>.txt`` for every job results.json records as failed, as Mol-1 and
+    Protenix write it: the reason a system could not be predicted, next to the outputs. A job
+    that has since folded loses its report, and an empty ERR/ is removed."""
+    err = results_path.parent / "ERR"
+    for r in _load_results_resilient(results_path):
+        if not (isinstance(r, dict) and "id" in r):
+            continue
+        report = err / f"{r['id']}.txt"
+        if r.get("status") == "failed":
+            err.mkdir(parents=True, exist_ok=True)
+            report.write_text(f"{r.get('error') or 'failed'}\n")
+        else:
+            report.unlink(missing_ok=True)
+    if err.is_dir() and not any(err.iterdir()):
+        err.rmdir()
+
+
+def _exit_for_failed_jobs(failed: int, total: int, results_path: Path | None = None) -> None:
     """Exit the CLI nonzero when a run lost targets: 1 when every job failed,
     2 when some succeeded and some failed. Callers (release gate, CI, fleet
     scripts) gate on the process exit status, so a run that lost targets must
-    not report success."""
+    not report success. With ``results_path`` the failures also get an ERR/ report."""
+    if results_path is not None:
+        _write_error_reports(results_path)
     if failed <= 0:
         return
     raise SystemExit(1 if failed >= total else 2)
@@ -2572,6 +2596,92 @@ def msa(db, path, install_tools):
     click.echo(f"\nDatabases: {db_dir}")
     click.echo("Predictions will auto-detect this database, or pass explicitly:")
     click.echo(f"  tt-bio predict input.yaml --msa_db_path {db_dir}")
+
+
+@cli.command("json")
+@click.argument("input_path", metavar="INPUT", type=click.Path(exists=True))
+@click.option("--out_dir", default="./output", type=click.Path(file_okay=False), show_default=True)
+@click.option("--altloc", default="first", show_default=True,
+              help="Alternate locations: the first of each residue, or a letter (A, B, ...).")
+@click.option("--assembly_id", default=None, help="Expand to this biological assembly (default: the asymmetric unit).")
+@click.option("--include_discont_poly_poly_bonds", is_flag=True,
+              help="Also write bonds between non-consecutive polymer residues (disulfides, cyclic peptides).")
+@click.option("--cache", default=None, type=click.Path(), help="Weight cache (default: $TT_BIO_CACHE or ~/.boltz).")
+def json_cmd(input_path, out_dir, altloc, assembly_id, include_discont_poly_poly_bonds, cache):
+    """Turn PDB / mmCIF structures into Protenix / Mol-1 job JSON (upstream's `mol json`).
+
+    \b
+        tt-bio json 7r6r.cif                 writes output/7r6r.json
+        tt-bio json structures/ --assembly_id 1
+
+    INPUT is a file or a directory searched for .pdb and .cif files. Each becomes one job:
+    every protein, DNA and RNA entity with its copy count and modified residues, ligands and
+    ions by CCD code, and the covalent bonds that attach them. Water, hydrogens and
+    crystallisation aids are dropped. This is upstream's converter, so the JSON is the one
+    Mol-1 writes. The first run downloads the Chemical Component Dictionary (520 MB)."""
+    from tt_bio import mol1_json
+
+    try:
+        comp = weights.fetch("mol1-components", root=Path(cache).expanduser() if cache else None)
+        written = mol1_json.convert(Path(input_path), Path(out_dir), comp, altloc=altloc, assembly_id=assembly_id,
+                                    include_discont_poly_poly_bonds=include_discont_poly_poly_bonds)
+    except (ValueError, RuntimeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done: {len(written)} job JSON file(s) in {out_dir}")
+
+
+@cli.command("prep")
+@click.argument("input_path", metavar="INPUT", type=click.Path(exists=True, dir_okay=False))
+@click.option("--out_dir", default="./output", type=click.Path(file_okay=False), show_default=True,
+              help="Where the alignments go.")
+@click.option("--msa_db_path", default=None, type=click.Path(exists=True),
+              help="Search this local ColabFold DB instead of the ColabFold server.")
+@click.option("--use_envdb", is_flag=True, help="Also search the environmental DB (with --msa_db_path).")
+@click.option("--msa_endpoint", default=None, help="Fetch unpaired MSAs from a `tt-bio msa-server` at this URL.")
+@click.option("--msa_server_url", default="https://api.colabfold.com", show_default=True)
+@click.option("--msa_pairing_strategy", default="greedy", show_default=True)
+@click.option("--use_template", is_flag=True,
+              help="JSON input: also search templates for each protein chain (needs hmmer and the seqres database).")
+@click.option("--use_rna_msa", is_flag=True,
+              help="JSON input: also search MSAs for RNA chains that have none (needs hmmer and the RNA databases).")
+@_upstream_search_options
+def prep_cmd(input_path, out_dir, msa_db_path, use_envdb, msa_endpoint, msa_server_url, msa_pairing_strategy,
+             use_template, use_rna_msa, **search_tools):
+    """Search the MSAs (and templates) of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold.
+
+    \b
+        tt-bio prep jobs.json                  writes jobs-update-msa.json beside it
+        tt-bio prep jobs.json --use_template   writes jobs-final-updated.json beside it
+        tt-bio prep seqs.fasta                 one directory per record + msa_index.json
+
+    A JSON job's protein chains without an MSA are searched and the updated JSON names the
+    files (upstream's `mol msa`); `tt-bio predict jobs-update-msa.json --model mol1` then folds
+    with them and searches nothing. --use_template and --use_rna_msa add upstream's template and
+    RNA MSA searches, which is what `mol prep` does. A FASTA's records are searched as one complex,
+    so several records also get a species-paired MSA. The ColabFold server is used unless
+    --msa_db_path or --msa_endpoint names another source. Needs no device."""
+    from tt_bio import protenix_json, protenix_prep
+
+    cfg = {"use_msa_server": not (msa_db_path or msa_endpoint), "msa_db_path": msa_db_path,
+           "use_envdb": use_envdb, "msa_endpoint": msa_endpoint, "msa_server_url": msa_server_url,
+           "msa_pairing_strategy": msa_pairing_strategy}
+    src, out = Path(input_path), Path(out_dir)
+    try:
+        if src.suffix.lower() in (".fasta", ".fa", ".faa"):
+            if use_template or use_rna_msa:
+                raise ValueError(f"{src}: template and RNA MSA search take a .json job list, as upstream's prep does")
+            dest = protenix_prep.prep_fasta(src, out, cfg)
+        elif src.suffix.lower() == ".json":
+            dest = protenix_prep.prep_json(src, out, cfg)
+            cur = dest or src
+            final = protenix_json.search(cur, out, use_template, use_rna_msa, **search_tools)
+            if final != cur:  # upstream writes <stem>-final-updated.json beside the MSA-updated JSON
+                dest = final.replace(cur.resolve().parent / final.name)
+        else:
+            raise ValueError(f"{src}: tt-bio prep reads a .json job list or a .fasta")
+    except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done: {dest}" if dest else f"Every chain in {src} already has what was asked; nothing to search.")
 
 
 @cli.command("msa-server")
@@ -3346,7 +3456,8 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--cache", default=lambda: os.environ.get("BOLTZ_CACHE", str(Path("~/.boltz").expanduser())))
 @click.option("--checkpoint", type=click.Path(exists=True, dir_okay=False), default=None,
               help="Weights to fold with instead of the shipped ones (boltz2, openfold3, "
-                   "openbind). For openfold3 this can be a checkpoint `tt-bio train` wrote.")
+                   "openbind, protenix-v1/v2, mol1). For openfold3 this can be a checkpoint "
+                   "`tt-bio train` wrote.")
 @click.option("--accelerator", type=click.Choice(["gpu", "cpu", "tenstorrent"]), default="tenstorrent")
 @click.option("--recycling_steps", default=None, type=int,
               help="Trunk recycling iterations. Default: "
@@ -3627,7 +3738,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # without one is told in a second why not and what to use instead.
     if not controller:
         for art in weights.artifacts_for(model):
-            if art.source == "manual":
+            if art.source == "manual" and not (checkpoint and art.key == model):
                 try:
                     weights.fetch(art.key, root=Path(cache).expanduser())
                 except (FileNotFoundError, RuntimeError) as e:
@@ -3666,7 +3777,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                 f"on the card; --model boltz2 is the one model with a CPU/GPU path."
             )
         for n, on in [("--use_potentials", use_potentials),
-                      ("--checkpoint", bool(checkpoint) and model not in OF3_FAMILY)]:
+                      ("--checkpoint", bool(checkpoint) and model not in (*OF3_FAMILY, *PROTENIX_FAMILY))]:
             if on:
                 click.secho(f"Note: --model {model} does not read {n}; ignoring it", fg="yellow")
         # --max_msa_seqs left at its default means "the depth this model already uses", not
@@ -3739,6 +3850,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         total = len(jobs)
         jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path, output_format)
         if not jobs:
+            _write_error_reports(results_path)
             raise click.ClickException("\n".join(refused.values()))
 
         # MSA is optional here (single-sequence folding when no source is given), so
@@ -3781,17 +3893,17 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         # Fetch this model's weights ONCE here, before fanning out. Skipped in
         # --controller mode: the controller's workers fetch their own.
         if not controller:
-            download_all(Path(cache).expanduser(), model)
+            download_all(Path(cache).expanduser(), model, checkpoint)
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-            _exit_for_failed_jobs(failed + len(refused), total)
+            _exit_for_failed_jobs(failed + len(refused), total, results_path)
             return
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                                struct_dir=struct_dir, model=model, debug=debug, log=log)
-        _exit_for_failed_jobs(failed + len(refused), total)
+        _exit_for_failed_jobs(failed + len(refused), total, results_path)
         return
 
     os.environ.setdefault("CUEQ_DEFAULT_CONFIG", "1")
@@ -3922,7 +4034,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo("Energy profiling is unavailable in --controller mode (no local device); skipping")
         failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                          struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-        _exit_for_failed_jobs(failed, len(jobs))
+        _exit_for_failed_jobs(failed, len(jobs), results_path)
         return
 
     workers = _local_workers(
@@ -3996,7 +4108,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         )
         click.echo(f"  power_plot:     {energy_plot_path}" if wrote_plot else "  power_plot:     failed (matplotlib not available)")
 
-    _exit_for_failed_jobs(failed, len(jobs))
+    _exit_for_failed_jobs(failed, len(jobs), results_path)
 
 
 @cli.command()

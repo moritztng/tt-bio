@@ -1,0 +1,13 @@
+[
+    {
+        "sequences": [
+            {
+                "dnaSequence": {
+                    "sequence": "CGCGAATTCGCG",
+                    "count": 2
+                }
+            }
+        ],
+        "name": "1bna"
+    }
+]

@@ -1,0 +1,145 @@
+[
+    {
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "STIEEQAKTFLDKFNHEAEDLFYQSSLASWNYNTNITEENVQNMNNAGDKWSAFLKEQSTLAQMYPLQEIQNLTVKLQLQALQQNGSSVLSEDKSKRLNTILNTMSTIYSTGKVCNPDNPQECLLLEPGLNEIMANSLDYNERLWAWESWRSEVGKQLRPLYEEYVVLKNEMARANHYEDYGDYWRGDYEVNGVDGYDYSRGQLIEDVEHTFEEIKPLYEHLHAYVRAKLMNAYPSYISPIGCLPAHLLGDMWGRFWTNLYSLTVPFGQKPNIDVTDAMVDQAWDAQRIFKEAEKFFVSVGLPNMTQGFWENSMLTDPGNVQKAVCHPTAWDLGKGDFRILMCTKVTMDDFLTAHHEMGHIQYDMAYAAQPFLLRNGANEGFHEAVGEIMSLSAATPKHLKSIGLLSPDFQEDNETEINFLLKQALTIVGTLPFTYMLEKWRWMVFKGEIPKDQWMKKWWEMKREIVGVVEPVPHDETYCDPASLFHVSNDYSFIRYYTRTLYQFQFQEALCQAAKHEGPLHKCDISNSTEAGQKLFNMLRLGKSEPWTLALENVVGAKNMNVRPLLNYFEPLFTWLKDQNKNSFVGWSTDWSPYADHHHHHH",
+                    "count": 1
+                }
+            },
+            {
+                "proteinChain": {
+                    "sequence": "RVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNKCVNFHHHHHH",
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_ZN",
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_CL",
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_NAG",
+                    "count": 5
+                }
+            }
+        ],
+        "covalent_bonds": [
+            {
+                "entity1": 1,
+                "position1": 115,
+                "atom1": "SG",
+                "entity2": 1,
+                "position2": 123,
+                "atom2": "SG"
+            },
+            {
+                "entity1": 1,
+                "position1": 326,
+                "atom1": "SG",
+                "entity2": 1,
+                "position2": 343,
+                "atom2": "SG"
+            },
+            {
+                "entity1": 1,
+                "position1": 512,
+                "atom1": "SG",
+                "entity2": 1,
+                "position2": 524,
+                "atom2": "SG"
+            },
+            {
+                "entity1": 2,
+                "position1": 18,
+                "atom1": "SG",
+                "entity2": 2,
+                "position2": 43,
+                "atom2": "SG"
+            },
+            {
+                "entity1": 2,
+                "position1": 61,
+                "atom1": "SG",
+                "entity2": 2,
+                "position2": 114,
+                "atom2": "SG"
+            },
+            {
+                "entity1": 2,
+                "position1": 73,
+                "atom1": "SG",
+                "entity2": 2,
+                "position2": 207,
+                "atom2": "SG"
+            },
+            {
+                "entity1": 2,
+                "position1": 162,
+                "atom1": "SG",
+                "entity2": 2,
+                "position2": 170,
+                "atom2": "SG"
+            },
+            {
+                "entity1": 1,
+                "position1": 35,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 4
+            },
+            {
+                "entity1": 1,
+                "position1": 72,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 2
+            },
+            {
+                "entity1": 1,
+                "position1": 304,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 3
+            },
+            {
+                "entity1": 1,
+                "position1": 528,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 1
+            },
+            {
+                "entity1": 2,
+                "position1": 25,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 5
+            }
+        ],
+        "name": "6m0j"
+    }
+]
