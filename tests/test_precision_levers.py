@@ -241,7 +241,7 @@ def test_protenix_v2_normal_takes_t2_tail(monkeypatch):
     import torch
     from tt_bio.protenix import (BH_V2_FAST, BH_V2_NORMAL, BRES_NORMAL, DIT_SEAM_FAST, FAST_LEVERS, GIN_W8_FAST, NORMAL_LEVERS, OPM_B8CFG_FAST, QSPLIT_NORMAL, T1W8_FAST,
                                  T2_TAIL, SHOIST_FAST, DIT_MM_WH, T1_PSIG, TRIATT_Q10_WH, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST, WH_V2_NORMAL, WS_CHAIN, WS_FAST, WS_RESID_NORMAL,
-                                 X8_WH, mode_levers)
+                                 WS_NORMAL, X8_WH, mode_levers)
 
     def ck(c_z):
         return {"layernorm_z_cycle.weight": torch.zeros(c_z)}
@@ -324,3 +324,24 @@ def test_dit_pad_short_takes_the_first_length_a_wide_chunk_divides():
     assert T.dit_bias_pad_len(514) == 768                 # dit_bpad (OpenDDE, Protenix) keeps the grid
     assert T.dit_bias_pad_len(1199, short=True) == 1280   # 1248 only has 96, measured slower than 1280
     assert T._dit_sdpa_chunk(T.dit_bias_pad_len(514, short=True)) == 288
+
+
+def test_mode_levers_keys_the_transition_stack_on_pair_width(monkeypatch):
+    """Mol-1's trunk runs at 448 (PairMixer blocks) and 320: it takes the normal-mode transition stack graded at
+    those widths and nothing else of Protenix-v2's; --fast and the one-width checkpoints keep their sets."""
+    import torch
+    from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, WH_FAST_LEVERS, WS_NORMAL, Trunk, mode_levers
+
+    tr = "pairformer_stack.blocks.{}.pair_transition.layernorm1.weight"
+    mol1 = {"layernorm_z_cycle.weight": torch.zeros(448), "confidence_head." + tr.format(0): torch.zeros(448),
+            **{tr.format(i): torch.zeros(448 if i < 8 else 320) for i in range(48)}}
+    assert Trunk._pair_widths(mol1) == {448, 320}
+    assert Trunk._pair_widths({tr.format(0): torch.zeros(256)}) == {256}
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    for wh in (False, True):
+        monkeypatch.setattr(T, "is_wormhole", lambda wh=wh: wh)
+        monkeypatch.setattr(T, "_FAST_MODE", False)
+        assert mode_levers(mol1) == NORMAL_LEVERS | WS_NORMAL
+        assert mode_levers({tr.format(0): torch.zeros(128)}) == NORMAL_LEVERS
+        monkeypatch.setattr(T, "_FAST_MODE", True)
+        assert mode_levers(mol1) == (WH_FAST_LEVERS if wh else FAST_LEVERS)
