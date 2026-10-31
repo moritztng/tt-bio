@@ -23,6 +23,7 @@ ap.add_argument("--a", help="string value of ATTR in arm A instead of True (e.g.
 ap.add_argument("--b", help="string value of ATTR in arm B instead of False")
 ap.add_argument("--repeat", type=int, default=3)
 ap.add_argument("--size", type=int, default=512)
+ap.add_argument("--a3m", type=Path, help="fold this alignment instead of the page fixture's (e.g. one deeper than max_depth)")
 ap.add_argument("--out", type=Path, required=True)
 a = ap.parse_args()
 
@@ -48,8 +49,10 @@ else:
     mod = importlib.import_module(modname)
 
 fix = ROOT / "perf" / "size512" / "fixtures"
-one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}", fix / f"cdk2x2_{a.size}.yaml",
-                              fix / f"cdk2x2_{a.size}.a3m", fast=a.fast)[:2]
+a3m = a.a3m or fix / f"cdk2x2_{a.size}.a3m"
+tag = "" if a.a3m is None else "_" + a3m.stem
+one_fold, meta = B.build_fold(a.model, ROOT / f".msa_ab_{a.model}_{a.size}{tag}", fix / f"cdk2x2_{a.size}.yaml",
+                              a3m, fast=a.fast)[:2]
 sdir = Path(meta["struct_dir"])
 nodes = sorted({int(os.readlink(f"/proc/self/fd/{fd}").rsplit("/", 1)[1]) for fd in os.listdir("/proc/self/fd")
                 if os.path.realpath(f"/proc/self/fd/{fd}").startswith("/dev/tenstorrent/")} or {-1})
