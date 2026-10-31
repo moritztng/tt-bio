@@ -29,9 +29,6 @@ KERNEL = str(Path(__file__).resolve().parent / "kernels" / "dknn" / "dknn.cpp")
 # Read the index back behind an event (read_later) instead of with a blocking to_torch at .result(). A blocking read
 # waits for everything queued before it, which by then includes the token encoder; the event waits for the index only.
 ASYNC_READ = env_flag("RFD3_DKNN_ASYNC_READ", True)
-#: Candidate rows skip the mover loop when they are further from the movers' bounding sphere than their k-th
-#: candidate key. The row is the same either way; RFD3_DKNN_SPHERE=0 runs every mover against every row.
-SPHERE = env_flag("RFD3_DKNN_SPHERE", True)
 _CB = (0, 8)   # first CB of BRISC's and NCRISC's six
 _CACHE: dict = {}
 _MASKS: dict = {}
@@ -109,7 +106,7 @@ def _build(device, L, K, MW, WO, xt, mt, ot, ct=None, rows=None):
     path = ttnn.KernelDescriptor.SourceType.FILE_PATH
     kernels = [ttnn.KernelDescriptor(kernel_source=KERNEL, source_type=path, core_ranges=grid,
                                      compile_time_args=[L, K, MW, WO, base, CW] + acc, runtime_args=rt,
-                                     common_runtime_args=[0] * 11, config=cfg)
+                                     common_runtime_args=[0] * 7, config=cfg)
                for base, rt, cfg in zip(_CB, rts, (ttnn.ReaderConfigDescriptor(), ttnn.WriterConfigDescriptor()))]
     return kernels, cbs
 
@@ -119,10 +116,9 @@ def _upload(a, device):
                            device=device, memory_config=ttnn.DRAM_MEMORY_CONFIG)
 
 
-def _launch(device, L, k, xt, mt, WO, ot, o0, rows=None, cand=None, sphere=(0, 0, 0, 0)):
+def _launch(device, L, k, xt, mt, WO, ot, o0, rows=None, cand=None):
     """One dknn program: rows (r0, r1) in full into ot from row o0, or (cand = (ct, m0, m1)) the candidate table's
-    rows, each against its candidates and the movers [m0, m1). `sphere` (cx, cy, cz, r) in the same fixed point
-    bounds the movers, so a row far enough from it skips them; r 0 turns the test off."""
+    rows, each against its candidates and the movers [m0, m1)."""
     MW = int(mt.shape[1])
     ct, m0, m1 = cand or (None, 0, 0)
     rows = (0, int(ct.shape[0])) if ct is not None else rows or (0, L)
@@ -132,7 +128,7 @@ def _launch(device, L, k, xt, mt, WO, ot, o0, rows=None, cand=None, sphere=(0, 0
     kernels, cbs = _CACHE[ck]
     for kd in kernels:
         kd.common_runtime_args = [xt.buffer_address(), mt.buffer_address(), ot.buffer_address(), o0,
-                                  0 if ct is None else ct.buffer_address(), m0, m1] + list(sphere)
+                                  0 if ct is None else ct.buffer_address(), m0, m1]
     ttnn.generic_op([xt, mt] + ([ct] if ct is not None else []) + [ot],
                     ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs))
 
@@ -161,10 +157,10 @@ def neighbours(device, x, mask, k, rows=None, static=None):
     if plan is None:
         _launch(device, L, k, xt, mt, WO, ot, r0, rows)
     else:
-        ct, m0, m1, sph = plan
+        ct, m0, m1 = plan
         if m1 > m0:
             _launch(device, L, k, xt, mt, WO, ot, 0, (m0, m1))
-        _launch(device, L, k, xt, mt, WO, ot, 0, cand=(ct, m0, m1), sphere=sph)
+        _launch(device, L, k, xt, mt, WO, ot, 0, cand=plan)
     return ot
 
 
@@ -195,7 +191,7 @@ class Static:
         self.ids, self.xs, self.words, self.tables = ids, xs, words, {}
 
     def plan(self, device, x, k):
-        """(candidate table, m0, m1, mover sphere) when the cache answers x, else None (the cache learns from x)."""
+        """(candidate table, m0, m1) when the cache answers x, else None (and the cache learns from x)."""
         x = np.asarray(x, np.float64)
         L = len(x)
         last, self.last = self.last, x
@@ -219,17 +215,7 @@ class Static:
         moving = np.ones(L, bool)
         moving[self.ids] = False
         mid = np.flatnonzero(moving)
-        if not len(mid):
-            return self.tables[s], 0, 0, (0, 0, 0, 0)
-        # The movers' bounding sphere at this scale, as the kernel reads it: the box centre and the furthest mover
-        # from it, both rounded out by one so the sphere still holds after the coordinates round to integers.
-        xm = x[mid[0]:mid[-1] + 1] * 2.0 ** s
-        c = 0.5 * (xm.min(0) + xm.max(0))
-        r = float(np.sqrt(((xm - c) ** 2).sum(1)).max())
-        if not SPHERE:
-            return self.tables[s], int(mid[0]), int(mid[-1]) + 1, (0, 0, 0, 0)
-        return (self.tables[s], int(mid[0]), int(mid[-1]) + 1,
-                tuple(int(v) & 0xFFFFFFFF for v in np.rint(c)) + (int(np.ceil(r)) + 2,))
+        return (self.tables[s],) + ((int(mid[0]), int(mid[-1]) + 1) if len(mid) else (0, 0))
 
 
 def read_later(device, ts):
