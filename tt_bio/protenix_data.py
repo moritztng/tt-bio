@@ -324,7 +324,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
                            chain_ids: list | None = None, bonds: list | None = None,
                            paired_a3ms: list | None = None, oxt: list | None = None,
                            modifications: list | None = None, templates: list | None = None,
-                           template_dir: str | None = None) -> dict:
+                           template_dir: str | None = None, conformer_table: dict | None = None) -> dict:
     """Multi-chain biomolecular complex -> model-ready input_feature_dict.
 
     chains: list of (sequence, a3m_or_None[, mol_type]); mol_type is "protein" (default),
@@ -363,7 +363,10 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     templates: optional list parallel to `chains`, each a `templates:` alignment npz for that
     protein chain or None, with the template coordinates under `template_dir`. Without one the
     template features are `dummy_template_features` -- all-gap, zero geometry -- which is what
-    every fold got before, so an input with no templates is byte-identical."""
+    every fold got before, so an input with no templates is byte-identical.
+    conformer_table: a model's own reference conformers ({CCD code: {atom name: xyz}},
+    load_conformer_table). Atoms it names take its coordinates in place of the CCD ideal ones;
+    None keeps the ideal ones."""
     norm = [(e[0], e[1], e[2] if len(e) > 2 else "protein") for e in chains]
     conformers = load_ref_conformers()
     # CCD codes needed from the `mols` library: nucleic-acid residues + CCD ligands.
@@ -380,6 +383,8 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             raise ValueError(
                 f"{code!r} is not a CCD component this build knows; check the code in the "
                 "input's `ligand:` or `modifications:` block.") from e
+    if conformer_table is not None:
+        conformers, mols = with_conformer_table(conformers, mols, conformer_table)
 
     entity_of = {}                                   # (mol_type, sequence) -> entity_id
     sym_counter = {}                                 # entity_id -> next copy index
@@ -592,6 +597,49 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     return feats
 
 
+def load_conformer_table(path) -> dict:
+    """{CCD code: {atom name: (3,) float32 array}} from an npz of codes / counts / names / xyz, the
+    layout scripts/mol1_io/ccd_conformers.py writes from an upstream CCD cache."""
+    import numpy as np
+    z = np.load(path)
+    off = np.concatenate([[0], np.cumsum(z["counts"])])
+    return {str(c): dict(zip(map(str, z["names"][off[i]:off[i + 1]]), z["xyz"][off[i]:off[i + 1]]))
+            for i, c in enumerate(z["codes"])}
+
+
+def with_conformer_table(conformers: dict, mols: dict, table: dict):
+    """The standard-residue conformers and CCD mols with every atom the table names moved to its
+    coordinates. A residue conformer gains an OXT row when the table has one (protein_atom_features
+    reads it there). The mols are copies; the shared library is left alone."""
+    from rdkit import Chem
+    from rdkit.Geometry import Point3D
+    conformers = dict(conformers)
+    for res, conf in list(conformers.items()):
+        own = table.get(res)
+        if not own:
+            continue
+        names = residue_atoms(res)
+        conf = torch.as_tensor(conf, dtype=torch.float32).clone()[:len(names)]
+        for k, nm in enumerate(names[:conf.shape[0]]):
+            if nm in own:
+                conf[k] = torch.as_tensor(own[nm])
+        if "OXT" in own:
+            conf = torch.cat([conf, torch.as_tensor(own["OXT"])[None]], 0)
+        conformers[res] = conf
+    out = {}
+    for code, mol in mols.items():
+        own = table.get(code)
+        if own:
+            mol = Chem.Mol(mol)
+            c = mol.GetConformer()
+            for a in mol.GetAtoms():
+                nm = a.GetProp("name") if a.HasProp("name") else None
+                if nm in own:
+                    c.SetAtomPosition(a.GetIdx(), Point3D(*map(float, own[nm])))
+        out[code] = mol
+    return conformers, out
+
+
 def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> dict:
     """Atom-level features for a single offline protein chain.
 
@@ -622,10 +670,13 @@ def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> d
         disto_atom = const.res_to_disto_atom.get(res, "CA")  # distogram rep atom (CB, or CA for GLY)
         conf = torch.as_tensor(conformers[res], dtype=torch.float32)
         if bool(oxt[t]) if oxt is not None else t == n_tok - 1:  # C-terminal carboxylate O
-            # synthesize OXT as the carboxylate mirror of O through C (any valid ref conformer)
+            # OXT from a conformer that carries it (one row past the residue's atoms), else the
+            # carboxylate mirror of O through C (any valid ref conformer)
             c_i, o_i = atoms.index("C"), atoms.index("O")
             atoms = atoms + ["OXT"]
-            conf = torch.cat([conf, (2 * conf[c_i] - conf[o_i])[None]], 0)
+            if conf.shape[0] < len(atoms):
+                conf = torch.cat([conf, (2 * conf[c_i] - conf[o_i])[None]], 0)
+        conf = conf[:len(atoms)]
         for k, nm in enumerate(atoms):
             elem_idx.append(z_of[nm[0]] - 1)
             ref_charge.append(_FORMAL_CHARGE.get((res, nm), 0.0))

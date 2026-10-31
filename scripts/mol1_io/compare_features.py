@@ -39,7 +39,7 @@ def jobs() -> dict:
     return out
 
 
-def tt_features(job: dict, mode: str, tmp: Path) -> dict:
+def tt_features(job: dict, mode: str, tmp: Path, conformer_table: str | None = None) -> dict:
     """Stage an upstream JSON job the way `tt-bio predict jobs.json` does and run the worker's featurizer."""
     from tt_bio import protenix_json
     from tt_bio.worker import _WorkerState
@@ -52,7 +52,7 @@ def tt_features(job: dict, mode: str, tmp: Path) -> dict:
     state = object.__new__(_WorkerState)
     state.model, state.accelerator = None, "cpu"
     cfg = {"model": "mol1", "msa_dir": str(tmp / "msa"), "template_structures": str(tmp / "tmpl"),
-           "output_format": "cif", **MODES[mode]}
+           "output_format": "cif", "conformer_table": conformer_table, **MODES[mode]}
     feats, _chains, _specs = state._protenix_inputs(yaml, cfg)
     return {k: v.detach().cpu().numpy() if hasattr(v, "detach") else np.asarray(v) for k, v in feats.items()
             if hasattr(v, "shape")}

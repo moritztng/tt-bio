@@ -76,3 +76,33 @@ def test_frames_and_ligand_mask_equal_upstream(tmp_path, mode, job):
     assert np.array_equal(token_frames(f).numpy(), gold["has_frame"])
     is_ligand = (f["mol_type"] == MOL_TYPE_IDS["ligand"])[f["atom_to_token_idx"].long()].long().numpy()
     assert np.array_equal(is_ligand, gold["is_ligand"])
+
+
+def _rigid_rmsd(a, b):
+    a, b = a - a.mean(0), b - b.mean(0)
+    u, s, vt = np.linalg.svd(a.T @ b)
+    s[-1] *= np.sign(np.linalg.det(u @ vt))
+    return float(np.sqrt(max(((a * a).sum() + (b * b).sum() - 2 * s.sum()) / len(a), 0.0)))
+
+
+@pytest.mark.parametrize("mode,job", CASES, ids=[f"{m}-{j}" for m, j in CASES])
+def test_ref_pos_equals_upstream_with_its_conformer_table(tmp_path, mode, job):
+    """With Mol-1's own CCD conformers (ccd_conformers_golden.npz, the golden jobs' codes cut from its
+    components.cif.rdkit_mol.pkl by scripts/mol1_io/ccd_conformers.py), every CCD residue's and ligand's
+    ref_pos is upstream's up to the random rigid motion both sides apply. SMILES and file ligands are
+    embedded by RDKit at random upstream, so they are only checked to exist."""
+    if job not in JOBS:
+        pytest.skip(f"{job}: its alignments are in the upstream clone, set MOL1_UPSTREAM")
+    gold = dict(np.load(cf.GOLD / mode / f"{job}.npz"))
+    ours = cf.tt_features(JOBS[job], mode, tmp_path, str(cf.DATA / "ccd_conformers_golden.npz"))
+    uid = gold["ref_space_uid"]
+    assert np.array_equal(ours["ref_space_uid"], uid)
+    free = {int(u) for u in np.unique(uid[gold["is_ligand"].astype(bool)])} if job in RANDOM_EMBED else set()
+    for u in np.unique(uid):
+        k = uid == u
+        if k.sum() > 1 and int(u) not in free:
+            assert _rigid_rmsd(ours["ref_pos"][k].astype(float), gold["ref_pos"][k].astype(float)) < 1e-4, u
+
+
+#: jobs with a SMILES or file ligand, whose conformer upstream draws from RDKit at random
+RANDOM_EMBED = {"smiles_covalent", "pl256"}

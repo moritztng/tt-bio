@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import functools
 import gc
 import json
 import os
@@ -556,6 +557,14 @@ def _target_seed(path, cfg) -> int:
     if side and side.get("seed") is not None:
         return int(side["seed"])
     return int(cfg.get("seed") or 0)
+
+
+@functools.lru_cache(maxsize=2)
+def _conformer_table(path):
+    """A model's own reference conformers (protenix_data.load_conformer_table), read once per path; None
+    keeps the CCD ideal ones."""
+    from tt_bio.protenix_data import load_conformer_table
+    return load_conformer_table(path) if path else None
 
 
 def _write_upstream_layout(path, cfg, feats, chains, coords, confs) -> None:
@@ -1765,7 +1774,8 @@ class _WorkerState:
                                        paired_a3ms=paired_a3ms,
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
-                                       template_dir=tmpl_dir)
+                                       template_dir=tmpl_dir,
+                                       conformer_table=_conformer_table(cfg.get("conformer_table")))
         # A JSON input's MSA features are built exactly as upstream builds them, from the sidecar alignments
         # plus the searched ones for chains it left out. Ordinary YAML/FASTA inputs have no sidecar.
         if side and not cfg.get("single_sequence"):
