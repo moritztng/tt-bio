@@ -10,6 +10,24 @@ import time
 
 
 
+def tree():
+    """Pids of every live descendant of this process."""
+    kids = {}
+    for p in os.listdir("/proc"):
+        if p.isdigit():
+            try:
+                kids.setdefault(int(open(f"/proc/{p}/stat").read().rsplit(")", 1)[1].split()[1]), []).append(int(p))
+            except (OSError, ValueError, IndexError):
+                continue
+    out, todo = set(), [os.getpid()]
+    while todo:
+        for c in kids.get(todo.pop(), ()):
+            if c not in out:
+                out.add(c)
+                todo.append(c)
+    return out
+
+
 class Contention:
     """Foreign CPU cores and foreign device holders, sampled every `period` s while open."""
 
@@ -27,20 +45,26 @@ class Contention:
 
     @staticmethod
     def _own_busy():
-        f = open("/proc/self/stat").read().rsplit(")", 1)[1].split()
-        return sum(int(x) for x in f[11:15])  # utime stime cutime cstime
+        """CPU ticks of this process and every live descendant (a harness that runs the device in a child process
+        must not read its own child as foreign load), each with its reaped children's time."""
+        total = 0
+        for p in [os.getpid(), *tree()]:
+            try:
+                f = open(f"/proc/{p}/stat").read().rsplit(")", 1)[1].split()
+                total += sum(int(x) for x in f[11:15])  # utime stime cutime cstime
+            except (OSError, ValueError, IndexError):
+                continue
+        return total
 
     @staticmethod
     def device_holders():
         """Pids, other than this process and its children, with a /dev/tenstorrent node open."""
-        me = os.getpid()
+        me, mine = os.getpid(), tree()
         out = set()
         for p in os.listdir("/proc"):
-            if not p.isdigit() or int(p) == me:
-                continue
+            if not p.isdigit() or int(p) == me or int(p) in mine:
+                continue  # our own tree: chip processes, the tt-smi sampler
             try:
-                if int(open(f"/proc/{p}/stat").read().rsplit(")", 1)[1].split()[1]) == me:
-                    continue  # our own tt-smi sampler
                 for fd in os.listdir(f"/proc/{p}/fd"):
                     if os.readlink(f"/proc/{p}/fd/{fd}").startswith("/dev/tenstorrent"):
                         out.add(f"{p}:{open(f'/proc/{p}/comm').read().strip()}")
@@ -52,15 +76,14 @@ class Contention:
     @staticmethod
     def _proc_cpu():
         """{pid: (comm, utime+stime ticks)} for every process except this one and its children."""
-        me, out = os.getpid(), {}
+        me, mine, out = os.getpid(), tree(), {}
         for p in os.listdir("/proc"):
-            if not p.isdigit() or int(p) == me:
+            if not p.isdigit() or int(p) == me or int(p) in mine:
                 continue
             try:
                 head, tail = open(f"/proc/{p}/stat").read().rsplit(")", 1)
                 f = tail.split()
-                if int(f[1]) != me:
-                    out[p] = (head.split("(", 1)[1], int(f[11]) + int(f[12]))
+                out[p] = (head.split("(", 1)[1], int(f[11]) + int(f[12]))
             except (OSError, ValueError, IndexError):
                 continue
         return out
