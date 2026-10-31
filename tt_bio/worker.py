@@ -1710,6 +1710,13 @@ class _WorkerState:
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
                                        template_dir=tmpl_dir)
+        # An input staged from upstream Protenix/Mol-1 JSON carries its paired and unpaired alignments in a
+        # sidecar; build those features exactly as upstream does. Ordinary YAML/FASTA inputs have no sidecar.
+        from tt_bio.protenix_json import sidecar
+        side = sidecar(path)
+        if side and not cfg.get("single_sequence"):
+            from tt_bio.protenix_msa import features_from_sidecar
+            feats.update(features_from_sidecar(feats, chains, side, use_rna_msa=bool(cfg.get("use_rna_msa"))))
         return feats, chains, chain_specs
 
     def _protenix_emit(self, path: Path, cfg: dict[str, Any], feats, chains, chain_specs,

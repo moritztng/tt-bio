@@ -32,3 +32,24 @@ def test_monomer_without_alignment_is_query_rows():
                               torch.arange(1, len(A) + 1))
     assert f["msa"].shape == (2, len(A)) and (f["msa"][0] == f["msa"][1]).all()
     assert float(f["has_deletion"].sum()) == 0
+
+
+def test_sidecar_features_on_built_complex():
+    import os
+
+    import pytest
+
+    from tt_bio.protenix_data import build_complex_features
+    from tt_bio.protenix_msa import features_from_sidecar
+
+    mols = os.path.expanduser("~/.boltz/mols")
+    if not os.path.isdir(mols):
+        pytest.skip("CCD mols dir missing")
+    chains = [("A", A, None, "protein", None), ("B", A, None, "protein", None), ("C", "CCD_NAG", None, "ligand", None)]
+    feats = build_complex_features([(s, None, mt) for _c, s, _p, mt, _m in chains], mol_dir=mols)
+    u = f">q\n{A}\n>h1\nMKTAYIAKQW\n"
+    side = {"paired_msa": {}, "unpaired_msa": {"A": u, "B": u}, "templates": {}, "seeds": None}
+    f = features_from_sidecar(feats, chains, side)
+    n_tok = feats["restype"].shape[0]
+    assert f["msa"].shape[1] == n_tok and f["profile"].shape == (n_tok, 32)
+    assert (f["msa"][:, 2 * len(A):] == 20).all()          # 14 NAG atom tokens: UNK query row broadcast

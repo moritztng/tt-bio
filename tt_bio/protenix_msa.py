@@ -63,3 +63,16 @@ def upstream_msa_features(chains: list[ChainMSA], token_asym: torch.Tensor, toke
             "deletion_value": torch.from_numpy(f["deletion_value"].astype(np.float32)),
             "profile": torch.from_numpy(f["profile"].astype(np.float32)),
             "deletion_mean": torch.from_numpy(f["deletion_mean"].astype(np.float32))}
+
+
+def features_from_sidecar(feats: dict, chains: list, side: dict, use_rna_msa: bool = False) -> dict:
+    """The MSA features for an input staged from upstream JSON (``tt_bio.protenix_json.stage``), in tt-bio's
+    feature layout. ``chains`` is ``_read_bio_chains``' list in token order; the alignments come from the sidecar,
+    keyed by chain id, and token asym / residue / entity are read off ``feats``."""
+    asym, res, ent = feats["asym_id"].long(), feats["residue_index"].long(), feats["entity_id"].long()
+    atom_asym = asym[feats["atom_to_token_idx"].long()]
+    out = []
+    for a, (cid, seq, _spec, mt, _mods) in enumerate(chains):
+        out.append(ChainMSA(cid, int(ent[asym == a][0]), mt, seq, n_atoms=int((atom_asym == a).sum()),
+                            paired=side["paired_msa"].get(cid), unpaired=side["unpaired_msa"].get(cid)))
+    return upstream_msa_features(out, asym, res, use_rna_msa=use_rna_msa)
