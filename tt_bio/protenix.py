@@ -3383,14 +3383,15 @@ class Protenix:
     @_T.under_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
-             max_parallel_samples=None, gamma0=None, step_scale=None, return_logits=False):
+             max_parallel_samples=None, gamma0=None, step_scale=None, return_logits=False, draws=None):
         """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
         iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
         coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
         conf is a dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N),
         ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
         return_logits adds pae_logits / pde_logits / plddt_logits and contact_probs to each conf
-        (`_confidences`), the input of the upstream output layout.
+        (`_confidences`), the input of the upstream output layout. draws: one iterator of upstream
+        sampler draws per sample (`edm_sample`), for grading against an upstream trajectory.
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
         opened with get_device(trace="protenix").
@@ -3445,7 +3446,7 @@ class Protenix:
         # batched denoise chunk (OOM safety); None = n_sample (one batched forward).
         _sampler = {k: v for k, v in (("gamma0", gamma0), ("step_scale", step_scale))
                     if v is not None}
-        if n_sample > 1 and getattr(self.diffusion, "supports_multiplicity", False):
+        if n_sample > 1 and draws is None and getattr(self.diffusion, "supports_multiplicity", False):
             _mps = DEFAULT_MAX_PARALLEL_SAMPLES if max_parallel_samples is None else max_parallel_samples
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
@@ -3461,8 +3462,8 @@ class Protenix:
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
                 coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                         trace=trace, progress_fn=progress_fn,
-                                         dump_fn=_dump_fn, **_sampler)[0])
+                                         trace=trace, progress_fn=progress_fn, dump_fn=_dump_fn,
+                                         draws=None if draws is None else draws[k], **_sampler)[0])
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
