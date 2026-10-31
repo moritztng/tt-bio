@@ -96,7 +96,7 @@ def test_stage_writes_yaml_the_bio_reader_accepts(tmp_path):
     assert _read_bio_bonds(g, chains) == [(("A", 5, "ND2"), ("B", 1, "C1")), (("B", 1, "O4"), ("B", 2, "C1"))]
     mods = _read_bio_chains(out / "doc_ptm_dna_rna__seed_101.yaml")[0][4]
     assert mods == [{"position": 1, "ccd": "HY3"}, {"position": 5, "ccd": "P1L"}]
-    assert sidecar(g) == {"seeds": None, "paired_msa": {}, "unpaired_msa": {}, "templates": {},
+    assert sidecar(g) == {"seeds": None, "paired_msa": {}, "unpaired_msa": {}, "templates": {}, "ions": [],
                           "job": "glycan_bonds", "seed": 101}
     assert sidecar(tmp_path / "plain.yaml") is None
 
