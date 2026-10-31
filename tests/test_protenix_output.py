@@ -100,13 +100,21 @@ def test_a_mol1_fold_writes_upstreams_layout(tmp_path):
     yaml = sorted(protenix_json.stage(src, tmp_path / "staged").glob("dimer*.yaml"))[0]
     state = object.__new__(_WorkerState)
     state.model, state.accelerator = _LogitStub(), "cpu"
-    res = tmp_path / "mol1_results_jobs"
-    (res / "structures").mkdir(parents=True)
-    cfg = {"model": "mol1", "msa_dir": str(tmp_path), "struct_dir": str(res / "structures"), "output_format": "cif",
+    # the worker folds in a scratch dir and ships what it wrote there; the CLI writes it under the results dir
+    work, res = tmp_path / "scratch" / "out", tmp_path / "mol1_results_jobs"
+    work.mkdir(parents=True)
+    cfg = {"model": "mol1", "msa_dir": str(tmp_path), "struct_dir": str(work), "output_format": "cif",
            "recycling_steps": 20, "sampling_steps": 1, "diffusion_samples": 3, "single_sequence": True,
            "template_structures": str(tmp_path), "write_pae": True}
     state.predict_one(yaml, cfg)
+    from types import SimpleNamespace
+
+    from tt_bio.main import _write_job_outputs
+    from tt_bio.worker import _read_outputs
+    shipped = _read_outputs(work)
+    _write_job_outputs(SimpleNamespace(job_outputs=lambda _r, _j: shipped), "run", "job", res / "structures")
     pred = res / "dimer" / "seed_101" / "predictions"
+    assert not (res / "structures" / po.SHIPPED).exists()
     names = {p.name for p in pred.iterdir()}
     assert names == {f"dimer_{part}sample_{k}.{ext}" for k in range(3)
                      for part, ext in (("", "cif"), ("summary_confidence_", "json"), ("full_data_", "json"))}
