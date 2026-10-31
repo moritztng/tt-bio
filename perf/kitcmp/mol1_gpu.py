@@ -23,6 +23,7 @@ def worker(rank, a, todo, done):
     try:
         from mol.runner.batch_inference import get_default_runner
         from mol.runner.inference import infer_predict
+        os.chdir(a.input.parent)  # MSA paths in the frozen JSONs are relative to the inputs directory
         t0 = time.time()
         mem = {"infer_setting.sample_diffusion_chunk_size": 5} if a.chunk5 else None
         runner = get_default_runner(seeds=[a.seed0], trimul_kernel=a.trimul, triatt_kernel=a.triatt,
@@ -63,7 +64,7 @@ def main():
     ap.add_argument("--chunk5", action="store_true", help="denoise the 5 samples together")
     ap.add_argument("--ckpt", default=os.environ.get("MOL1_CKPT"))
     a = ap.parse_args()
-    a.out = a.out.resolve()
+    a.out, a.input = a.out.resolve(), a.input.resolve()
     a.out.mkdir(parents=True, exist_ok=True)
     runs = a.out / "runs.jsonl"
     base = {"size": a.size, "arm": a.arm, "batch": a.k, "session": os.environ.get("MOL1_SESSION", ""),
