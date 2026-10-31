@@ -35,6 +35,37 @@ next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'impor
 t=sys.argv[1].split()
 print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t), ""))' "$TRIED"; }
 
+R(){ timeout 600 rsync -a --exclude '*.cif' -e "${S% root@*}" "$@"; }
+# Pull every 3 minutes until MOL1-DONE/FAILED/stopped/cap, then destroy. CIFs stay on the box: the speed arms'
+# structures are not evidence, and on 2026-10-31 pc's ~25 KB/s link hung one pull on 279 MB of them for 35 minutes,
+# which froze this loop (no DONE check, no cap) while the box kept billing.
+watch(){
+END=""
+while :; do
+  sleep 180
+  R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
+  st=$(timeout 30 $S 'ls /root/kc/mol1/MOL1-DONE' 2>/dev/null)
+  [ -n "$st" ] && END=done
+  # box_mol1.sh writes MOL1-FAILED when the gate trips or no arm produced a warm batch. Name it, so a
+  # session that measured nothing never reads as "done" in this log (session 1, 2026-10-21).
+  f=$(timeout 30 $S 'cat /root/kc/mol1/MOL1-FAILED 2>/dev/null' 2>/dev/null)
+  [ -n "$f" ] && END="FAILED ($f)"
+  [ -z "$st" ] && [ "$(state $I)" != running ] && END=stopped
+  [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-420))") ] && END=${END:-cap}
+  [ -n "$END" ] && break
+done
+R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
+log "$I ended: $END"
+destroy $I "session end: $END"
+log "credit \$$(credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
+}
+# RESUME=1 re-attaches to the box this label already rents (a watcher that died or was stopped), without renting.
+if [ -n "${RESUME:-}" ]; then
+  read -r I O < $OUT/instance; S=$(cat $OUT/ssh); H=${S##* }
+  T0=$($V show instance $I --raw | python3 -c 'import json,sys;print(int(json.load(sys.stdin)["start_date"]))')
+  log "resumed watching $I (started $(date -u -d @$T0 +%FT%TZ))"; watch
+fi
+
 MAXDPH=$(echo "$Q" | grep -oP 'dph<=\K[0-9.]+'); C=$(credit)
 python3 -c "import sys; sys.exit(0 if $C - $CAP_H * ${MAXDPH:-7} >= $FLOOR else 1)" ||
   { log "REFUSED: credit \$$C - $CAP_H h x \$${MAXDPH:-7}/h would cross the \$$FLOOR floor"; exit 4; }
@@ -79,7 +110,7 @@ if x.get("actual_status")=="running":
   log "$I up at $HOST:$PORT, power limit ${W:-?} W"
   [ "${W:-0}" -ge "$MINW" ] && [ "${W:-0}" -le "$MAXW" ] || { destroy $I "power limit ${W:-?} W outside $MINW-$MAXW"; continue; }
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
-  R(){ rsync -a -e "${S% root@*}" "$@"; }; H=root@$HOST
+  H=root@$HOST
   $S 'mkdir -p /root/kc' &&
     R $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/$BOX $H:/root/kc/ &&
     echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
@@ -89,23 +120,6 @@ if x.get("actual_status")=="running":
   timeout 60 $S -f "cd /root/kc && setsid nohup env MOL1_SESSION=$L ${BOXENV:-} bash $BOX $CAP_H > box_mol1.log 2>&1 < /dev/null &" ||
     { destroy $I "launch failed"; continue; }
   log "$I running $BOX"
-  END=""
-  while :; do
-    sleep 180
-    R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
-    st=$(timeout 30 $S 'ls /root/kc/mol1/MOL1-DONE' 2>/dev/null)
-    [ -n "$st" ] && END=done
-    # box_mol1.sh writes MOL1-FAILED when the gate trips or no arm produced a warm batch. Name it, so a
-    # session that measured nothing never reads as "done" in this log (session 1, 2026-10-21).
-    f=$(timeout 30 $S 'cat /root/kc/mol1/MOL1-FAILED 2>/dev/null' 2>/dev/null)
-    [ -n "$f" ] && END="FAILED ($f)"
-    [ -z "$st" ] && [ "$(state $I)" != running ] && END=stopped
-    [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-420))") ] && END=${END:-cap}
-    [ -n "$END" ] && break
-  done
-  R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
-  log "$I ended: $END"
-  destroy $I "session end: $END"
-  log "credit \$$(credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
+  watch
 done
 log "SESSION-END no-offer-passed"; echo no-offer > $OUT/SESSION-END
