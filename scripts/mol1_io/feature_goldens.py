@@ -1,19 +1,19 @@
 """Capture Mol-1 upstream input features as goldens for tests/test_mol1_features.py.
 
-Runs upstream's own featurizer, `InferenceDataset.process_one`, on every job in the given JSON files and pickles
-the `input_feature_dict` (numpy) plus the atom table. Run it in the upstream venv, isolated, from outside the
+Runs upstream's own featurizer, `InferenceDataset.process_one`, on every job in the given JSON files and saves
+the `input_feature_dict` plus the atom table, one compressed `<out>/<job>.npz` per job (integer features narrowed
+to the smallest dtype that holds them, values unchanged). Run it in the upstream venv, isolated, from outside the
 upstream clone, with MOL_ROOT_DIR pointing at the release `common/` data:
 
     MOL_ROOT_DIR=/home/moritz/mol1-upstream/io-data \
       /home/moritz/mol1-upstream/venv/bin/python -I scripts/mol1_io/feature_goldens.py \
-      --out ~/mol1-goldens/io_features.pkl cases/*.json [--use_rna_msa] [--no_msa]
+      --out tests/data/mol1_io/features/msa cases/*.json [--use_rna_msa] [--no_msa]
 
 Upstream augments ref_pos with a random rigid transform at inference; the seed below pins it so a rerun is
 byte-identical, and the test compares ref_pos up to that transform anyway.
 """
 import argparse
 import json
-import pickle
 import random
 from pathlib import Path
 
@@ -42,10 +42,17 @@ def featurize(job, use_msa, use_rna_msa, seed):
     ds.use_msa, ds.use_rna_msa, ds.msa_pair_as_unpair = use_msa, use_rna_msa, True
     ds.use_template, ds.online_template_featurizer = False, None
     data, aa, _ = ds.process_one(single_sample_dict=job)
-    feats = {k: v.numpy() for k, v in data["input_feature_dict"].items() if torch.is_tensor(v)}
-    atoms = {"atom_name": aa.atom_name.tolist(), "res_name": aa.res_name.tolist(),
-             "res_id": aa.res_id.tolist(), "chain_id": aa.chain_id.tolist(), "element": aa.element.tolist()}
-    return {"features": feats, "atoms": atoms, "job": job}
+    feats = {k: narrow(v.numpy()) for k, v in data["input_feature_dict"].items() if torch.is_tensor(v)}
+    atoms = {f"atoms.{k}": np.asarray(getattr(aa, k)) for k in ("atom_name", "res_name", "res_id", "chain_id", "element")}
+    return feats | atoms
+
+
+def narrow(a):
+    if a.dtype.kind in "iub" and a.size:
+        for t in (np.int8, np.int16, np.int32):
+            if np.iinfo(t).min <= a.min() and a.max() <= np.iinfo(t).max:
+                return a.astype(t)
+    return a
 
 
 def main():
@@ -57,17 +64,14 @@ def main():
     ap.add_argument("--seed", type=int, default=101)
     ap.add_argument("--base", default=".", help="directory relative MSA/template paths are resolved against")
     a = ap.parse_args()
-    out = {}
+    out = Path(a.out).expanduser()
+    out.mkdir(parents=True, exist_ok=True)
     for p in a.inputs:
         for job in json.loads(Path(p).read_text()):
-            job = absolutize(job, a.base)
-            out[job["name"]] = featurize(job, not a.no_msa, a.use_rna_msa, a.seed)
-            f = out[job["name"]]["features"]
+            f = featurize(absolutize(job, a.base), not a.no_msa, a.use_rna_msa, a.seed)
+            np.savez_compressed(out / f"{job['name']}.npz", **f)
             print(job["name"], "tokens", f["token_index"].shape[0], "atoms", f["atom_to_token_idx"].shape[0],
-                  "msa", f["msa"].shape)
-    Path(a.out).expanduser().parent.mkdir(parents=True, exist_ok=True)
-    with open(Path(a.out).expanduser(), "wb") as fh:
-        pickle.dump(out, fh)
+                  "msa", f["msa"].shape, "KB", (out / f"{job['name']}.npz").stat().st_size // 1024)
 
 
 if __name__ == "__main__":
