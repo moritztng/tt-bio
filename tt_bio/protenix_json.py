@@ -33,6 +33,7 @@ class Job:
     paired_msa: dict = field(default_factory=dict)    # chain id -> a3m text
     unpaired_msa: dict = field(default_factory=dict)  # chain id -> a3m text (protein, and RNA)
     templates: dict = field(default_factory=dict)     # chain id -> templatesPath
+    ions: list = field(default_factory=list)          # chain ids of `ion` entities (upstream's MSA skips them)
 
 
 def is_job_list(path) -> bool:
@@ -140,6 +141,8 @@ def job_to_doc(job: dict) -> Job:
             else:
                 lig = {"smiles": spec}
             out.doc["sequences"].append({"ligand": {"id": cids, **lig}})
+            if kind == "ion":
+                out.ions += cids
             continue
         sub = {"id": cids, "sequence": str(body["sequence"])}
         tkey, pkey = _MOD_KEYS[mt]
@@ -264,7 +267,8 @@ def stage(path, dest, seeds=None, use_seeds_in_json: bool = False) -> Path:
         for s in job_seeds(j, seeds, use_seeds_in_json):
             (dest / f"{j.name}{SEED_SEP}{s}.yaml").write_text(text)
         (dest / f"{j.name}{SIDECAR}").write_text(json.dumps(
-            {"seeds": j.seeds, "paired_msa": j.paired_msa, "unpaired_msa": j.unpaired_msa, "templates": j.templates}))
+            {"seeds": j.seeds, "paired_msa": j.paired_msa, "unpaired_msa": j.unpaired_msa, "templates": j.templates,
+             "ions": j.ions}))
     return dest
 
 
