@@ -1,6 +1,6 @@
 """Pick the MOL1 quality case list from FoldBench + upstream examples + the fleet's pfm 11-set. Deterministic.
 
-    python3 select.py FOLDBENCH_TARGETS_DIR > state/mol1/quality/CASES.json
+    python3 select_cases.py FOLDBENCH_TARGETS_DIR > state/mol1/quality/CASES.json
 Order inside a size bin is sha1(pdb id), so the pick is reproducible and blind to any result.
 """
 import csv, hashlib, json, sys

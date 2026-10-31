@@ -41,6 +41,8 @@ def postprocess(src, dst):
         elif ent[e][1] != g:
             ent[e] = ("polymer", g)
     b["entity"] = pdbx.CIFCategory({"id": list(ent), "type": [v[0] for v in ent.values()]})
+    for k in list(b):  # biotite 0.40 writes a still-lazy category without its newline ("#loop_"); OST then rejects it
+        b[k] = b[k]
     f.write(str(dst))
 
 
@@ -94,6 +96,8 @@ def evaluate(arm, arm_dir, cases, inputs, work):
         ost_task = "monomer_protein" if task == "whole" else task
         for _ in range(2):  # FoldBench waits 20 s per future; the second call collects the slow ones (outputs cached)
             eval_by_ost(df, ost_task, str(ev), str(inputs / "truth"))
+            if ost_task != "interface_protein_ligand":
+                rigid_rescue(df, ev, inputs / "truth")
         scored = pd.read_csv(ev / "raw" / f"{ost_task}_ost.csv")
         if task in NA_TASKS:
             eval_by_dockqv2(df, task, str(ev), str(inputs / "truth"))
@@ -128,6 +132,24 @@ def evaluate(arm, arm_dir, cases, inputs, work):
                     row.update(dockq=h.get("dockq_score"), lddt=h.get("lddt"))
                 rows.append({k: (None if isinstance(v, float) and not np.isfinite(v) else v) for k, v in row.items()})
     return rows
+
+
+def rigid_rescue(df, ev, truth):
+    """OST 2.8 --rigid-scores raises 'at least 3 points are required for superposition' on some targets (8c5h
+    against itself) and the whole call fails, DockQ and lDDT included. Rerun exactly those without it; RMSD/GDT are
+    not graded and the other scores do not depend on the superposition."""
+    import subprocess
+    from evaluation.eval_by_ost import OST_COMPARE_STRUCTURE
+    for r in df.itertuples():
+        out = ev / "detail" / f"{r.pdb_id}_{r.seed}_{r.sample}_structure_ost.json"
+        try:
+            if "required for superposition" not in json.loads(out.read_text()).get("traceback", ""):
+                continue
+        except (OSError, ValueError):
+            continue
+        subprocess.run(OST_COMPARE_STRUCTURE.replace("--rigid-scores ", "").format(
+            model_file=r.prediction_path, reference_file=truth / f"{r.pdb_id}.cif", output_path=out),
+            shell=True, executable="/bin/bash", capture_output=True, check=False)
 
 
 def whole_dockq(ev, pdb_id, seed, sample):
