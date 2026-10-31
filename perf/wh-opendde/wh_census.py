@@ -171,7 +171,7 @@ def main():
     import importlib.metadata as im
     res = {"ttnn": im.version("ttnn"), "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"), "model": a.model,
-           "recycling_steps": B.RECYCLING_STEPS, "sampling_steps": B.SAMPLING_STEPS,
+           "recycling_steps": B._resolve_recycling_steps(None, a.model), "sampling_steps": B.SAMPLING_STEPS,
            "timers_installed": installed, "timers_missing": missing, "runs": []}
     print(f"timers installed {len(installed)}  missing {missing}", flush=True)
 
@@ -191,7 +191,7 @@ def main():
         g = STATE["dev"].compute_with_storage_grid_size()
         res["grid"] = [g.x, g.y]
         struct_dir = Path(meta["struct_dir"])
-        print(f"=== {a.model} {tag} rec={B.RECYCLING_STEPS} steps={B.SAMPLING_STEPS} "
+        print(f"=== {a.model} {tag} rec={meta['recycling_steps']} steps={B.SAMPLING_STEPS} "
               f"grid {g.x}x{g.y}: cold ===", flush=True)
         try:
             cold_s, cold_m = one_fold()
