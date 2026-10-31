@@ -24,17 +24,3 @@ multi-component glycans such as `CCD_NAG_NAG`, SMILES, or `FILE_` paths to an .s
 The features tt-bio builds from a JSON job are the ones Mol-1's own featurizer builds, entry for entry, checked by
 `tests/test_mol1_features.py` against upstream goldens. The one exception is `ref_pos`: tt-bio places CCD ideal
 coordinates where upstream uses a precomputed RDKit conformer.
-
-## Output
-
-`--model mol1` writes upstream's layout next to tt-bio's usual `structures/` and `results.json`:
-
-```
-mol1_results_<input>/<job>/seed_<s>/predictions/<job>_sample_<k>.cif
-                                                <job>_summary_confidence_sample_<k>.json
-                                                <job>_full_data_sample_<k>.json      (with --write_pae)
-```
-
-Samples are numbered by upstream's `ranking_score` (0.8 ipTM + 0.2 pTM + 0.5 disorder - 100 has_clash), 0 = best,
-and the JSON keys and scales are upstream's (`plddt` 0-100, `chain_plddt` 0-1). `results.json` keeps tt-bio's
-cross-model ranking, which weights pLDDT for monomers; see [confidence-outputs.md](confidence-outputs.md).
