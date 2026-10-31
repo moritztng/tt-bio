@@ -23,6 +23,7 @@ recycles / steps / samples next to the protocol's 20 / 200 / 5, and a sha256 of 
 so any line can be rerun on its seed and checked.
 """
 import argparse
+import base64
 import hashlib
 import json
 import multiprocessing as mp
@@ -64,7 +65,17 @@ def run_config(model, inp, out, extra=()):
     except Stop:
         pass
     p = got["payload"]
-    return dict(p["config"]), [Path(j["path"] if isinstance(j, dict) else j) for j in p["jobs"]]
+    return dict(p["config"]), [stage_job(j, out / "jobs") for j in p["jobs"]]
+
+
+def stage_job(job, d):
+    """A dispatched job as the worker sees it: its input bytes written to a file (tt_bio/worker.py, run_job)."""
+    if not isinstance(job, dict):
+        return Path(job)
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / job["name"]
+    path.write_bytes(base64.b64decode(job["input_b64"]))
+    return path
 
 
 def chip_main(chip, a, barrier, results):
@@ -108,6 +119,7 @@ def chip_main(chip, a, barrier, results):
         except Exception:  # noqa: BLE001 -- the parent ended the run
             return
         sdir = out / f"r{i}-s{seed}"
+        sdir.mkdir(parents=True, exist_ok=True)  # the worker makes it before predict_one (run_job)
         t0 = time.time()
         err = None
         coords.clear()
