@@ -1490,6 +1490,14 @@ _PWA_UNPADDED = env_flag("TT_BIO_PWA_UNPADDED", True)
 # general permutes (channel axis to the front and back). Boltz-2 (8 heads x 32) takes the fused
 # path: c730 on Wormhole 157.95 -> 152.61 s, fold digest unchanged on 4 seeds (spd-boltz2 s3).
 _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
+# The fused path in channel-major form: m^T [rows, c_m, tokens] by one tile transpose of the narrow
+# input, v^T and g^T from W^T @ m^T batched over rows (the weights repeated over rows, since a
+# batched matmul does not broadcast in0), and the output projection as W_o^T @ (o * g)^T, so the
+# only transposes move c_m-wide tensors and never a heads*32-wide one. Same products and sums.
+# Boltz-2 8 x 32 at 768 tokens, a 320-row block: WH 19.9 -> 15.0 ms, p150a 8.27 -> 6.20 ms, error
+# against float64 unchanged (perf/spd_b2deep/pwa32_split.py). Taken while the repeated weights fit
+# in one PWA_DEPTH_BUDGET_BYTES buffer; below ~200 tokens they would not, and the fused path runs.
+_PWA_CMAJOR = env_flag("TT_BIO_PWA_CMAJOR", True)
 # PWA's three projections (both head paths) on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
 # `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
 # 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Fold, 3 paired warm, CIFs identical:
@@ -16889,16 +16897,28 @@ class PairWeightedAveraging(Module):
         # The fused path holds two [rows, tokens, heads*32] intermediates where the loop held one
         # [rows, tokens, 32] per head, so a tall input runs in row blocks that keep each under
         # the per-buffer budget the depth blocking already uses (see `pwa_fused_row_block`).
-        blk = pwa_fused_row_block(T, H)
-        if rows > blk:
+        blk = min(rows, pwa_fused_row_block(T, H))
+        w_v, w_g, w_o = packed
+        lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
+        if _PWA_CMAJOR and 3 * blk * H * S * int(mc.shape[-1]) * 2 <= PWA_DEPTH_BUDGET_BYTES:
+            reps = [ttnn.repeat(ttnn.unsqueeze(ttnn.transpose(w, -2, -1), 0), (blk, 1, 1))
+                    for w in packed]
+            parts = [self._heads_cmajor(mc[r:min(r + blk, rows)], ws, reps, lin)
+                     for r in range(0, rows, blk)]
+            for w in reps:
+                ttnn.deallocate(w)
+        elif rows > blk:
             parts = [self._heads_fused(mc[r:min(r + blk, rows)], ws, packed)
                      for r in range(0, rows, blk)]
+        else:
+            parts = None
+        if parts is not None:
+            if len(parts) == 1:
+                return parts[0]
             out = ttnn.concat(parts, dim=0)
             for p in parts:
                 ttnn.deallocate(p)
             return out
-        w_v, w_g, w_o = packed
-        lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
         proj = functools.partial(self._proj, lin=lin)
         v = proj(mc, w_v)                                        # [rows, T, H*S]
         vt = ttnn.permute(v, (0, 2, 1))                          # [rows, H*S, T]
@@ -16920,6 +16940,33 @@ class PairWeightedAveraging(Module):
         out = proj(o, w_o)                                       # heads summed in the matmul
         ttnn.deallocate(o)
         return out
+
+    def _heads_cmajor(self, mc, ws, reps, lin):
+        """`_heads_fused` for one row block in channel-major form (see `_PWA_CMAJOR`). `reps` are
+        w_v^T, w_g^T, w_o^T repeated over at least `mc`'s rows."""
+        H, S = self.n_heads, 32
+        rows, T = int(mc.shape[0]), int(mc.shape[1])
+        w_v, w_g, w_o = (w if int(w.shape[0]) == rows else w[:rows] for w in reps)
+        mt = ttnn.transpose(mc, -2, -1)                          # [rows, c_m, T]
+        vt = ttnn.matmul(w_v, mt, **lin)                         # [rows, H*S, T]
+        vh = ttnn.permute(ttnn.reshape(vt, (rows, H, S, T)), (1, 0, 2, 3))
+        ttnn.deallocate(vt)
+        o = self._head_contract(ttnn.reshape(vh, (H, rows * S, T)), ws, H, rows * S, T, lin)
+        ot = ttnn.permute(ttnn.reshape(o, (H, rows, S, T)), (1, 0, 2, 3))
+        ttnn.deallocate(o)
+        ot = ttnn.reshape(ot, (rows, H * S, T))
+        gt = ttnn.matmul(w_g, mt, **lin)
+        ttnn.deallocate(mt)
+        ot = ttnn.multiply_(ot, gt, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(gt)
+        out = ttnn.matmul(w_o, ot, **lin)                        # [rows, c_m, T], heads summed
+        ttnn.deallocate(ot)
+        for w, r in zip((w_v, w_g, w_o), reps):
+            if w is not r:
+                ttnn.deallocate(w)
+        res = ttnn.transpose(out, -2, -1)                        # [rows, T, c_m]
+        ttnn.deallocate(out)
+        return res
 
     def _proj(self, x, w, lin):
         """A v / g / o projection, on `_narrow_proj_linear`'s plan when `_PWA_PROJ`."""
