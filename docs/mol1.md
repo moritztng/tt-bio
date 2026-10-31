@@ -63,6 +63,7 @@ The defaults are upstream's: 20 recycles, 200 diffusion steps, 5 samples, seed 1
 
 | upstream | tt-bio |
 |---|---|
+| `mol msa jobs.json` / `mol msa seqs.fasta` | `tt-bio prep jobs.json` writes `jobs-update-msa.json` beside it with the MSA paths filled in; a FASTA gets one directory per record and `msa_index.json`. Same file names as upstream |
 | `mol doctor` | `tt-bio preflight mol1`: are the weights here and intact, and can this machine reach where they come from |
 | first-run download, `MOL_ROOT_DIR` | the weights download on first use into tt-bio's cache (`tt-bio weights --download mol1` to fetch ahead); see [`weights.md`](weights.md) |
 

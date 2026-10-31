@@ -2579,6 +2579,46 @@ def msa(db, path, install_tools):
     click.echo(f"  tt-bio predict input.yaml --msa_db_path {db_dir}")
 
 
+@cli.command("prep")
+@click.argument("input_path", metavar="INPUT", type=click.Path(exists=True, dir_okay=False))
+@click.option("--out_dir", default="./output", type=click.Path(file_okay=False), show_default=True,
+              help="Where the alignments go.")
+@click.option("--msa_db_path", default=None, type=click.Path(exists=True),
+              help="Search this local ColabFold DB instead of the ColabFold server.")
+@click.option("--use_envdb", is_flag=True, help="Also search the environmental DB (with --msa_db_path).")
+@click.option("--msa_endpoint", default=None, help="Fetch unpaired MSAs from a `tt-bio msa-server` at this URL.")
+@click.option("--msa_server_url", default="https://api.colabfold.com", show_default=True)
+@click.option("--msa_pairing_strategy", default="greedy", show_default=True)
+def prep_cmd(input_path, out_dir, msa_db_path, use_envdb, msa_endpoint, msa_server_url, msa_pairing_strategy):
+    """Search the MSAs of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold.
+
+    \b
+        tt-bio prep jobs.json            writes jobs-update-msa.json beside it
+        tt-bio prep seqs.fasta           one directory per record + msa_index.json
+
+    A JSON job's protein chains without an MSA are searched and the updated JSON names the
+    files (upstream's `mol msa`); `tt-bio predict jobs-update-msa.json --model mol1` then folds
+    with them and searches nothing. A FASTA's records are searched as one complex, so several
+    records also get a species-paired MSA. The ColabFold server is used unless --msa_db_path or
+    --msa_endpoint names another source. Needs no device."""
+    from tt_bio import protenix_prep
+
+    cfg = {"use_msa_server": not (msa_db_path or msa_endpoint), "msa_db_path": msa_db_path,
+           "use_envdb": use_envdb, "msa_endpoint": msa_endpoint, "msa_server_url": msa_server_url,
+           "msa_pairing_strategy": msa_pairing_strategy}
+    src, out = Path(input_path), Path(out_dir)
+    try:
+        if src.suffix.lower() in (".fasta", ".fa", ".faa"):
+            dest = protenix_prep.prep_fasta(src, out, cfg)
+        elif src.suffix.lower() == ".json":
+            dest = protenix_prep.prep_json(src, out, cfg)
+        else:
+            raise ValueError(f"{src}: tt-bio prep reads a .json job list or a .fasta")
+    except (ValueError, RuntimeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done: {dest}" if dest else f"Every protein chain in {src} already has an MSA; nothing to search.")
+
+
 @cli.command("msa-server")
 @click.option("--listen", default="8765", help="PORT or HOST:PORT to bind (default 8765).")
 @click.option("--msa_db_path", default=None, type=click.Path(),
