@@ -549,6 +549,21 @@ def _tfg_guidance(path, cfg, feats, chains, bonds):
     return Guidance(gfeats)
 
 
+def _with_searched(side: dict, chains, chain_specs, paired_a3ms) -> dict:
+    """The sidecar's alignments, with the searched unpaired (and paired) a3m filled in for each protein chain the
+    JSON gave none for."""
+    given = set(side["paired_msa"]) | set(side["unpaired_msa"])
+    out = {**side, "paired_msa": dict(side["paired_msa"]), "unpaired_msa": dict(side["unpaired_msa"])}
+    for k, (cid, _s, _sp, mt, _m) in enumerate(chains):
+        if mt != "protein" or cid in given:
+            continue
+        if chain_specs[k][1]:
+            out["unpaired_msa"][cid] = chain_specs[k][1]
+        if paired_a3ms and paired_a3ms[k]:
+            out["paired_msa"][cid] = paired_a3ms[k]
+    return out
+
+
 def search_msas(path, chains, cfg, progress=None) -> None:
     """Search the unpaired a3m of every protein chain the input left to the search and the
     cache lacks, batched into one call, into ``cfg["msa_dir"]``. Touches no device.
@@ -1692,8 +1707,13 @@ class _WorkerState:
                            output_format=cfg.get("output_format"))
         bonds = _read_bio_bonds(path, chains)   # covalent bonds + ring closures -> token_bonds
         msa_dir = Path(cfg["msa_dir"])
+        # An input staged from upstream Protenix/Mol-1 JSON carries its paired and unpaired alignments in a
+        # sidecar. A chain that has them is not searched, as upstream does not; the rest are, as upstream does.
+        from tt_bio.protenix_json import sidecar
+        side = sidecar(path)
+        given = set(side["paired_msa"]) | set(side["unpaired_msa"]) if side else set()
 
-        search_msas(path, chains, cfg, report_progress)
+        search_msas(path, [c for c in chains if c[0] not in given], cfg, report_progress)
         chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
         paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg)
 
@@ -1712,13 +1732,12 @@ class _WorkerState:
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
                                        template_dir=tmpl_dir)
-        # An input staged from upstream Protenix/Mol-1 JSON carries its paired and unpaired alignments in a
-        # sidecar; build those features exactly as upstream does. Ordinary YAML/FASTA inputs have no sidecar.
-        from tt_bio.protenix_json import sidecar
-        side = sidecar(path)
+        # A JSON input's MSA features are built exactly as upstream builds them, from the sidecar alignments
+        # plus the searched ones for chains it left out. Ordinary YAML/FASTA inputs have no sidecar.
         if side and not cfg.get("single_sequence"):
             from tt_bio.protenix_msa import features_from_sidecar
-            feats.update(features_from_sidecar(feats, chains, side, use_rna_msa=bool(cfg.get("use_rna_msa"))))
+            feats.update(features_from_sidecar(feats, chains, _with_searched(side, chains, chain_specs, paired_a3ms),
+                                               use_rna_msa=bool(cfg.get("use_rna_msa"))))
         return feats, chains, chain_specs
 
     def _protenix_emit(self, path: Path, cfg: dict[str, Any], feats, chains, chain_specs,

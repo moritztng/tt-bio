@@ -53,3 +53,15 @@ def test_sidecar_features_on_built_complex():
     n_tok = feats["restype"].shape[0]
     assert f["msa"].shape[1] == n_tok and f["profile"].shape == (n_tok, 32)
     assert (f["msa"][:, 2 * len(A):] == 20).all()          # 14 NAG atom tokens: UNK query row broadcast
+
+
+def test_searched_msas_fill_only_the_chains_the_json_left_out():
+    from tt_bio.worker import _with_searched
+    side = {"seeds": None, "paired_msa": {"A": ">q\nMK\n"}, "unpaired_msa": {"A": ">q\nMK\n"}, "templates": {}}
+    chains = [("A", "MK", None, "protein", None), ("B", "GG", None, "protein", None),
+              ("L", "CCD_ATP", None, "ligand", None)]
+    specs = [("MK", ">s\nMK\n", "protein"), ("GG", ">s\nGG\n", "protein"), ("CCD_ATP", None, "ligand")]
+    out = _with_searched(side, chains, specs, [">p\nMK\n", ">p\nGG\n", None])
+    assert out["unpaired_msa"] == {"A": ">q\nMK\n", "B": ">s\nGG\n"}
+    assert out["paired_msa"] == {"A": ">q\nMK\n", "B": ">p\nGG\n"}
+    assert side["unpaired_msa"] == {"A": ">q\nMK\n"}          # the sidecar itself is untouched
