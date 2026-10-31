@@ -24,7 +24,9 @@ if [ ! -f $B/SETUP-DONE ]; then
     command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH=$PATH:/root/.local/bin
     uv venv --python 3.12 --seed /opt/mol1-venv
-    VIRTUAL_ENV=/opt/mol1-venv uv pip install -e "/root/mol1[cuda]" "$OPT_CORE"
+    # ninja: torch JIT-builds upstream's fused LayerNorm with it on the first prediction, and neither the image nor
+    # the [cuda] extra ships it (session mol1-b200-1 gate: "Ninja is required to load C++ extensions").
+    VIRTUAL_ENV=/opt/mol1-venv uv pip install -e "/root/mol1[cuda]" "$OPT_CORE" ninja
     mkdir -p $MOL_ROOT_DIR/checkpoint
     bash /root/mol1/scripts/database/download_mol_data.sh
     wget -q https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt -O $MOL1_CKPT ||
@@ -40,6 +42,7 @@ nvidia-smi -q > $B/nvidia-smi-q.txt 2>&1
 { uname -a; nproc; lscpu | grep 'Model name'; free -g; df -h /; sha256sum $MOL1_CKPT; } > $B/census.txt 2>&1
 
 # The clock logger lives as long as the box: a logger that dies with an arm leaves the rest unclocked.
+pkill -f "nvidia-smi --query-gpu" 2>/dev/null  # one logger per box, also across a relaunch
 nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,utilization.memory,clocks_event_reasons.active,memory.used \
   --format=csv,noheader -l 1 >> $B/smi.csv 2>&1 &
 
@@ -51,6 +54,7 @@ fi
 
 # Gate: one real default prediction at 256 before the arms spend the box. It also builds the fused LayerNorm
 # extension once, so no timed cell pays for it.
+export PATH=/opt/mol1-venv/bin:$PATH  # the venv's ninja for the extension build
 $PY /root/kc/mol1_gpu.py --input $I/mol1-256.json --size 256 --arm gate --warm 0 --out $B/gate > $B/gate.log 2>&1 ||
   fail "gate prediction (tail $B/gate.log)"
 say "gate passed after $(( $(date +%s) - T0 ))s"
