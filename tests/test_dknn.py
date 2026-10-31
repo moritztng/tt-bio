@@ -1,5 +1,7 @@
 """tt_bio.dknn's contract, host only: its fixed point and packed mask, with the kernel's per-row rule run in numpy,
 reproduce _neighbours_kdtree (the float64 k-d tree the model uses today) row for row."""
+import math
+
 import numpy as np
 import pytest
 import torch
