@@ -13,7 +13,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **`tt-bio json`** turns PDB and mmCIF structures into Protenix / Mol-1 job JSON with Mol-1's own converter
   (`mol json`), so the output is identical to upstream's. The first run downloads the Chemical Component Dictionary.
 - **`tt-bio prep`** searches the MSAs of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold and writes them
-  where upstream's `mol msa` does, so a prepared job folds without searching. Needs no device.
+  where upstream's `mol msa` does, so a prepared job folds without searching. With `--use_template` and
+  `--use_rna_msa` it also runs upstream's template and RNA MSA searches, which is `mol prep`. Needs no device.
 - **Failed inputs get a report.** Every input `predict` could not fold or refused now leaves `ERR/<name>.txt` beside
   `results.json` with the reason, as Protenix and Mol-1 do. The exit status is unchanged.
 - **`--checkpoint` works for Protenix-v1, Protenix-v2 and Mol-1**, and the shipped checkpoint it replaces is no longer

@@ -2640,19 +2640,27 @@ def json_cmd(input_path, out_dir, altloc, assembly_id, include_discont_poly_poly
 @click.option("--msa_endpoint", default=None, help="Fetch unpaired MSAs from a `tt-bio msa-server` at this URL.")
 @click.option("--msa_server_url", default="https://api.colabfold.com", show_default=True)
 @click.option("--msa_pairing_strategy", default="greedy", show_default=True)
-def prep_cmd(input_path, out_dir, msa_db_path, use_envdb, msa_endpoint, msa_server_url, msa_pairing_strategy):
-    """Search the MSAs of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold.
+@click.option("--use_template", is_flag=True,
+              help="JSON input: also search templates for each protein chain (needs hmmer and the seqres database).")
+@click.option("--use_rna_msa", is_flag=True,
+              help="JSON input: also search MSAs for RNA chains that have none (needs hmmer and the RNA databases).")
+@_upstream_search_options
+def prep_cmd(input_path, out_dir, msa_db_path, use_envdb, msa_endpoint, msa_server_url, msa_pairing_strategy,
+             use_template, use_rna_msa, **search_tools):
+    """Search the MSAs (and templates) of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold.
 
     \b
-        tt-bio prep jobs.json            writes jobs-update-msa.json beside it
-        tt-bio prep seqs.fasta           one directory per record + msa_index.json
+        tt-bio prep jobs.json                  writes jobs-update-msa.json beside it
+        tt-bio prep jobs.json --use_template   writes jobs-final-updated.json beside it
+        tt-bio prep seqs.fasta                 one directory per record + msa_index.json
 
     A JSON job's protein chains without an MSA are searched and the updated JSON names the
     files (upstream's `mol msa`); `tt-bio predict jobs-update-msa.json --model mol1` then folds
-    with them and searches nothing. A FASTA's records are searched as one complex, so several
-    records also get a species-paired MSA. The ColabFold server is used unless --msa_db_path or
-    --msa_endpoint names another source. Needs no device."""
-    from tt_bio import protenix_prep
+    with them and searches nothing. --use_template and --use_rna_msa add upstream's template and
+    RNA MSA searches, which is what `mol prep` does. A FASTA's records are searched as one complex,
+    so several records also get a species-paired MSA. The ColabFold server is used unless
+    --msa_db_path or --msa_endpoint names another source. Needs no device."""
+    from tt_bio import protenix_json, protenix_prep
 
     cfg = {"use_msa_server": not (msa_db_path or msa_endpoint), "msa_db_path": msa_db_path,
            "use_envdb": use_envdb, "msa_endpoint": msa_endpoint, "msa_server_url": msa_server_url,
@@ -2660,14 +2668,20 @@ def prep_cmd(input_path, out_dir, msa_db_path, use_envdb, msa_endpoint, msa_serv
     src, out = Path(input_path), Path(out_dir)
     try:
         if src.suffix.lower() in (".fasta", ".fa", ".faa"):
+            if use_template or use_rna_msa:
+                raise ValueError(f"{src}: template and RNA MSA search take a .json job list, as upstream's prep does")
             dest = protenix_prep.prep_fasta(src, out, cfg)
         elif src.suffix.lower() == ".json":
             dest = protenix_prep.prep_json(src, out, cfg)
+            cur = dest or src
+            final = protenix_json.search(cur, out, use_template, use_rna_msa, **search_tools)
+            if final != cur:  # upstream writes <stem>-final-updated.json beside the MSA-updated JSON
+                dest = final.replace(cur.resolve().parent / final.name)
         else:
             raise ValueError(f"{src}: tt-bio prep reads a .json job list or a .fasta")
-    except (ValueError, RuntimeError) as e:
+    except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:
         raise click.ClickException(str(e))
-    click.echo(f"Done: {dest}" if dest else f"Every protein chain in {src} already has an MSA; nothing to search.")
+    click.echo(f"Done: {dest}" if dest else f"Every chain in {src} already has what was asked; nothing to search.")
 
 
 @cli.command("msa-server")

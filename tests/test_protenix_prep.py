@@ -95,3 +95,33 @@ def test_a_failed_search_is_an_error_not_an_empty_msa(monkeypatch, tmp_path):
     src = _jobs(tmp_path, [{"name": "x", "sequences": [{"proteinChain": {"sequence": A, "count": 1}}]}])
     r = CliRunner().invoke(cli, ["prep", str(src), "--out_dir", str(tmp_path / "out")])
     assert r.exit_code == 1 and "returned nothing" in r.output
+
+
+def test_use_template_searches_after_the_msas_and_writes_final_updated(searches, tmp_path, monkeypatch):
+    """`tt-bio prep --use_template` is upstream's `mol prep`: MSAs first, then hmmsearch templates from them."""
+    from pathlib import Path
+
+    from tt_bio._vendor.mol1 import template_search
+    calls = []
+
+    def fake(msa_for_template_search_dir, msa_for_template_search_name, **tools):
+        calls.append((msa_for_template_search_name, tools["seqres_database_path"]))
+        Path(msa_for_template_search_dir, "hmmsearch.a3m").write_text(f">hit\n{A}\n")
+
+    monkeypatch.setattr(template_search, "run_template_search", fake)
+    src = _jobs(tmp_path, [{"name": "m", "sequences": [{"proteinChain": {"sequence": A, "count": 1}}]}])
+    r = CliRunner().invoke(cli, ["prep", str(src), "--out_dir", str(tmp_path / "out"), "--use_template",
+                                 "--seqres_database_path", "/db/seqres.fasta"])
+    assert r.exit_code == 0, r.output
+    final = tmp_path / "in" / "jobs-final-updated.json"   # beside the input, upstream's name
+    assert str(final) in r.output and (tmp_path / "in" / "jobs-update-msa.json").exists()
+    assert calls == [("non_pairing", "/db/seqres.fasta")]
+    job = read_jobs(final)[0]
+    assert job.templates["A"].endswith("hmmsearch.a3m") and job.unpaired_msa["A"].startswith(">query")
+
+
+def test_template_search_on_a_fasta_is_refused(searches, tmp_path):
+    fa = tmp_path / "s.fasta"
+    fa.write_text(f">a\n{A}\n")
+    r = CliRunner().invoke(cli, ["prep", str(fa), "--use_template"])
+    assert r.exit_code != 0 and "json job list" in r.output and searches["unpaired"] == []
