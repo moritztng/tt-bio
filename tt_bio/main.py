@@ -1877,6 +1877,7 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path, output_format=
                     f"refuses; folding the other {len(keep)}:", fg="red", err=True)
         for job_id, why in refused.items():
             click.secho(f"  ✗ {job_id}: {why}", fg="red", err=True)
+    if refused:
         rows = {r["id"]: r for r in _load_results_resilient(results_path)
                 if isinstance(r, dict) and "id" in r}
         rows.update({j: {"id": j, "status": "failed", "error": why}
@@ -1885,11 +1886,31 @@ def _refuse_unfoldable_jobs(jobs, model: str, results_path: Path, output_format=
     return keep, refused
 
 
-def _exit_for_failed_jobs(failed: int, total: int) -> None:
+def _write_error_reports(results_path: Path) -> None:
+    """``<results>/ERR/<job>.txt`` for every job results.json records as failed, as Mol-1 and
+    Protenix write it: the reason a system could not be predicted, next to the outputs. A job
+    that has since folded loses its report, and an empty ERR/ is removed."""
+    err = results_path.parent / "ERR"
+    for r in _load_results_resilient(results_path):
+        if not (isinstance(r, dict) and "id" in r):
+            continue
+        report = err / f"{r['id']}.txt"
+        if r.get("status") == "failed":
+            err.mkdir(parents=True, exist_ok=True)
+            report.write_text(f"{r.get('error') or 'failed'}\n")
+        else:
+            report.unlink(missing_ok=True)
+    if err.is_dir() and not any(err.iterdir()):
+        err.rmdir()
+
+
+def _exit_for_failed_jobs(failed: int, total: int, results_path: Path | None = None) -> None:
     """Exit the CLI nonzero when a run lost targets: 1 when every job failed,
     2 when some succeeded and some failed. Callers (release gate, CI, fleet
     scripts) gate on the process exit status, so a run that lost targets must
-    not report success."""
+    not report success. With ``results_path`` the failures also get an ERR/ report."""
+    if results_path is not None:
+        _write_error_reports(results_path)
     if failed <= 0:
         return
     raise SystemExit(1 if failed >= total else 2)
@@ -3713,6 +3734,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         total = len(jobs)
         jobs, refused = _refuse_unfoldable_jobs(jobs, model, results_path, output_format)
         if not jobs:
+            _write_error_reports(results_path)
             raise click.ClickException("\n".join(refused.values()))
 
         # MSA is optional here (single-sequence folding when no source is given), so
@@ -3759,13 +3781,13 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         if controller:
             failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                              struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-            _exit_for_failed_jobs(failed + len(refused), total)
+            _exit_for_failed_jobs(failed + len(refused), total, results_path)
             return
         workers = _local_workers("tenstorrent", num_devices, device_ids, max_workers=max(len(jobs), 1))
         _cap_worker_threads(len(workers), host_threads)
         failed = _dispatch_run(run_payload, workers, total=len(jobs), results_path=results_path,
                                struct_dir=struct_dir, model=model, debug=debug, log=log)
-        _exit_for_failed_jobs(failed + len(refused), total)
+        _exit_for_failed_jobs(failed + len(refused), total, results_path)
         return
 
     os.environ.setdefault("CUEQ_DEFAULT_CONFIG", "1")
@@ -3896,7 +3918,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             click.echo("Energy profiling is unavailable in --controller mode (no local device); skipping")
         failed = _dispatch_to_controller(controller, run_payload, total=len(jobs), results_path=results_path,
                                          struct_dir=struct_dir, model=model, debug=debug, log=log, run_id=run_id)
-        _exit_for_failed_jobs(failed, len(jobs))
+        _exit_for_failed_jobs(failed, len(jobs), results_path)
         return
 
     workers = _local_workers(
@@ -3970,7 +3992,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
         )
         click.echo(f"  power_plot:     {energy_plot_path}" if wrote_plot else "  power_plot:     failed (matplotlib not available)")
 
-    _exit_for_failed_jobs(failed, len(jobs))
+    _exit_for_failed_jobs(failed, len(jobs), results_path)
 
 
 @cli.command()
