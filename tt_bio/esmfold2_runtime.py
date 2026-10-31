@@ -759,7 +759,9 @@ def _unpack_keep_dev(w, device, rows):
         r = ttnn.typecast(b, ttnn.bfloat16)
         ttnn.deallocate(b)
         if (i + 1) * W > rows:
-            full, r = r, ttnn.slice(r, [0, 0, 0, 0], [int(r.shape[0]), rows - i * W, *(int(d) for d in r.shape[2:])])
+            end = [int(d) for d in r.shape]
+            end[1] = rows - i * W
+            full, r = r, ttnn.slice(r, [0, 0, 0, 0], end)
             ttnn.deallocate(full)
         out.append(r)
     ttnn.deallocate(wt)
