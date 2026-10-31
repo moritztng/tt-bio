@@ -836,6 +836,8 @@ def _mm2d_on():
 
 
 def _mm2d_l1():
+    if _DIT_TRACE:      # a trace fences DRAM only: an L1 output inside the capture could land under an eager tensor
+        return False
     return _MM2D_L1 if _MM2D_L1 is not None else not is_wormhole()
 
 
@@ -4232,7 +4234,7 @@ class LocalTokenTransformer(Module):
             self.release_trace()
             T = None
         if T is None:
-            dram = _AG._in_dram(ins) and not _MM2D_L1      # L1 is not fenced
+            dram = _AG._in_dram(ins)
             self._trace = T = {"sig": sig, "failed": not dram, "need": 0, "eager": 0}
             if dram:
                 T["in"] = [ttnn.clone(t) for t in ins]
