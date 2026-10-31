@@ -933,7 +933,26 @@ def _fold_weights(wp, ln_w, ln_b):
 # fit L1 and declines. (2, 12, 1, 2, 1) keeps the single K block, so the contraction order is the projection's.
 # WH chip, perf/spd_trimul/tail_t2.py --c 384 vs float64 (10-13): N 512 13.63 -> 6.19 ms, rel_rms 0.0028
 # (four ops it replaces 0.0025), max_abs 2.94 (3.30); every N 32-512 finite, no hang.
-T2_WIDE_KEYS = {(12, 12)}
+# Every other c_z = hidden key above 256 (Mol-1's 320 and 448) takes the same lever at `t2_fit_block`'s block.
+
+
+def t2_wide(kt, nt):
+    """A c_z = hidden key above 256, which T2 serves under `trimul_t2w`."""
+    return kt == nt and kt > 8
+
+
+@lru_cache(maxsize=None)
+def t2_fit_block(kt, nt, l1=None):
+    """T2's block at a key outside T2_BLOCK: one K block, so the contraction order is the projection's, and the most
+    rows per block (4, else 2) whose plain-form buffers fit L1, or None. c_z 320 gets (4, 10, 1, 4, 1), 448 (2, 14, 1, 2, 1).
+    The GATE form, which holds Wg too, still declines on its own L1 check where it does not fit."""
+    if l1 is None:
+        from .tenstorrent import _l1_bank_bytes
+        l1 = _l1_bank_bytes()
+    for mb in (4, 2):
+        if (mb * nt) % 4 == 0 and _t2_tiles(kt, nt, mb) * MG.tile_bytes(ttnn.bfloat16) <= 0.85 * l1:
+            return (mb, kt, 1, mb, 1)
+    return None
 # RFD4's (8, 12) (hidden 256 -> c_z 384) at the same block, only in the float32-stream form (`copy`, T2_RES32),
 # whose caller (the rfd4 trunk's `pair_tail` lever) gates it: no other model's T2 eligibility changes.
 T2_RES32_KEYS = {(8, 12)}
@@ -980,7 +999,7 @@ def _mcast_args(device, gx, gy):
 
 def _t2_block(kt, nt):
     from . import tenstorrent as TT
-    return T2_BLOCK.get((kt, nt)) or TT._MM_BLOCK.get((kt, nt))
+    return T2_BLOCK.get((kt, nt)) or (t2_fit_block(kt, nt) if t2_wide(kt, nt) else TT._MM_BLOCK.get((kt, nt)))
 
 
 # T2m: T2 reading x where the einsum left it, channel-major, instead of after reblock_permute_back
@@ -1063,7 +1082,7 @@ def _t2_shape_why(xs, xps, ln_w, ln_b, wp, g, resid, wg=None, res32=False):
     K, N = int(wp.shape[-2]), int(wp.shape[-1])
     kt, nt = _tiles(K), _tiles(N)
     from .tenstorrent import lever
-    if ((kt, nt) not in T2_KEYS and not ((kt, nt) in T2_WIDE_KEYS and lever("trimul_t2w"))
+    if ((kt, nt) not in T2_KEYS and not (t2_wide(kt, nt) and lever("trimul_t2w"))
             and not ((kt, nt) in T2_RES32_KEYS and res32) or K % TILE or N % TILE):
         return f"key={kt}x{nt}"
     if xs[-1] != K or xps[-1] != K:
@@ -1609,8 +1628,37 @@ def _t1_psig():
 
 
 def t1_plan(key, w8=False):
-    """(channel groups, row tiles per unit) for a (kt, ct2, ntg) key; `w8`: the weights are bfp8."""
-    return (w8 and T1_PLANS_W8.get(key)) or T1_PLANS.get(key, (1, 32))
+    """(channel groups, row tiles per unit) for a (kt, ct2, ntg) key; `w8`: the weights are bfp8. A key outside the
+    measured tables takes `t1_fit`'s plan where one fits, else (1, 32)."""
+    return (w8 and T1_PLANS_W8.get(key)) or T1_PLANS.get(key) or t1_fit(key, w8) or (1, 32)
+
+
+@lru_cache(maxsize=None)
+def t1_fit(key, w8=False, l1=None):
+    """The fewest channel groups whose circular buffers fit L1 (masked, as `t1_eligible` gates them), at the widest
+    unit that fits in them, or None. Splitting channels or rows moves no arithmetic: every channel tile and row is
+    computed as in one whole launch. Mol-1's c_z 320 gets (2, 8), bfp8 weights (1, 8); its 448 gets (7, 8) either way."""
+    kt, ct2, ntg = key
+    if l1 is None:
+        from .tenstorrent import _l1_bank_bytes
+        l1 = _l1_bank_bytes()
+    for g in range(1, ct2 + 1):
+        if ct2 % g == 0 and ntg % g == 0:
+            for il in (32, 16, 8):
+                if t1_cb_bytes(*key, True, nb=GIN_MOVE_NB, w8=w8, plan=(g, il)) <= 0.85 * l1:
+                    return g, il
+    return None
+
+
+def t1_wide_lever(key):
+    """The lever that turns T1 on at a c_z = hidden key wider than 128 (trimul_t1_c256, _c384, Mol-1's _c320 and _c448),
+    else None. Those keys run channel groups, so each width carries its own grade; c_z 128 and RFD4's c_z 384 / hidden
+    256 run under trimul_t1."""
+    kt, ct2, ntg = key
+    return f"trimul_t1_c{kt * TILE}" if kt > 4 and ct2 == 2 * kt and ntg == kt else None
+
+
+T1_WIDE_LEVERS = ("trimul_t1_c256", "trimul_t1_c320", "trimul_t1_c384", "trimul_t1_c448")
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
@@ -1628,7 +1676,6 @@ T1_NB = {(12, 16, 12): 8}
 # so a, b and g_out are bit-identical. At OpenDDE's c_z 384 (3 launches) the layer_norm was 4.67 of T1's 16.18 ms
 # at 512 on a Wormhole Galaxy chip, 1000 MHz (t1abl, ABL 1). A/B knob; True is production.
 T1_LN1 = True
-T1_WIDE = {(8, 16, 8): "trimul_t1_c256", (12, 24, 12): "trimul_t1_c384"}   # plan key -> the lever that turns T1 on for it
 # Row tiles per work item: 32 = one unit (b, xt, yt) per item; 16 = each unit as two items, rows 0-15 and
 # 16-31, which are faces 0-1 and 2-3 of every [B, C, S, S] tile the writer gathers, so the two halves
 # write disjoint bytes. Every row is computed exactly as in the whole unit (same LN, same K order).
@@ -1682,17 +1729,17 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False, b8=False, fg=False):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False, b8=False, fg=False, plan=None):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
     ([(index, tiles)], [(index, fp32 tiles)]); tiles are bf16 but in T1_W_CBS under `w8` and T1_B8_CBS under `b8`.
     Independent of N: N only sets how many units each core runs. `split` (T1_SPLIT): c_2's two channel tiles become
     one for each data-movement core, and the reader stages its own gather. `b8` at 8-row items adds the exponent holds
     (kernels/trimul_in_t1/gather.hpp), 1 KB per channel tile a core gathers. `fg` (t1_fgate) has no p / g CBs and
     spends part of their L1 on a second channel tile in each a / b CB, so the gathers keep running through the next
-    item's layer_norm instead of idling on an empty CB."""
+    item's layer_norm instead of idling on an empty CB. `plan`: this (groups, il) instead of `t1_plan`'s (t1_fit's search)."""
     nb = _t1_nb_pref((kt, ct2, ntg)) if nb is None else nb
     rb = T1_RB if rb is None else rb
-    groups, plan_il = t1_plan((kt, ct2, ntg), w8)
+    groups, plan_il = plan or t1_plan((kt, ct2, ntg), w8)
     il = plan_il if il is None else il
     rb = min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16, 2 at 8
     qn, ng = ct2 // groups, ntg // groups
@@ -1750,8 +1797,8 @@ def t1_cb_b8(i, w8, b8):
     return (w8 and i in T1_W_CBS) or (b8 and i in T1_B8_CBS)
 
 
-def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False, split=False, b8=False, il=None):
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, il=il, w8=w8, split=split, b8=b8)
+def t1_cb_bytes(kt, ct2, ntg, mask, rb=None, nb=None, w8=False, split=False, b8=False, il=None, plan=None):
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask, rb, nb, il=il, w8=w8, split=split, b8=b8, plan=plan)
     return (sum(t * (MG.tile_bytes(ttnn.bfloat8_b) if t1_cb_b8(i, w8, b8) else BF16_TILE) for i, t in bf)
             + sum(t for _, t in f32) * FP32_TILE)
 
@@ -1828,7 +1875,7 @@ def t1_mask_ok(mask, x):
 def t1_any() -> bool:
     """T1 may serve some plan: the knob, trimul_t1 (every plan's master), or a wide plan's own lever."""
     from .tenstorrent import lever
-    return T1 or lever("trimul_t1") or any(lever(v) for v in T1_WIDE.values())
+    return T1 or lever("trimul_t1") or any(lever(v) for v in T1_WIDE_LEVERS)
 
 
 def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
@@ -1857,11 +1904,12 @@ def t1_eligible(x, ln_w, ln_b, wpT, wgT, wgo, mask=None):
     if len(wgo.shape) != 2 or int(wgo.shape[-2]) != K or int(wgo.shape[-1]) % TILE:
         return "gout_shape"
     key = (K // TILE, int(wpT.shape[-2]) // TILE, int(wgo.shape[-1]) // TILE)
-    if key not in T1_KEYS:
+    wide = t1_wide_lever(key)
+    if key not in T1_KEYS and not wide:
         return "key=" + "x".join(map(str, key))
-    if key in T1_WIDE:
-        if not (lever(T1_WIDE[key]) or (on and T1_C256)):
-            return T1_WIDE[key][len("trimul_t1_"):] + "_off"
+    if wide:
+        if not (lever(wide) or (on and T1_C256)):
+            return wide[len("trimul_t1_"):] + "_off"
     elif not on:
         return "off"
     if not (_vec_ok(ln_w, K) and _vec_ok(ln_b, K)):
