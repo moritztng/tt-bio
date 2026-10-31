@@ -36,18 +36,20 @@ def _pickle_mol_props() -> None:
     Chem.SetDefaultPickleProperties(Chem.PropertyPickleOptions.AllProps)
 
 
-def _featurize_open(data: bytes, rng: tuple) -> None:
-    """Spawned featurize worker: own the data module and continue the parent's numpy / random streams from where
-    the parent stood, so every design draws exactly what the in-process featurizer would."""
+def _featurize_open(data: bytes) -> None:
+    """Spawned featurize worker: own the data module and its iterator, built before the parent needs a design."""
     global _items
     torch.set_num_threads(1)
     _pickle_mol_props()
-    np.random.set_state(rng[0])
-    random.setstate(rng[1])
     _items = iter(pickle.loads(data).predict_dataloader())
 
 
-def _featurize_next() -> bytes:
+def _featurize_next(rng: tuple = None) -> bytes:
+    # The first request carries the parent's numpy / random state from the point where the in-process featurizer
+    # would start (after the model load, which draws from them), so every design draws exactly what it would.
+    if rng is not None:
+        np.random.set_state(rng[0])
+        random.setstate(rng[1])
     # Plain pickle copies each tensor's bytes. The pool's own pickler would share each one through a file
     # descriptor held while the tensor lives, and a design's few hundred tensors run a 1024-fd limit out.
     return pickle.dumps(next(_items, None), protocol=pickle.HIGHEST_PROTOCOL)
@@ -121,17 +123,15 @@ class Predict(Task):
 
         # With bg_featproc the featurizer runs in a spawned process (spawn, not fork: nothing of this process's
         # threads is copied), so its seconds of Python no longer take the GIL from the thread that dispatches a
-        # design; only the pickled batch crosses. It starts here, so its imports and the first design's features
-        # are ready behind the checkpoint load. The model is not built yet, so this reads the set it will build
-        # under (model_levers), not the active scope, which is still empty here.
+        # design; only the pickled batch crosses. It starts here, so its imports and data module are ready behind the
+        # checkpoint load; the first request carries the RNG state the in-process path would start from. The model
+        # is not built yet, so this reads the set it will build under (model_levers), not the active scope.
         featurize = None
         if run_prediction and "bg_featproc" in model_levers():
-            rng = (np.random.get_state(), random.getstate())
             _pickle_mol_props()
             featurize = ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn"),
-                                            initializer=_featurize_open, initargs=(pickle.dumps(self.data), rng))
+                                            initializer=_featurize_open, initargs=(pickle.dumps(self.data),))
             fetch, get = (lambda: featurize.submit(_featurize_next)), (lambda f: pickle.loads(f.result()))
-            ahead = fetch()
 
         # Build model with convert_to_tt applied; load_boltz_checkpoint filters
         # legacy hparams and applies the legacy-key remap on the state_dict.
@@ -165,6 +165,8 @@ class Predict(Task):
             featurize = ThreadPoolExecutor(1)
             fetch, get = (lambda: featurize.submit(next, items, None)), (lambda f: f.result())
             ahead = fetch()
+        else:
+            ahead = featurize.submit(_featurize_next, (np.random.get_state(), random.getstate()))
         with featurize, ThreadPoolExecutor(1) as write:
             written = None
             for batch_idx in range(total_batches):

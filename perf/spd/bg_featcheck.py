@@ -1,5 +1,6 @@
 """bg_featcheck.py DESIGN_ARGS... : featurize the designs in-process and in bg_featproc's spawned worker from the same
-numpy/random state on CPU (no device opens) and check every batch is identical, with the time per design both ways.
+numpy/random state, handed to the worker after it starts as predict.py does, on CPU (no device opens), and check every
+batch is identical, with the time per design both ways.
 
     python perf/spd/bg_featcheck.py design perf/dsfix/fixtures/bg_R3.yaml --model boltzgen --steps design \
         --num_designs 4 --out_dir OUT --seed 0
@@ -31,13 +32,14 @@ def _same(a, b, path="batch"):
 
 def run(self, config=None, run_prediction=True):
     self.data.num_workers = 0
-    rng = (np.random.get_state(), random.getstate())
     P._pickle_mol_props()
     pool = ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn"), initializer=P._featurize_open,
-                               initargs=(pickle.dumps(self.data), rng))
-    proc = []
+                               initargs=(pickle.dumps(self.data),))
+    np.random.rand(7); random.random()   # stands in for the model load drawing between pool start and first design
+    rng, proc = (np.random.get_state(), random.getstate()), []
     while True:
-        t = time.perf_counter(); b = pickle.loads(pool.submit(P._featurize_next).result()); dt = time.perf_counter() - t
+        t = time.perf_counter()
+        b = pickle.loads(pool.submit(P._featurize_next, None if proc else rng).result()); dt = time.perf_counter() - t
         if b is None: break
         proc.append(b); print(f"FEAT proc design {len(proc) - 1} {dt:.3f} s", flush=True)
     pool.shutdown()
