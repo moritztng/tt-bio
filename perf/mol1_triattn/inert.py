@@ -4,7 +4,7 @@ wrapped: every `_mm_block_at` call that the new kt >= 8 default answers (main re
 triatt_ln `_plan` that picks a column-group count main never tried (anything but 1, 2, 4), is counted. Zero of
 both means the fold ran main code paths exactly. Usage: inert.py <out.json> <bench.py args...>
 """
-import json, runpy, sys
+import json, os, runpy, sys
 from collections import Counter
 from pathlib import Path
 
@@ -36,10 +36,19 @@ def plan(kt, nw, tr, dev, ncores):
     return p
 
 
-T._mm_block_at, TL._plan = mm, plan
+def dump():
+    out.write_text(json.dumps({k: (dict(v) if isinstance(v, Counter) else v) for k, v in hits.items()}, indent=1))
+
+
+def _exit(rc, _real=os._exit):  # bench.py leaves through os._exit, which skips finally
+    dump()
+    _real(rc)
+
+
+T._mm_block_at, TL._plan, os._exit = mm, plan, _exit
 out = Path(sys.argv[1])
 sys.argv = [str(ROOT / "perf/spd/bench.py")] + sys.argv[2:]
 try:
     runpy.run_path(sys.argv[0], run_name="__main__")
 finally:
-    out.write_text(json.dumps({k: (dict(v) if isinstance(v, Counter) else v) for k, v in hits.items()}, indent=1))
+    dump()
