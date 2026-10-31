@@ -291,10 +291,14 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
     p = placement[cid]
     start = p["start"]
     if p["mt"] == "ligand":
-        if p["atoms"] is None or atom not in p["atoms"]:
-            raise ValueError(f"bond constraint references atom '{atom}' on ligand '{cid}', "
+        # A one-residue ligand takes its atom by name whatever residue is given; a multi-CCD
+        # ligand (glycan) needs the residue too, 1-indexed in component order.
+        key = (1 if p["n"] == 1 else int(res), atom)
+        if p["atoms"] is None or key not in p["atoms"]:
+            where = f"residue {res} of ligand '{cid}'" if p["n"] > 1 else f"ligand '{cid}'"
+            raise ValueError(f"bond constraint references atom '{atom}' on {where}, "
                              "which has no such atom.")
-        return start + p["atoms"][atom]
+        return start + p["atoms"][key]
     res = int(res)
     if not (1 <= res <= p["n"]):
         raise ValueError(f"bond constraint references residue {res} on chain '{cid}', "
@@ -362,7 +366,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     conformers = load_ref_conformers()
     # CCD codes needed from the `mols` library: nucleic-acid residues + CCD ligands.
     ccd_codes = {c for seq, _, mt in norm if mt in ("rna", "dna") for c in _na_res_codes(seq, mt)}
-    ccd_codes |= {seq[4:] for seq, _, mt in norm if mt == "ligand" and seq.startswith("CCD_")}
+    ccd_codes |= {c for seq, _, mt in norm if mt == "ligand" and seq.startswith("CCD_") for c in _ccd_list(seq)}
     ccd_codes |= {str(m["ccd"]).upper() for ms in (modifications or []) if ms for m in ms}
     mols = {}
     if ccd_codes:
@@ -387,8 +391,18 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     for ci, (seq, a3m, mt) in enumerate(norm):
         lig_names, res_tok, res_atoms = None, None, {}
         msa_col = None
-        if mt == "ligand":
-            af, n, lbonds, lig_names = ligand_atom_features(_ligand_mol(seq, mols))
+        if mt == "ligand" and seq.startswith("CCD_"):
+            # One residue per CCD component (a glycan "NAG,NAG" is residues 1 and 2), each
+            # tokenized per atom; the leaving atoms a covalent bond consumes are dropped.
+            drops = _ccd_leaving_drops(seq, mols, chain_ids[ci] if chain_ids is not None else None,
+                                       bonds)
+            af, n, lbonds, lig_names, res_index = ccd_ligand_features(seq, mols, drops)
+            rt_idx = torch.full((n,), 20, dtype=torch.long)   # ligand atoms are restype UNK
+            n_res = int(res_index.max())
+            block_bonds.append((tok_off, lbonds))
+        elif mt == "ligand":
+            af, n, lbonds, names = ligand_atom_features(_ligand_mol(seq, mols))
+            lig_names = [(1, nm) for nm in names]
             rt_idx = torch.full((n,), 20, dtype=torch.long)   # ligand atoms are restype UNK
             res_index = torch.ones(n, dtype=torch.long)       # all atoms share residue_index 1
             n_res = 1
@@ -437,7 +451,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
                                    *chain_template_arrays(len("".join(str(seq).split())),
                                                           entries, template_dir)))
         if chain_ids is not None:
-            name_to_local = {nm: i for i, nm in enumerate(lig_names)} if lig_names is not None else None
+            name_to_local = {rn: i for i, rn in enumerate(lig_names)} if lig_names is not None else None
             placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res,
                                              "atoms": name_to_local, "res_tok": res_tok,
                                              "res_atoms": res_atoms,
@@ -923,6 +937,87 @@ def _ligand_mol(spec: str, mols: dict):
     if spec.startswith("CCD_"):
         return mols[spec[4:]]
     return _smiles_to_mol(spec)
+
+
+def _ccd_list(spec: str) -> list:
+    """'CCD_NAG,NAG' (or the upstream JSON's 'CCD_NAG_NAG') -> ['NAG', 'NAG']."""
+    body = spec[4:]
+    return [c.strip().upper() for c in body.replace("_", ",").split(",") if c.strip()]
+
+
+def ccd_leaving_groups(mol) -> dict | None:
+    """Central atom name -> its leaving groups (lists of heavy-atom names), from the CCD's
+    pdbx_leaving_atom_flag, as upstream's ``ccd._map_central_to_leaving_groups`` builds them:
+    each leaving neighbour of a kept atom starts a group, grown through heavy-atom bonds without
+    going back through that atom. A group that reaches a kept atom means the component's flags
+    are not a clean leaving group, and then (as upstream) nothing is dropped from it."""
+    heavy = {a.GetIdx(): a for a in mol.GetAtoms() if a.GetAtomicNum() > 1}
+    leaving = {i: a.HasProp("leaving_atom") and bool(a.GetBoolProp("leaving_atom"))
+               for i, a in heavy.items()}
+    name = {i: a.GetProp("name") for i, a in heavy.items()}
+    nbr = {i: [n.GetIdx() for n in a.GetNeighbors() if n.GetIdx() in heavy] for i, a in heavy.items()}
+    out = {}
+    for c in heavy:
+        if leaving[c]:
+            continue
+        for l in nbr[c]:
+            if not leaving[l]:
+                continue
+            seen, stack = {l}, [l]
+            while stack:
+                for k in nbr[stack.pop()]:
+                    if k != c and k not in seen:
+                        seen.add(k); stack.append(k)
+            if not all(leaving[k] for k in seen):
+                return None
+            out.setdefault(name[c], []).append(sorted((name[k] for k in seen), key=lambda x: x))
+    return out
+
+
+def _ccd_leaving_drops(spec, mols, cid, bonds) -> dict:
+    """Per 1-indexed residue of a CCD ligand chain, the atom names its covalent bonds consume.
+    A bonded central atom loses one leaving group per bond (upstream ``remove_leaving_atoms``).
+    Upstream picks WHICH group by ``random.sample`` when an atom has more than it needs; here the
+    first ones in CCD order are taken, which is the same choice whenever there is only one."""
+    codes = _ccd_list(spec)
+    count = {}
+    for pair in (bonds or []):
+        for c, r, a in pair:
+            if cid is not None and str(c) == str(cid):
+                key = (1 if len(codes) == 1 else int(r), str(a))
+                count[key] = count.get(key, 0) + 1
+    drops = {}
+    for (r, a), k in count.items():
+        if not 1 <= r <= len(codes):
+            continue
+        groups = (ccd_leaving_groups(mols[codes[r - 1]]) or {}).get(a)
+        for g in (groups or [])[:k]:
+            drops.setdefault(r, set()).update(g)
+    return drops
+
+
+def ccd_ligand_features(spec: str, mols: dict, drops: dict | None = None):
+    """A CCD ligand chain of one or more components, tokenized per heavy atom. Component k is
+    residue k (upstream ``build_ligand`` gives each code of 'CCD_A_B' its own res_id) with its
+    own ref_space_uid. Returns (af, n_token, token_bonds, [(res, atom_name)], residue_index)."""
+    parts, names, res = [], [], []
+    for r, code in enumerate(_ccd_list(spec), start=1):
+        af, n, b, nm = ligand_atom_features(mols[code], drop_atoms=(drops or {}).get(r, ()))
+        parts.append((af, n, b))
+        names += [(r, x) for x in nm]
+        res += [r] * n
+    n_tot = sum(n for _, n, _ in parts)
+    bonds = torch.zeros(n_tot, n_tot)
+    feats, off = [], 0
+    for r, (af, n, b) in enumerate(parts):
+        af = dict(af)
+        af["atom_to_token_idx"] = af["atom_to_token_idx"] + off
+        af["ref_space_uid"] = af["ref_space_uid"] + r
+        bonds[off:off + n, off:off + n] = b
+        feats.append(af)
+        off += n
+    af = {k: torch.cat([f[k] for f in feats], 0) for k in feats[0]}
+    return af, n_tot, bonds, names, torch.tensor(res, dtype=torch.long)
 
 
 def ligand_atom_features(mol, drop_atoms=()):

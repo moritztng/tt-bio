@@ -670,7 +670,9 @@ def _artifact_residue_names(chains) -> dict:
     names = {}
     for ci, (_cid, seq, _spec, mol_type, mods) in enumerate(chains):
         if mol_type == "ligand" and str(seq).upper().startswith("CCD_"):
-            names[(ci, 1)] = str(seq)[4:].upper()
+            # a multi-CCD ligand (glycan "CCD_NAG,NAG") is one residue per component
+            for r, code in enumerate(str(seq)[4:].upper().split(","), start=1):
+                names[(ci, r)] = code.strip()
         for m in mods or ():
             names[(ci, int(m["position"]))] = str(m["ccd"]).upper()
     return names
