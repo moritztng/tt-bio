@@ -4233,7 +4233,8 @@ def step_scale_schedule(step_scale, n_step):
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
                member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None, guidance=None):
+               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None, guidance=None,
+               draws=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -4272,11 +4273,24 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     trace=True replays a captured ttnn trace of the denoise device stream (lossless;
     collapses per-step dispatch on dispatch-bound diffusion), captured once per fold at the
     first chunk's (N, M); a shorter tail chunk runs untraced. Requires the device to have
-    been opened with get_device(trace="protenix")."""
+    been opened with get_device(trace="protenix").
+
+    draws replays an upstream sampler's random draws instead of the host RNG, so a fold can be
+    graded against an upstream trajectory rather than against the seed floor: an iterator of
+    (tag, tensor) in upstream Protenix / Mol-1 order for one sample, ("init", noise) then per
+    step ("rot", R), ("trans", t), ("eps", noise). Upstream rotates x -> R x, this loop x @ R,
+    hence the transpose."""
     import torch
     from .boltz2 import compute_random_augmentation
     from .runtime import serial_host
     M = max(1, int(multiplicity))
+    if draws is not None:
+        assert M == 1 and member_seeds is None, "a replayed draw stream is one sample's"
+
+        def _take(tag, shape_):
+            got, v = next(draws)
+            assert got == tag, f"draw stream gives {got!r} where the sampler draws {tag!r}"
+            return v.float().reshape(shape_)
     _denoise = diffusion_module.denoise_traced if trace else diffusion_module.denoise
     if seed is not None:
         torch.manual_seed(seed)
@@ -4323,6 +4337,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
                 _states[_b] = torch.get_rng_state()
             return outs
         x = sigmas[0] * torch.cat(_per_member(lambda: torch.randn((1, n_atoms, 3))), 0)
+    elif draws is not None:
+        x = sigmas[0] * _take("init", shape)
     else:
         x = sigmas[0] * torch.randn(shape)
     if dump_fn is not None:                          # optional trajectory dump (default off)
@@ -4349,13 +4365,17 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
                 _aug = _per_member(lambda: compute_random_augmentation(1, device=x.device, dtype=x.dtype))
                 R = torch.cat([a[0] for a in _aug], 0)
                 tr = torch.cat([a[1] for a in _aug], 0)
+            elif draws is not None:
+                R, tr = _take("rot", (1, 3, 3)).transpose(-1, -2), _take("trans", (1, 1, 3))
             else:
                 R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
             x = x - x.mean(dim=-2, keepdim=True)
             x = torch.einsum("bmd,bds->bms", x, R) + tr
         t_hat = sigma_tm * (1 + gamma)
         noise_var = noise_scale ** 2 * (t_hat ** 2 - sigma_tm ** 2)
-        if noise_var <= 0:
+        if draws is not None:                        # upstream draws eps at every step, even at zero scale
+            eps = max(noise_var, 0.0) ** 0.5 * _take("eps", shape)
+        elif noise_var <= 0:
             eps = torch.zeros(shape)
         elif _per_member is not None:
             eps = (noise_var ** 0.5) * torch.cat(
