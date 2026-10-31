@@ -11,6 +11,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   748-residue fold on a Blackhole p150a drops about 0.5 s (ESMFold2 normal 0.47 s, ESMFold2-Fast normal 0.57 s).
   Off-grid lengths draw a different dropout mask, so their structures change at the seed level: graded over 44 paired
   folds in normal mode, accuracy and docking success unchanged. Lengths on the grid are unchanged.
+- **ESMFold2 folds with deep MSAs run faster.** When the MSA is deeper than 1024 rows, ESMFold2 re-encodes it every
+  recycle, and those encoder transitions now run on the same fused kernel as the trunk's. A 748-residue complex with a
+  4096-row MSA drops about 7 s on Blackhole `--fast` (40.9 -> 33.9 s); a 512-residue fold with the same MSA drops about
+  3.5 s on a Wormhole chip, normal mode (36.9 -> 33.3 s), and 2.9 s with `--fast`. Blackhole normal mode is unchanged.
+- **ESMFold2 and ESMFold2-Fast normal mode on Wormhole build the pair representation on the device.** A 512-residue
+  fold drops about 1 s (ESMFold2 24.6 -> 23.5 s, ESMFold2-Fast 14.7 -> 13.7 s); `--fast` already did this.
+  Structures stay within the accuracy bar for both changes.
 
 ## [0.26.1] - 2026-10-29
 
