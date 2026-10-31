@@ -3505,11 +3505,14 @@ def trunk_recycles(state_dict):
     template embedder with an EMPTY pairformer stack. protenix-v2 and OpenDDE ship 10 and a
     2-block stack. So the template depth separates the two lineages, and it is the same signal
     `Trunk.__call__` gates the template contribution on -- one fact read once, not a second
-    hardcoded copy of a per-model number.
+    hardcoded copy of a per-model number. Mol-1 (`model.N_cycle: 20`) is the one checkpoint whose
+    pair track changes width inside the stack, so its width adapters identify it.
 
     The CLI resolves the same default from `main.RECYCLING_STEPS`, keyed by model id, because it
     has to answer before any weights are loaded. The two must agree.
     """
+    if any(k.startswith("pairformer_stack.adapters.") for k in state_dict):
+        return 20
     return 4 if n_blocks(state_dict, "template_embedder.pairformer_stack") == 0 else 10
 
 

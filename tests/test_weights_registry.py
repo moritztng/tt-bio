@@ -129,7 +129,7 @@ def _stub_hub(monkeypatch, produce):
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", fake)
 
 
-HUB = "hf://repo/w.ckpt"
+HUB = "hf://org/repo/w.ckpt"
 
 
 def test_corrupt_cached_file_is_refetched(tmp_path, monkeypatch):
