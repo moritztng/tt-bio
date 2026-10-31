@@ -558,6 +558,31 @@ def _target_seed(path, cfg) -> int:
     return int(cfg.get("seed") or 0)
 
 
+def _write_upstream_layout(path, cfg, feats, chains, coords, confs) -> None:
+    """``<results>/<job>/seed_<s>/predictions/`` exactly as Mol-1 / Protenix write it (tt_bio.protenix_output), from
+    the per-sample confidence logits and the fold's contact probabilities the engine puts in each conf."""
+    from tt_bio import protenix_output as po
+    from tt_bio.main import _write_protenix_structure
+    from tt_bio.protenix_data import MOL_TYPE_IDS
+    from tt_bio.protenix_json import sidecar
+
+    side = sidecar(path)
+    a2t = feats["atom_to_token_idx"].long().cpu()
+    stack = lambda k: torch.stack([c[k].float().cpu() for c in confs])  # noqa: E731
+    xyz = torch.stack([torch.as_tensor(c).float().cpu().reshape(-1, 3) for c in coords])
+    summaries, fulls = po.summarize(
+        stack("pae_logits"), stack("plddt_logits"), stack("pde_logits"), confs[0]["contact_probs"].float().cpu(),
+        feats["asym_id"].long().cpu(), po.token_frames(feats), xyz, a2t,
+        (feats["mol_type"].cpu() != MOL_TYPE_IDS["ligand"])[a2t].long(), int(cfg.get("recycling_steps") or 0))
+
+    def structure(i, out, b_factor):
+        _write_protenix_structure(coords[i], feats, None, out, "cif", b_factors=torch.as_tensor(b_factor),
+                                  mod_names=_artifact_residue_names(chains), chain_ids=[cid for cid, *_r in chains])
+
+    po.write(Path(cfg["struct_dir"]).parent, side["job"] if side else path.stem, _target_seed(path, cfg),
+             summaries, fulls, write_structure=structure, need_atom_confidence=bool(cfg.get("write_pae")))
+
+
 def _with_searched(side: dict, chains, chain_specs, paired_a3ms) -> dict:
     """The sidecar's alignments, with the searched unpaired (and paired) a3m filled in for each protein chain the
     JSON gave none for."""
@@ -1795,6 +1820,10 @@ class _WorkerState:
             # (AbAg-XM audit 2026-07-27). Absent for a monomer.
             row.update(_chain_rows(c))
             return row
+
+        if "pae_logits" in confs[0]:
+            # upstream's own layout and confidence files (D6), beside tt-bio's structures/ + results row
+            _write_upstream_layout(path, cfg, feats, chains, coords, confs)
 
         best = confs[order[0]]
         metrics = {
