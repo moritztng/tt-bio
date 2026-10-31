@@ -3274,12 +3274,18 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
     if explicit:
         return use_msa_server, msa_db_path
 
-    # No source given. Prefer a host-local DB (skip in --controller mode, where
-    # the controller's workers resolve MSAs themselves), else fall back online.
-    if not controller:
-        default_db = Path(cache).expanduser() / "msa_db"
-        if (default_db / "UNIREF30_READY").exists():
-            return use_msa_server, str(default_db)
+    # No source given. Prefer a host-local DB, else fall back online. With a controller on
+    # this host too: since 66e39622b the submitting process searches every MSA before a chip
+    # is leased (worker.prefetch_msas), so skipping the local DB there sent every sequence of
+    # a `--controller http://127.0.0.1:...` run to the online server on a host that had
+    # UniRef30 installed, and said so only in a notice. A controller on another host keeps
+    # the old rule: its workers may not have this path.
+    from urllib.parse import urlparse
+    local_controller = (not controller
+                        or urlparse(controller).hostname in ("127.0.0.1", "localhost", "::1"))
+    default_db = Path(cache).expanduser() / "msa_db"
+    if local_controller and (default_db / "UNIREF30_READY").exists():
+        return use_msa_server, str(default_db)
     if msa_dir:
         # A cached chain is never sent anywhere, so the unconditional notice reads as a
         # privacy claim the run does not make. Say what is actually true: the server is a
