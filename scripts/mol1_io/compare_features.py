@@ -6,6 +6,7 @@ Prints one line per feature: equal, or shape / max abs difference / count of dif
 (tests/test_mol1_features.py) imports `tt_features` and `diff` from here.
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -14,8 +15,28 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 GOLD = REPO / "tests" / "data" / "mol1_io" / "features"
-CASES = REPO / "tests" / "data" / "mol1_io" / "synthetic.json"
+DATA = REPO / "tests" / "data" / "mol1_io"
+#: The jobs the goldens were made from. ref_*.json are mol1-ref's cases; they name upstream's example alignments as
+#: @MOL1@/examples/..., resolved against the upstream clone in $MOL1_UPSTREAM.
+CASES = ("synthetic.json", "ref_msa.json", "ref_nomsa.json")
+MOL1 = os.environ.get("MOL1_UPSTREAM", "/home/moritz/mol1-upstream/Mol-1")
 MODES = {"no_msa": dict(single_sequence=True), "msa": {}, "rna_msa": dict(use_rna_msa=True)}
+
+
+def jobs() -> dict:
+    """name -> job, with the @MOL1@ / @GOLDEN@ placeholders resolved; a job naming a file that is not here is left
+    out (the upstream examples are not in this repository)."""
+    out = {}
+    for name in CASES:
+        text = (DATA / name).read_text().replace("@MOL1@", MOL1).replace("@GOLDEN@", str(DATA))
+        for job in json.loads(text):
+            paths = [v for e in job["sequences"] for b in e.values() if isinstance(b, dict)
+                     for k, v in b.items() if k.endswith("Path")]
+            paths += [b["ligand"][5:] for e in job["sequences"] for b in e.values()
+                      if isinstance(b, dict) and str(b.get("ligand", "")).startswith("FILE_")]
+            if all(Path(x).exists() for x in paths):
+                out[job["name"]] = job
+    return out
 
 
 def tt_features(job: dict, mode: str, tmp: Path) -> dict:
@@ -60,16 +81,16 @@ def diff(ours: dict, gold: dict) -> dict:
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "no_msa"
     want = set(sys.argv[2:])
-    jobs = {j["name"]: j for j in json.loads(CASES.read_text())}
+    all_jobs = jobs()
     import tempfile
     for npz in sorted((GOLD / mode).glob("*.npz")):
         name = npz.stem
-        if (want and name not in want) or name not in jobs:
+        if (want and name not in want) or name not in all_jobs:
             continue
         gold = dict(np.load(npz))
         with tempfile.TemporaryDirectory() as t:
             try:
-                ours = tt_features(jobs[name], mode, Path(t))
+                ours = tt_features(all_jobs[name], mode, Path(t))
             except Exception as e:  # report, keep going
                 print(f"== {name}: tt-bio featurizer raised {type(e).__name__}: {e}")
                 continue
