@@ -299,7 +299,11 @@ DIT_SEAM_FAST = frozenset({"pz_device", "dit_mod16"})
 # the incumbent in-projection, layer_norm and gated moves: module rel_rms vs float64 0.0085 both ways at 256 and 512 tokens,
 # c_z 320 and 448 (perf/spd_trimul/bench.py, p150a 1350 MHz, state/mol1/rows/mol1-perf-trimul.json). Blackhole only until
 # measured on a Galaxy chip (Protenix-v2's two-group c_z 256 plan lost there in --fast), and normal mode only until --fast is.
-MOL1_BH = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trimul_t1_2g"})
+# Plus the T2 output tail (t2w plan) and trimul_bres: module rel_rms 0.0092 (c_z 320) / 0.0096 (448). 5sak with its 4449-row
+# MSA, 448 tokens, real weights, p150a 1325-1343 MHz median, graded stack vs + these, seeds 101-103: same-seed lDDT
+# 0.996-1.000 vs the 0.970-0.991 seed floor, warm median 68.71 -> 63.94 s.
+MOL1_BH = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trimul_t1_2g", "trimul_t2", "trimul_t2w",
+                     "trimul_bres"})
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
