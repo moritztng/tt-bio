@@ -1,0 +1,368 @@
+{
+ "covered": {
+  "protein": [
+   "pl256",
+   "prot_dna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "copies"
+  ],
+  "dna": [
+   "prot_dna",
+   "extras",
+   "copies"
+  ],
+  "rna": [
+   "rna",
+   "extras",
+   "copies"
+  ],
+  "ligand_ccd": [
+   "pl256",
+   "modcov",
+   "nomsa_8cnh",
+   "extras",
+   "tmpl_a3m",
+   "copies"
+  ],
+  "ligand_smiles": [
+   "pl256"
+  ],
+  "ligand_file": [
+   "modcov"
+  ],
+  "ion": [
+   "modcov",
+   "copies"
+  ],
+  "modified_residue": [
+   "modcov",
+   "nomsa_8cnh",
+   "extras"
+  ],
+  "covalent_bond": [
+   "modcov",
+   "extras",
+   "modcov_legacy",
+   "copies"
+  ],
+  "msa": [
+   "pl256",
+   "prot_dna",
+   "modcov",
+   "tmpl_hhr",
+   "tmpl_a3m"
+  ],
+  "msa_free": [
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "copies"
+  ],
+  "template": [
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "nanobody",
+   "nanobody_antigen"
+  ],
+  "checkpoint_base": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "sampler_options": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "confidence_heads": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "output_format": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies",
+   "bad_bond"
+  ],
+  "job_list": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov"
+  ],
+  "entity_count_copies": [
+   "extras",
+   "copies"
+  ],
+  "chain_id_override": [
+   "prot_dna",
+   "nomsa_8cnh",
+   "extras",
+   "copies"
+  ],
+  "ligand_multi_ccd": [
+   "modcov"
+  ],
+  "cyclic_peptide": [
+   "extras"
+  ],
+  "legacy_bond_keys": [
+   "modcov_legacy"
+  ],
+  "legacy_msa_dict": [
+   "modcov_legacy"
+  ],
+  "model_seeds_json": [
+   "modcov_legacy"
+  ],
+  "rna_msa": [
+   "extras"
+  ],
+  "template_json_inline": [
+   "nanobody",
+   "nanobody_antigen"
+  ],
+  "pairmixer_trunk": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "memory_chunking": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "diffusion_cache_mode": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "enable_fusion": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "cif_writer": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "summary_confidence_json": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "full_data_json": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "pae": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "pde_gpde": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "contact_probs": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "has_clash_ranking": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "chain_pair_iptm_global": [
+   "pl256",
+   "prot_dna",
+   "rna",
+   "modcov",
+   "nomsa_8cnh",
+   "nanobody",
+   "nanobody_antigen",
+   "extras",
+   "tmpl_hhr",
+   "tmpl_a3m",
+   "modcov_legacy",
+   "copies"
+  ],
+  "error_reporting": [
+   "bad_bond"
+  ]
+ },
+ "not_applicable": {
+  "checkpoint_constraint": "not upstream: no checkpoint or config exists",
+  "constraints": "not upstream: no constraint input in the released code",
+  "template_search": "search tool, not the model: its output format (hmmsearch .a3m) is graded via tmpl_a3m; the search itself needs hmmer and runs identically on either side",
+  "dtype": "the reference is fp32 by charter; bf16/fp16 are GPU speed modes graded against it",
+  "enable_tf32": "GPU matmul mode; the reference is strict fp32",
+  "device_select": "runner option; the reference runs --device cpu",
+  "kernel_trimul": "GPU kernel choice; the reference uses the torch kernels every other kernel approximates",
+  "kernel_triatt": "GPU kernel choice; the reference uses the torch kernels every other kernel approximates",
+  "layernorm_kernel": "fused CUDA LayerNorm; the CPU reference uses torch LayerNorm",
+  "large_input": "over 1500 tokens on CPU fp32 is days per case (trunk scales ~N^3: 510 tok is ~2 h); graded on the GPU side",
+  "cli_yaml": "tt-bio input surface, no upstream counterpart",
+  "surfaces": "tt-bio docs deliverable",
+  "cmd_json": "CLI subcommand outside inference",
+  "cmd_msa": "CLI subcommand outside inference (MSA search service)",
+  "cmd_prep": "CLI subcommand outside inference (MSA/template search)",
+  "cmd_doctor": "CLI subcommand outside inference",
+  "checkpoint_autodownload": "download path; the checkpoint sha256 is pinned in the row instead",
+  "inference_runner": "every golden is produced through mol/runner/inference.py"
+ },
+ "notes": {
+  "sampler_options": "seed 101, 200 steps, 5 samples; N_cycle 4 instead of the default 20 (CPU budget), same on the TT side",
+  "job_list": "one 4-job JSON list in one run",
+  "output_format": "bad_bond gives the ERR/ layout",
+  "memory_chunking": "upstream default chunk sizes",
+  "diffusion_cache_mode": "default full",
+  "enable_fusion": "default on"
+ }
+}
