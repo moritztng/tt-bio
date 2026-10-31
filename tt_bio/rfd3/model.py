@@ -2143,8 +2143,9 @@ class TokenInitializer(Module):
         table = None
         if self.pair_cache is not None and dt == ttnn.bfloat16:
             _pair_tables(self.pair_cache)
+            stride = _pair_row_stride(L)
             table = ttnn.allocate_tensor_on_device(
-                ttnn.Shape([1, 1, _pair_table_rows(L * L)[1], self.C_ATOMPAIR]), ttnn.bfloat16,
+                ttnn.Shape([1, 1, _pair_table_rows(L * stride)[1], self.C_ATOMPAIR]), ttnn.bfloat16,
                 ttnn.ROW_MAJOR_LAYOUT, dev)
         for a0 in range(0, L, rows):
             a1 = min(a0 + rows, L)
@@ -2190,7 +2191,7 @@ class TokenInitializer(Module):
             p = _pair_add(p, m)
             p_blocks.append(ttnn.to_torch(p).float().squeeze(0))            # [R,L,16]
             if table is not None:
-                _write_pair_rows(table, p, a0 * L)
+                _write_pair_rows(table, p, a0 * stride, stride)
             pll = ttnn.linear(p, self.proc_pll_w, compute_kernel_config=ckc, dtype=dt, core_grid=CORE_GRID_MAIN)
             ttnn.deallocate(p)
             pll_blocks.append(ttnn.to_torch(pll).float().squeeze(0))        # [R,L,16]
@@ -2211,7 +2212,7 @@ class TokenInitializer(Module):
         P_LL = p_h                                          # [L,L,16]
         if table is not None:
             self.pair_cache["tables"][_pair_table_key(P_LL, dt)] = (
-                P_LL, ttnn.reshape(table, (int(table.shape[2]), self.C_ATOMPAIR)))
+                P_LL, ttnn.reshape(table, (int(table.shape[2]), self.C_ATOMPAIR)), stride)
         return {"Q_L_init": Q_L_init, "C_L": C_L, "P_LL": P_LL, "S_I": S_init_I, "Z_II": Z_II}
 
 
@@ -2305,7 +2306,7 @@ _PAIR_TABLE_SLOTS = 2
 
 
 def _pair_gather_table(cache, p_host, device, dtype):
-    """Resident (L*L, C) gather table for the step-invariant pair features.
+    """Resident gather table for the step-invariant pair features and its row stride (atom i, j at row i*stride + j).
 
     P_LL is built once by TokenInitializer._init_atoms and is
     the same data for all 200 diffusion steps and every recycle of each, so the table
@@ -2325,8 +2326,9 @@ def _pair_gather_table(cache, p_host, device, dtype):
     entry = cache.get("tables", {}).get(key)
     if entry is None:
         tables = _pair_tables(cache)
-        entry = tables[key] = (p_host, _upload_pair_table(p_host.reshape(-1, p_host.shape[-1]), device))
-    return entry[1]
+        entry = tables[key] = (p_host, _upload_pair_table(p_host.reshape(-1, p_host.shape[-1]), device),
+                               int(p_host.shape[-2]))
+    return entry[1], entry[2]
 
 
 def _pair_tables(cache):
@@ -2337,19 +2339,34 @@ def _pair_tables(cache):
     return tables
 
 
-def _write_pair_rows(table, p, row0):
-    """Write a tiled [1, R, L, C] pair block into rows row0 .. row0 + R*L of a [1, 1, N, C] row-major table.
+def _pair_row_stride(length):
+    """Table rows per atom row on the on-card build path: the atom count rounded up to _PAIR_ROW_ALIGN."""
+    return -(-length // _PAIR_ROW_ALIGN) * _PAIR_ROW_ALIGN
 
-    At most _TABLE_CHUNK_ROWS rows per slice_write, the chunk the upload path already uses. One
-    slice_write of the whole block hangs the card above a few million rows: a 2458-atom design
-    (a 169-residue target plus an 80-residue binder) wrote 6.04M rows in one call and never
-    returned on any of eight p150b cards, while 4.74M (2178 atoms) went through; the same 6.04M
-    rows written in 1M-row chunks land exactly."""
+
+#: slice_write (0.68.0) hangs or writes wrong rows when a write's start or length is not a whole number of DRAM
+#: pages: 1547 atoms (an odd row count) hung on every card, 1546 passed. 64 rows of 32 B keep both on 2 KB.
+_PAIR_ROW_ALIGN = 64
+
+
+def _write_pair_rows(table, p, row0, stride):
+    """Write a tiled [1, R, L, C] pair block into rows row0 .. row0 + R*stride of a [1, 1, N, C] row-major table,
+    each atom row padded with zeros from L to `stride` columns (the gather never indexes them).
+
+    At most _TABLE_CHUNK_ROWS rows per slice_write, the chunk the upload path already uses: one
+    slice_write of the whole block hangs the card above a few million rows (6.04M rows at 2458 atoms
+    on eight p150b cards). Every start and length is a multiple of stride, see _PAIR_ROW_ALIGN."""
     _, r, length, c = (int(d) for d in p.shape)
-    n = r * length
-    rows = ttnn.reshape(ttnn.to_layout(p, ttnn.ROW_MAJOR_LAYOUT), (1, 1, n, c))
-    for s in range(0, n, _TABLE_CHUNK_ROWS):
-        e = min(n, s + _TABLE_CHUNK_ROWS)
+    rows = ttnn.to_layout(p, ttnn.ROW_MAJOR_LAYOUT)
+    if stride != length:
+        padded = ttnn.pad(rows, [(0, 0), (0, 0), (0, stride - length), (0, 0)], 0.0)
+        ttnn.deallocate(rows)
+        rows = padded
+    n = r * stride
+    rows = ttnn.reshape(rows, (1, 1, n, c))
+    step = max(stride, _TABLE_CHUNK_ROWS // stride * stride)
+    for s in range(0, n, step):
+        e = min(n, s + step)
         part = rows if (s == 0 and e == n) else ttnn.slice(rows, [0, 0, s, 0], [1, 1, e, c])
         ttnn.experimental.slice_write(part, table, [0, 0, row0 + s, 0], [1, 1, row0 + e, c], [1, 1, 1, 1])
         if part is not rows:
@@ -2404,9 +2421,9 @@ def _sparse_pair_gather(cache, p_host, indices, device, dtype):
     Only the flat row index crosses the host boundary (a quarter of the bytes the
     gathered features would be, and it is uint32 rather than the wider pair channel).
     """
-    table = _pair_gather_table(cache, p_host, device, dtype)
+    table, stride = _pair_gather_table(cache, p_host, device, dtype)
     batch, length, n_keys = indices.shape
-    row_offset = (torch.arange(length, dtype=torch.int64) * length).reshape(1, length, 1)
+    row_offset = (torch.arange(length, dtype=torch.int64) * stride).reshape(1, length, 1)
     flat = (indices.long().cpu() + row_offset).reshape(1, batch * length * n_keys)
     if _pll_gather() and _gather_tiled.eligible_shape(table, n_keys):
         idx = ttnn.from_torch(_gather_tiled.pad_index(flat.to(torch.int32), batch * length, n_keys),
