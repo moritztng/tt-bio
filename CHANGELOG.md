@@ -10,6 +10,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   complexes on the Protenix engine. It reads upstream's job-list JSON unchanged, writes upstream's per-seed output
   layout with its summary and full-data confidence files, and defaults to upstream's 20 recycles, 200 steps and 5
   samples. The weights download on first use; Molence has not stated a licence for them yet. See `docs/mol1.md`.
+- **`tt-bio json`** turns PDB and mmCIF structures into Protenix / Mol-1 job JSON with Mol-1's own converter
+  (`mol json`), so the output is identical to upstream's. The first run downloads the Chemical Component Dictionary.
 - **`tt-bio prep`** searches the MSAs of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold and writes them
   where upstream's `mol msa` does, so a prepared job folds without searching. Needs no device.
 - **Failed inputs get a report.** Every input `predict` could not fold or refused now leaves `ERR/<name>.txt` beside

@@ -2579,6 +2579,38 @@ def msa(db, path, install_tools):
     click.echo(f"  tt-bio predict input.yaml --msa_db_path {db_dir}")
 
 
+@cli.command("json")
+@click.argument("input_path", metavar="INPUT", type=click.Path(exists=True))
+@click.option("--out_dir", default="./output", type=click.Path(file_okay=False), show_default=True)
+@click.option("--altloc", default="first", show_default=True,
+              help="Alternate locations: the first of each residue, or a letter (A, B, ...).")
+@click.option("--assembly_id", default=None, help="Expand to this biological assembly (default: the asymmetric unit).")
+@click.option("--include_discont_poly_poly_bonds", is_flag=True,
+              help="Also write bonds between non-consecutive polymer residues (disulfides, cyclic peptides).")
+@click.option("--cache", default=None, type=click.Path(), help="Weight cache (default: $TT_BIO_CACHE or ~/.boltz).")
+def json_cmd(input_path, out_dir, altloc, assembly_id, include_discont_poly_poly_bonds, cache):
+    """Turn PDB / mmCIF structures into Protenix / Mol-1 job JSON (upstream's `mol json`).
+
+    \b
+        tt-bio json 7r6r.cif                 writes output/7r6r.json
+        tt-bio json structures/ --assembly_id 1
+
+    INPUT is a file or a directory searched for .pdb and .cif files. Each becomes one job:
+    every protein, DNA and RNA entity with its copy count and modified residues, ligands and
+    ions by CCD code, and the covalent bonds that attach them. Water, hydrogens and
+    crystallisation aids are dropped. This is upstream's converter, so the JSON is the one
+    Mol-1 writes. The first run downloads the Chemical Component Dictionary (520 MB)."""
+    from tt_bio import mol1_json
+
+    try:
+        comp = weights.fetch("mol1-components", root=Path(cache).expanduser() if cache else None)
+        written = mol1_json.convert(Path(input_path), Path(out_dir), comp, altloc=altloc, assembly_id=assembly_id,
+                                    include_discont_poly_poly_bonds=include_discont_poly_poly_bonds)
+    except (ValueError, RuntimeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"Done: {len(written)} job JSON file(s) in {out_dir}")
+
+
 @cli.command("prep")
 @click.argument("input_path", metavar="INPUT", type=click.Path(exists=True, dir_okay=False))
 @click.option("--out_dir", default="./output", type=click.Path(file_okay=False), show_default=True,

@@ -1,0 +1,89 @@
+[
+    {
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "STIEEQAKTFLDKFNHEAEDLFYQSSLASWNYNTNITEENVQNMNNAGDKWSAFLKEQSTLAQMYPLQEIQNLTVKLQLQALQQNGSSVLSEDKSKRLNTILNTMSTIYSTGKVCNPDNPQECLLLEPGLNEIMANSLDYNERLWAWESWRSEVGKQLRPLYEEYVVLKNEMARANHYEDYGDYWRGDYEVNGVDGYDYSRGQLIEDVEHTFEEIKPLYEHLHAYVRAKLMNAYPSYISPIGCLPAHLLGDMWGRFWTNLYSLTVPFGQKPNIDVTDAMVDQAWDAQRIFKEAEKFFVSVGLPNMTQGFWENSMLTDPGNVQKAVCHPTAWDLGKGDFRILMCTKVTMDDFLTAHHEMGHIQYDMAYAAQPFLLRNGANEGFHEAVGEIMSLSAATPKHLKSIGLLSPDFQEDNETEINFLLKQALTIVGTLPFTYMLEKWRWMVFKGEIPKDQWMKKWWEMKREIVGVVEPVPHDETYCDPASLFHVSNDYSFIRYYTRTLYQFQFQEALCQAAKHEGPLHKCDISNSTEAGQKLFNMLRLGKSEPWTLALENVVGAKNMNVRPLLNYFEPLFTWLKDQNKNSFVGWSTDWSPYADHHHHHH",
+                    "count": 1
+                }
+            },
+            {
+                "proteinChain": {
+                    "sequence": "RVQPTESIVRFPNITNLCPFGEVFNATRFASVYAWNRKRISNCVADYSVLYNSASFSTFKCYGVSPTKLNDLCFTNVYADSFVIRGDEVRQIAPGQTGKIADYNYKLPDDFTGCVIAWNSNNLDSKVGGNYNYLYRLFRKSNLKPFERDISTEIYQAGSTPCNGVEGFNCYFPLQSYGFQPTNGVGYQPYRVVVLSFELLHAPATVCGPKKSTNLVKNKCVNFHHHHHH",
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_ZN",
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_CL",
+                    "count": 1
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_NAG",
+                    "count": 5
+                }
+            }
+        ],
+        "covalent_bonds": [
+            {
+                "entity1": 1,
+                "position1": 35,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 4
+            },
+            {
+                "entity1": 1,
+                "position1": 72,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 2
+            },
+            {
+                "entity1": 1,
+                "position1": 304,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 3
+            },
+            {
+                "entity1": 1,
+                "position1": 528,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 1
+            },
+            {
+                "entity1": 2,
+                "position1": 25,
+                "atom1": "ND2",
+                "copy1": 1,
+                "entity2": 5,
+                "position2": 1,
+                "atom2": "C1",
+                "copy2": 5
+            }
+        ],
+        "name": "6m0j"
+    }
+]

@@ -1,0 +1,14 @@
+[
+    {
+        "sequences": [
+            {
+                "dnaSequence": {
+                    "sequence": "CGCGAATTCGCG",
+                    "count": 2
+                }
+            }
+        ],
+        "assembly_id": "1",
+        "name": "1bna"
+    }
+]
