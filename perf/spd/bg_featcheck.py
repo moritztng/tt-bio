@@ -5,8 +5,7 @@ batch is identical, with the time per design both ways.
     python perf/spd/bg_featcheck.py design perf/dsfix/fixtures/bg_R3.yaml --model boltzgen --steps design \
         --num_designs 4 --out_dir OUT --seed 0
 """
-import multiprocessing, pickle, random, runpy, sys, time
-from concurrent.futures import ProcessPoolExecutor
+import multiprocessing.synchronize, random, runpy, sys, time
 import numpy as np, torch
 import ttnn
 def _no_device(*a, **k): raise RuntimeError("featcheck must not open a device")
@@ -36,16 +35,18 @@ def _same(a, b, path="batch"):
 def run(self, config=None, run_prediction=True):
     self.data.num_workers = 0
     P._pickle_mol_props()
-    pool = ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn"), initializer=P._featurize_open,
-                               initargs=(pickle.dumps(self.data),))
+    # A named semaphore does not survive logind's RemoveIPC on a Galaxy, so the worker path must not create one.
+    def _no_semlock(*a, **k): raise RuntimeError("bg_featproc created a named semaphore")
+    multiprocessing.synchronize.SemLock.__init__ = _no_semlock
+    pool = P._FeatureProcess(self.data)
     np.random.rand(7); random.random()   # stands in for the model load drawing between pool start and first design
     rng, proc = (np.random.get_state(), random.getstate()), []
     while True:
         t = time.perf_counter()
-        b = pickle.loads(pool.submit(P._featurize_next, None if proc else rng).result()); dt = time.perf_counter() - t
+        b = pool.submit(None if proc else rng).result(); dt = time.perf_counter() - t
         if b is None: break
         proc.append(b); print(f"FEAT proc design {len(proc) - 1} {dt:.3f} s", flush=True)
-    pool.shutdown()
+    pool.__exit__()
     np.random.set_state(rng[0]); random.setstate(rng[1])
     items, bad = iter(self.data.predict_dataloader()), 0
     for i, pb in enumerate(proc):
