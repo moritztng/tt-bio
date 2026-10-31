@@ -8,7 +8,6 @@ import subprocess
 import threading
 import time
 
-import clocksample
 
 
 class Contention:
@@ -131,6 +130,7 @@ class Contention:
 
 def board_type():
     """The granted chip's board type as tt-smi reports it (index 0 under TT_VISIBLE_DEVICES)."""
+    import clocksample  # here, not at import: the CPU-only verdict scripts import this module without tt_bio
     try:
         d = json.loads(subprocess.run([clocksample.TT_SMI, "-s"], capture_output=True, text=True, timeout=60).stdout)
         return d["device_info"][0]["board_info"].get("board_type")
