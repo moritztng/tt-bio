@@ -173,6 +173,45 @@ def has_clash(coords, asym_id, atom_to_token_idx, atom_is_polymer, threshold=AF3
     return out
 
 
+_FRAME_ATOMS = {0: ("N", "CA", "C"), 1: ("C1'", "C3'", "C4'"), 2: ("C1'", "C3'", "C4'")}   # MOL_TYPE_IDS
+
+
+def token_frames(feats) -> torch.Tensor:
+    """Per-token ``has_frame`` as upstream's ``Featurizer.get_token_frame`` builds it (AF3 SI 4.3.2), from tt-bio's
+    features: a multi-atom polymer token has a frame iff it has N/CA/C (protein) or C1'/C3'/C4' (nucleic); a
+    single-atom token (ligand, ion, modified-residue atom) takes its two nearest reference-conformer atoms of the
+    same ref_space_uid and has a frame unless one is masked or the three are within 25 degrees of colinear."""
+    a2t = feats["atom_to_token_idx"].long()
+    n_tok = int(feats["restype"].shape[0])
+    names = ["".join(chr(int(c) + 32) for c in row).strip() for row in feats["ref_atom_name_chars"].argmax(-1).tolist()]
+    pos = feats["ref_pos"].double().cpu().numpy()
+    mask = feats["ref_mask"].bool().cpu().numpy()
+    uid = feats["ref_space_uid"].cpu().numpy()
+    mol_type = feats["mol_type"].long().tolist()
+    out = torch.zeros(n_tok, dtype=torch.long)
+    atoms = [[] for _ in range(n_tok)]
+    for i, t in enumerate(a2t.tolist()):
+        atoms[t].append(i)
+    for t, idx in enumerate(atoms):
+        if len(idx) > 1:
+            out[t] = int(all(n in {names[i] for i in idx} for n in _FRAME_ATOMS.get(mol_type[t], ())[:1]))
+            continue
+        b = idx[0]
+        same = np.where(uid == uid[b])[0]
+        if len(same) < 3:
+            continue
+        d = np.linalg.norm(pos[same] - pos[b], axis=-1)
+        a, c = same[np.argsort(d, kind="stable")[1:3]]
+        if not (mask[a] and mask[b] and mask[c]):
+            continue
+        ab, bc = pos[b] - pos[a], pos[c] - pos[b]
+        if np.isclose(np.linalg.norm(ab), 0) or np.isclose(np.linalg.norm(bc), 0):
+            continue
+        theta = np.degrees(np.arccos(np.clip(ab @ bc / (np.linalg.norm(ab) * np.linalg.norm(bc)), -1.0, 1.0)))
+        out[t] = int(25 < theta < 155)
+    return out
+
+
 def summarize(pae_logits, plddt_logits, pde_logits, contact, token_asym_id, token_has_frame, coords,
               atom_to_token_idx, atom_is_polymer, n_recycle):
     """Upstream ``compute_full_data_and_summary`` for N_s samples: lists of per-sample summary and full-data dicts.

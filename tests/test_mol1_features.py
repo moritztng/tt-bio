@@ -56,3 +56,23 @@ def test_the_goldens_are_not_trivially_equal():
     other = {k: v.copy() for k, v in gold.items()}
     other["restype"][0] = 1 - other["restype"][0]
     assert cf.diff(other, gold)["restype"]
+
+
+@pytest.mark.parametrize("mode,job", CASES, ids=[f"{m}-{j}" for m, j in CASES])
+def test_frames_and_ligand_mask_equal_upstream(tmp_path, mode, job):
+    """The two upstream keys the output writer needs, derived from tt-bio's features (protenix_output.token_frames;
+    is_ligand from mol_type). A ligand token's frame reads its reference conformer, so it is graded on upstream's
+    ref_pos (D-io-4)."""
+    import torch
+
+    from tt_bio.protenix_data import MOL_TYPE_IDS
+    from tt_bio.protenix_output import token_frames
+
+    if job not in JOBS:
+        pytest.skip(f"{job}: its alignments are in the upstream clone, set MOL1_UPSTREAM")
+    gold = dict(np.load(cf.GOLD / mode / f"{job}.npz"))
+    f = {k: torch.as_tensor(v) for k, v in cf.tt_features(JOBS[job], mode, tmp_path).items()}
+    f["ref_pos"] = torch.as_tensor(gold["ref_pos"])
+    assert np.array_equal(token_frames(f).numpy(), gold["has_frame"])
+    is_ligand = (f["mol_type"] == MOL_TYPE_IDS["ligand"])[f["atom_to_token_idx"].long()].long().numpy()
+    assert np.array_equal(is_ligand, gold["is_ligand"])
