@@ -942,13 +942,15 @@ def t2_wide(kt, nt):
 
 
 @lru_cache(maxsize=None)
-def t2_fit_block(kt, nt, l1=None):
+def _t2_fit_here(kt, nt):
+    from .tenstorrent import _l1_bank_bytes
+    return t2_fit_block(kt, nt, _l1_bank_bytes())
+
+
+def t2_fit_block(kt, nt, l1):
     """T2's block at a key outside T2_BLOCK: one K block, so the contraction order is the projection's, and the most
     rows per block (4, else 2) whose plain-form buffers fit L1, or None. c_z 320 gets (4, 10, 1, 4, 1), 448 (2, 14, 1, 2, 1).
     The GATE form, which holds Wg too, still declines on its own L1 check where it does not fit."""
-    if l1 is None:
-        from .tenstorrent import _l1_bank_bytes
-        l1 = _l1_bank_bytes()
     for mb in (4, 2):
         if (mb * nt) % 4 == 0 and _t2_tiles(kt, nt, mb) * MG.tile_bytes(ttnn.bfloat16) <= 0.85 * l1:
             return (mb, kt, 1, mb, 1)
@@ -999,7 +1001,7 @@ def _mcast_args(device, gx, gy):
 
 def _t2_block(kt, nt):
     from . import tenstorrent as TT
-    return T2_BLOCK.get((kt, nt)) or (t2_fit_block(kt, nt) if t2_wide(kt, nt) else TT._MM_BLOCK.get((kt, nt)))
+    return T2_BLOCK.get((kt, nt)) or (_t2_fit_here(kt, nt) if t2_wide(kt, nt) else TT._MM_BLOCK.get((kt, nt)))
 
 
 # T2m: T2 reading x where the einsum left it, channel-major, instead of after reblock_permute_back
@@ -1630,18 +1632,20 @@ def _t1_psig():
 def t1_plan(key, w8=False):
     """(channel groups, row tiles per unit) for a (kt, ct2, ntg) key; `w8`: the weights are bfp8. A key outside the
     measured tables takes `t1_fit`'s plan where one fits, else (1, 32)."""
-    return (w8 and T1_PLANS_W8.get(key)) or T1_PLANS.get(key) or t1_fit(key, w8) or (1, 32)
+    return (w8 and T1_PLANS_W8.get(key)) or T1_PLANS.get(key) or _t1_fit_here(key, w8) or (1, 32)
 
 
 @lru_cache(maxsize=None)
-def t1_fit(key, w8=False, l1=None):
+def _t1_fit_here(key, w8):
+    from .tenstorrent import _l1_bank_bytes
+    return t1_fit(key, w8, _l1_bank_bytes())
+
+
+def t1_fit(key, w8, l1):
     """The fewest channel groups whose circular buffers fit L1 (masked, as `t1_eligible` gates them), at the widest
     unit that fits in them, or None. Splitting channels or rows moves no arithmetic: every channel tile and row is
     computed as in one whole launch. Mol-1's c_z 320 gets (2, 8), bfp8 weights (1, 8); its 448 gets (7, 8) either way."""
     kt, ct2, ntg = key
-    if l1 is None:
-        from .tenstorrent import _l1_bank_bytes
-        l1 = _l1_bank_bytes()
     for g in range(1, ct2 + 1):
         if ct2 % g == 0 and ntg % g == 0:
             for il in (32, 16, 8):
