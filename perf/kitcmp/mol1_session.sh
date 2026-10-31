@@ -12,7 +12,8 @@ L=${1:?usage: mol1_session.sh <label> <cap_h> [query] [attempts]} CAP_H=${2:?cap
 # market is thin enough that one filter empties it); 0.90 keeps the junk out without emptying the list.
 Q=${3:-'gpu_name=B200 num_gpus=1 cuda_max_good>=13.0 inet_down>=200 reliability>=0.90 dph<=7'}
 MINW=${MINW:-990} MAXW=${MAXW:-1010} SLUG=${SLUG:-mol1-b200}
-# Which script runs on the box.
+# Which script runs on the box. INPUTS=<dir> pushes an already-frozen inputs tree (state/mol1/inputs), so the box
+# reuses those MSAs instead of searching again.
 BOX=${BOX:-box_mol1.sh}
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
 HOLD=/home/moritz/.coworker/state/vast-holder; S4=/home/moritz/.coworker/state/mol1
@@ -112,7 +113,8 @@ if x.get("actual_status")=="running":
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   H=root@$HOST
   $S 'mkdir -p /root/kc' &&
-    R $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/$BOX $H:/root/kc/ &&
+    R $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/mol1_ref.py $P/$BOX $H:/root/kc/ &&
+    { [ -z "${INPUTS:-}" ] || R "$INPUTS/" $H:/root/kc/inputs/; } &&
     echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
     { destroy $I "push failed"; continue; }
   # BOXENV carries the box script's knobs across ssh (CELLS, FINAL_WARM, CUDA_VISIBLE_DEVICES). An env var

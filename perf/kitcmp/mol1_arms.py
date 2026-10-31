@@ -9,6 +9,9 @@ when the box is cut short.
 4. concurrency K = 2, 4, ... on the best stack per size until a rung fails or buys under 2 %.
 Each cell is one `mol1_gpu.py` process; its runs.jsonl lines land in <out>/<cell>/. ARMS.json is rewritten after
 every cell, so the summary on disk is always current. A cell that fails is recorded FAILED with its error.
+
+    python mol1_arms.py ... --cells "512:cueq-triatt+chunk5+tf32+compile:1 256:cueq-triatt+chunk5+tf32+compile:4"
+runs only the named cells (size:arm:K, the arm name spelling its kernels and options) and none of the search.
 """
 import argparse, json, statistics, subprocess, sys, time
 from pathlib import Path
@@ -32,19 +35,21 @@ def main():
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--deadline", required=True, type=int)
     ap.add_argument("--warm", type=int, default=5)
+    ap.add_argument("--cells", default="", help="space-separated size:arm:K; skips the search")
     a = ap.parse_args()
     arms = {}
 
-    def cell(size, name, kern, k=1, tf32=False, chunk5=False):
+    def cell(size, name, kern, k=1, tf32=False, chunk5=False, compile=False):
         key = f"{size}/{name}/k{k}"
         need = EST_S[size] * k * (a.warm + 2) * 1.3 + 120
         if time.time() + need > a.deadline:
             arms[key] = {"status": "SKIPPED", "reason": f"needs ~{need:.0f}s, past the deadline"}
         else:
             d = a.out / f"{size}-{name}-k{k}"
-            cmd = [sys.executable, str(Path(__file__).with_name("mol1_gpu.py")), "--input", str(a.inputs / f"mol1-{size}.json"),
+            cmd = ([sys.executable, str(Path(__file__).with_name("mol1_gpu.py")), "--input", str(a.inputs / f"mol1-{size}.json"),
                    "--size", str(size), "--arm", name, "--k", str(k), "--warm", str(a.warm), "--out", str(d),
                    "--trimul", kern[0], "--triatt", kern[1]] + (["--tf32"] if tf32 else []) + (["--chunk5"] if chunk5 else [])
+                   + (["--compile"] if compile else []))
             d.mkdir(parents=True, exist_ok=True)
             with (d.parent / f"{d.name}.log").open("w") as log:
                 rc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT).returncode
@@ -53,6 +58,14 @@ def main():
                          **({"status": "FAILED", "error": (err or f"rc {rc}")[-600:]} if n == 0 else {})}
         (a.out / "ARMS.json").write_text(json.dumps(arms, indent=1))
         return arms[key].get("predictions_per_s", 0.0)
+
+    if a.cells:
+        for c in a.cells.split():
+            size, name, k = c.split(":")
+            kern, *opts = name.split("+")
+            assert set(opts) <= {"tf32", "chunk5", "compile"}, f"unknown option in {name}"
+            cell(int(size), name, KERNELS[kern], int(k), **{o: True for o in opts})
+        return
 
     # 1. kernel arms at 512
     r512 = {n: cell(512, n, kern) for n, kern in KERNELS.items()}

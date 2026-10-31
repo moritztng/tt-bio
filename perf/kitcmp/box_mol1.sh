@@ -47,6 +47,13 @@ nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.lim
   --format=csv,noheader -l 1 >> $B/smi.csv 2>&1 &
 
 # Frozen inputs: written once, hashed, pulled to state/mol1/inputs/ by the session before anything is compared.
+# A later session pushes that frozen tree to $I instead (mol1_session.sh INPUTS=...), checked against its hashes.
+if [ ! -f $B/INPUTS-DONE ] && [ -f $I/INDEX.json ]; then
+  (cd $I && python3 -c 'import json,hashlib,sys
+bad=[p for p,h in json.load(open("INDEX.json"))["sha256"].items() if hashlib.sha256(open(p,"rb").read()).hexdigest()!=h]
+sys.exit(f"hash mismatch {bad}" if bad else 0)') > $B/inputs.log 2>&1 || fail "pushed inputs (tail $B/inputs.log)"
+  cp -r $I $B/inputs; echo pushed > $B/INPUTS-DONE
+fi
 if [ ! -f $B/INPUTS-DONE ]; then
   $PY /root/kc/mol1_inputs.py --upstream /root/mol1 --out $I > $B/inputs.log 2>&1 || fail "inputs (tail $B/inputs.log)"
   cp -r $I $B/inputs; echo ok > $B/INPUTS-DONE
@@ -59,8 +66,16 @@ $PY /root/kc/mol1_gpu.py --input $I/mol1-256.json --size 256 --arm gate --warm 0
   fail "gate prediction (tail $B/gate.log)"
 say "gate passed after $(( $(date +%s) - T0 ))s"
 
-$PY /root/kc/mol1_arms.py --inputs $I --out $B --deadline $DEADLINE --warm ${WARM:-5} > $B/arms.log 2>&1
+$PY /root/kc/mol1_arms.py --inputs $I --out $B --deadline $DEADLINE --warm ${WARM:-5} --cells "${CELLS:-}" > $B/arms.log 2>&1
 echo $? > $B/ARMS-DONE; say "arms done after $(( $(date +%s) - T0 ))s"
+# REF_SMOKE=1: two reference-prediction jobs (paired + self-test seed) through mol1_ref.py at 256, so a later
+# reference session does not discover a harness bug on paid time (session mol1-b200-2: MOL_ROOT_DIR unset).
+if [ -n "${REF_SMOKE:-}" ]; then
+  rm -rf /root/kc/smoke $B/ref-smoke && mkdir /root/kc/smoke && cp -r $I/mol1-256 $I/mol1-256.json /root/kc/smoke/ &&
+    echo '{"cases":{"mol1-256":"mol1-256.json"},"recipes":{"mol1-256":"default"},"headline_only":[]}' > /root/kc/smoke/INDEX.json
+  (cd /tmp && $PY -I /root/kc/mol1_ref.py --inputs /root/kc/smoke --out $B/ref-smoke --k 1 --seeds 101 --selftest-seeds 7) > $B/ref-smoke.log 2>&1
+  say "ref smoke rc=$?: $(grep -c '"status": "ok"' $B/ref-smoke/jobs.jsonl 2>/dev/null)/2 ok"
+fi
 N=$(cat $B/*/runs.jsonl 2>/dev/null | grep -c '"kind": "warm"' )
 NF=$(cat $B/*/runs.jsonl 2>/dev/null | grep '"kind": "warm"' | grep -c FAILED)
 [ $(( N - NF )) -gt 0 ] || fail "no warm batch"

@@ -53,8 +53,11 @@ def main():
     ap.add_argument("--k", type=int, default=4)
     ap.add_argument("--seeds", default="42,66,101,2024,8888")
     ap.add_argument("--selftest-seeds", default="7,13,77,1234,9999")
-    ap.add_argument("--ckpt", default="/root/moldata/checkpoint/mol-1-base.pt")
+    ap.add_argument("--mol-root", default="/root/moldata", help="MOL_ROOT_DIR: checkpoint/ and common/ reference data")
+    ap.add_argument("--ckpt", default=None, help="default <mol-root>/checkpoint/mol-1-base.pt")
     a = ap.parse_args()
+    os.environ["MOL_ROOT_DIR"] = a.mol_root  # read by upstream's config at import; spawned workers inherit it
+    a.ckpt = a.ckpt or f"{a.mol_root}/checkpoint/mol-1-base.pt"
     a.inputs, a.out = a.inputs.resolve(), a.out.resolve()
     a.index = json.loads((a.inputs / "INDEX.json").read_text())
     seeds, selftest = [int(x) for x in a.seeds.split(",")], [int(x) for x in a.selftest_seeds.split(",")]

@@ -7,7 +7,7 @@ to the last process's written output. Round 0 is cold (kernel JIT / autotune), r
 appends one line to `--out/runs.jsonl` as it finishes.
 
     python mol1_gpu.py --input inputs/mol1-512.json --size 512 --arm fpf-triatt --k 2 --warm 5 --out DIR \
-        [--trimul flashpairformer] [--triatt triattention] [--tf32] [--chunk5] [--seed0 101]
+        [--trimul flashpairformer] [--triatt triattention] [--tf32] [--chunk5] [--compile] [--seed0 101]
 
 The recipe (20 cycles, 200 steps, 5 samples, bf16, MSA from the input's a3m files, no templates) is fixed here and
 is NOT settable: an arm that does less work is not an arm.
@@ -17,6 +17,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 RECIPE = dict(n_cycle=20, n_step=200, n_sample=5, dtype="bf16", use_msa=True, use_template=False)
+# --compile: upstream ships no compile path, so the arm is a regional torch.compile of the repeated blocks (each class
+# compiles once and is reused by every instance), the form that paid on the RFD4 B200 (state/rfd4/gpu/B200.md).
+COMPILE_REGIONS = ("PairformerBlock", "MSABlock", "DiffusionTransformerBlock")
 
 
 def worker(rank, a, todo, done):
@@ -28,6 +31,12 @@ def worker(rank, a, todo, done):
         mem = {"infer_setting.sample_diffusion_chunk_size": 5} if a.chunk5 else None
         runner = get_default_runner(seeds=[a.seed0], trimul_kernel=a.trimul, triatt_kernel=a.triatt,
                                     enable_tf32=a.tf32, load_checkpoint_path=a.ckpt, memory_settings=mem, **RECIPE)
+        if a.compile:
+            import cuequivariance_ops_torch
+            cuequivariance_ops_torch.init_triton_cache()  # upstream triangular.py note (5): before compiled trimul
+            for m in runner.model.modules():
+                if type(m).__name__ in COMPILE_REGIONS:
+                    m.compile()
         cfg = runner.configs
         cfg.input_json_path = str(a.input)
         done.put(("ready", rank, time.time() - t0, None))
@@ -62,6 +71,7 @@ def main():
     ap.add_argument("--triatt", default="cuequivariance")
     ap.add_argument("--tf32", action="store_true")
     ap.add_argument("--chunk5", action="store_true", help="denoise the 5 samples together")
+    ap.add_argument("--compile", action="store_true", help="regional torch.compile of COMPILE_REGIONS")
     ap.add_argument("--ckpt", default=os.environ.get("MOL1_CKPT"))
     a = ap.parse_args()
     a.out, a.input = a.out.resolve(), a.input.resolve()
@@ -69,7 +79,7 @@ def main():
     runs = a.out / "runs.jsonl"
     base = {"size": a.size, "arm": a.arm, "batch": a.k, "session": os.environ.get("MOL1_SESSION", ""),
             "sha": os.environ.get("MOL1_SHA", ""), "host": os.environ.get("MOL1_HOST", ""), "raw": str(a.out),
-            "knobs": {"trimul": a.trimul, "triatt": a.triatt, "tf32": a.tf32, "chunk5": a.chunk5}}
+            "knobs": {"trimul": a.trimul, "triatt": a.triatt, "tf32": a.tf32, "chunk5": a.chunk5, "compile": a.compile}}
 
     def emit(rec):
         rec["t"] = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
