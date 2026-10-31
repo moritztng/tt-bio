@@ -202,6 +202,14 @@ def main():
             a.out.write_text(json.dumps(res, indent=1)); continue
         print(f"  cold {cold_s:.2f}s n_tokens={cold_m.get('n_tokens')} "
               f"plddt={cold_m.get('plddt')}", flush=True)
+        # A pool recall can end a 1,408-tok run (~35 min a fold) before the warm pass, so the cold
+        # pass's timers are kept too. Compile is ~1 % of the cold wall at >= 1,024 tok (515 vs 512 s).
+        if a.timers == "on":
+            res["runs"].append({"size": size, "tag": tag, "phase": "cold", "fold_s": round(cold_s, 3),
+                                "n_tokens": cold_m.get("n_tokens"), "plddt": cold_m.get("plddt"),
+                                "wall_ms": {k: {"calls": v["n"], "ms": round(v["s"] * 1e3, 2)}
+                                            for k, v in sorted(WALL.items(), key=lambda kv: -kv[1]["s"])}})
+            a.out.write_text(json.dumps(res, indent=1))
 
         for it in range(a.repeat):
             WALL.clear(); GROUPS.clear()
