@@ -1643,7 +1643,14 @@ LEVERS_NORMAL = ("normal-trunk_hifi3+trimul_gin+trimul_t2g+trimul_gin_hifi2"
 # ESMFold2-Fast 9.56 -> 9.31 s. Wormhole loses 2.4 s with them, so it drops them (_BH_ONLY).
 LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gin_hifi2+ws_resid+ws_lofi"
                "+ef2_bit_draw+ef2_pair_init+ef2_lm_combine+ef2_relpos_lookup+ef2_atom_ffn_split"
-               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm+trimul_bres+trimul_t1w8+trimul_t1_2g+trimul_t1_psig+dit_qkvf+ws_ln_resid")
+               "+trimul_t1+trimul_t1_c256+trimul_t2+trimul_t2cm+trimul_bres+trimul_t1w8+trimul_t1_2g+trimul_t1_psig+dit_qkvf+ws_ln_resid+ef2_msa_ffn")
+# ef2_msa_ffn runs the MSA encoder's two transitions a block through the trunk's pair SwiGLU kernel with the residual
+# folded in (SwiGLUFFN.residual), wherever its row block serves; it pays only when the encoder runs every recycle (MSA
+# deeper than max_depth 1024). In-process A/B, 4096-row MSA, repeat 3: p150a at ~1300 MHz (fab2) ESMFold2 --fast 512 aa
+# 17.09 -> 15.25 s, 748 aa 40.86 -> 33.88 s; Galaxy chip at 1000 MHz (wfab) 512 aa 34.63 -> 31.71 s. Fast-bar grades,
+# against each arch's fast set, 11 complexes x 4 seeds, 44 paired folds: Blackhole (qb2, bfg) CA-lDDT +0.0023 [-0.0047,
+# +0.0095], docking 31 -> 30 of 44; Wormhole (.107, wfg) +0.0008 [-0.0011, +0.0039], 31 -> 31. Its normal-bar grade
+# on Blackhole (bmg) failed on CA-lDDT, -0.0016 [-0.0033, -0.0005], so Blackhole's normal set leaves it out.
 # ws_lofi passes the fast bar on Wormhole too, 11 complexes x 4 seeds, 44 paired folds per model (Galaxy chip, 1000
 # MHz, spd-gap-esmf wlg): ESMFold2 CA-lDDT -0.0004 [-0.0024, +0.0015], DockQ +0.017, docking 31 -> 32 of 44;
 # ESMFold2-Fast CA-lDDT -0.0001 [-0.0021, +0.0023], docking 24 -> 24. Same chip, 512 aa, 1000 MHz: ESMFold2 33.60 ->
@@ -1656,7 +1663,7 @@ LEVERS_FAST = ("normal+trimul_b8in+transition_ws+trimul_gin+trimul_t2g+trimul_gi
 # top-pose median 0.55 A vs 1.73 A seed floor, docking 32 -> 31 of 44; ESMFold2-Fast CA-lDDT +0.0002 [-0.0005, +0.0009],
 # 1.00 A vs 1.03 A, docking 24 -> 24. The 1024-token confidence-head DRAM overflow that kept it off no longer reproduces:
 # both models fold 1024 and ESMFold2 1536 with it. Same chip, 512 aa, 1000 MHz: ESMFold2 34.0 -> 32.5 s, ESMFold2-Fast
-# 21.8 -> 20.1 s (wpi). Wormhole's normal set was graded without it (wng), so it stays fast-only there.
+# 21.8 -> 20.1 s (wpi). Its normal-bar grade on Wormhole is above _WH_NORMAL_EXTRA.
 # trimul_t1w8 holds T1's resident weights bfp8, so c_z 256 runs in one launch and reads the pair once instead of per
 # 128-channel half; trimul_t1_2g lets T1 hold 2 GiB of outputs, so it serves c_z 256 up to ~1152 tokens instead of
 # declining above ~900. In-process A/B on the Blackhole --fast set, repeat 4, p150a at 1350 MHz, T1 served in both arms
@@ -1697,7 +1704,13 @@ _BH_ONLY = ("trimul_t1", "trimul_t1_c256", "trimul_t2", "trimul_t2cm", "trimul_t
 # passed it (wnsp: gin_w8 +0.014 [-0.008, +0.045], t2fold +0.018 [+0.001, +0.044], docking 30 -> 32 of 44), and the
 # pair is graded as the stack it ships as (wnp2). The pair carries the speed (wnx3, 1000 MHz, 512 aa): ESMFold2
 # 26.44 -> 25.27 s, ESMFold2-Fast 16.33 -> 15.64 s for the four-lever stack.
-_WH_NORMAL_EXTRA = "+ef2_lm_combine+lm_qk_chain+trimul_t2fold+trimul_gin_w8"
+# ef2_pair_init (graded in --fast above) and ef2_msa_ffn pass Wormhole's normal bar, each against this set without it,
+# 11 complexes x 4 seeds, 44 paired folds per model (.107, 1000 MHz): ef2_pair_init (wpn) ESMFold2 CA-lDDT -0.0000
+# [-0.0049, +0.0049], docking 32 -> 31 of 44, ESMFold2-Fast -0.0003 [-0.0012, +0.0005], 24 -> 23; ef2_msa_ffn (wmg)
+# ESMFold2 +0.0018 [-0.0017, +0.0068], docking 32 -> 33. Same chip, in-process A/B, repeat 3: ef2_pair_init (wpa)
+# ESMFold2 512 aa 24.55 -> 23.49 s, 748 aa 59.47 -> 57.28 s, ESMFold2-Fast 512 aa 14.66 -> 13.70 s; ef2_msa_ffn (wfab)
+# ESMFold2 512 aa with a 4096-row MSA 36.89 -> 33.33 s.
+_WH_NORMAL_EXTRA = "+ef2_lm_combine+lm_qk_chain+trimul_t2fold+trimul_gin_w8+ef2_msa_ffn"
 # lm_gate_ng keeps the 6B's SwiGLU gate on binary_ng in both modes (esmc._lm_gate_legacy, on for Wormhole elsewhere):
 # the legacy multiply is graded on ESMC's embeddings (6B pcc vs fp32 -0.00002 / +0.00001), not yet on a fold.
 # ef2_atom_rope is exact (rotate_half as a +-1 permutation matmul): ESMFold2-Fast 512 aa --fast CIF identical with and
@@ -1756,7 +1769,7 @@ def fold_levers(fast: bool) -> str:
     levers = LEVERS_FAST if fast else LEVERS_NORMAL
     if is_wormhole():
         # ws_lofi too, since 2026-10-20: LoFi hangs Wormhole chips (tenstorrent.lofi_allowed)
-        drop = _BH_ONLY + ("ws_lofi",) if fast else _BH_ONLY + ("ef2_pair_init",)
+        drop = _BH_ONLY + ("ws_lofi",) if fast else _BH_ONLY
         levers = "+".join(n for n in levers.split("+") if n not in drop)
         levers += (_WH_FAST_EXTRA if fast else _WH_NORMAL_EXTRA) + _WH_EXTRA
     else:
