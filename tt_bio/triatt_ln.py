@@ -141,11 +141,14 @@ def _plan(kt, nw, tr, dev, ncores):
     TR units are 16-row x^T units double-buffered (2) or not (1), 0 without TR. Against the L1
     actually free now: the CBs sit below every live L1 buffer, so the largest free block is what
     they may take. At 8 heads x 32 (w 33 tiles wide, Protenix-v2) and K 256 one unit needs 1.12 MB
-    of a 1.40 MB Wormhole bank, which a fixed fraction of the bank refused."""
+    of a 1.40 MB Wormhole bank, which a fixed fraction of the bank refused.
+
+    Groups are the divisors of the core count in increasing order (a core's group is c % G and its
+    rows c // G of an even split, so G must divide it), so any shape that fits at 1, 2 or 4 groups
+    plans exactly as before. Blackhole's 130 cores have no 4; Mol-1's c_z 448 (14 heads, w 57 tiles)
+    fits there at 5."""
     lcf = _lcf(dev)
-    for g in (1, 2, 4):
-        if ncores % g:
-            continue
+    for g in (d for d in range(1, min(ncores, nw) + 1) if ncores % d == 0):
         nwg = -(-nw // g)
         for nb in ((2, 1) if tr else (0,)):
             if _cb_bytes(kt, nwg, nb, _share(g, tr, 1)) <= lcf:
