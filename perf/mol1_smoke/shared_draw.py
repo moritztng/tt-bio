@@ -24,7 +24,6 @@ import torch  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(REPO), str(REPO / "scripts" / "mol1_io")]
-import compare_features as cf  # noqa: E402
 from perf.clocksample import during  # noqa: E402
 from tt_bio import weights  # noqa: E402
 from tt_bio.protenix import Protenix  # noqa: E402
@@ -69,6 +68,7 @@ def summary(rows):
 
 def pack(seed_dir, pred_dir, cases):
     """The case as the grade needs it: merged features, one draw stream per sample, upstream's coordinates per draw."""
+    import compare_features as cf  # the worker's featurizer on an upstream job; pack only, a bundle needs neither
     up_feats = torch.load(f"{seed_dir}/features.pt", weights_only=False)
     draws = torch.load(f"{seed_dir}/draws.pt", weights_only=False)
     starts = [i for i, (t, _v) in enumerate(draws) if t == "init"] + [len(draws)]
