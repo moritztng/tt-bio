@@ -1747,6 +1747,10 @@ class _WorkerState:
             from tt_bio.protenix_msa import features_from_sidecar
             feats.update(features_from_sidecar(feats, chains, _with_searched(side, chains, chain_specs, paired_a3ms),
                                                use_rna_msa=bool(cfg.get("use_rna_msa"))))
+        if side:
+            # its templates too: templatesPath hits under --use_template, upstream's empty set otherwise
+            from tt_bio import protenix_templates_json as ptj
+            feats.update(ptj.features_from_sidecar(feats, chains, side, bool(cfg.get("use_template"))))
         return feats, chains, chain_specs
 
     def _protenix_emit(self, path: Path, cfg: dict[str, Any], feats, chains, chain_specs,
