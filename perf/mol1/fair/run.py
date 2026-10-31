@@ -23,7 +23,6 @@ recycles / steps / samples next to the protocol's 20 / 200 / 5, and a sha256 of 
 so any line can be rerun on its seed and checked.
 """
 import argparse
-import base64
 import hashlib
 import json
 import multiprocessing as mp
@@ -73,9 +72,8 @@ def stage_job(job, d):
     if not isinstance(job, dict):
         return Path(job)
     d.mkdir(parents=True, exist_ok=True)
-    path = d / job["name"]
-    path.write_bytes(base64.b64decode(job["input_b64"]))
-    return path
+    from tt_bio.worker import stage_input
+    return stage_input(job, d / job["name"])
 
 
 def chip_main(chip, a, barrier, results):

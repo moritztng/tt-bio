@@ -171,3 +171,37 @@ def test_file_ligand_and_integer_bond_atoms(tmp_path):
     pos = f["ref_pos"][lig[f["atom_to_token_idx"]]]
     ref = torch.tensor([list(m.GetConformer().GetAtomPosition(i)) for i in range(3)], dtype=torch.float32)
     assert torch.allclose(pos - pos.mean(0), ref - ref.mean(0), atol=1e-4)
+
+
+def test_dispatched_job_keeps_its_msas(tmp_path, monkeypatch):
+    """A staged JSON input's MSAs live in its sidecar; through the controller to a worker's own directory they must
+    arrive with the YAML, or the worker searches for the chain the user gave an alignment for."""
+    from types import SimpleNamespace
+
+    from tt_bio import host_controller as H
+    from tt_bio import worker as W
+    from tt_bio.main import _read_bio_chains
+    from tt_bio.protenix_json import sidecar, stage
+
+    (tmp_path / "u.a3m").write_text(">q\nMKCG\n>h\nMKAG\n")
+    src = tmp_path / "j.json"
+    src.write_text(json.dumps([{"name": "c", "sequences": [
+        {"proteinChain": {"sequence": "MKCG", "count": 1, "unpairedMsaPath": str(tmp_path / "u.a3m")}},
+        {"proteinChain": {"sequence": "GGHW", "count": 1}}]}]))
+    yml = next(stage(src, tmp_path / "staged").glob("*.yaml"))
+    store = H.ControllerStore(tmp_path / "c.sqlite3")
+    store.create_run({"data": "d", "out_dir": "o", "result_dir": "r", "config": {"model": "mol1"},
+                      "jobs": H.job_payloads([SimpleNamespace(id=yml.stem, path=yml)])})
+    (job,) = store.lease({"worker": {"worker_id": "w", "host": "h", "accelerator": "tenstorrent",
+                                     "device_id": "0", "label": "w"}})["jobs"]
+    (tmp_path / "worker").mkdir()
+    got = W.stage_input(job, tmp_path / "worker" / job["name"])
+    assert sidecar(got)["unpaired_msa"]["A"].count(">") == 2
+    chains = _read_bio_chains(got)
+    assert [c[0] for c in W._left_to_search(got, chains)] == ["B"]
+
+    searched = []
+    monkeypatch.setattr(W, "search_msas", lambda _p, run, _cfg, *_a: searched.extend(c[0] for c in run))
+    monkeypatch.setattr(W, "_paired_msa", lambda *a: searched.append("paired"))
+    W.prefetch_msas("mol1", [got], {"msa_dir": str(tmp_path / "msa"), "use_msa_server": True})
+    assert sorted(searched) == ["B", "paired"]
