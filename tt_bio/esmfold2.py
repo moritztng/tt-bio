@@ -98,6 +98,13 @@ ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the 
 # a silu and a multiply over the whole tensor. With an MSA deeper than max_depth the encoder runs every loop, and on
 # p150a those ops were 2.2 s of a 5.6 s encoder (512 aa, 4096 rows, 1350 MHz, dmc).
 MSA_FFN_FUSED = env_flag("TT_BIO_ESMFOLD2_MSA_FFN_FUSED", None)  # unset: the ef2_msa_ffn lever
+# The encoder's MSA features cross PCIe as residue ids (int32) plus the two deletion columns, and the [B,L,M,35]
+# features are rebuilt on the device from them, the same bf16 values the host tensor carried. A deeper MSA than
+# max_depth is re-drawn every loop: at 748 aa x 1024 rows that upload was 53 MB a loop, 0.94 s a fold (p150a, d748).
+MSA_IDX = env_flag("TT_BIO_ESMFOLD2_MSA_IDX", True)
+# A matmul whose every output is one bf16 value times one: HiFi4 multiplies the full mantissa, and bf16 DST, since
+# HiFi4 with fp32 accumulation returns wrong rows on Wormhole (tenstorrent.py, trunk_hifi3).
+_EXACT_CKC = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False)
 
 
 def gate(flag, name):
@@ -1995,8 +2002,36 @@ class MSAEncoder(TorchWrapper):
         mf = None if bool(mask_f.all()) else ft(mask_f.unsqueeze(-1))
         # A device x_pair (ESMFold2's z_init built on the device) is copied: the blocks update the pair in place.
         xp = ttnn.clone(x_pair) if isinstance(x_pair, ttnn.Tensor) else ft(x_pair)
-        out = self.module(xp, ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
+        feat = self._msa_feat(msa_oh, has_deletion, deletion_value) if MSA_IDX else ft(m_feat.float())
+        out = self.module(xp, ft(x_inputs), feat, ft((1.0 / n_valid).float()), mf)
         return self._to_torch(out) if to_host else out
+
+    def _msa_feat(self, msa_oh, has_deletion, deletion_value):
+        """`ft(m_feat)` without the MSA-sized upload: the one-hot rows come from an identity-table embedding of the
+        residue ids (a zeroed, masked row is the table's zero row) and the deletion columns from a [2, 64] scatter
+        matmul. Every entry is one bf16 value times one plus zeros, so the tensor equals the host upload bit for bit."""
+        B, L, M, C = msa_oh.shape
+        dev = self.tt_device
+        tok = torch.where(msa_oh.any(-1), msa_oh.argmax(-1), C).to(torch.int32).reshape(1, B * L * M)
+        tbl = torch.zeros(C + 1, 64, dtype=torch.bfloat16)
+        tbl[torch.arange(C), torch.arange(C)] = 1.0
+        put = torch.zeros(2, 64, dtype=torch.bfloat16)
+        put[0, C], put[1, C + 1] = 1.0, 1.0
+        tok_t = ttnn.from_torch(tok, dtype=ttnn.uint32, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        tbl_t = ttnn.from_torch(tbl, dtype=ttnn.bfloat16, layout=ttnn.ROW_MAJOR_LAYOUT, device=dev)
+        e = ttnn.embedding(tok_t, tbl_t, layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)
+        ttnn.deallocate(tok_t)
+        ttnn.deallocate(tbl_t)
+        oh = ttnn.to_layout(ttnn.reshape(e, (B, L, M, 64)), ttnn.TILE_LAYOUT)
+        ttnn.deallocate(e)
+        d = self._from_torch(torch.stack([has_deletion, deletion_value], -1).to(torch.bfloat16))
+        dl = ttnn.matmul(d, self._from_torch(put), compute_kernel_config=_EXACT_CKC)
+        ttnn.deallocate(d)
+        feat = ttnn.add_(oh, dl)
+        ttnn.deallocate(dl)
+        out = ttnn.slice(feat, [0, 0, 0, 0], [B, L, M, C + 2])
+        ttnn.deallocate(feat)
+        return out
 
 
 # ===========================================================================
