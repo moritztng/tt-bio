@@ -1,0 +1,19146 @@
+{
+"5sbj": {
+"glycan": false,
+"modres": [
+"ACE",
+"AIB",
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CD"
+]
+},
+"5sng": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"PO4",
+"UV7"
+]
+},
+"7eka": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"EGT"
+]
+},
+"7fti": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YMI"
+]
+},
+"7ftp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YQ8"
+]
+},
+"7fu2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YM9"
+]
+},
+"7fu4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YMO"
+]
+},
+"7fub": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"ATP",
+"YQ3"
+]
+},
+"7fug": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YP8"
+]
+},
+"7ful": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YUO"
+]
+},
+"7fum": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YU6"
+]
+},
+"7fuo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YUB"
+]
+},
+"7fuq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YUF"
+]
+},
+"7fvw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"IQH",
+"SO4"
+]
+},
+"7fvy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"IWI",
+"SO4"
+]
+},
+"7fw1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"K7C",
+"SO4"
+]
+},
+"7fw3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"KL3",
+"SO4"
+]
+},
+"7fwb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"LM9",
+"SO4"
+]
+},
+"7fwe": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"MF9",
+"SO4"
+]
+},
+"7fwf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"MQF"
+]
+},
+"7fwl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"O6Q",
+"SO4"
+]
+},
+"7fwm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"O9U"
+]
+},
+"7fwo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"OM6",
+"SO4"
+]
+},
+"7fwp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"OT9",
+"SO4"
+]
+},
+"7fwr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"P6X",
+"SO4"
+]
+},
+"7fwu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"Q0O",
+"SO4"
+]
+},
+"7fwy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QBX",
+"SO4"
+]
+},
+"7fx6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QJX",
+"SO4"
+]
+},
+"7fxb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"QZI",
+"SO4"
+]
+},
+"7fxf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"R9O",
+"SO4"
+]
+},
+"7fxh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"DMS",
+"RI4",
+"SO4"
+]
+},
+"7fxk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"S8X",
+"SO4"
+]
+},
+"7fxn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"DMS",
+"SO4",
+"SUX"
+]
+},
+"7fxq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"TK6"
+]
+},
+"7fxr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"TQO"
+]
+},
+"7fxw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"DMS",
+"SO4",
+"UB8"
+]
+},
+"7fy5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"V4R"
+]
+},
+"7fyc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"VJ3"
+]
+},
+"7fyg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"VVL"
+]
+},
+"7fyk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"W8C"
+]
+},
+"7fyo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"W90"
+]
+},
+"7fyr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"W9F"
+]
+},
+"7fyv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"W9Q"
+]
+},
+"7fz0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"EOH"
+],
+"ligs": [
+"SO4",
+"WBR"
+]
+},
+"7fz1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"WDE"
+]
+},
+"7fz3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"WDO"
+]
+},
+"7fz8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"WEI"
+]
+},
+"7fzi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"SO4",
+"WG3"
+]
+},
+"7fzj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"WGL"
+]
+},
+"7fzl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"WGQ"
+]
+},
+"7fzn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"WHB"
+]
+},
+"7fzo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"WH3"
+]
+},
+"7g00": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"SCN"
+],
+"ligs": [
+"WII"
+]
+},
+"7g02": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"PG4",
+"SO4",
+"WIL"
+]
+},
+"7g0h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"SO4",
+"W8T"
+]
+},
+"7g0i": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"SO4",
+"TXO"
+]
+},
+"7g0j": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"WKI"
+]
+},
+"7g0k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"UOF"
+]
+},
+"7g0v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"DMS",
+"SO4",
+"WLR"
+]
+},
+"7g10": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"SO4",
+"WMF"
+]
+},
+"7g13": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"SO4",
+"WJH"
+]
+},
+"7g14": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"DMS",
+"Q1I",
+"SO4"
+]
+},
+"7g1g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"GOL",
+"SO4",
+"WO0"
+]
+},
+"7g1o": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"WP8"
+]
+},
+"7g1s": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"WPU"
+]
+},
+"7g1u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"SO4",
+"WQ3"
+]
+},
+"7g1v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"DMS",
+"SO4",
+"WQ8"
+]
+},
+"7gh3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"Q1C"
+]
+},
+"7gnb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"DMS",
+"RW0"
+]
+},
+"7gnc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"DMS",
+"RW9"
+]
+},
+"7gnr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"DMS",
+"RZU"
+]
+},
+"7mxv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MN",
+"NA"
+],
+"ligs": []
+},
+"7oyp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"3I4",
+"4J8"
+]
+},
+"7prw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"82H"
+]
+},
+"7pv5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"2ES",
+"SO4"
+]
+},
+"7qp5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FES"
+]
+},
+"7qrb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"EX9",
+"SO4"
+]
+},
+"7qrr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"PO4"
+]
+},
+"7qsj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"NI"
+],
+"ligs": [
+"GOL"
+]
+},
+"7quv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"K",
+"NA",
+"NH2",
+"NI"
+],
+"ligs": [
+"F3U",
+"GOL",
+"PGE"
+]
+},
+"7qw5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAH"
+]
+},
+"7qwe": {
+"glycan": false,
+"modres": [
+"4BF",
+"ACE",
+"AIB",
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7qzx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GOL",
+"HIL"
+]
+},
+"7r3z": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GOL",
+"I1Q",
+"SO4"
+]
+},
+"7r59": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"I5F"
+]
+},
+"7r5i": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GOL"
+]
+},
+"7spq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"1PE",
+"CIT",
+"PG4"
+]
+},
+"7st5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"7sza": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DUI",
+"FLC"
+]
+},
+"7szb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DQ4",
+"FLC"
+]
+},
+"7t1d": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"E7K",
+"SO4"
+]
+},
+"7t9r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PA6",
+"PO4"
+]
+},
+"7th0": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7sxp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"K"
+],
+"ligs": [
+"CAD"
+]
+},
+"7qrj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7gi0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"DMS",
+"OQL"
+]
+},
+"7fyf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"SO4",
+"VS5"
+]
+},
+"7fwz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"QD3",
+"SO4"
+]
+},
+"7fvu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GFS",
+"SO4"
+]
+},
+"7ftn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"ZN"
+],
+"ligs": [
+"MLI"
+]
+},
+"7tjb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"7tlh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"7tr7": {
+"glycan": false,
+"modres": [
+"3DR"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"7tuo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"KL9"
+]
+},
+"7txw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"EOH"
+],
+"ligs": [
+"GOL",
+"PEG"
+]
+},
+"7txy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE2"
+],
+"ligs": []
+},
+"7typ": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"KUR",
+"TRS"
+]
+},
+"7u9i": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"44T"
+]
+},
+"7ua2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7uad": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"M5R"
+]
+},
+"7udq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"MVS"
+]
+},
+"7un7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NA"
+],
+"ligs": [
+"GOL",
+"TTP"
+]
+},
+"7ur2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"7urp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NA"
+],
+"ligs": []
+},
+"7uvg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IOD"
+]
+},
+"7uww": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"SCN"
+],
+"ligs": []
+},
+"7uya": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"OKC"
+]
+},
+"7uyb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"OK0"
+]
+},
+"7uyc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"OJR"
+]
+},
+"7uyn": {
+"glycan": false,
+"modres": [
+"1W5",
+"1WA",
+"IGU",
+"JSP"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7uyp": {
+"glycan": false,
+"modres": [
+"1W5",
+"1WA",
+"IGU",
+"JSP"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7v2t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"FE2"
+],
+"ligs": [
+"5UQ",
+"AKG",
+"DMS",
+"GOL"
+]
+},
+"7v36": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"FE2"
+],
+"ligs": [
+"5P0",
+"AKG",
+"GOL"
+]
+},
+"7v3o": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"FE2"
+],
+"ligs": [
+"AKG"
+]
+},
+"7vf6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GDP",
+"GOL",
+"PO4",
+"SO4"
+]
+},
+"7vrk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"TEP"
+]
+},
+"7vro": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"37T",
+"SO4"
+]
+},
+"7vsf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"7UM",
+"EPE",
+"SO4"
+]
+},
+"7w15": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ERY",
+"GOL",
+"GTP"
+]
+},
+"7wia": {
+"glycan": false,
+"modres": [
+"GTP"
+],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"7wii": {
+"glycan": false,
+"modres": [
+"GTP"
+],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"NPR"
+]
+},
+"7wr3": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NCA",
+"SO4"
+]
+},
+"7wu8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7wvs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SAM",
+"SO4"
+]
+},
+"7wz5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"7wzm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HEM",
+"OLA"
+]
+},
+"7x36": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"BEZ",
+"GOL",
+"MAN",
+"NAG",
+"PEG"
+]
+},
+"7x3h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7x3p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"8VG",
+"PEG"
+]
+},
+"7x4p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"U5P",
+"UTP"
+]
+},
+"7x4q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"UTP"
+]
+},
+"7x4t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"2KH",
+"GOL",
+"SO4"
+]
+},
+"7x6t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"97F"
+]
+},
+"7x80": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"7x8l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7x8p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG",
+"PAM"
+]
+},
+"7xcd": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xek": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"9YX",
+"PEG",
+"PG4",
+"PGE"
+]
+},
+"7xft": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"VAL"
+]
+},
+"7xg9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"PEG"
+]
+},
+"7xhz": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xi5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xjv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN",
+"NA"
+],
+"ligs": [
+"GDD",
+"GOL"
+]
+},
+"7xl7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xld": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"NA"
+],
+"ligs": []
+},
+"7xlz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD"
+]
+},
+"7xn2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ATP",
+"PEG"
+]
+},
+"7xp9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xpi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD"
+]
+},
+"7xpt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"GDG"
+]
+},
+"7xq4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xrb": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"SO4"
+]
+},
+"7xrx": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"7xvn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"7xz3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7y0l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"1MM",
+"GOL"
+]
+},
+"7y16": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7y37": {
+"glycan": false,
+"modres": [
+"ACE",
+"HYP",
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7y3h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"IAH",
+"SAM"
+]
+},
+"7y43": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"7y4h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7y54": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7y5j": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7y5r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"7y8i": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"IPA"
+],
+"ligs": [
+"PEG",
+"PO4"
+]
+},
+"7yc7": {
+"glycan": false,
+"modres": [
+"TTD"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"SO4"
+]
+},
+"7ycm": {
+"glycan": false,
+"modres": [
+"TTD"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"SO4"
+]
+},
+"7y8h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"7y5m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xyr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"7xwz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"7xvq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xjr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7xfr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7wr2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7wkp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"7vub": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NBZ"
+]
+},
+"7uyo": {
+"glycan": false,
+"modres": [
+"1W5",
+"1WA",
+"IGU",
+"JSP"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7uy4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ANP",
+"SMI"
+]
+},
+"7uvs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"7ur9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"O5F"
+]
+},
+"7ur7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7uq2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"4BW"
+]
+},
+"7uk8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"NI"
+],
+"ligs": [
+"SO4"
+]
+},
+"7uet": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ANP",
+"MXW"
+]
+},
+"7udk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7udj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7ucx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"7uba": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"1PE",
+"MES",
+"PG4"
+]
+},
+"7th4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL"
+],
+"ligs": [
+"FAD",
+"FFO"
+]
+},
+"7yd4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"7yds": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7ydw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7ydz": {
+"glycan": false,
+"modres": [
+"TTD"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"SO4"
+]
+},
+"7yek": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"SO4"
+]
+},
+"7yex": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"7yey": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"7yf2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAH"
+]
+},
+"7yfu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7yha": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"ITK"
+]
+},
+"7yhr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7ykd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CLR"
+]
+},
+"7ykm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7yl1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"J6F"
+]
+},
+"7yl2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NO3"
+],
+"ligs": [
+"GOL",
+"JCO"
+]
+},
+"7ylr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FES",
+"FMN"
+]
+},
+"7yls": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"FE"
+],
+"ligs": [
+"FES",
+"GOL"
+]
+},
+"7ysf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"MLT"
+]
+},
+"7yv1": {
+"glycan": false,
+"modres": [
+"02A",
+"7VN",
+"7VU",
+"7W2",
+"7WC",
+"AC5",
+"MAA",
+"MLE",
+"SAR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GDP"
+]
+},
+"7yxu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"TMO"
+]
+},
+"7yyg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CA",
+"CL",
+"NA"
+],
+"ligs": [
+"GOL",
+"PGE"
+]
+},
+"7yzt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HEM"
+]
+},
+"7z1x": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7z2o": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"IAJ"
+]
+},
+"7z5k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7z63": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"IE3"
+]
+},
+"7z65": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7zau": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG"
+]
+},
+"7zcc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"GOL",
+"OGA",
+"SO4"
+]
+},
+"7zdy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"6MJ",
+"MPD"
+]
+},
+"7zgc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IUO",
+"PO4"
+]
+},
+"7zi6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"JAQ",
+"UDP"
+]
+},
+"7zi9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"J6M",
+"UDP"
+]
+},
+"7zia": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"J29",
+"UDP"
+]
+},
+"7zl5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"IWE"
+]
+},
+"7zlo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"JI0"
+]
+},
+"7zoi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7zoz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7zqr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"HEM",
+"JK9",
+"SO4"
+]
+},
+"7zs2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"IMD"
+],
+"ligs": [
+"HEC"
+]
+},
+"7zsm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"JU9",
+"SO4"
+]
+},
+"7zsq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"JTO",
+"P4K",
+"PEG",
+"TEW"
+]
+},
+"7ztw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"NA"
+],
+"ligs": []
+},
+"7zu3": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7zw8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"K3R"
+]
+},
+"8a0t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"GOL",
+"KLO",
+"SO4"
+]
+},
+"8a2g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PG4"
+]
+},
+"8a34": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"KYI",
+"SO4"
+]
+},
+"8a3a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"KYR",
+"SO4"
+]
+},
+"8a51": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"PEG"
+]
+},
+"8a8o": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NA"
+],
+"ligs": [
+"FAD",
+"GOL",
+"MPD",
+"SF4"
+]
+},
+"8aa9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"PEG"
+]
+},
+"8abo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NO3"
+],
+"ligs": [
+"231",
+"HEM"
+]
+},
+"8abt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"STL"
+]
+},
+"8ac8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8acf": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL"
+],
+"ligs": [
+"EPE"
+]
+},
+"8ad2": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"ZN"
+],
+"ligs": []
+},
+"8adb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"AYE"
+],
+"ligs": [
+"CIT"
+]
+},
+"8aeb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"35J",
+"DMS"
+]
+},
+"8aga": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"PHB"
+]
+},
+"8agq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GSH",
+"M5O"
+]
+},
+"8agp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"M1U"
+]
+},
+"8aem": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"ATP",
+"LVF"
+]
+},
+"8add": {
+"glycan": false,
+"modres": [
+"CSD",
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8adc": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ada": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ad9": {
+"glycan": false,
+"modres": [
+"LTU",
+"MLE",
+"WLU",
+"WPA",
+"WVL"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"PEG",
+"SO4"
+]
+},
+"8acx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8aan": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8a67": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"IPA",
+"NA",
+"ZN"
+],
+"ligs": [
+"GOL"
+]
+},
+"8a50": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"8a4o": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8a44": {
+"glycan": false,
+"modres": [
+"TYS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8a0w": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"7zv1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7zso": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL",
+"JTC",
+"SO4"
+]
+},
+"7zop": {
+"glycan": false,
+"modres": [
+"SNN"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BGC"
+]
+},
+"7zon": {
+"glycan": false,
+"modres": [
+"SNN"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"1PE",
+"BGC"
+]
+},
+"7znz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"7zls": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"JH9"
+]
+},
+"7zj4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"K"
+],
+"ligs": [
+"1TU",
+"J93"
+]
+},
+"7zib": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"J7I",
+"UDP"
+]
+},
+"7zi8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"J5U",
+"UDP"
+]
+},
+"7zi3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"J98",
+"UDP"
+]
+},
+"7zhf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"GNP",
+"GOL"
+]
+},
+"7zg5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BA",
+"COA",
+"GOL",
+"MPD"
+]
+},
+"7z8z": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7z6f": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"GOL"
+]
+},
+"7z2m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"7yvb": {
+"glycan": true,
+"modres": [
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"7yul": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOA"
+]
+},
+"7yuk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"7yuj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"PEG"
+]
+},
+"7yug": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"BR",
+"PG6",
+"PGE"
+]
+},
+"7ytu": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"7ygl": {
+"glycan": false,
+"modres": [
+"A23"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"7yf4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAH"
+]
+},
+"7yf3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAH"
+]
+},
+"7yew": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"7ydo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"3PE"
+]
+},
+"8ah9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BEZ"
+]
+},
+"8ahn": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8ajx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FMN",
+"FUM"
+]
+},
+"8ak2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"TRS"
+]
+},
+"8amo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"HEM"
+]
+},
+"8amy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"BCT",
+"NA",
+"ZN"
+],
+"ligs": [
+"MES",
+"P4G",
+"SO4"
+]
+},
+"8and": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8aok": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACY",
+"FMT"
+],
+"ligs": [
+"OXM",
+"PEG",
+"PG4"
+]
+},
+"8aom": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8aon": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8arl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8atn": {
+"glycan": false,
+"modres": [
+"SEP",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"O06"
+]
+},
+"8au6": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8au8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"FMN",
+"MPD",
+"O8I",
+"PEG",
+"PG4"
+]
+},
+"8auz": {
+"glycan": false,
+"modres": [
+"PTR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"O9C",
+"SO4"
+]
+},
+"8av1": {
+"glycan": false,
+"modres": [
+"PTR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"O9L",
+"SO4"
+]
+},
+"8av2": {
+"glycan": false,
+"modres": [
+"CSO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG",
+"SO4"
+]
+},
+"8avq": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"MG"
+],
+"ligs": [
+"BCN",
+"GOL",
+"UDX"
+]
+},
+"8axj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"PO4"
+]
+},
+"8axo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ay0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"MHI"
+]
+},
+"8ayg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8b1a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"1PE",
+"D10",
+"D12",
+"GOL",
+"HEX",
+"LMT",
+"OCT",
+"PG4"
+]
+},
+"8b2e": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CD"
+]
+},
+"8b2s": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K"
+],
+"ligs": []
+},
+"8b45": {
+"glycan": false,
+"modres": [
+"ACE",
+"AIB",
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"PGE"
+]
+},
+"8b46": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"K"
+],
+"ligs": []
+},
+"8b4c": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8b4u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"PO4"
+]
+},
+"8b4w": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL",
+"NA"
+],
+"ligs": [
+"DMS",
+"F05",
+"NAG"
+]
+},
+"8b6a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"8b6e": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8b6k": {
+"glycan": false,
+"modres": [
+"DOC"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"DCP"
+]
+},
+"8b7h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8b8u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"T7I"
+]
+},
+"8b96": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"Q2F"
+]
+},
+"8b9e": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"Q7F"
+]
+},
+"8ba3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"Q8U"
+]
+},
+"8baq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAD"
+]
+},
+"8bdj": {
+"glycan": false,
+"modres": [
+"CAS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QE0"
+]
+},
+"8bdn": {
+"glycan": false,
+"modres": [
+"CAS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QFR"
+]
+},
+"8bds": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QIY",
+"SO4"
+]
+},
+"8be1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8be2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8bf4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"NAG"
+]
+},
+"8bgb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"FLC"
+]
+},
+"8bit": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"6R9",
+"COA"
+]
+},
+"8biy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CXS",
+"GOL",
+"SO4"
+]
+},
+"8bje": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"WRL"
+]
+},
+"8bjj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"PEO"
+],
+"ligs": [
+"ATP",
+"GOL",
+"LAB",
+"PG4",
+"SO4",
+"TRS"
+]
+},
+"8bjl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"DMS",
+"NAP",
+"PEG",
+"QXO"
+]
+},
+"8bke": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8bm2": {
+"glycan": false,
+"modres": [
+"PTR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QQC"
+]
+},
+"8bmv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"URC"
+]
+},
+"8bny": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8bo3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"QV3"
+]
+},
+"8brh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8br6": {
+"glycan": false,
+"modres": [
+"SEP",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"R6I"
+]
+},
+"8bpv": {
+"glycan": false,
+"modres": [
+"PTR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"6T3"
+]
+},
+"8bo7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"QW6",
+"TRS"
+]
+},
+"8bo1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"AZI",
+"CL",
+"MG",
+"MN"
+],
+"ligs": [
+"3AT",
+"ATP",
+"LAB",
+"SO4"
+]
+},
+"8bn5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL"
+],
+"ligs": [
+"ABU",
+"NAG"
+]
+},
+"8biq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"6R9",
+"AMP"
+]
+},
+"8bic": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL",
+"SAH"
+]
+},
+"8bh9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"K"
+],
+"ligs": []
+},
+"8bfy": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"GOL"
+]
+},
+"8bey": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8be3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GDP"
+]
+},
+"8bce": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"B09"
+]
+},
+"8bcc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QAU"
+]
+},
+"8bca": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"Q96"
+]
+},
+"8bc8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QB6"
+]
+},
+"8bbt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8bau": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"AR6"
+]
+},
+"8bar": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"APR",
+"NCA"
+]
+},
+"8b9n": {
+"glycan": false,
+"modres": [
+"DRZ"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8b61": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"P7W"
+]
+},
+"8b5w": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8b4b": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NH4"
+],
+"ligs": [
+"CD"
+]
+},
+"8b3w": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BR"
+]
+},
+"8b2g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8azc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"MPO"
+]
+},
+"8azb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8axs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL",
+"IMD"
+],
+"ligs": [
+"DAN",
+"SLB",
+"SO4"
+]
+},
+"8axr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8axi": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL"
+],
+"ligs": [
+"DAN",
+"GAL"
+]
+},
+"8ax3": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NA"
+],
+"ligs": [
+"GOL",
+"NAG",
+"OD0",
+"SO4"
+]
+},
+"8avz": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8aui": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FMN",
+"O8R",
+"PEG"
+]
+},
+"8auh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"EPE",
+"FMN",
+"L9I",
+"MPD"
+]
+},
+"8atl": {
+"glycan": false,
+"modres": [
+"CSO",
+"SEP",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"O6X"
+]
+},
+"8ath": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8arn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8are": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8an5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8an4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8akh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"G3P",
+"GOL",
+"TLA"
+]
+},
+"8ak6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"08D",
+"AR6",
+"PEG",
+"SO4"
+]
+},
+"8ai3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SAM",
+"SF4"
+]
+},
+"8agy": {
+"glycan": false,
+"modres": [
+"HVA",
+"MEA",
+"OGC",
+"OGU",
+"OIB"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8bro": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"R7E"
+]
+},
+"8bry": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"PO4"
+]
+},
+"8bsa": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DAR"
+]
+},
+"8bsb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DLY"
+]
+},
+"8btj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BU3",
+"MLI"
+]
+},
+"8bux": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"MLI"
+]
+},
+"8buy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8bvf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"SO4"
+]
+},
+"8bvk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": []
+},
+"8bx9": {
+"glycan": false,
+"modres": [
+"PTR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"S59"
+]
+},
+"8byu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"8bz2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8bzx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"SW6"
+]
+},
+"8c0q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"SWU"
+]
+},
+"8c14": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL",
+"MG"
+],
+"ligs": [
+"ADP",
+"DMS",
+"GOL",
+"SO4",
+"T0L",
+"T5L"
+]
+},
+"8c1e": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ATP",
+"T0X"
+]
+},
+"8c1f": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ADP",
+"DMS",
+"GOL",
+"SO4",
+"T2O",
+"T5L"
+]
+},
+"8c1g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"MG"
+],
+"ligs": [
+"ADP",
+"DMS",
+"GOL",
+"SO4",
+"T3I",
+"T5L"
+]
+},
+"8c1k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"MG"
+],
+"ligs": [
+"ADP",
+"DMS",
+"SO4",
+"T4O",
+"T5L"
+]
+},
+"8c3g": {
+"glycan": false,
+"modres": [
+"PTR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QS0",
+"SO4"
+]
+},
+"8c3l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"IOD"
+]
+},
+"8c3r": {
+"glycan": false,
+"modres": [
+"PTR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"R7O"
+]
+},
+"8c3u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"T9C"
+]
+},
+"8c41": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"MPD",
+"TE9"
+]
+},
+"8c4d": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA",
+"ZN"
+],
+"ligs": [
+"FLC"
+]
+},
+"8c4y": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE"
+],
+"ligs": []
+},
+"8c56": {
+"glycan": false,
+"modres": [
+"5CM",
+"5PY"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL",
+"SAH"
+]
+},
+"8c58": {
+"glycan": false,
+"modres": [
+"5CM",
+"5OC"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CO3"
+],
+"ligs": [
+"GOL",
+"SAM"
+]
+},
+"8c59": {
+"glycan": false,
+"modres": [
+"5CM"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CO3",
+"NA"
+],
+"ligs": [
+"CIT",
+"GOL",
+"SAM"
+]
+},
+"8c5h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GOL"
+]
+},
+"8c72": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"TW0"
+]
+},
+"8c8j": {
+"glycan": false,
+"modres": [
+"CSX"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"CIT",
+"DIO",
+"DMS",
+"TTP"
+]
+},
+"8cba": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8cbt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"PEG",
+"W2Q"
+]
+},
+"8cbu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"PGE",
+"U60"
+]
+},
+"8cc4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"ZN"
+],
+"ligs": [
+"U7F"
+]
+},
+"8cdq": {
+"glycan": false,
+"modres": [
+"SEP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"AGS",
+"GOL",
+"KQ0",
+"PG4",
+"SO4"
+]
+},
+"8cdw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"UES"
+]
+},
+"8cef": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8cex": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NI"
+],
+"ligs": [
+"UG0"
+]
+},
+"8cey": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NI"
+],
+"ligs": [
+"UEF"
+]
+},
+"8cgc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"LMR",
+"UIK"
+]
+},
+"8che": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8chi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"UMR"
+]
+},
+"8chj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"GOL",
+"UQI"
+]
+},
+"8chl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CD",
+"DMS",
+"GOL",
+"SO4",
+"USV"
+]
+},
+"8chm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"CD",
+"DMS",
+"SO4",
+"UT6"
+]
+},
+"8ci9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE"
+],
+"ligs": [
+"TRS"
+]
+},
+"8cih": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8cjd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL"
+],
+"ligs": [
+"FAD",
+"PEG"
+]
+},
+"8cjk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE"
+],
+"ligs": [
+"UVU"
+]
+},
+"8ckq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"UZX"
+]
+},
+"8clo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8clw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"GOL",
+"UZ3"
+]
+},
+"8cm2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"V1X"
+]
+},
+"8cn2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"V60"
+]
+},
+"8cnh": {
+"glycan": false,
+"modres": [
+"CME"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"DMS",
+"V6U"
+]
+},
+"8cno": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"ZN"
+],
+"ligs": [
+"AR6",
+"PEG",
+"PG4",
+"PGE",
+"SO4",
+"STL"
+]
+},
+"8co3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"V8O"
+]
+},
+"8co7": {
+"glycan": false,
+"modres": [
+"CME"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL"
+],
+"ligs": [
+"DMS",
+"PG4",
+"PGE",
+"V9E"
+]
+},
+"8cpk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8cpn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IOD"
+]
+},
+"8cqi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"LYY",
+"NAG",
+"VGO"
+]
+},
+"8cqm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE",
+"ZN"
+],
+"ligs": [
+"GOL"
+]
+},
+"8cs0": {
+"glycan": false,
+"modres": [
+"1W5",
+"1WA",
+"IGU",
+"JSP"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8cuc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8cyf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CAC",
+"SF4"
+]
+},
+"8d0p": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8d2l": {
+"glycan": false,
+"modres": [
+"GTP"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8d2m": {
+"glycan": false,
+"modres": [
+"PED"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8d2z": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"ZN"
+],
+"ligs": [
+"MPD",
+"MRD",
+"OXM"
+]
+},
+"8d3i": {
+"glycan": false,
+"modres": [
+"CSX"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"1LM",
+"FAD",
+"SO4"
+]
+},
+"8d78": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"BA",
+"MMP"
+]
+},
+"8d79": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"MMP",
+"MPD"
+]
+},
+"8d9z": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"GOL"
+]
+},
+"8daj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"IPA"
+],
+"ligs": []
+},
+"8dbb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"R3K"
+]
+},
+"8dcm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NA"
+],
+"ligs": []
+},
+"8dez": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FLC",
+"SO4"
+]
+},
+"8dge": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"IMD",
+"MN"
+],
+"ligs": [
+"MPD",
+"PEG",
+"PGE"
+]
+},
+"8dhj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"EPE"
+]
+},
+"8di4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"S9I"
+]
+},
+"8dje": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"U6S"
+]
+},
+"8dmr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"AR6",
+"PEG",
+"SO4"
+]
+},
+"8dmt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"AR6"
+]
+},
+"8dmu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NI"
+],
+"ligs": [
+"AR6",
+"SO4"
+]
+},
+"8dn7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8dp3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"8dp9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8dpa": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8dqd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"UD2"
+]
+},
+"8dtd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"PPF"
+]
+},
+"8dtn": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": []
+},
+"8duz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL",
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"8dvw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"UD2"
+]
+},
+"8dwd": {
+"glycan": false,
+"modres": [
+"8OG",
+"ORP"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CA"
+],
+"ligs": [
+"SF4"
+]
+},
+"8dwe": {
+"glycan": false,
+"modres": [
+"8OG",
+"PRN"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"SF4",
+"TRS"
+]
+},
+"8dx0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8e0e": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"MG"
+],
+"ligs": [
+"GOL",
+"MPD"
+]
+},
+"8e0r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8e4h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8e4z": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BTB",
+"GOL",
+"NAG",
+"SO4",
+"UKF"
+]
+},
+"8e5d": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"PO4"
+]
+},
+"8e5n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"UL0"
+]
+},
+"8e66": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CAC"
+]
+},
+"8e7r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"MG",
+"ZN"
+],
+"ligs": [
+"PAE"
+]
+},
+"8e8e": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polydeoxyribonucleotide/polyribonucleotide hybrid",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"DGT",
+"DPO"
+]
+},
+"8ea8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG",
+"PGE",
+"VML"
+]
+},
+"8eb9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8ee9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8egq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ADP",
+"SO4",
+"WJK"
+]
+},
+"8ehp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BTB",
+"GOL",
+"NAG",
+"SO4",
+"WJO"
+]
+},
+"8ej6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ekj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ekz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8em9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8eml": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PGE"
+]
+},
+"8enk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"BEF",
+"MG"
+],
+"ligs": [
+"ADP"
+]
+},
+"8eo4": {
+"glycan": false,
+"modres": [
+"5CM"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8eo5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"TRS"
+]
+},
+"8eov": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"8eqg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8eqk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8erd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WQ6"
+]
+},
+"8ern": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"WQK"
+]
+},
+"8es6": {
+"glycan": false,
+"modres": [
+"SEB"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8eud": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BTB",
+"GOL",
+"NAG",
+"SO4",
+"WUR"
+]
+},
+"8eut": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BTB",
+"GOL",
+"NAG",
+"SO4",
+"WV5"
+]
+},
+"8ex2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"Q2Q"
+]
+},
+"8eyl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"MBO",
+"X5F"
+]
+},
+"8eym": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"16G",
+"AGP"
+]
+},
+"8ezv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"X6O"
+]
+},
+"8ezw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PGE"
+]
+},
+"8f5n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8f60": {
+"glycan": true,
+"modres": [
+"PCA"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": []
+},
+"8f69": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"MES",
+"MPD"
+]
+},
+"8f7u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GGI",
+"GOL",
+"SO4"
+]
+},
+"8f8k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CA",
+"CL"
+],
+"ligs": [
+"GOL",
+"IPE"
+]
+},
+"8f8n": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8f9o": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8fas": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8fau": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"SO4",
+"Y3E"
+]
+},
+"8fay": {
+"glycan": false,
+"modres": [
+"8OG",
+"NRI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SF4",
+"SO4"
+]
+},
+"8fbq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL"
+],
+"ligs": [
+"1PE",
+"GOL",
+"MYA",
+"PEG",
+"PG4",
+"PGE",
+"SO4",
+"XOQ"
+]
+},
+"8fbw": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"PEG",
+"PO4"
+]
+},
+"8fcf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8fe5": {
+"glycan": false,
+"modres": [
+"SEP",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"XTT"
+]
+},
+"8ff8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"XV0"
+]
+},
+"8ff9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"SO4"
+]
+},
+"8fg6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8fgq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"ZN"
+],
+"ligs": [
+"BTB",
+"GD",
+"GOL",
+"H4B",
+"HEM",
+"V80"
+]
+},
+"8fhx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": [
+"2ZY"
+]
+},
+"8fil": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"IHP"
+]
+},
+"8fjf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8fln": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BTB",
+"GOL",
+"SO4",
+"Y7W"
+]
+},
+"8flv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS",
+"PEG",
+"ZB9"
+]
+},
+"8fmg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"Y4F"
+]
+},
+"8fmh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"4UR",
+"GOL",
+"PEG",
+"PGE"
+]
+},
+"8fnr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DY"
+]
+},
+"8fny": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"ZN"
+],
+"ligs": [
+"ADP",
+"ATP"
+]
+},
+"8fo5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4",
+"Y4U"
+]
+},
+"8fr5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN",
+"NA"
+],
+"ligs": []
+},
+"8fik": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"ZN"
+],
+"ligs": [
+"IHP",
+"PO4"
+]
+},
+"8fib": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HEM"
+]
+},
+"8fi8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": [
+"X5R"
+]
+},
+"8fi1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": [
+"747"
+]
+},
+"8fdo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8fdd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8fbu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"1PE",
+"MYA",
+"PG4",
+"PGE",
+"XOL"
+]
+},
+"8fbm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"MYA",
+"PEG",
+"PG4",
+"XOF"
+]
+},
+"8fbc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HEM"
+]
+},
+"8fb3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"PRF"
+]
+},
+"8f8e": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"XJI"
+]
+},
+"8f7v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"EUA",
+"GOL",
+"SO4"
+]
+},
+"8f5i": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ez6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ey8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8ey7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8ey6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8ey4": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE2"
+],
+"ligs": []
+},
+"8ey3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE2",
+"NA"
+],
+"ligs": []
+},
+"8ew9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"AKG"
+]
+},
+"8ew1": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CA",
+"CL"
+],
+"ligs": [
+"GOL"
+]
+},
+"8evd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ev4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8et0": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IBP",
+"NAG"
+]
+},
+"8en5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"MES"
+]
+},
+"8ekv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8eku": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ec3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8ebh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ebb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"TAR"
+]
+},
+"8eb5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8e8d": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polydeoxyribonucleotide/polyribonucleotide hybrid",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"DGT"
+]
+},
+"8e8a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8e87": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polydeoxyribonucleotide/polyribonucleotide hybrid",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"XG4"
+]
+},
+"8e85": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polydeoxyribonucleotide/polyribonucleotide hybrid",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"XG4"
+]
+},
+"8e67": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8e5h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"FNR"
+]
+},
+"8e3r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8fsr": {
+"glycan": false,
+"modres": [
+"FME"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ftj": {
+"glycan": false,
+"modres": [
+"YB9"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8fty": {
+"glycan": false,
+"modres": [
+"CSD",
+"CSO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"FE2",
+"NA"
+],
+"ligs": [
+"CAC",
+"MPD"
+]
+},
+"8fv2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"JHL",
+"PO4"
+]
+},
+"8fx3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IMU"
+]
+},
+"8fxv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8fym": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"1HC",
+"GOL"
+]
+},
+"8fz8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HEM",
+"OCA"
+]
+},
+"8fz9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT"
+]
+},
+"8g0n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": []
+},
+"8g0p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8g1l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"MG",
+"NA"
+],
+"ligs": [
+"PG0"
+]
+},
+"8g1y": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"GOL",
+"MLT",
+"PLP"
+]
+},
+"8g32": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NA"
+],
+"ligs": [
+"GOL",
+"PG4",
+"SO4"
+]
+},
+"8g35": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"HEM",
+"YJE"
+]
+},
+"8g3w": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG",
+"YKX"
+]
+},
+"8g4a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"YL8"
+]
+},
+"8g4k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8g4p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"NAG",
+"SO4"
+]
+},
+"8g53": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8g6p": {
+"glycan": false,
+"modres": [
+"KCX"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ADP",
+"API",
+"GOL"
+]
+},
+"8g7g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"MG",
+"ZN"
+],
+"ligs": [
+"YS8"
+]
+},
+"8g7h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"MG",
+"ZN"
+],
+"ligs": [
+"GOL",
+"YRQ"
+]
+},
+"8g86": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8g88": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8g8h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"CZU"
+]
+},
+"8g9v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CE1",
+"NAD",
+"SO4",
+"YYC"
+]
+},
+"8gac": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gdl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PAM",
+"SO4",
+"SRO"
+]
+},
+"8gfc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"DMS",
+"ZI2"
+]
+},
+"8gfd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"DMS",
+"ZHR"
+]
+},
+"8gfe": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"DMS",
+"ZH8"
+]
+},
+"8gfh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"ZIA"
+]
+},
+"8gho": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gj9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8gjg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gjw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8gkf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"D16"
+]
+},
+"8gl9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"ZQW"
+]
+},
+"8gm7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"8gmy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gn3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8gn4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8gps": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8gpv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"EPE"
+]
+},
+"8gpz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"NA"
+],
+"ligs": [
+"KC3"
+]
+},
+"8gqp": {
+"glycan": false,
+"modres": [
+"DAL",
+"DAR",
+"DAS",
+"DGL",
+"DIL",
+"DLE",
+"DLY",
+"DPN",
+"DPR",
+"DSG",
+"DSN",
+"DVA"
+],
+"poly": [
+"polypeptide(D)",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gqq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8grj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"F3S",
+"FAD",
+"LGC"
+]
+},
+"8gtz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": []
+},
+"8gxb": {
+"glycan": false,
+"modres": [
+"GTP"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"NAD"
+]
+},
+"8gy0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gye": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"NAG"
+]
+},
+"8gzj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"BA",
+"CD"
+]
+},
+"8gzk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"BA",
+"CD"
+]
+},
+"8gzm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"BA",
+"CD"
+]
+},
+"8gzo": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8h02": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8h0e": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8h0f": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8h0l": {
+"glycan": false,
+"modres": [
+"PST"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8h0n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8h0p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8h1b": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"SAM"
+]
+},
+"8h1m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": []
+},
+"8h1q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PLS"
+]
+},
+"8h29": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"2BO"
+]
+},
+"8h2f": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"TMP"
+]
+},
+"8h3x": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8h5a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"7DV"
+]
+},
+"8h5s": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL"
+]
+},
+"8h1y": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"KPU"
+]
+},
+"8h0q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CLR"
+]
+},
+"8h0m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"2EH",
+"FAD"
+]
+},
+"8gzl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"BA",
+"CD"
+]
+},
+"8gze": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAH"
+]
+},
+"8gy5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gsy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gsj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GJZ",
+"GLU",
+"GOL",
+"K8C",
+"LEU",
+"NAL",
+"SO4"
+]
+},
+"8gr7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"PEG",
+"PPV"
+]
+},
+"8gok": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8goj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8gmd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"ZRR"
+]
+},
+"8gm4": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"ZN"
+],
+"ligs": [
+"ADP",
+"EKI"
+]
+},
+"8gkd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": []
+},
+"8gjy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gji": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gfl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"DMS",
+"ZIE"
+]
+},
+"8gbe": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8gad": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IND"
+]
+},
+"8g91": {
+"glycan": false,
+"modres": [
+"SRA"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8g8j": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"CZU"
+]
+},
+"8g7f": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"MG",
+"ZN"
+],
+"ligs": [
+"1JJ",
+"GOL"
+]
+},
+"8g64": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FMN",
+"HEM",
+"SO4"
+]
+},
+"8g5u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"9VG"
+]
+},
+"8g52": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PLM"
+]
+},
+"8g2n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": [
+"SPM",
+"YSQ"
+]
+},
+"8fza": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"PRF"
+]
+},
+"8fux": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"C5P",
+"KD3",
+"KDO",
+"PO4",
+"PXV"
+]
+},
+"8fsq": {
+"glycan": false,
+"modres": [
+"7MD",
+"FME",
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8h63": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"IPA",
+"NA"
+],
+"ligs": [
+"EPE",
+"GOL"
+]
+},
+"8h6p": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WZU"
+]
+},
+"8h6q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8h7a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8hay": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"KYL"
+]
+},
+"8hbt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"KZO"
+]
+},
+"8hcl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8he1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"BHO"
+]
+},
+"8hf8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BOG",
+"LOO"
+]
+},
+"8hfp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"SO4"
+]
+},
+"8hfw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hhi": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hhv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"8hic": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"URE"
+],
+"ligs": []
+},
+"8hig": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hnq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"NAP",
+"O4B"
+]
+},
+"8htd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8htw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8huc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NO3"
+],
+"ligs": [
+"GOL"
+]
+},
+"8hut": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"7YY"
+]
+},
+"8hvd": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hw8": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"68X",
+"PEG"
+]
+},
+"8hwi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"C2E"
+]
+},
+"8hx9": {
+"glycan": false,
+"modres": [
+"OCS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"MG"
+],
+"ligs": [
+"GOL",
+"ISJ",
+"TRP"
+]
+},
+"8hxq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hy1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"5ZU"
+]
+},
+"8hy3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CO2",
+"ZN"
+],
+"ligs": [
+"4Q8",
+"GOL"
+]
+},
+"8hyb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"ZN"
+],
+"ligs": [
+"5ZX",
+"SO4"
+]
+},
+"8i61": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"BR8",
+"CIT"
+]
+},
+"8i6a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ORO"
+]
+},
+"8i71": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"IPA"
+],
+"ligs": [
+"DMS",
+"GOL",
+"OTI"
+]
+},
+"8i82": {
+"glycan": false,
+"modres": [
+"DPP",
+"KBE",
+"MYN",
+"UAL"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": []
+},
+"8i84": {
+"glycan": false,
+"modres": [
+"DPP",
+"KBE",
+"MYN",
+"UAL"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"PEG"
+]
+},
+"8i89": {
+"glycan": false,
+"modres": [
+"5OH",
+"DPP",
+"KBE",
+"UAL"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG"
+]
+},
+"8ic7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"BXX",
+"MPD"
+]
+},
+"8id0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"7P6"
+]
+},
+"8ifo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"MLI"
+]
+},
+"8ifx": {
+"glycan": false,
+"modres": [
+"CSO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE"
+],
+"ligs": [
+"ADP",
+"PEG"
+]
+},
+"8igx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PQL"
+]
+},
+"8ihg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"2AF",
+"GOL"
+]
+},
+"8ii8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACE"
+],
+"ligs": [
+"PW6"
+]
+},
+"8ijp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BTB"
+]
+},
+"8ild": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"DGT",
+"SO4"
+]
+},
+"8ilf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"7Q6"
+]
+},
+"8ilh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"8EB",
+"GMS",
+"SO4"
+]
+},
+"8im0": {
+"glycan": false,
+"modres": [
+"CH6"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ini": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PG4"
+]
+},
+"8ioo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"SO4"
+]
+},
+"8ipj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"AR6"
+]
+},
+"8ipp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": []
+},
+"8iq8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8iqc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": []
+},
+"8irq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8its": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8iw5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8ixw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SEY"
+]
+},
+"8iyb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"FER",
+"NAG"
+]
+},
+"8iym": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"SCN"
+],
+"ligs": []
+},
+"8iyq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8izc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"S93",
+"SO4"
+]
+},
+"8j0l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8j0r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"PEG",
+"PG3",
+"PG4"
+]
+},
+"8j2w": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"5AD",
+"B12",
+"BLA",
+"DIO",
+"PEG"
+]
+},
+"8j2x": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"B12",
+"BLA",
+"PEG"
+]
+},
+"8j3t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"T1F"
+]
+},
+"8j49": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8j5h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NO3"
+],
+"ligs": [
+"TV0"
+]
+},
+"8j62": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8j71": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8j7t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8j8y": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8j5u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8j48": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8j2n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8j0k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"PG3",
+"PGE"
+]
+},
+"8ixq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GDP",
+"LW8"
+]
+},
+"8ivx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ivu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4",
+"SJ6"
+]
+},
+"8iqa": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NI"
+],
+"ligs": []
+},
+"8iq5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BCN",
+"GOL",
+"TRS"
+]
+},
+"8ipg": {
+"glycan": false,
+"modres": [
+"ACE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ime": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"0XE"
+]
+},
+"8im3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CO"
+],
+"ligs": [
+"92U"
+]
+},
+"8ilg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"MN"
+],
+"ligs": []
+},
+"8ikx": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8ik5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8iha": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ih8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8ido": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8iau": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": [
+"FBP",
+"OXL",
+"PEG",
+"PG4",
+"PGE"
+]
+},
+"8i6k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG"
+]
+},
+"8hxs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hkb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"UB7"
+]
+},
+"8hhj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hel": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hdj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8hd2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAH"
+]
+},
+"8hb8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"BA",
+"NMN"
+]
+},
+"8h9h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8h7m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WYS"
+]
+},
+"8ja9": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8jca": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GTP"
+]
+},
+"8jd7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jdh": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jdr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"UEI"
+]
+},
+"8je4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"PIS"
+]
+},
+"8jfb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NDP",
+"U86",
+"UMP"
+]
+},
+"8jgf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jgg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jh8": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"PEG"
+]
+},
+"8ji7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE2",
+"NI"
+],
+"ligs": [
+"TRP"
+]
+},
+"8jik": {
+"glycan": false,
+"modres": [
+"LLP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NEH",
+"ZN"
+],
+"ligs": []
+},
+"8jiy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jn0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jq4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"RAM",
+"RM4"
+]
+},
+"8jqf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NI"
+],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"8ju7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jup": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ATP"
+]
+},
+"8jv1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"ABU",
+"GOL",
+"MES",
+"PG4"
+]
+},
+"8jv2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"MES",
+"PG4",
+"PRO"
+]
+},
+"8jv3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BET",
+"GOL",
+"MES",
+"PG4"
+]
+},
+"8jws": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8jwz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"CLR",
+"OLA",
+"OLC",
+"PEG",
+"U30"
+]
+},
+"8jyg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG",
+"V8R"
+]
+},
+"8jyr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8jzd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jzt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8k1x": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HEM",
+"VI4"
+]
+},
+"8k2g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8k3b": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ELE"
+]
+},
+"8k4f": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL"
+],
+"ligs": [
+"FJW",
+"FMN",
+"OG6",
+"PG4",
+"SO4"
+]
+},
+"8k4l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8k4m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8k5q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"C2E"
+]
+},
+"8k7f": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG",
+"SO4",
+"VMF"
+]
+},
+"8k7h": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG",
+"SO4",
+"VMO"
+]
+},
+"8k7o": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8k7z": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8k83": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"MES"
+]
+},
+"8k84": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG"
+]
+},
+"8k8a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8k8d": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ka7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8kce": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": []
+},
+"8kck": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8kg4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL",
+"IOD"
+]
+},
+"8kh3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"VWF"
+]
+},
+"8khq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CO"
+],
+"ligs": [
+"CYS",
+"HIS",
+"PEG"
+]
+},
+"8kht": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE2"
+],
+"ligs": [
+"VY9"
+]
+},
+"8khv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"MN"
+],
+"ligs": []
+},
+"8kih": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"FGG"
+]
+},
+"8oet": {
+"glycan": false,
+"modres": [
+"TTD"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FDA",
+"SO4"
+]
+},
+"8of7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"IMD"
+],
+"ligs": [
+"GLY",
+"GOL",
+"PEG",
+"SER"
+]
+},
+"8og8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"VM8"
+]
+},
+"8ogc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"MG"
+],
+"ligs": [
+"DMS",
+"VMZ"
+]
+},
+"8ohu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SJ5"
+]
+},
+"8ohv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"VP5"
+]
+},
+"8oij": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG"
+]
+},
+"8oiv": {
+"glycan": false,
+"modres": [
+"GTG"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"GTG",
+"SAH"
+]
+},
+"8oj6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8oi4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL"
+]
+},
+"8kfr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8kcj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8kc1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8kbm": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"C2E"
+]
+},
+"8kbl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"C2E",
+"OJC"
+]
+},
+"8kbh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"1SY"
+]
+},
+"8kbg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"1SY"
+]
+},
+"8kac": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8k8f": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8k8c": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8k86": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8k7y": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8k7x": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"NA",
+"ZN"
+],
+"ligs": [
+"GOL",
+"TRS"
+]
+},
+"8k5j": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE"
+],
+"ligs": [
+"AVJ",
+"GOL"
+]
+},
+"8k4w": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8k3d": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8k2m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BR",
+"GNL"
+]
+},
+"8k2k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GNL",
+"GOL",
+"SO4"
+]
+},
+"8jyv": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jvl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"V5L"
+]
+},
+"8ju8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jt1": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"ZN"
+],
+"ligs": [
+"PEG",
+"PGE",
+"TRS"
+]
+},
+"8joz": {
+"glycan": false,
+"modres": [
+"4SU",
+"5MU",
+"CM0",
+"H2U",
+"OMC",
+"OMG",
+"PSU",
+"ZJS"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"SFG"
+]
+},
+"8jny": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ERV"
+]
+},
+"8jno": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"E8T",
+"HEM"
+]
+},
+"8jnc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"NA"
+],
+"ligs": [
+"E5I",
+"HEM"
+]
+},
+"8jmy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jmq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jkk": {
+"glycan": false,
+"modres": [
+"5CM"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"OGA"
+]
+},
+"8jjt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"UD1"
+]
+},
+"8jjq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"UD2"
+]
+},
+"8jfd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"NDP",
+"U8Y",
+"UMP"
+]
+},
+"8jeo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8jdx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"FAD",
+"KIV"
+]
+},
+"8jdg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"UCU"
+]
+},
+"8jbo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GOL",
+"IFM"
+]
+},
+"8jb3": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"IMP",
+"NOS",
+"PO4"
+]
+},
+"8jab": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"U0X"
+]
+},
+"8j9r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8oj7": {
+"glycan": false,
+"modres": [
+"DOC"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"DTP"
+]
+},
+"8oja": {
+"glycan": false,
+"modres": [
+"AS"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8ojo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"AH2",
+"YIO"
+]
+},
+"8ojp": {
+"glycan": false,
+"modres": [
+"CME"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"VPZ"
+]
+},
+"8ok4": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GLC"
+]
+},
+"8ok9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ACY",
+"MG"
+],
+"ligs": [
+"PEG"
+]
+},
+"8oke": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"VQC"
+]
+},
+"8oko": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"VR3"
+]
+},
+"8okp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"VQW"
+]
+},
+"8olf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"VS9"
+]
+},
+"8omj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"VTM"
+]
+},
+"8on4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8on9": {
+"glycan": true,
+"modres": [
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8oni": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8onm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NO3"
+],
+"ligs": [
+"PMP",
+"PW0"
+]
+},
+"8onv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GDP",
+"VU6"
+]
+},
+"8oo5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"VUF"
+]
+},
+"8opr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CA"
+],
+"ligs": [
+"SO4"
+]
+},
+"8oqh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8oqo": {
+"glycan": false,
+"modres": [
+"OCS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SO4",
+"VXH"
+]
+},
+"8oqr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SO4",
+"VWT"
+]
+},
+"8orc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"7PG",
+"MXE",
+"PG0",
+"TOE",
+"VY8"
+]
+},
+"8ork": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"MPO",
+"PEG"
+]
+},
+"8oru": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ADP",
+"DG2",
+"PO4"
+]
+},
+"8os2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"NAG"
+]
+},
+"8osz": {
+"glycan": false,
+"modres": [
+"CSO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"K5V",
+"PEG"
+]
+},
+"8otp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GOL",
+"VZW"
+]
+},
+"8ou1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FLC"
+]
+},
+"8ous": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"W3I"
+]
+},
+"8ouv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"W3R"
+]
+},
+"8ov7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"W3W"
+]
+},
+"8ovu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8ow8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"PGE",
+"PO4"
+]
+},
+"8oxk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8oxx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"DPR",
+"DVA",
+"MLL",
+"ONL",
+"P6S",
+"SO4"
+]
+},
+"8oya": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FDA",
+"SO4"
+]
+},
+"8oyy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"K"
+],
+"ligs": []
+},
+"8p04": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WAK"
+]
+},
+"8p0e": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"APR"
+]
+},
+"8p2a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FMN"
+]
+},
+"8p3d": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"WS5"
+]
+},
+"8p3n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ADZ"
+]
+},
+"8p3r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WUT"
+]
+},
+"8p5i": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"NA"
+],
+"ligs": [
+"GOL",
+"WYX"
+]
+},
+"8p5n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ART",
+"GOL"
+]
+},
+"8p5p": {
+"glycan": false,
+"modres": [
+"MLY"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8p5q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"SO4"
+]
+},
+"8p6b": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [
+"K"
+],
+"ligs": [
+"0K8"
+]
+},
+"8p6k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8p6m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8p7u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"ZN"
+],
+"ligs": [
+"E8N",
+"GOL",
+"SO4",
+"X3T"
+]
+},
+"8p8k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"MES",
+"X7C"
+]
+},
+"8p92": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"XB0"
+]
+},
+"8p95": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"XA9"
+]
+},
+"8p9g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"X9K"
+]
+},
+"8p9k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"X9U"
+]
+},
+"8p9p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"XB4"
+]
+},
+"8p9q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"XC6"
+]
+},
+"8p9r": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8p9s": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"XCB"
+]
+},
+"8pa5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"XMZ"
+]
+},
+"8paq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"IMD"
+],
+"ligs": []
+},
+"8pb2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"XQ5"
+]
+},
+"8pb3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"SAH",
+"XP6"
+]
+},
+"8pb5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"SFG",
+"XP6"
+]
+},
+"8pd6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"YCB"
+]
+},
+"8pfi": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG",
+"YHG"
+]
+},
+"8pg6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YSX"
+]
+},
+"8pg9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YV8"
+]
+},
+"8pgc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YSB"
+]
+},
+"8pge": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"YU8"
+]
+},
+"8pgg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YU3"
+]
+},
+"8pe3": {
+"glycan": false,
+"modres": [
+"A23",
+"ADN"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8pb4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"SAH",
+"XP6"
+]
+},
+"8pak": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"MPD",
+"PG6"
+]
+},
+"8p9t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"XCQ"
+]
+},
+"8p9h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"X9C"
+]
+},
+"8p9c": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8p7b": {
+"glycan": false,
+"modres": [
+"1MA",
+"4AC",
+"5MC",
+"5MU",
+"6IA",
+"H2U",
+"JMH",
+"M2G",
+"OMG",
+"OMU",
+"PSU"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"SAH"
+]
+},
+"8p0m": {
+"glycan": false,
+"modres": [
+"MYK"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"1PG",
+"DMS",
+"MYR",
+"WCF"
+]
+},
+"8p08": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WAZ"
+]
+},
+"8oys": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8oyq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"W6T"
+]
+},
+"8oxw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL"
+],
+"ligs": []
+},
+"8oxl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ows": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8owf": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"DMS"
+]
+},
+"8ovq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG",
+"SO4"
+]
+},
+"8out": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"W3C"
+]
+},
+"8oud": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"ALA",
+"Y01"
+]
+},
+"8oua": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"PO4",
+"W0Z"
+]
+},
+"8osw": {
+"glycan": false,
+"modres": [
+"CSO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"ZN"
+],
+"ligs": []
+},
+"8oq1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"PEG"
+]
+},
+"8onn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"OCF"
+]
+},
+"8onf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8onb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8on7": {
+"glycan": true,
+"modres": [
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8okj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"VRI"
+]
+},
+"8okg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"VQH"
+]
+},
+"8ok3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"SO4"
+]
+},
+"8pgj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"YMB"
+]
+},
+"8pgk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YVH"
+]
+},
+"8pgl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"YK5"
+]
+},
+"8pgm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"YU0"
+]
+},
+"8pgr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS",
+"YJZ"
+]
+},
+"8pgt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YKZ"
+]
+},
+"8pgx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YKO"
+]
+},
+"8pgz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YQW"
+]
+},
+"8ph1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YMF"
+]
+},
+"8ph3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"YQR"
+]
+},
+"8phb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pih": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8pm5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pm7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pmc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pmf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pmv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pmz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"B3P"
+]
+},
+"8pn0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pna": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": []
+},
+"8pnc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pnp": {
+"glycan": false,
+"modres": [
+"SEP"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8por": {
+"glycan": false,
+"modres": [
+"CSS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"EYT",
+"PE4",
+"SO4"
+]
+},
+"8ppf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"6II",
+"ANP",
+"SO4"
+]
+},
+"8pqg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"9JI"
+]
+},
+"8pqr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DIH"
+]
+},
+"8pso": {
+"glycan": false,
+"modres": [
+"CTP"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": []
+},
+"8psz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"A0I"
+]
+},
+"8ptd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA",
+"OH"
+],
+"ligs": [
+"B12",
+"GOL"
+]
+},
+"8pu1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"POL"
+],
+"ligs": [
+"APC",
+"CAC",
+"GOL"
+]
+},
+"8pvs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"FMT",
+"NA"
+],
+"ligs": [
+"GLA"
+]
+},
+"8pw0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"GOL"
+]
+},
+"8pw2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8pxu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CAC"
+]
+},
+"8pyi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IER"
+]
+},
+"8pyk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NI"
+],
+"ligs": [
+"IC2"
+]
+},
+"8pym": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NI"
+],
+"ligs": [
+"CD",
+"IED"
+]
+},
+"8pyr": {
+"glycan": false,
+"modres": [
+"SEP",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8q00": {
+"glycan": false,
+"modres": [
+"AYE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"FLC"
+]
+},
+"8q1a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GOL",
+"IO6"
+]
+},
+"8q1k": {
+"glycan": true,
+"modres": [
+"OCS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"PO4"
+]
+},
+"8q1v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"HEC"
+]
+},
+"8q29": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"MG"
+],
+"ligs": []
+},
+"8q34": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IX4"
+]
+},
+"8q3j": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"8q3u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GOL",
+"J8I"
+]
+},
+"8q42": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MN"
+],
+"ligs": []
+},
+"8q79": {
+"glycan": false,
+"modres": [
+"CR2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8q8i": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"MG"
+],
+"ligs": [
+"BCN",
+"GOL",
+"O5R",
+"PEG"
+]
+},
+"8q9n": {
+"glycan": false,
+"modres": [
+"ACE"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"DMS"
+]
+},
+"8qa8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"CTP"
+]
+},
+"8qb1": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"K"
+],
+"ligs": [
+"PEG"
+]
+},
+"8qch": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA",
+"ZN"
+],
+"ligs": [
+"EIF",
+"PEG",
+"SO4"
+]
+},
+"8qci": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GOL",
+"NAG"
+]
+},
+"8qdy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAM",
+"U74"
+]
+},
+"8qe0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAM",
+"U8R"
+]
+},
+"8qe1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAM",
+"U8E"
+]
+},
+"8qe2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAM",
+"U7X"
+]
+},
+"8qe3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SAM",
+"U96"
+]
+},
+"8qez": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL",
+"ZN"
+],
+"ligs": [
+"CAC",
+"GLU",
+"GOL",
+"UF5"
+]
+},
+"8qf9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GOL",
+"UHO"
+]
+},
+"8qhg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NI",
+"ZN"
+],
+"ligs": [
+"V8I"
+]
+},
+"8qhq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"5HU"
+]
+},
+"8qjk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"ACE",
+"NA"
+],
+"ligs": []
+},
+"8qjm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA",
+"ZN"
+],
+"ligs": [
+"1PE",
+"C5P",
+"SO4"
+]
+},
+"8qjp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GOL",
+"PO4",
+"SO4",
+"U5P"
+]
+},
+"8qk2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"VTF"
+]
+},
+"8qk9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"VQ9"
+]
+},
+"8qka": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"VTK"
+]
+},
+"8qkd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG"
+]
+},
+"8qle": {
+"glycan": false,
+"modres": [
+"LYR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"LFA",
+"OLA"
+]
+},
+"8qlg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8qlm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8qlv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8qm0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8qmb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL",
+"FMT",
+"MG"
+],
+"ligs": [
+"MLA",
+"MPD",
+"TE9"
+]
+},
+"8qnf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"K",
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"8qoh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8qlk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8qlc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8qk8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8qfl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"FE",
+"MG"
+],
+"ligs": [
+"PG4"
+]
+},
+"8qf4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"8qd8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QPI"
+]
+},
+"8qbc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"GEE",
+"HEM"
+]
+},
+"8qab": {
+"glycan": false,
+"modres": [
+"ACE",
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"P8R"
+]
+},
+"8q7o": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"DMS",
+"GOL",
+"NAG",
+"SO4"
+]
+},
+"8q70": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": []
+},
+"8q6r": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GCH",
+"MAN",
+"NAG"
+]
+},
+"8q6q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT"
+]
+},
+"8q5o": {
+"glycan": false,
+"modres": [
+"5CM"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8q43": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MN"
+],
+"ligs": []
+},
+"8q41": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MN"
+],
+"ligs": []
+},
+"8q1w": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"HEC"
+]
+},
+"8q0t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IJJ"
+]
+},
+"8pxc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8pu2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"8pr6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ppi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"69I",
+"ATP",
+"SO4"
+]
+},
+"8pi8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8qpj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8qq1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BR",
+"FAD"
+]
+},
+"8qqa": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"B1T"
+]
+},
+"8qrt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WP2"
+]
+},
+"8qtg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA",
+"ZN"
+],
+"ligs": [
+"WUQ"
+]
+},
+"8qtj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA",
+"ZN"
+],
+"ligs": [
+"WUI"
+]
+},
+"8qtk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA",
+"ZN"
+],
+"ligs": [
+"WX9"
+]
+},
+"8qup": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8qvc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CD"
+]
+},
+"8qx6": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8qyr": {
+"glycan": false,
+"modres": [
+"M3L"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"BEF",
+"MG"
+],
+"ligs": [
+"ADP",
+"SO4",
+"XB2"
+]
+},
+"8qz3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K"
+],
+"ligs": [
+"MPD"
+]
+},
+"8r0i": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"DMS",
+"XG7"
+]
+},
+"8r0s": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8r11": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"BR",
+"GOL",
+"XI0"
+]
+},
+"8r1n": {
+"glycan": false,
+"modres": [
+"SEP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"XIT"
+]
+},
+"8r1p": {
+"glycan": false,
+"modres": [
+"SEP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"XIP"
+]
+},
+"8r1t": {
+"glycan": false,
+"modres": [
+"SEP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"XIJ"
+]
+},
+"8r2c": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG",
+"SO4"
+]
+},
+"8r4o": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"XVI"
+]
+},
+"8r5b": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACY"
+],
+"ligs": [
+"Y32"
+]
+},
+"8r5n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ATP"
+]
+},
+"8r5t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"SO4",
+"Y4E"
+]
+},
+"8r5v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"TF4",
+"Y4I"
+]
+},
+"8r5w": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8r6j": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"Y7F"
+]
+},
+"8r6k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K"
+],
+"ligs": [
+"PO4",
+"Y78"
+]
+},
+"8r7a": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8r7i": {
+"glycan": true,
+"modres": [
+"LDO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"CU",
+"OH"
+],
+"ligs": [
+"PLQ",
+"SO4",
+"YKK",
+"YMR"
+]
+},
+"8ra0": {
+"glycan": false,
+"modres": [
+"CXM"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FLC",
+"PG4"
+]
+},
+"8rak": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"FMN",
+"ORO",
+"SO4",
+"YMH"
+]
+},
+"8rcw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"YQF"
+]
+},
+"8rdd": {
+"glycan": false,
+"modres": [
+"CME"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACY"
+],
+"ligs": [
+"GOL"
+]
+},
+"8rhe": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"BLG"
+]
+},
+"8riy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"W0O"
+]
+},
+"8rja": {
+"glycan": false,
+"modres": [
+"KCX"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL",
+"H2S",
+"NA",
+"ZN"
+],
+"ligs": [
+"FAD",
+"GOL",
+"MGD",
+"PE4",
+"PEG",
+"PG4",
+"SF4",
+"W"
+]
+},
+"8rkh": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8rkt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": []
+},
+"8rlk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"MER"
+]
+},
+"8rm6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8rm7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8rom": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"PO4"
+]
+},
+"8rp8": {
+"glycan": false,
+"modres": [
+"PCA"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"NAG",
+"PEG"
+]
+},
+"8rpj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"MG"
+],
+"ligs": [
+"1PE",
+"2PE",
+"FAD",
+"GOL",
+"PGE",
+"TPP"
+]
+},
+"8rpx": {
+"glycan": false,
+"modres": [
+"5CM"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8rqh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"FAD",
+"SO4"
+]
+},
+"8rtw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"TES"
+]
+},
+"8rue": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"IPA",
+"ZN"
+],
+"ligs": [
+"GOL",
+"PEG",
+"TRS"
+]
+},
+"8rxa": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8rzk": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"TLA"
+]
+},
+"8rzv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8s1j": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"HEM"
+]
+},
+"8s4h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"RBR"
+]
+},
+"8s5b": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"A1H5E"
+]
+},
+"8s9l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8s9m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SFG"
+]
+},
+"8sao": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8sbq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ZUV"
+]
+},
+"8sbt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ZUY"
+]
+},
+"8sfz": {
+"glycan": false,
+"modres": [
+"CR2",
+"CRO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"NA"
+],
+"ligs": []
+},
+"8sgn": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG",
+"TRS"
+]
+},
+"8sh0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": []
+},
+"8shj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ZI8"
+]
+},
+"8sio": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GXF"
+]
+},
+"8sjk": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CFF"
+]
+},
+"8ski": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"B7P"
+]
+},
+"8skl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"V2O"
+]
+},
+"8slb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8smf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"OJC"
+]
+},
+"8son": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"30Y",
+"GOL",
+"SO4"
+]
+},
+"8spc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"HEM"
+]
+},
+"8sqg": {
+"glycan": false,
+"modres": [
+"KCX"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"BCT"
+],
+"ligs": [
+"X6Q"
+]
+},
+"8srz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ss1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8sv3": {
+"glycan": false,
+"modres": [
+"7DA",
+"7GU",
+"B86",
+"C37",
+"UCL"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"8sv7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8sv9": {
+"glycan": false,
+"modres": [
+"SEP",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"WXH"
+]
+},
+"8svy": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"WUC"
+]
+},
+"8sx0": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GOL",
+"PO4"
+]
+},
+"8sx2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"UHB"
+]
+},
+"8sxs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8t0p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8t0t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"Y6E",
+"YB"
+]
+},
+"8suc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8sot": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8smq": {
+"glycan": false,
+"modres": [
+"MSE",
+"OCS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL"
+]
+},
+"8sm6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE"
+],
+"ligs": [
+"SO4"
+]
+},
+"8sln": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": []
+},
+"8sj7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8sg1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CLR",
+"PLM"
+]
+},
+"8scr": {
+"glycan": false,
+"modres": [
+"C42"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"DGT",
+"DPO",
+"SO4"
+]
+},
+"8sco": {
+"glycan": false,
+"modres": [
+"C42"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"DGT",
+"SO4"
+]
+},
+"8s6o": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8s6n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8s0u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8s0l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"NAG"
+]
+},
+"8rte": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8re3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL",
+"OH"
+],
+"ligs": [
+"HEM"
+]
+},
+"8r9t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8r4u": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"XW3"
+]
+},
+"8t27": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GAL",
+"PEG",
+"PGE",
+"SIA"
+]
+},
+"8t2j": {
+"glycan": false,
+"modres": [
+"CSO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GOL",
+"PEG"
+]
+},
+"8t41": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": []
+},
+"8t48": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"LI"
+],
+"ligs": [
+"GOL"
+]
+},
+"8t4c": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"8t59": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GOL",
+"PEG"
+]
+},
+"8t5t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4",
+"STE"
+]
+},
+"8t65": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8t66": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8t8k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HEZ"
+]
+},
+"8t8z": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ADP",
+"ZNU"
+]
+},
+"8t93": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ADP",
+"ZNQ"
+]
+},
+"8t9n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8t9u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8t9v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"2PE",
+"ZJT"
+]
+},
+"8taa": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [
+"K"
+],
+"ligs": [
+"MMP",
+"MPD",
+"SPK"
+]
+},
+"8tab": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"2PE",
+"U4T"
+]
+},
+"8tac": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8tbs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"MN"
+],
+"ligs": [
+"FBP",
+"HVI",
+"PYR"
+]
+},
+"8tbu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"MN"
+],
+"ligs": [
+"FBP",
+"I0R",
+"PYR"
+]
+},
+"8tc9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"ZTE"
+]
+},
+"8tcs": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CO"
+],
+"ligs": []
+},
+"8te9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NO3"
+],
+"ligs": [
+"8X3"
+]
+},
+"8tfo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"MEV",
+"PEG"
+]
+},
+"8tfq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"7V7"
+]
+},
+"8tfs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8tft": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8tg4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"CL",
+"K",
+"NO3"
+],
+"ligs": [
+"9SO"
+]
+},
+"8th1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8th9": {
+"glycan": false,
+"modres": [
+"3DR",
+"MSE"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"DMS"
+]
+},
+"8the": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CTQ",
+"HEM"
+]
+},
+"8thq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8ti5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8tjg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8tlf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"GOL"
+]
+},
+"8tlg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": []
+},
+"8tlh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"GOL"
+]
+},
+"8tls": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CYN"
+],
+"ligs": [
+"HEM"
+]
+},
+"8tmz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8tn8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K"
+],
+"ligs": []
+},
+"8tnb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"IQM"
+]
+},
+"8tnd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"78P",
+"SO4"
+]
+},
+"8tov": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"J6U"
+]
+},
+"8tr4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"K6C",
+"SO4"
+]
+},
+"8trs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"PEG"
+]
+},
+"8tru": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8try": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"QU0",
+"SO4"
+]
+},
+"8ts0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GOL"
+]
+},
+"8tto": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8tuk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"IMD"
+],
+"ligs": []
+},
+"8tuz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8tw0": {
+"glycan": false,
+"modres": [
+"ACE",
+"HYP",
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8tw1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"8twh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide"
+],
+"ions": [
+"K"
+],
+"ligs": [
+"LG1"
+]
+},
+"8tx0": {
+"glycan": false,
+"modres": [
+"SEP",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"VEU"
+]
+},
+"8tx9": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"BMX"
+]
+},
+"8txe": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GDP",
+"VM9"
+]
+},
+"8txg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GDP",
+"VQT"
+]
+},
+"8txh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GDP",
+"VR5"
+]
+},
+"8tyh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"NAG",
+"TEW"
+]
+},
+"8u0i": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"C2E",
+"GOL"
+]
+},
+"8u0o": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"PO4"
+]
+},
+"8u0p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG",
+"NA"
+],
+"ligs": [
+"DUP",
+"SO4"
+]
+},
+"8u0q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"GOL",
+"U4I"
+]
+},
+"8u0x": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8u12": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8u2d": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"SO4",
+"UQX"
+]
+},
+"8u2f": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8u37": {
+"glycan": false,
+"modres": [
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"V5U"
+]
+},
+"8u48": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"8u6x": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"SCN"
+],
+"ligs": [
+"AMP"
+]
+},
+"8u8j": {
+"glycan": false,
+"modres": [
+"PTR",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WAL"
+]
+},
+"8u8k": {
+"glycan": false,
+"modres": [
+"PTR",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"W8U"
+]
+},
+"8u8l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CS"
+]
+},
+"8ubs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT",
+"NA"
+],
+"ligs": []
+},
+"8uc2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"NI"
+],
+"ligs": [
+"BEZ"
+]
+},
+"8uds": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8udz": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8ufk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ug3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SO4",
+"WRE"
+]
+},
+"8ujw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8ujx": {
+"glycan": false,
+"modres": [
+"XB9"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"XG4"
+]
+},
+"8uk7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8uky": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CCN"
+],
+"ligs": [
+"144",
+"1PE",
+"PEG",
+"PGE",
+"SO4"
+]
+},
+"8un3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"MG"
+],
+"ligs": [
+"GDP",
+"XOI"
+]
+},
+"8un5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GDP",
+"GOL",
+"XQ6"
+]
+},
+"8uob": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"ZN"
+],
+"ligs": [
+"XB5"
+]
+},
+"8uoi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"X3Q"
+]
+},
+"8uou": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"ASP"
+]
+},
+"8up2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"GOL"
+]
+},
+"8upb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8upc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL"
+]
+},
+"8upi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"SET"
+]
+},
+"8upq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"XAI"
+]
+},
+"8upt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8upv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"X83"
+]
+},
+"8urf": {
+"glycan": false,
+"modres": [
+"PCA"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL"
+],
+"ligs": [
+"GOL"
+]
+},
+"8urk": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"EPE",
+"SFG"
+]
+},
+"8usr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"XCE"
+]
+},
+"8tse": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8uss": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"XCW"
+]
+},
+"8uv0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"XKU"
+]
+},
+"8uvk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG"
+]
+},
+"8v1f": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"7R8",
+"CIT",
+"PEG",
+"PG4",
+"TAM"
+]
+},
+"8v1i": {
+"glycan": false,
+"modres": [
+"GTP"
+],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"ACT",
+"CA"
+],
+"ligs": []
+},
+"8v2f": {
+"glycan": false,
+"modres": [
+"SEP",
+"TPO"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"YJU"
+]
+},
+"8v3k": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"BTM",
+"DPO",
+"GOL",
+"SO4"
+]
+},
+"8v3m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"IMD",
+"ZN"
+],
+"ligs": [
+"MLT"
+]
+},
+"8v3o": {
+"glycan": false,
+"modres": [
+"BIX"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"ZN"
+],
+"ligs": [
+"MLT"
+]
+},
+"8v3q": {
+"glycan": false,
+"modres": [
+"UNK"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GLU"
+]
+},
+"8v3r": {
+"glycan": false,
+"modres": [
+"UNK"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"GLU"
+]
+},
+"8v52": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8v7b": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"K"
+],
+"ligs": [
+"GOL",
+"HF4"
+]
+},
+"8vc8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HEM",
+"SO4"
+]
+},
+"8vcw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"FE"
+],
+"ligs": [
+"BTB",
+"DTB",
+"Q46",
+"SAM",
+"SF4"
+]
+},
+"8vdh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"A1AAQ"
+]
+},
+"8vdn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"AMP"
+]
+},
+"8vf8": {
+"glycan": false,
+"modres": [
+"8NI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8vf9": {
+"glycan": false,
+"modres": [
+"8NI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8vfc": {
+"glycan": false,
+"modres": [
+"8NI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8vfd": {
+"glycan": false,
+"modres": [
+"8NI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MN",
+"NA"
+],
+"ligs": [
+"A1ACD"
+]
+},
+"8vfe": {
+"glycan": false,
+"modres": [
+"8NI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8vfj": {
+"glycan": false,
+"modres": [
+"8NI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8vg8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"7L9"
+]
+},
+"8vh7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN",
+"NA"
+],
+"ligs": [
+"UDP"
+]
+},
+"8vij": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CYN"
+],
+"ligs": [
+"HEM"
+]
+},
+"8vm9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8vmv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"NA",
+"ZN"
+],
+"ligs": [
+"GOL"
+]
+},
+"8vpo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"SF4"
+]
+},
+"8vr7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ACO",
+"COA",
+"EP1",
+"PAP"
+]
+},
+"8vvl": {
+"glycan": true,
+"modres": [
+"PCA"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"CO"
+],
+"ligs": [
+"NAG",
+"SO4"
+]
+},
+"8vyl": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACE"
+],
+"ligs": [
+"HEM"
+]
+},
+"8vzm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polydeoxyribonucleotide/polyribonucleotide hybrid",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"AMP"
+]
+},
+"8vzo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CHT"
+]
+},
+"8w6v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"FMT",
+"MG"
+],
+"ligs": []
+},
+"8w7p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8w84": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"8w8j": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"W1Q"
+]
+},
+"8w8l": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"SO4",
+"W20"
+]
+},
+"8w90": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8w9i": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"W2H"
+]
+},
+"8wae": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8wbt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GOL",
+"TLA"
+]
+},
+"8wc1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8wdq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CA",
+"CL",
+"PEO"
+],
+"ligs": [
+"DTU",
+"GOL",
+"IPD"
+]
+},
+"8whi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PEG"
+]
+},
+"8wj5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"EPE"
+]
+},
+"8wk1": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"8wkg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG",
+"ZN"
+],
+"ligs": [
+"WDB"
+]
+},
+"8wlb": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"WEB"
+]
+},
+"8wnh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": []
+},
+"8wnj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"ZN"
+],
+"ligs": [
+"GOL",
+"GV6"
+]
+},
+"8woj": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8wq5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL"
+]
+},
+"8wqn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8wt3": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": []
+},
+"8wt4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8wt6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"8wzc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GOL"
+]
+},
+"8x6q": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CO"
+],
+"ligs": [
+"AKG",
+"Y8R"
+]
+},
+"8x7c": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CO"
+],
+"ligs": [
+"AKG"
+]
+},
+"8xa9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8x6v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8x5v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"SO4"
+]
+},
+"8x3q": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"UDP"
+]
+},
+"8x3g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": [
+"GOL"
+]
+},
+"8wx5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8wwy": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HX2"
+]
+},
+"8wrx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8wni": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"ZN"
+],
+"ligs": [
+"GOL",
+"TRS",
+"VAL"
+]
+},
+"8wmt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8wim": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"GOL",
+"PEG"
+]
+},
+"8wik": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"6FA",
+"NAD"
+]
+},
+"8whn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8whj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"PEG"
+]
+},
+"8wev": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"AMP"
+]
+},
+"8weo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8wch": {
+"glycan": false,
+"modres": [
+"SNN"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"PCA"
+]
+},
+"8wcf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAD",
+"SO4"
+]
+},
+"8wbv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BMA",
+"DNO"
+]
+},
+"8wac": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8w8h": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ILE"
+]
+},
+"8w4b": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"STR"
+]
+},
+"8vva": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8vui": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA",
+"NH4"
+],
+"ligs": [
+"CIT",
+"NAG"
+]
+},
+"8vqk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K"
+],
+"ligs": [
+"CD",
+"GOL",
+"PEG",
+"SO4"
+]
+},
+"8vm8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8vfg": {
+"glycan": false,
+"modres": [
+"8NI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8vff": {
+"glycan": false,
+"modres": [
+"8NI"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8v7g": {
+"glycan": false,
+"modres": [
+"U7B"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"DZ4",
+"GOL"
+]
+},
+"8v6t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BR"
+]
+},
+"8v1h": {
+"glycan": false,
+"modres": [
+"GTP"
+],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"NA"
+],
+"ligs": []
+},
+"8uzt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"8uxt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8uxs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"XU8"
+]
+},
+"8ux6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"CL",
+"NA"
+],
+"ligs": [
+"EPE",
+"PEG"
+]
+},
+"8ux2": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"NAD"
+]
+},
+"8uuf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL",
+"ZN"
+],
+"ligs": [
+"XWO"
+]
+},
+"8utk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PG5",
+"PG6",
+"SO4"
+]
+},
+"8utg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"K",
+"NH4"
+],
+"ligs": []
+},
+"8xas": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8xc1": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"ZN"
+],
+"ligs": [
+"CLR",
+"NAG",
+"POV"
+]
+},
+"8xf7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE",
+"NA",
+"ZN"
+],
+"ligs": [
+"6L0",
+"GOL"
+]
+},
+"8xf9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA",
+"ZN"
+],
+"ligs": [
+"P33",
+"PEG",
+"SO4"
+]
+},
+"8xgo": {
+"glycan": false,
+"modres": [
+"ACE",
+"DTH",
+"NH2",
+"NMM",
+"UYA",
+"XZA"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8xgu": {
+"glycan": false,
+"modres": [
+"ACE",
+"DTY",
+"HZP",
+"NH2",
+"NMM",
+"XZA"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8xjg": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8xrh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ANP",
+"MES"
+]
+},
+"8xw7": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": [
+"ADP",
+"FBP",
+"GOL",
+"OXL"
+]
+},
+"8xzr": {
+"glycan": false,
+"modres": [
+"GTP"
+],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"ANG",
+"SPM"
+]
+},
+"8y52": {
+"glycan": false,
+"modres": [
+"BAL",
+"DPN",
+"NLE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8y58": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FMT"
+],
+"ligs": [
+"PMZ"
+]
+},
+"8ye0": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"BTB",
+"PIS"
+]
+},
+"8ye5": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8yey": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8yfi": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8yfj": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8yk2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"8yl9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"BTM",
+"PPV"
+]
+},
+"8yla": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"BTM",
+"PPV"
+]
+},
+"8yrs": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"8yxi": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8yxk": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8yxw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8yzs": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8z2m": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8z2n": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GLY",
+"GOL",
+"SO4"
+]
+},
+"8z4f": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8z4q": {
+"glycan": false,
+"modres": [
+"KCX"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE"
+],
+"ligs": []
+},
+"8z85": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8z8v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8z9q": {
+"glycan": false,
+"modres": [
+"ATP"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"8zly": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": [
+"FBP",
+"OXL",
+"UDP"
+]
+},
+"8zlz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8zmm": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8zmw": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": []
+},
+"8zp2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"A1LX4",
+"PTY"
+]
+},
+"9ard": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9asx": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"9au1": {
+"glycan": false,
+"modres": [
+"PCA"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACY",
+"K"
+],
+"ligs": [
+"EPE",
+"NAG"
+]
+},
+"9aue": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"PMP"
+]
+},
+"9aul": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"4WI"
+]
+},
+"9avr": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"A1AG8",
+"ANP",
+"IOD"
+]
+},
+"9azz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"PG4"
+]
+},
+"9b1u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"PQQ"
+]
+},
+"9bbh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"TLA",
+"VVP"
+]
+},
+"9bdv": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"9bdw": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"BOG",
+"SO4"
+]
+},
+"9bjx": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9bka": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9bks": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ADP"
+]
+},
+"9boo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"YDL"
+]
+},
+"9bt4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"SF4",
+"TPP"
+]
+},
+"9bun": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"FH8",
+"IRI"
+]
+},
+"9bvd": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9c69": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"9c7a": {
+"glycan": false,
+"modres": [
+"BRU"
+],
+"poly": [
+"polydeoxyribonucleotide/polyribonucleotide hybrid",
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"9c90": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"HO3"
+]
+},
+"9cfj": {
+"glycan": false,
+"modres": [
+"OCS"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"1PE",
+"GOL"
+]
+},
+"9ci9": {
+"glycan": false,
+"modres": [
+"TFT"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"0KX",
+"GOL"
+]
+},
+"9crn": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"NA"
+],
+"ligs": [
+"GOL"
+]
+},
+"9cys": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"CIT",
+"GOL",
+"MIE",
+"PGE"
+]
+},
+"9d91": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"9dp2": {
+"glycan": false,
+"modres": [
+"3DR"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MN"
+],
+"ligs": []
+},
+"9enh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"FAD",
+"PGO",
+"SO4"
+]
+},
+"9enp": {
+"glycan": false,
+"modres": [
+"AS"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"9eqo": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9ezz": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"9f0e": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"PO4"
+]
+},
+"9fce": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"BU3",
+"SAM"
+]
+},
+"9fgp": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"9f9u": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ZN"
+],
+"ligs": []
+},
+"9f37": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"CTP",
+"GOL",
+"GTP",
+"MGT"
+]
+},
+"9f2c": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9evq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ACO"
+]
+},
+"9etn": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA",
+"K",
+"NA"
+],
+"ligs": []
+},
+"9enq": {
+"glycan": false,
+"modres": [
+"AS"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"9en2": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": [
+"GOL"
+]
+},
+"9dn4": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"9cih": {
+"glycan": false,
+"modres": [
+"A1A0L"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"0KX",
+"GOL"
+]
+},
+"9c68": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"9c5s": {
+"glycan": false,
+"modres": [
+"ACE",
+"NH2"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"9c3t": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SFG"
+]
+},
+"9c3s": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SFG"
+]
+},
+"9bs2": {
+"glycan": false,
+"modres": [
+"3DR",
+"8OG"
+],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [
+"ACY",
+"CA"
+],
+"ligs": [
+"SF4"
+]
+},
+"9bk6": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9biy": {
+"glycan": false,
+"modres": [
+"MSE"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9bdu": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polydeoxyribonucleotide",
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"9b8e": {
+"glycan": false,
+"modres": [
+"SNC"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT",
+"CL",
+"MG"
+],
+"ligs": []
+},
+"9b1v": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GD3",
+"PQQ"
+]
+},
+"9aur": {
+"glycan": false,
+"modres": [
+"A2M"
+],
+"poly": [
+"polypeptide(L)",
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": [
+"GLY"
+]
+},
+"8zvh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE2",
+"NI"
+],
+"ligs": [
+"PHE"
+]
+},
+"8zqf": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"8yik": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"ATP"
+]
+},
+"8ycm": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"8y9p": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"A3P",
+"GOL"
+]
+},
+"8xw8": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"K",
+"MG"
+],
+"ligs": [
+"FBP",
+"GDP",
+"GOL",
+"OXL"
+]
+},
+"8xpk": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CA"
+],
+"ligs": []
+},
+"8xif": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": [
+"PPV"
+]
+},
+"8xfa": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"FE"
+],
+"ligs": [
+"6L0",
+"GOL"
+]
+},
+"9fvt": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"MG"
+],
+"ligs": []
+},
+"9fww": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"NAG"
+]
+},
+"9fym": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"IMD",
+"NA",
+"ZN"
+],
+"ligs": []
+},
+"9g2g": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"TRS"
+]
+},
+"9gsq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL"
+],
+"ligs": [
+"GOL",
+"SO4"
+]
+},
+"9ijc": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9iuh": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9j0v": {
+"glycan": false,
+"modres": [
+"LLP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"GOL",
+"PEG"
+]
+},
+"9j1r": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"SO4"
+]
+},
+"9j23": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9jbq": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9jf5": {
+"glycan": false,
+"modres": [
+"PYR"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": [
+"AG2",
+"PEG"
+]
+},
+"9jff": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"CL",
+"NA"
+],
+"ligs": [
+"33P",
+"GOL",
+"SO4"
+]
+},
+"9jst": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9jq9": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9j26": {
+"glycan": false,
+"modres": [
+"HYP"
+],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9gso": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [],
+"ligs": []
+},
+"9g7c": {
+"glycan": false,
+"modres": [],
+"poly": [
+"polyribonucleotide"
+],
+"ions": [],
+"ligs": []
+},
+"9fow": {
+"glycan": true,
+"modres": [],
+"poly": [
+"polypeptide(L)"
+],
+"ions": [
+"ACT"
+],
+"ligs": [
+"GOL",
+"NAG"
+]
+}
+}
