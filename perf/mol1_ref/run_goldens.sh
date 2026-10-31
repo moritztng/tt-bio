@@ -1,6 +1,6 @@
 #!/bin/bash
 # Capture Mol-1 upstream goldens + e2e reference predictions on CPU fp32 (mol1-ref).
-#   bash run_goldens.sh [--cycles N] [--ship HOST:DIR] [group ...]   groups: msa nomsa template_json (default: all)
+#   bash run_goldens.sh [--cycles N] [--ship HOST:DIR] [group ...]   groups: msa nomsa template_json extras (default: all)
 # Inputs: cases/<group>.json. Outputs: $GOLDEN_ROOT/<group>/{goldens,pred}/... and one log per group.
 # --cycles overrides the upstream N_cycle (20); --ship rsyncs each finished group to HOST:DIR/<group>.
 set -euo pipefail
@@ -21,8 +21,9 @@ mkdir -p "$GOLDEN_ROOT/inputs"
 from rdkit import Chem; from rdkit.Chem import AllChem
 m=Chem.AddHs(Chem.MolFromSmiles('Cn1cnc2c1c(=O)n(C)c(=O)n2C')); AllChem.EmbedMolecule(m, randomSeed=7)
 m=Chem.RemoveHs(m); m.SetProp('_Name','caffeine'); Chem.MolToMolFile(m, '$GOLDEN_ROOT/inputs/caffeine.sdf')"
-declare -A FLAGS=([msa]="--use_msa true" [nomsa]="--use_msa false" [template_json]="--use_msa false --use_template true")
-for g in "${@:-msa nomsa template_json}"; do
+declare -A FLAGS=([msa]="--use_msa true" [nomsa]="--use_msa false" [template_json]="--use_msa false --use_template true"
+              [extras]="--use_msa true --use_rna_msa true")
+for g in "${@:-msa nomsa template_json extras}"; do
   for grp in $g; do
     out="$GOLDEN_ROOT/$grp"; mkdir -p "$out"
     echo "== $grp $(date -u +%FT%TZ)"
