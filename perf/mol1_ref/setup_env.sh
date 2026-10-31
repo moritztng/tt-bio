@@ -1,6 +1,7 @@
 #!/bin/bash
 # Build the Mol-1 upstream reference env under $ROOT (default ~/mol1-upstream/mol1-ref):
-#   $ROOT/Mol-1 (pinned sha, untrusted: only pip reads it), $ROOT/venv (CPU torch), $ROOT/data (MOL_ROOT_DIR).
+#   $ROOT/Mol-1 (pinned sha, untrusted: only pip reads it), $ROOT/venv (CPU torch), $ROOT/data (MOL_ROOT_DIR),
+#   $ROOT/kalign (kalign 3.3.5, the version upstream pins; templatesPath .a3m/.hhr hits are aligned with it).
 # Assets come from $DL (the verified D7 download: checkpoint/, common.tar.gz, search_database.tar.gz).
 #   bash setup_env.sh [ROOT] [DL]
 set -euo pipefail
@@ -26,4 +27,12 @@ pip freeze > "$ROOT/venv-freeze.txt"
 echo "$(sha256sum "$DL/checkpoint/mol-1-base.pt" | cut -d' ' -f1)" | grep -qx $SHA_CKPT
 ln -sf "$DL/checkpoint/mol-1-base.pt" data/checkpoint/mol-1-base.pt
 [ -e data/.untarred ] || { tar -C data -xzf "$DL/common.tar.gz" && tar -C data -xzf "$DL/search_database.tar.gz" && touch data/.untarred; }
+if [ ! -x kalign/bin/kalign ]; then
+  rm -rf kalign-src && git clone -q --depth 1 --branch v3.3.5 https://github.com/TimoLassmann/kalign.git kalign-src
+  # its CMakeLists predates cmake 3.5
+  cmake -S kalign-src -B kalign-src/build -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$ROOT/kalign" > kalign-src/cmake.log
+  make -C kalign-src/build -j4 install > kalign-src/make.log
+fi
+kalign/bin/kalign --version | grep -qx "kalign 3.3.5"
 echo ENV_DONE

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Capture Mol-1 upstream goldens + e2e reference predictions on CPU fp32 (mol1-ref).
-#   bash run_goldens.sh [--cycles N] [--ship HOST:DIR] [group ...]   groups: msa nomsa template_json extras (default: all)
+#   bash run_goldens.sh [--cycles N] [--ship HOST:DIR] [group ...]
+#   groups: msa nomsa template_json extras templates formats (default: all)
 # Inputs: cases/<group>.json. Outputs: $GOLDEN_ROOT/<group>/{goldens,pred}/... and one log per group.
 # --cycles overrides the upstream N_cycle (20); --ship rsyncs each finished group to HOST:DIR/<group>.
 set -euo pipefail
@@ -8,6 +9,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT=${ROOT:-$HOME/mol1-upstream/mol1-ref}   # what setup_env.sh built
 V=$ROOT/venv/bin/python
 export MOL_ROOT_DIR=$ROOT/data
+export PATH=$ROOT/kalign/bin:$PATH   # template hits are aligned by the kalign on PATH
 GOLDEN_ROOT=${GOLDEN_ROOT:-$HOME/mol1-goldens}
 SEED=${SEED:-101}
 CYCLES=() SHIP=
@@ -22,8 +24,9 @@ from rdkit import Chem; from rdkit.Chem import AllChem
 m=Chem.AddHs(Chem.MolFromSmiles('Cn1cnc2c1c(=O)n(C)c(=O)n2C')); AllChem.EmbedMolecule(m, randomSeed=7)
 m=Chem.RemoveHs(m); m.SetProp('_Name','caffeine'); Chem.MolToMolFile(m, '$GOLDEN_ROOT/inputs/caffeine.sdf')"
 declare -A FLAGS=([msa]="--use_msa true" [nomsa]="--use_msa false" [template_json]="--use_msa false --use_template true"
-              [extras]="--use_msa true --use_rna_msa true")
-for g in "${@:-msa nomsa template_json extras}"; do
+              [extras]="--use_msa true --use_rna_msa true" [templates]="--use_msa true --use_template true"
+              [formats]="--use_msa true --use_seeds_in_json true")
+for g in "${@:-msa nomsa template_json extras templates formats}"; do
   for grp in $g; do
     out="$GOLDEN_ROOT/$grp"; mkdir -p "$out"
     echo "== $grp $(date -u +%FT%TZ)"
