@@ -62,11 +62,13 @@ def test_mode_sets_per_arch(monkeypatch, wormhole):
     # Wormhole's normal mode takes the --fast trimul pair too (wnsg), Blackhole's does not.
     normal = tenstorrent.parse_levers(rt.fold_levers(False))
     assert all((n in normal) is wormhole for n in ("trimul_t2fold", "trimul_gin_w8"))
-    # The ef2_* levers ride both sets on both archs. ef2_msa_ffn failed Blackhole's normal bar (bmg) only.
+    # The ef2_* levers ride both sets on both archs. ef2_msa_ffn failed Blackhole's normal bar (bmg) only;
+    # ef2_opm_proj is Blackhole-only (no-op on Wormhole, woab).
     for fast in (False, True):
         names = rt.fold_levers(fast).split("+")
         assert "ef2_relpos_lookup" in names and "ef2_bit_draw" in names and "ef2_pair_init" in names
         assert ("ef2_msa_ffn" in names) is (fast or wormhole)
+        assert ("ef2_opm_proj" in names) is not wormhole
         assert len(names) == len(set(names))
     # qk_rope_heads in the LM failed ESMFold2's normal bar on Wormhole (qrn) and passed the fast one (qrf).
     # Blackhole keeps the LM as it folded before ESMC took the Wormhole LM path there (no fold graded yet).

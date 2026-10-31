@@ -6,6 +6,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Changed
+- **ESMFold2 on Blackhole runs the MSA outer product's output projection on the shared pair-projection path.** A
+  748-residue fold with a deep MSA on a p150a drops about 0.7 s in both modes (36.04 -> 35.36 s normal, 34.09 -> 33.36 s
+  --fast), and the 512-residue page fold about 0.3 s. Graded over 44 paired folds per mode: normal CA-lDDT -0.0005
+  [-0.0042, +0.0037], --fast +0.0024 [+0.0001, +0.0057]. Wormhole is unchanged.
 - **ESMFold2 and ESMFold2-Fast send a smaller language-model dropout mask for lengths off the 16-residue grid.** The
   mask now crosses to the device bit-packed at every length (at 748 residues 18 MB a loop instead of 286 MB). A
   748-residue fold on a Blackhole p150a drops about 0.5 s (ESMFold2 normal 0.47 s, ESMFold2-Fast normal 0.57 s).

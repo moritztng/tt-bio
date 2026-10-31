@@ -98,6 +98,10 @@ ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the 
 # a silu and a multiply over the whole tensor. With an MSA deeper than max_depth the encoder runs every loop, and on
 # p150a those ops were 2.2 s of a 5.6 s encoder (512 aa, 4096 rows, 1350 MHz, dmc).
 MSA_FFN_FUSED = env_flag("TT_BIO_ESMFOLD2_MSA_FFN_FUSED", None)  # unset: the ef2_msa_ffn lever
+# The outer product's Wout, [L, L, 1024] -> 256, on the shared pair-projection path (tenstorrent._pair_proj_linear)
+# instead of a core_grid linear. ttnn's tall plan for it takes in0_block_w 1: 21 ms a call at 748 aa on p150a
+# (~14 TF/s, 44 calls a deep-MSA fold, d748f) against ~13 ms for the 4x larger outer-product matmul before it.
+OPM_PROJ = env_flag("TT_BIO_ESMFOLD2_OPM_PROJ", None)  # unset: the ef2_opm_proj lever
 
 
 def gate(flag, name):
@@ -1702,6 +1706,12 @@ class OuterProductMean(Module):
                                         dtype=_DTYPE) for q in range(32)]
         return self._wq
 
+    def _wout(self, outer):  # [B,Bl,L,1024] -> [B,Bl,L,256]
+        if gate(OPM_PROJ, "ef2_opm_proj"):
+            from tt_bio import tenstorrent
+            return tenstorrent._pair_proj_linear(outer, self.Wout, self.compute_kernel_config, _DTYPE, bias=self.Wout_b)
+        return self._lin(outer, self.Wout, self.Wout_b)
+
     def _rows_kq(self, a_blk, b, recip_blk, L, M):  # a_blk [B,Bl,M,32], b [B,L,M,32] -> [B,Bl,L,256]
         """out[i,j,c] = sum over (q,m) of b[j,m,q] * U[i,(q,m),c], U[i,m,q,c] = sum_p a[i,m,p] Wout[p*32+q,c].
 
@@ -1735,7 +1745,7 @@ class OuterProductMean(Module):
         r = ttnn.permute(ttnn.reshape(r, (B, Bl, 32, L, 32)), (0, 1, 3, 2, 4))
         outer = ttnn.to_layout(ttnn.reshape(r, (B, Bl, L, 1024)), ttnn.TILE_LAYOUT)
         ttnn.deallocate(r)
-        out = self._lin(outer, self.Wout, self.Wout_b)
+        out = self._wout(outer)
         return ttnn.multiply(out, recip_blk)
 
     def _rows(self, a_blk, b2, recip_blk, L, M):  # a_blk [B,Bl,M,32] -> [B,Bl,L,256]
@@ -1745,7 +1755,7 @@ class OuterProductMean(Module):
         prod = ttnn.matmul(a2, b2, compute_kernel_config=ck, dtype=_DTYPE, core_grid=CORE_GRID_MAIN)  # [B,Bl*32,L*32]
         prod = ttnn.permute(ttnn.reshape(prod, (B, Bl, 32, L, 32)), (0, 1, 3, 2, 4))  # [B,Bl,L,32,32]
         outer = ttnn.reshape(prod, (B, Bl, L, 1024))
-        out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,L,256]
+        out = self._wout(outer)  # [B,Bl,L,256]
         return ttnn.multiply(out, recip_blk)
 
     def _rows_pk(self, a_blk, b2, recip_blk, L, M):
@@ -1773,7 +1783,7 @@ class OuterProductMean(Module):
             return out
         PK.tile_rows(prod, outer, tuple(COMPUTE_GRID_MAIN))
         ttnn.deallocate(prod)
-        out = self._lin(outer, self.Wout, self.Wout_b)  # [B,Bl,Lw,256]
+        out = self._wout(outer)  # [B,Bl,Lw,256]
         ttnn.deallocate(outer)
         if Lw != L:
             real = ttnn.slice(out, [0, 0, 0, 0], [B, Bl, L, int(out.shape[-1])])
