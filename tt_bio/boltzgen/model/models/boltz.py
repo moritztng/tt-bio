@@ -75,6 +75,11 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
                          "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
                          "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16", "atom_k1",
                          "dit_b8", "dit_qkv16", "swiglu_fc12g", "msa_sample", "adaln_mod", "dit_cond_hifi2"})
+# Every arch set also featurizes the next design in a spawned process (bg_featproc) rather than a thread, so its Python
+# no longer takes the GIL from the thread dispatching the current design. Host-only, the designs are byte-identical
+# (bg_R3, seed 0, 6 designs, b,p,p,b on a p300 chip at AICLK mean 1312 MHz, 2026-10-31): fast 15.60 -> 15.08 s/design,
+# host pre 0.98 -> 0.38 s.
+HOST_LEVERS = frozenset({"bg_featproc"})
 # Wormhole adds placement-only levers that design byte-identical CIFs on bg_R3 (seed 0, 6 designs, b,l,l,b on a Galaxy
 # chip at 1000 MHz, spd-m-boltzgen lev 2026-10-26), so they need no grade: atom_l1 normal 57.58 -> 56.43 s/design,
 # fast 52.98 -> 51.84; trimul_bres fast 53.00 -> 51.40 (in normal it read +0.3 s, noise, and stays off).
@@ -89,14 +94,14 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # adaln_mod fuses each fp32 AdaLN modulation into one addcmul and so lets dit_cond_steps condition several DiT steps
 # ahead (without it dit_cond_steps does nothing in normal): 43.3 -> 40.9 s/design at 1000 MHz. Normal grade over seeds
 # 0-7 (2026-10-27, 64 designs): design_ptm +0.001 [-0.010, +0.012], iptm +0.014, complex_plddt -0.002.
-WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
+WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
                                     "trimul_t2", "dit_pad_short", "adaln_mod"}
 # Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
 # attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
 # metric within 0.03 of base (design_ptm -0.016, complex_plddt -0.007, iptm +0.031), filter 32/32 vs 32/32. Speed on a
 # Galaxy chip at 1000 MHz: 50.2 -> 42.1 s/design.
-WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
+WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
                                 "dit_cond_steps"}
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
 # residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
@@ -113,7 +118,7 @@ WH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t
 # 64/64; fast (seeds 0-3)
 # design_ptm +0.022, iptm +0.011, complex_plddt +0.002, filter 32/32. Speed on a p300 chip at ~1320 MHz: normal
 # 22.9 -> 21.2 s/design from dit_qkvf and -0.6 s from the stage, fast 21.3 -> 19.8.
-BH_LEVERS_NORMAL = LEVERS_NORMAL | {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf", "dit_pad_short",
+BH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf", "dit_pad_short",
                                      "dit_bpad", "dit_shard", "dit_fc123g", "triatt_ln", "apb_ln",
                                      "transition_ws", "ws_l1dest", "ws_resid"}
 # Blackhole fast also chunks the token DiT's fused SDPA and stages its bias at 576 (dit_chunk + dit_pad_short, the
@@ -140,7 +145,7 @@ BH_LEVERS_NORMAL = LEVERS_NORMAL | {"trimul_t1", "trimul_t2", "trimul_t2cm", "di
 # 7.40 -> 6.59. Graded as the whole Blackhole stack vs exact BH normal (2026-10-30): normal seeds 0-7 PASS, design_ptm
 # +0.019 [+0.001, +0.041], iptm -0.003, complex_plddt +0.001, filter 64/64; fast seeds 0-3 PASS, design_ptm +0.024
 # [+0.004, +0.044], iptm +0.022, complex_plddt +0.026, filter 32/32.
-BH_LEVERS_FAST = LEVERS_FAST | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
+BH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
                                 "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard", "dit_fc123g",
                                 "triatt_ln", "apb_ln", "triatt_ln_b8", "triatt_ln_b8g",
                                 "transition_ws", "ws_l1dest", "ws_resid"}
