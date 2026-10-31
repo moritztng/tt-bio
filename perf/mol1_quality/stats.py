@@ -16,7 +16,7 @@ from collections import defaultdict
 import numpy as np
 
 # metric -> (higher is better, success threshold or None); FoldBench success definitions
-METRICS = {"dockq": (True, 0.23), "lddt": (True, None), "lddt_pli": (True, 0.8), "lrmsd": (False, 2.0),
+METRICS = {"dockq": (True, 0.23), "lddt": (True, None), "lddt_pli": (True, 0.8), "lig_rmsd": (False, 2.0),
            "plddt": (True, None), "iptm": (True, None), "ptm": (True, None), "ranking_score": (True, None)}
 CALIBRATION = (("plddt", "lddt"), ("iptm", "dockq"))
 N_BOOT, SEED = 20000, 0
@@ -42,8 +42,8 @@ def success(rows, arm, case_set=None):
             best[r["case"]] = r
     out = {}
     for c, r in best.items():
-        if r.get("lrmsd") is not None and r.get("lddt_pli") is not None:
-            out[c] = float(r["lrmsd"] < 2.0 and r["lddt_pli"] > 0.8)
+        if r.get("lig_rmsd") is not None and r.get("lddt_pli") is not None:
+            out[c] = float(r["lig_rmsd"] < 2.0 and r["lddt_pli"] > 0.8)
         elif r.get("dockq") is not None:
             out[c] = float(r["dockq"] >= 0.23)
     return out
@@ -125,3 +125,22 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None):
             ok &= p
     v = "INSUFFICIENT" if insufficient else ("PASS" if ok else "FAIL")
     return {"verdict": v, "metrics": out}
+
+
+def self_test(rows, base="gpu", other="gpu_self"):
+    """Upstream against itself on other seeds: every metric's mean difference interval and the success-rate
+    difference interval must contain 0 (RFD4's first self-test failed this at too few steps)."""
+    rng = np.random.default_rng(SEED)
+    out, ok = {}, True
+    for m in METRICS:
+        d = paired(per_target(rows, other, m), per_target(rows, base, m), rng)
+        if d:
+            out[m] = dict(d, pass_=d["ci95"][0] <= 0 <= d["ci95"][1])
+            ok &= out[m]["pass_"]
+    sb, so = success(rows, base), success(rows, other)
+    keys = sorted(set(sb) & set(so))
+    if len(keys) >= 5:
+        m, lo, hi = boot_mean([so[k] - sb[k] for k in keys], rng)
+        out["success_rate"] = {"mean": m, "ci95": [lo, hi], "n": len(keys), "pass_": lo <= 0 <= hi}
+        ok &= out["success_rate"]["pass_"]
+    return {"verdict": ("PASS" if ok else "FAIL") if out else "INSUFFICIENT", "metrics": out}

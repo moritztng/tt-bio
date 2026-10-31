@@ -35,3 +35,8 @@ def test_accuracy_drop_fails():
 
 def test_too_few_targets_is_insufficient():
     assert stats.verdict(synth(0.0, n=3), test="tt")["verdict"] == "INSUFFICIENT"
+
+
+def test_self_test_passes_a_reseed():
+    rows = [dict(r, arm="gpu_self") if r["arm"] == "tt" else r for r in synth(0.0) if r["arm"] != "gpu_self"]
+    assert stats.self_test(rows)["verdict"] == "PASS"
