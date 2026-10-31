@@ -640,10 +640,11 @@ def load_conformer_table(path) -> dict:
     """{CCD code: {atom name: (3,) float32 array}} from an npz of codes / counts / names / xyz, the
     layout write_conformer_table writes from an upstream CCD pickle."""
     import numpy as np
-    z = np.load(path)
-    off = np.concatenate([[0], np.cumsum(z["counts"])])
-    return {str(c): dict(zip(map(str, z["names"][off[i]:off[i + 1]]), z["xyz"][off[i]:off[i + 1]]))
-            for i, c in enumerate(z["codes"])}
+    with np.load(path) as z:    # each z[key] re-reads its array from the zip, so read every one once
+        codes, counts, names, xyz = (z[k] for k in ("codes", "counts", "names", "xyz"))
+    off = np.concatenate([[0], np.cumsum(counts)])
+    return {str(c): dict(zip(map(str, names[off[i]:off[i + 1]]), xyz[off[i]:off[i + 1]]))
+            for i, c in enumerate(codes)}
 
 
 def with_conformer_table(conformers: dict, mols: dict, table: dict):
