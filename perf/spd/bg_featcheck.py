@@ -13,6 +13,9 @@ def _no_device(*a, **k): raise RuntimeError("featcheck must not open a device")
 for _n in ("open_device", "open_mesh_device", "CreateDevice", "CreateDevices", "GetNumAvailableDevices",
            "GetNumPCIeDevices", "get_device_ids", "get_num_devices"):
     if hasattr(ttnn, _n): setattr(ttnn, _n, _no_device)
+import tt_bio.runtime
+# One "device" keeps the CLI in-process; with several it fans shards out to subprocesses this guard does not reach.
+tt_bio.runtime.detect_tenstorrent_devices = lambda *a, **k: [0]
 from tt_bio.boltzgen.task.predict import predict as P
 
 
