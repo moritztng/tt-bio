@@ -49,7 +49,7 @@ def main():
             cmd = ([sys.executable, str(Path(__file__).with_name("mol1_gpu.py")), "--input", str(a.inputs / f"mol1-{size}.json"),
                    "--size", str(size), "--arm", name, "--k", str(k), "--warm", str(a.warm), "--out", str(d),
                    "--trimul", kern[0], "--triatt", kern[1]] + (["--tf32"] if tf32 else []) + (["--chunk5"] if chunk5 else [])
-                   + (["--compile"] if compile else []))
+                   + (["--compile", compile] if compile else []))
             d.mkdir(parents=True, exist_ok=True)
             with (d.parent / f"{d.name}.log").open("w") as log:
                 rc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT).returncode
@@ -63,8 +63,9 @@ def main():
         for c in a.cells.split():
             size, name, k = c.split(":")
             kern, *opts = name.split("+")
-            assert set(opts) <= {"tf32", "chunk5", "compile"}, f"unknown option in {name}"
-            cell(int(size), name, KERNELS[kern], int(k), **{o: True for o in opts})
+            comp = {"compile": "all", "compiledt": "dt"}
+            assert set(opts) <= {"tf32", "chunk5", *comp}, f"unknown option in {name}"
+            cell(int(size), name, KERNELS[kern], int(k), **{"compile" if o in comp else o: comp.get(o, True) for o in opts})
         return
 
     # 1. kernel arms at 512

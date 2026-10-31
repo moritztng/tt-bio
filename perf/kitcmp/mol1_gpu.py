@@ -7,7 +7,7 @@ to the last process's written output. Round 0 is cold (kernel JIT / autotune), r
 appends one line to `--out/runs.jsonl` as it finishes.
 
     python mol1_gpu.py --input inputs/mol1-512.json --size 512 --arm fpf-triatt --k 2 --warm 5 --out DIR \
-        [--trimul flashpairformer] [--triatt triattention] [--tf32] [--chunk5] [--compile] [--seed0 101]
+        [--trimul flashpairformer] [--triatt triattention] [--tf32] [--chunk5] [--compile all|dt] [--seed0 101]
 
 The recipe (20 cycles, 200 steps, 5 samples, bf16, MSA from the input's a3m files, no templates) is fixed here and
 is NOT settable: an arm that does less work is not an arm.
@@ -19,7 +19,10 @@ from pathlib import Path
 RECIPE = dict(n_cycle=20, n_step=200, n_sample=5, dtype="bf16", use_msa=True, use_template=False)
 # --compile: upstream ships no compile path, so the arm is a regional torch.compile of the repeated blocks (each class
 # compiles once and is reused by every instance), the form that paid on the RFD4 B200 (state/rfd4/gpu/B200.md).
-COMPILE_REGIONS = ("PairformerBlock", "MSABlock", "DiffusionTransformerBlock")
+# "dt" (arm option compiledt) is the diffusion transformer alone: the full set dies in Inductor (KeyError 'op11' in compute_ancestors,
+# torch 2.13) on the first PairformerBlock, whose triangle ops are cuEquivariance/triattention custom kernels.
+COMPILE_REGIONS = {"all": ("PairformerBlock", "MSABlock", "DiffusionTransformerBlock"),
+                   "dt": ("DiffusionTransformerBlock",)}
 
 
 def worker(rank, a, todo, done):
@@ -35,7 +38,7 @@ def worker(rank, a, todo, done):
             import cuequivariance_ops_torch
             cuequivariance_ops_torch.init_triton_cache()  # upstream triangular.py note (5): before compiled trimul
             for m in runner.model.modules():
-                if type(m).__name__ in COMPILE_REGIONS:
+                if type(m).__name__ in COMPILE_REGIONS[a.compile]:
                     m.compile()
         cfg = runner.configs
         cfg.input_json_path = str(a.input)
@@ -71,7 +74,7 @@ def main():
     ap.add_argument("--triatt", default="cuequivariance")
     ap.add_argument("--tf32", action="store_true")
     ap.add_argument("--chunk5", action="store_true", help="denoise the 5 samples together")
-    ap.add_argument("--compile", action="store_true", help="regional torch.compile of COMPILE_REGIONS")
+    ap.add_argument("--compile", choices=sorted(COMPILE_REGIONS), help="regional torch.compile of COMPILE_REGIONS[...]")
     ap.add_argument("--ckpt", default=os.environ.get("MOL1_CKPT"))
     a = ap.parse_args()
     a.out, a.input = a.out.resolve(), a.input.resolve()
