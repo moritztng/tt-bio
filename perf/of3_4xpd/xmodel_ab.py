@@ -31,6 +31,9 @@ def main():
                     help="boltz2 | esmfold2 | protenix-v2 | opendde | openfold3")
     ap.add_argument("--tree", type=Path, required=True, help="source tree to import tt_bio from")
     ap.add_argument("--size", type=int, default=512)
+    # Fold the --size target with this alignment instead of the 35-row page fixture's (served
+    # Boltz-2 inputs carry up to 8192 rows). The processed-MSA cache is keyed on its name.
+    ap.add_argument("--a3m", type=Path, default=None)
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--label", default="arm")
     ap.add_argument("--census", action="store_true")
@@ -156,8 +159,8 @@ def main():
             setattr(owner, meth, _timed(path, getattr(owner, meth)))
 
     fixdir = tree / "perf" / "size512" / "fixtures"
-    tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
-    msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
+    tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", a.a3m or fixdir / f"cdk2x2_{a.size}.a3m"
+    msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}{'_' + a.a3m.stem if a.a3m else ''}"
     # The recycle count is build_fold's argument, not a tt_baseline global: setting B.RECYCLING_STEPS
     # was a no-op, so --recycles folded at the default and the record named the request.
     _bf = {} if a.samples is None else {"samples": a.samples}
@@ -168,7 +171,7 @@ def main():
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
-    res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
+    res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size, "a3m": str(a.a3m) if a.a3m else None,
            "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ab_lever": a.ab_lever, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
