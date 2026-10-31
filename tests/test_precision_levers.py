@@ -328,7 +328,7 @@ def test_dit_pad_short_takes_the_first_length_a_wide_chunk_divides():
 
 def test_mode_levers_keys_the_transition_stack_on_pair_width(monkeypatch):
     """Mol-1's trunk runs at 448 (PairMixer blocks) and 320: it takes the normal-mode transition stack graded at
-    those widths and the triangle attention and DiT levers it shares with Protenix-v2; --fast and the one-width checkpoints keep their sets."""
+    those widths and the triangle attention and DiT levers it shares with Protenix-v2, on Blackhole; --fast and the one-width checkpoints keep their sets."""
     import torch
     from tt_bio.protenix import FAST_LEVERS, NORMAL_LEVERS, WH_FAST_LEVERS, WIDE_NORMAL, WS_NORMAL, Trunk, mode_levers
 
@@ -341,7 +341,7 @@ def test_mode_levers_keys_the_transition_stack_on_pair_width(monkeypatch):
     for wh in (False, True):
         monkeypatch.setattr(T, "is_wormhole", lambda wh=wh: wh)
         monkeypatch.setattr(T, "_FAST_MODE", False)
-        assert mode_levers(mol1) == NORMAL_LEVERS | WIDE_NORMAL and WIDE_NORMAL >= WS_NORMAL
+        assert mode_levers(mol1) == NORMAL_LEVERS | (frozenset() if wh else WIDE_NORMAL) and WIDE_NORMAL >= WS_NORMAL
         assert mode_levers({tr.format(0): torch.zeros(128)}) == NORMAL_LEVERS
         monkeypatch.setattr(T, "_FAST_MODE", True)
         assert mode_levers(mol1) == (WH_FAST_LEVERS if wh else FAST_LEVERS)

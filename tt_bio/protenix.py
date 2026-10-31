@@ -157,6 +157,10 @@ QSPLIT_NORMAL = frozenset({"dit_qsplit"})
 # shares: triangle attention's fused LayerNorm and one-chunk SDPA (TRIATT_LN, TRIATT_K1; each plans per width and
 # declines a shape it does not tile), and the token DiT's q split and device-resident pair (dit_qsplit, pz_device), whose
 # DiT is Protenix-v2's (c_token 768, 16 heads). Graded as one stack on Mol-1 (perf/mol1_pairmix/e2e_ab.sh STACK=1).
+# Mol-1 Blackhole normal, 5sak chain 1 (448 tokens, 4449-row MSA, 20 cycles, 200 steps), base vs this set plus
+# MOL1_BH and the triangle attention planner at 320/448, 3 seeds, p300c at AICLK median 1318-1343: warm fold 86.92 ->
+# 69.92 s (median), same-seed all-atom lDDT 0.997-1.000 vs seed floor 0.970-0.992, pLDDT unchanged. Not on Wormhole
+# until a Galaxy chip grades it.
 WIDE_NORMAL = WS_NORMAL | TRIATT_LN | TRIATT_K1 | QSPLIT_NORMAL | {"pz_device"}
 # triatt_ln_b8 (triatt_ln writes q, k, v bfp8; the head-major bias is narrowed after its permute; the SDPA keeps a
 # bf16 destination) in Protenix-v2's Wormhole --fast set. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
@@ -314,13 +318,14 @@ def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `DIT_MM_WH`, `TRIATT_Q10_WH` and `X8_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
-    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips."""
+    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
+    A multi-width trunk (Mol-1) adds `WIDE_NORMAL` to its Blackhole normal mode."""
     widths = Trunk._pair_widths(state_dict)
     v2 = widths == {256}
-    # The levers that need a width their kernels tile, not Protenix-v2 itself, are keyed on the trunk widths they are
-    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in normal mode.
-    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 else frozenset()
     wh = _T.is_wormhole()
+    # The levers that need a width their kernels tile, not Protenix-v2 itself, are keyed on the trunk widths they are
+    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in Blackhole normal mode, the one chip its grade covers.
+    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 and not wh else frozenset()
     wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
