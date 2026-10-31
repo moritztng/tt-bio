@@ -80,3 +80,20 @@ def test_msa_paths_read_per_copy(tmp_path):
 def test_upstream_validation_errors(bad):
     with pytest.raises(ValueError):
         job_to_doc(bad)
+
+
+def test_stage_writes_yaml_the_bio_reader_accepts(tmp_path):
+    from tt_bio.main import _read_bio_bonds, _read_bio_chains
+    from tt_bio.protenix_json import sidecar, stage
+
+    out = stage(CASES, tmp_path / "staged")
+    ymls = sorted(out.glob("*.yaml"))
+    assert [p.stem for p in ymls] == sorted(j.name for j in read_jobs(CASES))
+    g = out / "glycan_bonds.yaml"
+    chains = _read_bio_chains(g)
+    assert [(c, mt) for c, _s, _m, mt, _mods in chains] == [("A", "protein"), ("B", "ligand")]
+    assert chains[1][1] == "CCD_NAG,NAG"
+    assert _read_bio_bonds(g, chains) == [(("A", 5, "ND2"), ("B", 1, "C1")), (("B", 1, "O4"), ("B", 2, "C1"))]
+    mods = _read_bio_chains(out / "doc_ptm_dna_rna.yaml")[0][4]
+    assert mods == [{"position": 1, "ccd": "HY3"}, {"position": 5, "ccd": "P1L"}]
+    assert sidecar(g) == {"seeds": None, "paired_msa": {}, "unpaired_msa": {}, "templates": {}}

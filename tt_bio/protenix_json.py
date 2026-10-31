@@ -198,3 +198,33 @@ def read_jobs(path) -> list[Job]:
     if not isinstance(data, list):
         raise ValueError(f"{path}: the top level must be a list of jobs")
     return [job_to_doc(j) for j in data]
+
+
+SIDECAR = ".upstream.json"
+
+
+def stage(path, dest) -> Path:
+    """Expand an upstream JSON input into ``dest/<job>.yaml`` per job, each with a ``<job>.upstream.json`` sidecar
+    carrying what YAML has no field for (two-file MSAs, template paths, seeds). Returns ``dest``, which the normal
+    input discovery then walks like any directory of YAML inputs. Job names must be unique, as upstream's output
+    directories are keyed by them."""
+    import yaml
+
+    dest = Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    jobs = read_jobs(path)
+    names = [j.name for j in jobs]
+    dup = sorted({n for n in names if names.count(n) > 1})
+    if dup:
+        raise ValueError(f"{Path(path).name}: job names {dup} repeat; every job needs its own `name`")
+    for j in jobs:
+        (dest / f"{j.name}.yaml").write_text(yaml.safe_dump(j.doc, sort_keys=False))
+        (dest / f"{j.name}{SIDECAR}").write_text(json.dumps(
+            {"seeds": j.seeds, "paired_msa": j.paired_msa, "unpaired_msa": j.unpaired_msa, "templates": j.templates}))
+    return dest
+
+
+def sidecar(yaml_path):
+    """The staged extras for an input written by ``stage``, or None for an ordinary YAML input."""
+    p = Path(yaml_path).parent / (Path(yaml_path).stem + SIDECAR)
+    return json.loads(p.read_text()) if p.exists() else None
