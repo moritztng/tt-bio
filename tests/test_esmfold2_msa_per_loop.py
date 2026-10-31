@@ -72,13 +72,14 @@ def test_lm_dropout_is_upstreams_training_mode_dropout_and_follows_the_seed():
 
 
 def _unpack(w, rows):
-    """`_unpack_keep_dev` on the host: 16-bit words or `_fold_words`' pairs back to `rows` rows."""
-    from tt_bio.esmfold2_runtime import _KEEP_BITS
+    """`_unpack_keep_dev` on the host: 16-bit words or `_fold_words`' pairs back to `rows` rows, slab by slab."""
+    from tt_bio.esmfold2_runtime import _KEEP_BITS, _keep_rows
 
     assert w.dtype == torch.int32
-    halves = rows // (_KEEP_BITS * w.shape[1])
-    return torch.cat([(w >> (j + k * _KEEP_BITS)) & 1 for j in range(_KEEP_BITS) for k in range(halves)],
-                     dim=1).to(torch.bfloat16)
+    W = w.shape[1]
+    halves = _keep_rows(rows) // (_KEEP_BITS * W)
+    slabs = [(w >> (j + k * _KEEP_BITS)) & 1 for j, k in (divmod(i, halves) for i in range(-(-rows // W)))]
+    return torch.cat(slabs, dim=1)[:, :rows].to(torch.bfloat16)
 
 
 def test_packed_keep_round_trips_rows_in_order():
@@ -95,13 +96,25 @@ def test_packed_keep_round_trips_rows_in_order():
     assert _fold_words(odd) is odd
 
 
-def test_prefetched_keep_masks_follow_the_seed_and_keep_one_minus_p():
+def test_packed_keep_pads_a_length_off_the_16_grid():
+    from tt_bio.esmfold2_runtime import _keep_rows, _packed_keep
+
+    assert _keep_rows(512) == 512 and _keep_rows(528) == 528 and _keep_rows(748) == 768 and _keep_rows(20) == 32
+    for L in (20, 40, 748):
+        keep = torch.rand(1, L, 12, 4) >= 0.25
+        w = _packed_keep(keep)
+        assert w.shape == (1, _keep_rows(L) // 32, 12, 4)  # folded: 32 rows a word
+        assert torch.equal(_unpack(w, L), keep.to(torch.bfloat16))
+
+
+@pytest.mark.parametrize("L", [64, 72])  # 72: off the 16 grid, packed over 96 rows
+def test_prefetched_keep_masks_follow_the_seed_and_keep_one_minus_p(L):
     from tt_bio.esmfold2_runtime import _KeepDraws
 
     def draws(seed):
         torch.manual_seed(seed)
-        d = _KeepDraws((1, 64, 64, 8), 0.25, 3)
-        return [_unpack(d.take(), 64) for _ in range(3)]
+        d = _KeepDraws((1, L, 64, 8), 0.25, 3)
+        return [_unpack(d.take(), L) for _ in range(3)]
 
     a, b, c = draws(5), draws(5), draws(6)
     assert all(torch.equal(x, y) for x, y in zip(a, b))

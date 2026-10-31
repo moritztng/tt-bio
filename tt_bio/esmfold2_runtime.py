@@ -721,22 +721,47 @@ def _fold_words(w):
     return w[:, :h] | (w[:, h:] << _KEEP_BITS)
 
 
+def _keep_rows(rows):
+    """Rows the packed keep mask carries for a pair of `rows` rows: `rows` on a multiple of 16, else the next
+    multiple of 32 (an even word count, so `_fold_words` pairs them). The rows past `rows` are padding.
+
+    Without it a length off the 16 grid (15 of 16 lengths, JapanFold's 640-767 aa complexes among them) sent the
+    bf16 mask instead: 286 MB a loop at 748 aa against 18 MB packed, 1.45 s of uploads a fold (p150a, d748)."""
+    return rows if rows % _KEEP_BITS == 0 else -(-rows // (2 * _KEEP_BITS)) * 2 * _KEEP_BITS
+
+
+def _packed_keep(keep):
+    """bool keep mask [B, L, ...] -> `_fold_words(_pack_keep(...))` over `_keep_rows(L)` rows, the padding dropped."""
+    pad = _keep_rows(keep.shape[1]) - keep.shape[1]
+    if pad:
+        keep = torch.cat([keep, keep.new_zeros((keep.shape[0], pad, *keep.shape[2:]))], dim=1)
+    return _fold_words(_pack_keep(keep))
+
+
 def _unpack_keep_dev(w, device, rows):
-    """`_pack_keep`'s words (or `_fold_words`' pairs of them) to the bf16 0/1 mask of `rows` rows on the device."""
+    """`_pack_keep`'s words (or `_fold_words`' pairs of them) to the bf16 0/1 mask of `rows` rows on the device.
+
+    Slab i is bit j + 16 k of every word (j, k = divmod(i, halves)), rows i * W to (i + 1) * W of the mask for W word
+    rows: in row order, so `_keep_rows`' padding is the tail of the last slabs and is never built."""
     import ttnn
     from tt_bio.tenstorrent import upload
 
     wt = upload(w, dtype=ttnn.int32, device=device)
-    halves = rows // (_KEEP_BITS * w.shape[1])
+    W = int(w.shape[1])
+    halves = _keep_rows(rows) // (_KEEP_BITS * W)
     out = []
-    for j in range(_KEEP_BITS):
-        for k in range(halves):  # bit j of the low, then the high half: rows in order
-            s = ttnn.bitwise_right_shift(wt, j + k * _KEEP_BITS) if j or k else wt
-            b = ttnn.bitwise_and(s, 1)
-            if j or k:
-                ttnn.deallocate(s)
-            out.append(ttnn.typecast(b, ttnn.bfloat16))
-            ttnn.deallocate(b)
+    for i in range(-(-rows // W)):
+        j, k = divmod(i, halves)
+        s = ttnn.bitwise_right_shift(wt, j + k * _KEEP_BITS) if i else wt
+        b = ttnn.bitwise_and(s, 1)
+        if i:
+            ttnn.deallocate(s)
+        r = ttnn.typecast(b, ttnn.bfloat16)
+        ttnn.deallocate(b)
+        if (i + 1) * W > rows:
+            full, r = r, ttnn.slice(r, [0, 0, 0, 0], [int(r.shape[0]), rows - i * W, *(int(d) for d in r.shape[2:])])
+            ttnn.deallocate(full)
+        out.append(r)
     ttnn.deallocate(wt)
     m = ttnn.concat(out, dim=1)
     for r in out:
@@ -744,8 +769,12 @@ def _unpack_keep_dev(w, device, rows):
     return m
 
 
+# Off = a length off the 16 grid sends the bf16 mask, as before `_keep_rows` (perf/spd_gap_esmf/ab.py flips it).
+PAD_KEEP = True
+
+
 def _packable(shape):
-    return _PACKED_KEEP and len(shape) == 4 and shape[1] % _KEEP_BITS == 0
+    return _PACKED_KEEP and len(shape) == 4 and (PAD_KEEP or shape[1] % _KEEP_BITS == 0)
 
 
 def _lm_dropout(lm_z, p, keep=None):
@@ -764,7 +793,7 @@ def _lm_dropout(lm_z, p, keep=None):
     if keep is None:
         keep = torch.empty(tuple(t.shape)).bernoulli_(1.0 - p).to(torch.bfloat16)
         if _packable(keep.shape):
-            keep = _fold_words(_pack_keep(keep.bool()))
+            keep = _packed_keep(keep.bool())
     if keep.dtype == torch.int32:
         m = _unpack_keep_dev(keep, t.device(), int(t.shape[1]))
     else:
@@ -799,9 +828,10 @@ class _KeepDraws:
 
     def _draw(self):
         if E.gate(_BIT_DRAW, "ef2_bit_draw") and _packable(self.shape) and _dyadic(self.p):
-            return _fold_words(_draw_packed_keep(self.shape, self.p, self.gen))
+            shape = (self.shape[0], _keep_rows(self.shape[1]), *self.shape[2:])
+            return _fold_words(_draw_packed_keep(shape, self.p, self.gen))
         keep = torch.rand(self.shape, generator=self.gen) >= self.p
-        return _fold_words(_pack_keep(keep)) if _packable(self.shape) else keep.to(torch.bfloat16)
+        return _packed_keep(keep) if _packable(self.shape) else keep.to(torch.bfloat16)
 
     def take(self):
         keep = self.nxt.result()
