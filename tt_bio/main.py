@@ -3359,6 +3359,9 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--use_seeds_in_json", is_flag=True,
               help="Upstream Protenix/Mol-1 JSON input: run every seed in each job's `modelSeeds` instead of "
                    "--seed, one result per seed (upstream's flag of the same name).")
+@click.option("--use_rna_msa", is_flag=True,
+              help="Upstream Protenix/Mol-1 JSON input: use each RNA chain's `unpairedMsa`/`unpairedMsaPath` "
+                   "(upstream's flag of the same name; off, an RNA chain is its query row only).")
 @click.option("--use_msa_server", is_flag=True, help="Generate MSAs via ColabFold API (requires internet)")
 @click.option("--msa_db_path", default=None, type=click.Path(exists=True), help="Local ColabFold DB for offline MSA (default: auto-detect ~/.boltz/msa_db)")
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
@@ -3467,7 +3470,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, partial_t, partial_structure, early_stop_plddt,
             max_parallel_samples, step_scale, output_format, override,
-            seed, use_seeds_in_json, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_seeds_in_json, use_rna_msa, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             use_tfg_guidance, trunk_cache, write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
@@ -3701,6 +3704,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "diffusion_precision": diffusion_precision,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
             "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
+            "use_rna_msa": use_rna_msa,
             "partial_t": partial_t, "partial_structure": partial_structure,
             "early_stop_plddt": early_stop_plddt,
             # Without this key --max_parallel_samples is a silent no-op for every model that

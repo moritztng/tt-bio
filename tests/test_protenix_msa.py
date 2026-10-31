@@ -65,3 +65,13 @@ def test_searched_msas_fill_only_the_chains_the_json_left_out():
     assert out["unpaired_msa"] == {"A": ">q\nMK\n", "B": ">s\nGG\n"}
     assert out["paired_msa"] == {"A": ">q\nMK\n", "B": ">p\nGG\n"}
     assert side["unpaired_msa"] == {"A": ">q\nMK\n"}          # the sidecar itself is untouched
+
+
+def test_rna_msa_is_read_only_under_use_rna_msa():
+    r = "GGAUCC"
+    chains = [ChainMSA("R", 0, "rna", r, unpaired=f">q\n{r}\n>h1\nGGAUCA\n>h2\nGCAUCC\n")]
+    asym, res = torch.zeros(len(r), dtype=torch.long), torch.arange(1, len(r) + 1)
+    off = upstream_msa_features(chains, asym, res)
+    on = upstream_msa_features(chains, asym, res, use_rna_msa=True)
+    assert on["msa"].shape[0] == off["msa"].shape[0] + 2
+    assert (on["msa"][0] == off["msa"][0]).all()
