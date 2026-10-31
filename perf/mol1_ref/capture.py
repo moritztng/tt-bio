@@ -18,6 +18,7 @@ import hashlib
 import json
 import re
 import sys
+import time
 from pathlib import Path
 
 import torch
@@ -35,9 +36,11 @@ KEEP = {
     "distogram_head": ({0}, set()),
     "confidence_head": ({0}, set()),
 }
-# blocks/adapters of the trunk (direct children of these lists): keep the first recycle only
-BLOCK_RE = re.compile(r"^(pairformer_stack\.(blocks|adapters)|msa_module\.blocks|"
-                      r"template_embedder\.pairformer_stack\.blocks)\.[^.]+$")
+# trunk blocks/adapters, first recycle only. Of the 48 pairformer blocks keep the first two, the one after the
+# before_block_8 adapter, the middle and the last: block k's input is block k-1's output, and all 48 at 510 tokens
+# would be ~13 GB a case.
+BLOCK_RE = re.compile(r"^(pairformer_stack\.(blocks\.(0|1|8|23|47)|adapters\.[^.]+)|msa_module\.blocks\.[^.]+|"
+                      r"template_embedder\.pairformer_stack\.blocks\.[^.]+)$")
 METHODS = {  # (module path, method) wrapped like a forward
     ("diffusion_module.diffusion_conditioning", "prepare_cache"),
     ("diffusion_module.atom_attention_encoder", "prepare_cache"),
@@ -80,13 +83,15 @@ class RecordingTorch:
 class Capture:
     def __init__(self, root):
         self.root = Path(root)
-        self.ctx = None
+        self.draws = []
         self.reset()
 
     def reset(self):
-        self.calls, self.counts, self.sampler, self.draws = {}, {}, [], []
+        # cleared in place: the RNG proxies hold a reference to self.draws
+        self.calls, self.counts, self.sampler, self.timeline = {}, {}, [], []
+        self.draws.clear()
         self.features = None
-        self._gen_draws = 0
+        self.t0 = time.perf_counter()
 
     def want(self, name, k):
         """-> "full", "out" or None for call k of module `name`."""
@@ -100,6 +105,8 @@ class Capture:
     def record(self, name, args, kwargs, out):
         k = self.counts.get(name, 0)
         self.counts[name] = k + 1
+        if "." not in name:  # top-level modules: wall time since the forward started, for run planning
+            self.timeline.append((name, k, round(time.perf_counter() - self.t0, 3)))
         if name == "diffusion_module":
             self.sampler.append({"x_noisy": detach(kwargs["x_noisy"]),
                                  "t_hat": detach(kwargs["t_hat_noise_level"]),
@@ -175,6 +182,7 @@ class Capture:
             p = d / fn
             torch.save(obj, p)
             man[fn] = {"bytes": p.stat().st_size, "sha256": sha256(p), "summary": summarize(obj)}
+        (d / "timeline.json").write_text(json.dumps(self.timeline))
         (d / "MANIFEST.json").write_text(json.dumps(man, indent=1, sort_keys=True))
         print(f"[capture] {sample} seed {seed}: {len(files)} files -> {d}", flush=True)
         self.reset()

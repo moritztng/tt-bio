@@ -6,8 +6,8 @@
     "proteinChain": {
      "sequence": "MAEVIRSSAFWRSFPIFEEFDSETLCELSGIASYRKWSAGTVIFQRGDQGDYMIVVVSGRIKLSLFTPQGRELMLRQHEAGALFGEMALLDGQPRSADATAVTAAEGYVIGKKDFLALITQRPKTAEAVIRFLCAQLRDTTDRLETIALYDLNARVARFFLATLRQIHGSEMPQSANLRLTLSQTDIASILGASRPKVNRAILSLEESGAIKRADGIICCNVGRLLSIADPEEDLEHHHHHHHH",
      "count": 1,
-     "pairedMsaPath": "/home/moritz/mol1-upstream/Mol-1/examples/7pzb/msa/1/pairing.a3m",
-     "unpairedMsaPath": "/home/moritz/mol1-upstream/Mol-1/examples/7pzb/msa/1/non_pairing.a3m"
+     "pairedMsaPath": "@MOL1@/examples/7pzb/msa/1/pairing.a3m",
+     "unpairedMsaPath": "@MOL1@/examples/7pzb/msa/1/non_pairing.a3m"
     }
    },
    {
@@ -33,8 +33,8 @@
      "id": [
       "A"
      ],
-     "pairedMsaPath": "/home/moritz/mol1-upstream/Mol-1/examples/7r6r/msa/1/pairing.a3m",
-     "unpairedMsaPath": "/home/moritz/mol1-upstream/Mol-1/examples/7r6r/msa/1/non_pairing.a3m"
+     "pairedMsaPath": "@MOL1@/examples/7r6r/msa/1/pairing.a3m",
+     "unpairedMsaPath": "@MOL1@/examples/7r6r/msa/1/non_pairing.a3m"
     }
    },
    {
@@ -64,7 +64,7 @@
     "rnaSequence": {
      "sequence": "ACCAGGAUGGCCGAGUGGUUAAGGCGUUGGACUUAAGAUCCAAUGGACAUAUGUCCGCGUGGGUUCGAACCCCACUCCUGGUACCA",
      "count": 1,
-     "unpairedMsaPath": "/home/moritz/mol1-upstream/Mol-1/examples/examples_with_rna_msa/9gmw/9gmw_2_all.a3m"
+     "unpairedMsaPath": "@MOL1@/examples/examples_with_rna_msa/9gmw/9gmw_2_all.a3m"
     }
    }
   ],
@@ -79,8 +79,8 @@
     "proteinChain": {
      "sequence": "MGSSHHHHHHSSGLVPRGSHMSGKIQHKAVVPAPSRIPLTLSEIEDLRRKGFNQTEIAELYGVTRQAVSWHKKTYGGRLTTRQIVQQNWPWDTRKPHDKSKAFQRLRDHGEYMRVGSFRTMSEDKKKRLLSWWKMLRDNDLVLEFDPSIEPYEGMAGGGFRYVPRDISDDDLLIRVNEHTQLTAEGELLWSWPDDIEELLSEP",
      "count": 1,
-     "pairedMsaPath": "/home/moritz/mol1-upstream/Mol-1/examples/7r6r/msa/1/pairing.a3m",
-     "unpairedMsaPath": "/home/moritz/mol1-upstream/Mol-1/examples/7r6r/msa/1/non_pairing.a3m",
+     "pairedMsaPath": "@MOL1@/examples/7r6r/msa/1/pairing.a3m",
+     "unpairedMsaPath": "@MOL1@/examples/7r6r/msa/1/non_pairing.a3m",
      "modifications": [
       {
        "ptmType": "CCD_SEP",
@@ -97,7 +97,7 @@
    },
    {
     "ligand": {
-     "ligand": "FILE_/home/moritz/mol1-goldens/inputs/caffeine.sdf",
+     "ligand": "FILE_@GOLDEN@/inputs/caffeine.sdf",
      "count": 1
     }
    },

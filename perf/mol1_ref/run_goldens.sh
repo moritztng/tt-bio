@@ -4,9 +4,10 @@
 # Inputs: cases/<group>.json. Outputs: $GOLDEN_ROOT/<group>/{goldens,pred}/... and one log per group.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-V=/home/moritz/mol1-upstream/venv/bin/python
-export MOL_ROOT_DIR=/home/moritz/mol1-upstream/data
-GOLDEN_ROOT=${GOLDEN_ROOT:-/home/moritz/mol1-goldens}
+ROOT=${ROOT:-$HOME/mol1-upstream/mol1-ref}   # what setup_env.sh built
+V=$ROOT/venv/bin/python
+export MOL_ROOT_DIR=$ROOT/data
+GOLDEN_ROOT=${GOLDEN_ROOT:-$HOME/mol1-goldens}
 SEED=${SEED:-101}
 mkdir -p "$GOLDEN_ROOT/inputs"
 # the FILE_ ligand of the modcov case: caffeine with an ETKDG conformer, fixed seed
@@ -19,8 +20,10 @@ for g in "${@:-msa nomsa template_json}"; do
   for grp in $g; do
     out="$GOLDEN_ROOT/$grp"; mkdir -p "$out"
     echo "== $grp $(date -u +%FT%TZ)"
+    # cases name paths as @MOL1@/examples/... and @GOLDEN@/inputs/...; resolve them for this host
+    sed -e "s#@MOL1@#$ROOT/Mol-1#g" -e "s#@GOLDEN@#$GOLDEN_ROOT#g" "$HERE/cases/$grp.json" > "$out/cases.json"
     $V -I "$HERE/capture.py" --golden_root "$out/goldens" --threads ${THREADS:-8} -- \
-      --input_json_path "$HERE/cases/$grp.json" --dump_dir "$out/pred" \
+      --input_json_path "$out/cases.json" --dump_dir "$out/pred" \
       --load_checkpoint_path "$MOL_ROOT_DIR/checkpoint/mol-1-base.pt" \
       --seeds $SEED --use_seeds_in_json false --dtype fp32 --device cpu \
       --triangle_attention torch --triangle_multiplicative torch \

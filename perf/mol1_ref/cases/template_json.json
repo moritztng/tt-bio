@@ -6,7 +6,7 @@
     "proteinChain": {
      "count": 1,
      "sequence": "QLQLVESGGGSVQAGGSLTLSCTASESISKRIHGIGWFRQRRGEQREEIAYITTGGRPNLGDSVKDRFTISRDKSNGTVYLQMNSLKPEDTAVYYCHGMTAEYRVSAINHGWGQGTQVTVSS",
-     "templatesPath": "/home/moritz/mol1-upstream/Mol-1/examples/example_with_json_template/h_seq.json"
+     "templatesPath": "@MOL1@/examples/example_with_json_template/h_seq.json"
     }
    }
   ],
@@ -22,14 +22,14 @@
     "proteinChain": {
      "count": 1,
      "sequence": "MKEPCFREENANFNKIFLPTIYSIIFLTGIVGNGLVILVMGYQKKLRSMTDKYRLHLSVADLLFVITLPFWAVDAVANWYFGNFLCKAVHVIYTVSLYSSVLILAFISLDRYLAIVHATNSQRPRKLLAEKVVYVGVWIPALLLTIPDFIFANVSEADDRYICDRFYPNDLWVVVFQFQHIMVGLILPGIVILSCYCIIISKLSHSKGHQKRKALKTTVILILAFFACWLPYYIGISIDSFILLEIIKQGCEFENTVHKWISITEALAFFHCCLNPILYAFLGA",
-     "templatesPath": "/home/moritz/mol1-upstream/Mol-1/examples/example_with_json_template/a_seq.json"
+     "templatesPath": "@MOL1@/examples/example_with_json_template/a_seq.json"
     }
    },
    {
     "proteinChain": {
      "count": 1,
      "sequence": "QLQLVESGGGSVQAGGSLTLSCTASESISKRIHGIGWFRQRRGEQREEIAYITTGGRPNLGDSVKDRFTISRDKSNGTVYLQMNSLKPEDTAVYYCHGMTAEYRVSAINHGWGQGTQVTVSS",
-     "templatesPath": "/home/moritz/mol1-upstream/Mol-1/examples/example_with_json_template/h_seq.json"
+     "templatesPath": "@MOL1@/examples/example_with_json_template/h_seq.json"
     }
    }
   ],
