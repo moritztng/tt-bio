@@ -13,7 +13,9 @@ L=${1:?usage: mol1_session.sh <label> <cap_h> [query] [attempts]} CAP_H=${2:?cap
 Q=${3:-'gpu_name=B200 num_gpus=1 cuda_max_good>=13.0 inet_down>=200 reliability>=0.90 dph<=7'}
 MINW=${MINW:-990} MAXW=${MAXW:-1010} SLUG=${SLUG:-mol1-b200}
 # Which script runs on the box. INPUTS=<dir> pushes an already-frozen inputs tree (state/mol1/inputs), so the box
-# reuses those MSAs instead of searching again.
+# reuses those MSAs instead of searching again. QB2=user@host:dir moves bulk data box<->qb2 directly (pc's link
+# cannot carry it): qb2's key is authorized on the box, qb2 pushes dir/inputs to /root/kc/qinputs, and every pull
+# also copies the box's /root/kc/mol1/ref (with CIFs) to qb2 dir/<label>/ref.
 BOX=${BOX:-box_mol1.sh}
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
 HOLD=/home/moritz/.coworker/state/vast-holder; S4=/home/moritz/.coworker/state/mol1
@@ -36,15 +38,18 @@ next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'impor
 t=sys.argv[1].split()
 print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t), ""))' "$TRIED"; }
 
-R(){ timeout 600 rsync -a --exclude '*.cif' -e "${S% root@*}" "$@"; }
+R(){ timeout 600 rsync -a --exclude '*.cif' --exclude 'ref/*/' -e "${S% root@*}" "$@"; }
 # Pull every 3 minutes until MOL1-DONE/FAILED/stopped/cap, then destroy. CIFs stay on the box: the speed arms'
 # structures are not evidence, and on 2026-10-31 pc's ~25 KB/s link hung one pull on 279 MB of them for 35 minutes,
 # which froze this loop (no DONE check, no cap) while the box kept billing.
+QB2=${QB2:-}; Q2="ssh -o BatchMode=yes -o ConnectTimeout=15 ${QB2%%:*}"
+offload(){ [ -z "$QB2" ] && return 0
+  timeout 1800 $Q2 "mkdir -p ${QB2#*:}/$L && rsync -a -e '${S% root@*}' $H:/root/kc/mol1/ref ${QB2#*:}/$L/" 2>/dev/null; }
 watch(){
 END=""
 while :; do
   sleep 180
-  R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
+  R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null; offload
   st=$(timeout 30 $S 'ls /root/kc/mol1/MOL1-DONE' 2>/dev/null)
   [ -n "$st" ] && END=done
   # box_mol1.sh writes MOL1-FAILED when the gate trips or no arm produced a warm batch. Name it, so a
@@ -55,7 +60,7 @@ while :; do
   [ $(( $(date +%s) - T0 )) -ge $(python3 -c "print(int($CAP_H*3600-420))") ] && END=${END:-cap}
   [ -n "$END" ] && break
 done
-R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null
+R $H:/root/kc/mol1/ $OUT/mol1/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null; offload
 log "$I ended: $END"
 destroy $I "session end: $END"
 log "credit \$$(credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
@@ -115,7 +120,10 @@ if x.get("actual_status")=="running":
   $S 'mkdir -p /root/kc' &&
     R $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/mol1_ref.py $P/$BOX $H:/root/kc/ &&
     { [ -z "${INPUTS:-}" ] || R "$INPUTS/" $H:/root/kc/inputs/; } &&
-    echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' ||
+    echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' &&
+    { [ -z "$QB2" ] || { $Q2 'cat ~/.ssh/id_ed25519.pub' | timeout 30 $S 'cat >> /root/.ssh/authorized_keys' &&
+      { $Q2 "rsync -a -e '${S% root@*}' ${QB2#*:}/inputs/ $H:/root/kc/qinputs/ && ${S% root@*} $H touch /root/kc/QINPUTS-DONE" \
+        > $OUT/qinputs.log 2>&1 & }; }; } ||
     { destroy $I "push failed"; continue; }
   # BOXENV carries the box script's knobs across ssh (CELLS, FINAL_WARM, CUDA_VISIBLE_DEVICES). An env var
   # set around this script never reaches the remote shell, so without it a CELLS list silently ran the default.

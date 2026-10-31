@@ -66,6 +66,16 @@ $PY /root/kc/mol1_gpu.py --input $I/mol1-256.json --size 256 --arm gate --warm 0
   fail "gate prediction (tail $B/gate.log)"
 say "gate passed after $(( $(date +%s) - T0 ))s"
 
+# REF=1: the reference predictions (PROTOCOL section 8) instead of the arms. qb2 pushes mol1-quality's tree to
+# /root/kc/qinputs and writes QINPUTS-DONE; K=4 first, then K=1 for whatever that left (a 1024-token case that did not
+# fit four to a GPU). mol1_ref.py skips every job whose summary exists, so a relaunch resumes.
+if [ -n "${REF:-}" ]; then
+  until [ -f /root/kc/QINPUTS-DONE ]; do sleep 30; done
+  for k in 4 1; do
+    (cd /tmp && $PY -I /root/kc/mol1_ref.py --inputs /root/kc/qinputs --out $B/ref --k $k) >> $B/ref.log 2>&1
+  done
+  say "ref done: $(grep -c '"status": "ok"' $B/ref/jobs.jsonl) ok lines"; echo done > $B/MOL1-DONE; exit 0
+fi
 $PY /root/kc/mol1_arms.py --inputs $I --out $B --deadline $DEADLINE --warm ${WARM:-5} --cells "${CELLS:-}" > $B/arms.log 2>&1
 echo $? > $B/ARMS-DONE; say "arms done after $(( $(date +%s) - T0 ))s"
 # REF_SMOKE=1: two reference-prediction jobs (paired + self-test seed) through mol1_ref.py at 256, so a later
