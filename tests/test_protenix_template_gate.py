@@ -21,7 +21,7 @@ from tt_bio import weights
 from tt_bio.main import RECYCLING_STEPS
 
 # model id -> the template pairformer depth its checkpoint must ship for the gate to be inert
-TEMPLATE_STACK_MUST_BE_NONEMPTY = ("protenix-v2", "opendde", "opendde-abag")
+TEMPLATE_STACK_MUST_BE_NONEMPTY = ("protenix-v2", "mol1", "opendde", "opendde-abag")
 TEMPLATE_STACK_MUST_BE_EMPTY = ("protenix-v1",)
 
 

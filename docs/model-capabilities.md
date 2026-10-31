@@ -16,6 +16,7 @@ changing the structure. That prints a warning and the fold runs.
 | `esmfold2-fast` | yes | refused | yes | yes | refused | yes | yes | refused | refused | yes | yes | refused | ignored, warns | refused |
 | `protenix-v1` | yes | yes | yes | yes | yes | refused | yes | refused | refused | yes | yes | refused | ignored, warns | refused |
 | `protenix-v2` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | refused |
+| `mol1` | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | refused |
 | `openfold3` | refused | refused | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns | refused |
 | `openbind` | yes | refused | yes | yes | yes | yes | yes | yes | yes | yes | refused | refused | ignored, warns | refused |
 | `opendde` | yes | refused | yes | yes | yes | yes | yes | yes | yes | yes | yes | refused | ignored, warns | yes |

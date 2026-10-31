@@ -176,7 +176,7 @@ def _probe(model, tmp_path, monkeypatch):
         return _boltz2(tmp_path)
     if model in ("esmfold2", "esmfold2-fast"):
         return _fold(tmp_path, model, _ESMFold2Stub())
-    if model in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag"):
+    if model in ("protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag"):
         return _fold(tmp_path, model, _ProtenixStub())
     if model == "rf3":
         return _write_featurized(tmp_path, model, monkeypatch, "tt_bio.rf3.featurize",

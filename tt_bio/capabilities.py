@@ -104,6 +104,7 @@ CAPABILITY: dict[str, dict[str, str]] = {
     "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, template_structure=REFUSED,
                         pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
     "protenix-v2": _row(pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
+    "mol1": _row(pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
     # OpenDDE's own `constraint:` (contact pairs, epitope) steers its sampler under
     # --use_tfg_guidance (tt_bio/tfg); Boltz-2's `constraints: pocket/contact` it cannot read.
     "opendde": _row(pocket=REFUSED, affinity=NOTED, constraint=HONOURED),
@@ -236,7 +237,7 @@ def _alternatives(feature: str, found, model: str) -> list[str]:
 FLAG_READERS: dict[str, tuple[str, ...]] = {
     # One npz for all of them (tt_bio.confidence_export): PAE everywhere, PDE and contact
     # probabilities where the model has the head.
-    "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag",
+    "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag",
                     "esmfold2", "esmfold2-fast", "openfold3", "openbind", "rf3", "af2ig"),
     # Contact probabilities are read from a distogram head; these are the models that run one.
     "--contact_cutoff": ("boltz2", "opendde", "opendde-abag", "esmfold2", "esmfold2-fast",
@@ -251,8 +252,8 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
     # explicitly, it caps them -- the a3m at `main.cap_a3m_text` for protenix/opendde/rf3,
     # `make_openfold3_msa_features(max_sequences=)` for the OF3 family.
     "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind",
-                       "protenix-v1", "protenix-v2", "opendde", "opendde-abag", "rf3"),
-    "--diffusion_precision": ("protenix-v1", "protenix-v2"),
+                       "protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag", "rf3"),
+    "--diffusion_precision": ("protenix-v1", "protenix-v2", "mol1"),
     # OpenDDE 1.2.0's constraint guidance and its trunk cache (tt_bio/tfg, tt_bio.cache).
     "--use_tfg_guidance": ("opendde", "opendde-abag"),
     "--trunk_cache": ("opendde", "opendde-abag"),
@@ -260,12 +261,11 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
 
 #: (flag, model) -> why that model does not read it, when the generic line is not the reason.
 FLAG_WHY: dict[tuple[str, str], str] = {
-    ("--contact_cutoff", "protenix-v1"): "tt-bio does not run its distogram head, so its "
-                                         "_pae.npz has PAE and PDE but no contact_probs",
-    ("--contact_cutoff", "protenix-v2"): "tt-bio does not run its distogram head, so its "
-                                         "_pae.npz has PAE and PDE but no contact_probs",
+    **{("--contact_cutoff", m): "tt-bio does not run its distogram head, so its "
+                                "_pae.npz has PAE and PDE but no contact_probs"
+       for m in ("protenix-v1", "protenix-v2", "mol1")},
     **{("--write_pde", m): "--write_pae already writes PDE into the same npz as the PAE"
-       for m in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag", "esmfold2",
+       for m in ("protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag", "esmfold2",
                  "esmfold2-fast", "openfold3", "openbind", "rf3")},
     ("--write_pde", "af2ig"): "AF2 has no PDE head",
     ("--max_msa_seqs", "nesso1"): "it conditions on ESM-2 embeddings, not on an alignment, so "
@@ -273,7 +273,7 @@ FLAG_WHY: dict[tuple[str, str], str] = {
     ("--max_msa_seqs", "af2ig"): "AF2-IG is single-sequence on both chains, so there is no "
                                  "depth to cap",
     **{("--diffusion_precision", m): "only Protenix's diffusion precision is selectable per run"
-       for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2")},
+       for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2", "mol1")},
     **{("--use_tfg_guidance", m): "constraint guidance is wired into OpenDDE's sampler only"
        for m in CAPABILITY if m not in ("opendde", "opendde-abag")},
     **{("--trunk_cache", m): "the trunk cache is wired into OpenDDE only"

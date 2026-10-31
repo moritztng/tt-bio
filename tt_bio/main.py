@@ -144,6 +144,7 @@ _MODEL_RESULTS_PREFIX = {
     "esmfold2-fast": "esmfold2_results",
     "protenix-v1": "protenix_results",
     "protenix-v2": "protenix_results",
+    "mol1": "mol1_results",
     "openfold3": "openfold3_results",
     "openbind": "openbind_results",
     "opendde": "opendde_results",
@@ -169,8 +170,10 @@ OF3_FAMILY = ("openfold3", "openbind")
 # protenix-v2 is a later release at c_z 256 with a 2-block template stack and N_cycle 10.
 # tt_bio.protenix reads every one of those off the weights -- Trunk._derive_c_z, n_blocks,
 # trunk_recycles -- so the two ids share the whole model path and differ only in what the
-# checkpoint says. Anything that means "either Protenix checkpoint" reads this tuple.
-PROTENIX_FAMILY = ("protenix-v1", "protenix-v2")
+# checkpoint says. Mol-1 (Molence, e6e64866) is a Protenix-v2 derivative: PairMixer blocks and
+# pair-width adapters in the same Pairformer, also read off its weights. Anything that means
+# "any Protenix-family checkpoint" reads this tuple.
+PROTENIX_FAMILY = ("protenix-v1", "protenix-v2", "mol1")
 
 # Single source of truth for the other two model-choice CLI surfaces (`embed`,
 # `saprot`), for the same reason: anything that needs "every model we ship"
@@ -3109,6 +3112,7 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 #: `configs_inference.py` does not override it and `runner/inference.py::update_inference_configs`
 #: only touches `skip_amp`, so 4 is what that checkpoint ships with. protenix-v2 is a different
 #: release with its own 10. Giving v1 v2's 10 would run 2.5x the trunk the model was trained for.
+#: mol1 is 20, Mol-1's `model.N_cycle` and its `mol pred -c` default.
 #: opendde/opendde-abag keep 10. esmfold2/esmfold2-fast use 10, the ESMFold2 paper's benchmark
 #: protocol (A.2.10: "For all benchmark results ... ESMFold2 uses 10 loops"). rf3 uses 10, its own
 #: inference default (rf3.featurize DEFAULTS n_recycles), and the count is not free-standing
@@ -3121,6 +3125,7 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 RECYCLING_STEPS = {
     "protenix-v1": 4,
     "protenix-v2": 10,
+    "mol1": 20,
     "opendde": 10,
     "opendde-abag": 10,
     "esmfold2": 10,
@@ -3156,6 +3161,11 @@ def _check_recycling_steps(recycling_steps, model):
 SAMPLING_STEPS = {"esmfold2": 100, "esmfold2-fast": 100, "rf3": 50}
 SAMPLING_STEPS_DEFAULT = 200
 SAMPLING_STEPS_EXECUTED = {100: 68, 50: 49}
+
+#: Structures per fold when --diffusion_samples is unset. mol1 is 5, `mol pred -e`'s default, so a
+#: plain `tt-bio predict --model mol1` writes the same five ranked samples upstream does.
+DIFFUSION_SAMPLES = {"mol1": 5}
+DIFFUSION_SAMPLES_DEFAULT = 1
 
 
 def _grouped_defaults(table, default, models):
@@ -3209,7 +3219,7 @@ def _resolve_sampling_steps(sampling_steps, model):
 # single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
 # scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
 # actually used, instead of hand-listing the same set a second time.
-MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "mol1", "openfold3", "openbind", "opendde", "opendde-abag",
                      "rf3")
 
 # The models whose worker path actually passes --msa_endpoint to its MSA search
@@ -3219,7 +3229,7 @@ MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "open
 # is built from this tuple so the two cannot drift: the help used to omit rf3,
 # and passing the flag with --model boltz2 was accepted and then died mid-run
 # with "Missing MSAs", blaming the user for supplying no source.
-MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2",
+MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2", "mol1",
                        "openfold3", "openbind", "opendde", "opendde-abag", "rf3")
 
 
@@ -3327,8 +3337,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    + ". A request of 100 executes 68 (the sigma_max=256 schedule clip) and 50 "
                      "executes 49 (the rollout consumes consecutive schedule pairs). Explicit "
                      "values are honored verbatim.")
-@click.option("--diffusion_samples", default=1, type=int,
-              help="Structures to generate. Samples are denoised in chunks, so device memory stops "
+@click.option("--diffusion_samples", default=None, type=int,
+              help="Structures to generate. Default: "
+                   + _grouped_defaults(DIFFUSION_SAMPLES, DIFFUSION_SAMPLES_DEFAULT, PREDICT_MODELS)
+                   + ". Samples are denoised in chunks, so device memory stops "
                    "growing once the count passes the chunk width and time grows linearly. See "
                    "docs/sample-scaling.md.")
 @click.option("--partial_t", default=0, type=int,
@@ -3530,6 +3542,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # These are counts of things to generate; <1 crashes deep in the model
     # (e.g. "reshape tensor of 0 elements" / "Dimension size must be
     # non-negative"). Reject up front with a clear message.
+    if diffusion_samples is None:
+        diffusion_samples = DIFFUSION_SAMPLES.get(model, DIFFUSION_SAMPLES_DEFAULT)
     if diffusion_samples < 1:
         raise click.BadParameter("--diffusion_samples must be at least 1")
     if partial_t < 0:
