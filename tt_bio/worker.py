@@ -518,6 +518,10 @@ def _paired_msa(path, chains, msa_dir, cfg):
     return paired
 
 
+def _protein(chains) -> bool:
+    return any(mt == "protein" for _c, _s, _sp, mt, _m in chains)
+
+
 def _paired_a3ms(path, chains, msa_dir, cfg):
     """:func:`_paired_msa` as the per-chain list ``build_complex_features`` walks in step
     with ``chains`` (None off protein), capped by ``--max_msa_seqs`` like the unpaired MSA."""
@@ -596,6 +600,26 @@ def _write_upstream_layout(path, cfg, feats, chains, coords, confs) -> None:
 
     po.write(Path(cfg["struct_dir"]).parent, side["job"] if side else path.stem, _target_seed(path, cfg),
              summaries, fulls, write_structure=structure, need_atom_confidence=bool(cfg.get("write_pae")))
+
+
+def stage_input(job: dict, path: Path) -> Path:
+    """A leased job's input written to ``path``, with the sidecar an upstream Protenix / Mol-1 JSON input carries
+    (its MSAs) restored beside it (host_controller.job_payloads)."""
+    from tt_bio.protenix_json import sidecar_path
+
+    path.write_bytes(base64.b64decode(job.get("input_b64", "")))
+    if job.get("sidecar_b64"):
+        sidecar_path(path).write_bytes(base64.b64decode(job["sidecar_b64"]))
+    return path
+
+
+def _left_to_search(path, chains):
+    """The chains an input leaves to the MSA search: all of them, less those an upstream Protenix / Mol-1 JSON
+    gave an alignment for (its sidecar), which upstream never searches."""
+    from tt_bio.protenix_json import sidecar
+    side = sidecar(path)
+    given = set(side["paired_msa"]) | set(side["unpaired_msa"]) if side else set()
+    return [c for c in chains if c[0] not in given]
 
 
 def _with_searched(side: dict, chains, chain_specs, paired_a3ms) -> dict:
@@ -702,14 +726,15 @@ def prefetch_msas(model: str, paths, cfg) -> None:
             # byte-identical a3m files.
             from concurrent.futures import ThreadPoolExecutor
 
-            run = [c for _p, chains in targets for c in chains]
+            run = [c for p, chains in targets for c in _left_to_search(p, chains)]
             with ThreadPoolExecutor(2) as pool:
                 jobs = []
                 if run:
                     jobs.append(pool.submit(search_msas, Path(f"{len(targets)}_targets"), run, cfg))
                 if model in _PAIRS or model in _protenix_family():
                     jobs.append(pool.submit(lambda: [_paired_msa(p, chains, msa_dir, cfg)
-                                                     for p, chains in targets]))
+                                                     for p, chains in targets
+                                                     if _protein(_left_to_search(p, chains))]))
                 for j in jobs:
                     j.result()
     except Exception as e:  # noqa: BLE001 -- see the docstring: the worker searches instead
@@ -1760,11 +1785,11 @@ class _WorkerState:
         # sidecar. A chain that has them is not searched, as upstream does not; the rest are, as upstream does.
         from tt_bio.protenix_json import sidecar
         side = sidecar(path)
-        given = set(side["paired_msa"]) | set(side["unpaired_msa"]) if side else set()
+        left = _left_to_search(path, chains)
 
-        search_msas(path, [c for c in chains if c[0] not in given], cfg, report_progress)
+        search_msas(path, left, cfg, report_progress)
         chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
-        paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg)
+        paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg) if _protein(left) else None
 
         report_progress("prep")
         # `templates:` -> real template features. The template embedder is always on for
@@ -2639,7 +2664,7 @@ def _execute_job(
     emit("start", name=job_id)
     try:
         try:
-            input_path.write_bytes(base64.b64decode(job.get("input_b64", "")))
+            stage_input(job, input_path)
         except Exception as exc:
             raise RuntimeError(f"failed to decode input bytes: {exc}") from exc
 
