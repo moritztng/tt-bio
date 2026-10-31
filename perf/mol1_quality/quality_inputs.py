@@ -139,7 +139,10 @@ def main():
     for cid, job in jobs.items():
         (a.out / f"{safe(cid)}.json").write_text(json.dumps([job], indent=1))
     files = sorted(p for p in a.out.rglob("*") if p.is_file() and p.name != "INDEX.json" and "entry" not in p.parts)
-    idx = {"cases": {cid: f"{safe(cid)}.json" for cid in jobs}, "failed": failed,
+    rec = {c["id"]: c.get("recipe", "default") for c in cases}
+    idx = {"cases": {cid: f"{safe(cid)}.json" for cid in jobs}, "recipes": {cid: rec[cid] for cid in jobs},
+           "headline_only": sorted(c["id"] for c in cases if c["set"] == "headline" and c["id"] in jobs),
+           "failed": failed,
            "sha256": {str(p.relative_to(a.out)): hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
            "note": "run with cwd = this directory; MSA/template/FILE_ paths in the JSONs are relative to it"}
     (a.out / "INDEX.json").write_text(json.dumps(idx, indent=1))
