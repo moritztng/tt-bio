@@ -1,80 +1,77 @@
-# Unit tests for the Protenix-v2 MSA featurizer (tt_bio.protenix_data.protein_msa_features).
-# Self-contained (synthetic a3m, no device/checkpoint) -- checks the protenix MSA conventions:
-# AF token order, gap=31, lowercase insertions -> deletions, profile = column frequency,
-# deletion_value = arctan(d/3)*2/pi, row dedup, and the not-aligned fallback.
-import math
-
+"""tt_bio.protenix_msa: upstream's MSA assembly on tt-bio chains. CPU only. Exactness vs upstream's own featurizer
+is pinned by tests/test_mol1_features.py once the feature goldens exist; this pins the adapter's shape rules."""
 import torch
 
-from tt_bio.protenix_data import build_protein_features, protein_msa_features
+from tt_bio.protenix_msa import ChainMSA, upstream_msa_features
 
-# query ACDEF; s1 has an insertion ('a') before C; s2 has a gap at col 2; s3 duplicates query
-A3M = ">q\nACDEF\n>s1\nAaCDEF\n>s2\nAC-EF\n>s3\nACDEF\n"
-QUERY = "ACDEF"  # A=0, C=4, D=3, E=6, F=13 in AF restype order
-
-
-def test_msa_features_conventions():
-    f = protein_msa_features(A3M, QUERY)
-    # 4 rows -> 3 after de-duplicating the query-identical s3
-    assert f["msa"].shape == (3, 5), f["msa"].shape
-    assert f["msa"][0].tolist() == [0, 4, 3, 6, 13]            # query row == query aatype
-    assert f["msa"][2].tolist() == [0, 4, 31, 6, 13]           # s2 gap -> token 31
-    # insertion before C in s1 -> deletion at column 1 only
-    assert f["has_deletion"][1].tolist() == [0, 1, 0, 0, 0]
-    assert abs(float(f["deletion_value"][1, 1]) - math.atan(1 / 3) * 2 / math.pi) < 1e-6
-    # profile: per-column frequency over 32 classes, sums to 1; col2 is gap in 1/3 of rows
-    assert torch.allclose(f["profile"].sum(-1), torch.ones(5), atol=1e-5)
-    assert abs(float(f["profile"][2, 31]) - 1 / 3) < 1e-6
-    assert abs(float(f["profile"][0, 0]) - 1.0) < 1e-6           # col0 is A in all rows
+A = "MKTAYIAKQR"
+B = "GSHMLLE"
 
 
-def test_msa_not_aligned_falls_back():
-    # a3m query length (5) != requested query length (7) -> None (caller folds single-seq)
-    assert protein_msa_features(A3M, "ACDEFGH") is None
+def test_heterodimer_pairs_and_ligand_gets_query_row():
+    pa = f">101\n{A}\n>UniRef100_X_9606/\n{A[:-1]}W\n"
+    pb = f">101\n{B}\n>UniRef100_Y_9606/\n{B[:-1]}K\n"
+    chains = [ChainMSA("A", 0, "protein", A, paired=pa, unpaired=f">q\n{A}\n>u\nMKTAYIAKQa-\n"),
+              ChainMSA("B", 1, "protein", B, paired=pb),
+              ChainMSA("C", 2, "ligand", "", n_atoms=3)]
+    asym = torch.tensor([0] * len(A) + [1] * len(B) + [2] * 3)
+    res = torch.cat([torch.arange(1, len(A) + 1), torch.arange(1, len(B) + 1), torch.ones(3, dtype=torch.long)])
+    f = upstream_msa_features(chains, asym, res)
+    n_tok = len(A) + len(B) + 3
+    assert f["msa"].shape[1] == n_tok and f["profile"].shape == (n_tok, 32) and f["deletion_mean"].shape == (n_tok,)
+    # row 0 is the query everywhere; the paired homolog row carries both chains' hits
+    assert f["msa"][0, len(A) - 1] == 1 and f["msa"][1, len(A) - 1] == 17           # R query, W hit (AF order)
+    assert f["msa"][1, len(A) + len(B) - 1] == 11                                  # K hit on chain B, same row
+    lig = f["msa"][:, len(A) + len(B):]
+    assert (lig == 20).all()          # ligand tokens: UNK query broadcast into otherwise all-gap rows
 
 
-def test_build_features_msa_vs_single():
-    single = build_protein_features(QUERY)
-    withmsa = build_protein_features(QUERY, a3m=A3M)
-    assert single["msa"].shape[0] == 1
-    assert withmsa["msa"].shape[0] == 3
-    # query row of the MSA equals the single-sequence msa (the query itself)
-    assert withmsa["msa"][0].tolist() == single["msa"][0].tolist()
+def test_monomer_without_alignment_is_query_rows():
+    # upstream keeps the (query-only) paired block ahead of the unpaired one even without pairing: 2 query rows
+    f = upstream_msa_features([ChainMSA("A", 0, "protein", A)], torch.zeros(len(A), dtype=torch.long),
+                              torch.arange(1, len(A) + 1))
+    assert f["msa"].shape == (2, len(A)) and (f["msa"][0] == f["msa"][1]).all()
+    assert float(f["has_deletion"].sum()) == 0
 
 
-def _rows(n, k=5):
-    """n distinct alignment rows over ACDEF, query first."""
-    aa, out = "ACDEFGHIKLMNPQRSTVWY", ["ACDEF"]
-    i = 0
-    while len(out) < n:
-        s = "".join(aa[(i // 20 ** j) % 20] for j in range(k))
-        i += 1
-        if s not in out:
-            out.append(s)
-    return out
+def test_sidecar_features_on_built_complex():
+    import os
+
+    import pytest
+
+    from tt_bio.protenix_data import build_complex_features
+    from tt_bio.protenix_msa import features_from_sidecar
+
+    mols = os.path.expanduser("~/.boltz/mols")
+    if not os.path.isdir(mols):
+        pytest.skip("CCD mols dir missing")
+    chains = [("A", A, None, "protein", None), ("B", A, None, "protein", None), ("C", "CCD_NAG", None, "ligand", None)]
+    feats = build_complex_features([(s, None, mt) for _c, s, _p, mt, _m in chains], mol_dir=mols)
+    u = f">q\n{A}\n>h1\nMKTAYIAKQW\n"
+    side = {"paired_msa": {}, "unpaired_msa": {"A": u, "B": u}, "templates": {}, "seeds": None}
+    f = features_from_sidecar(feats, chains, side)
+    n_tok = feats["restype"].shape[0]
+    assert f["msa"].shape[1] == n_tok and f["profile"].shape == (n_tok, 32)
+    assert (f["msa"][:, 2 * len(A):] == 20).all()          # 14 NAG atom tokens: UNK query row broadcast
 
 
-def test_pool_crops_to_upstream_rows_after_the_profile(monkeypatch):
-    # Upstream assembles at most MSA_POOL_ROWS rows and reads nothing past them; the profile is
-    # taken over the chain's whole alignment first, as upstream takes it.
-    import tt_bio.protenix_data as PD
-    monkeypatch.setattr(PD, "MSA_POOL_ROWS", 6)
-    rows = _rows(9)
-    a3m = "".join(f">{i}\n{s}\n" for i, s in enumerate(rows))
-    f = build_protein_features(QUERY, a3m=a3m)
-    whole = protein_msa_features(a3m, QUERY)
-    assert f["msa"].shape[0] == 6
-    assert torch.equal(f["msa"], whole["msa"][:6])
-    assert torch.equal(f["profile"], whole["profile"])
+def test_searched_msas_fill_only_the_chains_the_json_left_out():
+    from tt_bio.worker import _with_searched
+    side = {"seeds": None, "paired_msa": {"A": ">q\nMK\n"}, "unpaired_msa": {"A": ">q\nMK\n"}, "templates": {}}
+    chains = [("A", "MK", None, "protein", None), ("B", "GG", None, "protein", None),
+              ("L", "CCD_ATP", None, "ligand", None)]
+    specs = [("MK", ">s\nMK\n", "protein"), ("GG", ">s\nGG\n", "protein"), ("CCD_ATP", None, "ligand")]
+    out = _with_searched(side, chains, specs, [">p\nMK\n", ">p\nGG\n", None])
+    assert out["unpaired_msa"] == {"A": ">q\nMK\n", "B": ">s\nGG\n"}
+    assert out["paired_msa"] == {"A": ">q\nMK\n", "B": ">p\nGG\n"}
+    assert side["unpaired_msa"] == {"A": ">q\nMK\n"}          # the sidecar itself is untouched
 
 
-def test_pool_keeps_half_paired_then_fills_unpaired(monkeypatch):
-    import tt_bio.protenix_data as PD
-    monkeypatch.setattr(PD, "MSA_POOL_ROWS", 8)
-    rows = _rows(12)
-    a3m = "".join(f">{i}\n{s}\n" for i, s in enumerate(rows))
-    f = PD.build_complex_features([(QUERY, a3m), (QUERY, a3m)], paired_a3ms=[a3m, a3m])
-    # 4 paired rows counting the query (which sits in the unpaired block), 4 unpaired: 3 + 5.
-    assert f["msa"].shape[0] == 8
-    paired_only = f["msa"][:3, :5]
-    assert paired_only.tolist() == protein_msa_features(a3m, QUERY)["msa"][1:4].tolist()
+def test_rna_msa_is_read_only_under_use_rna_msa():
+    r = "GGAUCC"
+    chains = [ChainMSA("R", 0, "rna", r, unpaired=f">q\n{r}\n>h1\nGGAUCA\n>h2\nGCAUCC\n")]
+    asym, res = torch.zeros(len(r), dtype=torch.long), torch.arange(1, len(r) + 1)
+    off = upstream_msa_features(chains, asym, res)
+    on = upstream_msa_features(chains, asym, res, use_rna_msa=True)
+    assert on["msa"].shape[0] == off["msa"].shape[0] + 2
+    assert (on["msa"][0] == off["msa"][0]).all()

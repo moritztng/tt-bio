@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import contextlib
+import functools
 import gc
 import json
 import os
@@ -549,6 +550,63 @@ def _tfg_guidance(path, cfg, feats, chains, bonds):
     return Guidance(gfeats)
 
 
+def _target_seed(path, cfg) -> int:
+    """The sampler seed for one target: the seed an upstream JSON job was staged for, else ``--seed``."""
+    from tt_bio.protenix_json import sidecar
+    side = sidecar(path)
+    if side and side.get("seed") is not None:
+        return int(side["seed"])
+    return int(cfg.get("seed") or 0)
+
+
+@functools.lru_cache(maxsize=2)
+def _conformer_table(path):
+    """A model's own reference conformers (protenix_data.load_conformer_table), read once per path; None
+    keeps the CCD ideal ones."""
+    from tt_bio.protenix_data import load_conformer_table
+    return load_conformer_table(path) if path else None
+
+
+def _write_upstream_layout(path, cfg, feats, chains, coords, confs) -> None:
+    """``<results>/<job>/seed_<s>/predictions/`` exactly as Mol-1 / Protenix write it (tt_bio.protenix_output), from
+    the per-sample confidence logits and the fold's contact probabilities the engine puts in each conf."""
+    from tt_bio import protenix_output as po
+    from tt_bio.main import _write_protenix_structure
+    from tt_bio.protenix_data import MOL_TYPE_IDS
+    from tt_bio.protenix_json import sidecar
+
+    side = sidecar(path)
+    a2t = feats["atom_to_token_idx"].long().cpu()
+    stack = lambda k: torch.stack([c[k].float().cpu() for c in confs])  # noqa: E731
+    xyz = torch.stack([torch.as_tensor(c).float().cpu().reshape(-1, 3) for c in coords])
+    summaries, fulls = po.summarize(
+        stack("pae_logits"), stack("plddt_logits"), stack("pde_logits"), confs[0]["contact_probs"].float().cpu(),
+        feats["asym_id"].long().cpu(), po.token_frames(feats), xyz, a2t,
+        (feats["mol_type"].cpu() != MOL_TYPE_IDS["ligand"])[a2t].long(), int(cfg.get("recycling_steps") or 0))
+
+    def structure(i, out, b_factor):
+        _write_protenix_structure(coords[i], feats, None, out, "cif", b_factors=torch.as_tensor(b_factor),
+                                  mod_names=_artifact_residue_names(chains), chain_ids=[cid for cid, *_r in chains])
+
+    po.write(Path(cfg["struct_dir"]).parent, side["job"] if side else path.stem, _target_seed(path, cfg),
+             summaries, fulls, write_structure=structure, need_atom_confidence=bool(cfg.get("write_pae")))
+
+
+def _with_searched(side: dict, chains, chain_specs, paired_a3ms) -> dict:
+    """The sidecar's alignments, with the searched unpaired (and paired) a3m filled in for each protein chain the
+    JSON gave none for."""
+    given = set(side["paired_msa"]) | set(side["unpaired_msa"])
+    out = {**side, "paired_msa": dict(side["paired_msa"]), "unpaired_msa": dict(side["unpaired_msa"])}
+    for k, (cid, _s, _sp, mt, _m) in enumerate(chains):
+        if mt != "protein" or cid in given:
+            continue
+        if chain_specs[k][1]:
+            out["unpaired_msa"][cid] = chain_specs[k][1]
+        if paired_a3ms and paired_a3ms[k]:
+            out["paired_msa"][cid] = paired_a3ms[k]
+    return out
+
+
 def search_msas(path, chains, cfg, progress=None) -> None:
     """Search the unpaired a3m of every protein chain the input left to the search and the
     cache lacks, batched into one call, into ``cfg["msa_dir"]``. Touches no device.
@@ -670,7 +728,9 @@ def _artifact_residue_names(chains) -> dict:
     names = {}
     for ci, (_cid, seq, _spec, mol_type, mods) in enumerate(chains):
         if mol_type == "ligand" and str(seq).upper().startswith("CCD_"):
-            names[(ci, 1)] = str(seq)[4:].upper()
+            # a multi-CCD ligand (glycan "CCD_NAG,NAG") is one residue per component
+            for r, code in enumerate(str(seq)[4:].upper().split(","), start=1):
+                names[(ci, r)] = code.strip()
         for m in mods or ():
             names[(ci, int(m["position"]))] = str(m["ccd"]).upper()
     return names
@@ -1665,7 +1725,7 @@ class _WorkerState:
         with torch.no_grad(), self._maybe_ref_bf16():
             coords, conf = self.model.fold(
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                seed=_target_seed(path, cfg), progress_fn=report_progress,
                 n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
                 return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"),
                 distogram=bool(cfg.get("write_pae")), guidance=guidance, trunk_cache=trunk_cache)
@@ -1690,8 +1750,13 @@ class _WorkerState:
                            output_format=cfg.get("output_format"))
         bonds = _read_bio_bonds(path, chains)   # covalent bonds + ring closures -> token_bonds
         msa_dir = Path(cfg["msa_dir"])
+        # An input staged from upstream Protenix/Mol-1 JSON carries its paired and unpaired alignments in a
+        # sidecar. A chain that has them is not searched, as upstream does not; the rest are, as upstream does.
+        from tt_bio.protenix_json import sidecar
+        side = sidecar(path)
+        given = set(side["paired_msa"]) | set(side["unpaired_msa"]) if side else set()
 
-        search_msas(path, chains, cfg, report_progress)
+        search_msas(path, [c for c in chains if c[0] not in given], cfg, report_progress)
         chain_specs = _build_chain_specs(chains, msa_dir, cfg, protein_only=True)
         paired_a3ms = _paired_a3ms(path, chains, msa_dir, cfg)
 
@@ -1709,7 +1774,18 @@ class _WorkerState:
                                        paired_a3ms=paired_a3ms,
                                        modifications=[mods for *_x, mods in chains],
                                        templates=[tmpl_map.get(cid) for cid, *_r in chains],
-                                       template_dir=tmpl_dir)
+                                       template_dir=tmpl_dir,
+                                       conformer_table=_conformer_table(cfg.get("conformer_table")))
+        # A JSON input's MSA features are built exactly as upstream builds them, from the sidecar alignments
+        # plus the searched ones for chains it left out. Ordinary YAML/FASTA inputs have no sidecar.
+        if side and not cfg.get("single_sequence"):
+            from tt_bio.protenix_msa import features_from_sidecar
+            feats.update(features_from_sidecar(feats, chains, _with_searched(side, chains, chain_specs, paired_a3ms),
+                                               use_rna_msa=bool(cfg.get("use_rna_msa"))))
+        if side:
+            # its templates too: templatesPath hits under --use_template, upstream's empty set otherwise
+            from tt_bio import protenix_templates_json as ptj
+            feats.update(ptj.features_from_sidecar(feats, chains, side, bool(cfg.get("use_template"))))
         return feats, chains, chain_specs
 
     def _protenix_emit(self, path: Path, cfg: dict[str, Any], feats, chains, chain_specs,
@@ -1754,6 +1830,10 @@ class _WorkerState:
             # (AbAg-XM audit 2026-07-27). Absent for a monomer.
             row.update(_chain_rows(c))
             return row
+
+        if "pae_logits" in confs[0]:
+            # upstream's own layout and confidence files (D6), beside tt-bio's structures/ + results row
+            _write_upstream_layout(path, cfg, feats, chains, coords, confs)
 
         best = confs[order[0]]
         metrics = {
@@ -1802,7 +1882,7 @@ class _WorkerState:
         with torch.no_grad(), self._maybe_ref_bf16():
             coords, conf = self.model.fold(
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                seed=_target_seed(path, cfg), progress_fn=report_progress,
                 return_confidence=True, n_cycles=cfg.get("recycling_steps"),
                 max_parallel_samples=cfg.get("max_parallel_samples"),
                 # Without this --trace was a silent no-op for --model protenix-v2: main.py
@@ -1824,7 +1904,8 @@ class _WorkerState:
         atom and token counts (bucket first) -- a mismatch raises.
         """
         if (cfg.get("model") not in _protenix_family() or len(paths) == 1
-                or int(cfg["diffusion_samples"]) != 1):
+                or int(cfg["diffusion_samples"]) != 1
+                or any(_target_seed(p, cfg) != (cfg.get("seed") or 0) for p in paths)):
             return [self.predict_one(p, cfg) for p in paths]
 
         from tt_bio.esmfold2 import report_progress

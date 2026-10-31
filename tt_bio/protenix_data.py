@@ -29,6 +29,8 @@ always-on padding.
 
 from __future__ import annotations
 
+import functools
+import json
 import math
 
 import torch
@@ -291,10 +293,14 @@ def _resolve_bond_token(placement: dict, cid, res, atom) -> int:
     p = placement[cid]
     start = p["start"]
     if p["mt"] == "ligand":
-        if p["atoms"] is None or atom not in p["atoms"]:
-            raise ValueError(f"bond constraint references atom '{atom}' on ligand '{cid}', "
+        # A one-residue ligand takes its atom by name whatever residue is given; a multi-CCD
+        # ligand (glycan) needs the residue too, 1-indexed in component order.
+        key = (1 if p["n"] == 1 else int(res), atom)
+        if p["atoms"] is None or key not in p["atoms"]:
+            where = f"residue {res} of ligand '{cid}'" if p["n"] > 1 else f"ligand '{cid}'"
+            raise ValueError(f"bond constraint references atom '{atom}' on {where}, "
                              "which has no such atom.")
-        return start + p["atoms"][atom]
+        return start + p["atoms"][key]
     res = int(res)
     if not (1 <= res <= p["n"]):
         raise ValueError(f"bond constraint references residue {res} on chain '{cid}', "
@@ -318,7 +324,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
                            chain_ids: list | None = None, bonds: list | None = None,
                            paired_a3ms: list | None = None, oxt: list | None = None,
                            modifications: list | None = None, templates: list | None = None,
-                           template_dir: str | None = None) -> dict:
+                           template_dir: str | None = None, conformer_table: dict | None = None) -> dict:
     """Multi-chain biomolecular complex -> model-ready input_feature_dict.
 
     chains: list of (sequence, a3m_or_None[, mol_type]); mol_type is "protein" (default),
@@ -357,12 +363,15 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     templates: optional list parallel to `chains`, each a `templates:` alignment npz for that
     protein chain or None, with the template coordinates under `template_dir`. Without one the
     template features are `dummy_template_features` -- all-gap, zero geometry -- which is what
-    every fold got before, so an input with no templates is byte-identical."""
+    every fold got before, so an input with no templates is byte-identical.
+    conformer_table: a model's own reference conformers ({CCD code: {atom name: xyz}},
+    load_conformer_table). Atoms it names take its coordinates in place of the CCD ideal ones;
+    None keeps the ideal ones."""
     norm = [(e[0], e[1], e[2] if len(e) > 2 else "protein") for e in chains]
     conformers = load_ref_conformers()
     # CCD codes needed from the `mols` library: nucleic-acid residues + CCD ligands.
     ccd_codes = {c for seq, _, mt in norm if mt in ("rna", "dna") for c in _na_res_codes(seq, mt)}
-    ccd_codes |= {seq[4:] for seq, _, mt in norm if mt == "ligand" and seq.startswith("CCD_")}
+    ccd_codes |= {c for seq, _, mt in norm if mt == "ligand" and seq.startswith("CCD_") for c in _ccd_list(seq)}
     ccd_codes |= {str(m["ccd"]).upper() for ms in (modifications or []) if ms for m in ms}
     mols = {}
     if ccd_codes:
@@ -374,6 +383,8 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             raise ValueError(
                 f"{code!r} is not a CCD component this build knows; check the code in the "
                 "input's `ligand:` or `modifications:` block.") from e
+    if conformer_table is not None:
+        conformers, mols = with_conformer_table(conformers, mols, conformer_table)
 
     entity_of = {}                                   # (mol_type, sequence) -> entity_id
     sym_counter = {}                                 # entity_id -> next copy index
@@ -387,8 +398,18 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     for ci, (seq, a3m, mt) in enumerate(norm):
         lig_names, res_tok, res_atoms = None, None, {}
         msa_col = None
-        if mt == "ligand":
-            af, n, lbonds, lig_names = ligand_atom_features(_ligand_mol(seq, mols))
+        if mt == "ligand" and seq.startswith("CCD_"):
+            # One residue per CCD component (a glycan "NAG,NAG" is residues 1 and 2), each
+            # tokenized per atom; the leaving atoms a covalent bond consumes are dropped.
+            drops = _ccd_leaving_drops(seq, mols, chain_ids[ci] if chain_ids is not None else None,
+                                       bonds)
+            af, n, lbonds, lig_names, res_index = ccd_ligand_features(seq, mols, drops)
+            rt_idx = torch.full((n,), 20, dtype=torch.long)   # ligand atoms are restype UNK
+            n_res = int(res_index.max())
+            block_bonds.append((tok_off, lbonds))
+        elif mt == "ligand":
+            af, n, lbonds, names = ligand_atom_features(_ligand_mol(seq, mols))
+            lig_names = [(1, nm) for nm in names]
             rt_idx = torch.full((n,), 20, dtype=torch.long)   # ligand atoms are restype UNK
             res_index = torch.ones(n, dtype=torch.long)       # all atoms share residue_index 1
             n_res = 1
@@ -411,7 +432,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
             n = rt_idx.shape[0]
             n_res = len(res_tok)
             if mbonds is not None:                            # modified residues: CCD bonds
-                block_bonds.append((tok_off, mbonds))         # + the backbone link, block-placed
+                block_bonds.append((tok_off, mbonds))         # block-placed
         eid = entity_of.setdefault((mt, seq), len(entity_of))
         sid = sym_counter.get(eid, 0); sym_counter[eid] = sid + 1
         restype.append(torch.nn.functional.one_hot(rt_idx.clamp(max=RESTYPE_DIM - 1), RESTYPE_DIM).float())
@@ -437,7 +458,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
                                    *chain_template_arrays(len("".join(str(seq).split())),
                                                           entries, template_dir)))
         if chain_ids is not None:
-            name_to_local = {nm: i for i, nm in enumerate(lig_names)} if lig_names is not None else None
+            name_to_local = {rn: i for i, rn in enumerate(lig_names)} if lig_names is not None else None
             placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res,
                                              "atoms": name_to_local, "res_tok": res_tok,
                                              "res_atoms": res_atoms,
@@ -576,6 +597,49 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     return feats
 
 
+def load_conformer_table(path) -> dict:
+    """{CCD code: {atom name: (3,) float32 array}} from an npz of codes / counts / names / xyz, the
+    layout scripts/mol1_io/ccd_conformers.py writes from an upstream CCD cache."""
+    import numpy as np
+    z = np.load(path)
+    off = np.concatenate([[0], np.cumsum(z["counts"])])
+    return {str(c): dict(zip(map(str, z["names"][off[i]:off[i + 1]]), z["xyz"][off[i]:off[i + 1]]))
+            for i, c in enumerate(z["codes"])}
+
+
+def with_conformer_table(conformers: dict, mols: dict, table: dict):
+    """The standard-residue conformers and CCD mols with every atom the table names moved to its
+    coordinates. A residue conformer gains an OXT row when the table has one (protein_atom_features
+    reads it there). The mols are copies; the shared library is left alone."""
+    from rdkit import Chem
+    from rdkit.Geometry import Point3D
+    conformers = dict(conformers)
+    for res, conf in list(conformers.items()):
+        own = table.get(res)
+        if not own:
+            continue
+        names = residue_atoms(res)
+        conf = torch.as_tensor(conf, dtype=torch.float32).clone()[:len(names)]
+        for k, nm in enumerate(names[:conf.shape[0]]):
+            if nm in own:
+                conf[k] = torch.as_tensor(own[nm])
+        if "OXT" in own:
+            conf = torch.cat([conf, torch.as_tensor(own["OXT"])[None]], 0)
+        conformers[res] = conf
+    out = {}
+    for code, mol in mols.items():
+        own = table.get(code)
+        if own:
+            mol = Chem.Mol(mol)
+            c = mol.GetConformer()
+            for a in mol.GetAtoms():
+                nm = a.GetProp("name") if a.HasProp("name") else None
+                if nm in own:
+                    c.SetAtomPosition(a.GetIdx(), Point3D(*map(float, own[nm])))
+        out[code] = mol
+    return conformers, out
+
+
 def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> dict:
     """Atom-level features for a single offline protein chain.
 
@@ -606,10 +670,13 @@ def protein_atom_features(aatype: torch.Tensor, conformers: dict, oxt=None) -> d
         disto_atom = const.res_to_disto_atom.get(res, "CA")  # distogram rep atom (CB, or CA for GLY)
         conf = torch.as_tensor(conformers[res], dtype=torch.float32)
         if bool(oxt[t]) if oxt is not None else t == n_tok - 1:  # C-terminal carboxylate O
-            # synthesize OXT as the carboxylate mirror of O through C (any valid ref conformer)
+            # OXT from a conformer that carries it (one row past the residue's atoms), else the
+            # carboxylate mirror of O through C (any valid ref conformer)
             c_i, o_i = atoms.index("C"), atoms.index("O")
             atoms = atoms + ["OXT"]
-            conf = torch.cat([conf, (2 * conf[c_i] - conf[o_i])[None]], 0)
+            if conf.shape[0] < len(atoms):
+                conf = torch.cat([conf, (2 * conf[c_i] - conf[o_i])[None]], 0)
+        conf = conf[:len(atoms)]
         for k, nm in enumerate(atoms):
             elem_idx.append(z_of[nm[0]] - 1)
             ref_charge.append(_FORMAL_CHARGE.get((res, nm), 0.0))
@@ -744,11 +811,20 @@ def na_atom_features(res_codes: list, mols: dict, first_res: bool = True) -> dic
                                    ref_charge, ref_mask, a2t, ruid, tokatom, disto_rep, name_chars)
 
 
-#: The atom that bonds a residue to the previous one, and the one that bonds it to the next.
-#: Used to link a modified residue's ATOM tokens into the chain, since only that residue is
-#: tokenized per atom and its neighbours are single residue tokens.
-_BACKBONE_LINK = {"protein": ("N", "C"), "rna": ("P", "O3'"), "dna": ("P", "O3'")}
-_MOL_UNK = {"protein": 20, "rna": 25, "dna": 30}
+@functools.cache
+def _ccd_one_letter() -> dict:
+    """CCD code -> its single-letter `_chem_comp.one_letter_code`, for the components that have one.
+
+    Extracted from the components.cif Mol-1 / Protenix ship (common/components.cif); a code that
+    is absent has no single-letter parent, which upstream maps to X (protein) or N (nucleic)."""
+    return json.loads((Path(__file__).parent / "data" / "ccd_one_letter.json").read_text())
+
+
+def parent_restype(ccd: str, mol_type: str) -> int:
+    """The restype a modified residue's atom tokens carry: its CCD parent's, as upstream's
+    `add_cano_seq_resname` assigns it (SEP -> SER, 2MG -> G, 6OG -> DG), else the modality's UNK."""
+    letter = _ccd_one_letter().get(ccd.upper(), "X" if mol_type == "protein" else "N")
+    return int(seq_to_restype(letter, mol_type)[0])
 
 
 def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dict,
@@ -768,13 +844,13 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
 
     Returns ``(af, restype_idx, residue_index, bonds, res_tok, res_atoms, msa_col)``:
       af           per-atom features, chain-local atom_to_token_idx / ref_space_uid
-      restype_idx  (n_tok,) restype per token; a modified residue's atoms are the
-                   modality's UNK, exactly as a ligand atom is
+      restype_idx  (n_tok,) restype per token; a modified residue's atoms carry its CCD
+                   parent's (parent_restype), as upstream Protenix and Mol-1 assign it
       residue_index(n_tok,) the 1-indexed residue each token belongs to
       bonds        (n_tok, n_tok) token adjacency, or None when the chain has no
-                   modification: the CCD's own heavy-atom bonds plus the backbone link to
-                   each neighbouring residue, so the covalent attachment is a signal the
-                   trunk reads rather than something inferred from numbering
+                   modification: the CCD's own heavy-atom bonds. The backbone links to the
+                   neighbouring residues are polymer-polymer bonds, which upstream leaves
+                   out of token_bonds
       res_tok      1-indexed residue -> chain-local first token
       res_atoms    1-indexed residue -> {atom name: chain-local token}, modified residues only
       msa_col      (n_tok,) alignment column each token reads, -1 for an atom token
@@ -811,7 +887,6 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
     parts, restype, resindex, msa_col = [], [], [], []
     res_tok: list[int] = []
     res_atoms: dict[int, dict] = {}
-    link_tok: dict[int, tuple[int, int]] = {}    # residue -> (token bonded to prev, to next)
     local_bonds = []                             # (offset, intra-residue adjacency)
     tok = 0
     lo = 0
@@ -821,7 +896,6 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
             parts.append(_standard(lo, hi))
             for k in range(lo, hi):
                 res_tok.append(tok)
-                link_tok[k + 1] = (tok, tok)     # a residue token is both ends of its links
                 restype.append(int(rt_all[k])); resindex.append(k + 1); msa_col.append(k)
                 tok += 1
         if stop > n_res:
@@ -839,9 +913,7 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
         local_bonds.append((tok, adj))
         res_tok.append(tok)
         res_atoms[stop] = {nm: tok + i for i, nm in enumerate(names)}
-        prev_at, next_at = _BACKBONE_LINK[mt]
-        link_tok[stop] = (res_atoms[stop].get(prev_at, tok), res_atoms[stop].get(next_at, tok))
-        restype += [_MOL_UNK[mt]] * n_atom
+        restype += [parent_restype(code, mt)] * n_atom
         resindex += [stop] * n_atom
         msa_col += [-1] * n_atom
         tok += n_atom
@@ -865,11 +937,6 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
         bonds = torch.zeros(n_tok, n_tok)
         for start, adj in local_bonds:           # the CCD component's own heavy-atom bonds
             bonds[start:start + adj.shape[0], start:start + adj.shape[1]] = adj
-        for pos in mod_ccd:                      # and its backbone link to each neighbour
-            for a, b in ((pos - 1, pos), (pos, pos + 1)):
-                if 1 <= a and b <= n_res:
-                    u, v = link_tok[a][1], link_tok[b][0]
-                    bonds[u, v] = bonds[v, u] = 1.0
     return (merged, torch.tensor(restype, dtype=torch.long),
             torch.tensor(resindex, dtype=torch.long), bonds, res_tok, res_atoms,
             torch.tensor(msa_col, dtype=torch.long))
@@ -917,12 +984,129 @@ def _smiles_to_mol(smiles: str):
     return mol
 
 
+def _name_atoms(mol):
+    """Upstream's ligand atom names: element + per-element ordinal over every atom in file
+    order (``json_parser.rdkit_mol_to_atom_info``). Hydrogens count on their own 'H' tally, so a
+    heavy atom's name does not depend on whether the file carries hydrogens."""
+    from collections import Counter
+    cnt = Counter()
+    for a in mol.GetAtoms():
+        s = a.GetSymbol().upper(); cnt[s] += 1
+        a.SetProp("name", f"{s}{cnt[s]}")
+    return mol
+
+
+def _file_to_mol(path: str):
+    """A ligand from a 3D file (upstream ``FILE_`` ligand, ``lig_file_to_atom_info``): .mol,
+    .sdf (first record), .pdb or .mol2, read by RDKit as upstream reads it. Its own conformer is
+    the reference conformer, so the file must carry 3D coordinates."""
+    from rdkit import Chem
+    p = str(path)
+    readers = {".mol": Chem.MolFromMolFile, ".pdb": Chem.MolFromPDBFile, ".mol2": Chem.MolFromMol2File,
+               ".sdf": lambda f: next(iter(Chem.SDMolSupplier(f)), None)}
+    ext = Path(p).suffix.lower()
+    if ext not in readers:
+        raise ValueError(f"ligand file {p}: use one of .sdf, .mol, .mol2, .pdb")
+    if not Path(p).is_file():
+        raise ValueError(f"ligand file {p} does not exist")
+    mol = readers[ext](p)
+    if mol is None:
+        raise ValueError(f"ligand file {p}: RDKit could not read a molecule from it")
+    if mol.GetNumConformers() == 0 or not mol.GetConformer().Is3D():
+        raise ValueError(f"ligand file {p} has no 3D coordinates")
+    return _name_atoms(mol)
+
+
 def _ligand_mol(spec: str, mols: dict):
     """Resolve a ligand spec to an rdkit Mol: 'CCD_<code>' -> the CCD template Mol,
-    otherwise a SMILES string -> a freshly embedded Mol."""
+    'FILE_<path>' -> the file's own molecule and conformer, otherwise a SMILES string -> a
+    freshly embedded Mol."""
     if spec.startswith("CCD_"):
         return mols[spec[4:]]
+    if spec.startswith("FILE_"):
+        return _file_to_mol(spec[5:])
     return _smiles_to_mol(spec)
+
+
+def _ccd_list(spec: str) -> list:
+    """'CCD_NAG,NAG' (or the upstream JSON's 'CCD_NAG_NAG') -> ['NAG', 'NAG']."""
+    body = spec[4:]
+    return [c.strip().upper() for c in body.replace("_", ",").split(",") if c.strip()]
+
+
+def ccd_leaving_groups(mol) -> dict | None:
+    """Central atom name -> its leaving groups (lists of heavy-atom names), from the CCD's
+    pdbx_leaving_atom_flag, as upstream's ``ccd._map_central_to_leaving_groups`` builds them:
+    each leaving neighbour of a kept atom starts a group, grown through heavy-atom bonds without
+    going back through that atom. A group that reaches a kept atom means the component's flags
+    are not a clean leaving group, and then (as upstream) nothing is dropped from it."""
+    heavy = {a.GetIdx(): a for a in mol.GetAtoms() if a.GetAtomicNum() > 1}
+    leaving = {i: a.HasProp("leaving_atom") and bool(a.GetBoolProp("leaving_atom"))
+               for i, a in heavy.items()}
+    name = {i: a.GetProp("name") for i, a in heavy.items()}
+    nbr = {i: [n.GetIdx() for n in a.GetNeighbors() if n.GetIdx() in heavy] for i, a in heavy.items()}
+    out = {}
+    for c in heavy:
+        if leaving[c]:
+            continue
+        for l in nbr[c]:
+            if not leaving[l]:
+                continue
+            seen, stack = {l}, [l]
+            while stack:
+                for k in nbr[stack.pop()]:
+                    if k != c and k not in seen:
+                        seen.add(k); stack.append(k)
+            if not all(leaving[k] for k in seen):
+                return None
+            out.setdefault(name[c], []).append(sorted((name[k] for k in seen), key=lambda x: x))
+    return out
+
+
+def _ccd_leaving_drops(spec, mols, cid, bonds) -> dict:
+    """Per 1-indexed residue of a CCD ligand chain, the atom names its covalent bonds consume.
+    A bonded central atom loses one leaving group per bond (upstream ``remove_leaving_atoms``).
+    Upstream picks WHICH group by ``random.sample`` when an atom has more than it needs; here the
+    first ones in CCD order are taken, which is the same choice whenever there is only one."""
+    codes = _ccd_list(spec)
+    count = {}
+    for pair in (bonds or []):
+        for c, r, a in pair:
+            if cid is not None and str(c) == str(cid):
+                key = (1 if len(codes) == 1 else int(r), str(a))
+                count[key] = count.get(key, 0) + 1
+    drops = {}
+    for (r, a), k in count.items():
+        if not 1 <= r <= len(codes):
+            continue
+        groups = (ccd_leaving_groups(mols[codes[r - 1]]) or {}).get(a)
+        for g in (groups or [])[:k]:
+            drops.setdefault(r, set()).update(g)
+    return drops
+
+
+def ccd_ligand_features(spec: str, mols: dict, drops: dict | None = None):
+    """A CCD ligand chain of one or more components, tokenized per heavy atom. Component k is
+    residue k (upstream ``build_ligand`` gives each code of 'CCD_A_B' its own res_id) with its
+    own ref_space_uid. Returns (af, n_token, token_bonds, [(res, atom_name)], residue_index)."""
+    parts, names, res = [], [], []
+    for r, code in enumerate(_ccd_list(spec), start=1):
+        af, n, b, nm = ligand_atom_features(mols[code], drop_atoms=(drops or {}).get(r, ()))
+        parts.append((af, n, b))
+        names += [(r, x) for x in nm]
+        res += [r] * n
+    n_tot = sum(n for _, n, _ in parts)
+    bonds = torch.zeros(n_tot, n_tot)
+    feats, off = [], 0
+    for r, (af, n, b) in enumerate(parts):
+        af = dict(af)
+        af["atom_to_token_idx"] = af["atom_to_token_idx"] + off
+        af["ref_space_uid"] = af["ref_space_uid"] + r
+        bonds[off:off + n, off:off + n] = b
+        feats.append(af)
+        off += n
+    af = {k: torch.cat([f[k] for f in feats], 0) for k in feats[0]}
+    return af, n_tot, bonds, names, torch.tensor(res, dtype=torch.long)
 
 
 def ligand_atom_features(mol, drop_atoms=()):

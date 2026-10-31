@@ -1,0 +1,40 @@
+[
+  {"name": "doc_ptm_dna_rna",
+   "sequences": [
+     {"proteinChain": {"sequence": "PREACHINGS", "count": 1,
+                       "modifications": [{"ptmType": "CCD_HY3", "ptmPosition": 1}, {"ptmType": "CCD_P1L", "ptmPosition": 5}]}},
+     {"dnaSequence": {"sequence": "GATTACA", "count": 1,
+                      "modifications": [{"modificationType": "CCD_6OG", "basePosition": 1}, {"modificationType": "CCD_6MA", "basePosition": 2}]}},
+     {"dnaSequence": {"sequence": "TGTAATC", "count": 1}},
+     {"rnaSequence": {"sequence": "GUAC", "count": 1,
+                      "modifications": [{"modificationType": "CCD_2MG", "basePosition": 1}, {"modificationType": "CCD_5MC", "basePosition": 4}]}}
+   ]},
+  {"name": "ions_ids",
+   "sequences": [
+     {"proteinChain": {"sequence": "MKTAYIAKQRQISFVKSHFSRQ", "count": 2, "id": ["H", "L"]}},
+     {"ion": {"ion": "MG", "count": 2}},
+     {"ion": {"ion": "NA", "count": 1, "id": ["Z"]}}
+   ]},
+  {"name": "glycan_bonds",
+   "sequences": [
+     {"proteinChain": {"sequence": "MKVLNGTAAS", "count": 1}},
+     {"ligand": {"ligand": "CCD_NAG_NAG", "count": 1}}
+   ],
+   "covalent_bonds": [
+     {"entity1": "1", "position1": "5", "atom1": "ND2", "entity2": "2", "position2": "1", "atom2": "C1"},
+     {"entity1": "2", "position1": "1", "atom1": "O4", "entity2": "2", "position2": "2", "atom2": "C1"}
+   ]},
+  {"name": "smiles_covalent",
+   "sequences": [
+     {"proteinChain": {"sequence": "MKACVLAG", "count": 1}},
+     {"ligand": {"ligand": "C=CC(=O)NCc1ccccc1", "count": 1}}
+   ],
+   "covalent_bonds": [
+     {"entity1": "1", "copy1": 1, "position1": "4", "atom1": "SG", "entity2": "2", "copy2": 1, "position2": "1", "atom2": "C1"}
+   ]},
+  {"name": "ccd_atp_copies",
+   "sequences": [
+     {"proteinChain": {"sequence": "GSHMKKLLVAG", "count": 2}},
+     {"ligand": {"ligand": "CCD_ATP", "count": 2}}
+   ]}
+]

@@ -3505,11 +3505,14 @@ def trunk_recycles(state_dict):
     template embedder with an EMPTY pairformer stack. protenix-v2 and OpenDDE ship 10 and a
     2-block stack. So the template depth separates the two lineages, and it is the same signal
     `Trunk.__call__` gates the template contribution on -- one fact read once, not a second
-    hardcoded copy of a per-model number.
+    hardcoded copy of a per-model number. Mol-1 (`model.N_cycle: 20`) is the one checkpoint whose
+    pair track changes width inside the stack, so its width adapters identify it.
 
     The CLI resolves the same default from `main.RECYCLING_STEPS`, keyed by model id, because it
     has to answer before any weights are loaded. The two must agree.
     """
+    if any(k.startswith("pairformer_stack.adapters.") for k in state_dict):
+        return 20
     return 4 if n_blocks(state_dict, "template_embedder.pairformer_stack") == 0 else 10
 
 
@@ -3552,13 +3555,19 @@ class Trunk(_KeyedWeights):
         # n_blocks anchors the prefix, so template_embedder.pairformer_stack and
         # confidence_head.pairformer_stack cannot leak into this count.
         nb_pf = n_blocks(self._w, "pairformer_stack")
-        comb = {}
+        comb, pf_heads = {}, []
         for i in range(nb_pf):
             blk = {k[len(f"pairformer_stack.blocks.{i}."):]: v for k, v in self._w.items()
                    if k.startswith(f"pairformer_stack.blocks.{i}.")}
             for k, v in PW.remap_pairformer_block(blk).items():
                 comb[f"layers.{i}.{k}"] = v
-        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, n_tri_heads, 384 // 16, 16, True, comb,
+            # Heads per block off its own weights: Mol-1's PairMixer blocks have no triangle
+            # attention (0) and its other blocks run at c_z 320 (10 heads), not the resident 448.
+            ta = blk.get("tri_att_start.linear.weight")
+            pf_heads.append(0 if ta is None else int(ta.shape[0]))
+        # Mol-1's pair-width adapters: before_block_<i> and after_blocks (PW.remap_pair_adapters).
+        comb.update(PW.remap_pair_adapters(self._w, "pairformer_stack.", nb_pf))
+        self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, pf_heads, 384 // 16, 16, True, comb,
                              compute_kernel_config, gated_move=gated_move,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.trunk", default=True))
         # Template embedder: pair-only PairformerLayers, count from the weights. Protenix-v2

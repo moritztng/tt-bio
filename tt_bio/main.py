@@ -144,6 +144,7 @@ _MODEL_RESULTS_PREFIX = {
     "esmfold2-fast": "esmfold2_results",
     "protenix-v1": "protenix_results",
     "protenix-v2": "protenix_results",
+    "mol1": "mol1_results",
     "openfold3": "openfold3_results",
     "openbind": "openbind_results",
     "opendde": "opendde_results",
@@ -169,8 +170,10 @@ OF3_FAMILY = ("openfold3", "openbind")
 # protenix-v2 is a later release at c_z 256 with a 2-block template stack and N_cycle 10.
 # tt_bio.protenix reads every one of those off the weights -- Trunk._derive_c_z, n_blocks,
 # trunk_recycles -- so the two ids share the whole model path and differ only in what the
-# checkpoint says. Anything that means "either Protenix checkpoint" reads this tuple.
-PROTENIX_FAMILY = ("protenix-v1", "protenix-v2")
+# checkpoint says. Mol-1 (Molence, e6e64866) is a Protenix-v2 derivative: PairMixer blocks and
+# pair-width adapters in the same Pairformer, also read off its weights. Anything that means
+# "any Protenix-family checkpoint" reads this tuple.
+PROTENIX_FAMILY = ("protenix-v1", "protenix-v2", "mol1")
 
 # Single source of truth for the other two model-choice CLI surfaces (`embed`,
 # `saprot`), for the same reason: anything that needs "every model we ship"
@@ -2610,7 +2613,7 @@ _NA_HEADER_TYPES = {"rna": "rna", "rnasequence": "rna", "dna": "dna", "dnasequen
 _DOC_KEYS = frozenset({"version", "sequences", "constraints", "properties", "templates", "constraint"})
 _ENTRY_KEYS = frozenset({"protein", "rna", "dna", "ligand"})
 _POLYMER_KEYS = frozenset({"id", "sequence", "msa", "modifications", "cyclic", "templates"})
-_LIGAND_KEYS = frozenset({"id", "ccd", "smiles"})
+_LIGAND_KEYS = frozenset({"id", "ccd", "smiles", "file"})
 
 
 def _check_yaml_keys(doc: dict, path) -> None:
@@ -2713,11 +2716,14 @@ def _read_bio_chains(path, what="input"):
                            else str(ids).split(","))
                 for c in id_list:
                     chains.append((c.strip(), str(sub.get("sequence") or "").upper(), m, mt, mods))
-            lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]} or {smiles: STR}
-            if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles")):
+            lig = entry.get("ligand")                       # {ccd: CODE|[CODE, ...]}, {smiles: STR} or {file: PATH}
+            if isinstance(lig, dict) and (lig.get("ccd") or lig.get("smiles") or lig.get("file")):
                 if lig.get("ccd"):
                     codes = lig["ccd"] if isinstance(lig["ccd"], (list, tuple)) else [lig["ccd"]]
                     spec = "CCD_" + ",".join(str(x).strip().upper() for x in codes)
+                elif lig.get("file"):                       # a 3D .sdf/.mol/.mol2/.pdb, relative to the input
+                    f = Path(str(lig["file"])).expanduser()
+                    spec = "FILE_" + str(f if f.is_absolute() else (path.parent / f).resolve())
                 else:
                     spec = str(lig["smiles"])
                 ids = lig.get("id", "L")
@@ -3106,6 +3112,7 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 #: `configs_inference.py` does not override it and `runner/inference.py::update_inference_configs`
 #: only touches `skip_amp`, so 4 is what that checkpoint ships with. protenix-v2 is a different
 #: release with its own 10. Giving v1 v2's 10 would run 2.5x the trunk the model was trained for.
+#: mol1 is 20, Mol-1's `model.N_cycle` and its `mol pred -c` default.
 #: opendde/opendde-abag keep 10. esmfold2/esmfold2-fast use 10, the ESMFold2 paper's benchmark
 #: protocol (A.2.10: "For all benchmark results ... ESMFold2 uses 10 loops"). rf3 uses 10, its own
 #: inference default (rf3.featurize DEFAULTS n_recycles), and the count is not free-standing
@@ -3118,6 +3125,7 @@ def _generate_paired_a3m(seqs, target_id, msa_dir, msa_server_url,
 RECYCLING_STEPS = {
     "protenix-v1": 4,
     "protenix-v2": 10,
+    "mol1": 20,
     "opendde": 10,
     "opendde-abag": 10,
     "esmfold2": 10,
@@ -3153,6 +3161,11 @@ def _check_recycling_steps(recycling_steps, model):
 SAMPLING_STEPS = {"esmfold2": 100, "esmfold2-fast": 100, "rf3": 50}
 SAMPLING_STEPS_DEFAULT = 200
 SAMPLING_STEPS_EXECUTED = {100: 68, 50: 49}
+
+#: Structures per fold when --diffusion_samples is unset. mol1 is 5, `mol pred -e`'s default, so a
+#: plain `tt-bio predict --model mol1` writes the same five ranked samples upstream does.
+DIFFUSION_SAMPLES = {"mol1": 5}
+DIFFUSION_SAMPLES_DEFAULT = 1
 
 
 def _grouped_defaults(table, default, models):
@@ -3206,7 +3219,7 @@ def _resolve_sampling_steps(sampling_steps, model):
 # single-sequence with an OPTIONAL MSA and esmfold2-fast ships no MSA encoder at all.
 # scripts/release_gate.py reads this so the accuracy gate folds each model the way it is
 # actually used, instead of hand-listing the same set a second time.
-MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "openbind", "opendde", "opendde-abag",
+MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "mol1", "openfold3", "openbind", "opendde", "opendde-abag",
                      "rf3")
 
 # The models whose worker path actually passes --msa_endpoint to its MSA search
@@ -3216,7 +3229,7 @@ MSA_DEFAULT_MODELS = ("boltz2", "protenix-v1", "protenix-v2", "openfold3", "open
 # is built from this tuple so the two cannot drift: the help used to omit rf3,
 # and passing the flag with --model boltz2 was accepted and then died mid-run
 # with "Missing MSAs", blaming the user for supplying no source.
-MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2",
+MSA_ENDPOINT_MODELS = ("esmfold2", "esmfold2-fast", "protenix-v1", "protenix-v2", "mol1",
                        "openfold3", "openbind", "opendde", "opendde-abag", "rf3")
 
 
@@ -3324,8 +3337,10 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
                    + ". A request of 100 executes 68 (the sigma_max=256 schedule clip) and 50 "
                      "executes 49 (the rollout consumes consecutive schedule pairs). Explicit "
                      "values are honored verbatim.")
-@click.option("--diffusion_samples", default=1, type=int,
-              help="Structures to generate. Samples are denoised in chunks, so device memory stops "
+@click.option("--diffusion_samples", default=None, type=int,
+              help="Structures to generate. Default: "
+                   + _grouped_defaults(DIFFUSION_SAMPLES, DIFFUSION_SAMPLES_DEFAULT, PREDICT_MODELS)
+                   + ". Samples are denoised in chunks, so device memory stops "
                    "growing once the count passes the chunk width and time grows linearly. See "
                    "docs/sample-scaling.md.")
 @click.option("--partial_t", default=0, type=int,
@@ -3351,7 +3366,18 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
 @click.option("--seed", default=None, type=int,
-              help="Random seed for the diffusion sampler. Default: 0.")
+              help="Random seed for the diffusion sampler. Default: 0 (101 for an upstream Protenix/Mol-1 JSON "
+                   "input, upstream's default).")
+@click.option("--use_seeds_in_json", is_flag=True,
+              help="Upstream Protenix/Mol-1 JSON input: run every seed in each job's `modelSeeds` instead of "
+                   "--seed, one result per seed (upstream's flag of the same name).")
+@click.option("--use_template", is_flag=True,
+              help="Upstream Protenix/Mol-1 JSON input: use each protein chain's `templatesPath` (.a3m, .hhr or "
+                   ".json hits; kalign on PATH for .a3m/.hhr; mmCIFs under $MOL_ROOT_DIR/mmcif, fetched from PDBe "
+                   "when missing). Upstream's flag of the same name, off by default.")
+@click.option("--use_rna_msa", is_flag=True,
+              help="Upstream Protenix/Mol-1 JSON input: use each RNA chain's `unpairedMsa`/`unpairedMsaPath` "
+                   "(upstream's flag of the same name; off, an RNA chain is its query row only).")
 @click.option("--use_msa_server", is_flag=True, help="Generate MSAs via ColabFold API (requires internet)")
 @click.option("--msa_db_path", default=None, type=click.Path(exists=True), help="Local ColabFold DB for offline MSA (default: auto-detect ~/.boltz/msa_db)")
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
@@ -3460,7 +3486,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, partial_t, partial_structure, early_stop_plddt,
             max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_seeds_in_json, use_template, use_rna_msa, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             use_tfg_guidance, trunk_cache, write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
@@ -3500,11 +3526,24 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # ahead of the model branch so both routes are covered by one call: past this point predict
     # forks into the scheduler path and the Boltz-2 path, and guarding each separately is how one
     # of them ends up unguarded. Only measured ceilings refuse — see tt_bio/size_limits.py.
+    # Upstream Protenix / Mol-1 JSON (a list of jobs) is expanded into one YAML input per job, plus a sidecar for
+    # what YAML cannot say, before anything else reads `data`: every route below then sees a directory of inputs.
+    from tt_bio import protenix_json
+    if protenix_json.is_job_list(Path(data).expanduser()):
+        src = Path(data).expanduser()
+        try:
+            data = str(protenix_json.stage(src, Path(out_dir).expanduser() / ".upstream_inputs" / src.stem,
+                                           seeds=[seed] if seed is not None else None,
+                                           use_seeds_in_json=use_seeds_in_json))
+        except (ValueError, KeyError) as e:
+            raise click.ClickException(f"{src.name}: {e}") from e
     size_limits.check_input(data, model)
 
     # These are counts of things to generate; <1 crashes deep in the model
     # (e.g. "reshape tensor of 0 elements" / "Dimension size must be
     # non-negative"). Reject up front with a clear message.
+    if diffusion_samples is None:
+        diffusion_samples = DIFFUSION_SAMPLES.get(model, DIFFUSION_SAMPLES_DEFAULT)
     if diffusion_samples < 1:
         raise click.BadParameter("--diffusion_samples must be at least 1")
     if partial_t < 0:
@@ -3683,6 +3722,7 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
             "diffusion_precision": diffusion_precision,
             "recycling_steps": recycling_steps, "sampling_steps": sampling_steps,
             "diffusion_samples": diffusion_samples, "seed": seed or 0, "trace": trace,
+            "use_rna_msa": use_rna_msa, "use_template": use_template,
             "partial_t": partial_t, "partial_structure": partial_structure,
             "early_stop_plddt": early_stop_plddt,
             # Without this key --max_parallel_samples is a silent no-op for every model that

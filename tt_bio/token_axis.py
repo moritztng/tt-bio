@@ -307,6 +307,13 @@ TOKEN_AXIS = {
         "input",
     ),
     "saprot-650m": (BUCKETED, TOKEN_BUCKET, "saprot.py, sharing esmc.BUCKET", "same path as saprot-35m"),
+    "mol1": (
+        BUCKETED, TOKEN_BUCKET,
+        "the same protenix.py Trunk.__call__ pad and protenix.bucketed_pairformer as protenix-v2",
+        "censused on its own widths (c_z 448 PairMixer blocks, 320 Pairformer blocks) by "
+        "tests/test_mol1_bucket_hw.py: 98 tokens, ragged on purpose; bucket on 0 of 249 calls ragged and a "
+        "poison-inert trunk, bucket off 208 masked-ragged; qb2 chip 3",
+    ),
     "saprot-1.3b": (BUCKETED, TOKEN_BUCKET, "saprot.py, sharing esmc.BUCKET", "same path as saprot-35m"),
 }
 

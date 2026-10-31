@@ -164,6 +164,9 @@ def test_no_modification_is_byte_identical_to_the_per_residue_path():
         assert torch.equal(plain[k], explicit_none[k]), k
 
 
+_SER = 15  # S in the AF residue order (protenix_data.RESTYPE_ORDER)
+
+
 def test_a_modified_residue_becomes_atom_tokens_in_one_residue_frame():
     plain, mod = _feats(), _feats(_SEP)
     # SER 6 heavy atoms -> SEP 10 (OXT is a leaving atom mid-chain): +4 atoms, +9 tokens
@@ -171,10 +174,11 @@ def test_a_modified_residue_becomes_atom_tokens_in_one_residue_frame():
     assert plain["restype"].shape[0] == 53 and mod["restype"].shape[0] == 62
     assert int(plain["ref_space_uid"].max()) == int(mod["ref_space_uid"].max()) == 52
     assert mod["residue_index"].tolist().count(13) == 10
-    assert (mod["restype"].argmax(-1)[mod["residue_index"] == 13] == 20).all()  # UNK per atom
+    # every atom token carries the CCD parent's restype, SEP -> SER, as upstream assigns it
+    assert (mod["restype"].argmax(-1)[mod["residue_index"] == 13] == _SER).all()
 
 
-def test_the_modified_residue_carries_the_ccd_element_and_the_backbone_link():
+def test_the_modified_residue_carries_the_ccd_element_and_bonds_but_no_backbone_link():
     plain, mod = _feats(), _feats(_SEP)
     z = lambda f: (f["ref_element"].argmax(-1) + 1)
     assert (z(plain) == 15).sum() == 0 and (z(mod) == 15).sum() == 1   # the SEP phosphorus
@@ -185,8 +189,9 @@ def test_the_modified_residue_carries_the_ccd_element_and_the_backbone_link():
     tok = {names[i]: a2t[i] for i in range(len(a2t)) if int(mod["residue_index"][a2t[i]]) == 13}
     assert "OXT" not in tok, "a mid-chain residue kept the leaving carboxylate oxygen"
     tb = mod["token_bonds"]
-    assert tb[tok["N"] - 1, tok["N"]] == 1.0, "no bond to the preceding residue"
-    assert tb[tok["C"], max(tok.values()) + 1] == 1.0, "no bond to the following residue"
+    assert tb[tok["N"], tok["CA"]] == 1.0, "the CCD component's own bonds are token bonds"
+    # polymer-polymer links are not token_bonds upstream (Protenix / Mol-1 featurizer)
+    assert tb[tok["N"] - 1, tok["N"]] == 0.0 and tb[tok["C"], max(tok.values()) + 1] == 0.0
     assert tb[tok["N"] - 1, max(tok.values()) + 1] == 0.0, "residues 12 and 14 bonded directly"
 
 
@@ -202,7 +207,7 @@ def test_the_alignment_follows_the_tokens():
     keep = [t for t in range(mod["msa"].shape[1]) if t not in atom_cols]
     assert torch.equal(mod["msa"][:, keep],
                        plain["msa"][:, [t for t in range(53) if t != 12]])
-    assert (mod["msa"][0, atom_cols] == 20).all()            # query row: the token's UNK
+    assert (mod["msa"][0, atom_cols] == _SER).all()          # query row: the token's restype
     assert (mod["msa"][1:, atom_cols] == MSA_GAP_IDX).all()  # every other row: gap
 
 

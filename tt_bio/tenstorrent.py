@@ -7,7 +7,7 @@ import functools
 import gc
 import torch, ttnn, atexit
 from torch import nn
-from typing import Callable, Mapping, NamedTuple
+from typing import Callable, Mapping, NamedTuple, Sequence
 from math import gcd, pi, prod
 from functools import lru_cache, partial, wraps
 from types import BuiltinFunctionType, FunctionType, MappingProxyType, MethodType, ModuleType
@@ -15066,84 +15066,88 @@ class PairformerLayer(Module):
         self.triangle_multiplication_end = TriangleMultiplication(
             True, self.scope("tri_mul_in"), compute_kernel_config, gated_move=gated_move
         )
-        self.triangle_attention_start = TriangleAttention(
-            tri_att_head_dim,
-            tri_att_n_heads,
-            False,
-            self.scope("tri_att_start", "mha."),
-            compute_kernel_config,
-            affinity=affinity,
-            scale_pair_bias=tri_scale,
-            fp32_softmax=fp32_softmax,
-            accurate_softmax=tri_acc,
-            # One per-site decision, forwarded to BOTH attributes because `_attend_heads`
-            # reads a different one in each of its two branches: `fused_hifi` when the site
-            # set `fp32_softmax`, `sdpa_hifi` otherwise. Forwarding only `sdpa_hifi` is what
-            # made this kwarg inert on OpenFold3, which passes fp32_softmax=True at all four
-            # sites -- counted as 0 served / 0 declined on both arms of a six-leg A/B.
-            # Whichever branch the site is in, the other attribute is simply never read.
-            fused_hifi=tri_att_sdpa_hifi,
-            sdpa_hifi=tri_att_sdpa_hifi,
-            # The faithful reduction order rides the SAME decision, so the configuration that
-            # fails accuracy is unreachable rather than merely not-chosen. One k chunk spans
-            # the whole key length, so the online softmax makes no running-max rescale and
-            # reduces each row in the order the torch reference and _fp32_softmax_attention
-            # use. Measured on openfold3 at 298 aa over three matched seeds, CA against the
-            # materialised route: WITHOUT it 3.6452 / 12.4392 / 19.1058 A, median 1.61x the
-            # fixture's own six-pair seed floor; WITH it 2.5805 / 7.7510 / 8.0075 A, median
-            # 1.00x that floor and worst case 0.82x its maximum -- inside seed variation.
-            # It costs 0.4 % of the win at 298 aa and 3.5 % at 512.
-            # Blast radius today is nil: boltz2.trunk and rf3.tri_att both default False, so
-            # only a site that has turned the route ON receives it. A site A/B'ing the route
-            # through TT_BIO_TRIATT_SDPA_HIFI_AB now gets route + order together, which is the
-            # only combination that has cleared an accuracy standard.
-            tri_att_one_k_chunk=tri_att_sdpa_hifi,
-            sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
-            # The same token this layer already gives its `AttentionPairBias`. One site name
-            # covers both tracks of a Pairformer block, which is what the lever wants: it is
-            # the block's softmax precision, not two independent decisions.
-            softmax_site="pairformer",
-        )
-        self.triangle_attention_end = TriangleAttention(
-            tri_att_head_dim,
-            tri_att_n_heads,
-            True,
-            self.scope("tri_att_end", "mha."),
-            compute_kernel_config,
-            affinity=affinity,
-            scale_pair_bias=tri_scale,
-            fp32_softmax=fp32_softmax,
-            transpose_bias=transpose_bias,
-            transpose_l1_reserve=transpose_l1_reserve,
-            accurate_softmax=tri_acc,
-            # One per-site decision, forwarded to BOTH attributes because `_attend_heads`
-            # reads a different one in each of its two branches: `fused_hifi` when the site
-            # set `fp32_softmax`, `sdpa_hifi` otherwise. Forwarding only `sdpa_hifi` is what
-            # made this kwarg inert on OpenFold3, which passes fp32_softmax=True at all four
-            # sites -- counted as 0 served / 0 declined on both arms of a six-leg A/B.
-            # Whichever branch the site is in, the other attribute is simply never read.
-            fused_hifi=tri_att_sdpa_hifi,
-            sdpa_hifi=tri_att_sdpa_hifi,
-            # The faithful reduction order rides the SAME decision, so the configuration that
-            # fails accuracy is unreachable rather than merely not-chosen. One k chunk spans
-            # the whole key length, so the online softmax makes no running-max rescale and
-            # reduces each row in the order the torch reference and _fp32_softmax_attention
-            # use. Measured on openfold3 at 298 aa over three matched seeds, CA against the
-            # materialised route: WITHOUT it 3.6452 / 12.4392 / 19.1058 A, median 1.61x the
-            # fixture's own six-pair seed floor; WITH it 2.5805 / 7.7510 / 8.0075 A, median
-            # 1.00x that floor and worst case 0.82x its maximum -- inside seed variation.
-            # It costs 0.4 % of the win at 298 aa and 3.5 % at 512.
-            # Blast radius today is nil: boltz2.trunk and rf3.tri_att both default False, so
-            # only a site that has turned the route ON receives it. A site A/B'ing the route
-            # through TT_BIO_TRIATT_SDPA_HIFI_AB now gets route + order together, which is the
-            # only combination that has cleared an accuracy standard.
-            tri_att_one_k_chunk=tri_att_sdpa_hifi,
-            sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
-            # The same token this layer already gives its `AttentionPairBias`. One site name
-            # covers both tracks of a Pairformer block, which is what the lever wants: it is
-            # the block's softmax precision, not two independent decisions.
-            softmax_site="pairformer",
-        )
+        # A block without triangle attention is a PairMixer block (Mol-1's first 8 trunk blocks):
+        # the rest of the Pairformer block, same weights and same order, minus both tri-att ops.
+        self.triangle_attention_start = self.triangle_attention_end = None
+        if tri_att_n_heads:
+            self.triangle_attention_start = TriangleAttention(
+                tri_att_head_dim,
+                tri_att_n_heads,
+                False,
+                self.scope("tri_att_start", "mha."),
+                compute_kernel_config,
+                affinity=affinity,
+                scale_pair_bias=tri_scale,
+                fp32_softmax=fp32_softmax,
+                accurate_softmax=tri_acc,
+                # One per-site decision, forwarded to BOTH attributes because `_attend_heads`
+                # reads a different one in each of its two branches: `fused_hifi` when the site
+                # set `fp32_softmax`, `sdpa_hifi` otherwise. Forwarding only `sdpa_hifi` is what
+                # made this kwarg inert on OpenFold3, which passes fp32_softmax=True at all four
+                # sites -- counted as 0 served / 0 declined on both arms of a six-leg A/B.
+                # Whichever branch the site is in, the other attribute is simply never read.
+                fused_hifi=tri_att_sdpa_hifi,
+                sdpa_hifi=tri_att_sdpa_hifi,
+                # The faithful reduction order rides the SAME decision, so the configuration that
+                # fails accuracy is unreachable rather than merely not-chosen. One k chunk spans
+                # the whole key length, so the online softmax makes no running-max rescale and
+                # reduces each row in the order the torch reference and _fp32_softmax_attention
+                # use. Measured on openfold3 at 298 aa over three matched seeds, CA against the
+                # materialised route: WITHOUT it 3.6452 / 12.4392 / 19.1058 A, median 1.61x the
+                # fixture's own six-pair seed floor; WITH it 2.5805 / 7.7510 / 8.0075 A, median
+                # 1.00x that floor and worst case 0.82x its maximum -- inside seed variation.
+                # It costs 0.4 % of the win at 298 aa and 3.5 % at 512.
+                # Blast radius today is nil: boltz2.trunk and rf3.tri_att both default False, so
+                # only a site that has turned the route ON receives it. A site A/B'ing the route
+                # through TT_BIO_TRIATT_SDPA_HIFI_AB now gets route + order together, which is the
+                # only combination that has cleared an accuracy standard.
+                tri_att_one_k_chunk=tri_att_sdpa_hifi,
+                sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+                # The same token this layer already gives its `AttentionPairBias`. One site name
+                # covers both tracks of a Pairformer block, which is what the lever wants: it is
+                # the block's softmax precision, not two independent decisions.
+                softmax_site="pairformer",
+            )
+            self.triangle_attention_end = TriangleAttention(
+                tri_att_head_dim,
+                tri_att_n_heads,
+                True,
+                self.scope("tri_att_end", "mha."),
+                compute_kernel_config,
+                affinity=affinity,
+                scale_pair_bias=tri_scale,
+                fp32_softmax=fp32_softmax,
+                transpose_bias=transpose_bias,
+                transpose_l1_reserve=transpose_l1_reserve,
+                accurate_softmax=tri_acc,
+                # One per-site decision, forwarded to BOTH attributes because `_attend_heads`
+                # reads a different one in each of its two branches: `fused_hifi` when the site
+                # set `fp32_softmax`, `sdpa_hifi` otherwise. Forwarding only `sdpa_hifi` is what
+                # made this kwarg inert on OpenFold3, which passes fp32_softmax=True at all four
+                # sites -- counted as 0 served / 0 declined on both arms of a six-leg A/B.
+                # Whichever branch the site is in, the other attribute is simply never read.
+                fused_hifi=tri_att_sdpa_hifi,
+                sdpa_hifi=tri_att_sdpa_hifi,
+                # The faithful reduction order rides the SAME decision, so the configuration that
+                # fails accuracy is unreachable rather than merely not-chosen. One k chunk spans
+                # the whole key length, so the online softmax makes no running-max rescale and
+                # reduces each row in the order the torch reference and _fp32_softmax_attention
+                # use. Measured on openfold3 at 298 aa over three matched seeds, CA against the
+                # materialised route: WITHOUT it 3.6452 / 12.4392 / 19.1058 A, median 1.61x the
+                # fixture's own six-pair seed floor; WITH it 2.5805 / 7.7510 / 8.0075 A, median
+                # 1.00x that floor and worst case 0.82x its maximum -- inside seed variation.
+                # It costs 0.4 % of the win at 298 aa and 3.5 % at 512.
+                # Blast radius today is nil: boltz2.trunk and rf3.tri_att both default False, so
+                # only a site that has turned the route ON receives it. A site A/B'ing the route
+                # through TT_BIO_TRIATT_SDPA_HIFI_AB now gets route + order together, which is the
+                # only combination that has cleared an accuracy standard.
+                tri_att_one_k_chunk=tri_att_sdpa_hifi,
+                sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
+                # The same token this layer already gives its `AttentionPairBias`. One site name
+                # covers both tracks of a Pairformer block, which is what the lever wants: it is
+                # the block's softmax precision, not two independent decisions.
+                softmax_site="pairformer",
+            )
         self.transition_z = Transition(
             self.scope("transition_z"), compute_kernel_config
         )
@@ -15186,10 +15190,11 @@ class PairformerLayer(Module):
             _layer_tap("tmul_out", z)
             z = self.triangle_multiplication_end(z, mask, add_to_input=True)
             _layer_tap("tmul_in", z)
-            z = self.triangle_attention_start(z, attn_mask_start, add_to_input=True)
-            _layer_tap("tatt_start", z)
-            z = self.triangle_attention_end(z, attn_mask_end, add_to_input=True)
-            _layer_tap("tatt_end", z)
+            if self.triangle_attention_start is not None:
+                z = self.triangle_attention_start(z, attn_mask_start, add_to_input=True)
+                _layer_tap("tatt_start", z)
+                z = self.triangle_attention_end(z, attn_mask_end, add_to_input=True)
+                _layer_tap("tatt_end", z)
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
             z = self.transition_z(
@@ -15207,15 +15212,16 @@ class PairformerLayer(Module):
             z = _z_residual(z, zc, z_update, wide)
             _layer_tap("tmul_in", z)
 
-            zc = _z_compute(z, wide)
-            z_update = self.triangle_attention_start(zc, attn_mask_start)
-            z = _z_residual(z, zc, z_update, wide)
-            _layer_tap("tatt_start", z)
+            if self.triangle_attention_start is not None:
+                zc = _z_compute(z, wide)
+                z_update = self.triangle_attention_start(zc, attn_mask_start)
+                z = _z_residual(z, zc, z_update, wide)
+                _layer_tap("tatt_start", z)
 
-            zc = _z_compute(z, wide)
-            z_update = self.triangle_attention_end(zc, attn_mask_end)
-            z = _z_residual(z, zc, z_update, wide)
-            _layer_tap("tatt_end", z)
+                zc = _z_compute(z, wide)
+                z_update = self.triangle_attention_end(zc, attn_mask_end)
+                z = _z_residual(z, zc, z_update, wide)
+                _layer_tap("tatt_end", z)
 
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
@@ -15274,7 +15280,7 @@ class Pairformer(Module):
         self,
         n_blocks: int,
         tri_att_head_dim: int,
-        tri_att_n_heads: int,
+        tri_att_n_heads: int | Sequence[int],
         att_head_dim: int | None,
         att_n_heads: int | None,
         transform_s: bool,
@@ -15295,10 +15301,19 @@ class Pairformer(Module):
         z_fp32_residual: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
+        # One head count for the stack, or one per block where widths differ (0 = no triangle
+        # attention, a PairMixer block).
+        heads = ([tri_att_n_heads] * n_blocks if isinstance(tri_att_n_heads, int)
+                 else list(tri_att_n_heads))
+        # A stack whose blocks run at different pair widths (Mol-1: 448 for the PairMixer blocks,
+        # 320 for the rest) carries a bias-free linear `adapters.<i>.weight` [c_out, c_in] that
+        # projects z before block i; i == n_blocks projects it back after the last block.
+        self.adapters = {i: self.torch_to_tt(f"adapters.{i}.weight")
+                         for i in range(n_blocks + 1) if f"adapters.{i}.weight" in self.weights}
         self.blocks = [
             PairformerLayer(
                 tri_att_head_dim,
-                tri_att_n_heads,
+                heads[i],
                 att_head_dim,
                 att_n_heads,
                 transform_s,
@@ -15355,6 +15370,8 @@ class Pairformer(Module):
             MASK_TRANS_STATS["stacks"] += 1
             MASK_TRANS_STATS["blocks"] += len(self.blocks)
         for i, block in enumerate(self.blocks):
+            if i in self.adapters:
+                z = self._adapt(z, i)
             # Through the seam, so a tape can checkpoint the block and inference cannot tell.
             # A 48-block trunk is the case per-block checkpointing exists for: the tape keeps
             # every block's intermediates AND a gradient per op, which at 384 aa is the whole
@@ -15369,7 +15386,14 @@ class Pairformer(Module):
             # masks after this call returns, so only the inference path may free them.
             ttnn.deallocate(trans_mask_z)
             ttnn.deallocate(trans_mask_s)
+        if len(self.blocks) in self.adapters:
+            z = self._adapt(z, len(self.blocks))
         return s, z
+
+    def _adapt(self, z: ttnn.Tensor, i: int) -> ttnn.Tensor:
+        out = ttnn.linear(z, self.adapters[i], compute_kernel_config=self.compute_kernel_config)
+        ttnn.deallocate(z)
+        return out
 
 
 # ---------------------------------------------------------------------------

@@ -901,6 +901,11 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
                      "shared trunk and not from the MSA path the esmfold2 entry names",
         ),
     },
+    # Mol-1 runs the protenix-v2 trunk at c_z 448 (PairMixer blocks) and 320, so v2's ceilings
+    # do not transfer; nobody has walked its ladder yet.
+    "mol1": {arch: _unmeasured("no size ladder run for Mol-1 yet; its pair track is wider than "
+                               "protenix-v2's, so v2's ceiling does not carry over")
+             for arch in ("wormhole_b0", "blackhole")},
     "protenix-v1": {
         "wormhole_b0": Ceiling(
             residues=2048, pass_at=2048, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,
@@ -1525,6 +1530,9 @@ def _heavy_atoms(spec: str) -> int:
             codes = [x.strip().upper() for x in spec[4:].split(",") if x.strip()]
             mols = load_molecules(_default_mol_dir(), codes)
             return sum(sum(1 for a in mols[c].GetAtoms() if a.GetAtomicNum() > 1) for c in codes)
+        if spec.startswith("FILE_"):
+            from .protenix_data import _file_to_mol
+            return _file_to_mol(spec[5:]).GetNumHeavyAtoms()
         from rdkit import Chem
         mol = Chem.MolFromSmiles(spec)
         return mol.GetNumHeavyAtoms() if mol is not None else 0

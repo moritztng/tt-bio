@@ -32,6 +32,8 @@ NOTED = "noted"
 #: feature -> (how it appears in the input, what dropping it would do to the answer)
 FEATURES: dict[str, tuple[str, str]] = {
     "ligand": ("a ligand chain", "the complex would fold without the ligand"),
+    "ligand_file": ("a ligand read from a 3D file (`ligand: {file: ...}`, upstream `FILE_`)",
+                    "the complex would fold without the ligand"),
     "rna": ("an RNA chain", "the complex would fold without the RNA"),
     "dna": ("a DNA chain", "the complex would fold without the DNA"),
     "protein_free": ("an input with no protein chain",
@@ -57,7 +59,9 @@ _ALL_HONOURED = dict.fromkeys(FEATURES, HONOURED)
 
 def _row(**overrides) -> dict[str, str]:
     # `constraint:` is OpenDDE 1.2.0's guided-sampling input; only the OpenDDE rows honour it.
-    return {**_ALL_HONOURED, "constraint": REFUSED, **overrides}
+    # A ligand from a 3D file is upstream Protenix / Mol-1's `FILE_` ligand; only the Protenix
+    # featurizer reads one (protenix_data._file_to_mol).
+    return {**_ALL_HONOURED, "constraint": REFUSED, "ligand_file": REFUSED, **overrides}
 
 
 #: --model -> feature -> verdict. Every id in ``main.PREDICT_MODELS`` needs a row; the
@@ -98,8 +102,9 @@ CAPABILITY: dict[str, dict[str, str]] = {
     # `cyclic: true` reaches it as the head-to-tail amide bond (main._read_bio_bonds), the
     # route upstream documents; it has no relpos wrap. v1's checkpoint does not close it (WHY).
     "protenix-v1": _row(cyclic=REFUSED, templates=REFUSED, template_structure=REFUSED,
-                        pocket=REFUSED, affinity=NOTED),
-    "protenix-v2": _row(pocket=REFUSED, affinity=NOTED),
+                        pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
+    "protenix-v2": _row(pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
+    "mol1": _row(pocket=REFUSED, affinity=NOTED, ligand_file=HONOURED),
     # OpenDDE's own `constraint:` (contact pairs, epitope) steers its sampler under
     # --use_tfg_guidance (tt_bio/tfg); Boltz-2's `constraints: pocket/contact` it cannot read.
     "opendde": _row(pocket=REFUSED, affinity=NOTED, constraint=HONOURED),
@@ -139,7 +144,7 @@ CAPABILITY: dict[str, dict[str, str]] = {
 }
 
 #: Molecule-type features: they come from the parsed chain list, not from a yaml key.
-CHAIN_FEATURES = frozenset({"ligand", "rna", "dna", "protein_free"})
+CHAIN_FEATURES = frozenset({"ligand", "rna", "dna", "protein_free", "ligand_file"})
 
 #: Models whose molecule types their own reader enforces, so check_capabilities is called
 #: with no chain list and the chain columns are a record rather than an enforcement. Only
@@ -232,7 +237,7 @@ def _alternatives(feature: str, found, model: str) -> list[str]:
 FLAG_READERS: dict[str, tuple[str, ...]] = {
     # One npz for all of them (tt_bio.confidence_export): PAE everywhere, PDE and contact
     # probabilities where the model has the head.
-    "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag",
+    "--write_pae": ("boltz2", "protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag",
                     "esmfold2", "esmfold2-fast", "openfold3", "openbind", "rf3", "af2ig"),
     # Contact probabilities are read from a distogram head; these are the models that run one.
     "--contact_cutoff": ("boltz2", "opendde", "opendde-abag", "esmfold2", "esmfold2-fast",
@@ -247,8 +252,8 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
     # explicitly, it caps them -- the a3m at `main.cap_a3m_text` for protenix/opendde/rf3,
     # `make_openfold3_msa_features(max_sequences=)` for the OF3 family.
     "--max_msa_seqs": ("boltz2", "esmfold2", "esmfold2-fast", "openfold3", "openbind",
-                       "protenix-v1", "protenix-v2", "opendde", "opendde-abag", "rf3"),
-    "--diffusion_precision": ("protenix-v1", "protenix-v2"),
+                       "protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag", "rf3"),
+    "--diffusion_precision": ("protenix-v1", "protenix-v2", "mol1"),
     # OpenDDE 1.2.0's constraint guidance and its trunk cache (tt_bio/tfg, tt_bio.cache).
     "--use_tfg_guidance": ("opendde", "opendde-abag"),
     "--trunk_cache": ("opendde", "opendde-abag"),
@@ -256,12 +261,11 @@ FLAG_READERS: dict[str, tuple[str, ...]] = {
 
 #: (flag, model) -> why that model does not read it, when the generic line is not the reason.
 FLAG_WHY: dict[tuple[str, str], str] = {
-    ("--contact_cutoff", "protenix-v1"): "tt-bio does not run its distogram head, so its "
-                                         "_pae.npz has PAE and PDE but no contact_probs",
-    ("--contact_cutoff", "protenix-v2"): "tt-bio does not run its distogram head, so its "
-                                         "_pae.npz has PAE and PDE but no contact_probs",
+    **{("--contact_cutoff", m): "tt-bio does not run its distogram head, so its "
+                                "_pae.npz has PAE and PDE but no contact_probs"
+       for m in ("protenix-v1", "protenix-v2", "mol1")},
     **{("--write_pde", m): "--write_pae already writes PDE into the same npz as the PAE"
-       for m in ("protenix-v1", "protenix-v2", "opendde", "opendde-abag", "esmfold2",
+       for m in ("protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag", "esmfold2",
                  "esmfold2-fast", "openfold3", "openbind", "rf3")},
     ("--write_pde", "af2ig"): "AF2 has no PDE head",
     ("--max_msa_seqs", "nesso1"): "it conditions on ESM-2 embeddings, not on an alignment, so "
@@ -269,7 +273,7 @@ FLAG_WHY: dict[tuple[str, str], str] = {
     ("--max_msa_seqs", "af2ig"): "AF2-IG is single-sequence on both chains, so there is no "
                                  "depth to cap",
     **{("--diffusion_precision", m): "only Protenix's diffusion precision is selectable per run"
-       for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2")},
+       for m in CAPABILITY if m not in ("protenix-v1", "protenix-v2", "mol1")},
     **{("--use_tfg_guidance", m): "constraint guidance is wired into OpenDDE's sampler only"
        for m in CAPABILITY if m not in ("opendde", "opendde-abag")},
     **{("--trunk_cache", m): "the trunk cache is wired into OpenDDE only"
@@ -320,6 +324,9 @@ def detect(path, chains=None) -> dict[str, str]:
         hits = [cid for cid, _s, _sp, m, _mo in (chains or []) if m == mt]
         if hits:
             found[mt] = "chain(s) " + ", ".join(hits)
+    files = [cid for cid, s, _sp, m, _mo in (chains or []) if m == "ligand" and str(s).startswith("FILE_")]
+    if files:
+        found["ligand_file"] = "chain(s) " + ", ".join(files)
     if chains and not any(m == "protein" for _c, _s, _sp, m, _mo in chains):
         found["protein_free"] = "chain(s) " + ", ".join(c for c, *_r in chains)
     doc = _yaml_doc(path)
@@ -438,6 +445,7 @@ def check_capabilities(path, chains, model: str, echo=_click_note,
 #: table can never disagree about what a column means.
 DOC_COLUMNS: tuple[tuple[str, str], ...] = (
     ("ligand", "ligand"),
+    ("ligand_file", "ligand file"),
     ("rna", "RNA"),
     ("dna", "DNA"),
     ("protein_free", "no protein chain"),

@@ -199,10 +199,13 @@ NESSO_REVISION = "v1.0.0"      # not `main`: main carries only a config.json
 ESMFOLD2_REPO = "biohub/ESMFold2"
 ESMFOLD2_FAST_REPO = "biohub/ESMFold2-Fast"
 RFD4_REPO = "nvidia/RFD4-Proteina"
+MOL1_REPO = "RUIMA294264/Mol-1"
+
 HF_REVISIONS = {
     ESMFOLD2_REPO: "8fc3ff471022fdce52c77030685eb775de0c00a3",
     ESMFOLD2_FAST_REPO: "c6c7958d63f5f2f1f0fed0bb9462316f8ccceea6",
     "biohub/ESMC-6B": "45b0fa5d7fb06faefbd5e3b89bdcef35d564e79a",
+    MOL1_REPO: "1ee94bcc3e56c7aa7d2bcb831810b5ce3c359cf4",
     "biohub/esmc-300m-2024-12": "7f10b20ae75017b2dbc884070e03434515709a8d",
     "biohub/esmc-600m-2024-12": "e4d83bc7e10fd55c92e598e545f4a76bf04a6e5c",
     "aurekaresearch/OpenDDE": "02c183584847af2a8c7e39ff591f95f47126b1f7",
@@ -235,11 +238,12 @@ _HF_SCHEME = "hf://"
 
 
 def split_hf(source: str) -> tuple[str, str] | None:
-    """``(repo, filename)`` for an ``hf://repo/file`` source, None for a plain URL."""
+    """``(repo, filename)`` for an ``hf://owner/name/path`` source, None for a plain URL.
+    A hub repo id is always two components; the file may sit in a subdirectory (mol1)."""
     if not source.startswith(_HF_SCHEME):
         return None
-    repo, _, filename = source[len(_HF_SCHEME):].rpartition("/")
-    return repo, filename
+    owner, name, filename = source[len(_HF_SCHEME):].split("/", 2)
+    return f"{owner}/{name}", filename
 
 
 def _hf_api_url(repo: str) -> str:
@@ -308,6 +312,18 @@ _ROWS: tuple[Artifact, ...] = (
              note="Upstream's Protenix-v2 release note says these weights may not be "
                   "reproduced or distributed without the rights holder's consent. Use "
                   "--model protenix-v1, upstream's Apache-2.0 v0.5.0 checkpoint, instead."),
+
+    # Mol-1 (Molence) runs on the Protenix engine. The official copy sits in an Alibaba OSS
+    # bucket in Shanghai that serves the rest of the world at tens of KB/s, so the hub mirror,
+    # an unofficial byte-identical copy, is tried first. The sha256 is of the official file
+    # (its OSS CRC-64 matched the bucket's), so a mirror that drifts is a named error.
+    # Molence states no weights licence (molence/Mol-1#5); the code is Apache-2.0.
+    Artifact("mol1", ("mol1",), "file", "unstated (Molence); code Apache-2.0",
+             repo=MOL1_REPO, filename="checkpoint/mol-1-base.pt",
+             url="https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt",
+             sha256="d5b83a86884aa6870565b1a249e8f13c232dfc6dfa311089ab0c7868212b6bd6",
+             subdir="mol1", approx_bytes=2393615173,
+             note="Mol-1 base checkpoint, a Protenix-v2 variant"),
 
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
     Artifact("esmfold2", ("esmfold2",), "hf-repo", "MIT (Biohub)",
