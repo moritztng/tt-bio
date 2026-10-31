@@ -263,10 +263,16 @@ else:
 
 # For the whole process, before anything is built. Protenix builds its trunk under its lever set
 # with fast mode off (`Protenix._build`, legacy_fast=False), so --fast is the levers alone.
+# Held for the whole process: entering a temporary context manager lets it be collected at once, which closes its
+# generator and restores the previous (empty) set, so --fast / --levers measured no levers at all until 10-31.
+_SCOPES = []
 if A.fast:
-    T.levers("fast").__enter__()
+    _SCOPES.append(T.levers("fast"))
 if A.levers:
-    T.lever_scope(A.levers).__enter__()
+    _SCOPES.append(T.lever_scope(A.levers))
+for _s in _SCOPES:
+    _s.__enter__()
+log(ev="levers", active=sorted(T._LEVERS))
 if A.legacy_fast:
     T.set_fast_mode(True)
 from tt_bio.af2 import compute_kernel_config
