@@ -98,11 +98,6 @@ ATOM_FFN_SPLIT = env_flag("TT_BIO_ESMFOLD2_ATOM_FFN_SPLIT", None)  # unset: the 
 # a silu and a multiply over the whole tensor. With an MSA deeper than max_depth the encoder runs every loop, and on
 # p150a those ops were 2.2 s of a 5.6 s encoder (512 aa, 4096 rows, 1350 MHz, dmc).
 MSA_FFN_FUSED = env_flag("TT_BIO_ESMFOLD2_MSA_FFN_FUSED", None)  # unset: the ef2_msa_ffn lever
-# The MSA encoder's two triangle multiplications as the trunk runs them: the fused chunk+gate forward move (E6,
-# `gated_move`) and `z + tri(z)` through the trimul's own residual path (`add_to_input`, where the mode's tail
-# levers fold the add into the epilogue). Built without either, each encoder trimul cost ~32 ms at 748 aa on
-# p150a against ~16 ms for the trunk's (d748 ops), 88 of them a fold with an MSA deeper than max_depth.
-ENC_TRIMUL = env_flag("TT_BIO_ESMFOLD2_ENC_TRIMUL", None)  # unset: the ef2_enc_trimul lever
 
 
 def gate(flag, name):
@@ -1944,16 +1939,10 @@ class MSAEncoderBlock(Module):
         if not self.is_final:
             m = self.mpwa(m, pair)  # residual included
             m = self._residual("msa_transition", m)
-        if gate(ENC_TRIMUL, "ef2_enc_trimul"):
-            for t in (self.tri_out, self.tri_in):
-                t.gated_move = True  # read per call by the trimul; off restores the build's False
-                pair = t(pair, None, add_to_input=True)
-                t.gated_move = False
-        else:
-            for t in (self.tri_out, self.tri_in):
-                u = t(pair, None)
-                ttnn.add_(pair, u)
-                ttnn.deallocate(u)
+        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None)):
+            u = f(pair)
+            ttnn.add_(pair, u)
+            ttnn.deallocate(u)
         return m, self._residual("pair_transition", pair)
 
 
