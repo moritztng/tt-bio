@@ -153,6 +153,11 @@ WS_NORMAL_WIDTHS = frozenset({256, 320, 448})
 # 1000 MHz, 6 paired warm folds (spd-m-protenix qsn2, 2026-10-19), CIFs identical, 6 of 6 faster, median -0.15 s
 # (-0.03 to -0.37). Flat on p150a for OpenFold3, so it rides on both chips.
 QSPLIT_NORMAL = frozenset({"dit_qsplit"})
+# A multi-width trunk (Mol-1: 448 and 320) takes, besides WS_NORMAL, the Protenix-v2 normal levers whose property it
+# shares: triangle attention's fused LayerNorm and one-chunk SDPA (TRIATT_LN, TRIATT_K1; each plans per width and
+# declines a shape it does not tile), and the token DiT's q split and device-resident pair (dit_qsplit, pz_device), whose
+# DiT is Protenix-v2's (c_token 768, 16 heads). Graded as one stack on Mol-1 (perf/mol1_pairmix/e2e_ab.sh STACK=1).
+WIDE_NORMAL = WS_NORMAL | TRIATT_LN | TRIATT_K1 | QSPLIT_NORMAL | {"pz_device"}
 # triatt_ln_b8 (triatt_ln writes q, k, v bfp8; the head-major bias is narrowed after its permute; the SDPA keeps a
 # bf16 destination) in Protenix-v2's Wormhole --fast set. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
 # fast set vs + triatt_ln_b8, 44 paired folds (spd-m-protenix gb8ln, 2026-10-19), PASS: same-seed top pose median
@@ -312,9 +317,9 @@ def mode_levers(state_dict):
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips."""
     widths = Trunk._pair_widths(state_dict)
     v2 = widths == {256}
-    # The pair transition stack needs only a width pair_swiglu_ws tiles, so it is keyed on the trunk widths it is
-    # graded at: Mol-1 (448 and 320) takes it in normal mode beside Protenix-v2.
-    ws = WS_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 else frozenset()
+    # The levers that need a width their kernels tile, not Protenix-v2 itself, are keyed on the trunk widths they are
+    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in normal mode.
+    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 else frozenset()
     wh = _T.is_wormhole()
     wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
