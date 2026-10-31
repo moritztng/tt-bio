@@ -686,7 +686,8 @@ _FAST_MODE = False
 #   trimul_t2g      the same kernel where no fused g_out exists (trimul_gin, Wormhole ESMFold2): it computes
 #                   sigmoid(layer_norm_in(z) @ Wg_out) itself, so g_out is never written to DRAM. It takes only
 #                   the calls the F1 tail would serve with the residual folded in, and there it is bit-exact
-#   trimul_t2w      with trimul_t2, T2 also takes c_z 384 (OpenDDE) at its own (2, 12, 1, 2, 1) block (trimul_tail.T2_BLOCK)
+#   trimul_t2w      with trimul_t2, T2 also takes c_z = hidden above 256: OpenDDE's 384 at its own (2, 12, 1, 2, 1) block
+#                   (trimul_tail.T2_BLOCK), Mol-1's 320 and 448 at the block trimul_tail.t2_fit_block finds
 #   narrow_bw16     the narrow-output pair projections (`_narrow_proj_linear`) at in0_block_w 16, not `_NARROW_PROJ_BW`
 #   trimul_t1b8     T1 writes a and b as bfp8, as trimul_b8in does at c_z 256: the einsum reads half the bytes
 #                   (Boltz-2 WH fast census: T1 1.0 s + einsum 0.86 s per fold, both DRAM-bound). Whole-tile items, or
@@ -696,6 +697,8 @@ _FAST_MODE = False
 #                   of 16-row units (trimul_tail.T1_PLANS)
 #   trimul_t1_c384  with trimul_t1, T1 also takes c_z = hidden = 384 (OpenDDE) as three channel-group launches
 #                   of 8-row units
+#   trimul_t1_c320  T1 at c_z = hidden = 320 and 448 (Mol-1's Pairformer and PairMixer / MSA / confidence pair), on
+#   trimul_t1_c448  the plan trimul_tail.t1_fit finds: the fewest channel groups whose buffers fit L1
 #   trimul_t2m      T2 (either form) reads the einsum's last channel chunk where it lies, channel-major, so
 #                   reblock_permute_back never writes the moved x (kernels/trimul_tail_res/reader_moved.cpp)
 #   trimul_t1_dram  every trimul T1 / T2 can take (N >= 160) runs on the DRAM path, so they also serve the sizes
@@ -899,7 +902,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_relpos_lookup",
-          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
+          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
@@ -926,7 +929,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
                              "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
-                             "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384",
+                             "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",

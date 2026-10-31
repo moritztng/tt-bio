@@ -13,7 +13,7 @@ wrong and the run stops, so an arm can never be graded against a wrong reference
 AICLK is sampled from a separate process (ttnn holds the GIL through a sync), from the node this
 process opened.
 
-usage: bench.py OUT [--n 736] [--valid 730] [--arms base,ibw,into,...] [--reps 5] [--calls 4] [--chip C]
+usage: bench.py OUT [--n 736] [--valid 730] [--arms base,ibw,into,lv:trimul_t1_c448,...] [--reps 5] [--calls 4] [--chip C]
        [--weights layer.pt] [--fast | --levers SET]
 """
 import argparse, json, os, statistics, subprocess, sys, time
@@ -152,11 +152,25 @@ LEVERS = {
 }
 
 
+def _lever_setter(name):
+    """`lv:NAME` arms: the model lever NAME on top of the run's set (tenstorrent._LEVERS), read live per call."""
+    T.parse_levers(name)
+
+    def f(on):
+        prev = name in T._LEVERS
+        T._LEVERS = T._LEVERS | {name} if on else T._LEVERS - {name}
+        return prev
+    return f
+
+
 def arm_setters(name):
     if name in ("base", "base'"):
         return []
     out = []
     for part in name.split("+"):
+        if part.startswith("lv:"):
+            out.append((_lever_setter(part[3:]), True))
+            continue
         if part not in LEVERS:
             raise SystemExit(f"unknown lever {part!r}; known: {sorted(LEVERS)}")
         out += LEVERS[part]
@@ -249,10 +263,16 @@ else:
 
 # For the whole process, before anything is built. Protenix builds its trunk under its lever set
 # with fast mode off (`Protenix._build`, legacy_fast=False), so --fast is the levers alone.
+# Held for the whole process: entering a temporary context manager lets it be collected at once, which closes its
+# generator and restores the previous (empty) set, so --fast / --levers measured no levers at all until 10-31.
+_SCOPES = []
 if A.fast:
-    T.levers("fast").__enter__()
+    _SCOPES.append(T.levers("fast"))
 if A.levers:
-    T.lever_scope(A.levers).__enter__()
+    _SCOPES.append(T.lever_scope(A.levers))
+for _s in _SCOPES:
+    _s.__enter__()
+log(ev="levers", active=sorted(T._LEVERS))
 if A.legacy_fast:
     T.set_fast_mode(True)
 from tt_bio.af2 import compute_kernel_config

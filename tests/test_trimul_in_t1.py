@@ -88,6 +88,35 @@ def test_cb_budget_fits_l1_c384_w8(mask):
     assert TTL.t1_cb_bytes(8, 16, 8, mask, w8=True) <= 0.85 * L1_ALLOCATOR_BANK
 
 
+@pytest.mark.parametrize("w8", [False, True])
+def test_t1_fit_reproduces_the_measured_wide_plans(w8):
+    """The width rule picks what was hand-measured at OpenDDE's and RFD4's keys (c_z 256 predates 8-row units)."""
+    plans = TTL.T1_PLANS_W8 if w8 else TTL.T1_PLANS
+    for key in ((12, 24, 12), (12, 16, 12)):
+        assert TTL.t1_fit(key, w8, L1_ALLOCATOR_BANK) == plans[key]
+
+
+@pytest.mark.parametrize("mask", [False, True])
+def test_t1_fit_mol1_widths(mask):
+    """Mol-1: c_z 320 two channel groups (bfp8 weights one launch), 448 seven, all 8-row units, inside the gate."""
+    want = {((10, 20, 10), False): (2, 8), ((10, 20, 10), True): (1, 8),
+            ((14, 28, 14), False): (7, 8), ((14, 28, 14), True): (7, 8)}
+    for (key, w8), plan in want.items():
+        assert TTL.t1_fit(key, w8, L1_ALLOCATOR_BANK) == plan
+        assert TTL.t1_cb_bytes(*key, mask, w8=w8, plan=plan) <= 0.85 * L1_ALLOCATOR_BANK
+        assert TTL.t1_wide_lever(key) in T.LEVERS
+    assert TTL.t1_wide_lever((12, 16, 12)) is None and TTL.t1_wide_lever((4, 8, 4)) is None
+    assert set(TTL.T1_WIDE_LEVERS) <= set(T.LEVERS)
+
+
+def test_t2_fit_block_by_width():
+    """T2 at a c_z = hidden key above 256: one K block, OpenDDE's hand-picked block at 384, Mol-1's 320 and 448."""
+    assert TTL.t2_fit_block(12, 12, L1_ALLOCATOR_BANK) == TTL.T2_BLOCK[(12, 12)]
+    assert TTL.t2_fit_block(10, 10, L1_ALLOCATOR_BANK) == (4, 10, 1, 4, 1)
+    assert TTL.t2_fit_block(14, 14, L1_ALLOCATOR_BANK) == (2, 14, 1, 2, 1)
+    assert TTL.t2_wide(10, 10) and TTL.t2_wide(14, 14) and not TTL.t2_wide(8, 8) and not TTL.t2_wide(8, 12)
+
+
 def test_cb_plan_covers_every_cb_the_kernels_use():
     used = set()
     for f in ("reader.cpp", "compute.cpp", "writer.cpp"):
@@ -207,15 +236,16 @@ def _gather(src_tiles_faces, c, il=32, r0=0):
 
 @pytest.mark.parametrize("S,masked,K,rows", [(64, True, 128, 32), (96, False, 128, 32), (64, True, 128, 16),
                                              (96, False, 128, 16), (64, True, 256, 16), (96, False, 256, 16),
-                                             (64, True, 384, 8), (96, False, 384, 8)])
+                                             (64, True, 384, 8), (96, False, 384, 8), (64, True, 320, 8),
+                                             (96, False, 448, 8)])
 def test_emulated_data_flow_matches_the_model(S, masked, K, rows):
     """The kernels' loops, page for page, against float64 torch: one launch of 32-row units at
     c_z 128 (or of 16-row halves, t1_rows), two channel groups of 16-row units writing half tiles
-    at c_z 256, three of 8-row units at 384."""
+    at c_z 256, three of 8-row units at 384; Mol-1's 320 and 448 on t1_fit's two and seven groups."""
     d = torch.float64
     h = cz = K
     St, Kt, ct2, ct, ntg = S // 32, K // 32, 2 * h // 32, h // 32, cz // 32
-    groups, IL = TTL.T1_PLANS[(Kt, ct2, ntg)][0], rows
+    groups, IL = (TTL.T1_PLANS.get((Kt, ct2, ntg)) or TTL.t1_fit((Kt, ct2, ntg), False, L1_ALLOCATOR_BANK))[0], rows
     H, qn, ng = 32 // IL, ct2 // groups, ntg // groups
     g = torch.Generator().manual_seed(S)
     w = {k: v.to(d) for k, v in _ckpt(K, h, cz, g).items()}
@@ -345,6 +375,10 @@ def test_eligibility(monkeypatch):
     assert TTL.t1_eligible(**_args(K=384, h=384, N=384)) == "c384_off"  # opendde: own lever until graded
     with T.levers("trimul_t1_c384"):
         assert TTL.t1_eligible(**_args(K=384, h=384, N=384)) is None
+    for c in (320, 448):                                                 # Mol-1: a lever per width, on t1_fit's plan
+        assert TTL.t1_eligible(**_args(K=c, h=c, N=c)) == f"c{c}_off"
+        with T.levers(f"trimul_t1_c{c}"):
+            assert TTL.t1_eligible(**_args(K=c, h=c, N=c)) is None
     assert TTL.t1_eligible(**_args(h=64)) == "key=4x4x4"
     a = _args()
     a["ln_w"] = _Fake([128], dtype=ttnn.float32)
