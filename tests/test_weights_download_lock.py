@@ -101,7 +101,7 @@ def test_concurrent_fetchers_download_one_file_once(tmp_path, monkeypatch):
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", slow_hub)
     dest = tmp_path / "cache" / "w.ckpt"
     with ThreadPoolExecutor(6) as pool:
-        shards = [pool.submit(weights.fetch_file, ("hf://repo/w.ckpt",), dest, quiet=True)
+        shards = [pool.submit(weights.fetch_file, ("hf://owner/repo/w.ckpt",), dest, quiet=True)
                   for _ in range(6)]
         results = [f.result(timeout=60) for f in shards]
     assert results == [dest] * 6
