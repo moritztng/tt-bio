@@ -598,12 +598,11 @@ _PZ_ADDCMUL = env_flag("RFD3_PZ_ADDCMUL", True)
 _PLL_GATHER = env_flag("RFD3_PLL_GATHER", False) if os.environ.get("RFD3_PLL_GATHER") else None
 # TokenInitializer writes that table on the card from its own P_LL blocks (TokenInitializer.pair_cache), so the first
 # diffusion step no longer casts and uploads the 1.17 GB of P_LL it had just downloaded (page fixture, 6051 atoms).
-# A copy of the same bf16 values: BH sampler -1.1 s fast at equal digests. OFF by default (RFD3_PLL_INIT_TABLE=1
-# turns it on): its ttnn.experimental.slice_write (0.68.0) of a block that is not one whole, aligned table chunk
-# hangs the card at some (offset, length) pairs. Measured on p150b: one 6.04M-row write (2458 atoms) hangs; in 1M-row
-# chunks, 1547 atoms hangs on the last partial chunk (296057 rows at row 2097152) while 1546 and a single unchunked
-# write at 1547 pass; at 1914 atoms the single write gave a different design from the upload path. The upload path
-# writes only whole chunk-aligned blocks (it zero-pads the last one on the host) and has not hung.
+# A copy of the same bf16 values: BH page cell @1350, x2 interleaved, digests equal, fast 18.94 -> 17.79 and normal
+# 18.98 -> 18.23 s/design. ttnn.experimental.slice_write (0.68.0) hung the card whenever a write did not start and end
+# on a whole DRAM page (1547 atoms in 1M-row chunks hung on the last partial chunk; 1914 atoms wrote different rows),
+# so the table now keeps every atom row on a 64-row stride and writes whole 2 KB blocks only. On by default except on
+# Wormhole, which still uploads; RFD3_PLL_INIT_TABLE=0/1 forces it.
 _PLL_INIT_TABLE = env_flag("RFD3_PLL_INIT_TABLE", False) if os.environ.get("RFD3_PLL_INIT_TABLE") else None
 
 
@@ -612,7 +611,7 @@ def _pll_gather():
 
 
 def _pll_init_table():
-    return bool(_PLL_INIT_TABLE)
+    return _PLL_INIT_TABLE if _PLL_INIT_TABLE is not None else not is_wormhole()
 _ATOM_SDPA_CHUNKS = tuple(int(x) for x in os.environ.get("RFD3_ATOM_SDPA_CHUNKS", "160,320").split(","))
 # ttnn.gather (0.68.0) on dim 3 silently returns wrong data for every tile-row after the first
 # once the indexed axis exceeds this many elements: 99.87 % of elements wrong at the production
