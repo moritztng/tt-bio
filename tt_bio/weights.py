@@ -82,7 +82,7 @@ class Derived:
     what a host already has."""
 
     subdir: str                          # cache-relative output directory
-    producer: str                        # "tar" | "rfd3"
+    producer: str                        # "tar" | "af2-params" | "rdkit-conformers" | "rfd3"
     expect: tuple[str, ...] = ()         # files that must exist and verify inside
     min_entries: int = 0                 # or: at least this many entries
     discard_archive: bool = False        # unlink the source once the output verifies
@@ -276,7 +276,7 @@ _ROWS: tuple[Artifact, ...] = (
     Artifact("boltz2-aff", ("boltz2",), "file", "MIT",
              repo=BOLTZ2_REPO, filename="boltz2_aff.ckpt", approx_bytes=2062139170,
              note="affinity head; only read for ligand affinity"),
-    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2", "opendde", "opendde-abag"), "file", "MIT",
+    Artifact("mols", ("boltz2", "protenix-v1", "protenix-v2", "mol1", "opendde", "opendde-abag"), "file", "MIT",
              repo=BOLTZ2_REPO, filename="mols.tar", approx_bytes=1855662080,
              derived=Derived("mols", "tar", min_entries=45227),
              note="CCD molecule library, extracted to <cache>/mols"),
@@ -324,6 +324,18 @@ _ROWS: tuple[Artifact, ...] = (
              sha256="d5b83a86884aa6870565b1a249e8f13c232dfc6dfa311089ab0c7868212b6bd6",
              subdir="mol1", approx_bytes=2393615173,
              note="Mol-1 base checkpoint, a Protenix-v2 variant"),
+    # Mol-1 takes each reference conformer from its own CCD pickle (mol.ref_conf_id), not the
+    # CCD ideal coordinates the other Protenix models read, so ref_pos needs this table to
+    # match upstream. Upstream ships the pickle only inside common.tar.gz, so the mirror's loose
+    # copy is the one source; the sha256 is of the pickle in the official tarball. Only the
+    # conformer table is kept.
+    Artifact("mol1-ccd", ("mol1",), "file", "unstated (Molence); CCD data PDB terms",
+             repo=MOL1_REPO, filename="common/components.cif.rdkit_mol.pkl",
+             sha256="b59c9ec2ee52b8e695d8669096d0496933ff374b8bf7d2e56025387d22df863a",
+             subdir="mol1", approx_bytes=149618245,
+             derived=Derived("mol1/conformers", "rdkit-conformers", expect=("ccd_conformers.npz",),
+                             discard_archive=True),
+             note="Mol-1's reference conformers, reduced to <cache>/mol1/conformers"),
 
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
     Artifact("esmfold2", ("esmfold2",), "hf-repo", "MIT (Biohub)",
@@ -1132,6 +1144,11 @@ def _produce(producer: str, archive: Path, staging: Path, *, quiet: bool = False
                 raise ValueError(f"{want} in {archive.name} is not a regular file")
             with (staging / want).open("wb") as fh:
                 shutil.copyfileobj(src, fh)
+    elif producer == "rdkit-conformers":
+        from tt_bio.protenix_data import write_conformer_table
+        _echo(f"Reading reference conformers from {archive.name}", quiet)
+        staging.mkdir(parents=True, exist_ok=True)
+        write_conformer_table(archive, staging / "ccd_conformers.npz")
     elif producer == "rfd3":
         from tt_bio.rfd3.design import extract_rfd3_weights
         _echo("Extracting RFD3 weights", quiet)

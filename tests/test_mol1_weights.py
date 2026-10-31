@@ -37,3 +37,63 @@ def test_checkpoint_source_in_a_hub_subdirectory():
     assert split_hf(art.sources[0]) == ("RUIMA294264/Mol-1", "checkpoint/mol-1-base.pt")
     assert art.sources[1].startswith("https://mol-1-release.oss-cn-shanghai.aliyuncs.com/")
     assert split_hf("hf://moritztng/boltz-2/boltz2_conf.ckpt") == ("moritztng/boltz-2", "boltz2_conf.ckpt")
+
+
+def _ccd_pickle(path, mols):
+    import pickle
+    path.write_bytes(pickle.dumps(mols))
+    return path
+
+
+def test_conformer_table_takes_each_codes_ref_conformer(tmp_path):
+    """Upstream reads conformer mol.ref_conf_id with names from mol.atom_map; so must the table."""
+    import numpy as np
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    from tt_bio.protenix_data import load_conformer_table, write_conformer_table
+    mol = Chem.AddHs(Chem.MolFromSmiles("CO"))
+    AllChem.EmbedMultipleConfs(mol, 3, randomSeed=0)
+    mol.ref_conf_id = 2
+    mol.atom_map = {f"A{i}": i for i in range(mol.GetNumAtoms())}
+    out = tmp_path / "t.npz"
+    assert write_conformer_table(_ccd_pickle(tmp_path / "c.pkl", {"MOH": mol, "NIL": Chem.Mol()}), out) == 1
+    table = load_conformer_table(out)
+    assert set(table) == {"MOH"}
+    want = mol.GetConformer(2).GetPositions().astype(np.float32)
+    assert np.array_equal(np.stack([table["MOH"][f"A{i}"] for i in range(mol.GetNumAtoms())]), want)
+
+
+def test_conformer_pickle_may_not_construct_anything_else(tmp_path):
+    import os
+    import pickle
+    import pytest
+    from tt_bio.protenix_data import write_conformer_table
+
+    class Boom:
+        def __reduce__(self):
+            return (os.getcwd, ())
+    with pytest.raises(pickle.UnpicklingError, match="posix.getcwd|os.getcwd"):
+        write_conformer_table(_ccd_pickle(tmp_path / "bad.pkl", {"X": Boom()}), tmp_path / "t.npz")
+    assert not (tmp_path / "t.npz").exists()
+
+
+def test_mol1_fetches_its_own_conformers():
+    from tt_bio.weights import artifacts_for
+    arts = {a.key: a for a in artifacts_for("mol1")}
+    assert set(arts) == {"mol1", "mol1-ccd", "mols"}
+    ccd = arts["mol1-ccd"]
+    assert split_hf(ccd.sources[0]) == ("RUIMA294264/Mol-1", "common/components.cif.rdkit_mol.pkl")
+    assert ccd.derived.producer == "rdkit-conformers" and ccd.derived.expect == ("ccd_conformers.npz",)
+    assert not any(a.derived and a.derived.producer == "rdkit-conformers" for a in artifacts_for("protenix-v2"))
+
+
+def test_only_mol1_folds_read_their_own_conformers(tmp_path, monkeypatch):
+    from tt_bio import weights
+    from tt_bio.worker import _ensure_local_artifacts
+    monkeypatch.setenv("TT_BIO_CACHE", str(tmp_path))
+    monkeypatch.setattr(weights, "fetch", lambda key, **k: tmp_path / key)
+    cfgs = {m: {"model": m, "msa_dir": None} for m in ("mol1", "protenix-v2")}
+    for cfg in cfgs.values():
+        _ensure_local_artifacts(cfg)
+    assert cfgs["mol1"]["conformer_table"] == str(tmp_path / "mol1-ccd" / "ccd_conformers.npz")
+    assert "conformer_table" not in cfgs["protenix-v2"]

@@ -32,6 +32,7 @@ from __future__ import annotations
 import functools
 import json
 import math
+import pickle
 
 import torch
 from pathlib import Path
@@ -597,9 +598,47 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     return feats
 
 
+class _CcdUnpickler(pickle.Unpickler):
+    """Upstream's CCD pickle holds RDKit mols with numpy attributes and nothing else, so nothing else
+    may be constructed while reading it."""
+    _ALLOWED = {("rdkit.Chem.rdchem", "Mol"), ("numpy", "ndarray"), ("numpy", "dtype"),
+                ("numpy._core.multiarray", "_reconstruct"), ("numpy.core.multiarray", "_reconstruct")}
+
+    def find_class(self, module, name):
+        if (module, name) not in self._ALLOWED:
+            raise pickle.UnpicklingError(f"CCD pickle names {module}.{name}, which a conformer table never holds")
+        if module == "numpy._core.multiarray":   # written by numpy 2; numpy 1 calls it numpy.core
+            import numpy
+            module = module if hasattr(numpy, "_core") else "numpy.core.multiarray"
+        return super().find_class(module, name)
+
+
+def write_conformer_table(pkl, out) -> int:
+    """Reduce an upstream CCD pickle ({code: RDKit mol}, components.cif.rdkit_mol.pkl) to the npz
+    load_conformer_table reads: each code's conformer at mol.ref_conf_id, which is what upstream's
+    get_ccd_ref_info uses, in the mol's atom order with its atom names. Returns the code count."""
+    import numpy as np
+    import rdkit.Chem  # noqa: F401  (registers the Mol pickle support)
+    with open(pkl, "rb") as fh:
+        mols = _CcdUnpickler(fh).load()
+    codes, counts, names, xyz = [], [], [], []
+    for code, mol in mols.items():
+        n = mol.GetNumAtoms()
+        if n == 0:
+            continue
+        inv = {i: a for a, i in mol.atom_map.items()}
+        codes.append(code)
+        counts.append(n)
+        names += [inv[i] for i in range(n)]
+        xyz.append(mol.GetConformer(mol.ref_conf_id).GetPositions().astype(np.float32))
+    np.savez_compressed(out, codes=np.array(codes), counts=np.array(counts, np.int32), names=np.array(names),
+                        xyz=np.concatenate(xyz))
+    return len(codes)
+
+
 def load_conformer_table(path) -> dict:
     """{CCD code: {atom name: (3,) float32 array}} from an npz of codes / counts / names / xyz, the
-    layout scripts/mol1_io/ccd_conformers.py writes from an upstream CCD cache."""
+    layout write_conformer_table writes from an upstream CCD pickle."""
     import numpy as np
     z = np.load(path)
     off = np.concatenate([[0], np.cumsum(z["counts"])])

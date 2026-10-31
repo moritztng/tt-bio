@@ -170,6 +170,11 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
         cfg["protenix_ckpt"] = str(weights.fetch(cfg["model"]))
         cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
+        # A checkpoint that ships its own reference conformers (Mol-1) reads them instead of the
+        # CCD ideal coordinates, as upstream does.
+        for art in weights.artifacts_for(cfg["model"]):
+            if art.derived and art.derived.producer == "rdkit-conformers":
+                cfg.setdefault("conformer_table", str(weights.fetch(art.key) / "ccd_conformers.npz"))
         return
     # OpenFold3 / OpenBind: $TT_BIO_OPENFOLD3 / $OF3_CKPT or $TT_BIO_OPENBIND, else the
     # local cache, else upstream's bucket. The artifact key is the model id, so the
