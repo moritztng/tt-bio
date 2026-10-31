@@ -5,7 +5,8 @@ port mirrors and a recording proxy on the sampler's RNG.
 
 Writes, per <sample>/seed_<seed>/:
   features.pt                 input_feature_dict as the model receives it (before the loop prunes MSA/template keys)
-  <module>.call<k>.pt         {"args", "kwargs", "out"} (or {"out"}) for the calls listed in KEEP, fp32 on CPU
+  <module>.call<k>.pt         {"args", "kwargs", "out"} (or {"out"}) for the calls listed in KEEP, fp32 on CPU;
+                              args/kwargs are cloned before the call (in-place updates do not leak in)
   sampler.pt                  per diffusion call: x_noisy, t_hat, x_denoised; plus the noise schedule
   draws.pt                    every random draw of the sampler in call order: [(tag, tensor)], tag in
                               {init, rot, trans, eps}; replaying them reproduces the trajectory exactly
@@ -88,7 +89,7 @@ class Capture:
 
     def reset(self):
         # cleared in place: the RNG proxies hold a reference to self.draws
-        self.calls, self.counts, self.sampler, self.timeline = {}, {}, [], []
+        self.calls, self.counts, self.pending, self.sampler, self.timeline = {}, {}, {}, [], []
         self.draws.clear()
         self.features = None
         self.t0 = time.perf_counter()
@@ -102,19 +103,24 @@ class Capture:
             return "out"
         return None
 
-    def record(self, name, args, kwargs, out):
+    def enter(self, name, args, kwargs):
+        """Called BEFORE the module runs: upstream runs with inplace_safe=True, so blocks update z in place and
+        inputs cloned after the forward would already hold the output."""
         k = self.counts.get(name, 0)
         self.counts[name] = k + 1
+        mode = self.want(name, k)
+        inp = (detach(list(args)), detach(strip_features(kwargs))) if mode == "full" else None
+        noisy = (detach(kwargs["x_noisy"]), detach(kwargs["t_hat_noise_level"])) if name == "diffusion_module" else None
+        self.pending.setdefault(name, []).append((k, mode, inp, noisy))
+
+    def leave(self, name, out):
+        k, mode, inp, noisy = self.pending[name].pop()
         if "." not in name:  # top-level modules: wall time since the forward started, for run planning
             self.timeline.append((name, k, round(time.perf_counter() - self.t0, 3)))
-        if name == "diffusion_module":
-            self.sampler.append({"x_noisy": detach(kwargs["x_noisy"]),
-                                 "t_hat": detach(kwargs["t_hat_noise_level"]),
-                                 "x_denoised": detach(out)})
-        mode = self.want(name, k)
+        if noisy is not None:
+            self.sampler.append({"x_noisy": noisy[0], "t_hat": noisy[1], "x_denoised": detach(out)})
         if mode == "full":
-            self.calls[f"{name}.call{k}"] = {"args": detach(list(args)), "kwargs": detach(strip_features(kwargs)),
-                                             "out": detach(out)}
+            self.calls[f"{name}.call{k}"] = {"args": inp[0], "kwargs": inp[1], "out": detach(out)}
         elif mode == "out":
             self.calls[f"{name}.call{k}"] = {"out": detach(out)}
 
@@ -122,14 +128,16 @@ class Capture:
         mods = dict(model.named_modules())
         for name, mod in mods.items():
             if name in KEEP or BLOCK_RE.match(name):
-                mod.register_forward_hook(lambda m, a, kw, out, n=name: self.record(n, a, kw, out), with_kwargs=True)
+                mod.register_forward_pre_hook(lambda m, a, kw, n=name: self.enter(n, a, kw), with_kwargs=True)
+                mod.register_forward_hook(lambda m, a, kw, out, n=name: self.leave(n, out), with_kwargs=True)
         for path, meth in METHODS:
             mod = mods[path]
             orig = getattr(mod, meth)
 
             def wrapped(*a, _orig=orig, _n=f"{path}.{meth}", **kw):
+                self.enter(_n, a, kw)
                 out = _orig(*a, **kw)
-                self.record(_n, a, kw, out)
+                self.leave(_n, out)
                 return out
             setattr(mod, meth, wrapped)
         model.register_forward_pre_hook(self._features, with_kwargs=True)
