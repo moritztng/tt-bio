@@ -12187,15 +12187,31 @@ def _mm_fused_block(kt: int, nt: int):
     return _MM_BLOCK[(kt, best)]
 
 
+# A contraction of 8 tiles or more that the table has no row for at all runs `_MM_DEFAULT`: the op's
+# own default, so the matmul is byte-identical to `config=None` by construction, and K1's head-major
+# transcription gets the descriptor it needs at any width rather than only at the widths someone
+# swept. Below 8 tiles the default pads the contraction to 8, which is why every narrow width has a
+# swept K_block == kt entry. A kt the table already has rows for keeps exactly its rows: OpenDDE's
+# other kt 12 keys reach `_pair_proj_minimal_matmul`, where a config would swap `ttnn.linear` for
+# `minimal_matmul` and move its CIF. So the rule moves no existing fold; Mol-1's c_z 320 and 448
+# (kt 10 and 14, 10 and 14 heads) are what it serves (perf/mol1_triattn/).
+# `TT_BIO_MM_DEFAULT_WIDE=0` is the kill switch.
+_MM_DEFAULT_WIDE = env_flag("TT_BIO_MM_DEFAULT_WIDE", True)
+
+
 def _mm_block_at(kt: int, nt: int):
-    """The entry for this key, registered or derived. The single resolver of a (kt, nt) key.
+    """The entry for this key: registered, derived, or the default (`_MM_DEFAULT_WIDE`). The single
+    resolver of a (kt, nt) key.
 
     `swiglu_fused` and `trimul_tail` hold their own allow-lists of keys their descriptors were
     swept at and then resolve the VALUE here, so a fused key that is derived rather than written
     down is still a key they can look up.
     """
     blk = _MM_BLOCK.get((kt, nt))
-    return blk if blk is not None else _mm_fused_block(kt, nt)
+    blk = blk if blk is not None else _mm_fused_block(kt, nt)
+    if blk is None and kt >= 8 and _MM_DEFAULT_WIDE and all(k != kt for k, _ in _MM_BLOCK):
+        return _MM_DEFAULT
+    return blk
 
 
 def _mm_block_for(w):
