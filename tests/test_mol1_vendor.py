@@ -9,7 +9,8 @@ VENDOR = Path(__file__).resolve().parents[1] / "tt_bio" / "_vendor" / "mol1"
 
 
 @pytest.mark.parametrize("mod", ["constants", "msa_utils", "msa_assembly", "constants_full", "tools_common",
-                                 "kalign", "template_parser", "template_utils", "template_featurizer", "helpers"])
+                                 "kalign", "template_parser", "template_utils", "template_featurizer", "helpers",
+                                 "search", "sources", "template_search", "rna_msa_search"])
 def test_vendored_module_imports(mod):
     importlib.import_module(f"tt_bio._vendor.mol1.{mod}")
 

@@ -5,6 +5,29 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Added
+- **Mol-1 (`--model mol1`).** Molence Bio's Protenix-derived structure model folds protein, DNA, RNA, ligand and ion
+  complexes on the Protenix engine. It reads upstream's job-list JSON unchanged, writes upstream's per-seed output
+  layout with its summary and full-data confidence files, and defaults to upstream's 20 recycles, 200 steps and 5
+  samples. For Protenix and Mol-1 job JSON, `--use_seeds_in_json` runs every seed in a job's
+  `modelSeeds` instead of `--seed`, one result per seed. The weights download on first use; Molence has not stated a
+  licence for them yet. See `docs/mol1.md`.
+- **`tt-bio json`** turns PDB and mmCIF structures into Protenix / Mol-1 job JSON with Mol-1's own converter
+  (`mol json`), so the output is identical to upstream's. `--altloc` picks the alternate location, `--assembly_id`
+  expands to a biological assembly and `--include_discont_poly_poly_bonds` keeps bonds between non-consecutive polymer
+  residues (disulfides, cyclic peptides), as upstream's options of the same names do. The first run downloads the
+  Chemical Component Dictionary.
+- **`tt-bio prep`** searches the MSAs of a Protenix / Mol-1 job JSON or a FASTA ahead of the fold and writes them
+  where upstream's `mol msa` does, so a prepared job folds without searching. With `--use_template` and
+  `--use_rna_msa` it also runs upstream's template and RNA MSA searches, which is `mol prep`. Needs no device.
+- **Failed inputs get a report.** Every input `predict` could not fold or refused now leaves `ERR/<name>.txt` beside
+  `results.json` with the reason, as Protenix and Mol-1 do. The exit status is unchanged.
+- **`--checkpoint` works for Protenix-v1, Protenix-v2 and Mol-1**, and the shipped checkpoint it replaces is no longer
+  downloaded (OpenFold3 and OpenBind-0 too).
+
+### Fixed
+- `tt-bio preflight mol1` no longer reports Mol-1 ready on a machine without the CCD molecule library it folds with.
+
 ### Changed
 - **ESMFold2 on Blackhole runs the MSA outer product's output projection on the shared pair-projection path.** A
   748-residue fold with a deep MSA on a p150a drops about 0.7 s in both modes (36.04 -> 35.36 s normal, 34.09 -> 33.36 s
@@ -22,6 +45,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - **ESMFold2 and ESMFold2-Fast normal mode on Wormhole build the pair representation on the device.** A 512-residue
   fold drops about 1 s (ESMFold2 24.6 -> 23.5 s, ESMFold2-Fast 14.7 -> 13.7 s); `--fast` already did this.
   Structures stay within the accuracy bar for both changes.
+
+### Added
+- **`tt-bio predict jobs.json --use_template` and `--use_rna_msa` search what the JSON leaves out, as Mol-1 does.** A
+  protein chain with an MSA directory but no `templatesPath` gets hmmsearch hits against the PDB seqres database, an RNA
+  chain without `unpairedMsaPath` an nhmmer MSA. The binaries and databases take upstream's option names.
+- **`--model mol1` writes the C-terminal O/OXT the way Mol-1 does**: the oxygen nearer C stays, OXT becomes its mirror
+  across the C-CA axis. Other models keep the gated OpenDDE rebuild.
 
 ## [0.26.1] - 2026-10-29
 

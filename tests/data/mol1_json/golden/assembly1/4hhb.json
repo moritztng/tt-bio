@@ -1,0 +1,26 @@
+[
+    {
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "VLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHGKKVADALTNAVAHVDDMPNALSALSDLHAHKLRVDPVNFKLLSHCLLVTLAAHLPAEFTPAVHASLDKFLASVSTVLTSKYR",
+                    "count": 2
+                }
+            },
+            {
+                "proteinChain": {
+                    "sequence": "VHLTPEEKSAVTALWGKVNVDEVGGEALGRLLVVYPWTQRFFESFGDLSTPDAVMGNPKVKAHGKKVLGAFSDGLAHLDNLKGTFATLSELHCDKLHVDPENFRLLGNVLVCVLAHHFGKEFTPPVQAAYQKVVAGVANALAHKYH",
+                    "count": 2
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_HEM",
+                    "count": 4
+                }
+            }
+        ],
+        "assembly_id": "1",
+        "name": "4hhb"
+    }
+]

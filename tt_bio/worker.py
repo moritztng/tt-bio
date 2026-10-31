@@ -168,7 +168,7 @@ def _ensure_local_artifacts(cfg: dict[str, Any]) -> None:
     # loaded as if it were complete.
     if cfg.get("model") in _protenix_family():
         cfg["msa_dir"] = _resolve_msa_dir(cfg.get("msa_dir"), cache)
-        cfg["protenix_ckpt"] = str(weights.fetch(cfg["model"]))
+        cfg["protenix_ckpt"] = cfg.get("checkpoint") or str(weights.fetch(cfg["model"]))
         cfg["mol_dir"] = str(weights.fetch("mols"))    # CCD templates for nucleic acids / ligands
         # A checkpoint that ships its own reference conformers (Mol-1) reads them instead of the
         # CCD ideal coordinates, as upstream does.
@@ -591,7 +591,8 @@ def _write_upstream_layout(path, cfg, feats, chains, coords, confs) -> None:
 
     def structure(i, out, b_factor):
         _write_protenix_structure(coords[i], feats, None, out, "cif", b_factors=torch.as_tensor(b_factor),
-                                  mod_names=_artifact_residue_names(chains), chain_ids=[cid for cid, *_r in chains])
+                                  mod_names=_artifact_residue_names(chains), chain_ids=[cid for cid, *_r in chains],
+                                  mirror_carboxylates=True)
 
     po.write(Path(cfg["struct_dir"]).parent, side["job"] if side else path.stem, _target_seed(path, cfg),
              summaries, fulls, write_structure=structure, need_atom_confidence=bool(cfg.get("write_pae")))

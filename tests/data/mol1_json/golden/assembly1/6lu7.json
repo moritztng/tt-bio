@@ -1,0 +1,34 @@
+[
+    {
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "SGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICTSEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKVDTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIKGSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYGPFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLNDFNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNGMNGRTILGSALLEDEFTPFDVVRQCSGVTFQ",
+                    "count": 2
+                }
+            },
+            {
+                "proteinChain": {
+                    "sequence": "XAVLXX",
+                    "count": 2,
+                    "modifications": [
+                        {
+                            "ptmPosition": 1,
+                            "ptmType": "CCD_02J"
+                        },
+                        {
+                            "ptmPosition": 5,
+                            "ptmType": "CCD_PJE"
+                        },
+                        {
+                            "ptmPosition": 6,
+                            "ptmType": "CCD_010"
+                        }
+                    ]
+                }
+            }
+        ],
+        "assembly_id": "1",
+        "name": "6lu7"
+    }
+]

@@ -18,7 +18,7 @@ GOLD = REPO / "tests" / "data" / "mol1_io" / "features"
 DATA = REPO / "tests" / "data" / "mol1_io"
 #: The jobs the goldens were made from. ref_*.json are mol1-ref's cases; they name upstream's example alignments as
 #: @MOL1@/examples/..., resolved against the upstream clone in $MOL1_UPSTREAM.
-CASES = ("synthetic.json", "ref_msa.json", "ref_nomsa.json")
+CASES = ("synthetic.json", "ref_msa.json", "ref_nomsa.json", "cyclic.json", "legacy_msa.json")
 MOL1 = os.environ.get("MOL1_UPSTREAM", "/home/moritz/mol1-upstream/Mol-1")
 MODES = {"no_msa": dict(single_sequence=True), "msa": {}, "rna_msa": dict(use_rna_msa=True)}
 

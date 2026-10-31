@@ -272,6 +272,47 @@ def stage(path, dest, seeds=None, use_seeds_in_json: bool = False) -> Path:
     return dest
 
 
+SEARCH_TOOLS = ("hmmsearch_binary_path", "hmmbuild_binary_path", "seqres_database_path", "nhmmer_binary_path",
+                "hmmalign_binary_path", "hmmbuild_rna_binary_path", "ntrna_database_path", "rfam_database_path",
+                "rna_central_database_path", "nhmmer_n_cpu")
+
+
+def search(path, dest, use_template: bool = False, use_rna_msa: bool = False, **tools) -> Path:
+    """Upstream's template and RNA MSA searches (``mol pred`` preprocess steps 2 and 3, Mol-1's own code under
+    tt_bio/_vendor/mol1). Under ``use_template`` a protein chain without ``templatesPath`` whose MSA directory holds
+    pairing.a3m/non_pairing.a3m gets ``hmmsearch.a3m`` there; under ``use_rna_msa`` an RNA chain without
+    ``unpairedMsaPath`` is searched with nhmmer into ``dest/<job>/rna_msa/<k>/``. ``tools`` are upstream's
+    ``SEARCH_TOOLS`` options (None: PATH and $MOL_ROOT_DIR/search_database, as upstream). Returns ``path`` when
+    nothing changed, else ``dest/<stem>-final-updated.json``."""
+    unknown = set(tools) - set(SEARCH_TOOLS)
+    if unknown:
+        raise TypeError(f"unknown search options {sorted(unknown)}")
+    if not (use_template or use_rna_msa):
+        return Path(path)
+    data = json.loads(Path(path).read_text())
+    t = {k: tools.get(k) for k in SEARCH_TOOLS}
+    updated = False
+    if use_template:
+        from tt_bio._vendor.mol1.template_search import update_template_info
+        updated |= update_template_info(data, hmmsearch_binary_path=t["hmmsearch_binary_path"],
+                                        hmmbuild_binary_path=t["hmmbuild_binary_path"],
+                                        seqres_database_path=t["seqres_database_path"])
+    if use_rna_msa:
+        from tt_bio._vendor.mol1.rna_msa_search import update_rna_msa_info
+        updated |= update_rna_msa_info(
+            data, out_dir=str(dest), nhmmer_binary_path=t["nhmmer_binary_path"],
+            hmmalign_binary_path=t["hmmalign_binary_path"],
+            hmmbuild_binary_path=t["hmmbuild_rna_binary_path"] or t["hmmbuild_binary_path"],
+            ntrna_database_path=t["ntrna_database_path"], rfam_database_path=t["rfam_database_path"],
+            rna_central_database_path=t["rna_central_database_path"], nhmmer_n_cpu=t["nhmmer_n_cpu"])
+    if not updated:
+        return Path(path)
+    out = Path(dest) / f"{Path(path).stem.replace('-update-msa', '')}-final-updated.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(data, indent=4))
+    return out
+
+
 def split_stem(stem: str):
     """``<job>__seed_<s>`` -> (job, s); anything else -> (stem, None)."""
     job, sep, s = str(stem).rpartition(SEED_SEP)

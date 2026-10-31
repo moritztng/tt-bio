@@ -4,7 +4,8 @@
 
 Copies whole, without editing any logic: mol/data/constants.py (as constants_full.py), mol/data/tools/common.py
 (tools_common.py), mol/data/tools/kalign.py, and mol/data/template/{template_parser,template_utils,
-template_featurizer}.py. Only `from mol...` import lines are rewritten. Three small helpers upstream keeps in
+template_featurizer}.py, plus the template and RNA MSA searches (mol/data/tools/search.py,
+mol/data/sources.py, mol/runner/{template_search,rna_msa_search}.py). Only `from mol...` import lines are rewritten. Three small helpers upstream keeps in
 modules with heavy dependencies go to helpers.py: pad_to (verbatim), a JSON-only load_json_cached (upstream's JSON
 branch: load once per process and cache), and get_logger = logging.getLogger.
 """
@@ -27,6 +28,8 @@ MODS = {
     "mol.data.template.template_utils": ".template_utils",
     "mol.data.tools.kalign": ".kalign",
     "mol.data.tools.common": ".tools_common",
+    "mol.data.tools.search": ".search",
+    "mol.data.sources": ".sources",
     "mol.data.utils": ".helpers",
     "mol.utils.file_io": ".helpers",
     "mol.utils.logger": ".helpers",
@@ -54,7 +57,9 @@ def block(text, start, end=None):
 files = {"constants_full.py": "mol/data/constants.py", "tools_common.py": "mol/data/tools/common.py",
          "kalign.py": "mol/data/tools/kalign.py", "template_parser.py": "mol/data/template/template_parser.py",
          "template_utils.py": "mol/data/template/template_utils.py",
-         "template_featurizer.py": "mol/data/template/template_featurizer.py"}
+         "template_featurizer.py": "mol/data/template/template_featurizer.py",
+         "search.py": "mol/data/tools/search.py", "sources.py": "mol/data/sources.py",
+         "template_search.py": "mol/runner/template_search.py", "rna_msa_search.py": "mol/runner/rna_msa_search.py"}
 for dst, src in files.items():
     (OUT / dst).write_text(rewrite((SRC / src).read_text()))
 

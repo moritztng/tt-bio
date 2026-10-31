@@ -1,0 +1,83 @@
+[
+    {
+        "sequences": [
+            {
+                "rnaSequence": {
+                    "sequence": "GCGGAUUUAGCUCAGUUGGGAGAGCGCCAGACUGAAGAUCUGGAGGUCCUGUGUUCGAUCCACAGAAUUCGCACCA",
+                    "count": 1,
+                    "modifications": [
+                        {
+                            "basePosition": 10,
+                            "modificationType": "CCD_2MG"
+                        },
+                        {
+                            "basePosition": 16,
+                            "modificationType": "CCD_H2U"
+                        },
+                        {
+                            "basePosition": 17,
+                            "modificationType": "CCD_H2U"
+                        },
+                        {
+                            "basePosition": 26,
+                            "modificationType": "CCD_M2G"
+                        },
+                        {
+                            "basePosition": 32,
+                            "modificationType": "CCD_OMC"
+                        },
+                        {
+                            "basePosition": 34,
+                            "modificationType": "CCD_OMG"
+                        },
+                        {
+                            "basePosition": 37,
+                            "modificationType": "CCD_YYG"
+                        },
+                        {
+                            "basePosition": 39,
+                            "modificationType": "CCD_PSU"
+                        },
+                        {
+                            "basePosition": 40,
+                            "modificationType": "CCD_5MC"
+                        },
+                        {
+                            "basePosition": 46,
+                            "modificationType": "CCD_7MG"
+                        },
+                        {
+                            "basePosition": 49,
+                            "modificationType": "CCD_5MC"
+                        },
+                        {
+                            "basePosition": 54,
+                            "modificationType": "CCD_5MU"
+                        },
+                        {
+                            "basePosition": 55,
+                            "modificationType": "CCD_PSU"
+                        },
+                        {
+                            "basePosition": 58,
+                            "modificationType": "CCD_1MA"
+                        }
+                    ]
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_MG",
+                    "count": 6
+                }
+            },
+            {
+                "ligand": {
+                    "ligand": "CCD_MN",
+                    "count": 3
+                }
+            }
+        ],
+        "name": "1ehz"
+    }
+]

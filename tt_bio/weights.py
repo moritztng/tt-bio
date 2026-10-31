@@ -336,6 +336,13 @@ _ROWS: tuple[Artifact, ...] = (
              derived=Derived("mol1/conformers", "rdkit-conformers", expect=("ccd_conformers.npz",),
                              discard_archive=True),
              note="Mol-1's reference conformers, reduced to <cache>/mol1/conformers"),
+    # The wwPDB Chemical Component Dictionary as Mol-1 ships it (common/components.cif, byte-equal to the copy in the
+    # official common.tar.gz). Only `tt-bio json` reads it, so no model lists it and predict never fetches it.
+    Artifact("mol1-components", (), "file", "CC0 (wwPDB)",
+             repo=MOL1_REPO, filename="common/components.cif",
+             sha256="64f53e4d72c8f919d9d2afd34183df7c0b6211929dfe0eeb865fad82cd1374d5",
+             subdir="mol1", approx_bytes=518765615,
+             note="CCD components file Mol-1's structure-to-JSON converter reads"),
 
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
     Artifact("esmfold2", ("esmfold2",), "hf-repo", "MIT (Biohub)",
