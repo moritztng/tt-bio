@@ -1,7 +1,8 @@
 #!/bin/bash
 # Capture Mol-1 upstream goldens + e2e reference predictions on CPU fp32 (mol1-ref).
-#   bash run_goldens.sh [group ...]     groups: msa nomsa template_json (default: all)
+#   bash run_goldens.sh [--cycles N] [--ship HOST:DIR] [group ...]   groups: msa nomsa template_json (default: all)
 # Inputs: cases/<group>.json. Outputs: $GOLDEN_ROOT/<group>/{goldens,pred}/... and one log per group.
+# --cycles overrides the upstream N_cycle (20); --ship rsyncs each finished group to HOST:DIR/<group>.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT=${ROOT:-$HOME/mol1-upstream/mol1-ref}   # what setup_env.sh built
@@ -9,6 +10,11 @@ V=$ROOT/venv/bin/python
 export MOL_ROOT_DIR=$ROOT/data
 GOLDEN_ROOT=${GOLDEN_ROOT:-$HOME/mol1-goldens}
 SEED=${SEED:-101}
+CYCLES=() SHIP=
+while [[ ${1:-} == --* ]]; do
+  case $1 in --cycles) CYCLES=(--model.N_cycle "$2");; --ship) SHIP=$2;; *) echo "unknown $1"; exit 2;; esac
+  shift 2
+done
 mkdir -p "$GOLDEN_ROOT/inputs"
 # the FILE_ ligand of the modcov case: caffeine with an ETKDG conformer, fixed seed
 [ -s "$GOLDEN_ROOT/inputs/caffeine.sdf" ] || $V -I -c "
@@ -27,8 +33,9 @@ for g in "${@:-msa nomsa template_json}"; do
       --load_checkpoint_path "$MOL_ROOT_DIR/checkpoint/mol-1-base.pt" \
       --seeds $SEED --use_seeds_in_json false --dtype fp32 --device cpu \
       --triangle_attention torch --triangle_multiplicative torch \
-      --need_atom_confidence true ${FLAGS[$grp]} > "$out/run.log" 2>&1 \
+      --need_atom_confidence true ${FLAGS[$grp]} "${CYCLES[@]}" > "$out/run.log" 2>&1 \
       && echo "   ok $grp" || echo "   FAIL $grp (see $out/run.log)"
+    [ -z "$SHIP" ] || rsync -a "$out" "$SHIP/" || echo "   SHIP FAIL $grp"
   done
 done
 echo GOLDENS_DONE
