@@ -157,6 +157,7 @@ class ControllerStore:
                     job_id TEXT NOT NULL,
                     name TEXT NOT NULL DEFAULT '',
                     input_b64 TEXT NOT NULL DEFAULT '',
+                    sidecar_b64 TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL,
                     stage TEXT,
                     worker_id TEXT,
@@ -200,7 +201,8 @@ class ControllerStore:
                          "ALTER TABLE runs ADD COLUMN owner TEXT",
                          "ALTER TABLE runs ADD COLUMN model TEXT",
                          "ALTER TABLE workers ADD COLUMN model TEXT",
-                         "ALTER TABLE workers ADD COLUMN warm TEXT"):
+                         "ALTER TABLE workers ADD COLUMN warm TEXT",
+                         "ALTER TABLE jobs ADD COLUMN sidecar_b64 TEXT NOT NULL DEFAULT ''"):
                 try:
                     conn.execute(stmt)
                 except sqlite3.OperationalError:
@@ -239,14 +241,15 @@ class ControllerStore:
                 conn.execute(
                     """
                     INSERT OR IGNORE INTO jobs
-                        (run_id, job_id, name, input_b64, status, updated_at)
-                    VALUES (?, ?, ?, ?, 'pending', ?)
+                        (run_id, job_id, name, input_b64, sidecar_b64, status, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 'pending', ?)
                     """,
                     (
                         run_id,
                         job["id"],
                         job.get("name", ""),
                         job.get("input_b64", ""),
+                        job.get("sidecar_b64", ""),
                         now,
                     ),
                 )
@@ -291,7 +294,7 @@ class ControllerStore:
             # expired), oldest first.
             rows = conn.execute(
                 """
-                SELECT j.run_id, j.job_id, j.name, j.input_b64, j.updated_at, r.owner, r.model, r.config_json
+                SELECT j.run_id, j.job_id, j.name, j.input_b64, j.sidecar_b64, j.updated_at, r.owner, r.model, r.config_json
                 FROM jobs j
                 JOIN runs r ON r.run_id = j.run_id
                 WHERE r.status = 'running'
@@ -355,6 +358,7 @@ class ControllerStore:
                     "id": row["job_id"],
                     "name": row["name"],
                     "input_b64": row["input_b64"],
+                    **({"sidecar_b64": row["sidecar_b64"]} if row["sidecar_b64"] else {}),
                 })
             return {"run_id": run_id, "config": json.loads(config_json), "jobs": jobs,
                     "lease_s": self.lease_s}
@@ -862,14 +866,21 @@ def job_payloads(jobs: list[Any]) -> list[dict[str, str]]:
 
     Each entry is ``{"id": <stem>, "name": <filename>, "input_b64": <base64>}``
     so a worker can run the job without sharing a filesystem with the controller.
+    An input staged from upstream Protenix / Mol-1 JSON also carries its sidecar
+    (``sidecar_b64``): its MSAs live there, and a worker without it searches instead.
     """
+    from tt_bio.protenix_json import sidecar_path
+
     payloads: list[dict[str, str]] = []
     for job in jobs:
         path = Path(job.path)
+        side = sidecar_path(path)
         payloads.append({
             "id": job.id,
             "name": path.name,
             "input_b64": base64.b64encode(path.read_bytes()).decode("ascii"),
+            **({"sidecar_b64": base64.b64encode(side.read_bytes()).decode("ascii")}
+               if side is not None and side.exists() else {}),
         })
     return payloads
 
