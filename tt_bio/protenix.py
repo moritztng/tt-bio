@@ -138,6 +138,12 @@ BRES_NORMAL = frozenset({"trimul_bres"})
 # PASS: same-seed top pose median 0.608 A vs the 1.311 A A/A floor, every interval on the better side (CA-lDDT +0.0049
 # [+0.0005, +0.0125]), docking 35 -> 36. cdk2x2 512 x 1 at 1000 MHz, paired warm folds (rr2n): median -0.55 s.
 WS_RESID_NORMAL = frozenset({"ws_resid", "ws_resid2"})
+# The normal-mode pair transition stack keyed on pair width, not on Protenix-v2 (`mode_levers`): ws_chain, ws_resid,
+# ws_resid2 and ws_psilu (bit-identical). Graded at 256 above; Mol-1's 448 and 320 since pair_swiglu_ws tiles any
+# even tile width. Op on a p300c chip at 1350 MHz, N 512, Mol-1 weights (perf/mol1_pairmix/transition_bench.py):
+# 448 29.03 -> 19.22 ms, 320 17.44 -> 10.37 ms; rel err to float64 0.0093 -> 0.0099 and 0.0054 -> 0.0062.
+WS_NORMAL = WS_CHAIN | WS_RESID_NORMAL | {"ws_psilu"}
+WS_NORMAL_WIDTHS = frozenset({256, 320, 448})
 # Blackhole takes TRIATT_LN and WS_RESID_NORMAL in Protenix-v2's normal set too. Blackhole 512-token normal grade, shipped
 # Protenix-v2 Blackhole normal set vs + these as one stack (spd-m-protenix gbhn, 2026-10-20), PASS on 44 paired: top pose
 # median 0.320 A vs the 0.6 A bar (1.369 A A/A floor), CA-lDDT +0.0018 [-0.0007, +0.0058], docking 35 -> 36. cdk2x2 512 x 1
@@ -147,6 +153,15 @@ WS_RESID_NORMAL = frozenset({"ws_resid", "ws_resid2"})
 # 1000 MHz, 6 paired warm folds (spd-m-protenix qsn2, 2026-10-19), CIFs identical, 6 of 6 faster, median -0.15 s
 # (-0.03 to -0.37). Flat on p150a for OpenFold3, so it rides on both chips.
 QSPLIT_NORMAL = frozenset({"dit_qsplit"})
+# A multi-width trunk (Mol-1: 448 and 320) takes, besides WS_NORMAL, the Protenix-v2 normal levers whose property it
+# shares: triangle attention's fused LayerNorm and one-chunk SDPA (TRIATT_LN, TRIATT_K1; each plans per width and
+# declines a shape it does not tile), and the token DiT's q split and device-resident pair (dit_qsplit, pz_device), whose
+# DiT is Protenix-v2's (c_token 768, 16 heads). Graded as one stack on Mol-1 (perf/mol1_pairmix/e2e_ab.sh STACK=1).
+# Mol-1 Blackhole normal, 5sak chain 1 (448 tokens, 4449-row MSA, 20 cycles, 200 steps), base vs this set plus
+# MOL1_BH and the triangle attention planner at 320/448, 3 seeds, p300c at AICLK median 1318-1343: warm fold 86.92 ->
+# 69.92 s (median), same-seed all-atom lDDT 0.997-1.000 vs seed floor 0.970-0.992, pLDDT unchanged. Not on Wormhole
+# until a Galaxy chip grades it.
+WIDE_NORMAL = WS_NORMAL | TRIATT_LN | TRIATT_K1 | QSPLIT_NORMAL | {"pz_device"}
 # triatt_ln_b8 (triatt_ln writes q, k, v bfp8; the head-major bias is narrowed after its permute; the SDPA keeps a
 # bf16 destination) in Protenix-v2's Wormhole --fast set. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
 # fast set vs + triatt_ln_b8, 44 paired folds (spd-m-protenix gb8ln, 2026-10-19), PASS: same-seed top pose median
@@ -303,14 +318,19 @@ def mode_levers(state_dict):
     """The mode's lever set for a Protenix checkpoint: `FAST_LEVERS` under --fast, else `NORMAL_LEVERS`,
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `DIT_MM_WH`, `TRIATT_Q10_WH` and `X8_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
-    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips."""
-    v2 = Trunk._derive_c_z(state_dict) == 256
+    `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
+    A multi-width trunk (Mol-1) adds `WIDE_NORMAL` to its Blackhole normal mode."""
+    widths = Trunk._pair_widths(state_dict)
+    v2 = widths == {256}
     wh = _T.is_wormhole()
+    # The levers that need a width their kernels tile, not Protenix-v2 itself, are keyed on the trunk widths they are
+    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in Blackhole normal mode, the one chip its grade covers.
+    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 and not wh else frozenset()
     wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
     return _T.model_levers((NORMAL_LEVERS | T2_TAIL | WS_CHAIN | QSPLIT_NORMAL | BRES_NORMAL | TRIATT_LN | WS_RESID_NORMAL | T1_PSIG | TRIATT_K1
-                            | (WH_V2_NORMAL if wh else BH_V2_NORMAL) if v2 else NORMAL_LEVERS) | wh_both,
+                            | (WH_V2_NORMAL if wh else BH_V2_NORMAL) if v2 else NORMAL_LEVERS | ws) | wh_both,
                            fast | SHOIST_FAST | DIT_SEAM_FAST | T1_PSIG | TRIATT_K1 if v2 else fast)
 
 
@@ -3634,6 +3654,15 @@ class Trunk(_KeyedWeights):
         """
         w = state_dict.get("layernorm_z_cycle.weight")
         return int(w.shape[0]) if w is not None else None
+
+    @staticmethod
+    def _pair_widths(state_dict):
+        """Every pair width the trunk's Pairformer runs at, off each block's pair transition norm: {c_z} for a
+        one-width stack, {448, 320} for Mol-1's; {c_z} without block keys, empty without trunk keys."""
+        w = {int(v.shape[0]) for k, v in state_dict.items()
+             if k.startswith("pairformer_stack.blocks.") and k.endswith("pair_transition.layernorm1.weight")}
+        c_z = Trunk._derive_c_z(state_dict)
+        return w or ({c_z} if c_z else set())
 
     def _template(self, z3, tpl_a, N, nt, pmask_tt=None, attn_tt=None):
         # tpl_a: nt device tensors, each already `linear_no_bias_a(at)` for one template.
