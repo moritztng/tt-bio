@@ -102,8 +102,9 @@ timed(T.AdaLN, "adaln")
 if hasattr(T, "Transition"):
     timed(T.Transition, "transition")
 
-sys.argv = ["tt_bio.main"] + sys.argv[1:]
-try:
-    runpy.run_module("tt_bio.main", run_name="__main__")
-finally:
-    flush()
+if __name__ == "__main__":   # a spawned featurize worker re-imports this file
+    sys.argv = ["tt_bio.main"] + sys.argv[1:]
+    try:
+        runpy.run_module("tt_bio.main", run_name="__main__")
+    finally:
+        flush()

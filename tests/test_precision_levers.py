@@ -209,19 +209,21 @@ def test_boltzgen_mode_sets_name_only_known_levers():
 
     assert B.LEVERS_NORMAL <= set(T.LEVERS) and not B.LEVERS_NORMAL & T.UNGRADED_LEVERS
     assert B.LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
-    assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps",
+    assert B.HOST_LEVERS == {"bg_featproc"}
+    assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL - B.HOST_LEVERS == {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps",
                                                     "trimul_t1", "trimul_t2", "dit_pad_short", "adaln_mod"}
     assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
-    assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf",
+    assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL - B.HOST_LEVERS == {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf",
                                                   "dit_pad_short", "dit_bpad", "dit_shard", "dit_fc123g", "triatt_ln",
                                                   "apb_ln", "transition_ws", "ws_l1dest", "ws_resid"}
     assert B.BH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
-    assert B.WH_LEVERS_FAST - B.LEVERS_FAST == {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws",
+    assert B.WH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws",
                                                 "triatt_ln", "dit_cond_steps"}
-    assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2",
+    assert B.BH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2",
                                                 "trimul_t2cm", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad",
                                                 "dit_shard", "dit_fc123g", "triatt_ln", "apb_ln", "triatt_ln_b8",
-                                                "triatt_ln_b8g", "transition_ws", "ws_l1dest", "ws_resid"}
+                                                "triatt_ln_b8g", "transition_ws", "ws_l1dest", "ws_resid",
+                                                "dit_shoist"}
     assert B.BH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 

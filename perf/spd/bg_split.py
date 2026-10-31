@@ -166,5 +166,6 @@ def write(self, *a, **k):
 
 W.DesignWriter.write = write
 
-sys.argv = ["tt-bio"] + sys.argv[1:]
-runpy.run_module("tt_bio.main", run_name="__main__")
+if __name__ == "__main__":   # a spawned featurize worker re-imports this file
+    sys.argv = ["tt-bio"] + sys.argv[1:]
+    runpy.run_module("tt_bio.main", run_name="__main__")
