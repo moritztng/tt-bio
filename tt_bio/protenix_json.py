@@ -228,13 +228,25 @@ def read_jobs(path) -> list[Job]:
 
 
 SIDECAR = ".upstream.json"
+SEED_SEP = "__seed_"
+DEFAULT_SEEDS = (101,)          # `mol pred -s` default
 
 
-def stage(path, dest) -> Path:
-    """Expand an upstream JSON input into ``dest/<job>.yaml`` per job, each with a ``<job>.upstream.json`` sidecar
-    carrying what YAML has no field for (two-file MSAs, template paths, seeds). Returns ``dest``, which the normal
-    input discovery then walks like any directory of YAML inputs. Job names must be unique, as upstream's output
-    directories are keyed by them."""
+def job_seeds(job: Job, seeds=None, use_seeds_in_json: bool = False) -> list[int]:
+    """The seeds one job runs, as upstream picks them: the job's ``modelSeeds`` under ``--use_seeds_in_json``,
+    otherwise the command-line seeds (``mol pred -s``, default 101)."""
+    if use_seeds_in_json:
+        if not job.seeds:
+            raise ValueError(f"job {job.name!r}: --use_seeds_in_json needs `modelSeeds` in the job")
+        return list(job.seeds)
+    return [int(s) for s in (seeds or DEFAULT_SEEDS)]
+
+
+def stage(path, dest, seeds=None, use_seeds_in_json: bool = False) -> Path:
+    """Expand an upstream JSON input into one ``dest/<job>__seed_<s>.yaml`` per job and seed, plus one
+    ``<job>.upstream.json`` sidecar per job carrying what YAML has no field for (two-file MSAs, template paths,
+    seeds). Returns ``dest``, which the normal input discovery then walks like any directory of YAML inputs. Job
+    names must be unique, as upstream's output directories are keyed by them."""
     import yaml
 
     dest = Path(dest)
@@ -244,14 +256,29 @@ def stage(path, dest) -> Path:
     dup = sorted({n for n in names if names.count(n) > 1})
     if dup:
         raise ValueError(f"{Path(path).name}: job names {dup} repeat; every job needs its own `name`")
+    bad = sorted(n for n in names if SEED_SEP in n or "/" in n)
+    if bad:
+        raise ValueError(f"{Path(path).name}: job names {bad} may not contain '/' or '{SEED_SEP}'")
     for j in jobs:
-        (dest / f"{j.name}.yaml").write_text(yaml.safe_dump(j.doc, sort_keys=False))
+        text = yaml.safe_dump(j.doc, sort_keys=False)
+        for s in job_seeds(j, seeds, use_seeds_in_json):
+            (dest / f"{j.name}{SEED_SEP}{s}.yaml").write_text(text)
         (dest / f"{j.name}{SIDECAR}").write_text(json.dumps(
             {"seeds": j.seeds, "paired_msa": j.paired_msa, "unpaired_msa": j.unpaired_msa, "templates": j.templates}))
     return dest
 
 
+def split_stem(stem: str):
+    """``<job>__seed_<s>`` -> (job, s); anything else -> (stem, None)."""
+    job, sep, s = str(stem).rpartition(SEED_SEP)
+    return (job, int(s)) if sep and job and s.lstrip("-").isdigit() else (str(stem), None)
+
+
 def sidecar(yaml_path):
-    """The staged extras for an input written by ``stage``, or None for an ordinary YAML input."""
-    p = Path(yaml_path).parent / (Path(yaml_path).stem + SIDECAR)
-    return json.loads(p.read_text()) if p.exists() else None
+    """The staged extras for an input written by ``stage`` (with ``job`` and ``seed`` added), or None for an
+    ordinary YAML input."""
+    job, seed = split_stem(Path(yaml_path).stem)
+    p = Path(yaml_path).parent / (job + SIDECAR)
+    if seed is None or not p.exists():
+        return None
+    return {**json.loads(p.read_text()), "job": job, "seed": seed}

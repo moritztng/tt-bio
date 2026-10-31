@@ -3354,7 +3354,11 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 @click.option("--output_format", type=click.Choice(["pdb", "cif"]), default="cif")
 @click.option("--override", is_flag=True)
 @click.option("--seed", default=None, type=int,
-              help="Random seed for the diffusion sampler. Default: 0.")
+              help="Random seed for the diffusion sampler. Default: 0 (101 for an upstream Protenix/Mol-1 JSON "
+                   "input, upstream's default).")
+@click.option("--use_seeds_in_json", is_flag=True,
+              help="Upstream Protenix/Mol-1 JSON input: run every seed in each job's `modelSeeds` instead of "
+                   "--seed, one result per seed (upstream's flag of the same name).")
 @click.option("--use_msa_server", is_flag=True, help="Generate MSAs via ColabFold API (requires internet)")
 @click.option("--msa_db_path", default=None, type=click.Path(exists=True), help="Local ColabFold DB for offline MSA (default: auto-detect ~/.boltz/msa_db)")
 @click.option("--msa_dir", "msa_dir_opt", default=None, type=click.Path(),
@@ -3463,7 +3467,7 @@ def _resolve_msa_default(model, use_msa_server, msa_db_path, msa_endpoint,
 def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, sampling_steps,
             diffusion_samples, partial_t, partial_structure, early_stop_plddt,
             max_parallel_samples, step_scale, output_format, override,
-            seed, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
+            seed, use_seeds_in_json, use_msa_server, msa_db_path, msa_dir_opt, msa_cache_only, use_envdb, single_sequence, msa_endpoint, msa_server_url, msa_pairing_strategy,
             msa_server_username, msa_server_password, api_key_value, use_potentials,
             method, max_msa_seqs, subsample_msa, num_subsampled_msa, no_kernels, trace, diffusion_trace,
             use_tfg_guidance, trunk_cache, write_pae, contact_cutoff, write_pde, write_embeddings, heads, affinity_mw_correction,
@@ -3509,7 +3513,9 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     if protenix_json.is_job_list(Path(data).expanduser()):
         src = Path(data).expanduser()
         try:
-            data = str(protenix_json.stage(src, Path(out_dir).expanduser() / ".upstream_inputs" / src.stem))
+            data = str(protenix_json.stage(src, Path(out_dir).expanduser() / ".upstream_inputs" / src.stem,
+                                           seeds=[seed] if seed is not None else None,
+                                           use_seeds_in_json=use_seeds_in_json))
         except (ValueError, KeyError) as e:
             raise click.ClickException(f"{src.name}: {e}") from e
     size_limits.check_input(data, model)

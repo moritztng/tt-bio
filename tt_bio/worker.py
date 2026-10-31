@@ -549,6 +549,15 @@ def _tfg_guidance(path, cfg, feats, chains, bonds):
     return Guidance(gfeats)
 
 
+def _target_seed(path, cfg) -> int:
+    """The sampler seed for one target: the seed an upstream JSON job was staged for, else ``--seed``."""
+    from tt_bio.protenix_json import sidecar
+    side = sidecar(path)
+    if side and side.get("seed") is not None:
+        return int(side["seed"])
+    return int(cfg.get("seed") or 0)
+
+
 def _with_searched(side: dict, chains, chain_specs, paired_a3ms) -> dict:
     """The sidecar's alignments, with the searched unpaired (and paired) a3m filled in for each protein chain the
     JSON gave none for."""
@@ -1682,7 +1691,7 @@ class _WorkerState:
         with torch.no_grad(), self._maybe_ref_bf16():
             coords, conf = self.model.fold(
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                seed=_target_seed(path, cfg), progress_fn=report_progress,
                 n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
                 return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"),
                 distogram=bool(cfg.get("write_pae")), guidance=guidance, trunk_cache=trunk_cache)
@@ -1830,7 +1839,7 @@ class _WorkerState:
         with torch.no_grad(), self._maybe_ref_bf16():
             coords, conf = self.model.fold(
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-                seed=cfg.get("seed") or 0, progress_fn=report_progress,
+                seed=_target_seed(path, cfg), progress_fn=report_progress,
                 return_confidence=True, n_cycles=cfg.get("recycling_steps"),
                 max_parallel_samples=cfg.get("max_parallel_samples"),
                 # Without this --trace was a silent no-op for --model protenix-v2: main.py
@@ -1852,7 +1861,8 @@ class _WorkerState:
         atom and token counts (bucket first) -- a mismatch raises.
         """
         if (cfg.get("model") not in _protenix_family() or len(paths) == 1
-                or int(cfg["diffusion_samples"]) != 1):
+                or int(cfg["diffusion_samples"]) != 1
+                or any(_target_seed(p, cfg) != (cfg.get("seed") or 0) for p in paths)):
             return [self.predict_one(p, cfg) for p in paths]
 
         from tt_bio.esmfold2 import report_progress

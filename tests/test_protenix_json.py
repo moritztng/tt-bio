@@ -88,15 +88,35 @@ def test_stage_writes_yaml_the_bio_reader_accepts(tmp_path):
 
     out = stage(CASES, tmp_path / "staged")
     ymls = sorted(out.glob("*.yaml"))
-    assert [p.stem for p in ymls] == sorted(j.name for j in read_jobs(CASES))
-    g = out / "glycan_bonds.yaml"
+    assert [p.stem for p in ymls] == sorted(f"{j.name}__seed_101" for j in read_jobs(CASES))
+    g = out / "glycan_bonds__seed_101.yaml"
     chains = _read_bio_chains(g)
     assert [(c, mt) for c, _s, _m, mt, _mods in chains] == [("A", "protein"), ("B", "ligand")]
     assert chains[1][1] == "CCD_NAG,NAG"
     assert _read_bio_bonds(g, chains) == [(("A", 5, "ND2"), ("B", 1, "C1")), (("B", 1, "O4"), ("B", 2, "C1"))]
-    mods = _read_bio_chains(out / "doc_ptm_dna_rna.yaml")[0][4]
+    mods = _read_bio_chains(out / "doc_ptm_dna_rna__seed_101.yaml")[0][4]
     assert mods == [{"position": 1, "ccd": "HY3"}, {"position": 5, "ccd": "P1L"}]
-    assert sidecar(g) == {"seeds": None, "paired_msa": {}, "unpaired_msa": {}, "templates": {}}
+    assert sidecar(g) == {"seeds": None, "paired_msa": {}, "unpaired_msa": {}, "templates": {},
+                          "job": "glycan_bonds", "seed": 101}
+    assert sidecar(tmp_path / "plain.yaml") is None
+
+
+def test_stage_one_input_per_seed(tmp_path):
+    from tt_bio.protenix_json import sidecar, split_stem, stage
+
+    src = tmp_path / "j.json"
+    src.write_text(json.dumps([{"name": "a", "modelSeeds": [7, 8],
+                                "sequences": [{"proteinChain": {"sequence": "MK", "count": 1}}]},
+                               {"name": "b", "sequences": [{"proteinChain": {"sequence": "GG", "count": 1}}]}]))
+    out = stage(src, tmp_path / "s1", seeds=[1, 2])
+    assert sorted(p.stem for p in out.glob("*.yaml")) == ["a__seed_1", "a__seed_2", "b__seed_1", "b__seed_2"]
+    with pytest.raises(ValueError, match="modelSeeds"):
+        stage(src, tmp_path / "s2", use_seeds_in_json=True)
+    src.write_text(json.dumps(json.loads(src.read_text())[:1]))
+    out = stage(src, tmp_path / "s3", seeds=[1], use_seeds_in_json=True)
+    assert sorted(p.stem for p in out.glob("*.yaml")) == ["a__seed_7", "a__seed_8"]
+    assert sidecar(out / "a__seed_8.yaml")["seed"] == 8
+    assert split_stem("x__seed_12") == ("x", 12) and split_stem("x") == ("x", None)
 
 
 def test_predict_stages_upstream_json(tmp_path, monkeypatch):
@@ -115,7 +135,11 @@ def test_predict_stages_upstream_json(tmp_path, monkeypatch):
     CliRunner().invoke(m.predict, [str(CASES), "--model", "protenix-v2", "--out_dir", str(tmp_path)])
     staged = Path(seen["data"])
     assert staged == tmp_path / ".upstream_inputs" / "synthetic"
-    assert (staged / "glycan_bonds.yaml").exists() and (staged / "glycan_bonds.upstream.json").exists()
+    assert (staged / "glycan_bonds__seed_101.yaml").exists() and (staged / "glycan_bonds.upstream.json").exists()
+    seen.clear()
+    CliRunner().invoke(m.predict, [str(CASES), "--model", "protenix-v2", "--out_dir", str(tmp_path / "o2"),
+                                   "--seed", "5"])
+    assert (Path(seen["data"]) / "glycan_bonds__seed_5.yaml").exists()
 
 
 def test_file_ligand_and_integer_bond_atoms(tmp_path):
