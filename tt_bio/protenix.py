@@ -2294,7 +2294,7 @@ class ConfidenceHead:
         scripts/protenix_confidence_parity.py)."""
         return self.confidence_samples(s_inputs, s_trunk, z_trunk, [coords], feats)[0]
 
-    def confidence_samples(self, s_inputs, s_trunk, z_trunk, coords, feats):
+    def confidence_samples(self, s_inputs, s_trunk, z_trunk, coords, feats, keep_logits=False):
         """`confidence` for every sample in `coords`, one dict each, bit-identical to calling it
         per sample. The host work is what the chip waited on: 24 s of a 730-token, 5-sample
         Protenix-v2 fold on Wormhole sat idle ahead of the confidence pairformers. So the
@@ -2336,11 +2336,11 @@ class ConfidenceHead:
             held = bucketed_pairformer(self.pf, ttnn.to_device(s_h, self.dev), ttnn.to_device(z_h, self.dev),
                                        self.dev)
             if done is not None:
-                out.append(self._heads(*done, feats))      # host, while the chip runs this one
-        out.append(self._heads(*read(held), feats))
+                out.append(self._heads(*done, feats, keep_logits))  # host, while the chip runs this one
+        out.append(self._heads(*read(held), feats, keep_logits))
         return out
 
-    def _heads(self, s_single, zf, feats):
+    def _heads(self, s_single, zf, feats, keep_logits=False):
         """pae / pde / plddt heads on the host from the pairformer's (s_single, z)."""
         import torch
         import torch.nn.functional as F
@@ -2352,7 +2352,7 @@ class ConfidenceHead:
         a = s_single[a2t]
         aln = F.layer_norm(a, (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
         plddt_logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])        # (N_atom, n_bins)
-        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats)
+        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats, keep_logits)
 
     # ---------------------------------------------------------------------------
     # Device-resident confidence path (opt-in). The host path (confidence())
@@ -2482,7 +2482,7 @@ class ConfidenceHead:
         downloaded -- the (N,N,256) z never round-trips per sample."""
         return self.confidence_device_samples(s_inputs, s_trunk, z_base_dev, [coords], feats)[0]
 
-    def confidence_device_samples(self, s_inputs, s_trunk, z_base_dev, coords, feats):
+    def confidence_device_samples(self, s_inputs, s_trunk, z_base_dev, coords, feats, keep_logits=False):
         """`confidence_device` for each of `coords`. Each sample's logits are read off the chip as
         soon as it has them, and their untilize and post-processing (softmaxes, pTM/ipTM) run on
         the host lane while the chip computes the next sample instead of between them. Same values
@@ -2493,7 +2493,7 @@ class ConfidenceHead:
             reads = [hostlane.read(t) for t in logits]
             for t in logits:
                 ttnn.deallocate(t)
-            confs.append(hostlane.submit(self._postprocess_read, reads, feats))
+            confs.append(hostlane.submit(self._postprocess_read, reads, feats, keep_logits))
         return [f.result() for f in confs]
 
     def _pair_embed(self, z_base, rc, dist):
@@ -2519,12 +2519,12 @@ class ConfidenceHead:
             ttnn.deallocate(zr)
             _T._write_rows(z, blk, r0)
 
-    def _postprocess_read(self, reads, feats):
+    def _postprocess_read(self, reads, feats, keep_logits=False):
         """`_postprocess` of one sample's logits as `hostlane.read` returned them."""
         pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
         N = pae.shape[-2]
         return self._postprocess(pae.reshape(N, N, -1), pde.reshape(N, N, -1),
-                                 plddt.reshape(plddt.shape[0], -1), feats)
+                                 plddt.reshape(plddt.shape[0], -1), feats, keep_logits)
 
     def _confidence_device_logits(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """The device half of `confidence_device`: enqueued, not read. Returns the pae and pde
@@ -2591,10 +2591,12 @@ class ConfidenceHead:
         # ---- the small finals are downloaded and post-processed on host by the caller ----
         return pae_logits, pde_logits, plddt_logits
 
-    def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats):
+    def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats, keep_logits=False):
         """Shared host-side post-processing: softmax over bins -> expected
         distance (pae/pde) and expected plddt; pTM/ipTM from the pae logits.
-        Identical to the tail of confidence() so device/host paths share it."""
+        Identical to the tail of confidence() so device/host paths share it.
+        keep_logits also returns the three logit tensors (fp32, host), which the upstream
+        output writer (tt_bio.protenix_output) reads; two (N,N,64) per sample, so opt-in."""
         import torch
 
         def _expected(probs, max_a=32.0):
@@ -2611,6 +2613,9 @@ class ConfidenceHead:
         out = {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                "ptm": ptm, "iptm": iptm}
         out.update(self._chain_confidence(pae_logits, feats.get("asym_id"), probs=probs))
+        if keep_logits:
+            out.update(pae_logits=pae_logits.float(), pde_logits=pde_logits.float(),
+                       plddt_logits=plddt_logits.float())
         return out
 
     @staticmethod
@@ -3377,27 +3382,46 @@ class Protenix:
             return None
         return hostlane.submit(lambda: ch.z_base_host(s_inputs, z_trunk.result()))
 
-    def _confidences(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats):
+    def _confidences(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats, keep_logits=False):
         """One confidence dict per sample in `coords`: on the device when `_confidence_start` gave
-        a z_base, else the host heads. `z_trunk` is a host-lane Future of the trunk pair."""
+        a z_base, else the host heads. `z_trunk` is a host-lane Future of the trunk pair.
+        keep_logits adds each sample's pae/pde/plddt logits and the fold's distogram contact
+        probabilities, everything the upstream output writer needs."""
         ch = self.confidence_head
         if z_base is None:
-            return ch.confidence_samples(s_inputs, s_trunk, z_trunk.result(), coords, feats)
-        z_base_dev = ch.z_base_upload(z_base.result())
-        try:
-            return ch.confidence_device_samples(s_inputs, s_trunk, z_base_dev, coords, feats)
-        finally:
-            ch.drop_device_resident()
+            confs = ch.confidence_samples(s_inputs, s_trunk, z_trunk.result(), coords, feats, keep_logits)
+        else:
+            z_base_dev = ch.z_base_upload(z_base.result())
+            try:
+                confs = ch.confidence_device_samples(s_inputs, s_trunk, z_base_dev, coords, feats, keep_logits)
+            finally:
+                ch.drop_device_resident()
+        if keep_logits:
+            from .protenix_output import contact_probs
+            contact = contact_probs(self.distogram_logits(z_trunk.result()))
+            for c in confs:
+                c["contact_probs"] = contact
+        return confs
+
+    def distogram_logits(self, z_trunk):
+        """Upstream's DistogramHead on the host trunk pair (N,N,c_z): L(z) + L(z)^T, (N,N,64).
+        It reads the trunk and feeds nothing back, so no coordinate depends on it."""
+        import torch.nn.functional as F
+        d = F.linear(z_trunk.float(), self._w["distogram_head.linear.weight"].float(),
+                     self._w["distogram_head.linear.bias"].float())
+        return d + d.transpose(0, 1)
 
     @_T.under_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
-             max_parallel_samples=None, gamma0=None, step_scale=None):
+             max_parallel_samples=None, gamma0=None, step_scale=None, return_logits=False):
         """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
         iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
         coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
         conf is a dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N),
         ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
+        return_logits adds pae_logits / pde_logits / plddt_logits and contact_probs to each conf
+        (`_confidences`), the input of the upstream output layout.
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
         opened with get_device(trace="protenix").
@@ -3486,7 +3510,8 @@ class Protenix:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
-            confs = self._confidences(s_inputs, s_trunk, z_trunk, z_base, list(coords), feats)
+            confs = self._confidences(s_inputs, s_trunk, z_trunk, z_base, list(coords), feats,
+                                      keep_logits=return_logits)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
 
