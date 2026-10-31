@@ -1,6 +1,6 @@
 """Mol-1 end to end on TT at several seeds, upstream defaults (20 cycles, 200 steps, 1 sample).
 Usage: TT_VISIBLE_DEVICES=<card> python perf/mol1_smoke/e2e_tt.py CKPT SEQ OUT_PT SEED[,SEED...]
-Saves {seed: all-atom coords} plus per-fold seconds and the AICLK sampled during each fold."""
+MOL1_A3M=<path> folds with that MSA. Saves {seed: all-atom coords} plus per-fold seconds and the AICLK sampled during each fold."""
 import os
 import sys
 import time
@@ -17,7 +17,8 @@ from tt_bio.protenix_data import build_protein_features  # noqa: E402
 
 ckpt, seq, out, seeds = sys.argv[1:5]
 model = Protenix.load_from_checkpoint(ckpt)
-feats = build_protein_features(seq)
+a3m = os.environ.get("MOL1_A3M")
+feats = build_protein_features(seq, open(a3m).read() if a3m else None)
 res = {"coords": {}, "s": {}, "clock": {}, "plddt": {}}
 for sd in [int(x) for x in seeds.split(",")]:
     with during() as clk, torch.no_grad():
