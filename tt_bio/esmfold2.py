@@ -1912,7 +1912,11 @@ class MSAEncoderBlock(Module):
         if gate(MSA_FFN_FUSED, "ef2_msa_ffn"):
             ffn = self._ffns[name, True]
             if ffn._split_plan(x)[1]:
-                out = ffn.residual(x)
+                # ws_lofi was graded on the trunk's pair transition only. On these two it cost a 512 aa deep-MSA
+                # fold 0.18 pLDDT under --fast (0.912 -> 0.732, qb2 fab), so the encoder keeps the kernel's own fidelity.
+                import tt_bio.tenstorrent as _T
+                with _T.levers(_T._LEVERS - {"ws_lofi"}):
+                    out = ffn.residual(x)
                 if out is not x:
                     ttnn.deallocate(x)
                 return out
