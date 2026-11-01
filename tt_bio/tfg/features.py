@@ -221,7 +221,7 @@ def entity_groups(path) -> list[list[str]]:
                 sub = entry.get(key)
                 if not isinstance(sub, dict):
                     continue
-                if key == "ligand" and not (sub.get("ccd") or sub.get("smiles")):
+                if key == "ligand" and not (sub.get("ccd") or sub.get("smiles") or sub.get("file")):
                     continue
                 ids = sub.get("id", default)
                 ids = [str(x) for x in ids] if isinstance(ids, (list, tuple)) else str(ids).split(",")

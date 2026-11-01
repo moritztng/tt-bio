@@ -6,6 +6,7 @@
 # See the v0.3.4 changelog — a missing glob here silently broke every
 # protenix-v2 / opendde / boltzgen install of 0.3.3.
 include tt_bio/data/*.json
+include tt_bio/data/*.json.gz
 include tt_bio/boltzgen/LICENSE
 include tt_bio/boltzgen/resources/*.json
 include tt_bio/boltzgen/resources/config/*.yaml

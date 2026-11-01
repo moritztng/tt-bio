@@ -13,6 +13,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   `modelSeeds` instead of `--seed`, one result per seed. The weights download on first use; Molence has not stated a
   licence for them yet. On a Wormhole Galaxy chip it folds up to 1536 tokens and refuses larger inputs before
   opening a device. See `docs/mol1.md`.
+- Mol-1's mmCIF now carries upstream's `_entry`, `_chem_comp`, `_entity`, `_entity_poly`, `_entity_poly_seq` and
+  `_struct_conn` and groups the copies of one input entry into one entity, as Mol-1's does. DockQ v2 read no
+  interface of the old atom_site-only file.
 - **`tt-bio json`** turns PDB and mmCIF structures into Protenix / Mol-1 job JSON with Mol-1's own converter
   (`mol json`), so the output is identical to upstream's. `--altloc` picks the alternate location, `--assembly_id`
   expands to a biological assembly and `--include_discont_poly_poly_bonds` keeps bonds between non-consecutive polymer

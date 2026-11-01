@@ -3062,7 +3062,20 @@ def _resolve_a3m_text(msa_spec, sequence, msa_dir, max_seqs=None):
 
 def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_factors=None,
                               mod_names=None, chain_ids=None, mirror_carboxylates=False):
-    """Write a Protenix-v2 prediction (coords + atom metadata) as PDB/mmCIF via biotite.
+    """Write a Protenix-v2 prediction as PDB/mmCIF via biotite: `protenix_atom_array` plus atom_site only."""
+    import biotite.structure.io.pdbx as _pdbx
+    outpath = Path(outpath)
+    arr = protenix_atom_array(coords, feats, outpath, b_factors=b_factors, mod_names=mod_names, chain_ids=chain_ids,
+                              mirror_carboxylates=mirror_carboxylates)
+    if output_format == "pdb":
+        write_atom_array(arr, outpath)
+    else:
+        cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(outpath))
+
+
+def protenix_atom_array(coords, feats, outpath, b_factors=None, mod_names=None, chain_ids=None,
+                        mirror_carboxylates=False):
+    """A Protenix-v2 prediction (coords + atom metadata) as a biotite AtomArray.
 
     Reconstructed entirely from the feature dict so it is modality- and chain-agnostic
     (proteins, complexes, nucleic acids, ligands): atom name from ref_atom_name_chars,
@@ -3082,9 +3095,9 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
 
     A protein chain's terminal OXT that fails OpenDDE's geometry gates is rebuilt from the
     CCD ideal carboxylate before writing (tt_bio.oxt), on a copy of `coords`. `mirror_carboxylates` applies
-    Mol-1's unconditional O/OXT mirror instead (tt_bio.oxt.mirror_terminal_carboxylates), as its writer does."""
+    Mol-1's unconditional O/OXT mirror instead (tt_bio.oxt.mirror_terminal_carboxylates), as its writer does.
+    `outpath` only names the file in an OXT repair warning."""
     import biotite.structure as struc
-    import biotite.structure.io.pdbx as _pdbx
     import numpy as np
 
     from tt_bio.data import const
@@ -3123,7 +3136,6 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
         arr.atom_name[i] = names[i]
         arr.element[i] = z2sym.get(int(znum[i]), "C")
         arr.hetero[i] = is_lig_tok[t] or mod is not None
-    outpath = Path(outpath)
     # an OXT the diffusion left on O/C or detached is rebuilt from the CCD geometry
     # (OpenDDE 6685cef); arr.coord is already a copy, the caller's coords are untouched
     from tt_bio.oxt import mirror_terminal_carboxylates, repair_terminal_oxt_from_feats
@@ -3132,10 +3144,7 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     else:
         arr.coord, _ = repair_terminal_oxt_from_feats(arr.coord, feats, arr.atom_name, arr.res_name,
                                                       where=outpath)
-    if output_format == "pdb":
-        write_atom_array(arr, outpath)
-    else:
-        cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(outpath))
+    return arr
 
 
 def _write_structure(complex_obj, outpath, output_format):

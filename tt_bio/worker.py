@@ -580,11 +580,13 @@ def _write_upstream_layout(path, cfg, feats, chains, coords, confs) -> None:
     """``<results>/<job>/seed_<s>/predictions/`` exactly as Mol-1 / Protenix write it (tt_bio.protenix_output), from
     the per-sample confidence logits and the fold's contact probabilities the engine puts in each conf."""
     from tt_bio import protenix_output as po
-    from tt_bio.main import _write_protenix_structure
+    from tt_bio.main import _read_bio_bonds, protenix_atom_array
     from tt_bio.protenix_data import MOL_TYPE_IDS
     from tt_bio.protenix_json import sidecar
+    from tt_bio.tfg.features import entity_groups
 
     side = sidecar(path)
+    job = side["job"] if side else path.stem
     a2t = feats["atom_to_token_idx"].long().cpu()
     stack = lambda k: torch.stack([c[k].float().cpu() for c in confs])  # noqa: E731
     xyz = torch.stack([torch.as_tensor(c).float().cpu().reshape(-1, 3) for c in coords])
@@ -593,12 +595,15 @@ def _write_upstream_layout(path, cfg, feats, chains, coords, confs) -> None:
         feats["asym_id"].long().cpu(), po.token_frames(feats), xyz, a2t,
         (feats["mol_type"].cpu() != MOL_TYPE_IDS["ligand"])[a2t].long(), int(cfg.get("recycling_steps") or 0))
 
+    entities, bonds = entity_groups(path), _read_bio_bonds(path, chains)
+
     def structure(i, out, b_factor):
-        _write_protenix_structure(coords[i], feats, None, out, "cif", b_factors=torch.as_tensor(b_factor),
+        arr = protenix_atom_array(coords[i], feats, out, b_factors=torch.as_tensor(b_factor),
                                   mod_names=_artifact_residue_names(chains), chain_ids=[cid for cid, *_r in chains],
                                   mirror_carboxylates=True)
+        po.write_cif(arr, out, job, chains, entities, bonds)
 
-    po.write(Path(cfg["struct_dir"]) / po.SHIPPED, side["job"] if side else path.stem, _target_seed(path, cfg),
+    po.write(Path(cfg["struct_dir"]) / po.SHIPPED, job, _target_seed(path, cfg),
              summaries, fulls, write_structure=structure, need_atom_confidence=bool(cfg.get("write_pae")))
 
 
