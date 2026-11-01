@@ -1498,6 +1498,12 @@ _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
 # against float64 unchanged (perf/spd_b2deep/pwa32_split.py). Taken while the repeated weights fit
 # in one PWA_DEPTH_BUDGET_BYTES buffer; below ~200 tokens they would not, and the fused path runs.
 _PWA_CMAJOR = env_flag("TT_BIO_PWA_CMAJOR", True)
+# The channel-major path without the per-row batching: m as one [c_m, rows*tokens] matrix, v^T and g^T as
+# [heads*32, c_m] @ that, and Wo^T @ (o*g) summing the heads in K. A [heads*32, rows*tokens] tile tensor
+# holds head h's tiles in (row, token tile) order, which is exactly the tile order of
+# [heads, rows*32, tokens], so the heads reach the batch axis by `ttnn.experimental.view` (metadata only)
+# instead of two outer permutes, and no weight is repeated over rows. Needs tokens % 32 == 0.
+_PWA_FLAT = env_flag("TT_BIO_PWA_FLAT", True)
 # PWA's three projections (both head paths) on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
 # `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
 # 6.52 -> 4.77 ms a call (WH 1000 MHz, perf/spd_m_opendde/plin_sweep.py). Fold, 3 paired warm, CIFs identical:
@@ -16900,7 +16906,13 @@ class PairWeightedAveraging(Module):
         blk = min(rows, pwa_fused_row_block(T, H))
         w_v, w_g, w_o = packed
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-        if _PWA_CMAJOR and 3 * blk * H * S * int(mc.shape[-1]) * 2 <= PWA_DEPTH_BUDGET_BYTES:
+        if _PWA_FLAT and T % 32 == 0:
+            wt = [ttnn.transpose(w, -2, -1) for w in packed]
+            parts = [self._heads_flat(mc[r:min(r + blk, rows)], ws, wt, lin)
+                     for r in range(0, rows, blk)]
+            for w in wt:
+                ttnn.deallocate(w)
+        elif _PWA_CMAJOR and 3 * blk * H * S * int(mc.shape[-1]) * 2 <= PWA_DEPTH_BUDGET_BYTES:
             reps = [ttnn.repeat(ttnn.unsqueeze(ttnn.transpose(w, -2, -1), 0), (blk, 1, 1))
                     for w in packed]
             parts = [self._heads_cmajor(mc[r:min(r + blk, rows)], ws, reps, lin)
@@ -16965,6 +16977,27 @@ class PairWeightedAveraging(Module):
             if w is not r:
                 ttnn.deallocate(w)
         res = ttnn.transpose(out, -2, -1)                        # [rows, T, c_m]
+        ttnn.deallocate(out)
+        return res
+
+    def _heads_flat(self, mc, ws, wt, lin):
+        """`_heads_fused` for one row block in flat channel-major form (see `_PWA_FLAT`). `wt` are
+        w_v^T, w_g^T [heads*32, c_m] and w_o^T [c_m, heads*32]."""
+        H, S = self.n_heads, 32
+        rows, T, c = (int(d) for d in mc.shape)
+        N = rows * T
+        w_v, w_g, w_o = wt
+        mt = ttnn.transpose(ttnn.reshape(mc, (N, c)), -2, -1)    # [c_m, rows*T]
+        v = ttnn.matmul(w_v, mt, **lin)                          # [H*S, rows*T]
+        o = self._head_contract(ttnn.experimental.view(v, [H, rows * S, T]), ws, H, rows * S, T, lin)
+        o = ttnn.experimental.view(o, [H * S, N])
+        g = ttnn.matmul(w_g, mt, **lin)
+        ttnn.deallocate(mt)
+        o = ttnn.multiply_(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+        ttnn.deallocate(g)
+        out = ttnn.matmul(w_o, o, **lin)                         # [c_m, rows*T], heads summed
+        ttnn.deallocate(o)
+        res = ttnn.reshape(ttnn.transpose(out, -2, -1), (rows, T, c))
         ttnn.deallocate(out)
         return res
 
