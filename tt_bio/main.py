@@ -2248,6 +2248,10 @@ def preflight_cmd(models, download, cache):
                        f"{need[0].artifact.filename} at {need[0].path} or set "
                        f"${need[0].artifact.env}")
 
+    if set(names) & set(PROTENIX_FAMILY) and not shutil.which("kalign"):
+        click.echo(f"  {click.style('note   ', fg='yellow')} --use_template with .a3m/.hhr hits needs kalign on "
+                   "PATH, and there is none (it is optional otherwise)")
+
     if sources:
         click.echo()
         click.echo("can this machine reach the hosts those weights come from?")
@@ -3689,6 +3693,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                     raise ValueError(f"job names {sorted(names & seen)} repeat across the directory's JSON files")
                 seen |= names
                 f = protenix_json.search(f, staged, use_template, use_rna_msa, **search_tools)
+                if use_template:
+                    protenix_json.check_template_tools(f)
                 protenix_json.stage(f, staged, seeds=[seed] if seed is not None else None,
                                     use_seeds_in_json=use_seeds_in_json)
             except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:

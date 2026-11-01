@@ -233,3 +233,23 @@ def test_dispatched_job_keeps_its_msas(tmp_path, monkeypatch):
     monkeypatch.setattr(W, "_paired_msa", lambda *a: searched.append("paired"))
     W.prefetch_msas("mol1", [got], {"msa_dir": str(tmp_path / "msa"), "use_msa_server": True})
     assert sorted(searched) == ["B", "paired"]
+
+
+def test_predict_use_template_needs_kalign_before_any_fold(tmp_path, monkeypatch):
+    """.a3m/.hhr template hits under --use_template refuse up front when kalign is missing; .json hits need none."""
+    from click.testing import CliRunner
+
+    from tt_bio import main as m
+
+    monkeypatch.setattr(m.size_limits, "check_input", lambda *a, **k: (_ for _ in ()).throw(SystemExit(0)))
+    monkeypatch.setenv("PATH", str(tmp_path / "empty"))
+    job = {"name": "t", "sequences": [{"proteinChain": {"sequence": "MKV", "count": 1,
+                                                        "templatesPath": str(tmp_path / "hits.hhr")}}]}
+    (tmp_path / "j.json").write_text(json.dumps([job]))
+    args = [str(tmp_path / "j.json"), "--model", "mol1", "--out_dir", str(tmp_path / "o")]
+    r = CliRunner().invoke(m.predict, args + ["--use_template"])
+    assert r.exit_code != 0 and "kalign" in r.output
+    assert CliRunner().invoke(m.predict, args).exit_code == 0
+    job["sequences"][0]["proteinChain"]["templatesPath"] = str(tmp_path / "hits.json")
+    (tmp_path / "j.json").write_text(json.dumps([job]))
+    assert CliRunner().invoke(m.predict, args + ["--use_template"]).exit_code == 0
