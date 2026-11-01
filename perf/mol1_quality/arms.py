@@ -8,6 +8,7 @@ half-written ones; files younger than 2 min wait for the next run). It lands in
 OUT/{gpu,gpu_self,headline}/<case>/seed_<s>/predictions/ unless that seed is already there. Without LABELs every ROOT/mol1-b200-* session is read. Re-run whenever a session adds folds.
 """
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -32,10 +33,15 @@ def main(root, out, labels):
                 dst = out / arm / seed_dir.parent.name / seed_dir.name
                 if dst.exists() or not complete(seed_dir):
                     continue
-                (dst / "predictions").mkdir(parents=True)
+                tmp = dst.with_name(f"{dst.name}.tmp{os.getpid()}")  # renamed whole: a crash or a racing run leaves no half fold
+                (tmp / "predictions").mkdir(parents=True)
                 for f in (seed_dir / "predictions").iterdir():
-                    os.link(f, dst / "predictions" / f.name)
-                added[arm] += 1
+                    os.link(f, tmp / "predictions" / f.name)
+                try:
+                    tmp.rename(dst)
+                    added[arm] += 1
+                except OSError:
+                    shutil.rmtree(tmp)
     n = {a: len(list((out / a).glob("*/seed_*"))) for a in ARMS.values()}
     print(f"added {added}; now {n} seed folds")
 
