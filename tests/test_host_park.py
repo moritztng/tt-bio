@@ -1,8 +1,8 @@
 """`host_park` / `host_unpark` hand back the same tile bytes, and only past the offload size.
 
 The Protenix/OpenDDE trunk parks its cycle-invariant z_init and template projections on the host
-past `HOST_PARK_MIN_BYTES` (512 MiB) and uploads them once per recycling cycle, so the round trip has to be lossless for
-every dtype the trunk may hold, including bfloat8_b whose shared exponents a to_torch round trip
+past `host_park_min_bytes()` and uploads them once per recycling cycle, so the round trip has
+to be lossless for every dtype the trunk may hold, including bfloat8_b whose shared exponents a to_torch round trip
 would re-quantise.
 """
 import os
@@ -47,3 +47,13 @@ def test_below_the_offload_size_nothing_moves(dev):
                         dtype=ttnn.bfloat16)
     assert T.host_park(t) is t and T.host_unpark(t) is t and t.is_allocated()
     assert T.host_park([]) == []
+
+
+@pytest.mark.parametrize("total,parked,resident", [
+    (12 * 1_073_741_792, 939524096, 805306368),    # Wormhole Galaxy: Mol-1's z_init at 1000 tokens
+                                                   # parks, OpenDDE's at 1024 stays
+    (8 * 4_278_190_016, (1 << 30) + 1, 1 << 30),   # p150a: the 1 GiB it always had
+])
+def test_the_park_size_follows_the_part(monkeypatch, total, parked, resident):
+    monkeypatch.setattr(T, "_dram_total_bytes", lambda device=None: total)
+    assert resident <= T.host_park_min_bytes() < parked
