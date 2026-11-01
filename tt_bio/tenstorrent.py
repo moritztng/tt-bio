@@ -12007,15 +12007,8 @@ class TriangleMultiplication(Module):
                 epsilon=1e-5,
                 compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
-            g_block = ttnn.linear(
-                z_rows,
-                self.g_out_weight,
-                bias=self.g_out_bias,
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
+            g_block = _pair_proj_linear(z_rows, self.g_out_weight, self.compute_kernel_config, _dtype(),
+                                        bias=self.g_out_bias)
             ttnn.deallocate(z_rows)
             if not residual and e - s < H:  # a whole-axis slice is x_in itself
                 ttnn.deallocate(r)
@@ -12037,15 +12030,8 @@ class TriangleMultiplication(Module):
                 epsilon=1e-5,
                 compute_kernel_config=ln_compute_kernel_config(self.compute_kernel_config),
             )
-            p_block = ttnn.linear(
-                x_rows,
-                self.out_p_weight,
-                bias=self.p_out_bias,
-                memory_config=ttnn.DRAM_MEMORY_CONFIG,
-                dtype=_dtype(),
-                compute_kernel_config=self.compute_kernel_config,
-                core_grid=CORE_GRID_MAIN,
-            )
+            p_block = _pair_proj_linear(x_rows, self.out_p_weight, self.compute_kernel_config, _dtype(),
+                                        bias=self.p_out_bias)
             ttnn.deallocate(x_rows)
             if chunks:
                 ttnn.deallocate(x_blk)
