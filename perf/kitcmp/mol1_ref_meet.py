@@ -42,8 +42,8 @@ def positions():
 
 
 def seen(lab, pos):
-    out = []
-    for line in (R / lab / "mol1/ref/jobs.jsonl").read_text().splitlines():
+    out, f = [], R / lab / "mol1/ref/jobs.jsonl"
+    for line in (f.read_text().splitlines() if f.exists() else []):  # a box still renting has no ledger yet
         try:
             d = json.loads(line)
             out.append(pos[(d["case"], d["set"], d["seed"])])
