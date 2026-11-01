@@ -905,23 +905,23 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     # do not transfer: its own ladder stops two rungs lower.
     "mol1": {
         "wormhole_b0": Ceiling(
-            residues=1280, pass_at=1280, fail_at=1792, binds=MEMORY, mechanism=DRAM,
+            residues=1536, pass_at=1536, fail_at=1792, binds=MEMORY, mechanism=DRAM,
             msa_rows=16384, ladder_ligand_atoms=0,
-            evidence="Walked 2026-10-31/11-01 on the .107 Galaxy (UF-EV-A4-GWH01), tree 87224da42 "
-                     "(wk/mol1-port), perf/whceil/ladder.py, apo ubiquitin tiled to N residues with a "
-                     "16384-row unpaired alignment, guard off, --host_threads 2, CLI defaults 20 "
-                     "recycles / 200 steps / 5 samples (ws:mol1-serve-jf). 1024 PASS in 2627.7 s, chip 9, "
-                     "AICLK median 1000 MHz over 4480 in-fold samples, pLDDT 0.669, 4 refusals recovered. "
-                     "1280 PASS in 3605.2 s, chip 18, AICLK median 1000 MHz over 6201 in-fold samples, "
-                     "pLDDT 0.645, 2 refusals recovered, the largest 7869235200 B. 1792 fails after "
+            evidence="Walked 2026-11-01 on the .107 Galaxy (UF-EV-A4-GWH01), tree c5e5bc392 (main with "
+                     "the MOL1_WH levers), perf/whceil/ladder.py, apo ubiquitin tiled to N residues with "
+                     "a 16384-row unpaired alignment, guard off, CLI defaults 20 recycles / 200 steps / "
+                     "5 samples (ws:mol1-serve-jf). 1280 PASS in 3261.3 s, chip 4, AICLK median 1000 MHz "
+                     "over 7024 in-fold samples, pLDDT 63.3-64.6 over 5 samples, 2 refusals recovered, "
+                     "the largest 7869235200 B. 1536 PASS in 5445.2 s, chip 28, AICLK median 1000 MHz "
+                     "over 10704 in-fold samples, pLDDT 62.9-63.6 over 5 samples, no clash, 3 refusals "
+                     "recovered, the largest 9443082240 B. The fail rung is from the earlier walk on "
+                     "tree 87224da42 (wk/mol1-port), which also passed 1024 and 1280: 1792 fails after "
                      "416.7 s (chip 27) on one 2877292544 B DRAM request, 228.7 MiB per bank against "
                      "94.6 MiB free and a 49.0 MiB largest block on a chip 90.8 percent full: "
                      "cumulative residency, not fragmentation. 2048 fails the same way after 161.5 s "
                      "(chip 20, 3758096384 B, 298.7 MiB per bank). The two requests stand in the ratio "
                      "(1792/2048)^2 exactly, so the failing tensor is pair-shaped and the wall is on "
-                     "TOKENS, hence ladder_ligand_atoms=0. 1536 has not completed: every attempt was "
-                     "recalled by user demand on the lent chip or killed by a host reboot, so it is "
-                     "neither cap nor control",
+                     "TOKENS, hence ladder_ligand_atoms=0",
         ),
         "blackhole": _unmeasured("no size ladder run for Mol-1 on Blackhole yet; the Wormhole row "
                                  "does not carry over"),
