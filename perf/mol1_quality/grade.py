@@ -1,7 +1,7 @@
 """Grade MOL1 predictions with FoldBench's own evaluator and write state/mol1/QUALITY.json.
 
     <ost env>/bin/python grade.py --inputs INPUTS --cases CASES.json --work WORK --out QUALITY.json \
-        --arm gpu=DIR --arm gpu_self=DIR --arm tt_bh=DIR [--arm tt_wh=DIR] [--headline DIR]
+        --arm gpu=DIR --arm gpu_self=DIR --arm tt_bh=DIR [--arm tt_wh=DIR] [--headline DIR] [--ab tt_bh_b=tt_bh] [--pose-base gpu]
 
 INPUTS is the frozen tree quality_inputs.py wrote (truth/ holds <pdb>-assembly1.cif). Every arm DIR has upstream's
 layout, <case>/seed_<s>/predictions/<case>_sample_<k>.cif + <case>_summary_confidence_sample_<k>.json, case names
@@ -28,7 +28,8 @@ NA_TASKS = ("interface_protein_dna", "interface_protein_rna")
 
 
 def postprocess(src, dst):
-    """FoldBench algorithms/Protenix/postprocess.py process_file: occupancy 1, B 0, entity type from group_PDB."""
+    """FoldBench algorithms/Protenix/postprocess.py process_file: occupancy 1, B 0, entity type from group_PDB;
+    entity_poly_seq rebuilt from atom_site when the writer left it out (metadata only, coordinates untouched)."""
     import biotite.structure.io.pdbx as pdbx
     f = pdbx.CIFFile.read(str(src)); b = f.block; a = b.get("atom_site")
     n = len(a["group_PDB"])
@@ -41,6 +42,14 @@ def postprocess(src, dst):
         elif ent[e][1] != g:
             ent[e] = ("polymer", g)
     b["entity"] = pdbx.CIFCategory({"id": list(ent), "type": [v[0] for v in ent.values()]})
+    if "entity_poly_seq" not in b:  # tt-bio writes atom_site only; DockQv2 finds polymer chains through this category
+        seq = {}
+        for g, e, n, m in zip(*(a[k].as_array().tolist() for k in ("group_PDB", "label_entity_id", "label_seq_id",
+                                                                   "label_comp_id"))):
+            if g == "ATOM":
+                seq.setdefault((e, n), m)
+        b["entity_poly_seq"] = pdbx.CIFCategory({"entity_id": [k[0] for k in seq], "hetero": ["n"] * len(seq),
+                                                 "mon_id": list(seq.values()), "num": [k[1] for k in seq]})
     for k in list(b):  # biotite 0.40 writes a still-lazy category without its newline ("#loop_"); OST then rejects it
         b[k] = b[k]
     f.write(str(dst))
@@ -60,6 +69,68 @@ def predictions(arm_dir, case, work):
             dst.parent.mkdir(parents=True, exist_ok=True)
             postprocess(cif, dst)
         out.append((seed, k, float(summ.get("ranking_score", 0)), dst, summ))
+    return out
+
+
+def atoms(cif):
+    """{(label chain, label seq, residue, atom): xyz} of one CIF, so two writers' atom orders pair by identity."""
+    import biotite.structure.io.pdbx as pdbx
+    a = pdbx.get_structure(pdbx.CIFFile.read(str(cif)), model=1, use_author_fields=False)
+    return {k: x for k, x in zip(zip(a.chain_id.tolist(), a.res_id.tolist(), a.res_name.tolist(), a.atom_name.tolist()),
+                                 a.coord.astype(np.float64))}
+
+
+def rmsd(p, q):
+    """All-atom RMSD (Kabsch) over the atoms both poses carry; None when fewer than 90 % of either are shared."""
+    keys = p.keys() & q.keys()
+    if len(keys) < 0.9 * max(len(p), len(q)):
+        return None
+    a = np.array([p[k] for k in keys]); b = np.array([q[k] for k in keys])
+    a, b = a - a.mean(0), b - b.mean(0)
+    u, _, vt = np.linalg.svd(a.T @ b)
+    r = u @ np.diag([1.0, 1.0, np.sign(np.linalg.det(u @ vt))]) @ vt
+    return float(np.sqrt(((a @ r - b) ** 2).sum(1).mean()))
+
+
+def matched_rmsd(base, arm):
+    """Median RMSD of one fold's samples against another's under the sample pairing with the least total RMSD
+    (CIFs are numbered by rank, so a pairing by file name would compare different draws)."""
+    import itertools
+    d = [[rmsd(p, q) for q in arm] for p in base]
+    if any(v is None for r in d for v in r):
+        return None
+    best = min(itertools.permutations(range(len(arm)), len(base)), key=lambda pi: sum(d[i][j] for i, j in enumerate(pi)))
+    return float(np.median([d[i][j] for i, j in enumerate(best)]))
+
+
+def pose(arms, base, cases, work):
+    """Matched all-atom RMSD of every arm against `base` at the same seed. Two floors, the GPU against itself on other
+    seeds: `gpu_self` (its seeds paired with base's in sorted order) and `floor_cross_seed` (base's own seeds paired
+    in a ring, 42-66, 66-101, ...). Medians over case x seed, in A."""
+    if base not in arms:
+        return None
+    folds = {}
+    for arm, d in arms.items():
+        for c in cases:
+            by = defaultdict(list)
+            for s, k, _, cif, _ in predictions(Path(d), c["id"], work / arm):
+                by[s].append(atoms(cif))
+            folds[arm, c["id"]] = by
+    out = {"base": base, "bar_A": 0.60}
+    for arm in [*arms, "floor_cross_seed"]:
+        if arm == base:
+            continue
+        v, per_case = [], {}
+        for c in cases:
+            b, x = folds[base, c["id"]], folds.get((arm, c["id"]), folds[base, c["id"]])
+            ring = sorted(b)
+            pairs = (list(zip(ring, ring[1:] + ring[:1])) if arm == "floor_cross_seed" and len(ring) > 1 else
+                     [] if arm == "floor_cross_seed" else
+                     list(zip(sorted(b), sorted(x))) if arm == "gpu_self" else [(s, s) for s in sorted(b.keys() & x.keys())])
+            r = [m for s, t in pairs if (m := matched_rmsd(b[s], x[t])) is not None]
+            if r:
+                per_case[c["id"]] = float(np.median(r)); v += r
+        out[arm] = {"matched_rmsd_A_median": float(np.median(v)) if v else None, "n": len(v), "per_case": per_case}
     return out
 
 
@@ -182,8 +253,10 @@ def main():
     ap.add_argument("--cases", required=True, type=Path)
     ap.add_argument("--work", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--arm", action="append", default=[], help="name=DIR (gpu, gpu_self, tt_bh, tt_wh)")
+    ap.add_argument("--arm", action="append", default=[], help="name=DIR (gpu, gpu_self, tt_bh, tt_wh; any tt_* arm is graded against gpu)")
     ap.add_argument("--headline", type=Path)
+    ap.add_argument("--ab", action="append", default=[], help="TEST=BASE: also grade one TT arm against another")
+    ap.add_argument("--pose-base", default="gpu", help="arm every other arm's poses are compared with ('' skips)")
     a = ap.parse_args()
     spec = json.loads(a.cases.read_text())
     arms = dict(x.split("=", 1) for x in a.arm)
@@ -194,9 +267,8 @@ def main():
     ok = [r for r in rows if not r.get("missing")]
     sets = sorted({c["set"] for c in spec["paired"]})
     per_arch, per_set = {}, {}
-    for test, arch in (("tt_bh", "bh"), ("tt_wh", "wh")):
-        if test not in arms:
-            continue
+    for test in [x for x in arms if x.startswith("tt_")]:  # tt_bh, tt_wh, and A/B arms such as tt_bh_b
+        arch = test[3:]
         missing = sorted({r["case"] for r in rows if r["arm"] == test and r.get("missing")})
         v = stats.verdict(ok, test)
         per_set[arch] = {s: stats.verdict(ok, test, cases={r["case"] for r in ok if r["set"] == s}) for s in sets}
@@ -204,7 +276,7 @@ def main():
         verdict = "FAIL" if missing or failed_sets or v["verdict"] == "FAIL" else v["verdict"]
         per_arch[arch] = {"verdict": verdict, "pooled": v, "failed_sets": failed_sets, "missing": missing}
     floor = stats.self_test(ok) if "gpu_self" in arms else None
-    arch = {k: v["verdict"] for k, v in per_arch.items()}
+    arch = {k: v["verdict"] for k, v in per_arch.items() if k in ("bh", "wh")}
     q = {"verdict": "PASS" if arch.get("wh") == "PASS" and arch.get("bh") == "PASS" else
          ("FAIL" if "FAIL" in arch.values() else "INCOMPLETE"),
          "arch": arch, "per_arch": per_arch, "per_feature": per_set,
@@ -213,6 +285,8 @@ def main():
                "per_arm": {arm: len({r["case"] for r in ok if r["arm"] == arm}) for arm in arms}},
          "seed_floor": floor and floor["metrics"], "self_test": floor and floor["verdict"],
          "headline": headline(a.headline, spec["headline"]["cases"], a.inputs, a.work) if a.headline else None,
+         "ab": {x: stats.verdict(ok, *x.split("=", 1)) for x in a.ab},
+         "pose": pose(arms, a.pose_base, spec["paired"], a.work) if a.pose_base else None,
          "paths": {"cases": str(a.cases), "inputs": str(a.inputs), "arms": arms, "rows": str(a.work / "rows.json")}}
     a.out.write_text(json.dumps(q, indent=1, default=float))
     print(json.dumps({"verdict": q["verdict"], "arch": arch, "self_test": q["self_test"]}))
