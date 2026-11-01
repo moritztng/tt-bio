@@ -68,6 +68,23 @@ def test_missing_rna_databases_are_named(tmp_path, monkeypatch):
                   hmmalign_binary_path="/bin/true", hmmbuild_binary_path="/bin/true")
 
 
+def test_rna_msa_path_is_absolute(tmp_path, monkeypatch):
+    """A relative --out_dir must not leave a cwd-relative unpairedMsaPath: read from anywhere else it counts as
+    missing and the fold silently drops the RNA MSA."""
+    from tt_bio._vendor.mol1 import rna_msa_search
+
+    def fake(rna_result_path, rna_seq_id, **_k):
+        Path(rna_result_path, rna_seq_id).mkdir(parents=True)
+        Path(rna_result_path, rna_seq_id, "rna_msa.a3m").write_text(">query\nGGAU\n")
+
+    src, _ = _job(tmp_path)
+    monkeypatch.setattr(rna_msa_search, "run_rna_msa_search", fake)
+    monkeypatch.chdir(tmp_path)
+    out = pj.search(src, Path("s"), use_rna_msa=True)
+    path = json.loads(out.read_text())[0]["sequences"][1]["rnaSequence"]["unpairedMsaPath"]
+    assert path == str(tmp_path / "s" / "j" / "rna_msa" / "1" / "rna_msa.a3m")
+
+
 def test_unknown_option_refused(tmp_path):
     src, _ = _job(tmp_path)
     with pytest.raises(TypeError):

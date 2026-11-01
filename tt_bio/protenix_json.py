@@ -300,7 +300,7 @@ def search(path, dest, use_template: bool = False, use_rna_msa: bool = False, **
     if use_rna_msa:
         from tt_bio._vendor.mol1.rna_msa_search import update_rna_msa_info
         updated |= update_rna_msa_info(
-            data, out_dir=str(dest), nhmmer_binary_path=t["nhmmer_binary_path"],
+            data, out_dir=str(Path(dest).resolve()), nhmmer_binary_path=t["nhmmer_binary_path"],
             hmmalign_binary_path=t["hmmalign_binary_path"],
             hmmbuild_binary_path=t["hmmbuild_rna_binary_path"] or t["hmmbuild_binary_path"],
             ntrna_database_path=t["ntrna_database_path"], rfam_database_path=t["rfam_database_path"],
