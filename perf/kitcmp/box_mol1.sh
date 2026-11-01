@@ -71,6 +71,9 @@ say "gate passed after $(( $(date +%s) - T0 ))s"
 # fit four to a GPU). mol1_ref.py skips every job whose summary exists, so a relaunch resumes.
 if [ -n "${REF:-}" ]; then
   until [ -f /root/kc/QINPUTS-DONE ]; do sleep 30; done
+  # A fresh box has no outputs, so the skip-if-done resume only works if qb2 ships what earlier sessions made:
+  # qinputs/_ref holds them (hardlinked there before the session), and cp -n never overwrites this box's work.
+  [ -d /root/kc/qinputs/_ref ] && mkdir -p $B/ref && cp -rn /root/kc/qinputs/_ref/. $B/ref/
   for k in 4 1; do
     (cd /tmp && $PY -I /root/kc/mol1_ref.py --inputs /root/kc/qinputs --out $B/ref --k $k) >> $B/ref.log 2>&1
   done
