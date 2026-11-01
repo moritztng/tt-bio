@@ -10,6 +10,9 @@ return and `wall`/`featurize` are measured from the previous predict's end; `wri
 The trunk stage is split further into pre / static / loop / down / after (see the stamps on TrunkModule below).
 
 One line per design on stdout, `BGSPLIT {json}`, also appended to $BGSPLIT_OUT when set.
+With $BGSPLIT_PROF=DIR, cProfile covers each design's `pre` span (predict start to the trunk's entry, main thread
+only) and dumps DIR/pre{design}.prof; the profiler's overhead inflates `pre` in that run, so read its split for
+attribution, not time.
 
     BGSPLIT_OUT=split.jsonl python perf/spd/bg_split.py design perf/dsfix/fixtures/bg_R3.yaml --model boltzgen \
         --steps design --num_designs 6 --out_dir OUT --debug --log [--fast]
@@ -30,6 +33,7 @@ from tt_bio.boltzgen.task.predict import predict as P
 from tt_bio.boltzgen.task.predict import writer as W
 
 OUT = os.environ.get("BGSPLIT_OUT")
+PROF = os.environ.get("BGSPLIT_PROF")
 EV = {}
 DONE = deque()
 LAST = {"end": time.perf_counter(), "n": 0, "latch": {}}
@@ -63,6 +67,10 @@ def predict_step(self, *a, **k):
     EV.clear()
     t0 = time.perf_counter()
     EV["t0"] = t0
+    if PROF:
+        import cProfile
+        EV["prof"] = cProfile.Profile()
+        EV["prof"].enable()
     out = _predict(self, *a, **k)
     _sync()
     EV["t1"] = time.perf_counter()
@@ -88,6 +96,19 @@ def _stamp(name, fn):
 # Inside the trunk stage: `tf` is TrunkModule.forward (static build + uploads, the recycle loop, s/z download),
 # `st` its static build, `it` each recycle iteration (the last one's end closes the loop).
 T.TrunkModule.forward = _stamp("tf", T.TrunkModule.forward)
+_tf = T.TrunkModule.forward
+
+
+def _trunk_forward(*a, **k):
+    prof = EV.pop("prof", None)
+    if prof is not None:
+        prof.disable()
+        os.makedirs(PROF, exist_ok=True)
+        prof.dump_stats(os.path.join(PROF, f"pre{LAST['n'] + len(DONE) + 1}.prof"))
+    return _tf(*a, **k)
+
+
+T.TrunkModule.forward = _trunk_forward
 T.TrunkModule._build_static = _stamp("st", T.TrunkModule._build_static)
 T.TrunkModule._iteration = _stamp("it", T.TrunkModule._iteration)
 # `td`: BoltzGen's token-distance precompute inside the static build (host a_ij, its cache check, the upload).
