@@ -116,6 +116,12 @@ def _set_gin_fit(on):
     return prev
 
 
+def _set_fused_bytes(v):
+    prev = T._TRIMUL_INPROJ_FUSED_BYTES
+    T._TRIMUL_INPROJ_FUSED_BYTES = v
+    return prev
+
+
 LEVERS = {
     "ibw": [(T.set_trimul_ibw_full, True)],
     "into": [(T.set_trimul_back_into, True)],
@@ -149,6 +155,9 @@ LEVERS = {
     "t2m": [(TTL.set_t2m, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
+    # the fused in-projection byte cap (1 GiB in production; T1 gets twice it under trimul_t1_2g) at 1.5 GiB, so
+    # T1 holds Mol-1's c_z 448 outputs at 1024 tokens (2.63 GiB), which the 2 GiB budget declines
+    "fb1536": [(_set_fused_bytes, 1536 * 2 ** 20)],
 }
 
 
@@ -360,6 +369,7 @@ for var in A.variants.split(","):
         try:
             back0 = list(RB.STATS_BACK)
             tail0, resid0, mf0 = list(TTL.STATS), list(TTL.RESID_STATS), TTL.MASK_STATS[0]
+            t10, why0 = list(TTL.T1_STATS), dict(TTL.T1_WHY)
             fired = {"in0_block_w": T._triangle_mul_program_config(-(-N // 32), T._trimul_ibw_full(), T._trimul_subblock()).in0_block_w,
                      "ibw_refused": sorted(T._TRIMUL_IBW_FULL_REFUSED)}
             for _ in range(2):
@@ -378,6 +388,8 @@ for var in A.variants.split(","):
             fired["tail_res"] = list(TTL.RES_STATS)
             fired["mask_fold"] = TTL.MASK_STATS[0] - mf0
             fired["gin_move"] = list(TTL.GIN_MOVE_STATS)
+            fired["t1_served_declined"] = [a - b for a, b in zip(TTL.T1_STATS, t10)]
+            fired["t1_why"] = {k: v - why0.get(k, 0) for k, v in TTL.T1_WHY.items() if v != why0.get(k, 0)}
         finally:
             restore(prev)
         outs[arm] = yt
