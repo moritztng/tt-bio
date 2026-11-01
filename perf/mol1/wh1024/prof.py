@@ -139,7 +139,8 @@ def main():
                     help="attribution fold only, as the first fold: the on-disk kernel cache makes it read like a warm "
                          "one (1024: cold 1275 s, warm 1323 s), and it halves the time a recall can cut it short")
     ap.add_argument("--trace-cold", action="store_true",
-                    help="DRAM trace from the cold fold on, and DRAM in use before each fold: what a fold leaves behind")
+                    help="DRAM trace from the cold fold on, and DRAM in use before each fold: what a fold leaves behind "
+                         "(with --peak-tensors, the device tensors alive then)")
     ap.add_argument("--peak-tensors", action="store_true",
                     help="no trace: sample a tag only when it reaches a new peak, and list the device tensors alive "
                          "then (a gc walk per sample, too slow for every sample)")
@@ -178,11 +179,14 @@ def main():
         if a.trace_cold:
             import gc
             import ttnn
-            from tt_bio.tenstorrent import dram_free, get_device
+            from tt_bio.tenstorrent import _live_device_tensors, dram_free, get_device
             gc.collect()
             mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
-            emit({"phase": f"before-{kind}", "dram_allocated_per_bank": int(mv.total_bytes_allocated_per_bank),
-                  "dram_largest_free_B": dram_free()})
+            r = {"phase": f"before-{kind}", "dram_allocated_per_bank": int(mv.total_bytes_allocated_per_bank),
+                 "dram_largest_free_B": dram_free()}
+            if a.peak_tensors:
+                r["live"] = _live_device_tensors(min_bytes=1 << 20).splitlines()  # what the last fold left behind
+            emit(r)
         sdir = out / f"r{i}-{kind}"
         sdir.mkdir(parents=True, exist_ok=True)
         with clocksample.during(period=1.0) as clk:
