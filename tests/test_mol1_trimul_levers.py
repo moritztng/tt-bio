@@ -1,4 +1,5 @@
-"""Mol-1's trimul levers reach Mol-1 alone: protenix.mode_levers adds MOL1_BH only at c_z 448, Blackhole normal.
+"""Mol-1's levers reach Mol-1 alone: protenix.mode_levers adds them only at c_z 448 in normal mode, MOL1_BH on Blackhole
+and MOL1_WH on Wormhole, and leaves every other checkpoint's set as it was.
 
 Run: TT_VISIBLE_DEVICES= python3 -m pytest tests/test_mol1_trimul_levers.py
 """
@@ -18,10 +19,10 @@ def _levers(c_z, wh, fast, monkeypatch):
 
 @pytest.mark.parametrize("wh", [False, True])
 @pytest.mark.parametrize("fast", [False, True])
-def test_mol1_set_only_at_448_bh_normal(wh, fast, monkeypatch):
+def test_mol1_set_only_at_448_normal(wh, fast, monkeypatch):
     base = _levers(128, wh, fast, monkeypatch)
     got = _levers(448, wh, fast, monkeypatch)
-    assert got == (base | P.WIDE_NORMAL | P.MOL1_BH if not wh and not fast else base)
+    assert got == (base if fast else base | P.WIDE_NORMAL | (P.MOL1_WH if wh else P.MOL1_BH))
     for c_z in (128, 256, 384):           # Protenix-v1, Protenix-v2, OpenDDE: no Mol-1 lever
         assert not _levers(c_z, wh, fast, monkeypatch) & {"trimul_t1_c320", "trimul_t1_c448"}
-    assert P.MOL1_BH <= set(T.LEVERS)
+    assert P.MOL1_BH | P.MOL1_WH <= set(T.LEVERS)

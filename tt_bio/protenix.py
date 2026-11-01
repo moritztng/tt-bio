@@ -159,8 +159,7 @@ QSPLIT_NORMAL = frozenset({"dit_qsplit"})
 # DiT is Protenix-v2's (c_token 768, 16 heads). Graded as one stack on Mol-1 (perf/mol1_pairmix/e2e_ab.sh STACK=1).
 # Mol-1 Blackhole normal, 5sak chain 1 (448 tokens, 4449-row MSA, 20 cycles, 200 steps), base vs this set plus
 # MOL1_BH and the triangle attention planner at 320/448, 3 seeds, p300c at AICLK median 1318-1343: warm fold 86.92 ->
-# 69.92 s (median), same-seed all-atom lDDT 0.997-1.000 vs seed floor 0.970-0.992, pLDDT unchanged. Not on Wormhole
-# until a Galaxy chip grades it.
+# 69.92 s (median), same-seed all-atom lDDT 0.997-1.000 vs seed floor 0.970-0.992, pLDDT unchanged. Wormhole: see MOL1_WH.
 WIDE_NORMAL = WS_NORMAL | TRIATT_LN | TRIATT_K1 | QSPLIT_NORMAL | {"pz_device"}
 # triatt_ln_b8 (triatt_ln writes q, k, v bfp8; the head-major bias is narrowed after its permute; the SDPA keeps a
 # bf16 destination) in Protenix-v2's Wormhole --fast set. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
@@ -302,8 +301,14 @@ DIT_SEAM_FAST = frozenset({"pz_device", "dit_mod16"})
 # Plus the T2 output tail (t2w plan) and trimul_bres: module rel_rms 0.0092 (c_z 320) / 0.0096 (448). 5sak with its 4449-row
 # MSA, 448 tokens, real weights, p150a 1325-1343 MHz median, graded stack vs + these, seeds 101-103: same-seed lDDT
 # 0.996-1.000 vs the 0.970-0.991 seed floor, warm median 68.71 -> 63.94 s.
-MOL1_BH = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trimul_t1_2g", "trimul_t2", "trimul_t2w",
-                     "trimul_bres"})
+MOL1_T1 = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trimul_t1_2g"})
+MOL1_BH = MOL1_T1 | {"trimul_t2", "trimul_t2w", "trimul_bres"}
+# Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
+# BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
+# 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
+# 206.9); samples matched to the base fold's 0.269 A median (max 0.937) vs the 0.60 A bar and the 1.442 A sample floor,
+# all-atom lDDT 0.996 vs 0.965. T2 (trimul_t2, t2w) is not graded on Wormhole at 320/448 and stays out.
+MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -329,14 +334,14 @@ def mode_levers(state_dict):
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `DIT_MM_WH`, `TRIATT_Q10_WH` and `X8_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
-    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` and `MOL1_BH` to its Blackhole normal mode."""
+    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` to its normal mode, plus `MOL1_BH` on Blackhole and `MOL1_WH` on Wormhole."""
     widths = Trunk._pair_widths(state_dict)
     v2 = widths == {256}
     wh = _T.is_wormhole()
     # The levers that need a width their kernels tile, not Protenix-v2 itself, are keyed on the trunk widths they are
-    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in Blackhole normal mode, the one chip its grade covers.
-    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 and not wh else frozenset()
-    m1 = MOL1_BH if ws and 448 in widths else frozenset()
+    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in normal mode, and the trimul set graded on each chip.
+    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 else frozenset()
+    m1 = (MOL1_WH if wh else MOL1_BH) if ws and 448 in widths else frozenset()
     wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
