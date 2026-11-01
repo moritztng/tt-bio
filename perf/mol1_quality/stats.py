@@ -18,6 +18,7 @@ import numpy as np
 # metric -> (higher is better, success threshold or None); FoldBench success definitions
 METRICS = {"dockq": (True, 0.23), "lddt": (True, None), "lddt_pli": (True, 0.8), "lig_rmsd": (False, 2.0),
            "plddt": (True, None), "iptm": (True, None), "ptm": (True, None), "ranking_score": (True, None)}
+CONFIDENCE = ("plddt", "iptm", "ptm", "ranking_score")
 CALIBRATION = (("plddt", "lddt"), ("iptm", "dockq"))
 N_BOOT, SEED = 20000, 0
 MIN_SEEDS = 4
@@ -87,13 +88,20 @@ def equivalent(test, floor):
     return lo - w <= test["ci95"][0] and test["ci95"][1] <= hi + w
 
 
-def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None):
+def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=()):
+    """conf_split: case ids ("<id>[:recipe]") whose CONFIDENCE metrics are left out (upstream's own fp32 and bf16
+    disagree there, so the GPU is no reference); their structure metrics still count."""
     if cases is not None:
         rows = [r for r in rows if r["case"] in cases]
     rng = np.random.default_rng(SEED)
     out, ok, insufficient = {}, True, False
+
+    def targets(arm, m):
+        x = per_target(rows, arm, m)
+        return {c: v for c, v in x.items() if c.split("|")[0] not in conf_split} if m in CONFIDENCE else x
+
     for m in METRICS:
-        b, t, s = (per_target(rows, a, m) for a in (base, test, self_arm))
+        b, t, s = (targets(a, m) for a in (base, test, self_arm))
         if not b:
             continue
         d, f = paired(t, b, rng), paired(s, b, rng)
@@ -117,8 +125,8 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None):
         ok &= p
         insufficient |= d is None
     for conf, struct in CALIBRATION:
-        cb = boot_spearman(per_target(rows, base, conf), per_target(rows, base, struct), rng)
-        ct = boot_spearman(per_target(rows, test, conf), per_target(rows, test, struct), rng)
+        cb = boot_spearman(targets(base, conf), targets(base, struct), rng)
+        ct = boot_spearman(targets(test, conf), targets(test, struct), rng)
         if cb and ct:
             p = cb["ci95"][0] <= ct["rho"] <= cb["ci95"][1]
             out[f"calibration_{conf}_vs_{struct}"] = {"base": cb, "test": ct, "pass": p}
