@@ -226,7 +226,6 @@ class _DiTBlock(Module):
         # activations stay bf16 (the fused ops write them) and the precision is `_lin`'s (dit_hifi2 on Wormhole).
         self.fuse = None
         if self.sdpa32 and self.s16 is None and _T.lever("dit_fuse"):
-            self.lp = None
             bf = lambda w: ttnn.from_torch(w.float().contiguous(), dtype=self._act_dtype,  # noqa: E731
                                            layout=ttnn.TILE_LAYOUT, device=self.device)
             ada = []
@@ -453,9 +452,10 @@ class _DiTBlock(Module):
             ttnn.deallocate(mask)
         return o
 
-    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None, s16=None, tok_ones=False):
-        """`s16`: the stack's `shared_s`. `tok_ones`: the token mask is 1 on every row (dit_fuse)."""
-        if self.fuse:
+    def __call__(self, a, s, z, mask_bias, tok_mask_col, cache=None, s16=None, tok_ones=False, fuse=True):
+        """`s16`: the stack's `shared_s`. `tok_ones`: the token mask is 1 on every row (dit_fuse).
+        `fuse`: the stack's `fused` for this call; False runs the plain block on the same weights."""
+        if self.fuse and fuse:
             return self._call_fused(a, s, z, mask_bias, tok_mask_col, cache, s16[0], tok_ones, s16[1:])
         lin, lp = self._lin, self.lp
         # Under lp each adaLN writes lp.act, read only by linears; the transition's hidden linears
@@ -652,10 +652,19 @@ class OF3DiffusionTransformer(Module):
         return ttnn.linear(x, w, bias=bias, program_config=pc,
                            compute_kernel_config=blk.ckc_hifi2 if hifi2 else blk.compute_kernel_config)
 
-    def shared_s(self, s_d):
+    def fused(self, l1):
+        """Whether this call runs the fused block (dit_fuse). The fp32 DiT (OpenBind-0 normal) fuses only with
+        its stream in L1 (`l1`): from DRAM the fused fp32 block is slower than the plain one, warm 5-sample
+        folds of the 11-set at 515-791 tokens +1 to +7 % on a Galaxy chip (ngw, 11 of 11) and +5 to +7 % on a
+        p150a (nfb, 10 of 10), while with the stream in L1 the 512-token fold gains 20.2 -> 17.6 s (Wormhole,
+        1000 MHz). The plain block reads the same weights, so each shape runs one of the two graded arms."""
+        blk = self.blocks[0]
+        return bool(blk.fuse) and (l1 or blk._act_dtype != ttnn.float32)
+
+    def shared_s(self, s_d, fuse=True):
         """What every block of one call reads off ``s`` and the stack computes once (``s16`` in
         ``_DiTBlock.__call__``), or None. The caller frees the tensors after the last block."""
-        if self.blocks[0].fuse:
+        if self.blocks[0].fuse and fuse:
             s_hat = ttnn.layer_norm(s_d, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
             if self.hoist is None:
                 return (s_hat,)
@@ -689,10 +698,11 @@ class OF3DiffusionTransformer(Module):
             # dit_l1: copies, so the caller's tensors are untouched; ours are freed below.
             a_d, s_d = (ttnn.to_memory_config(x, ttnn.L1_MEMORY_CONFIG) for x in (a_d, s_d))
         x = a_d
-        s16 = self.shared_s(s_d)
+        fuse = self.fused(l1)
+        s16 = self.shared_s(s_d, fuse)
         for blk in self.blocks:
             x = blk(x, s_d, z_d, mask_bias, tmc_d, cache=cache, s16=s16,
-                    tok_ones=self._tok_ones.get(rows, False))
+                    tok_ones=self._tok_ones.get(rows, False), fuse=fuse)
         for t in s16 or ():
             ttnn.deallocate(t)
         if l1:
