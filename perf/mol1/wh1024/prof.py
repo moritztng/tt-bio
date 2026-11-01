@@ -135,6 +135,9 @@ def main():
     ap.add_argument("--model", default="mol1")
     ap.add_argument("--seed", type=int, default=101)
     ap.add_argument("--skip-timed", action="store_true", help="attribution fold only (after the cold one)")
+    ap.add_argument("--sections-first", action="store_true",
+                    help="attribution fold only, as the first fold: the on-disk kernel cache makes it read like a warm "
+                         "one (1024: cold 1275 s, warm 1323 s), and it halves the time a recall can cut it short")
     ap.add_argument("--trace-cold", action="store_true",
                     help="DRAM trace from the cold fold on, and DRAM in use before each fold: what a fold leaves behind")
     a = ap.parse_args()
@@ -158,11 +161,11 @@ def main():
           "sha": fair.git("rev-parse", "HEAD"), "chip": a.chip, "input": a.input})
     S = Sections(out)
     S.install()
-    plan = ["cold"] + ([] if a.skip_timed else ["timed"]) + ["sections"]
+    plan = ["sections"] if a.sections_first else ["cold"] + ([] if a.skip_timed else ["timed"]) + ["sections"]
     for i, kind in enumerate(plan):
         S.on = kind == "sections"
         if S.on:
-            S.f = open(out / "sections.jsonl", "w")
+            S.f = open(out / "sections.jsonl", "w", buffering=1)  # line-buffered: a recalled chip leaves the cycles it ran
         if S.on or a.trace_cold:
             os.environ["TT_BIO_DRAM_PEAK"] = str(out / "dram_peak.txt")  # read per call; drains like the syncs
             os.environ["TT_BIO_DRAM_PEAK_TRACE"] = "1"  # every sample, so a refusal is placed in its cycle
