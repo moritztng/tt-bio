@@ -4043,7 +4043,7 @@ class Trunk(_KeyedWeights):
             else:
                 next_rows = cut(0)
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
-        # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
+        # Both are read once per cycle and never written, so past HOST_PARK_MIN_BYTES they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
         s = ttnn.mul(s_init, 0.0)
 

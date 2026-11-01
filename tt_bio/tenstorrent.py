@@ -8073,6 +8073,11 @@ def pair_row_blocks(fn, tensors, rows, consume=None):
 # part. Protenix, OpenDDE and OpenFold3 all read it; the env override is the acceptance test
 # (0 sends a small target down the streamed path to compare it with the same target held whole).
 MSA_HOST_OFFLOAD_MIN_BYTES = 1 << 30      # 1 GiB
+# Above this size `host_park` keeps a cycle-invariant trunk input on the host. Each one costs a DMA
+# per recycling cycle, which at a pair this size is under 1 % of the cycle; held on the chip it sits
+# beside every cycle's pair stack: Mol-1's z_init at 1000 tokens (c_z 448) is 0.94 GB, and resident
+# it left the Wormhole trunk's MSA draws and concats no room.
+HOST_PARK_MIN_BYTES = 512 << 20
 # The largest `m` msa_embed joins on the chip from depth chunks. 2 GiB is what a whole upload
 # could already leave resident (OpenDDE's c_m=128 doubles a 1 GiB feature); past it the trunk's
 # set-up allocations before the first recycling cycle, which no refusal path covers, are untested.
@@ -8098,7 +8103,7 @@ def msa_host_offload(m, keep=None):
 
 def host_park(t):
     """A cycle-invariant device tensor, or a list of them, moved to the host past
-    `MSA_HOST_OFFLOAD_MIN_BYTES` together; `host_unpark` brings one back for each read.
+    `HOST_PARK_MIN_BYTES` together; `host_unpark` brings one back for each read.
 
     For the trunk inputs every recycling cycle reads once and nothing writes: OpenDDE's z_init and
     its four template projections are 1.81 GB and 1.21 GB at 1536 tokens, resident for the whole
@@ -8106,7 +8111,7 @@ def host_park(t):
     copy is the same tile bytes (bfloat8_b scales included) and each read is one DMA, no tilize."""
     ts = t if isinstance(t, list) else [t]
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
-    lim = int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES
+    lim = int(v) if v else HOST_PARK_MIN_BYTES
     nbytes = sum(_padded_bytes(tuple(x.shape), 4 if x.dtype == ttnn.float32 else 2) for x in ts)
     if not ts or nbytes <= lim:
         return t

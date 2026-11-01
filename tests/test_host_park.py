@@ -1,7 +1,7 @@
 """`host_park` / `host_unpark` hand back the same tile bytes, and only past the offload size.
 
 The Protenix/OpenDDE trunk parks its cycle-invariant z_init and template projections on the host
-past 1 GiB and uploads them once per recycling cycle, so the round trip has to be lossless for
+past `HOST_PARK_MIN_BYTES` (512 MiB) and uploads them once per recycling cycle, so the round trip has to be lossless for
 every dtype the trunk may hold, including bfloat8_b whose shared exponents a to_torch round trip
 would re-quantise.
 """
