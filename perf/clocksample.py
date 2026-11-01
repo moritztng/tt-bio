@@ -9,6 +9,7 @@ the same sampler is a shared-code problem, not a copy-paste one: an instrument t
 between rows makes their numbers incomparable.
 """
 
+import glob
 import json
 import os
 import shutil
@@ -16,7 +17,7 @@ import subprocess
 import threading
 import time
 
-from tt_bio.runtime import aiclk_reading
+from tt_bio.runtime import aiclk_reading, umd_index_to_dev_node, visible_device_indices
 
 
 def _tt_smi():
@@ -61,11 +62,45 @@ def is_clock_artifact(mhz, arch=None):
     return mhz is not None and mhz < clock_floor_mhz(arch)
 
 
+def _sysfs_reading():
+    """(AICLK MHz, board watts) per visible chip from the driver's sysfs telemetry, or None.
+
+    `tt-smi -s` scans every chip on the box. On a 32-chip Wormhole Galaxy with its other chips
+    serving it took over 40 s, past the 25 s timeout, so from 2026-11-01 05:14Z every MOL1 gate
+    round on .111 came back unclocked. The same eight clocks read from sysfs in 11 ms.
+    """
+    nodes = umd_index_to_dev_node()
+    vis = os.environ.get("TT_VISIBLE_DEVICES", "")
+    rows = []
+    for k in visible_device_indices(vis) if vis.strip() else sorted(nodes):
+        d = f"/sys/class/tenstorrent/tenstorrent!{nodes.get(k)}"
+        try:
+            with open(f"{d}/tt_aiclk") as f:
+                clk = int(f.read())
+        except (OSError, ValueError):
+            return None
+        w = None
+        for hw in glob.glob(f"{d}/device/hwmon/hwmon*/power1_input"):
+            with open(hw) as f:
+                w = int(f.read()) / 1e6  # microwatts
+        rows.append((clk, w))
+    return rows or None
+
+
+def _tt_smi_reading():
+    """(AICLK MHz, board watts) per chip tt-smi lists; it honours TT_VISIBLE_DEVICES."""
+    r = subprocess.run([TT_SMI, "-s"], capture_output=True, text=True, timeout=25)
+    tel = [dev.get("telemetry", {}) for dev in json.loads(r.stdout).get("device_info", [])]
+    return [(t.get("aiclk"), None if t.get("power") is None else float(str(t["power"]).strip()))
+            for t in tel]
+
+
 def sample_aiclk(stop, out, *, period=2.0, load=None, power=None):
     """Append AICLK samples per device index into ``out`` until ``stop`` is set.
 
-    With TT_VISIBLE_DEVICES exported, tt-smi honours it and reports the granted chip as
-    index 0, so index 0 here is the granted card rather than UMD 0.
+    Index k is the k-th chip of TT_VISIBLE_DEVICES (every chip when unset), so index 0 is the
+    granted card rather than UMD 0. The reading comes from sysfs where the driver publishes it
+    and from `tt-smi -s` otherwise.
 
     ``load``, if given, collects the host's 1-min loadavg / nproc at the same instants. On a
     shared host the scheduler times the fold as much as the chip does (whglx ran at 8.5x during
@@ -77,16 +112,12 @@ def sample_aiclk(stop, out, *, period=2.0, load=None, power=None):
         if load is not None:
             load.append(os.getloadavg()[0] / (os.cpu_count() or 1))
         try:
-            r = subprocess.run([TT_SMI, "-s"], capture_output=True, text=True, timeout=25)
-            d = json.loads(r.stdout)
-            for i, dev in enumerate(d.get("device_info", [])):
-                clk = dev.get("telemetry", {}).get("aiclk")
+            for i, (clk, w) in enumerate(_sysfs_reading() or _tt_smi_reading()):
                 clk = None if clk is None else aiclk_reading(int(clk))
                 if clk is not None:
                     out.setdefault(i, []).append(clk)
-                w = dev.get("telemetry", {}).get("power")
                 if power is not None and w is not None:
-                    power.setdefault(i, []).append(float(str(w).strip()))
+                    power.setdefault(i, []).append(w)
         except Exception:
             pass
         time.sleep(period)
