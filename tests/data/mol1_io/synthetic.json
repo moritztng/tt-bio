@@ -56,5 +56,19 @@
    ],
    "covalent_bonds": [
      {"entity1": "1", "position1": "5", "atom1": "ND2", "entity2": "2", "position2": "1", "atom2": "C1"}
+   ]},
+  {"name": "ccd_polymer_typed",
+   "sequences": [
+     {"proteinChain": {"sequence": "MKVLNGTATS", "count": 1}},
+     {"ligand": {"ligand": "CCD_8BA", "count": 1}},
+     {"ligand": {"ligand": "CCD_5MU", "count": 2}},
+     {"ligand": {"ligand": "CCD_SEP", "count": 1}},
+     {"ligand": {"ligand": "CCD_ATP", "count": 1}},
+     {"ligand": {"ligand": "CCD_ALA", "count": 1}},
+     {"ligand": {"ligand": "CCD_A", "count": 1}},
+     {"ligand": {"ligand": "CCD_DA", "count": 1}}
+   ],
+   "covalent_bonds": [
+     {"entity1": "1", "position1": "2", "atom1": "NZ", "entity2": "6", "position2": "1", "atom2": "C"}
    ]}
 ]
