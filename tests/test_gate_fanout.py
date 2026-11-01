@@ -1166,10 +1166,10 @@ def test_a_host_keyed_as_another_card_type_keeps_its_own_for_the_record():
     assert gf.Host("qb1", {"arch": "bh", "card_type": "p150a", "root": "/r"}, "f" * 40).key_card_type == "p150a"
 
 
-def _pool_host(name, tmp_path, lend_at=None, paused=False):
+def _pool_host(name, tmp_path, lend_at=None, paused=False, skip=None):
     h = gf.Host(name, {"arch": "wh", "card_type": "wh", "root": str(tmp_path),
                        "pool": {"queue": str(tmp_path / name / "queue")}}, "f" * 40)
-    h.lend = (time.time(), lend_at, paused)      # fresh, so no ssh
+    h.lend = (time.time(), lend_at, paused, skip)      # fresh, so no ssh
     return h
 
 
@@ -1200,7 +1200,7 @@ def test_a_lent_pool_takes_no_leg_the_lend_would_hold_and_another_host_runs_it(t
     res = gf.Gate({"wh": [long_, short]}, [(lent, gf.POOL), (free, gf.POOL)], set(), execute, tmp_path).run()
     assert {r["leg"]: r["worker"] for r in res}["capacity:opendde"] == "g107"
     assert len(res) == 2
-    assert _pool_host("p", tmp_path, paused=True).lent(1) and not free.lent(10 ** 6)
+    assert _pool_host("p", tmp_path, paused=True).lent(short) and not free.lent(gf.Leg("x", [], "check", known_s=10 ** 6))
 
 
 def test_a_leg_held_by_a_lend_is_reused_once_another_runner_passes_it(tmp_path, monkeypatch):
@@ -1639,7 +1639,7 @@ def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypat
         h = gf.Host("g110", {"arch": "wh", "card_type": "wh", "root": str(tmp_path), "ssh": "localhost",
                              "pool": {"queue": str(tmp_path / "pool" / "queue")}}, "f" * 40)
         h.read_lend()
-        return h.lent(3600)
+        return h.lent(gf.Leg("ux:opendde", [], "ux"))
 
     assert paused()                                   # every chip recalled
     (lend / "1.lent").write_text('{"node": "1", "recall_at": null}')
@@ -1647,3 +1647,28 @@ def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypat
     (lend / "1.lent").unlink()
     (stub / "systemctl").write_text("#!/bin/sh\nexit 3\n")
     assert not paused()                               # no agent: an SPD box, its own pool rules
+
+
+def test_lend_mode_holds_no_leg_its_pool_skips(tmp_path, monkeypatch):
+    """A serving box with chips lent never starts a LEND_SKIP job (OpenFold3 family), so for those legs it reads as
+    paused and only they go elsewhere. rel-f4177cee0: 16 WH OF3-family legs sat 38 h in .107's lend-mode queue."""
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "systemctl").write_text("#!/bin/sh\nexit 0\n")
+    (stub / "systemctl").chmod(0o755)
+    lend = tmp_path / "japanfold" / "state" / "agent" / "lend"
+    lend.mkdir(parents=True)
+    (lend / "1.lent").write_text('{"node": "1", "recall_at": null}')
+    (tmp_path / "spd" / "galaxy").mkdir(parents=True)
+    (tmp_path / "spd" / "galaxy" / "pool.sh").write_text("#!/bin/bash\nLEND_SKIP='(^|[-_])(openbind|openfold3|of3)'\n")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PATH", f"{stub}:{os.environ['PATH']}")
+    h = gf.Host("g107", {"arch": "wh", "card_type": "wh", "root": str(tmp_path), "ssh": "localhost",
+                         "pool": {"queue": str(tmp_path / "pool" / "queue")}}, "f" * 40)
+    h.read_lend()
+    assert h.lent(gf.Leg("capacity:openbind", [], "capacity")) and h.lent(gf.Leg("parity:openfold3-8hel-msa", [], "parity"))
+    assert not h.lent(gf.Leg("ladder:opendde", [], "ladder")) and not h.lent(gf.Leg("perf", [], "perf"))
+    (stub / "systemctl").write_text("#!/bin/sh\nexit 3\n")
+    h.lend = (float("-inf"),) + h.lend[1:]
+    h.read_lend()
+    assert not h.lent(gf.Leg("capacity:openbind", [], "capacity"))   # no agent: an SPD box runs every job

@@ -211,6 +211,14 @@ LEND_AT = "~/spd/galaxy/LEND-AT"
 SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
                      'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
                      '! grep -qs \'"recall_at": null\' ~/japanfold/state/agent/lend/*.lent')
+#: Even with chips lent, lend mode never starts a job whose name matches pool.sh's LEND_SKIP (OpenFold3-family legs:
+#: recalling one left 21 of 22 chips ARC-dead). rel-f4177cee0 (10-31) queued all 16 of its WH OF3-family legs on .107
+#: in lend mode; they held their ledger claims for 38 h, so the sibling runner's workers on the whole box lent for them
+#: (.112, 11-01) sat in _wait_held. For such a leg the host counts as paused, and the skip pattern is read from the
+#: host's own pool.sh so the two cannot drift.
+LEND_MODE = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
+             'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
+             'sed -n "s/^LEND_SKIP=\'\\(.*\\)\'$/LENDSKIP \\1/p" ~/spd/galaxy/pool.sh || :')
 LEND_READ_S = 300
 REQUEUED = "requeued"     # run_in_pool's note for an attempt the pool put back after a chip recall
 REQUEUE_GRACE_S = 3       # the pool requeues right after the job exits; give it that long before reading rc
@@ -730,6 +738,11 @@ class Leg:
     def budget(self) -> int:
         return max(BUDGET[self.family], round(BUDGET_X * self.known_s))
 
+    @property
+    def tag(self) -> str:
+        """The leg's out dir and pool job name suffix."""
+        return self.name.replace(":", "_").replace("/", "-")
+
 
 #: The staleness check of the abb3 records. A gate with --record-abb3 answers it on a card instead
 #: (record:abb3), and the release commit carries the re-stamped files, so its pytest legs leave it out.
@@ -882,24 +895,28 @@ class Host:
     running: int = 0
     timed_running: bool = False
     outputs: set = field(default_factory=set)
-    lend: tuple = (float("-inf"), None, False)   # (read at, LEND-AT epoch, pool PAUSEd)
+    lend: tuple = (float("-inf"), None, False, None)   # (read at, LEND-AT epoch, pool PAUSEd, lend mode's skip regex)
 
     def read_lend(self) -> None:
         """Refresh `lend` from the host's pool at most every LEND_READ_S."""
         if "pool" not in self.cfg or time.time() - self.lend[0] < LEND_READ_S:
             return
         pause = shlex.quote(str(Path(self.cfg["pool"]["queue"]).parent / "PAUSE"))
-        r = self.ssh(f"cat {LEND_AT} 2>/dev/null; echo; test -e {pause} && echo PAUSE; {SERVING_NONE_LENT} && echo PAUSE || :",
-                     capture_output=True, timeout=120)
+        r = self.ssh(f"cat {LEND_AT} 2>/dev/null; echo; test -e {pause} && echo PAUSE; {SERVING_NONE_LENT} && echo PAUSE; "
+                     f"{LEND_MODE}", capture_output=True, timeout=120)
         if r.returncode in (0, 1):
-            words = r.stdout.split()
+            lines = r.stdout.splitlines()
+            skip = next((ln.split(" ", 1)[1] for ln in lines if ln.startswith("LENDSKIP ")), None)
+            words = [w for ln in lines if not ln.startswith("LENDSKIP ") for w in ln.split()]
             at = next((int(w) for w in words if w.isdigit()), None)
-            self.lend = (time.time(), at, "PAUSE" in words)
+            self.lend = (time.time(), at, "PAUSE" in words, skip)
 
-    def lent(self, budget: int) -> bool:
-        """True while this host's pool would not start a job capped at `budget` s (from `lend`)."""
-        _, at, paused = self.lend
-        return paused or (at is not None and time.time() + budget >= at)
+    def lent(self, leg: "Leg") -> bool:
+        """True while this host's pool would not start `leg` (from `lend`): paused, a lend window its cap
+        reaches, or lend mode with the leg's job name in pool.sh's LEND_SKIP."""
+        _, at, paused, skip = self.lend
+        return paused or (at is not None and time.time() + leg.budget >= at) \
+            or (skip is not None and re.search(skip, leg.tag) is not None)
 
     @property
     def key_card_type(self) -> str:
@@ -1404,7 +1421,7 @@ class Gate:
             for timed in (False, True):
                 for i, lg in enumerate(q):
                     if lg.timed == timed and (is_timed or not timed) \
-                            and out_group(lg.name) not in host.outputs and not host.lent(lg.budget) \
+                            and out_group(lg.name) not in host.outputs and not host.lent(lg) \
                             and cap_fits(self.roster, host, lg) and rungs_fit(self.roster, host, lg) \
                             and type_fits(host, lg):
                         return q.pop(i)
@@ -1414,7 +1431,7 @@ class Gate:
         """True when a leg this card could take is held back only by its host's lend."""
         is_timed = (host.name, card) in self.timed
         with self.mu:
-            return any((is_timed or not lg.timed) and host.lent(lg.budget)
+            return any((is_timed or not lg.timed) and host.lent(lg)
                        for lg in self.todo.get(self._queue(host, card), []))
 
     def _blocked(self, host: Host, card) -> bool:
@@ -1629,7 +1646,7 @@ def run_in_pool(host: Host, card, leg: Leg, rdir: str, f) -> int:
     while True:
         time.sleep(POOL_POLL_S)
         host.read_lend()
-        if host.lent(leg.budget) and host.ssh(f"mv {q(job)} {q(job)}.lent", capture_output=True,
+        if host.lent(leg) and host.ssh(f"mv {q(job)} {q(job)}.lent", capture_output=True,
                                               timeout=120).returncode == 0:
             # the pool had not started it (it moves a job out of the queue when it does)
             QUEUED.pop(job, None)
@@ -1729,7 +1746,7 @@ def record_fragment(model_file: str, written: str, card_type: str, model: str):
 
 def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: str, scopes: dict | None = None):
     def execute(host: Host, card, leg: Leg) -> dict:
-        tag = leg.name.replace(":", "_").replace("/", "-")
+        tag = leg.tag
         log = out / "logs" / host.arch / f"{tag}.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         # A second runner on the same --out reruns a leg that FAILed: keep the first run's log.
