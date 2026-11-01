@@ -49,7 +49,10 @@ def postprocess(src, dst):
 def predictions(arm_dir, case, work):
     """[(seed, sample, ranking_score, postprocessed cif, summary dict)] for one case of one arm."""
     name = safe(case); out = []
-    for cif in sorted((arm_dir / name).glob("seed_*/predictions/*_sample_*.cif")):
+    # upstream writes <dump>/<case>/seed_*; tt-bio predict writes <out>/mol1_results_<case>/<case>/seed_*
+    hits = [*(arm_dir / name).glob("seed_*/predictions/*_sample_*.cif"),
+            *(arm_dir / f"mol1_results_{name}" / name).glob("seed_*/predictions/*_sample_*.cif")]
+    for cif in sorted(hits):
         seed = int(cif.parts[-3].split("_")[1]); k = int(re.search(r"_sample_(\d+)\.cif$", cif.name).group(1))
         summ = json.loads(cif.with_name(f"{name}_summary_confidence_sample_{k}.json").read_text())
         dst = work / "pp" / name / f"{name}_{seed}_{k}.cif"

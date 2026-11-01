@@ -40,10 +40,11 @@ worker() {  # chip index-in-list
   done
 }
 # each chip worker holds the fleet card flock (~/spd_<host>_card<N>.lock) for its whole run
+W=()
 for i in "${!CHIPS[@]}"; do
   ( exec 9> "$HOME/spd_${LOCK_HOST}_card${CHIPS[$i]}.lock"
     flock -n 9 || { echo "chip ${CHIPS[$i]}: card lock held"; exit 3; }
-    worker "${CHIPS[$i]}" "$i" ) &
+    worker "${CHIPS[$i]}" "$i" ) & W+=($!)
 done
-wait
+wait "${W[@]}"  # not the AICLK sampler
 echo "TT-ALL-DONE"
