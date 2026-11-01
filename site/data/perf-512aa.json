@@ -1106,12 +1106,12 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_design": 11.213,
+            "s_per_design": 10.761,
             "n": 4,
-            "spread_pct": 6.15,
+            "spread_pct": 3.66,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main c72f03b49 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 2",
-            "when": "2026-11-01T01:56:39Z",
+            "versions": "tt-bio main 83c652d47 + harness perf/bmk/design_cell.py (wk/bmk-tt), ttnn 0.68.0, qb1 p150a card 0",
+            "when": "2026-11-01T06:02:11Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)"
           },
           "h200": {
@@ -1344,13 +1344,13 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.06461,
+            "s_per_batch": 0.06273,
             "n": 7,
-            "spread_pct": 21.59,
+            "spread_pct": 34.72,
             "batch": 7,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main f0fda3583, ttnn None, qb1 p150a card 1",
-            "when": "2026-10-31T22:18:16Z",
+            "versions": "tt-bio main 83c652d47, ttnn None, qb1 p150a card 0",
+            "when": "2026-11-01T06:05:08Z",
             "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
             "fast": {
               "s_per_batch": 0.06113,
@@ -1432,13 +1432,13 @@
         "cells": {
           "p150a": {
             "status": "measured",
-            "s_per_batch": 0.09244,
+            "s_per_batch": 0.0946,
             "n": 7,
-            "spread_pct": 2.86,
+            "spread_pct": 36.4,
             "batch": 1,
             "aiclk_mhz": 1350,
-            "versions": "tt-bio main f0d34a03d, ttnn None, qb1 p150a card 0",
-            "when": "2026-11-01T03:17:12Z",
+            "versions": "tt-bio main 83c652d47, ttnn None, qb1 p150a card 0",
+            "when": "2026-11-01T06:07:40Z",
             "fast": {
               "s_per_batch": 0.09616,
               "n": 7,
