@@ -38,6 +38,15 @@ inline uint64_t kth(uint64_t* a, int32_t n, int32_t t) {   // the t-th smallest 
     return a[t];
 }
 
+inline uint32_t isqrt(uint64_t v) {   // floor(sqrt(v)), v < 2^64
+    uint32_t r = 0;
+    for (uint32_t bit = 1u << 31; bit != 0; bit >>= 1) {
+        const uint32_t t = r | bit;
+        if (uint64_t(t) * t <= v) r = t;
+    }
+    return r;
+}
+
 }  // namespace
 
 void kernel_main() {
@@ -100,8 +109,16 @@ void kernel_main() {
             return uint64_t(ux) * ux + uint64_t(uy) * uy + uint64_t(uz) * uz;
         };
         auto collect = [&](uint64_t bound) {   // (key, index) pairs with key <= bound, ascending by index
+            // An axis offset over floor(sqrt(bound)) alone puts the key over bound, so most atoms are rejected on
+            // three 32-bit compares before any 64-bit product.
+            const uint32_t rb = isqrt(bound);
             uint32_t c = 0;
             for (uint32_t j = 0; j < L; ++j) {
+                const int32_t ax = x[4 * j] - qx, ay = x[4 * j + 1] - qy, az = x[4 * j + 2] - qz;
+                if ((ax < 0 ? uint32_t(-ax) : uint32_t(ax)) > rb || (ay < 0 ? uint32_t(-ay) : uint32_t(ay)) > rb ||
+                    (az < 0 ? uint32_t(-az) : uint32_t(az)) > rb) {
+                    continue;
+                }
                 const uint64_t v = key(j);
                 if (v <= bound) {
                     s[2 * c] = v;
@@ -160,17 +177,25 @@ void kernel_main() {
         uint32_t w = 0;
         if (c <= n_fill) {
             for (uint32_t t = 0; t < c; ++t) o[w++] = uint32_t(s[2 * t + 1]);
-        } else {
-            // n_fill smallest of c (at most ~K) pairs: partial selection sort by (key, index), c is small
-            for (uint32_t t = 0; t < n_fill; ++t) {
+        } else if (n_fill > 0) {
+            // The n_fill smallest of c by (key, index): every key under the n_fill-th smallest, then the lowest
+            // indices among the keys equal to it. Same set as a full sort; the order is fixed below.
+            for (uint32_t t = 0; t < c; ++t) d[t] = s[2 * t];
+            const uint64_t kt = kth(d, int32_t(c), int32_t(n_fill) - 1);
+            uint32_t* tie = reinterpret_cast<uint32_t*>(d);
+            uint32_t nt = 0;
+            for (uint32_t t = 0; t < c; ++t) {
+                if (s[2 * t] < kt) o[w++] = uint32_t(s[2 * t + 1]);
+                else if (s[2 * t] == kt) tie[nt++] = uint32_t(s[2 * t + 1]);
+            }
+            for (uint32_t t = 0; w < n_fill; ++t) {   // the n_fill - w smallest tie indices (candidate rows are unordered)
                 uint32_t b = t;
-                for (uint32_t u = t + 1; u < c; ++u) {
-                    if (s[2 * u] < s[2 * b] || (s[2 * u] == s[2 * b] && s[2 * u + 1] < s[2 * b + 1])) b = u;
+                for (uint32_t u = t + 1; u < nt; ++u) {
+                    if (tie[u] < tie[b]) b = u;
                 }
-                const uint64_t k0 = s[2 * t], i0 = s[2 * t + 1];
-                s[2 * t] = s[2 * b]; s[2 * t + 1] = s[2 * b + 1];
-                s[2 * b] = k0; s[2 * b + 1] = i0;
-                o[w++] = uint32_t(s[2 * t + 1]);
+                const uint32_t v = tie[b];
+                tie[b] = tie[t];
+                o[w++] = v;
             }
         }
         // ascending by index (insertion sort, w <= K), then pad
