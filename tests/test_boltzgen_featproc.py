@@ -24,3 +24,19 @@ def test_dead_worker_raises_and_creates_no_named_semaphore(monkeypatch):
     with _FeatureProcess(_DiesOnLoad()) as worker:
         with pytest.raises(RuntimeError, match="exited with code 3"):
             worker.submit().result()
+
+
+@pytest.mark.parametrize("wormhole", [True, False])
+@pytest.mark.parametrize("fast", [False, True])
+def test_shipped_sets_reach_the_featurize_process(monkeypatch, wormhole, fast):
+    # Predict picks the featurizer before the model exists. It used to ask the shared sets, which never name
+    # bg_featproc, so every unharnessed design featurized on a thread although each BoltzGen set names the process.
+    from tt_bio import tenstorrent as T
+    from tt_bio.boltzgen.model.models import boltz as B
+    from tt_bio.boltzgen.task.predict import predict as P
+
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    monkeypatch.setattr(T, "is_wormhole", lambda: wormhole)
+    monkeypatch.setattr(T, "_FAST_MODE", fast)
+    assert P.design_levers is B.design_levers
+    assert "bg_featproc" in B.design_levers()

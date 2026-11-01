@@ -25,7 +25,7 @@ from tt_bio.boltzgen.progress import progress
 from tt_bio.boltzgen.task.predict.data_from_generated import FromGeneratedDataModule
 from tt_bio.boltzgen.task.predict.writer import DesignWriter, FoldingWriter
 from tt_bio.boltzgen.task.task import Task
-from tt_bio.tenstorrent import model_levers
+from tt_bio.boltzgen.model.models.boltz import design_levers
 
 
 _items = None
@@ -178,9 +178,9 @@ class Predict(Task):
         # threads is copied), so its seconds of Python no longer take the GIL from the thread that dispatches a
         # design; only the pickled batch crosses. It starts here, so its imports and data module are ready behind the
         # checkpoint load; the first request carries the RNG state the in-process path would start from. The model
-        # is not built yet, so this reads the set it will build under (model_levers), not the active scope.
+        # is not built yet, so this reads the set it will build under (design_levers), not the active scope.
         featurize = None
-        if run_prediction and "bg_featproc" in model_levers():
+        if run_prediction and "bg_featproc" in design_levers():
             _pickle_mol_props()
             featurize = _FeatureProcess(self.data)
 
