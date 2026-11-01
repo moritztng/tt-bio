@@ -178,6 +178,13 @@ BH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_
                                 "transition_ws", "ws_l1dest", "ws_resid", "dit_shoist", "opm_jd"}
 
 
+def design_levers() -> frozenset:
+    """BoltzGen's lever set for this host's arch and the current mode (TT_BIO_LEVERS when a harness names one).
+    The arch is read from sysfs, so the featurizer can ask before the model is built or a card is open."""
+    return tenstorrent.model_levers(
+        *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (BH_LEVERS_NORMAL, BH_LEVERS_FAST)))
+
+
 def _under_levers(method):
     import functools
 
@@ -248,8 +255,7 @@ class Boltz(nn.Module):
         diffusion_trace: Optional[bool] = False,
     ) -> None:
         super().__init__()
-        self._levers = tenstorrent.model_levers(
-            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (BH_LEVERS_NORMAL, BH_LEVERS_FAST)))
+        self._levers = design_levers()
         """
         Module that does either:
         1. Design
