@@ -8,6 +8,9 @@
 set -uo pipefail
 cd ~/mol1-quality; main=${1:?MAIN_PID}; sync=${2:?SYNC_PID}; shift 2; [ $# -gt 0 ] || { echo "no chip"; exit 2; }
 P=$HOME/.coworker/wt/mol1-quality/perf/mol1_quality; say() { echo "$(date -u +%FT%TZ) $*"; }
+# --use_template aligns hits with kalign (qb2: micromamba env, bioconda kalign3=3.3.5); without it 9fm7 refuses
+export PATH=$HOME/mol1-quality/env/kalign/bin:$PATH
+command -v kalign > /dev/null || { say "no kalign on PATH"; echo "REFOLD-EXIT rc=1"; exit 1; }
 SEEDS="42 66 101 2024 8888"; TREE=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['tree'])" "$P/refold.json")
 python3 - "$P/refold.json" > refold-cases.json <<'PY'
 import json, sys; print(json.dumps({"paired": [{"id": c} for c in json.load(open(sys.argv[1]))["why"]]}))
