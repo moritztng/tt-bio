@@ -36,5 +36,13 @@
    "sequences": [
      {"proteinChain": {"sequence": "GSHMKKLLVAG", "count": 2}},
      {"ligand": {"ligand": "CCD_ATP", "count": 2}}
+   ]},
+  {"name": "capped",
+   "sequences": [
+     {"proteinChain": {"sequence": "XAGKLX", "count": 2,
+       "modifications": [{"ptmType": "CCD_ACE", "ptmPosition": 1}, {"ptmType": "CCD_NME", "ptmPosition": 6}]}},
+     {"proteinChain": {"sequence": "XPGPX", "count": 1,
+       "modifications": [{"ptmType": "CCD_ACE", "ptmPosition": 1}, {"ptmType": "CCD_HYP", "ptmPosition": 2},
+                         {"ptmType": "CCD_NH2", "ptmPosition": 5}]}}
    ]}
 ]
