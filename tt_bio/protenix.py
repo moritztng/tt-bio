@@ -3366,9 +3366,10 @@ class Protenix:
         relp, host = trunk_host.result()
         # Under the msa_sample lever every cycle reads its own random alignment rows, drawn from
         # the fold seed as upstream's MSAModule draws them from its seeded global generator. v2
-        # lineage only (10 recycles): v0.5.0 draws between 2048 and n rows and keeps 2048
-        # (configs_data.py min_size/sample_cutoff test 2048), a rule not built here.
-        if msa_sample is None and _TT.lever("msa_sample") and self.trunk.N_CYCLES == 10:
+        # lineage only, told by its template stack as in `trunk_recycles`: Protenix-v2, OpenDDE and
+        # Mol-1 (mol/config/data.py min_size 1, sample_cutoff 16384) draw 1..n rows a cycle; v0.5.0
+        # draws between 2048 and n and keeps 2048 (configs_data.py), a rule not built here.
+        if msa_sample is None and _TT.lever("msa_sample") and self.trunk.TPL:
             gen = torch.Generator()
             msa_sample = (None, gen.manual_seed(seed) if seed is not None else gen)
         s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats["token_bonds"],
