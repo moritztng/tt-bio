@@ -30,6 +30,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   downloaded (OpenFold3 and OpenBind-0 too).
 
 ### Fixed
+- Mol-1 accepts every ligand and modification CCD code in its own Chemical Component Dictionary. A code newer than
+  the shared CCD library (A1A5U, YKX, A1EKL and about 6,100 others) used to be refused as unknown; upstream folds it.
+  Mol-1's CCD table is rebuilt once on the next run (its pickle downloads again, 150 MB). Other models are unchanged.
 - `tt-bio preflight mol1` no longer reports Mol-1 ready on a machine without the CCD molecule library it folds with.
 
 ### Changed

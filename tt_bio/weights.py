@@ -329,14 +329,15 @@ _ROWS: tuple[Artifact, ...] = (
     # match upstream. Upstream ships the pickle only inside common.tar.gz, so the mirror's loose
     # copy is the one source; the sha256 is of the pickle in the official tarball. Only the
     # table is kept: conformers plus elements, charges and bonds, which build the CCD codes the
-    # `mols` library lacks.
+    # `mols` library lacks. It lives in mol1/ccd, not the conformer-only mol1/conformers it replaced,
+    # so a host holding the old one derives the new one instead of adopting it by its marker.
     Artifact("mol1-ccd", ("mol1",), "file", "unstated (Molence); CCD data PDB terms",
              repo=MOL1_REPO, filename="common/components.cif.rdkit_mol.pkl",
              sha256="b59c9ec2ee52b8e695d8669096d0496933ff374b8bf7d2e56025387d22df863a",
              subdir="mol1", approx_bytes=149618245,
-             derived=Derived("mol1/conformers", "rdkit-conformers", expect=("ccd_table.npz",),
+             derived=Derived("mol1/ccd", "rdkit-conformers", expect=("ccd_table.npz",),
                              discard_archive=True),
-             note="Mol-1's CCD table (conformers + topology), reduced to <cache>/mol1/conformers"),
+             note="Mol-1's CCD table (conformers + topology), reduced to <cache>/mol1/ccd"),
     # The wwPDB Chemical Component Dictionary as Mol-1 ships it (common/components.cif, byte-equal to the copy in the
     # official common.tar.gz). Only `tt-bio json` reads it, so no model lists it and predict never fetches it.
     Artifact("mol1-components", (), "file", "CC0 (wwPDB)",

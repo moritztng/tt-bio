@@ -15,7 +15,8 @@ tt-bio predict complex.yaml --model mol1
 Upstream's job-list JSON is read as-is, the same file `mol pred -i jobs.json` takes: proteins, DNA, RNA, ligands by
 CCD code, multi-component glycans, SMILES or a structure file, ions, modified residues, covalent bonds, explicit chain
 ids and `modelSeeds`. tt-bio's YAML input works too. Field-by-field details are in
-[`protenix-json.md`](protenix-json.md).
+[`protenix-json.md`](protenix-json.md). Any CCD code in Mol-1's own Chemical Component Dictionary is accepted, so a
+ligand or modification newer than the CCD library the other Protenix models read folds here as it does upstream.
 
 Proteins use an MSA by default. Precomputed `pairedMsaPath` / `unpairedMsaPath` files are used as given, and any
 protein chain without one is searched through the ColabFold API or a local database, as for every other MSA model

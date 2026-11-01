@@ -87,6 +87,17 @@ def test_mol1_fetches_its_own_conformers():
     assert not any(a.derived and a.derived.producer == "rdkit-conformers" for a in artifacts_for("protenix-v2"))
 
 
+def test_a_conformer_only_cache_is_not_adopted(tmp_path):
+    """A host that derived the conformer-only table (mol1/conformers, with its completion marker) must derive the
+    table that also builds CCD codes, not read the old one as present."""
+    from tt_bio import weights
+    old = tmp_path / "mol1" / "conformers"
+    old.mkdir(parents=True)
+    (old / "ccd_conformers.npz").write_bytes(b"x" * 64)
+    (old.parent / ".complete-conformers").write_text("ok\n")
+    assert weights.status("mol1-ccd", root=tmp_path).state == "missing"
+
+
 def test_only_mol1_folds_read_their_own_conformers(tmp_path, monkeypatch):
     from tt_bio import weights
     from tt_bio.worker import _ensure_local_artifacts
