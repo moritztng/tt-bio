@@ -39,6 +39,11 @@ probabilities and the per-atom pLDDT. Key names and scales are upstream's, descr
 [`docs/output_format.md`](https://github.com/molence/Mol-1/blob/main/docs/output_format.md). `results.json` beside it
 holds one row per job for scripts and the platform.
 
+The CIF is written by upstream's own writer, so it carries the same categories as Mol-1's (`_entry`, `_chem_comp`,
+`_entity`, `_entity_poly`, `_entity_poly_seq`, `_struct_conn` for covalent bonds, and `_atom_site` with per-atom pLDDT
+as the B-factor). The copies of one `sequences` entry share an entity, so DockQ, gemmi and other mmCIF readers see the
+same entities upstream reports.
+
 A system that cannot be predicted gets a report in `ERR/<job>.txt` next to `results.json`, and the run exits 1 when
 every job failed, 2 when some did.
 
