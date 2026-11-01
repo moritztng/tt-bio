@@ -343,6 +343,19 @@ _ROWS: tuple[Artifact, ...] = (
              sha256="64f53e4d72c8f919d9d2afd34183df7c0b6211929dfe0eeb865fad82cd1374d5",
              subdir="mol1", approx_bytes=518765615,
              note="CCD components file Mol-1's structure-to-JSON converter reads"),
+    # Searched template hits (.a3m, .hhr) are kept only when their PDB entry has a release date before the cut-off;
+    # with no table every hit is dropped and the fold runs template-free. Upstream ships both files in common.tar.gz
+    # (sha256 of those copies; the mirror's are byte-equal). Fetched on first use by --use_template.
+    Artifact("mol1-release-dates", (), "file", "CC0 (wwPDB)",
+             repo=MOL1_REPO, filename="common/release_date_cache.json",
+             sha256="0020fbfb2881cee7c21f2d9136569c371b9cf2939e54dea312afcbd3ba50d188",
+             subdir="mol1", approx_bytes=13015253,
+             note="PDB release dates for Mol-1's template date filter"),
+    Artifact("mol1-obsolete", (), "file", "CC0 (wwPDB)",
+             repo=MOL1_REPO, filename="common/obsolete_to_successor.json",
+             sha256="1bf12b00e56822e90891f5b352232dad4a13a660e89399423e0dc85b22102661",
+             subdir="mol1", approx_bytes=82029,
+             note="Obsolete PDB entry to successor map for Mol-1's template search"),
 
     # -- ESMFold2 / ESMC / SaProt: whole HF repos, read from the hub cache ------
     Artifact("esmfold2", ("esmfold2",), "hf-repo", "MIT (Biohub)",

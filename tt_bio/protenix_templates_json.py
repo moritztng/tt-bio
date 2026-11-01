@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from tt_bio import weights
 from tt_bio._vendor.mol1.constants_full import DNA_CHAIN, LIGAND_CHAIN_TYPES, PROTEIN_CHAIN, RNA_CHAIN
 from tt_bio._vendor.mol1.helpers import load_json_cached
 from tt_bio._vendor.mol1.msa_utils import map_to_standard
@@ -31,12 +32,17 @@ MODEL_KEYS = ("template_aatype", "template_distogram", "template_pseudo_beta_mas
 def hit_featurizer(mol_root: str | None = None, fetch_remote: bool = True) -> TemplateHitFeaturizer:
     """Upstream's inference ``TemplateHitFeaturizer``: 4 hits, 20 candidates, date cut-off 2021-09-30, the release
     dates and obsolete map from ``<mol_root>/common``, mmCIFs from ``<mol_root>/mmcif`` (fetched from PDBe on
-    demand when missing, upstream's default)."""
-    root = Path(mol_root or os.environ.get("MOL_ROOT_DIR", "~/.cache/tt_bio/mol1")).expanduser()
+    demand when missing, upstream's default). A ``<mol_root>`` without upstream's ``common/`` files gets tt-bio's
+    copies (weights rows ``mol1-release-dates``, ``mol1-obsolete``), downloaded on first use unless offline."""
+    root = Path(mol_root or os.environ.get("MOL_ROOT_DIR") or weights.cache_root() / "mol1").expanduser()
+
+    def common(key: str) -> str:
+        p = root / weights.ARTIFACTS[key].filename
+        return str(p if p.exists() or not fetch_remote else weights.fetch(key, quiet=True))
+
     return TemplateHitFeaturizer(
         mmcif_dir=str(root / "mmcif"), template_cache_dir="", max_hits=4, max_template_date=MAX_TEMPLATE_DATE,
-        release_dates_path=str(root / "common" / "release_date_cache.json"),
-        obsolete_pdbs_path=str(root / "common" / "obsolete_to_successor.json"),
+        release_dates_path=common("mol1-release-dates"), obsolete_pdbs_path=common("mol1-obsolete"),
         _shuffle_top_k_prefiltered=None, _max_template_candidates_num=20, fetch_remote=fetch_remote)
 
 
@@ -51,6 +57,10 @@ def chain_templates(t_path: str, seq: str, featurizer: TemplateHitFeaturizer) ->
         hits = HmmsearchA3MParser.parse(query_seq=seq, a3m_str=content, skip_first=False)
     else:
         raise ValueError(f"Unsupported template format: {t_path}")
+    if hits and not featurizer._release_dates:
+        # upstream drops every hit as "date unknown" and folds template-free without a word
+        raise RuntimeError(f"{t_path}: no PDB release dates loaded, so every template hit would be dropped; "
+                           "put upstream's common/release_date_cache.json under $MOL_ROOT_DIR or allow the download")
     result, _ = featurizer.get_templates(sequence_uid=seq, query_sequence=seq, hits=hits, max_template_date=None)
     return result.features
 

@@ -80,3 +80,23 @@ def test_sidecar_templates_follow_use_template(tmp_path):
     off = features_from_sidecar(feats, chains, side, False, fz)
     assert float(on["template_pseudo_beta_mask"].sum()) == 9 and float(off["template_pseudo_beta_mask"].sum()) == 0
     assert set(on) == {k for k in feats if k.startswith("template_")}
+
+
+def test_searched_hits_get_release_dates_without_mol_root_common(tmp_path, monkeypatch):
+    """A MOL_ROOT_DIR without upstream's common/ used to drop every .a3m/.hhr hit as "date unknown" and fold
+    template-free in silence. Now it takes tt-bio's copy, and offline with no table it refuses."""
+    from tt_bio import weights
+    from tt_bio.protenix_templates_json import chain_templates
+
+    dates = tmp_path / "dates.json"
+    dates.write_text(json.dumps({"1abc": {"release_date": "2001-01-01"}}))
+    fetched = []
+    monkeypatch.setattr(weights, "fetch", lambda key, **kw: fetched.append(key) or (dates if "dates" in key else
+                                                                                    tmp_path / "none.json"))
+    assert hit_featurizer(str(tmp_path))._release_dates == {"1abc": __import__("datetime").datetime(2001, 1, 1)}
+    assert fetched == ["mol1-release-dates", "mol1-obsolete"]
+
+    a3m = tmp_path / "hits.a3m"
+    a3m.write_text(">1abc_A/1-6 [subseq from] mol:protein length:6  MKTAYG\nMKTAYG\n")
+    with pytest.raises(RuntimeError, match="no PDB release dates"):
+        chain_templates(str(a3m), "MKTAYG", hit_featurizer(str(tmp_path / "empty"), fetch_remote=False))

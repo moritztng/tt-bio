@@ -21,6 +21,9 @@ Proteins use an MSA by default. Precomputed `pairedMsaPath` / `unpairedMsaPath` 
 protein chain without one is searched through the ColabFold API or a local database, as for every other MSA model
 (see the README's MSA section). `--single_sequence` folds without one, like upstream's `--use_msa false`.
 Templates (`--use_template`) and RNA MSAs (`--use_rna_msa`) are off by default, as upstream.
+Searched template hits (`.a3m`, `.hhr`) are kept only if their PDB entry predates upstream's 2021-09-30 cut-off, so
+the first such run downloads the PDB release-date table (13 MB) unless `$MOL_ROOT_DIR/common` already holds
+upstream's copy. Hit structures come from `$MOL_ROOT_DIR/mmcif` or PDBe.
 
 ## Outputs
 
