@@ -10,7 +10,7 @@ device-synchronised timer (attribution only: the syncs drain the queue, so its w
 Families wrap the class or function that owns them, so nesting carries the context: a TriangleMultiplication
 inside the MSA module's pair stack is charged to `msa_module>...>trimul`, the trunk Pairformer's to
 `pairformer>...>trimul`. Host transfers (`ttnn.from_device`, `to_torch`, device `from_torch`) are their own
-families. Nothing is timed while a trace is being captured. `<out>/sections.jsonl` has one line per call
+families. Nothing is timed while a trace is being captured. A call a DRAM refusal unwinds through carries `err`. `<out>/sections.jsonl` has one line per call
 (path, seconds, shape), `<out>/summary.json` the per-path totals with self time, `<out>/runs.jsonl` the folds.
 """
 import argparse
@@ -86,8 +86,12 @@ class Sections:
             S.sync()
             S.stack.append([name, 0.0])
             t0 = time.perf_counter()
+            err = None
             try:
                 return fn(*a, **k)
+            except BaseException as exc:
+                err = f"{type(exc).__name__}: {str(exc)[:200]}"
+                raise
             finally:
                 S.sync()
                 dt = time.perf_counter() - t0
@@ -98,7 +102,8 @@ class Sections:
                 if S.stack:
                     S.stack[-1][1] += dt
                 shp = next((tuple(x.shape) for x in a[1:] if hasattr(x, "shape")), None)
-                S.f.write(json.dumps({"path": path, "s": round(dt, 5), "shape": shp}) + "\n")
+                S.f.write(json.dumps({"path": path, "s": round(dt, 5), "shape": shp, **({"err": err} if err else {})})
+                          + "\n")
         return inner
 
     def install(self):
@@ -157,6 +162,7 @@ def main():
         if S.on:
             S.f = open(out / "sections.jsonl", "w")
             os.environ["TT_BIO_DRAM_PEAK"] = str(out / "dram_peak.txt")  # read per call; drains like the syncs
+            os.environ["TT_BIO_DRAM_PEAK_TRACE"] = "1"  # every sample, so a refusal is placed in its cycle
         sdir = out / f"r{i}-{kind}"
         sdir.mkdir(parents=True, exist_ok=True)
         with clocksample.during(period=1.0) as clk:
