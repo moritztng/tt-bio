@@ -323,7 +323,7 @@ def _chem_comp_table() -> dict:
     """CCD code -> its `_chem_comp` type, name, pdbx_synonyms, formula, formula_weight, as biotite reads them.
 
     Reduced from the components.cif Mol-1 ships (common/components.cif, sha256 64f53e4d...), which upstream's writer
-    parses whole (518 MB) for these five fields on every structure it writes."""
+    parses whole (518 MB) for these five fields on every structure it writes. Built by scripts/mol1_io/chem_comp_table.py."""
     import gzip
     with gzip.open(Path(__file__).parent / "data" / "ccd_chem_comp.json.gz", "rt") as fh:
         return json.load(fh)

@@ -66,4 +66,4 @@ def test_gemmi_reads_the_entities(tmp_path):
     assert got["5"] == ("Polymer", "Rna", ["I", "J"])
     assert {k: v[0] for k, v in got.items() if k in "236"} == {"2": "NonPolymer", "3": "NonPolymer", "6": "NonPolymer"}
     seq = {e.name: gemmi.one_letter_code(e.full_sequence) for e in st.entities if e.full_sequence}
-    assert seq == {"1": "MKQLEDKVEELLSKNYHLENEVARLKKLVGER".lower().upper(), "4": "GATTACA", "5": "GGAUCC"}
+    assert seq == {"1": "MKQLEDKVEELLSKNYHLENEVARLKKLVGER", "4": "GATTACA", "5": "GGAUCC"}
