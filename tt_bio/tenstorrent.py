@@ -24,6 +24,7 @@ from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
 from . import bmm_res as _bmm_res
 from .addcmul_at import addcmul_at as _addcmul_at
+from . import ln_split as _ln_split
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
 from . import pair_swiglu_ws as _pair_ws
@@ -894,6 +895,10 @@ _FAST_MODE = False
 #   tok_w8          RFD4's token transition and attention projections with bfp8 weights at HiFi2 (state/rfd4/bets/tok512.md)
 #   atom_kvcat      Protenix-family atom attention: K and V as one linear over their stacked weights, one op and one
 #                   concat input fewer per block (spd-m-pxdesign lv5)
+#   adaln_at        a bf16 token DiT AdaLN whose scale and shift are windows (`dit_shoist` / `dit_cond_steps`) as one
+#                   kernel, `shift + layer_norm(a) * scale` (`ln_split.adaln`): the normalised activation is never
+#                   written and re-read, and each row tile is split over several cores. The norm stays fp32 into the
+#                   modulation, so not bit-exact against layer_norm then addcmul_at.
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -912,7 +917,8 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
-           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj")
+           "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj",
+           "adaln_at")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -16205,6 +16211,11 @@ class AdaLN(Module):
         """`dtype`: write the modulated output at this dtype (the norm and the modulation run at
         the input's); the `dit_mm16` lever takes it bf16 for the linears that read it."""
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
+        if (not self.atom_level and lever("adaln_at") and s_terms is not None and dtype in (None, ttnn.bfloat16)
+                and isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin)):
+            out = _ln_split.adaln(a, s_terms[0], s_terms[1])
+            if out is not None:
+                return out
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
         a = ttnn.layer_norm(

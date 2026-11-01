@@ -8,6 +8,10 @@ two-pass statistics and 1/K scaler as ttnn.layer_norm, so it matches it to round
 
 Serves one row tile a core (rows x G <= the grid); declines (None) on anything else, the caller then runs
 ttnn.layer_norm.
+
+`adaln` is the token DiT's AdaLN in the same program, `shift + layer_norm(a) * scale` with no affine of its own:
+scale and shift are column windows of the wide conditioning tensors, read in place per row tile instead of a gamma /
+beta vector (the `addcmul_at` window convention), so the normalised activation is never written and re-read.
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ from pathlib import Path
 import ttnn
 
 from . import mm_generic as MG
+from . import ops as _ops
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "ln_split"
 TILE = 32
@@ -54,7 +59,8 @@ def _vec_ok(v, k):
                          and math.prod(int(d) for d in v.shape) == k and not v.is_sharded())
 
 
-def _build(x, out, w, b, g, eps):
+def _build(x, out, w, b, g, eps, aff=None):
+    """`aff`: None for gamma / beta vectors, else the AdaLN windows' (tile width, row tiles) of scale then shift."""
     dev = x.device()
     pad = [int(d) for d in x.padded_shape]
     k, kt = pad[-1], pad[-1] // TILE
@@ -82,15 +88,15 @@ def _build(x, out, w, b, g, eps):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=grid,
         compile_time_args=[kt, kc, (inv << 16) | inv, eps_bits, int(w is not None), int(b is not None)]
-        + acc(x) + acc(w if w is not None else x) + acc(b if b is not None else x),
-        runtime_args=rd, common_runtime_args=[0] * 3, config=ttnn.ReaderConfigDescriptor())
+        + list(aff or (0, 1, 0, 1)) + acc(x) + acc(w if w is not None else x) + acc(b if b is not None else x),
+        runtime_args=rd, common_runtime_args=[0] * 5, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=grid,
         compile_time_args=[g, kt, kc] + acc(out), runtime_args=wr, common_runtime_args=[0],
         config=ttnn.WriterConfigDescriptor())
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=grid,
-        compile_time_args=[kc, g, int(w is not None), int(b is not None)],
+        compile_time_args=[kc, g, int(w is not None), int(b is not None), int(aff is not None)],
         config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                             fp32_dest_acc_en=True))
     bf, f32 = ttnn.bfloat16, ttnn.float32
@@ -129,10 +135,60 @@ def layer_norm(x, weight=None, bias=None, epsilon=1e-5, memory_config=None):
         entry = _CACHE[key] = _build(x, out, weight, bias, g, epsilon)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), (weight if weight is not None else x).buffer_address(),
-                                  (bias if bias is not None else x).buffer_address()]
+                                  (bias if bias is not None else x).buffer_address(), 0, 0]
     writer.common_runtime_args = [out.buffer_address()]
     ins = [x] + [v for v in (weight, bias) if v is not None]
     ttnn.generic_op(ins + [out], ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"],
                                                         cbs=entry["cbs"]))
+    STATS[0] += 1
+    return out
+
+
+def _win(win, rows, k):
+    """An AdaLN window `(t, off, width, row)` (`tenstorrent._ColWin`) as (tile width, row tiles, page offset), or
+    None: bf16 TILE interleaved, `k` columns at a tile-aligned offset, one sample's `rows` a block, and either one
+    block or block `row` of several."""
+    t, off, width, row = win
+    shape = [int(d) for d in t.shape]
+    lead = math.prod(shape[:-2])
+    if (t.dtype != ttnn.bfloat16 or t.layout != ttnn.TILE_LAYOUT or t.is_sharded() or width != k or off % TILE
+            or off + width > shape[-1] or shape[-1] % TILE or shape[-2] != rows
+            or not (lead == 1 if row is None else 0 <= row < lead)):
+        return None
+    s, rh = shape[-1] // TILE, -(-rows // TILE)
+    return s, rh, off // TILE + (row or 0) * rh * s
+
+
+def adaln(a, scale, shift, epsilon=1e-5):
+    """`shift + layer_norm(a) * scale` (no affine), scale and shift `(t, off, width, row)` windows every sample of
+    `a` reads; bf16 out in DRAM. None (nothing allocated) where it declines: as `layer_norm`, plus the window rules
+    (`_win`) and a grid that cannot split each row tile over at least two cores."""
+    pad = [int(d) for d in a.padded_shape]
+    k = pad[-1]
+    if (a.dtype != ttnn.bfloat16 or a.layout != ttnn.TILE_LAYOUT or a.memory_config() != ttnn.DRAM_MEMORY_CONFIG
+            or list(a.shape) != pad or k % TILE or _ops.declines_under_tape("adaln")):
+        STATS[1] += 1
+        return None
+    ws, wb = _win(scale, pad[-2], k), _win(shift, pad[-2], k)
+    dev = a.device()
+    gs = dev.compute_with_storage_grid_size()
+    kt, mt = k // TILE, int(a.volume()) // k // TILE
+    g = max((d for d in range(2, kt + 1) if kt % d == 0 and mt * d <= gs.x * gs.y), default=None)
+    if ws is None or wb is None or g is None:
+        STATS[1] += 1
+        return None
+    out = ttnn.allocate_tensor_on_device(a.shape, ttnn.bfloat16, ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
+    aff = (ws[0], ws[1], wb[0], wb[1])
+    key = (dev.id(), tuple(pad), "adaln", aff, float(epsilon), g, IM_DTYPE,
+           scale[0].memory_config().buffer_type, shift[0].memory_config().buffer_type)
+    entry = _CACHE.get(key)
+    if entry is None:
+        entry = _CACHE[key] = _build(a, out, scale[0], shift[0], g, epsilon, aff)
+    reader, writer, _ = entry["kernels"]
+    reader.common_runtime_args = [a.buffer_address(), scale[0].buffer_address(), shift[0].buffer_address(),
+                                  ws[2], wb[2]]
+    writer.common_runtime_args = [out.buffer_address()]
+    ttnn.generic_op([a, scale[0], shift[0], out],
+                    ttnn.ProgramDescriptor(kernels=entry["kernels"], semaphores=entry["sems"], cbs=entry["cbs"]))
     STATS[0] += 1
     return out

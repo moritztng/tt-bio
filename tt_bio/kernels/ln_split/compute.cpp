@@ -8,6 +8,8 @@
 // biased variance of x - mean. Sums of partials are SFPU adds in fp32 DEST. Then (x - mean) * rstd [* gamma] [+ beta]
 // to c_2 (ln_prologue.hpp's stages), rounded to nearest even before the bf16 pack. x - mean and its square come out
 // of one DEST acquire (the square on the SFPU in fp32), not a second pass that re-reads x - mean through srcA.
+// FULL (AdaLN, `ln_split.adaln`): gamma and beta are this row tile's own KC tiles, a per-row scale and shift,
+// multiplied and added tile by tile instead of broadcast from row 0.
 #include <cstdint>
 #define REDUCE_OP PoolType::SUM
 #define REDUCE_DIM ReduceDim::REDUCE_ROW
@@ -25,6 +27,7 @@ constexpr uint32_t KC = get_compile_time_arg_val(0);
 constexpr uint32_t G = get_compile_time_arg_val(1);
 constexpr uint32_t HAS_W = get_compile_time_arg_val(2);
 constexpr uint32_t HAS_B = get_compile_time_arg_val(3);
+constexpr uint32_t FULL = get_compile_time_arg_val(4);
 
 constexpr uint32_t cb_out = tt::CBIndex::c_2;
 constexpr uint32_t cb_x = tt::CBIndex::c_7;
@@ -104,7 +107,8 @@ ALWI void finish(uint32_t in) {
     if constexpr (HAS_B) {
         cb_wait_front(cb_beta, KC);
         reconfig_data_format(in, cb_beta);
-        add_bcast_rows_init_short(in, cb_beta);
+        if constexpr (FULL) add_tiles_init(in, cb_beta);
+        else add_bcast_rows_init_short(in, cb_beta);
     } else {
         reconfig_data_format_srca(in);
         copy_tile_to_dst_init_short(in);
@@ -112,7 +116,8 @@ ALWI void finish(uint32_t in) {
     for (uint32_t i = 0; i < KC; ++i) {   // one tile at a time, so the writer's DRAM writes overlap this stage
         cb_reserve_back(cb_out, 1);
         tile_regs_acquire();
-        if constexpr (HAS_B) add_tiles_bcast_rows(in, cb_beta, i, i, 0);
+        if constexpr (HAS_B && FULL) add_tiles(in, cb_beta, i, i, 0);
+        else if constexpr (HAS_B) add_tiles_bcast_rows(in, cb_beta, i, i, 0);
         else copy_tile(in, i, 0);
         round_bf16_rne_tile(0);   // the packer truncates; ttnn.layer_norm's output rounds
         tile_regs_commit();
@@ -145,7 +150,7 @@ void kernel_main() {
     if constexpr (HAS_W) {
         cb_wait_front(cb_gamma, KC);   // read after x: the statistics do not wait for it
         cb_wait_front(cb_tmp, KC);
-        ln_prologue::stage<LnCbs, ln_prologue::MUL_ROW, 4>(cb_tmp, cb_gamma, cb_xc);
+        ln_prologue::stage<LnCbs, FULL ? ln_prologue::MUL : ln_prologue::MUL_ROW, 4>(cb_tmp, cb_gamma, cb_xc);
         cb_pop_front(cb_tmp, KC);
         finish(cb_xc);
     } else {
