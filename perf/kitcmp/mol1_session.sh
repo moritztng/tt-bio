@@ -38,6 +38,13 @@ next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'impor
 t=sys.argv[1].split()
 print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t), ""))' "$TRIED"; }
 
+# qb2 -> box: vast's ssh proxy authenticates against keys ATTACHED to the instance, so a line appended to the box's
+# authorized_keys alone was refused (session mol1-b200-ref1, 2026-11-01: gate passed, inputs never arrived, $5 spent).
+# Attach through the API, append as well for the direct port, and prove qb2 gets in before the box is launched.
+qb2_key(){ local k; k=$($Q2 'cat ~/.ssh/id_ed25519.pub') || return 1
+  $V attach ssh $I "$k" >/dev/null 2>&1; echo "$k" | timeout 30 $S 'cat >> /root/.ssh/authorized_keys' || return 1
+  for _ in 1 2 3 4 5 6; do timeout 60 $Q2 "${S% root@*} $H true" >/dev/null 2>&1 && return 0; sleep 30; done
+  log "$I: qb2 cannot ssh to the box"; return 1; }
 R(){ timeout 600 rsync -a --exclude '*.cif' --exclude 'ref/*/' -e "${S% root@*}" "$@"; }
 # Pull every 3 minutes until MOL1-DONE/FAILED/stopped/cap, then destroy. CIFs stay on the box: the speed arms'
 # structures are not evidence, and on 2026-10-31 pc's ~25 KB/s link hung one pull on 279 MB of them for 35 minutes,
@@ -121,8 +128,7 @@ if x.get("actual_status")=="running":
     R $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/mol1_ref.py $P/$BOX $H:/root/kc/ &&
     { [ -z "${INPUTS:-}" ] || R "$INPUTS/" $H:/root/kc/inputs/; } &&
     echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' &&
-    { [ -z "$QB2" ] || { $Q2 'cat ~/.ssh/id_ed25519.pub' | timeout 30 $S 'cat >> /root/.ssh/authorized_keys' &&
-      { $Q2 "rsync -a -e '${S% root@*}' ${QB2#*:}/inputs/ $H:/root/kc/qinputs/ && ${S% root@*} $H touch /root/kc/QINPUTS-DONE" \
+    { [ -z "$QB2" ] || { qb2_key && { $Q2 "rsync -a -e '${S% root@*}' ${QB2#*:}/inputs/ $H:/root/kc/qinputs/ && ${S% root@*} $H touch /root/kc/QINPUTS-DONE" \
         > $OUT/qinputs.log 2>&1 & }; }; } ||
     { destroy $I "push failed"; continue; }
   # BOXENV carries the box script's knobs across ssh (CELLS, FINAL_WARM, CUDA_VISIBLE_DEVICES). An env var
