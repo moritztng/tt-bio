@@ -16572,6 +16572,15 @@ class DiffusionTransformer(Module):
                     if isinstance(x, Module):
                         todo.append(x)
 
+    def _cond_ckc(self):
+        """The conditioning projections' kernel config: HiFi2 under `dit_cond_hifi2`, in the hoisted block and in
+        `cond_steps` alike, else the module's own."""
+        ckc = self.compute_kernel_config
+        if (_B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2")) and ckc is not None:
+            ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ckc.math_approx_mode,
+                            fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
+        return ckc
+
     def _cond_weights(self):
         """The 24 layers' conditioning projections, concatenated into two weight blocks.
 
@@ -16661,7 +16670,7 @@ class DiffusionTransformer(Module):
         """`dit_cond_jcat`'s three [768, 1536] projections a layer on `s` stacked over steps: `(sigmoid scales,
         shifts, sigmoid gates)` a layer, each [G, n, 1536] with the attention half first."""
         s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        ckc = self.compute_kernel_config
+        ckc = self._cond_ckc()
         lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
             x, w, bias=b, compute_kernel_config=ckc, activation=mm_sigmoid(ckc) if act else None)
         out = [(lin(s_hat, sw, sb, True), lin(s_hat, bw), lin(s, ow, ob, True))
@@ -16703,12 +16712,7 @@ class DiffusionTransformer(Module):
             adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
-            ckc = self.compute_kernel_config
-            if (_B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2")) and ckc is not None:
-                ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2,
-                                math_approx_mode=ckc.math_approx_mode,
-                                fp32_dest_acc_en=ckc.fp32_dest_acc_en,
-                                packer_l1_acc=ckc.packer_l1_acc)
+            ckc = self._cond_ckc()
             if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
                 sw, sb, bw = self._cond_weights_split()
                 o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation=mm_sigmoid(ckc)),
