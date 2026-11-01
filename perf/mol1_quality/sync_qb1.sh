@@ -15,7 +15,8 @@ while :; do
   while read -r rc; do
     [ -f "$rc" ] && continue
     d=${rc%/rc}; s=${d##*/}; c=${d#.runs/}; c=${c%/*}
-    timeout 1800 rsync -a --exclude claim $Q:mol1-quality/tt-bh/mol1_results_$c/$c/$s/ mol1_results_$c/$c/$s/ --mkpath &&
+    r=mol1_results_${c%.json}/$c/$s  # a JSON-file case keeps .json in its name but not in its results dir
+    timeout 1800 rsync -a --exclude claim $Q:mol1-quality/tt-bh/$r/ $r/ --mkpath &&
       timeout 300 rsync -a --exclude claim $Q:mol1-quality/tt-bh/$d/ $d/ --mkpath && echo qb1 > $d/host && n=$((n + 1))
   done < /tmp/mq-qb1-rc.lst
   timeout 600 rsync -a $Q:mol1-quality/tt-bh/aiclk.log aiclk-qb1.log 2>/dev/null
