@@ -133,7 +133,8 @@ WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_
 # 22.9 -> 21.2 s/design from dit_qkvf and -0.6 s from the stage, fast 21.3 -> 19.8.
 BH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf", "dit_pad_short",
                                      "dit_bpad", "dit_shard", "dit_fc123g", "triatt_ln", "apb_ln",
-                                     "transition_ws", "ws_l1dest", "ws_resid", "adaln_mod", "dit_shoist"}
+                                     "transition_ws", "ws_l1dest", "ws_resid", "adaln_mod", "dit_shoist",
+                                     "opm_jd", "trimul_bres", "atom_l1"}
 # Blackhole fast also chunks the token DiT's fused SDPA and stages its bias at 576 (dit_chunk + dit_pad_short, the
 # pair normal already runs). On a p300 chip (AICLK mean 1321 MHz, 56 of 1152 samples below 1300): 18.28/18.46 -> 17.64/17.77
 # s/design (-0.6, -3.4 %), 19.9 -> 18.8 ms/diffusion step. Fast grade vs exact BH normal (bg_grade.py, bg_R3, seeds 0-3 x 8 designs,
@@ -165,10 +166,12 @@ BH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"trimul_t1", "trimul_t2", "tri
 # chip under the trace: 17.35 -> 16.29 s/design (qb2, ~1332 MHz) and 18.91/19.59 -> 18.48/17.80 (qb1, 1350 MHz, loaded
 # host); adaln_mod alone reads as noise. Normal grade vs exact BH normal (seeds 0-7, 2026-10-31): PASS, design_ptm
 # +0.022 [+0.003, +0.044], iptm -0.005, complex_plddt +0.002, filter 64/64.
+# opm_jd in both sets, and trimul_bres + atom_l1 in normal (fast had them), leave the CIFs byte-identical in both modes
+# (bpl, qb2 p300 chip at ~1330 MHz, 2026-11-01): trunk 6.70 -> 6.26 s normal, 6.25 -> 6.00 fast.
 BH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2", "trimul_t2cm",
                                 "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard", "dit_fc123g",
                                 "triatt_ln", "apb_ln", "triatt_ln_b8", "triatt_ln_b8g",
-                                "transition_ws", "ws_l1dest", "ws_resid", "dit_shoist"}
+                                "transition_ws", "ws_l1dest", "ws_resid", "dit_shoist", "opm_jd"}
 
 
 def _under_levers(method):
