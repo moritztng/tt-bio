@@ -140,6 +140,9 @@ def main():
                          "one (1024: cold 1275 s, warm 1323 s), and it halves the time a recall can cut it short")
     ap.add_argument("--trace-cold", action="store_true",
                     help="DRAM trace from the cold fold on, and DRAM in use before each fold: what a fold leaves behind")
+    ap.add_argument("--peak-tensors", action="store_true",
+                    help="no trace: sample a tag only when it reaches a new peak, and list the device tensors alive "
+                         "then (a gc walk per sample, too slow for every sample)")
     a = ap.parse_args()
     os.environ["TT_VISIBLE_DEVICES"] = os.environ["TT_BIO_LEASE_CARDS"] = str(a.chip)
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -168,7 +171,10 @@ def main():
             S.f = open(out / "sections.jsonl", "w", buffering=1)  # line-buffered: a recalled chip leaves the cycles it ran
         if S.on or a.trace_cold:
             os.environ["TT_BIO_DRAM_PEAK"] = str(out / "dram_peak.txt")  # read per call; drains like the syncs
-            os.environ["TT_BIO_DRAM_PEAK_TRACE"] = "1"  # every sample, so a refusal is placed in its cycle
+            if a.peak_tensors:
+                os.environ["TT_BIO_DRAM_PEAK_TENSORS"] = "1"
+            else:
+                os.environ["TT_BIO_DRAM_PEAK_TRACE"] = "1"  # every sample, so a refusal is placed in its cycle
         if a.trace_cold:
             import gc
             import ttnn
