@@ -3791,10 +3791,13 @@ class Trunk(_KeyedWeights):
         ttnn.deallocate(cat)
         return out
 
-    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None):
+    def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None, own_m=False):
         """The MSA module's blocks on `z3`. `m_feat` is the pristine m, a device or a host tensor.
         rows=(mask, depth) says only the first `depth` rows of a device `m_feat` are alignment
-        rows (a cycle's sampled rows padded to `msa_row_bucket`); OuterProductMean masks the rest."""
+        rows (a cycle's sampled rows padded to `msa_row_bucket`); OuterProductMean masks the rest.
+        `own_m`: a device `m_feat` is this cycle's own upload of a parked pristine, freed as soon
+        as the first MSA update has read it, so it never sits beside the blocks' pair stacks."""
+        pristine = m_feat if own_m else None
         opm_mask, n_msa = rows if rows is not None else (None, None)
         def update_msa(m, z, pwa, transition):
             if pwa is None:
@@ -3869,6 +3872,9 @@ class Trunk(_KeyedWeights):
             dram_peak("trunk msa block: after opm")
             if not self._msa_update_first:
                 m_feat = update_msa(m_feat, z3, pwa, tm)
+            if pristine is not None and m_feat is not pristine:
+                ttnn.deallocate(pristine)
+                pristine = None
             z3 = pl(None, z3, pmask_tt, attn_tt, attn_tt)[1]
             dram_peak(f"trunk msa block {_bi} done")
             if not torch.is_tensor(m_feat):
@@ -3880,6 +3886,8 @@ class Trunk(_KeyedWeights):
         if isinstance(m_feat, list):
             for _c in m_feat:
                 ttnn.deallocate(_c)
+        if pristine is not None:
+            ttnn.deallocate(pristine)
         _TRUNK_TAP_CALL += 1
         return z3
 
@@ -4083,7 +4091,9 @@ class Trunk(_KeyedWeights):
             # a 2-block stack (pinned by tests/test_protenix_template_gate.py).
             if nt > 0 and self.TPL:
                 z3 = self._template(z3, tpl_a, N, nt, pmask_tt, attn_tt)
-            z3 = self._msa(z3, m_feat, pmask_tt, attn_tt, rows)
+            m_in = m_feat if torch.is_tensor(m_feat) else host_unpark(m_feat)
+            z3 = self._msa(z3, m_in, pmask_tt, attn_tt, rows, own_m=m_in is not m_feat)
+            del m_in
             if rows is not None and not ops.taping():
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
                 # transition no room to join its blocks on device from cycle 1 on, and every
@@ -4155,29 +4165,42 @@ class Trunk(_KeyedWeights):
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
                     continue
-                # Crash guard, not a regime: a cycle DRAM refuses runs again from its kept inputs
-                # with m streamed from the host for the rest of THIS fold only. Nothing is
-                # remembered across folds, because a process-wide switch made a served answer depend
-                # on what the process folded before (state/spd-msaresid.md). Protenix-v2 and OpenDDE
-                # serve the per-cycle sampled path above and never reach it. The retry runs outside
-                # the handler: the traceback pins every tensor the refused cycle made.
-                inputs = list(carry)
-                try:
-                    carry = cycle(cyc, carry, m_feat, retry=True)
-                    inputs = None
-                except RuntimeError as exc:
-                    if not is_alloc_refusal(exc):
-                        raise
-                if inputs is None:
-                    continue
-                print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(m_feat.shape)} "
-                      f"on the chip; streaming it from the host for the rest of this fold. The tt-metal 'Out of "
-                      f"Memory' line above is expected and handled.", file=sys.stderr, flush=True)
-                h = ttnn.to_torch(m_feat)
-                ttnn.deallocate(m_feat)
-                m_feat = h
-                gc.collect()
-                carry, inputs = cycle(cyc, inputs, m_feat), None
+                # Crash guard, not a regime: a cycle DRAM refuses runs again from its kept inputs,
+                # one rung down, for the rest of THIS fold only. Nothing is remembered across folds,
+                # because a process-wide switch made a served answer depend on what the process folded
+                # before (state/spd-msaresid.md). Protenix-v2 and OpenDDE serve the per-cycle sampled
+                # path above and never reach it; Mol-1 at 1000 tokens against 6,835 rows does, every fold.
+                # Rung 1 parks the pristine m on the host in its device layout and uploads it once
+                # per cycle, freed after the first MSA update: the blocks' pair stacks then never run
+                # beside it. Rung 2 streams it as a torch tensor, every block's update parked on the
+                # host. Both are the same bf16 bytes, so all three give the same coordinates. The
+                # retry runs outside the handler: the traceback pins every tensor the refused cycle made.
+                while True:
+                    inputs = list(carry)
+                    try:
+                        carry = cycle(cyc, carry, m_feat, retry=True)
+                        inputs = None
+                    except RuntimeError as exc:
+                        if not is_alloc_refusal(exc):
+                            raise
+                    if inputs is None:
+                        break
+                    carry, inputs = inputs, None
+                    parked = m_feat.storage_type() != ttnn.StorageType.DEVICE
+                    print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(m_feat.shape)} "
+                          f"{'parked on the host' if parked else 'on the chip'}; "
+                          f"{'streaming it' if parked else 'parking it on the host between cycles'} for the "
+                          f"rest of this fold. The tt-metal 'Out of Memory' line above is expected and handled.",
+                          file=sys.stderr, flush=True)
+                    if parked:
+                        m_feat = ttnn.to_torch(m_feat)
+                        gc.collect()
+                        carry = cycle(cyc, carry, m_feat)
+                        break
+                    h = ttnn.from_device(m_feat)
+                    ttnn.deallocate(m_feat)
+                    m_feat = h
+                    gc.collect()
         z3, s = carry
         if rows is not None:
             ttnn.deallocate(s_m)
