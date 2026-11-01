@@ -51,6 +51,9 @@ qb2_key(){ local k; k=$($Q2 'cat ~/.ssh/id_ed25519.pub') || return 1
   for _ in 1 2 3 4 5 6; do timeout 60 $Q2 "${S% root@*} $H true" >/dev/null 2>&1 && return 0; sleep 30; done
   log "$I: qb2 cannot ssh to the box"; return 1; }
 R(){ timeout 600 rsync -a --exclude '*.cif' --exclude 'ref/*/' -e "${S% root@*}" "$@"; }
+# A fresh box's sshd can drop the connection right after the first login answered (mol1-b200-ref9, 11-01: the push
+# died on "Connection reset" 40 s after boot and the only B200 offer went on the tried list), so the push retries.
+push(){ local n; for n in 1 2 3 4; do R "$@" && return 0; sleep 20; done; return 1; }
 # Pull every 3 minutes until MOL1-DONE/FAILED/stopped/cap, then destroy. CIFs stay on the box: the speed arms'
 # structures are not evidence, and on 2026-10-31 pc's ~25 KB/s link hung one pull on 279 MB of them for 35 minutes,
 # which froze this loop (no DONE check, no cap) while the box kept billing.
@@ -133,7 +136,7 @@ if x.get("actual_status")=="running":
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   H=root@$HOST
   $S 'mkdir -p /root/kc' &&
-    R $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/mol1_ref.py $P/$BOX $H:/root/kc/ &&
+    push $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/mol1_ref.py $P/$BOX $H:/root/kc/ &&
     { [ -z "${INPUTS:-}" ] || R "$INPUTS/" $H:/root/kc/inputs/; } &&
     echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' &&
     { [ -z "$QB2" ] || { qb2_key && { $Q2 "rsync -a -e '${S% root@*}' ${QB2#*:}/inputs/ $H:/root/kc/qinputs/ && ${S% root@*} $H touch /root/kc/QINPUTS-DONE" \
