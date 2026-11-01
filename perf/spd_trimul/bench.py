@@ -211,7 +211,7 @@ def restore(prev):
 import contextlib
 OPS = []
 PROF = []                                              # --devprof: per OPS entry, its programs
-_WRAP = ["matmul", "layer_norm", "concat", "multiply_", "multiply", "add_", "add", "typecast", "generic_op",
+_WRAP = ["matmul", "linear", "slice", "layer_norm", "concat", "multiply_", "multiply", "add_", "add", "typecast", "generic_op",
          "permute", "transpose", "reallocate", "clone", "to_memory_config", "unsqueeze"]
 
 
