@@ -7,6 +7,7 @@
 # on it; the record carries it anyway).
 set -uo pipefail
 IN=$(cd "${1:?inputs}" && pwd); OUT=$(mkdir -p "${2:?out}" && cd "$2" && pwd); SEEDS=${3:?seeds}; shift 3
+HOLDER=${TT_BIO_LEASE_HOLDER:-worker:mol1-quality}; LOCK_HOST=${LOCK_HOST:-qb2}
 CHIPS=("$@"); [ ${#CHIPS[@]} -gt 0 ] || { echo "no chip"; exit 2; }
 ( while :; do echo "$(date -u +%FT%TZ) $(cat /sys/class/tenstorrent/tenstorrent!*/tt_aiclk 2>/dev/null | tr '\n' ' ')"; sleep 1; done ) \
   >> "$OUT/aiclk.log" & CLK=$!; trap 'kill $CLK 2>/dev/null' EXIT
@@ -31,12 +32,18 @@ worker() {  # chip index-in-list
     for s in $SEEDS; do
       d=$OUT/.runs/$name/seed_$s; [ -f "$d/rc" ] && grep -q "rc=0" "$d/rc" && continue
       mkdir -p "$d"
-      ( cd "$IN" && TT_VISIBLE_DEVICES=$chip timeout 5400 tt-bio predict "$f" --model mol1 --seed "$s" \
+      ( cd "$IN" && TT_VISIBLE_DEVICES=$chip TT_BIO_LEASE_CARDS=$chip TT_BIO_LEASE_HOLDER=$HOLDER \
+          timeout 5400 tt-bio predict "$f" --model mol1 --seed "$s" \
           --out_dir "$OUT" $flags ) > "$d/log" 2>&1
       echo "rc=$?" > "$d/rc"; echo "$(date -u +%FT%TZ) TT-DONE chip=$chip $name $s $(cat "$d/rc")"
     done
   done
 }
-for i in "${!CHIPS[@]}"; do worker "${CHIPS[$i]}" "$i" & done
+# each chip worker holds the fleet card flock (~/spd_<host>_card<N>.lock) for its whole run
+for i in "${!CHIPS[@]}"; do
+  ( exec 9> "$HOME/spd_${LOCK_HOST}_card${CHIPS[$i]}.lock"
+    flock -n 9 || { echo "chip ${CHIPS[$i]}: card lock held"; exit 3; }
+    worker "${CHIPS[$i]}" "$i" ) &
+done
 wait
 echo "TT-ALL-DONE"
