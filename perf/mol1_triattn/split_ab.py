@@ -6,6 +6,7 @@ first call of each discarded. Per cell: the pick each arm served, ms min/median,
 sampled during the timed calls.
 
 Usage: split_ab.py --cells 1024x10,1024x14,1024x12,800x8,672x14,672x16,512x10,512x14,1024x8 --out ab.jsonl
+       [--margin 0.12] [--grid 8x8]   # the on arm at another SPLIT_Q_MARGIN; a smaller grid stands in for a 64-core chip
 """
 import argparse, json, sys, time
 from pathlib import Path
@@ -33,8 +34,13 @@ def main():
     ap.add_argument("--cells", default="1024x10,1024x14,1024x12,800x8,672x14,672x16,512x10,512x14,1024x8")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--margin", type=float, default=TS.SPLIT_Q_MARGIN)
+    ap.add_argument("--grid", default=None)
     a = ap.parse_args()
+    TS.SPLIT_Q_MARGIN = a.margin
     dev = T.get_device()
+    if a.grid:
+        T.COMPUTE_GRID_MAIN = tuple(map(int, a.grid.split("x")))
     put = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,  # noqa: E731
                                     memory_config=ttnn.DRAM_MEMORY_CONFIG)
     for cell in a.cells.split(","):
@@ -42,7 +48,7 @@ def main():
         g = torch.Generator().manual_seed(S * 100 + H)
         q, k, v = (put(torch.randn(S, H, S, 32, generator=g).bfloat16()) for _ in range(3))
         bias = put(torch.randn(1, H, S, S, generator=g).bfloat16())
-        rec = {"S": S, "heads": H, "grid": list(T.COMPUTE_GRID_MAIN)}
+        rec = {"S": S, "heads": H, "grid": list(T.COMPUTE_GRID_MAIN), "margin": a.margin}
         outs, ts = {}, {"on": [], "off": []}
         with clocksample.during(period=0.5) as clk:
             for rep in range(a.reps + 1):
