@@ -94,8 +94,14 @@ HOST_LEVERS = frozenset({"bg_featproc"})
 # adaln_mod fuses each fp32 AdaLN modulation into one addcmul and so lets dit_cond_steps condition several DiT steps
 # ahead (without it dit_cond_steps does nothing in normal): 43.3 -> 40.9 s/design at 1000 MHz. Normal grade over seeds
 # 0-7 (2026-10-27, 64 designs): design_ptm +0.001 [-0.010, +0.012], iptm +0.014, complex_plddt -0.002.
+# Normal also takes the DiT linears and trunk four that fast carries (dit_qkvf, dit_bpad, dit_shard, dit_fc123g, apb_ln,
+# ws_l1dest, ws_resid, trimul_t2cm): 37.6 -> 33.9 s/design at 1000 MHz (whx2, 2026-10-31). trimul_bres and opm_jd on
+# top leave the CIFs byte-identical: 34.0 -> 33.0 (wnl, 2026-11-01). Normal grade vs exact WH normal over seeds 0-7 (64
+# designs, 2026-11-01): PASS, design_ptm +0.016 [+0.008, +0.025], iptm -0.019 [-0.041, +0.002], filter 64/64.
 WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
-                                    "trimul_t2", "dit_pad_short", "adaln_mod"}
+                                    "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf", "dit_bpad", "dit_shard",
+                                    "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "trimul_bres",
+                                    "opm_jd"}
 # Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
 # attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
@@ -105,9 +111,11 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "t
 # trunk four (apb_ln, ws_l1dest, ws_resid, trimul_t2cm): 37.2 -> 33.2 s/design on a Galaxy chip at 1000 MHz (whx2,
 # 2026-10-31), 41.6 -> 35.0 ms a diffusion step. Fast grade vs exact WH normal (seeds 0-3, 32 designs): PASS,
 # design_ptm +0.016 [+0.001, +0.032], iptm -0.027 [-0.062, +0.004], complex_plddt +0.010, filter 32/32.
+# opm_jd (the outer-product mean's j-blocked matmul, as in Boltz-2) leaves the CIFs byte-identical: 33.7 -> 33.4
+# s/design at 1000 MHz (wnl, 2026-11-01).
 WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
                                 "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard",
-                                "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm"}
+                                "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "opm_jd"}
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
 # residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
 # designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.

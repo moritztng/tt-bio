@@ -211,7 +211,9 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert B.HOST_LEVERS == {"bg_featproc"}
     assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL - B.HOST_LEVERS == {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps",
-                                                    "trimul_t1", "trimul_t2", "dit_pad_short", "adaln_mod"}
+                                                    "trimul_t1", "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf",
+                                                    "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest",
+                                                    "ws_resid", "trimul_t2cm", "trimul_bres", "opm_jd"}
     assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL - B.HOST_LEVERS == {"trimul_t1", "trimul_t2", "trimul_t2cm", "dit_qkvf",
                                                   "dit_pad_short", "dit_bpad", "dit_shard", "dit_fc123g", "triatt_ln",
@@ -221,7 +223,7 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.WH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws",
                                                 "triatt_ln", "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short",
                                                 "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid",
-                                                "trimul_t2cm"}
+                                                "trimul_t2cm", "opm_jd"}
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "trimul_bres", "trimul_l1x2", "trimul_t1", "trimul_t2",
                                                 "trimul_t2cm", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad",
                                                 "dit_shard", "dit_fc123g", "triatt_ln", "apb_ln", "triatt_ln_b8",
@@ -330,9 +332,9 @@ def test_dit_pad_short_takes_the_first_length_a_wide_chunk_divides():
 
 def test_mode_levers_keys_the_transition_stack_on_pair_width(monkeypatch):
     """Mol-1's trunk runs at 448 (PairMixer blocks) and 320: it takes the normal-mode transition stack graded at
-    those widths and the triangle attention and DiT levers it shares with Protenix-v2, on Blackhole; --fast and the one-width checkpoints keep their sets."""
+    those widths and the triangle attention and DiT levers it shares with Protenix-v2, plus its per-chip trimul set; --fast and the one-width checkpoints keep their sets."""
     import torch
-    from tt_bio.protenix import FAST_LEVERS, MOL1_BH, NORMAL_LEVERS, WH_FAST_LEVERS, WIDE_NORMAL, WS_NORMAL, Trunk, mode_levers
+    from tt_bio.protenix import FAST_LEVERS, MOL1_BH, MOL1_WH, NORMAL_LEVERS, WH_FAST_LEVERS, WIDE_NORMAL, WS_NORMAL, Trunk, mode_levers
 
     tr = "pairformer_stack.blocks.{}.pair_transition.layernorm1.weight"
     mol1 = {"layernorm_z_cycle.weight": torch.zeros(448), "confidence_head." + tr.format(0): torch.zeros(448),
@@ -343,7 +345,7 @@ def test_mode_levers_keys_the_transition_stack_on_pair_width(monkeypatch):
     for wh in (False, True):
         monkeypatch.setattr(T, "is_wormhole", lambda wh=wh: wh)
         monkeypatch.setattr(T, "_FAST_MODE", False)
-        assert mode_levers(mol1) == NORMAL_LEVERS | (frozenset() if wh else WIDE_NORMAL | MOL1_BH) and WIDE_NORMAL >= WS_NORMAL
+        assert mode_levers(mol1) == NORMAL_LEVERS | WIDE_NORMAL | (MOL1_WH if wh else MOL1_BH) and WIDE_NORMAL >= WS_NORMAL
         assert mode_levers({tr.format(0): torch.zeros(128)}) == NORMAL_LEVERS
         monkeypatch.setattr(T, "_FAST_MODE", True)
         assert mode_levers(mol1) == (WH_FAST_LEVERS if wh else FAST_LEVERS)

@@ -159,8 +159,7 @@ QSPLIT_NORMAL = frozenset({"dit_qsplit"})
 # DiT is Protenix-v2's (c_token 768, 16 heads). Graded as one stack on Mol-1 (perf/mol1_pairmix/e2e_ab.sh STACK=1).
 # Mol-1 Blackhole normal, 5sak chain 1 (448 tokens, 4449-row MSA, 20 cycles, 200 steps), base vs this set plus
 # MOL1_BH and the triangle attention planner at 320/448, 3 seeds, p300c at AICLK median 1318-1343: warm fold 86.92 ->
-# 69.92 s (median), same-seed all-atom lDDT 0.997-1.000 vs seed floor 0.970-0.992, pLDDT unchanged. Not on Wormhole
-# until a Galaxy chip grades it.
+# 69.92 s (median), same-seed all-atom lDDT 0.997-1.000 vs seed floor 0.970-0.992, pLDDT unchanged. Wormhole: see MOL1_WH.
 WIDE_NORMAL = WS_NORMAL | TRIATT_LN | TRIATT_K1 | QSPLIT_NORMAL | {"pz_device"}
 # triatt_ln_b8 (triatt_ln writes q, k, v bfp8; the head-major bias is narrowed after its permute; the SDPA keeps a
 # bf16 destination) in Protenix-v2's Wormhole --fast set. Wormhole 512-token fast grade, shipped Protenix-v2 Wormhole
@@ -302,8 +301,14 @@ DIT_SEAM_FAST = frozenset({"pz_device", "dit_mod16"})
 # Plus the T2 output tail (t2w plan) and trimul_bres: module rel_rms 0.0092 (c_z 320) / 0.0096 (448). 5sak with its 4449-row
 # MSA, 448 tokens, real weights, p150a 1325-1343 MHz median, graded stack vs + these, seeds 101-103: same-seed lDDT
 # 0.996-1.000 vs the 0.970-0.991 seed floor, warm median 68.71 -> 63.94 s.
-MOL1_BH = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trimul_t1_2g", "trimul_t2", "trimul_t2w",
-                     "trimul_bres"})
+MOL1_T1 = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trimul_t1_2g"})
+MOL1_BH = MOL1_T1 | {"trimul_t2", "trimul_t2w", "trimul_bres"}
+# Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
+# BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
+# 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
+# 206.9); samples matched to the base fold's 0.269 A median (max 0.937) vs the 0.60 A bar and the 1.442 A sample floor,
+# all-atom lDDT 0.996 vs 0.965. T2 (trimul_t2, t2w) is not graded on Wormhole at 320/448 and stays out.
+MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
@@ -329,14 +334,14 @@ def mode_levers(state_dict):
     plus `T2_TAIL`, `WS_CHAIN` and `QSPLIT_NORMAL` for Protenix-v2 (c_z 256), the one width their normal grades cover; Wormhole --fast takes
     `WH_FAST_LEVERS`, and Wormhole adds `TRIATT_LN`, `DIT_MM_WH`, `TRIATT_Q10_WH` and `X8_WH` to both Protenix-v2 modes and `WS_FAST`, `TRIATT_LN_B8_FAST`, `GIN_W8_FAST`, `T1W8_FAST`,
     `OPM_B8CFG_FAST` to its --fast and `WH_V2_NORMAL` to its normal mode; Blackhole adds `BH_V2_FAST` to Protenix-v2's --fast and `BH_V2_NORMAL` to its normal mode. Protenix-v2 takes `BRES_NORMAL`, `TRIATT_LN` and `WS_RESID_NORMAL` in normal mode, `SHOIST_FAST` and `DIT_SEAM_FAST` under --fast and `T1_PSIG` and `TRIATT_K1` in both modes on both chips.
-    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` and `MOL1_BH` to its Blackhole normal mode."""
+    Mol-1 (pair widths 448 and 320) adds `WIDE_NORMAL` to its normal mode, plus `MOL1_BH` on Blackhole and `MOL1_WH` on Wormhole."""
     widths = Trunk._pair_widths(state_dict)
     v2 = widths == {256}
     wh = _T.is_wormhole()
     # The levers that need a width their kernels tile, not Protenix-v2 itself, are keyed on the trunk widths they are
-    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in Blackhole normal mode, the one chip its grade covers.
-    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 and not wh else frozenset()
-    m1 = MOL1_BH if ws and 448 in widths else frozenset()
+    # graded at: Mol-1 (448 and 320) takes WIDE_NORMAL in normal mode, and the trimul set graded on each chip.
+    ws = WIDE_NORMAL if widths and widths <= WS_NORMAL_WIDTHS and not v2 else frozenset()
+    m1 = (MOL1_WH if wh else MOL1_BH) if ws and 448 in widths else frozenset()
     wh_both = TRIATT_LN | DIT_MM_WH | TRIATT_Q10_WH | X8_WH if v2 and wh else frozenset()
     wh_v2 = WS_FAST | TRIATT_LN_B8_FAST | GIN_W8_FAST | T1W8_FAST | OPM_B8CFG_FAST
     fast = WH_FAST_LEVERS | wh_both | (wh_v2 if v2 else frozenset()) if wh else FAST_LEVERS | (BH_V2_FAST if v2 else frozenset())
@@ -2294,7 +2299,7 @@ class ConfidenceHead:
         scripts/protenix_confidence_parity.py)."""
         return self.confidence_samples(s_inputs, s_trunk, z_trunk, [coords], feats)[0]
 
-    def confidence_samples(self, s_inputs, s_trunk, z_trunk, coords, feats):
+    def confidence_samples(self, s_inputs, s_trunk, z_trunk, coords, feats, keep_logits=False):
         """`confidence` for every sample in `coords`, one dict each, bit-identical to calling it
         per sample. The host work is what the chip waited on: 24 s of a 730-token, 5-sample
         Protenix-v2 fold on Wormhole sat idle ahead of the confidence pairformers. So the
@@ -2336,11 +2341,11 @@ class ConfidenceHead:
             held = bucketed_pairformer(self.pf, ttnn.to_device(s_h, self.dev), ttnn.to_device(z_h, self.dev),
                                        self.dev)
             if done is not None:
-                out.append(self._heads(*done, feats))      # host, while the chip runs this one
-        out.append(self._heads(*read(held), feats))
+                out.append(self._heads(*done, feats, keep_logits))  # host, while the chip runs this one
+        out.append(self._heads(*read(held), feats, keep_logits))
         return out
 
-    def _heads(self, s_single, zf, feats):
+    def _heads(self, s_single, zf, feats, keep_logits=False):
         """pae / pde / plddt heads on the host from the pairformer's (s_single, z)."""
         import torch
         import torch.nn.functional as F
@@ -2352,7 +2357,7 @@ class ConfidenceHead:
         a = s_single[a2t]
         aln = F.layer_norm(a, (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
         plddt_logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])        # (N_atom, n_bins)
-        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats)
+        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats, keep_logits)
 
     # ---------------------------------------------------------------------------
     # Device-resident confidence path (opt-in). The host path (confidence())
@@ -2482,7 +2487,7 @@ class ConfidenceHead:
         downloaded -- the (N,N,256) z never round-trips per sample."""
         return self.confidence_device_samples(s_inputs, s_trunk, z_base_dev, [coords], feats)[0]
 
-    def confidence_device_samples(self, s_inputs, s_trunk, z_base_dev, coords, feats):
+    def confidence_device_samples(self, s_inputs, s_trunk, z_base_dev, coords, feats, keep_logits=False):
         """`confidence_device` for each of `coords`. Each sample's logits are read off the chip as
         soon as it has them, and their untilize and post-processing (softmaxes, pTM/ipTM) run on
         the host lane while the chip computes the next sample instead of between them. Same values
@@ -2493,7 +2498,7 @@ class ConfidenceHead:
             reads = [hostlane.read(t) for t in logits]
             for t in logits:
                 ttnn.deallocate(t)
-            confs.append(hostlane.submit(self._postprocess_read, reads, feats))
+            confs.append(hostlane.submit(self._postprocess_read, reads, feats, keep_logits))
         return [f.result() for f in confs]
 
     def _pair_embed(self, z_base, rc, dist):
@@ -2519,12 +2524,12 @@ class ConfidenceHead:
             ttnn.deallocate(zr)
             _T._write_rows(z, blk, r0)
 
-    def _postprocess_read(self, reads, feats):
+    def _postprocess_read(self, reads, feats, keep_logits=False):
         """`_postprocess` of one sample's logits as `hostlane.read` returned them."""
         pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
         N = pae.shape[-2]
         return self._postprocess(pae.reshape(N, N, -1), pde.reshape(N, N, -1),
-                                 plddt.reshape(plddt.shape[0], -1), feats)
+                                 plddt.reshape(plddt.shape[0], -1), feats, keep_logits)
 
     def _confidence_device_logits(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """The device half of `confidence_device`: enqueued, not read. Returns the pae and pde
@@ -2591,10 +2596,12 @@ class ConfidenceHead:
         # ---- the small finals are downloaded and post-processed on host by the caller ----
         return pae_logits, pde_logits, plddt_logits
 
-    def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats):
+    def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats, keep_logits=False):
         """Shared host-side post-processing: softmax over bins -> expected
         distance (pae/pde) and expected plddt; pTM/ipTM from the pae logits.
-        Identical to the tail of confidence() so device/host paths share it."""
+        Identical to the tail of confidence() so device/host paths share it.
+        keep_logits also returns the three logit tensors (fp32, host), which the upstream
+        output writer (tt_bio.protenix_output) reads; two (N,N,64) per sample, so opt-in."""
         import torch
 
         def _expected(probs, max_a=32.0):
@@ -2611,6 +2618,9 @@ class ConfidenceHead:
         out = {"plddt": float(plddt_atom.mean()), "plddt_atom": plddt_atom, "pae": pae, "pde": pde,
                "ptm": ptm, "iptm": iptm}
         out.update(self._chain_confidence(pae_logits, feats.get("asym_id"), probs=probs))
+        if keep_logits:
+            out.update(pae_logits=pae_logits.float(), pde_logits=pde_logits.float(),
+                       plddt_logits=plddt_logits.float())
         return out
 
     @staticmethod
@@ -3377,27 +3387,47 @@ class Protenix:
             return None
         return hostlane.submit(lambda: ch.z_base_host(s_inputs, z_trunk.result()))
 
-    def _confidences(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats):
+    def _confidences(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats, keep_logits=False):
         """One confidence dict per sample in `coords`: on the device when `_confidence_start` gave
-        a z_base, else the host heads. `z_trunk` is a host-lane Future of the trunk pair."""
+        a z_base, else the host heads. `z_trunk` is a host-lane Future of the trunk pair.
+        keep_logits adds each sample's pae/pde/plddt logits and the fold's distogram contact
+        probabilities, everything the upstream output writer needs."""
         ch = self.confidence_head
         if z_base is None:
-            return ch.confidence_samples(s_inputs, s_trunk, z_trunk.result(), coords, feats)
-        z_base_dev = ch.z_base_upload(z_base.result())
-        try:
-            return ch.confidence_device_samples(s_inputs, s_trunk, z_base_dev, coords, feats)
-        finally:
-            ch.drop_device_resident()
+            confs = ch.confidence_samples(s_inputs, s_trunk, z_trunk.result(), coords, feats, keep_logits)
+        else:
+            z_base_dev = ch.z_base_upload(z_base.result())
+            try:
+                confs = ch.confidence_device_samples(s_inputs, s_trunk, z_base_dev, coords, feats, keep_logits)
+            finally:
+                ch.drop_device_resident()
+        if keep_logits:
+            from .protenix_output import contact_probs
+            contact = contact_probs(self.distogram_logits(z_trunk.result()))
+            for c in confs:
+                c["contact_probs"] = contact
+        return confs
+
+    def distogram_logits(self, z_trunk):
+        """Upstream's DistogramHead on the host trunk pair (N,N,c_z): L(z) + L(z)^T, (N,N,64).
+        It reads the trunk and feeds nothing back, so no coordinate depends on it."""
+        import torch.nn.functional as F
+        d = F.linear(z_trunk.float(), self._w["distogram_head.linear.weight"].float(),
+                     self._w["distogram_head.linear.bias"].float())
+        return d + d.transpose(0, 1)
 
     @_T.under_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
-             max_parallel_samples=None, gamma0=None, step_scale=None):
+             max_parallel_samples=None, gamma0=None, step_scale=None, return_logits=False, draws=None):
         """Run the full pipeline. feats: model-ready tensor dict. n_cycles = trunk recycling
         iterations (default 10, protenix-v2's spec; fewer trades accuracy for speed). Returns
         coords (n_sample, N, 3) host tensor; if return_confidence, returns (coords, conf) where
         conf is a dict {plddt (mean, float), plddt_atom (N_atom,), pae (N,N), pde (N,N),
         ptm, iptm} for n_sample==1, or a list of such dicts (one per sample) for n_sample>1.
+        return_logits adds pae_logits / pde_logits / plddt_logits and contact_probs to each conf
+        (`_confidences`), the input of the upstream output layout. draws: one iterator of upstream
+        sampler draws per sample (`edm_sample`), for grading against an upstream trajectory.
         trace=True replays a captured ttnn trace of the denoise stream (lossless; faster on
         dispatch-bound diffusion, e.g. -22% warm at L256). Requires the device to have been
         opened with get_device(trace="protenix").
@@ -3452,7 +3482,7 @@ class Protenix:
         # batched denoise chunk (OOM safety); None = n_sample (one batched forward).
         _sampler = {k: v for k, v in (("gamma0", gamma0), ("step_scale", step_scale))
                     if v is not None}
-        if n_sample > 1 and getattr(self.diffusion, "supports_multiplicity", False):
+        if n_sample > 1 and draws is None and getattr(self.diffusion, "supports_multiplicity", False):
             _mps = DEFAULT_MAX_PARALLEL_SAMPLES if max_parallel_samples is None else max_parallel_samples
             if _prof:
                 import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
@@ -3468,8 +3498,8 @@ class Protenix:
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); _ts = _time.time()
                 coords.append(edm_sample(self.diffusion, cond, N, n_step=n_step, seed=sd_seed,
-                                         trace=trace, progress_fn=progress_fn,
-                                         dump_fn=_dump_fn, **_sampler)[0])
+                                         trace=trace, progress_fn=progress_fn, dump_fn=_dump_fn,
+                                         draws=None if draws is None else draws[k], **_sampler)[0])
                 if _prof:
                     import ttnn as _tn; _tn.synchronize_device(self.diffusion.dev); print(f"[PROF] edm_sample[{k}] {_time.time()-_ts:.3f}s", flush=True)
             coords = torch.stack(coords, 0)
@@ -3486,7 +3516,8 @@ class Protenix:
             # Per-sample confidence so callers can rank samples (best-of-N) and
             # report pTM/ipTM/pLDDT per sample. n_sample==1 returns a single dict
             # (back-compat); n_sample>1 returns a list aligned with coords.
-            confs = self._confidences(s_inputs, s_trunk, z_trunk, z_base, list(coords), feats)
+            confs = self._confidences(s_inputs, s_trunk, z_trunk, z_base, list(coords), feats,
+                                      keep_logits=return_logits)
             return coords, (confs[0] if n_sample == 1 else confs)
         return coords
 
@@ -4248,7 +4279,8 @@ def step_scale_schedule(step_scale, n_step):
 def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_samples=None,
                member_seeds=None, n_step=200, gamma0=0.8, gamma_min=1.0,
                noise_scale=1.003, step_scale=1.5, sigma_data=16.0, s_max=160.0, s_min=4e-4,
-               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None, guidance=None):
+               rho=7.0, seed=None, trace=False, progress_fn=None, dump_fn=None, guidance=None,
+               draws=None):
     """AF3 EDM ancestral sampler for Protenix-v2 (same family as Boltz-2's
     AtomDiffusion.sample; reuses tt_bio.boltz2.compute_random_augmentation). Produces
     atom coords by iteratively denoising from noise with diffusion_module.denoise.
@@ -4287,11 +4319,24 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     trace=True replays a captured ttnn trace of the denoise device stream (lossless;
     collapses per-step dispatch on dispatch-bound diffusion), captured once per fold at the
     first chunk's (N, M); a shorter tail chunk runs untraced. Requires the device to have
-    been opened with get_device(trace="protenix")."""
+    been opened with get_device(trace="protenix").
+
+    draws replays an upstream sampler's random draws instead of the host RNG, so a fold can be
+    graded against an upstream trajectory rather than against the seed floor: an iterator of
+    (tag, tensor) in upstream Protenix / Mol-1 order for one sample, ("init", noise) then per
+    step ("rot", R), ("trans", t), ("eps", noise). Upstream rotates x -> R x, this loop x @ R,
+    hence the transpose."""
     import torch
     from .boltz2 import compute_random_augmentation
     from .runtime import serial_host
     M = max(1, int(multiplicity))
+    if draws is not None:
+        assert M == 1 and member_seeds is None, "a replayed draw stream is one sample's"
+
+        def _take(tag, shape_):
+            got, v = next(draws)
+            assert got == tag, f"draw stream gives {got!r} where the sampler draws {tag!r}"
+            return v.float().reshape(shape_)
     _denoise = diffusion_module.denoise_traced if trace else diffusion_module.denoise
     if seed is not None:
         torch.manual_seed(seed)
@@ -4338,6 +4383,8 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
                 _states[_b] = torch.get_rng_state()
             return outs
         x = sigmas[0] * torch.cat(_per_member(lambda: torch.randn((1, n_atoms, 3))), 0)
+    elif draws is not None:
+        x = sigmas[0] * _take("init", shape)
     else:
         x = sigmas[0] * torch.randn(shape)
     if dump_fn is not None:                          # optional trajectory dump (default off)
@@ -4364,13 +4411,17 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
                 _aug = _per_member(lambda: compute_random_augmentation(1, device=x.device, dtype=x.dtype))
                 R = torch.cat([a[0] for a in _aug], 0)
                 tr = torch.cat([a[1] for a in _aug], 0)
+            elif draws is not None:
+                R, tr = _take("rot", (1, 3, 3)).transpose(-1, -2), _take("trans", (1, 1, 3))
             else:
                 R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
             x = x - x.mean(dim=-2, keepdim=True)
             x = torch.einsum("bmd,bds->bms", x, R) + tr
         t_hat = sigma_tm * (1 + gamma)
         noise_var = noise_scale ** 2 * (t_hat ** 2 - sigma_tm ** 2)
-        if noise_var <= 0:
+        if draws is not None:                        # upstream draws eps at every step, even at zero scale
+            eps = max(noise_var, 0.0) ** 0.5 * _take("eps", shape)
+        elif noise_var <= 0:
             eps = torch.zeros(shape)
         elif _per_member is not None:
             eps = (noise_var ** 0.5) * torch.cat(

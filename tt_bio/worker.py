@@ -598,7 +598,7 @@ def _write_upstream_layout(path, cfg, feats, chains, coords, confs) -> None:
                                   mod_names=_artifact_residue_names(chains), chain_ids=[cid for cid, *_r in chains],
                                   mirror_carboxylates=True)
 
-    po.write(Path(cfg["struct_dir"]).parent, side["job"] if side else path.stem, _target_seed(path, cfg),
+    po.write(Path(cfg["struct_dir"]) / po.SHIPPED, side["job"] if side else path.stem, _target_seed(path, cfg),
              summaries, fulls, write_structure=structure, need_atom_confidence=bool(cfg.get("write_pae")))
 
 
@@ -1922,6 +1922,8 @@ class _WorkerState:
                 # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
                 # above forwards it, which is why the flag looked plumbed.
                 trace=_protenix_trace(cfg) and _protenix_region_reserved(),
+                # upstream's own output layout (D6) is Mol-1's contract; other models keep the memory
+                return_logits=cfg.get("model") == "mol1",
             )
         confs = conf if isinstance(conf, list) else [conf]
         return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)
