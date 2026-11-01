@@ -51,6 +51,8 @@ def main():
     ap.add_argument("--inputs", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--k", type=int, default=4)
+    ap.add_argument("--reverse", action="store_true",
+                    help="run the job list from the end, so a second box fills in from the other side of a running one")
     ap.add_argument("--seeds", default="42,66,101,2024,8888")
     ap.add_argument("--selftest-seeds", default="7,13,77,1234,9999")
     ap.add_argument("--mol-root", default="/root/moldata", help="MOL_ROOT_DIR: checkpoint/ and common/ reference data")
@@ -70,7 +72,8 @@ def main():
     jobs.sort(key=lambda j: order.index(j[1]) if j[1] in order else len(order))  # stable: set order kept per recipe
     stem = lambda c: Path(a.index["cases"][c]).stem
     todo_jobs = [j for j in jobs if not list((a.out / j[2] / stem(j[0]) / f"seed_{j[3]}" / "predictions").glob("*summary_confidence*"))]
-    print(json.dumps({"jobs": len(jobs), "todo": len(todo_jobs), "k": a.k}), flush=True)
+    todo_jobs = todo_jobs[::-1] if a.reverse else todo_jobs
+    print(json.dumps({"jobs": len(jobs), "todo": len(todo_jobs), "k": a.k, "reverse": a.reverse}), flush=True)
     ctx = mp.get_context("spawn")
     todo, done = ctx.Queue(), ctx.Queue()
     for j in todo_jobs:
