@@ -758,7 +758,8 @@ _FAST_MODE = False
 #                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
 #                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
 #   dit_hifi2       a bf16 token DiT's linears (OpenFold3's `--fast` stack) at HiFi2 instead of the model's
-#                   fidelity, fp32 accumulation kept. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
+#                   fidelity, fp32 accumulation kept. Boltz-2 / BoltzGen's token DiT takes it through
+#                   `Module.compute_kernel_config`, so its layer norms and modulation run at HiFi2 too. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
 #                   107 us, ~23 TF/s at 1000 MHz) and take 2.5 s of the 512-token fold.
 #   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
 #                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
@@ -9790,7 +9791,23 @@ def _clear_tiles(cache_dir):
             os.remove(os.path.join(cache_dir, f))
 
 
+_HIFI2_CKCS = {}
+
+
+def _hifi2_ckc(c):
+    """`c` at HiFi2, everything else kept; one object per source config so program caches keep hitting."""
+    h = _HIFI2_CKCS.get(id(c))
+    if h is None:
+        h = _HIFI2_CKCS[id(c)] = (c, type(c)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=c.math_approx_mode,
+                                              fp32_dest_acc_en=c.fp32_dest_acc_en, packer_l1_acc=c.packer_l1_acc))
+    return h[1]
+
+
 class Module:
+    # Set on the bf16 token DiT's modules (`DiffusionTransformer.mark_hifi2_site`): under dit_hifi2 their
+    # compute config reads at HiFi2, decided per access so a lever set chosen after construction applies.
+    _hifi2_site = False
+
     def __init__(
         self,
         state_dict: Weights,
@@ -9799,6 +9816,17 @@ class Module:
         self.weights = WeightScope.wrap(state_dict)
         self.compute_kernel_config = compute_kernel_config
         self.device = get_device()
+
+    @property
+    def compute_kernel_config(self):
+        c = self._ckc
+        if self._hifi2_site and c is not None and lever("dit_hifi2"):
+            return _hifi2_ckc(c)
+        return c
+
+    @compute_kernel_config.setter
+    def compute_kernel_config(self, c):
+        self._ckc = c
 
     def scope(self, scope: str, strip_prefix: str = "") -> WeightScope:
         return self.weights.child(scope, strip_prefix)
@@ -16518,6 +16546,21 @@ class DiffusionTransformer(Module):
         if _B2_DIT_COND_HOIST and not atom_level:
             self._cond_weights()
 
+    def mark_hifi2_site(self):
+        """Put this token DiT and every module under it on dit_hifi2 (`Module.compute_kernel_config`).
+        The caller marks only a bf16 token DiT; the fp32 one keeps the model's fidelity."""
+        seen, todo = set(), [self]
+        while todo:
+            m = todo.pop()
+            if id(m) in seen:
+                continue
+            seen.add(id(m))
+            m._hifi2_site = True
+            for v in vars(m).values():
+                for x in (v if isinstance(v, (list, tuple)) else (v,)):
+                    if isinstance(x, Module):
+                        todo.append(x)
+
     def _cond_weights(self):
         """The 24 layers' conditioning projections, concatenated into two weight blocks.
 
@@ -18095,6 +18138,8 @@ class Diffusion(Module):
                 state_dict=self.scope("token_transformer"),
                 compute_kernel_config=compute_kernel_config,
             )
+        if not self.token_transformer_fp32:
+            self.token_transformer.mark_hifi2_site()
         self.a_norm_weight = self.torch_to_tt("a_norm.weight")
         self.a_norm_bias = self.torch_to_tt("a_norm.bias")
         self.a_to_q_weight = self.torch_to_tt(
