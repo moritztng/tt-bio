@@ -9062,8 +9062,26 @@ def _live_device_tensors(min_bytes=32 << 20) -> str:
     gc walk costs a second or more per sample. Buffers held by C++ alone are not listed, so
     the difference between the total and this list is itself the finding."""
     import gc
+    import types
+
+    def held():
+        # gc tracks containers, not ttnn.Tensor itself, so the tensors are found inside them:
+        # dicts (every object's __dict__ too), lists, tuples, closure cells and live frames.
+        for c in gc.get_objects():
+            try:
+                if isinstance(c, dict):
+                    yield from c.values()
+                elif isinstance(c, (list, tuple)):
+                    yield from c
+                elif isinstance(c, types.CellType):
+                    yield c.cell_contents
+                elif isinstance(c, types.FrameType):
+                    yield from c.f_locals.values()
+            except Exception:
+                continue
+
     seen, rows = set(), []
-    for o in gc.get_objects():
+    for o in held():
         try:
             if not isinstance(o, ttnn.Tensor) or o.storage_type() != ttnn.StorageType.DEVICE:
                 continue
