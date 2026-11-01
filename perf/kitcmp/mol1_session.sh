@@ -24,8 +24,13 @@ OUT=$P/results/$L; mkdir -p "$OUT"
 # Offers we have already paid for and lost live on disk, not in this process: a relaunch after a crash used to
 # re-pick the offer it had just destroyed (2026-10-19, offer 50255941 twice, ~$2.8).
 TRIEDF=$OUT/tried; touch "$TRIEDF"; TRIED=" $(tr '\n' ' ' < "$TRIEDF")"
+# Offers that rented but never came up on ssh, fleet-wide (the 502559xx family, four times on 11-01).
+TRIED="$TRIED$(tr '\n' ' ' < /home/moritz/.coworker/state/vast-bad-offers 2>/dev/null) "
 log(){ echo "$(date -u +%FT%TZ) $*"; }
-credit(){ curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 -c 'import json,sys;print(json.load(sys.stdin)["credit"])'; }
+# A vast API blip returns an empty body; read as no credit it REFUSED and killed session mol1-b200-ref6r (11-01).
+credit(){ local c n; for n in 1 2 3 4 5; do
+  c=$(curl -s -H "Authorization: Bearer $K" "$API/users/current/" | python3 -c 'import json,sys;print(json.load(sys.stdin)["credit"])' 2>/dev/null)
+  [ -n "$c" ] && { echo "$c"; return; }; sleep 20; done; echo 0; }
 gone(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["instances"]))'; }
 state(){ curl -s -H "Authorization: Bearer $K" "$API/instances/?owner=me" | python3 -c 'import json,sys
 print(next((x.get("intended_status") or "" for x in json.load(sys.stdin)["instances"] if x["id"]==int(sys.argv[1])), "gone"))' $1; }
