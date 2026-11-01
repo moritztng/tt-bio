@@ -7,7 +7,8 @@ set -uo pipefail
 cd ~/mol1-quality; mkdir -p fixb arms/tt_bh_b
 rsync -a --exclude .runs --exclude 'claim' ttuser@tt-quietbox:mol1-quality/fixb/tt-bh-b/ arms/tt_bh_b/
 rsync -a ttuser@tt-quietbox:mol1-quality/fixb/CASES.json fixb/CASES.json
-G=$HOME/.coworker/wt/mol1-quality/perf/mol1_quality/grade.py
+Q=$HOME/.coworker/wt/mol1-quality/perf/mol1_quality; G=$Q/grade.py
+python3 "$Q/arms.py" ~/mol1-fair-gpu-ref arms
 { PATH=$PWD/env/fb/bin:$PATH nice -n 19 env/fb/bin/python "$G" --inputs inputs --cases fixb/CASES.json --work fixb/work \
     --out fixb/QUALITY.json --arm gpu=arms/gpu --arm gpu_self=arms/gpu_self --arm tt_bh=tt-bh --arm tt_bh_b=arms/tt_bh_b \
     --ab tt_bh_b=tt_bh
