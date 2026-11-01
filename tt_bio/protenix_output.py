@@ -367,13 +367,14 @@ def write_cif(arr, path, entry_id: str, chains, entities, bonds=()) -> None:
     mol_type = {c[0]: c[3] for c in chains}
     arr.set_annotation("label_entity_id", np.array([entity_of[c] for c in arr.chain_id]))
     arr.set_annotation("label_asym_id", arr.chain_id.copy())
+    arr.hetero = np.array([mol_type[c] == "ligand" for c in arr.chain_id])   # a modified residue stays ATOM
     at = {(c, int(r), n): i for i, (c, r, n) in enumerate(zip(arr.chain_id, arr.res_id, arr.atom_name))}
+    # upstream's bond list order: the polymer links in atom order, then the input's bonds in input order
+    pairs = [(i, at[(c, r + 1, link[1])]) for (c, r, n), i in at.items()
+             if (link := _BACKBONE.get(mol_type[c])) and n == link[0] and (c, r + 1, link[1]) in at]
     bonds = [(tuple(a), tuple(b)) for a, b in bonds]
-    pairs = [(at[a], at[b]) for a, b in bonds if a in at and b in at]
-    for (c, r, n), i in at.items():
-        link = _BACKBONE.get(mol_type[c])
-        if link and n == link[0] and (c, r + 1, link[1]) in at:
-            pairs.append((i, at[(c, r + 1, link[1])]))
-    arr.bonds = BondList(len(arr), np.array([(i, j, BondType.SINGLE) for i, j in pairs], dtype=np.int64).reshape(-1, 3))
+    pairs += [(at[a], at[b]) for a, b in bonds if a in at and b in at]
+    rows = [(i, j, BondType.SINGLE) for i, j in dict.fromkeys(tuple(sorted(p)) for p in pairs)]
+    arr.bonds = BondList(len(arr), np.array(rows, dtype=np.int64).reshape(-1, 3))
     poly = {entity_of[ids[0]]: POLY_TYPES[mol_type[ids[0]]] for ids in entities if mol_type[ids[0]] in POLY_TYPES}
     _cif_writer()(arr, poly).save_to_cif(str(path), entry_id=entry_id)
