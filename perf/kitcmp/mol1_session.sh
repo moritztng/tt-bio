@@ -76,6 +76,9 @@ log "credit \$$(credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
 if [ -n "${RESUME:-}" ]; then
   read -r I O < $OUT/instance; S=$(cat $OUT/ssh); H=${S##* }
   T0=$($V show instance $I --raw | python3 -c 'import json,sys;print(int(json.load(sys.stdin)["start_date"]))')
+  # The guard keys ownership on this pid. Without the rewrite the holder still names the replaced watcher,
+  # and vast_guard.sh stopped both 11-01 reference boxes mid-run the first time no worker turn was alive.
+  mkdir -p $HOLD; echo $$ > $HOLD/$I
   log "resumed watching $I (started $(date -u -d @$T0 +%FT%TZ))"; watch
 fi
 
