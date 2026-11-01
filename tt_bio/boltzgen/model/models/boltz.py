@@ -94,8 +94,14 @@ HOST_LEVERS = frozenset({"bg_featproc"})
 # adaln_mod fuses each fp32 AdaLN modulation into one addcmul and so lets dit_cond_steps condition several DiT steps
 # ahead (without it dit_cond_steps does nothing in normal): 43.3 -> 40.9 s/design at 1000 MHz. Normal grade over seeds
 # 0-7 (2026-10-27, 64 designs): design_ptm +0.001 [-0.010, +0.012], iptm +0.014, complex_plddt -0.002.
+# Normal also takes the DiT linears and trunk four that fast carries (dit_qkvf, dit_bpad, dit_shard, dit_fc123g, apb_ln,
+# ws_l1dest, ws_resid, trimul_t2cm): 37.6 -> 33.9 s/design at 1000 MHz (whx2, 2026-10-31). trimul_bres and opm_jd on
+# top leave the CIFs byte-identical: 34.0 -> 33.0 (wnl, 2026-11-01). Normal grade vs exact WH normal over seeds 0-7 (64
+# designs, 2026-11-01): PASS, design_ptm +0.016 [+0.008, +0.025], iptm -0.019 [-0.041, +0.002], filter 64/64.
 WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
-                                    "trimul_t2", "dit_pad_short", "adaln_mod"}
+                                    "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf", "dit_bpad", "dit_shard",
+                                    "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "trimul_bres",
+                                    "opm_jd"}
 # Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
 # attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
