@@ -902,10 +902,30 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         ),
     },
     # Mol-1 runs the protenix-v2 trunk at c_z 448 (PairMixer blocks) and 320, so v2's ceilings
-    # do not transfer; nobody has walked its ladder yet.
-    "mol1": {arch: _unmeasured("no size ladder run for Mol-1 yet; its pair track is wider than "
-                               "protenix-v2's, so v2's ceiling does not carry over")
-             for arch in ("wormhole_b0", "blackhole")},
+    # do not transfer: its own ladder stops two rungs lower.
+    "mol1": {
+        "wormhole_b0": Ceiling(
+            residues=1280, pass_at=1280, fail_at=1792, binds=MEMORY, mechanism=DRAM,
+            msa_rows=16384, ladder_ligand_atoms=0,
+            evidence="Walked 2026-10-31/11-01 on the .107 Galaxy (UF-EV-A4-GWH01), tree 87224da42 "
+                     "(wk/mol1-port), perf/whceil/ladder.py, apo ubiquitin tiled to N residues with a "
+                     "16384-row unpaired alignment, guard off, --host_threads 2, CLI defaults 20 "
+                     "recycles / 200 steps / 5 samples (ws:mol1-serve-jf). 1024 PASS in 2627.7 s, chip 9, "
+                     "AICLK median 1000 MHz over 4480 in-fold samples, pLDDT 0.669, 4 refusals recovered. "
+                     "1280 PASS in 3605.2 s, chip 18, AICLK median 1000 MHz over 6201 in-fold samples, "
+                     "pLDDT 0.645, 2 refusals recovered, the largest 7869235200 B. 1792 fails after "
+                     "416.7 s (chip 27) on one 2877292544 B DRAM request, 228.7 MiB per bank against "
+                     "94.6 MiB free and a 49.0 MiB largest block on a chip 90.8 percent full: "
+                     "cumulative residency, not fragmentation. 2048 fails the same way after 161.5 s "
+                     "(chip 20, 3758096384 B, 298.7 MiB per bank). The two requests stand in the ratio "
+                     "(1792/2048)^2 exactly, so the failing tensor is pair-shaped and the wall is on "
+                     "TOKENS, hence ladder_ligand_atoms=0. 1536 has not completed: every attempt was "
+                     "recalled by user demand on the lent chip or killed by a host reboot, so it is "
+                     "neither cap nor control",
+        ),
+        "blackhole": _unmeasured("no size ladder run for Mol-1 on Blackhole yet; the Wormhole row "
+                                 "does not carry over"),
+    },
     "protenix-v1": {
         "wormhole_b0": Ceiling(
             residues=2048, pass_at=2048, fail_at=None, binds=LADDER_TOP, mechanism=NO_FAILURE,

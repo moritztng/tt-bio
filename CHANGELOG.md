@@ -11,7 +11,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   layout with its summary and full-data confidence files, and defaults to upstream's 20 recycles, 200 steps and 5
   samples. For Protenix and Mol-1 job JSON, `--use_seeds_in_json` runs every seed in a job's
   `modelSeeds` instead of `--seed`, one result per seed. The weights download on first use; Molence has not stated a
-  licence for them yet. See `docs/mol1.md`.
+  licence for them yet. On a Wormhole Galaxy chip it folds up to 1280 tokens and refuses larger inputs before
+  opening a device. See `docs/mol1.md`.
 - **`tt-bio json`** turns PDB and mmCIF structures into Protenix / Mol-1 job JSON with Mol-1's own converter
   (`mol json`), so the output is identical to upstream's. `--altloc` picks the alternate location, `--assembly_id`
   expands to a biological assembly and `--include_discont_poly_poly_bonds` keeps bonds between non-consecutive polymer
