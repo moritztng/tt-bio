@@ -142,6 +142,34 @@ def test_predict_stages_upstream_json(tmp_path, monkeypatch):
     assert (Path(seen["data"]) / "glycan_bonds__seed_5.yaml").exists()
 
 
+def test_predict_stages_a_directory_of_upstream_json(tmp_path, monkeypatch):
+    """Like upstream's -i, `tt-bio predict DIR` stages every job-list JSON in DIR; a YAML beside them still folds."""
+    from click.testing import CliRunner
+
+    from tt_bio import main as m
+
+    seen = {}
+
+    def stop(data, model, **_kw):
+        seen["data"] = data
+        raise SystemExit(0)
+
+    monkeypatch.setattr(m.size_limits, "check_input", stop)
+    jobs = json.loads(CASES.read_text())
+    d = tmp_path / "in"
+    d.mkdir()
+    (d / "one.json").write_text(json.dumps(jobs[:1]))
+    (d / "two.json").write_text(json.dumps(jobs[1:2]))
+    (d / "extra.yaml").write_text("sequences: []\n")
+    CliRunner().invoke(m.predict, [str(d), "--model", "protenix-v2", "--out_dir", str(tmp_path / "o")])
+    staged = Path(seen["data"])
+    assert sorted(p.name for p in staged.glob("*.yaml")) == sorted(
+        [f"{jobs[0]['name']}__seed_101.yaml", f"{jobs[1]['name']}__seed_101.yaml", "extra.yaml"])
+    (d / "dup.json").write_text(json.dumps(jobs[:1]))
+    r = CliRunner().invoke(m.predict, [str(d), "--model", "protenix-v2", "--out_dir", str(tmp_path / "o2")])
+    assert r.exit_code != 0 and "repeat across" in r.output
+
+
 def test_file_ligand_and_integer_bond_atoms(tmp_path):
     pytest.importorskip("rdkit")
     from rdkit import Chem

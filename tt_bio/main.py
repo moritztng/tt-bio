@@ -3665,17 +3665,30 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
     # of them ends up unguarded. Only measured ceilings refuse — see tt_bio/size_limits.py.
     # Upstream Protenix / Mol-1 JSON (a list of jobs) is expanded into one YAML input per job, plus a sidecar for
     # what YAML cannot say, before anything else reads `data`: every route below then sees a directory of inputs.
+    # Like upstream's -i, `data` may also be a directory of such JSONs; its other inputs fold beside them.
     from tt_bio import protenix_json
-    if protenix_json.is_job_list(Path(data).expanduser()):
-        src = Path(data).expanduser()
-        try:
-            staged = Path(out_dir).expanduser() / ".upstream_inputs" / src.stem
-            src = protenix_json.search(src, staged, use_template, use_rna_msa, **search_tools)
-            data = str(protenix_json.stage(src, staged,
-                                           seeds=[seed] if seed is not None else None,
-                                           use_seeds_in_json=use_seeds_in_json))
-        except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:
-            raise click.ClickException(f"{src.name}: {e}") from e
+    src = Path(data).expanduser()
+    lists = [src] if protenix_json.is_job_list(src) else (
+        sorted(p for p in src.iterdir() if protenix_json.is_job_list(p)) if src.is_dir() else [])
+    if lists:
+        staged = Path(out_dir).expanduser() / ".upstream_inputs" / src.stem
+        seen = set()
+        for f in lists:
+            try:
+                names = {j.name for j in protenix_json.read_jobs(f)}
+                if names & seen:
+                    raise ValueError(f"job names {sorted(names & seen)} repeat across the directory's JSON files")
+                seen |= names
+                f = protenix_json.search(f, staged, use_template, use_rna_msa, **search_tools)
+                protenix_json.stage(f, staged, seeds=[seed] if seed is not None else None,
+                                    use_seeds_in_json=use_seeds_in_json)
+            except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:
+                raise click.ClickException(f"{f.name}: {e}") from e
+        if src.is_dir():
+            for p in src.iterdir():
+                if p.is_file() and p.suffix.lower() != ".json" and not (staged / p.name).exists():
+                    (staged / p.name).symlink_to(p.resolve())
+        data = str(staged)
     size_limits.check_input(data, model)
 
     # These are counts of things to generate; <1 crashes deep in the model
