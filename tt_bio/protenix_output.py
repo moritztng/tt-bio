@@ -16,6 +16,7 @@ diagonal is 0.0. A run given upstream JSON input reports this, so its files read
 """
 from __future__ import annotations
 
+import functools
 import json
 import shutil
 from pathlib import Path
@@ -309,3 +310,70 @@ def write(out_dir, job, seed, summaries, fulls, write_structure=None, need_atom_
             with open(d / f"{job}_full_data_sample_{k}.json", "w") as fh:
                 json.dump(_jsonable(fulls[i], round2=True), fh)
     return ranks
+
+
+# mmCIF: upstream's CIFWriter (tt_bio/_vendor/mol1/data_utils.py), fed the annotations upstream's atom array carries
+POLY_TYPES = {"protein": "polypeptide(L)", "dna": "polydeoxyribonucleotide", "rna": "polyribonucleotide"}
+_BACKBONE = {"protein": ("C", "N"), "dna": ("O3'", "P"), "rna": ("O3'", "P")}
+_CHEM_COMP = ("type", "name", "pdbx_synonyms", "formula", "formula_weight")
+
+
+@functools.cache
+def _chem_comp_table() -> dict:
+    """CCD code -> its `_chem_comp` type, name, pdbx_synonyms, formula, formula_weight, as biotite reads them.
+
+    Reduced from the components.cif Mol-1 ships (common/components.cif, sha256 64f53e4d...), which upstream's writer
+    parses whole (518 MB) for these five fields on every structure it writes."""
+    import gzip
+    with gzip.open(Path(__file__).parent / "data" / "ccd_chem_comp.json.gz", "rt") as fh:
+        return json.load(fh)
+
+
+def _cif_writer():
+    from tt_bio._vendor.mol1.data_utils import STD_RESIDUES, CIFWriter, pdbx
+
+    class _Writer(CIFWriter):
+        def _get_chem_comp_block(self):
+            # upstream's CIFWriter._get_chem_comp_block, reading the reduced table instead of components.cif
+            table, chem_comp = _chem_comp_table(), {k: [] for k in ("id", "type", "mon_nstd_flag", *_CHEM_COMP[1:])}
+            for ccd in np.unique(self.atom_array.res_name):
+                row = dict(zip(_CHEM_COMP, table.get(ccd, ["?"] * 5)))
+                if ccd not in table:
+                    flag = "n"
+                elif ccd in STD_RESIDUES and ccd not in ("N", "DN", "UNK"):
+                    flag = "y"
+                else:
+                    flag = "." if row["type"] == "non-polymer" else "n"
+                for k, v in (("id", ccd), ("mon_nstd_flag", flag), *row.items()):
+                    chem_comp[k].append(v)
+            return pdbx.CIFCategory(chem_comp)
+
+    return _Writer
+
+
+def write_cif(arr, path, entry_id: str, chains, entities, bonds=()) -> None:
+    """``arr`` (tt_bio.main.protenix_atom_array) written as upstream's mmCIF: _entry, _chem_comp, _entity,
+    _entity_poly, _entity_poly_seq, _struct_conn and _atom_site with label_entity_id.
+
+    chains: main._read_bio_chains output (cid, seq, spec, mol_type, mods). entities: chain ids per input `sequences`
+    entry (tt_bio.tfg.features.entity_groups), upstream's entity rule: the copies of one entry share an entity, two
+    entries never do. bonds: the input's covalent bonds as ((chain, residue, atom), (chain, residue, atom)).
+    Struct_conn lists them plus every backbone link biotite does not count canonical (e.g. into a modified residue),
+    as upstream's does."""
+    from biotite.structure import BondList, BondType
+
+    arr = arr.copy()
+    entity_of = {c: str(e) for e, ids in enumerate(entities, 1) for c in ids}
+    mol_type = {c[0]: c[3] for c in chains}
+    arr.set_annotation("label_entity_id", np.array([entity_of[c] for c in arr.chain_id]))
+    arr.set_annotation("label_asym_id", arr.chain_id.copy())
+    at = {(c, int(r), n): i for i, (c, r, n) in enumerate(zip(arr.chain_id, arr.res_id, arr.atom_name))}
+    bonds = [(tuple(a), tuple(b)) for a, b in bonds]
+    pairs = [(at[a], at[b]) for a, b in bonds if a in at and b in at]
+    for (c, r, n), i in at.items():
+        link = _BACKBONE.get(mol_type[c])
+        if link and n == link[0] and (c, r + 1, link[1]) in at:
+            pairs.append((i, at[(c, r + 1, link[1])]))
+    arr.bonds = BondList(len(arr), np.array([(i, j, BondType.SINGLE) for i, j in pairs], dtype=np.int64).reshape(-1, 3))
+    poly = {entity_of[ids[0]]: POLY_TYPES[mol_type[ids[0]]] for ids in entities if mol_type[ids[0]] in POLY_TYPES}
+    _cif_writer()(arr, poly).save_to_cif(str(path), entry_id=entry_id)
