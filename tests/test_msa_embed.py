@@ -132,3 +132,12 @@ def test_rows_picked_on_the_chip_are_the_host_cut(dev):
         assert tuple(chip.shape) == (1, bucket, n, c)
         assert torch.equal(ttnn.to_torch(chip), ttnn.to_torch(host))
         assert torch.equal(ttnn.to_torch(project(chip)), ttnn.to_torch(project(host)))
+
+
+def test_stream_builds_a_small_feature_on_the_host_in_chunks(dev):
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 40, n, c).to(torch.bfloat16)
+    whole = T.msa_embed(feat, project, keep=1 << 40)
+    out = T.msa_embed(feat, project, rows=16, keep=1 << 40, stream=True)
+    assert torch.is_tensor(out) and not torch.is_tensor(whole)
+    assert torch.equal(out, ttnn.to_torch(whole))

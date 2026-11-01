@@ -4115,7 +4115,22 @@ class Trunk(_KeyedWeights):
         def sampled(cyc, carry, x):
             # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
             k = len(rows[cyc])
-            m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1])
+            m_c = None
+            try:
+                m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1])
+            except RuntimeError as exc:
+                # A device draw unwinds to the caller's rung. A host one is the last rung, so its
+                # refused projection goes up in depth chunks and comes back to the host for this
+                # cycle alone: at 1024 tokens a 6,144-row draw is a 2.4 GB m, refused with 5.2 GB
+                # free in no block over 2 GB, which crashed the fold.
+                if not (torch.is_tensor(x) and is_alloc_refusal(exc)):
+                    raise
+            if m_c is None:
+                print(f"[tt-bio] DRAM refused cycle {cyc}'s MSA {tuple(x.shape)} in one piece; streaming "
+                      f"it from the host for this cycle. The tt-metal 'Out of Memory' line above is expected "
+                      f"and handled.", file=sys.stderr, flush=True)
+                gc.collect()
+                m_c = msa_embed(x, m_proj, stream=True)
             if torch.is_tensor(m_c):
                 # Parked on the host: drop the padding there, which costs nothing.
                 return cycle(cyc, carry, m_c[:, :k])
