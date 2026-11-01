@@ -141,6 +141,20 @@ def test_corrupt_cached_file_is_refetched(tmp_path, monkeypatch):
     assert weights.artifact_intact(out) and out.stat().st_size != broken
 
 
+def test_a_stalled_hub_download_gives_up(tmp_path, monkeypatch):
+    """hf_xet ignores the hub's read timeout, so a CDN that sends nothing parked a fold for 30 min.
+    The byte watchdog bounds the hub source like every other transport."""
+    import threading
+    never = threading.Event()
+    _stub_hub(monkeypatch, lambda d, f: never.wait())
+    monkeypatch.setattr(weights, "NO_START_SECONDS", 1)
+    t0 = time.monotonic()
+    with pytest.raises(weights.DownloadFailed, match="nothing arrived in 1s"):
+        weights.fetch_file((HUB,), tmp_path / "w.ckpt", quiet=True)
+    assert time.monotonic() - t0 < 30 and not (tmp_path / "w.ckpt").exists()
+    never.set()
+
+
 def test_intact_cached_file_is_not_refetched(tmp_path, monkeypatch):
     """The property that makes this safe to deploy on hosts holding ~65 GB of weights."""
     dest = _zip(tmp_path / "w.ckpt")

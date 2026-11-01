@@ -804,6 +804,40 @@ def _tool_commands(url: str, dest: Path) -> list[tuple[str, list[str]]]:
     return tools
 
 
+def _watch_bytes(wait, watch: Path, *, total: int | None, label: str) -> tuple[bool, int, bool]:
+    """Call ``wait(1.0)`` until it returns True, giving up when the bytes under ``watch`` stop growing.
+
+    Returns (finished, bytes on disk, silent). ``watch`` is the staging file, or a staging
+    directory when the downloader picks its own file names. Polling the disk rather than a
+    tool's progress output is what makes one bound hold for every transport, including the
+    ones whose own timeouts do not hold (the hub client's did not, 2026-11-01)."""
+    def size() -> int:
+        try:
+            if watch.is_dir():
+                return sum(p.stat().st_size for p in watch.rglob("*") if p.is_file())
+            return watch.stat().st_size
+        except OSError:
+            return 0
+
+    start = last = size()
+    moved_at = time.monotonic()
+    while True:
+        done = wait(1.0)
+        now = size()
+        if now != last:
+            last, moved_at = now, time.monotonic()
+            _report(label, now, total)
+        if done:
+            return True, now, False
+        silent = now == start == 0
+        if time.monotonic() - moved_at > (NO_START_SECONDS if silent else STALL_SECONDS):
+            return False, now, silent
+
+
+def _stall_reason(silent: bool) -> str:
+    return f"nothing arrived in {NO_START_SECONDS}s" if silent else f"no data for {STALL_SECONDS}s"
+
+
 def _run_tool(name: str, cmd: list[str], watch: Path, *, total: int | None,
               quiet: bool) -> tuple[bool, str, int, bool]:
     """Run one download command, killing it when the bytes stop arriving.
@@ -816,56 +850,44 @@ def _run_tool(name: str, cmd: list[str], watch: Path, *, total: int | None,
     import signal
     import subprocess
 
-    def size() -> int:
-        try:
-            return watch.stat().st_size
-        except OSError:
-            return 0
-
-    start = last = size()
-    moved_at = time.monotonic()
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL if quiet else None,
                             stderr=subprocess.STDOUT if quiet else None,
                             start_new_session=True)
-    while True:
+
+    def wait(t: float) -> bool:
         try:
-            rc = proc.wait(timeout=1.0)
+            proc.wait(timeout=t)
+            return True
         except subprocess.TimeoutExpired:
-            rc = None
-        now = size()
-        if now != last:
-            last, moved_at = now, time.monotonic()
-            _report(watch.name, now, total)
-        if rc is not None:
-            return rc == 0, ("finished" if rc == 0 else f"exit code {rc}"), now, False
-        silent = now == start == 0
-        if time.monotonic() - moved_at > (NO_START_SECONDS if silent else STALL_SECONDS):
-            for sig in (signal.SIGTERM, signal.SIGKILL):
-                try:
-                    os.killpg(os.getpgid(proc.pid), sig)
-                except OSError:
-                    break
-                try:
-                    proc.wait(timeout=5)
-                    break
-                except subprocess.TimeoutExpired:
-                    continue
-            if silent:
-                return False, f"nothing arrived in {NO_START_SECONDS}s", 0, True
-            return False, f"no data for {STALL_SECONDS}s", now, False
+            return False
+
+    finished, now, silent = _watch_bytes(wait, watch, total=total, label=watch.name)
+    if finished:
+        rc = proc.returncode
+        return rc == 0, ("finished" if rc == 0 else f"exit code {rc}"), now, False
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(os.getpgid(proc.pid), sig)
+        except OSError:
+            break
+        if wait(5):
+            break
+    return False, _stall_reason(silent), now, silent
 
 
 def _hf_download_to(repo: str, filename: str, dest: Path, *, quiet: bool,
                     log: list) -> tuple[bool, bool]:
     """Fetch one file out of a Hugging Face repo into ``dest``. Never a final path.
 
-    The hub client does its own staging and its own retries, and every request it makes
-    carries a 10 s read timeout (``huggingface_hub.constants.HF_HUB_DOWNLOAD_TIMEOUT``),
-    so a host that goes quiet mid-transfer raises here instead of parking us: this
-    source needs no stall watchdog of its own, only the same "one attempt, then the
-    next source" rule as the tools. It downloads into a scratch dir beside ``dest``
-    rather than the hub cache, so a flat row keeps one copy on disk rather than two."""
+    The hub client does its own staging and its own retries, and its 10 s read timeout
+    (``HF_HUB_DOWNLOAD_TIMEOUT``) did not bound a stalled CDN: on qb1 (2026-11-01) a fetch
+    sat for half an hour with connections open and nothing arriving, through hf_xet and
+    with HF_HUB_DISABLE_XET=1 alike. So the fetch runs in a thread under the same byte
+    watchdog as the tools; a stalled thread is abandoned (daemon) and the next source is
+    tried. It downloads into a scratch dir beside ``dest`` rather than the
+    hub cache, so a flat row keeps one copy on disk rather than two."""
     import tempfile
+    import threading
 
     _echo(f"  Downloading {dest.name} from {repo} ...", quiet)
     _report(dest.name, 0, None)
@@ -874,10 +896,25 @@ def _hf_download_to(repo: str, filename: str, dest: Path, *, quiet: bool,
     staging = Path(tempfile.mkdtemp(dir=str(dest.parent), prefix=".dl-"))
     try:
         from huggingface_hub import hf_hub_download
-        tmp = Path(hf_hub_download(repo_id=repo, filename=filename,
-                                   revision=hf_revision(repo),
-                                   local_dir=str(staging), force_download=True))
-        os.replace(tmp, dest)
+        box: dict = {}
+
+        def fetch():
+            try:
+                box["path"] = Path(hf_hub_download(repo_id=repo, filename=filename,
+                                                   revision=hf_revision(repo),
+                                                   local_dir=str(staging), force_download=True))
+            except BaseException as e:                       # noqa: BLE001
+                box["err"] = e
+
+        t = threading.Thread(target=fetch, name=f"hf {filename}", daemon=True)
+        t.start()
+        finished, got, silent = _watch_bytes(lambda s: (t.join(s), not t.is_alive())[1], staging,
+                                             total=None, label=dest.name)
+        if not finished:
+            raise TimeoutError(_stall_reason(silent) + f" after {got} byte(s)")
+        if "err" in box:
+            raise box["err"]
+        os.replace(box["path"], dest)
         log.append((f"{_HF_SCHEME}{repo}/{filename}", "hf", "finished",
                     dest.stat().st_size))
         return True, False
