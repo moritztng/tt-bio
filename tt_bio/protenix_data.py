@@ -903,7 +903,7 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
         # upstream bonds a C-terminal NME only after the leaving atoms are gone, so the
         # residue before it keeps its OXT (json_parser._build_polymer_atom_array)
         oxt = [k >= n_res - 2 for k in range(n_res)]
-    codes =_na_res_codes(seq, mt) if mt in ("rna", "dna") else None
+    codes = _na_res_codes(seq, mt) if mt in ("rna", "dna") else None
     if mt == "protein":
         # The 20 standard residues and X have a bundled reference conformer; X is UNK, one
         # residue token with the CCD component's atoms, which is what upstream Protenix
