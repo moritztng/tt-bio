@@ -100,9 +100,11 @@ NORMAL_LEVERS = _T.NORMAL_LEVERS - {"transition_bw", "transition_shard"} | {
 # (state/spd/grade-wslo2-*-bh-fast.md). Same-seed top pose median 1.54 / 1.26 A (floor 0.98 / 0.97 A). Warm 5-sample
 # folds of those complexes at 1343-1350 MHz, per-complex median: OpenFold3 -0.16 s, OpenBind-0 -0.28 s (trunk only,
 # so the saving holds at 1 sample). The Wormhole grade is not complete, so Wormhole leaves it out for now.
+# dit_l1 only moves the DiT's per-step tensors into L1 (CIF-identical); neutral in Blackhole fast, in the set because
+# Blackhole normal takes it (NORMAL_MODEL_LEVERS) and the fast set holds the normal one.
 FAST_LEVERS = NORMAL_LEVERS | {"dit_s16", "diffusion_bf16", "trimul_t1", "trimul_t2", "trimul_t2cm", "transition_ws",
                                "dit_fuse", "edm_device", "ws_l1dest", "dit_kc", "dit_mask16", "triatt_ln",
-                               "dit_b8", "ws_lofi"}
+                               "dit_b8", "ws_lofi", "dit_l1"}
 # Wormhole --fast adds apb_ln (the attention pair-bias projection reads the pair through the same fused LayerNorm).
 # Wormhole 11-set fast grade of --fast + apb_ln against --fast, 44 paired folds per model (whlg, 2026-10-15), PASS:
 # OpenFold3 top pose median 0.543 A (floor 1.238 A), CA-lDDT -0.0010 [-0.0036, +0.0007], docking 22 -> 22/44;
@@ -171,16 +173,20 @@ WH_NORMAL_LEVERS = NORMAL_LEVERS - {"trimul_t2cm"} | {"trimul_bres"}
 # 18 -> 20/44; page fold at 1350 MHz 9.72 -> 9.12 s (pnb).
 # OpenBind-0 on Wormhole takes dit_fuse and dit_l1 on its fp32 DiT alone (ngw, 2026-10-25): PASS, top pose median
 # 0.510 A (floor 1.105 A), CA-lDDT +0.0001 [-0.0007, +0.0009], docking 27 -> 26/44; page fold at 1000 MHz 20.2 -> 17.6 s.
-NORMAL_MODEL_LEVERS = {"openfold3": frozenset({"dit_s16", "diffusion_bf16"})}
-WH_NORMAL_MODEL_LEVERS = {"openfold3": NORMAL_MODEL_LEVERS["openfold3"] | {"dit_fuse", "dit_l1"},
-                          "openbind": frozenset({"dit_fuse", "dit_l1"})}
+# Blackhole, dit_fuse + dit_l1 over dit_s16 + diffusion_bf16, 11-set normal grade, 44 paired folds (nfb+nfr, 11-01):
+# OpenFold3 PASS, top pose median 0.291 A (floor 1.583 A), CA-lDDT +0.0004 [-0.0001, +0.0010], docking 20 -> 21/44.
+# Warm 5-sample folds at 1350 MHz: -10 to -13 % at 515-611 tokens; from 678 tokens the device refuses the L1 stream,
+# the stack reruns in DRAM and dit_fuse alone is -3 to +1 %. OpenBind-0 (fp32 DiT) is refused L1 at every graded size
+# on Blackhole and was slower on 10 of 10 complexes (+5 to +7 %), so it stays out there.
+NORMAL_MODEL_LEVERS = {"openfold3": frozenset({"dit_s16", "diffusion_bf16", "dit_fuse", "dit_l1"})}
+WH_NORMAL_MODEL_LEVERS = {**NORMAL_MODEL_LEVERS, "openbind": frozenset({"dit_fuse", "dit_l1"})}
 # ws_lofi leaves Wormhole fast (LoFi hangs Wormhole chips, tenstorrent.lofi_allowed): with it OpenFold3 9PCQ hung in
 # 3 of 3 processes, without it 48 of 48 folds clean (pcqc, 2026-10-20). It had saved 0.12 / 0.07 s at the page cell.
 # trimul_t2cm leaves Wormhole fast too: plain T2 + reblock_permute_back is faster there at the page cell. Galaxy chip at
 # 1000 MHz, 4 warm pairs after the compile pair, CIFs identical (t2cw, 2026-10-20): OpenFold3 -0.21 s, OpenBind-0
 # -0.17 s mean without it.
 WH_FAST_LEVERS = FAST_LEVERS - {"ws_lofi", "trimul_t2cm"} | {"apb_ln", "trimul_sig6", "trimul_bres", "triatt_hifi2", "dit_sigf32",
-                                  "triatt_ln_b8", "dit_l1", "ws_psilu", "dit_mask8"}
+                                  "triatt_ln_b8", "ws_psilu", "dit_mask8"}
 
 def kabsch_rmsd(pred_ca, gt_ca):
     """Optimal-superposition Cα-RMSD (Kabsch). pred_ca, gt_ca: [N, 3].
