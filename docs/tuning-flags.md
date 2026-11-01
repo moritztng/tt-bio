@@ -1052,9 +1052,11 @@ OpenBind-0's 0.52 A against 1.90 A, 26 -> 28 of 44; a 512-residue fold at 1350 M
 (OpenFold3) and 11.5 s instead of 12.7 s (OpenBind-0). On a Wormhole Galaxy chip at 1000 MHz both go from 25.2 to
 20.0 s.
 
-OpenFold3's normal mode also runs the diffusion transformer in bf16 (`dit_s16`, `diffusion_bf16`, and on Wormhole
-`dit_fuse` and `dit_l1`). It passes the normal bar on both parts: 0.81 A against a 1.21 A seed floor on Blackhole,
-0.43 A against 0.98 A on Wormhole, docking success unchanged or better, and the Blackhole fold drops to 9.1 s.
+OpenFold3's normal mode also runs the diffusion transformer in bf16 (`dit_s16`, `diffusion_bf16`), fused and with its
+per-step tensors in L1 (`dit_fuse`, `dit_l1`). It passes the normal bar on both parts: 0.43 A against a 0.98 A seed
+floor on Wormhole; on Blackhole 0.81 A against 1.21 A for the bf16 step and 0.29 A against 1.58 A for the fused one,
+docking success unchanged or better. The fused step cuts a Blackhole fold by 10-13 % up to about 610 tokens; above
+that the chip has no L1 room for it and the gain is within a few percent.
 OpenBind-0 failed the same grade on Wormhole (CA-lDDT -0.0012 [-0.0020, -0.0006]) and keeps the fp32 diffusion
 transformer in normal mode.
 
