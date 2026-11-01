@@ -28,7 +28,8 @@ NA_TASKS = ("interface_protein_dna", "interface_protein_rna")
 
 
 def postprocess(src, dst):
-    """FoldBench algorithms/Protenix/postprocess.py process_file: occupancy 1, B 0, entity type from group_PDB."""
+    """FoldBench algorithms/Protenix/postprocess.py process_file: occupancy 1, B 0, entity type from group_PDB;
+    entity_poly_seq rebuilt from atom_site when the writer left it out (metadata only, coordinates untouched)."""
     import biotite.structure.io.pdbx as pdbx
     f = pdbx.CIFFile.read(str(src)); b = f.block; a = b.get("atom_site")
     n = len(a["group_PDB"])
@@ -41,6 +42,14 @@ def postprocess(src, dst):
         elif ent[e][1] != g:
             ent[e] = ("polymer", g)
     b["entity"] = pdbx.CIFCategory({"id": list(ent), "type": [v[0] for v in ent.values()]})
+    if "entity_poly_seq" not in b:  # tt-bio writes atom_site only; DockQv2 finds polymer chains through this category
+        seq = {}
+        for g, e, n, m in zip(*(a[k].as_array().tolist() for k in ("group_PDB", "label_entity_id", "label_seq_id",
+                                                                   "label_comp_id"))):
+            if g == "ATOM":
+                seq.setdefault((e, n), m)
+        b["entity_poly_seq"] = pdbx.CIFCategory({"entity_id": [k[0] for k in seq], "hetero": ["n"] * len(seq),
+                                                 "mon_id": list(seq.values()), "num": [k[1] for k in seq]})
     for k in list(b):  # biotite 0.40 writes a still-lazy category without its newline ("#loop_"); OST then rejects it
         b[k] = b[k]
     f.write(str(dst))
