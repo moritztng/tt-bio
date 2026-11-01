@@ -58,3 +58,28 @@ def test_off_switch(monkeypatch):
         assert _pick(1024, 10) == 0
     finally:
         TS.split_q_chunk.cache_clear()
+
+
+@pytest.mark.parametrize("on, declines, want", [
+    (False, (), [256]),             # off: the split q at the ladder's k only
+    (True, (), [1024]),             # triatt_k1s: the whole row first
+    (True, (1024,), [1024, 256]),   # one k over L1: sdpa declines it, the ladder's k serves
+])
+def test_k1s_offers_the_split_q_one_k_chunk_first(monkeypatch, on, declines, want):
+    from types import SimpleNamespace as NS
+    t = NS(shape=(1, 10, 1024, 32), dtype=ttnn.bfloat16)
+    calls = []
+
+    def sdpa(q, k, v, bias, scale, qc, kc, **kw):
+        calls.append(kc)
+        assert qc == 160 and kw["padded_mask"]
+        return None if kc in declines else "o"
+
+    monkeypatch.setattr(T, "_tri_att_fused_large_s", lambda *a: None)
+    monkeypatch.setattr(T, "_tri_att_k_chunks", lambda *a: (256,))
+    monkeypatch.setattr(T, "is_wormhole", lambda: True)
+    monkeypatch.setattr(TS, "split_q_chunk", lambda *a: 160)
+    monkeypatch.setattr(TS, "sdpa", sdpa)
+    with T.levers({"triatt_k1s"} if on else ()):
+        assert T._tri_att_sdpa_at(t, t, t, t, 1.0) == "o"
+    assert calls == want and T.SDPA_CHUNK_PICKS[(1024, 1024)] == [160, want[-1], "fused"]

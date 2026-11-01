@@ -827,6 +827,8 @@ _FAST_MODE = False
 #   triatt_k1       triangle attention's fused SDPA takes the whole row as one k chunk where the CB set fits once the
 #                   unused online-softmax buffers are trimmed (sdpa_generic.cb_table one_k_trim): 288-512 tokens, e.g. (q512, k512),
 #                   no rescale pass, op 1.13x on Wormhole. Same rung as TT_BIO_SDPA_WIDE_K_UP, flippable per fold.
+#   triatt_k1s      triatt_k1 where the split q serves (Wormhole, padded q, `triatt_sdpa.split_q_chunk`): that q against the
+#                   whole row as one k chunk, padded mask, where the CBs fit. 1024 x 10 heads 70.17 -> 53.19 ms on a Galaxy chip.
 #   atom_l1         the atom transformer's gathered keys, q / kv projections and transition hidden tensors are written
 #                   to L1 where four kv-sized tensors fit (`_atom_l1`): the short-K linears wait on interleaved DRAM
 #                   writes, kv 262.6 -> 128.1 us on Wormhole. Placement only: Boltz-2 folds are byte-identical with it (al1).
@@ -905,7 +907,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
-          "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
+          "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "triatt_k1s", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm", "dit_fc123g",
           "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
@@ -932,7 +934,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
-                             "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
+                             "triatt_lofi", "triatt_k1", "triatt_k1s", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "dit_fc123g", "trimul_t1_2g",
                              "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
@@ -3921,11 +3923,17 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         int(q_len), int(q.shape[1]), int(q.shape[3]), COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1],
         k_chunk, bias.dtype, tuple(fits)) if q_len == k_len and is_wormhole() else 0
     if q_split:
-        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_split, k_chunk, ckc_default=ckc, gate=gate,
-                              padded_mask=True)
+        # triatt_k1s: the split q against the whole row as one k chunk first, where its CBs fit (sdpa prices it and
+        # declines). No rescale pass; bits move. Op on a Galaxy chip at 1000 MHz (sweep.jsonl): 1024 x 10 heads
+        # q160 70.17 -> 53.19 ms, 1024 x 14 q224 94.46 -> 72.74 ms.
+        for kc in ((_padded_sdpa_len(k_len), k_chunk) if lever("triatt_k1s") else (k_chunk,)):
+            o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_split, kc, ckc_default=ckc, gate=gate,
+                                  padded_mask=True)
+            if o is not None:
+                break
         _triatt_sdpa.SPLIT_Q_STATS[o is None] += 1
         if o is not None:
-            _sdpa_pick(q_len, k_len, q_split, k_chunk, "fused")
+            _sdpa_pick(q_len, k_len, q_split, kc, "fused")
             return o
     for q_chunk in fits:
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
