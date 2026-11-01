@@ -8278,7 +8278,7 @@ def _msa_embed_split(feat, project, rows, up):
             if torch.is_tensor(feat):
                 x = up(feat[:, s:s + rows])
             else:
-                x = ttnn.slice(feat, (0, s, 0, 0), (1, min(s + rows, feat.shape[1]), *feat.shape[2:]))
+                x = ttnn.slice(feat, (0, s, 0, 0), (1, min(s + rows, feat.shape[1]), *tuple(feat.shape)[2:]))
             out.append(project(x))
             ttnn.deallocate(x)
         if not torch.is_tensor(feat):
