@@ -1,0 +1,62 @@
+[
+ {
+  "name": "modcov_legacy",
+  "sequences": [
+   {
+    "proteinChain": {
+     "sequence": "MGSSHHHHHHSSGLVPRGSHMSGKIQHKAVVPAPSRIPLTLSEIEDLRRKGFNQTEIAELYGVTRQAVSWHKKTYGGRLTTRQIVQQNWPWDTRKPHDKSKAFQRLRDHGEYMRVGSFRTMSEDKKKRLLSWWKMLRDNDLVLEFDPSIEPYEGMAGGGFRYVPRDISDDDLLIRVNEHTQLTAEGELLWSWPDDIEELLSEP",
+     "count": 1,
+     "modifications": [
+      {
+       "ptmType": "CCD_SEP",
+       "ptmPosition": 35
+      }
+     ],
+     "msa": {
+      "precomputed_msa_dir": "@MOL1@/examples/7r6r/msa/1",
+      "pairing_db": "uniref100"
+     }
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "CCD_NAG_NAG",
+     "count": 1
+    }
+   },
+   {
+    "ligand": {
+     "ligand": "FILE_@GOLDEN@/inputs/caffeine.sdf",
+     "count": 1
+    }
+   },
+   {
+    "ion": {
+     "ion": "ZN",
+     "count": 1
+    }
+   }
+  ],
+  "covalent_bonds": [
+   {
+    "left_entity": "1",
+    "left_position": "53",
+    "left_atom": "ND2",
+    "right_entity": "2",
+    "right_position": "1",
+    "right_atom": "C1"
+   },
+   {
+    "left_entity": "2",
+    "left_position": "1",
+    "left_atom": "O4",
+    "right_entity": "2",
+    "right_position": "2",
+    "right_atom": "C1"
+   }
+  ],
+  "modelSeeds": [
+   101
+  ]
+ }
+]
