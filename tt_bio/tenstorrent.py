@@ -705,6 +705,10 @@ _FAST_MODE = False
 #                   that would otherwise stay in L1 (Nesso-1's 256-token crop passes: 0.70 -> 0.36 s each on WH)
 #   trimul_t1_2g    T1 may hold 2 GiB of outputs (a, b, g_out) instead of the fused projection's 1 GiB cap, so it
 #                   serves c_z 256 above ~900 tokens (1.5 GiB at 1024), where every call declined on "route"
+#   trimul_t1_3g    T1 may hold 3 GiB of outputs, so it serves c_z 448 at 1024 tokens (2.63 GiB), where trimul_t1_2g
+#                   declines on "route". A refused allocation declines T1 for that shape for the rest of the process
+#                   and the call takes the channel loop. N 1000 c_z 448 on a Galaxy chip at 1000 MHz
+#                   (mol1-wh1024-trimul b1): 278 -> 177 ms/call, module rel_rms vs float64 0.0112 both ways
 #   trimul_t1_psig  T1's gate sigmoid runs on the packer thread's SFPU, overlapping the next [a|b] matmul block on the
 #                   FPU. Same instructions on the same values: bit-identical outputs. N 512 c_z 256 on a Galaxy chip at
 #                   1000 MHz (t1sig): 6.84 -> 6.41 ms/call bf16 weights, 6.27 -> 5.86 bfp8, equal to skipping the sigmoid
@@ -908,7 +912,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
           "triatt_ln_b8", "triatt_ln_b8g", "trimul_t1w8", "atom_l1", "trimul_gin_w8", "dit_l1", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
             "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shard", "dit_shoist_mm", "dit_step_mm", "dit_fc123g",
-          "trimul_t1_2g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
+          "trimul_t1_2g", "trimul_t1_3g", "trimul_t1_psig", "pz_device", "dit_mod16", "pair_mm_tr", "triatt_q10", "bres_ta_hifi3", "pair_block", "pair_tail",
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj")
@@ -935,7 +939,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32", "triatt_ln_b8",
                              "triatt_ln_b8g", "trimul_t1w8", "trimul_gin_w8", "opm_b8cfg", "trimul_bres_bh", "ws_psilu",
                              "trimul_t2fold", "dit_mask8", "trimul_bres_b8", "ws_b8_plain", "dit_shoist_mm", "dit_step_mm", "dit_fc123g", "trimul_t1_2g",
-                             "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
+                             "trimul_t1_3g", "trimul_t1_psig", "dit_mod16", "pair_mm_tr", "triatt_q10", "pair_block", "pair_tail",
                              "pair_bias_rms", "pair_write_res", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
@@ -1315,6 +1319,8 @@ _TRIMUL_INPROJ_GROUP = 12
 # worst case at +1.448 GiB (704 aa, G=8: 8.377 vs 6.929 GiB) and leaves >20 GiB free at every size.
 # It keeps the full width at 512-704 aa, takes G=4 at 973 aa (9i3p) and G=2 at 1136 aa (9j4c).
 _TRIMUL_INPROJ_FUSED_BYTES = 1024 * 2 ** 20
+# Shapes whose T1 outputs DRAM refused under trimul_t1_3g; they take the channel loop from then on.
+_T1_REFUSED: set = set()
 # T1 priced on its own outputs (a, b, g_out) rather than on the fused projection it never builds (`_t1_in`).
 # A/B knob; True is production.
 T1_OWN_BUDGET = True
@@ -10503,7 +10509,13 @@ class TriangleMultiplication(Module):
         t1_bytes = (2 * self._hidden + shp[-1]) * H * H * batch * 2
         # This route is refused above unless the chunk memory is DRAM, so the operands are not L1.
         pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock(), False)
-        if (t1_bytes > _trimul_inproj_budget(H, self._hidden, batch) * (2 if lever("trimul_t1_2g") else 1)
+        big = lever("trimul_t1_3g")
+        key = _trimul_chunk_key(H, self._hidden, batch)
+        if key in _T1_REFUSED:
+            TT1.T1_STATS[1] += 1
+            TT1.T1_WHY["refused"] = TT1.T1_WHY.get("refused", 0) + 1
+            return None
+        if (t1_bytes > _trimul_inproj_budget(H, self._hidden, batch) * (3 if big else 2 if lever("trimul_t1_2g") else 1)
                 or (not T1_OWN_BUDGET and self._hidden * 4 * H * H * batch * 2 > _trimul_inproj_budget(
                     H, self._hidden, batch))
                 or not _mm_transpose_deferred(pc)):
@@ -10525,11 +10537,22 @@ class TriangleMultiplication(Module):
         ckc = _mm_generic.ckc_args(self.compute_kernel_config)
         if lever("trimul_gin_hifi2"):
             ckc = (ttnn.MathFidelity.HiFi2,) + ckc[1:]
-        outs = TT1.fused_in_ln(
-            x, self.in_norm_weight, self.in_norm_bias, *wts[:2], wts[2] or self.g_out_weight,
-            ckc, tuple(COMPUTE_GRID_MAIN),
-            mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold), g8=lever("trimul_t1g8"),
-            fg=lever("trimul_t1_fgate"))
+        try:
+            outs = TT1.fused_in_ln(
+                x, self.in_norm_weight, self.in_norm_bias, *wts[:2], wts[2] or self.g_out_weight,
+                ckc, tuple(COMPUTE_GRID_MAIN),
+                mask=mask if fold else None, b8=lever("trimul_t1b8") and (mask is None or fold), g8=lever("trimul_t1g8"),
+                fg=lever("trimul_t1_fgate"))
+        except RuntimeError as exc:
+            # Under trimul_t1_3g the outputs can outgrow what a large fold leaves free: decline the shape once,
+            # the channel loop computes the same call.
+            from tt_bio.size_limits import is_alloc_refusal
+            if not (big and is_alloc_refusal(exc)):
+                raise
+            _T1_REFUSED.add(key)
+            TT1.T1_STATS[1] += 1
+            TT1.T1_WHY["refused"] = TT1.T1_WHY.get("refused", 0) + 1
+            return None
         return None if outs is None else (outs[0], outs[1], outs[2], fold)
 
     def _gout_eligible(self, x_norm_in, H, n_pairs, group, memory_config, row_norm) -> bool:

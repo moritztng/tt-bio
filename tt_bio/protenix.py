@@ -308,7 +308,9 @@ MOL1_BH = MOL1_T1 | {"trimul_t2", "trimul_t2w", "trimul_bres"}
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
 # 206.9); samples matched to the base fold's 0.269 A median (max 0.937) vs the 0.60 A bar and the 1.442 A sample floor,
 # all-atom lDDT 0.996 vs 0.965. T2 (trimul_t2, t2w) is not graded on Wormhole at 320/448 and stays out.
-MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG
+# trimul_t1_3g: T1 also serves c_z 448 at 1024 tokens, where the 2 GiB budget sent every call to the channel loop
+# (module 278 -> 177 ms/call at N 1000 on a Galaxy chip, 1000 MHz). Wormhole only: Blackhole is unmeasured.
+MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG | {"trimul_t1_3g"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 
