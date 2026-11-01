@@ -257,6 +257,8 @@ def main():
     ap.add_argument("--headline", type=Path)
     ap.add_argument("--ab", action="append", default=[], help="TEST=BASE: also grade one TT arm against another")
     ap.add_argument("--pose-base", default="gpu", help="arm every other arm's poses are compared with ('' skips)")
+    ap.add_argument("--ref-split", type=Path, help="JSON {id[:recipe]: evidence}: cases where upstream's own fp32 and bf16 "
+                    "disagree, so the GPU arm is no reference for them; left out of the TT verdicts, reported beside")
     a = ap.parse_args()
     spec = json.loads(a.cases.read_text())
     arms = dict(x.split("=", 1) for x in a.arm)
@@ -265,16 +267,20 @@ def main():
         rows += evaluate(arm, Path(d), spec["paired"], a.inputs, a.work)
     (a.work / "rows.json").write_text(json.dumps(rows))
     ok = [r for r in rows if not r.get("missing")]
+    split = json.loads(a.ref_split.read_text()) if a.ref_split else {}
+    graded = [r for r in ok if r["case"].split("|")[0] not in split]  # "<id>[:recipe]|<interface>"
     sets = sorted({c["set"] for c in spec["paired"]})
     per_arch, per_set = {}, {}
     for test in [x for x in arms if x.startswith("tt_")]:  # tt_bh, tt_wh, and A/B arms such as tt_bh_b
         arch = test[3:]
         missing = sorted({r["case"] for r in rows if r["arm"] == test and r.get("missing")})
-        v = stats.verdict(ok, test)
-        per_set[arch] = {s: stats.verdict(ok, test, cases={r["case"] for r in ok if r["set"] == s}) for s in sets}
+        v = stats.verdict(graded, test)
+        per_set[arch] = {s: stats.verdict(graded, test, cases={r["case"] for r in graded if r["set"] == s}) for s in sets}
         failed_sets = [s for s, x in per_set[arch].items() if x["verdict"] == "FAIL"]
         verdict = "FAIL" if missing or failed_sets or v["verdict"] == "FAIL" else v["verdict"]
         per_arch[arch] = {"verdict": verdict, "pooled": v, "failed_sets": failed_sets, "missing": missing}
+        if split:
+            per_arch[arch]["pooled_with_ref_split"] = stats.verdict(ok, test)
     floor = stats.self_test(ok) if "gpu_self" in arms else None
     arch = {k: v["verdict"] for k, v in per_arch.items() if k in ("bh", "wh")}
     q = {"verdict": "PASS" if arch.get("wh") == "PASS" and arch.get("bh") == "PASS" else
@@ -285,7 +291,8 @@ def main():
                "per_arm": {arm: len({r["case"] for r in ok if r["arm"] == arm}) for arm in arms}},
          "seed_floor": floor and floor["metrics"], "self_test": floor and floor["verdict"],
          "headline": headline(a.headline, spec["headline"]["cases"], a.inputs, a.work) if a.headline else None,
-         "ab": {x: stats.verdict(ok, *x.split("=", 1)) for x in a.ab},
+         "ab": {x: stats.verdict(ok, *x.split("=", 1)) for x in a.ab},  # TT vs TT: both share the precision
+         "ref_split": split,
          "pose": pose(arms, a.pose_base, spec["paired"], a.work) if a.pose_base else None,
          "paths": {"cases": str(a.cases), "inputs": str(a.inputs), "arms": arms, "rows": str(a.work / "rows.json")}}
     a.out.write_text(json.dumps(q, indent=1, default=float))

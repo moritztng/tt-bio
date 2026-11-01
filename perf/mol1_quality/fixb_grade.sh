@@ -17,5 +17,5 @@ P=$HOME/.coworker/wt/mol1-quality/perf/mol1_quality; G=$P/grade.py
 python3 "$P/arms.py" ~/mol1-fair-gpu-ref arms
 { PATH=$PWD/env/fb/bin:$PATH nice -n 19 env/fb/bin/python "$G" --inputs inputs --cases fixb/CASES.json --work fixb/work \
     --out fixb/QUALITY.json --arm gpu=arms/gpu --arm gpu_self=arms/gpu_self --arm tt_bh=tt-bh --arm tt_bh_b=arms/tt_bh_b \
-    --ab tt_bh_b=tt_bh
+    --ab tt_bh_b=tt_bh --ref-split "$P/ref_split.json"
   echo "GRADE-EXIT rc=$?"; } > fixb/grade.log 2>&1

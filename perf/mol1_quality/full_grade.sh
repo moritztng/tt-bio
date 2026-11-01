@@ -10,5 +10,5 @@ python3 "$P/arms.py" ~/mol1-fair-gpu-ref arms
 arms=(--arm gpu=arms/gpu --arm gpu_self=arms/gpu_self --arm tt_bh=tt-bh)
 [ -d arms/tt_wh ] && arms+=(--arm tt_wh=arms/tt_wh)
 { PATH=$PWD/env/fb/bin:$PATH nice -n 19 env/fb/bin/python "$P/grade.py" --inputs inputs --cases CASES.json --work work \
-    --out "$out/QUALITY.json" "${arms[@]}" --headline arms/headline
+    --out "$out/QUALITY.json" "${arms[@]}" --headline arms/headline --ref-split "$P/ref_split.json"
   echo "GRADE-EXIT rc=$?"; } > "$out/grade.log" 2>&1
