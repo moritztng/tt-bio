@@ -719,6 +719,23 @@ _RELP_SCATTER = True
 RELP_STATS = [0, 0]
 
 
+def drop_weight_caches(obj, seen=None):
+    """Free the device weights `obj` and the tt_bio objects under it uploaded on first use (their
+    `_wc*` caches) and empty those caches, so each getter uploads its weight again when next read."""
+    from .esmc import _free_ttnn_tensors
+    seen = set() if seen is None else seen
+    if id(obj) in seen:
+        return
+    seen.add(id(obj))
+    for name, v in list(getattr(obj, "__dict__", {}).items()):
+        if name.startswith("_wc") and isinstance(v, dict):
+            _free_ttnn_tensors(v)
+            v.clear()
+        for x in (v if isinstance(v, (list, tuple)) else (v,)):
+            if type(x).__module__.startswith("tt_bio."):
+                drop_weight_caches(x, seen)
+
+
 class _KeyedWeights:
     """Mixin: cached weight-upload-by-key + linear / layernorm by key, reading a flat
     {name: torch.Tensor} dict ``self._w``. Weights upload ONCE (TILE/bf16) and are cached
@@ -3511,6 +3528,14 @@ class Protenix:
         if not _os.environ.get("TT_PROTENIX_DBG_COND"):
             from .esmc import _free_ttnn_tensors
             _free_ttnn_tensors(cond)
+        if getattr(self.trunk, "parked_inputs", False):
+            # A fold whose trunk inputs had to wait on the host is DRAM-bound, and the diffusion
+            # weights it uploaded on first use would sit through the next fold's trunk: a Mol-1
+            # 1000-token fold on a Wormhole chip started its second trunk with 0.68 GiB more in use
+            # than its first and was refused the MSA projection the first fold kept. Give them
+            # back; the next fold uploads them again when its diffusion first reads them.
+            self.diffusion._release_trace()
+            drop_weight_caches(self.diffusion)
         if return_confidence:
             if progress_fn:
                 progress_fn("confidence")
@@ -4045,6 +4070,7 @@ class Trunk(_KeyedWeights):
         z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past host_park_min_bytes() they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
+        self.parked_inputs = z_init.storage_type() != ttnn.StorageType.DEVICE
         s = ttnn.mul(s_init, 0.0)
 
         def cycle(cyc, carry, m_feat, rows=None, retry=False):
