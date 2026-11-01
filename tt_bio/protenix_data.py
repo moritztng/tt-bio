@@ -899,6 +899,10 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
     rt_all = seq_to_restype(seq, mt)
     n_res = len(seq)
     mod_ccd = {int(m["position"]): str(m["ccd"]).upper() for m in (mods or [])}
+    if mt == "protein" and oxt is None and n_res > 1 and mod_ccd.get(n_res) == "NME":
+        # upstream bonds a C-terminal NME only after the leaving atoms are gone, so the
+        # residue before it keeps its OXT (json_parser._build_polymer_atom_array)
+        oxt = [k >= n_res - 2 for k in range(n_res)]
     codes = _na_res_codes(seq, mt) if mt in ("rna", "dna") else None
     if mt == "protein":
         # The 20 standard residues and X have a bundled reference conformer; X is UNK, one
@@ -977,6 +981,18 @@ def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dic
         bonds = torch.zeros(n_tok, n_tok)
         for start, adj in local_bonds:           # the CCD component's own heavy-atom bonds
             bonds[start:start + adj.shape[0], start:start + adj.shape[1]] = adj
+        # Terminal caps are CCD non-polymers, so their link to the chain is a polymer-ligand
+        # bond that token_bonds keeps: an N-terminal ACE's C to residue 2's N, residue n-1's C
+        # to a C-terminal NME's N (upstream json_parser._add_bonds_to_terminal_residues; NH2
+        # and every other cap get no bond there either).
+        def _atom_tok(res, name):
+            return res_atoms[res].get(name) if res in res_atoms else res_tok[res - 1]
+
+        for (cap, cap_atom), (nbr, nbr_atom) in (((1, "C"), (2, "N")), ((n_res, "N"), (n_res - 1, "C"))):
+            if n_res > 1 and mod_ccd.get(cap) == ("ACE" if cap == 1 else "NME"):
+                t1, t2 = _atom_tok(cap, cap_atom), _atom_tok(nbr, nbr_atom)
+                if t1 is not None and t2 is not None:
+                    bonds[t1, t2] = bonds[t2, t1] = 1.0
     return (merged, torch.tensor(restype, dtype=torch.long),
             torch.tensor(resindex, dtype=torch.long), bonds, res_tok, res_atoms,
             torch.tensor(msa_col, dtype=torch.long))
