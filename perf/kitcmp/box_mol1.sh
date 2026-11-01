@@ -18,8 +18,9 @@ fail(){ say "FAILED: $1"; echo "$1" > $B/MOL1-FAILED; exit 3; }
 if [ ! -f $B/SETUP-DONE ]; then
   {
     # python3.12-dev: Triton JIT-builds its driver shim against Python.h, which the CUDA image lacks (RFD4 session 2).
+    # kalign (3.3.5 on 24.04, upstream's pin): the use_template_true recipe needs it on PATH (mol1-b200-ref4r, 30 jobs).
     apt-get update -qq && apt-get install -y -qq --no-install-recommends git wget python3.12-dev build-essential \
-      libxrender1 libxext6 libsm6
+      libxrender1 libxext6 libsm6 kalign
     git clone https://github.com/molence/Mol-1 /root/mol1 && cd /root/mol1 && git checkout $SHA
     command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH=$PATH:/root/.local/bin
