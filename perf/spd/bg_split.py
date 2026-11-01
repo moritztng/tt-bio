@@ -24,6 +24,7 @@ import sys
 import time
 from collections import deque
 
+import torch
 import ttnn
 
 from tt_bio import tenstorrent as T
@@ -112,7 +113,38 @@ T.TrunkModule.forward = _trunk_forward
 T.TrunkModule._build_static = _stamp("st", T.TrunkModule._build_static)
 T.TrunkModule._iteration = _stamp("it", T.TrunkModule._iteration)
 # `td`: BoltzGen's token-distance precompute inside the static build (host a_ij, its cache check, the upload).
-T.TokenDistanceRecycle.precompute = _stamp("td", T.TokenDistanceRecycle.precompute)
+_td = _stamp("td", T.TokenDistanceRecycle.precompute)
+
+
+def _td_why(self, feats, rpe, seq_pad, *a, **k):
+    """Record why the host a_ij cache missed (`td_miss`): cold, the weights key, or which input changed."""
+    try:
+        _td_diagnose(self, feats, rpe, seq_pad)
+    except Exception as e:      # a diagnostic must never fail the run it measures
+        EV["td_miss"] = f"diagnose failed: {e!r}"
+    return _td(self, feats, rpe, seq_pad, *a, **k)
+
+
+def _td_diagnose(self, feats, rpe, seq_pad):
+    hit = getattr(self.mod, "_tt_a_ij_host", None)
+    if hit is None:
+        EV["td_miss"] = "cold"
+    else:
+        srcs = (feats["center_coords"], feats["token_distance_mask"]) + (
+            (rpe, feats["coords"], feats["token_to_bb4_atoms"]) if self.mod.use_token_distance_feats else ())
+        names = ("center_coords", "token_distance_mask", "rpe", "coords", "token_to_bb4_atoms")
+        wkey = (seq_pad, tuple((q.data_ptr(), q._version) for q in self.mod.parameters()))
+        why = [] if hit[0] == wkey else ["seq_pad" if hit[0][0] != seq_pad else "weights"]
+        for n, x, y in zip(names, hit[1], srcs):
+            if x.shape != y.shape or x.dtype != y.dtype:
+                why.append(f"{n}:shape {tuple(x.shape)}->{tuple(y.shape)}")
+            elif not torch.equal(x, y):
+                why.append(f"{n}:max|d| {(x.double() - y.double()).abs().max().item():.3g}")
+        if why:
+            EV["td_miss"] = ",".join(why)
+
+
+T.TokenDistanceRecycle.precompute = _td_why
 # Helper-thread intervals (the next design's featurize, the last design's write), to see how much of each one lands
 # inside this design's host-bound trunk stages (pre, static), where it competes for the GIL.
 SPANS = []
@@ -168,6 +200,8 @@ def write(self, *a, **k):
                    after=round(trunk_end - ev["tf"], 3) if trunk_end else None)
         if "td" in ev:
             rec["td"] = round(ev["td"] - ev["td0"], 3)
+        if "td_miss" in ev:
+            rec["td_miss"] = ev["td_miss"]
         rec["pre_ov"] = _overlap(ev["t0"], ev["tf0"])
         rec["static_ov"] = _overlap(ev["st0"], ev["st"])
     # Latch counters since the previous design: e.g. diffusion_trace captures (one per row block if the chunk's
