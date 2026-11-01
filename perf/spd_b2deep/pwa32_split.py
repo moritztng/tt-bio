@@ -11,7 +11,10 @@ against a channel-major formulation with no in-tile transpose of the 256-wide v,
   Same products and sums; graded against the same float64 reference.
 
 usage: TT_VISIBLE_DEVICES=<chip> python pwa32_split.py OUT [ROWS=320] [TOKENS=768] [REPS=5] [ARMS=fused,cmajor]
-       (more arms: cmajor_hifi3, cmajor_hifi2 = cmajor with the head contraction at that fidelity)
+       (more arms: cmajor_hifi3, cmajor_hifi2 = cmajor with the head contraction at that fidelity;
+        cmajor_pret = token weights pre-transposed, no transpose_b; cmajor_nof32 = head contraction without
+        fp32 dest accumulation (twice the dest tiles per subblock); cmajor_hifi2_nof32 = both;
+        cmajor_w8 = token weights in bfloat8_b)
 """
 import json, statistics, sys, time
 from pathlib import Path
@@ -95,13 +98,14 @@ def fused(s):
     s("o_proj", lambda x: proj(x, Wo))
 
 
-def cmajor(s, head_lin=lin):
+def cmajor(s, head_lin=lin, Wh=None):
     rows, T = ROWS, T_
     s("mT", lambda: ttnn.transpose(mc, -2, -1))                                    # [rows, 64, T]
     s("vT", lambda m: (m, ttnn.matmul(WvT, m, **lin)), keep=True)                  # [rows, 256, T]
     s("v_outer", lambda mv: (mv[0], ttnn.reshape(ttnn.permute(ttnn.reshape(mv[1], (rows, H, HD, T)),
                                                               (1, 0, 2, 3)), (H, rows * HD, T))), keep=True)
-    s("head_mm", lambda mv: (mv[0], ttnn.matmul(mv[1], W, transpose_b=True, **head_lin)), keep=True)
+    s("head_mm", lambda mv: (mv[0], ttnn.matmul(mv[1], W, transpose_b=True, **head_lin) if Wh is None
+                             else ttnn.matmul(mv[1], Wh, **head_lin)), keep=True)
     s("o_outer", lambda mo: (mo[0], ttnn.reshape(ttnn.permute(ttnn.reshape(mo[1], (H, rows, HD, T)),
                                                               (1, 0, 2, 3)), (rows, H * HD, T))), keep=True)
     s("gT", lambda mo: (mo[1], ttnn.matmul(WgT, mo[0], **lin)), keep=True)
@@ -139,14 +143,21 @@ def run(name, body):
     return o
 
 
-def _fid(f):
-    k = ttnn.WormholeComputeKernelConfig(math_fidelity=f, math_approx_mode=False, fp32_dest_acc_en=True,
+def _fid(f, f32=True):
+    k = ttnn.WormholeComputeKernelConfig(math_fidelity=f, math_approx_mode=False, fp32_dest_acc_en=f32,
                                          packer_l1_acc=True)
     return lambda s: cmajor(s, dict(lin, compute_kernel_config=k))
 
 
-# cmajor with only the head contraction at a lower fidelity: its error against the same float64 reference.
+# cmajor with only the head contraction changed: its time and its error against the same float64 reference.
+# pwa3 read HiFi2 at the HiFi4 time (WH 4.81 vs 4.93 ms per 320 block), so math is not what bounds it.
 cmajor_hifi3, cmajor_hifi2 = _fid(ttnn.MathFidelity.HiFi3), _fid(ttnn.MathFidelity.HiFi2)
+cmajor_nof32 = _fid(ttnn.MathFidelity.HiFi4, f32=False)
+cmajor_hifi2_nof32 = _fid(ttnn.MathFidelity.HiFi2, f32=False)
+Wt = up(w.transpose(-2, -1).contiguous())
+cmajor_pret = lambda s: cmajor(s, Wh=Wt)
+W8 = ttnn.from_torch(bf(w.transpose(-2, -1).contiguous()), layout=TL, device=dev, dtype=ttnn.bfloat8_b)
+cmajor_w8 = lambda s: cmajor(s, Wh=W8)
 
 res = {}
 for name in ARMS:
