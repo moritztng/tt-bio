@@ -95,6 +95,17 @@ def test_preflight_reports_whether_mol1_can_run(monkeypatch, tmp_path, ready):
         assert "mol-1-release.oss-cn-shanghai.aliyuncs.com" in result.output
 
 
+def test_preflight_notes_a_missing_kalign_without_failing(monkeypatch, tmp_path):
+    """kalign only matters for --use_template with .a3m/.hhr hits, so its absence is a note, not a red."""
+    stats = [weights.Status(weights.ARTIFACTS[k], "present", tmp_path / k, 0) for k in ("mol1", "mols")]
+    monkeypatch.setattr(weights, "model_ready", lambda model, root=None: (True, stats))
+    monkeypatch.setattr(m.shutil, "which", lambda name: None if name == "kalign" else "/bin/" + name)
+    result = CliRunner().invoke(cli, ["preflight", "mol1", "--cache", str(tmp_path)])
+    assert result.exit_code == 0 and "needs kalign" in result.output, result.output
+    monkeypatch.setattr(m.shutil, "which", lambda name: "/bin/" + name)
+    assert "kalign" not in CliRunner().invoke(cli, ["preflight", "mol1", "--cache", str(tmp_path)]).output
+
+
 @pytest.mark.parametrize("accelerator", ["cpu", "gpu"])
 def test_a_device_mol1_cannot_use_is_refused_not_substituted(host_predict, tmp_path, accelerator):
     result = _predict(tmp_path, "--accelerator", accelerator)

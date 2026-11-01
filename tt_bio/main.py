@@ -2248,6 +2248,10 @@ def preflight_cmd(models, download, cache):
                        f"{need[0].artifact.filename} at {need[0].path} or set "
                        f"${need[0].artifact.env}")
 
+    if set(names) & set(PROTENIX_FAMILY) and not shutil.which("kalign"):
+        click.echo(f"  {click.style('note   ', fg='yellow')} --use_template with .a3m/.hhr hits needs kalign on "
+                   "PATH, and there is none (it is optional otherwise)")
+
     if sources:
         click.echo()
         click.echo("can this machine reach the hosts those weights come from?")
