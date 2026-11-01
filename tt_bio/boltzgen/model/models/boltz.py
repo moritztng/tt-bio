@@ -116,10 +116,14 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "t
 # dit_kc gives the token DiT attention the full k chunk on Wormhole (as Pxdesign and OpenFold3 do): 37.3 -> 34.2-34.7
 # ms a diffusion step, 34.1 -> 32.6 s/design at 1000 MHz (whf2, 2026-11-01, measured with dit_hifi2, which alone reads
 # nothing in fast). Fast grade vs exact WH normal (seeds 0-3, 32 designs): PASS, design_ptm +0.017 [+0.004, +0.029], iptm
-# -0.015 [-0.051, +0.021], complex_plddt +0.017. The normal bar is graded separately.
+# -0.015 [-0.051, +0.021], complex_plddt +0.017. Normal fails its grade with dit_kc (iptm -0.028 [-0.050, -0.007]).
+# adaln_at runs the token DiT's AdaLN as one ln_split program reading the step's scale and shift windows, and the
+# conditioning computed steps ahead now takes the set's dit_cond_hifi2. Fast grade of both on top of the set, vs exact
+# WH normal: see the commit. Normal fails with adaln_at (iptm -0.023 [-0.045, -0.003]).
 WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
                                 "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard",
-                                "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "opm_jd", "dit_kc"}
+                                "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "opm_jd", "dit_kc",
+                                "adaln_at"}
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
 # residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
 # designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.
