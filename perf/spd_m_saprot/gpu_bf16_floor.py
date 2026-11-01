@@ -26,11 +26,12 @@ def main() -> int:
     ap.add_argument("--length", type=int, default=512)
     ap.add_argument("--ref-cache", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--path", help="local checkpoint dir instead of weights.fetch")
     a = ap.parse_args()
     torch.set_grad_enabled(False)
     from transformers import EsmForMaskedLM
     from tt_bio import saprot, weights
-    path = weights.fetch(a.model)
+    path = a.path or weights.fetch(a.model)
     f32 = bf = None
     for pdb in a.pdb:
         aa = acc.pdb_sequence(pdb)[: a.length]
