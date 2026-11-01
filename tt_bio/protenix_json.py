@@ -313,6 +313,14 @@ def search(path, dest, use_template: bool = False, use_rna_msa: bool = False, **
     return out
 
 
+def check_template_tools(path) -> None:
+    """Under ``--use_template``, raise before any fold when a job's ``.a3m``/``.hhr`` hits need kalign to realign
+    and none is on PATH. The featurizer raises the same error, but only once a worker reaches that job."""
+    if any(str(p).lower().endswith((".a3m", ".hhr")) for j in read_jobs(path) for p in j.templates.values()):
+        from tt_bio._vendor.mol1.kalign import find_kalign
+        find_kalign()
+
+
 def split_stem(stem: str):
     """``<job>__seed_<s>`` -> (job, s); anything else -> (stem, None)."""
     job, sep, s = str(stem).rpartition(SEED_SEP)

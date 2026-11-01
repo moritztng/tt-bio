@@ -3689,6 +3689,8 @@ def predict(data, out_dir, cache, checkpoint, accelerator, recycling_steps, samp
                     raise ValueError(f"job names {sorted(names & seen)} repeat across the directory's JSON files")
                 seen |= names
                 f = protenix_json.search(f, staged, use_template, use_rna_msa, **search_tools)
+                if use_template:
+                    protenix_json.check_template_tools(f)
                 protenix_json.stage(f, staged, seeds=[seed] if seed is not None else None,
                                     use_seeds_in_json=use_seeds_in_json)
             except (ValueError, KeyError, AssertionError, FileNotFoundError, RuntimeError) as e:
