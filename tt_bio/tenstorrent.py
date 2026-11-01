@@ -1500,6 +1500,7 @@ _PWA_FULL_HEADS_FUSED = env_flag("TT_BIO_PWA_FULL_HEADS_FUSED", True)
 # Boltz-2 8 x 32 at 768 tokens, a 320-row block: WH 19.9 -> 15.0 ms, p150a 8.27 -> 6.20 ms, error
 # against float64 unchanged (perf/spd_b2deep/pwa32_split.py). Taken while the repeated weights fit
 # in one PWA_DEPTH_BUDGET_BYTES buffer; below ~200 tokens they would not, and the fused path runs.
+# Only for 32-wide heads (graded on Boltz-2): zero-padded heads keep the fused path unchanged.
 _PWA_CMAJOR = env_flag("TT_BIO_PWA_CMAJOR", True)
 # PWA's three projections (both head paths) on `_narrow_proj_linear`'s in0_block_w 1 plan instead of
 # `core_grid=`: torch.equal, OpenDDE 640 [1280x640, 128] @ [128, 64] 6.60 -> 3.62 ms and [., 64] @ [64, 128]
@@ -16905,7 +16906,8 @@ class PairWeightedAveraging(Module):
         blk = min(rows, pwa_fused_row_block(T, H))
         w_v, w_g, w_o = packed
         lin = dict(compute_kernel_config=self.compute_kernel_config, core_grid=CORE_GRID_MAIN)
-        if _PWA_CMAJOR and 3 * blk * H * S * int(mc.shape[-1]) * 2 <= PWA_DEPTH_BUDGET_BYTES:
+        if (_PWA_CMAJOR and self.head_dim == S
+                and 3 * blk * H * S * int(mc.shape[-1]) * 2 <= PWA_DEPTH_BUDGET_BYTES):
             reps = [ttnn.repeat(ttnn.unsqueeze(ttnn.transpose(w, -2, -1), 0), (blk, 1, 1))
                     for w in packed]
             parts = [self._heads_cmajor(mc[r:min(r + blk, rows)], ws, reps, lin)
