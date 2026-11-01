@@ -1,7 +1,7 @@
 """Grade MOL1 predictions with FoldBench's own evaluator and write state/mol1/QUALITY.json.
 
     <ost env>/bin/python grade.py --inputs INPUTS --cases CASES.json --work WORK --out QUALITY.json \
-        --arm gpu=DIR --arm gpu_self=DIR --arm tt_bh=DIR [--arm tt_wh=DIR] [--headline DIR] [--jobs 12]
+        --arm gpu=DIR --arm gpu_self=DIR --arm tt_bh=DIR [--arm tt_wh=DIR] [--headline DIR]
 
 INPUTS is the frozen tree quality_inputs.py wrote (truth/ holds <pdb>-assembly1.cif). Every arm DIR has upstream's
 layout, <case>/seed_<s>/predictions/<case>_sample_<k>.cif + <case>_summary_confidence_sample_<k>.json, case names
