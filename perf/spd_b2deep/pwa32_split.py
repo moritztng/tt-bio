@@ -17,7 +17,12 @@ usage: TT_VISIBLE_DEVICES=<chip> python pwa32_split.py OUT [ROWS=320] [TOKENS=76
         cmajor_w8 = token weights in bfloat8_b;
         phead = per-head channel-major: each head's v^T [rows, 32, T] is already [rows*32, T] on tile rows, so the
         head contraction is 8 batch-1 matmuls on ttnn's planner with no outer permute either side; o*g per
-        head, one concat back to [rows, 256, T]; phead_cg = the same with core_grid on the head matmuls)
+        head, one concat back to [rows, 256, T]; phead_cg = the same with core_grid on the head matmuls;
+        flat = channel-major over the whole block: m as one [64, rows*T] matrix (a view and one 2D transpose of
+        the 64-wide input), v and g as plain [256, 64] @ [64, rows*T] matmuls with no repeated weights. A
+        [256, rows*T] tile tensor has head h's tiles in (row, token tile) order, which is the tile order of
+        [8, rows*32, T], so heads reach the batch axis by `ttnn.experimental.view` instead of a permute, the
+        gate multiplies in that layout, and Wo^T [64, 256] @ (o*g) sums the heads. No 256-wide data movement.)
 """
 import json, statistics, sys, time
 from pathlib import Path
@@ -141,6 +146,22 @@ def phead(s, head_lin=dict(compute_kernel_config=ckc)):
 
 
 phead_cg = lambda s: phead(s, lin)
+up2 = lambda x: up(x.t().contiguous())
+WvF, WgF, WoF = up2(wv), up2(wg), up2(wo)                    # [256, 64] x2, [64, 256]
+view = ttnn.experimental.view
+
+
+def flat(s):
+    rows, T = ROWS, T_
+    N = rows * T
+    s("mT", lambda: ttnn.transpose(ttnn.reshape(mc, (N, C_M)), -2, -1))          # [64, rows*T]
+    s("vT", lambda m: (m, ttnn.matmul(WvF, m, **lin)), keep=True)                  # [256, rows*T]
+    s("head_mm", lambda mv: (mv[0], ttnn.matmul(view(mv[1], [H, rows * HD, T]), W, transpose_b=True, **lin)),
+      keep=True)
+    s("gT", lambda mo: (view(mo[1], [H * HD, N]), ttnn.matmul(WgF, mo[0], **lin)), keep=True)
+    s("gate_mul", lambda og: ttnn.multiply_(og[0], og[1], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]))
+    s("outT", lambda x: ttnn.matmul(WoF, x, **lin))                                # [64, rows*T]
+    s("out_tWH", lambda x: ttnn.reshape(ttnn.transpose(x, -2, -1), (rows, T, C_M)))
 
 
 def run(name, body):
