@@ -27,9 +27,16 @@ assert Path(T.__file__).resolve().is_relative_to(ROOT)
 HD = 32
 V2_BH_NORMAL = (P.NORMAL_LEVERS | P.T2_TAIL | P.WS_CHAIN | P.QSPLIT_NORMAL | P.BRES_NORMAL | P.TRIATT_LN
                 | P.WS_RESID_NORMAL | P.T1_PSIG | P.TRIATT_K1 | P.BH_V2_NORMAL)
-# arm -> (lever set, `_MM_DEFAULT_WIDE`); the *_now arms are the tree before the wide default
+# arm -> (lever set, `_MM_DEFAULT_WIDE`); the *_now arms are the tree before the wide default, `served` is the
+# set Mol-1's normal mode takes on this chip today (`protenix.mode_levers`)
 ARMS = {"mol1_now": (P.NORMAL_LEVERS, False), "v2_normal": (V2_BH_NORMAL, False),
-        "mol1_wide": (P.NORMAL_LEVERS, True), "v2_wide": (V2_BH_NORMAL, True)}
+        "mol1_wide": (P.NORMAL_LEVERS, True), "v2_wide": (V2_BH_NORMAL, True),
+        "served": (P.NORMAL_LEVERS | P.WIDE_NORMAL | (P.MOL1_WH if T.is_wormhole() else P.MOL1_BH), True)}
+
+
+def flops(S, c, H):
+    """Matmul FLOPs of one call: bias + q/k/v/g + output projections (S^2) and the attention itself (S^3)."""
+    return 2 * S * S * c * H * (1 + 5 * HD) + 4 * S ** 3 * H * HD
 
 
 def weights(c, H, seed):
@@ -71,6 +78,7 @@ def main():
     ap.add_argument("--widths", default="256x8,384x12,320x10,448x14")
     ap.add_argument("--arms", default="mol1_now,v2_normal")
     ap.add_argument("--reps", type=int, default=5)
+    ap.add_argument("--ref-max", type=int, default=1024, help="skip the float64 reference above this size")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     dev = T.get_device()
@@ -86,10 +94,11 @@ def main():
             x = torch.randn(S, S, c).bfloat16()
             rows = sorted(set(torch.linspace(0, S - 1, 16).long().tolist()))
             for ending in (False, True):
-                ref = reference_rows(x.float(), sd, H, ending, rows)
+                ref = reference_rows(x.float(), sd, H, ending, rows) if S <= a.ref_max else None
                 for arm in a.arms.split(","):
+                    T._TRIATT_WHOLE_REFUSED.clear(); T._TRIATT_BLOCK_REFUSED.clear()
                     rec = {"S": S, "c_z": c, "heads": H, "ending": ending, "arm": arm, "sha": sha,
-                           "arch": str(dev.arch())}
+                           "arch": str(dev.arch()), "seq_len_more_chunking": T.SEQ_LEN_MORE_CHUNKING, "gflop": round(flops(S, c, H) / 1e9, 2)}
                     try:
                         T._MM_DEFAULT_WIDE = ARMS[arm][1]
                         with T.levers(ARMS[arm][0]):
@@ -102,8 +111,12 @@ def main():
                             ttnn.deallocate(o)
                             rec["triatt_ln_rejects"] = {f"{k[0]}": v for k, v in TL.REJECTS.items()}
                             rec["triatt_ln_stats"] = list(TL.STATS)
+                            # a DRAM refusal moves the call onto the row-blocked path for the process
+                            rec["row_blocked"] = {str(k): v for m in (T._TRIATT_WHOLE_REFUSED, T._TRIATT_BLOCK_REFUSED)
+                                                  for k, v in m.items()}
                             gr = got.transpose(0, 1)[rows] if ending else got[rows]
-                            rec.update(metrics(ref, gr))
+                            if ref is not None:
+                                rec.update(metrics(ref, gr))
                             ttnn.deallocate(mod(xt))
                             ttnn.synchronize_device(dev)
                             ts = []
@@ -119,6 +132,7 @@ def main():
                             rec["ms_min"] = round(ts[0] * 1e3, 3)
                             rec["ms_med"] = round(ts[len(ts) // 2] * 1e3, 3)
                             rec["aiclk"] = clk.summary()
+                            rec["tflops"] = round(rec["gflop"] / rec["ms_min"], 2)
                             del mod
                     except Exception as e:  # noqa: BLE001
                         rec["error"] = f"{type(e).__name__}: {str(e).splitlines()[0][:300]}"
