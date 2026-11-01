@@ -69,7 +69,8 @@ say "gate passed after $(( $(date +%s) - T0 ))s"
 
 # REF=1: the reference predictions (PROTOCOL section 8) instead of the arms. qb2 pushes mol1-quality's tree to
 # /root/kc/qinputs and writes QINPUTS-DONE; K=4 first, then K=1 for whatever that left (a 1024-token case that did not
-# fit four to a GPU). mol1_ref.py skips every job whose summary exists, so a relaunch resumes. REF_REVERSE=1 runs the
+# fit four to a GPU; REF_K=1 skips straight to it on a retry box). mol1_ref.py skips every job whose summary exists,
+# so a relaunch resumes. REF_REVERSE=1 runs the
 # list from the end, so a second box started beside a running one works toward it instead of duplicating it.
 if [ -n "${REF:-}" ]; then
   # Bounded: an unbounded wait billed a whole session for nothing when qb2's push was refused (mol1-b200-ref1).
@@ -78,7 +79,7 @@ if [ -n "${REF:-}" ]; then
   # A fresh box has no outputs, so the skip-if-done resume only works if qb2 ships what earlier sessions made:
   # qinputs/_ref holds them (hardlinked there before the session), and cp -n never overwrites this box's work.
   [ -d /root/kc/qinputs/_ref ] && mkdir -p $B/ref && cp -rn /root/kc/qinputs/_ref/. $B/ref/
-  for k in 4 1; do
+  for k in ${REF_K:-4 1}; do
     (cd /tmp && $PY -I /root/kc/mol1_ref.py --inputs /root/kc/qinputs --out $B/ref --k $k ${REF_REVERSE:+--reverse}) >> $B/ref.log 2>&1
   done
   say "ref done: $(grep -c '"status": "ok"' $B/ref/jobs.jsonl) ok lines"; echo done > $B/MOL1-DONE; exit 0
