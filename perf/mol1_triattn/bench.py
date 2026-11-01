@@ -65,6 +65,57 @@ def reference_rows(x, sd, H, ending, rows):
     return torch.stack(out)                                                 # [rows, S, c]
 
 
+# per-stage split (--stages): each wrapped call is fenced by a device sync, so the stages add up to a little more
+# than the unfenced op time; "other" is the remainder (pair permutes, unfused LayerNorm, head splits)
+STAGES = [(TL, "ln_qkvgb_heads"), (T._triatt_qkv, "qkvgb_heads"), (T._triatt_qkv, "qkvg_heads"),
+          (T, "_tri_att_sdpa"), (T, "_tri_att_gated_sdpa"), (T, "_tri_att_sdpa_hifi"), (T, "_tri_att_taped_sdpa"),
+          (T._triatt_qkv, "gated_out_proj"), (T._triatt_qkv, "out_proj")]
+
+
+def stage_split(mod, xt, dev, reps):
+    """Per-stage ms (min over reps) of one call, and the fenced total."""
+    acc, orig, depth = {}, {}, [0]
+
+    def wrap(name, f):
+        def g(*a, **k):
+            if depth[0]:                       # a stage nested in another is part of the outer one
+                return f(*a, **k)
+            depth[0] += 1
+            ttnn.synchronize_device(dev)
+            t0 = time.perf_counter()
+            try:
+                r = f(*a, **k)
+                ttnn.synchronize_device(dev)
+            finally:
+                depth[0] -= 1
+            acc[name] = acc.get(name, 0.0) + time.perf_counter() - t0
+            return r
+        return g
+    for m, n in STAGES:
+        if hasattr(m, n):
+            orig[(m, n)] = getattr(m, n)
+            setattr(m, n, wrap(n, orig[(m, n)]))
+    best = None
+    try:
+        for _ in range(reps):
+            acc.clear()
+            ttnn.synchronize_device(dev)
+            t0 = time.perf_counter()
+            o = mod(xt)
+            ttnn.synchronize_device(dev)
+            tot = time.perf_counter() - t0
+            ttnn.deallocate(o)
+            if best is None or tot < best[0]:
+                best = (tot, dict(acc))
+    finally:
+        for (m, n), f in orig.items():
+            setattr(m, n, f)
+    tot, st = best
+    st = {k: round(v * 1e3, 3) for k, v in st.items()}
+    st["other"] = round(tot * 1e3 - sum(st.values()), 3)
+    return {"fenced_ms": round(tot * 1e3, 3), "stages_ms": st}
+
+
 def metrics(ref, got):
     ref, got = ref.flatten(), got.double().flatten()
     pcc = torch.corrcoef(torch.stack([ref, got]))[0, 1].item()
@@ -79,6 +130,7 @@ def main():
     ap.add_argument("--arms", default="mol1_now,v2_normal")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--ref-max", type=int, default=1024, help="skip the float64 reference above this size")
+    ap.add_argument("--stages", action="store_true", help="also split one call into its fenced stages")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     dev = T.get_device()
@@ -127,6 +179,8 @@ def main():
                                     ttnn.synchronize_device(dev)
                                     ts.append(time.perf_counter() - t0)
                                     ttnn.deallocate(o)
+                            if a.stages:
+                                rec.update(stage_split(mod, xt, dev, a.reps))
                             ttnn.deallocate(xt)
                             ts.sort()
                             rec["ms_min"] = round(ts[0] * 1e3, 3)
