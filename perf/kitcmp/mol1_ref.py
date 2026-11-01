@@ -53,6 +53,8 @@ def main():
     ap.add_argument("--k", type=int, default=4)
     ap.add_argument("--reverse", action="store_true",
                     help="run the job list from the end, so a second box fills in from the other side of a running one")
+    ap.add_argument("--first", default="",
+                    help="comma-separated cases run before everything else, seed-major (each case at the first seed, then the next)")
     ap.add_argument("--seeds", default="42,66,101,2024,8888")
     ap.add_argument("--selftest-seeds", default="7,13,77,1234,9999")
     ap.add_argument("--mol-root", default="/root/moldata", help="MOL_ROOT_DIR: checkpoint/ and common/ reference data")
@@ -70,6 +72,8 @@ def main():
     order = list(RECIPES)
     jobs = [(c, a.index["recipes"].get(c, "default"), s, x) for c, s, x in jobs]
     jobs.sort(key=lambda j: order.index(j[1]) if j[1] in order else len(order))  # stable: set order kept per recipe
+    first, allseeds = [c for c in a.first.split(",") if c], seeds + selftest
+    jobs.sort(key=lambda j: (0, allseeds.index(j[3]), first.index(j[0])) if j[0] in first else (1,))
     stem = lambda c: Path(a.index["cases"][c]).stem
     todo_jobs = [j for j in jobs if not list((a.out / j[2] / stem(j[0]) / f"seed_{j[3]}" / "predictions").glob("*summary_confidence*"))]
     todo_jobs = todo_jobs[::-1] if a.reverse else todo_jobs
