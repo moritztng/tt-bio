@@ -135,6 +135,8 @@ def main():
     ap.add_argument("--model", default="mol1")
     ap.add_argument("--seed", type=int, default=101)
     ap.add_argument("--skip-timed", action="store_true", help="attribution fold only (after the cold one)")
+    ap.add_argument("--trace-cold", action="store_true",
+                    help="DRAM trace from the cold fold on, and DRAM in use before each fold: what a fold leaves behind")
     a = ap.parse_args()
     os.environ["TT_VISIBLE_DEVICES"] = os.environ["TT_BIO_LEASE_CARDS"] = str(a.chip)
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -161,13 +163,28 @@ def main():
         S.on = kind == "sections"
         if S.on:
             S.f = open(out / "sections.jsonl", "w")
+        if S.on or a.trace_cold:
             os.environ["TT_BIO_DRAM_PEAK"] = str(out / "dram_peak.txt")  # read per call; drains like the syncs
             os.environ["TT_BIO_DRAM_PEAK_TRACE"] = "1"  # every sample, so a refusal is placed in its cycle
+        if a.trace_cold:
+            import gc
+            import ttnn
+            from tt_bio.tenstorrent import dram_free, get_device
+            gc.collect()
+            mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+            emit({"phase": f"before-{kind}", "dram_allocated_per_bank": int(mv.total_bytes_allocated_per_bank),
+                  "dram_largest_free_B": dram_free()})
         sdir = out / f"r{i}-{kind}"
         sdir.mkdir(parents=True, exist_ok=True)
         with clocksample.during(period=1.0) as clk:
             t = time.time()
-            metrics, _, _ = state.predict_one(jobs[0], dict(cfg, seed=a.seed, struct_dir=str(sdir)))
+            try:
+                metrics, _, _ = state.predict_one(jobs[0], dict(cfg, seed=a.seed, struct_dir=str(sdir)))
+            except RuntimeError as exc:
+                if not a.trace_cold:
+                    raise
+                emit({"phase": kind, "round": i, "wall_s": round(time.time() - t, 2), "err": str(exc)[:600]})
+                return
             wall = time.time() - t
         cs = clk.summary()
         emit({"phase": kind, "round": i, "wall_s": round(wall, 2), "tokens": metrics.get("n_tokens"),
