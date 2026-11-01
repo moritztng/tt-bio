@@ -8212,7 +8212,7 @@ def msa_upload_whole(depth, tokens, channels):
     return depth * tokens * (-(-channels // 32) * 32) * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES)
 
 
-def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, stream=False):
+def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, stream=False, split=False):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload(m, keep)` places it.
 
     `feat` is the MSA input feature [1, depth, tokens, c], on the device or on the host, and
@@ -8224,10 +8224,15 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, stream=False):
     `keep` (capped at `MSA_JOIN_MAX_BYTES`) holds the whole `m`, else each comes straight back to
     the host. Every op in the projection is per alignment row, so the chunks hold the rows the
     whole pass does. `stream` sends a host feature's chunks to the host whatever its size: the
-    rung a refused whole projection drops to, where the chip has the bytes but not in one block."""
+    rung a refused whole projection drops to, where the chip has the bytes but not in one block.
+    `split` is the rung before it: the projected chunks of a device or host feature stay on the
+    chip as a list, never joined, which every MSA-module consumer takes. A chunk DRAM refuses
+    frees the ones in hand and raises."""
     up = lambda t: (_up_tilize_on_device(t) if t.dtype == torch.bfloat16 else
                     ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                     dtype=ttnn.bfloat16))
+    if split:
+        return _msa_embed_split(feat, project, rows, up)
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
     host = torch.is_tensor(feat)
     if not host or (not stream and msa_upload_whole(*feat.shape[1:])):
@@ -8264,6 +8269,26 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, stream=False):
             return m
     dram_peak(f"trunk m embedded to the host in depth chunks [{tuple(m.shape)} torch]")
     return m
+
+
+def _msa_embed_split(feat, project, rows, up):
+    out = []
+    try:
+        for s in range(0, feat.shape[1], rows):
+            if torch.is_tensor(feat):
+                x = up(feat[:, s:s + rows])
+            else:
+                x = ttnn.slice(feat, (0, s, 0, 0), (1, min(s + rows, feat.shape[1]), *feat.shape[2:]))
+            out.append(project(x))
+            ttnn.deallocate(x)
+        if not torch.is_tensor(feat):
+            ttnn.deallocate(feat)
+    except RuntimeError:
+        for mc in out:
+            ttnn.deallocate(mc)
+        raise
+    dram_peak(f"trunk m embedded on the chip in {len(out)} depth chunks")
+    return out
 
 
 def msa_row_bucket(depth, n_rows, step=1024):

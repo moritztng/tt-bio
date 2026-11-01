@@ -4114,7 +4114,8 @@ class Trunk(_KeyedWeights):
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
                 # transition no room to join its blocks on device from cycle 1 on, and every
                 # later recycle took the host join: ~12 min instead of ~4:20 on a Wormhole chip.
-                ttnn.deallocate(m_feat)
+                if not isinstance(m_feat, list):    # the MSA module freed a chunk list
+                    ttnn.deallocate(m_feat)
                 ttnn.deallocate(rows[0])
                 del m_feat, rows
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
@@ -4130,17 +4131,28 @@ class Trunk(_KeyedWeights):
 
         def sampled(cyc, carry, x):
             # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
-            k = len(rows[cyc])
+            k, depth = len(rows[cyc]), x.shape[1]
             m_c = None
             try:
                 m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1])
             except RuntimeError as exc:
-                # A device draw unwinds to the caller's rung. A host one is the last rung, so its
-                # refused projection goes up in depth chunks and comes back to the host for this
-                # cycle alone: at 1024 tokens a 6,144-row draw is a 2.4 GB m, refused with 5.2 GB
-                # free in no block over 2 GB, which crashed the fold.
-                if not (torch.is_tensor(x) and is_alloc_refusal(exc)):
+                if not is_alloc_refusal(exc):
                     raise
+            if m_c is None:
+                # At 1024 tokens a 6,848-row draw is a 2.69 GB m, refused with 5.3 GB free in no
+                # block over 2.4 GB. Its depth chunks stay on the chip as a list, which the MSA
+                # module reads as it reads the streamed m. Where even they are refused, a device
+                # draw unwinds to the caller's rung and a host one, the last rung, streams this
+                # cycle from the host.
+                print(f"[tt-bio] DRAM refused cycle {cyc}'s MSA {tuple(x.shape)} in one piece; holding it "
+                      f"on the chip in depth chunks. The tt-metal 'Out of Memory' line above is expected "
+                      f"and handled.", file=sys.stderr, flush=True)
+                gc.collect()
+                try:
+                    m_c = msa_embed(x, m_proj, split=True)
+                except RuntimeError as exc:
+                    if not (torch.is_tensor(x) and is_alloc_refusal(exc)):
+                        raise
             if m_c is None:
                 print(f"[tt-bio] DRAM refused cycle {cyc}'s MSA {tuple(x.shape)} in one piece; streaming "
                       f"it from the host for this cycle. The tt-metal 'Out of Memory' line above is expected "
@@ -4150,7 +4162,7 @@ class Trunk(_KeyedWeights):
             if torch.is_tensor(m_c):
                 # Parked on the host: drop the padding there, which costs nothing.
                 return cycle(cyc, carry, m_c[:, :k])
-            mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
+            mask = ttnn.from_torch(msa_rows_mask(k, depth), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
             carry = cycle(cyc, carry, m_c, (mask, k))
             del m_c, mask

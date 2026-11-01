@@ -141,3 +141,30 @@ def test_stream_builds_a_small_feature_on_the_host_in_chunks(dev):
     out = T.msa_embed(feat, project, rows=16, keep=1 << 40, stream=True)
     assert torch.is_tensor(out) and not torch.is_tensor(whole)
     assert torch.equal(out, ttnn.to_torch(whole))
+
+
+@pytest.mark.parametrize("on_chip", [False, True])
+def test_split_chunks_are_the_whole_pass(dev, on_chip):
+    """The rung for a whole projection DRAM refused: the same rows, as a list of device chunks."""
+    n, c, project = _project(dev)
+    feat = torch.randn(1, 80, n, c).to(torch.bfloat16)
+    up = lambda: ttnn.from_torch(feat, layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+    whole = ttnn.to_torch(T.msa_embed(up(), project))
+    parts = T.msa_embed(up() if on_chip else feat, project, 32, split=True)
+    assert [p.shape[1] for p in parts] == [32, 32, 16]
+    assert torch.equal(torch.cat([ttnn.to_torch(p) for p in parts], dim=1), whole)
+
+
+def test_a_refused_split_chunk_raises(dev):
+    n, c, project = _project(dev)
+    calls = []
+
+    def refuse_third(x):
+        calls.append(x.shape[1])
+        if len(calls) == 3:
+            raise RuntimeError(TT_OOM)
+        return project(x)
+
+    with pytest.raises(RuntimeError, match="Out of Memory"):
+        T.msa_embed(torch.randn(1, 80, n, c), refuse_third, 32, split=True)
+    assert calls == [32, 32, 16]
