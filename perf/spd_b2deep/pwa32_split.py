@@ -14,7 +14,10 @@ usage: TT_VISIBLE_DEVICES=<chip> python pwa32_split.py OUT [ROWS=320] [TOKENS=76
        (more arms: cmajor_hifi3, cmajor_hifi2 = cmajor with the head contraction at that fidelity;
         cmajor_pret = token weights pre-transposed, no transpose_b; cmajor_nof32 = head contraction without
         fp32 dest accumulation (twice the dest tiles per subblock); cmajor_hifi2_nof32 = both;
-        cmajor_w8 = token weights in bfloat8_b)
+        cmajor_w8 = token weights in bfloat8_b;
+        phead = per-head channel-major: each head's v^T [rows, 32, T] is already [rows*32, T] on tile rows, so the
+        head contraction is 8 batch-1 matmuls on ttnn's planner with no outer permute either side; o*g per
+        head, one concat back to [rows, 256, T]; phead_cg = the same with core_grid on the head matmuls)
 """
 import json, statistics, sys, time
 from pathlib import Path
@@ -112,6 +115,32 @@ def cmajor(s, head_lin=lin, Wh=None):
     s("gate_mul", lambda og: ttnn.multiply_(og[0], og[1], input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID]))
     s("outT", lambda x: ttnn.matmul(WoT, x, **lin))                                # [rows, 64, T]
     s("out_tWH", lambda x: ttnn.transpose(x, -2, -1))                              # [rows, T, 64]
+
+
+WvTh = [up(wv[:, h * HD:(h + 1) * HD].t().contiguous().unsqueeze(0).expand(ROWS, -1, -1).contiguous())
+        for h in range(H)]
+WgTh = [up(wg[:, h * HD:(h + 1) * HD].t().contiguous().unsqueeze(0).expand(ROWS, -1, -1).contiguous())
+        for h in range(H)]
+Wh1 = [up(w[h].unsqueeze(0)) for h in range(H)]                 # [1, T, T] per head, as head_weights returns
+
+
+def phead(s, head_lin=dict(compute_kernel_config=ckc)):
+    rows, T = ROWS, T_
+    s("mT", lambda: ttnn.transpose(mc, -2, -1))
+    s("vT", lambda m: (m, [ttnn.reshape(ttnn.matmul(WvTh[h], m, **lin), (1, rows * HD, T)) for h in range(H)]),
+      keep=True)
+    s("head_mm", lambda mv: (mv[0], [ttnn.matmul(v, Wh1[h], transpose_b=True, **head_lin)
+                                     for h, v in enumerate(mv[1])]), keep=True)
+    s("gT", lambda mo: (mo[1], [ttnn.matmul(WgTh[h], mo[0], **lin) for h in range(H)]), keep=True)
+    s("gate_mul", lambda og: [ttnn.multiply_(ttnn.reshape(o, (rows, HD, T)), g,
+                                             input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID])
+                              for o, g in zip(*og)])
+    s("concat", lambda os: ttnn.concat(os, dim=1))                                 # [rows, 256, T]
+    s("outT", lambda x: ttnn.matmul(WoT, x, **lin))
+    s("out_tWH", lambda x: ttnn.transpose(x, -2, -1))
+
+
+phead_cg = lambda s: phead(s, lin)
 
 
 def run(name, body):
