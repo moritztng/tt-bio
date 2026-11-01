@@ -385,12 +385,13 @@ def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=No
 # 70 cores. MEASURED on .107 chip 6 at 1000 MHz, [1024, 10, 1024, 32] bf16 at k256
 # (perf/mol1_triattn/sdpa_sweep.py, state/mol1/evidence/wh1024/triattn/sweep.jsonl): 107.29 -> 70.17 ms,
 # torch.equal. Over every pair that ran at 512 and 1024 the time follows `per_core_cost` to within 5 %,
-# the padded ones at the high end. The 20 % margin keeps the predicted 10-15 % cases (Protenix-v2 at 800,
-# 14 heads at 1024) on the ladder until a sweep measures them. Wormhole only (the caller): the cost model
+# the padded ones at the high end. At the 12 % margin every cell measured on the 8x9 and 8x8 grids
+# (perf/mol1_triattn/split_ab.py --margin 0.12, 21 cells) ran 1.09-1.80x faster and torch.equal,
+# the 4-head Protenix-v2 shape at 800 included (1.20x). Wormhole only (the caller): the cost model
 # is unmeasured against Blackhole's grids. The q chunk only moves rows between cores and the
 # padded rows are dropped, so the output bits are the dividing pick's at the same k chunk.
 SPLIT_Q = env_flag("TT_BIO_TRIATT_SPLIT_Q", True)
-SPLIT_Q_MARGIN = 0.20
+SPLIT_Q_MARGIN = 0.12
 SPLIT_Q_STATS = [0, 0]   # (served, offered and declined)
 
 
