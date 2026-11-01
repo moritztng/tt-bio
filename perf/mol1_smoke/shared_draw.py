@@ -76,7 +76,7 @@ def pack(seed_dir, pred_dir, cases):
     name = Path(seed_dir).parent.name
     job = next(j for j in json.load(open(cases)) if j["name"] == name)
     mode = "no_msa" if "nomsa" in name else "msa"
-    table = str(weights.fetch("mol1-ccd") / "ccd_conformers.npz")
+    table = str(weights.fetch("mol1-ccd") / "ccd_table.npz")
     feats = cf.tt_features(job, mode, Path(tempfile.mkdtemp()), conformer_table=table)
 
     # upstream's tensor wherever both sides build the key: the grade then measures the model, not the featurizer

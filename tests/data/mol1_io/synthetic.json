@@ -44,5 +44,17 @@
      {"proteinChain": {"sequence": "XPGPX", "count": 1,
        "modifications": [{"ptmType": "CCD_ACE", "ptmPosition": 1}, {"ptmType": "CCD_HYP", "ptmPosition": 2},
                          {"ptmType": "CCD_NH2", "ptmPosition": 5}]}}
+   ]},
+  {"name": "ccd_newer",
+   "sequences": [
+     {"proteinChain": {"sequence": "MKVLNGTATS", "count": 1,
+                       "modifications": [{"ptmType": "CCD_6BR", "ptmPosition": 9}]}},
+     {"ligand": {"ligand": "CCD_A1APB", "count": 1}},
+     {"ligand": {"ligand": "CCD_A1A5U", "count": 1}},
+     {"ligand": {"ligand": "CCD_YKX", "count": 1}},
+     {"ligand": {"ligand": "CCD_A1EKL", "count": 1}}
+   ],
+   "covalent_bonds": [
+     {"entity1": "1", "position1": "5", "atom1": "ND2", "entity2": "2", "position2": "1", "atom2": "C1"}
    ]}
 ]
