@@ -391,19 +391,19 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     c_bonded = {(str(c), int(r)) for pair in (bonds or []) for c, r, a in pair if a == "C"}
     for ci, (seq, a3m, mt) in enumerate(norm):
         lig_names, res_tok, res_atoms = None, None, {}
-        msa_col = None
+        msa_col, mt_feat = None, mt
         if mt == "ligand" and seq.startswith("CCD_"):
             # One residue per CCD component (a glycan "NAG,NAG" is residues 1 and 2), each
             # tokenized per atom; the leaving atoms a covalent bond consumes are dropped.
             drops = _ccd_leaving_drops(seq, mols, chain_ids[ci] if chain_ids is not None else None,
                                        bonds)
-            af, n, lbonds, lig_names, res_index = ccd_ligand_features(seq, mols, drops)
-            rt_idx = torch.full((n,), 20, dtype=torch.long)   # ligand atoms are restype UNK
+            af, n, lbonds, lig_names, res_index, rt_idx, mt_feat = ccd_ligand_features(
+                seq, mols, drops, conformers)
             n_res = int(res_index.max())
             block_bonds.append((tok_off, lbonds))
         elif mt == "ligand":
             af, n, lbonds, names = ligand_atom_features(_ligand_mol(seq, mols))
-            lig_names = [(1, nm) for nm in names]
+            lig_names = {(1, nm): i for i, nm in enumerate(names)}
             rt_idx = torch.full((n,), 20, dtype=torch.long)   # ligand atoms are restype UNK
             res_index = torch.ones(n, dtype=torch.long)       # all atoms share residue_index 1
             n_res = 1
@@ -434,7 +434,7 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
         entity.append(torch.full((n,), eid, dtype=torch.long))
         sym.append(torch.full((n,), sid, dtype=torch.long))
         resid.append(res_index)
-        mol_type.append(torch.full((n,), MOL_TYPE_IDS[mt], dtype=torch.long))
+        mol_type.append(torch.full((n,), MOL_TYPE_IDS[mt_feat], dtype=torch.long))
         af["atom_to_token_idx"] = af["atom_to_token_idx"] + tok_off
         af["ref_space_uid"] = af["ref_space_uid"] + res_off
         atom_feats.append(af)
@@ -452,9 +452,8 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
                                    *chain_template_arrays(len("".join(str(seq).split())),
                                                           entries, template_dir)))
         if chain_ids is not None:
-            name_to_local = {rn: i for i, rn in enumerate(lig_names)} if lig_names is not None else None
             placement[str(chain_ids[ci])] = {"start": tok_off, "mt": mt, "n": n_res,
-                                             "atoms": name_to_local, "res_tok": res_tok,
+                                             "atoms": lig_names, "res_tok": res_tok,
                                              "res_atoms": res_atoms,
                                              "res_names": _res_names(seq, mt)}
         tok_off += n
@@ -933,6 +932,28 @@ def parent_restype(ccd: str, mol_type: str) -> int:
     return int(seq_to_restype(letter, mol_type)[0])
 
 
+@functools.cache
+def chem_comp_table() -> dict:
+    """CCD code -> its `_chem_comp` type, name, pdbx_synonyms, formula, formula_weight, as biotite reads them.
+
+    Reduced from the components.cif Mol-1 ships (common/components.cif, sha256 64f53e4d...), which upstream's writer
+    parses whole (518 MB) for these five fields on every structure it writes. Built by scripts/mol1_io/chem_comp_table.py."""
+    import gzip
+    with gzip.open(Path(__file__).parent / "data" / "ccd_chem_comp.json.gz", "rt") as fh:
+        return json.load(fh)
+
+
+def ccd_mol_type(ccd: str) -> str:
+    """A CCD component's molecule type from its `_chem_comp.type`, upstream's ``ccd.get_mol_type``:
+    a peptide-linking type is protein (PEPTIDE-LIKE is not), DNA-linking dna, RNA-linking rna,
+    anything else (and a code the table lacks) ligand."""
+    row = chem_comp_table().get(ccd.upper())
+    t = row[0].upper() if row else ""
+    if "PEPTIDE" in t and t != "PEPTIDE-LIKE":
+        return "protein"
+    return "dna" if "DNA" in t else "rna" if "RNA" in t else "ligand"
+
+
 def polymer_chain_features(seq: str, mt: str, mods: list | None, conformers: dict,
                            mols: dict, oxt=None):
     """One polymer chain's atom and token features, tokenizing a modified residue PER ATOM.
@@ -1207,16 +1228,35 @@ def _ccd_leaving_drops(spec, mols, cid, bonds) -> dict:
     return drops
 
 
-def ccd_ligand_features(spec: str, mols: dict, drops: dict | None = None):
-    """A CCD ligand chain of one or more components, tokenized per heavy atom. Component k is
-    residue k (upstream ``build_ligand`` gives each code of 'CCD_A_B' its own res_id) with its
-    own ref_space_uid. Returns (af, n_token, token_bonds, [(res, atom_name)], residue_index)."""
-    parts, names, res = [], [], []
+def ccd_ligand_features(spec: str, mols: dict, drops: dict | None = None, conformers: dict | None = None):
+    """A CCD ligand chain of one or more components. Component k is residue k (upstream
+    ``build_ligand`` gives each code of 'CCD_A_B' its own res_id) with its own ref_space_uid.
+
+    Upstream types each component by its `_chem_comp.type` (``ccd_mol_type``), not by the entity
+    it came in, and featurizes it as that molecule type: a peptide- or nucleotide-linking
+    component's atom tokens carry its parent restype (8BA -> DN, SEP -> SER), and a standard
+    residue (ALA, A, DA) is one residue token like in a chain. Everything else is one UNK token
+    per heavy atom. Returns (af, n_token, token_bonds, {(res, atom_name): token}, residue_index,
+    restype_idx, mol_type) with mol_type the type most of the chain's atoms have, as upstream
+    reads a chain's is_ligand."""
+    parts, names, res, restype, atom_mt = [], {}, [], [], []
     for r, code in enumerate(_ccd_list(spec), start=1):
-        af, n, b, nm = ligand_atom_features(mols[code], drop_atoms=(drops or {}).get(r, ()))
+        drop = (drops or {}).get(r, ())
+        mt = ccd_mol_type(code)
+        rt = parent_restype(code, mt) if mt != "ligand" else 20
+        if mt != "ligand" and restype_to_resname(torch.tensor([rt]))[0] == code:
+            af = polymer_chain_features(_ccd_one_letter()[code], mt, None, conformers, mols,
+                                        oxt=["OXT" not in drop])[0] if mt == "protein" else \
+                na_atom_features(_na_res_codes(_ccd_one_letter()[code], mt), mols, first_res="OP3" not in drop)
+            n, b = 1, torch.zeros(1, 1)
+            names.update({(r, nm): len(res) for nm in _atom_names(af)})
+        else:
+            af, n, b, nm = ligand_atom_features(mols[code], drop_atoms=drop)
+            names.update({(r, x): len(res) + i for i, x in enumerate(nm)})
         parts.append((af, n, b))
-        names += [(r, x) for x in nm]
         res += [r] * n
+        restype += [rt] * n
+        atom_mt += [mt] * af["atom_to_token_idx"].numel()
     n_tot = sum(n for _, n, _ in parts)
     bonds = torch.zeros(n_tot, n_tot)
     feats, off = [], 0
@@ -1228,7 +1268,14 @@ def ccd_ligand_features(spec: str, mols: dict, drops: dict | None = None):
         feats.append(af)
         off += n
     af = {k: torch.cat([f[k] for f in feats], 0) for k in feats[0]}
-    return af, n_tot, bonds, names, torch.tensor(res, dtype=torch.long)
+    mol_type = max(MOL_TYPE_IDS, key=atom_mt.count)
+    return (af, n_tot, bonds, names, torch.tensor(res, dtype=torch.long),
+            torch.tensor(restype, dtype=torch.long), mol_type)
+
+
+def _atom_names(af: dict) -> list:
+    """Atom names back out of ref_atom_name_chars."""
+    return ["".join(chr(int(c) + 32) for c in row).strip() for row in af["ref_atom_name_chars"].argmax(-1).tolist()]
 
 
 def ligand_atom_features(mol, drop_atoms=()):

@@ -318,24 +318,14 @@ _BACKBONE = {"protein": ("C", "N"), "dna": ("O3'", "P"), "rna": ("O3'", "P")}
 _CHEM_COMP = ("type", "name", "pdbx_synonyms", "formula", "formula_weight")
 
 
-@functools.cache
-def _chem_comp_table() -> dict:
-    """CCD code -> its `_chem_comp` type, name, pdbx_synonyms, formula, formula_weight, as biotite reads them.
-
-    Reduced from the components.cif Mol-1 ships (common/components.cif, sha256 64f53e4d...), which upstream's writer
-    parses whole (518 MB) for these five fields on every structure it writes. Built by scripts/mol1_io/chem_comp_table.py."""
-    import gzip
-    with gzip.open(Path(__file__).parent / "data" / "ccd_chem_comp.json.gz", "rt") as fh:
-        return json.load(fh)
-
-
 def _cif_writer():
     from tt_bio._vendor.mol1.data_utils import STD_RESIDUES, CIFWriter, pdbx
+    from tt_bio.protenix_data import chem_comp_table
 
     class _Writer(CIFWriter):
         def _get_chem_comp_block(self):
             # upstream's CIFWriter._get_chem_comp_block, reading the reduced table instead of components.cif
-            table, chem_comp = _chem_comp_table(), {k: [] for k in ("id", "type", "mon_nstd_flag", *_CHEM_COMP[1:])}
+            table, chem_comp = chem_comp_table(), {k: [] for k in ("id", "type", "mon_nstd_flag", *_CHEM_COMP[1:])}
             for ccd in np.unique(self.atom_array.res_name):
                 row = dict(zip(_CHEM_COMP, table.get(ccd, ["?"] * 5)))
                 if ccd not in table:
