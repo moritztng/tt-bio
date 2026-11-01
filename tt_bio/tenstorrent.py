@@ -3916,6 +3916,17 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     # The bias is re-read once per batch row by the stock reader; hold it instead. Same
     # preference order as the stock loop below -- `fits` is widest first, production pick last, and
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
+    # Ahead of them, a padded q chunk at the same k when the dividing ones leave the grid idle.
+    q_split = _triatt_sdpa.split_q_chunk(
+        int(q_len), int(q.shape[1]), int(q.shape[3]), COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1],
+        k_chunk, bias.dtype, tuple(fits)) if q_len == k_len and is_wormhole() else 0
+    if q_split:
+        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_split, k_chunk, ckc_default=ckc, gate=gate,
+                              padded_mask=True)
+        _triatt_sdpa.SPLIT_Q_STATS[o is None] += 1
+        if o is not None:
+            _sdpa_pick(q_len, k_len, q_split, k_chunk, "fused")
+            return o
     for q_chunk in fits:
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
                                       ckc_default=ckc, gate=gate)

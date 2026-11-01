@@ -376,6 +376,56 @@ def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=No
     return tuple((qc, kc) for _c, qc, kc in sorted(out))
 
 
+# A padded q chunk ahead of the dividing ladder when it lights enough more cores. ON; bit-exact.
+#
+# With one q chunk per core the split is (cores // (heads * q_pf), heads, q_pf), so only a product of
+# those factors lights up, and a core's load is its batch rows times its q rows. The dividing ladder
+# can leave most of the grid idle: at padded 1024 with 10 heads on the Galaxy's 72 cores q512 is over
+# L1 and q256 runs [1, 10, 4], 40 cores. q160 pads the axis to 1120 in 7 chunks and runs [1, 10, 7],
+# 70 cores. MEASURED on .107 chip 6 at 1000 MHz, [1024, 10, 1024, 32] bf16 at k256
+# (perf/mol1_triattn/sdpa_sweep.py, state/mol1/evidence/wh1024/triattn/sweep.jsonl): 107.29 -> 70.17 ms,
+# torch.equal. Over every pair that ran at 512 and 1024 the time follows `per_core_cost` to within 5 %,
+# the padded ones at the high end. At the 12 % margin every cell measured on the 8x9 and 8x8 grids
+# (perf/mol1_triattn/split_ab.py --margin 0.12, 21 cells) ran 1.09-1.80x faster and torch.equal,
+# the 4-head Protenix-v2 shape at 800 included (1.20x). Wormhole only (the caller): the cost model
+# is unmeasured against Blackhole's grids. The q chunk only moves rows between cores and the
+# padded rows are dropped, so the output bits are the dividing pick's at the same k chunk.
+SPLIT_Q = env_flag("TT_BIO_TRIATT_SPLIT_Q", True)
+SPLIT_Q_MARGIN = 0.12
+SPLIT_Q_STATS = [0, 0]   # (served, offered and declined)
+
+
+@lru_cache(maxsize=None)
+def split_q_chunk(seq: int, heads: int, head_dim: int, cores: int, k_chunk: int, mask_dtype,
+                  dividing: tuple) -> int:
+    """A padded q chunk for `sdpa(..., padded_mask=True)` at `k_chunk`, or 0 for the dividing ladder.
+
+    `dividing` is the ladder's q chunks at this k, widest first; its first one that divides and fits the
+    persistent mask is what serves without this (a non-dividing one never reaches the fused kernel here). Each q split `q_pf` is offered at the narrowest q that reaches it,
+    and one wins only if `per_core_cost` puts it `SPLIT_Q_MARGIN` under that pick. Within the cap only:
+    above it `q_parallel_factor` gives no split and the large-S route ranks its own pairs."""
+    if not SPLIT_Q or seq > _Q_SPLIT_MAX_S or seq % k_chunk:
+        return 0
+    dts = {} if mask_dtype is None else {f"{o}_dtype": mask_dtype for o in ("q", "k", "v", "mask", "out")}
+
+    def cost(qc):
+        q_pf = q_parallel_factor(seq, heads, qc, cores)
+        p = SG.plan_for_shape(seq, heads, head_dim, qc, k_chunk, grid=(cores, 1),
+                              split=(max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
+        if p["q_per_core"] != 1 or p["nh_per_core"] != 1:
+            return None
+        if not SG.cb_fits_l1(p, mask_cb_tiles=p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"], **dts):
+            return None
+        return per_core_cost(p, qc, p["k_num_chunks"] * k_chunk)
+
+    base = next((c for c in (cost(qc) for qc in dividing if seq % qc == 0) if c is not None), None)
+    if base is None:
+        return 0
+    pads = {-(-seq // (n * SG.TILE)) * SG.TILE for n in range(2, cores // heads + 1)}
+    best = min(((c, qc) for qc in pads if seq % qc and (c := cost(qc)) is not None), default=None)
+    return best[1] if best and best[0] < (1 - SPLIT_Q_MARGIN) * base else 0
+
+
 # The gate multiply folded into this kernel's pack stage. `gate_and_project` runs
 # `o * sigmoid(g)` as its own program: it reads o (67.1 MB at boltz-2's 512 aa triangle
 # attention), reads g (67.1 MB) and writes o back (67.1 MB). Handed the gate, this kernel keeps
