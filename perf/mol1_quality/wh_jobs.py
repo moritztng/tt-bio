@@ -2,7 +2,7 @@
 
     python3 wh_jobs.py ROW_DIR TREE CACHE BACKLOG_DIR [PRIO]
 
-ROW_DIR holds inputs/ (quality_inputs.py tree, paired cases) and run_cell.sh (the SPD per-chip harness: chip flock,
+ROW_DIR holds inputs/ (quality_inputs.py tree, paired cases), kalign/bin (templates need kalign) and run_cell.sh (the SPD per-chip harness: chip flock,
 lease, AICLK sampled during the run). A job runs its case's five seeds in order with run_tt.sh's recipe flags and
 writes the upstream layout under ROW_DIR/tt-wh; a seed with rc=0 is skipped, so a recalled job can simply be requeued.
 """
@@ -17,7 +17,7 @@ BODY = """# mol1-quality WH: {name}, seeds {seeds}, upstream defaults (20 cycles
 # threads: 4
 # cap: 14400
 R={row}
-export TREE={tree} TT_BIO_CACHE={cache} BOLTZ_CACHE={cache} SHARE=4
+export PATH=$R/kalign/bin:$PATH TREE={tree} TT_BIO_CACHE={cache} BOLTZ_CACHE={cache} SHARE=4
 rc=0
 for s in {seeds}; do
   d=$R/tt-wh/.runs/{name}/seed_$s; grep -qs rc=0 $d/rc && continue; mkdir -p $d
