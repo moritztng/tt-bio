@@ -83,7 +83,7 @@ def test_mol1_fetches_its_own_conformers():
     assert set(arts) == {"mol1", "mol1-ccd", "mols"}
     ccd = arts["mol1-ccd"]
     assert split_hf(ccd.sources[0]) == ("RUIMA294264/Mol-1", "common/components.cif.rdkit_mol.pkl")
-    assert ccd.derived.producer == "rdkit-conformers" and ccd.derived.expect == ("ccd_conformers.npz",)
+    assert ccd.derived.producer == "rdkit-conformers" and ccd.derived.expect == ("ccd_table.npz",)
     assert not any(a.derived and a.derived.producer == "rdkit-conformers" for a in artifacts_for("protenix-v2"))
 
 
@@ -95,5 +95,5 @@ def test_only_mol1_folds_read_their_own_conformers(tmp_path, monkeypatch):
     cfgs = {m: {"model": m, "msa_dir": None} for m in ("mol1", "protenix-v2")}
     for cfg in cfgs.values():
         _ensure_local_artifacts(cfg)
-    assert cfgs["mol1"]["conformer_table"] == str(tmp_path / "mol1-ccd" / "ccd_conformers.npz")
+    assert cfgs["mol1"]["conformer_table"] == str(tmp_path / "mol1-ccd" / "ccd_table.npz")
     assert "conformer_table" not in cfgs["protenix-v2"]

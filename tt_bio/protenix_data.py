@@ -30,6 +30,7 @@ always-on padding.
 from __future__ import annotations
 
 import functools
+import gzip
 import json
 import math
 import pickle
@@ -367,23 +368,15 @@ def build_complex_features(chains: list, mol_dir: str | None = None,
     every fold got before, so an input with no templates is byte-identical.
     conformer_table: a model's own reference conformers ({CCD code: {atom name: xyz}},
     load_conformer_table). Atoms it names take its coordinates in place of the CCD ideal ones;
-    None keeps the ideal ones."""
+    None keeps the ideal ones. A table that carries topology also supplies the CCD codes the
+    `mols` library lacks (ccd_mols)."""
     norm = [(e[0], e[1], e[2] if len(e) > 2 else "protein") for e in chains]
     conformers = load_ref_conformers()
     # CCD codes needed from the `mols` library: nucleic-acid residues + CCD ligands.
     ccd_codes = {c for seq, _, mt in norm if mt in ("rna", "dna") for c in _na_res_codes(seq, mt)}
     ccd_codes |= {c for seq, _, mt in norm if mt == "ligand" and seq.startswith("CCD_") for c in _ccd_list(seq)}
     ccd_codes |= {str(m["ccd"]).upper() for ms in (modifications or []) if ms for m in ms}
-    mols = {}
-    if ccd_codes:
-        from .data.mol import load_molecules
-        try:
-            mols = load_molecules(str(mol_dir or _default_mol_dir()), sorted(ccd_codes))
-        except FileNotFoundError as e:                # a typo'd ccd/modification code
-            code = Path(e.filename or "?").stem
-            raise ValueError(
-                f"{code!r} is not a CCD component this build knows; check the code in the "
-                "input's `ligand:` or `modifications:` block.") from e
+    mols = ccd_mols(sorted(ccd_codes), mol_dir, conformer_table) if ccd_codes else {}
     if conformer_table is not None:
         conformers, mols = with_conformer_table(conformers, mols, conformer_table)
 
@@ -613,38 +606,111 @@ class _CcdUnpickler(pickle.Unpickler):
         return super().find_class(module, name)
 
 
-def write_conformer_table(pkl, out) -> int:
+def write_conformer_table(pkl, out, codes=None) -> int:
     """Reduce an upstream CCD pickle ({code: RDKit mol}, components.cif.rdkit_mol.pkl) to the npz
     load_conformer_table reads: each code's conformer at mol.ref_conf_id, which is what upstream's
-    get_ccd_ref_info uses, in the mol's atom order with its atom names. Returns the code count."""
+    get_ccd_ref_info uses, in the mol's atom order with its atom names, plus each atom's element and
+    formal charge and the mol's bonds, so a code the `mols` library lacks can be built from it.
+    ``codes`` keeps only those codes. Returns the code count."""
     import numpy as np
     import rdkit.Chem  # noqa: F401  (registers the Mol pickle support)
     with open(pkl, "rb") as fh:
         mols = _CcdUnpickler(fh).load()
-    codes, counts, names, xyz = [], [], [], []
+    keep, counts, names, xyz, elements, charges, nbonds, bonds = [], [], [], [], [], [], [], []
     for code, mol in mols.items():
         n = mol.GetNumAtoms()
-        if n == 0:
+        if n == 0 or (codes is not None and code not in codes):
             continue
         inv = {i: a for a, i in mol.atom_map.items()}
-        codes.append(code)
+        keep.append(code)
         counts.append(n)
         names += [inv[i] for i in range(n)]
         xyz.append(mol.GetConformer(mol.ref_conf_id).GetPositions().astype(np.float32))
-    np.savez_compressed(out, codes=np.array(codes), counts=np.array(counts, np.int32), names=np.array(names),
-                        xyz=np.concatenate(xyz))
-    return len(codes)
+        elements += [a.GetAtomicNum() for a in mol.GetAtoms()]
+        charges += [a.GetFormalCharge() for a in mol.GetAtoms()]
+        nbonds.append(mol.GetNumBonds())
+        bonds += [(b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in mol.GetBonds()]
+    np.savez_compressed(out, codes=np.array(keep), counts=np.array(counts, np.int32), names=np.array(names),
+                        xyz=np.concatenate(xyz), elements=np.array(elements, np.uint8),
+                        charges=np.array(charges, np.int8), bond_counts=np.array(nbonds, np.int32),
+                        bonds=np.array(bonds, np.int16).reshape(-1, 2))
+    return len(keep)
 
 
-def load_conformer_table(path) -> dict:
-    """{CCD code: {atom name: (3,) float32 array}} from an npz of codes / counts / names / xyz, the
-    layout write_conformer_table writes from an upstream CCD pickle."""
+class CcdTable(dict):
+    """{CCD code: {atom name: (3,) float32 array}}, a model's own reference conformers. When the npz
+    carries topology (write_conformer_table), ``mol(code)`` also builds the code's RDKit mol."""
+
+    _topology = None                      # (index, elements, charges, atom offsets, bonds, bond offsets)
+
+    def mol(self, code):
+        """The code's mol shaped like a `mols` library entry: every atom (hydrogens too) with its
+        CCD name, formal charge and leaving-atom flag, the table's conformer, the CCD bonds (only
+        adjacency is read, so every bond is SINGLE). None when the table cannot build it."""
+        if self._topology is None or code not in self._topology[0]:
+            return None
+        from rdkit import Chem
+        from rdkit.Geometry import Point3D
+        index, elements, charges, off, bonds, boff = self._topology
+        i = index[code]
+        leaving = set(_ccd_leaving_atoms().get(code, ()))
+        mol = Chem.RWMol()
+        conf = Chem.Conformer(int(off[i + 1] - off[i]))
+        for k, ((name, xyz), z, q) in enumerate(zip(self[code].items(), elements[off[i]:off[i + 1]],
+                                                    charges[off[i]:off[i + 1]])):
+            atom = Chem.Atom(int(z))
+            atom.SetFormalCharge(int(q))
+            atom.SetProp("name", name)
+            atom.SetBoolProp("leaving_atom", name in leaving)
+            mol.AddAtom(atom)
+            conf.SetAtomPosition(k, Point3D(*map(float, xyz)))
+        for u, v in bonds[boff[i]:boff[i + 1]]:
+            mol.AddBond(int(u), int(v), Chem.BondType.SINGLE)
+        mol.AddConformer(conf, assignId=True)
+        return mol.GetMol()
+
+
+def load_conformer_table(path) -> CcdTable:
+    """The CcdTable in an npz of codes / counts / names / xyz (and, from write_conformer_table,
+    elements / charges / bond_counts / bonds), the layout written from an upstream CCD pickle."""
     import numpy as np
     with np.load(path) as z:    # each z[key] re-reads its array from the zip, so read every one once
-        codes, counts, names, xyz = (z[k] for k in ("codes", "counts", "names", "xyz"))
+        arrays = {k: z[k] for k in z.files}
+    codes, counts, names, xyz = (arrays[k] for k in ("codes", "counts", "names", "xyz"))
     off = np.concatenate([[0], np.cumsum(counts)])
-    return {str(c): dict(zip(map(str, names[off[i]:off[i + 1]]), xyz[off[i]:off[i + 1]]))
-            for i, c in enumerate(codes)}
+    table = CcdTable((str(c), dict(zip(map(str, names[off[i]:off[i + 1]]), xyz[off[i]:off[i + 1]])))
+                     for i, c in enumerate(codes))
+    if "bonds" in arrays:
+        table._topology = ({str(c): i for i, c in enumerate(codes)}, arrays["elements"], arrays["charges"], off,
+                           arrays["bonds"], np.concatenate([[0], np.cumsum(arrays["bond_counts"])]))
+    return table
+
+
+@functools.cache
+def _ccd_leaving_atoms() -> dict:
+    """CCD code -> the heavy atoms its `_chem_comp_atom.pdbx_leaving_atom_flag` marks, for the codes
+    that have any. Extracted from the components.cif Mol-1 ships by scripts/mol1_io/leaving_atoms_table.py."""
+    with gzip.open(Path(__file__).parent / "data" / "ccd_leaving_atoms.json.gz", "rt") as fh:
+        return json.load(fh)
+
+
+def ccd_mols(codes, mol_dir=None, table=None) -> dict:
+    """Each CCD code's template mol: the `mols` library's, else the one the model's own CCD table
+    builds (a component newer than the library). A code in neither is refused by name."""
+    from .data.mol import load_molecules
+    mol_dir = str(mol_dir or _default_mol_dir())
+    out = {}
+    for code in codes:
+        try:
+            out.update(load_molecules(mol_dir, [code]))
+        except FileNotFoundError as e:
+            mol = table.mol(code) if isinstance(table, CcdTable) else None
+            if mol is None:                           # a typo'd ccd/modification code
+                raise ValueError(
+                    f"{code!r} is not a CCD component this build knows; check the code in the "
+                    "input's `ligand:` or `modifications:` block.") from e
+            out[code] = mol
+    return out
 
 
 def with_conformer_table(conformers: dict, mols: dict, table: dict):

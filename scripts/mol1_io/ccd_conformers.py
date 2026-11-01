@@ -1,19 +1,12 @@
-"""Mol-1's reference conformer for every CCD code: the coordinates get_ccd_ref_info reads
-(mol.GetConformer(mol.ref_conf_id)), in the mol's atom order, with the atom names."""
-import pickle, sys
-import numpy as np
+"""Cut Mol-1's CCD table (protenix_data.write_conformer_table) down to the given codes, for test goldens.
 
-pkl, out = sys.argv[1], sys.argv[2]
-mols = pickle.load(open(pkl, "rb"))
-codes, counts, names, xyz = [], [], [], []
-for code, mol in mols.items():
-    n = mol.GetNumAtoms()
-    if n == 0:
-        continue
-    pos = mol.GetConformer(mol.ref_conf_id).GetPositions()
-    inv = {i: a for a, i in mol.atom_map.items()}
-    codes.append(code); counts.append(n)
-    names += [inv[i] for i in range(n)]; xyz.append(pos.astype(np.float32))
-np.savez_compressed(out, codes=np.array(codes), counts=np.array(counts, np.int32), names=np.array(names),
-                    xyz=np.concatenate(xyz))
-print(len(codes), sum(counts))
+    python scripts/mol1_io/ccd_conformers.py <components.cif.rdkit_mol.pkl> <out.npz> CODE [CODE ...]
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tt_bio.protenix_data import write_conformer_table  # noqa: E402
+
+if __name__ == "__main__":
+    print(write_conformer_table(sys.argv[1], sys.argv[2], set(sys.argv[3:])), "codes")
