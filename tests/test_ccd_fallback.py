@@ -85,3 +85,20 @@ TABLELESS = {
 def test_tableless_models_are_byte_identical(name):
     kw, want = TABLELESS[name]
     assert _digest(build_complex_features(**kw)) == want
+
+
+def test_every_ccd_code_is_typed_as_mol1_types_it():
+    """protenix_data.ccd_mol_type + parent_restype against Mol-1's own ccd.get_mol_type and add_cano_seq_resname,
+    run over its whole components.cif (51,346 codes, 2,705 not typed ligand) and pinned in ccd_polymer_types.json.
+    Every other code must come back ligand / UNK."""
+    import json
+
+    import torch
+
+    from tt_bio.protenix_data import ccd_mol_type, chem_comp_table, parent_restype, restype_to_resname
+    up = json.loads((Path(__file__).parent / "data" / "mol1_io" / "ccd_polymer_types.json").read_text())
+    assert len(up) == 2705 and len(chem_comp_table()) == 51346
+    for code in chem_comp_table():
+        mt = ccd_mol_type(code)
+        res = restype_to_resname(torch.tensor([parent_restype(code, mt) if mt != "ligand" else 20]))[0]
+        assert [mt, res] == up.get(code, ["ligand", "UNK"]), code

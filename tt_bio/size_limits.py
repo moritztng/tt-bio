@@ -101,6 +101,7 @@ residue ladder that never saw a ligand would be a units substitution, not a meas
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -1533,11 +1534,12 @@ def scan_residues(text: str, path=None) -> int:
     return total
 
 
-def _heavy_atoms(spec: str) -> int:
+def _heavy_atoms(spec: str, table=None) -> int:
     """Heavy atoms in one ligand spec: ``CCD_<code>[,<code>...]`` or a SMILES string.
 
-    The two sources the FEATURIZER tokenises, not a third: the CCD component's own Mol out of the
-    ``mols`` library, and RDKit's parse of a SMILES. Heavy atoms only, the same
+    The two sources the FEATURIZER tokenises, not a third: the CCD component's Mol through the
+    featurizer's own ``protenix_data.ccd_mols`` (the ``mols`` library, else the model's CCD
+    ``table`` for a code newer than the library), and RDKit's parse of a SMILES. Heavy atoms only, the same
     ``GetAtomicNum() > 1`` filter ``protenix_data.ligand_atom_features`` applies when it lays one
     token per atom. So this is the token count the model will build, not an estimate of it --
     checked against the two ligand counts already written into this file's own evidence: CCD STU
@@ -1545,10 +1547,9 @@ def _heavy_atoms(spec: str) -> int:
     """
     try:
         if spec.upper().startswith("CCD_"):
-            from .data.mol import load_molecules
-            from .protenix_data import _default_mol_dir
+            from .protenix_data import ccd_mols
             codes = [x.strip().upper() for x in spec[4:].split(",") if x.strip()]
-            mols = load_molecules(_default_mol_dir(), codes)
+            mols = ccd_mols(codes, table=table)
             return sum(sum(1 for a in mols[c].GetAtoms() if a.GetAtomicNum() > 1) for c in codes)
         if spec.startswith("FILE_"):
             from .protenix_data import _file_to_mol
@@ -1560,7 +1561,26 @@ def _heavy_atoms(spec: str) -> int:
         return 0
 
 
-def scan_ligand_atoms(path) -> int:
+@functools.cache
+def _ccd_table(model):
+    """The model's own CCD table (Mol-1's ccd_table.npz) when it is already on disk, else None. Never
+    downloads: a size gate runs before the fold and must not fetch 150 MB to size an input."""
+    if model is None:
+        return None
+    try:
+        from . import weights
+        from .protenix_data import load_conformer_table
+        for art in weights.artifacts_for(model):
+            if art.derived and art.derived.producer == "rdkit-conformers":
+                p = weights.cached_path(art.key)
+                if p is not None and (p / "ccd_table.npz").exists():
+                    return load_conformer_table(p / "ccd_table.npz")
+    except Exception:
+        pass
+    return None
+
+
+def scan_ligand_atoms(path, model=None) -> int:
     """Ligand heavy atoms in one predict input, summed over every ligand chain. 0 if it has none.
 
     Takes a PATH rather than text because it reads the chains through ``main._read_bio_chains`` --
@@ -1573,13 +1593,17 @@ def scan_ligand_atoms(path) -> int:
     library, an unparseable SMILES, a file the real parser will reject on its own terms. That is
     ``scan_residues``'s rule and it holds here: a size guard is the wrong place to learn that an
     input is malformed.
+
+    ``model`` names whose CCD table to read for a code newer than the ``mols`` library (Mol-1's),
+    so those atoms are counted instead of scoring 0.
     """
     try:
         from .main import _read_bio_chains
         chains = _read_bio_chains(Path(path))
     except Exception:
         return 0
-    return sum(_heavy_atoms(c[1]) for c in chains if len(c) > 3 and c[3] == "ligand")
+    table = _ccd_table(model)
+    return sum(_heavy_atoms(c[1], table) for c in chains if len(c) > 3 and c[3] == "ligand")
 
 
 _BARE_SEQUENCE = re.compile(r"^[A-Za-z]+$")
@@ -2100,7 +2124,7 @@ def check_input(data, model: str, *, arch: str | None = None, fast: bool = False
         except Exception:
             continue
         if n:
-            check(model, n, ligand_atoms=scan_ligand_atoms(q) if tokenwise else 0,
+            check(model, n, ligand_atoms=scan_ligand_atoms(q, model) if tokenwise else 0,
                   arch=arch, fast=fast, where=f"'{q.name}'")
 
 
