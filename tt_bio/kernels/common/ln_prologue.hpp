@@ -110,10 +110,8 @@ ALWI void rstd() {
 }
 
 // Kt tiles at the front of C::x (popped) -> pack(i) for every channel tile i, `out` the CB pack
-// writes to (its data format is configured here). FULL (AdaLN): C::gamma and C::beta hold Kt full tiles for this row
-// tile, a per-row scale and shift, instead of one row-0 broadcast; the caller pushes them per row tile and they are
-// popped here.
-template <class C, class Pack, bool FULL = false>
+// writes to (its data format is configured here).
+template <class C, class Pack>
 ALWI void layer_norm_row(uint32_t out, Pack pack) {
     row_mean<C>(C::x, C::mean, false);                    // mean
     cb_wait_front(C::mean, 1);
@@ -147,27 +145,21 @@ ALWI void layer_norm_row(uint32_t out, Pack pack) {
         cb_pop_front(C::tmp, C::Kt);
         return;
     }
-    if constexpr (FULL) cb_wait_front(C::gamma, C::Kt);
-    stage<C, FULL ? MUL : MUL_ROW, LN_BLK>(C::tmp, C::gamma, C::xc);   // * gamma
+    stage<C, MUL_ROW, LN_BLK>(C::tmp, C::gamma, C::xc);           // * gamma
     cb_pop_front(C::tmp, C::Kt);
-    if constexpr (FULL) cb_pop_front(C::gamma, C::Kt);
     cb_wait_front(C::xc, C::Kt);
-    if constexpr (FULL) cb_wait_front(C::beta, C::Kt);
     reconfig_data_format(C::xc, C::beta);                 // + beta, packed by the caller's hook
     pack_reconfig_data_format(out);
-    if constexpr (FULL) add_tiles_init(C::xc, C::beta);
-    else add_bcast_rows_init_short(C::xc, C::beta);
+    add_bcast_rows_init_short(C::xc, C::beta);
     for (uint32_t i = 0; i < C::Kt; ++i) {
         tile_regs_acquire();
-        if constexpr (FULL) add_tiles(C::xc, C::beta, i, i, 0);
-        else add_tiles_bcast_rows(C::xc, C::beta, i, i, 0);
+        add_tiles_bcast_rows(C::xc, C::beta, i, i, 0);
         tile_regs_commit();
         tile_regs_wait();
         pack(i);
         tile_regs_release();
     }
     cb_pop_front(C::xc, C::Kt);
-    if constexpr (FULL) cb_pop_front(C::beta, C::Kt);
 }
 
 // RMSNorm, as ttnn.rms_norm: x * rsqrt(mean(x^2) + eps) * gamma, no centring and no beta. Same CBs

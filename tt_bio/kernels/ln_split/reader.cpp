@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // ln_split reader (tt_bio/ln_split.py): the 1/K reduce scaler into c_10 and an fp32 eps tile into c_11, then this
-// core's column group of gamma / beta (KC tiles from tile k0, row 0 carries the vector) into c_8 / c_9 and of its one
-// row tile r of x (pages r * KT + k0 ..) into c_7.
+// core's column group of gamma / beta (KC tiles from tile k0) into c_8 / c_9 and of its one row tile r of x
+// (pages r * KT + k0 ..) into c_7. gamma / beta tile t is page (r % RH) * S + off + k0 + t: a vector has RH 1, S 0,
+// off 0 (row 0 carries it); an AdaLN scale / shift is a column window at tile `off` of a tensor S tiles wide whose
+// RH row tiles every sample of x reads (`adaln`), off also carrying a stacked step's row block.
 #include "api/dataflow/dataflow_api.h"
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
@@ -15,7 +17,9 @@ void kernel_main() {
     constexpr uint32_t EPS = get_compile_time_arg_val(3);      // fp32 bits
     constexpr uint32_t HAS_W = get_compile_time_arg_val(4);
     constexpr uint32_t HAS_B = get_compile_time_arg_val(5);
-    constexpr auto x_args = TensorAccessorArgs<6>();
+    constexpr uint32_t S_W = get_compile_time_arg_val(6), RH_W = get_compile_time_arg_val(7);
+    constexpr uint32_t S_B = get_compile_time_arg_val(8), RH_B = get_compile_time_arg_val(9);
+    constexpr auto x_args = TensorAccessorArgs<10>();
     constexpr auto gm_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto bt_args = TensorAccessorArgs<gm_args.next_compile_time_args_offset()>();
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
@@ -42,13 +46,15 @@ void kernel_main() {
         const auto gm = TensorAccessor(gm_args, get_common_arg_val<uint32_t>(1));
         cb_reserve_back(gamma_cb, KC);
         w = get_write_ptr(gamma_cb);
-        for (uint32_t t = 0; t < KC; ++t, w += tb) noc_async_read_page(k0 + t, gm, w);
+        const uint32_t p0 = (r % RH_W) * S_W + get_common_arg_val<uint32_t>(3) + k0;
+        for (uint32_t t = 0; t < KC; ++t, w += tb) noc_async_read_page(p0 + t, gm, w);
     }
     if constexpr (HAS_B) {
         const auto bt = TensorAccessor(bt_args, get_common_arg_val<uint32_t>(2));
         cb_reserve_back(beta_cb, KC);
         w = get_write_ptr(beta_cb);
-        for (uint32_t t = 0; t < KC; ++t, w += tb) noc_async_read_page(k0 + t, bt, w);
+        const uint32_t p0 = (r % RH_B) * S_B + get_common_arg_val<uint32_t>(4) + k0;
+        for (uint32_t t = 0; t < KC; ++t, w += tb) noc_async_read_page(p0 + t, bt, w);
     }
     noc_async_read_barrier();
     if constexpr (HAS_W) cb_push_back(gamma_cb, KC);
