@@ -93,10 +93,20 @@ def chain_ptm(pae_prob, has_frame, asym_id, token_is_ligand):
     masks = [a == c for c in range(n)]
     is_lig = [token_is_ligand[m].sum() >= m.sum() // 2 for m in masks]
     B = pae_prob.shape[:-3]
+    # calculate_iptm over the tokens of chains i and j, from each row's PAE probabilities summed over every chain's
+    # columns: only the inter-chain blocks count there, and gathering the pair block per chain pair cost ~3 s a fold
+    # at 1024 tokens (11 chains). Equal to it up to float summation order.
+    col = torch.zeros(pae_prob.shape[:-2] + (n, pae_prob.shape[-1])).index_add_(-2, a, pae_prob.float())
+    size = torch.stack([m.sum() for m in masks])
     pair = torch.zeros(B + (n, n))
     for i in range(n):
         for j in range(i + 1, n):
-            pair[:, i, j] = pair[:, j, i] = calculate_iptm(pae_prob, has_frame, a, token_mask=masks[i] | masks[j])
+            f = (masks[i] | masks[j]) & has_frame
+            if not f.any():
+                continue
+            w = _tm_weight(int(size[i] + size[j]), PAE_BINS)
+            row = torch.where(masks[i], col[..., j, :] @ w / (1e-8 + size[j]), col[..., i, :] @ w / (1e-8 + size[i]))
+            pair[:, i, j] = pair[:, j, i] = row[..., f].max(-1).values
     cptm = torch.zeros(B + (n,))
     for c in range(n):
         cptm[:, c] = calculate_ptm(pae_prob, has_frame, token_mask=masks[c])
