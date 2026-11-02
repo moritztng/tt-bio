@@ -1170,7 +1170,7 @@ def test_a_host_keyed_as_another_card_type_keeps_its_own_for_the_record():
 def _pool_host(name, tmp_path, lend_at=None, paused=False, skip=None):
     h = gf.Host(name, {"arch": "wh", "card_type": "wh", "root": str(tmp_path),
                        "pool": {"queue": str(tmp_path / name / "queue")}}, "f" * 40)
-    h.lend = (time.time(), lend_at, paused, skip, None)      # fresh, so no ssh
+    h.lend = (time.time(), lend_at, paused, skip, None, None)      # fresh, so no ssh
     return h
 
 
@@ -1644,7 +1644,7 @@ def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypat
         h.lend = (float("-inf"),) + h.lend[1:]
         h.read_lend()
         if ago and h.lend[4] is not None:
-            h.lend = h.lend[:4] + (h.lend[4] - ago,)
+            h.lend = h.lend[:4] + (h.lend[4] - ago,) + h.lend[5:]
         return h.lent(gf.Leg("ux:opendde", [], "ux"))
 
     assert not paused()                               # every chip recalled, at one read
@@ -1677,6 +1677,13 @@ def test_lend_mode_holds_no_leg_its_pool_skips(tmp_path, monkeypatch):
     h.read_lend()
     assert h.lent(gf.Leg("capacity:openbind", [], "capacity")) and h.lent(gf.Leg("parity:openfold3-8hel-msa", [], "parity"))
     assert not h.lent(gf.Leg("ladder:opendde", [], "ladder")) and not h.lent(gf.Leg("perf", [], "perf"))
+    # a reserved chip starts a LEND_SKIP leg whose cap ends before the reservation, as pool.sh does (rel-1cf560aa6)
+    (lend / "2.lent").write_text('{"node": "2", "recall_at": null, "reserved_until": %d.0}' % (time.time() + 3600))
+    h.lend = (float("-inf"),) + h.lend[1:]
+    h.read_lend()
+    assert not h.lent(gf.Leg("parity:openfold3-8hel-msa", [], "parity", known_s=600))
+    assert h.lent(gf.Leg("ladder:openfold3", [], "ladder", known_s=7200))     # outlasts the reservation
+    assert h.lend[1] is None                                                   # the reservation is not a LEND-AT
     (stub / "systemctl").write_text("#!/bin/sh\nexit 3\n")
     h.lend = (float("-inf"),) + h.lend[1:]
     h.read_lend()
