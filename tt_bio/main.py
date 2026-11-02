@@ -3074,7 +3074,8 @@ def _write_protenix_structure(coords, feats, aatype, outpath, output_format, b_f
     if output_format == "pdb":
         write_atom_array(arr, outpath)
     else:
-        cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(outpath))
+        from tt_bio import cif_text
+        cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cif_text.write(cf, str(outpath))
 
 
 def protenix_atom_array(coords, feats, outpath, b_factors=None, mod_names=None, chain_ids=None,

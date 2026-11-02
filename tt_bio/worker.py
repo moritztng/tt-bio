@@ -273,9 +273,10 @@ def _write_atom_array_structure(atom_array, coords, outpath, output_format,
     if output_format == "pdb":
         write_atom_array(arr, outpath)
     else:
+        from tt_bio import cif_text
         cf = _pdbx.CIFFile()
         _pdbx.set_structure(cf, arr)
-        cf.write(str(outpath))
+        cif_text.write(cf, str(outpath))
 
 
 def _template_map(path: Path, model: str, chains, struct_dir) -> dict[str, str]:

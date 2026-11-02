@@ -260,7 +260,8 @@ def _write_cif(coords, f, out_path: Path, b_factors=None, pred_restype=None):
         arr.atom_name[j] = name
         arr.element[j] = _element_of(int(z_idx[i]), name, z2sym)
         arr.res_name[j] = _resname(int(rt[t]), is_ligand=bool(is_lig[t]) if is_lig else False)
-    cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cf.write(str(out_path))
+    from tt_bio import cif_text
+    cf = _pdbx.CIFFile(); _pdbx.set_structure(cf, arr); cif_text.write(cf, str(out_path))
 
 
 def _virtual_slot(name: str) -> int | None:
