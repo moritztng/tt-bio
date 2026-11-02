@@ -42,6 +42,17 @@ def postprocess(src, dst):
         elif ent[e][1] != g:
             ent[e] = ("polymer", g)
     b["entity"] = pdbx.CIFCategory({"id": list(ent), "type": [v[0] for v in ent.values()]})
+    lig = sorted({e for e, m in zip(a["label_entity_id"].as_array().tolist(), a["label_comp_id"].as_array().tolist())
+                  if m == "LIG"}, key=int)
+    if lig:  # tt-bio before 73aa8ca25 named SMILES/file ligands "LIG", a CCD compound; upstream's l01, l02 in entity order
+        name = {e: f"l{n:02d}" for n, e in enumerate(lig, 1)}
+        ents = a["label_entity_id"].as_array().tolist()
+        for k in ("label_comp_id", "auth_comp_id"):
+            if k in a:
+                a[k] = pdbx.CIFColumn(pdbx.CIFData([name[e] if m == "LIG" else m
+                                                    for e, m in zip(ents, a[k].as_array().tolist())]))
+        if "chem_comp" in b:
+            del b["chem_comp"]  # its LIG row describes the CCD compound; OST reads residue names, not this table
     if "entity_poly_seq" not in b:  # tt-bio writes atom_site only; DockQv2 finds polymer chains through this category
         seq = {}
         for g, e, n, m in zip(*(a[k].as_array().tolist() for k in ("group_PDB", "label_entity_id", "label_seq_id",
@@ -65,9 +76,9 @@ def cache(work, arm, arm_dir):
 def predictions(arm_dir, case, work):
     """[(seed, sample, ranking_score, postprocessed cif, summary dict)] for one case of one arm."""
     name = safe(case); out = []
-    # upstream writes <dump>/<case>/seed_*; tt-bio predict writes <out>/mol1_results_<case>/<case>/seed_*
+    # upstream writes <dump>/<case>/seed_*; tt-bio predict writes <out>/mol1_results_<input stem>/<case>/seed_*
     hits = [*(arm_dir / name).glob("seed_*/predictions/*_sample_*.cif"),
-            *(arm_dir / f"mol1_results_{name}" / name).glob("seed_*/predictions/*_sample_*.cif")]
+            *arm_dir.glob(f"mol1_results_*/{name}/seed_*/predictions/*_sample_*.cif")]  # a multi-job JSON names one dir
     for cif in sorted(hits):
         seed = int(cif.parts[-3].split("_")[1]); k = int(re.search(r"_sample_(\d+)\.cif$", cif.name).group(1))
         summ = json.loads(cif.with_name(f"{name}_summary_confidence_sample_{k}.json").read_text())
@@ -283,7 +294,9 @@ def main():
     per_arch, per_set = {}, {}
     for test in [x for x in arms if x.startswith("tt_")]:  # tt_bh, tt_wh, and A/B arms such as tt_bh_b
         arch = test[3:]
-        missing = sorted({r["case"] for r in rows if r["arm"] == test and r.get("missing")})
+        # a case the GPU arm never produced (8jik smiles: no input staged) is no TT miss
+        base_has = {r["case"] for r in ok if r["arm"] == "gpu"}
+        missing = sorted({r["case"] for r in rows if r["arm"] == test and r.get("missing") and r["case"] in base_has})
         sd = arm_seeds.get(test)
         v = stats.verdict(ok, test, conf_split=split, seeds=sd)
         per_set[arch] = {s: stats.verdict(ok, test, cases={r["case"] for r in ok if r["set"] == s}, conf_split=split, seeds=sd)
