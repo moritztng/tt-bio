@@ -47,6 +47,15 @@ def test_four_heads_fire_only_at_the_measured_shape(cores, dtype):
     assert fired == ({800} if (cores, dtype) == (72, "bfloat16") else set())
 
 
+@pytest.mark.parametrize("heads, want", [(10, 224), (14, 160), (8, 0), (12, 0)])
+def test_blackhole_picks_at_the_wide_k(heads, want):
+    # p150a/p300 grid 11x10, the served k1024: measured 1.14x (10 heads) and 1.27x (14), 8 and 12 unchanged.
+    TS.split_q_chunk.cache_clear()
+    got = TS.split_q_chunk(1024, heads, 32, 110, 1024, ttnn.bfloat16, tuple(T._tri_att_q_chunks(1024, 1024)),
+                           TS.SPLIT_Q_ITER_ROWS["blackhole"], TS.SPLIT_Q_MARGIN["blackhole"])
+    assert got == want
+
+
 def test_above_the_cap_returns_zero():
     assert _pick(TS._Q_SPLIT_MAX_S + 32, 10) == 0
 

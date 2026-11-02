@@ -7,8 +7,8 @@
 // head); with a residual the writer reads z (writer.cpp). Wo ([Kt*32, Nt*32],
 // row-major tile order) goes to c_0 once and stays. G3D reads g as the projection wrote it,
 // [.., B, S, Kt*32] (a biased block's gate, which has no head-major form), so its tile (b, jt, h).
-// OBIAS loads the Nt bias tiles ([32, Nt*32], every row b) to c_7 once. TRANS (the ending block's tail
-// into z^T, writer_t.cpp) walks a unit (bt, jt) as its 32 row tiles (bt*32 + r, jt), r = 0..31.
+// OBIAS loads the Nt bias tiles ([32, Nt*32], every row b) to c_7 once. TRANS = R (the ending block's tail
+// into z^T, writer_t.cpp; 0 off) walks a unit (bg, jt) as its R row tiles (bg*R + r, jt), r = 0..R-1.
 #include "api/dataflow/dataflow_api.h"
 
 void kernel_main() {
@@ -18,6 +18,7 @@ void kernel_main() {
     constexpr uint32_t G3D = get_compile_time_arg_val(3);
     constexpr uint32_t OBIAS = get_compile_time_arg_val(4);
     constexpr uint32_t TRANS = get_compile_time_arg_val(5);
+    constexpr uint32_t RB = TRANS ? TRANS : 1;   // b rows per TRANS unit, never a zero divisor
     constexpr auto o_args = TensorAccessorArgs<6>();
     constexpr auto g_args = TensorAccessorArgs<o_args.next_compile_time_args_offset()>();
     constexpr auto w_args = TensorAccessorArgs<g_args.next_compile_time_args_offset()>();
@@ -50,8 +51,8 @@ void kernel_main() {
     }
 
     for (uint32_t v = u0; v < u0 + nunits; ++v) {
-        const uint32_t b = TRANS ? (v >> 5) / St * 32 + (v & 31) : v / St;
-        const uint32_t jt = TRANS ? (v >> 5) % St : v % St;
+        const uint32_t b = TRANS ? v / RB / St * RB + v % RB : v / St;
+        const uint32_t jt = TRANS ? v / RB % St : v % St;
         const uint32_t u = b * St + jt;
         cb_reserve_back(g_cb, Kt);
         cb_reserve_back(o_cb, Kt);

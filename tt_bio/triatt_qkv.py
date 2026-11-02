@@ -466,11 +466,11 @@ def _tail_dw(kt, nt):
     return next(d for d in (4, 2, 1) if kt % d == 0 and nt % d == 0)
 
 
-def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=False):
+def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=0):
     B, kt, St = int(o.padded_shape[0]), int(o.padded_shape[1]), int(o.padded_shape[2]) // TILE
     nt = int(w.shape[-1]) // TILE
-    nu = B * St // TILE if trans else B * St   # trans: a unit is a 32 x 32 block, 32 row tiles
-    sub = TILE if trans else 1
+    nu = B * St // trans if trans else B * St   # trans = R: a unit is an R x 32 block, R row tiles
+    sub = trans or 1
     gx, gy = grid
     ncores = gx * gy
     core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
@@ -493,19 +493,19 @@ def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=False):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / ("writer_t.cpp" if trans else "writer.cpp")), source_type=src,
         core_ranges=core_grid,
-        compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN] if trans else [nt, int(resid)]) + acc(out),
+        compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN, trans] if trans else [nt, int(resid)]) + acc(out),
         runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
     compute = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, int(resid), TAIL_SIGPOLY, TAIL_RNE, _tail_dw(kt, nt), TAIL_KB1,
-                           int(brows is not None), int(g.dtype == ttnn.bfloat8_b), int(trans), TAIL_T_GRAN],
+                           int(brows is not None), int(g.dtype == ttnn.bfloat8_b), trans, TAIL_T_GRAN],
         runtime_args=cp,
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=fp32, dst_full_sync_en=full))
     cbs = [_tail_cb(0, core_grid, kt * nt), _tail_cb(1, core_grid, 2 * kt), _tail_cb(2, core_grid, 2 * kt, g.dtype),
-           _tail_cb(4, core_grid, kt), _tail_cb(16, core_grid, (TILE if trans else 2) * nt)]
+           _tail_cb(4, core_grid, kt), _tail_cb(16, core_grid, (trans or 2) * nt)]
     if trans:
         cbs += [_tail_cb(3, core_grid, TILE), _tail_cb(18, core_grid, TILE), _tail_cb(17, core_grid, TAIL_T_GRAN)]
     if resid:
@@ -519,17 +519,23 @@ def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=False):
     return {"kernels": [reader, writer, compute], "cbs": cbs}
 
 
-def _tail_t_ok(o, w, z, bias) -> bool:
-    """`z` is the transposed pair `[1?, S, B, N]` of o's `[B, H, S, 32]` and the block fits in L1."""
+def _tail_t_rows(o, w, z, bias) -> int:
+    """b rows per unit (32, 16 or 8) when `z` is the transposed pair `[1?, S, B, N]` of o's `[B, H, S, 32]`,
+    the widest block that fits in L1; 0 when none does. The stage is R row tiles of Nt, so a wide pair
+    takes a narrower block: at 320 channels the 32-row block is 558 tiles (1.14 MB, over a Blackhole bank's
+    budget), 16 rows 398. Every R computes the same sums: R moves only which rows a unit owns."""
     from .tenstorrent import _l1_bank_bytes, arch_name
     if not ((int(TAIL_T) if TAIL_T is not None else arch_name() == "blackhole") and TAIL_KB1 and _dram_tile_bf16(z)):
-        return False
+        return 0
     po, pz = [int(d) for d in o.padded_shape], [int(d) for d in z.padded_shape]
     nt, kt = int(w.shape[-1]) // TILE, po[1]
     if not (pz[-3:] == [po[2], po[0], nt * TILE] and all(d == 1 for d in pz[:-3]) and po[0] % TILE == 0):
-        return False
-    tiles = kt * nt + 5 * kt + (TILE + 2) * nt + 2 * TILE + TAIL_T_GRAN + (nt if bias is not None else 0)
-    return tiles * G.tile_bytes(ttnn.bfloat16) <= 0.75 * _l1_bank_bytes()
+        return 0
+    for r in (TILE, 16, 8):
+        tiles = kt * nt + 5 * kt + (r + 2) * nt + 2 * TILE + TAIL_T_GRAN + (nt if bias is not None else 0)
+        if tiles * G.tile_bytes(ttnn.bfloat16) <= 0.75 * _l1_bank_bytes():
+            return r
+    return 0
 
 
 def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
@@ -540,11 +546,12 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
     update belongs to) the update goes into `resid_t` transposed. None where it declines; the caller
     then runs the three ops."""
     if (_taping() or not tail_on(bias is not None or _g3d(o, g)) or not _tail_ok(o, g, w, resid, bias)
-            or (resid_t is not None and (resid is not None or not _tail_t_ok(o, w, resid_t, bias)))):
+            or (resid_t is not None and (resid is not None or not _tail_t_rows(o, w, resid_t, bias)))):
         GOP_STATS[1] += 1
         return None
     from .tenstorrent import COMPUTE_GRID_MAIN
     B, S = int(o.shape[0]), int(o.shape[2])
+    trans = _tail_t_rows(o, w, resid_t, bias) if resid_t is not None else 0
     if resid_t is not None:
         out = resid_t
     elif resid is None:
@@ -556,11 +563,11 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
     brows = _bias_rows(bias) if bias is not None else None
     key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
            G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1,
-           resid_t is not None)
+           trans)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
         entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, ckc, grid, resid is not None, brows,
-                                               trans=resid_t is not None)
+                                               trans=trans)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [o.buffer_address(), g.buffer_address(), w.buffer_address(),
                                   brows.buffer_address() if brows is not None else 0]

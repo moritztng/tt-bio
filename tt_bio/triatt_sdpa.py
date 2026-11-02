@@ -396,20 +396,24 @@ def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=No
 # overhead per iteration; that fit predicts q224 [2,10,5] at 22.1 ms (measured 21.49). Without the term the
 # model takes q64/q96 and loses 0.50-0.78x on Blackhole (state/mol1/evidence/bh/triattn.md). The model's
 # own K/V term already carries one row, so Wormhole adds 0 and its picks are unchanged.
+# With that term the Blackhole model tracks its surface closely enough for an 8 % margin: on qb2 card 3
+# (p300, served levers, split_ab.py --served --margin 0.08, 14 cells) it admits q224 at 1024 x 10 (25.51
+# -> 22.40 ms) and q192 at 896 x 10 (16.92 -> 15.10 ms) beside the 12 % picks, every admitted cell faster
+# and torch.equal. Wormhole keeps the 12 % its 21 cells were measured at.
 SPLIT_Q = env_flag("TT_BIO_TRIATT_SPLIT_Q", True)
-SPLIT_Q_MARGIN = 0.12
+SPLIT_Q_MARGIN = {"wormhole": 0.12, "blackhole": 0.08}
 SPLIT_Q_ITER_ROWS = {"wormhole": 0, "blackhole": 80}
 SPLIT_Q_STATS = [0, 0]   # (served, offered and declined)
 
 
 @lru_cache(maxsize=None)
 def split_q_chunk(seq: int, heads: int, head_dim: int, cores: int, k_chunk: int, mask_dtype,
-                  dividing: tuple, iter_rows: int = 0) -> int:
+                  dividing: tuple, iter_rows: int = 0, margin: float = 0.12) -> int:
     """A padded q chunk for `sdpa(..., padded_mask=True)` at `k_chunk`, or 0 for the dividing ladder.
 
     `dividing` is the ladder's q chunks at this k, widest first; its first one that divides and fits the
     persistent mask is what serves without this (a non-dividing one never reaches the fused kernel here). Each q split `q_pf` is offered at the narrowest q that reaches it,
-    and one wins only if `per_core_cost` puts it `SPLIT_Q_MARGIN` under that pick. Within the cap only:
+    and one wins only if `per_core_cost` puts it `margin` under that pick (SPLIT_Q_MARGIN). Within the cap only:
     above it `q_parallel_factor` gives no split and the large-S route ranks its own pairs. `iter_rows` is the
     fixed cost of one (batch row, q chunk) iteration in q rows on top of the model's own (SPLIT_Q_ITER_ROWS)."""
     if not SPLIT_Q or seq > _Q_SPLIT_MAX_S or seq % k_chunk:
@@ -433,7 +437,7 @@ def split_q_chunk(seq: int, heads: int, head_dim: int, cores: int, k_chunk: int,
         return 0
     pads = {-(-seq // (n * SG.TILE)) * SG.TILE for n in range(2, cores // heads + 1)}
     best = min(((c, qc) for qc in pads if seq % qc and (c := cost(qc)) is not None), default=None)
-    return best[1] if best and best[0] < (1 - SPLIT_Q_MARGIN) * base else 0
+    return best[1] if best and best[0] < (1 - margin) * base else 0
 
 
 # The gate multiply folded into this kernel's pack stage. `gate_and_project` runs

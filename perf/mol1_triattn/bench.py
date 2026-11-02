@@ -72,7 +72,7 @@ STAGES = [(TL, "ln_qkvgb_heads"), (T._triatt_qkv, "qkvgb_heads"), (T._triatt_qkv
           (T._triatt_qkv, "gated_out_proj"), (T._triatt_qkv, "out_proj")]
 
 
-def stage_split(mod, xt, dev, reps):
+def stage_split(call, dev, reps, resid=False):
     """Per-stage ms (min over reps) of one call, and the fenced total."""
     acc, orig, depth = {}, {}, [0]
 
@@ -101,10 +101,11 @@ def stage_split(mod, xt, dev, reps):
             acc.clear()
             ttnn.synchronize_device(dev)
             t0 = time.perf_counter()
-            o = mod(xt)
+            o = call()
             ttnn.synchronize_device(dev)
             tot = time.perf_counter() - t0
-            ttnn.deallocate(o)
+            if not resid:
+                ttnn.deallocate(o)
             if best is None or tot < best[0]:
                 best = (tot, dict(acc))
     finally:
@@ -131,6 +132,8 @@ def main():
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--ref-max", type=int, default=1024, help="skip the float64 reference above this size")
     ap.add_argument("--stages", action="store_true", help="also split one call into its fenced stages")
+    ap.add_argument("--resid", action="store_true",
+                    help="time the call as the Pairformer makes it, add_to_input=True (the update lands in the pair)")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
     dev = T.get_device()
@@ -150,7 +153,7 @@ def main():
                 for arm in a.arms.split(","):
                     T._TRIATT_WHOLE_REFUSED.clear(); T._TRIATT_BLOCK_REFUSED.clear()
                     rec = {"S": S, "c_z": c, "heads": H, "ending": ending, "arm": arm, "sha": sha,
-                           "arch": str(dev.arch()), "seq_len_more_chunking": T.SEQ_LEN_MORE_CHUNKING, "gflop": round(flops(S, c, H) / 1e9, 2)}
+                           "arch": str(dev.arch()), "resid": a.resid, "seq_len_more_chunking": T.SEQ_LEN_MORE_CHUNKING, "gflop": round(flops(S, c, H) / 1e9, 2)}
                     try:
                         T._MM_DEFAULT_WIDE = ARMS[arm][1]
                         with T.levers(ARMS[arm][0]):
@@ -169,18 +172,23 @@ def main():
                             gr = got.transpose(0, 1)[rows] if ending else got[rows]
                             if ref is not None:
                                 rec.update(metrics(ref, gr))
-                            ttnn.deallocate(mod(xt))
+                            def call():
+                                return mod(xt, add_to_input=True) if a.resid else mod(xt)
+                            o = call()
+                            if not a.resid:
+                                ttnn.deallocate(o)
                             ttnn.synchronize_device(dev)
                             ts = []
                             with clocksample.during(period=0.5) as clk:
                                 for _ in range(a.reps):
                                     t0 = time.perf_counter()
-                                    o = mod(xt)
+                                    o = call()
                                     ttnn.synchronize_device(dev)
                                     ts.append(time.perf_counter() - t0)
-                                    ttnn.deallocate(o)
+                                    if not a.resid:
+                                        ttnn.deallocate(o)
                             if a.stages:
-                                rec.update(stage_split(mod, xt, dev, a.reps))
+                                rec.update(stage_split(call, dev, a.reps, a.resid))
                             ttnn.deallocate(xt)
                             ts.sort()
                             rec["ms_min"] = round(ts[0] * 1e3, 3)

@@ -14,7 +14,7 @@
 // OBIAS (KB1 only) seeds that fp32 sum with the out projection's bias: c_7 holds Nt bias tiles with
 // every row equal to b, packed into c_6 before the first K pass, so the bias is added exactly in fp32
 // and rounded once with the sum.
-// TRANS (KB1, no RESID): every 32 units are one 32 x 32 block of the ending block's update; the writer
+// TRANS = R (KB1, no RESID): every R units are one R x 32 block of the ending block's update; the writer
 // shuffles it into z^T's orientation (c_18) beside the z tiles it lands on (c_3), one channel tile of
 // 32 at a time, and the sums come back here: add_tiles into the 32-bit DEST packed to bf16, the
 // arithmetic of pair_transpose_add, so the bytes are the two-program path's.
@@ -41,6 +41,7 @@ void kernel_main() {
     constexpr uint32_t OBIAS = get_compile_time_arg_val(7);
     constexpr uint32_t GB8 = get_compile_time_arg_val(8);   // g is bfp8: srcA takes g's format for the copy only
     constexpr uint32_t TRANS = get_compile_time_arg_val(9);
+    constexpr uint32_t RB = TRANS ? TRANS : 1;   // b rows per TRANS unit, never a zero divisor
     constexpr uint32_t GRAN = get_compile_time_arg_val(10);
     const uint32_t nunits = get_arg_val<uint32_t>(0);
 
@@ -182,7 +183,7 @@ void kernel_main() {
             cb_pop_front(z_cb, Nt);
         }
         if constexpr (TRANS) {
-            if ((u & 31) == 31) {
+            if (u % RB == RB - 1) {
                 constexpr uint32_t t_cb = tt::CBIndex::c_18, s_cb = tt::CBIndex::c_17;
                 reconfig_data_format(z_cb, t_cb);
                 pack_reconfig_data_format(s_cb);
