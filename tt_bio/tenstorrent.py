@@ -8279,7 +8279,7 @@ def msa_upload_whole(depth, tokens, channels):
     return depth * tokens * (-(-channels // 32) * 32) * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES)
 
 
-def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
+def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, park=False):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload(m, keep)` places it.
 
     `feat` is the MSA input feature [1, depth, tokens, c], on the device or on the host, and
@@ -8290,13 +8290,14 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     3221225472 B buffer a Wormhole chip refused. The projected chunks are joined on the chip when
     `keep` (capped at `MSA_JOIN_MAX_BYTES`) holds the whole `m`, else each comes straight back to
     the host. Every op in the projection is per alignment row, so the chunks hold the rows the
-    whole pass does."""
+    whole pass does. `park` sends a host feature up in depth chunks and every projected chunk back
+    to the host, whatever its size: the fallback for a cycle DRAM refused."""
     up = lambda t: (_up_tilize_on_device(t) if t.dtype == torch.bfloat16 else
                     ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                     dtype=ttnn.bfloat16))
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
     host = torch.is_tensor(feat)
-    if not host or msa_upload_whole(*feat.shape[1:]):
+    if not host or (msa_upload_whole(*feat.shape[1:]) and not park):
         x = up(feat) if host else feat
         m = project(x)
         ttnn.deallocate(x)
@@ -8306,7 +8307,8 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
     # joined there instead of each making a trip to the host. At 678 tokens against 13,602 rows
     # the 1.14 GiB feature missed the one-upload size, so the trunk streamed an `m` it had room
     # for, every cycle, and the fold took 659 s on a Wormhole chip where a 9,947-row one takes 384.
-    hold_lim = int(v) if v else (MSA_HOST_OFFLOAD_MIN_BYTES if keep is None else min(keep, MSA_JOIN_MAX_BYTES))
+    hold_lim = 0 if park else int(v) if v else (MSA_HOST_OFFLOAD_MIN_BYTES if keep is None
+                                                else min(keep, MSA_JOIN_MAX_BYTES))
     m, held = None, []
     for s in range(0, D, rows):
         x = up(feat[:, s:s + rows])
