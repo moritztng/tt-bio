@@ -559,6 +559,32 @@ def _tfg_guidance(path, cfg, feats, chains, bonds):
     return Guidance(gfeats)
 
 
+def _protenix_fold_kw(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Every `Protenix.fold` argument a prediction takes from its config, all but the seed."""
+    from tt_bio.esmfold2 import report_progress
+    return dict(
+        # report_progress has exactly the progress_fn signature: trunk iterations report as "trunk", diffusion steps
+        # as "diffusion", with no remapping that would hide the trunk phase.
+        n_step=cfg["sampling_steps"], n_sample=int(cfg["diffusion_samples"]), progress_fn=report_progress,
+        return_confidence=True, n_cycles=cfg.get("recycling_steps"),
+        max_parallel_samples=cfg.get("max_parallel_samples"),
+        # Without this --trace was a silent no-op for --model protenix-v2: main.py reserves the trace region and puts
+        # "trace" in the worker config, and Protenix.fold accepts trace=, but this call site never forwarded it.
+        trace=_protenix_trace(cfg) and _protenix_region_reserved(),
+        # upstream's own output layout (D6) is Mol-1's contract; other models keep the memory
+        return_logits=cfg.get("model") == "mol1")
+
+
+def _same_feats(a: dict, b: dict) -> bool:
+    """Do two featurized inputs hold the same tensors (one target staged under several seeds)?"""
+    import pickle
+
+    import torch
+    return a.keys() == b.keys() and all(
+        torch.is_tensor(b[k]) and torch.equal(a[k], b[k]) if torch.is_tensor(a[k])
+        else pickle.dumps(a[k]) == pickle.dumps(b[k]) for k in a)
+
+
 def _target_seed(path, cfg) -> int:
     """The sampler seed for one target: the seed an upstream JSON job was staged for, else ``--seed``."""
     from tt_bio.protenix_json import sidecar
@@ -1900,15 +1926,8 @@ class _WorkerState:
         {seq_hash}.a3m is not cached is searched into the shared msa_dir, resolved, and
         featurized. Multi-chain inputs fold as a true complex (per-chain asym/entity/sym +
         block-diagonal MSA via build_complex_features)."""
-        from tt_bio.esmfold2 import report_progress
-
         feats, chains, chain_specs = self._protenix_inputs(path, cfg)
 
-        # One shared progress path: report_progress has exactly the progress_fn
-        # signature, so hand it straight to the model -- trunk iterations report
-        # as "trunk", diffusion steps as "diffusion" (no remapping that would
-        # hide the trunk phase).
-        n_sample = int(cfg["diffusion_samples"])
         # Integration-parity envelope: the bf16 CPU reference must run the whole
         # protenix fold under bf16 autocast (mirroring the boltz2 path at
         # predict_step), otherwise the bf16 ref runs in fp32, the envelope
@@ -1916,22 +1935,17 @@ class _WorkerState:
         # On device (accelerator == "tenstorrent") and on the fp32 reference this
         # is a nullcontext, so those paths are untouched.
         with torch.no_grad(), self._maybe_ref_bf16():
-            coords, conf = self.model.fold(
-                feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
-                seed=_target_seed(path, cfg), progress_fn=report_progress,
-                return_confidence=True, n_cycles=cfg.get("recycling_steps"),
-                max_parallel_samples=cfg.get("max_parallel_samples"),
-                # Without this --trace was a silent no-op for --model protenix-v2: main.py
-                # reserves the trace region and puts "trace" in the worker config, and
-                # Protenix.fold accepts trace=, but this call site never forwarded it, so
-                # every protenix fold ran the untraced per-step dispatch. The OpenDDE branch
-                # above forwards it, which is why the flag looked plumbed.
-                trace=_protenix_trace(cfg) and _protenix_region_reserved(),
-                # upstream's own output layout (D6) is Mol-1's contract; other models keep the memory
-                return_logits=cfg.get("model") == "mol1",
-            )
+            coords, conf = self.model.fold(feats, seed=_target_seed(path, cfg), **_protenix_fold_kw(cfg))
         confs = conf if isinstance(conf, list) else [conf]
         return self._protenix_emit(path, cfg, feats, chains, chain_specs, coords, confs)
+
+    def _predict_protenix_seeds(self, paths, cfg, prepared):
+        """One target on several seeds (upstream's `<job>__seed_<s>` jobs of one input): the trunks run as one batch
+        (`Protenix.fold_k`), and each seed's prediction is the one `_predict_protenix_one` writes for it."""
+        with torch.no_grad(), self._maybe_ref_bf16():
+            outs = self.model.fold_k(prepared[0][0], [_target_seed(p, cfg) for p in paths], **_protenix_fold_kw(cfg))
+        return [self._protenix_emit(p, cfg, *prepared[b], coords, conf if isinstance(conf, list) else [conf])
+                for b, (p, (coords, conf)) in enumerate(zip(paths, outs))]
 
     def predict_many(self, paths: list, cfg: dict[str, Any]):
         """Fold several targets in one batched diffusion trajectory. Returns one
@@ -1941,14 +1955,18 @@ class _WorkerState:
         predict_one, so callers can always use this entry point. Targets must share their
         atom and token counts (bucket first) -- a mismatch raises.
         """
-        if (cfg.get("model") not in _protenix_family() or len(paths) == 1
-                or int(cfg["diffusion_samples"]) != 1
+        if cfg.get("model") not in _protenix_family() or len(paths) == 1:
+            return [self.predict_one(p, cfg) for p in paths]
+        prepared = [self._protenix_inputs(p, cfg) for p in paths]
+        if len({_target_seed(p, cfg) for p in paths}) == len(paths) and all(
+                _same_feats(prepared[0][0], f) for f, _c, _s in prepared[1:]):
+            return self._predict_protenix_seeds(paths, cfg, prepared)
+        if (int(cfg["diffusion_samples"]) != 1
                 or any(_target_seed(p, cfg) != (cfg.get("seed") or 0) for p in paths)):
             return [self.predict_one(p, cfg) for p in paths]
 
         from tt_bio.esmfold2 import report_progress
 
-        prepared = [self._protenix_inputs(p, cfg) for p in paths]
         with torch.no_grad(), self._maybe_ref_bf16():
             coords, confs = self.model.fold_many(
                 [f for f, _c, _s in prepared], n_step=cfg["sampling_steps"],
