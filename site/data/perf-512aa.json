@@ -558,12 +558,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 19.282,
+          "s_per_fold": 18.892,
           "n": 4,
-          "spread_pct": 1.26,
+          "spread_pct": 1.94,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 1bc498fa8, ttnn 0.68.0, qb1 p150a card 1",
-          "when": "2026-11-02T00:50:25Z",
+          "versions": "tt-bio main 06abce830, ttnn 0.68.0, qb1 p150a card 1",
+          "when": "2026-11-02T07:33:19Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 18.553,
@@ -751,12 +751,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 7.816,
+          "s_per_fold": 7.639,
           "n": 4,
-          "spread_pct": 2.43,
+          "spread_pct": 1.35,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 1bc498fa8, ttnn 0.68.0, qb1 p150a card 1",
-          "when": "2026-11-02T00:47:19Z",
+          "versions": "tt-bio main 06abce830, ttnn 0.68.0, qb1 p150a card 1",
+          "when": "2026-11-02T07:30:23Z",
           "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 7.162,
@@ -848,12 +848,12 @@
       "cells": {
         "p150a": {
           "status": "measured",
-          "s_per_fold": 9.79,
+          "s_per_fold": 9.537,
           "n": 4,
-          "spread_pct": 1.56,
+          "spread_pct": 2.03,
           "aiclk_mhz": 1350,
-          "versions": "tt-bio main 1bc498fa8, ttnn 0.68.0, qb1 p150a card 1",
-          "when": "2026-11-02T00:41:32Z",
+          "versions": "tt-bio main 06abce830, ttnn 0.68.0, qb1 p150a card 1",
+          "when": "2026-11-02T07:27:09Z",
           "parity": "Passes both release-gate accuracy checks against the reference implementation on Blackhole, with an MSA (tt-bio 469ed1356)",
           "fast": {
             "s_per_fold": 7.854,
