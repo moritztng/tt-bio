@@ -9092,20 +9092,34 @@ def _live_device_tensors(min_bytes=32 << 20) -> str:
         f"    listed {sum(r[0] for r in rows) / 2**30:.3f} GiB in {len(rows)} tensors\n"
 
 
+_DRAM_TOTAL = {}  # id(device) -> (device, its total DRAM bytes)
+
+
 def _dram_total_bytes(device=None) -> int:
     """This part's total DRAM in bytes, or 0 when no device is open or the read throws.
 
     Never calls get_device(): a byte test must not bring a card up as a side effect, and 0
     makes every caller fall back to its measured base figure.
+
+    Read once per device: the total is a constant of the chip, and a DRAM `get_memory_view`
+    walks the allocator, 2.8 ms of host time on a p150a mid-fold. The trimul T1 budget asked on
+    every call, which was most of the host stall between the two triangle multiplications of a
+    Mol-1 block at 256 (state/mol1/evidence/bh/opgap.md). The entry holds the device itself, so
+    its id cannot be reused by another device while the entry is alive.
     """
     device = device if device is not None else _device
     if device is None:
         return 0
+    hit = _DRAM_TOTAL.get(id(device))
+    if hit is not None and hit[0] is device:
+        return hit[1]
     try:
         mv = ttnn.get_memory_view(device, ttnn.BufferType.DRAM)
-        return int(mv.total_bytes_per_bank) * int(mv.num_banks)
+        total = int(mv.total_bytes_per_bank) * int(mv.num_banks)
     except Exception:
         return 0
+    _DRAM_TOTAL[id(device)] = (device, total)
+    return total
 
 
 def _l1_total_bytes(device=None) -> int:

@@ -5,16 +5,22 @@
         <tt-bio>/perf/mol1/bh/opgap.py prof --input mol1-256.json --out <dir>
     # walls: the shipped wheel, the fold as served (traced diffusion), each trunk block synced on both sides
     python <tt-bio>/perf/mol1/bh/opgap.py wall --input mol1-256.json --out <dir> --step-probe 20
+    # host: each trunk block synced before it, host return and device drain timed apart, some blocks under cProfile
+    python <tt-bio>/perf/mol1/bh/opgap.py host --input mol1-256.json --out <dir> --cprofile pf48/b10/
 
 Both modes fold once cold and once warm in one process and record only the warm fold. `prof` enqueues a fence op
 (a multiply on a [1,1,32,224] tensor nobody else makes) before and after every Pairformer block and every denoise
 call, without a sync, so the queue in between runs exactly as in a fold; `regions.json` lists the fences in
 order for perf/mol1/bh/opgap_table.py to cut the ops report with. `wall` syncs around every trunk Pairformer
 block of the last cycle and replays the captured diffusion trace back to back (device time per step), the
-numbers the kernel sums are compared against. AICLK is sampled during both folds.
+numbers the kernel sums are compared against. `host` splits each synced block into the time the Python call
+takes to return (host enqueue, queue stalls included) and the drain after it, and runs every block whose tag
+starts with --cprofile under cProfile (host_blocks.json, cprofile.txt). AICLK is sampled during both folds.
 """
 import argparse
+import cProfile
 import json
+import pstats
 import sys
 import time
 from pathlib import Path
@@ -30,13 +36,14 @@ FENCE_SHAPE = (1, 1, 32, 224)
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=("prof", "wall"))
+    ap.add_argument("mode", choices=("prof", "wall", "host"))
     ap.add_argument("--input", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--recycles", type=int, default=None, help="default: 1 for prof, the model's own for wall")
     ap.add_argument("--steps", type=int, default=None, help="default: 2 for prof, the protocol's 200 for wall")
     ap.add_argument("--step-probe", type=int, default=20)
     ap.add_argument("--seed", type=int, default=101)
+    ap.add_argument("--cprofile", default="pf48/b10/", help="host mode: tag prefix of the blocks run under cProfile")
     a = ap.parse_args()
 
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -51,7 +58,8 @@ def main():
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     cfg, jobs = run_config("mol1", Path(a.input).resolve(), out)
-    cfg.update(recycling_steps=1 if prof else cfg.get("recycling_steps"), sampling_steps=2 if prof else 200)
+    cfg.update(recycling_steps=1 if prof else cfg.get("recycling_steps"),
+               sampling_steps={"prof": 2, "host": 2}.get(a.mode, 200))
     if a.recycles is not None:
         cfg["recycling_steps"] = a.recycles
     if a.steps is not None:
@@ -66,7 +74,8 @@ def main():
     dev = m.diffusion.dev
     fence_t = ttnn.from_torch(torch.zeros(FENCE_SHAPE), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     rec = {"on": False, "stack": "?", "last_cycle_from": None}
-    regions, walls, extra = [], [], {}
+    regions, walls, extra, host_blocks = [], [], {}, []
+    cprof = cProfile.Profile()
 
     def fence(label):
         if not rec["on"]:
@@ -96,6 +105,20 @@ def main():
         i = rec.get("block", 0)
         rec["block"] = i + 1
         tag = f"{rec['stack']}/b{i}/c{z.shape[-1]}/n{z.shape[-2]}"
+        if a.mode == "host" and rec["on"]:
+            ttnn.synchronize_device(dev)
+            hot = tag.startswith(a.cprofile)
+            t0 = time.perf_counter()
+            if hot:
+                cprof.enable()
+            r = layer_call(self, s, z, *args, **kw)
+            if hot:
+                cprof.disable()
+            t1 = time.perf_counter()
+            ttnn.synchronize_device(dev)
+            host_blocks.append({"block": tag, "host_ms": round(1000 * (t1 - t0), 3),
+                                "drain_ms": round(1000 * (time.perf_counter() - t1), 3), "cprofile": hot})
+            return r
         fence("start " + tag)
         r = layer_call(self, s, z, *args, **kw)
         fence("end " + tag)
@@ -159,6 +182,12 @@ def main():
             f.write(json.dumps(line) + "\n")
     if prof:
         (out / "regions.json").write_text(json.dumps(regions))
+    elif a.mode == "host":
+        (out / "host_blocks.json").write_text(json.dumps(host_blocks))
+        with open(out / "cprofile.txt", "w") as f:
+            for key in ("tottime", "cumulative"):
+                f.write(f"==== sorted by {key}\n")
+                pstats.Stats(cprof, stream=f).sort_stats(key).print_stats(60)
     else:
         # Block walls: each block between its own two synced fences.
         blocks = []
