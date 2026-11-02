@@ -7,6 +7,8 @@
     python <tt-bio>/perf/mol1/bh/opgap.py wall --input mol1-256.json --out <dir> --step-probe 20
     # host: each trunk block synced before it, host return and device drain timed apart, some blocks under cProfile
     python <tt-bio>/perf/mol1/bh/opgap.py host --input mol1-256.json --out <dir> --cprofile pf48/b10/
+    # diff: the fold as served, the warm fold's whole diffusion sampler under cProfile (the per-step host round trip)
+    python <tt-bio>/perf/mol1/bh/opgap.py diff --input mol1-256.json --out <dir> --recycles 1
 
 Both modes fold once cold and once warm in one process and record only the warm fold. `prof` enqueues a fence op
 (a multiply on a [1,1,32,224] tensor nobody else makes) before and after every Pairformer block and every denoise
@@ -15,7 +17,8 @@ order for perf/mol1/bh/opgap_table.py to cut the ops report with. `wall` syncs a
 block of the last cycle and replays the captured diffusion trace back to back (device time per step), the
 numbers the kernel sums are compared against. `host` splits each synced block into the time the Python call
 takes to return (host enqueue, queue stalls included) and the drain after it, and runs every block whose tag
-starts with --cprofile under cProfile (host_blocks.json, cprofile.txt). AICLK is sampled during both folds.
+starts with --cprofile under cProfile (host_blocks.json, cprofile.txt). `diff` runs the warm fold's diffusion
+sampler under cProfile (cprofile.txt). AICLK is sampled during both folds.
 """
 import argparse
 import cProfile
@@ -36,7 +39,7 @@ FENCE_SHAPE = (1, 1, 32, 224)
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=("prof", "wall", "host"))
+    ap.add_argument("mode", choices=("prof", "wall", "host", "diff"))
     ap.add_argument("--input", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--recycles", type=int, default=None, help="default: 1 for prof, the model's own for wall")
@@ -140,7 +143,10 @@ def main():
         def probed(*args, **kw):
             ttnn.synchronize_device(dev)
             t0 = time.perf_counter()
+            if a.mode == "diff" and rec["on"]:
+                cprof.enable()
             x = sampled(*args, **kw)
+            cprof.disable()
             extra["diffusion_s"] = time.perf_counter() - t0
             tr = getattr(m.diffusion, "_trace", None)
             if rec["on"] and tr is not None and a.step_probe:
@@ -182,8 +188,9 @@ def main():
             f.write(json.dumps(line) + "\n")
     if prof:
         (out / "regions.json").write_text(json.dumps(regions))
-    elif a.mode == "host":
-        (out / "host_blocks.json").write_text(json.dumps(host_blocks))
+    elif a.mode in ("host", "diff"):
+        if a.mode == "host":
+            (out / "host_blocks.json").write_text(json.dumps(host_blocks))
         with open(out / "cprofile.txt", "w") as f:
             for key in ("tottime", "cumulative"):
                 f.write(f"==== sorted by {key}\n")
