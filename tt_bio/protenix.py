@@ -326,8 +326,13 @@ MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
 # Plus four levers the fleet won elsewhere that leave Mol-1's digest unchanged: atom_l1, trimul_t1_psig, inproj_split and
 # trimul_t2cm. qb1 p150a at AICLK 1350, 5 warm folds per arm (state/mol1/evidence/bh/spdport.md): coords identical at
 # 256 and 512, warm 29.71 -> 26.96 s (256, a noisy base) and 83.29 -> 82.20 s (512); flat against a quiet base.
+# Plus dit_qkvf: each DiT block's attention reads the fused qkv projection and writes its heads concatenated, so the
+# head split and the four-op head re-assembly (4.3 ms of the 32.4 ms step at 256) go. qb1 p150a at AICLK 1350, 3 warm
+# folds per arm: 256 25.76 -> 24.72 s, 0.251 A median vs the 4.58 A seed floor; 512 78.31 -> 76.13 s, 0.163 A (max 0.54)
+# vs the 0.60 A bar and the 1.35 A floor; 1024 293.1 -> 290.8 s, 0.08 A vs the 0.61 A floor (state/mol1/evidence/bh/b256.md).
 MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
-                                            "ws_l1dest", "edm_device", "atom_l1", "inproj_split", "trimul_t2cm"}
+                                            "ws_l1dest", "edm_device", "atom_l1", "inproj_split", "trimul_t2cm",
+                                            "dit_qkvf"}
 # Mol-1 on Blackhole from 512 padded tokens (`size_levers`): bfp8 pair-transition weights in one chunk on the plain SwiGLU
 # kernel, the reblock move back writing bfp8 and T1's resident weights in bfp8. Graded as one stack over MOL1_BH, qb1
 # p150a at AICLK 1350, 5 warm folds per arm: 512 tokens 83.29 -> 75.23 s, samples matched to the base fold at 0.423 A

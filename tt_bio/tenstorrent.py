@@ -2832,7 +2832,8 @@ APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-a
 # dit_qkvf: the bf16 token DiT's attention as OpenFold3's dit_fuse runs it (`_sdpa32_fused`): read out of the
 # fused qkv projection and written [B, S, n_heads * padded_head_dim], so neither nlp_create_qkv_heads nor the
 # head re-assembly runs; the gate and output projection take apb_cat's padded-lane weights. HiFi2 like the
-# stock op's default, with the fp32 dest the stock op leaves off.
+# stock op's default, with the fp32 dest the stock op leaves off. On the fp32 DiT that already runs `_sdpa32`
+# (Protenix on Blackhole) it is that program read from the fused projection: fp32 out, `_sdpa32`'s own config.
 _DIT_QKVF_CKC = (ttnn.MathFidelity.HiFi2, False, True, False)
 DIT_QKVF_STATS = [0, 0]              # [served, declined] at the token-DiT site under the lever
 
@@ -13476,17 +13477,19 @@ class AttentionPairBias(Module):
 
     def _cat_weights(self):
         """`(g_weight, o_weight)` on the padded head lanes for the `apb_cat` lever, None when it does not
-        apply. Re-laned once from the device copies: exact for bf16, so a bfp8 copy declines, as does a
-        first call inside a trace capture (it would upload)."""
+        apply. Re-laned once from the device copies the gate and output projection read (`enable_lowp`'s when
+        set): exact for bf16 and fp32, so a bfp8 copy declines, as does a first call inside a trace capture
+        (it would upload)."""
         if self._cat_w is None:
+            g_w, o_w = (self._lp[1]["g_weight"], self._lp[1]["o_weight"]) if self._lp else (self.g_weight, self.o_weight)
             if (self.atom_level or self._concat_heads or not (lever("apb_cat") or lever("dit_qkvf"))
                     or getattr(self, "padded_head_dim", self.head_dim) == self.head_dim
-                    or {self.g_weight.dtype, self.o_weight.dtype} != {ttnn.bfloat16} or CAPTURING[0]):
+                    or {g_w.dtype, o_w.dtype} not in ({ttnn.bfloat16}, {ttnn.float32}) or CAPTURING[0]):
                 return None
             wide = lambda w, ax: ttnn.from_torch(  # noqa: E731
                 _pad_head_lanes(ttnn.to_torch(w), self.n_heads, self.head_dim, self.padded_head_dim, ax),
-                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
-            self._cat_w = (wide(self.g_weight, -1), wide(self.o_weight, 0))
+                dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=self.device)
+            self._cat_w = (wide(g_w, -1), wide(o_w, 0))
         return self._cat_w if lever("apb_cat") or lever("dit_qkvf") else None
 
     def enable_lowp(self, lp: DitLowp):
@@ -13765,7 +13768,7 @@ class AttentionPairBias(Module):
     ) -> ttnn.Tensor:
         self._load_kq_norm()
         lp, lw = self._lp or (None, None)
-        cat_w = self._cat_weights() if lp is None else None
+        cat_w = self._cat_weights()
         if lp is not None and s.dtype != lp.act:
             s = ttnn.typecast(s, lp.act)
         if not self.atom_level:
@@ -13791,7 +13794,7 @@ class AttentionPairBias(Module):
                                   + [(0, int(z.shape[-1]) - seq), (0, 0)], value=0.0)
                 ttnn.deallocate(qkv)
                 qkv = padded
-            if cat_w is not None and lever("dit_qkvf") and self.token_dit:
+            if cat_w is not None and lever("dit_qkvf") and (self.token_dit or self.sdpa32):
                 o = self._qkvf(qkv, z, seq, bias_precomputed, seq_mask)
                 if o is not None:
                     return self._gate_out(s, o, cat_w)
@@ -14021,31 +14024,24 @@ class AttentionPairBias(Module):
             o = ttnn.experimental.nlp_concat_heads(o)
             o = ttnn.squeeze(o, 1)
             o = ttnn.reshape(o, (B, K, W, D_S))
-        if lp is not None:
-            # The gate is written at o's format: a multiply whose b carries a fused sigmoid is wrong on
-            # mixed operand formats (Wormhole, fp32 o x bf16 g: rms 5.4e-2, max 3.1 against float64;
-            # same formats: 9e-4, bf16 rounding). perf/spd_difflin/k1_check.py --elementwise.
-            g = lp.linear(s, lw["g_weight"], dtype=o.dtype)
-            o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID],
-                              dtype=lp.mid)
-            ttnn.deallocate(g)
-            x = lp.linear(o, lw["o_weight"], dtype=lp.out)
-            ttnn.deallocate(o)
-            return x
         return self._gate_out(s, o, cat_w)
 
     def _qkvf(self, qkv, z, seq, bias_precomputed, seq_mask):
-        """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` bf16, or None where it does not apply."""
+        """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` (bf16, fp32 under `_sdpa32`), or None where
+        it does not apply."""
         n = int(qkv.shape[-2])
-        ok = (bias_precomputed and _B2_TOKEN_DIT_SDPA and z is not None and seq_mask is None
-              and not self._raw_fp32() and not self.kq_norm and len(qkv.shape) == 3 and sdpa32_chunk(n)
+        fp32 = self._raw_fp32() and self.sdpa32
+        ok = (bias_precomputed and z is not None and seq_mask is None
+              and (fp32 or (self.token_dit and _B2_TOKEN_DIT_SDPA and not self._raw_fp32()))
+              and not self.kq_norm and len(qkv.shape) == 3 and sdpa32_chunk(n)
               and int(qkv.shape[-1]) == 3 * self.n_heads * self.padded_head_dim
               and len(z.shape) == 4 and int(z.shape[-1]) == n and int(z.shape[1]) == self.n_heads)
         DIT_QKVF_STATS[0 if ok else 1] += 1
         if not ok:
             return None
-        o = _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
-                          out_dtype=ttnn.bfloat16, ckc=_DIT_QKVF_CKC)
+        o = (_sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads) if fp32 else
+             _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
+                           out_dtype=ttnn.bfloat16, ckc=_DIT_QKVF_CKC))
         ttnn.deallocate(qkv)
         o = ttnn.reshape(o, (int(o.shape[0]), n, int(o.shape[3])))
         if n > seq:
@@ -14056,6 +14052,18 @@ class AttentionPairBias(Module):
 
     def _gate_out(self, s, o, cat_w):
         """sigmoid(s W_g) * o, then the output projection (on the padded head lanes when `cat_w`)."""
+        if self._lp is not None:
+            lp, lw = self._lp
+            g_weight, o_weight = cat_w or (lw["g_weight"], lw["o_weight"])
+            # The gate is written at o's format: a multiply whose b carries a fused sigmoid is wrong on
+            # mixed operand formats (Wormhole, fp32 o x bf16 g: rms 5.4e-2, max 3.1 against float64;
+            # same formats: 9e-4, bf16 rounding). perf/spd_difflin/k1_check.py --elementwise.
+            g = lp.linear(s, g_weight, dtype=o.dtype)
+            o = ttnn.multiply(o, g, input_tensor_b_activations=[ttnn.UnaryOpType.SIGMOID], dtype=lp.mid)
+            ttnn.deallocate(g)
+            x = lp.linear(o, o_weight, dtype=lp.out)
+            ttnn.deallocate(o)
+            return x
         g_weight, o_weight = cat_w or (self.g_weight, self.o_weight)
         g = ttnn.linear(
             s,
