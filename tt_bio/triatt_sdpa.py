@@ -501,6 +501,11 @@ def _out_dtype(q):
         return ttnn.bfloat16
     return q.dtype
 
+#: the reader's K/V forwarding chain along the q_pf cores of each head, every batch
+#: (`sdpa_generic.build(kv_chain=True)`). Off until perf/mol1_triattn/chain_ab.py measures it.
+KV_CHAIN = False
+
+
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
          q_split_cap: int = -1, gate=None, padded_mask: bool = False, rows=None):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
@@ -631,6 +636,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
                 kv_buffer_factor=kv_buffer_factor, gate=gate_arg, rows=rows,
+                kv_chain=KV_CHAIN,
                 defines_extra={**_mask_defines(p["k_num_chunks"]),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE},
                                **({"TRIATT_ZONES": 1} if _ZONES else {})})

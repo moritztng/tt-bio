@@ -537,15 +537,24 @@ def note_l1_refusal(message: str) -> None:
         L1_PER_CORE = int(m.group(1))
 
 
+#: programs built with the K/V chain on (`build(kv_chain=True)` where the plan allows it)
+CHAIN_BUILDS = [0]
+
+
 def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale,
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
           out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
-          keypad=None, merged_out=False, rows=None):
+          keypad=None, merged_out=False, rows=None, kv_chain=False):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, DH]`
     (`triatt_ln.head_pitch`); the output stays `[B, H, rows, DH]`. Plain reads only.
+
+    `kv_chain` turns on the reader's unicast K/V forwarding along the q_pf cores of each head: the
+    first reads K/V from DRAM and hands each chunk to the next, for every batch the head's cores walk
+    (reader define KV_CHAIN_EVERY_BATCH), so K/V leave DRAM once instead of q_pf times. Needs one
+    head and one q chunk per core; the triatt_sdpa reader only.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
@@ -802,6 +811,12 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
                        KEYPAD_W=str(kp_w))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
+    chained = bool(kv_chain and p["q_pf"] > 1 and p["nh_per_core"] == 1 and p["q_per_core"] == 1
+                   and fuse_qkv is None and css is None and keypad is None)
+    used = p["batch_pf"] * p["nh_pf"] * p["q_pf"]
+    if chained:
+        defines["KV_CHAIN_EVERY_BATCH"] = "1"
+        CHAIN_BUILDS[0] += 1
     dlist = sorted(defines.items())
 
     kd = kernel_dir or _kdir()
@@ -828,6 +843,19 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     css_tail = ([], []) if css is None else ([css[0].buffer_address()], list(css[1]))
 
     kp_tail = [] if keypad is None else [keypad.buffer_address()]
+
+    def chain_args(i, lb, ln, lq, lqe):
+        # reader_interleaved.cpp chain block: participant, injector, sink, batch, head, q start, q count,
+        # prev x, y, next x, y, next core's q chunks, mcast dests, mcast wait (unicast: mcast_enabled 0)
+        if not chained or i >= used or lb >= p["B"] or lq >= lqe:
+            return [0] * 14
+        pos, last = i % p["q_pf"], p["q_pf"] - 1
+        prv = device.worker_core_from_logical_core(ttnn.CoreCoord((i - 1) % gx, (i - 1) // gx)) if pos else None
+        nxt = device.worker_core_from_logical_core(ttnn.CoreCoord((i + 1) % gx, (i + 1) // gx)) if pos < last else None
+        return [1, int(pos == 0), int(pos == last), lb, ln, lq, lqe - lq,
+                prv.x if prv else 0, prv.y if prv else 0, nxt.x if nxt else 0, nxt.y if nxt else 0,
+                1 if pos < last else 0, 0, 0]
+
     rr, wr, cr = [], [], []
     for i in range(num_cores):
         core = ttnn.CoreCoord(i % gx, i // gx)
@@ -839,7 +867,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         lqe = min(lq + p["q_per_core"], p["q_num_chunks"])
         # num_phases=1, chunked_q_chunk_offset=0, read/write_offset=0 (:807-809)
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
-                   + [0] * 14                          # chain metadata, all no-chain (0/0 chains)
+                   + chain_args(i, lb, ln, lq, lqe)    # chain metadata, no-chain zeros unless kv_chain
                    + ([] if fuse_qkv is None else [x_a, w_a])
                    + ([] if gate is None else [g_a]) + css_tail[0] + kp_tail))
         wr.append((core, [o_a, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0, 0]))
@@ -925,7 +953,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
            kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
-           kw.get("rows"),
+           kw.get("rows"), bool(kw.get("kv_chain")),
            None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:
