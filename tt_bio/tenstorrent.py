@@ -242,8 +242,10 @@ def opm_flat_b(b):
     return ttnn.to_layout(b, ttnn.TILE_LAYOUT)
 
 
-# The OPM contraction's own program config (`opm_contract_config`), Wormhole only (measured there).
-# 0 leaves it to ttnn's auto config.
+# The OPM contraction's own program config (`opm_contract_config`). 0 leaves it to ttnn's auto config.
+# Blackhole keeps ttnn's plan where the grid width divides the K tiles: there it runs ~132 TFLOP/s against
+# ~90 for this one; elsewhere this one is 1.05-2.3x faster (qb1 p150a, AICLK 1350, 1024-token row block,
+# perf/mol1/bh/opm_plan_sweep.py). On Wormhole the plan wins at those K too (312 tiles: 205 vs 294 ms).
 _OPM_CFG = env_flag("TT_BIO_OPM_CFG", True)
 
 
@@ -17664,8 +17666,10 @@ class OuterProductMean(Module):
                 depth_parts = [(b8(acp), b8(bcp), Sc) for acp, bcp, Sc in depth_parts]
 
         def plan(x, y):
-            return opm_contract_config(x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
-                                       x.device().compute_with_storage_grid_size())
+            kt, grid = x.padded_shape[1] // 32, x.device().compute_with_storage_grid_size()
+            if kt % grid.x == 0 and x.device().arch() != ttnn.Arch.WORMHOLE_B0:
+                return None
+            return opm_contract_config(x.padded_shape[0] // 32, y.padded_shape[0] // 32, kt, grid)
 
         def contract(x, y):
             if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
