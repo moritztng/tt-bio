@@ -18,9 +18,7 @@ def _t(shape, dtype=ttnn.bfloat16, buffer_type=None):
 
 def _parts(c, hidden, dtype):
     """The chunk count `weights()` chooses, from its own rule."""
-    kt, nh, ct = c // 32, hidden // 32, c // 32
-    return next((p for p in range(1, nh // W._SW + 1) if nh % (p * W._SW) == 0
-                 and W._l1_bytes(kt, nh // p, ct, dtype) <= W._L1_BUDGET), 1)
+    return len(W.hidden_chunks(c // 32, hidden // 32, c // 32, dtype))
 
 
 @pytest.mark.parametrize("c,hidden", [(128, 512), (256, 1024), (384, 1536)])
@@ -54,6 +52,28 @@ def test_resid_fits_the_split_weights_picks(c, hidden):
         x, w12, w3 = _t([1, 64, 512, c]), _t([c, 2 * h], dtype), _t([h, c], dtype)
         r = _t([1, 64, 512, c])
         assert W.eligible(x, w12, w3, resid=r, l1acc=dtype == ttnn.bfloat16)
+
+
+@pytest.mark.parametrize("c,dtype,chunks", [
+    (128, ttnn.bfloat16, [16]), (256, ttnn.bfloat16, [16, 16]), (256, ttnn.bfloat8_b, [32]),
+    (320, ttnn.bfloat16, [12, 12, 8, 8]), (320, ttnn.bfloat8_b, [20, 20]),
+    (384, ttnn.bfloat16, [12, 12, 12, 12]), (384, ttnn.bfloat8_b, [16, 16, 16]),
+    (448, ttnn.bfloat16, [8] * 7), (448, ttnn.bfloat8_b, [16, 16, 12, 12])])
+def test_hidden_chunks(c, dtype, chunks):
+    # Ragged chunks move only Mol-1's widths (c_z 320 bf16, 448 bfp8); every other model keeps its split.
+    assert W.hidden_chunks(c // 32, c // 8, c // 32, dtype) == chunks
+
+
+@pytest.mark.parametrize("c", [320, 448])
+def test_every_ragged_chunk_takes_the_resid_chain(c):
+    # ws_resid2 needs every chunk eligible with its residuals, or ws_swiglu declines to the row-blocked path.
+    for dtype in (ttnn.bfloat16, ttnn.bfloat8_b):
+        x = r = _t([1, 64, 512, c])
+        for h in W.hidden_chunks(c // 32, c // 8, c // 32, dtype):
+            w12, w3 = _t([c, 64 * h], dtype), _t([32 * h, c], dtype)
+            acc = dtype == ttnn.bfloat16
+            assert W.eligible(x, w12, w3, l1acc=acc, resid=r)
+            assert W.eligible(x, w12, w3, l1acc=acc, resid=r, resid2=r)
 
 
 def test_resid_must_match_the_output():
