@@ -5,7 +5,9 @@
 # the two processes fold both seeds and SIGINT each other, which one job per case cannot). Per case: its queued old-tree jobs go to
 # pool/withdrawn, its old folds to OUT-oom-<old tree>, and one prio-1 job folds seeds 42+66 on tree-FIX into OUT.
 # With OUT other than tt-wh nothing is withdrawn or moved and only seed 42 folds: that is the cross-tree check,
-# succeeded cases refolded beside their first fold. A case whose job is running is skipped and named. Needs wh_jobs.py beside it.
+# succeeded cases refolded beside their first fold. A case whose job is running is skipped and named. A case gets one
+# fix-tree job per OUT and tree (ledger requeued-OUT-FIX.txt: a lent box's stale failures sync back after its job left the
+# queue), and never one while named in norequeue.txt (a crash the tree cannot fold, e.g. 8pe3 until whl1). Needs wh_jobs.py beside it.
 #   bash wh_requeue.sh FIX_SHA [OUT [NAME...]]
 set -uo pipefail
 P=$(cd "$(dirname "$0")" && pwd); R=~/spd/mol1-quality; Q=~/spd/pool
@@ -23,6 +25,7 @@ for n in "${NAMES[@]}"; do
   f=/tmp/mq_jobs/1-mol1-quality-$n-s42.sh; [ -f $f ] || { echo "no job $n"; continue; }
   # queued already, here or (stub *.moved-to-<box>) on a lent box whose stale failed folds sync back
   compgen -G "$Q/queue/1-mol1-quality-$n-$OUT-$FIX.sh*" > /dev/null && { echo "QUEUED $n, skipped"; continue; }
+  grep -qxs "$n" requeued-$OUT-$FIX.txt norequeue.txt && continue
   for r in $Q/running/*-mol1-quality-$n-*.sh; do [ -e "$r" ] && [ ! -e "$r.end" ] && { echo "LIVE $n, skipped"; continue 2; }; done
   if [ $OUT = tt-wh ]; then
     for j in $Q/queue/*-mol1-quality-$n-s*.sh; do [ -e "$j" ] && mv "$j" $Q/withdrawn/${j##*/}.fixtree-$FIX; done
@@ -30,6 +33,6 @@ for n in "${NAMES[@]}"; do
     mkdir -p tt-wh-oom-${old:-x}/.runs
     for x in .runs/$n mol1_results_${n%%.json*}; do [ -e tt-wh/$x ] && mv tt-wh/$x tt-wh-oom-${old:-x}/$x; done
   fi
-  j=1-mol1-quality-$n-$OUT-$FIX.sh; cp $f jobs/$j.new && mv jobs/$j.new $Q/queue/$j
+  j=1-mol1-quality-$n-$OUT-$FIX.sh; cp $f jobs/$j.new && mv jobs/$j.new $Q/queue/$j && echo $n >> requeued-$OUT-$FIX.txt
   echo "$(date -u +%FT%TZ) queued $j (seeds $SEEDS, tree-$FIX)"
 done

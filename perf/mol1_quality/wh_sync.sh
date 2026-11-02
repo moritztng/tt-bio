@@ -21,7 +21,10 @@ have=$(timeout 120 $S $Q "mkdir -p $A && cd $A && echo ${SHA//,/+} > ENGINE_SHA 
 # REFUSED_BY_CAP as out of the arch's range, and the expected count drops by its seeds
 cap=$(timeout 120 $S $G "cd $R && grep -l SizeTooLargeError $(sed 's#rc#harness.log#g' <<< "$rcs") 2>/dev/null" | cut -d/ -f2 | sort -u)
 timeout 60 $S $Q "cd $A && cat > REFUSED_BY_CAP" <<< "$cap"
-N=$(( N - $(grep -c . <<< "$cap") * $(tr , '\n' <<< "$SEEDS" | grep -c .) ))
+# a case that crashes WH on every tree it has (.107 norequeue.txt, also read by wh_requeue.sh) is not waited for either:
+# grade.py lists it as missing, so the arch FAILs on it until a fixed tree folds it
+bad=$(timeout 60 $S $G "cat spd/mol1-quality/norequeue.txt 2>/dev/null")
+N=$(( N - $(cat <<< "$cap"$'\n'"$bad" | grep -c .) * $(tr , '\n' <<< "$SEEDS" | grep -c .) ))
 new=$(comm -23 <(sort <<< "$src") <(sort <<< "$have") | grep .)
 if [ -n "$new" ]; then
   # a multi-entry JSON file's results dir drops the .json and entry from the case name (same rule as sync_qb1.sh);
