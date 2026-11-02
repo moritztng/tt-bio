@@ -6,6 +6,22 @@
 #include "api/dataflow/dataflow_api.h"
 #include "dataflow_common.hpp"
 
+#ifdef ABLATE_KVREAD
+// INSTRUMENT (TT_BIO_TRIATT_ABLATE=KVREAD), wrong values on purpose: the K and V chunks are pushed
+// without their DRAM reads, so the arm's time is the call without the K/V traffic.
+template <uint32_t tile_bytes, typename ReaderType>
+uint32_t kv_read(const ReaderType&, const uint32_t cb_id, uint32_t, const uint32_t, const uint32_t,
+                 const uint32_t dst_rows, const uint32_t dst_cols, const uint32_t, const bool = false,
+                 const uint32_t = 0) {
+    cb_reserve_back(cb_id, dst_rows * dst_cols);
+    cb_push_back(cb_id, dst_rows * dst_cols);
+    return 0;
+}
+#define KV_READ kv_read
+#else
+#define KV_READ read_chunk_with_padding
+#endif
+
 // Read a KV chunk into a CB for L1-L1 forwarding.
 // Skips intermediate read barriers (single barrier at end) for lower latency.
 // Returns the CB write pointer (start address of the data) for use as the forwarding source.
@@ -580,7 +596,7 @@ void kernel_main() {
                                     cb_k_start_address = read_chunk_for_forwarding<k_tile_bytes, true>(
                                         k_reader, cb_k_in, k_start_tile_id, kv_row_tile_count, DHt, Sk_chunk_t, DHt);
                                 } else {
-                                    read_chunk_with_padding<k_tile_bytes>(
+                                    KV_READ<k_tile_bytes>(
                                         k_reader,
                                         cb_k_in,
                                         k_start_tile_id,
@@ -739,7 +755,7 @@ void kernel_main() {
                                         vDHt,
                                         skip_src_cols);
                                 } else {
-                                    read_chunk_with_padding<v_tile_bytes>(
+                                    KV_READ<v_tile_bytes>(
                                         v_reader,
                                         cb_v_in,
                                         v_start_tile_id,

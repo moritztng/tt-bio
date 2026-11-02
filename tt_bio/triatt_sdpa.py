@@ -162,7 +162,7 @@ PM_L1_ERRORS: dict = {}
 # matmul against a bf16 v, and the statistics CBs meet a bf16 scalar in the reduce. The plumbing was
 # removed again rather than left as a dark knob -- there is nothing to gain from it, since the fp32
 # DST already carries the reduction and the arm above beats the materialised path outright.
-# INSTRUMENT, never a shipped knob. `TT_BIO_TRIATT_ABLATE=EXP,MASKADD` compiles the kernel with
+# INSTRUMENT, never a shipped knob. `TT_BIO_TRIATT_ABLATE=EXP,MASKADD,KVREAD` compiles the kernel with
 # the named stage REMOVED, so the arm's output is wrong on purpose and only its time means anything.
 # It exists because neither roof this campaign uses -- bytes moved and matmul FLOPs -- prices the
 # SFPU, and at head_dim 32 the score matrix this op exponentiates is 16x larger than the operands

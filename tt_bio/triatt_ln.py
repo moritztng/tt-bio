@@ -46,6 +46,8 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = True
+#: most column groups TR takes (each group gathers x^T on its own); above it the caller transposes first
+TR_GROUPS = 1
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
 #: rotate each core's plain-read rows by its row-split index, so the cores of a group do not all start on the same
@@ -271,7 +273,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if transposed and (not TR or shp[0] != shp[1] or shp[0] % TILE):
         return _reject("tr_shape", x)
     plan = _plan(K // TILE, int(w.padded_shape[-1]) // TILE, transposed, x.device(), grid[0] * grid[1])
-    if plan is not None and transposed and plan[0] > 1:
+    if plan is not None and transposed and plan[0] > TR_GROUPS:
         # Each group would gather x^T in 1 KB pieces on its own: 13.99 ms against 13.62 for transpose,
         # norm and project (OpenDDE S512, Wormhole HiFi4, 1000 MHz). The caller transposes and comes
         # back without `transposed`, which beats both.
