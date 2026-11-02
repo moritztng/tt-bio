@@ -152,6 +152,9 @@ def main():
     out = {"verdict": verdict, "bar": BAR, "sizes": sizes, "usd_per_chip": usd, "tt_rejected_measure_rounds": rejected,
            "formula": "(predictions_s_tt / chips / usd_per_tt_chip) / (predictions_s_b200 / usd_per_b200_in_dgx)",
            "protocol": "state/mol1/PROTOCOL.md (sections 1-9 GPU and work, 10 TT)", "written": written}
+    old = json.loads((state / "VERDICT.json").read_text()) if (state / "VERDICT.json").exists() else {}
+    if "launch" in old:                                   # the post's arch/size/example, set by the orchestrator
+        out["launch"] = old["launch"]
     row = {"status": "done" if verdict in ("PASS", "FAIL") else "running",
            "platforms": {a_: ARCH[a_][0] for a_ in tt}, "hosts": sorted({t["host"] for c in tt.values() for t in c.values()}),
            "cards": {a_: sorted({i for t in c.values() for i in t["chip_ids"]}) for a_, c in tt.items()},
