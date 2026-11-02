@@ -19,6 +19,16 @@ from tt_bio import triatt_sdpa as TS                                         # n
 GALAXY_WH = 72
 
 
+@pytest.fixture(autouse=True)
+def wormhole(monkeypatch):
+    # The L1 budget `split_q_chunk` prices against follows the host's arch, so pin the arch each cell
+    # models: the Galaxy cells read Wormhole L1 on a Blackhole runner too, and the reverse.
+    monkeypatch.setattr(T, "is_wormhole", lambda: True)
+    TS.split_q_chunk.cache_clear()
+    yield
+    TS.split_q_chunk.cache_clear()
+
+
 def _pick(seq, heads, cores=GALAXY_WH, dtype=None):
     dtype = dtype or ttnn.bfloat16
     k = T._sdpa_chunks_shipped(seq, seq)[1]
@@ -48,9 +58,9 @@ def test_four_heads_fire_only_at_the_measured_shape(cores, dtype):
 
 
 @pytest.mark.parametrize("heads, want", [(10, 224), (14, 160), (8, 0), (12, 0)])
-def test_blackhole_picks_at_the_wide_k(heads, want):
+def test_blackhole_picks_at_the_wide_k(heads, want, monkeypatch):
     # p150a/p300 grid 11x10, the served k1024: measured 1.14x (10 heads) and 1.27x (14), 8 and 12 unchanged.
-    TS.split_q_chunk.cache_clear()
+    monkeypatch.setattr(T, "is_wormhole", lambda: False)
     got = TS.split_q_chunk(1024, heads, 32, 110, 1024, ttnn.bfloat16, tuple(T._tri_att_q_chunks(1024, 1024)),
                            TS.SPLIT_Q_ITER_ROWS["blackhole"], TS.SPLIT_Q_MARGIN["blackhole"])
     assert got == want

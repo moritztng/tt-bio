@@ -79,6 +79,9 @@ JOBS = {
     "opendde-abag": _PREDICT + ["opendde-abag"],
     "esmc-6b": ["embed", "{fasta}", "--model", "esmc-6b"],
     "saprot-1.3b": ["saprot", "{fasta}", "--model", "saprot-1.3b"],
+    # Mol-1 runs the protenix-v2 trunk at its own widths. tests/test_mol1_bucket_hw.py censuses those too, but only
+    # where MOL1_CKPT is set, which no gate host does; this row goes through the CLI's own weight fetch.
+    "mol1": _PREDICT + ["mol1"],
 }
 
 #: BUCKETED rows with no `JOBS` entry, each with the reason it cannot take the shared 98-aa fasta.
