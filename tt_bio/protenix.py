@@ -4242,21 +4242,24 @@ class Trunk(_KeyedWeights):
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
             return [z3, s]
 
-        def sampled(cyc, carry, x):
+        def sampled(cyc, carry, x, retry=False, park=False):
             # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
+            # `park` builds the cycle's m in depth chunks on the host and streams it, as a refused
+            # resident cycle does below.
             k = len(rows[cyc])
-            m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1])
+            m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1], park=park)
             if torch.is_tensor(m_c):
                 # Parked on the host: drop the padding there, which costs nothing.
-                return cycle(cyc, carry, m_c[:, :k])
+                return cycle(cyc, carry, m_c[:, :k], retry=retry)
             mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
-            carry = cycle(cyc, carry, m_c, (mask, k))
+            carry = cycle(cyc, carry, m_c, (mask, k), retry=retry)
             del m_c, mask
             return carry
 
         carry = [z3, s]
         del z3, s
+        parked = False
 
         for cyc in range(n_cycles):
             # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
@@ -4290,7 +4293,28 @@ class Trunk(_KeyedWeights):
                     x, _ = next_rows.result()
                     if cyc + 1 < n_cycles:
                         next_rows = cut(cyc + 1)
-                    carry = sampled(cyc, carry, x)
+                    if parked:
+                        carry = sampled(cyc, carry, x, park=True)
+                        continue
+                    # The same crash guard as a resident m below. A row count drawn afresh every cycle
+                    # changes the MSA shapes every cycle, so a deep draw late in the fold can find the
+                    # chip's DRAM in pieces where the full-depth path reuses its blocks: 7ua2-assembly1
+                    # (712 tokens, 18,611 rows) was refused 2.96 GiB at cycle 7 of 20 on a Wormhole chip.
+                    inputs = list(carry)
+                    try:
+                        carry = sampled(cyc, carry, x, retry=True)
+                        inputs = None
+                    except RuntimeError as exc:
+                        if not is_alloc_refusal(exc):
+                            raise
+                    if inputs is None:
+                        continue
+                    print(f"[tt-bio] DRAM refused a recycling cycle with {len(rows[cyc])} MSA rows on the chip; "
+                          f"streaming each cycle's rows from the host for the rest of this fold. The tt-metal 'Out "
+                          f"of Memory' line above is expected and handled.", file=sys.stderr, flush=True)
+                    gc.collect()
+                    parked = True
+                    carry, inputs = sampled(cyc, inputs, x, park=True), None
                     continue
                 if torch.is_tensor(m_feat):
                     carry = cycle(cyc, carry, m_feat)
