@@ -316,7 +316,7 @@ def css_kernel_dir() -> Path:
 
 
 _PV_CALL_ORIG = "            /* OUT_IM = QK @ V_CHUNK */\n            matmul_blocks("
-_PV_ANCHOR = "void matmul_reduce("
+_PV_ANCHOR = "template <uint32_t M>\nvoid matmul_reduce("
 _PV_FN = r"""// pv_l1acc: QK @ V_CHUNK one key tile per dest pass, the partial sums added by the packer in L1.
 ALWI void matmul_blocks_pv(
     const uint32_t& in0_cb, const uint32_t& in1_cb, const uint32_t& out_cb, const uint32_t& M,
