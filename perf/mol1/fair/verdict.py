@@ -190,7 +190,7 @@ def main():
     (state / "VERDICT.json").write_text(json.dumps(out, indent=1) + "\n")
     (state / "FAIR.md").write_text(carry_history(state / "FAIR.md", fair, written))
     (state / "rows" / "mol1-fair-tt.json").write_text(json.dumps(row, indent=1) + "\n")
-    if verdict in ("PASS", "FAIL"):
+    if out["sizes"]:  # measured cells go on the deck as they land; a missing side is simply absent
         deck = state.parent / "biodeck" / "src" / "extra_cells.json"
         cells = {k: v for k, v in json.loads(deck.read_text()).items() if not k.startswith("mol1.")}
         cells.update(deck_cells(out))
@@ -203,7 +203,9 @@ def deck_cells(v):
     cells = {}
     for s, c in v["sizes"].items():
         for arch in ARCH:
-            t = c[arch]
+            t = c.get(arch)
+            if not t:
+                continue
             cells[f"mol1.{ARCH[arch][0]}.{s}"] = {
                 "s": round(t["chips"] / t["predictions_per_s"], 3),
                 "unit": f"s/prediction per chip (warm median of {t['rounds']} rounds on {t['chips']} chip(s), "
