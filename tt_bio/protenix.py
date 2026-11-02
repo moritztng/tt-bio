@@ -314,7 +314,12 @@ MOL1_T1 = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trim
 # (max 0.767) vs the 2.24 A sample floor; 512 tokens 83.58 -> 80.97 s at 1306-1318, 0.150 A median (max 0.373) vs the 0.60 A
 # bar and the 1.37 A floor. diffusion_bf16 on top fails the 256 grade (0.806 A median) for a further -0.2 s and stays out.
 MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
-MOL1_BH = MOL1_T1 | MOL1_DIT_BH | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part"}
+# Plus ws_l1dest: transition_ws also serves the pair transitions whose residual update fits L1, the Pairformer's at 256
+# tokens. mol1-256 (245 tokens), p300 chip, 5 warm folds per arm, seeds 102-106: 32.7 -> 26.8 s at AICLK 1337-1343;
+# samples matched to the base fold at 1.61 A median vs the 6.07 A seed floor, lDDT 0.964 vs 0.902. 512: 0.264 A median
+# vs the 0.60 A bar and the 1.43 A floor, time unchanged; 1024 coords identical (state/mol1/evidence/bh-batch).
+MOL1_BH = MOL1_T1 | MOL1_DIT_BH | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
+                                  "ws_l1dest"}
 # Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
 # BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
