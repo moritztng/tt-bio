@@ -7,13 +7,15 @@ sampled during the timed calls.
 
 Usage: split_ab.py --cells 1024x10,1024x14,1024x12,800x8,672x14,672x16,512x10,512x14,1024x8 --out ab.jsonl
        [--margin 0.12] [--grid 8x8]   # the on arm at another SPLIT_Q_MARGIN; a smaller grid stands in for a 64-core chip
+       [--served]                     # under bench.py's served levers (Mol-1's wide-k route) instead of the defaults
 """
-import argparse, json, sys, time
+import argparse, contextlib, json, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "perf"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import torch
 import ttnn
@@ -36,6 +38,7 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--margin", type=float, default=TS.SPLIT_Q_MARGIN)
     ap.add_argument("--grid", default=None)
+    ap.add_argument("--served", action="store_true")
     a = ap.parse_args()
     TS.SPLIT_Q_MARGIN = a.margin
     dev = T.get_device()
@@ -43,12 +46,23 @@ def main():
         T.COMPUTE_GRID_MAIN = tuple(map(int, a.grid.split("x")))
     put = lambda t: ttnn.from_torch(t, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev,  # noqa: E731
                                     memory_config=ttnn.DRAM_MEMORY_CONFIG)
+    levers = contextlib.nullcontext()
+    if a.served:
+        from bench import ARMS
+        T._MM_DEFAULT_WIDE = ARMS["served"][1]
+        levers = T.levers(ARMS["served"][0])
+    with levers:
+        run(a, dev, put)
+    T.cleanup()
+
+
+def run(a, dev, put):
     for cell in a.cells.split(","):
         S, H = map(int, cell.split("x"))
         g = torch.Generator().manual_seed(S * 100 + H)
         q, k, v = (put(torch.randn(S, H, S, 32, generator=g).bfloat16()) for _ in range(3))
         bias = put(torch.randn(1, H, S, S, generator=g).bfloat16())
-        rec = {"S": S, "heads": H, "grid": list(T.COMPUTE_GRID_MAIN), "margin": a.margin}
+        rec = {"S": S, "heads": H, "grid": list(T.COMPUTE_GRID_MAIN), "margin": a.margin, "served": a.served}
         outs, ts = {}, {"on": [], "off": []}
         with clocksample.during(period=0.5) as clk:
             for rep in range(a.reps + 1):
@@ -79,7 +93,6 @@ def main():
         print(json.dumps(rec), flush=True)
         with a.out.open("a") as f:
             f.write(json.dumps(rec) + "\n")
-    T.cleanup()
 
 
 if __name__ == "__main__":

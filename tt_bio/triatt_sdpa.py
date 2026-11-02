@@ -387,23 +387,31 @@ def _ranked_pairs(seq: int, heads: int, head_dim: int, cores: int, mask_dtype=No
 # torch.equal. Over every pair that ran at 512 and 1024 the time follows `per_core_cost` to within 5 %,
 # the padded ones at the high end. At the 12 % margin every cell measured on the 8x9 and 8x8 grids
 # (perf/mol1_triattn/split_ab.py --margin 0.12, 21 cells) ran 1.09-1.80x faster and torch.equal,
-# the 4-head Protenix-v2 shape at 800 included (1.20x). Wormhole only (the caller): the cost model
-# is unmeasured against Blackhole's grids. The q chunk only moves rows between cores and the
+# the 4-head Protenix-v2 shape at 800 included (1.20x). The q chunk only moves rows between cores and the
 # padded rows are dropped, so the output bits are the dividing pick's at the same k chunk.
+#
+# Blackhole pays a fixed cost per (batch row, q chunk) iteration that the Wormhole surface does not show.
+# MEASURED on a p150a (qb1 card 0, 11x10 grid, 1350 MHz), [1024, 10, 1024, 32] bf16 at k1024: q128 at
+# [1,10,8] and q256 at [2,10,4] own the same rows per core and take 30.33 vs 24.37 ms, ~82 q rows of
+# overhead per iteration; that fit predicts q224 [2,10,5] at 22.1 ms (measured 21.49). Without the term the
+# model takes q64/q96 and loses 0.50-0.78x on Blackhole (state/mol1/evidence/bh/triattn.md). The model's
+# own K/V term already carries one row, so Wormhole adds 0 and its picks are unchanged.
 SPLIT_Q = env_flag("TT_BIO_TRIATT_SPLIT_Q", True)
 SPLIT_Q_MARGIN = 0.12
+SPLIT_Q_ITER_ROWS = {"wormhole": 0, "blackhole": 80}
 SPLIT_Q_STATS = [0, 0]   # (served, offered and declined)
 
 
 @lru_cache(maxsize=None)
 def split_q_chunk(seq: int, heads: int, head_dim: int, cores: int, k_chunk: int, mask_dtype,
-                  dividing: tuple) -> int:
+                  dividing: tuple, iter_rows: int = 0) -> int:
     """A padded q chunk for `sdpa(..., padded_mask=True)` at `k_chunk`, or 0 for the dividing ladder.
 
     `dividing` is the ladder's q chunks at this k, widest first; its first one that divides and fits the
     persistent mask is what serves without this (a non-dividing one never reaches the fused kernel here). Each q split `q_pf` is offered at the narrowest q that reaches it,
     and one wins only if `per_core_cost` puts it `SPLIT_Q_MARGIN` under that pick. Within the cap only:
-    above it `q_parallel_factor` gives no split and the large-S route ranks its own pairs."""
+    above it `q_parallel_factor` gives no split and the large-S route ranks its own pairs. `iter_rows` is the
+    fixed cost of one (batch row, q chunk) iteration in q rows on top of the model's own (SPLIT_Q_ITER_ROWS)."""
     if not SPLIT_Q or seq > _Q_SPLIT_MAX_S or seq % k_chunk:
         return 0
     dts = {} if mask_dtype is None else {f"{o}_dtype": mask_dtype for o in ("q", "k", "v", "mask", "out")}
@@ -414,9 +422,11 @@ def split_q_chunk(seq: int, heads: int, head_dim: int, cores: int, k_chunk: int,
                               split=(max(cores // (heads * q_pf), 1), heads, q_pf), dtype=mask_dtype)
         if p["q_per_core"] != 1 or p["nh_per_core"] != 1:
             return None
-        if not SG.cb_fits_l1(p, mask_cb_tiles=p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"], **dts):
+        if not SG.cb_fits_l1(p, mask_cb_tiles=p["k_num_chunks"] * p["Sq_chunk_t"] * p["Sk_chunk_t"], one_k_trim=True,
+                             **dts):
             return None
-        return per_core_cost(p, qc, p["k_num_chunks"] * k_chunk)
+        kv = p["k_num_chunks"] * k_chunk
+        return per_core_cost(p, qc, kv) + p["batch_per_core"] * iter_rows * 2 * kv
 
     base = next((c for c in (cost(qc) for qc in dividing if seq % qc == 0) if c is not None), None)
     if base is None:
