@@ -13,7 +13,8 @@ does: warm lines grouped by (size, arm, batch, session), the median per group, t
 
 with prices from state/mol1/PRICES.json (PROTOCOL section 7). Writes evidence/tt-wh.jsonl, evidence/tt-p150a.jsonl,
 VERDICT.json, FAIR.md (earlier verdicts kept), rows/mol1-fair-tt.json and, once every cell has both sides, the
-deck's mol1.* cells.
+deck's mol1.* cells. Blackhole also has to clear a throughput bar (CHARTER amendment 2026-11-02): a Galaxy of 32
+p150a-rate chips against a DGX of 8 B200s, >= 1.50x at every size.
 """
 import argparse
 import json
@@ -29,6 +30,7 @@ from fairbox import carry_history  # noqa: E402
 
 SIZES = (256, 512, 1024)
 BAR, MIN_ROUNDS, MIN_WH_CHIPS = 3.00, 5, 8
+BH_GALAXY_CHIPS, DGX_GPUS, BH_THROUGHPUT_BAR = 32, 8, 1.50
 ARCH = {"bh": ("p150a", "tt-p150a.jsonl", "galaxy_bh"), "wh": ("wh", "tt-wh.jsonl", "galaxy_wh")}
 
 
@@ -145,13 +147,20 @@ def main():
             if g and not g["short"]:
                 cell[arch]["ratio"] = round((t["predictions_per_s"] / t["chips"] / usd[price])
                                             / (g["predictions_per_s"] / usd["dgx_b200"]), 3)
+                if arch == "bh":
+                    cell[arch]["galaxy_throughput_vs_dgx"] = round(
+                        t["predictions_per_s"] / t["chips"] * BH_GALAXY_CHIPS / (g["predictions_per_s"] * DGX_GPUS), 3)
         sizes[str(s)] = cell
     ratios = [sizes[str(s)].get(arch, {}).get("ratio") for s in SIZES for arch in ARCH]
-    verdict = ("PASS" if min(ratios) >= BAR else "FAIL") if all(r is not None for r in ratios) else "INCOMPLETE"
+    thr = [sizes[str(s)].get("bh", {}).get("galaxy_throughput_vs_dgx") for s in SIZES]
+    verdict = (("PASS" if min(ratios) >= BAR and min(thr) >= BH_THROUGHPUT_BAR else "FAIL")
+               if all(r is not None for r in ratios + thr) else "INCOMPLETE")
     written = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    out = {"verdict": verdict, "bar": BAR, "sizes": sizes, "usd_per_chip": usd, "tt_rejected_measure_rounds": rejected,
+    old = json.loads((state / "VERDICT.json").read_text()) if (state / "VERDICT.json").exists() else {}
+    out = {"verdict": verdict, "bar": BAR, "bh_throughput_bar": BH_THROUGHPUT_BAR, "sizes": sizes, "usd_per_chip": usd, "tt_rejected_measure_rounds": rejected,
            "formula": "(predictions_s_tt / chips / usd_per_tt_chip) / (predictions_s_b200 / usd_per_b200_in_dgx)",
            "protocol": "state/mol1/PROTOCOL.md (sections 1-9 GPU and work, 10 TT)", "written": written}
+    out |= {k: v for k, v in old.items() if k not in out}  # keys other rows own, e.g. the launch example
     old = json.loads((state / "VERDICT.json").read_text()) if (state / "VERDICT.json").exists() else {}
     if "launch" in old:                                   # the post's arch/size/example, set by the orchestrator
         out["launch"] = old["launch"]
@@ -168,6 +177,7 @@ def main():
            "main_sha": {a_: {s: t["sha"] for s, t in c.items()} for a_, c in tt.items()},
            "b200_reference": {s: c["b200"] for s, c in sizes.items()},
            "ratio": {s: {a_: c.get(a_, {}).get("ratio") for a_ in ARCH} for s, c in sizes.items()},
+           "bh_galaxy_throughput_vs_dgx": {s: c.get("bh", {}).get("galaxy_throughput_vs_dgx") for s, c in sizes.items()},
            "verdict": verdict, "updated": written}
     fair = fair_md(out)
     if a.dry:
@@ -217,21 +227,24 @@ def fair_md(v):
          f"Written by `perf/mol1/fair/verdict.py` at {v['written']}. Protocol {v['protocol']}.",
          f"Ratio per size = {v['formula']}; $ per chip: WH {v['usd_per_chip']['galaxy_wh']:.2f}, "
          f"BH {v['usd_per_chip']['galaxy_bh']:.2f}, B200 in a DGX {v['usd_per_chip']['dgx_b200']:.2f}.", "",
-         f"**Verdict: {v['verdict']}** against the {v['bar']:.2f}x bar.", "",
+         "Blackhole throughput = 32 x the p150a rate / (8 x the B200 rate), a Galaxy against a DGX.", "",
+         f"**Verdict: {v['verdict']}** against the {v['bar']:.2f}x per-dollar bar (both sides) and the "
+         f"{v['bh_throughput_bar']:.2f}x Blackhole throughput bar.", "",
          "| size | side | predictions/s (min-max, n) | chips x batch | AICLK MHz (per round) | foreign cores | host | "
-         "main sha | fw | ratio |", "|---|---|---|---|---|---|---|---|---|---|"]
+         "main sha | fw | ratio | Galaxy/DGX throughput |", "|---|---|---|---|---|---|---|---|---|---|---|"]
     for s, c in v["sizes"].items():
         for arch in ARCH:
             t = c.get(arch)
             L.append(f"| {s} | {arch} | " + (" | ".join(str(x) for x in (
                 f"{t['predictions_per_s']} ({t['min']}-{t['max']}, {t['rounds']})", f"{t['chips']} x {t['batch']}",
                 "/".join(str(x) for x in t["aiclk_mhz"]), t["foreign_cores_median"], t["host"], t["sha"][:9],
-                t["firmware"], t.get("ratio", ""))) if t else "not measured | | | | | | |") + " |")
+                t["firmware"], t.get("ratio", ""), t.get("galaxy_throughput_vs_dgx", "")))
+                                       if t else "not measured | | | | | | | |") + " |")
         g = c["b200"]
         L.append(f"| {s} | b200 | " + (f"{g['predictions_per_s']} ({g['min']}-{g['max']}, {g['batches']}"
                                        f"{', short' if g['short'] else ''}) | K={g['batch']}, {g['arm']} | "
-                                       f"SM {g['clock_mhz']} | | {g['session']} | | | |" if g else
-                                       "not published | | | | | | | |"))
+                                       f"SM {g['clock_mhz']} | | {g['session']} | | | | |" if g else
+                                       "not published | | | | | | | | |"))
     L += ["", f"TT measure rounds rejected: {v['tt_rejected_measure_rounds'] or 'none'}.",
           "Chassis: the B200 side is priced as a DGX B200; the HGX exposure (state/rfd4/GPU-AUDIT.md section 5) "
           "applies unchanged and is quoted beside every published ratio."]
