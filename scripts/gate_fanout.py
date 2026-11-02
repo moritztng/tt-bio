@@ -208,6 +208,10 @@ LEND_AT = "~/spd/galaxy/LEND-AT"
 #: agent is active, or enabled with no ~/glx/LENT, and a chip is usable while lend/<umd>.lent says recall_at null).
 #: With none lent the pool starts nothing, so it counts as paused: rel-a06d92c6d (10-24) queued 16 WH legs on .110
 #: an hour after it went back to JapanFold, every chip recalled, and they sat there 7 h while .103 had chips.
+#: Only once no chip has been lent for NONE_LENT_S, though: the agent lends and recalls chips minute by minute, and a
+#: single read between two lends took back a leg the pool would have started minutes later. rel-f4177cee0 (10-31..
+#: 11-02): perf on .111 and ladder:opendde on .112 were queued and taken back 12 times each in 40 h while both boxes
+#: ran prio-9 SPD jobs on lent chips, and the train waited 65 h on them.
 SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
                      'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
                      '! grep -qs \'"recall_at": null\' ~/japanfold/state/agent/lend/*.lent')
@@ -220,6 +224,7 @@ LEND_MODE = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx
              'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
              'sed -n "s/^LEND_SKIP=\'\\(.*\\)\'$/LENDSKIP \\1/p" ~/spd/galaxy/pool.sh || :')
 LEND_READ_S = 300
+NONE_LENT_S = 1800
 REQUEUED = "requeued"     # run_in_pool's note for an attempt the pool put back after a chip recall
 REQUEUE_GRACE_S = 3       # the pool requeues right after the job exits; give it that long before reading rc
 WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue before it started"
@@ -895,27 +900,31 @@ class Host:
     running: int = 0
     timed_running: bool = False
     outputs: set = field(default_factory=set)
-    lend: tuple = (float("-inf"), None, False, None)   # (read at, LEND-AT epoch, pool PAUSEd, lend mode's skip regex)
+    # (read at, LEND-AT epoch, pool PAUSEd, lend mode's skip regex, first read with no chip lent)
+    lend: tuple = (float("-inf"), None, False, None, None)
 
     def read_lend(self) -> None:
         """Refresh `lend` from the host's pool at most every LEND_READ_S."""
         if "pool" not in self.cfg or time.time() - self.lend[0] < LEND_READ_S:
             return
         pause = shlex.quote(str(Path(self.cfg["pool"]["queue"]).parent / "PAUSE"))
-        r = self.ssh(f"cat {LEND_AT} 2>/dev/null; echo; test -e {pause} && echo PAUSE; {SERVING_NONE_LENT} && echo PAUSE; "
+        r = self.ssh(f"cat {LEND_AT} 2>/dev/null; echo; test -e {pause} && echo PAUSE; {SERVING_NONE_LENT} && echo NONELENT; "
                      f"{LEND_MODE}", capture_output=True, timeout=120)
         if r.returncode in (0, 1):
             lines = r.stdout.splitlines()
             skip = next((ln.split(" ", 1)[1] for ln in lines if ln.startswith("LENDSKIP ")), None)
             words = [w for ln in lines if not ln.startswith("LENDSKIP ") for w in ln.split()]
             at = next((int(w) for w in words if w.isdigit()), None)
-            self.lend = (time.time(), at, "PAUSE" in words, skip)
+            now = time.time()
+            none = (self.lend[4] or now) if "NONELENT" in words else None
+            self.lend = (now, at, "PAUSE" in words, skip, none)
 
     def lent(self, leg: "Leg") -> bool:
-        """True while this host's pool would not start `leg` (from `lend`): paused, a lend window its cap
-        reaches, or lend mode with the leg's job name in pool.sh's LEND_SKIP."""
-        _, at, paused, skip = self.lend
-        return paused or (at is not None and time.time() + leg.budget >= at) \
+        """True while this host's pool would not start `leg` (from `lend`): paused, no chip lent for NONE_LENT_S,
+        a lend window its cap reaches, or lend mode with the leg's job name in pool.sh's LEND_SKIP."""
+        _, at, paused, skip, none = self.lend
+        return paused or (none is not None and time.time() - none >= NONE_LENT_S) \
+            or (at is not None and time.time() + leg.budget >= at) \
             or (skip is not None and re.search(skip, leg.tag) is not None)
 
     @property

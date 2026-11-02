@@ -1169,7 +1169,7 @@ def test_a_host_keyed_as_another_card_type_keeps_its_own_for_the_record():
 def _pool_host(name, tmp_path, lend_at=None, paused=False, skip=None):
     h = gf.Host(name, {"arch": "wh", "card_type": "wh", "root": str(tmp_path),
                        "pool": {"queue": str(tmp_path / name / "queue")}}, "f" * 40)
-    h.lend = (time.time(), lend_at, paused, skip)      # fresh, so no ssh
+    h.lend = (time.time(), lend_at, paused, skip, None)      # fresh, so no ssh
     return h
 
 
@@ -1624,7 +1624,8 @@ def test_a_worker_on_a_chip_marked_bad_runs_no_leg_and_its_legs_run_elsewhere(tm
 
 
 def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypatch):
-    """pool.sh starts nothing on a JapanFold-serving box with no chip lent, so its legs go elsewhere."""
+    """pool.sh starts nothing on a JapanFold-serving box with no chip lent, so its legs go elsewhere, but only once
+    none has been lent for NONE_LENT_S: one read between two lends is the agent recalling a chip, not a lent box."""
     stub = tmp_path / "bin"
     stub.mkdir()
     (stub / "systemctl").write_text("#!/bin/sh\nexit 0\n")
@@ -1635,18 +1636,25 @@ def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypat
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("PATH", f"{stub}:{os.environ['PATH']}")
 
-    def paused():
-        h = gf.Host("g110", {"arch": "wh", "card_type": "wh", "root": str(tmp_path), "ssh": "localhost",
-                             "pool": {"queue": str(tmp_path / "pool" / "queue")}}, "f" * 40)
+    h = gf.Host("g110", {"arch": "wh", "card_type": "wh", "root": str(tmp_path), "ssh": "localhost",
+                         "pool": {"queue": str(tmp_path / "pool" / "queue")}}, "f" * 40)
+
+    def paused(ago=0):
+        h.lend = (float("-inf"),) + h.lend[1:]
         h.read_lend()
+        if ago and h.lend[4] is not None:
+            h.lend = h.lend[:4] + (h.lend[4] - ago,)
         return h.lent(gf.Leg("ux:opendde", [], "ux"))
 
-    assert paused()                                   # every chip recalled
+    assert not paused()                               # every chip recalled, at one read
+    assert not paused()                               # still within NONE_LENT_S: the first read is kept
+    assert paused(gf.NONE_LENT_S)                     # none lent for NONE_LENT_S
     (lend / "1.lent").write_text('{"node": "1", "recall_at": null}')
     assert not paused()                               # one chip lent: the pool can start a leg
     (lend / "1.lent").unlink()
+    assert not paused()                               # a lend in between restarts the clock
     (stub / "systemctl").write_text("#!/bin/sh\nexit 3\n")
-    assert not paused()                               # no agent: an SPD box, its own pool rules
+    assert not paused(gf.NONE_LENT_S)                 # no agent: an SPD box, its own pool rules
 
 
 def test_lend_mode_holds_no_leg_its_pool_skips(tmp_path, monkeypatch):
