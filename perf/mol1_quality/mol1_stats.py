@@ -88,11 +88,14 @@ def equivalent(test, floor):
     return lo - w <= test["ci95"][0] and test["ci95"][1] <= hi + w
 
 
-def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=(), seeds=None):
-    """conf_split: case ids ("<id>[:recipe]") whose CONFIDENCE metrics are left out (upstream's own fp32 and bf16
+def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=(), seeds=None, floor_base=None):
+    """floor_base: the arm the seed floor is measured against (default base). Grading TT against upstream fp32 keeps
+    the bf16 floor (gpu_self - gpu), since no fp32 self arm exists (D-orch-56).
+    conf_split: case ids ("<id>[:recipe]") whose CONFIDENCE metrics are left out (upstream's own fp32 and bf16
     disagree there, so the GPU is no reference); their structure metrics still count.
     seeds: grade a test arm that ran only these seeds against the base on the same seeds and a floor of the self arm
     on as many of its own seeds per case (lowest first), so all three means average the same number of folds."""
+    floor_base = floor_base or base
     if cases is not None:
         rows = [r for r in rows if r["case"] in cases]
     min_seeds = MIN_SEEDS
@@ -103,7 +106,7 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=
                 own[r["case"]].add(r["seed"])
         own = {c: set(sorted(v)[:len(seeds)]) for c, v in own.items()}
         rows = [r for r in rows if (r["seed"] in own.get(r["case"], ()) if r["arm"] == self_arm else
-                                    r["seed"] in seeds if r["arm"] in (base, test) else False)]
+                                    r["seed"] in seeds if r["arm"] in (base, test, floor_base) else False)]
         min_seeds = len(seeds)
     rng = np.random.default_rng(SEED)
     out, ok, insufficient = {}, True, False
@@ -113,10 +116,10 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=
         return {c: v for c, v in x.items() if c.split("|")[0] not in conf_split} if m in CONFIDENCE else x
 
     for m in METRICS:
-        b, t, s = (targets(a, m) for a in (base, test, self_arm))
+        b, t, s, fb = (targets(a, m) for a in (base, test, self_arm, floor_base))
         if not b:
             continue
-        d, f = paired(t, b, rng), paired(s, b, rng)
+        d, f = paired(t, b, rng), paired(s, fb, rng)
         if d is None or f is None:
             insufficient = True
             out[m] = {"test_minus_base": d, "seed_floor": f, "pass": None}
@@ -125,11 +128,11 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=
         p = equivalent(d, f) and not missing
         out[m] = {"test_minus_base": d, "seed_floor": f, "missing": missing, "pass": p}
         ok &= p
-    sb, st, ss = (success(rows, a) for a in (base, test, self_arm))
+    sb, st, ss, sf = (success(rows, a) for a in (base, test, self_arm, floor_base))
     if sb:
         keys = sorted(set(sb) & set(st))
         d = boot_mean([st[k] - sb[k] for k in keys], rng) if len(keys) >= 5 else None
-        f = boot_mean([ss[k] - sb[k] for k in sorted(set(sb) & set(ss))], rng) if len(set(sb) & set(ss)) >= 5 else None
+        f = boot_mean([ss[k] - sf[k] for k in sorted(set(sf) & set(ss))], rng) if len(set(sf) & set(ss)) >= 5 else None
         rate = {a: float(np.mean(list(v.values()))) for a, v in ((base, sb), (test, st), (self_arm, ss)) if v}
         p = d is not None and d[1] <= 0 <= d[2]
         out["success_rate"] = {"rate": rate, "test_minus_base": d and {"mean": d[0], "ci95": [d[1], d[2]]},
@@ -144,6 +147,33 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=
             out[f"calibration_{conf}_vs_{struct}"] = {"base": cb, "test": ct, "pass": p}
             ok &= p
     v = "INSUFFICIENT" if insufficient else ("PASS" if ok else "FAIL")
+    return {"verdict": v, "metrics": out}
+
+
+def margin(floor):
+    lo, hi = floor["ci95"]
+    w = (hi - lo) / 2
+    return lo - w, hi + w
+
+
+def with_fp32(chartered, fp32):
+    """D-orch-56 (pre-registered before the fp32 arm landed): the chartered verdict stands, except that a metric
+    failing it on interval width alone (mean inside the margin, nothing missing) passes when the same test against
+    upstream fp32 passes. A mean outside the margin fails whatever fp32 says. Success rate and calibration are the
+    chartered ones."""
+    out = {}
+    for m, x in chartered["metrics"].items():
+        p, rec = x["pass"], {"chartered": x["pass"]}
+        if m in METRICS and p is False and not x.get("missing"):
+            lo, hi = margin(x["seed_floor"])
+            y = fp32["metrics"].get(m, {}) if fp32 else {}
+            rec.update(width_only=lo <= x["test_minus_base"]["mean"] <= hi, fp32=y.get("pass"),
+                       test_minus_fp32=y.get("test_minus_base"))
+            p = rec["width_only"] and y.get("pass") is True
+        rec["pass"] = p
+        out[m] = rec
+    ps = [x["pass"] for x in out.values()]
+    v = "FAIL" if False in ps else ("INSUFFICIENT" if None in ps or chartered["verdict"] == "INSUFFICIENT" else "PASS")
     return {"verdict": v, "metrics": out}
 
 

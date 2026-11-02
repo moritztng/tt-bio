@@ -9,9 +9,11 @@ set -uo pipefail
 cd ~/mol1-quality; out=${1:?OUT_DIR}; bh=${2:-tt-bh-main}; mkdir -p "$out"
 P=$HOME/.coworker/wt/mol1-quality/perf/mol1_quality
 python3 "$P/arms.py" ~/mol1-fair-gpu-ref arms
+[ -d ~/mol1-gpu-fp32 ] && python3 "$P/arms.py" --fp32 ~/mol1-gpu-fp32 arms
 arms=(--arm gpu=arms/gpu --arm gpu_self=arms/gpu_self --arm tt_bh=$bh)
 [ -n "${3:-}" ] && arms+=(--seeds tt_bh=$3)
 [ -d arms/tt_wh ] && arms+=(--arm tt_wh=arms/tt_wh --seeds tt_wh=${4:-42,66})
+[ -d arms/gpu_fp32 ] && arms+=(--arm gpu_fp32=arms/gpu_fp32)  # D-orch-56 width rule
 { PATH=$PWD/env/fb/bin:$PATH nice -n 19 env/fb/bin/python "$P/grade.py" --inputs inputs --cases CASES.json --work work \
     --out "$out/QUALITY.json" "${arms[@]}" --headline arms/headline --ref-split "$P/ref_split.json"
   echo "GRADE-EXIT rc=$?"; } > "$out/grade.log" 2>&1
