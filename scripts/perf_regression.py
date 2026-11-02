@@ -253,6 +253,9 @@ SPECS: dict[str, dict] = {
     "esmfold2":       dict(kind="fold", unit="structures/s", direction="higher"),
     "esmfold2-fast":  dict(kind="fold", unit="structures/s", direction="higher"),
     "protenix-v2":    dict(kind="fold", unit="structures/s", direction="higher"),
+    # mol1 runs the protenix-v2 class at its own widths (PairMixer blocks at c_z 448, Pairformer at
+    # 320) and its own MOL1_BH/MOL1_WH lever sets, so a regression can move it and not v2.
+    "mol1":           dict(kind="fold", unit="structures/s", direction="higher"),
     # protenix-v1 is upstream's own v0.5.0 base checkpoint, loaded by the SAME
     # tt_bio/protenix.py class as protenix-v2 but at half the pair width (c_z 128 vs
     # 256) and 4 trunk recycles instead of 10. That is exactly why it gets its own

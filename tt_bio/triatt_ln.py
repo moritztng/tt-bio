@@ -55,7 +55,7 @@ TR_GROUPS = {"wormhole": 1, "blackhole": 2}
 #: tile's H pages all land in one bank and the writer's burst queues on it.
 DRAM_BANKS = {"wormhole": 12, "blackhole": 8}
 #: parts where `head_pitch` gives those outputs a pitch of MT + 1 instead (a spare row tile per head, never read).
-#: Blackhole, LN alone (perf/mol1_triattn/hpitch_ab.py, q/k/v/g torch.equal): 1024 x 320 14.41 -> 11.17 ms,
+#: Blackhole, LN alone (bench at 684fa2311, q/k/v/g torch.equal): 1024 x 320 14.41 -> 11.17 ms,
 #: 512 x 320 3.81 -> 3.07, 1024 x 448 34.76 -> 32.59. Wormhole is unmeasured and stays off.
 HEAD_PITCH = {"wormhole": False, "blackhole": True}
 

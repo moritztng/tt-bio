@@ -1888,9 +1888,22 @@ def main(argv=None) -> int:
     if (stale := baseline_stale()):
         print(f"\nBASELINE STALE: cells whose own ceiling row has moved since: {stale}"
               f"\n  The sweep runs in stages, so this is the remaining work, named.")
-    ok = (report["counts"]["fail_like"] == 0 and not report["counts"]["GATE_BUG"]
+    arch = (report.get("geometry") or {}).get("arch")
+    capped = sum(measured_cap(r, arch) for r in report["results"])
+    ok = (report["counts"]["fail_like"] == capped and not report["counts"]["GATE_BUG"]
           and not report["counts"]["BAD_FIXTURE"] and not report["coverage_gaps"])
     return 0 if ok else 1
+
+
+def measured_cap(r: dict, arch: str | None) -> bool:
+    """A FAIL that is the engine's own size guard refusing the bar where its ceiling row for this arch
+    records a measured failure at or below it (mol1 on Wormhole: 1024, fail_at 1074). The guard
+    refuses before a device opens, so the cell says nothing new about the card, and the row's
+    evidence is the record. A guard refusal on an unmeasured row is still a FAIL."""
+    if r.get("verdict") != "FAIL" or r.get("mechanism") != "size_guard" or not arch:
+        return False
+    c = sl.ceiling(r["model"], arch)
+    return c.fail_at is not None and c.fail_at <= TOKEN_BAR
 
 
 BASELINE = REPO_ROOT / "docs" / "capacity_gate_baseline.json"

@@ -76,8 +76,8 @@ def test_engages_only_on_the_sdpa32_dit(hostblock):
     assert hostblock("dit_sdpa32+dit_s16+dit_fuse", ttnn.float32).fuse is None   # fp32 DiT: dit_s16 owns the s path
     f32 = hostblock("dit_sdpa32+dit_fuse", ttnn.float32).fuse                # fp32 DiT without it: fused at fp32
     assert f32 is not None and {t[2] for g in f32 for t in g} == {ttnn.float32}
-    b8 = hostblock(FAST + "+dit_b8+dit_fuse")                             # dit_b8 joins: bfp8 weights through _lin
-    assert b8.fuse is not None and b8.lp is None
+    b8 = hostblock(FAST + "+dit_b8+dit_fuse")                             # dit_b8 joins: bfp8 weights through _lin,
+    assert b8.fuse is not None and b8.lp is not None                      # kept for the plain block (stream in DRAM)
 
 
 class _Rec:
