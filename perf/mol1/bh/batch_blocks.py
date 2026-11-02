@@ -27,6 +27,8 @@ def main():
     ap.add_argument("--n", type=int, default=256)
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--extra", default="")
+    ap.add_argument("--layer-mc", action="store_true",
+                    help="the transition's output memory config as PairformerLayer picks it (L1 residual), not None")
     a = ap.parse_args()
     import tt_bio.tenstorrent as T
     from tt_bio import weights
@@ -38,7 +40,7 @@ def main():
     up = lambda h: ttnn.from_torch(h, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     host = lambda t: ttnn.to_torch(t).float()  # noqa: E731
     zs1, zb = up(zs[0]), up(torch.cat(zs))
-    res = {"n": a.n, "k": a.k, "extra": a.extra, "steps": []}
+    res = {"n": a.n, "k": a.k, "extra": a.extra, "layer_mc": a.layer_mc, "steps": []}
 
     def check(where):
         h1, hb = host(zs1), host(zb)[0:1]
@@ -61,8 +63,12 @@ def main():
                 f = getattr(blk, op, None)
                 if f is None:
                     continue
-                kw = {"memory_config": None} if op == "transition_z" else {}
-                zs1, zb = f(zs1, add_to_input=True, **kw), f(zb, add_to_input=True, **kw)
+                def kw(z):
+                    if op != "transition_z":
+                        return {}
+                    mc = T._residual_update_memory_config(z.shape, z.dtype) if a.layer_mc and T._RESIDUAL_L1 else None
+                    return {"memory_config": mc}
+                zs1, zb = f(zs1, add_to_input=True, **kw(zs1)), f(zb, add_to_input=True, **kw(zb))
                 if not check(f"block {i} {op}"):
                     return
         res["all_equal"] = True
