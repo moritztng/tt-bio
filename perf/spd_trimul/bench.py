@@ -139,6 +139,16 @@ def _set_gin_fit(on):
     return prev
 
 
+def _t2_mb2(on):
+    """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
+    prev = (10, 10) in TTL.T2_BLOCK
+    if on:
+        TTL.T2_BLOCK[(10, 10)] = (2, 10, 1, 2, 1)
+    else:
+        TTL.T2_BLOCK.pop((10, 10), None)
+    return prev
+
+
 LEVERS = {
     "ibw": [(T.set_trimul_ibw_full, True)],
     "into": [(T.set_trimul_back_into, True)],
@@ -171,6 +181,7 @@ LEVERS = {
     # T2 reads the einsum's last channel chunk channel-major (no back move); needs t2 to serve
     "t2m": [(TTL.set_t2m, True)],
     "t2zw": [(TTL.set_t2_zw, True)],
+    "t2mb2": [(_t2_mb2, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
     # one core reads T1's resident weights and multicasts them (bit-identical)
