@@ -1888,10 +1888,10 @@ class MSAPairWeightedAveraging(Module):
             {f"{k}.{t}": sd[f"{v}.{t}"] for k, v in names.items() for t in ("weight", "bias")
              if f"{v}.{t}" in sd}), compute_kernel_config)
 
-    def __call__(self, m, pair):
-        """Returns `m + update`."""
+    def __call__(self, m, pair, attn_mask=None):
+        """Returns `m + update`. `attn_mask` is 0 on a real key token and -1e9 on padding."""
         mt = ttnn.permute(m, (0, 2, 1, 3))
-        o = self.pwa(mt, pair)
+        o = self.pwa(mt, pair, attn_mask)
         ttnn.deallocate(mt)
         u = ttnn.permute(o, (0, 2, 1, 3))
         ttnn.deallocate(o)
@@ -1938,7 +1938,7 @@ class MSAEncoderBlock(Module):
         ttnn.deallocate(u)
         return x
 
-    def __call__(self, m, pair, recip_nvalid, mf=None):
+    def __call__(self, m, pair, recip_nvalid, mf=None, mask=None, attn_mask=None):
         # `pair` is the encoder's own tensor (block 0 gets MSAEncoder.forward's upload), so every
         # residual adds in place. A fresh sum is a third pair tensor beside the MSA: 3abq at 1536
         # with its MSA was refused the pair-transition sum, 1193803776 B against a 64.7 MiB/bank
@@ -1947,9 +1947,9 @@ class MSAEncoderBlock(Module):
         ttnn.add_(pair, u)
         ttnn.deallocate(u)
         if not self.is_final:
-            m = self.mpwa(m, pair)  # residual included
+            m = self.mpwa(m, pair, attn_mask)  # residual included
             m = self._residual("msa_transition", m)
-        for f in (lambda z: self.tri_out(z, None), lambda z: self.tri_in(z, None)):
+        for f in (lambda z: self.tri_out(z, mask), lambda z: self.tri_in(z, mask)):
             u = f(pair)
             ttnn.add_(pair, u)
             ttnn.deallocate(u)
@@ -1973,7 +1973,7 @@ class MSAEncoderModel(Module):
             for i in range(n_layers)
         ]
 
-    def __call__(self, x_pair, x_inputs, m_feat, recip_nvalid, mf=None):
+    def __call__(self, x_pair, x_inputs, m_feat, recip_nvalid, mf=None, mask=None, attn_mask=None):
         ck = self.compute_kernel_config
         lin = self._lin
         m = ttnn.add(lin(m_feat, self.embed_w), ttnn.unsqueeze(lin(x_inputs, self.project_w), 2))
@@ -1981,7 +1981,7 @@ class MSAEncoderModel(Module):
         ttnn.deallocate(m_feat)
         pair = x_pair
         for block in self.blocks:
-            m, pair = block(m, pair, recip_nvalid, mf)
+            m, pair = block(m, pair, recip_nvalid, mf, mask, attn_mask)
         return pair
 
 
@@ -1996,16 +1996,46 @@ class MSAEncoder(TorchWrapper):
         return MSAEncoderModel(self.n_layers, self.n_heads_msa, self.msa_head_width, weights, self.compute_kernel_config)
 
     def forward(self, x_pair, x_inputs, msa_oh, has_deletion, deletion_value, msa_mask, to_host=True):
-        """`to_host=False` returns the device pair, for a caller that keeps the injection on the chip."""
+        """`to_host=False` returns the device pair, for a caller that keeps the injection on the chip.
+
+        The token axis is bucketed to PAD_MULTIPLE like the trunk's, with padded key tokens masked out
+        of the pair-weighted averaging and the triangle contractions, and the output sliced back. Run
+        ragged, every new complex length compiled its own encoder programs (~200 a fold) whose kernel
+        binaries stay in DRAM: JapanFold's 471-509-token complex campaign ran out of device memory on
+        one fold in 24 (2026-11-02)."""
         m_feat = torch.cat([msa_oh, has_deletion.unsqueeze(-1), deletion_value.unsqueeze(-1)], dim=-1)  # [B,L,M,35]
         mask_f = msa_mask.float()
         n_valid = (mask_f @ mask_f.transpose(-1, -2)).clamp(min=1.0).unsqueeze(-1)  # [B,L,L,1]
+        L = m_feat.shape[1]
+        pad = pad_amount(L, PAD_MULTIPLE)
         ft = self._from_torch
+        mask = attn_mask = None
+        if pad:
+            m_feat = F.pad(m_feat, (0, 0, 0, 0, 0, pad))
+            x_inputs = F.pad(x_inputs, (0, 0, 0, pad))
+            mask_f = F.pad(mask_f, (0, 0, 0, pad), value=1.0)
+            n_valid = F.pad(n_valid, (0, 0, 0, pad, 0, pad), value=1.0)
+            real = torch.zeros(1, L + pad)
+            real[:, :L] = 1.0
+            mask = ft(real.unsqueeze(-1) * real.unsqueeze(-2))
+            attn_mask = ft((1 - real).unsqueeze(1).unsqueeze(1) * -1e9)
         # An all-ones mask (no column masking) multiplies by one: skip it.
         mf = None if bool(mask_f.all()) else ft(mask_f.unsqueeze(-1))
         # A device x_pair (ESMFold2's z_init built on the device) is copied: the blocks update the pair in place.
-        xp = ttnn.clone(x_pair) if isinstance(x_pair, ttnn.Tensor) else ft(x_pair)
-        out = self.module(xp, ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf)
+        if isinstance(x_pair, ttnn.Tensor):
+            xp = ttnn.pad(x_pair, [(0, 0), (0, pad), (0, pad), (0, 0)], value=0.0) if pad else ttnn.clone(x_pair)
+        else:
+            xp = ft(F.pad(x_pair, (0, 0, 0, pad, 0, pad)) if pad else x_pair)
+        out = self.module(xp, ft(x_inputs), ft(m_feat.float()), ft((1.0 / n_valid).float()), mf, mask, attn_mask)
+        if pad:
+            for t in (mask, attn_mask):
+                ttnn.deallocate(t)
+            if to_host:
+                return self._to_torch(out)[:, :L, :L, :]
+            src = out
+            out = ttnn.slice(src, [0, 0, 0, 0], [src.shape[0], L, L, src.shape[3]])
+            ttnn.deallocate(src)
+            return out
         return self._to_torch(out) if to_host else out
 
 
