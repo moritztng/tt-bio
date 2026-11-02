@@ -3138,7 +3138,7 @@ def k1_linear(x, w, bias=None, *, compute_kernel_config, dtype, activation=None)
                  _TILE_BYTES[dtype] + (0 if dtype == ttnn.float32 else 4096),
                  _TILE_BYTES[bias.dtype] if bias is not None else 0)
         pc = _k1_program(prod(shp[:-1]) // 32, shp[-1] // 32, int(w.padded_shape[-1]) // 32,
-                         g.x, g.y, activation, tiles)
+                         g.x, g.y, activation, tiles, _matmul_cb_budget())
     if pc is None:
         return ttnn.linear(x, w, bias=bias, activation=activation, dtype=dtype,
                            compute_kernel_config=compute_kernel_config, core_grid=CORE_GRID_MAIN)
@@ -3205,23 +3205,51 @@ def dit_lowp(dit_dtype, ckc):
 
 
 _TILE_BYTES = {ttnn.float32: 4096, ttnn.bfloat16: 2048, ttnn.bfloat8_b: 1088, ttnn.bfloat4_b: 576}
-_K1_CB_BUDGET = 1_400_000  # Wormhole's static CB region is 1_499_136 B per core
 
 
-@lru_cache(maxsize=None)
-def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation, tiles):
-    """2D multicast, in0_block_w 1, the widest subblock fp32 dest holds (h * w <= 4).
+def k1_cb_bytes(out_block_h: int, per_core_N: int, tiles) -> int:
+    """Static CB bytes one core of a `_k1_program` plan allocates, byte for byte what ttnn's 2D
+    multicast factory sizes: in0 and in1 double-buffered at one K tile, the out (+ interm) block,
+    one bias row. `tiles` is the bytes of an in0, in1, out (+ interm) and bias tile."""
+    t0, t1, tout, tb = tiles
+    return out_block_h * (2 * t0 + per_core_N * tout) + per_core_N * (2 * t1 + tb)
 
-    The whole per-core M is one block when its CBs fit; past that (the atom transformer at 1024
-    tokens wanted 1.90 MB) M is cut into the largest blocks that do. Every output tile still
-    sums its K tiles in the same order, so the cut changes no bit. `tiles` is the bytes of an
-    in0, in1, out (+ interm) and bias tile."""
+
+def k1_plan(mt: int, nt: int, gx: int, gy: int, tiles, budget: int):
+    """(out_subblock_h, out_subblock_w, out_block_h, per_core_M, per_core_N) of k1_linear's Wormhole
+    program, or None when not even one subblock row fits `budget`.
+
+    2D multicast, in0_block_w 1, the widest subblock fp32 dest holds (h * w <= 4). The whole
+    per-core M is one block when its CBs fit `budget` (`_matmul_cb_budget`, the bytes between the
+    CB base and the top of L1); past that (the atom transformer at 1024 tokens wanted 1.90 MB) M is
+    cut into the fewest blocks that fit, of equal height, and per_core_M rounds up to a whole
+    number of them (ttnn runs the last core's short tail). Cutting at a divisor of per_core_M
+    instead turns a prime one (113 rows) into 113 one-row blocks. Every output tile still sums its
+    K tiles in the same order, so the cut changes no bit.
+
+    The budget used to be a constant 1.4 MB, read as the CB region. The region starts above the
+    kernel-config ring, so on a Wormhole Galaxy chip it is 1499136 - 103712 = 1395424 B: a
+    792-token Mol-1 fold (8pe3) planned an fp32 128 -> 128 atom linear at out_block_h 113, 1396736 B,
+    and threw at its first diffusion step."""
     pm, pn = -(-mt // gy), -(-nt // gx)
     h, w = max(((h, w) for h in range(1, min(pm, 4) + 1) for w in range(1, min(pn, 4) + 1)
                 if pm % h == 0 and pn % w == 0 and h * w <= 4), key=lambda s: (s[0] * s[1], s[1]))
-    t0, t1, tout, tb = tiles
-    oh = max((d for d in range(h, pm + 1, h) if pm % d == 0
-              and d * (2 * t0 + pn * tout) + pn * (2 * t1 + tb) <= _K1_CB_BUDGET), default=h)
+    fixed = k1_cb_bytes(0, pn, tiles)
+    fit = min(pm, (budget - fixed) // (k1_cb_bytes(1, pn, tiles) - fixed) // h * h)  # tallest block that fits
+    if fit < h:
+        return None
+    nb = -(-pm // fit)                      # fewest blocks
+    oh = -(-pm // (nb * h)) * h             # their equal height in whole subblocks, <= fit
+    return h, w, oh, nb * oh, pn
+
+
+@lru_cache(maxsize=None)
+def _k1_program(mt: int, kt: int, nt: int, gx: int, gy: int, activation, tiles, budget: int):
+    """`k1_plan` as a program config; None sends k1_linear to ttnn's own program."""
+    plan = k1_plan(mt, nt, gx, gy, tiles, budget)
+    if plan is None:
+        return None
+    h, w, oh, pm, pn = plan
     act = ttnn.UnaryWithParam(ttnn.UnaryOpType.SILU) if activation == "silu" else None
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
         compute_with_storage_grid_size=(gx, gy), in0_block_w=1, out_subblock_h=h, out_subblock_w=w,
