@@ -502,8 +502,11 @@ def _out_dtype(q):
     return q.dtype
 
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
-         q_split_cap: int = -1, gate=None, padded_mask: bool = False):
+         q_split_cap: int = -1, gate=None, padded_mask: bool = False, rows=None):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
+
+    `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, 32]`
+    (`triatt_ln.head_pitch`); the output is `[B, H, rows, 32]` all the same. Ungated only.
 
     `q_split_cap=0` lifts `_Q_SPLIT_MAX_S` for this call. Only `_tri_att_sdpa_at`'s above-cap
     route passes it, and it passes a pair `fused_pairs` already priced against the same L1 model.
@@ -527,6 +530,10 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     shape = [int(d) for d in q.shape]
     if len(shape) != 4 or len(bias.shape) != 4:
         return _reject("rank", shape)
+    if rows is not None:
+        if gate is not None or shape[2] != rows + 32:
+            return _reject("pitch", shape)
+        shape[2] = rows
     if not fast_dtypes_ok(q.dtype, k.dtype, v.dtype, bias.dtype):
         return _reject("dtype", shape)
     if any(t.layout != ttnn.TILE_LAYOUT for t in (q, k, v, bias)):
@@ -539,7 +546,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
 
     from .tenstorrent import COMPUTE_GRID_MAIN, _SDPA_Q_CHUNK_OVER_L1
     grid = tuple(COMPUTE_GRID_MAIN)
-    l1_key = (int(q.shape[2]), int(k.shape[2]), q_chunk, q.dtype)
+    l1_key = (shape[2], shape[2] if rows is not None else int(k.shape[2]), q_chunk, q.dtype)
     # `_PM_OVER_L1` is keyed on the FULL config, not on `l1_key`. This kernel's L1 cost moves with
     # k_chunk and with the k/v buffer factor as well as with q_chunk -- the wide-k ladder in
     # `_tri_att_sdpa_at` calls here with several k_chunks at one q_chunk -- so a three-term key lets
@@ -574,7 +581,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     # The op's own default compute kernel config, not the trunk's -- see perf/triatt_fused/s4_gate.py
     ckc = _ckc(ckc_default)
 
-    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split, kv_buffer_factor)
+    p = SG.plan(q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split, kv_buffer_factor, rows)
     # everything the hoisted fill assumes
     if not (p["nh_per_core"] == 1 and p["q_per_core"] == 1 and p["bcast_batch"]
             and (padded_mask or not p["use_padded_mask"]) and p["NKH"] == H and p["NVH"] == H):
@@ -623,7 +630,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
     try:
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
-                kv_buffer_factor=kv_buffer_factor, gate=gate_arg,
+                kv_buffer_factor=kv_buffer_factor, gate=gate_arg, rows=rows,
                 defines_extra={**_mask_defines(p["k_num_chunks"]),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE},
                                **({"TRIATT_ZONES": 1} if _ZONES else {})})

@@ -3771,7 +3771,7 @@ _SDPA_QK_OVER_L1: set = set()
 _SDPA_FUSED_LARGE_S = env_flag("TT_BIO_SDPA_FUSED_LARGE_S", True)
 
 
-def _tri_att_fused_large_s(q, k, v, bias, scale: float, ckc=None, gate=None):
+def _tri_att_fused_large_s(q, k, v, bias, scale: float, ckc=None, gate=None, rows=None):
     """Above `triatt_sdpa._Q_SPLIT_MAX_S`, the fused kernel in its own (q_chunk, k_chunk) order:
     `(o, q_chunk, k_chunk)`, or None when the call is not eligible or no pair ran.
 
@@ -3781,15 +3781,15 @@ def _tri_att_fused_large_s(q, k, v, bias, scale: float, ckc=None, gate=None):
     of which `fill_preconditions` declines, so OpenFold3 and OpenBind at 1280 tokens served 0 of
     1728 calls fused and fell to the materialised fp32 softmax (~205 s per trunk recycle).
     """
-    q_len = int(q.shape[2])
-    if not (_SDPA_FUSED_LARGE_S and q_len == int(k.shape[2]) and q_len % SDPA_CHUNK_TILE == 0
+    q_len = rows or int(q.shape[2])
+    if not (_SDPA_FUSED_LARGE_S and (rows or q_len == int(k.shape[2])) and q_len % SDPA_CHUNK_TILE == 0
             and q_len > _triatt_sdpa._Q_SPLIT_MAX_S):
         return None
     cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
     for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
             q_len, int(q.shape[1]), int(q.shape[3]), cores, bias.dtype):
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
-                              q_split_cap=0, gate=gate)
+                              q_split_cap=0, gate=gate, rows=rows)
         if o is not None:
             SDPA_FUSED_LARGE_S_STATS[0] += 1
             return o, q_chunk, k_chunk
@@ -3818,16 +3818,16 @@ _SDPA_FUSED_PADDED = env_flag("TT_BIO_SDPA_FUSED_PADDED", True)
 SDPA_FUSED_PADDED_STATS = [0, 0]  # (calls served, calls offered and declined)
 
 
-def _tri_att_fused_padded(q, k, v, bias, scale: float, ckc=None, gate=None):
+def _tri_att_fused_padded(q, k, v, bias, scale: float, ckc=None, gate=None, rows=None):
     """`(o, q_chunk, k_chunk)` from the fused kernel at a padded pair, or None."""
-    q_len = int(q.shape[2])
-    if not (_SDPA_FUSED_PADDED and q_len == int(k.shape[2]) and q_len % SDPA_CHUNK_TILE == 0):
+    q_len = rows or int(q.shape[2])
+    if not (_SDPA_FUSED_PADDED and (rows or q_len == int(k.shape[2])) and q_len % SDPA_CHUNK_TILE == 0):
         return None
     cores = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
     for q_chunk, k_chunk in _triatt_sdpa.fused_pairs(
             q_len, int(q.shape[1]), int(q.shape[3]), cores, bias.dtype, padded=True):
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=ckc,
-                              q_split_cap=0, gate=gate, padded_mask=True)
+                              q_split_cap=0, gate=gate, padded_mask=True, rows=rows)
         if o is not None:
             SDPA_FUSED_PADDED_STATS[0] += 1
             return o, q_chunk, k_chunk
@@ -3835,13 +3835,13 @@ def _tri_att_fused_padded(q, k, v, bias, scale: float, ckc=None, gate=None):
     return None
 
 
-def _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, dividing):
+def _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, dividing, rows=None):
     """`triatt_sdpa.split_q_chunk`'s padded q at `k_chunk` where it beats `dividing`'s pick there, else None.
 
     Offered at every k the ladder serves from, the wide k included, so the bits are always those of the
     dividing q at the same k."""
-    q_len = q.shape[2]
-    if q_len != k.shape[2]:
+    q_len = rows or q.shape[2]
+    if not rows and q_len != k.shape[2]:
         return None
     arch = "wormhole" if is_wormhole() else "blackhole"
     q_split = _triatt_sdpa.split_q_chunk(
@@ -3851,23 +3851,38 @@ def _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, dividing):
     if not q_split:
         return None
     o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_split, k_chunk, ckc_default=ckc, gate=gate,
-                          padded_mask=True)
+                          padded_mask=True, rows=rows)
     _triatt_sdpa.SPLIT_Q_STATS[o is None] += 1
     if o is not None:
         _sdpa_pick(q_len, q_len, q_split, k_chunk, "fused")
     return o
 
 
-def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
+UNPITCH_STATS = [0]   # head-pitched triatt_ln outputs sliced back for a route that reads plain ones
+
+
+def _unpitch(t, rows: int):
+    """`t[:, :, :rows]` of a head-pitched triatt_ln output (`triatt_ln.head_pitch`); `t` is freed."""
+    UNPITCH_STATS[0] += 1
+    u = ttnn.slice(t, [0, 0, 0, 0], [int(t.shape[0]), int(t.shape[1]), rows, int(t.shape[3])])
+    ttnn.deallocate(t)
+    return u
+
+
+def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None, rows=None):
     """The q_chunk / k_chunk ladder. With `gate` set, only the FUSED rungs are offered.
+
+    `rows` (head-pitched q, k, v from `triatt_ln.head_pitch`, `rows` real rows per head) offers the fused
+    rungs only, as `gate` does: None tells the caller to drop the pitch and come back.
 
     The gate epilogue lives in `tt_bio/kernels/triatt_sdpa/`, so a stock-op rung cannot host it.
     Rather than duplicate this ladder in the gated entry point -- which would drift the moment a
     rung moves -- the stock rungs are skipped and the caller gets None, which is its signal that it
     still owes `o * sigmoid(gate)`.
     """
-    q_len, k_len = q.shape[2], k.shape[2]
-    served = _tri_att_fused_large_s(q, k, v, bias, scale, ckc, gate)
+    q_len, k_len = (rows, rows) if rows else (q.shape[2], k.shape[2])
+    fused_only = gate is not None or rows is not None
+    served = _tri_att_fused_large_s(q, k, v, bias, scale, ckc, gate, rows)
     if served is not None:
         o, q_chunk, k_chunk = served
         SDPA_K_CHUNK_STATS[0] += 1
@@ -3880,7 +3895,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         if padded_offered:
             return None
         padded_offered.append(True)
-        served = _tri_att_fused_padded(q, k, v, bias, scale, ckc, gate)
+        served = _tri_att_fused_padded(q, k, v, bias, scale, ckc, gate, rows)
         if served is None:
             return None
         _sdpa_pick(q_len, k_len, served[1], served[2], "fused")
@@ -3903,7 +3918,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         for k_chunk in k_chunks[:-1]:
             # Every fused q at this k before any fallback: a wide q the fused kernel declines would
             # otherwise hand the call to the padded pair or the stock op while a narrower fused q fits.
-            o = _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, _qs) if TRIATT_K1_ANY_Q else None
+            o = _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, _qs, rows) if TRIATT_K1_ANY_Q else None
             if o is not None:
                 SDPA_K_CHUNK_STATS[0] += 1
                 return o
@@ -3911,7 +3926,7 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                 if (q_len, k_len, q_chunk, k_chunk, q.dtype) in _SDPA_QK_OVER_L1:
                     continue
                 o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
-                                      ckc_default=ckc, gate=gate)
+                                      ckc_default=ckc, gate=gate, rows=rows)
                 if o is not None:
                     SDPA_K_CHUNK_STATS[0] += 1
                     _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
@@ -3922,12 +3937,12 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
                     continue
                 if not TRIATT_K1_ANY_Q:
                     o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
-                                          ckc_default=ckc, gate=gate)
+                                          ckc_default=ckc, gate=gate, rows=rows)
                     if o is not None:
                         SDPA_K_CHUNK_STATS[0] += 1
                         _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
                         return o
-                if gate is not None:
+                if fused_only:
                     continue
                 o = padded()
                 if o is not None:
@@ -3951,19 +3966,19 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     # preference order as the stock loop below -- `fits` is widest first, production pick last, and
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
     # Ahead of them, a padded q chunk at the same k when the dividing ones leave the grid idle.
-    o = _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, fits)
+    o = _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, fits, rows)
     if o is not None:
         return o
     for q_chunk in fits:
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
-                                      ckc_default=ckc, gate=gate)
+                                      ckc_default=ckc, gate=gate, rows=rows)
         if o is not None:
             _sdpa_pick(q_len, k_len, q_chunk, k_chunk, "fused")
             return o
     o = padded()
     if o is not None:
         return o
-    if gate is not None:
+    if fused_only:
         # Every fused rung declined. The stock op below cannot apply the gate, so hand the caller
         # back its multiply rather than a silently ungated output.
         return None
@@ -12722,12 +12737,17 @@ class TriangleAttention(Module):
         else:
             fusable = not (self.biased or self.qkvgb_weight is None or _triatt_dtype() != ttnn.bfloat16
                            or _qkv_l1_config(x, self.qkv_weight, _dtype()) is not None)
+            # triatt_ln.head_pitch: q, k, v and g with a spare row tile per head where this part's DRAM banks
+            # alias. Only the routes below that read the pitch get it: the fused SDPA (`rows`) and the
+            # one-program tail. Any other rung they decline to gets them sliced back (`_unpitch`).
+            pitch_ok = not (_FP32_SOFTMAX or self.fp32_softmax or _TRIATT_DUALPROBE or self.subtile
+                            or _triatt_bias_b8() or _triatt_b8())
             # triatt_ln TR: the ending variant norms x^T straight out of x, no transpose pass (x is square,
             # so x^T has x's shape and the L1-qkv test above reads the same).
             fused = (_triatt_ln.ln_qkvgb_heads(
                 x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
                 _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads, self.head_dim,
-                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True)
+                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True, pitch=pitch_ok)
                      if self.ending and fusable else None)
             if self.ending and fused is None:
                 # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm
@@ -12746,7 +12766,7 @@ class TriangleAttention(Module):
                 fused = _triatt_ln.ln_qkvgb_heads(
                     x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
                     _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
-                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN))
+                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), pitch=pitch_ok)
             x_owned = fused is None or transposed
             if fused is not None:
                 pre_qkv, pre_g, triangle_bias = fused
@@ -12782,6 +12802,9 @@ class TriangleAttention(Module):
         # Set fresh by every `_attend_heads` call: True when the fused SDPA took the gate into
         # its own pack stage, so `gate_and_project` below must not multiply a second time.
         gate_fused = False
+        # S when triatt_ln wrote q, k, v, g head-pitched ([B, H, S + 32, 32]), else None
+        pitch_rows = (int(x.shape[-2]) if isinstance(pre_qkv, tuple)
+                      and int(pre_qkv[0].shape[2]) == int(x.shape[-2]) + 32 else None)
 
         def attend(qkv_in, bias, keep_heads=False, gate=None):
             if isinstance(qkv_in, tuple):
@@ -12855,13 +12878,23 @@ class TriangleAttention(Module):
                 if self._bias_scale != self.scale:
                     b = ttnn.multiply(bias, self.scale / self._bias_scale)
                 ckc = _triatt_hifi_ckc() if self.sdpa_hifi else None
-                # The gate multiply folded into the kernel's pack stage. All or nothing: the gated
-                # entry point returns None rather than an ungated output, so a decline falls
-                # through to the ladder below with `gate_fused` still False and the caller's own
-                # multiply still owed.
-                o = _tri_att_gated_sdpa(self, q, k, v, b, self.scale**-1,
-                                        gate if keep_heads else None, ckc)
-                gate_fused = o is not None
+                o = None
+                if pitch_rows is not None and int(q.shape[2]) == pitch_rows + 32:
+                    # head-pitched: the fused rungs read it in place (`pitch_ok` kept every other
+                    # route off); declined, the pitch goes and the full ladder below runs
+                    if ckc is not None:
+                        SDPA_HIFI_CALLS[0] += 1
+                    o = _tri_att_sdpa_at(q, k, v, b, self.scale**-1, ckc, rows=pitch_rows)
+                    if o is None:
+                        q, k, v = (_unpitch(t, pitch_rows) for t in (q, k, v))
+                if o is None:
+                    # The gate multiply folded into the kernel's pack stage. All or nothing: the gated
+                    # entry point returns None rather than an ungated output, so a decline falls
+                    # through to the ladder below with `gate_fused` still False and the caller's own
+                    # multiply still owed.
+                    o = _tri_att_gated_sdpa(self, q, k, v, b, self.scale**-1,
+                                            gate if keep_heads else None, ckc)
+                    gate_fused = o is not None
                 if o is None:
                     o = _tri_att_sdpa(q, k, v, b, self.scale**-1, ckc, self.sdpa_ragged_pad)
                 if b is not bias:
@@ -12920,6 +12953,8 @@ class TriangleAttention(Module):
                     ttnn.deallocate(o_in)
                     ttnn.deallocate(g_in)
                     return fused
+            if head_major and pitch_rows is not None and int(g_in.shape[2]) == pitch_rows + 32:
+                g_in = _unpitch(g_in, pitch_rows)
             if o_major:
                 # the tail declined: the head concat `attend` skipped for it
                 o_heads = ttnn.experimental.nlp_concat_heads(o_in, memory_config=ttnn.DRAM_MEMORY_CONFIG)

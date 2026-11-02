@@ -91,7 +91,7 @@ def _packed_identity_scalar():
 
 
 def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None,
-         kv_buffer_factor=2):
+         kv_buffer_factor=2, rows=None):
     """Everything the descriptor needs, derived exactly as the factory derives it.
 
     `split` overrides `(batch_parallel_factor, nh_parallel_factor, q_parallel_factor)`. The
@@ -105,6 +105,11 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
     NKH = int(k.padded_shape[1])
     NVH = int(v.padded_shape[1])
     Sk = int(k.padded_shape[2])
+    if rows is not None:
+        # q, k, v head-pitched (`triatt_ln.head_pitch`): `rows` real rows per head, one spare row tile
+        # after each. Everything sizes from `rows`; only the reader's head stride sees the spare tile.
+        assert Sq == Sk == int(v.padded_shape[2]) == rows + TILE, (q.padded_shape, k.padded_shape, rows)
+        Sq = Sk = rows
 
     padded_Sq = _div_up(Sq, q_chunk_size) * q_chunk_size
     padded_Sk = _div_up(Sk, k_chunk_size) * k_chunk_size
@@ -536,8 +541,11 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
           out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
-          keypad=None, merged_out=False):
+          keypad=None, merged_out=False, rows=None):
     """The ProgramDescriptor for the fold's SDPA call.
+
+    `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, DH]`
+    (`triatt_ln.head_pitch`); the output stays `[B, H, rows, DH]`. Plain reads only.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
@@ -597,8 +605,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         else:
             assert int(q.padded_shape[1]) == NKH_ * nbw, (q.shape, k.shape, kv_window)
         kernel_dir = kernel_dir or kv_window_kernel_dir()
+    if rows is not None:
+        assert not (merged_out or qkv_fused or kv_window or fuse_qkv or gate or css or keypad), "plain reads only"
     p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
-             kv_buffer_factor)
+             kv_buffer_factor, rows)
     if css is not None:
         assert kv_window is None and qkv_fused is None and fuse_qkv is None and gate is None
         css_w = css_width(p["k_num_chunks"])
@@ -753,6 +763,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if fuse_qkv is not None:
         defines["FUSE_QKV"] = str(Ct)
         defines["PROJ_SUBBLOCK_H"] = str(proj_h)
+    if rows is not None:
+        defines["QKV_PITCH_T"] = "1"
     if gate is not None:
         defines["GATE_EPILOGUE"] = "1"
         # A binary SFPU op takes half of DST per operand, so the epilogue processes dst_size / 2
@@ -913,6 +925,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
            kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
+           kw.get("rows"),
            None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:

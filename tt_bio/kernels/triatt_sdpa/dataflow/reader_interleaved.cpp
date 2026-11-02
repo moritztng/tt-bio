@@ -280,7 +280,11 @@ void kernel_main() {
 
     constexpr uint32_t skip_src_cols = (use_mla && mla_kv_overlap) ? DHt - vDHt : 0;
 
-    const auto q_tile_shape = TensorTileShape(B, NQH, valid_Sqt, DHt);
+#ifndef QKV_PITCH_T
+#define QKV_PITCH_T 0   // q, k, v head pitch valid_S*t + QKV_PITCH_T row tiles (triatt_ln.head_pitch); rows past
+                        // valid_S*t are never read, only the head stride moves
+#endif
+    const auto q_tile_shape = TensorTileShape(B, NQH, valid_Sqt + QKV_PITCH_T, DHt);
 #ifdef GATE_EPILOGUE
     constexpr uint32_t gate_tile_bytes = get_tile_size(cb_gate_in);
     const auto gate_reader = TensorAccessor(gate_args, gate_addr, gate_tile_bytes);
@@ -288,14 +292,14 @@ void kernel_main() {
     // DHt == vDHt -- and the host refuses the epilogue unless both are 1.
     const auto gate_tile_shape = TensorTileShape(B, NQH, valid_Sqt, vDHt);
 #endif
-    const auto k_tile_shape = TensorTileShape(B, NKH, valid_Skt, DHt);
+    const auto k_tile_shape = TensorTileShape(B, NKH, valid_Skt + QKV_PITCH_T, DHt);
 
     // If we have MLA:
     // - if k and v tensors are overlapped, we want to read from the k tensor, but just a portion of it, hence setting
     // the v tile shape dim to DHt (and skip accordingly based on skip_src_cols)
     // - if k and v tensors are not overlapped, we want to read from the v tensor, hence setting the v tile shape dim to
     // vDHt Otherwise head dim of k and v are same
-    const auto v_tile_shape = TensorTileShape(B, NVH, valid_Skt, use_mla && !mla_kv_overlap ? vDHt : DHt);
+    const auto v_tile_shape = TensorTileShape(B, NVH, valid_Skt + QKV_PITCH_T, use_mla && !mla_kv_overlap ? vDHt : DHt);
     const auto attention_sink_tile_shape = TensorTileShape(B, NQH, 1, 1);
 
     volatile tt_l1_ptr uint32_t* page_table_ptr;

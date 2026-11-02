@@ -51,6 +51,20 @@ TR = True
 #: (qb2 p300, 1225-1350 MHz): 1024 x c320 54.9 -> 54.3 ms, 512 x c384 (OpenDDE) 15.05 -> 14.2, 512 x c320 flat;
 #: five (c448) read 94.7 -> 115 at 1024. Wormhole stays at one: OpenDDE S512 read 13.99 at two groups vs 13.62.
 TR_GROUPS = {"wormhole": 1, "blackhole": 2}
+#: DRAM banks per part. A head-major output's head pages sit MT row tiles apart, so at MT % banks == 0 one row
+#: tile's H pages all land in one bank and the writer's burst queues on it.
+DRAM_BANKS = {"wormhole": 12, "blackhole": 8}
+#: parts where `head_pitch` gives those outputs a pitch of MT + 1 instead (a spare row tile per head, never read).
+#: Blackhole, LN alone (perf/mol1_triattn/hpitch_ab.py, q/k/v/g torch.equal): 1024 x 320 14.41 -> 11.17 ms,
+#: 512 x 320 3.81 -> 3.07, 1024 x 448 34.76 -> 32.59. Wormhole is unmeasured and stays off.
+HEAD_PITCH = {"wormhole": False, "blackhole": True}
+
+
+def head_pitch(MT) -> int:
+    """Spare row tiles per head (0 or 1) the head-major outputs of an MT-row-tile pair get on this part."""
+    from .tenstorrent import is_wormhole
+    arch = "wormhole" if is_wormhole() else "blackhole"
+    return int(HEAD_PITCH[arch] and MT % DRAM_BANKS[arch] == 0)
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
 #: rotate each core's plain-read rows by its row-split index, so the cores of a group do not all start on the same
@@ -67,8 +81,8 @@ LN_BLK = 1
 #: 640 117.96 -> 115.72 s, 288 null.
 LN_SHARE = True
 _CACHE: dict = {}
-#: (served, declined, served with bfp8 q/k/v)
-STATS = [0, 0, 0]
+#: (served, declined, served with bfp8 q/k/v, served head-pitched)
+STATS = [0, 0, 0, 0]
 REJECTS: dict = {}
 
 
@@ -232,7 +246,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq),
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq) + [("HP", "1")] * _hp(outs, H, MT),
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
@@ -254,9 +268,13 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     return {"kernels": [reader, writer, compute], "cbs": cbs, "sems": sems}
 
 
-def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid, eps=1e-5, transposed=False):
+def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid, eps=1e-5, transposed=False,
+                   pitch=False):
     """`((q, k, v), gate, bias)` of `layer_norm(x)` (of `x^T` with `transposed`) in one kernel, or None
     (nothing allocated).
+
+    `pitch` says the caller reads head-pitched outputs: where `head_pitch` asks for it q, k, v and g are then
+    `[B, H, S + 32, 32]`, rows S.. of each head unwritten (`triatt_sdpa.sdpa(rows=S)`, `gated_out_proj`).
 
     `x` is the raw [B, S, K] pair (square and whole tiles with `transposed`), `w` the [K, 4c + 32]
     qkvgb weight of `qkvgb_heads`, `ckc` a (fidelity, approx, fp32_acc, full_sync) tuple as
@@ -295,7 +313,9 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
             cols = None
     nq = (4 if gate else 3) * H if cols else 0
     STATS[2] += bool(nq)
-    hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
+    hp = head_pitch(MT) if pitch and shp[1] == MT * TILE else 0
+    STATS[3] += hp
+    hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1] + TILE * hp, head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
@@ -303,10 +323,15 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, cols)
 
 
+def _hp(outs, H, MT):
+    return int(bool(H) and int(outs[0].padded_shape[2]) == (MT + 1) * TILE)
+
+
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()))
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()),
+           _hp(outs, H, MT))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
