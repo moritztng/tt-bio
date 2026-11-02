@@ -6861,7 +6861,18 @@ def _trimul_bres_serves(out_mc, program_config) -> bool:
     704 tokens, bmm_res takes 0.64-1.03x ttnn's time at HiFi4 (perf/rfd4/tri3/contract.py, AICLK 1350)."""
     return (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
             and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
-            and (is_wormhole() or not isinstance(program_config, ttnn.MatmulMultiCoreReuseProgramConfig)))
+            and (is_wormhole() or _TRIMUL_BRES_REUSE or not isinstance(program_config, ttnn.MatmulMultiCoreReuseProgramConfig)))
+
+
+# A/B knob: bmm_res also takes the einsum where ttnn's plan is the whole-channel reuse one (Blackhole 256 tokens).
+_TRIMUL_BRES_REUSE = False
+
+
+def set_trimul_bres_reuse(on: bool) -> bool:
+    """A/B switch for the harness. Returns the previous state."""
+    global _TRIMUL_BRES_REUSE
+    prev, _TRIMUL_BRES_REUSE = _TRIMUL_BRES_REUSE, bool(on)
+    return prev
 
 
 def set_trimul_einsum_fid(fid: str) -> str:

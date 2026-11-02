@@ -189,6 +189,7 @@ LEVERS = {
     "t2zw": [(TTL.set_t2_zw, True)],
     "t2mb2": [(_t2_mb2, True)],
     "t1r4": [(_t1_rows, 4)],
+    "bres256": [(T.set_trimul_bres_reuse, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
     # one core reads T1's resident weights and multicasts them (bit-identical)
