@@ -52,7 +52,7 @@ def main():
         f = getattr(cls, meth)
 
         def g(self, *args, **kw):
-            if not on[0]:
+            if not on[0] or T.CAPTURING[0]:  # no sync inside a trace capture (TT_FATAL)
                 return f(self, *args, **kw)
             sync()
             t = time.perf_counter()
