@@ -12386,6 +12386,20 @@ def _pair_bias_from_z(z, ln_weight, ln_bias, bias_weight, compute_kernel_config,
     return bias
 
 
+def _per_member(x: ttnn.Tensor, mask: ttnn.Tensor | None, fn, consume: bool = False) -> ttnn.Tensor:
+    """`fn(member, its mask)` over the leading batch of `x`, joined back on dim 0. A mask with the same leading batch
+    is sliced with its member; any other mask is shared. `consume` frees `x` (fn consumed each slice)."""
+    B = x.shape[0]
+    per = mask is not None and len(mask.shape) == len(x.shape) and mask.shape[0] == B
+    outs = [fn(x[b:b + 1], mask[b:b + 1] if per else mask) for b in range(B)]
+    if consume:
+        ttnn.deallocate(x)
+    out = ttnn.concat(outs, dim=0)
+    for o in outs:
+        ttnn.deallocate(o)
+    return out
+
+
 class TriangleAttention(Module):
     def __init__(
         self,
@@ -12607,7 +12621,12 @@ class TriangleAttention(Module):
 
     def __call__(self, x: ttnn.Tensor, attn_mask: ttnn.Tensor | None = None,
                  add_to_input: bool = False) -> ttnn.Tensor:
-        """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`)."""
+        """The update, or `x + update` consuming `x` with `add_to_input` (see `_add_input`).
+
+        A leading batch of B pairs (Mol-1's K predictions) runs one member at a time: every path below is written
+        for one [S, S, C] pair. Each member's result is the same bytes its own call gives."""
+        if len(x.shape) == 4 and x.shape[0] > 1:
+            return _per_member(x, attn_mask, lambda xb, mb: self(xb, mb, add_to_input), consume=add_to_input)
         u = self._update(x, attn_mask, add_to_input)
         return _add_input(x, u) if add_to_input else u
 
