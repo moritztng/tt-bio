@@ -53,10 +53,12 @@ worker() {  # chip
     done
   done
 }
-# each chip worker holds the fleet card flock (~/spd_<host>_card<N>.lock) for its whole run
+# each chip worker holds the fleet's card flock for its whole run: the gate and spd take ~/spd_qb2_chip<N>.lock on
+# qb2 (a p300 chip) and ~/spd_qb1_card<N>.lock on qb1, so a flock on any other name collides with them
+[ "$LOCK_HOST" = qb2 ] && LOCK_UNIT=chip || LOCK_UNIT=card
 W=()
 for i in "${!CHIPS[@]}"; do
-  ( exec 9> "$HOME/spd_${LOCK_HOST}_card${CHIPS[$i]}.lock"
+  ( exec 9> "$HOME/spd_${LOCK_HOST}_${LOCK_UNIT}${CHIPS[$i]}.lock"
     flock -n 9 || { echo "chip ${CHIPS[$i]}: card lock held"; exit 3; }
     worker "${CHIPS[$i]}" ) & W+=($!)
 done
