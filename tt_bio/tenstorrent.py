@@ -17664,9 +17664,8 @@ class OuterProductMean(Module):
                 depth_parts = [(b8(acp), b8(bcp), Sc) for acp, bcp, Sc in depth_parts]
 
         def plan(x, y):
-            return None if x.device().arch() != ttnn.Arch.WORMHOLE_B0 else opm_contract_config(
-                x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
-                x.device().compute_with_storage_grid_size())
+            return opm_contract_config(x.padded_shape[0] // 32, y.padded_shape[0] // 32, x.padded_shape[1] // 32,
+                                       x.device().compute_with_storage_grid_size())
 
         def contract(x, y):
             if z_dtype is None or _OPM_B8_REFUSED.get((tuple(x.shape), tuple(y.shape))):
