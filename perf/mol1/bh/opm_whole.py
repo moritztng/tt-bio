@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""mol1-bh-prof: Mol-1's MSA-module OPM at the 1024 shape, row-blocked (main) against one whole block.
+"""mol1-bh-prof: Mol-1's MSA-module OPM at the 1024 shape, by row-block height: main's 128 rows against taller blocks.
 
 Same process, same operands, arms interleaved. x arrives as the fold hands it: 512-row depth chunks of
 [1, rows, N, c_m], plus the cycle's [depth, 1, 1] row mask, and a [1, N, N, c_z] residual. Lever set
 NORMAL | WIDE_NORMAL | MOL1_BH (Mol-1 normal mode on Blackhole). `whole` sets OPM_WHOLE_DRAM_DEN so the
-z = I * C * D * J * 2 byte arm does not block. Reports per-call ms (median of reps, one sync per call),
+z = I * C * D * J * 2 byte arm does not block; an integer arm sets the block height (OPM_Z_BUDGET_BYTES and
+OPM_CHUNK_SIZE). Reports per-call ms (median of reps, one sync per call),
 bit-equality of the two outputs, the row census and AICLK of every card sampled during the timed calls.
 
     TT_VISIBLE_DEVICES=<card> timeout 1200 python opm_whole.py out.json [--depths 2048,6144] [--n 1024]
@@ -22,6 +23,7 @@ def main():
     p.add_argument("--depths", default="2048,6144")
     p.add_argument("--n", type=int, default=1024)
     p.add_argument("--reps", type=int, default=5)
+    p.add_argument("--arms", default="blocked,whole", help="blocked (main), whole, or a block height in rows")
     A = p.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
@@ -50,7 +52,16 @@ def main():
     th = threading.Thread(target=poll, daemon=True)
     res = {"host": os.uname().nodename, "sha": os.popen(f"git -C {ROOT} rev-parse HEAD").read().strip(),
            "levers": sorted(lv), "clk_paths": clk_paths, "depths": {}}
-    den0 = TT.OPM_WHOLE_DRAM_DEN
+    den0, bud0, cap0 = TT.OPM_WHOLE_DRAM_DEN, TT.OPM_Z_BUDGET_BYTES, TT.OPM_CHUNK_SIZE
+    names = A.arms.split(",")
+
+    def arm_set(arm):
+        TT.OPM_WHOLE_DRAM_DEN, TT.OPM_Z_BUDGET_BYTES, TT.OPM_CHUNK_SIZE = den0, bud0, cap0
+        if arm == "whole":
+            TT.OPM_WHOLE_DRAM_DEN = 1
+        elif arm != "blocked":
+            TT.OPM_Z_BUDGET_BYTES = int(arm) * 32 * 32 * N * 2
+            TT.OPM_CHUNK_SIZE = int(arm)
     with TT.levers(lv):
         opm = TT.OuterProductMean(sd, cfg, scale_bias=True)
         th.start()
@@ -59,11 +70,11 @@ def main():
             mask = up(torch.ones(depth, 1, 1))
             res0 = torch.randn(1, N, N, cz, generator=g).to(torch.bfloat16)
             row, outs = {}, {}
-            for arm, den in (("blocked", den0), ("whole", 1)):
+            for arm in names:
                 row[arm] = {"ms": []}
             for rep in range(A.reps + 1):
-                for arm, den in (("blocked", den0), ("whole", 1)):
-                    TT.OPM_WHOLE_DRAM_DEN = den
+                for arm in names:
+                    arm_set(arm)
                     z = up(res0)
                     stats0 = dict(TT.OPM_ROW_STATS)
                     ttnn.synchronize_device(dev)
@@ -84,23 +95,21 @@ def main():
                             ttnn.deallocate(t)
                         except Exception:
                             pass
-            TT.OPM_WHOLE_DRAM_DEN = den0
-            for arm in row:
+            arm_set("blocked")
+            for arm in names:
                 clk = row[arm].pop("clk", [])
                 row[arm]["ms_median"] = statistics.median(row[arm]["ms"])
                 row[arm]["aiclk_max_card"] = [max(c[i] for c in clk) for i in range(len(clk_paths))] if clk else None
                 row[arm]["aiclk_min_card"] = [min(c[i] for c in clk) for i in range(len(clk_paths))] if clk else None
-            d = (outs["whole"].double() - outs["blocked"].double())
-            row["bit_equal"] = bool(torch.equal(outs["whole"], outs["blocked"]))
-            row["rel_l2"] = float(d.norm() / outs["blocked"].double().norm())
-            row["save_ms"] = row["blocked"]["ms_median"] - row["whole"]["ms_median"]
+            base = outs[names[0]]
+            row["bit_equal_first"] = {a: bool(torch.equal(outs[a], base)) for a in names}
             fl = 2.0 * (depth * N * cm * 64 + depth * N * N * C * C + N * N * C * C * cz)
-            for arm in ("blocked", "whole"):
+            for arm in names:
                 row[arm]["tflops"] = fl / row[arm]["ms_median"] / 1e9
             res["depths"][str(depth)] = row
             print(depth, {a: (round(row[a]["ms_median"], 1), round(row[a]["tflops"], 1), row[a]["census"],
-                              row[a]["aiclk_min_card"]) for a in ("blocked", "whole")},
-                  "bit_equal", row["bit_equal"], f"rel {row['rel_l2']:.2e}", flush=True)
+                              row[a]["aiclk_min_card"]) for a in names},
+                  "bit_equal", row["bit_equal_first"], flush=True)
             for t in chunks + [mask]:
                 ttnn.deallocate(t)
         stop.set()
