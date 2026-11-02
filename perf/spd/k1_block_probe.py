@@ -18,8 +18,7 @@ wt, bt = tt(w), tt(b)
 
 
 def run(x, budget):
-    T._K1_CB_BUDGET = budget
-    T._k1_program.cache_clear()
+    T._matmul_cb_budget = lambda: budget
     y = T.k1_linear(tt(x), wt, bt, compute_kernel_config=ckc, dtype=ttnn.float32)
     return ttnn.to_torch(y).float()
 
