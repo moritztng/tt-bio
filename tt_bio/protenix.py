@@ -3314,8 +3314,12 @@ class Protenix:
         relp = feats["relp"] if "relp" in feats else self._generate_relp(feats)
         return relp, self.trunk.host_inputs(feats, relp, feats["token_bonds"], NT)
 
-    def _trunk_cond(self, feats, *, progress_fn=None, n_cycles=None, seed=None):
-        """Trunk plus the t-independent diffusion conditioning for one target: everything
+    def _trunk_cond(self, feats, **kw):
+        """`_trunk_cond_run` for one target."""
+        return self.trunk._drive([self._trunk_cond_run(feats, **kw)])[0]
+
+    def _trunk_cond_run(self, feats, *, progress_fn=None, n_cycles=None, seed=None):
+        """A generator (`Trunk._drive`): trunk plus the t-independent diffusion conditioning for one target: everything
         fold() does before the sampler. Returns (cond, aux); aux carries what the confidence
         head needs. fold() and fold_many() share this so a batched fold runs the same trunk
         as a single one."""
@@ -3324,7 +3328,7 @@ class Protenix:
             _d = _pl.Path(os.environ.get("TT_PROTENIX_PAIRCOND_DEBUG_DIR", "/tmp/issue9"))
             _d.mkdir(parents=True, exist_ok=True)
             torch.save(feats, _d / "feats_dump.pt")
-        st = self._trunk_stage(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
+        st = yield from self._trunk_stage_run(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
         fi, s_inputs, c_l, p_lm, relp = st["fi"], st["s_inputs"], st["c_l"], st["p_lm"], st["relp"]
         N, NT, nb, nq, nk = fi["N"], fi["NT"], fi["nb"], fi["nq"], fi["nk"]
         mt = fi["mt"]; S = fi["S"]
@@ -3345,8 +3349,12 @@ class Protenix:
                 "p_lm": p_lm, "S": S, "mask_trunked": mt.float(), **pz_cond}
         return cond, dict(N=N, NT=NT, s_inputs=s_inputs, s_trunk=s_trunk, z_trunk=z_trunk)
 
-    def _trunk_stage(self, feats, *, progress_fn=None, n_cycles=None, seed=None, msa_sample=None):
-        """Input embedder, the diffusion's atom cache (c_l, p_lm) and the trunk, with the trunk's
+    def _trunk_stage(self, feats, **kw):
+        """`_trunk_stage_run` for one target."""
+        return self.trunk._drive([self._trunk_stage_run(feats, **kw)])[0]
+
+    def _trunk_stage_run(self, feats, *, progress_fn=None, n_cycles=None, seed=None, msa_sample=None):
+        """A generator (`Trunk._drive`). Input embedder, the diffusion's atom cache (c_l, p_lm) and the trunk, with the trunk's
         host inputs on the host lane: everything before the trunk is read back. Protenix and
         OpenDDE (which diffuses on its own token axis) both start here. Returns a dict with fi,
         s_inputs, c_l, p_lm, relp and the resident s_trunk_tt, z_tt. msa_sample: the trunk's
@@ -3384,9 +3392,9 @@ class Protenix:
         if msa_sample is None and _TT.lever("msa_sample") and self.trunk.TPL:
             gen = torch.Generator()
             msa_sample = (None, gen.manual_seed(seed) if seed is not None else gen)
-        s_trunk_tt, z_tt = self.trunk(feats, s_inputs, relp, feats["token_bonds"],
-                                      progress_fn=progress_fn, n_cycles=n_cycles, host=host,
-                                      msa_sample=msa_sample)
+        s_trunk_tt, z_tt = yield from self.trunk._run(feats, s_inputs, relp, feats["token_bonds"],
+                                                      progress_fn=progress_fn, n_cycles=n_cycles, host=host,
+                                                      msa_sample=msa_sample)
         return dict(fi=fi, s_inputs=s_inputs, c_l=c_l, p_lm=p_lm, relp=relp,
                     s_trunk_tt=s_trunk_tt, z_tt=z_tt)
 
@@ -3456,6 +3464,31 @@ class Protenix:
             _TTd.require_trace_region("fold(trace=True)")
         _T.program_cache_for(_T.input_shapes(feats), self.dev)
         cond, _aux = self._trunk_cond(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=seed)
+        return self._fold_from_cond(cond, _aux, feats, n_step=n_step, n_sample=n_sample, seed=seed,
+                                    progress_fn=progress_fn, return_confidence=return_confidence, trace=trace,
+                                    max_parallel_samples=max_parallel_samples, gamma0=gamma0,
+                                    step_scale=step_scale, return_logits=return_logits, draws=draws)
+
+    @_T.under_levers
+    def fold_k(self, feats, seeds, *, progress_fn=None, n_cycles=None, **kw):
+        """K predictions of one target, one per seed, each the result `fold(feats, seed=seed, **kw)` gives:
+        the K trunks run in lockstep with one Pairformer call per cycle on a leading batch of K
+        (`Trunk.many`), then each member's diffusion and confidence as `fold` runs them."""
+        if kw.get("trace"):
+            _T.require_trace_region("fold_k(trace=True)")
+        _T.program_cache_for(_T.input_shapes(feats), self.dev)
+        conds = self.trunk._drive([self._trunk_cond_run(feats, progress_fn=progress_fn, n_cycles=n_cycles, seed=sd)
+                                   for sd in seeds])
+        out = []
+        for sd, (cond, aux) in zip(seeds, conds):
+            out.append(self._fold_from_cond(cond, aux, feats, seed=sd, progress_fn=progress_fn, **kw))
+        return out
+
+    def _fold_from_cond(self, cond, _aux, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
+                        return_confidence=False, trace=False, max_parallel_samples=None, gamma0=None,
+                        step_scale=None, return_logits=False, draws=None):
+        """Everything `fold` runs after the trunk: the sampler on `cond`, then the confidence heads."""
+        import torch
         N, NT = _aux["N"], _aux["NT"]
         s_inputs, s_trunk, z_trunk = _aux["s_inputs"], _aux["s_trunk"], _aux["z_trunk"]
         # The device confidence head's sample-invariant z_base is built on the host lane while the
