@@ -15,13 +15,13 @@ DATA = Path(__file__).parent / "data" / "mol1_io" / "cif"
 COORD = {"Cartn_x", "Cartn_y", "Cartn_z", "B_iso_or_equiv"}
 
 
-def _fold(tmp_path, case):
+def _fold(tmp_path, case, src=DATA):
     from test_protenix_output import _LogitStub
 
     from tt_bio import protenix_json
     from tt_bio.worker import _WorkerState
 
-    yaml = sorted(protenix_json.stage(DATA / f"{case}.json", tmp_path / "staged").glob(f"{case}*.yaml"))[0]
+    yaml = sorted(protenix_json.stage(src / f"{case}.json", tmp_path / "staged").glob(f"{case}*.yaml"))[0]
     state = object.__new__(_WorkerState)
     state.model, state.accelerator = _LogitStub(), "cpu"
     work = tmp_path / "out"
@@ -67,3 +67,26 @@ def test_gemmi_reads_the_entities(tmp_path):
     assert {k: v[0] for k, v in got.items() if k in "236"} == {"2": "NonPolymer", "3": "NonPolymer", "6": "NonPolymer"}
     seq = {e.name: gemmi.one_letter_code(e.full_sequence) for e in st.entities if e.full_sequence}
     assert seq == {"1": "MKQLEDKVEELLSKNYHLENEVARLKKLVGER", "4": "GATTACA", "5": "GGAUCC"}
+
+
+def test_smiles_and_file_ligands_are_named_as_upstream(tmp_path):
+    """Upstream names each SMILES/file ligand entry l01, l02, ... in input order; copies share the name and a CCD
+    ligand keeps its code. The old "LIG" is a CCD compound, so OpenStructure bonded the ligand as that and matched
+    none of FoldBench's SMILES/file references."""
+    gemmi = pytest.importorskip("gemmi")
+    sdf = tmp_path / "eth.sdf"
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+    m = Chem.AddHs(Chem.MolFromSmiles("CCO")); AllChem.EmbedMolecule(m, randomSeed=0)
+    Chem.MolToMolFile(Chem.RemoveHs(m), str(sdf))
+    job = [{"name": "ligs", "sequences": [
+        {"proteinChain": {"sequence": "MKQLEDKVEELLSKNYHLENEVARLKKLVGER", "count": 1}},
+        {"ligand": {"ligand": "CC(=O)Oc1ccccc1C(=O)O", "count": 2}},
+        {"ligand": {"ligand": "CCD_ATP", "count": 1}},
+        {"ligand": {"ligand": f"FILE_{sdf}", "count": 1}}]}]
+    (tmp_path / "ligs.json").write_text(json.dumps(job))
+    cif = _fold(tmp_path, "ligs", src=tmp_path)
+    st = gemmi.read_structure(str(cif))
+    names = {ch.name: sorted({r.name for r in ch}) for ch in st[0]}
+    del names["A"]
+    assert names == {"B": ["l01"], "C": ["l01"], "D": ["ATP"], "E": ["l02"]}

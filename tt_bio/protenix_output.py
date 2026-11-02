@@ -368,6 +368,13 @@ def write_cif(arr, path, entry_id: str, chains, entities, bonds=()) -> None:
     arr.set_annotation("label_entity_id", np.array([entity_of[c] for c in arr.chain_id]))
     arr.set_annotation("label_asym_id", arr.chain_id.copy())
     arr.hetero = np.array([mol_type[c] == "ligand" for c in arr.chain_id])   # a modified residue stays ATOM
+    # upstream names each SMILES/file ligand entry l01, l02, ... in input order (json_parser.add_entity_atom_array).
+    # The writer's fallback "LIG" is a real CCD code, so a reader that resolves it (OpenStructure) bonds the
+    # ligand as that compound and cannot match it to the reference.
+    seq = {c[0]: str(c[1]) for c in chains}
+    free = [ids for ids in entities if mol_type[ids[0]] == "ligand" and not seq[ids[0]].upper().startswith("CCD_")]
+    for n, ids in enumerate(free, 1):
+        arr.res_name[np.isin(arr.chain_id, ids)] = f"l{n:02d}"
     at = {(c, int(r), n): i for i, (c, r, n) in enumerate(zip(arr.chain_id, arr.res_id, arr.atom_name))}
     # upstream's bond list order: the polymer links in atom order, then the input's bonds in input order
     pairs = [(i, at[(c, r + 1, link[1])]) for (c, r, n), i in at.items()
