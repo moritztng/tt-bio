@@ -1938,7 +1938,7 @@ def test_a_failed_leg_records_the_first_error_it_threw():
 
 
 def test_a_guard_refusal_at_a_measured_cap_does_not_fail_the_run():
-    """mol1 on Wormhole is capped at 1024 with a measured fail_at, so its refusal of the 1536 bar is the
+    """mol1 on Wormhole is capped at 896 with a measured fail_at, so its refusal of the 1536 bar is the
     engine doing its job; the same refusal on a row nobody measured still fails."""
     fail = dict(model="mol1", verdict="FAIL", mechanism="size_guard")
     assert cg.measured_cap(fail, "wormhole_b0")
