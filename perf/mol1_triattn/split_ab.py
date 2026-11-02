@@ -36,11 +36,12 @@ def main():
     ap.add_argument("--cells", default="1024x10,1024x14,1024x12,800x8,672x14,672x16,512x10,512x14,1024x8")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--margin", type=float, default=TS.SPLIT_Q_MARGIN)
+    ap.add_argument("--margin", type=float, default=None, help="override SPLIT_Q_MARGIN on both arches")
     ap.add_argument("--grid", default=None)
     ap.add_argument("--served", action="store_true")
     a = ap.parse_args()
-    TS.SPLIT_Q_MARGIN = a.margin
+    if a.margin is not None:
+        TS.SPLIT_Q_MARGIN = dict.fromkeys(TS.SPLIT_Q_MARGIN, a.margin)
     dev = T.get_device()
     if a.grid:
         T.COMPUTE_GRID_MAIN = tuple(map(int, a.grid.split("x")))

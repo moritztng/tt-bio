@@ -3839,10 +3839,11 @@ def _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, dividing):
     q_len = q.shape[2]
     if q_len != k.shape[2]:
         return None
+    arch = "wormhole" if is_wormhole() else "blackhole"
     q_split = _triatt_sdpa.split_q_chunk(
         int(q_len), int(q.shape[1]), int(q.shape[3]), COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1],
-        k_chunk, bias.dtype, tuple(dividing),
-        _triatt_sdpa.SPLIT_Q_ITER_ROWS["wormhole" if is_wormhole() else "blackhole"])
+        k_chunk, bias.dtype, tuple(dividing), _triatt_sdpa.SPLIT_Q_ITER_ROWS[arch],
+        _triatt_sdpa.SPLIT_Q_MARGIN[arch])
     if not q_split:
         return None
     o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_split, k_chunk, ckc_default=ckc, gate=gate,
