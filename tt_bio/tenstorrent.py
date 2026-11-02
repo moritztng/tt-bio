@@ -15077,6 +15077,20 @@ def _layer_tap(tag, t):
         fp.write(f"layer{_LAYER_TAP_CALL[0] - 1}|{tag}|{tuple(t.shape)}|{h}\n")
 
 
+def _residual_transition(transition, z: ttnn.Tensor) -> ttnn.Tensor:
+    """`z + transition(z)`, the update in L1 where it fits (`_residual_update_memory_config`).
+
+    The fit is priced on the whole tensor, so a batch of K pairs would miss L1 where one member fits, take the DRAM
+    route and round differently from the same member run alone. Such a batch runs one member at a time on the L1
+    route instead: a member's z is then the same bytes at any K."""
+    if (_RESIDUAL_L1 and len(z.shape) == 4 and z.shape[0] > 1
+            and _residual_update_memory_config(z.shape, z.dtype) is None
+            and _residual_update_memory_config((1,) + tuple(z.shape[1:]), z.dtype) is not None):
+        return _per_member(z, None, lambda zb, _m: _residual_transition(transition, zb), consume=True)
+    return transition(z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
+                      if _RESIDUAL_L1 else None, add_to_input=True)
+
+
 class PairformerLayer(Module):
     def __init__(
         self,
@@ -15273,9 +15287,7 @@ class PairformerLayer(Module):
                 _layer_tap("tatt_end", z)
             # Same lever as the starting triangle attention: the residual reads this update back
             # immediately, so assembling the row blocks into L1 removes the write and the read.
-            z = self.transition_z(
-                z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
-                if _RESIDUAL_L1 else None, add_to_input=True)
+            z = _residual_transition(self.transition_z, z)
             _layer_tap("transition", z)
         else:
             zc = _z_compute(z, wide)
