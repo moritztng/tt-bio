@@ -55,6 +55,13 @@ def postprocess(src, dst):
     f.write(str(dst))
 
 
+def cache(work, arm, arm_dir):
+    """An arm's grading cache. Postprocessed CIFs and OST outputs are reused by file name, so an arm dir that names its
+    engine (ENGINE_SHA) gets its own cache: tt_bh at 7374eb5a6 would otherwise read 90cef828f's cached scores."""
+    sha = Path(arm_dir) / "ENGINE_SHA"
+    return work / (f"{arm}@{sha.read_text().strip()}" if sha.exists() else arm)
+
+
 def predictions(arm_dir, case, work):
     """[(seed, sample, ranking_score, postprocessed cif, summary dict)] for one case of one arm."""
     name = safe(case); out = []
@@ -113,7 +120,7 @@ def pose(arms, base, cases, work):
     for arm, d in arms.items():
         for c in cases:
             by = defaultdict(list)
-            for s, k, _, cif, _ in predictions(Path(d), c["id"], work / arm):
+            for s, k, _, cif, _ in predictions(Path(d), c["id"], cache(work, arm, d)):
                 by[s].append(atoms(cif))
             folds[arm, c["id"]] = by
     out = {"base": base, "bar_A": 0.60}
@@ -154,7 +161,7 @@ def evaluate(arm, arm_dir, cases, inputs, work):
     by_task = defaultdict(list)  # (task, variant) -> [(case, target row, preds)]
     for c in cases:
         task, trows = targets(c)
-        preds = predictions(arm_dir, c["id"], work / arm)
+        preds = predictions(arm_dir, c["id"], cache(work, arm, arm_dir))
         if not preds:
             rows.append({"arm": arm, "case": c["id"], "set": c["set"], "missing": True})
             continue
@@ -162,7 +169,7 @@ def evaluate(arm, arm_dir, cases, inputs, work):
         for t in trows:
             by_task[(task, variant)].append((c, t, preds))
     for (task, variant), items in by_task.items():
-        ev = work / arm / f"eval{('.' + variant) if variant else ''}" / task
+        ev = cache(work, arm, arm_dir) / f"eval{('.' + variant) if variant else ''}" / task
         (ev / "raw").mkdir(parents=True, exist_ok=True)
         recs = [dict(t, seed=s, sample=k, ranking_score=r, prediction_path=str(p))
                 for c, t, preds in items for s, k, r, p, _ in preds]
