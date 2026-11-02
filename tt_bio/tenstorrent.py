@@ -98,6 +98,11 @@ _TRIATT_BLOCK_REFUSED: dict = {}
 # row blocks to 5. It does NOT make 9i3p fold -- the target then hits the pair representation
 # (980*992*384*2) instead, which is a separate limit this constant has no bearing on.
 OPM_Z_BUDGET_BYTES = 1 << 28              # 0.25 GiB
+# On a part with more DRAM the block budget grows to 1/OPM_Z_DRAM_DEN of it: 256 MiB still on a
+# 12 GiB Wormhole chip, ~674 MiB on a 32 GiB Blackhole, so Mol-1 at 1024 tokens runs 256-row
+# blocks instead of 128. Bit-exact (row-independent), and 9 % off the OPM at depth 6144 on a
+# p150a (297 -> 270 ms per call).
+OPM_Z_DRAM_DEN = 48
 # OuterProductMean also blocks once its whole z is over this fraction of the chip's DRAM (see the
 # call site): 805306368 B on a 12 GiB Wormhole chip, so from ~628 tokens there.
 OPM_WHOLE_DRAM_DEN = 16
@@ -17917,7 +17922,7 @@ class OuterProductMean(Module):
             # Row block sized so the per-block matmul result stays under OPM_Z_BUDGET_BYTES. That
             # result is (rows*C, D*J), so at a fixed row count it grows with J -- the constant 256
             # is fine at 285 tokens and is what 9i3p (992 padded) dies on. Never below one tile.
-            rows_blk = row_block(per_row, OPM_Z_BUDGET_BYTES, cap=OPM_CHUNK_SIZE)
+            rows_blk = row_block(per_row, max(OPM_Z_BUDGET_BYTES, total // OPM_Z_DRAM_DEN), cap=OPM_CHUNK_SIZE)
         else:
             rows_blk = I
         # A block this shape class was already refused at never gets asked for a second time.
