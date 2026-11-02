@@ -23,7 +23,7 @@ for S, c, H, end in cells:
         mod = T.TriangleAttention(32, H, bool(end), sd, ckc, softmax_site="pairformer")
         got = {}
         for arm in ARMS + ARMS:
-            TS.KV_CHAIN = arm == "1"
+            TS.KV_CHAIN = dict.fromkeys(TS.KV_CHAIN, arm == "1")
             xt = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             st0 = (TL.STATS[3], T.UNPITCH_STATS[0], TS.STATS[0], TQ.GOP_STATS[0], SG.CHAIN_BUILDS[0])
             y = ttnn.to_torch(mod(xt, add_to_input=True))
