@@ -972,6 +972,13 @@ T2_BLOCK = {(12, 12): (2, 12, 1, 2, 1), (8, 12): (2, 12, 1, 2, 1)}
 # reader_moved T2MCAST, common/weight_mcast.hpp) instead of every core pulling the same 228 KB: RFD4's tail.
 # Same bytes in the same CBs, bit-identical. A/B knob (stack_ab --base-set "trimul_tail.T2_MCAST=set()").
 T2_MCAST = {(8, 12)}
+# T2_ZW: the plain-form T2's z read moves from the reader to the writer, which prefetches the next block's z rows
+# while compute works and then writes the block in place. Same bytes into the same CB, bit-identical. T2 is bound on
+# its reader (x, g and z on one RISC), the writer idles. Taken at T2_ZW_KEYS: c_z 320 runs a trimul call 1.011-1.017x
+# faster at 256, 512 and 1024 tokens on a p150a; 448 reads 1.00x / 1.025x / 0.993x and stays off (mol1
+# evidence/bh-trunk2/T2.md). T2_ZW (bench) forces it at every key.
+T2_ZW = env_flag("TT_BIO_T2_ZW", False)
+T2_ZW_KEYS = {(10, 10)}
 
 
 def _t2_mcast(kt, nt, gate, extra, grid):
@@ -1018,6 +1025,13 @@ def set_t2m(on: bool) -> bool:
     """A/B switch for the paired harness. Returns the previous state."""
     global T2M
     prev, T2M = T2M, bool(on)
+    return prev
+
+
+def set_t2_zw(on: bool) -> bool:
+    """A/B switch for T2_ZW. Returns the previous state."""
+    global T2_ZW
+    prev, T2_ZW = T2_ZW, bool(on)
     return prev
 
 
@@ -1153,6 +1167,8 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     res32 = copy is not None
     assert not (res32 and (moved is not None or fold)), "T2_RES32 is the plain or GATE form"
     defines = [("T2_RES32", "1")] if res32 else []
+    if (T2_ZW or (kt, nt) in T2_ZW_KEYS) and moved is None:
+        defines.append(("T2_ZW", "1"))
     z8 = resid.dtype == ttnn.bfloat8_b      # pair_bfp8z: z in c_7 and the sum out of c_2 are bfp8
     if z8:
         defines.append(("T2_Z8", "1"))
@@ -1369,7 +1385,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_ZW, tuple(block),
            None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
            _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)))
     entry = _CACHE.get(key)
@@ -1571,7 +1587,7 @@ def fused_tail_ln_cm(xcm, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None
     P = parts(T2CM_MIN_P or balance_split(_tiles(xcm.shape[2]) ** 2, grid[0] * grid[1])) or parts(1)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2cm", spec(xcm), spec(wp), spec(g), str(resid.dtype), spec(ln_w), spec(ln_b), tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, P, gate,
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_ZW, tuple(block), P, gate,
            tuple(None if t is None else spec(t) for t in ex), c_off, _t2_mcast(kt, nt, gate, extra, grid),
            str(t2_mm_fid(kt, nt, gate)), bool(rot))
     entry = _CACHE.get(key)

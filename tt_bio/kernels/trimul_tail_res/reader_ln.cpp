@@ -7,6 +7,7 @@
 // into c_11. Then per block of Mb row tiles, in the order compute consumes them: x_out rows (c_0),
 // g_out rows (c_5), z rows (c_7). z of block b is read before the writer writes block b: the
 // writer only gets block b after compute popped this read, and other blocks are other rows.
+// T2_ZW (trimul_tail.T2_ZW): the writer reads z instead (writer.cpp), so x / g and z stream on two RISCs.
 // GATE 1: the g accessor is xb (the trimul's input norm, Kt tiles per row tile) and goes to c_6; Wg
 // follows Wp in c_1 (compute_ln.cpp computes g itself).
 #include "api/dataflow/dataflow_api.h"
@@ -108,11 +109,15 @@ void kernel_main() {
         cb_reserve_back(g_cb, Mb * gt);
         w = get_write_ptr(g_cb);
         for (uint32_t t = 0; t < (NOREAD ? 0 : Mb * gt); ++t, w += tg) noc_async_read_page(m * gt + t, g, w);
+#ifndef T2_ZW
         cb_reserve_back(z_cb, Mb * Nt);
         uint32_t wz = get_write_ptr(z_cb);
         for (uint32_t t = 0; t < (NOREAD ? 0 : Mb * Nt); ++t, wz += tz) noc_async_read_page(m * Nt + t, z, wz);
+#endif
         noc_async_read_barrier();
         cb_push_back(g_cb, Mb * gt);
+#ifndef T2_ZW
         cb_push_back(z_cb, Mb * Nt);
+#endif
     }
 }
