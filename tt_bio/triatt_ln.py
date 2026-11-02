@@ -55,6 +55,10 @@ ABL = 0
 STAGGER = True
 #: channel tiles per dest acquire in the LayerNorm's eltwise stages (kernels/common/ln_prologue.hpp LN_BLK), bit-identical
 LN_BLK = 1
+#: bench-only (perf/mol1_triattn/wpair_ab.py): the writer alternates the back half of one row tile with the front half of
+#: the next (c_2 three rows deep). One row tile's head-major pages are MT apart, so at MT % 8 == 0 all of them sit in
+#: one of Blackhole's 8 DRAM banks; a burst then spans two.
+WPAIR = False
 #: with two column groups (plain read), the two cores of a pair each read and norm every other row and copy the
 #: partner's normed tiles for the rest over the NOC (reader.cpp), so no row is read or normed twice. Same
 #: tiles into the same projection, so bit-identical. Only with bfp8 q|k|v (`_share`), i.e. OpenDDE WH fast today.
@@ -203,7 +207,8 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     nq = max(q for _, q, _ in cols) if cols else 0
     lns = _share(g, tr, H, bool(nq))
     phys = lambda c: x.device().worker_core_from_logical_core(ttnn.CoreCoord(c % gx, c // gx))  # noqa: E731
-    c2, c4 = _cb_tiles(cols, nw) if cols else (2 * nw, 0)
+    wp = WPAIR and not cols and not tr and H > 0
+    c2, c4 = _cb_tiles(cols, nw) if cols else ((3 if wp else 2) * nw, 0)
     for c in range(gx * gy):
         r0, n = split[c // g]
         cx, cy = c % gx, c // gx
@@ -227,7 +232,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq),
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq) + [("WP", "1")] * wp,
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
@@ -301,7 +306,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()))
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, WPAIR, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
