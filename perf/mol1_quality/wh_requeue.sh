@@ -21,6 +21,8 @@ fi
 rm -rf /tmp/mq_jobs && python3 $P/wh_jobs.py $R $R/tree-$FIX /home/ubuntu/spd/mol1-port/cache /tmp/mq_jobs 1 "$SEEDS" $OUT > /dev/null
 for n in "${NAMES[@]}"; do
   f=/tmp/mq_jobs/1-mol1-quality-$n-s42.sh; [ -f $f ] || { echo "no job $n"; continue; }
+  # queued already, here or (stub *.moved-to-<box>) on a lent box whose stale failed folds sync back
+  compgen -G "$Q/queue/1-mol1-quality-$n-$OUT-$FIX.sh*" > /dev/null && { echo "QUEUED $n, skipped"; continue; }
   for r in $Q/running/*-mol1-quality-$n-*.sh; do [ -e "$r" ] && [ ! -e "$r.end" ] && { echo "LIVE $n, skipped"; continue 2; }; done
   if [ $OUT = tt-wh ]; then
     for j in $Q/queue/*-mol1-quality-$n-s*.sh; do [ -e "$j" ] && mv "$j" $Q/withdrawn/${j##*/}.fixtree-$FIX; done
