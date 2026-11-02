@@ -972,10 +972,13 @@ T2_BLOCK = {(12, 12): (2, 12, 1, 2, 1), (8, 12): (2, 12, 1, 2, 1)}
 # reader_moved T2MCAST, common/weight_mcast.hpp) instead of every core pulling the same 228 KB: RFD4's tail.
 # Same bytes in the same CBs, bit-identical. A/B knob (stack_ab --base-set "trimul_tail.T2_MCAST=set()").
 T2_MCAST = {(8, 12)}
-# T2_ZW (A/B knob): the plain-form T2's z read moves from the reader to the writer, which prefetches the next block's
-# z rows while compute works and then writes the block in place. Same bytes into the same CB, bit-identical. T2 is
-# bound on its reader (x, g and z on one RISC; mol1 evidence/bh-trunk2/T2.md), the writer idles.
+# T2_ZW: the plain-form T2's z read moves from the reader to the writer, which prefetches the next block's z rows
+# while compute works and then writes the block in place. Same bytes into the same CB, bit-identical. T2 is bound on
+# its reader (x, g and z on one RISC), the writer idles. Taken at T2_ZW_KEYS: c_z 320 runs a trimul call 1.011-1.017x
+# faster at 256, 512 and 1024 tokens on a p150a; 448 reads 1.00x / 1.025x / 0.993x and stays off (mol1
+# evidence/bh-trunk2/T2.md). T2_ZW (bench) forces it at every key.
 T2_ZW = env_flag("TT_BIO_T2_ZW", False)
+T2_ZW_KEYS = {(10, 10)}
 
 
 def _t2_mcast(kt, nt, gate, extra, grid):
@@ -1164,7 +1167,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     res32 = copy is not None
     assert not (res32 and (moved is not None or fold)), "T2_RES32 is the plain or GATE form"
     defines = [("T2_RES32", "1")] if res32 else []
-    if T2_ZW and moved is None:
+    if (T2_ZW or (kt, nt) in T2_ZW_KEYS) and moved is None:
         defines.append(("T2_ZW", "1"))
     z8 = resid.dtype == ttnn.bfloat8_b      # pair_bfp8z: z in c_7 and the sum out of c_2 are bfp8
     if z8:
