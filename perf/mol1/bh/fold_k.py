@@ -85,6 +85,7 @@ def main():
                 res["solo"][str(sd)]["s_repeat"] = t2
                 res["solo"][str(sd)]["repeat_vs_first"] = cmp(coords(r2), solo[sd])
             save()
+        torch.save(solo, out / "solo_coords.pt")  # for the digest/grade of a lever change across runs
         for n in [int(x) for x in a.samples.split(",") if x]:
             t, _ = timed(lambda: m.fold(feats, seed=seeds[0], **dict(kw, n_sample=n)))
             res["samples"][str(n)] = {"s": t}

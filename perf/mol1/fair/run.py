@@ -111,6 +111,9 @@ def chip_main(chip, a, barrier, results):
         results.put({"chip": chip, "phase": "load", "wall_s": round(time.time() - t0, 2),
                      "work": {k: cfg.get(k) for k in WORK}, "jobs": [str(j) for j in jobs]})
         m, coords = state.model, {}
+        if a.extra_levers:
+            from tt_bio.tenstorrent import parse_levers
+            m._levers = m._levers | parse_levers(a.extra_levers.split(","))
         fold, fold_k = m.fold, m.fold_k
 
         def counted_fold(*args, **kw):
@@ -184,6 +187,8 @@ def main():
     ap.add_argument("--cli-extra", nargs=argparse.REMAINDER, default=[],
                     help="dev only: more `tt-bio predict` flags (e.g. an MSA cache); recorded, and verdict.py refuses the line")
     ap.add_argument("--quiet-timeout", type=float, default=1800)
+    ap.add_argument("--extra-levers", default="", help="dev only: levers added to the model's graded set, for an A/B "
+                    "arm (grade_ab) of a lever not yet in it; recorded, and verdict.py refuses the line")
     a = ap.parse_args()
     a.chips = [int(c) for c in a.chips.split(",")]
     grant = os.environ.get("TT_BIO_LEASE_CARDS")
@@ -199,7 +204,7 @@ def main():
     os.environ["TT_VISIBLE_DEVICES"] = ",".join(map(str, sorted(a.chips)))  # tt-smi then lists exactly these chips
     sha, dirty = git("rev-parse", "HEAD"), bool(git("status", "--porcelain", "--untracked-files=no"))
     base = {"model": a.model, "arm": a.arm, "part": a.part, "host": a.host, "chips": len(a.chips),
-            "chip_ids": a.chips, "batch": a.batch, "cli_extra": a.cli_extra, "sha": sha, "tree_dirty": dirty, "firmware": a.firmware,
+            "chip_ids": a.chips, "batch": a.batch, "cli_extra": a.cli_extra + (["--extra-levers", a.extra_levers] if a.extra_levers else []), "sha": sha, "tree_dirty": dirty, "firmware": a.firmware,
             "board_type": board_type() if gated else None, "input": a.input, "raw": str(out)}
 
     def emit(rec):
