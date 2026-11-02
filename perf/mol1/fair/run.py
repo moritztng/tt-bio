@@ -76,6 +76,20 @@ def stage_job(job, d):
     return stage_input(job, d / job["name"])
 
 
+def seeded(job, seed):
+    """The staged input that folds ``seed``. An upstream JSON input is staged as ``<job>__seed_<s>.yaml`` and the
+    worker takes the seed from that stem before ``cfg["seed"]`` (worker._target_seed), so each seed gets its own
+    copy beside the shared sidecar."""
+    from tt_bio.protenix_json import SEED_SEP, split_stem
+    name, s = split_stem(job.stem)
+    if s is None:
+        return job
+    path = job.with_name(f"{name}{SEED_SEP}{seed}{job.suffix}")
+    if not path.exists():
+        path.write_bytes(job.read_bytes())
+    return path
+
+
 def chip_main(chip, a, barrier, results):
     """One chip: load once, then one prediction per round, after the barrier."""
     os.environ["TT_VISIBLE_DEVICES"] = str(chip)
@@ -122,7 +136,7 @@ def chip_main(chip, a, barrier, results):
         err = None
         coords.clear()
         try:
-            metrics, _, _ = state.predict_one(jobs[0], dict(cfg, seed=seed, struct_dir=str(sdir)))
+            metrics, _, _ = state.predict_one(seeded(jobs[0], seed), dict(cfg, seed=seed, struct_dir=str(sdir)))
         except Exception as exc:  # noqa: BLE001 -- a failing prediction is a result
             err, metrics = f"{type(exc).__name__}: {str(exc)[:600]}", {}
         t1 = time.time()
