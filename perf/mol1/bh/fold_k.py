@@ -70,7 +70,8 @@ def main():
         return {"equal": bool(torch.equal(x, y)), "max_abs_A": d.abs().max().item(),
                 "rms_A": d.pow(2).sum(-1).mean().sqrt().item()}
 
-    seeds = [a.seed + i for i in range(max(int(k) for k in a.ks.split(",")))]
+    ks = [int(k) for k in a.ks.split(",") if k]
+    seeds = [a.seed + i for i in range(max(ks + [2]))]
     with torch.no_grad(), during() as clk:
         res["cold_s"], _ = timed(lambda: m.fold(feats, seed=seeds[0], **kw))
         save()
@@ -88,7 +89,7 @@ def main():
             t, _ = timed(lambda: m.fold(feats, seed=seeds[0], **dict(kw, n_sample=n)))
             res["samples"][str(n)] = {"s": t}
             save()
-        for k in [int(x) for x in a.ks.split(",")]:
+        for k in ks:
             try:
                 rec = res["k"][str(k)] = {}
                 for rep in range(2):
