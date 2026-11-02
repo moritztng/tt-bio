@@ -3149,7 +3149,7 @@ def predictor(*, trunk: str = "device", card: int | str | None = None, checkpoin
 
 
 @contextlib.contextmanager
-def campaign_predictor(*, validation: str = "jax",
+def campaign_predictor(*, validation: str = "jax", validation_gpu: "int | str | None" = None,
                        **kwargs) -> Iterator[Callable[..., object]]:
     """`predictor`, with BindCraft 2's own predictor construction rebound to it.
 
@@ -3167,6 +3167,15 @@ def campaign_predictor(*, validation: str = "jax",
     default, and should say so. Pass `validation="device"` to fold it on card as well, and
     re-measure the accepted count on that path before quoting it.
 
+    `validation_gpu` pins that host JAX trunk to one CUDA device. JAX brings up device 0 by
+    default, so on a multi-GPU host the validation ensemble silently reserves GPU 0 even when
+    the card and the torch MPNN parts are elsewhere, and a single campaign ends up holding two
+    GPUs. Passing `validation_gpu=1` sets `CUDA_VISIBLE_DEVICES` to that one device before the
+    control arm first imports jax; the imports here are all lazy, so it lands in time. It is a
+    no-op when `validation="device"` (there is no host JAX trunk to pin) and when left `None`
+    (JAX keeps its own default). Set the variable in the environment before launch to confine
+    the torch side as well.
+
     The design model is the first predictor `run_campaign` builds and every later one is a
     validation ensemble, including the one `desperate_prediction_pools` rebuilds mid-campaign
     when validation has to move to another pool, so "every build after the first" is the rule.
@@ -3178,6 +3187,8 @@ def campaign_predictor(*, validation: str = "jax",
     """
     if validation not in ("jax", "device"):
         raise ValueError(f"validation must be 'jax' or 'device', not {validation!r}")
+    if validation == "jax" and validation_gpu is not None:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(validation_gpu)
     with predictor(**kwargs) as build:
         from bindcraft import campaign
         control = None
