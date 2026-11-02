@@ -98,15 +98,26 @@ def test_t1_fit_reproduces_the_measured_wide_plans(w8):
 
 @pytest.mark.parametrize("mask", [False, True])
 def test_t1_fit_mol1_widths(mask):
-    """Mol-1: c_z 320 two channel groups (bfp8 weights one launch), 448 seven, all 8-row units, inside the gate."""
+    """Mol-1: c_z 320 two channel groups (bfp8 weights one launch), 448 four (ragged g_out), all 8-row units, inside the gate."""
     want = {((10, 20, 10), False): (2, 8), ((10, 20, 10), True): (1, 8),
-            ((14, 28, 14), False): (7, 8), ((14, 28, 14), True): (7, 8)}
+            ((14, 28, 14), False): (4, 8), ((14, 28, 14), True): (4, 8)}
     for (key, w8), plan in want.items():
         assert TTL.t1_fit(key, w8, L1_ALLOCATOR_BANK) == plan
         assert TTL.t1_cb_bytes(*key, mask, w8=w8, plan=plan) <= 0.85 * L1_ALLOCATOR_BANK
         assert TTL.t1_wide_lever(key) in T.LEVERS
     assert TTL.t1_wide_lever((12, 16, 12)) is None and TTL.t1_wide_lever((4, 8, 4)) is None
     assert set(TTL.T1_WIDE_LEVERS) <= set(T.LEVERS)
+
+
+def test_t1_ragged_groups_size_g_out_cbs_per_launch():
+    """c_z 448's four groups carry 4, 4, 3, 3 g_out tiles. Each launch's c_18 / c_19 hold whole pushes of its own NG;
+    a c_19 sized for the largest group wraps inside a 3-tile push and corrupted g_out on the chip."""
+    key, plan = (14, 28, 14), (4, 8)
+    groups = [TTL.t1_group(28, 14, 4, g) for g in range(4)]
+    assert groups == [(0, 7, 0, 4), (7, 7, 4, 4), (14, 7, 8, 3), (21, 7, 11, 3)]
+    for _, _, _, ng in groups:
+        cbs = dict(TTL.t1_cb_plan(*key, True, plan=plan, ng=ng)[0])
+        assert cbs[18] == 14 * ng and cbs[19] % ng == 0
 
 
 def test_t2_fit_block_by_width():
@@ -241,12 +252,12 @@ def _gather(src_tiles_faces, c, il=32, r0=0):
 def test_emulated_data_flow_matches_the_model(S, masked, K, rows):
     """The kernels' loops, page for page, against float64 torch: one launch of 32-row units at
     c_z 128 (or of 16-row halves, t1_rows), two channel groups of 16-row units writing half tiles
-    at c_z 256, three of 8-row units at 384; Mol-1's 320 and 448 on t1_fit's two and seven groups."""
+    at c_z 256, three of 8-row units at 384; Mol-1's 320 and 448 on t1_fit's two and four groups (448's g_out split 4, 4, 3, 3)."""
     d = torch.float64
     h = cz = K
     St, Kt, ct2, ct, ntg = S // 32, K // 32, 2 * h // 32, h // 32, cz // 32
     groups, IL = (TTL.T1_PLANS.get((Kt, ct2, ntg)) or TTL.t1_fit((Kt, ct2, ntg), False, L1_ALLOCATOR_BANK))[0], rows
-    H, qn, ng = 32 // IL, ct2 // groups, ntg // groups
+    H = 32 // IL
     g = torch.Generator().manual_seed(S)
     w = {k: v.to(d) for k, v in _ckpt(K, h, cz, g).items()}
     z = (torch.randn(1, S, S, K, generator=g) * 2 + torch.randn(1, S, S, 1, generator=g)).to(d)
@@ -276,7 +287,7 @@ def test_emulated_data_flow_matches_the_model(S, masked, K, rows):
 
     ab_faces = {}                                 # (is_a, page) -> the output tile in faces
     for grp in range(groups):
-        Q0, N0 = grp * qn, grp * ng
+        Q0, qn, N0, ng = TTL.t1_group(ct2, ntg, groups, grp)
         # reader: c_0 = pages Q0 * Kt .. of Wp^T then of Wg^T; c_18 slot k * ng + n = page k * ntg + N0 + n
         W = WP[Q0 * Kt:(Q0 + qn) * Kt] + WG[Q0 * Kt:(Q0 + qn) * Kt]
         WO = [WOP[k * ntg + N0 + n] for k in range(Kt) for n in range(ng)]

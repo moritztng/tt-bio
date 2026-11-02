@@ -110,6 +110,16 @@ def aiclk(t0, t1, pad=0.3):
 _GIN_TILES = TTL._gin_move_tiles
 
 
+def _set_t1_g7(on):
+    """c_z 448's T1 as seven channel groups, the plan before g_out split raggedly (t1_group)."""
+    prev = TTL.T1_PLANS.get((14, 28, 14)) == (7, 8)
+    if on:
+        TTL.T1_PLANS[(14, 28, 14)] = (7, 8)
+    else:
+        TTL.T1_PLANS.pop((14, 28, 14), None)
+    return prev
+
+
 def _set_t1_mcast(on):
     """T1_MCAST at every plan key (an int knob), else the shipped table."""
     global _T1_MC
@@ -164,6 +174,7 @@ LEVERS = {
     "nomf": [(TTL.set_mask_fold, False)],
     # one core reads T1's resident weights and multicasts them (bit-identical)
     "t1mc": [(_set_t1_mcast, True)],
+    "t1g7": [(_set_t1_g7, True)],
 }
 
 

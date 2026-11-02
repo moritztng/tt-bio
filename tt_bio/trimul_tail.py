@@ -1644,14 +1644,22 @@ def _t1_fit_here(key, w8):
 def t1_fit(key, w8, l1):
     """The fewest channel groups whose circular buffers fit L1 (masked, as `t1_eligible` gates them), at the widest
     unit that fits in them, or None. Splitting channels or rows moves no arithmetic: every channel tile and row is
-    computed as in one whole launch. Mol-1's c_z 320 gets (2, 8), bfp8 weights (1, 8); its 448 gets (7, 8) either way."""
+    computed as in one whole launch. Mol-1's c_z 320 gets (2, 8), bfp8 weights (1, 8); its 448 gets (4, 8), g_out's 14
+    tiles split 4, 4, 3, 3 (`t1_group`)."""
     kt, ct2, ntg = key
     for g in range(1, ct2 + 1):
-        if ct2 % g == 0 and ntg % g == 0:
+        if ct2 % g == 0:
             for il in (32, 16, 8):
                 if t1_cb_bytes(*key, True, nb=GIN_MOVE_NB, w8=w8, plan=(g, il)) <= 0.85 * l1:
                     return g, il
     return None
+
+
+def t1_group(ct2, ntg, groups, g):
+    """(Q0, QN, N0, NG) of channel group `g`: the [a | b] tiles split evenly (`groups` divides ct2), g_out's as evenly
+    as they go, larger groups first. The kernels take every one as a compile-time arg."""
+    q, r = divmod(ntg, groups)
+    return g * (ct2 // groups), ct2 // groups, g * q + min(g, r), q + (g < r)
 
 
 def t1_wide_lever(key):
@@ -1737,20 +1745,23 @@ def set_t1(on: bool) -> bool:
     return prev
 
 
-def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False, b8=False, fg=False, plan=None):
+def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=False, b8=False, fg=False, plan=None,
+               ng=None):
     """T1's circular buffers per core for one launch of the (kt, ct2, ntg) plan,
     ([(index, tiles)], [(index, fp32 tiles)]); tiles are bf16 but in T1_W_CBS under `w8` and T1_B8_CBS under `b8`.
     Independent of N: N only sets how many units each core runs. `split` (T1_SPLIT): c_2's two channel tiles become
     one for each data-movement core, and the reader stages its own gather. `b8` at 8-row items adds the exponent holds
     (kernels/trimul_in_t1/gather.hpp), 1 KB per channel tile a core gathers. `fg` (t1_fgate) has no p / g CBs and
     spends part of their L1 on a second channel tile in each a / b CB, so the gathers keep running through the next
-    item's layer_norm instead of idling on an empty CB. `plan`: this (groups, il) instead of `t1_plan`'s (t1_fit's search)."""
+    item's layer_norm instead of idling on an empty CB. `plan`: this (groups, il) instead of `t1_plan`'s (t1_fit's search).
+    `ng`: one launch's g_out tiles (`t1_group`), else the largest group's. The g_out CBs must hold whole pushes of
+    exactly the launch's NG: a 2 x 4 tile c_19 taking 3-tile pushes wraps inside a push and corrupts g_out."""
     nb = _t1_nb_pref((kt, ct2, ntg)) if nb is None else nb
     rb = T1_RB if rb is None else rb
     groups, plan_il = plan or t1_plan((kt, ct2, ntg), w8)
     il = plan_il if il is None else il
     rb = min(rb, il // 4)           # 8 at 32-row units (as before), 4 at 16, 2 at 8
-    qn, ng = ct2 // groups, ntg // groups
+    qn, ng = ct2 // groups, -(-ntg // groups) if ng is None else ng
     bf = [(0, 2 * qn * kt),      # [Wp^T | Wg^T] of the group, resident
           (1, il * kt),          # layer_norm(z) of one unit, slot dt * il + row
           (2, 2 * il),           # a / b tiles to the writer, two channel tiles
@@ -1950,7 +1961,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     ntg = int(wgo.shape[-1]) // TILE
     w8 = bool(t1_w8(wpT, wgT, wgo))
     groups = t1_plan((kt, ct2, ntg), w8)[0]
-    qn, ng = ct2 // groups, ntg // groups
+    q0, qn, n0, ng = t1_group(ct2, ntg, groups, group)
     rb = min(T1_RB, il // 4)
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet(
@@ -1977,7 +1988,7 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     reader = ttnn.KernelDescriptor(
         kernel_source=str(d / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, St, int(mask is not None), ng, rb, (inv << 16) | inv,
-                           eps_bits, group * qn, group * ng, ntg, il]
+                           eps_bits, q0, n0, ntg, il]
         + acc(xn if ln1 == 2 else x) + acc(wpT) + acc(wgT) + acc(wgo) + acc(ln_w) + acc(ln_b) + acc(m)
         + ([ct2, nb] + acc(outs[0]) + acc(outs[1]) if split else []),
         defines=abl + pre + sp + ([("T1B8", "1")] if b8 else []) + ([("T1MCAST", "1")] if mcast else []),
@@ -1985,21 +1996,21 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
         config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(d / "writer.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[ct2, St, nb, ng, group * qn, qn, group * ng, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2])
+        compile_time_args=[ct2, St, nb, ng, q0, qn, n0, ntg, il] + acc(outs[0]) + acc(outs[1]) + acc(outs[2])
         + ([kt] + acc(xn) if ln1 == 1 else []),
         defines=abl + xout + sp + ([("T1B8", "1")] if b8 else []), runtime_args=wr,
         common_runtime_args=[0] * (4 if ln1 == 1 else 3), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, group * qn, ct2, il],
+        compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, q0, ct2, il],
         defines=abl + xout + pre + sp + ([("T1FGATE", "1")] if fg else []), runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
             math_fidelity=fid, math_approx_mode=approx, fp32_dest_acc_en=True,
             dst_full_sync_en=full))
-    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split, b8=b8, fg=fg)
+    bf, f32 = t1_cb_plan(kt, ct2, ntg, mask is not None, nb=nb, il=il, w8=w8, split=split, b8=b8, fg=fg, ng=ng)
     g8 = outs[2].dtype == ttnn.bfloat8_b
     cbs = ([_cb_fmt(i, core_grid, t, ttnn.bfloat8_b)
             if t1_cb_b8(i, w8, b8) or (g8 and i == 19) or (i == 7 and x.dtype == ttnn.bfloat8_b)
