@@ -3764,6 +3764,24 @@ def trunk_recycles(state_dict):
     return 4 if n_blocks(state_dict, "template_embedder.pairformer_stack") == 0 else 10
 
 
+def refusable_cycle(run, carry):
+    """`run(carry, retry=True)` as `(new carry, None)`, or `(None, the inputs)` when DRAM refused it.
+
+    A recycling cycle frees its input pair as soon as it has read it. One that may be re-run after a
+    refusal must not, or the re-run's first op reads a freed buffer: the device-picked-rows attempt
+    left `retry` off, so a refusal late in a cycle (8eud-assembly1, 819 aa + 7 ligands, on a 12 GiB
+    Wormhole chip) re-ran the cycle on a deallocated pair and threw `Buffer is not allocated` in its
+    first layer norm. Every guarded attempt goes through here, so none can leave it off. Returning
+    outside the handler drops the traceback, which pins every tensor the refused attempt made."""
+    inputs = list(carry)
+    try:
+        return run(carry, retry=True), None
+    except RuntimeError as exc:
+        if not is_alloc_refusal(exc):
+            raise
+    return None, inputs
+
+
 class Trunk(_KeyedWeights):
     """Protenix-v2 trunk: s_inputs -> (s_trunk, z_trunk) over 10 recycling cycles.
 
@@ -4319,14 +4337,11 @@ class Trunk(_KeyedWeights):
                     if table is not None:
                         # As for a resident m below: a cycle DRAM refuses with the alignment on the chip
                         # runs again from its inputs with rows cut on the host, and so does the rest of this fold.
-                        inputs = list(carry)
-                        try:
-                            carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
-                            inputs = None
-                        except RuntimeError as exc:
-                            if not is_alloc_refusal(exc):
-                                raise
-                        if inputs is None:
+                        out, inputs = refusable_cycle(
+                            lambda c, retry: sampled(cyc, c, msa_rows_device(table, rows[cyc], bucket(cyc), N),
+                                                     retry=retry), carry)
+                        if out is not None:
+                            carry = out
                             continue
                         print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(ms.shape)} on the "
                               f"chip; cutting each cycle's rows on the host for the rest of this fold. The tt-metal 'Out of "
@@ -4345,14 +4360,9 @@ class Trunk(_KeyedWeights):
                     # changes the MSA shapes every cycle, so a deep draw late in the fold can find the
                     # chip's DRAM in pieces where the full-depth path reuses its blocks: 7ua2-assembly1
                     # (712 tokens, 18,611 rows) was refused 2.96 GiB at cycle 7 of 20 on a Wormhole chip.
-                    inputs = list(carry)
-                    try:
-                        carry = sampled(cyc, carry, x, retry=True)
-                        inputs = None
-                    except RuntimeError as exc:
-                        if not is_alloc_refusal(exc):
-                            raise
-                    if inputs is None:
+                    out, inputs = refusable_cycle(lambda c, retry: sampled(cyc, c, x, retry=retry), carry)
+                    if out is not None:
+                        carry = out
                         continue
                     print(f"[tt-bio] DRAM refused a recycling cycle with {len(rows[cyc])} MSA rows on the chip; "
                           f"streaming each cycle's rows from the host for the rest of this fold. The tt-metal 'Out "
@@ -4368,16 +4378,10 @@ class Trunk(_KeyedWeights):
                 # with m streamed from the host for the rest of THIS fold only. Nothing is
                 # remembered across folds, because a process-wide switch made a served answer depend
                 # on what the process folded before (state/spd-msaresid.md). Protenix-v2 and OpenDDE
-                # serve the per-cycle sampled path above and never reach it. The retry runs outside
-                # the handler: the traceback pins every tensor the refused cycle made.
-                inputs = list(carry)
-                try:
-                    carry = cycle(cyc, carry, m_feat, retry=True)
-                    inputs = None
-                except RuntimeError as exc:
-                    if not is_alloc_refusal(exc):
-                        raise
-                if inputs is None:
+                # serve the per-cycle sampled path above and never reach it.
+                out, inputs = refusable_cycle(lambda c, retry: cycle(cyc, c, m_feat, retry=retry), carry)
+                if out is not None:
+                    carry = out
                     continue
                 print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(m_feat.shape)} "
                       f"on the chip; streaming it from the host for the rest of this fold. The tt-metal 'Out of "
