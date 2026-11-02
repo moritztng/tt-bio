@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs on .107: the WH side of refold.sh. Requeues the pool jobs of refold.json's cases on tree-<its tree> (a
+# Runs on .107: requeues the pool jobs of refold.json's cases on tree-<its tree> (a
 # `git archive` of that commit, with TREE_SHA) and moves their pre-fix WH folds to tt-wh-prefix. A case whose job is
 # running is skipped and named. Needs wh_jobs.py and refold.json beside it.
 #   bash wh_requeue.sh
