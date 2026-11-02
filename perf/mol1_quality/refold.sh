@@ -4,13 +4,16 @@
 # refold.json's tree for these. Folds go to tt-bh-refold first, so neither the running main arm nor the qb1 sync
 # (sync_qb1.sh) can mix pre- and post-fix seeds; once both have exited, the pre-fix folds move to tt-bh-prefix,
 # the new ones into tt-bh, and their cached grades in work/tt_bh are dropped.
-#   bash refold.sh MAIN_PID SYNC_PID CHIP [CHIP ...]    log ~/mol1-quality/refold.log, REFOLD-EXIT at the end
+#   bash refold.sh [--book OWNER] MAIN_PID SYNC_PID CHIP [CHIP ...]   log ~/mol1-quality/refold.log, REFOLD-EXIT at the end
+# (a finished pid is fine: the waits return at once; --book is passed to run_tt.sh)
 set -uo pipefail
+BOOK=; [ "${1:-}" = --book ] && { BOOK="--book $2"; shift 2; }
 cd ~/mol1-quality; main=${1:?MAIN_PID}; sync=${2:?SYNC_PID}; shift 2; [ $# -gt 0 ] || { echo "no chip"; exit 2; }
 P=$HOME/.coworker/wt/mol1-quality/perf/mol1_quality; say() { echo "$(date -u +%FT%TZ) $*"; }
+# tt-bio from the engine env (a nohup launch has no login PATH: every fold of the 11-02 run exited 127);
 # --use_template aligns hits with kalign (qb2: micromamba env, bioconda kalign3=3.3.5); without it 9fm7 refuses
-export PATH=$HOME/mol1-quality/env/kalign/bin:$PATH
-command -v kalign > /dev/null || { say "no kalign on PATH"; echo "REFOLD-EXIT rc=1"; exit 1; }
+export PATH=$HOME/tt-bio-dev/env/bin:$HOME/mol1-quality/env/kalign/bin:$PATH
+for b in tt-bio kalign; do command -v $b > /dev/null || { say "no $b on PATH"; echo "REFOLD-EXIT rc=1"; exit 1; }; done
 SEEDS="42 66 101 2024 8888"; TREE=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['tree'])" "$P/refold.json")
 python3 - "$P/refold.json" > refold-cases.json <<'PY'
 import json, sys; print(json.dumps({"paired": [{"id": c} for c in json.load(open(sys.argv[1]))["why"]]}))
@@ -30,11 +33,15 @@ if [ ! -d main-$TREE ]; then
 fi
 say "waiting for main run pid $main (chips $*)"
 while kill -0 "$main" 2>/dev/null; do sleep 300; done
+if [ -n "$BOOK" ]; then say "waiting for the ${BOOK#--book } window on chip $1"
+  until [ "$(python3 ~/spd/feed/book.py active "$1" 2>/dev/null)" = "${BOOK#--book }" ]; do sleep 60; done; fi
 say "folding ${#NAMES[@]} cases on $TREE, chips $*"
-PYTHONPATH=$PWD/main-$TREE bash "$P/run_tt.sh" --cases refold-cases.json inputs tt-bh-refold "$SEEDS" "$@"; rc=$?
-for x in "${NAMES[@]}"; do n=${x% *}; for s in $SEEDS; do
-  [ -d tt-bh-refold/.runs/$n/seed_$s ] && echo "$TREE" > tt-bh-refold/.runs/$n/seed_$s/tree; done; done
-[ $rc = 0 ] || { say "refold run rc=$rc"; echo "REFOLD-EXIT rc=$rc"; exit $rc; }
+PYTHONPATH=$PWD/main-$TREE bash "$P/run_tt.sh" $BOOK --cases refold-cases.json inputs tt-bh-refold "$SEEDS" "$@"; rc=$?
+# run_tt.sh exits 0 whatever its folds return: a case swaps only when all its seeds are rc=0
+bad=0
+for x in "${NAMES[@]}"; do n=${x% *}; for s in $SEEDS; do d=tt-bh-refold/.runs/$n/seed_$s
+  [ -d $d ] && echo "$TREE" > $d/tree; grep -qx "rc=0" $d/rc 2>/dev/null || { say "not rc=0: $n $s"; bad=1; }; done; done
+[ $rc = 0 ] && [ $bad = 0 ] || { say "refold run rc=$rc, failed folds=$bad; nothing swapped, rerun to resume"; echo "REFOLD-EXIT rc=1"; exit 1; }
 say "waiting for the qb1 sync pid $sync"
 while kill -0 "$sync" 2>/dev/null; do sleep 300; done
 mkdir -p tt-bh-prefix/.runs
