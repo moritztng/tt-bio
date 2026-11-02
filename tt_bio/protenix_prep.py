@@ -13,7 +13,7 @@ import json
 import re
 from pathlib import Path
 
-from tt_bio.cache import seq_hash
+from tt_bio.cache import cached, publish_text, seq_hash
 
 MSA_INDEX_NAME = "msa_index.json"
 
@@ -36,7 +36,7 @@ def _search(seqs: list[str], msa_dir: Path, name: str, cfg: dict) -> dict[str, t
     out = {}
     for s in seqs:
         a3m = msa_dir / f"{seq_hash(s)}.a3m"
-        if not a3m.exists():
+        if not cached(a3m):
             raise RuntimeError(f"MSA search returned nothing for {name} ({s[:20]}...)")
         out[s] = (a3m.read_text(), (paired or {}).get(seq_hash(s)))
     return out
@@ -44,10 +44,10 @@ def _search(seqs: list[str], msa_dir: Path, name: str, cfg: dict) -> dict[str, t
 
 def _write(target: Path, unpaired: str, paired: str | None) -> dict:
     target.mkdir(parents=True, exist_ok=True)
-    (target / "non_pairing.a3m").write_text(unpaired)
+    publish_text(target / "non_pairing.a3m", unpaired)
     paths = {"unpairedMsaPath": str((target / "non_pairing.a3m").resolve())}
     if paired:
-        (target / "pairing.a3m").write_text(paired)
+        publish_text(target / "pairing.a3m", paired)
         paths["pairedMsaPath"] = str((target / "pairing.a3m").resolve())
     return paths
 

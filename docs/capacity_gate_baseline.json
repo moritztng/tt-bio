@@ -336,9 +336,9 @@
    }
   },
   "p300c": {
-   "recorded": "2026-09-17T15:55:05Z",
+   "recorded": "2026-11-02T14:19:53Z",
    "host": "tt-quietbox2",
-   "tree": "c23ac2d4399a340c2f5942e6741537f05a0d9776",
+   "tree": "1cf560aa6cade818a8cd264105d6417ed6e2e721",
    "dirty_tree": false,
    "geometry": {
     "arch": "blackhole",
@@ -744,6 +744,25 @@
      "reason": null,
      "ceilings_fingerprint": "25b2f1acf6a07ac6",
      "tree": "c23ac2d4399a340c2f5942e6741537f05a0d9776",
+     "measured_on": "tt-quietbox2:1"
+    },
+    "mol1": {
+     "verdict": "PASS",
+     "tokens_requested": 1536,
+     "tokens_padded": 1536,
+     "residues": 1536,
+     "msa_rows_effective": 8832,
+     "dram_peak_bytes": 10648997888,
+     "dram_total_bytes": 33923530240,
+     "wall_s": 1628.8,
+     "mechanism": null,
+     "decided_by": "residency",
+     "ceiling_tokens": null,
+     "alloc_ceiling_tokens": null,
+     "alloc_ceiling_note": null,
+     "reason": null,
+     "ceilings_fingerprint": "7a69c6f8c8589c16",
+     "tree": "1cf560aa6cade818a8cd264105d6417ed6e2e721",
      "measured_on": "tt-quietbox2:1"
     }
    }
