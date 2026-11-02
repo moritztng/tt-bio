@@ -72,6 +72,7 @@ say "gate passed after $(( $(date +%s) - T0 ))s"
 # fit four to a GPU; REF_K=1 skips straight to it on a retry box). mol1_ref.py skips every job whose summary exists,
 # so a relaunch resumes. REF_FIRST=case,... runs those cases first, seed-major. REF_REVERSE=1 runs the
 # list from the end, so a second box started beside a running one works toward it instead of duplicating it.
+# REF_ARGS passes the rest to mol1_ref.py, e.g. "--dtype fp32 --sets paired --seeds 42,66" (mol1-gpu-fp32).
 if [ -n "${REF:-}" ]; then
   # Bounded: an unbounded wait billed a whole session for nothing when qb2's push was refused (mol1-b200-ref1).
   for _ in $(seq 60); do [ -f /root/kc/QINPUTS-DONE ] && break; sleep 30; done
@@ -80,7 +81,7 @@ if [ -n "${REF:-}" ]; then
   # qinputs/_ref holds them (hardlinked there before the session), and cp -n never overwrites this box's work.
   [ -d /root/kc/qinputs/_ref ] && mkdir -p $B/ref && cp -rn /root/kc/qinputs/_ref/. $B/ref/
   for k in ${REF_K:-4 1}; do
-    (cd /tmp && $PY -I /root/kc/mol1_ref.py --inputs /root/kc/qinputs --out $B/ref --k $k ${REF_REVERSE:+--reverse} ${REF_FIRST:+--first $REF_FIRST}) >> $B/ref.log 2>&1
+    (cd /tmp && $PY -I /root/kc/mol1_ref.py --inputs /root/kc/qinputs --out $B/ref --k $k ${REF_REVERSE:+--reverse} ${REF_FIRST:+--first $REF_FIRST} ${REF_ARGS:-}) >> $B/ref.log 2>&1
   done
   say "ref done: $(grep -c '"status": "ok"' $B/ref/jobs.jsonl) ok lines"; echo done > $B/MOL1-DONE; exit 0
 fi
