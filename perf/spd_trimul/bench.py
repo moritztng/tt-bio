@@ -139,6 +139,12 @@ def _set_gin_fit(on):
     return prev
 
 
+def _t1_rows(v):
+    """T1 work items of v row tiles (TTL.T1_ROWS); returns the previous value."""
+    prev, TTL.T1_ROWS = TTL.T1_ROWS, int(v)
+    return prev
+
+
 def _t2_mb2(on):
     """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
     prev = (10, 10) in TTL.T2_BLOCK
@@ -182,6 +188,7 @@ LEVERS = {
     "t2m": [(TTL.set_t2m, True)],
     "t2zw": [(TTL.set_t2_zw, True)],
     "t2mb2": [(_t2_mb2, True)],
+    "t1r4": [(_t1_rows, 4)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
     # one core reads T1's resident weights and multicasts them (bit-identical)
