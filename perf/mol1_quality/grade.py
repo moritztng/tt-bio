@@ -9,7 +9,7 @@ as quality_inputs.safe() spells them. Per arm, each case's CIFs go through FoldB
 foldbench/evaluation (OpenStructure compare-structures / compare-ligand-structures, DockQ v2 for nucleic-acid
 interfaces), exactly as FoldBench's evaluate.py runs it. Cases outside FoldBench (pfm 11-set, upstream examples)
 are scored as whole complexes: global lDDT and the mean DockQ over every interface OST finds.
-Rows (top-ranked sample per case and seed; confidences averaged over its samples) go to stats.py.
+Rows (top-ranked sample per case and seed; confidences averaged over its samples) go to mol1_stats.py.
 """
 import argparse, csv, json, re, sys
 from collections import defaultdict
@@ -20,7 +20,7 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 sys.path[:0] = [str(HERE), str(HERE / "foldbench")]
-import stats  # noqa: E402
+import mol1_stats as stats  # noqa: E402
 from quality_inputs import safe  # noqa: E402
 
 FB_TARGETS = HERE / "foldbench_targets"
