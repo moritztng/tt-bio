@@ -1,0 +1,1816 @@
+{
+ "n": 256,
+ "k": 2,
+ "extra": "pair_batch",
+ "steps": [
+  {
+   "at": "input",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 0 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 0 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 0 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 1 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 1 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 1 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 2 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 2 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 2 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 3 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 3 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 3 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 4 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 4 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 4 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 5 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 5 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 5 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 6 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 6 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 6 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 7 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 7 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 7 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "adapter 8",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 8 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 8 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 8 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 8 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 8 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 9 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 9 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 9 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 9 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 9 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 10 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 10 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 10 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 10 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 10 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 11 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 11 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 11 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 11 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 11 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 12 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 12 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 12 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 12 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 12 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 13 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 13 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 13 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 13 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 13 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 14 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 14 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 14 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 14 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 14 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 15 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 15 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 15 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 15 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 15 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 16 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 16 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 16 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 16 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 16 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 17 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 17 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 17 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 17 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 17 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 18 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 18 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 18 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 18 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 18 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 19 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 19 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 19 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 19 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 19 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 20 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 20 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 20 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 20 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 20 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 21 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 21 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 21 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 21 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 21 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 22 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 22 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 22 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 22 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 22 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 23 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 23 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 23 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 23 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 23 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 24 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 24 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 24 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 24 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 24 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 25 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 25 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 25 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 25 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 25 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 26 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 26 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 26 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 26 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 26 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 27 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 27 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 27 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 27 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 27 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 28 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 28 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 28 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 28 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 28 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 29 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 29 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 29 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 29 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 29 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 30 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 30 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 30 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 30 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 30 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 31 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 31 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 31 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 31 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 31 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 32 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 32 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 32 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 32 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 32 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 33 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 33 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 33 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 33 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 33 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 34 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 34 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 34 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 34 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 34 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 35 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 35 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 35 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 35 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 35 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 36 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 36 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 36 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 36 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 36 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 37 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 37 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 37 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 37 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 37 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 38 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 38 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 38 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 38 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 38 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 39 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 39 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 39 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 39 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 39 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 40 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 40 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 40 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 40 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 40 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 41 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 41 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 41 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 41 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 41 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 42 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 42 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 42 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 42 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 42 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 43 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 43 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 43 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 43 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 43 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 44 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 44 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 44 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 44 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 44 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 45 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 45 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 45 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 45 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 45 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 46 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 46 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 46 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 46 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 46 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 47 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 47 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 47 triangle_attention_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 47 triangle_attention_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 47 transition_z",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  }
+ ],
+ "all_equal": true
+}

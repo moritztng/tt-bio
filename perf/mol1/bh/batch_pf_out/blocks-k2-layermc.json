@@ -1,0 +1,40 @@
+{
+ "n": 256,
+ "k": 2,
+ "extra": "",
+ "layer_mc": true,
+ "steps": [
+  {
+   "at": "input",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 0 triangle_multiplication_start",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 0 triangle_multiplication_end",
+   "equal": true,
+   "max_abs": 0.0,
+   "rel_rms": 0.0,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  },
+  {
+   "at": "block 0 transition_z",
+   "equal": false,
+   "max_abs": 0.25,
+   "rel_rms": 0.004710364255489757,
+   "mc": "BufferType.DRAM",
+   "dtype": "DataType.BFLOAT16"
+  }
+ ]
+}
