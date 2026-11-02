@@ -24,8 +24,8 @@ R = Path(__file__).resolve().parent / "results"
 SEEDS, SELFTEST = [42, 66, 101, 2024, 8888], [7, 13, 77, 1234, 9999]
 ARMS = {"gpu": "Mol-1 upstream reference predictions on NVIDIA B200, chosen arm cueq-triatt+chunk5+tf32 "
                "(state/mol1/gpu/B200.md), protocol state/mol1/PROTOCOL.md",
-        "gpu_fp32": "Mol-1 upstream in its fp32 mode (autocast target float32, TF32 matmuls off) on NVIDIA B200, "
-                    "kernels and settings otherwise as arm gpu (mol1_ref.py --dtype fp32), decision D-orch-56"}
+        "gpu_fp32": "Mol-1 upstream in its fp32 mode (autocast target float32, TF32 matmuls off) on the NVIDIA GPU named per "
+                    "job, kernels and settings otherwise as arm gpu (mol1_ref.py --dtype fp32), decisions D-orch-56/60"}
 
 
 def main():
@@ -72,6 +72,12 @@ def main():
             if d.get("status") == "ok":
                 led[(lab, d["set"], stem(d["case"]), d["seed"])] = d
 
+    def gpu(lab):  # the SKU that produced a job: the session's own nvidia-smi -q
+        f = R / lab / "mol1/nvidia-smi-q.txt"
+        return next((l.split(":", 1)[1].strip() for l in (f.read_text().splitlines() if f.exists() else [])
+                     if l.strip().startswith("Product Name")), None)
+    gpus = {lab: gpu(lab) for lab in a.labels}
+
     records, missing = [], []
     for c, st, s in jobs:
         hit = next((lab for lab in a.labels if (lab, st, stem(c), s) in done), None)
@@ -81,7 +87,7 @@ def main():
         k = (hit, st, stem(c), s)
         d = led.get(k, {})
         records.append({"case": c, "set": st, "seed": s, "recipe": idx["recipes"].get(c, "default"),
-                        "session": hit, "samples": cifs[k], "wall_s": d.get("wall_s"),
+                        "session": hit, "gpu": gpus[hit], "samples": cifs[k], "wall_s": d.get("wall_s"),
                         "dir": f"{host}:{root}/{hit}/ref/{st}/{stem(c)}/seed_{s}/predictions"})
     sets = a.sets.split(",")
     out = {"what": ARMS[a.arm], "arm": a.arm,
