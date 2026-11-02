@@ -77,11 +77,26 @@ def weights(w1: torch.Tensor, w2: torch.Tensor, w3: torch.Tensor, device, dtype=
     in bf16 and OpenDDE's c_z 384 take two or more, each re-reading x."""
     up = lambda t: ttnn.from_torch(t.contiguous(), dtype=dtype, layout=ttnn.TILE_LAYOUT,  # noqa: E731
                                    device=device)
-    kt, nh, ct = w1.shape[0] // 32, w1.shape[1] // 32, w3.shape[1] // 32
-    parts = next((p for p in range(1, nh // _SW + 1) if nh % (p * _SW) == 0
-                  and _l1_bytes(kt, nh // p, ct, dtype) <= _L1_BUDGET), 1)
-    h = w1.shape[1] // parts
-    return [(up(torch.cat([w1[:, i:i + h], w2[:, i:i + h]], 1)), up(w3[i:i + h])) for i in range(0, w1.shape[1], h)]
+    kt, ct = w1.shape[0] // 32, w3.shape[1] // 32
+    out, i = [], 0
+    for h in hidden_chunks(kt, w1.shape[1] // 32, ct, dtype):
+        j = i + 32 * h
+        out.append((up(torch.cat([w1[:, i:j], w2[:, i:j]], 1)), up(w3[i:j])))
+        i = j
+    return out
+
+
+def hidden_chunks(kt, nh, ct, dtype) -> list[int]:
+    """Hidden tiles per chunk: the fewest chunks whose largest fits `_L1_BUDGET`, each a multiple of `_SW` and the
+    larger ones first. Ragged where `_SW` units do not divide evenly: Mol-1's c_z 448 in bfp8 takes 16, 16, 12, 12
+    tiles where equal chunks need seven of 8, and every chunk re-reads x and the running partial."""
+    units = nh // _SW
+    for p in range(1, units + 1):
+        q, r = divmod(units, p)
+        sizes = [(q + (n < r)) * _SW for n in range(p)]
+        if _l1_bytes(kt, sizes[0], ct, dtype) <= _L1_BUDGET:
+            return sizes
+    return [nh]
 
 
 def ln_bytes(kt) -> int:
