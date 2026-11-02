@@ -906,16 +906,24 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     # do not transfer: its own ladder stops two rungs lower.
     "mol1": {
         "wormhole_b0": Ceiling(
-            residues=1536, pass_at=1536, fail_at=1792, binds=MEMORY, mechanism=DRAM,
+            residues=1024, pass_at=1024, fail_at=1074, binds=MEMORY, mechanism=DRAM,
             msa_rows=16384, ladder_ligand_atoms=0,
-            evidence="Walked 2026-11-01 on the .107 Galaxy (UF-EV-A4-GWH01), tree c5e5bc392 (main with "
-                     "the MOL1_WH levers), perf/whceil/ladder.py, apo ubiquitin tiled to N residues with "
+            evidence="Capped at 1024 tokens (passed on tree 87224da42, below) although a single chain "
+                     "folds 1536, because the ladder is not the only wall. fail_at is FoldBench "
+                     "7yzt-assembly1 (3 x 315 residues plus 3 CCD ligands, about 1074 tokens, paired "
+                     "7054-row alignment), which runs out of DRAM at trunk "
+                     "0 on every seed on main's Wormhole tree c5e5bc392 (72.2 MiB requested, 3.8 MiB "
+                     "free, chip 6 of the .107 Galaxy, 2026-11-01, ws:mol1-quality). Tokens and depth "
+                     "both sit inside the ladder, so nothing short of folding it says which homomer + "
+                     "ligand shapes fail; the cap refuses that one before a device opens and goes back "
+                     "up when it folds on Wormhole (D-moritz-1102c). The ladder: walked 2026-11-01 on the .107 Galaxy (UF-EV-A4-GWH01), "
+                     "tree c5e5bc392 (main with the MOL1_WH levers), perf/whceil/ladder.py, apo ubiquitin tiled to N residues with "
                      "a 16384-row unpaired alignment, guard off, CLI defaults 20 recycles / 200 steps / "
                      "5 samples (ws:mol1-serve-jf). 1280 PASS in 3261.3 s, chip 4, AICLK median 1000 MHz "
                      "over 7024 in-fold samples, pLDDT 63.3-64.6 over 5 samples, 2 refusals recovered, "
                      "the largest 7869235200 B. 1536 PASS in 5445.2 s, chip 28, AICLK median 1000 MHz "
                      "over 10704 in-fold samples, pLDDT 62.9-63.6 over 5 samples, no clash, 3 refusals "
-                     "recovered, the largest 9443082240 B. The fail rung is from the earlier walk on "
+                     "recovered, the largest 9443082240 B. The ladder's fail rung is from the earlier walk on "
                      "tree 87224da42 (wk/mol1-port), which also passed 1024 and 1280: 1792 fails after "
                      "416.7 s (chip 27) on one 2877292544 B DRAM request, 228.7 MiB per bank against "
                      "94.6 MiB free and a 49.0 MiB largest block on a chip 90.8 percent full: "

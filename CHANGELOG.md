@@ -11,7 +11,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   layout with its summary and full-data confidence files, and defaults to upstream's 20 recycles, 200 steps and 5
   samples. For Protenix and Mol-1 job JSON, `--use_seeds_in_json` runs every seed in a job's
   `modelSeeds` instead of `--seed`, one result per seed. The weights download on first use; Molence has not stated a
-  licence for them yet. On a Wormhole Galaxy chip it folds up to 1536 tokens and refuses larger inputs before
+  licence for them yet. On a Wormhole Galaxy chip it takes up to 1024 tokens and refuses larger inputs before
   opening a device. See `docs/mol1.md`.
 - Mol-1's mmCIF now carries upstream's `_entry`, `_chem_comp`, `_entity`, `_entity_poly`, `_entity_poly_seq` and
   `_struct_conn` and groups the copies of one input entry into one entity, as Mol-1's does. DockQ v2 read no
