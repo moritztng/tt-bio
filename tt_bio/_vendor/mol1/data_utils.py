@@ -827,7 +827,8 @@ class CIFWriter:
 
         if "label_entity_id" in atom_array.get_annotation_categories():
             atom_site["label_entity_id"] = atom_array.label_entity_id
-        cif.write(output_path)
+        from tt_bio import cif_text  # tt-bio: biotite text, array-built (tt_bio/cif_text.py)
+        cif_text.write(cif, output_path)
 
     @staticmethod
     def to_mmcif_string(
