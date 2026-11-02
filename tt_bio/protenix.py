@@ -318,8 +318,13 @@ MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
 # tokens. mol1-256 (245 tokens) on a qb1 p150a at AICLK 1350, 5 warm folds per arm: 29.6 -> 27.25 s; samples matched to
 # the base fold at 1.61 A median vs the 6.07 A seed floor, lDDT 0.964 vs 0.902. 512: 82.2 -> 81.6 s, 0.256 A median vs
 # the 0.60 A bar and the 1.49 A floor; 1024 coords identical (state/mol1/evidence/bh-batch).
+# Plus edm_device (the EDM trajectory stays on the card, the host only draws and stages each step): the host round trip
+# left the device idle 1.2 s a fold at 256 and 1.4 s at 512 (state/mol1/evidence/bh/opgap.md). qb1 p150a at AICLK 1350
+# (min 1343), 6 warm folds per arm interleaved on a loaded host: 256 31.58 -> 26.84 s, 512 82.88 -> 80.60 s; samples
+# matched to the base fold at 0.265 A median vs the 4.70 A seed floor (256) and 0.167 A (max 0.53) vs the 0.60 A bar and
+# the 1.35 A floor (512).
 MOL1_BH = MOL1_T1 | MOL1_DIT_BH | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
-                                  "ws_l1dest"}
+                                  "ws_l1dest", "edm_device"}
 # Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
 # BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
