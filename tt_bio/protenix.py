@@ -3972,7 +3972,58 @@ class Trunk(_KeyedWeights):
 
     def __call__(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
                  msa_sample=None):
-        """feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
+        """One trunk; see `_run` for the arguments and the result."""
+        return self._drive([self._run(feat, s_inputs, relp, token_bonds, progress_fn, n_cycles, host, msa_sample)])[0]
+
+    def many(self, calls):
+        """K trunks of the same token count in lockstep, one `__call__` kwargs dict each: every member runs its own
+        template, MSA module and recycling update, and the K Pairformer calls of a cycle run as one call on a leading
+        batch of K. Returns one (s_trunk, z_trunk) per member, each the bytes its own `__call__` returns."""
+        return self._drive([self._run(**c) for c in calls])
+
+    def _drive(self, runs):
+        """Advance trunk generators (`_run`) to their Pairformer calls, serve all of them with one call, repeat.
+
+        A refusal inside the call goes back into a lone generator, where `_run`'s retry handlers see it exactly as
+        an inline call raised it; a batched call has no per-member retry and raises."""
+        out, reply, live = [None] * len(runs), [None] * len(runs), list(range(len(runs)))
+        while live:
+            reqs = {}
+            for i in live:
+                try:
+                    r = reply[i]
+                    reqs[i] = runs[i].throw(r) if isinstance(r, BaseException) else runs[i].send(r)
+                except StopIteration as stop:
+                    out[i] = stop.value
+            live = list(reqs)
+            if len(live) == 1:
+                try:
+                    reply[live[0]] = self.PF(*reqs[live[0]])
+                except RuntimeError as exc:
+                    reply[live[0]] = exc
+            elif live:
+                for i, r in zip(live, self._pf_batch([reqs[i] for i in live])):
+                    reply[i] = r
+        return out
+
+    def _pf_batch(self, reqs):
+        """One Pairformer call over the members' (s, z, pair mask, attention mask) on a leading batch. The members
+        are one input on different seeds, so their masks are the same and member 0's serve all."""
+        s = ttnn.concat([r[0] for r in reqs], dim=0)
+        z = ttnn.concat([r[1] for r in reqs], dim=0)
+        for r in reqs:
+            ttnn.deallocate(r[0])
+            ttnn.deallocate(r[1])
+        s, z = self.PF(s, z, *reqs[0][2:])
+        out = [(s[b:b + 1], z[b:b + 1]) for b in range(len(reqs))]
+        ttnn.deallocate(s)
+        ttnn.deallocate(z)
+        return out
+
+    def _run(self, feat, s_inputs, relp, token_bonds, progress_fn=None, n_cycles=None, host=None,
+             msa_sample=None):
+        """A generator: yields (s, z, pair mask, attention mask) at each cycle's Pairformer call and takes its
+        (s, z) back (`_drive`). feat: dict with template_* / msa / has_deletion / deletion_value / asym_id (host
         tensors). s_inputs (N,449), relp (N,N,139), token_bonds (N,N) host. n_cycles is the
         number of recycling iterations (default: the checkpoint's own, via trunk_recycles --
         10 for protenix-v2/OpenDDE, 4 for the v0.5.0 lineage). msa_sample=(depth, generator)
@@ -4105,7 +4156,7 @@ class Trunk(_KeyedWeights):
                 del m_feat, rows
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
             s = ttnn.add(s_init, sc)
-            s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
+            s, z3 = yield ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt
             s = ttnn.reshape(s, (N, 384))
             # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
             # Pairformer. Cheap to tap every cycle -- z3 is ~62 MB here, not m_feat's ~0.7 GiB --
@@ -4120,10 +4171,10 @@ class Trunk(_KeyedWeights):
             m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1])
             if torch.is_tensor(m_c):
                 # Parked on the host: drop the padding there, which costs nothing.
-                return cycle(cyc, carry, m_c[:, :k])
+                return (yield from cycle(cyc, carry, m_c[:, :k]))
             mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
-            carry = cycle(cyc, carry, m_c, (mask, k))
+            carry = yield from cycle(cyc, carry, m_c, (mask, k))
             del m_c, mask
             return carry
 
@@ -4145,7 +4196,7 @@ class Trunk(_KeyedWeights):
                         # runs again from its inputs with rows cut on the host, and so does the rest of this fold.
                         inputs = list(carry)
                         try:
-                            carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
+                            carry = yield from sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
                             inputs = None
                         except RuntimeError as exc:
                             if not is_alloc_refusal(exc):
@@ -4162,10 +4213,10 @@ class Trunk(_KeyedWeights):
                     x, _ = next_rows.result()
                     if cyc + 1 < n_cycles:
                         next_rows = cut(cyc + 1)
-                    carry = sampled(cyc, carry, x)
+                    carry = yield from sampled(cyc, carry, x)
                     continue
                 if torch.is_tensor(m_feat):
-                    carry = cycle(cyc, carry, m_feat)
+                    carry = yield from cycle(cyc, carry, m_feat)
                     continue
                 # Crash guard, not a regime: a cycle DRAM refuses runs again from its kept inputs
                 # with m streamed from the host for the rest of THIS fold only. Nothing is
@@ -4175,7 +4226,7 @@ class Trunk(_KeyedWeights):
                 # the handler: the traceback pins every tensor the refused cycle made.
                 inputs = list(carry)
                 try:
-                    carry = cycle(cyc, carry, m_feat, retry=True)
+                    carry = yield from cycle(cyc, carry, m_feat, retry=True)
                     inputs = None
                 except RuntimeError as exc:
                     if not is_alloc_refusal(exc):
@@ -4189,7 +4240,7 @@ class Trunk(_KeyedWeights):
                 ttnn.deallocate(m_feat)
                 m_feat = h
                 gc.collect()
-                carry, inputs = cycle(cyc, inputs, m_feat), None
+                carry, inputs = (yield from cycle(cyc, inputs, m_feat)), None
         z3, s = carry
         if rows is not None:
             ttnn.deallocate(s_m)
