@@ -24,8 +24,29 @@ void kernel_main() {
 
     constexpr uint32_t out_cb = tt::CBIndex::c_2;
     const uint32_t tb = get_tile_size(out_cb);
+#ifdef T2_ZW
+    // T2's z read moved off the reader (reader_ln.cpp T2_ZW): z of block b + 1 is read into c_7 (two blocks deep)
+    // while compute works on block b, from o0, the tensor this writer then writes in place. Block b + 1's rows are
+    // not block b's, so the read never sees a written row.
+    constexpr uint32_t z_cb = tt::CBIndex::c_7;
+    const uint32_t tz = get_tile_size(z_cb);
+    auto read_z = [&](uint32_t m) {
+        cb_reserve_back(z_cb, Mb * Nt);
+        uint32_t w = get_write_ptr(z_cb);
+        for (uint32_t t = 0; t < Mb * Nt; ++t, w += tz) noc_async_read_page(m * Nt + t, o0, w);
+    };
+    if (nblocks) {
+        read_z(m0);
+        noc_async_read_barrier();
+        cb_push_back(z_cb, Mb * Nt);
+    }
+#endif
     for (uint32_t b = 0; b < nblocks; ++b) {
         const uint32_t m = m0 + b * Mb;
+#ifdef T2_ZW
+        const bool more = b + 1 < nblocks;
+        if (more) read_z(m + Mb);
+#endif
         cb_wait_front(out_cb, Mb * Nt);
         uint32_t r = get_read_ptr(out_cb);
         for (uint32_t i = 0; i < Mb; ++i) {
@@ -42,6 +63,12 @@ void kernel_main() {
         cb_wait_front(copy_cb, Mb * Nt);
         uint32_t rc = get_read_ptr(copy_cb);
         for (uint32_t t = 0; t < (NOWRITE ? 0 : Mb * Nt); ++t, rc += tc) noc_async_write_page(m * Nt + t, o1, rc);
+#endif
+#ifdef T2_ZW
+        if (more) {
+            noc_async_read_barrier();
+            cb_push_back(z_cb, Mb * Nt);
+        }
 #endif
         noc_async_writes_flushed();
         cb_pop_front(out_cb, Mb * Nt);

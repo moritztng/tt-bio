@@ -170,6 +170,7 @@ LEVERS = {
     "t2": [(TTL.set_t2, True)],
     # T2 reads the einsum's last channel chunk channel-major (no back move); needs t2 to serve
     "t2m": [(TTL.set_t2m, True)],
+    "t2zw": [(TTL.set_t2_zw, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
     # one core reads T1's resident weights and multicasts them (bit-identical)
