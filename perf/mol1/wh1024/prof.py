@@ -127,6 +127,34 @@ class Sections:
         return dict(sorted(rows.items(), key=lambda kv: -kv[1]["s"]))
 
 
+# --hostsplit: coarse stages only, outermost call only. One sync before the call, then the time the Python call takes to
+# return (host dispatch, plus any blocking read or full-queue stall inside) and the drain after it (device work still
+# queued when the host was done). drain ~ 0 means the host, not the chip, sets that stage's time. ~20 syncs per fold.
+HOSTSPLIT = {"pairformer", "msa_module", "template", "diffusion", "confidence"}
+
+
+class HostSplit(Sections):
+    def wrap(self, fam, fn):
+        S = self
+
+        def inner(*a, **k):
+            from tt_bio import tenstorrent as T
+            if not S.on or T.CAPTURING[0] or S.stack or fam not in HOSTSPLIT:
+                return fn(*a, **k)
+            S.sync()
+            S.stack.append(fam)
+            t0 = time.perf_counter()
+            try:
+                return fn(*a, **k)
+            finally:
+                t1 = time.perf_counter()
+                S.sync()
+                t2 = time.perf_counter()
+                S.stack.pop()
+                S.f.write(json.dumps({"path": fam, "host_s": round(t1 - t0, 5), "drain_s": round(t2 - t1, 5)}) + "\n")
+        return inner
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--input", required=True)
@@ -144,6 +172,8 @@ def main():
     ap.add_argument("--peak-tensors", action="store_true",
                     help="no trace: sample a tag only when it reaches a new peak, and list the device tensors alive "
                          "then (a gc walk per sample, too slow for every sample)")
+    ap.add_argument("--hostsplit", action="store_true",
+                    help="replace the attribution fold with a host-vs-drain split of the coarse stages (hostsplit.jsonl)")
     a = ap.parse_args()
     os.environ["TT_VISIBLE_DEVICES"] = os.environ["TT_BIO_LEASE_CARDS"] = str(a.chip)
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -163,14 +193,14 @@ def main():
     state.bind_run("mol1-wh1024-prof", cfg)
     emit({"phase": "load", "wall_s": round(time.time() - t0, 2), "work": {k: cfg.get(k) for k in fair.WORK},
           "sha": fair.git("rev-parse", "HEAD"), "chip": a.chip, "input": a.input})
-    S = Sections(out)
+    S = (HostSplit if a.hostsplit else Sections)(out)
     S.install()
     plan = ["sections"] if a.sections_first else ["cold"] + ([] if a.skip_timed else ["timed"]) + ["sections"]
     for i, kind in enumerate(plan):
         S.on = kind == "sections"
         if S.on:
-            S.f = open(out / "sections.jsonl", "w", buffering=1)  # line-buffered: a recalled chip leaves the cycles it ran
-        if S.on or a.trace_cold:
+            S.f = open(out / ("hostsplit.jsonl" if a.hostsplit else "sections.jsonl"), "w", buffering=1)  # line-buffered: a recalled chip leaves the cycles it ran
+        if (S.on and not a.hostsplit) or a.trace_cold:
             os.environ["TT_BIO_DRAM_PEAK"] = str(out / "dram_peak.txt")  # read per call; drains like the syncs
             if a.peak_tensors:
                 os.environ["TT_BIO_DRAM_PEAK_TENSORS"] = "1"
@@ -204,6 +234,7 @@ def main():
               "aiclk": cs, "aiclk_line": clk.line(0), "plddt": metrics.get("plddt"), "ptm": metrics.get("ptm")})
         if S.on:
             S.f.close()
+        if S.on and not a.hostsplit:
             (out / "summary.json").write_text(json.dumps({"wall_s": round(wall, 2), "aiclk": cs,
                                                           "paths": S.summary()}, indent=1))
 
