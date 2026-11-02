@@ -136,8 +136,10 @@ single pair-sized allocation that no free block on the chip can hold:
   fast, 47 in normal and 57 in exact on a Galaxy chip at 1000 MHz. Before the depth
   chunks it failed at 1920 in the outer product mean, and before the row blocking at 1792 in the
   diffusion pair conditioning.
-- `mol1` folds 1536 and fails at 1792 on one pair-sized DRAM request with the chip 91 % full.
-  Its pair track is wider than Protenix-v2's, so it reaches the wall two rungs earlier.
+- `mol1` is capped at 1024 tokens. A single chain folds 1536 and fails at 1792 on one pair-sized
+  DRAM request with the chip 91 % full, but a 315-residue homotrimer with three hemes (about 1074
+  tokens, deep paired alignment) runs out of memory in the first trunk pass, so the cap stays at
+  1024 until that shape folds.
 - `rf3` folds 1600 and fails at 1664 in the diffusion atom encoder's pair permute, with enough
   memory free but no block large enough.
 - `opendde` and `opendde-abag` fold 1536. At 1664 the residue pair no longer fits as one
