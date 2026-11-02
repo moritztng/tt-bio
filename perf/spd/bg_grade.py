@@ -43,6 +43,9 @@ def load(run):
     df["k"] = df["id"].map(idx)
     ca = {idx(r.id): (np.array(json.loads(r.ca_coords), float).reshape(-1, 3), r.sequence) for r in ca.itertuples()}
     passed = sum(1 for _ in run.rglob("final_ranked_designs/final_*_designs/*.cif"))
+    if len(df) < len(ca):  # analyze can leave the CSV holding one chunk of the run (11-02, wh-en1/wh-en2)
+        print(f"WARNING {run}: analyze CSV has {len(df)} designs, the run made {len(ca)}; the rest are silently absent",
+              file=sys.stderr)
     return df.set_index("k"), ca, passed
 
 
