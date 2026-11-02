@@ -240,6 +240,8 @@ NODE = ('node() { for s in "${TT_SYSFS:-/sys/class/tenstorrent}"/*; do echo "$(b
         '${s##*!}"; done | sort | sed -n "$(($1 + 1))s/.* //p"; }; '
         'dead() { local n=$(node $1); [ -n "$n" ] && cat "${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_aiclk" '
         '"${TT_SYSFS:-/sys/class/tenstorrent}/tenstorrent!$n/tt_heartbeat" 2>/dev/null | grep -qx 4294967295; }; '
+        # a node some other process holds open (a fleet row's detached run takes neither the flock nor a booking: 11-02 qb2)
+        'held() { local n=$(node $1); [ -n "$n" ] && fuser -s "${TT_DEV:-/dev/tenstorrent}/$n" 2>/dev/null; }; '
         'gate() { local p n=$(($(date +%s) + $1 + 600)) b; for p in $(pgrep -f "$G"); do '
         '[ "$(cat /proc/$p/comm 2>/dev/null)" = sleep ] && [ "$(ps -o etimes= -p $p | tr -d " ")" -ge "${SENT_S:-600}" ] 2>/dev/null && continue; '
         'return 0; done; b=$(python3 "${SPD_BOOK:-$HOME/spd/feed/book.py}" next $c 2>/dev/null) || b=; '
@@ -300,7 +302,7 @@ for j in A["jobs"]:
              '[ -e "$f.start" ] || [ -e "$f.end" ] || [ -e "$f.w" ] && continue; grep -qw "$2" "$f.want" 2>/dev/null || continue; '
              'kill -0 "$(cat "$f.pid" 2>/dev/null)" 2>/dev/null && return 0; done; return 1; }; '
              'echo "$2" > "$1.want"; exec 8>"$(dirname "$1")/.dispatch"; flock -w 86400 8 || { echo flockbusy > "$1.end"; exit 3; }; '
-             'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; Y=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; '
+             'J="$(dirname "$1")"; D=$((SECONDS + 86400)); while :; do W=; Y=; for c in $2; do [ -e ~/spd/locks/chip$c.BAD ] && continue; dead $c && continue; held $c && continue; '
              'hi "$1" $c && { Y=1; continue; }; G="' + GATE_LEG % "$c" + '"; '
              'gate "$5" && continue; exec 9>"${3//@/$c}"; '
              'flock -n 9 && ! gate "$5" && break 2; exec 9>&-; done; '

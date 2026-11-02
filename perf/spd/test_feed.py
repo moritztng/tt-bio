@@ -785,6 +785,15 @@ def test_a_bh_waiter_skips_a_dead_arc_card(tmp_path):
     assert Path(f"{sh}.log").read_text() == "card 1\n"
 
 
+def test_a_bh_waiter_skips_a_card_whose_node_another_process_holds_open(tmp_path):
+    # 11-02 qb2: a fleet row's detached run held chip 1 without its flock or a booking, and a feed job started on chip 1
+    sysfs(tmp_path, {"0000:01:00.0": (1, "1350"), "0000:02:00.0": (0, "1350")})
+    (tmp_path / "dev").mkdir(); (tmp_path / "dev/0").touch(); (tmp_path / "dev/1").touch(); held = open(tmp_path / "dev/1")
+    sh = _place_bh(tmp_path, [0, 1], "echo card $CHIP\n", env={"TT_DEV": str(tmp_path / "dev")})
+    held.close()
+    assert Path(f"{sh}.log").read_text() == "card 1\n"
+
+
 def _arc_pool(tmp_path, monkeypatch):
     (tmp_path / "state/spd/feed").mkdir(parents=True); (tmp_path / "state/notbefore").mkdir(parents=True)
     calls = []
