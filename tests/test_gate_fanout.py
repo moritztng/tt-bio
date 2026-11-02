@@ -1680,3 +1680,17 @@ def test_lend_mode_holds_no_leg_its_pool_skips(tmp_path, monkeypatch):
     h.lend = (float("-inf"),) + h.lend[1:]
     h.read_lend()
     assert not h.lent(gf.Leg("capacity:openbind", [], "capacity"))   # no agent: an SPD box runs every job
+
+
+def test_a_pool_job_declares_its_expected_wall_as_its_cap_so_a_reserved_lend_can_start_it(tmp_path):
+    """pool.sh starts a LEND_SKIP job on a reserved chip (at most 2 h) only when `now + cap` ends before the
+    reservation. The cap it read off `timeout 14400` never fit, so f4177cee0's WH OF3 ladders sat queued (11-02)."""
+    h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": str(tmp_path), "ssh": "localhost",
+                      "lock": str(tmp_path / "chip{card}.lock"), "python": sys.executable,
+                      "pool": {"queue": str(tmp_path / "queue"), "prio": 0, "row": "spd-shipflow"}}, "b" * 40)
+    leg = gf.Leg("ladder:openfold3", ["PY", "-c", "pass"], "ladder")
+    job = gf.pool_job(h, leg, str(tmp_path / "r"), "0-spd-shipflow-x-ladder_openfold3")
+    assert "timeout" in job and f"\n# cap: {gf.EXPECT['ladder']}\n" in job
+    assert gf.EXPECT["ladder"] <= 7200 < gf.BUDGET["ladder"]
+    leg.known_s = 3900
+    assert "\n# cap: 3900\n" in gf.pool_job(h, leg, str(tmp_path / "r"), "x")

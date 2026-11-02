@@ -744,6 +744,11 @@ class Leg:
         return max(BUDGET[self.family], round(BUDGET_X * self.known_s))
 
     @property
+    def expect_s(self) -> int:
+        """The wall this leg is expected to need: its known wall, else its family's EXPECT."""
+        return self.known_s or EXPECT[self.family]
+
+    @property
     def tag(self) -> str:
         """The leg's out dir and pool job name suffix."""
         return self.name.replace(":", "_").replace("/", "-")
@@ -1620,11 +1625,15 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     `CHIP=<umd> bash <job>` on an idle healthy chip, and it leaves its log and exit code in rdir.
     The log is opened for append: a recalled leg's fold child outlives the SIGINT by up to the agent's
     SIGTERM delay, and with a plain `>` its last line landed on top of the give-back note at the shared
-    offset, so the leg read as a FAIL (rel-cc3cbaf09 parity:opendde-abag wh, .110 chip 18, 10-28 02:53Z)."""
+    offset, so the leg read as a FAIL (rel-cc3cbaf09 parity:opendde-abag wh, .110 chip 18, 10-28 02:53Z).
+    `# cap:` is the leg's expected wall, not its budget: a reserved lend (at most 2 h) starts a LEND_SKIP job only if
+    its cap ends first, and the budget-sized cap pool.sh read off `timeout 14400` never did (f4177cee0's WH OF3
+    ladders, .107, 11-02). A leg that overruns is recalled and given back, which requeues it."""
     cmd = host.command(leg, POOL_CARD, rdir)
     q = shlex.quote
     returned = q(str(Path(host.cfg["pool"]["queue"]).parent / "RETURNED"))
     return (f"#!/bin/bash\n# {name}: gate leg {leg.name} at {host.sha[:12]} (gate_fanout.py)\n# requeue: no\n"
+            f"# cap: {leg.expect_s}\n"
             f"mkdir -p {q(rdir)}; rm -f {q(rdir)}/rc; cat {BOOT_ID} > {q(rdir)}/boot\ncmd={q(cmd)}\n"
             f": > {q(rdir)}/leg.log\n"
             f"{{ echo \"##CHIP $CHIP\"; eval \"${{cmd//{POOL_CARD}/$CHIP}}\"; }} >> {q(rdir)}/leg.log 2>&1\n"
