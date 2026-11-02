@@ -305,7 +305,10 @@ MOL1_T1 = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trim
 # Plus trunk_hifi2 (the trunk matmuls at HiFi2 over trunk_hifi3): 8cnh 509 tokens, p150a at AICLK 1350 (min 1343), 4 warm
 # folds per arm interleaved: 85.9 -> 84.8 s; samples matched to the base fold at 0.218 A median (max 0.387) vs the 0.60 A bar
 # and the 1.37 A sample floor, lDDT 0.996 (state/mol1/evidence/bh-trunk/ab512).
-MOL1_BH = MOL1_T1 | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2"}
+# Plus trimul_t1_part, which keeps c_z 448 on T1 at 1024 tokens instead of the chunk-32 channel loop and changes nothing
+# below ~900 tokens: mol1-1024 (1000 tokens), p300 chip, warm 380.6 -> 344.1 s at AICLK 1262-1287 (min 1093); samples matched
+# to the base fold at 0.088 A median vs the 0.60 A bar and the 1.27 A sample floor (state/mol1/evidence/bh-trunk/ab1024).
+MOL1_BH = MOL1_T1 | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part"}
 # Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
 # BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
