@@ -1,0 +1,17 @@
+{
+ "tree": "4661cc727",
+ "why": {
+  "7y37-assembly1": "ACE/NME terminal caps bonded in token_bonds, pre-NME OXT kept (89f21787c)",
+  "8q9n-assembly1": "ACE/NME terminal caps bonded in token_bonds, pre-NME OXT kept (89f21787c)",
+  "8g3w-assembly1": "CCD YKX newer than the mols library: built from Mol-1's CCD table (db2ba66e9); refused before",
+  "pfm:9DBP": "CCD A1A5U newer than the mols library (db2ba66e9); refused before",
+  "pfm:9LLG": "CCD A1EKL newer than the mols library (db2ba66e9); refused before",
+  "7vf6-assembly1": "free CCD GDP is RNA-linking: typed rna with parent restype, as upstream (3e19dd9b0)",
+  "7zi6-assembly1": "free CCD UDP is RNA-linking (3e19dd9b0)",
+  "8be3-assembly1": "free CCD GDP is RNA-linking (3e19dd9b0)",
+  "8txe-assembly1": "free CCD GDP is RNA-linking (3e19dd9b0)",
+  "8oxx-assembly1": "free CCD DPR/DVA/MLL/ONL are peptide-linking: typed protein (3e19dd9b0)",
+  "8uou-assembly1": "free CCD ASP is a standard residue: one protein token (3e19dd9b0)",
+  "upstream:examples_with_template/example_9fm7.json": "its hmmsearch.a3m template hits all failed the date filter without the release-date table, so it folded template-free (f9084ccbe)"
+ }
+}
