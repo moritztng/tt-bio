@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "perf" / "mol1_quality"))
-import stats  # noqa: E402
+import mol1_stats as stats  # noqa: E402
 
 
 def synth(shift=0.0, n=40, seeds=5, rng_seed=1):
