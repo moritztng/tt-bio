@@ -891,7 +891,7 @@ def test_a_recalled_legs_straggling_child_does_not_overwrite_the_give_back_note(
 
 
 def test_a_pool_leg_stopped_by_a_give_back_runs_again(tmp_path, monkeypatch):
-    calls, backs = [], gf.GIVEN_BACK_TRIES
+    calls, backs = [], 6     # a recall measures nothing, so no number of them is a verdict
 
     def fake_run(host, card, leg, rdir, f):
         calls.append(card)
@@ -904,10 +904,7 @@ def test_a_pool_leg_stopped_by_a_give_back_runs_again(tmp_path, monkeypatch):
     h = gf.Host("g", {"arch": "wh", "card_type": "w", "root": "/r"}, "c" * 40)
     ex = gf.make_executor("c" * 40, tmp_path, gf.Ledger(tmp_path / "l"), {("ux:x", "wh"): "k"}, "o")
     assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "PASS"
-    assert len(calls) == gf.GIVEN_BACK_TRIES + 1
-    calls.clear()
-    monkeypatch.setattr(gf, "GIVEN_BACK_TRIES", 1)   # the next give-back after the last try is the leg's result
-    assert ex(h, gf.POOL, gf.Leg("ux:x", ["PY"], "ux"))["verdict"] == "FAIL"
+    assert len(calls) == backs + 1
 
 
 def test_a_pool_leg_that_died_opening_its_chip_runs_again(tmp_path, monkeypatch):
