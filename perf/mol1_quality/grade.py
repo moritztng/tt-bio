@@ -170,11 +170,15 @@ def evaluate(arm, arm_dir, cases, inputs, work):
     from evaluation.eval_by_dockqv2 import eval_by_dockqv2
     rows = []
     by_task = defaultdict(list)  # (task, variant) -> [(case, target row, preds)]
+    # cases the engine refused with its size-cap error on this arch (D-orch-59): out of the arch's served range, no miss
+    cap = arm_dir / "REFUSED_BY_CAP"
+    refused = {l.split()[0] for l in cap.read_text().splitlines() if l.strip()} if cap.exists() else set()
     for c in cases:
         task, trows = targets(c)
         preds = predictions(arm_dir, c["id"], cache(work, arm, arm_dir))
         if not preds:
-            rows.append({"arm": arm, "case": c["id"], "set": c["set"], "missing": True})
+            rows.append({"arm": arm, "case": c["id"], "set": c["set"], "missing": True,
+                         **({"refused_cap": True} if safe(c["id"]) in refused else {})})
             continue
         variant = c["id"].split(":", 1)[1] if ":" in c["id"] and not c["id"].startswith(("pfm:", "upstream:")) else ""
         for t in trows:
@@ -298,7 +302,9 @@ def main():
         arch = test[3:]
         # a case the GPU arm never produced (8jik smiles: no input staged) is no TT miss
         base_has = {r["case"] for r in ok if r["arm"] == "gpu"}
-        missing = sorted({r["case"] for r in rows if r["arm"] == test and r.get("missing") and r["case"] in base_has})
+        mine = [r for r in rows if r["arm"] == test and r.get("missing")]
+        missing = sorted({r["case"] for r in mine if r["case"] in base_has and not r.get("refused_cap")})
+        refused = sorted({r["case"] for r in mine if r.get("refused_cap")})
         sd = arm_seeds.get(test)
         v = stats.verdict(ok, test, conf_split=split, seeds=sd)
         per_set[arch] = {s: stats.verdict(ok, test, cases={r["case"] for r in ok if r["set"] == s}, conf_split=split, seeds=sd)
@@ -306,6 +312,7 @@ def main():
         failed_sets = [s for s, x in per_set[arch].items() if x["verdict"] == "FAIL"]
         verdict = "FAIL" if missing or failed_sets or v["verdict"] == "FAIL" else v["verdict"]
         per_arch[arch] = {"verdict": verdict, "pooled": v, "failed_sets": failed_sets, "missing": missing,
+                          "refused_by_cap": refused,
                           "seeds": list(sd) if sd else sorted({r["seed"] for r in ok if r["arm"] == test})}
         if split:
             per_arch[arch]["pooled_all_cases"] = stats.verdict(ok, test, seeds=sd)

@@ -17,6 +17,11 @@ $S $Q "test -e ~/mol1-quality/$OUT/QUALITY.json -o -e ~/mol1-quality/$OUT/LAUNCH
 src=$(timeout 120 $S $G "cd $R && for f in \$(grep -l rc=0 .runs/*/seed_42/rc .runs/*/seed_66/rc 2>/dev/null); do
   grep -qE 'tree (${SHA//,/|}) ' \${f%/rc}/run.log && echo \$f; done") || { say ".107 unreachable"; exit 1; }
 have=$(timeout 120 $S $Q "mkdir -p $A && cd $A && echo ${SHA//,/+} > ENGINE_SHA && grep -l rc=0 .runs/*/seed_*/rc 2>/dev/null")
+# a case tt-bio refuses with its size-cap error on WH (SizeTooLargeError, D-orch-59) never folds: grade.py reads
+# REFUSED_BY_CAP as out of the arch's range, and the expected count drops by its seeds
+cap=$(timeout 120 $S $G "cd $R && grep -l SizeTooLargeError $(sed 's#rc#harness.log#g' <<< "$rcs") 2>/dev/null" | cut -d/ -f2 | sort -u)
+timeout 60 $S $Q "cd $A && cat > REFUSED_BY_CAP" <<< "$cap"
+N=$(( N - $(grep -c . <<< "$cap") * $(tr , '\n' <<< "$SEEDS" | grep -c .) ))
 new=$(comm -23 <(sort <<< "$src") <(sort <<< "$have") | grep .)
 if [ -n "$new" ]; then
   # a multi-entry JSON file's results dir drops the .json and entry from the case name (same rule as sync_qb1.sh);
