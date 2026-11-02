@@ -2,7 +2,7 @@
 """mol1-bh-prof: OPM contraction z = a b^T on Blackhole, ttnn's own plan against `opm_contract_config`, per K tile count.
 
 ttnn's auto plan on a p150a (grid 11 wide) swings with Kt mod 11 (perf/spd_msa/zmm_kpad3.py), so the plan is priced across
-depths, not at one. Shapes: Mol-1's 1024-token row block (M 4096, N 32768) and the 512-token whole call (M = N = 16384).
+depths, not at one. Shapes (--shapes): Mol-1's 1024-token row block (M 4096, N 32768) and the 256/512/1024-token whole calls.
 bf16 HiFi4, fp32 dest acc, packer L1 acc (the fold's config). Median of --reps, AICLK of every card sampled during the calls,
 rel L2 against float64 on the first 256 rows.
 
@@ -13,7 +13,8 @@ import torch
 
 ROOT = pathlib.Path(os.environ.get("TT_BIO_ROOT", pathlib.Path(__file__).resolve().parents[3]))
 sys.path.insert(0, str(ROOT))
-SHAPES = {"1024 block": (4096, 32768), "512 whole": (16384, 16384)}
+SHAPES = {"1024 block": (4096, 32768), "512 whole": (16384, 16384), "256 whole": (8192, 8192),
+          "1024 whole": (32768, 32768)}
 
 
 def main():
@@ -21,6 +22,7 @@ def main():
     p.add_argument("out")
     p.add_argument("--kt", default="32,64,96,128,186,187,188,192,197,198,199,256,310,311,318,319,320")
     p.add_argument("--reps", type=int, default=3)
+    p.add_argument("--shapes", default="1024 block,512 whole")
     A = p.parse_args()
     from tt_bio.main import ensure_p300_mesh_descriptor
     ensure_p300_mesh_descriptor()
@@ -41,7 +43,8 @@ def main():
     g = torch.Generator().manual_seed(0)
     res = {"host": os.uname().nodename, "sha": os.popen(f"git -C {ROOT} rev-parse HEAD").read().strip(),
            "grid": [grid.x, grid.y], "clk_paths": clk_paths, "rows": []}
-    for name, (M, Nn) in SHAPES.items():
+    for name in A.shapes.split(","):
+        M, Nn = SHAPES[name]
         for kt in map(int, A.kt.split(",")):
             K = kt * 32
             a_t = torch.randn(M, K, generator=g).to(torch.bfloat16)
