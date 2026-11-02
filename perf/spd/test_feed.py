@@ -122,6 +122,19 @@ def test_a_waiter_that_never_took_a_card_does_not_quarantine_the_cell(tmp_path, 
         box.queue.clear()
 
 
+def test_a_recalled_chips_sigint_does_not_quarantine_the_cell(tmp_path, monkeypatch):
+    # 11-02 spd-m-boltzgen gradeexw/n_1: two runs SIGINTed (rc 130) when JapanFold recalled the lent chip, quarantined
+    box = make_pool(tmp_path, monkeypatch, healthy=1)
+    box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
+    run(tmp_path)
+    name = box.queue.pop()
+    for at, rc in ((100, "130"), (200, "143"), (300, "130")):
+        box.ended[name] = {"state": "ended", "dur": 40, "rc": rc, "at": at, "tail": "Aborted!"}
+        run(tmp_path)
+        assert box.queue == [name]
+        box.queue.clear()
+
+
 def test_changed_grid_entry_releases_quarantine(tmp_path, monkeypatch):
     box = make_pool(tmp_path, monkeypatch, healthy=1)
     box.exists |= {"~/o/1/A/b/bench.jsonl", "~/o/1/B/b/bench.jsonl", "~/o/2/B/b/bench.jsonl"}
