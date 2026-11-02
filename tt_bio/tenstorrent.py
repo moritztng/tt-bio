@@ -8318,9 +8318,9 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None):
 
 def msa_row_bucket(depth, n_rows, step=1024):
     """The rows a recycling cycle that reads `depth` rows of an `n_rows` alignment is padded to:
-    the next multiple of `step`, never past `n_rows` rounded up to a tile. A depth drawn afresh
-    every cycle then reaches the MSA module in at most ceil(n_rows / step) shapes, so nothing
-    compiles per cycle, and every per-row op runs once on one tensor as the full-depth path does."""
+    the next multiple of `step`, never past `n_rows` rounded up to a tile. The trunk pads every
+    cycle of a fold to the bucket of its deepest draw, so the MSA module sees one shape a fold and
+    every per-row op runs once on one tensor as the full-depth path does."""
     return min(-(-depth // step) * step, -(-n_rows // 32) * 32)
 
 

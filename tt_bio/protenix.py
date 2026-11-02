@@ -773,7 +773,7 @@ class _KeyedWeights:
             t = t.to(torch.bfloat16)
         return t
 
-    def _opm_from_host(self, opm, t, z):
+    def _opm_from_host(self, opm, t, z, mask=None, n_msa=None):
         """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
         DRAM refuses that upload or the OPM that reads it, as host-tiled depth chunks that
         OuterProductMean uploads one at a time (its chunk-list input).
@@ -785,7 +785,8 @@ class _KeyedWeights:
         whole `m` is still on the chip beside OPM's full-depth projections. The chunk list is the
         form every later MSA block already hands OPM, and it is not bit-exact against the
         whole-depth product (it reassociates the depth sum), so it runs only after a refusal. The
-        memo skips the refused attempt on later recycling cycles.
+        memo skips the refused attempt on later recycling cycles. `mask`/`n_msa` are a sampled
+        cycle's row mask and drawn row count, as for a device `m`.
 
         OPM gives back its own partial buffers before a refusal leaves it, and adds its residual
         out of place until a successful join, so the chunked retry reads the same `z`. A refusal
@@ -793,7 +794,7 @@ class _KeyedWeights:
         def whole():
             d = self._up(t)
             try:
-                return opm(d, None, None, residual=z)
+                return opm(d, mask, n_msa, residual=z)
             finally:
                 ttnn.deallocate(d)
 
@@ -803,7 +804,7 @@ class _KeyedWeights:
                                    "the depth-chunked retry has no pair to add to")
             return opm([ttnn.from_torch(t[:, s:s + r].contiguous(), layout=ttnn.TILE_LAYOUT,
                                         dtype=getattr(self, "dtype", ttnn.bfloat16))
-                        for s in range(0, t.shape[1], r)], None, None, residual=z)
+                        for s in range(0, t.shape[1], r)], mask, n_msa, residual=z)
 
         return _T.row_block_after_refusal(_UPLOAD_REFUSED_ROWS, tuple(t.shape), whole, chunked,
                                           MSA_CHUNK_SIZE, "protenix msa upload")
@@ -3933,8 +3934,8 @@ class Trunk(_KeyedWeights):
 
     def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None):
         """The MSA module's blocks on `z3`. `m_feat` is the pristine m, a device or a host tensor.
-        rows=(mask, depth) says only the first `depth` rows of a device `m_feat` are alignment
-        rows (a cycle's sampled rows padded to `msa_row_bucket`); OuterProductMean masks the rest."""
+        rows=(mask, depth) says only the first `depth` rows of `m_feat`, device or host, are alignment
+        rows (a cycle's sampled rows padded to the fold's one bucket); OuterProductMean masks the rest."""
         opm_mask, n_msa = rows if rows is not None else (None, None)
         def update_msa(m, z, pwa, transition):
             if pwa is None:
@@ -4003,7 +4004,7 @@ class Trunk(_KeyedWeights):
             if torch.is_tensor(m_feat):
                 # Protenix-order block 0 reads the pristine m with OPM, from one transient upload
                 # or its depth chunks; update_msa below streams from host.
-                z3 = self._opm_from_host(opm, m_feat, z3)
+                z3 = self._opm_from_host(opm, m_feat, z3, opm_mask, n_msa)
             else:
                 z3 = opm(m_feat, opm_mask, n_msa, residual=z3)
             dram_peak("trunk msa block: after opm")
@@ -4163,15 +4164,19 @@ class Trunk(_KeyedWeights):
             dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         else:
             # The embedding is per alignment row, so embedding a cycle's rows equals picking them
-            # out of the embedded whole; only the picked rows are built, padded to a few depths
-            # (msa_row_bucket), and the host lane cuts the next cycle's rows while this one runs.
+            # out of the embedded whole; only the picked rows are built, and the host lane cuts the
+            # next cycle's rows while this one runs. Every cycle is padded to ONE depth, the bucket
+            # of the fold's deepest draw, and masked past its own rows: a depth that changed every
+            # cycle left DRAM holes no later deep draw could use (7ua2 at 712 tokens on Wormhole was
+            # refused its 2.96 GiB m at cycle 7 with 414 MiB a bank free). One shape also places m
+            # once, on the chip or on the host, as the full-depth path places a whole alignment.
             # A fixed depth (OpenDDE's 1280) is one shape already: padding it to the next 1024
             # would run every per-row op on 2048 rows, 60 % of them zeros.
             m_feat = None
             n_rows = ms.shape[1]
             step = 1024 if depth is None else 32
-            bucket = lambda c: msa_row_bucket(len(rows[c]), n_rows, step)
-            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], bucket(c))
+            B = msa_row_bucket(max(len(r) for r in rows), n_rows, step)
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], B)
             # The cycle's rows are picked on the chip from the alignment, uploaded once, when every cycle
             # would upload its rows in one piece, a test on the input alone: the host
             # then sends row indices, not up to ~0.9 GB of rows the chip waits for (1.5 s a cycle at
@@ -4228,7 +4233,8 @@ class Trunk(_KeyedWeights):
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
                 # transition no room to join its blocks on device from cycle 1 on, and every
                 # later recycle took the host join: ~12 min instead of ~4:20 on a Wormhole chip.
-                ttnn.deallocate(m_feat)
+                if not torch.is_tensor(m_feat):
+                    ttnn.deallocate(m_feat)
                 ttnn.deallocate(rows[0])
                 del m_feat, rows
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
@@ -4243,12 +4249,10 @@ class Trunk(_KeyedWeights):
             return [z3, s]
 
         def sampled(cyc, carry, x):
-            # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
+            # One cycle over its sampled rows x [1, B, N, c], host or device, the real ones first.
+            # A host-parked m keeps its padding too, so its stream is the same chunks every cycle.
             k = len(rows[cyc])
             m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1])
-            if torch.is_tensor(m_c):
-                # Parked on the host: drop the padding there, which costs nothing.
-                return cycle(cyc, carry, m_c[:, :k])
             mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
             carry = cycle(cyc, carry, m_c, (mask, k))
@@ -4273,7 +4277,7 @@ class Trunk(_KeyedWeights):
                         # runs again from its inputs with rows cut on the host, and so does the rest of this fold.
                         inputs = list(carry)
                         try:
-                            carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
+                            carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], B, N))
                             inputs = None
                         except RuntimeError as exc:
                             if not is_alloc_refusal(exc):
