@@ -15085,7 +15085,7 @@ def _residual_transition(transition, z: ttnn.Tensor) -> ttnn.Tensor:
     route instead: a member's z is then the same bytes at any K."""
     if (_RESIDUAL_L1 and len(z.shape) == 4 and z.shape[0] > 1
             and _residual_update_memory_config(z.shape, z.dtype) is None
-            and _residual_update_memory_config((1,) + tuple(z.shape)[1:], z.dtype) is not None):
+            and _residual_update_memory_config((1,) + tuple(z.shape[1:]), z.dtype) is not None):
         return _per_member(z, None, lambda zb, _m: _residual_transition(transition, zb), consume=True)
     return transition(z, memory_config=_residual_update_memory_config(z.shape, z.dtype)
                       if _RESIDUAL_L1 else None, add_to_input=True)
