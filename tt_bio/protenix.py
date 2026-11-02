@@ -308,7 +308,13 @@ MOL1_T1 = frozenset({"trimul_t1_c320", "trimul_t1_c448", "trimul_t1_dram", "trim
 # Plus trimul_t1_part, which keeps c_z 448 on T1 at 1024 tokens instead of the chunk-32 channel loop and changes nothing
 # below ~900 tokens: mol1-1024 (1000 tokens), p300 chip, warm 380.6 -> 344.1 s at AICLK 1262-1287 (min 1093); samples matched
 # to the base fold at 0.088 A median vs the 0.60 A bar and the 1.27 A sample floor (state/mol1/evidence/bh-trunk/ab1024).
-MOL1_BH = MOL1_T1 | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part"}
+# Plus the fp32 diffusion stack, graded as one stack: dit_shoist (every DiT block's s-terms as three wide linears a step),
+# atom_mm16 and adaln_mod (the atom transformer's gate sigmoid once per fold). perf/mol1/bh/ab.sh, qb2 p300 chip, 3 warm folds
+# per arm, seeds 102-104: 256 tokens 31.23 -> 29.13 s at AICLK 1331-1337, samples matched to the base fold at 0.247 A median
+# (max 0.767) vs the 2.24 A sample floor; 512 tokens 83.58 -> 80.97 s at 1306-1318, 0.150 A median (max 0.373) vs the 0.60 A
+# bar and the 1.37 A floor. diffusion_bf16 on top fails the 256 grade (0.806 A median) for a further -0.2 s and stays out.
+MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
+MOL1_BH = MOL1_T1 | MOL1_DIT_BH | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part"}
 # Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
 # BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
