@@ -1697,8 +1697,12 @@ BF16_TILE, FP32_TILE = 2048, 4096
 T1_SPLIT = {(12, 16, 12): 1}
 # One core reads T1's resident weights and multicasts them to the grid (kernels/trimul_in_t1/reader.cpp T1MCAST)
 # instead of every core pulling the same pages: 575 KB a core, 63 MB a call at RFD4's key. Same bytes in the same
-# CBs, so a, b and g_out are bit-identical. An int (bench knob) applies to every key.
-T1_MCAST = {(12, 16, 12): 1}
+# CBs, so a, b and g_out are bit-identical. An int (bench knob) applies to every key. The channel-group plans load
+# the weights once per launch: c_z 320 twice (2 x 44 MB a call), 448 seven times (7 x 25 MB). One trimul call with
+# the multicast there, qb2 p300 chip, 1350 MHz (bench.py t1mc), a, b and g_out torch.equal in every cell:
+# c320 3.05 -> 2.71 ms at 256 tokens, 9.12 -> 8.94 at 512, 35.6 -> 35.9 at 1024;
+# c448 5.27 -> 4.82 at 256, 16.7 -> 15.9 at 512, 66.6 -> 65.6 at 1024.
+T1_MCAST = {(12, 16, 12): 1, (10, 20, 10): 1, (14, 28, 14): 1}
 
 
 def _t1_knob(knob, key, default):
