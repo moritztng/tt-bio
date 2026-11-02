@@ -45,6 +45,7 @@ from .tenstorrent import _dtype, dram_peak, pad_dim, trace_region_size
 from .openfold3_diffusion import OF3DiffusionConditioning
 from .openfold3_diffusion_module import OF3DiffusionModule
 from .openfold3_weights import _sub
+from .edm_device import edm_step_scalars, matmul_f32 as _matmul_f32  # noqa: F401 (tests import them here)
 from .runtime import serial_host
 from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 
@@ -76,41 +77,6 @@ def fourier_noise_emb(t: float, sigma_data: float, w: torch.Tensor, b: torch.Ten
     (``fourier_emb.w``/``b`` come from the checkpoint)."""
     n = 0.25 * math.log(t / sigma_data)
     return torch.cos(2.0 * math.pi * (n * w + b)).float()           # [256]
-
-
-def edm_step_scalars(t: float, c_tau: float, sigma_data: float, step_scale: float):
-    """The per-step scalars the ``edm_device`` step reads: ``(1/sqrt(t^2+sd^2), c_skip, c_out,
-    1/t, step_scale*(c_tau-t))``, in python floats (float64), cast once to fp32 on upload."""
-    sd2 = sigma_data ** 2
-    return (1.0 / math.sqrt(t * t + sd2), sd2 / (sd2 + t * t),
-            sigma_data * t / math.sqrt(sd2 + t * t), 1.0 / t, step_scale * (c_tau - t))
-
-
-def _matmul_f32(a, b, ckc):
-    """fp32 ``a @ b`` from three bf16-operand matmuls (hi*hi + lo*hi + hi*lo).
-
-    The FPU reads fp32 operands as tf32 (11-bit mantissa), which put ~5e-4 relative error on
-    the edm_device mean and rotation of every step. Each operand is split into a bf16-exact
-    head and its residual; the heads multiply exactly and the dropped lo*lo term is ~2^-16
-    relative, so the result is within ~1e-6 of fp32. The operands here are [NP, 3] and [3, 3],
-    so the two extra matmuls cost nothing measurable.
-    """
-    def split(x):
-        h16 = ttnn.typecast(x, ttnn.bfloat16)
-        h = ttnn.typecast(h16, ttnn.float32)
-        ttnn.deallocate(h16)
-        return h, ttnn.subtract(x, h)
-
-    ah, al = split(a)
-    bh, bl = split(b)
-    hh = ttnn.matmul(ah, bh, compute_kernel_config=ckc)
-    lh = ttnn.matmul(al, bh, compute_kernel_config=ckc)
-    hl = ttnn.matmul(ah, bl, compute_kernel_config=ckc)
-    s1 = ttnn.add(lh, hl)
-    out = ttnn.add(hh, s1)
-    for y in (ah, al, bh, bl, hh, lh, hl, s1):
-        ttnn.deallocate(y)
-    return out
 
 
 def edm_device_step_reference(x, m, rot, trans, noise, scalars, denoise):

@@ -318,8 +318,13 @@ MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
 # tokens. mol1-256 (245 tokens) on a qb1 p150a at AICLK 1350, 5 warm folds per arm: 29.6 -> 27.25 s; samples matched to
 # the base fold at 1.61 A median vs the 6.07 A seed floor, lDDT 0.964 vs 0.902. 512: 82.2 -> 81.6 s, 0.256 A median vs
 # the 0.60 A bar and the 1.49 A floor; 1024 coords identical (state/mol1/evidence/bh-batch).
+# Plus edm_device (the EDM trajectory stays on the card, the host only draws and stages each step): the host round trip
+# left the device idle 1.2 s a fold at 256 and 1.4 s at 512 (state/mol1/evidence/bh/opgap.md). qb1 p150a at AICLK 1350
+# (min 1343), 6 warm folds per arm interleaved on a loaded host: 256 31.58 -> 26.84 s, 512 82.88 -> 80.60 s; samples
+# matched to the base fold at 0.265 A median vs the 4.70 A seed floor (256) and 0.167 A (max 0.53) vs the 0.60 A bar and
+# the 1.35 A floor (512).
 MOL1_BH = MOL1_T1 | MOL1_DIT_BH | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
-                                  "ws_l1dest"}
+                                  "ws_l1dest", "edm_device"}
 # Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
 # BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
@@ -1905,6 +1910,121 @@ class DiffusionModule(_KeyedWeights):
                        "cond": self._cond_token(cond)}
         return self._trace
 
+    def rollout_ok(self, cond, M):
+        """Whether `rollout_device` can run this fold: the traced path's own conditions (device DiT,
+        biases resident), one chunk of one target."""
+        self._atom_cond(cond)
+        if not (self.device_dit and cond.get("dit_z") is not None) or "_members" in cond:
+            return False
+        if "dit_block_biases" not in cond:
+            cond["dit_block_biases"] = self._dit_block_biases(
+                cond["dit_z"], cond.get("structural_pair_attn_bias"))
+        return all(b.storage_type() == ttnn.StorageType.DEVICE for b in cond["dit_block_biases"])
+
+    def rollout_device(self, x, cond, n_step, draw, progress_fn=None):
+        """The whole EDM trajectory with the coordinates resident on the card (lever ``edm_device``).
+
+        `draw(k)` returns step k's (R, tr, eps, t_hat, sigma_t, eta) from the host RNG in the order
+        the host loop draws them, so the random stream is unchanged. The host stages them and
+        enqueues the step; a captured step centres, rotates, translates and noises the
+        coordinates, denoises, and takes the EDM step in fp32 (`edm_device_step_reference`'s order,
+        no atom mask: every Protenix atom is real). Nothing is read back until the last step, so
+        the device runs the steps back to back instead of idling 6-10 ms on each host round trip
+        (state/mol1/evidence/bh/opgap.md). `x` (M, N, 3) host; returns the final coordinates."""
+        from .edm_device import edm_step_scalars, matmul_f32
+        dev, f32 = self.dev, ttnn.float32
+        M, N = x.shape[0], x.shape[1]
+        self._release_trace()                    # this path does not use the denoise-only trace
+        ckc = ttnn.init_device_compute_kernel_config(
+            dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True, packer_l1_acc=False)
+        host = lambda t, dt=f32: ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, dtype=dt)
+        up = lambda t: ttnn.to_device(host(t), dev)
+
+        def inputs(k):
+            R, tr, eps, t_hat, sigma_t, eta = draw(k)
+            sc = edm_step_scalars(t_hat, sigma_t, self.SIGMA_DATA, float(eta))
+            fou = self._fourier(torch.tensor([t_hat], dtype=torch.float32))
+            return ([host(torch.tensor(v, dtype=torch.float64).reshape(1, 1, 1)) for v in sc],
+                    host(fou, self.dtype), host(R), host(tr), host(eps))
+
+        x_dev = up(x)
+        mrow = up(torch.full((M, 1, N), 1.0 / N))
+        first = inputs(0)
+        st_sc = [ttnn.to_device(v, dev) for v in first[0]]
+        st = [ttnn.to_device(v, dev) for v in first[1:]]     # fou, R, tr, eps
+
+        def stage(ins):
+            for src, dst in zip(ins[0] + list(ins[1:]), st_sc + st):
+                ttnn.copy_host_to_device_tensor(src, dst)
+
+        def zero_pad(t):
+            """`t` with its tile padding zeroed. The fill works in place on this ttnn (it hands back
+            the input's buffer), so the result is freed only where it is a separate buffer."""
+            z = ttnn.fill_implicit_tile_padding(t, 0.0)
+            return z, (z.buffer_address() != t.buffer_address())
+
+        def step():
+            inv_s, c_skip, c_out, inv_t, h = st_sc
+            fou, R, tr, eps = st
+            x0, x0_own = zero_pad(x_dev)                        # the mean contracts over the atom tiles
+            mean = matmul_f32(mrow, x0, ckc)                    # (M, 1, 3)
+            xc = ttnn.subtract(x0, mean)
+            xr = matmul_f32(xc, R, ckc)
+            xa = ttnn.add(xr, tr)
+            xn = ttnn.add(xa, eps)
+            r0 = ttnn.multiply(xn, inv_s)
+            r, r_own = zero_pad(r0)                             # the denoise reads what an upload holds
+            rd = ttnn.typecast(r, self.dtype) if self.dtype != f32 else r
+            out = (self._denoise_device(ttnn.reshape(rd, (N, 3)), fou, cond) if M == 1
+                   else self._denoise_device_m(rd, fou, cond, M))
+            ru = ttnn.typecast(out, f32) if out.dtype != f32 else out
+            if ru is not out:
+                ttnn.deallocate(out)
+            a = ttnn.multiply(xn, c_skip)
+            b = ttnn.multiply(ttnn.reshape(ru, (M, N, 3)), c_out)
+            xd = ttnn.add(a, b)
+            d0 = ttnn.subtract(xn, xd)
+            d = ttnn.multiply(d0, inv_t)
+            hd = ttnn.multiply(d, h)
+            xnew = ttnn.add(xn, hd)
+            ttnn.copy(xnew, x_dev)
+            for y in (mean, xc, xr, xa, xn, r0, ru, a, b, xd, d0, d, hd, xnew):
+                ttnn.deallocate(y)
+            for y, own in ((x0, x0_own), (r, r_own), (rd, rd is not r)):
+                if own:
+                    ttnn.deallocate(y)
+
+        tid = None
+        try:
+            for k in range(n_step):
+                if progress_fn:
+                    progress_fn("diffusion", step=k, total=n_step)
+                if k:
+                    stage(inputs(k))
+                if tid is not None:
+                    ttnn.execute_trace(dev, tid, cq_id=0, blocking=False)
+                    continue
+                step()
+                if k + 1 < n_step:
+                    tid = ttnn.begin_trace_capture(dev, cq_id=0)
+                    try:
+                        step()
+                        ttnn.end_trace_capture(dev, tid, cq_id=0)
+                    except Exception as e:
+                        print(f"  [protenix diffusion] edm_device trace capture failed, steps run eagerly: {e}")
+                        try:
+                            ttnn.end_trace_capture(dev, tid, cq_id=0)
+                        except Exception:
+                            pass
+                        ttnn.release_trace(dev, tid)
+                        tid = None
+            return torch.Tensor(ttnn.to_torch(x_dev)).float().reshape(M, N, 3)
+        finally:
+            if tid is not None:
+                ttnn.release_trace(dev, tid)
+            for y in [x_dev, mrow, *st_sc, *st]:
+                ttnn.deallocate(y)
+
     def denoise_traced(self, x_noisy, t_hat, cond):
         """Traced equivalent of denoise (device_dit path), at any sample count M. Falls back
         to denoise when the device_dit precomputed bias path is unavailable, when a bias is
@@ -2169,12 +2289,15 @@ class DiffusionModule(_KeyedWeights):
         """The two per-step host inputs of the device denoise: fourier(t_hat) (1,fdim) and
         the scaled noisy coordinates (M,N,3)."""
         sd = self.SIGMA_DATA
+        r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
+        return self._fourier(t_hat), r_noisy
+
+    def _fourier(self, t_hat):
+        """fourier(t_hat), (1, fdim): the noise level's embedding, the step's other host input."""
         wf = self._w["diffusion_conditioning.fourier_embedding.w"]
         bf = self._w["diffusion_conditioning.fourier_embedding.b"]
-        tp = torch.log(t_hat / sd) / 4
-        fou = torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf))
-        r_noisy = x_noisy / torch.sqrt(torch.tensor(sd ** 2) + t_hat ** 2).reshape(-1, 1, 1)
-        return fou, r_noisy
+        tp = torch.log(t_hat / self.SIGMA_DATA) / 4
+        return torch.cos(2 * torch.pi * (tp.unsqueeze(-1) * wf + bf))
 
     def _precondition(self, x_noisy, t_hat, r_update, M, N):
         """EDM preconditioning of the network output (t_hat broadcasts over M)."""
@@ -4420,21 +4543,20 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
     narrowest = M if "_members" in cond else 1
     if guidance is not None and "_members" in cond:
         raise ValueError("guidance belongs to one target; fold guided targets one at a time")
-    for k in range(n_step):
-        if progress_fn:
-            progress_fn("diffusion", step=k, total=n_step)
+    xdev, xdt = x.device, x.dtype
+
+    def _draw(k):
+        """Step k's augmentation and noise, `(R, tr, eps, t_hat, sigma_t, eta)`, in draw order."""
         sigma_tm, sigma_t, gamma = sigmas[k].item(), sigmas[k + 1].item(), gammas[k + 1].item()
         with serial_host():   # atom-sized host math, cheaper on one thread than fanned out
             if _per_member is not None:
-                _aug = _per_member(lambda: compute_random_augmentation(1, device=x.device, dtype=x.dtype))
+                _aug = _per_member(lambda: compute_random_augmentation(1, device=xdev, dtype=xdt))
                 R = torch.cat([a[0] for a in _aug], 0)
                 tr = torch.cat([a[1] for a in _aug], 0)
             elif draws is not None:
                 R, tr = _take("rot", (1, 3, 3)).transpose(-1, -2), _take("trans", (1, 1, 3))
             else:
-                R, tr = compute_random_augmentation(M, device=x.device, dtype=x.dtype)
-            x = x - x.mean(dim=-2, keepdim=True)
-            x = torch.einsum("bmd,bds->bms", x, R) + tr
+                R, tr = compute_random_augmentation(M, device=xdev, dtype=xdt)
         t_hat = sigma_tm * (1 + gamma)
         noise_var = noise_scale ** 2 * (t_hat ** 2 - sigma_tm ** 2)
         if draws is not None:                        # upstream draws eps at every step, even at zero scale
@@ -4446,6 +4568,20 @@ def edm_sample(diffusion_module, cond, n_atoms, *, multiplicity=1, max_parallel_
                 _per_member(lambda: torch.randn((1, n_atoms, 3))), 0)
         else:
             eps = (noise_var ** 0.5) * torch.randn(shape)
+        return R, tr, eps, t_hat, sigma_t, etas[k]
+
+    # edm_device: the trajectory stays on the card; the host only draws and stages each step.
+    if (trace and guidance is None and dump_fn is None and width >= M and _T.lever("edm_device")
+            and not os.environ.get("TT_BIO_TRUNK_TAP") and hasattr(diffusion_module, "rollout_ok")
+            and diffusion_module.rollout_ok(cond, M)):
+        return diffusion_module.rollout_device(x, cond, n_step, _draw, progress_fn)
+    for k in range(n_step):
+        if progress_fn:
+            progress_fn("diffusion", step=k, total=n_step)
+        R, tr, eps, t_hat, sigma_t, _ = _draw(k)
+        with serial_host():
+            x = x - x.mean(dim=-2, keepdim=True)
+            x = torch.einsum("bmd,bds->bms", x, R) + tr
         x_noisy = x + eps
         t_dev = torch.tensor([t_hat], dtype=torch.float32)
         denoised, width = denoise_in_chunks(
