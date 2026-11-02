@@ -84,8 +84,9 @@ def test_batch_tokens_mask_is_a_view_of_one_row(monkeypatch):
     ids, lens, m, kv = esmc._batch_tokens(["ACDEFGHIK" * 50, "MKV" * 20])
     assert m.stride(1) == 0 and torch.equal(m, _pad_mask(lens, m.shape[-1]))
     assert esmc._key_lens(m) == lens
-    with pytest.raises(RuntimeError):
-        m[0, :, 3:] = float("-inf")              # a slice write would alias every query row
+    # One row of storage per batch: a write into the view lands on every query row, and torch 2.15 no longer
+    # refuses it, so every writer pads or clones first (bucket_token_axis, ESMCModel.forward).
+    assert m.untyped_storage().nbytes() == m.shape[0] * m.shape[-1] * m.element_size()
 
 
 @pytest.mark.parametrize("wormhole", [True, False])
