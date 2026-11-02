@@ -1,23 +1,27 @@
-#!/bin/sh
-# Mol-1 fold A/B for triangle attention: base (protenix.NORMAL_LEVERS, wide default off = the tree before this row)
-# vs + triatt_ln + triatt_k1 with the any-width fixes. Random-weight Mol-1 checkpoint (timing only), single sequence,
-# upstream defaults (20 cycles, 200 steps, 1 sample), seeds 101,102: the second fold is the warm one.
-# Runs after chain3 on qb1 card 3. Output: fold_ab/<arm>_<S>.{pt,log}
-W=/home/ttuser/.coworker/wt/mol1-perf-triattn
-T=$W/.foldtree
-while kill -0 1893781 2>/dev/null; do sleep 20; done
-mkdir -p $W/perf/mol1_triattn/fold_ab
-cd $T; export PYTHONPATH=$T
-/home/ttuser/tt-bio-dev/env/bin/python3 -c "import tt_bio,sys; assert tt_bio.__file__.startswith(\"$T\"), tt_bio.__file__" || exit 3
-BASE=normal+transition_ws+ws_l1acc+trimul_t1_c256+trimul_t1_c384
-for S in 256 512 1024; do
-  SEQ=$(python3 -c "import random;random.seed($S);print(''.join(random.choice('ACDEFGHIKLMNPQRSTVWY') for _ in range($S)))")
-  for ARM in base triatt; do
-    if [ $ARM = base ]; then LV=$BASE; WIDE=0; else LV=$BASE+triatt_ln+triatt_k1; WIDE=1; fi
-    O=$W/perf/mol1_triattn/fold_ab/${ARM}_$S
-    PYTHONPATH=$T TT_BIO_LEVERS=$LV TT_BIO_MM_DEFAULT_WIDE=$WIDE TT_VISIBLE_DEVICES=3 TT_BIO_LEASE_CARDS=3 TT_BIO_LEASE_HOLDER=worker:mol1-perf-triattn \
-      timeout 3000 /home/ttuser/tt-bio-dev/env/bin/python3 perf/mol1_smoke/e2e_tt.py /home/ttuser/mol1trimul/mol1_random.pt "$SEQ" $O.pt 101,102 > $O.log 2>&1
-    echo "rc=$?" >> $O.log
+#!/bin/bash
+# Mol-1 BH lever A/B (from perf/mol1_bhtrunk/ab.sh) on one card (CARD, default qb1 card 3): separate processes per arm, interleaved A B A B, each 1 cold + 2 warm
+# folds of a frozen PROTOCOL input through perf/mol1/fair/run.py (--part dev: serving path, AICLK sampled during
+# every fold, full 20 cycles / 200 steps / 5 samples). Arms are the shipped Mol-1 Blackhole normal set (SHIPPED,
+# = protenix.NORMAL_LEVERS | WIDE_NORMAL | MOL1_BH on main 06abce830) plus the arm's levers, via TT_BIO_LEVERS.
+# Usage: ab.sh OUT SIZE REPS ARM=levers[@TREE] [ARM=levers[@TREE] ...]   (arm "base" = SHIPPED alone; @TREE runs the
+# arm from another source tree, e.g. an origin/main export, for a change that is not a lever; levers "-" leaves
+# TT_BIO_LEVERS unset, so the arm runs the Mol-1 Blackhole defaults of its own tree)
+set -u
+W=/home/ttuser/.coworker/wt/mol1-bh-triattn2; PY=/home/ttuser/tt-bio-dev/env/bin/python
+O=$1; S=$2; N=$3; shift 3; mkdir -p "$O"
+C=${CARD:-3}; LOCK=/home/ttuser/spd_$(hostname | sed "s/tt-quietbox2/qb2/;s/tt-quietbox/qb1/")_card$C.lock
+SHIPPED=apb_ln,atom_k1,conf_bins,dit_chunk,dit_mm16,dit_qkv16,dit_qsplit,dit_sdpa,dit_sdpa32,msa_sample,opm_jd,pz_device,silu_f32,transition_ws,triatt_k1,triatt_ln,triatt_tail,trimul_bres,trimul_ibw,trimul_t1_2g,trimul_t1_c256,trimul_t1_c320,trimul_t1_c384,trimul_t1_c448,trimul_t1_dram,trimul_t2,trimul_t2w,trimul_tail,trunk_hifi3,ws_chain,ws_l1acc,ws_psilu,ws_resid,ws_resid2
+cd /home/ttuser/mol1-fair/inputs
+exec 9>$LOCK; flock -w 21600 9 || { echo "no flock" >> "$O/ab.log"; exit 1; }
+for r in $(seq 1 "$N"); do
+  for spec in "$@"; do
+    arm=${spec%%=*}; lv=${spec#*=}; T=$W; [ "$lv" = "${lv#*@}" ] || { T=${lv#*@}; lv=${lv%%@*}; }
+    L=$SHIPPED; [ "$lv" = - ] && L=; [ "$arm" = base ] || [ -z "$L" ] || L="$SHIPPED,$lv"
+    echo "$(date -u +%FT%TZ) rep $r arm $arm" >> "$O/ab.log"
+    env ${L:+TT_BIO_LEVERS=$L} TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:mol1-bh-triattn2 PYTHONPATH=$T \
+      timeout 2400 $PY $T/perf/mol1/fair/run.py --input mol1-$S.json --chips $C --part dev --rounds 2 --max-attempts 2 \
+      --seed 101 --arm "$arm" --out "$O/$arm/r$r" >> "$O/ab.log" 2>&1
+    echo "$(date -u +%FT%TZ) rc=$? $arm r$r" >> "$O/ab.log"
   done
 done
-echo ALLDONE > $W/perf/mol1_triattn/fold_ab/DONE
+touch "$O/DONE"

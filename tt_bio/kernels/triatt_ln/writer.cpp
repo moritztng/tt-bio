@@ -26,6 +26,9 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #ifndef ABL_W
 #define ABL_W 0   // bench-only (triatt_ln.ABL bit 4): skip the DRAM writes
 #endif
+#ifndef HP
+#define HP 0      // triatt_ln.head_pitch: head-major outputs at a head pitch of MT + 1 row tiles
+#endif
 #ifndef NQ
 #define NQ 0      // triatt_ln_b8: the first nq tiles (runtime arg 5: q, k, v) come bfp8 from c_2, the rest bf16 from c_4
 #endif
@@ -69,10 +72,11 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
         cb_wait_front(out_cb, NQ ? nq : NW);
         if constexpr (NQ) cb_wait_front(hi_cb, NW - nq);
         uint32_t src = get_read_ptr(out_cb);
-        const uint32_t base = (r / MT) * H * MT + r % MT;
+        constexpr uint32_t P = MT + HP;
+        const uint32_t base = (r / MT) * H * P + r % MT;
         for (uint32_t j = 0, n = n0; j < NW && n < n_end; ++j, ++n) {
             if (NQ && j == nq) src = get_read_ptr(hi_cb);
-            const uint32_t page = base + (n % H) * MT;
+            const uint32_t page = base + (n % H) * P;
             const uint32_t s = src;
             src += (NQ && j >= nq) ? tb_hi : tb;
             if constexpr (ABL_W) continue;

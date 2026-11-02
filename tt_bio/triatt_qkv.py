@@ -416,10 +416,17 @@ def _g3d(o, g):
             and pg[-3:] == [po[0], po[2], po[1] * TILE])
 
 
+def _gp(o, g):
+    """Extra row tiles in g's head pitch: 1 when g is triatt_ln's pitched head-major `[B, H, S + 32, 32]`
+    (`triatt_ln.head_pitch`) against o's `[B, H, S, 32]`, else 0."""
+    po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
+    return int(len(po) == 4 and len(pg) == 4 and pg[:2] == po[:2] and pg[3] == po[3] and pg[2] == po[2] + TILE)
+
+
 def _tail_ok(o, g, w, resid, bias=None):
     from .tenstorrent import lever
     po, pg = [int(d) for d in o.padded_shape], [int(d) for d in g.padded_shape]
-    if not (len(po) == 4 and (po == pg or _g3d(o, g)) and po[-1] == TILE and _dram_tile_bf16(o)
+    if not (len(po) == 4 and (po == pg or _g3d(o, g) or _gp(o, g)) and po[-1] == TILE and _dram_tile_bf16(o)
             and _dram_tile_bf16(g, b8=lever("triatt_ln_b8g")) and _dram_tile_bf16(w) and len(w.shape) == 2
             and int(w.shape[-2]) == po[1] * TILE and int(w.shape[-1]) % TILE == 0):
         return False
@@ -489,6 +496,7 @@ def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=0):
         kernel_source=str(_TAIL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nt, St, int(_g3d(o, g)), int(brows is not None), int(trans)]
         + acc(o) + acc(g) + acc(w) + acc(brows if brows is not None else w),
+        defines=[("GP", "1")] * _gp(o, g),
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(_TAIL_DIR / ("writer_t.cpp" if trans else "writer.cpp")), source_type=src,
@@ -594,6 +602,8 @@ def _tail_check_ref(o, g, w, resid, bias=None):
     import torch
     O, Gt, W = (ttnn.to_torch(t).double() for t in (o, g, w))
     B, H, S, D = O.shape
+    if Gt.shape[:2] == O.shape[:2] and Gt.shape[2] == S + 32:
+        Gt = Gt[:, :, :S]   # pitched (`_gp`)
     if Gt.shape != O.shape:
         Gt = Gt.reshape(B, S, H, D).permute(0, 2, 1, 3)
     x = (O * torch.sigmoid(Gt)).permute(0, 2, 1, 3).reshape(B, S, H * D)

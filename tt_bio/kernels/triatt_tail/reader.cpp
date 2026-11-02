@@ -11,6 +11,10 @@
 // into z^T, writer_t.cpp; 0 off) walks a unit (bg, jt) as its R row tiles (bg*R + r, jt), r = 0..R-1.
 #include "api/dataflow/dataflow_api.h"
 
+#ifndef GP
+#define GP 0   // head-major g with a head pitch of St + GP row tiles (triatt_ln.head_pitch)
+#endif
+
 void kernel_main() {
     constexpr uint32_t Kt = get_compile_time_arg_val(0);
     constexpr uint32_t Nt = get_compile_time_arg_val(1);
@@ -58,8 +62,9 @@ void kernel_main() {
         cb_reserve_back(o_cb, Kt);
         uint32_t gp = get_write_ptr(g_cb), op = get_write_ptr(o_cb);
         uint32_t page = b * Kt * St + jt;
-        for (uint32_t h = 0; h < Kt; ++h, page += St, gp += tbg, op += tb) {
-            noc_async_read_page(G3D ? u * Kt + h : page, g, gp);
+        uint32_t gpage = b * Kt * (St + GP) + jt;
+        for (uint32_t h = 0; h < Kt; ++h, page += St, gpage += St + GP, gp += tbg, op += tb) {
+            noc_async_read_page(G3D ? u * Kt + h : gpage, g, gp);
             noc_async_read_page(page, o, op);
         }
         noc_async_read_barrier();

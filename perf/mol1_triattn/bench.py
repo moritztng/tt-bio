@@ -160,7 +160,7 @@ def main():
                             mod = T.TriangleAttention(HD, H, ending, sd, ckc, softmax_site="pairformer")
                             xt = ttnn.from_torch(x.unsqueeze(0), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT,
                                                  device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
-                            TL.REJECTS.clear(); TL.STATS[:] = [0, 0, 0]
+                            TL.REJECTS.clear(); TL.STATS[:] = [0] * len(TL.STATS)
                             o = mod(xt)
                             got = ttnn.to_torch(o).float()[0]
                             ttnn.deallocate(o)

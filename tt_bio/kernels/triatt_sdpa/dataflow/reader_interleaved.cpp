@@ -6,6 +6,22 @@
 #include "api/dataflow/dataflow_api.h"
 #include "dataflow_common.hpp"
 
+#ifdef ABLATE_KVREAD
+// INSTRUMENT (TT_BIO_TRIATT_ABLATE=KVREAD), wrong values on purpose: the K and V chunks are pushed
+// without their DRAM reads, so the arm's time is the call without the K/V traffic.
+template <uint32_t tile_bytes, typename ReaderType>
+uint32_t kv_read(const ReaderType&, const uint32_t cb_id, uint32_t, const uint32_t, const uint32_t,
+                 const uint32_t dst_rows, const uint32_t dst_cols, const uint32_t, const bool = false,
+                 const uint32_t = 0) {
+    cb_reserve_back(cb_id, dst_rows * dst_cols);
+    cb_push_back(cb_id, dst_rows * dst_cols);
+    return 0;
+}
+#define KV_READ kv_read
+#else
+#define KV_READ read_chunk_with_padding
+#endif
+
 // Read a KV chunk into a CB for L1-L1 forwarding.
 // Skips intermediate read barriers (single barrier at end) for lower latency.
 // Returns the CB write pointer (start address of the data) for use as the forwarding source.
@@ -264,7 +280,11 @@ void kernel_main() {
 
     constexpr uint32_t skip_src_cols = (use_mla && mla_kv_overlap) ? DHt - vDHt : 0;
 
-    const auto q_tile_shape = TensorTileShape(B, NQH, valid_Sqt, DHt);
+#ifndef QKV_PITCH_T
+#define QKV_PITCH_T 0   // q, k, v head pitch valid_S*t + QKV_PITCH_T row tiles (triatt_ln.head_pitch); rows past
+                        // valid_S*t are never read, only the head stride moves
+#endif
+    const auto q_tile_shape = TensorTileShape(B, NQH, valid_Sqt + QKV_PITCH_T, DHt);
 #ifdef GATE_EPILOGUE
     constexpr uint32_t gate_tile_bytes = get_tile_size(cb_gate_in);
     const auto gate_reader = TensorAccessor(gate_args, gate_addr, gate_tile_bytes);
@@ -272,14 +292,14 @@ void kernel_main() {
     // DHt == vDHt -- and the host refuses the epilogue unless both are 1.
     const auto gate_tile_shape = TensorTileShape(B, NQH, valid_Sqt, vDHt);
 #endif
-    const auto k_tile_shape = TensorTileShape(B, NKH, valid_Skt, DHt);
+    const auto k_tile_shape = TensorTileShape(B, NKH, valid_Skt + QKV_PITCH_T, DHt);
 
     // If we have MLA:
     // - if k and v tensors are overlapped, we want to read from the k tensor, but just a portion of it, hence setting
     // the v tile shape dim to DHt (and skip accordingly based on skip_src_cols)
     // - if k and v tensors are not overlapped, we want to read from the v tensor, hence setting the v tile shape dim to
     // vDHt Otherwise head dim of k and v are same
-    const auto v_tile_shape = TensorTileShape(B, NVH, valid_Skt, use_mla && !mla_kv_overlap ? vDHt : DHt);
+    const auto v_tile_shape = TensorTileShape(B, NVH, valid_Skt + QKV_PITCH_T, use_mla && !mla_kv_overlap ? vDHt : DHt);
     const auto attention_sink_tile_shape = TensorTileShape(B, NQH, 1, 1);
 
     volatile tt_l1_ptr uint32_t* page_table_ptr;
@@ -580,7 +600,7 @@ void kernel_main() {
                                     cb_k_start_address = read_chunk_for_forwarding<k_tile_bytes, true>(
                                         k_reader, cb_k_in, k_start_tile_id, kv_row_tile_count, DHt, Sk_chunk_t, DHt);
                                 } else {
-                                    read_chunk_with_padding<k_tile_bytes>(
+                                    KV_READ<k_tile_bytes>(
                                         k_reader,
                                         cb_k_in,
                                         k_start_tile_id,
@@ -739,7 +759,7 @@ void kernel_main() {
                                         vDHt,
                                         skip_src_cols);
                                 } else {
-                                    read_chunk_with_padding<v_tile_bytes>(
+                                    KV_READ<v_tile_bytes>(
                                         v_reader,
                                         cb_v_in,
                                         v_start_tile_id,
