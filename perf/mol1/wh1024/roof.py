@@ -32,8 +32,17 @@ def flops(fam, shp):
         return 2.0 * shp[-2] * 3 * 4 * c * c
     if fam == "opm" and len(shp) == 4:
         D, N = shp[-3], shp[-2]
+        _OPM_N[0], _OPM_N[1] = N, c
+        return 2.0 * (D * N * c * 64 + D * N * N * 32 * 32 + N * N * 1024 * 448)
+    if fam == "opm" and len(shp) == 3 and _OPM_N[0]:
+        # A chunk-list call records its [depth, 1, 1] row mask: same depth, N and c_m as the
+        # 4D call before it in the same cycle.
+        (N, c), D = _OPM_N, shp[0]
         return 2.0 * (D * N * c * 64 + D * N * N * 32 * 32 + N * N * 1024 * 448)
     return 0.0
+
+
+_OPM_N = [0, 0]
 
 
 def main():
