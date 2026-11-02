@@ -111,42 +111,50 @@ def chip_main(chip, a, barrier, results):
         results.put({"chip": chip, "phase": "load", "wall_s": round(time.time() - t0, 2),
                      "work": {k: cfg.get(k) for k in WORK}, "jobs": [str(j) for j in jobs]})
         m, coords = state.model, {}
-        fold = m.fold
+        fold, fold_k = m.fold, m.fold_k
 
         def counted_fold(*args, **kw):
             r = fold(*args, **kw)
             c = r[0] if isinstance(r, tuple) else r
-            coords["c"] = c.detach().float().cpu()
+            coords[kw.get("seed")] = c.detach().float().cpu()
             return r
 
-        m.fold = counted_fold
+        def counted_fold_k(feats, seeds, **kw):
+            rs = fold_k(feats, seeds, **kw)
+            for sd, r in zip(seeds, rs):
+                coords[sd] = (r[0] if isinstance(r, tuple) else r).detach().float().cpu()
+            return rs
+
+        m.fold, m.fold_k = counted_fold, counted_fold_k
     except Exception as exc:  # noqa: BLE001 -- the parent records it and stops the cell
         results.put({"chip": chip, "phase": "error", "error": f"{type(exc).__name__}: {str(exc)[:600]}"})
         barrier.abort()
         return
     for i in range(1 + a.max_attempts):
-        seed = a.seed + 1000 * a.chips.index(chip) + i
+        seeds = [a.seed + 1000 * a.chips.index(chip) + i * a.batch + j for j in range(a.batch)]
         try:
             barrier.wait()
         except Exception:  # noqa: BLE001 -- the parent ended the run
             return
-        sdir = out / f"r{i}-s{seed}"
+        sdir = out / f"r{i}-s{seeds[0]}"
         sdir.mkdir(parents=True, exist_ok=True)  # the worker makes it before predict_one (run_job)
+        paths = [seeded(jobs[0], sd) for sd in seeds]
         t0 = time.time()
         err = None
         coords.clear()
         try:
-            metrics, _, _ = state.predict_one(seeded(jobs[0], seed), dict(cfg, seed=seed, struct_dir=str(sdir)))
+            rows = [r[0] for r in state.predict_many(paths, dict(cfg, seed=seeds[0], struct_dir=str(sdir)))]
         except Exception as exc:  # noqa: BLE001 -- a failing prediction is a result
-            err, metrics = f"{type(exc).__name__}: {str(exc)[:600]}", {}
+            err, rows = f"{type(exc).__name__}: {str(exc)[:600]}", [{}] * len(seeds)
         t1 = time.time()
-        c = coords.get("c")
-        results.put({"chip": chip, "phase": "round", "round": i, "seed": seed, "t0": t0, "t1": t1, "err": err,
-                     "tokens": metrics.get("n_tokens"), "finite": bool(c is not None and torch.isfinite(c).all()),
-                     "samples": int(c.shape[0]) if c is not None and c.dim() == 3 else None,
-                     "coords_sha256": hashlib.sha256(c.numpy().tobytes()).hexdigest() if c is not None else None,
-                     "plddt": metrics.get("plddt"), "ptm": metrics.get("ptm"), "iptm": metrics.get("iptm"),
-                     "struct_dir": str(sdir)})
+        for seed, metrics in zip(seeds, rows):
+            c = coords.get(seed)
+            results.put({"chip": chip, "phase": "round", "round": i, "seed": seed, "t0": t0, "t1": t1, "err": err,
+                         "tokens": metrics.get("n_tokens"), "finite": bool(c is not None and torch.isfinite(c).all()),
+                         "samples": int(c.shape[0]) if c is not None and c.dim() == 3 else None,
+                         "coords_sha256": hashlib.sha256(c.numpy().tobytes()).hexdigest() if c is not None else None,
+                         "plddt": metrics.get("plddt"), "ptm": metrics.get("ptm"), "iptm": metrics.get("iptm"),
+                         "struct_dir": str(sdir)})
 
 
 def git(*args):
@@ -168,6 +176,8 @@ def main():
     ap.add_argument("--firmware", default=None, help="recorded on every line, e.g. 19.15.0.0")
     ap.add_argument("--host", default=os.uname().nodename)
     ap.add_argument("--rounds", type=int, default=5)
+    ap.add_argument("--batch", type=int, default=1, help="predictions in flight per chip: K seeds of the input through "
+                    "one engine call (PROTOCOL `batch`); predictions per round = chips x batch")
     ap.add_argument("--max-attempts", type=int, help="warm rounds to try for --rounds clean ones; default 3 x --rounds")
     ap.add_argument("--seed", type=int, default=101, help="upstream's default; chip k round i runs seed + 1000 k + i")
     ap.add_argument("--max-foreign-cores", type=float, default=1.0)
@@ -189,7 +199,7 @@ def main():
     os.environ["TT_VISIBLE_DEVICES"] = ",".join(map(str, sorted(a.chips)))  # tt-smi then lists exactly these chips
     sha, dirty = git("rev-parse", "HEAD"), bool(git("status", "--porcelain", "--untracked-files=no"))
     base = {"model": a.model, "arm": a.arm, "part": a.part, "host": a.host, "chips": len(a.chips),
-            "chip_ids": a.chips, "batch": 1, "cli_extra": a.cli_extra, "sha": sha, "tree_dirty": dirty, "firmware": a.firmware,
+            "chip_ids": a.chips, "batch": a.batch, "cli_extra": a.cli_extra, "sha": sha, "tree_dirty": dirty, "firmware": a.firmware,
             "board_type": board_type() if gated else None, "input": a.input, "raw": str(out)}
 
     def emit(rec):
@@ -229,7 +239,7 @@ def main():
         with clocksample.during(period=1.0) as clk, Contention() as con:
             barrier.wait()
             start = time.time()
-            rs = [results.get(timeout=7200) for _ in a.chips]
+            rs = [results.get(timeout=7200) for _ in range(len(a.chips) * a.batch)]
         wall = max(r["t1"] for r in rs) - start
         cs = clk.summary()
         aiclk = {c: (cs.get(k) or {}).get("median") for k, c in enumerate(sorted(a.chips))}
