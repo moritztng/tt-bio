@@ -24,7 +24,9 @@ def run(x, budget):
 
 
 ok = True
-for rows in (5 * 5919, 5 * 8448, 5 * 9216):
+bank = T._l1_bank_bytes()
+print("L1 per bank", bank)
+for rows in (5 * 5919, 32 * 9 * 113, 5 * 8448, 5 * 9216):  # 32 * 9 * 113: 8pe3's 113 rows a core
     x = torch.randn(1, rows, 128)
     ref = (x.double() @ w.double() + b.double()).float()
     whole = None
@@ -32,7 +34,7 @@ for rows in (5 * 5919, 5 * 8448, 5 * 9216):
         whole = run(x, 1 << 40)  # one block per core, the program before the cut
     except RuntimeError as e:
         print(f"rows {rows}: one block does not compile ({str(e).splitlines()[0][:90]})")
-    cut = run(x, 1_400_000)
+    cut = run(x, bank)
     small = run(x, 200_000)
     err = ((cut - ref).abs().max() / ref.abs().max()).item()
     same = [torch.equal(cut, small)] + ([torch.equal(cut, whole)] if whole is not None else [])
