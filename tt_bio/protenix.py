@@ -323,8 +323,45 @@ MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
 # (min 1343), 6 warm folds per arm interleaved on a loaded host: 256 31.58 -> 26.84 s, 512 82.88 -> 80.60 s; samples
 # matched to the base fold at 0.265 A median vs the 4.70 A seed floor (256) and 0.167 A (max 0.53) vs the 0.60 A bar and
 # the 1.35 A floor (512).
-MOL1_BH = MOL1_T1 | MOL1_DIT_BH | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
-                                  "ws_l1dest", "edm_device"}
+# Plus four levers the fleet won elsewhere that leave Mol-1's digest unchanged: atom_l1, trimul_t1_psig, inproj_split and
+# trimul_t2cm. qb1 p150a at AICLK 1350, 5 warm folds per arm (state/mol1/evidence/bh/spdport.md): coords identical at
+# 256 and 512, warm 29.71 -> 26.96 s (256, a noisy base) and 83.29 -> 82.20 s (512); flat against a quiet base.
+MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
+                                            "ws_l1dest", "edm_device", "atom_l1", "inproj_split", "trimul_t2cm"}
+# Mol-1 on Blackhole from 512 padded tokens (`size_levers`): bfp8 pair-transition weights in one chunk on the plain SwiGLU
+# kernel, the reblock move back writing bfp8 and T1's resident weights in bfp8. Graded as one stack over MOL1_BH, qb1
+# p150a at AICLK 1350, 5 warm folds per arm: 512 tokens 83.29 -> 75.23 s, samples matched to the base fold at 0.423 A
+# median (max 2.15) vs the 0.60 A bar and the 1.33 A seed floor, lDDT 0.991 vs 0.964. At 256 the same stack reads 0.735 A
+# and fails, so it stays off below 512.
+MOL1_BH_512 = frozenset({"transition_b8", "ws_b8_plain", "trimul_x8", "trimul_t1w8"})
+SIZE_LEVERS_MIN_TOKENS = 512
+
+
+def size_levers(state_dict):
+    """The levers a checkpoint's normal mode adds from `SIZE_LEVERS_MIN_TOKENS` padded tokens: `MOL1_BH_512` for Mol-1
+    on Blackhole, else none. None under --fast or a harness set (TT_BIO_LEVERS), which name the whole set."""
+    if _T._FAST_MODE or os.environ.get("TT_BIO_LEVERS") or _T.is_wormhole():
+        return frozenset()
+    widths = Trunk._pair_widths(state_dict)
+    return MOL1_BH_512 if widths and widths <= WS_NORMAL_WIDTHS and 448 in widths else frozenset()
+
+
+def _under_size_levers(method):
+    """Run a fold entry point under the model's levers, plus its `size_levers` when the target pads to
+    `SIZE_LEVERS_MIN_TOKENS` tokens or more."""
+    import functools
+
+    @functools.wraps(method)
+    def run(self, feats, *a, **kw):
+        f = feats[0] if isinstance(feats, (list, tuple)) else feats
+        nt = int(f["atom_to_token_idx"].max()) + 1
+        base, size = getattr(self, "_levers", frozenset()), getattr(self, "_size_levers", frozenset())
+        big = size and -(-nt // TOKEN_PAD_MULTIPLE) * TOKEN_PAD_MULTIPLE >= SIZE_LEVERS_MIN_TOKENS
+        with _T.levers(base | size if big else base):
+            return method(self, feats, *a, **kw)
+    return run
+
+
 # Mol-1 on Wormhole normal: WIDE_NORMAL, the T1 set and Protenix-v2's Wormhole extras (DIT_MM_WH, TRIATT_Q10_WH, X8_WH,
 # BRES_NORMAL, T1_PSIG), graded as one stack on a Galaxy chip at 1000 MHz (state/mol1/evidence/perf-wh): 8cnh 509 tokens,
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
@@ -3002,7 +3039,7 @@ class Protenix:
 
     def __init__(self, model_state_dict, compute_kernel_config, device=None, c_z=None,
                  msa_update_first=False, diffusion_fp32=None, gated_move=False,
-                 softmax_scope="protenix", levers=None):
+                 softmax_scope="protenix", levers=None, size_levers=()):
         """diffusion_fp32: explicit per-instantiation override for the coordinate-sensitive
         diffusion stack's precision; None falls back to PROTENIX_DIFFUSION_FP32_DEVICE (default
         fp32). Callers that share this class across models (e.g. OpenDDE) should pass this
@@ -3015,10 +3052,12 @@ class Protenix:
 
         levers: the precision levers (`tenstorrent.LEVERS`) this model builds and folds under,
         active only inside its own build and fold. `load_from_checkpoint` passes the mode's set,
-        and then `--fast` means those levers and nothing else. None is the empty set."""
+        and then `--fast` means those levers and nothing else. None is the empty set.
+        size_levers: added to them for a target that pads to `SIZE_LEVERS_MIN_TOKENS` or more (`size_levers`)."""
         import tt_bio.tenstorrent as _TT
         self._levers = _TT.parse_levers(levers or ())
-        with _TT.levers(self._levers):
+        self._size_levers = frozenset(size_levers) - self._levers
+        with _TT.levers(self._levers, also=self._size_levers):
             self._build(model_state_dict, compute_kernel_config, device, c_z, msa_update_first,
                         diffusion_fp32, gated_move, softmax_scope)
 
@@ -3079,9 +3118,10 @@ class Protenix:
         # channel moves at c_z=256 and is torch.equal to the sequence it replaces, so it is
         # the shipped path. Scoped to this entry point -- OpenDDE builds Protenix directly
         # and passes its own flag.
+        size = ()
         if levers is None:
-            levers = mode_levers(sd)
-        return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers)
+            levers, size = mode_levers(sd), size_levers(sd)
+        return cls(sd, ckc, dev, gated_move=True, diffusion_fp32=diffusion_fp32, levers=levers, size_levers=size)
 
     def _tt(self, x):
         return _T.upload(x, ttnn.bfloat16, self.dev)
@@ -3378,7 +3418,7 @@ class Protenix:
         ttnn.deallocate(zt)
         return self._plm_gather(ztok, a2t, nb), {"pair_z": None, "dit_z": ln}
 
-    @_T.under_levers
+    @_under_size_levers
     def fold_many(self, feats_list, *, n_step=200, seed=None, progress_fn=None,
                   return_confidence=False, n_cycles=None):
         """Fold B targets with ONE batched diffusion trajectory. Returns a list of B coord
@@ -3557,7 +3597,7 @@ class Protenix:
                      self._w["distogram_head.linear.bias"].float())
         return d + d.transpose(0, 1)
 
-    @_T.under_levers
+    @_under_size_levers
     def fold(self, feats, *, n_step=200, n_sample=1, seed=None, progress_fn=None,
              return_confidence=False, n_cycles=None, trace=False,
              max_parallel_samples=None, gamma0=None, step_scale=None, return_logits=False, draws=None):

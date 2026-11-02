@@ -1077,6 +1077,9 @@ NORMAL_LEVERS = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa
                            "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins",
                            "opm_jd"})
 _LEVERS = frozenset()
+# Levers a model may also fold under, beyond the active set (a size-keyed set, `levers(names, also=)`). A lever read
+# at build to pick a stored dtype builds for both (`lever_built`), so no fold uploads a weight.
+_ALSO = frozenset()
 # silu_f32 is a kernel, so it needs ttnn's headers patched before the first device open (metal_overlay)
 # in any process that may run it. The patch only changes silu under math_approx_mode, and every fused
 # silu in tt-bio takes its math_approx_mode from the lever (`silu_ckc`), so with the lever off the
@@ -1092,6 +1095,11 @@ _metal_overlay.enable(("gelu_f32",))
 
 def lever(name: str) -> bool:
     return name in _LEVERS
+
+
+def lever_built(name: str) -> bool:
+    """Whether a build must prepare for `name`: active, or in a set the model may fold under (`_ALSO`)."""
+    return name in _LEVERS or name in _ALSO
 
 
 _SILU_CKCS = {}
@@ -1198,14 +1206,15 @@ def parse_levers(spec) -> frozenset:
 
 
 @contextlib.contextmanager
-def levers(names):
-    """Run the block with exactly `names` active, then restore the previous set."""
-    global _LEVERS
-    prev, _LEVERS = _LEVERS, parse_levers(names)
+def levers(names, also=()):
+    """Run the block with exactly `names` active, then restore the previous set. `also`: levers the model built
+    in this block may fold under as well (`lever_built`)."""
+    global _LEVERS, _ALSO
+    prev, _LEVERS, prev_also, _ALSO = _LEVERS, parse_levers(names), _ALSO, frozenset(also)
     try:
         yield
     finally:
-        _LEVERS = prev
+        _LEVERS, _ALSO = prev, prev_also
 
 
 def model_levers(normal=None, fast=None, spec=None) -> frozenset:
@@ -14499,24 +14508,42 @@ class Transition(Module):
         weight_dtype = dtype if dtype is not None else ttnn.bfloat16
         # transition_b8: the three matmul weights and the hidden activations fc1/fc2 write in bfp8;
         # the norm stays at the stage dtype, and so does fc3's output, added into the residual.
-        self._hidden_b8 = lever("transition_b8") and weight_dtype == ttnn.bfloat16
-        fc_dtype = ttnn.bfloat8_b if self._hidden_b8 else weight_dtype
+        # A model that turns it on by size (`lever_built`) holds both weight sets and picks one per fold.
+        b8 = weight_dtype == ttnn.bfloat16
         self.norm_weight = self.torch_to_tt("norm.weight", dtype=weight_dtype)
         self.norm_bias = self.torch_to_tt("norm.bias", dtype=weight_dtype)
-        self.fc1_weight = self.torch_to_tt("fc1.weight", dtype=fc_dtype)
-        self.fc2_weight = self.torch_to_tt("fc2.weight", dtype=fc_dtype)
-        self.fc3_weight = self.torch_to_tt("fc3.weight", dtype=fc_dtype)
+        self._fc = {on: tuple(self.torch_to_tt(f"fc{i}.weight", dtype=ttnn.bfloat8_b if on else weight_dtype)
+                              for i in (1, 2, 3))
+                    for on in ({lever("transition_b8"), lever_built("transition_b8")} if b8 else {False})}
+        self._w12 = {}
+
+    @property
+    def _hidden_b8(self) -> bool:
+        return lever("transition_b8") if len(self._fc) > 1 else next(iter(self._fc))
+
+    @property
+    def fc1_weight(self):
+        return self._fc[self._hidden_b8][0]
+
+    @property
+    def fc2_weight(self):
+        return self._fc[self._hidden_b8][1]
+
+    @property
+    def fc3_weight(self):
+        return self._fc[self._hidden_b8][2]
 
     def _fc12_weight(self):
         """fc1|fc2 interleaved for the fc12g kernel, built on first use; None unless `swiglu_fc12g` is on (and
         silu_f32, whose PACK-thread silu the kernel runs)."""
         if not (lever("swiglu_fc12g") and lever("silu_f32")):
             return None
-        if getattr(self, "_w12", None) is None:
-            self._w12 = ttnn.from_torch(
+        b8 = self._hidden_b8
+        if b8 not in self._w12:
+            self._w12[b8] = ttnn.from_torch(
                 _fc12_interleave(self.weights["fc1.weight"].t(), self.weights["fc2.weight"].t(), gx=8),
                 layout=ttnn.TILE_LAYOUT, device=self.device, dtype=self.fc1_weight.dtype)
-        return self._w12
+        return self._w12[b8]
 
     def __call__(self, x: ttnn.Tensor, memory_config: ttnn.MemoryConfig | None = None,
                  add_to_input: bool = False,
