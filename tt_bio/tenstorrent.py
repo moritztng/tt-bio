@@ -13476,16 +13476,17 @@ class AttentionPairBias(Module):
 
     def _cat_weights(self):
         """`(g_weight, o_weight)` on the padded head lanes for the `apb_cat` lever, None when it does not
-        apply. Re-laned once from the device copies: exact for bf16, so a bfp8 copy declines, as does a
-        first call inside a trace capture (it would upload)."""
+        apply. Re-laned once from the device copies: exact for bf16 and fp32 (the Protenix DiT on Blackhole),
+        so a bfp8 copy declines, as does a first call inside a trace capture (it would upload)."""
         if self._cat_w is None:
             if (self.atom_level or self._concat_heads or not (lever("apb_cat") or lever("dit_qkvf"))
                     or getattr(self, "padded_head_dim", self.head_dim) == self.head_dim
-                    or {self.g_weight.dtype, self.o_weight.dtype} != {ttnn.bfloat16} or CAPTURING[0]):
+                    or {self.g_weight.dtype, self.o_weight.dtype} not in ({ttnn.bfloat16}, {ttnn.float32})
+                    or CAPTURING[0]):
                 return None
             wide = lambda w, ax: ttnn.from_torch(  # noqa: E731
                 _pad_head_lanes(ttnn.to_torch(w), self.n_heads, self.head_dim, self.padded_head_dim, ax),
-                dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=self.device)
+                dtype=w.dtype, layout=ttnn.TILE_LAYOUT, device=self.device)
             self._cat_w = (wide(self.g_weight, -1), wide(self.o_weight, 0))
         return self._cat_w if lever("apb_cat") or lever("dit_qkvf") else None
 
