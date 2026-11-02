@@ -59,6 +59,9 @@ LN_BLK = 1
 #: the next (c_2 three rows deep). One row tile's head-major pages are MT apart, so at MT % 8 == 0 all of them sit in
 #: one of Blackhole's 8 DRAM banks; a burst then spans two.
 WPAIR = False
+#: bench-only (perf/mol1_triattn/hpitch_ab.py): head-major outputs get a head pitch of MT + 1 row tiles ([B, H, S + 32, 32],
+#: the last row tile of each head unwritten), so a row tile's head pages walk the DRAM banks instead of sharing one.
+HPITCH = False
 #: with two column groups (plain read), the two cores of a pair each read and norm every other row and copy the
 #: partner's normed tiles for the rest over the NOC (reader.cpp), so no row is read or normed twice. Same
 #: tiles into the same projection, so bit-identical. Only with bfp8 q|k|v (`_share`), i.e. OpenDDE WH fast today.
@@ -232,7 +235,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq) + [("WP", "1")] * wp,
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq) + [("WP", "1")] * wp + [("HP", "1")] * HPITCH,
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
@@ -295,7 +298,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
             cols = None
     nq = (4 if gate else 3) * H if cols else 0
     STATS[2] += bool(nq)
-    hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1], head_dim]), dt,  # noqa: E731
+    hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1] + TILE * HPITCH, head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g
     outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
@@ -306,7 +309,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, WPAIR, tuple(cols or ()))
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, WPAIR, HPITCH, tuple(cols or ()))
     entry = _CACHE.get(key)
     if entry is None:
         entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
