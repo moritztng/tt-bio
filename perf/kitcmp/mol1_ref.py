@@ -26,16 +26,22 @@ RECIPES = {"default": {}, "use_msa_false": {"use_msa": False}, "use_template_tru
 
 
 def probe(model):
-    """Hook the first Linear under the pairformer stack; returns (record, remove). Filled on the first forward."""
+    """Hook every Linear under the pairformer stack; returns (record, remove). The first one that runs fills the record.
+    Hooking only the first Linear by name recorded nothing: the cuequivariance trimul kernel reads its weights directly."""
     import torch
     rec = {}
-    lin = next(m for n, m in model.named_modules() if "pairformer" in n and isinstance(m, torch.nn.Linear))
 
     def hook(m, inp, out):
         if not rec:
             rec.update(autocast=torch.is_autocast_enabled(), linear_in=str(inp[0].dtype), linear_out=str(out.dtype),
                        weight=str(m.weight.dtype), allow_tf32=torch.backends.cuda.matmul.allow_tf32)
-    return rec, lin.register_forward_hook(hook).remove
+    hs = [m.register_forward_hook(hook) for n, m in model.named_modules()
+          if "pairformer" in n and isinstance(m, torch.nn.Linear)]
+
+    def remove():
+        for h in hs:
+            h.remove()
+    return rec, remove
 
 
 def worker(rank, a, todo, done):
@@ -83,6 +89,8 @@ def main():
                     help="run the job list from the end, so a second box fills in from the other side of a running one")
     ap.add_argument("--first", default="",
                     help="comma-separated cases run before everything else, seed-major (each case at the first seed, then the next)")
+    ap.add_argument("--shard", default="0/1",
+                    help="i/n: this box runs every n-th job of the ordered list starting at i, so n boxes split it with no overlap")
     ap.add_argument("--dtype", choices=list(DTYPES), default="bf16")
     ap.add_argument("--sets", default="paired,selftest,headline", help="which job sets to run")
     ap.add_argument("--seeds", default="42,66,101,2024,8888")
@@ -105,10 +113,12 @@ def main():
     jobs.sort(key=lambda j: order.index(j[1]) if j[1] in order else len(order))  # stable: set order kept per recipe
     first, allseeds = [c for c in a.first.split(",") if c], seeds + selftest
     jobs.sort(key=lambda j: (0, allseeds.index(j[3]), first.index(j[0])) if j[0] in first else (1,))
+    i, n = (int(x) for x in a.shard.split("/"))
+    jobs = jobs[i::n]
     stem = lambda c: Path(a.index["cases"][c]).stem
     todo_jobs = [j for j in jobs if not list((a.out / j[2] / stem(j[0]) / f"seed_{j[3]}" / "predictions").glob("*summary_confidence*"))]
     todo_jobs = todo_jobs[::-1] if a.reverse else todo_jobs
-    print(json.dumps({"jobs": len(jobs), "todo": len(todo_jobs), "k": a.k, "reverse": a.reverse, "dtype": a.dtype}), flush=True)
+    print(json.dumps({"jobs": len(jobs), "todo": len(todo_jobs), "k": a.k, "reverse": a.reverse, "dtype": a.dtype, "shard": a.shard}), flush=True)
     ctx = mp.get_context("spawn")
     todo, done = ctx.Queue(), ctx.Queue()
     for j in todo_jobs:
