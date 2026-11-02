@@ -11,6 +11,7 @@ time by the overlap; `wall_s` is the prediction as a user sees it. AICLK is samp
 """
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -29,6 +30,9 @@ def main():
     ap.add_argument("--model", default="mol1")
     ap.add_argument("--rounds", type=int, default=3, help="warm rounds after the cold one")
     ap.add_argument("--seed", type=int, default=101)
+    ap.add_argument("--step-probe", type=int, default=0,
+                    help="after each warm diffusion, replay its captured step N times back to back: device time per step")
+    ap.add_argument("--cprofile", default=None, help="a phase name: run it under cProfile in the last round, stats to <out>")
     ap.add_argument("--cli-extra", nargs=argparse.REMAINDER, default=[])
     a = ap.parse_args()
 
@@ -48,12 +52,20 @@ def main():
     m = state.model
     dev = m.diffusion.dev
     times = {}
+    last = {"on": False}
+    digest = {}
 
     def timed(name, fn):
         def wrap(*args, **kw):
             ttnn.synchronize_device(dev)
             t0 = time.perf_counter()
-            r = fn(*args, **kw)
+            if a.cprofile == name and last["on"]:
+                import cProfile
+                prof = cProfile.Profile()
+                r = prof.runcall(fn, *args, **kw)
+                prof.dump_stats(str(out / f"{name}.prof"))
+            else:
+                r = fn(*args, **kw)
             ttnn.synchronize_device(dev)
             times[name] = times.get(name, 0.0) + time.perf_counter() - t0
             return r
@@ -62,12 +74,35 @@ def main():
     for name in ("_trunk_cond", "_confidence_start", "_confidences"):
         setattr(m, name, timed(name.strip("_"), getattr(m, name)))
     P.edm_sample = timed("diffusion", P.edm_sample)
+    sampled = P.edm_sample
+
+    def probed(*args, **kw):
+        # The fold frees the conditioning only after the sampler returns, so the trace is still valid here.
+        x = sampled(*args, **kw)
+        import hashlib
+        digest["coords"] = hashlib.sha256(x.detach().float().cpu().numpy().tobytes()).hexdigest()[:16]
+        tr = getattr(m.diffusion, "_trace", None)
+        if a.step_probe and tr is not None:
+            ttnn.synchronize_device(dev)
+            t0 = time.perf_counter()
+            for _ in range(a.step_probe):
+                ttnn.execute_trace(dev, tr["tid"], cq_id=0, blocking=False)
+            ttnn.synchronize_device(dev)
+            times["probe_step_ms"] = 1000 * (time.perf_counter() - t0) / a.step_probe
+            t0 = time.perf_counter()
+            for _ in range(a.step_probe):
+                ttnn.execute_trace(dev, tr["tid"], cq_id=0, blocking=False)
+                ttnn.to_torch(tr["out"])
+            times["probe_step_read_ms"] = 1000 * (time.perf_counter() - t0) / a.step_probe
+        return x
+    P.edm_sample = probed
     for name, label in (("_protenix_inputs", "featurise"), ("_protenix_emit", "write")):
         setattr(state, name, timed(label, getattr(state, name)))
 
     with open(out / "phases.jsonl", "a") as f:
         for i in range(1 + a.rounds):
             times.clear()
+            last["on"] = i == a.rounds
             sdir = out / f"r{i}"
             sdir.mkdir(exist_ok=True)
             with clocksample.during(period=1.0) as clk:
@@ -77,7 +112,8 @@ def main():
             line = {"kind": "cold" if i == 0 else "warm", "input": Path(a.input).name,
                     "tokens": metrics.get("n_tokens"), "seed": a.seed + i, "wall_s": round(wall, 3),
                     "phases_s": {k: round(v, 3) for k, v in times.items()},
-                    "other_s": round(wall - sum(times.values()), 3),
+                    "other_s": round(wall - sum(v for k, v in times.items() if not k.startswith("probe")), 3),
+                    "coords_sha": digest.get("coords"), "levers": os.environ.get("TT_BIO_LEVERS"),
                     "aiclk": clk.summary().get(0), "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
             print(json.dumps(line), flush=True)
             f.write(json.dumps(line) + "\n")
