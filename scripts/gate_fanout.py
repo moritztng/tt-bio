@@ -746,8 +746,9 @@ class Leg:
 
     @property
     def expect_s(self) -> int:
-        """The wall this leg is expected to need: its known wall, else its family's EXPECT."""
-        return self.known_s or EXPECT[self.family]
+        """The wall this leg is expected to need: its known wall on its arch, else its budget. A guess
+        (EXPECT) would start an unknown leg on a reserved lend it cannot finish in, and its recall reruns it."""
+        return self.known_s or self.budget
 
     @property
     def tag(self) -> str:
@@ -1241,13 +1242,17 @@ class Ledger:
             (d / f"{v}.txt").write_text(text)
         (d / "spec").write_text(spec + "\n")
 
-    def history(self) -> dict:
-        """leg name -> the latest wall clock any passing run of it took, for ordering and budgets."""
+    def history(self, arch: str | None = None) -> dict:
+        """leg name -> the latest wall clock any passing run of it on `arch` (any arch when None) took, for
+        ordering, budgets and the pool job's cap. Arch-blind, WH ladder:opendde (~14,200 s) read its Blackhole
+        wall (4342 s) and declared a cap that fits a 2 h reserved lend it cannot finish in (11-02)."""
         seen = {}
         for p in self.path.glob("*.json"):
             try:
                 r = json.loads(p.read_text())
             except ValueError:
+                continue
+            if arch and r.get("arch") not in (arch, None):
                 continue
             if r.get("wall_s") and r.get("ended", "") >= seen.get(r["leg"], ("", 0))[0]:
                 seen[r["leg"]] = (r["ended"], r["wall_s"])
@@ -1627,7 +1632,7 @@ def pool_job(host: Host, leg: Leg, rdir: str, name: str) -> str:
     The log is opened for append: a recalled leg's fold child outlives the SIGINT by up to the agent's
     SIGTERM delay, and with a plain `>` its last line landed on top of the give-back note at the shared
     offset, so the leg read as a FAIL (rel-cc3cbaf09 parity:opendde-abag wh, .110 chip 18, 10-28 02:53Z).
-    `# cap:` is the leg's expected wall, not its budget: a reserved lend (at most 2 h) starts a LEND_SKIP job only if
+    `# cap:` is the leg's known wall, not its budget: a reserved lend (at most 2 h) starts a LEND_SKIP job only if
     its cap ends first, and the budget-sized cap pool.sh read off `timeout 14400` never did (f4177cee0's WH OF3
     ladders, .107, 11-02). A leg that overruns is recalled and given back, which requeues it."""
     cmd = host.command(leg, POOL_CARD, rdir)
@@ -2116,8 +2121,9 @@ def main() -> int:
                 todo[a].append(lg)
             else:
                 todo.setdefault("any", []).append(lg)
-    hist = known_walls(ledger.history(), prior)
-    for q in todo.values():
+    for a, q in todo.items():
+        hist = known_walls(ledger.history(None if a == "any" else a),
+                           [r for r in prior if a == "any" or r.get("arch") in (a, None)])
         for lg in q:
             lg.known_s = hist.get(lg.name, 0)
         # Record legs first: the ladder legs of the release commit wait on their fragments.
