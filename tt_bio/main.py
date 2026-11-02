@@ -3132,14 +3132,16 @@ def protenix_atom_array(coords, feats, outpath, b_factors=None, mod_names=None, 
     label = (lambda n: str(chain_ids[n])) if chain_ids else _chain_label
     # set, not assigned per atom: the default chain_id dtype is <U4 and truncates a longer id
     arr.set_annotation("chain_id", np.array([label(int(asym[t])) for t in a2t]))
-    for i in range(coords.shape[0]):
-        t = a2t[i]
-        arr.res_id[i] = int(resid[t])
-        mod = (mod_names or {}).get((int(asym[t]), int(resid[t])))
-        arr.res_name[i] = mod or ("LIG" if is_lig_tok[t] else resname[t])
-        arr.atom_name[i] = names[i]
-        arr.element[i] = z2sym.get(int(znum[i]), "C")
-        arr.hetero[i] = is_lig_tok[t] or mod is not None
+    # per token, then gathered to atoms (a per-atom loop cost ~0.5 s a fold at 1024 tokens, 10 calls)
+    mods = [(mod_names or {}).get((int(asym[t]), int(resid[t]))) for t in range(len(rt))]
+    tok_name = [m or ("LIG" if lig else n) for m, lig, n in zip(mods, is_lig_tok, resname)]
+    tok_het = [lig or m is not None for m, lig in zip(mods, is_lig_tok)]
+    a2t = np.asarray(a2t, dtype=np.int64)
+    arr.res_id[:] = np.asarray(resid, dtype=np.int64)[a2t]
+    arr.res_name[:] = np.array(tok_name)[a2t]
+    arr.atom_name[:] = names
+    arr.element[:] = [z2sym.get(int(z), "C") for z in znum]
+    arr.hetero[:] = np.array(tok_het, dtype=bool)[a2t]
     # an OXT the diffusion left on O/C or detached is rebuilt from the CCD geometry
     # (OpenDDE 6685cef); arr.coord is already a copy, the caller's coords are untouched
     from tt_bio.oxt import mirror_terminal_carboxylates, repair_terminal_oxt_from_feats
