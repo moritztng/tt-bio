@@ -185,7 +185,7 @@ refused by name before the fold starts, never accepted and dropped.
 
 ### Size Limits
 
-Every structure model folds at least 1024 residues on a single 12 GiB Wormhole chip. The limit
+Every structure model folds at least 896 residues on a single 12 GiB Wormhole chip. The limit
 below is the largest size that folded, under the first measured failure where one was found,
 walked with the settings the platform sends:
 
@@ -197,7 +197,7 @@ walked with the settings the platform sends:
 | `openbind` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `pxdesign` | 1536 (target residues; the binder is on top) | none found; top of the ladder |
 | `protenix-v2` | 2048 (residues; a ligand adds tokens) | none found; top of the ladder |
-| `mol1` | 1024 (residues; a ligand adds tokens) | 1074 tokens (a homotrimer with three hemes; a single chain folds 1536) |
+| `mol1` | 896 (residues; a ligand adds tokens) | 1024 tokens with a deep alignment (a single chain with a shallow one folds 1536) |
 | `esmfold2` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `esmfold2-fast` | 1664 (residues; a ligand adds tokens) | 1792 |
 | `rf3` | 1600 | 1664 |
