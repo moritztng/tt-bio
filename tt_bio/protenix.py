@@ -4347,7 +4347,7 @@ class Trunk(_KeyedWeights):
                     # (712 tokens, 18,611 rows) was refused 2.96 GiB at cycle 7 of 20 on a Wormhole chip.
                     inputs = list(carry)
                     try:
-                        carry = sampled(cyc, carry, x, retry=True)
+                        carry = sampled(cyc, carry, x, retry=False)
                         inputs = None
                     except RuntimeError as exc:
                         if not is_alloc_refusal(exc):
