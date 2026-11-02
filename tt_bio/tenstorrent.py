@@ -6854,14 +6854,38 @@ def _trimul_bres_ckc(base):
     return _bres_ckc(_trimul_einsum_ckc(base, "hifi2" if hifi2 else None))
 
 
-def _trimul_bres_serves(out_mc, program_config) -> bool:
+def _trimul_bres_serves(out_mc, program_config, channels=0) -> bool:
     """Whether `trimul_bres` takes the einsum (bmm_res may still decline on fit). On Blackhole it leaves the call to
     ttnn.matmul where ttnn's own plan already holds whole channels per core (`MatmulMultiCoreReuseProgramConfig`,
-    256 tokens on the 11x10 grid): 0.30 ms a call there against bmm_res's 0.37. Under the 2D multicast plan, 288 to
-    704 tokens, bmm_res takes 0.64-1.03x ttnn's time at HiFi4 (perf/rfd4/tri3/contract.py, AICLK 1350)."""
+    256 tokens on the 11x10 grid) unless the `channels` fill the cores' rounds to BRES_REUSE_FILL: RFD4's 256
+    channels (78 % on 110 cores) ran 0.30 ms a call on ttnn against bmm_res's 0.37; Mol-1's 320 (97 %) runs a call
+    1.008-1.017x faster on bmm_res, bit-identical, and its 448 (81 %) 1.002-1.008x (mol1 evidence/bh-trunk2/T2.md).
+    Under the 2D multicast plan, 288 to 704 tokens, bmm_res takes 0.64-1.03x ttnn's time at HiFi4
+    (perf/rfd4/tri3/contract.py, AICLK 1350)."""
     return (lever("trimul_bres") and out_mc.buffer_type == ttnn.BufferType.DRAM
             and out_mc.memory_layout == ttnn.TensorMemoryLayout.INTERLEAVED
-            and (is_wormhole() or not isinstance(program_config, ttnn.MatmulMultiCoreReuseProgramConfig)))
+            and (is_wormhole() or _TRIMUL_BRES_REUSE or _bres_fills(channels)
+                 or not isinstance(program_config, ttnn.MatmulMultiCoreReuseProgramConfig)))
+
+
+BRES_REUSE_FILL = 0.9
+
+
+def _bres_fills(channels) -> bool:
+    """Whether `channels` whole channels fill at least BRES_REUSE_FILL of the main grid's core rounds."""
+    n = COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1]
+    return channels > 0 and channels / (-(-channels // n) * n) >= BRES_REUSE_FILL
+
+
+# A/B knob: bmm_res also takes the einsum where ttnn's plan is the whole-channel reuse one (Blackhole 256 tokens).
+_TRIMUL_BRES_REUSE = False
+
+
+def set_trimul_bres_reuse(on: bool) -> bool:
+    """A/B switch for the harness. Returns the previous state."""
+    global _TRIMUL_BRES_REUSE
+    prev, _TRIMUL_BRES_REUSE = _TRIMUL_BRES_REUSE, bool(on)
+    return prev
 
 
 def set_trimul_einsum_fid(fid: str) -> str:
@@ -11530,7 +11554,7 @@ class TriangleMultiplication(Module):
                     # taking the deferred transpose as ttnn.matmul would; it declines (None) where b[c]
                     # does not fit or a layout is not its own.
                     x_chunk = None
-                    if _trimul_bres_serves(out_mc, program_config):
+                    if _trimul_bres_serves(out_mc, program_config, prod(list(a_chunk.shape)[:-2])):
                         x_chunk = _bmm_res.matmul(
                             a_chunk, b_chunk,
                             compute_kernel_config=_trimul_bres_ckc(self.compute_kernel_config),

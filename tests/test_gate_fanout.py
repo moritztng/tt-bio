@@ -367,6 +367,10 @@ def test_ledger_roundtrip_and_history_takes_the_latest_wall(tmp_path):
     led.put("j", {"verdict": "PASS", "leg": "ux:boltz2", "wall_s": 300, "ended": "2026-10-09T02:00:00Z"})
     assert led.get("k")["wall_s"] == 100
     assert led.history() == {"ux:boltz2": 300}
+    led.put("w", {"verdict": "PASS", "leg": "ladder:opendde", "arch": "wh", "wall_s": 14231, "ended": "2026-10-09T01:00:00Z"})
+    led.put("b", {"verdict": "PASS", "leg": "ladder:opendde", "arch": "bh", "wall_s": 4342, "ended": "2026-10-09T03:00:00Z"})
+    assert led.history("wh")["ladder:opendde"] == 14231 and led.history("bh")["ladder:opendde"] == 4342
+    assert led.history()["ladder:opendde"] == 4342 and led.history("wh")["ux:boltz2"] == 300  # no arch: every arch
 
 
 def test_a_first_host_takes_its_card_through_flock_first():
@@ -1687,7 +1691,6 @@ def test_a_pool_job_declares_its_expected_wall_as_its_cap_so_a_reserved_lend_can
                       "pool": {"queue": str(tmp_path / "queue"), "prio": 0, "row": "spd-shipflow"}}, "b" * 40)
     leg = gf.Leg("ladder:openfold3", ["PY", "-c", "pass"], "ladder")
     job = gf.pool_job(h, leg, str(tmp_path / "r"), "0-spd-shipflow-x-ladder_openfold3")
-    assert "timeout" in job and f"\n# cap: {gf.EXPECT['ladder']}\n" in job
-    assert gf.EXPECT["ladder"] <= 7200 < gf.BUDGET["ladder"]
+    assert "timeout" in job and f"\n# cap: {gf.BUDGET['ladder']}\n" in job   # unknown wall: no reserve fits it
     leg.known_s = 3900
     assert "\n# cap: 3900\n" in gf.pool_job(h, leg, str(tmp_path / "r"), "x")

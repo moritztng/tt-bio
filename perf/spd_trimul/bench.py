@@ -139,6 +139,28 @@ def _set_gin_fit(on):
     return prev
 
 
+def _t1_rows(v):
+    """T1 work items of v row tiles (TTL.T1_ROWS); returns the previous value."""
+    prev, TTL.T1_ROWS = TTL.T1_ROWS, int(v)
+    return prev
+
+
+def _t1_abl(v):
+    """T1 with stage-skip bits v (TTL.T1_ABL, kernels/trimul_in_t1): timing only, the output is wrong."""
+    prev, TTL.T1_ABL = TTL.T1_ABL, int(v)
+    return prev
+
+
+def _t2_mb2(on):
+    """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
+    prev = (10, 10) in TTL.T2_BLOCK
+    if on:
+        TTL.T2_BLOCK[(10, 10)] = (2, 10, 1, 2, 1)
+    else:
+        TTL.T2_BLOCK.pop((10, 10), None)
+    return prev
+
+
 LEVERS = {
     "ibw": [(T.set_trimul_ibw_full, True)],
     "into": [(T.set_trimul_back_into, True)],
@@ -170,6 +192,13 @@ LEVERS = {
     "t2": [(TTL.set_t2, True)],
     # T2 reads the einsum's last channel chunk channel-major (no back move); needs t2 to serve
     "t2m": [(TTL.set_t2m, True)],
+    "t2zw": [(TTL.set_t2_zw, True)],
+    "t2mb2": [(_t2_mb2, True)],
+    "t1r4": [(_t1_rows, 4)],
+    # ceiling of reusing z across the outgoing/incoming pair: T1 without its z reads (16), and without LN too (17)
+    "t1noz": [(_t1_abl, 16)],
+    "t1nozln": [(_t1_abl, 17)],
+    "bres256": [(T.set_trimul_bres_reuse, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
     # one core reads T1's resident weights and multicasts them (bit-identical)

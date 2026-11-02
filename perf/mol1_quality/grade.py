@@ -55,6 +55,13 @@ def postprocess(src, dst):
     f.write(str(dst))
 
 
+def cache(work, arm, arm_dir):
+    """An arm's grading cache. Postprocessed CIFs and OST outputs are reused by file name, so an arm dir that names its
+    engine (ENGINE_SHA) gets its own cache: tt_bh at 7374eb5a6 would otherwise read 90cef828f's cached scores."""
+    sha = Path(arm_dir) / "ENGINE_SHA"
+    return work / (f"{arm}@{sha.read_text().strip()}" if sha.exists() else arm)
+
+
 def predictions(arm_dir, case, work):
     """[(seed, sample, ranking_score, postprocessed cif, summary dict)] for one case of one arm."""
     name = safe(case); out = []
@@ -113,7 +120,7 @@ def pose(arms, base, cases, work):
     for arm, d in arms.items():
         for c in cases:
             by = defaultdict(list)
-            for s, k, _, cif, _ in predictions(Path(d), c["id"], work / arm):
+            for s, k, _, cif, _ in predictions(Path(d), c["id"], cache(work, arm, d)):
                 by[s].append(atoms(cif))
             folds[arm, c["id"]] = by
     out = {"base": base, "bar_A": 0.60}
@@ -154,7 +161,7 @@ def evaluate(arm, arm_dir, cases, inputs, work):
     by_task = defaultdict(list)  # (task, variant) -> [(case, target row, preds)]
     for c in cases:
         task, trows = targets(c)
-        preds = predictions(arm_dir, c["id"], work / arm)
+        preds = predictions(arm_dir, c["id"], cache(work, arm, arm_dir))
         if not preds:
             rows.append({"arm": arm, "case": c["id"], "set": c["set"], "missing": True})
             continue
@@ -162,7 +169,7 @@ def evaluate(arm, arm_dir, cases, inputs, work):
         for t in trows:
             by_task[(task, variant)].append((c, t, preds))
     for (task, variant), items in by_task.items():
-        ev = work / arm / f"eval{('.' + variant) if variant else ''}" / task
+        ev = cache(work, arm, arm_dir) / f"eval{('.' + variant) if variant else ''}" / task
         (ev / "raw").mkdir(parents=True, exist_ok=True)
         recs = [dict(t, seed=s, sample=k, ranking_score=r, prediction_path=str(p))
                 for c, t, preds in items for s, k, r, p, _ in preds]
@@ -255,6 +262,8 @@ def main():
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--arm", action="append", default=[], help="name=DIR (gpu, gpu_self, tt_bh, tt_wh; any tt_* arm is graded against gpu)")
     ap.add_argument("--headline", type=Path)
+    ap.add_argument("--seeds", action="append", default=[], help="ARM=S1,S2: that TT arm ran only these seeds; graded "
+                    "against gpu on the same seeds and a gpu_self floor of as many seeds")
     ap.add_argument("--ab", action="append", default=[], help="TEST=BASE: also grade one TT arm against another")
     ap.add_argument("--pose-base", default="gpu", help="arm every other arm's poses are compared with ('' skips)")
     ap.add_argument("--ref-split", type=Path, help="JSON {id[:recipe]: evidence}: cases where upstream's own fp32 and bf16 "
@@ -269,19 +278,22 @@ def main():
     (a.work / "rows.json").write_text(json.dumps(rows))
     ok = [r for r in rows if not r.get("missing")]
     split = json.loads(a.ref_split.read_text()) if a.ref_split else {}
+    arm_seeds = {k: tuple(map(int, v.split(","))) for k, v in (x.split("=", 1) for x in a.seeds)}
     sets = sorted({c["set"] for c in spec["paired"]})
     per_arch, per_set = {}, {}
     for test in [x for x in arms if x.startswith("tt_")]:  # tt_bh, tt_wh, and A/B arms such as tt_bh_b
         arch = test[3:]
         missing = sorted({r["case"] for r in rows if r["arm"] == test and r.get("missing")})
-        v = stats.verdict(ok, test, conf_split=split)
-        per_set[arch] = {s: stats.verdict(ok, test, cases={r["case"] for r in ok if r["set"] == s}, conf_split=split)
+        sd = arm_seeds.get(test)
+        v = stats.verdict(ok, test, conf_split=split, seeds=sd)
+        per_set[arch] = {s: stats.verdict(ok, test, cases={r["case"] for r in ok if r["set"] == s}, conf_split=split, seeds=sd)
                          for s in sets}
         failed_sets = [s for s, x in per_set[arch].items() if x["verdict"] == "FAIL"]
         verdict = "FAIL" if missing or failed_sets or v["verdict"] == "FAIL" else v["verdict"]
-        per_arch[arch] = {"verdict": verdict, "pooled": v, "failed_sets": failed_sets, "missing": missing}
+        per_arch[arch] = {"verdict": verdict, "pooled": v, "failed_sets": failed_sets, "missing": missing,
+                          "seeds": list(sd) if sd else sorted({r["seed"] for r in ok if r["arm"] == test})}
         if split:
-            per_arch[arch]["pooled_all_cases"] = stats.verdict(ok, test)
+            per_arch[arch]["pooled_all_cases"] = stats.verdict(ok, test, seeds=sd)
     floor = stats.self_test(ok) if "gpu_self" in arms else None
     arch = {k: v["verdict"] for k, v in per_arch.items() if k in ("bh", "wh")}
     q = {"verdict": "PASS" if arch.get("wh") == "PASS" and arch.get("bh") == "PASS" else
