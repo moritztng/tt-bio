@@ -1,6 +1,6 @@
 # BH shipped set (D) vs TT_BIO_LEVERS=none, 7 seeds, unpaired seed-cluster bootstrap
 
-Read 2026-11-02 20:0xZ. Base `grade/bh-ee0..7` (8 runs), test `grade/bh-bD0..6` (7 runs), 8 designs per run,
+Read 2026-11-02 19:5xZ. Base `grade/bh-ee0..7` (8 runs), test `grade/bh-bD0..6` (7 runs), 8 designs per run,
 `perf/spd/bg_unpaired.py` (20000 draws, seeds resampled whole because a numeric lever re-rolls every trajectory).
 D is the set that main `d8a8285de` ships on Blackhole after the trunk group was dropped.
 

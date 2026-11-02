@@ -1,6 +1,6 @@
 # WH shipped sets vs TT_BIO_LEVERS=none (gradeexw, partial), unpaired seed-cluster bootstrap
 
-Read 2026-11-02 20:2xZ on .111, `perf/spd/bg_unpaired.py --expect 8`. Base `wh-ee0..7` (8 runs, 8 designs each),
+Read 2026-11-02 19:5xZ on .111, `perf/spd/bg_unpaired.py --expect 8`. Base `wh-ee0..7` (8 runs, 8 designs each),
 tree te11e990dc. This is the Wormhole half of the question the Blackhole grade answered: does the shipped lever set
 cost design_iptm against exact?
 
