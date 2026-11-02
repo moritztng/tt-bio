@@ -24,5 +24,5 @@ them would have been averaging whichever designs survived the last write, and it
 
 Fixed in `perf/spd/bg_unpaired.py` (dbc78ea34): `--expect` (default 8) drops any run whose analyze CSV holds fewer
 designs and says so. `bg_grade.py` compares the CSV against the run's own `ca_coords_sequences.pkl.gz` and warns.
-Every grade input used before today was re-checked under the guard: the BH 7-seed D verdict is unaffected (all 15 runs
-full), so is the WH fast arm.
+Every grade run still on disk was then counted: 69 BH runs on qb1 and every WH run on .111 and .107 carry all 8
+designs. wh-en1 and wh-en2 are the only two, so no earlier verdict rests on a truncated run.
