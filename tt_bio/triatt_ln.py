@@ -46,8 +46,11 @@ TILE = 32
 RB = 4          # row tiles per reader barrier
 #: the ending variant norms z^T straight out of z (reader.cpp TR) instead of transposing first
 TR = True
-#: most column groups TR takes (each group gathers x^T on its own); above it the caller transposes first
-TR_GROUPS = 1
+#: most column groups TR takes; each group gathers x^T on its own, above it the caller transposes first. Two pay on
+#: Blackhole: perf/mol1_triattn/tr_ab.py, ending block, add_to_input, transpose-first -> TR, every cell torch.equal
+#: (qb2 p300, 1225-1350 MHz): 1024 x c320 54.9 -> 54.3 ms, 512 x c384 (OpenDDE) 15.05 -> 14.2, 512 x c320 flat;
+#: five (c448) read 94.7 -> 115 at 1024. Wormhole stays at one: OpenDDE S512 read 13.99 at two groups vs 13.62.
+TR_GROUPS = {"wormhole": 1, "blackhole": 2}
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
 #: rotate each core's plain-read rows by its row-split index, so the cores of a group do not all start on the same
@@ -258,7 +261,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     `x` is the raw [B, S, K] pair (square and whole tiles with `transposed`), `w` the [K, 4c + 32]
     qkvgb weight of `qkvgb_heads`, `ckc` a (fidelity, approx, fp32_acc, full_sync) tuple as
     `trimul_tail` takes it."""
-    from .tenstorrent import lever
+    from .tenstorrent import is_wormhole, lever
     if not lever("triatt_ln"):
         return None
     why = _check(x, w, ln_w, ln_b, ckc)
@@ -273,7 +276,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     if transposed and (not TR or shp[0] != shp[1] or shp[0] % TILE):
         return _reject("tr_shape", x)
     plan = _plan(K // TILE, int(w.padded_shape[-1]) // TILE, transposed, x.device(), grid[0] * grid[1])
-    if plan is not None and transposed and plan[0] > TR_GROUPS:
+    if plan is not None and transposed and plan[0] > TR_GROUPS["wormhole" if is_wormhole() else "blackhole"]:
         # Each group would gather x^T in 1 KB pieces on its own: 13.99 ms against 13.62 for transpose,
         # norm and project (OpenDDE S512, Wormhole HiFi4, 1000 MHz). The caller transposes and comes
         # back without `transposed`, which beats both.

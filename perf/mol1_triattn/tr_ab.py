@@ -22,7 +22,7 @@ for S, c, H in cells:
         mod = T.TriangleAttention(32, H, True, sd, ckc, softmax_site="pairformer")
         got = {}
         for arm in ("1", G, "1", G):
-            TL.TR_GROUPS = int(arm)
+            TL.TR_GROUPS = {"wormhole": int(arm), "blackhole": int(arm)}
             xt = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             TL.REJECTS.clear()
             y = ttnn.to_torch(mod(xt, add_to_input=True))
