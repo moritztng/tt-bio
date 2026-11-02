@@ -110,6 +110,19 @@ def aiclk(t0, t1, pad=0.3):
 _GIN_TILES = TTL._gin_move_tiles
 
 
+def _set_t1_mcast(on):
+    """T1_MCAST at every plan key (an int knob), else the shipped table."""
+    global _T1_MC
+    prev = isinstance(TTL.T1_MCAST, int)
+    if on and not prev:
+        _T1_MC = TTL.T1_MCAST
+    TTL.T1_MCAST = 1 if on else (_T1_MC if prev else TTL.T1_MCAST)
+    return prev
+
+
+_T1_MC = None
+
+
 def _set_gin_fit(on):
     prev = TTL._gin_move_tiles is not _GIN_TILES
     TTL._gin_move_tiles = (lambda kt, ct2, mask: 0) if on else _GIN_TILES
@@ -149,6 +162,8 @@ LEVERS = {
     "t2m": [(TTL.set_t2m, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
+    # one core reads T1's resident weights and multicasts them (bit-identical)
+    "t1mc": [(_set_t1_mcast, True)],
 }
 
 
