@@ -231,13 +231,14 @@ WITHDRAWN = -1           # run_in_pool's code for "taken back from the queue bef
 #: glx_elastic gives a lent Galaxy back to JapanFold by SIGINTing every pool job and touching the pool's
 #: RETURNED. .107 went back at 07:34Z on 2026-10-16, 35 min into the WH legs of gate 5e250928a, and 14 of
 #: them were recorded FAIL (folds "exited -2"). The job notes a give-back that came after it started; such
-#: a leg measured nothing about the tree, so it goes back on the queue and waits for the next lend.
+#: a leg measured nothing about the tree, so it goes back on the queue and waits for the next lend, however
+#: often that happens. A cap of three made the fourth recall a FAIL: ladder:opendde (3.5 h) was started on
+#: lent .107 chips four times on 11-02 and recalled each time, and rerun-f4177cee0-oddewh read FAIL.
 GIVEN_BACK = "the Galaxy was given back under the leg"
 #: The same for one chip: a JapanFold agent that lent the leg's chip to the pool takes it back the moment
 #: its users need it, and touches lend/<chip>.recalled (jf-shared-chips). The leg reruns like a give-back,
 #: so its job tells the pool not to requeue it as well.
 RECALLED = "$HOME/japanfold/state/agent/lend/$CHIP.recalled"
-GIVEN_BACK_TRIES = 3
 #: A leg failed on a named card and the card is what failed: qb2 chip 1 stopped initialising its
 #: firmware at 06:07Z on 2026-10-12 and the runner handed it 40 more legs of gate 026b5c71c, each
 #: recorded FAIL in 15-90 s. After a failed leg on a named card the runner probes the card
@@ -1774,7 +1775,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
         rdir = f"{host.root}/{remote_out}/{host.arch}/{tag}"
         t0 = time.time()
         run = run_in_pool if card == POOL else run_over_ssh
-        lost = full = stuck = contended = rebooted = given_back = init_failed = 0
+        lost = full = stuck = contended = rebooted = init_failed = 0
         while True:
             with open(log, "w") as f:
                 f.write(f"# {leg.name} on {host.name}:{card} ({host.cfg['card_type']}) tree {sha}\n")
@@ -1801,8 +1802,7 @@ def make_executor(sha: str, out: Path, ledger: Ledger, keys: dict, remote_out: s
             if rc and card == POOL and (REBOOTED in text or VANISHED in text) and not rebooted:
                 rebooted += 1
                 continue
-            if rc and card == POOL and GIVEN_BACK in text and given_back < GIVEN_BACK_TRIES:
-                given_back += 1
+            if rc and card == POOL and GIVEN_BACK in text:
                 continue
             if rc and card == POOL and INIT_FAILED.search(text) and init_failed < INIT_FAILED_TRIES:
                 init_failed += 1
