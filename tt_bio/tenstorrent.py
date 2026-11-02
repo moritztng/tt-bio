@@ -2832,7 +2832,8 @@ APB_CONCAT_HEADS_STATS = [0, 0]      # [served, declined] at the token head re-a
 # dit_qkvf: the bf16 token DiT's attention as OpenFold3's dit_fuse runs it (`_sdpa32_fused`): read out of the
 # fused qkv projection and written [B, S, n_heads * padded_head_dim], so neither nlp_create_qkv_heads nor the
 # head re-assembly runs; the gate and output projection take apb_cat's padded-lane weights. HiFi2 like the
-# stock op's default, with the fp32 dest the stock op leaves off.
+# stock op's default, with the fp32 dest the stock op leaves off. On the fp32 DiT that already runs `_sdpa32`
+# (Protenix on Blackhole) it is that program read from the fused projection: fp32 out, `_sdpa32`'s own config.
 _DIT_QKVF_CKC = (ttnn.MathFidelity.HiFi2, False, True, False)
 DIT_QKVF_STATS = [0, 0]              # [served, declined] at the token-DiT site under the lever
 
@@ -13792,7 +13793,7 @@ class AttentionPairBias(Module):
                                   + [(0, int(z.shape[-1]) - seq), (0, 0)], value=0.0)
                 ttnn.deallocate(qkv)
                 qkv = padded
-            if cat_w is not None and lever("dit_qkvf") and self.token_dit:
+            if cat_w is not None and lever("dit_qkvf") and (self.token_dit or self.sdpa32):
                 o = self._qkvf(qkv, z, seq, bias_precomputed, seq_mask)
                 if o is not None:
                     return self._gate_out(s, o, cat_w)
@@ -14036,17 +14037,21 @@ class AttentionPairBias(Module):
         return self._gate_out(s, o, cat_w)
 
     def _qkvf(self, qkv, z, seq, bias_precomputed, seq_mask):
-        """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` bf16, or None where it does not apply."""
+        """dit_qkvf's attention, `[B, seq, n_heads * padded_head_dim]` (bf16, fp32 under `_sdpa32`), or None where
+        it does not apply."""
         n = int(qkv.shape[-2])
-        ok = (bias_precomputed and _B2_TOKEN_DIT_SDPA and z is not None and seq_mask is None
-              and not self._raw_fp32() and not self.kq_norm and len(qkv.shape) == 3 and sdpa32_chunk(n)
+        fp32 = self._raw_fp32() and self.sdpa32
+        ok = (bias_precomputed and z is not None and seq_mask is None
+              and (fp32 or (self.token_dit and _B2_TOKEN_DIT_SDPA and not self._raw_fp32()))
+              and not self.kq_norm and len(qkv.shape) == 3 and sdpa32_chunk(n)
               and int(qkv.shape[-1]) == 3 * self.n_heads * self.padded_head_dim
               and len(z.shape) == 4 and int(z.shape[-1]) == n and int(z.shape[1]) == self.n_heads)
         DIT_QKVF_STATS[0 if ok else 1] += 1
         if not ok:
             return None
-        o = _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
-                          out_dtype=ttnn.bfloat16, ckc=_DIT_QKVF_CKC)
+        o = (_sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads) if fp32 else
+             _sdpa32_fused(ttnn.unsqueeze(qkv, 1), z, self.head_dim ** -0.5, self.n_heads,
+                           out_dtype=ttnn.bfloat16, ckc=_DIT_QKVF_CKC))
         ttnn.deallocate(qkv)
         o = ttnn.reshape(o, (int(o.shape[0]), n, int(o.shape[3])))
         if n > seq:
