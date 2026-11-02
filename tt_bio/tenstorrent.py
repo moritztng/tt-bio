@@ -3828,6 +3828,28 @@ def _tri_att_fused_padded(q, k, v, bias, scale: float, ckc=None, gate=None):
     return None
 
 
+def _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, dividing):
+    """`triatt_sdpa.split_q_chunk`'s padded q at `k_chunk` where it beats `dividing`'s pick there, else None.
+
+    Offered at every k the ladder serves from, the wide k included, so the bits are always those of the
+    dividing q at the same k."""
+    q_len = q.shape[2]
+    if q_len != k.shape[2]:
+        return None
+    q_split = _triatt_sdpa.split_q_chunk(
+        int(q_len), int(q.shape[1]), int(q.shape[3]), COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1],
+        k_chunk, bias.dtype, tuple(dividing),
+        _triatt_sdpa.SPLIT_Q_ITER_ROWS["wormhole" if is_wormhole() else "blackhole"])
+    if not q_split:
+        return None
+    o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_split, k_chunk, ckc_default=ckc, gate=gate,
+                          padded_mask=True)
+    _triatt_sdpa.SPLIT_Q_STATS[o is None] += 1
+    if o is not None:
+        _sdpa_pick(q_len, q_len, q_split, k_chunk, "fused")
+    return o
+
+
 def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     """The q_chunk / k_chunk ladder. With `gate` set, only the FUSED rungs are offered.
 
@@ -3873,6 +3895,10 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
         for k_chunk in k_chunks[:-1]:
             # Every fused q at this k before any fallback: a wide q the fused kernel declines would
             # otherwise hand the call to the padded pair or the stock op while a narrower fused q fits.
+            o = _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, _qs) if TRIATT_K1_ANY_Q else None
+            if o is not None:
+                SDPA_K_CHUNK_STATS[0] += 1
+                return o
             for q_chunk in (_qs if TRIATT_K1_ANY_Q else ()):
                 if (q_len, k_len, q_chunk, k_chunk, q.dtype) in _SDPA_QK_OVER_L1:
                     continue
@@ -3917,16 +3943,9 @@ def _tri_att_sdpa_at(q, k, v, bias, scale: float, ckc=None, gate=None):
     # preference order as the stock loop below -- `fits` is widest first, production pick last, and
     # the wide q_chunk is worth 1.08-1.81x on its own, so K2 must not silently take the narrow one.
     # Ahead of them, a padded q chunk at the same k when the dividing ones leave the grid idle.
-    q_split = _triatt_sdpa.split_q_chunk(
-        int(q_len), int(q.shape[1]), int(q.shape[3]), COMPUTE_GRID_MAIN[0] * COMPUTE_GRID_MAIN[1],
-        k_chunk, bias.dtype, tuple(fits)) if q_len == k_len and is_wormhole() else 0
-    if q_split:
-        o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_split, k_chunk, ckc_default=ckc, gate=gate,
-                              padded_mask=True)
-        _triatt_sdpa.SPLIT_Q_STATS[o is None] += 1
-        if o is not None:
-            _sdpa_pick(q_len, k_len, q_split, k_chunk, "fused")
-            return o
+    o = _tri_att_split_q(q, k, v, bias, scale, ckc, gate, k_chunk, fits)
+    if o is not None:
+        return o
     for q_chunk in fits:
         o = _triatt_sdpa.sdpa(q, k, v, bias, scale, q_chunk, k_chunk,
                                       ckc_default=ckc, gate=gate)
