@@ -1952,33 +1952,42 @@ class DiffusionModule(_KeyedWeights):
             for src, dst in zip(ins[0] + list(ins[1:]), st_sc + st):
                 ttnn.copy_host_to_device_tensor(src, dst)
 
+        def zero_pad(t):
+            """`t` with its tile padding zeroed. The fill works in place on this ttnn (it hands back
+            the input's buffer), so the result is freed only where it is a separate buffer."""
+            z = ttnn.fill_implicit_tile_padding(t, 0.0)
+            return z, (z.buffer_address() != t.buffer_address())
+
         def step():
             inv_s, c_skip, c_out, inv_t, h = st_sc
             fou, R, tr, eps = st
-            x0 = ttnn.fill_implicit_tile_padding(x_dev, 0.0)   # the mean contracts over the atom tiles
+            x0, x0_own = zero_pad(x_dev)                        # the mean contracts over the atom tiles
             mean = matmul_f32(mrow, x0, ckc)                    # (M, 1, 3)
             xc = ttnn.subtract(x0, mean)
             xr = matmul_f32(xc, R, ckc)
             xa = ttnn.add(xr, tr)
             xn = ttnn.add(xa, eps)
             r0 = ttnn.multiply(xn, inv_s)
-            r = ttnn.fill_implicit_tile_padding(r0, 0.0)        # the denoise reads what an upload holds
-            if self.dtype != f32:
-                r = ttnn.typecast(r, self.dtype)
-            out = (self._denoise_device(ttnn.reshape(r, (N, 3)), fou, cond) if M == 1
-                   else self._denoise_device_m(r, fou, cond, M))
+            r, r_own = zero_pad(r0)                             # the denoise reads what an upload holds
+            rd = ttnn.typecast(r, self.dtype) if self.dtype != f32 else r
+            out = (self._denoise_device(ttnn.reshape(rd, (N, 3)), fou, cond) if M == 1
+                   else self._denoise_device_m(rd, fou, cond, M))
             ru = ttnn.typecast(out, f32) if out.dtype != f32 else out
-            ru = ttnn.reshape(ru, (M, N, 3))
+            if ru is not out:
+                ttnn.deallocate(out)
             a = ttnn.multiply(xn, c_skip)
-            b = ttnn.multiply(ru, c_out)
+            b = ttnn.multiply(ttnn.reshape(ru, (M, N, 3)), c_out)
             xd = ttnn.add(a, b)
             d0 = ttnn.subtract(xn, xd)
             d = ttnn.multiply(d0, inv_t)
             hd = ttnn.multiply(d, h)
             xnew = ttnn.add(xn, hd)
             ttnn.copy(xnew, x_dev)
-            for y in (x0, mean, xc, xr, xa, xn, r0, r, a, b, xd, d0, d, hd, xnew):
+            for y in (mean, xc, xr, xa, xn, r0, ru, a, b, xd, d0, d, hd, xnew):
                 ttnn.deallocate(y)
+            for y, own in ((x0, x0_own), (r, r_own), (rd, rd is not r)):
+                if own:
+                    ttnn.deallocate(y)
 
         tid = None
         try:
