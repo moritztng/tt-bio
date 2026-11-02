@@ -1,0 +1,107 @@
+{
+ "n": 256,
+ "k": 2,
+ "extra": "",
+ "blocks": {
+  "pairformer": {
+   "index": 8,
+   "ops": {
+    "triangle_multiplication_start": {
+     "solo_s": 0.0044317529536783695,
+     "batch_s": 0.008850050042383373,
+     "per_pred_x": 1.0015204281228836,
+     "member0": {
+      "equal": true,
+      "max_abs": 0.0,
+      "rel_rms": 0.0
+     }
+    },
+    "triangle_multiplication_end": {
+     "solo_s": 0.004394041025079787,
+     "batch_s": 0.00868026609532535,
+     "per_pred_x": 1.0124208121790512,
+     "member0": {
+      "equal": true,
+      "max_abs": 0.0,
+      "rel_rms": 0.0
+     }
+    },
+    "triangle_attention_start": {
+     "solo_s": 0.002441452001221478,
+     "batch_s": 0.005241519073024392,
+     "per_pred_x": 0.9315818438156492,
+     "member0": {
+      "equal": true,
+      "max_abs": 0.0,
+      "rel_rms": 0.0
+     }
+    },
+    "triangle_attention_end": {
+     "solo_s": 0.0037776950048282743,
+     "batch_s": 0.008007942000404,
+     "per_pred_x": 0.9434871043365923,
+     "member0": {
+      "equal": true,
+      "max_abs": 0.0,
+      "rel_rms": 0.0
+     }
+    },
+    "transition_z": {
+     "solo_s": 0.0024009259650483727,
+     "batch_s": 0.004447493003681302,
+     "per_pred_x": 1.0796761065440983,
+     "member0": {
+      "equal": true,
+      "max_abs": 0.0,
+      "rel_rms": 0.0
+     }
+    }
+   },
+   "c_z": 320
+  },
+  "pairmixer": {
+   "index": 0,
+   "ops": {
+    "triangle_multiplication_start": {
+     "solo_s": 0.006620773929171264,
+     "batch_s": 0.013804072979837656,
+     "per_pred_x": 0.9592493373284279,
+     "member0": {
+      "equal": true,
+      "max_abs": 0.0,
+      "rel_rms": 0.0
+     }
+    },
+    "triangle_multiplication_end": {
+     "solo_s": 0.006747736944817007,
+     "batch_s": 0.013790867989882827,
+     "per_pred_x": 0.9785804562507945,
+     "member0": {
+      "equal": true,
+      "max_abs": 0.0,
+      "rel_rms": 0.0
+     }
+    },
+    "transition_z": {
+     "solo_s": 0.004571069963276386,
+     "batch_s": 0.008197085000574589,
+     "per_pred_x": 1.115291585473609,
+     "member0": {
+      "equal": true,
+      "max_abs": 0.0,
+      "rel_rms": 0.0
+     }
+    }
+   },
+   "c_z": 448
+  }
+ },
+ "aiclk": {
+  "0": {
+   "min": 1350,
+   "max": 1350,
+   "median": 1350,
+   "n": 11
+  }
+ }
+}

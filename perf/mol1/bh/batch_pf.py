@@ -40,9 +40,10 @@ def run(pf, dev, s_h, z_h):
     ttnn.synchronize_device(dev)
     dt = time.perf_counter() - t0
     zh = ttnn.to_torch(zo).float()
+    sh = ttnn.to_torch(so).float()
     for t in (so, zo):
         ttnn.deallocate(t)
-    return dt, zh
+    return dt, (sh, zh)
 
 
 def timed(pf, dev, s_h, z_h, reps):
@@ -55,6 +56,8 @@ def timed(pf, dev, s_h, z_h, reps):
 
 
 def cmp(a, b):
+    if isinstance(a, tuple):
+        return {"s": cmp(a[0], b[0]), "z": cmp(a[1], b[1])}
     a, b = a.double(), b.double()
     return {"equal": bool(torch.equal(a, b)), "max_abs": (a - b).abs().max().item(),
             "rel_rms": ((a - b).pow(2).mean().sqrt() / b.pow(2).mean().sqrt()).item()}
@@ -67,8 +70,9 @@ def main():
     ap.add_argument("--ks", default="1,2,4")
     ap.add_argument("--n2", type=int, default=512)
     ap.add_argument("--reps", type=int, default=3)
+    ap.add_argument("--extra", default="", help="levers added to the model's set, e.g. pair_batch")
     a = ap.parse_args()
-    res = {"n": a.n, "n2": a.n2, "reps": a.reps, "k": {}}
+    res = {"n": a.n, "n2": a.n2, "reps": a.reps, "extra": a.extra, "k": {}}
 
     def save():
         a.out.write_text(json.dumps(res, indent=1))
@@ -82,7 +86,8 @@ def main():
     res["c_z"] = C
     ks = [int(k) for k in a.ks.split(",")]
     xs = [inputs(1, a.n, C, 10 + i) for i in range(max(ks))]
-    with T.levers(model._levers), during() as clk:
+    lv = model._levers | T.parse_levers([x for x in a.extra.split(",") if x])
+    with T.levers(lv), during() as clk:
         med, ts, solo = timed(pf, dev, *xs[0], a.reps)
         res["k"]["1"] = {"s": med, "all": ts, "s_per_pred": med}
         _, z2 = run(pf, dev, *xs[0])
@@ -97,7 +102,7 @@ def main():
                 med, ts, zb = timed(pf, dev, s_h, z_h, a.reps)
                 res["k"][str(k)] = {"s": med, "all": ts, "s_per_pred": med / k,
                                     "speedup_per_pred": res["k"]["1"]["s"] / (med / k),
-                                    "member0_vs_solo": cmp(zb[0:1], solo)}
+                                    "member0_vs_solo": cmp((zb[0][0:1], zb[1][0:1]), solo)}
             except Exception as e:  # the ops that do not take a batch yet are the result
                 res["k"][str(k)] = {"error": type(e).__name__, "msg": str(e)[:1500],
                                     "tb": traceback.format_exc()[-5000:]}
