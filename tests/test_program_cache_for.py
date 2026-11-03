@@ -19,6 +19,7 @@ class FakeDevice:
 def test_clears_on_new_shapes_only(monkeypatch):
     monkeypatch.setattr(T.ttnn, "synchronize_device", lambda dev: dev.calls.append("sync"))
     monkeypatch.setattr(T, "_PROGRAM_CACHE_SHAPES", [None])
+    monkeypatch.setattr(T, "DRAM_REFUSALS", [0])
     dev = FakeDevice()
     a = T.input_shapes({"ref_pos": torch.zeros(5941, 3), "restype": torch.zeros(772, 32), "seed": 105})
     b = T.input_shapes({"ref_pos": torch.zeros(6202, 3), "restype": torch.zeros(791, 32)})
@@ -62,6 +63,7 @@ def evicting(monkeypatch):
     monkeypatch.setattr(T, "dram_free", lambda: 0)
     monkeypatch.setattr(T, "_TRIMULS", T.weakref.WeakSet())
     monkeypatch.setattr(T, "_ZERO_MASKS", {})
+    monkeypatch.setattr(T, "DRAM_REFUSALS", [0])
 
 
 def test_a_refusal_with_programs_cached_evicts_them_and_runs_again(evicting):
@@ -131,3 +133,23 @@ def test_a_refusal_drops_per_width_weight_copies_even_with_no_programs(evicting)
 
     assert T.evicting_programs_on_refusal(fold, dev) == "folded"
     assert tm.gp == {}
+
+
+def test_a_fold_after_a_refused_fold_starts_on_an_evicted_heap(evicting):
+    # Mol-1 at 1024 on Wormhole: each warm repeat started with less contiguous DRAM than the last,
+    # and the fourth fold was refused (state/mol1/evidence/wh1024leak/ROOT.md).
+    dev, tm = CachingDevice(programs=0), WidthVariants()
+    T._TRIMULS.add(tm)
+    a = T.input_shapes({"ref_pos": torch.zeros(5941, 3)})
+    T.program_cache_for(a, dev)
+    dev.programs = 1546
+    T.program_cache_for(a, dev)                      # a fold nobody refused stays warm
+    assert dev.programs == 1546 and tm.gp
+    T._dram_oom(RuntimeError("Out of Memory: Not enough space to allocate 4096 B L1 buffer"))
+    assert T.DRAM_REFUSALS == [0]                    # an L1 refusal says nothing about the DRAM heap
+    assert T._dram_oom(RuntimeError(REFUSAL))        # the fold handled a DRAM refusal
+    T.program_cache_for(a, dev)
+    assert dev.programs == 0 and tm.gp == {} and T.DRAM_REFUSALS == [0]
+    dev.programs = 1546
+    T.program_cache_for(a, dev)                      # and the one after a clean fold is warm again
+    assert dev.programs == 1546
