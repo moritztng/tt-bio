@@ -226,7 +226,7 @@ for (const m of D.models.concat(catModels, embedModels)) {
    keep their measured cells in the data file behind "hidden": true, so restoring them is dropping
    the flags and putting back the chart. It is the whole category or none, so a 1 here is as wrong
    as a 6. */
-const EXPECT_ROWS = { models: 8, design: 2, affinity: 1, embed: 0 };
+const EXPECT_ROWS = { models: 8, design: 3, affinity: 1, embed: 0 };
 for (const [key, n] of Object.entries(EXPECT_ROWS)) {
   const got = key === "models"
     ? predModels.length

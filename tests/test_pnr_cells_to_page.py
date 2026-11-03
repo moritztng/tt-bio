@@ -47,6 +47,13 @@ def test_a_cell_off_protocol_is_refused(break_it, msg):
         c2p.build(tt, gpu, {})
 
 
+def test_a_faster_screen_rung_below_n5_does_not_outrank_the_chosen_arm():
+    tt, gpu = copy.deepcopy(c2p.fake_cells())
+    arms = gpu["b200"]["rfd4"]["arms"]
+    arms["rung"] = dict(arms["fake-arm"], s_per_design=0.1, n=1)
+    c2p.build(tt, gpu, {})
+
+
 def test_rfd4_cells_carry_each_sides_batch():
     tt, gpu = c2p.fake_cells()
     rows = dict((r["id"], r) for _, r in c2p.build(tt, gpu, {}))

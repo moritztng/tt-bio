@@ -7,7 +7,7 @@
 The cells come from state/pnr/TT-CELLS.json (pnr-tt, qb1 p150a) and state/pnr/GPU-CELLS.json (pnr-gpu,
 one rented box per GPU), measured to state/pnr/PROTOCOL.md. Nothing here is typed by hand: the row's
 fixed facts (target, steps, batch rule) restate the protocol, every number is read from the two files.
-A GPU cell publishes the arm the file marks `chosen`, which must be the fastest arm it measured.
+A GPU cell publishes the arm the file marks `chosen`, which must be the fastest arm measured n >= 5 times.
 A Tenstorrent cell's parity is the release-gate claim perf/bmk/gate_parity.py builds, or none.
 
 --fake writes clearly fake cells (versions "FAKE", "fake": true) to --out so the render can be developed
@@ -128,7 +128,8 @@ def gpu_cell(gpu: str, mid: str, m: dict, unit: str) -> tuple[OrderedDict, str]:
     arms = m["arms"]
     if m["chosen"] not in arms:
         raise SystemExit(f"{where}: chosen arm {m['chosen']!r} is not among {sorted(arms)}")
-    fastest = min(arms, key=lambda a: arms[a][unit])
+    # A single ladder rung (n < MIN_N) is a screen, not a measurement, so it cannot outrank the chosen arm.
+    fastest = min((a for a in arms if arms[a]["n"] >= MIN_N), key=lambda a: arms[a][unit], default=m["chosen"])
     if arms[fastest][unit] < arms[m["chosen"]][unit]:
         raise SystemExit(f"{where}: chosen {m['chosen']} is slower than {fastest} (protocol: publish the fastest)")
     a = arms[m["chosen"]]
