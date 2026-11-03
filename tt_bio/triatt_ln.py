@@ -40,7 +40,6 @@ import ttnn
 from . import dest_guard
 from . import mm_generic as MG
 from . import ops
-from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_ln"
 TILE = 32
@@ -73,10 +72,6 @@ ABL = 0
 #: only: every row is read, computed and written exactly as before. OpenDDE WH normal fold, same chip, CIFs identical,
 #: 1000 MHz: 512 -0.75 s, 640 -1.36 s (stgf); per call it moves only the HiFi2 bf16 write (512 9.67 -> 8.77 ms).
 STAGGER = True
-#: reader on NOC 0 and writer on NOC 1 (mm_generic's DRAM read / write NOCs) instead of the descriptor defaults
-#: (reader NOC 1, writer NOC 0). The call is bound by its writes (perf/spd_m_protenix/tl_attr.py ABL 11).
-#: Only the NOCs change, so the outputs are the same.
-NOCSWAP = env_flag("TT_BIO_TRIATT_LN_NOCSWAP", False)
 #: channel tiles per dest acquire in the LayerNorm's eltwise stages (kernels/common/ln_prologue.hpp LN_BLK), bit-identical
 LN_BLK = 1
 #: with two column groups (plain read), the two cores of a pair each read and norm every other row and copy the
@@ -146,15 +141,6 @@ def _cb(idx, core_grid, tiles, dtype=ttnn.bfloat16):
     fmt = ttnn.CBFormatDescriptor(buffer_index=idx, data_format=dtype, page_size=MG.tile_bytes(dtype))
     return ttnn.CBDescriptor(total_size=tiles * MG.tile_bytes(dtype), core_ranges=core_grid,
                              format_descriptors=[fmt])
-
-
-def _dm(reader):
-    """Data-movement config of the reader (RISCV_1) or the writer (RISCV_0), NOCs swapped under NOCSWAP."""
-    if not NOCSWAP:
-        return ttnn.ReaderConfigDescriptor() if reader else ttnn.WriterConfigDescriptor()
-    return ttnn.DataMovementConfigDescriptor(
-        processor=ttnn.DataMovementProcessor.RISCV_1 if reader else ttnn.DataMovementProcessor.RISCV_0,
-        noc=ttnn.NOC.NOC_0 if reader else ttnn.NOC.NOC_1)
 
 
 def _cb_bytes(kt, nw, tr, share=False):
@@ -256,12 +242,12 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
         defines=[("ABL_R", "1")] if ABL & 8 else [],
-        runtime_args=rd, common_runtime_args=[0] * 4, config=_dm(True))
+        runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
         defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq) + [("HP", "1")] * _hp(outs, H, MT),
-        runtime_args=wr, common_runtime_args=[0] * len(outs), config=_dm(False))
+        runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
@@ -344,7 +330,7 @@ def _hp(outs, H, MT):
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, NOCSWAP, tuple(cols or ()),
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()),
            _hp(outs, H, MT))
     entry = _CACHE.get(key)
     if entry is None:
