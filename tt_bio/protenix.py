@@ -2542,11 +2542,16 @@ class ConfidenceHead:
                               self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
         pde_logits = F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
                               self._g("linear_no_bias_pde.weight"))                          # (N,N,n_bins)
+        return self._postprocess(pae_logits, pde_logits, self._plddt_logits(s_single, feats), feats, keep_logits)
+
+    def _plddt_logits(self, s_single, feats):
+        """The plddt head on the host in fp32, from the pairformer's (N, 384) single track: it reads the per-token
+        part of the small channels, which a bf16 gather or layer norm on the device erases."""
+        import torch
+        import torch.nn.functional as F
         a2t = feats["atom_to_token_idx"].long(); a2ta = feats["atom_to_tokatom_idx"].long()
-        a = s_single[a2t]
-        aln = F.layer_norm(a, (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
-        plddt_logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])        # (N_atom, n_bins)
-        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats, keep_logits)
+        aln = F.layer_norm(s_single[a2t], (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
+        return torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])                # (N_atom, n_bins)
 
     # ---------------------------------------------------------------------------
     # Device-resident confidence path (opt-in). The host path (confidence())
@@ -2558,8 +2563,8 @@ class ConfidenceHead:
     # sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] + s2(s_inputs)
     # [None,:] is computed ONCE on device, and per-sample only the (N,3) coords
     # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
-    # run on device, and only the small final logits (pae/pde (N,N,64), plddt
-    # (N_atom,50)) are downloaded. Feature-detected + gated behind
+    # run on device (plddt on the host from the downloaded (N,384) single track), and
+    # only the small finals (pae/pde (N,N,64), s (N,384)) are downloaded. Feature-detected + gated behind
     # TT_PROTENIX_CONF_DEVICE, on by default: it passed the normal-mode grade on
     # Wormhole (11 complexes x 4 seeds) for Protenix-v2 (pLDDT within 0.003 per
     # complex) and for OpenDDE (coordinates unchanged, CA-lDDT +0.0009).
@@ -2616,18 +2621,7 @@ class ConfidenceHead:
         F32 = lambda k: ttnn.from_torch(self._g(k).reshape(1, 1, 1, -1), layout=ttnn.TILE_LAYOUT,
                                         device=self.dev, dtype=ttnn.float32)
         lb4, ub4 = F32("lower_bins"), F32("upper_bins")
-        # plddt per-atom-type weight table (24, 384, 50) -> flat (24, 384*50) for embedding gather
-        pw = self._g("plddt_weight")                                       # (n_tokatom, 384, 50)
-        n_ta, c, nb = pw.shape
-        pw_dev = ttnn.from_torch(pw.reshape(n_ta, c * nb).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
-                                 device=self.dev, dtype=ttnn.bfloat16)
-        a2ta = feats["atom_to_tokatom_idx"].long().to(torch.int32).reshape(-1, 1)  # (N_atom,1)
-        a2ta_dev = ttnn.from_torch(a2ta, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        a2t = feats["atom_to_token_idx"].long().to(torch.int32).reshape(-1, 1)     # (N_atom,1) -> s_single gather
-        a2t_dev = ttnn.from_torch(a2t, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, lb4=lb4, ub4=ub4, N=N,
-                     pw_dev=pw_dev, a2ta_dev=a2ta_dev, a2t_dev=a2t_dev,
-                     pw_shape=(n_ta, c, nb))
+        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, lb4=lb4, ub4=ub4, N=N)
         return cache
 
     def drop_device_resident(self):
@@ -2716,15 +2710,16 @@ class ConfidenceHead:
 
     def _postprocess_read(self, reads, feats, keep_logits=False):
         """`_postprocess` of one sample's logits as `hostlane.read` returned them."""
-        pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
+        pae, pde, s_single = (torch.Tensor(h.to_torch()).float() for h in reads)
         N = pae.shape[-2]
         return self._postprocess(pae.reshape(N, N, -1), pde.reshape(N, N, -1),
-                                 plddt.reshape(plddt.shape[0], -1), feats, keep_logits)
+                                 self._plddt_logits(s_single.reshape(N, -1), feats), feats, keep_logits)
 
     def _confidence_device_logits(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """The device half of `confidence_device`: enqueued, not read. Returns the pae and pde
-        logits (1,N,N,64) and the plddt logits (N_atom,1,50) on the device, still in their
-        device shapes (a tiled reshape would move data the host reshape does not)."""
+        logits (1,N,N,64) and the pairformer's fp32 single track (N,384) on the device, still in
+        their device shapes (a tiled reshape would move data the host reshape does not); the plddt
+        head runs on the host from the latter (`_plddt_logits`)."""
         import torch, ttnn
         # Tapped because the trunk and the diffusion stream are, and this was not: three AbAg-XM
         # targets fail ~1300 s in, long after the trunk, at refused sizes that match no trunk
@@ -2766,25 +2761,11 @@ class ConfidenceHead:
         pde_logits = self._dev_lin(pde_ln, "linear_no_bias_pde.weight")      # (1,N,N,64)
         for t in (pde_ln, zot, zof):
             ttnn.deallocate(t)
-        # plddt: a = s_single[a2t]; aln = LN(a)*w+b; logits = einsum('nc,ncb->nb', aln, pw[a2ta])
+        # plddt runs on the host (`_plddt_logits`) from the fp32 single track, read off with the logits
         s_single = ttnn.reshape(so, (N, 384))
-        a = ttnn.embedding(rc["a2t_dev"], ttnn.to_layout(s_single, ttnn.ROW_MAJOR_LAYOUT),
-                           layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # (N_atom,1,384)
-        a = ttnn.to_layout(ttnn.reshape(a, (a.shape[0], 384)), ttnn.TILE_LAYOUT)
-        aln = ttnn.layer_norm(a, weight=self._wtt("plddt_ln.weight", False),
-                              bias=(self._wtt("plddt_ln.bias", False) if "plddt_ln.bias" in self._w else None),
-                              epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        n_ta, c, nb = rc["pw_shape"]
-        pw_g = ttnn.embedding(rc["a2ta_dev"], rc["pw_dev"], layout=ttnn.ROW_MAJOR_LAYOUT,
-                              memory_config=ttnn.DRAM_MEMORY_CONFIG)          # (N_atom,1, c*nb)
-        pw_g = ttnn.reshape(pw_g, (a.shape[0], c, nb))                       # (N_atom, 384, 50)
-        pw_g = ttnn.to_layout(pw_g, ttnn.TILE_LAYOUT)
-        # einsum nc,ncb->nb  ==  batched (N_atom,1,384) @ (N_atom,384,50) -> (N_atom,1,50)
-        aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
-        plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
         dram_peak("confidence: heads done, before download")
         # ---- the small finals are downloaded and post-processed on host by the caller ----
-        return pae_logits, pde_logits, plddt_logits
+        return pae_logits, pde_logits, s_single
 
     def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats, keep_logits=False):
         """Shared host-side post-processing: softmax over bins -> expected
