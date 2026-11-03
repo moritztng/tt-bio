@@ -11,11 +11,16 @@
 // (the next group's: a bfp8 split at 2H leaves group 0 one v tile it computes bf16 but does not own).
 #include "api/dataflow/dataflow_api.h"
 
+#ifndef HM
+#define HM 0      // triatt_ln.BIAS_HEADS: the bias goes head-major to [1, hm, S, S] (runtime arg 8 = hm, 0 off this group)
+#endif
+
 // Row tile of the i-th row this core writes. Plain: r0 + i. TR (runtime arg 2, reader.cpp): r0 is the first
 // unit, 16 rows a unit, row k of unit (bt, jt, half) is row tile (bt * 32 + half * 16 + k) * MT + jt of z^T.
-// Plain rows rotate by s (runtime arg 7, triatt_ln.STAGGER, 0 under TR): row i is r0 + (i + s) % nrows.
+// Plain rows rotate by s (runtime arg 7, triatt_ln.STAGGER, 0 under TR): row i is r0 + (i + s) % nrows. HM takes TR's
+// units for plain rows as well (r0 a unit, row k of unit u then a row tile of x itself), s 0.
 inline uint32_t row_of(uint32_t r0, uint32_t i) {
-    if (!get_arg_val<uint32_t>(2)) {
+    if (!HM && !get_arg_val<uint32_t>(2)) {
         const uint32_t ir = i + get_arg_val<uint32_t>(7);
         return r0 + (ir >= get_arg_val<uint32_t>(1) ? ir - get_arg_val<uint32_t>(1) : ir);
     }
@@ -67,6 +72,13 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
     const uint32_t nq = NQ ? get_arg_val<uint32_t>(5) : 0, n_end = NQ ? get_arg_val<uint32_t>(6) : 4 * H + 1;
     const uint32_t hi_cb = NQ ? (uint32_t)tt::CBIndex::c_4 : out_cb;   // g, bias (NQ) or nothing
     const uint32_t tb_hi = get_tile_size(hi_cb);
+    // HM: the bias tile arrives transposed (h rows, j columns) for the 16 b of a unit in turn. Row h of the tile for
+    // b = half * 16 + k is row k of head h's output tile (h, bt, jt), so it goes to row k of faces 2 * half and
+    // 2 * half + 1, the half's contiguous KB. A head's KB is gathered in a c_15 stage (two, alternating by unit, so
+    // a stage is rewritten only after the row flush that follows its writes) and written once the unit is whole.
+    constexpr uint32_t ROW = 32, FACE = 16 * ROW, HALF = 2 * FACE;
+    const uint32_t hm = HM ? get_arg_val<uint32_t>(8) : 0;
+    const uint32_t stage = HM ? get_write_ptr(tt::CBIndex::c_15) : 0;
     for (uint32_t i = 0; i < nrows; ++i) {
         const uint32_t r = row_of(r0, i);
         cb_wait_front(out_cb, NQ ? nq : NW);
@@ -85,7 +97,26 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
                 case 1: noc_async_write_page(page, ok, s); break;
                 case 2: noc_async_write_page(page, ov, s); break;
                 case 3: noc_async_write_page(page, og, s); break;
-                default: noc_async_write_page(r, ob, s);
+                default:
+                    if constexpr (HM) {
+                        const uint32_t k = i % 16, st = stage + ((i / 16) & 1) * hm * HALF;
+                        for (uint32_t h = 0; h < hm; ++h) {
+                            const uint32_t src = s + (h >> 4) * HALF + (h & 15) * ROW;
+                            noc_async_read(get_noc_addr(src), st + h * HALF + k * ROW, ROW);
+                            noc_async_read(get_noc_addr(src + FACE), st + h * HALF + FACE + k * ROW, ROW);
+                        }
+                    } else {
+                        noc_async_write_page(r, ob, s);
+                    }
+            }
+        }
+        if (HM && hm) {
+            noc_async_read_barrier();
+            if (i % 16 == 15) {
+                const uint32_t u = r0 + i / 16, bt = (u >> 1) / MT, jt = (u >> 1) % MT;
+                const uint32_t st = stage + ((i / 16) & 1) * hm * HALF;
+                for (uint32_t h = 0; h < hm; ++h)
+                    if constexpr (!ABL_W) noc_async_write(st + h * HALF, ob.get_noc_addr((h * MT + bt) * MT + jt) + (u & 1) * HALF, HALF);
             }
         }
         noc_async_writes_flushed();
