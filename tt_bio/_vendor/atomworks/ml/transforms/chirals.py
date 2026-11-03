@@ -364,6 +364,7 @@ def add_af3_chiral_features(
     _res_starts, _res_ends = _res_start_ends[:-1], _res_start_ends[1:]
 
     all_chirals = []
+    conformers = {}  # tt-bio: every residue of a CCD code reads the same conformer 0, so convert it once per code
     for res_start, res_end in zip(_res_starts, _res_ends, strict=False):
         res_name = atom_array.res_name[res_start]
 
@@ -377,11 +378,9 @@ def add_af3_chiral_features(
             logger.warning(f"No RDKit molecule found for residue {res_name}, skipping chiral features")
             continue
 
-        conformer = atom_array_from_rdkit(
-            rdmol,
-            conformer_id=0,
-            remove_hydrogens=False,
-        )
+        conformer = conformers.get(res_name)
+        if conformer is None:
+            conformer = conformers[res_name] = atom_array_from_rdkit(rdmol, conformer_id=0, remove_hydrogens=False)
         _ref_to_conf_map = _get_reference_conformer_to_residue_mapping(
             atom_names=atom_array.atom_name[res_start:res_end], conformer=conformer
         )
