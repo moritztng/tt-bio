@@ -15,6 +15,12 @@
 
 #include "api/dataflow/dataflow_api.h"
 
+// T1WFL (trimul_tail.T1_WFL): end each channel tile on a write flush (the staging is free to reuse once its bytes have
+// left L1) instead of a write barrier (every write acknowledged by DRAM). The kernels still barrier once at the end.
+#ifndef T1WFL
+#define T1WFL 0
+#endif
+
 namespace t1_gather {
 
 constexpr uint32_t TB = 2048, FB = 512, RB = 32;
@@ -145,7 +151,8 @@ struct Gather {
                 for (uint32_t c = 0; c < 32; ++c)
                     noc_async_write(hold + c * HB, out.get_noc_addr(page0 + c * SS, (r0 >> 4) * HB), HB);
         }
-        noc_async_write_barrier();
+        if constexpr (T1WFL) noc_async_writes_flushed();
+        else noc_async_write_barrier();
         dirty[0] = dirty[1] = false;
         cb_pop_front(src_cb, IL);
     }

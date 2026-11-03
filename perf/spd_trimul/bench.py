@@ -183,6 +183,12 @@ def _t1_split(v):
     return prev
 
 
+def _t1_wfl(v):
+    """T1's gather ends each channel tile on a write flush instead of a barrier (TTL.T1_WFL), bit-identical."""
+    prev, TTL.T1_WFL = TTL.T1_WFL, v
+    return prev
+
+
 def _t2_mb2(on):
     """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
     prev = (10, 10) in TTL.T2_BLOCK
@@ -233,6 +239,7 @@ LEVERS = {
     "t1lnb4": [(_t1_lnblk, 4)],
     "t1g8": [(_t1_g8, True)],
     "t1split": [(_t1_split, 1)],
+    "t1wfl": [(_t1_wfl, 1)],
     "bres256": [(T.set_trimul_bres_reuse, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
