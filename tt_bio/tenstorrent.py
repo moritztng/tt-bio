@@ -8633,9 +8633,11 @@ def evicting_programs_on_refusal(run, dev=None):
 
     Device tensors derived per shape and kept for reuse go with the programs: the triangle
     multiplications' in-projection copies, one set per chunk width (`drop_width_variants`), and
-    fused_sdpa's zero masks, one per length. Program eviction alone left them, so on JapanFold's
-    ESMFold2 workers (2026-11-02) the retry was refused too, at ~1010 of 1040 MB per bank
-    allocated. The retry rebuilds the ones its shape needs from host copies.
+    fused_sdpa's zero masks, one per length. Program eviction alone left them: on a Wormhole
+    chip after ESMFold2 folds of 509, 1000, 700, 420 and 600 tokens it freed down to 651-653 MB
+    per bank, and dropping these too reaches 622-624 (2026-11-03). JapanFold's ESMFold2 retries
+    were refused 128 B per bank short of a 1.4 MB block (2026-11-02). The retry rebuilds the
+    copies its shape needs from the host weights, byte for byte.
     """
     try:
         return run()
