@@ -158,6 +158,14 @@ def _pb_abl(v):
     return prev
 
 
+def _t1_g8(on):
+    """trimul_t1g8 at Mol-1's T1 keys too (c_z 320 and 448): g_out bfp8 from T1, read so by the tail."""
+    prev = TTL.T1_G8
+    TTL.T1_G8 = bool(on)
+    TTL.T1_G8_KEYS |= {(10, 20, 10), (14, 28, 14)} if on else set()
+    return prev
+
+
 def _t1_lnblk(v):
     """T1's LayerNorm stages on v channel tiles per dest acquire (TTL.T1_LN_BLK), bit-identical."""
     prev, TTL.T1_LN_BLK = TTL.T1_LN_BLK, int(v)
@@ -212,6 +220,7 @@ LEVERS = {
     "t1noz": [(_t1_abl, 16)],
     "t1nozln": [(_t1_abl, 17)],
     "t1lnb4": [(_t1_lnblk, 4)],
+    "t1g8": [(_t1_g8, True)],
     "bres256": [(T.set_trimul_bres_reuse, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
