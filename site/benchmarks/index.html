@@ -10,7 +10,7 @@
 <link rel="icon" href="../assets/icon-500.png?v=c70df9a5" sizes="500x500" type="image/png">
 <link rel="apple-touch-icon" href="../assets/apple-touch-icon.png?v=b63e0473" sizes="180x180">
 <title>TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware</title>
-<meta name="description" content="Eleven open biomolecular models measured on Tenstorrent hardware: eight folding, two binder design and one binding affinity. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
+<meta name="description" content="Twelve open biomolecular models measured on Tenstorrent hardware: eight folding, three binder design and one binding affinity. Seconds per prediction and throughput per dollar against NVIDIA H200, B200 and A100 at 512 residues, with every number's provenance on the page.">
 <link rel="preload" href="../assets/geist-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../assets/site.css?v=12112f56?v=rf1">
 <style>
@@ -409,7 +409,7 @@ details.disclose > div{ padding-top:var(--s-4); }
    * nothing else. Adding a category here draws it everywhere. */
   var CATEGORIES = [
     { key: "design", label: "Design", methodsLabel: "Binder design",
-      one: "design", many: "designs", sub: "binder design, one at a time" },
+      one: "design", many: "designs", sub: "binder design" },
     { key: "affinity", label: "Affinity", methodsLabel: "Binding affinity",
       one: "prediction", many: "predictions", sub: "binding affinity, no structure" }
   ];
@@ -470,6 +470,7 @@ details.disclose > div{ padding-top:var(--s-4); }
     if (c.ref) bits.push(c.ref === "kit" ? "Anthropic kit, exact mode" : "authors' release");
     var run = [];
     if (c.n) run.push("median of " + c.n);
+    if (c.batch !== undefined) run.push("batch " + c.batch);
     if (c.clock_mhz || c.aiclk_mhz) run.push((c.clock_mhz || c.aiclk_mhz) + " MHz");
     if (c.when) run.push(String(c.when).slice(0, 10));
     if (run.length) bits.push(run.join(", "));
@@ -742,7 +743,8 @@ details.disclose > div{ padding-top:var(--s-4); }
         max = Math.max(max, secs(c));
         return {
           series: p.name, seriesShort: p.short, color: SER[k], value: secs(c), kit: c.ref === "kit",
-          label: fmtSec(secs(c), 1) + " s",
+          label: fmtSec(secs(c), 1) + " s" + (c.batch !== undefined && c.batch !== m.batch ? " (b" + c.batch + ")" : ""),
+          labelShort: fmtSec(secs(c), 1) + " s",
           tip: tip(m, k, fmtSec(secs(c)) + " s per " + r.c.one + "\n" + m.target)
         };
       });
@@ -838,8 +840,13 @@ details.disclose > div{ padding-top:var(--s-4); }
     /* Steps means whatever step count that model is defined by: sampling steps for a design,
      * recycling passes for an affinity prediction. The cell says which. */
     function stepsCell(m) {
+      if (m.iterations !== undefined) return m.iterations + " iterations";
       return m.sampling_steps === undefined
         ? m.recycling_steps + " recycles" : m.sampling_steps + " sampling";
+    }
+    /* A row whose two sides run at different batch sizes prints each cell's batch beside its seconds. */
+    function batchOf(m, c) {
+      return c.batch !== undefined && c.batch !== m.batch ? " <span class=\"blocked\">b" + c.batch + "</span>" : "";
     }
     document.getElementById("t-design").innerHTML =
       "<thead><tr><th>Model</th><th class=\"n\">Steps</th><th>Batch</th>" +
@@ -849,7 +856,7 @@ details.disclose > div{ padding-top:var(--s-4); }
         return "<tr><td>" + m.name + "</td><td class=\"n num\">" + stepsCell(m) + "</td>" +
           "<td class=\"num\">" + m.batch + "</td>" +
           CELLS.map(function (k) {
-            return gpuCell(m.cells[k], function (c) { return fmtSec(secs(c)); });
+            return gpuCell(m.cells[k], function (c) { return fmtSec(secs(c)) + batchOf(m, c); });
           }).join("") + "</tr>";
       }).join("") + "</tbody>";
 

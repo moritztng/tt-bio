@@ -79,6 +79,8 @@ def unlabelled(doc: dict) -> list[str]:
                 if c.get("status") != "measured":
                     continue
                 where = f"{cat}/{row['id']}/{k}"
+                if c.get("fake") or "FAKE" in str(c.get("versions", "")):
+                    bad.append(f"{where} is a fake render fixture (perf/pnr/cells_to_page.py --fake)")
                 if vendor.get(k) == "nvidia" and c.get("ref") not in ("kit", "stock"):
                     bad.append(f"{where} has no ref (kit or stock)")
                 if not c.get("provenance"):
@@ -186,9 +188,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--strip", action="store_true", help="move incomplete rows to the pending file")
     ap.add_argument("--restore", action="store_true", help="publish pending rows that are complete")
+    ap.add_argument("--data", type=Path, default=DATA, help="verify a local copy instead (verify mode only)")
     args = ap.parse_args()
+    if args.data != DATA and (args.strip or args.restore):
+        raise SystemExit("--data is for verifying a copy; --strip and --restore edit the published file")
 
-    doc = json.loads(DATA.read_text())
+    doc = json.loads(args.data.read_text())
     pending = json.loads(PENDING.read_text()) if PENDING.exists() else {"rows": []}
     changed = []
 

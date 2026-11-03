@@ -86,6 +86,13 @@ The numbers come from the campaign board, `~/.coworker/state/bmk/BOARD.md`, wher
 the command line that produced it. `python3 perf/bmk/board_to_page.py` shows what it would change
 and `--write` applies it; it also lists any cell still carrying a number from before the board.
 
+The Mol-1, BindCraft 2 and RFD4-Proteina rows come instead from the PNR cell files,
+`~/.coworker/state/pnr/TT-CELLS.json` and `GPU-CELLS.json`, through `python3 perf/pnr/cells_to_page.py
+--gate <release gate dir> [--rows ...] --write`, which refuses a cell under 5 runs, below 1200 MHz AICLK, or
+whose GPU arm is not the fastest one measured 5 times. A design cell is seconds per design: wall time
+divided by designs. RFD4-Proteina runs each processor at its own best batch, so its cells carry a `batch`
+and the page prints it. `python3 perf/pnr/per_dollar.py` prints each row's Galaxy vs DGX B200 ratio.
+
 Every Tenstorrent cell states which parity it holds in `parity`, and Methods lists them:
 bit-exact, byte-identical, or a measured structural delta inside a bar that was fixed before the
 number existed. A cell with no measurement gets a `status` other than `measured` plus a reason, and the two
