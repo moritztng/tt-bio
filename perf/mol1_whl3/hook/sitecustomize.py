@@ -80,7 +80,21 @@ def _patch(mod):
             return out
         setattr(owner, fn, wrap)
 
+    # WHL4_HEADBLK=1: the fold's first confidence Pairformer (sample 0): every block's (s, z) in and out, to
+    # WHL3_DUMP/headblk.pt, for `perf/mol1_whl4/head_blk.py` to grade each block against float64
+    headblk = {"want": bool(os.environ.get("WHL4_HEADBLK")), "on": False, "recs": [], "n": 4}
+    T = lambda t: ttnn.to_torch(t).float().clone()
+
     def layer_call(self, s, *a, **kw):
+        if headblk["on"]:
+            rec = [T(s), T(a[0] if a else kw["z"])]
+            so, zo = orig_layer(self, s, *a, **kw)
+            headblk["recs"].append(rec + [T(so), T(zo)])
+            if len(headblk["recs"]) == headblk["n"]:
+                headblk["on"] = False
+                torch.save(headblk["recs"], os.path.join(_OUT, "headblk.pt"))
+                print("WHL4 headblk saved", flush=True)
+            return so, zo
         if s is not None and getattr(self, "transition_s", None) is not None:
             if tap["n"] == tap["at"]:
                 tap["mod"] = self.transition_s
@@ -126,6 +140,9 @@ def _patch(mod):
             if _OUT:
                 os.makedirs(_OUT, exist_ok=True)
                 torch.save(layers.pop("s"), os.path.join(_OUT, "layers.pt"))
+        if headblk["want"] and _OUT:
+            headblk["want"], headblk["on"] = False, True
+            os.makedirs(_OUT, exist_ok=True)
         out = orig_conf(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats, keep_logits)
         if not _OUT or os.path.exists(os.path.join(_OUT, "arms.pt")):
             return out
