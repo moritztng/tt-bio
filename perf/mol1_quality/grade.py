@@ -301,28 +301,30 @@ def main():
     for test in [x for x in arms if x.startswith("tt_")]:  # tt_bh, tt_wh, and A/B arms such as tt_bh_b
         arch = test[3:]
         # a case the GPU arm never produced (8jik smiles: no input staged) is no TT miss
-        base_has = {r["case"] for r in ok if r["arm"] == "gpu"}
+        base_has = {r["case"].split("|")[0] for r in ok if r["arm"] == "gpu"}  # graded rows carry "id|interface"
         mine = [r for r in rows if r["arm"] == test and r.get("missing")]
         missing = sorted({r["case"] for r in mine if r["case"] in base_has and not r.get("refused_cap")})
         refused = sorted({r["case"] for r in mine if r.get("refused_cap")})
         sd = arm_seeds.get(test)
-        v = stats.verdict(ok, test, conf_split=split, seeds=sd)
-        per_set[arch] = {s: stats.verdict(ok, test, cases={r["case"] for r in ok if r["set"] == s}, conf_split=split, seeds=sd)
+        # a refused case is out of this arch's range: graded on the cases it serves, the other arms' folds of it left out
+        tok = [r for r in ok if r["case"].split("|")[0] not in refused]
+        v = stats.verdict(tok, test, conf_split=split, seeds=sd)
+        per_set[arch] = {s: stats.verdict(tok, test, cases={r["case"] for r in tok if r["set"] == s}, conf_split=split, seeds=sd)
                          for s in sets}
         failed_sets = [s for s, x in per_set[arch].items() if x["verdict"] == "FAIL"]
         verdict = "FAIL" if missing or failed_sets or v["verdict"] == "FAIL" else v["verdict"]
         per_arch[arch] = {"verdict": verdict, "pooled": v, "failed_sets": failed_sets, "missing": missing,
                           "refused_by_cap": refused,
-                          "seeds": list(sd) if sd else sorted({r["seed"] for r in ok if r["arm"] == test})}
+                          "seeds": list(sd) if sd else sorted({r["seed"] for r in tok if r["arm"] == test})}
         if split:
-            per_arch[arch]["pooled_all_cases"] = stats.verdict(ok, test, seeds=sd)
+            per_arch[arch]["pooled_all_cases"] = stats.verdict(tok, test, seeds=sd)
         if "gpu_fp32" in arms:  # D-orch-56: all cases, the test arm's seeds that upstream fp32 also ran
-            fs = tuple(sorted(set(sd or {r["seed"] for r in ok if r["arm"] == test}) & fp32_seeds))
+            fs = tuple(sorted(set(sd or {r["seed"] for r in tok if r["arm"] == test}) & fp32_seeds))
             def d56(cases=None):
-                return stats.with_fp32(stats.verdict(ok, test, cases=cases, seeds=fs),
-                                       stats.verdict(ok, test, base="gpu_fp32", floor_base="gpu", cases=cases, seeds=fs))
+                return stats.with_fp32(stats.verdict(tok, test, cases=cases, seeds=fs),
+                                       stats.verdict(tok, test, base="gpu_fp32", floor_base="gpu", cases=cases, seeds=fs))
             pooled = d56()
-            sets56 = {s: d56({r["case"] for r in ok if r["set"] == s}) for s in sets}
+            sets56 = {s: d56({r["case"] for r in tok if r["set"] == s}) for s in sets}
             failed56 = [s for s, x in sets56.items() if x["verdict"] == "FAIL"]
             per_arch[arch]["d_orch_56"] = {"seeds": list(fs), "pooled": pooled, "per_set": sets56, "failed_sets": failed56}
             per_arch[arch]["chartered_verdict"] = verdict
