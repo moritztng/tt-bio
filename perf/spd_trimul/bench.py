@@ -159,10 +159,9 @@ def _pb_abl(v):
 
 
 def _t1_g8(on):
-    """trimul_t1g8 at Mol-1's T1 keys too (c_z 320 and 448): g_out bfp8 from T1, read so by the tail."""
+    """trimul_t1g8 (T1_G8_KEYS): g_out bfp8 from T1, read so by the tail."""
     prev = TTL.T1_G8
     TTL.T1_G8 = bool(on)
-    TTL.T1_G8_KEYS |= {(10, 20, 10), (14, 28, 14)} if on else set()
     return prev
 
 

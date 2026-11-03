@@ -1811,9 +1811,10 @@ def t1_cb_plan(kt, ct2, ntg, mask, rb=None, nb=None, il=None, w8=False, split=Fa
 
 T1_W_CBS = (0, 18)                # the resident weight CBs, bfp8 under trimul_t1w8
 T1_B8_CBS = (2, 21, 24, 25)       # a / b on their way out and the gather staging, bfp8 under trimul_t1b8
-# trimul_t1g8: g_out (c_19 and the DRAM tensor) bfp8. RFD4's key only; T1_G8 forces it on for the benches.
+# trimul_t1g8: g_out (c_19 and the DRAM tensor) bfp8 at RFD4's key and Mol-1's c_z 320 / 448 keys (whichever model
+# turns the lever on); T1_G8 forces it on for the benches.
 T1_G8 = False
-T1_G8_KEYS = {(12, 16, 12)}
+T1_G8_KEYS = {(12, 16, 12), (10, 20, 10), (14, 28, 14)}
 # trimul_t1_fgate: p and g of a channel tile in one 2 x 2 matmul block and a = p * sigmoid(g) on the packer's SFPU in
 # DST, no p / g round trip through L1 and no FPU gate multiply (kernels/trimul_in_t1 T1FGATE). Unmasked calls with the
 # packer sigmoid only: the mask multiply has no room in a 4-tile fp32 DST half. T1_FG forces it on for the benches.
