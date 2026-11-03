@@ -14280,29 +14280,36 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
 _FP32_NORM_PARAMS = {}
 
 
-def _fp32_row_mean(x, ckc, mc):
-    """Mean over the last dim of an fp32 `x`, to fp32 precision on either arch.
+def _fp32_row_sum(x, mc):
+    """Sum over the last dim (a multiple of 32) of an fp32 `x` from fp32 elementwise adds only: tile columns folded in
+    halves while their count is even, the rest added in turn, then the 32 columns of one tile halved down to one.
 
-    `ttnn.mean` reduces through the FPU, whose source registers hold 19 bits (tf32) on Wormhole: on Mol-1's trunk
-    block 43 input (rows up to 3e5) the mean was off by 2.2e-3 sigma per token and the layer norm's per-token part
-    by 3.3x itself (float64 reference, perf/mol1_whl4/ln_split_probe.py). Split as x = bf16(x) + rest, every term
-    is exact in the source registers, so the two reductions add up to the fp32 mean: 0.043 there. A third term
-    reads the same (0.043), so what is left is the reduction's own; centring on token 0's row first read 1.29.
+    Wormhole's FPU reductions do not hold fp32 here: on Mol-1's trunk block 43 input `ttnn.sum` and a matmul with ones
+    both land the 32-column partial of xc^2 1.07e-3 off and the layer norm's per-token part 0.50 off, where these
+    adds give 1.6e-7 and 3.1e-4 against a 1.3e-4 fp32 floor (perf/mol1_whl4/ln_var_probe.py, one .111 chip). The
+    tokens of a single track share a vector ~1e3x their differences, so 1/sigma needs ~1e-6 per token.
     """
-    hi = ttnn.typecast(ttnn.typecast(x, ttnn.bfloat16, memory_config=mc), ttnn.float32, memory_config=mc)
-    lo = ttnn.subtract(x, hi, memory_config=mc)
-    m_hi = ttnn.mean(hi, dim=-1, keepdim=True, compute_kernel_config=ckc, memory_config=mc)
-    ttnn.deallocate(hi)
-    m_lo = ttnn.mean(lo, dim=-1, keepdim=True, compute_kernel_config=ckc, memory_config=mc)
-    ttnn.deallocate(lo)
-    out = ttnn.add(m_hi, m_lo, memory_config=mc)
-    ttnn.deallocate(m_hi)
-    ttnn.deallocate(m_lo)
-    return out
+    lead = list(x.shape[:-1])
+    w = x.shape[-1]
+    if w % 32:
+        raise ValueError(f"_fp32_row_sum: last dim {w} is not a multiple of 32")
+    sl = lambda t, a, b: ttnn.slice(t, [0] * len(lead) + [a], lead + [b], memory_config=mc)
+    while w > 32 and (w // 32) % 2 == 0:
+        w //= 2
+        x = ttnn.add(sl(x, 0, w), sl(x, w, 2 * w), memory_config=mc)
+    t = sl(x, 0, 32) if w > 32 else x
+    for c in range(32, w, 32):
+        t = ttnn.add(t, sl(x, c, c + 32), memory_config=mc)
+    w = 32
+    while w > 1:
+        w //= 2
+        t = ttnn.add(sl(t, 0, w), sl(t, w, 2 * w), memory_config=mc)
+    return t
 
 
 def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memory_config=None):
-    """Layer norm over the last dim from fp32 primitives (mean, centred variance, rsqrt), written at `dtype`.
+    """Layer norm over the last dim from fp32 primitives (mean, centred variance, rsqrt), written at `dtype`. Both
+    statistics are sums of fp32 elementwise adds (`_fp32_row_sum`), not FPU reductions.
 
     For Wormhole's single track, where `ttnn.layer_norm` gets each row's 1/sigma only to ~0.3 % (std, any
     fidelity, fp32 dest or fp32 input alike). Mol-1's trunk block 43 single Transition normalizes a ~149-valued
@@ -14318,11 +14325,12 @@ def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memo
                                            ttnn.typecast(bias, ttnn.float32))
     mc = memory_config
     x32 = ttnn.typecast(x, ttnn.float32, memory_config=mc) if x.dtype != ttnn.float32 else x
-    xc = ttnn.subtract(x32, _fp32_row_mean(x32, compute_kernel_config, mc), memory_config=mc)
+    inv_w = 1.0 / x.shape[-1]
+    xc = ttnn.subtract(x32, ttnn.multiply(_fp32_row_sum(x32, mc), inv_w, memory_config=mc), memory_config=mc)
     if x32 is not x:
         ttnn.deallocate(x32)
     sq = ttnn.multiply(xc, xc, memory_config=mc)
-    var = _fp32_row_mean(sq, compute_kernel_config, mc)
+    var = ttnn.multiply(_fp32_row_sum(sq, mc), inv_w, memory_config=mc)
     ttnn.deallocate(sq)
     inv = ttnn.rsqrt(ttnn.add(var, epsilon, memory_config=mc), memory_config=mc)
     ttnn.deallocate(var)
