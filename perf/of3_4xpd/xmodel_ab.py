@@ -28,7 +28,7 @@ from pathlib import Path
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True,
-                    help="boltz2 | esmfold2 | protenix-v2 | opendde | openfold3")
+                    help="boltz2 | esmfold2 | protenix-v2 | mol1 | opendde | openfold3")
     ap.add_argument("--tree", type=Path, required=True, help="source tree to import tt_bio from")
     ap.add_argument("--size", type=int, default=512)
     ap.add_argument("--repeat", type=int, default=3)
@@ -82,6 +82,8 @@ def main():
 
     import tt_bio.tenstorrent as T
     import tt_baseline as B
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # perf/ for clocksample
+    import clocksample
     from tt_bio.main import (_resolve_sampling_steps, _resolve_recycling_steps,
                              _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
     assert Path(T.__file__).resolve().is_relative_to(tree), \
@@ -181,9 +183,13 @@ def main():
            "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
            "loadavg": open("/proc/loadavg").read().split()[:3], "folds": []}
 
+    # AICLK sampled during each fold: on Blackhole the clock sets the fold time, so a fold without
+    # its clock is not a measurement.
     def one(tag):
         phase_s.clear()
-        fold_s, m = one_fold()
+        with clocksample.during(period=1.0) as clk:
+            fold_s, m = one_fold()
+        cs = clk.summary().get(0) or {}
         for p in sorted(struct_dir.glob("*.cif")):  # the structure itself, for an RMSD between arms
             shutil.copyfile(p, a.out.parent / f"{tag}_{p.name}")
         plddt = m.get("plddt")
@@ -196,6 +202,7 @@ def main():
                 "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
                                for p in sorted(struct_dir.glob("*")) if p.is_file()},
                 "loadavg": open("/proc/loadavg").read().split()[:3],
+                "aiclk": {k: cs.get(k) for k in ("median", "min", "max", "n")},
                 **({"phases": {k: round(v, 3) for k, v in phase_s.items()}} if a.phases else {})}
 
     def flush():
@@ -290,8 +297,11 @@ def main():
         w = sorted(f["fold_s"] for f in res["folds"])
         res["median_s"] = round(statistics.median(w), 3)
         res["spread_s"] = round(w[-1] - w[0], 3)
-        print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s",
-              flush=True)
+        clks = [f["aiclk"] for f in res["folds"] if f["aiclk"].get("median") is not None]
+        res["aiclk_mhz"] = statistics.median(c["median"] for c in clks) if clks else None
+        res["aiclk_min"] = min(c["min"] for c in clks) if clks else None
+        print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s "
+              f"aiclk median {res['aiclk_mhz']} min {res['aiclk_min']} MHz", flush=True)
 
     if a.instrument:
         res["phase_times"] = meta["phase_times"]
