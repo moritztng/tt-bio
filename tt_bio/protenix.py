@@ -448,6 +448,13 @@ DEFAULT_MAX_PARALLEL_SAMPLES = 5
 # A Blackhole part has 32 GiB and has never needed this, but deep-MSA targets there will now
 # chunk too. That is numerically inert; it is NOT perf-measured on Blackhole yet.
 MSA_ROW_CHUNK_BUDGET_BYTES = 1 << 28      # 0.25 GiB
+# The update chunk is MSA_CHUNK_SIZE rows per MSA_CHUNK_DRAM_STEP of the part's DRAM: 512 on a 12 GiB
+# Wormhole chip, 2048 on a 31.9 GiB Blackhole. Fewer, larger chunks cut the per-chunk PWA/transition
+# overhead: Mol-1 at 1024 tokens and depth 6865 on a p150a @1350, 294.7 -> 289.5 s warm median,
+# same-seed RMSD 0.118 A against a 0.61 A seed floor (OPM sums its depth per chunk, so not bit-exact).
+# A 2048-row chunk is 256 MiB at 1024 tokens; the whole 6865-row path (858 MiB) also fits there and
+# is no faster (294.9 s). Evidence: state/mol1/evidence/bh-msastack/MSA.md.
+MSA_CHUNK_DRAM_STEP = 15 << 29            # 7.5 GiB
 
 
 
@@ -650,7 +657,7 @@ def _msa_row_chunk_size():
     chunk-path plumbing changes the numbers": with one chunk the arithmetic is the whole
     path's, so any remaining difference is the slice/reshape/concat wrapper, not the split."""
     v = os.environ.get("TT_BIO_MSA_ROW_CHUNK_SIZE")
-    return int(v) if v else MSA_CHUNK_SIZE
+    return int(v) if v else MSA_CHUNK_SIZE * max(1, _T._dram_total_bytes() // MSA_CHUNK_DRAM_STEP)
 
 def _window_q(x, N, NP, nq=32):
     """Window the query axis into local blocks: (N,C)|(1,N,C) -> (NP//nq, nq, C), right-padded
