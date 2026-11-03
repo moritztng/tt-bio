@@ -49,14 +49,14 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     log = open(out / "runs.jsonl", "a")
     inputs = [Path(p).resolve() for p in a.inputs]
-    state = cfg0 = None
+    state = None
     for inp in inputs:
         os.chdir(inp.parent)
         d = out / inp.stem
         cfg, jobs = run_config(a.model, inp, d)
+        W._ensure_local_artifacts(cfg)
         if state is None:
-            W._ensure_local_artifacts(cfg)
-            state, cfg0 = W._WorkerState("tenstorrent"), cfg
+            state = W._WorkerState("tenstorrent")
             t0 = time.time()
             state.load_model(cfg)
             state.bind_run("mol1-panel", cfg)

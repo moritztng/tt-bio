@@ -339,7 +339,7 @@ MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_
 # median (max 2.15) vs the 0.60 A bar and the 1.33 A seed floor, lDDT 0.991 vs 0.964. At 256 the same stack reads 0.735 A
 # and fails, so it stays off below 512.
 MOL1_BH_512 = frozenset({"transition_b8", "ws_b8_plain", "trimul_x8", "trimul_t1w8"})
-SIZE_LEVERS_MIN_TOKENS = 512
+SIZE_LEVERS_MIN_TOKENS = 256
 
 
 def size_levers(state_dict):
