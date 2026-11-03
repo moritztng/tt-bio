@@ -25,6 +25,14 @@ WB = 8
 # Units run channel tile fastest. Channel tile slowest put a unit's 32 reads (stride N^2/1024 pages) and 32 writes
 # (stride N*H/1024) on 3 of Wormhole's 12 DRAM banks: 1.62 vs 1.48 ms at 512 c256, 6.18 vs 5.67 at 1024 (bpk8).
 ORD = 1
+# Units dealt round-robin (core c runs c, c + ncores, ...) instead of in contiguous ranges. A unit's 32 writes share one
+# DRAM bank wherever St * Ht is a multiple of the bank count, so what spreads the banks is which units run at once;
+# round-robin runs consecutive units side by side. Same units per core, same tiles: bit-identical. A/B knob.
+RR = 0
+# Split writer: compute sends each unit's odd 8-tile groups to c_17 and the reader writes them on its own NOC, so the
+# writes, which bound this kernel on Blackhole (157 GB/s of bfp8 pages at 1024 c320, state/mol1/evidence/bh/mulroof.md),
+# leave on both NOCs. Same tiles to the same pages: bit-identical. A/B knob, transposing path only.
+SW = 0
 _CACHE: dict = {}
 TILE = 32
 
@@ -51,40 +59,42 @@ def permute_back_pk(x, out, grid, c_off=0):
     St, CT, Ht = N // TILE, C // TILE, H // TILE
     # The accessor args differ by buffer type (DRAM / L1) and bank layout, so the memory configs are part of the key.
     key = (B, C, N, H, c_off, tuple(grid), str(x.dtype), str(out.dtype), str(x.memory_config()), str(out.memory_config()), ABL, OUT_TILES,
-           WB, ORD)
+           WB, ORD, RR, SW)
     entry = _CACHE.get(key)
     if entry is None:
         gx, gy = grid
         ncores = gx * gy
+        sw = int(bool(SW) and WB == 8 and not ABL & 10)
         core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
         nu = B * CT * St * St
         rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
         u0 = 0
         for c in range(ncores):
             n = nu // ncores + (c < nu % ncores)
-            rd[c % gx][c // gx] = [u0, n]
-            wr[c % gx][c // gx] = [u0, n]
+            rd[c % gx][c // gx] = wr[c % gx][c // gx] = [c, n, ncores] if RR else [u0, n, 1]
             cp[c % gx][c // gx] = [n]
             u0 += n
         acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
         src = ttnn.KernelDescriptor.SourceType.FILE_PATH
         reader = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[St, ABL, CT, ORD] + acc(x), runtime_args=rd, common_runtime_args=[0],
+            compile_time_args=[St, ABL, CT, ORD, sw, Ht, c_off // TILE] + acc(x) + acc(out), runtime_args=rd,
+            common_runtime_args=[0, 0],
             config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[St, Ht, c_off // TILE, ABL, WB, CT, ORD] + acc(out), runtime_args=wr, common_runtime_args=[0],
+            compile_time_args=[St, Ht, c_off // TILE, ABL, WB, CT, ORD, sw] + acc(out), runtime_args=wr,
+            common_runtime_args=[0],
             config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[ABL, 1, int(x.dtype != ttnn.bfloat16), int(out.dtype != ttnn.bfloat16)], runtime_args=cp,
+            compile_time_args=[ABL, 1, int(x.dtype != ttnn.bfloat16), int(out.dtype != ttnn.bfloat16), sw], runtime_args=cp,
             config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False))
         cbs = [_cb(0, core_grid, 16, x.dtype), _cb(1, core_grid, 32), _cb(2, core_grid, 32),
-               _cb(16, core_grid, OUT_TILES, out.dtype)]
+               _cb(16, core_grid, OUT_TILES, out.dtype)] + ([_cb(17, core_grid, 16, out.dtype)] if sw else [])
         entry = _CACHE[key] = ([reader, writer, compute], cbs)
     kernels, cbs = entry
-    kernels[0].common_runtime_args = [x.buffer_address()]
+    kernels[0].common_runtime_args = [x.buffer_address(), out.buffer_address()]
     kernels[1].common_runtime_args = [out.buffer_address()]
     ttnn.generic_op([x, out], ttnn.ProgramDescriptor(kernels=kernels, semaphores=[], cbs=cbs))
     return out
@@ -114,8 +124,7 @@ def tile_rows(x, out, grid):
         u0 = 0
         for c in range(ncores):
             n = nu // ncores + (c < nu % ncores)
-            rd[c % gx][c // gx] = [u0, n]
-            wr[c % gx][c // gx] = [u0, n]
+            rd[c % gx][c // gx] = wr[c % gx][c // gx] = [c, n, ncores] if RR else [u0, n, 1]
             cp[c % gx][c // gx] = [n]
             u0 += n
         acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
@@ -130,7 +139,7 @@ def tile_rows(x, out, grid):
             config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[0, 0, 0, 0], runtime_args=cp,
+            compile_time_args=[0, 0, 0, 0, 0], runtime_args=cp,
             config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False))
         cbs = [_cb(0, core_grid, 16), _cb(1, core_grid, 32), _cb(16, core_grid, OUT_TILES)]
         entry = _CACHE[key] = ([reader, writer, compute], cbs)
