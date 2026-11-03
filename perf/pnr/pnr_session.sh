@@ -112,7 +112,7 @@ if x.get("actual_status")=="running":
   log "$I download ${BW:-?} B/s"
   [ "${BW:-0}" -ge ${MINBW:-20000000} ] || { destroy $I "download ${BW:-?} B/s < ${MINBW:-20000000} B/s"; continue; }
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance; H=root@$HOST
-  $V show instance $I --raw > $OUT/instance.json 2>/dev/null
+  $V show instance $I --raw 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); [d.pop(k) for k in list(d) if 'token' in k.lower()]; json.dump(d,sys.stdout,indent=1)" > $OUT/instance.json || true
   $S 'mkdir -p /root/kc' &&
     push $KC/box_mol1.sh $KC/mol1_gpu.py $KC/mol1_arms.py $KC/box_bc_setup.sh $KC/bc2_gpu.py $KC/bc2_traj.py $KC/bc4_arms.py \
       $KC/box_rfd4.sh $KC/rfd4_gpu.py $KC/rfd4_arms.py $P/box_pnr.sh $H:/root/kc/ &&
