@@ -12,6 +12,9 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--cells", default="1024:320,512:320,1024:448")
 ap.add_argument("--reps", type=int, default=7)
 ap.add_argument("--rounds", type=int, default=2)
+ap.add_argument("--abl", type=lambda v: [int(x) for x in v.split(",")], default=[0, 11],
+                help="ABL masks to time (16: writes to sequential q pages, triatt_ln ABL_WSEQ)")
+ap.add_argument("--arms", default="0,1", help="NOCSWAP arms")
 a = ap.parse_args()
 dev = T.get_device()
 grid = tuple(T.COMPUTE_GRID_MAIN)
@@ -45,9 +48,9 @@ for cell in a.cells.split(","):
             got[arm] = flat(run(tr))
         rec = {"n": n, "c": c, "tr": tr, "equal": all(torch.equal(p, q) for p, q in zip(got[False], got[True]))}
         print(json.dumps(rec), flush=True)
-        for abl in (0, 11):
+        for abl in a.abl:
             TL.ABL = abl
-            for arm in [False, True] * a.rounds:
+            for arm in [x == "1" for x in a.arms.split(",")] * a.rounds:
                 TL.NOCSWAP = arm
                 flat(run(tr)); ttnn.synchronize_device(dev)
                 ts = []
