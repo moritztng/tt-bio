@@ -49,6 +49,8 @@ def worker(rank, a, recipe, todo, done):
     import torch
     try:
         t0 = time.time()
+        # Runner init clears ./output/ERR in the cwd; K ranks sharing one cwd race on it (pc smoke, K=2, OpenDDE).
+        init = a.out / f"init-p{rank}"; init.mkdir(parents=True, exist_ok=True); os.chdir(init)
         runner, infer_predict = build_runner(a, recipe)
         if a.compile:
             if a.trimul != "torch":
