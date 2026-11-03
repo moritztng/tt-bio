@@ -14280,29 +14280,24 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
 _FP32_NORM_PARAMS = {}
 
 
-def _centred_row_mean(x, ckc, mc, y=None):
-    """Mean over the last dim of `x` (of `x * y` when given), exact in the part that differs between tokens.
+def _fp32_row_mean(x, ckc, mc):
+    """Mean over the last dim of an fp32 `x`, to fp32 precision on either arch.
 
     `ttnn.mean` reduces through the FPU, whose source registers hold 19 bits (tf32) on Wormhole: on Mol-1's trunk
-    block 43 input, rows up to 3e5 whose tokens differ by ~0.1, the layer norm built on it had its per-token part
-    3.3x off (float64 reference, perf/mol1_whl4/ln_split_probe.py). As in `_centred_linear`, token 0's row r goes
-    through the reduction on its own and every token only adds the mean of its difference from r, which is the
-    per-token part's size; for a product, x*y - r_x*r_y = (x - r_x)*y + r_x*(y - r_y), each term elementwise fp32.
+    block 43 input (rows up to 3e5) the mean was off by 2.2e-3 sigma per token and the layer norm's per-token part
+    by 3.3x itself (float64 reference, perf/mol1_whl4/ln_split_probe.py). Split as x = bf16(x) + rest, every term
+    is exact in the source registers, so the two reductions add up to the fp32 mean: 0.043 there. A third term
+    reads the same (0.043), so what is left is the reduction's own; centring on token 0's row first read 1.29.
     """
-    def row0(t):
-        sh = list(t.shape)
-        return ttnn.slice(t, [0] * len(sh), sh[:-2] + [1, sh[-1]], memory_config=mc)
-    mean = lambda t: ttnn.mean(t, dim=-1, keepdim=True, compute_kernel_config=ckc, memory_config=mc)
-    rx = row0(x)
-    if y is None:
-        r, d = rx, ttnn.subtract(x, rx, memory_config=mc)
-    else:
-        ry = row0(y)
-        r = ttnn.multiply(rx, ry, memory_config=mc)
-        d = ttnn.add(ttnn.multiply(ttnn.subtract(x, rx, memory_config=mc), y, memory_config=mc),
-                     ttnn.multiply(ttnn.subtract(y, ry, memory_config=mc), rx, memory_config=mc), memory_config=mc)
-    out = ttnn.add(mean(d), mean(r), memory_config=mc)
-    ttnn.deallocate(d)
+    hi = ttnn.typecast(ttnn.typecast(x, ttnn.bfloat16, memory_config=mc), ttnn.float32, memory_config=mc)
+    lo = ttnn.subtract(x, hi, memory_config=mc)
+    m_hi = ttnn.mean(hi, dim=-1, keepdim=True, compute_kernel_config=ckc, memory_config=mc)
+    ttnn.deallocate(hi)
+    m_lo = ttnn.mean(lo, dim=-1, keepdim=True, compute_kernel_config=ckc, memory_config=mc)
+    ttnn.deallocate(lo)
+    out = ttnn.add(m_hi, m_lo, memory_config=mc)
+    ttnn.deallocate(m_hi)
+    ttnn.deallocate(m_lo)
     return out
 
 
@@ -14323,10 +14318,12 @@ def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memo
                                            ttnn.typecast(bias, ttnn.float32))
     mc = memory_config
     x32 = ttnn.typecast(x, ttnn.float32, memory_config=mc) if x.dtype != ttnn.float32 else x
-    xc = ttnn.subtract(x32, _centred_row_mean(x32, compute_kernel_config, mc), memory_config=mc)
+    xc = ttnn.subtract(x32, _fp32_row_mean(x32, compute_kernel_config, mc), memory_config=mc)
     if x32 is not x:
         ttnn.deallocate(x32)
-    var = _centred_row_mean(xc, compute_kernel_config, mc, xc)
+    sq = ttnn.multiply(xc, xc, memory_config=mc)
+    var = _fp32_row_mean(sq, compute_kernel_config, mc)
+    ttnn.deallocate(sq)
     inv = ttnn.rsqrt(ttnn.add(var, epsilon, memory_config=mc), memory_config=mc)
     ttnn.deallocate(var)
     out = ttnn.multiply_(xc, inv)
