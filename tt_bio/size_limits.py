@@ -906,20 +906,22 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
     # do not transfer: its own ladder stops two rungs lower.
     "mol1": {
         "wormhole_b0": Ceiling(
-            residues=896, pass_at=896, fail_at=1024, binds=MEMORY, mechanism=DRAM,
+            residues=1024, pass_at=1024, fail_at=1074, binds=MEMORY, mechanism=DRAM,
             msa_rows=16384, ladder_ligand_atoms=0,
-            evidence="Capped at 896 tokens although a single chain folds 1536, because the ladder is "
-                     "not the only wall. The cap is the capacity gate's residency leg on the tree that "
-                     "carries the sampled-cycle DRAM guard (0b2e93ecd on main 54cd94160), CDK2 tiled "
-                     "to N residues with its 8832-row alignment, 20 recycles, the .111 Galaxy "
-                     "(UF-EV-A6-GWH01), 2026-11-02, ws:mol1-serve-jf: 896 PASS in 1018.8 s at a "
-                     "9748816512 B DRAM peak (chip 0); 1024 fails at trunk 0 of 20 on three runs "
-                     "(chips 12 and 0), 64.0 MiB requested with 9.6 MiB free and a 4.1 MiB largest "
-                     "block: fragmentation, so the cap goes back up when that is fixed. FoldBench "
+            evidence="Capped at 1024 tokens although a single chain folds 1536, because the ladder is "
+                     "not the only wall. 1024 is the capacity gate's residency fixture (CDK2 tiled to "
+                     "1024 with its 8832-row alignment, 20 recycles, 1 sample), which needs a refused "
+                     "fold to restart one mode lighter (70e20bfa3, on main b73730028): .111 Galaxy "
+                     "(UF-EV-A6-GWH01) chip 1, 2026-11-03, ws:mol1-wh1024cap, PASS in 1380.7 s at "
+                     "AICLK 1000 MHz, every cycle host-cut at a 9.82 GiB DRAM peak, where the tree "
+                     "before it fails trunk 0 on 64 MiB (896 was the cap until then). fail_at is FoldBench "
                      "7yzt-assembly1 (3 x 315 residues plus 3 CCD ligands, about 1074 tokens, paired "
-                     "7054-row alignment) runs out of DRAM at trunk 0 on every seed on main's Wormhole "
-                     "tree c5e5bc392 (72.2 MiB requested, 3.8 MiB free, chip 6 of the .107 Galaxy, "
-                     "2026-11-01, ws:mol1-quality). The ladder: walked 2026-11-01 on the .107 Galaxy (UF-EV-A4-GWH01), "
+                     "7054-row alignment), which runs out of DRAM at trunk "
+                     "0 on every seed on main's Wormhole tree c5e5bc392 (72.2 MiB requested, 3.8 MiB "
+                     "free, chip 6 of the .107 Galaxy, 2026-11-01, ws:mol1-quality). Tokens and depth "
+                     "both sit inside the ladder, so nothing short of folding it says which homomer + "
+                     "ligand shapes fail; the cap refuses that one before a device opens and goes back "
+                     "up when it folds on Wormhole (D-moritz-1102c). The ladder: walked 2026-11-01 on the .107 Galaxy (UF-EV-A4-GWH01), "
                      "tree c5e5bc392 (main with the MOL1_WH levers), perf/whceil/ladder.py, apo ubiquitin tiled to N residues with "
                      "a 16384-row unpaired alignment, guard off, CLI defaults 20 recycles / 200 steps / "
                      "5 samples (ws:mol1-serve-jf). 1280 PASS in 3261.3 s, chip 4, AICLK median 1000 MHz "
