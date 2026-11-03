@@ -110,7 +110,7 @@ if x.get("actual_status")=="running":
   [ "${W:-0}" -ge "$MINW" ] && [ "${W:-0}" -le "$MAXW" ] || { destroy $I "power limit ${W:-?} W outside $MINW-$MAXW"; continue; }
   BW=$(timeout 40 $S 'curl -s -o /dev/null -m 20 -w "%{speed_download}" https://download.pytorch.org/whl/cu130/torch-2.9.0%2Bcu130-cp312-cp312-manylinux_2_28_x86_64.whl' 2>/dev/null | tail -1 | cut -d. -f1)
   log "$I download ${BW:-?} B/s"
-  [ "${BW:-0}" -ge 20000000 ] || { destroy $I "download ${BW:-?} B/s < 20 MB/s"; continue; }
+  [ "${BW:-0}" -ge ${MINBW:-20000000} ] || { destroy $I "download ${BW:-?} B/s < ${MINBW:-20000000} B/s"; continue; }
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance; H=root@$HOST
   $V show instance $I --raw > $OUT/instance.json 2>/dev/null
   $S 'mkdir -p /root/kc' &&
