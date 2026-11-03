@@ -14206,6 +14206,87 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(transpose_mcast=False, **kw)
 
 
+_FP32_NORM_PARAMS = {}
+
+
+def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memory_config=None):
+    """Layer norm over the last dim from fp32 primitives (mean, centred variance, rsqrt), written at `dtype`.
+
+    For Wormhole's single track, where `ttnn.layer_norm` gets each row's 1/sigma only to ~0.3 % (std, any
+    fidelity, fp32 dest or fp32 input alike). Mol-1's trunk block 43 single Transition normalizes a ~149-valued
+    vector shared by every token whose per-token part is 0.006 rms, so that 0.3 % is 4x the signal, and fc3
+    then turns it into the channels the confidence head reads: 8fg6 pLDDT 49 on Wormhole, 92 on Blackhole and
+    93 in upstream fp32. Composed in fp32 the norm's token error is 0.0053 against the correctly rounded bf16
+    floor of 0.0045 (ttnn.layer_norm: 0.018-0.024), state/mol1/evidence/whl3/ROOT.md.
+    """
+    key = (id(weight), id(bias))
+    params = _FP32_NORM_PARAMS.get(key)
+    if params is None:
+        params = _FP32_NORM_PARAMS[key] = (weight, bias, ttnn.typecast(weight, ttnn.float32),
+                                           ttnn.typecast(bias, ttnn.float32))
+    mc = memory_config
+    x32 = ttnn.typecast(x, ttnn.float32, memory_config=mc) if x.dtype != ttnn.float32 else x
+    xc = ttnn.subtract(x32, ttnn.mean(x32, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config,
+                                      memory_config=mc), memory_config=mc)
+    if x32 is not x:
+        ttnn.deallocate(x32)
+    var = ttnn.mean(ttnn.multiply(xc, xc, memory_config=mc), dim=-1, keepdim=True,
+                    compute_kernel_config=compute_kernel_config, memory_config=mc)
+    inv = ttnn.rsqrt(ttnn.add(var, epsilon, memory_config=mc), memory_config=mc)
+    ttnn.deallocate(var)
+    out = ttnn.multiply_(xc, inv)
+    ttnn.deallocate(inv)
+    out = ttnn.add(ttnn.multiply_(out, params[2]), params[3], dtype=dtype, memory_config=mc)
+    ttnn.deallocate(xc)
+    return out
+
+
+def _centred_linear(v, w, ckc, dtype, memory_config):
+    """`v @ w` for a single track whose rows share one dominant vector: token 0's row `c` goes through the matmul
+    on its own and only `v - c`, of the per-token part's size, is rounded to bf16, so that part keeps bf16's
+    relative precision instead of the shared vector's. Exact algebra; `v` fp32, the result at `dtype`."""
+    L1 = ttnn.L1_MEMORY_CONFIG
+    c = ttnn.slice(v, [0, 0, 0], [v.shape[0], 1, v.shape[2]], memory_config=L1)
+    d = ttnn.typecast(ttnn.subtract(v, c, memory_config=L1), ttnn.bfloat16, memory_config=L1)
+    y = ttnn.linear(d, w, compute_kernel_config=ckc, dtype=ttnn.float32, core_grid=CORE_GRID_MAIN, memory_config=L1)
+    ttnn.deallocate(d)
+    cb = ttnn.typecast(c, ttnn.bfloat16, memory_config=L1)
+    ttnn.deallocate(c)
+    yc = ttnn.linear(cb, w, compute_kernel_config=ckc, dtype=ttnn.float32, memory_config=L1)
+    ttnn.deallocate(cb)
+    out = ttnn.add(y, yc, dtype=dtype, memory_config=memory_config)
+    ttnn.deallocate(y)
+    ttnn.deallocate(yc)
+    return out
+
+
+def fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype):
+    """`fc3(silu(fc1(LN(x))) * fc2(LN(x)))` for Wormhole's single track: fp32 layer norm, fp32 intermediates and
+    centred matmul inputs (`_centred_linear`), written at `dtype`.
+
+    The single track's tokens share a vector far larger than their differences (Mol-1's trunk s reaches 3e5 while
+    the 8 channels the confidence head reads differ by ~0.6 per token), and the Transition's output on those
+    channels is a sum cancelling to ~1e-3 of its terms. A bf16 store anywhere inside it dithers the per-token part:
+    the layer norm's output sits at ~149 (bf16 step 1.0) with a per-token part of 0.14, so which tokens round up
+    is decided by offsets as small as the bf16 weight's own rounding. Trunk block 43, emulated against upstream fp32
+    (small-channel token rel err): bf16 intermediates 1.03-1.05, this path 0.0097, the bf16-weight floor. On
+    Wormhole the dithering reached 1.7-5.9 and cost the confidence head's pLDDT 0.92 -> 0.49 (8fg6) and 0.89 -> 0.74
+    (8k83). The track is N_token x 384, so fp32 costs little. state/mol1/evidence/whl3/ROOT.md.
+    """
+    ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ckc.math_fidelity, math_approx_mode=ckc.math_approx_mode,
+                                           fp32_dest_acc_en=True, packer_l1_acc=ckc.packer_l1_acc)
+    L1 = ttnn.L1_MEMORY_CONFIG   # the fp32 intermediates stay in L1, as the bf16 path's do
+    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ckc, ttnn.float32, L1)
+    a = _centred_linear(xn, w1, ckc, ttnn.float32, L1)
+    b = _centred_linear(xn, w2, ckc, ttnn.float32, L1)
+    ttnn.deallocate(xn)
+    h = ttnn.multiply_(ttnn.silu(a, output_tensor=a), b)
+    ttnn.deallocate(b)
+    out = _centred_linear(h, w3, ckc, dtype, ttnn.DRAM_MEMORY_CONFIG)
+    ttnn.deallocate(h)
+    return out
+
+
 def _transition_linear(op: str, x: ttnn.Tensor, w: ttnn.Tensor, silu: bool = False, **kw) -> ttnn.Tensor:
     """`ttnn.linear(x, w, core_grid=CORE_GRID_MAIN)`, at `_transition_kb`'s K block under `transition_bw`."""
     cfg = None
@@ -14768,6 +14849,10 @@ class Transition(Module):
         def swiglu_l1(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             hidden = ttnn.bfloat8_b if self._hidden_b8 else dtype
+            # The single track (3-D) on Wormhole runs in fp32: see `fp32_single_transition`.
+            if len(x.shape) == 3 and is_wormhole() and not ops.taping():
+                return fp32_single_transition(x, self.norm_weight, self.norm_bias, self.fc1_weight, self.fc2_weight,
+                                              self.fc3_weight, self.compute_kernel_config, x.dtype)
             x_norm = ttnn.layer_norm(
                 x,
                 weight=self.norm_weight,
