@@ -61,6 +61,23 @@ if [ ! -f $B/BURN ]; then
 fi
 grep -q '^0$' $B/BURN || fail "burn gate ($(tail -1 $B/burn.log))"
 
+# On an A100-80 fallback a ballast process holds everything above 40 GiB for the whole session, so every arm, OOM
+# rung, concurrency climb and RFD4 batch sweep sees the memory of PopVax's A100-40. Idle memory costs no bandwidth.
+TOT=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -1)
+if [ "$TOT" -gt 45000 ]; then
+  pkill -f pvo_ballast 2>/dev/null
+  W=$((TOT - 40960))
+  nohup /opt/opendde-venv/bin/python -I -c 'import subprocess,sys,time,torch  # pvo_ballast
+w=int(sys.argv[1]); used=lambda: int(subprocess.check_output(["nvidia-smi","--query-gpu=memory.used","--format=csv,noheader,nounits"]).split()[0])
+torch.zeros(1,device="cuda"); held=[]
+while used() < w - 32: held.append(torch.empty(min(1024, w - used()) << 20, dtype=torch.uint8, device="cuda"))
+print("ballast holds", used(), "MiB", flush=True); time.sleep(10**9)' $W > $B/ballast.log 2>&1 &
+  sleep 60; U=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | head -1)
+  echo "total $TOT MiB, used $U MiB after ballast, target $W" >> $B/ballast.log
+  [ $((U - W)) -ge -100 ] && [ $((U - W)) -le 100 ] || fail "ballast ($U MiB used, target $W of $TOT)"
+  say "A100-80 box: ballast leaves $((TOT - U)) MiB, an A100-40's 40960"
+fi
+
 # The inputs pvo_session.sh pushed, checked against the hashes they were frozen with.
 (cd $I && python3 -c 'import json,hashlib,sys
 bad=[p for p,h in json.load(open("INDEX.json"))["sha256"].items() if hashlib.sha256(open(p,"rb").read()).hexdigest()!=h]
