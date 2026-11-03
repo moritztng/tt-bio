@@ -14209,7 +14209,7 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
 _FP32_NORM_PARAMS = {}
 
 
-def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype):
+def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memory_config=None):
     """Layer norm over the last dim from fp32 primitives (mean, centred variance, rsqrt), written at `dtype`.
 
     For Wormhole's single track, where `ttnn.layer_norm` gets each row's 1/sigma only to ~0.3 % (std, any
@@ -14224,33 +14224,37 @@ def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype):
     if params is None:
         params = _FP32_NORM_PARAMS[key] = (weight, bias, ttnn.typecast(weight, ttnn.float32),
                                            ttnn.typecast(bias, ttnn.float32))
-    x32 = ttnn.typecast(x, ttnn.float32) if x.dtype != ttnn.float32 else x
-    xc = ttnn.subtract(x32, ttnn.mean(x32, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config))
+    mc = memory_config
+    x32 = ttnn.typecast(x, ttnn.float32, memory_config=mc) if x.dtype != ttnn.float32 else x
+    xc = ttnn.subtract(x32, ttnn.mean(x32, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config,
+                                      memory_config=mc), memory_config=mc)
     if x32 is not x:
         ttnn.deallocate(x32)
-    var = ttnn.mean(ttnn.multiply(xc, xc), dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config)
-    inv = ttnn.rsqrt(ttnn.add(var, epsilon))
+    var = ttnn.mean(ttnn.multiply(xc, xc, memory_config=mc), dim=-1, keepdim=True,
+                    compute_kernel_config=compute_kernel_config, memory_config=mc)
+    inv = ttnn.rsqrt(ttnn.add(var, epsilon, memory_config=mc), memory_config=mc)
     ttnn.deallocate(var)
     out = ttnn.multiply_(xc, inv)
     ttnn.deallocate(inv)
-    out = ttnn.add(ttnn.multiply_(out, params[2]), params[3], dtype=dtype)
+    out = ttnn.add(ttnn.multiply_(out, params[2]), params[3], dtype=dtype, memory_config=mc)
     ttnn.deallocate(xc)
     return out
 
 
-def _centred_linear(v, w, ckc, dtype):
+def _centred_linear(v, w, ckc, dtype, memory_config):
     """`v @ w` for a single track whose rows share one dominant vector: token 0's row `c` goes through the matmul
     on its own and only `v - c`, of the per-token part's size, is rounded to bf16, so that part keeps bf16's
     relative precision instead of the shared vector's. Exact algebra; `v` fp32, the result at `dtype`."""
-    c = ttnn.slice(v, [0, 0, 0], [v.shape[0], 1, v.shape[2]])
-    d = ttnn.typecast(ttnn.subtract(v, c), ttnn.bfloat16)
-    y = ttnn.linear(d, w, compute_kernel_config=ckc, dtype=ttnn.float32)
+    L1 = ttnn.L1_MEMORY_CONFIG
+    c = ttnn.slice(v, [0, 0, 0], [v.shape[0], 1, v.shape[2]], memory_config=L1)
+    d = ttnn.typecast(ttnn.subtract(v, c, memory_config=L1), ttnn.bfloat16, memory_config=L1)
+    y = ttnn.linear(d, w, compute_kernel_config=ckc, dtype=ttnn.float32, core_grid=CORE_GRID_MAIN, memory_config=L1)
     ttnn.deallocate(d)
-    cb = ttnn.typecast(c, ttnn.bfloat16)
+    cb = ttnn.typecast(c, ttnn.bfloat16, memory_config=L1)
     ttnn.deallocate(c)
-    yc = ttnn.linear(cb, w, compute_kernel_config=ckc, dtype=ttnn.float32)
+    yc = ttnn.linear(cb, w, compute_kernel_config=ckc, dtype=ttnn.float32, memory_config=L1)
     ttnn.deallocate(cb)
-    out = ttnn.add(y, yc, dtype=dtype)
+    out = ttnn.add(y, yc, dtype=dtype, memory_config=memory_config)
     ttnn.deallocate(y)
     ttnn.deallocate(yc)
     return out
@@ -14271,13 +14275,14 @@ def fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype):
     """
     ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ckc.math_fidelity, math_approx_mode=ckc.math_approx_mode,
                                            fp32_dest_acc_en=True, packer_l1_acc=ckc.packer_l1_acc)
-    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ckc, ttnn.float32)
-    a = _centred_linear(xn, w1, ckc, ttnn.float32)
-    b = _centred_linear(xn, w2, ckc, ttnn.float32)
+    L1 = ttnn.L1_MEMORY_CONFIG   # the fp32 intermediates stay in L1, as the bf16 path's do
+    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ckc, ttnn.float32, L1)
+    a = _centred_linear(xn, w1, ckc, ttnn.float32, L1)
+    b = _centred_linear(xn, w2, ckc, ttnn.float32, L1)
     ttnn.deallocate(xn)
     h = ttnn.multiply_(ttnn.silu(a, output_tensor=a), b)
     ttnn.deallocate(b)
-    out = _centred_linear(h, w3, ckc, dtype)
+    out = _centred_linear(h, w3, ckc, dtype, ttnn.DRAM_MEMORY_CONFIG)
     ttnn.deallocate(h)
     return out
 
