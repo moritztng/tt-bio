@@ -226,7 +226,7 @@ SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! 
 LEND_MODE = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
              'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
              '{ sed -n "s/^LEND_SKIP=\'\\(.*\\)\'$/LENDSKIP \\1/p" ~/spd/galaxy/pool.sh; '
-             'sed -n \'s/.*"reserved_until": \\([0-9]*\\).*/RESERVED \\1/p\' ~/japanfold/state/agent/lend/*.lent '
+             'sed -n \'s/.*"reserved_until": \\([0-9][0-9]*\\).*/RESERVED \\1/p\' ~/japanfold/state/agent/lend/*.lent '
              '2>/dev/null; } || :')
 LEND_READ_S = 300
 NONE_LENT_S = 1800
