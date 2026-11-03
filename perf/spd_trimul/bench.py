@@ -204,6 +204,13 @@ def _pb_wb(v):
     return prev
 
 
+def _t2_nozw(on):
+    """T2_ZW off at c_z 320 (drops (10, 10) from T2_ZW_KEYS), the plan c_z 448 runs. Bit-identical."""
+    prev = (10, 10) not in TTL.T2_ZW_KEYS
+    TTL.T2_ZW_KEYS = TTL.T2_ZW_KEYS - {(10, 10)} if on else TTL.T2_ZW_KEYS | {(10, 10)}
+    return prev
+
+
 def _t2_mb2(on):
     """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
     prev = (10, 10) in TTL.T2_BLOCK
@@ -247,6 +254,7 @@ LEVERS = {
     "t2m": [(TTL.set_t2m, True)],
     "t2zw": [(TTL.set_t2_zw, True)],
     "t2mb2": [(_t2_mb2, True)],
+    "t2nozw": [(_t2_nozw, True)],
     "t1r4": [(_t1_rows, 4)],
     # ceiling of reusing z across the outgoing/incoming pair: T1 without its z reads (16), and without LN too (17)
     "t1noz": [(_t1_abl, 16)],
