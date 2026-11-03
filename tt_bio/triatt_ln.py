@@ -66,7 +66,7 @@ def head_pitch(MT) -> int:
     arch = "wormhole" if is_wormhole() else "blackhole"
     return int(HEAD_PITCH[arch] and MT % DRAM_BANKS[arch] == 0)
 #: parts where the pair bias comes out head-major ([1, bc, S, S], the layout triatt_sdpa reads) instead of [S, S, bc],
-#: so the caller's permute goes. Compute transposes the bias tile in DST (h rows, j columns) and the writer gathers
+#: so the caller's permute goes. Compute transposes the bias tile (h rows, j columns) and the writer gathers
 #: row h of 16 such tiles into one half of head h's output tile (writer.cpp HM). Rows run in TR's 16-row units
 #: either way, so a core holds the 16 b of a half tile together. Data movement only, so bit-exact with the permute.
 BIAS_HEADS = {"wormhole": False, "blackhole": True}
@@ -269,7 +269,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None, 
     if c4:
         cbs.append(_cb(4, core_grid, c4))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
     if hm:
-        cbs.append(_cb(15, core_grid, hm))   # HM: two half-tile stages of KB a head, hm heads
+        cbs += [_cb(15, core_grid, hm), _cb(18, core_grid, 1)]   # HM: the writer's stages, compute's bias tile
     if lns:
         cbs += [_cb(5, core_grid, 2 * kt), _cb(6, core_grid, 2)]   # the partner's xn, own-xn tokens
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
@@ -332,7 +332,7 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     hm = bias_channels if (bias_heads and BIAS_HEADS["wormhole" if is_wormhole() else "blackhole"]
                            and shp[0] == shp[1] and shp[0] % TILE == 0) else 0
     if hm and _cb_bytes(K // TILE, plan[1], plan[2], _share(plan[0], transposed, H, bool(nq))) \
-            + hm * MG.tile_bytes(ttnn.bfloat16) > _lcf(dev):
+            + (hm + 1) * MG.tile_bytes(ttnn.bfloat16) > _lcf(dev):
         hm = 0
     STATS[4] += bool(hm)
     bshape = [1, bias_channels, shp[0], shp[1]] if hm else [shp[0], shp[1], bias_channels]
