@@ -14238,6 +14238,50 @@ def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype):
     return out
 
 
+def _centred_linear(v, w, ckc, dtype):
+    """`v @ w` for a single track whose rows share one dominant vector: token 0's row `c` goes through the matmul
+    on its own and only `v - c`, of the per-token part's size, is rounded to bf16, so that part keeps bf16's
+    relative precision instead of the shared vector's. Exact algebra; `v` fp32, the result at `dtype`."""
+    c = ttnn.slice(v, [0, 0, 0], [v.shape[0], 1, v.shape[2]])
+    d = ttnn.typecast(ttnn.subtract(v, c), ttnn.bfloat16)
+    y = ttnn.linear(d, w, compute_kernel_config=ckc, dtype=ttnn.float32)
+    ttnn.deallocate(d)
+    cb = ttnn.typecast(c, ttnn.bfloat16)
+    ttnn.deallocate(c)
+    yc = ttnn.linear(cb, w, compute_kernel_config=ckc, dtype=ttnn.float32)
+    ttnn.deallocate(cb)
+    out = ttnn.add(y, yc, dtype=dtype)
+    ttnn.deallocate(y)
+    ttnn.deallocate(yc)
+    return out
+
+
+def fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype):
+    """`fc3(silu(fc1(LN(x))) * fc2(LN(x)))` for Wormhole's single track: fp32 layer norm, fp32 intermediates and
+    centred matmul inputs (`_centred_linear`), written at `dtype`.
+
+    The single track's tokens share a vector far larger than their differences (Mol-1's trunk s reaches 3e5 while
+    the 8 channels the confidence head reads differ by ~0.6 per token), and the Transition's output on those
+    channels is a sum cancelling to ~1e-3 of its terms. A bf16 store anywhere inside it dithers the per-token part:
+    the layer norm's output sits at ~149 (bf16 step 1.0) with a per-token part of 0.14, so which tokens round up
+    is decided by offsets as small as the bf16 weight's own rounding. Trunk block 43, emulated against upstream fp32
+    (small-channel token rel err): bf16 intermediates 1.03-1.05, this path 0.0097, the bf16-weight floor. On
+    Wormhole the dithering reached 1.7-5.9 and cost the confidence head's pLDDT 0.92 -> 0.49 (8fg6) and 0.89 -> 0.74
+    (8k83). The track is N_token x 384, so fp32 costs little. state/mol1/evidence/whl3/ROOT.md.
+    """
+    ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ckc.math_fidelity, math_approx_mode=ckc.math_approx_mode,
+                                           fp32_dest_acc_en=True, packer_l1_acc=ckc.packer_l1_acc)
+    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ckc, ttnn.float32)
+    a = _centred_linear(xn, w1, ckc, ttnn.float32)
+    b = _centred_linear(xn, w2, ckc, ttnn.float32)
+    ttnn.deallocate(xn)
+    h = ttnn.multiply_(ttnn.silu(a, output_tensor=a), b)
+    ttnn.deallocate(b)
+    out = _centred_linear(h, w3, ckc, dtype)
+    ttnn.deallocate(h)
+    return out
+
+
 def _transition_linear(op: str, x: ttnn.Tensor, w: ttnn.Tensor, silu: bool = False, **kw) -> ttnn.Tensor:
     """`ttnn.linear(x, w, core_grid=CORE_GRID_MAIN)`, at `_transition_kb`'s K block under `transition_bw`."""
     cfg = None
@@ -14800,18 +14844,18 @@ class Transition(Module):
         def swiglu_l1(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             hidden = ttnn.bfloat8_b if self._hidden_b8 else dtype
-            # The single track (3-D) on Wormhole normalizes in fp32: see `fp32_layer_norm`.
+            # The single track (3-D) on Wormhole runs in fp32: see `fp32_single_transition`.
             if len(x.shape) == 3 and is_wormhole() and not ops.taping():
-                x_norm = fp32_layer_norm(x, self.norm_weight, self.norm_bias, 1e-5, self.compute_kernel_config, x.dtype)
-            else:
-                x_norm = ttnn.layer_norm(
-                    x,
-                    weight=self.norm_weight,
-                    bias=self.norm_bias,
-                    epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
-                    memory_config=_tape_mc,
-                )
+                return fp32_single_transition(x, self.norm_weight, self.norm_bias, self.fc1_weight, self.fc2_weight,
+                                              self.fc3_weight, self.compute_kernel_config, x.dtype)
+            x_norm = ttnn.layer_norm(
+                x,
+                weight=self.norm_weight,
+                bias=self.norm_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+                memory_config=_tape_mc,
+            )
             x_1 = _transition_linear(
                 "fc1", x_norm, self.fc1_weight, silu=not _UNFUSED_SILU,
                 compute_kernel_config=silu_ckc(self.compute_kernel_config),
