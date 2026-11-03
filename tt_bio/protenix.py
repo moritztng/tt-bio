@@ -2425,6 +2425,13 @@ class ConfidenceHead:
         self.pf = Pairformer(nb, chpa, nhp, 384 // apb_nh, apb_nh, True, comb,
                              compute_kernel_config, gated_move=gated_move,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.confidence", default=True))
+        # The single track runs on the host in fp32 (`_s_path`); the device runs the pair track and hands back each
+        # block's pair bias. The 4-block stack amplifies any bf16 rounding of s 3-7x per block, so a bf16 or tf32 s
+        # path reads pLDDT 0.01-0.06 off upstream fp32, while z in bf16 costs nothing (state/mol1/evidence/whl4/ROOT.md).
+        self._biases = []
+        for b in self.pf.blocks:
+            b.s_on_host = self._biases
+        self._bias_scale = [b.attention_pair_bias._bias_scale for b in self.pf.blocks]
 
     def _g(self, k):
         return self._w[k].float()
@@ -2466,24 +2473,53 @@ class ConfidenceHead:
                     + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight")))
 
         def read(held):
-            so, zo = held
-            out = (torch.Tensor(ttnn.to_torch(so)).float().reshape(N, 384),
-                   torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1))
-            ttnn.deallocate(so)
-            ttnn.deallocate(zo)
-            return out
+            so, zo, biases = held
+            zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
+            biases = [torch.Tensor(ttnn.to_torch(b)) for b in biases]
+            for t in (so, zo, *biases):
+                ttnn.deallocate(t)
+            return self._s_path(s_t, biases), zf
 
         out, held = [], None
-        s_h = H(s_t.unsqueeze(0))
+        s_h = ttnn.from_torch(s_t.unsqueeze(0).float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.float32)
         for x in coords:
             z_h = H(z_of(x).unsqueeze(0))                  # host, while the chip runs the last pairformer
             done = read(held) if held is not None else None
-            held = bucketed_pairformer(self.pf, ttnn.to_device(s_h, self.dev), ttnn.to_device(z_h, self.dev),
-                                       self.dev)
+            held = (*bucketed_pairformer(self.pf, ttnn.to_device(s_h, self.dev), ttnn.to_device(z_h, self.dev),
+                                         self.dev), self._take_biases())
             if done is not None:
                 out.append(self._heads(*done, feats, keep_logits))  # host, while the chip runs this one
         out.append(self._heads(*read(held), feats, keep_logits))
         return out
+
+    def _take_biases(self):
+        """This sample's per-block pair biases, as the device left them, and an empty list for the next."""
+        out = list(self._biases)
+        self._biases.clear()
+        return out
+
+    def _s_path(self, s, biases):
+        """The confidence Pairformer's single track on the host in fp32: per block, upstream's AttentionPairBias
+        on s (with the device's pair bias, (1,H,Np,Np) scaled by `_bias_scale`) and its single Transition."""
+        import torch
+        import torch.nn.functional as F
+        N, C = s.shape
+        for i, b in enumerate(biases):
+            p = f"pairformer_stack.blocks.{i}."
+            a, t = p + "attention_pair_bias.", p + "single_transition."
+            b = torch.as_tensor(b).float().reshape(-1, *b.shape[-3:])[0, :, :N, :N] / self._bias_scale[i]
+            H = b.shape[0]
+            x = F.layer_norm(s, (C,), self._g(a + "layernorm_a.weight"), self._g(a + "layernorm_a.bias"))
+            heads = lambda w, bias=None: F.linear(x, self._g(a + w), bias).reshape(N, H, -1).transpose(0, 1)  # noqa: E731
+            q = heads("attention.linear_q.weight", self._g(a + "attention.linear_q.bias"))
+            k, v = heads("attention.linear_k.weight"), heads("attention.linear_v.weight")
+            o = torch.softmax(q @ k.transpose(-1, -2) * q.shape[-1] ** -0.5 + b, -1) @ v
+            o = o.transpose(0, 1).reshape(N, C) * torch.sigmoid(F.linear(x, self._g(a + "attention.linear_g.weight")))
+            s = s + F.linear(o, self._g(a + "attention.linear_o.weight"))
+            x = F.layer_norm(s, (C,), self._g(t + "layernorm1.weight"), self._g(t + "layernorm1.bias"))
+            s = s + F.linear(F.silu(F.linear(x, self._g(t + "linear_no_bias_a.weight")))
+                             * F.linear(x, self._g(t + "linear_no_bias_b.weight")), self._g(t + "linear_no_bias.weight"))
+        return s
 
     def _heads(self, s_single, zf, feats, keep_logits=False):
         """pae / pde / plddt heads on the host from the pairformer's (s_single, z)."""
@@ -2493,11 +2529,16 @@ class ConfidenceHead:
                               self._g("linear_no_bias_pae.weight"))                          # (N,N,n_bins)
         pde_logits = F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * self._g("pde_ln.weight") + self._bias("pde_ln.bias"),
                               self._g("linear_no_bias_pde.weight"))                          # (N,N,n_bins)
+        return self._postprocess(pae_logits, pde_logits, self._plddt_logits(s_single, feats), feats, keep_logits)
+
+    def _plddt_logits(self, s_single, feats):
+        """The plddt head on the host in fp32, from the pairformer's (N, 384) single track: it reads the per-token
+        part of the small channels, which a bf16 gather or layer norm on the device erases."""
+        import torch
+        import torch.nn.functional as F
         a2t = feats["atom_to_token_idx"].long(); a2ta = feats["atom_to_tokatom_idx"].long()
-        a = s_single[a2t]
-        aln = F.layer_norm(a, (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
-        plddt_logits = torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])        # (N_atom, n_bins)
-        return self._postprocess(pae_logits, pde_logits, plddt_logits, feats, keep_logits)
+        aln = F.layer_norm(s_single[a2t], (384,)) * self._g("plddt_ln.weight") + self._bias("plddt_ln.bias")
+        return torch.einsum("nc,ncb->nb", aln, self._g("plddt_weight")[a2ta])                # (N_atom, n_bins)
 
     # ---------------------------------------------------------------------------
     # Device-resident confidence path (opt-in). The host path (confidence())
@@ -2509,8 +2550,8 @@ class ConfidenceHead:
     # sample-invariant z_base = z_trunk + s1(s_inputs)[:,None] + s2(s_inputs)
     # [None,:] is computed ONCE on device, and per-sample only the (N,3) coords
     # are uploaded; the distance-embed + Pairformer + pae/pde/plddt heads all
-    # run on device, and only the small final logits (pae/pde (N,N,64), plddt
-    # (N_atom,50)) are downloaded. Feature-detected + gated behind
+    # run on device (plddt on the host from the downloaded (N,384) single track), and
+    # only the small finals (pae/pde (N,N,64), s (N,384)) are downloaded. Feature-detected + gated behind
     # TT_PROTENIX_CONF_DEVICE, on by default: it passed the normal-mode grade on
     # Wormhole (11 complexes x 4 seeds) for Protenix-v2 (pLDDT within 0.003 per
     # complex) and for OpenDDE (coordinates unchanged, CA-lDDT +0.0009).
@@ -2561,23 +2602,13 @@ class ConfidenceHead:
         T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
         N = s_trunk.shape[0]
         s_t_h = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
-        s_t = T(s_t_h.unsqueeze(0))                                       # (1,N,384)
+        s_t = ttnn.from_torch(s_t_h.unsqueeze(0).float(), layout=ttnn.TILE_LAYOUT, device=self.dev,
+                              dtype=ttnn.float32)                         # (1,N,384), fp32 like the head's track
         # Distance bins in fp32, so the bin of every pair is the host path's (the edges are bf16-exact).
         F32 = lambda k: ttnn.from_torch(self._g(k).reshape(1, 1, 1, -1), layout=ttnn.TILE_LAYOUT,
                                         device=self.dev, dtype=ttnn.float32)
         lb4, ub4 = F32("lower_bins"), F32("upper_bins")
-        # plddt per-atom-type weight table (24, 384, 50) -> flat (24, 384*50) for embedding gather
-        pw = self._g("plddt_weight")                                       # (n_tokatom, 384, 50)
-        n_ta, c, nb = pw.shape
-        pw_dev = ttnn.from_torch(pw.reshape(n_ta, c * nb).contiguous(), layout=ttnn.ROW_MAJOR_LAYOUT,
-                                 device=self.dev, dtype=ttnn.bfloat16)
-        a2ta = feats["atom_to_tokatom_idx"].long().to(torch.int32).reshape(-1, 1)  # (N_atom,1)
-        a2ta_dev = ttnn.from_torch(a2ta, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        a2t = feats["atom_to_token_idx"].long().to(torch.int32).reshape(-1, 1)     # (N_atom,1) -> s_single gather
-        a2t_dev = ttnn.from_torch(a2t, layout=ttnn.ROW_MAJOR_LAYOUT, device=self.dev, dtype=ttnn.uint32)
-        cache.update(tag=tag, s_t=s_t, z_base=z_base_dev, lb4=lb4, ub4=ub4, N=N,
-                     pw_dev=pw_dev, a2ta_dev=a2ta_dev, a2t_dev=a2t_dev,
-                     pw_shape=(n_ta, c, nb))
+        cache.update(tag=tag, s_t=s_t, s_t_h=s_t_h.float(), z_base=z_base_dev, lb4=lb4, ub4=ub4, N=N)
         return cache
 
     def drop_device_resident(self):
@@ -2638,7 +2669,7 @@ class ConfidenceHead:
             reads = [hostlane.read(t) for t in logits]
             for t in logits:
                 ttnn.deallocate(t)
-            confs.append(hostlane.submit(self._postprocess_read, reads, feats, keep_logits))
+            confs.append(hostlane.submit(self._postprocess_read, reads, self._dev_res["s_t_h"], feats, keep_logits))
         return [f.result() for f in confs]
 
     def _pair_embed(self, z_base, rc, dist):
@@ -2664,17 +2695,19 @@ class ConfidenceHead:
             ttnn.deallocate(zr)
             _T._write_rows(z, blk, r0)
 
-    def _postprocess_read(self, reads, feats, keep_logits=False):
-        """`_postprocess` of one sample's logits as `hostlane.read` returned them."""
-        pae, pde, plddt = (torch.Tensor(h.to_torch()).float() for h in reads)
-        N = pae.shape[-2]
-        return self._postprocess(pae.reshape(N, N, -1), pde.reshape(N, N, -1),
-                                 plddt.reshape(plddt.shape[0], -1), feats, keep_logits)
+    def _postprocess_read(self, reads, s_t, feats, keep_logits=False):
+        """`_postprocess` of one sample's logits and pair biases as `hostlane.read` returned them; the single
+        track runs here (`_s_path`) from the head's input s_t."""
+        pae, pde, *biases = (torch.Tensor(h.to_torch()) for h in reads)
+        N = s_t.shape[0]
+        return self._postprocess(pae.float().reshape(N, N, -1), pde.float().reshape(N, N, -1),
+                                 self._plddt_logits(self._s_path(s_t, biases), feats), feats, keep_logits)
 
     def _confidence_device_logits(self, s_inputs, s_trunk, z_base_dev, coords, feats):
         """The device half of `confidence_device`: enqueued, not read. Returns the pae and pde
-        logits (1,N,N,64) and the plddt logits (N_atom,1,50) on the device, still in their
-        device shapes (a tiled reshape would move data the host reshape does not)."""
+        logits (1,N,N,64) and the pairformer's fp32 single track (N,384) on the device, still in
+        their device shapes (a tiled reshape would move data the host reshape does not); the plddt
+        head runs on the host from the latter (`_plddt_logits`)."""
         import torch, ttnn
         # Tapped because the trunk and the diffusion stream are, and this was not: three AbAg-XM
         # targets fail ~1300 s in, long after the trunk, at refused sizes that match no trunk
@@ -2695,11 +2728,10 @@ class ConfidenceHead:
             self._pair_embed_rows(z, rc, dist)
         else:
             z = self._pair_embed(rc["z_base"], rc, dist)
-        # ---- confidence Pairformer (device, z stays resident) ----
-        # The pairformer adds its residuals into s in place, so every sample gets its own copy of the
-        # cached s_t. Handed s_t itself, sample k started from sample k-1's output: pLDDT 0.768 on
-        # sample 0, then 0.746, 0.731, 0.722, 0.718 where the host path reads 0.767-0.768 (c730).
+        # ---- confidence Pairformer: the pair track on the device, its blocks' pair biases for `_s_path` ----
         so, zo = bucketed_pairformer(self.pf, ttnn.clone(rc["s_t"]), z, self.dev)  # (1,N,384),(1,N,N,c_z)
+        ttnn.deallocate(so)
+        biases = self._take_biases()
         # ---- heads on device ----
         zof = ttnn.reshape(zo, (1, N, N, zo.shape[-1]))                      # c_z: 256 v2, 128 v1
         pae_ln = ttnn.layer_norm(zof, weight=self._wtt("pae_ln.weight", False),
@@ -2716,25 +2748,9 @@ class ConfidenceHead:
         pde_logits = self._dev_lin(pde_ln, "linear_no_bias_pde.weight")      # (1,N,N,64)
         for t in (pde_ln, zot, zof):
             ttnn.deallocate(t)
-        # plddt: a = s_single[a2t]; aln = LN(a)*w+b; logits = einsum('nc,ncb->nb', aln, pw[a2ta])
-        s_single = ttnn.reshape(so, (N, 384))
-        a = ttnn.embedding(rc["a2t_dev"], ttnn.to_layout(s_single, ttnn.ROW_MAJOR_LAYOUT),
-                           layout=ttnn.ROW_MAJOR_LAYOUT, memory_config=ttnn.DRAM_MEMORY_CONFIG)  # (N_atom,1,384)
-        a = ttnn.to_layout(ttnn.reshape(a, (a.shape[0], 384)), ttnn.TILE_LAYOUT)
-        aln = ttnn.layer_norm(a, weight=self._wtt("plddt_ln.weight", False),
-                              bias=(self._wtt("plddt_ln.bias", False) if "plddt_ln.bias" in self._w else None),
-                              epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        n_ta, c, nb = rc["pw_shape"]
-        pw_g = ttnn.embedding(rc["a2ta_dev"], rc["pw_dev"], layout=ttnn.ROW_MAJOR_LAYOUT,
-                              memory_config=ttnn.DRAM_MEMORY_CONFIG)          # (N_atom,1, c*nb)
-        pw_g = ttnn.reshape(pw_g, (a.shape[0], c, nb))                       # (N_atom, 384, 50)
-        pw_g = ttnn.to_layout(pw_g, ttnn.TILE_LAYOUT)
-        # einsum nc,ncb->nb  ==  batched (N_atom,1,384) @ (N_atom,384,50) -> (N_atom,1,50)
-        aln_b = ttnn.reshape(aln, (a.shape[0], 1, c))
-        plddt_logits = ttnn.matmul(aln_b, pw_g, compute_kernel_config=self.compute_kernel_config)  # (N_atom,1,50)
         dram_peak("confidence: heads done, before download")
-        # ---- the small finals are downloaded and post-processed on host by the caller ----
-        return pae_logits, pde_logits, plddt_logits
+        # ---- the logits and biases are downloaded; the caller runs the single track and plddt on the host ----
+        return (pae_logits, pde_logits, *biases)
 
     def _postprocess(self, pae_logits, pde_logits, plddt_logits, feats, keep_logits=False):
         """Shared host-side post-processing: softmax over bins -> expected
@@ -3770,8 +3786,10 @@ class Trunk(_KeyedWeights):
             pf_heads.append(0 if ta is None else int(ta.shape[0]))
         # Mol-1's pair-width adapters: before_block_<i> and after_blocks (PW.remap_pair_adapters).
         comb.update(PW.remap_pair_adapters(self._w, "pairformer_stack.", nb_pf))
+        # The single track in fp32 end to end (`PairformerLayer` s_fp32): the confidence head reads its small
+        # channels' per-token part, which a bf16 store erases.
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, pf_heads, 384 // 16, 16, True, comb,
-                             compute_kernel_config, gated_move=gated_move,
+                             compute_kernel_config, gated_move=gated_move, s_fp32=True,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.trunk", default=True))
         # Template embedder: pair-only PairformerLayers, count from the weights. Protenix-v2
         # has 2. Every PXDesign-pinned Protenix variant ships a template embedder that is only
@@ -4237,7 +4255,7 @@ class Trunk(_KeyedWeights):
                 ttnn.deallocate(rows[0])
                 del m_feat, rows
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
-            s = ttnn.add(s_init, sc)
+            s = ttnn.add(s_init, sc, dtype=ttnn.float32)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
             s = ttnn.reshape(s, (N, 384))
             # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
