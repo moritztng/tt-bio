@@ -40,13 +40,16 @@ if [ ! -f $B/SETUP-DONE ]; then
     apt-get update -qq && apt-get install -y -qq --no-install-recommends git wget python3.12-dev build-essential \
       libxrender1 libxext6 libsm6 kalign
     command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
-    git clone -q https://github.com/aurekaresearch/OpenDDE /root/opendde && git -C /root/opendde checkout -q $ODDE_SHA
-    git clone -q https://github.com/molence/Mol-1 /root/mol1 && git -C /root/mol1 checkout -q $MOL1_SHA
-    uv venv -q --python 3.12 --seed /opt/opendde-venv && uv venv -q --python 3.12 --seed /opt/mol1-venv
+    # Each step is idempotent so a relaunch resumes a half-done setup.
+    [ -d /root/opendde ] || git clone -q https://github.com/aurekaresearch/OpenDDE /root/opendde
+    [ -d /root/mol1 ] || git clone -q https://github.com/molence/Mol-1 /root/mol1
+    git -C /root/opendde checkout -q $ODDE_SHA && git -C /root/mol1 checkout -q $MOL1_SHA
+    for v in opendde mol1; do [ -x /opt/$v-venv/bin/python ] || uv venv -q --python 3.12 --seed /opt/$v-venv; done
     # OpenDDE README: cu126 + [gpu] (cuEquivariance 0.10.0). Mol-1: box_mol1.sh's recipe as run on the B200s.
-    VIRTUAL_ENV=/opt/opendde-venv uv pip install -q --torch-backend cu126 -e "/root/opendde[gpu]" ninja &
-    VIRTUAL_ENV=/opt/mol1-venv uv pip install -q -e "/root/mol1[cuda]" "$OPT_CORE" ninja &
-    wait
+    # Wait on the two installs by pid: a bare wait also waits on the clock logger and never returns.
+    VIRTUAL_ENV=/opt/opendde-venv uv pip install -q --torch-backend cu126 -e "/root/opendde[gpu]" ninja & p1=$!
+    VIRTUAL_ENV=/opt/mol1-venv uv pip install -q -e "/root/mol1[cuda]" "$OPT_CORE" ninja & p2=$!
+    wait $p1 && wait $p2
     (cd /root/opendde && bash scripts/download_opendde_data.sh --skip-search-database)
     mkdir -p $OPENDDE_ROOT_DIR/checkpoint $MOL_ROOT_DIR/checkpoint
     [ -f $OPENDDE_ROOT_DIR/checkpoint/opendde.pt ] ||
