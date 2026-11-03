@@ -2,9 +2,10 @@
 """The one card arbiter of a QuietBox (qb1, qb2): a booking file that every runner reads.
 
 ~/spd/feed/windows.tsv holds one line per booking, "START END OWNER CARDS NOTE" (epochs, cards comma-separated).
-Release-gate legs never book: they keep absolute priority and every runner yields to them as before.
+Release-gate legs keep absolute priority and book through `take`, so the booker sees them.
 
     book.py add OWNER CARDS SECONDS [--now] [--note TEXT]   book a window, print "START END"
+    book.py take OWNER CARDS SECONDS [--note TEXT]          book from now ahead of everything (a release leg)
     book.py rm OWNER                                        drop OWNER's booking
     book.py next CARD [--except OWNER]                      earliest start of a booking on CARD not yet over
     book.py active CARD [--except OWNER]                    owner of the booking on CARD now (rc 1 if none)
@@ -26,6 +27,12 @@ to "real" legs, and three cards sat idle for hours with 21 feed jobs queued.
 
 `add` also never starts a window on a card whose flock (~/spd_<box>_cardN.lock or _chipN.lock) is held: a release-gate
 leg holds it for its whole run, including the gaps between device opens where no node is open.
+`take` books [now, now + SECONDS) on CARDS and moves every booking it overlaps to its next free slot, in start order,
+logging "TIME moved OWNER START -> NEW by TAKER" to windows.tsv.moved so the moved row's runner can read where it went.
+scripts/flock_first.sh --book calls it once a release leg holds its card flock and drops it (`rm`) when the leg ends.
+Why: on 11-03 release legs on qb1 took the card flocks without a booking, so gate5 and msa-shapes found their booked
+windows started under a foreign holder, gave them up and rebooked by hand up to 11.5 h later.
+
 Why: on 10-24 the rfd4-bh-scaling chain read qb2 cards 0-1 as free in such a gap and took them, and two ladder legs of
 gate a06d92c6d FAILed on DeviceInUseError.
 """
@@ -164,6 +171,23 @@ def earliest(rows, cards, dur, start):
         start = max(hit)
 
 
+def take(rows, owner, cards, dur, now, note, log=None):
+    """`rows` with OWNER booked on `cards` for [now, now + dur) and every booking that overlaps it moved later."""
+    rows = [r for r in rows if r[2] != owner]
+    mine = (now, now + dur, owner, cards, note)
+    hit = sorted(r for r in rows if r[3] & cards and r[0] < now + dur and r[1] > now)
+    out = [r for r in rows if r not in hit] + [mine]
+    moved = []
+    for s, e, o, cs, n in hit:
+        s2 = earliest(out, cs, e - s, now + dur)
+        out.append((s2, s2 + e - s, o, cs, n))
+        moved.append("%s moved %s %d -> %d by %s\n" % (time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime(now)), o, s, s2, owner))
+    if moved:
+        with open(log or F + ".moved", "a") as f:
+            f.writelines(moved)
+    return out
+
+
 def main(a):
     now = int(time.time())
     os.makedirs(os.path.dirname(F), exist_ok=True)
@@ -183,6 +207,11 @@ def main(a):
             rows.append((s, s + dur, owner, cards, opt("--note") or ""))
             write(rows)
             print(s, s + dur)
+        elif a[0] == "take":
+            owner, cards, dur = a[1], {int(c) for c in a[2].split(",")}, int(a[3])
+            rows = take(rows, owner, cards, dur, now, opt("--note") or "")
+            write(rows)
+            print(now, now + dur)
         elif a[0] == "rm":
             write([r for r in rows if r[2] != a[1]])
         elif a[0] in ("next", "active"):
