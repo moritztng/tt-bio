@@ -5,7 +5,7 @@
 
 Two phases, one process, every line appended to `<out>/runs.jsonl`:
 
-1. Climb. The sample width doubles from 1 until the card pushes back (a rung that errors, a rung
+1. Climb. The sample width doubles from 1 (or grows by `--ladder-step` from `--ladder-start`) until the card pushes back (a rung that errors, a rung
    the chunker had to run narrower because DRAM refused it, or two rungs in a row that buy under
    2 %) or the protocol's ceiling (b128 / b64 / b32 at 128 / 256 / 512 tokens). Each rung pays one
    compile call, then one warm screen batch.
@@ -93,6 +93,7 @@ def main():
     ap.add_argument("--host", default=os.uname().nodename)
     ap.add_argument("--ceiling", type=int, help="widest rung; default the protocol's per-size ceiling")
     ap.add_argument("--ladder-start", type=int, default=1)
+    ap.add_argument("--ladder-step", type=int, help="grow each rung by this many designs instead of doubling")
     ap.add_argument("--batch", type=int, help="skip the climb and measure at this width")
     ap.add_argument("--batches", type=int, default=5, help="warm batches at the best width (protocol: >= 5)")
     ap.add_argument("--seed", type=int, default=1000, help="batch i runs on seed + i")
@@ -233,7 +234,7 @@ def main():
                 best, top = width, dps
             if flat >= 2:
                 break
-            width *= 2
+            width = width + a.ladder_step if a.ladder_step else width * 2
         stop = ("ceiling" if width > ceiling else "pushback")
         emit({"kind": "climb", "size": size, "best_batch": best, "stopped": stop, "ceiling": ceiling,
               "rungs": [{k: r.get(k) for k in ("batch", "width_achieved", "designs_per_s", "aiclk_mhz",
