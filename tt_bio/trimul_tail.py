@@ -1720,6 +1720,7 @@ BF16_TILE, FP32_TILE = 2048, 4096
 # Both data-movement cores gather (kernels/trimul_in_t1/gather.hpp): compute sends the even [a | b] channel tiles to
 # the reader, which reads z for the next unit ahead and then gathers them, and the odd ones to the writer, beside
 # g_out. One-launch plans with bf16 a / b only. The bytes land where the writer alone put them: bit-identical.
+# trimul_t1split turns it on at any one-launch key (Mol-1's c_z 320 on Blackhole from 512 tokens, MOL1_BH_512).
 T1_SPLIT = {(12, 16, 12): 1}
 # One core reads T1's resident weights and multicasts them to the grid (kernels/trimul_in_t1/reader.cpp T1MCAST)
 # instead of every core pulling the same pages: 575 KB a core, 63 MB a call at RFD4's key. Same bytes in the same
@@ -1739,13 +1740,14 @@ def _t1_nb_pref(key):
     return _t1_knob(T1_NB, key, 0) or GIN_MOVE_NB
 
 
-def t1_dm(key, mask, w8, b8=False):
-    """(NB, split) of T1's writer for the (kt, ct2, ntg) plan: the preferred NB and split where the staging fits the L1
-    gate t1_eligible applies, the split with a halved NB next, else GIN_MOVE_NB on the writer alone."""
+def t1_dm(key, mask, w8, b8=False, split=False):
+    """(NB, split) of T1's writer for the (kt, ct2, ntg) plan: the preferred NB and split (T1_SPLIT or `split`) where
+    the staging fits the L1 gate t1_eligible applies, the split with a halved NB next, else GIN_MOVE_NB on the writer
+    alone."""
     from .tenstorrent import _l1_bank_bytes
     fits = lambda nb, sp: t1_cb_bytes(*key, mask, nb=nb, w8=w8, split=sp, b8=b8) <= 0.85 * _l1_bank_bytes()  # noqa: E731
     nb = _t1_nb_pref(key)
-    if _t1_knob(T1_SPLIT, key, 0) and t1_plan(key, w8)[0] == 1:
+    if (split or _t1_knob(T1_SPLIT, key, 0)) and t1_plan(key, w8)[0] == 1:
         for n in (nb, nb // 2):
             if n >= 2 and fits(n, True):
                 return n, True
@@ -2043,14 +2045,15 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     return {"kernels": [reader, writer, compute], "cbs": cbs, "mc": mc, "sems": sems}
 
 
-def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False, g8=False, fg=False):
+def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8=False, g8=False, fg=False,
+                sp=False):
     """`[a, b, g_out]` of the trimul input side from the raw pair `x`, one kernel:
     xn = layer_norm(x; ln_w, ln_b, eps), [a | b] = (xn @ wpT^T) * sigmoid(xn @ wgT^T), `a` times
     the pair mask when `mask` is given, both [B, C, S, S] (gin_moved's layout), and
     g_out = xn @ wgo as [*x.shape[:-1], N]. None when T1 is off or does not cover the call;
     nothing is allocated then. `x` is not touched. `b8` (or T1_B8) writes a and b as bfp8, `g8` (or T1_G8) g_out
     at the T1_G8_KEYS (whole tiles: compute packs c_19 as bfp8, the writer moves 1088-byte pages), `fg` (or T1_FG)
-    the gate fused in DST (t1_fgate)."""
+    the gate fused in DST (t1_fgate), `sp` both data-movement cores gathering at any one-launch key (T1_SPLIT)."""
     from . import ops
     fid, approx, _, full = ckc
     if ops.taping() or dest_guard.exposed_args((fid, approx, True, full)):
@@ -2072,7 +2075,7 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     groups, il = t1_plan(pkey, w8)
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
     b8 = bool(b8 or T1_B8) and (il == 32 or il == 8 and t1_pair_free(B * (S // TILE) ** 2 * 4, grid[0] * grid[1]))
-    nb, split = t1_dm(pkey, mask is not None, w8, b8)
+    nb, split = t1_dm(pkey, mask is not None, w8, b8, sp)
     mcast = bool(_t1_knob(T1_MCAST, pkey, 0)) and grid[0] * grid[1] > 1
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
