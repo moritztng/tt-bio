@@ -53,7 +53,7 @@ def cell(vals, wins, smi, **kw):
         return {"n": 0, **kw}
     m = statistics.median(vals)
     return {"n": len(vals), "median": round(m, 4), "spread_pct": round(100 * (max(vals) - min(vals)) / m, 2),
-            "values": [round(v, 3) for v in vals], **smi.over(wins), **kw}
+            "values": [round(v, 3) for v in vals], **smi.over(wins), "wins": [[round(a), round(b)] for a, b in wins], **kw}
 
 
 def mol1(box, smi):
@@ -130,6 +130,42 @@ def chosen(arms, final_only=False):
     return min(ok, key=lambda k: ok[k]["median"]) if ok else None
 
 
+UNIT = {"mol1": "s_per_fold", "bindcraft2": "s_per_design", "rfd4": "s_per_design"}
+
+
+def page(g, smi):
+    """The shape perf/pnr/cells_to_page.py reads: one entry per protocol arm, pooling every warm run of that arm on
+    this box (BindCraft 2 screen + winner rerun; RFD4 ladder rung + final rerun at the arm's published batch).
+    The first run of every process is already dropped upstream, so pooling across processes keeps warm-only."""
+    v = g["versions"]
+    ver = {"mol1": f"Mol-1 {v['mol1']['commit'][:8]}, torch {v['mol1']['torch']}",
+           "bindcraft2": f"BindCraft 2 {(v['bindcraft2']['commit'] or '?')[:9]}, jax {v['bindcraft2']['jax']}",
+           "rfd4": f"RFD4-Proteina {v['rfd4']['commit'][:8]} ckpt {v['rfd4']['ckpt_rev'][:8]}, torch {v['rfd4']['torch']}"}
+    out = {}
+    for m, x in g["models"].items():
+        groups = {}
+        for k, a in x["arms"].items():
+            if a["n"]:
+                name = k.split(":", 1)[1] if k.startswith("winner:") else k.split("@")[0]
+                groups.setdefault(name, []).append(a)
+        arms = {}
+        for name, al in groups.items():
+            if m == "rfd4":   # the arm's published batch: its final rerun's, else its fastest rung's
+                fin = [a for a in al if a["stage"] == "final"]
+                b = (fin[0] if fin else min(al, key=lambda a: a["median"]))["batch"]
+                al = [a for a in al if a["batch"] == b]
+            c = cell([y for a in al for y in a["values"]], [w for a in al for w in a["wins"]], smi)
+            arms[name] = {UNIT[m]: c["median"], "n": c["n"], "spread_pct": c["spread_pct"],
+                          "sm_clock_mhz": c["sm_clock_mhz"], "power_w": c["power_w"],
+                          "versions": f"{ver[m]}, CUDA {v['cuda']}, driver {v['driver']}, image {v['image']}, {v['gpu']}",
+                          "when": datetime.fromtimestamp(min(w[0] for w in c["wins"]), timezone.utc).strftime("%FT%TZ"),
+                          "box": g["box"], "raw": " ".join(str(Path(a["raw"]).relative_to(HERE.parents[1])) for a in al),
+                          **({"batch": al[0]["batch"]} if m == "rfd4" else {})}
+        ok = {k: a for k, a in arms.items() if a["n"] >= NEED_N}
+        out[m] = {"chosen": min(ok, key=lambda k: ok[k][UNIT[m]]) if ok else None, "arms": arms}
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gpu", required=True)
@@ -145,11 +181,13 @@ def main():
     for m, arms in models.items():
         c = chosen(arms, final_only=(m == "rfd4"))
         g["models"][m] = {"arms": arms, "chosen": c, "cell": arms.get(c) if c else None}
-    doc = json.loads(a.out.read_text()) if a.out.exists() else {"protocol": "state/pnr/PROTOCOL.md", "gpus": {}}
-    doc["gpus"][a.gpu] = g
+    doc = json.loads(a.out.read_text()) if a.out.exists() else {}
+    doc.setdefault("protocol", "state/pnr/PROTOCOL.md")
+    doc.setdefault("detail", {})[a.gpu] = g
+    doc[a.gpu] = page(g, smi)
     a.out.write_text(json.dumps(doc, indent=1) + "\n")
-    print(json.dumps({m: (x["chosen"], (x["cell"] or {}).get("median"), (x["cell"] or {}).get("n"))
-                      for m, x in g["models"].items()}))
+    print(json.dumps({m: (x["chosen"], {k: (y[UNIT[m]], y["n"]) for k, y in x["arms"].items()})
+                      for m, x in doc[a.gpu].items()}))
 
 
 if __name__ == "__main__":
