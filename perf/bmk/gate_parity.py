@@ -40,6 +40,8 @@ LEGS = {
 }
 # rows whose shipped default folds with an MSA; their claim says so
 MSA_ROWS = {"boltz2", "openfold3", "protenix-v2", "opendde", "openbind", "rf3"}
+# rows whose only gate leg grades the fold against the crystal, not device against upstream
+AGAINST = {"mol1": "the experimental structure"}
 VERDICTS = {"PASS", "PASS-caveated", "GAP", "GAP-evidenced", "DRIFT", "FAIL", "ERROR", "SKIP"}
 
 
@@ -90,7 +92,7 @@ def claims(gate: Path, extra: Path | None = None) -> dict:
         every = {1: "its", 2: "both"}.get(len(mine), f"all {len(mine)}")
         lead = f"Passes {every} {what}" if ok == len(mine) else f"{ok} of {len(mine)} {what} pass"
         at = side["sha"][:9] if any(n in side.get("legs", {}) for n in mine) else sha
-        out[row] = (lead + " against the reference implementation on Blackhole" +
+        out[row] = (lead + f" against {AGAINST.get(row, 'the reference implementation')} on Blackhole" +
                     (", with an MSA" if row in MSA_ROWS else "") + f" (tt-bio {at})")
     return out
 
