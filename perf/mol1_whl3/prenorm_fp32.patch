@@ -1,0 +1,19 @@
+--- tt_bio/tenstorrent.py	2026-11-03 13:31:32.709946996 +0100
++++ /home/moritz/mol1-whl3/scratch/tenstorrent_prenorm.py	2026-11-03 13:40:24.844892747 +0100
+@@ -15472,13 +15472,14 @@
+             z = _z_residual(z, zc, z_update, wide)
+             _layer_tap("transition", z)
+         if self.transform_s:
+-            s_norm = ttnn.layer_norm(
++            s_norm = (fp32_layer_norm(self._s_compute(s), self.pre_norm_s_weight, self.pre_norm_s_bias, 1e-5,
++                                      self.compute_kernel_config, ttnn.bfloat16) if is_wormhole() else ttnn.layer_norm(
+                 self._s_compute(s),
+                 weight=self.pre_norm_s_weight,
+                 bias=self.pre_norm_s_bias,
+                 epsilon=1e-5,
+                 compute_kernel_config=self.compute_kernel_config,
+-            )
++            ))
+             s_update = self.attention_pair_bias(
+                 s_norm,
+                 _z_compute(z, wide),
