@@ -339,7 +339,10 @@ MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_
 # median (max 2.15) vs the 0.60 A bar and the 1.33 A seed floor, lDDT 0.991 vs 0.964. At 256 the same stack reads 0.735 A
 # and fails, so it stays off below 512. trimul_t1split joins it bit-identically: one c_z 320 trimul call (qb2 p300c,
 # AICLK 1200-1350) 7.84 -> 7.00 ms at 512 tokens, 33.66 -> 30.23 at 1024, flat at 256 (state/mol1/evidence/bh/mulroof.md).
-MOL1_BH_512 = frozenset({"transition_b8", "ws_b8_plain", "trimul_x8", "trimul_t1w8", "trimul_t1split"})
+# trimul_t1g8 (g_out bfp8) graded over the rest of this set, qb2 p300c ABBA: 512 67.75 -> 66.21 s at AICLK 1275-1300,
+# 0.523 A median vs the 1.97 A seed floor; 1024 266.5 -> 260.3 s at 1237-1250, 0.091 A vs 0.538. At 256 it reads -0.8 %
+# for 0.52 A of the 0.60 A bar, so it stays off there.
+MOL1_BH_512 = frozenset({"transition_b8", "ws_b8_plain", "trimul_x8", "trimul_t1w8", "trimul_t1split", "trimul_t1g8"})
 SIZE_LEVERS_MIN_TOKENS = 512
 
 
