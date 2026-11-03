@@ -22,6 +22,15 @@ uint32_t kv_read(const ReaderType&, const uint32_t cb_id, uint32_t, const uint32
 #define KV_READ read_chunk_with_padding
 #endif
 
+// KV_CHAIN_EVERY_BATCH (`sdpa_generic.build(kv_chain=True)`): the cores of one head's chain walk the
+// same batch range with one q chunk each, so they stay in lockstep and forward K/V for every batch,
+// not only the chain's own one. Triangle attention batches the pair rows (B = S per head).
+#ifdef KV_CHAIN_EVERY_BATCH
+#define CHAIN_MATCH (nq == chain_head)
+#else
+#define CHAIN_MATCH (nb == chain_batch && nq == chain_head)
+#endif
+
 // Read a KV chunk into a CB for L1-L1 forwarding.
 // Skips intermediate read barriers (single barrier at end) for lower latency.
 // Returns the CB write pointer (start address of the data) for use as the forwarding source.
@@ -551,10 +560,10 @@ void kernel_main() {
                     bool should_forward = false;
                     bool should_receive = false;
                     if constexpr (!is_causal) {
-                        should_forward = is_chain_participant && !is_sink && (nb == chain_batch && nq == chain_head) &&
+                        should_forward = is_chain_participant && !is_sink && CHAIN_MATCH &&
                                          (q_iter < next_core_q_chunks);
                         should_receive =
-                            is_chain_participant && !is_injector && (nb == chain_batch && nq == chain_head);
+                            is_chain_participant && !is_injector && CHAIN_MATCH;
                     }
 
                     // loop while k_low < q_high
