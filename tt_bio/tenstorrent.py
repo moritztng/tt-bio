@@ -15453,6 +15453,8 @@ class PairformerLayer(Module):
         # per-token part of 0.08-0.28, below bf16's step there, and the bf16 store alone costs 7fxn 0.065 pLDDT
         # against upstream fp32 (state/mol1/evidence/whl4/ROOT.md).
         self.s_fp32 = s_fp32
+        # A list here makes the block skip its single track and append its pair bias instead (`ConfidenceHead`).
+        self.s_on_host = None
         # The same trade for the pair track, and TRAINING ONLY: it fires only while a tape is
         # open, so inference runs the bf16 `add_` below whatever a caller passes. Upstream keeps
         # z in fp32 between ops; holding it in bf16 is what carries our msa_module forward gap
@@ -15645,6 +15647,11 @@ class PairformerLayer(Module):
                 if _RESIDUAL_L1 else None, mask=trans_mask_z)
             z = _z_residual(z, zc, z_update, wide)
             _layer_tap("transition", z)
+        if self.transform_s and self.s_on_host is not None:
+            # The caller runs the single track on the host (`ConfidenceHead`): z never reads s inside a
+            # block, so this block's part of it is the pair bias its attention would add.
+            self.s_on_host.append(self.attention_pair_bias.compute_bias(_z_compute(z, wide)))
+            return s, z
         if self.transform_s:
             # An fp32 single track keeps its per-token part only through an fp32 norm: `ttnn.layer_norm` on
             # the bf16 copy loses it the same way the Transition's norm did (`fp32_layer_norm`).

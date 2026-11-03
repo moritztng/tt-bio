@@ -2,7 +2,7 @@
 input, with ONE kind of bf16 rounding switched on in every block, graded by the pLDDT it gives (upstream plddt head).
 
     python -I head_chain.py CKPT DUMP_DIR [site ...]
-Sites: s_in (s at each block entry), z (z at each block entry), apb_ln (APB pre-norm output), apb_out (APB update),
+Sites: ttz (float64 s path on the TT stack's own per-block z), ttz_bias16 (same, pair bias stored bf16), s_in (s at each block entry), z (z at each block entry), apb_ln (APB pre-norm output), apb_out (APB update),
 tr_ln (single Transition pre-norm output), tr_out (single Transition update), tt (the TT stack's own output).
 """
 import sys
@@ -25,6 +25,11 @@ a2t, a2ta = inp["feats"]["atom_to_token_idx"].long(), inp["feats"]["atom_to_toka
 bf = lambda x: x.to(torch.bfloat16).to(x.dtype)
 
 
+def tf32(x):  # round to nearest, 10 mantissa bits (what a WH FPU source register holds of an fp32 operand)
+    i = x.float().view(torch.int32)
+    return ((i + 0x1000 + ((i >> 13) & 1) - 1) & ~0x1FFF).view(torch.float32).to(x.dtype)
+
+
 def plddt(s):
     aln = F.layer_norm(s[a2t], (384,)) * W("plddt_ln.weight") + (W("plddt_ln.bias") if pre + "plddt_ln.bias" in sd else 0)
     lg = torch.einsum("nc,ncb->nb", aln, W("plddt_weight")[a2ta])
@@ -45,15 +50,28 @@ tt = recs[-1][2].reshape(-1, recs[-1][2].shape[-1])[:N].double()
 
 
 def chain(site):
-    hooks = []
+    hooks, saved = [], []
+    if site in ("bf16_ops", "tf32_ops"):  # every s-path Linear rounds its input and weight (operands of a matmul)
+        rnd = bf if site == "bf16_ops" else tf32
+        for b in blocks:
+            for m in list(b.attention_pair_bias.modules()) + list(b.single_transition.modules()):
+                if isinstance(m, torch.nn.Linear) and m.in_features != b.attention_pair_bias.layernorm_z.weight.shape[0]:
+                    saved.append((m, m.weight.data))
+                    m.weight.data = rnd(m.weight.data)
+                    hooks.append(m.register_forward_pre_hook(lambda mod, a, r=rnd: (r(a[0]),) + tuple(a[1:])))
     for b in blocks:
         mods = {"apb_ln": b.attention_pair_bias.layernorm_a, "apb_out": b.attention_pair_bias,
                 "tr_ln": b.single_transition.layernorm1, "tr_out": b.single_transition}
         if site in mods:
             hooks.append(mods[site].register_forward_hook(lambda m, i, o: bf(o)))
+    if site == "ttz_bias16":  # the pair bias each block's attention reads, stored bf16
+        for b in blocks:
+            hooks.append(b.attention_pair_bias.linear_nobias_z.register_forward_hook(lambda m, i, o: bf(o)))
     s, z = s0, z0
     with torch.no_grad():
-        for b in blocks:
+        for i, b in enumerate(blocks):
+            if site.startswith("ttz"):  # the s path on the TT stack's own z of this block (z never reads s)
+                z = recs[i][1].reshape(-1, *recs[i][1].shape[-3:])[:, :N, :N].double()
             if site == "s_in":
                 s = bf(s)
             if site == "z":
@@ -61,6 +79,8 @@ def chain(site):
             s, z = b(s, z, None)
     for h in hooks:
         h.remove()
+    for m, w in saved:
+        m.weight.data = w
     return s.reshape(-1, 384)
 
 
