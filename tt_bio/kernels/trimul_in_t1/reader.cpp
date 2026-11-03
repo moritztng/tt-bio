@@ -25,7 +25,8 @@
 #endif
 // T1SPLIT (trimul_tail.T1_SPLIT): this reader also gathers and writes the launch's even [a | b] channel tiles, which
 // compute sends to c_21 (gather.hpp, as writer.cpp does the odd ones). The first two z barriers of the next unit are
-// read before this unit's gathers, so compute's next layer_norm does not wait on them.
+// read before this unit's gathers, so compute's next layer_norm does not wait on them; a T1PRE launch reads no z and
+// gathers right after its unit's xn.
 #ifndef T1SPLIT
 #define T1SPLIT 0
 #endif
@@ -97,7 +98,6 @@ void kernel_main() {
     constexpr auto b_args = TensorAccessorArgs<a_args.next_compile_time_args_offset()>();
     const auto oa = TensorAccessor(a_args, get_common_arg_val<uint32_t>(7));
     const auto ob = TensorAccessor(b_args, get_common_arg_val<uint32_t>(8));
-    static_assert(!T1PRE, "T1SPLIT is for one-launch plans");
     t1_gather::Gather<NB, IL, ABL, T1B8> gather;
     gather.init(tt::CBIndex::c_25, tt::CBIndex::c_27);
 #endif
@@ -184,7 +184,7 @@ void kernel_main() {
     };
     // Barriers of the next unit read ahead of this unit's gathers: x_cb holds T1ZPRE (T1SPLIT), none otherwise.
     constexpr uint32_t NBAR = IL / RB;
-    constexpr uint32_t PRE = T1SPLIT ? (NBAR < T1ZPRE ? NBAR : T1ZPRE) : 0;
+    constexpr uint32_t PRE = T1SPLIT && !T1PRE ? (NBAR < T1ZPRE ? NBAR : T1ZPRE) : 0;
     uint32_t pre = 0;   // barriers of unit u already read
 
     for (uint32_t u = u0; u < u0 + nunits; ++u) {
@@ -228,7 +228,7 @@ void kernel_main() {
             const uint32_t pg = (b * CT + (q < CT ? q : q - CT)) * 32 * St * St + cube;
             if (q < CT) gather.tile(tt::CBIndex::c_21, oa, pg, h * IL, St * St, (q - Q0) / 2);
             else gather.tile(tt::CBIndex::c_21, ob, pg, h * IL, St * St, (q - Q0) / 2);
-            if constexpr (T1ZIL) {
+            if constexpr (T1ZIL && !T1PRE) {
                 if (next && pre < NBAR && cb_pages_reservable_at_back(x_cb, RB * Kt)) {
                     read_rows(z_page(u + 1), pre * RB, pre * RB + RB);
                     ++pre;

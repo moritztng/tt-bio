@@ -64,6 +64,18 @@ def test_rfd4_splits_the_gather_at_nb_8(mask, monkeypatch):
 
 
 @pytest.mark.parametrize("mask", [False, True])
+def test_split_lever_reaches_channel_group_plans(mask, monkeypatch):
+    """trimul_t1split gathers on both cores on the channel-group plans too (Mol-1's c_z 448, and 320 with bf16
+    weights at 256 tokens); the T1_SPLIT table alone stays on one-launch keys."""
+    import tt_bio.tenstorrent as T_
+    monkeypatch.setattr(T_, "_l1_bank_bytes", lambda: L1_ALLOCATOR_BANK)
+    for key, w8 in [((10, 20, 10), False), ((14, 28, 14), False), ((14, 28, 14), True)]:
+        assert TTL.t1_plan(key, w8)[0] > 1
+        assert TTL.t1_dm(key, mask, w8, split=True) == (TTL.GIN_MOVE_NB, True)
+        assert TTL.t1_dm(key, mask, w8)[1] is False
+
+
+@pytest.mark.parametrize("mask", [False, True])
 def test_cb_budget_fits_l1_c256(mask):
     """c_z 256 in one launch of 32-row units would need ~1.9 MB a core; its plan fits the gate."""
     assert TTL.T1_PLANS[(8, 16, 8)] == (2, 16)
