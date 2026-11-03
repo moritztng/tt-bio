@@ -477,6 +477,7 @@ TRANSITION_H_CLASH: dict = {}
 # output at once, and OpenDDE's refiner pair at 1024 tokens on Wormhole, (1, 2016, 2016, 384) bf16,
 # is 3.12 GB each: the shape goes to the row-blocked path, which adds into x block by block.
 WS_DRAM_REFUSED: set = set()
+FP32_TRANSITION_DRAM: set = set()     # single-track shapes whose fp32 Transition L1 plan was refused
 # Measured ceiling for one Transition row chunk on a small grid, in L1 bytes PER CORE.
 # The chunk's live L1 (x_norm + x_1 + x_2) is interleaved across the grid, so what binds is
 # aggregate L1 / cores, and the budget above never sees core count. On UF-EV-A13-GWH02
@@ -14215,18 +14216,19 @@ def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memo
     return out
 
 
-def _centred_linear(v, w, ckc, dtype, memory_config):
+def _centred_linear(v, w, ckc, dtype, memory_config, inner):
     """`v @ w` for a single track whose rows share one dominant vector: token 0's row `c` goes through the matmul
     on its own and only `v - c`, of the per-token part's size, is rounded to bf16, so that part keeps bf16's
-    relative precision instead of the shared vector's. Exact algebra; `v` fp32, the result at `dtype`."""
-    L1 = ttnn.L1_MEMORY_CONFIG
-    c = ttnn.slice(v, [0, 0, 0], [v.shape[0], 1, v.shape[2]], memory_config=L1)
-    d = ttnn.typecast(ttnn.subtract(v, c, memory_config=L1), ttnn.bfloat16, memory_config=L1)
-    y = ttnn.linear(d, w, compute_kernel_config=ckc, dtype=ttnn.float32, core_grid=CORE_GRID_MAIN, memory_config=L1)
+    relative precision instead of the shared vector's. Exact algebra; `v` fp32, the result at `dtype`, the
+    intermediates at `inner` (in L1 the main-grid matmul reads them there)."""
+    grid = {"core_grid": CORE_GRID_MAIN} if inner.buffer_type == ttnn.BufferType.L1 else {}
+    c = ttnn.slice(v, [0, 0, 0], [v.shape[0], 1, v.shape[2]], memory_config=inner)
+    d = ttnn.typecast(ttnn.subtract(v, c, memory_config=inner), ttnn.bfloat16, memory_config=inner)
+    y = ttnn.linear(d, w, compute_kernel_config=ckc, dtype=ttnn.float32, memory_config=inner, **grid)
     ttnn.deallocate(d)
-    cb = ttnn.typecast(c, ttnn.bfloat16, memory_config=L1)
+    cb = ttnn.typecast(c, ttnn.bfloat16, memory_config=inner)
     ttnn.deallocate(c)
-    yc = ttnn.linear(cb, w, compute_kernel_config=ckc, dtype=ttnn.float32, memory_config=L1)
+    yc = ttnn.linear(cb, w, compute_kernel_config=ckc, dtype=ttnn.float32, memory_config=inner)
     ttnn.deallocate(cb)
     out = ttnn.add(y, yc, dtype=dtype, memory_config=memory_config)
     ttnn.deallocate(y)
@@ -14249,14 +14251,29 @@ def fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype):
     """
     ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ckc.math_fidelity, math_approx_mode=ckc.math_approx_mode,
                                            fp32_dest_acc_en=True, packer_l1_acc=ckc.packer_l1_acc)
-    L1 = ttnn.L1_MEMORY_CONFIG   # the fp32 intermediates stay in L1, as the bf16 path's do
-    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ckc, ttnn.float32, L1)
-    a = _centred_linear(xn, w1, ckc, ttnn.float32, L1)
-    b = _centred_linear(xn, w2, ckc, ttnn.float32, L1)
+    # The fp32 intermediates stay in L1, as the bf16 path's do, unless the device refused that at this shape:
+    # BoltzGen's diffusion conditioning keeps enough in L1 that the main-grid fc matmul's circular buffers clash.
+    # The DRAM form computes the same values (only placement and the matmul grid differ).
+    key = tuple(x.padded_shape)
+    if key not in FP32_TRANSITION_DRAM:
+        try:
+            return _fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype, ttnn.L1_MEMORY_CONFIG)
+        except RuntimeError as exc:
+            if not x.is_allocated() or not report_l1_refusal("fp32_single_transition", exc):
+                raise
+            FP32_TRANSITION_DRAM.add(key)
+        gc.collect()        # the refused attempt's L1 intermediates, still referenced from its traceback
+    return _fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype, ttnn.DRAM_MEMORY_CONFIG)
+
+
+def _fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype, inner):
+    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ckc, ttnn.float32, inner)
+    a = _centred_linear(xn, w1, ckc, ttnn.float32, inner, inner)
+    b = _centred_linear(xn, w2, ckc, ttnn.float32, inner, inner)
     ttnn.deallocate(xn)
     h = ttnn.multiply_(ttnn.silu(a, output_tensor=a), b)
     ttnn.deallocate(b)
-    out = _centred_linear(h, w3, ckc, dtype, ttnn.DRAM_MEMORY_CONFIG)
+    out = _centred_linear(h, w3, ckc, dtype, ttnn.DRAM_MEMORY_CONFIG, inner)
     ttnn.deallocate(h)
     return out
 
