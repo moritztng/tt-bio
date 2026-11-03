@@ -17,12 +17,15 @@ if [ ! -f main-$SHA/.ok ]; then  # cards start together: each unpacks its own co
 fi
 export PATH=$HOME/tt-bio-dev/env/bin:$HOME/mol1-quality/env/kalign/bin:$PATH PYTHONPATH=$PWD/main-$SHA LOCK_HOST
 say "engine $(python3 -c 'import tt_bio; print(tt_bio.__file__)') = $SHA"
-until [ "$(python3 ~/spd/feed/book.py active "$C" 2>/dev/null)" = "$O" ]; do
-  say "book $(python3 ~/spd/feed/book.py add $O "$C" "$S" --note "mol1-quality BH stack A/B ($SHA)")"; sleep 60; done
-flock "$L" true  # the outgoing holder finishes its fold first
-say "chip $C: window open"
 for s in 42 66 101 2024 8888; do
-  bash "$P/run_tt.sh" --book $O --cases fixb/CASES.json inputs "$OUT" "$s" "$C"
-  [ "$(python3 ~/spd/feed/book.py active "$C" 2>/dev/null)" = "$O" ] || { say "window over at seed $s"; break; }
+  while :; do  # a window that lapses or is cut (a gate, another booking) books again, as bh_arm.sh does
+    until [ "$(python3 ~/spd/feed/book.py active "$C" 2>/dev/null)" = "$O" ]; do
+      say "book $(python3 ~/spd/feed/book.py add $O "$C" "$S" --note "mol1-quality BH stack A/B ($SHA)")"; sleep 60; done
+    flock "$L" true  # the outgoing holder (a release-gate leg, a feed job) finishes first
+    say "chip $C: window open, seed $s"
+    bash "$P/run_tt.sh" --book $O --cases fixb/CASES.json inputs "$OUT" "$s" "$C" | tee "$OUT.c$C.last"
+    grep -q "TT-STOP\|card lock held" "$OUT.c$C.last" || break
+    sleep 60
+  done
 done
 python3 ~/spd/feed/book.py rm $O; say "AB-EXIT"
