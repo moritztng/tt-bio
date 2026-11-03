@@ -1,4 +1,4 @@
-"""Device probe: Wormhole fp32 LayerNorm statistics, ttnn.mean as is vs a two/three-term split (bf16 head + fp32 tail), and a bf16x3 split row sum through a matmul with ones,
+"""Device probe: Wormhole fp32 LayerNorm statistics, ttnn.mean as is vs a two/three-term split (bf16 head + fp32 tail), a bf16x3 split row sum through a matmul with ones, and centred on token 0 (_centred_row_mean),
 on trunk block 43's single-Transition input (x0_dump.py). Graded vs float64: mean err / sigma, var rel err, and the
 rel err of the LN output's token part (x - token mean). TT_VISIBLE_DEVICES=N python ln_split_probe.py X0.pt OUT.json"""
 import json, sys
@@ -6,7 +6,7 @@ import torch
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 import ttnn
-from tt_bio.tenstorrent import get_device, fp32_layer_norm
+from tt_bio.tenstorrent import get_device, fp32_layer_norm, _centred_row_mean
 d = torch.load(sys.argv[1], weights_only=False)
 xd, lw, lb = d["x"].double(), d["w"].double(), d["b"].double(); n = xd.shape[0]
 mu = xd.mean(-1, keepdim=True); var = xd.var(-1, unbiased=False, keepdim=True)
@@ -39,15 +39,17 @@ def mean_mm(x):
     for q in p[1:]:
         t = ttnn.add(t, rowsum_mm(ttnn.typecast(q, ttnn.bfloat16)))
     return ttnn.multiply(t, 1.0 / 384)
+def mean_centred(x):
+    return _centred_row_mean(x, ckc, None)
 X = up(xd)
 W, B = up(lw.reshape(1, -1)), up(lb.reshape(1, -1))
 res = {}
-for k, mean in (("plain", mean_plain), ("split", mean_split), ("split3", mean_split3), ("mm3", mean_mm)):
+for k, mean in (("plain", mean_plain), ("split", mean_split), ("split3", mean_split3), ("mm3", mean_mm), ("centred", mean_centred)):
     m = mean(X); xc = ttnn.subtract(X, m); v = mean(ttnn.multiply(xc, xc))
     o = ttnn.add(ttnn.multiply(ttnn.multiply(xc, ttnn.rsqrt(ttnn.add(v, 1e-5))), W), B)
     res[k] = {"mean_err_over_sigma": float(((back(m) - mu).abs() / var.sqrt()).max()),
               "var_relerr_max": float(((back(v) - var).abs() / var).max()), "ln_tok_relerr": g(back(o))}
-res["fp32_layer_norm_today"] = {"ln_tok_relerr": g(back(fp32_layer_norm(
+res["fp32_layer_norm_tree"] = {"ln_tok_relerr": g(back(fp32_layer_norm(
     X, ttnn.typecast(W, ttnn.bfloat16), ttnn.typecast(B, ttnn.bfloat16), 1e-5, ckc, ttnn.float32)))}
 res["floor_fp32_ref"] = {"ln_tok_relerr": g(ref.float().double())}
 for k, v_ in res.items():
