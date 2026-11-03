@@ -18,7 +18,7 @@ void kernel_main() {
     constexpr auto x_args = TensorAccessorArgs<7>();
     constexpr auto o_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     const auto x = TensorAccessor(x_args, get_common_arg_val<uint32_t>(0));
-    const auto o = TensorAccessor(o_args, get_common_arg_val<uint32_t>(1));
+    [[maybe_unused]] const auto o = TensorAccessor(o_args, get_common_arg_val<uint32_t>(1));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
     const uint32_t step = get_arg_val<uint32_t>(2);     // 1, or the core count under round-robin (permute_back_pk.RR)
@@ -28,7 +28,7 @@ void kernel_main() {
     const uint32_t tb = get_tile_size(in_cb);
     constexpr uint32_t sw_cb = tt::CBIndex::c_17;
     // Unit u's odd groups (rows 8-15, 24-31), written once unit u + 1 is read so compute is never starved.
-    auto write_odd = [&](uint32_t u) {
+    [[maybe_unused]] auto write_odd = [&](uint32_t u) {
         const uint32_t b = u / CS, v = u % CS;
         const uint32_t ct = ORD ? v % CT : v / SS;
         const uint32_t cube = ORD ? v / CT : v % SS;
