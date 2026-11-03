@@ -101,9 +101,9 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
                     if constexpr (HM) {
                         const uint32_t k = i % 16, st = stage + ((i / 16) & 1) * hm * HALF;
                         for (uint32_t h = 0; h < hm; ++h) {
-                            const uint32_t src = s + (h >> 4) * HALF + (h & 15) * ROW;
-                            noc_async_read(get_noc_addr(src), st + h * HALF + k * ROW, ROW);
-                            noc_async_read(get_noc_addr(src + FACE), st + h * HALF + FACE + k * ROW, ROW);
+                            const uint32_t at = s + (h >> 4) * HALF + (h & 15) * ROW;
+                            noc_async_read(get_noc_addr(at), st + h * HALF + k * ROW, ROW);
+                            noc_async_read(get_noc_addr(at + FACE), st + h * HALF + FACE + k * ROW, ROW);
                         }
                     } else {
                         noc_async_write_page(r, ob, s);
