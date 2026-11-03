@@ -381,10 +381,6 @@ TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 # Wormhole +0.31 ms with a bfp8 gate at 512 (the unit's shuffle does not overlap its matmul), so Blackhole only.
 TAIL_T = os.environ.get("TT_BIO_TRIATT_TAIL_T")   # "1" / "0" overrides the per-arch default
 TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
-# The z pages one unit reads and writes for channel tile n are Bt*Nt apart, a multiple of Blackhole's 8 DRAM banks at
-# every Mol-1 width, so all 64 land in one bank, and every core starts on n = 0. NROT starts unit u on channel tile
-# u % Nt instead (order only: compute pairs c_3 and c_18 tiles as they arrive, so the sums are the same).
-TAIL_T_ROT = os.environ.get("TT_BIO_TRIATT_TAIL_T_ROT", "0") == "1"
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
 _TAIL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_tail"
@@ -506,7 +502,6 @@ def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=0):
         kernel_source=str(_TAIL_DIR / ("writer_t.cpp" if trans else "writer.cpp")), source_type=src,
         core_ranges=core_grid,
         compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN, trans] if trans else [nt, int(resid)]) + acc(out),
-        defines=[("NROT", "1")] * int(bool(trans) and TAIL_T_ROT),
         runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
@@ -576,7 +571,7 @@ def gated_out_proj(o, g, w, ckc, resid=None, bias=None, resid_t=None):
     brows = _bias_rows(bias) if bias is not None else None
     key = (str(o.padded_shape), str(g.padded_shape), str(g.dtype), str(w.padded_shape), str(out.padded_shape), grid,
            G.ckc_args(ckc), resid is not None, bias is not None, TAIL_SIGPOLY, TAIL_RNE, TAIL_KB1,
-           trans, TAIL_T_ROT)
+           trans)
     entry = _TAIL_CACHE.get(key)
     if entry is None:
         entry = _TAIL_CACHE[key] = _build_tail(o, g, w, out, ckc, grid, resid is not None, brows,
