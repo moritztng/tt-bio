@@ -1,0 +1,24 @@
+{"dtype": "fp32", "probe": {"autocast": true, "linear_in": "torch.float32", "linear_out": "torch.float32", "weight": "torch.float32", "allow_tf32": false}, "case": "8fo5-assembly1:nomsa", "set": "paired", "seed": 66, "recipe": "use_msa_false", "rank": 0, "wall_s": 287.25, "status": "ok", "t": 1793660203.023022}
+{"dtype": "fp32", "case": "8c5h-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 245.24, "status": "ok", "t": 1793660448.2604373}
+{"dtype": "fp32", "case": "8qz3-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 655.31, "status": "ok", "t": 1793661103.5735154}
+{"dtype": "fp32", "case": "8be2-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 278.22, "status": "ok", "t": 1793661381.795443}
+{"dtype": "fp32", "case": "8w90-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 72.32, "status": "ok", "t": 1793661454.1201982}
+{"dtype": "fp32", "case": "8w84-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 530.43, "status": "ok", "t": 1793661984.553691}
+{"dtype": "fp32", "case": "8ts0-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 255.66, "status": "ok", "t": 1793662240.217712}
+{"dtype": "fp32", "case": "8aom-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 86.78, "status": "ok", "t": 1793662326.9946434}
+{"dtype": "fp32", "case": "7ua2-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 356.56, "status": "ok", "t": 1793662683.5563273}
+{"dtype": "fp32", "case": "7ucx-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 140.94, "status": "ok", "t": 1793662824.4958122}
+{"dtype": "fp32", "case": "8av2-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 105.92, "status": "ok", "t": 1793662930.4176433}
+{"dtype": "fp32", "case": "8aon-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 324.91, "status": "ok", "t": 1793663255.3301315}
+{"dtype": "fp32", "case": "8fas-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 147.47, "status": "ok", "t": 1793663402.7976093}
+{"dtype": "fp32", "case": "8pih-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 96.31, "status": "ok", "t": 1793663499.1048658}
+{"dtype": "fp32", "case": "8byu-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 333.82, "status": "ok", "t": 1793663832.9276059}
+{"dtype": "fp32", "case": "9g2g-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 193.35, "status": "ok", "t": 1793664026.280126}
+{"dtype": "fp32", "case": "8txe-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 54.63, "status": "ok", "t": 1793664080.9105403}
+{"dtype": "fp32", "case": "8jik-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 502.18, "status": "ok", "t": 1793664583.085683}
+{"dtype": "fp32", "case": "8bdn-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 168.85, "status": "ok", "t": 1793664751.9398615}
+{"dtype": "fp32", "case": "8s4h-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 75.64, "status": "ok", "t": 1793664827.5780845}
+{"dtype": "fp32", "case": "8eud-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 478.22, "status": "ok", "t": 1793665305.799373}
+{"dtype": "fp32", "case": "8q1a-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 205.9, "status": "ok", "t": 1793665511.703689}
+{"dtype": "fp32", "case": "8fo5-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 130.68, "status": "ok", "t": 1793665642.3832734}
+{"dtype": "fp32", "case": "7fxn-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 33.75, "status": "ok", "t": 1793665676.1290827}
