@@ -46,10 +46,13 @@ worker() {  # chip
         kill -0 "$(cat "$d/claim" 2>/dev/null)" 2>/dev/null && continue
         echo "$me" > "$d/claim"
       fi
+      # own process group: timeout kills only tt-bio, and an orphaned spawn worker kept card 3's lease for 7 h (11-03),
+      # so every later fold on that chip exited 75. The group kill after the fold takes whatever is left.
       ( cd "$IN" && TT_VISIBLE_DEVICES=$chip TT_BIO_LEASE_CARDS=$chip TT_BIO_LEASE_HOLDER=$HOLDER \
-          timeout 5400 tt-bio predict "$f" --model mol1 --seed "$s" \
-          --out_dir "$OUT" $flags ) > "$d/log" 2>&1
-      echo "rc=$?" > "$d/rc"; rm -f "$d/claim"; echo "$(date -u +%FT%TZ) TT-DONE chip=$chip $name $s $(cat "$d/rc")"
+          exec setsid timeout 5400 tt-bio predict "$f" --model mol1 --seed "$s" \
+          --out_dir "$OUT" $flags ) > "$d/log" 2>&1 &
+      pg=$!; wait $pg; rc=$?; kill -KILL -- -$pg 2>/dev/null
+      echo "rc=$rc" > "$d/rc"; rm -f "$d/claim"; echo "$(date -u +%FT%TZ) TT-DONE chip=$chip $name $s $(cat "$d/rc")"
     done
   done
 }
