@@ -27,6 +27,7 @@ void kernel_main() {
     constexpr uint32_t TR = get_compile_time_arg_val(1);    // 1: transpose each tilized tile, 0: write it as is
     constexpr uint32_t X8 = get_compile_time_arg_val(2);    // 1: in_cb is bfp8, so srcA switches format per stage
     constexpr uint32_t O8 = get_compile_time_arg_val(3);    // 1: out_cb is bfp8 (`pair_x8t`), so the packer switches too
+    constexpr uint32_t SW = get_compile_time_arg_val(4);    // 1: odd 8-tile groups to c_17, the reader writes them
     const uint32_t nunits = get_arg_val<uint32_t>(0);
     constexpr uint32_t in_cb = tt::CBIndex::c_0, rm_cb = tt::CBIndex::c_1, t_cb = tt::CBIndex::c_2;
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
@@ -82,15 +83,16 @@ void kernel_main() {
         if constexpr (O8) pack_reconfig_data_format(out_cb);
         transpose_wh_init_short(t_cb);
         for (uint32_t i = 0; i < 32; i += 8) {
+            const uint32_t ocb = SW && (i & 8) ? uint32_t(tt::CBIndex::c_17) : out_cb;
             cb_wait_front(t_cb, 8);
-            cb_reserve_back(out_cb, 8);
+            cb_reserve_back(ocb, 8);
             tile_regs_acquire();
             for (uint32_t k = 0; k < 8; ++k) transpose_wh_tile(t_cb, k, k);
             tile_regs_commit();
             tile_regs_wait();
-            for (uint32_t k = 0; k < 8; ++k) pack_tile(k, out_cb);
+            for (uint32_t k = 0; k < 8; ++k) pack_tile(k, ocb);
             tile_regs_release();
-            cb_push_back(out_cb, 8);
+            cb_push_back(ocb, 8);
             cb_pop_front(t_cb, 8);
         }
     }

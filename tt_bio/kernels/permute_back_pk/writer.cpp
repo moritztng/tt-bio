@@ -14,7 +14,8 @@ void kernel_main() {
     constexpr uint32_t WB = get_compile_time_arg_val(4);    // tiles per flush
     constexpr uint32_t CT = get_compile_time_arg_val(5);
     constexpr uint32_t ORD = get_compile_time_arg_val(6);   // as the reader's
-    constexpr auto o_args = TensorAccessorArgs<7>();
+    constexpr uint32_t SW = get_compile_time_arg_val(7);    // 1: the reader writes the odd 8-tile groups (WB 8)
+    constexpr auto o_args = TensorAccessorArgs<8>();
     const auto o = TensorAccessor(o_args, get_common_arg_val<uint32_t>(0));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
@@ -32,6 +33,7 @@ void kernel_main() {
         const uint32_t jt = cube % St;
         uint32_t page = ((b * St * 32 + it * 32) * St + jt) * Ht + CO + ct;
         for (uint32_t i0 = 0; i0 < 32; i0 += WB) {
+            if constexpr (SW) if (i0 & 8) { page += WB * St * Ht; continue; }
             cb_wait_front(out_cb, WB);
             uint32_t src = get_read_ptr(out_cb);
             for (uint32_t k = 0; k < WB; ++k, page += St * Ht, src += tb)
