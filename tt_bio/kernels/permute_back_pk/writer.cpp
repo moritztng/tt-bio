@@ -17,7 +17,8 @@ void kernel_main() {
     constexpr uint32_t WB = get_compile_time_arg_val(4);    // tiles per flush
     constexpr uint32_t CT = get_compile_time_arg_val(5);
     constexpr uint32_t ORD = get_compile_time_arg_val(6);   // as the reader's
-    constexpr auto o_args = TensorAccessorArgs<7>();
+    constexpr uint32_t WG = get_compile_time_arg_val(7);    // > 1: hold WG units, write row k of each before row k + 1
+    constexpr auto o_args = TensorAccessorArgs<8>();
     const auto o = TensorAccessor(o_args, get_common_arg_val<uint32_t>(0));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
@@ -26,14 +27,34 @@ void kernel_main() {
     constexpr uint32_t SS = St * St;
     constexpr uint32_t CS = CT * SS;
     const uint32_t tb = get_tile_size(out_cb);
-
-    for (uint32_t i = 0, u = u0; i < nunits; ++i, u += step) {
+    auto first_page = [&](uint32_t u) {
         const uint32_t b = u / CS, v = u % CS;
         const uint32_t ct = ORD ? v % CT : v / SS;
         const uint32_t cube = ORD ? v / CT : v % SS;
-        const uint32_t it = cube / St;
-        const uint32_t jt = cube % St;
-        uint32_t page = ((b * St * 32 + it * 32) * St + jt) * Ht + CO + ct;
+        return ((b * St * 32 + (cube / St) * 32) * St + cube % St) * Ht + CO + ct;
+    };
+
+    if constexpr (WG > 1) {
+        // A unit's 32 rows are St * Ht pages apart, one bank wherever that is a multiple of the bank count; WG
+        // consecutive units start on WG different pages. out_cb holds 2 * WG units.
+        uint32_t page[WG];
+        for (uint32_t i = 0, u = u0; i < nunits; i += WG) {
+            const uint32_t gn = nunits - i < WG ? nunits - i : WG;
+            for (uint32_t g = 0; g < gn; ++g, u += step) page[g] = first_page(u);
+            cb_wait_front(out_cb, gn * 32);
+            const uint32_t src = get_read_ptr(out_cb);
+            for (uint32_t k = 0; k < 32; ++k)
+                for (uint32_t g = 0; g < gn; ++g)
+                    noc_async_write_page(page[g] + k * St * Ht, o, src + (g * 32 + k) * tb);
+            noc_async_writes_flushed();
+            cb_pop_front(out_cb, gn * 32);
+        }
+        noc_async_write_barrier();
+        return;
+    }
+
+    for (uint32_t i = 0, u = u0; i < nunits; ++i, u += step) {
+        uint32_t page = first_page(u);
         if constexpr (ABL & 16) page = u * 32;
         constexpr uint32_t pstride = (ABL & 16) ? 1 : (ABL & 32) ? St * Ht + 1 : St * Ht;
         for (uint32_t i0 = 0; i0 < 32; i0 += WB) {

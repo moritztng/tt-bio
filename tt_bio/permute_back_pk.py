@@ -22,8 +22,9 @@ ABL = 0            # stage ablation bits (see each .cpp). Diagnostic only.
 # out_cb tiles and writer tiles per flush: 16/8 through 128/32 all read 1.61-1.65 ms at 512 c256 (bpk7), so the smallest.
 OUT_TILES = 16
 WB = 8
-# in_cb tiles: the reader runs this far ahead of compute, which holds a unit's untilize until the writer drains.
-IN_TILES = 16
+# Units the writer holds and writes row by row across, so a core's consecutive writes go to WG different pages
+# (consecutive under ORD 1) instead of 32 to one bank. 1 = a unit at a time, WB per flush. A/B knob, bit-identical.
+WG = 1
 # Units run channel tile fastest. Channel tile slowest put a unit's 32 reads (stride N^2/1024 pages) and 32 writes
 # (stride N*H/1024) on 3 of Wormhole's 12 DRAM banks: 1.62 vs 1.48 ms at 512 c256, 6.18 vs 5.67 at 1024 (bpk8).
 ORD = 1
@@ -57,7 +58,7 @@ def permute_back_pk(x, out, grid, c_off=0):
     St, CT, Ht = N // TILE, C // TILE, H // TILE
     # The accessor args differ by buffer type (DRAM / L1) and bank layout, so the memory configs are part of the key.
     key = (B, C, N, H, c_off, tuple(grid), str(x.dtype), str(out.dtype), str(x.memory_config()), str(out.memory_config()), ABL, OUT_TILES,
-           WB, ORD, RR, IN_TILES)
+           WB, ORD, RR, WG)
     entry = _CACHE.get(key)
     if entry is None:
         gx, gy = grid
@@ -79,14 +80,14 @@ def permute_back_pk(x, out, grid, c_off=0):
             config=ttnn.ReaderConfigDescriptor())
         writer = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
-            compile_time_args=[St, Ht, c_off // TILE, ABL, WB, CT, ORD] + acc(out), runtime_args=wr, common_runtime_args=[0],
+            compile_time_args=[St, Ht, c_off // TILE, ABL, WB, CT, ORD, WG] + acc(out), runtime_args=wr, common_runtime_args=[0],
             config=ttnn.WriterConfigDescriptor())
         compute = ttnn.KernelDescriptor(
             kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
             compile_time_args=[ABL, 1, int(x.dtype != ttnn.bfloat16), int(out.dtype != ttnn.bfloat16)], runtime_args=cp,
             config=ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=False))
-        cbs = [_cb(0, core_grid, IN_TILES, x.dtype), _cb(1, core_grid, 32), _cb(2, core_grid, 32),
-               _cb(16, core_grid, OUT_TILES, out.dtype)]
+        cbs = [_cb(0, core_grid, 16, x.dtype), _cb(1, core_grid, 32), _cb(2, core_grid, 32),
+               _cb(16, core_grid, OUT_TILES if WG == 1 else 2 * 32 * WG, out.dtype)]
         entry = _CACHE[key] = ([reader, writer, compute], cbs)
     kernels, cbs = entry
     kernels[0].common_runtime_args = [x.buffer_address()]
