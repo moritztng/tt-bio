@@ -16,12 +16,15 @@ say(){ echo "$(date -u +%FT%TZ) box_mol1: $*"; }
 fail(){ say "FAILED: $1"; echo "$1" > $B/MOL1-FAILED; exit 3; }
 
 if [ ! -f $B/SETUP-DONE ]; then
-  {
+  # set -e: the block's status was its last command's, so a clone that died on a TLS reset (mol1-fp32-s0 and r0b,
+  # 11-02/03) still wrote SETUP-DONE and every job then failed on "No module named 'mol'".
+  ( set -e
     # python3.12-dev: Triton JIT-builds its driver shim against Python.h, which the CUDA image lacks (RFD4 session 2).
     # kalign (3.3.5 on 24.04, upstream's pin): the use_template_true recipe needs it on PATH (mol1-b200-ref4r, 30 jobs).
     apt-get update -qq && apt-get install -y -qq --no-install-recommends git wget python3.12-dev build-essential \
       libxrender1 libxext6 libsm6 kalign
-    git clone https://github.com/molence/Mol-1 /root/mol1 && cd /root/mol1 && git checkout $SHA
+    for n in 1 2 3 4; do rm -rf /root/mol1; git clone https://github.com/molence/Mol-1 /root/mol1 && break; sleep 20; done
+    cd /root/mol1 && git checkout $SHA
     command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH=$PATH:/root/.local/bin
     uv venv --python 3.12 --seed /opt/mol1-venv
@@ -33,7 +36,7 @@ if [ ! -f $B/SETUP-DONE ]; then
     wget -q https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt -O $MOL1_CKPT ||
       wget -q https://huggingface.co/RUIMA294264/Mol-1/resolve/main/mol-1-base.pt -O $MOL1_CKPT
     echo "$CKPT_SHA  $MOL1_CKPT" | sha256sum -c
-  } > $B/setup.log 2>&1 || fail "setup (tail $B/setup.log)"
+  ) > $B/setup.log 2>&1 || fail "setup (tail $B/setup.log)"
   echo ok > $B/SETUP-DONE
 fi
 say "setup done after $(( $(date +%s) - T0 ))s"
