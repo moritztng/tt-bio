@@ -22,6 +22,17 @@ pkill -f "nvidia-smi --query-gpu" 2>/dev/null
 nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,utilization.memory,clocks_event_reasons.active,memory.used \
   --format=csv,noheader -l 1 >> $B/smi.csv 2>&1 &
 
+# Mol-1 and RFD4 pin torch cu130. On a driver older than 580 the image's forward-compat libcuda carries it (A100 is a
+# datacenter part, so NVIDIA supports that); the check fails the box at once if this host's driver cannot.
+DRV=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1 | cut -d. -f1)
+if [ "${DRV:-0}" -lt 580 ] && [ -d /usr/local/cuda/compat ]; then
+  export LD_LIBRARY_PATH=/usr/local/cuda/compat${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}; say "driver $DRV: cuda forward compat on"
+fi
+python3 -c 'import ctypes,sys
+c=ctypes.CDLL("libcuda.so.1"); v=ctypes.c_int()
+sys.exit(0 if c.cuInit(0)==0 and c.cuDriverGetVersion(ctypes.byref(v))==0 and v.value>=13000 else 1)' ||
+  fail "driver $DRV cannot run cuda 13"
+
 if [ ! -f $B/SETUP-DONE ]; then
   {
     # python3.12-dev: Triton JIT-builds its driver shim against Python.h (RFD4 session 2). X11 libs: Open Babel

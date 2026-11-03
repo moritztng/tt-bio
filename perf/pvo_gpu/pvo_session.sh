@@ -10,7 +10,7 @@ set -u
 L=${1:?usage: pvo_session.sh <label> <cap_h> [query] [attempts]} CAP_H=${2:?cap hours} NMAX=${4:-6}
 # reliability>=0.97 was the only clause that rejected a live B200 on 2026-10-19 (offer 51577286, 0.995 passes but the
 # market is thin enough that one filter empties it); 0.90 keeps the junk out without emptying the list.
-Q=${3:-'gpu_name=A100_SXM4 gpu_ram<=45 num_gpus=1 cuda_max_good>=13.0 inet_down>=200 reliability>=0.90 dph<=1.0 disk_space>=160'}
+Q=${3:-'gpu_name=A100_SXM4 gpu_ram<=45 num_gpus=1 cuda_max_good>=12.4 inet_down>=200 reliability>=0.90 dph<=1.0 disk_space>=160'}
 MINW=${MINW:-400} MAXW=${MAXW:-410} SLUG=${SLUG:-pvo-a100}
 # Which script runs on the box. INPUTS=<dir> pushes an already-frozen inputs tree (state/mol1/inputs), so the box
 # reuses those MSAs instead of searching again. QB2=user@host:dir moves bulk data box<->qb2 directly (pc's link
@@ -132,6 +132,13 @@ if x.get("actual_status")=="running":
   [ -z "$S" ] && { destroy $I "no ssh: intended_status=$(state $I)"; continue; }
   W=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
   log "$I up at $HOST:$PORT, power limit ${W:-?} W"
+  # Some hosts set a lower limit than the board allows. Raising it is free if the container may (session 2 lost six
+  # boxes at 133-370 W without asking); a host that refuses stays out.
+  if [ "${W:-0}" -lt "$MINW" ]; then
+    timeout 30 $S "nvidia-smi -pl $MINW" >/dev/null 2>&1
+    W2=$(timeout 30 $S 'nvidia-smi --query-gpu=power.limit --format=csv,noheader,nounits' 2>/dev/null | tail -1 | cut -d. -f1)
+    [ "${W2:-0}" != "${W:-0}" ] && { log "$I power limit raised ${W:-?} -> ${W2:-?} W"; W=$W2; }
+  fi
   [ "${W:-0}" -ge "$MINW" ] && [ "${W:-0}" -le "$MAXW" ] || { destroy $I "power limit ${W:-?} W outside $MINW-$MAXW"; continue; }
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   H=root@$HOST
