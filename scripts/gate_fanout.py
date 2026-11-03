@@ -78,6 +78,9 @@ FIRST. A release never waits on our own experiments. A pool host queues its legs
 it names (0, ahead of every grading job), and a flock host shared with other rows sets
 `"first": true`: each leg then takes its card through scripts/flock_first.sh, which stops the
 other waiters on that card's lock (never the holder) until the gate is done with the card.
+With `"book": "<path to perf/spd/book.py>"` beside it the leg also books its card in the host's booker for its
+expected wall once it holds the flock, so a booked window it lands on moves to the next free slot instead of
+starting under the leg (qb1, 11-03).
 
 PERF A/B. Committed perf cells age: a cell recorded in August on another software stack fails a
 release that changed nothing. `"perf_against": "<tag>"` on a host checks the timed leg out at the
@@ -505,6 +508,14 @@ def _commit(sha: str, repo: Path) -> str:
     """The commit id `sha` names, so a cache keyed on it survives a moving ref like HEAD."""
     return subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", f"{sha}^{{commit}}"],
                           check=True, capture_output=True, text=True).stdout.strip()
+
+
+@functools.lru_cache(maxsize=None)
+def books(sha: str, repo: Path = REPO) -> bool:
+    """Whether `sha`'s flock_first.sh takes --book: a leg runs the gated tree's copy, and an older one reads the flag
+    as its lock path."""
+    p = subprocess.run(["git", "-C", str(repo), "show", f"{sha}:scripts/flock_first.sh"], capture_output=True, text=True)
+    return "--book" in p.stdout
 
 
 def _ls_tree(sha: str, repo: Path) -> list[str]:
@@ -1117,6 +1128,8 @@ class Host:
         run = f"env {envs} bash -c {shlex.quote(body)}"
         if card is not None:
             lock = "bash scripts/flock_first.sh" if c.get("first") else "flock"
+            if c.get("first") and c.get("book") and books(self.sha):
+                lock += f" --book {shlex.quote(c['book'])} {leg.expect_s}"
             run = f"{lock} {shlex.quote(c['lock'].format(card=card))} {run}"
         setup = f"{fill(leg.setup)} && " if leg.setup else ""
         # Each attempt is its own session, its pid in attempt.pid and its marker in the environment
