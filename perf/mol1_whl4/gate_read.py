@@ -1,13 +1,14 @@
 """Read a merge-gate cell (out/gate-<model>-512): per arm the warm fold walls, the AICLK of the folding node over the arm's
 window, pLDDT, and the CA RMSD of each fix structure to the base structure of the same fold tag.
-    python3 gate_read.py CELL_DIR"""
+    python3 gate_read.py CELL_DIR [NODE]   (NODE: the folding chip's sysfs node when nodes.txt lists several)"""
 import json, statistics, sys
 from datetime import datetime
 from pathlib import Path
 import numpy as np
 
 d = Path(sys.argv[1])
-node = Path(d / "nodes.txt").read_text().split()[0].split("/")[-1]
+node = sys.argv[2] if len(sys.argv) > 2 else next(  # the chip node; a bare "tenstorrent/" (by-id dir) carries none
+    n.split("/")[-1] for n in (d / "nodes.txt").read_text().split() if n.split("/")[-1].isdigit())
 clk = [l.split("\t") for l in (d / "aiclk.tsv").read_text().splitlines()]
 clk = [(float(t), int(c)) for t, n, c, _ in (x for x in clk if len(x) == 4) if n == node and c.strip().isdigit()]
 arms = {a: json.loads((d / a / "result.json").read_text()) for a in ("base", "fix", "base2") if (d / a / "result.json").exists()}
