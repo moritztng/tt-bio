@@ -1806,7 +1806,7 @@ def _update_baselines(rows: list[dict], args) -> int:
     save_baselines(data)
     machine_names = {ct: sorted(ct_entry.get("machines", {})) for ct, ct_entry in cards.items()}
     machine_names = {ct: ms for ct, ms in machine_names.items() if ms}
-    print(f"\nWrote {BASELINE_FILE.relative_to(REPO_ROOT)}  "
+    print(f"\nWrote {BASELINE_FILE}  "
           f"(card {card_type} @ {machine_id}: {len(models)} models; "
           f"{len(cards)} card type(s) recorded: {', '.join(sorted(cards))}; "
           f"machines: " +
