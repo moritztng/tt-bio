@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Put the Mol-1, BindCraft 2 and RFD4-Proteina rows on site/data/perf-512aa.json from the PNR cell files.
 
-    python3 perf/pnr/cells_to_page.py --gate ~/gates/rel-<sha> [--tt PATH] [--gpu PATH] [--write]
+    python3 perf/pnr/cells_to_page.py --gate ~/gates/rel-<sha> [--rows rfd4] [--tt PATH] [--gpu PATH] [--write]
     python3 perf/pnr/cells_to_page.py --fake --out /tmp/perf-fake.json     # local render work only
 
 The cells come from state/pnr/TT-CELLS.json (pnr-tt, qb1 p150a) and state/pnr/GPU-CELLS.json (pnr-gpu,
@@ -53,21 +53,32 @@ IMPL = {
             "option that ran fastest on each: {arms}.",
 }
 
-# What the design block and the timed-region line say once the two design rows are on it. Written with the
-# rows, never before: "one design at a time" stays true until RFD4-Proteina, batched on both sides, lands.
-DESIGN_PROSE = OrderedDict(
-    cond="Seconds per binder design on one AI Processor, warm, at shipped defaults. Shorter is better. Each row "
-         "runs one design at a time except RFD4-Proteina, which runs a batch on each side at that side's best "
-         "batch size and divides the batch's wall time by its designs.",
-    note="Each row has its own target, BoltzGen at 514 tokens, PXDesign at 592, BindCraft 2 an 80-residue "
-         "binder to PD-L1 and RFD4-Proteina at 224 tokens, so compare each model only with itself.",
-    methods="One fixed target per row at shipped defaults. BoltzGen (500 sampling steps) and PXDesign (400) run "
-            "one design at a time. A BindCraft 2 design is one 140-iteration design trajectory, one at a time on "
-            "both sides; the sequence redesign and AlphaFold2 validation after it are not timed. RFD4-Proteina "
-            "(60 steps) grows the batch on each side until it stops paying, prints that batch in its cell and "
-            "reports wall time divided by designs. Figures are warm medians, with the run count on hover; GPU "
-            "figures use the same protocol on rented single-GPU nodes.",
-)
+# What the design block and the timed-region line say, written from the design rows actually placed, never
+# before them: "one design at a time" stays true until RFD4-Proteina, batched on both sides, lands.
+def design_prose(ids) -> OrderedDict:
+    bc2, rfd4 = "bindcraft2" in ids, "rfd4" in ids
+    targets = ["BoltzGen at 514 tokens", "PXDesign at 592"] + (["BindCraft 2 an 80-residue binder to PD-L1"] if bc2
+                                                              else []) + (["RFD4-Proteina at 224 tokens"] if rfd4 else [])
+    methods = "One fixed target per row at shipped defaults. BoltzGen (500 sampling steps) and PXDesign (400) run " \
+              "one design at a time."
+    if bc2:
+        methods += " A BindCraft 2 design is one 140-iteration design trajectory, one at a time on both sides; the " \
+                   "sequence redesign and AlphaFold2 validation after it are not timed."
+    if rfd4:
+        methods += " RFD4-Proteina (60 steps) grows the batch on each side until it stops paying, prints that " \
+                   "batch in its cell and reports wall time divided by designs."
+    methods += " Figures are warm medians, with the run count on hover; GPU figures use the same protocol on " \
+               "rented single-GPU nodes."
+    return OrderedDict(
+        cond="Seconds per binder design on one AI Processor, warm, at shipped defaults. Shorter is better. " + (
+            "Each row runs one design at a time except RFD4-Proteina, which runs a batch on each side at that "
+            "side's best batch size and divides the batch's wall time by its designs." if rfd4
+            else "Each row runs one design at a time."),
+        note=f"Each row has its own target, {', '.join(targets[:-1])} and {targets[-1]}, so compare each model "
+             "only with itself.",
+        methods=methods)
+
+
 TIMED_RFD4 = (" RFD4-Proteina's Tenstorrent cell times featurisation, design, decoding and file writing for each "
               "batch, its GPU cells the generate call alone.")
 
@@ -140,9 +151,10 @@ def gpu_cell(gpu: str, mid: str, m: dict, unit: str) -> tuple[OrderedDict, str]:
     return out, m["chosen"]
 
 
-def build(tt: dict, gpu: dict, parity: dict) -> list[tuple[str, OrderedDict]]:
+def build(tt: dict, gpu: dict, parity: dict, rows=tuple(ROWS)) -> list[tuple[str, OrderedDict]]:
     out = []
-    for mid, spec in ROWS.items():
+    for mid in rows:
+        spec = ROWS[mid]
         unit = spec["unit"]
         if mid not in tt:
             raise SystemExit(f"TT-CELLS has no {mid}")
@@ -163,9 +175,6 @@ def build(tt: dict, gpu: dict, parity: dict) -> list[tuple[str, OrderedDict]]:
 
 def place(doc: dict, built: list) -> list[str]:
     changes = []
-    doc["design"].update(DESIGN_PROSE)
-    if TIMED_RFD4.strip() not in doc["scope"]["timed_region"]:
-        doc["scope"]["timed_region"] += TIMED_RFD4
     for cat, row in built:
         rows = doc[cat] if isinstance(doc[cat], list) else doc[cat]["models"]
         i = next((j for j, r in enumerate(rows) if r["id"] == row["id"]), None)
@@ -176,6 +185,11 @@ def place(doc: dict, built: list) -> list[str]:
         changes.append(f"{cat}/{row['id']}: " + ", ".join(
             f"{k} {c.get('s_per_fold', c.get('s_per_design'))}" + (f" b{c['batch']}" if "batch" in c else "")
             for k, c in row["cells"].items()))
+    ids = {r["id"] for r in doc["design"]["models"]}
+    if ids & {"bindcraft2", "rfd4"}:
+        doc["design"].update(design_prose(ids))
+    if "rfd4" in ids and TIMED_RFD4.strip() not in doc["scope"]["timed_region"]:
+        doc["scope"]["timed_region"] += TIMED_RFD4
     return changes
 
 
@@ -204,8 +218,12 @@ def main() -> int:
     ap.add_argument("--extra", type=Path, help="parity legs run outside the gate (gate_parity --extra)")
     ap.add_argument("--fake", action="store_true", help="fake cells, written only to --out")
     ap.add_argument("--out", type=Path, default=DATA)
+    ap.add_argument("--rows", default=",".join(ROWS), help="comma-separated subset of " + ", ".join(ROWS))
     ap.add_argument("--write", action="store_true")
     a = ap.parse_args()
+    rows = a.rows.split(",")
+    if set(rows) - set(ROWS):
+        raise SystemExit(f"--rows: unknown {', '.join(sorted(set(rows) - set(ROWS)))}")
     if a.fake:
         if a.out.resolve() == DATA.resolve():
             raise SystemExit("--fake never writes the published data file; pass --out /tmp/...")
@@ -217,8 +235,8 @@ def main() -> int:
         tt, gpu = json.loads(a.tt.read_text()), json.loads(a.gpu.read_text())
         parity = gate_parity.claims(a.gate.expanduser(), a.extra)
     doc = json.loads(DATA.read_text(), object_pairs_hook=OrderedDict)
-    print("\n".join(place(doc, build(tt, gpu, parity))))
-    missing = [m for m in ROWS if m not in parity]
+    print("\n".join(place(doc, build(tt, gpu, parity, rows))))
+    missing = [m for m in rows if m not in parity]
     if missing:
         print(f"no release-gate parity claim for {', '.join(missing)}: render_check will refuse the landing "
               "page's 1:1 accuracy line until the gate carries their legs")

@@ -53,3 +53,15 @@ def test_rfd4_cells_carry_each_sides_batch():
     assert {k: c["batch"] for k, c in rows["rfd4"]["cells"].items()} == \
         {"p150a": 20, "h200": 256, "b200": 256, "a100": 256}
     assert all(c["ref"] == "stock" for k, c in rows["mol1"]["cells"].items() if k != "p150a")
+
+
+def test_a_row_subset_places_only_those_rows_and_prose_names_only_them(tmp_path):
+    out = tmp_path / "perf.json"
+    subprocess.run([sys.executable, str(REPO / "perf/pnr/cells_to_page.py"), "--fake", "--rows", "rfd4",
+                    "--out", str(out)], check=True, capture_output=True)
+    d = json.loads(out.read_text())
+    ids = {m["id"] for m in d["design"]["models"]}
+    assert "rfd4" in ids and "bindcraft2" not in ids and "mol1" not in [m["id"] for m in d["models"]]
+    prose = " ".join(d["design"][k] for k in ("cond", "note", "methods"))
+    assert "RFD4-Proteina" in prose and "BindCraft" not in prose
+    assert "RFD4-Proteina" in d["scope"]["timed_region"]
