@@ -18,7 +18,6 @@ import torch
 import ttnn
 import tt_bio.tenstorrent as T
 import clocksample
-from tt_bio import triatt_sdpa as TS
 from bench import ARMS, HD, weights
 
 
@@ -62,8 +61,6 @@ def main():
     ap.add_argument("--cells", default="1024x10:256:1024,512x10:512:512")
     ap.add_argument("--reps", type=int, default=5)
     ap.add_argument("--rounds", type=int, default=3)
-    ap.add_argument("--stream", action="store_true",
-                    help="add a `stream` arm: the served call with triatt_sdpa.STREAM (STREAM_PMASK), plus its rel RMS vs served")
     a = ap.parse_args()
     dev = T.get_device()
     for cell in a.cells.split(","):
@@ -84,18 +81,6 @@ def main():
                     q, k, v, is_causal=False, scale=1.0, program_config=cfg, compute_kernel_config=ckc),
                 "mask": lambda: ttnn.transformer.scaled_dot_product_attention(
                     q, k, v, attn_mask=mask, is_causal=False, scale=1.0, program_config=cfg, compute_kernel_config=ckc)}
-        if a.stream:
-            def stream(on=True):
-                TS.STREAM = on
-                try:
-                    return T._tri_att_sdpa_at(*sargs, **skw)
-                finally:
-                    TS.STREAM = False
-            arms["stream"] = stream
-            ref, got = ttnn.to_torch(arms["served"]()).float(), ttnn.to_torch(stream()).float()
-            print(json.dumps({"S": S, "H": H, "stream_vs_served_rel_rms": round(
-                ((got - ref).pow(2).mean().sqrt() / ref.pow(2).mean().sqrt()).item(), 6),
-                "equal": bool(torch.equal(got, ref)), "finite": bool(torch.isfinite(got).all())}), flush=True)
         for name, fn in [kv for _ in range(a.rounds) for kv in arms.items()]:
             try:
                 with clocksample.during(period=0.5) as clk:
