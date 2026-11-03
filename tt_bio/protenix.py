@@ -4376,6 +4376,7 @@ class Trunk(_KeyedWeights):
                 ttnn.deallocate(m_feat)
                 m_feat = h
             gc.collect()
+            _T.forget_trimul_inproj_refusals()
             if rows is not None:
                 next_rows = cut(resume[0])
 
