@@ -638,6 +638,21 @@ LEGS += [
     Leg("rf3-1024aa", "rf3", "rf3_xtal", "", committed_json="", seeds=(0,),
         note="RF3 at 997 aa: device CA-RMSD to the 7EIP crystal, floor <=4.0 A; reuses "
              "release_gate --model rf3-1024aa (scripts/rf3_port/accuracy_cell.py)"),
+    # The three PNR page rows. Each reuses the harness that validated its port, delegated through
+    # release_gate the way rf3-1024aa is, and none carries a committed_json for the reason that leg
+    # gives: the floor is in the scorer, and a second copy of it would detect nothing.
+    #
+    # Mol-1 folds 7ROA through release_gate's own mol1 row (crystal floor plus geometry bands), so
+    # the gate runs that fold once, here, instead of also as rg:mol1. Its port-level shared-draw
+    # Kabsch grade needs 107 GB of upstream goldens on one host and stays out of the gate.
+    Leg("mol1-7roa", "mol1", "mol1_xtal", "", seeds=(0,),
+        note="Mol-1 on 7ROA: release_gate's mol1 fold, CA-RMSD/TM to the crystal + geometry"),
+    Leg("rfd4-trunk", "rfd4", "rfd4_trunk", "", seeds=(0,),
+        note="RFD4 trunk modules on the device vs a float64 transcription and vs upstream's fp32 "
+             "goldens at the real checkpoint (tests/test_rfd4_trunk_{parity,golden}.py)"),
+    Leg("bindcraft2-afgrad-stack", "bindcraft2", "bc2_grad", "", seeds=(0,),
+        note="BindCraft 2 design-gradient round vs float64 autograd, torch bf16 as the envelope "
+             "(perf/spd/bc2_stack_grade.py)"),
 ]
 
 LEGS_BY_ID = {l.id: l for l in LEGS}
@@ -1608,6 +1623,9 @@ DELEGATED_KINDS = {
     "capacity": lambda rg: rg.run_capacity_all(keep=False),
     "nesso1": lambda rg: rg.run_nesso1(keep=False),
     "rf3_xtal": lambda rg: rg.run_rf3_1024aa(keep=False),
+    "mol1_xtal": lambda rg: rg.run_model("mol1", rg._load_structure_harness(), keep=False),
+    "rfd4_trunk": lambda rg: rg.run_rfd4_trunk(keep=False),
+    "bc2_grad": lambda rg: rg.run_bc2_stack(keep=False),
 }
 
 
@@ -1969,6 +1987,34 @@ def _rf3_xtal_verdict(report: dict) -> tuple[str, str]:
     return ("PASS" if report.get("gate") else "GAP"), detail
 
 
+def _mol1_xtal_verdict(report: dict) -> tuple[str, str]:
+    """Mol-1 on 7ROA: release_gate's own fold row (CA-RMSD/TM of the confidence-selected sample to
+    the crystal, plus the geometry bands). No reading is NO-DATA, never a pass."""
+    if report.get("rmsd") is None:
+        return "ERROR", str(report.get("error") or "no RMSD in row")
+    detail = f"7ROA RMSD {report['rmsd']:.3f} A TM {report['tm']:.3f} vs crystal"
+    if report.get("error"):
+        detail += f"; {report['error']}"
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
+def _rfd4_trunk_verdict(report: dict) -> tuple[str, str]:
+    if report.get("tests") is None:
+        return "ERROR", str(report.get("error") or "no test counts")
+    detail = (f"{report['tests'] - report['failed'] - report['skipped']}/{report['tests']} trunk "
+              f"parity tests pass vs float64 + upstream fp32 goldens, {report['skipped']} skipped")
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
+def _bc2_grad_verdict(report: dict) -> tuple[str, str]:
+    if report.get("rel_l2") is None:
+        return "ERROR", str(report.get("error") or "no device_vs_f64 reading")
+    detail = (f"dL/dlogits rel L2 vs float64 {report['rel_l2']:.4f} (torch bf16 "
+              f"{report['bf16_rel_l2']:.4f}, {report['rel_l2'] / report['bf16_rel_l2']:.2f}x), "
+              f"fd ratio {report['fd_ratio']}, repeat diff {report['repeat']}")
+    return ("PASS" if report.get("gate") else "GAP"), detail
+
+
 def _capacity_verdict(report: dict) -> tuple[str, str]:
     """Capacity: PASS iff the largest-input fold stayed inside the DRAM budget AND wrote
     every sample it was asked for. An ERROR here is a real device fatal, not a soft miss --
@@ -2193,6 +2239,12 @@ def extract_verdict(leg: Leg, report: dict | None) -> tuple[str, str]:
         return _nesso1_verdict(report)
     if leg.kind == "rf3_xtal":
         return _rf3_xtal_verdict(report)
+    if leg.kind == "mol1_xtal":
+        return _mol1_xtal_verdict(report)
+    if leg.kind == "rfd4_trunk":
+        return _rfd4_trunk_verdict(report)
+    if leg.kind == "bc2_grad":
+        return _bc2_grad_verdict(report)
     if leg.kind == "pxdesign":
         return _pxdesign_featurizer_verdict(report)
     if leg.kind in ("rfd3", "af2ig"):

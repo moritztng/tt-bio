@@ -356,7 +356,12 @@ PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
 # same arguments (full_parity_gate.py: run_inprocess -> release_gate.run_<arm>). Running the rg
 # arm as well folds the same thing twice.
-PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa"}
+PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa", "mol1"}
+
+#: Parity legs whose reference and accuracy record exist on Blackhole only. RFD4's upstream fp32
+#: goldens live on the qb hosts, and both ports were graded on Blackhole; on a Wormhole Galaxy the
+#: RFD4 golden suite would skip (a GAP) and redden a release over data that was never there.
+PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a", "p300c")}
 
 CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
 
@@ -778,7 +783,8 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
     for lid in roster["parity"]:
         legs.append(Leg(f"parity:{lid}", ["PY", "scripts/full_parity_gate.py", "--leg", lid,
                                           "--workers", "localhost:{CARD}", "--workdir", "{OUT}",
-                                          "--out", "{OUT}/report.json"], "parity", workdir=True))
+                                          "--out", "{OUT}/report.json"], "parity", workdir=True,
+                        card_types=PARITY_CARD_TYPES.get(lid, ())))
     for arm in roster["rg"]:
         if arm == "size-ladder" or arm in PARITY_COVERS_RG:
             continue
