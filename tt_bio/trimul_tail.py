@@ -976,9 +976,19 @@ T2_MCAST = {(8, 12)}
 # while compute works and then writes the block in place. Same bytes into the same CB, bit-identical. T2 is bound on
 # its reader (x, g and z on one RISC), the writer idles. Taken at T2_ZW_KEYS: c_z 320 runs a trimul call 1.011-1.017x
 # faster at 256, 512 and 1024 tokens on a p150a; 448 reads 1.00x / 1.025x / 0.993x and stays off (mol1
-# evidence/bh-trunk2/T2.md). T2_ZW (bench) forces it at every key.
+# evidence/bh-trunk2/T2.md). Up to T2_ZW_MAX_ROWS only: past it the writer, now reading and writing z, becomes the
+# bound and the call at 1024 tokens is 1.6-2.9 % faster without ZW (768 flat, 512 3.7 % slower; mol1
+# evidence/bh/mulroof.md). T2_ZW (bench) forces it at every key and size.
 T2_ZW = env_flag("TT_BIO_T2_ZW", False)
 T2_ZW_KEYS = {(10, 10)}
+T2_ZW_MAX_ROWS = 768 * 768
+
+
+def _t2_zw(kt, nt, x):
+    rows = 1
+    for d in [int(d) for d in x.padded_shape][:-1]:
+        rows *= d
+    return T2_ZW or ((kt, nt) in T2_ZW_KEYS and rows <= T2_ZW_MAX_ROWS)
 
 
 def _t2_mcast(kt, nt, gate, extra, grid):
@@ -1167,7 +1177,7 @@ def _build_t2(x, ln_w, ln_b, wp, g, resid, grid, ckc, block, eps, wg=None, moved
     res32 = copy is not None
     assert not (res32 and (moved is not None or fold)), "T2_RES32 is the plain or GATE form"
     defines = [("T2_RES32", "1")] if res32 else []
-    if (T2_ZW or (kt, nt) in T2_ZW_KEYS) and moved is None:
+    if _t2_zw(kt, nt, x) and moved is None:
         defines.append(("T2_ZW", "1"))
     z8 = resid.dtype == ttnn.bfloat8_b      # pair_bfp8z: z in c_7 and the sum out of c_2 are bfp8
     if z8:
@@ -1385,7 +1395,7 @@ def fused_tail_ln(x, ln_w, ln_b, wp, g, resid, ckc, grid, eps=1e-5, wg=None, mov
         wp, ln_b = _fold_weights(wp, ln_w, ln_b)
     spec = lambda t: (str(t.padded_shape), str(t.dtype), str(t.memory_config()))
     key = ("t2", spec(x), spec(wp), str(g.dtype), str(resid.dtype), spec(ln_w), spec(ln_b), wg is not None, tuple(grid),
-           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, T2_ZW or (kt, nt) in T2_ZW_KEYS, tuple(block),
+           tuple(str(c) for c in ckc), float(eps), _sigpoly(), RNE, T2_ABL, T2_DMABL, T2_GROW, T2_S1K, T2_SBIG, T2_SSTR, _t2_zw(kt, nt, x), tuple(block),
            None if moved is None else (spec(moved[0]), moved[1], P), fold, copy is not None,
            _t2_mcast(kt, nt, wg is not None, 0, grid), str(t2_mm_fid(kt, nt, wg is not None)))
     entry = _CACHE.get(key)
