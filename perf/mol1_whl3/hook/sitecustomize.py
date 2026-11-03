@@ -9,7 +9,7 @@ head again on them, once per arm:
     none         no levers
     -<lever>     the active set without one lever, for every active lever
 Each arm's per-atom pLDDT, mean pLDDT, pTM and the confidence pairformer's single output (s_single) go to
-WHL3_DUMP/arms.pt; `conf_ref.py` grades them against upstream fp32 on the CPU.
+WHL3_DUMP/arms.pt (WHL3_ARMS=served keeps only the first three); `conf_ref.py` grades them against upstream fp32 on the CPU.
 """
 import importlib.abc
 import importlib.util
@@ -72,7 +72,8 @@ def _patch(mod):
                    os.path.join(_OUT, "inputs.pt"))
         active = _T._LEVERS
         arms = [("served", active, False), ("host", active, True), ("none", frozenset(), False)]
-        arms +=[(f"-{lv}", active - {lv}, False) for lv in sorted(active)]
+        if os.environ.get("WHL3_ARMS") != "served":   # WHL3_ARMS=served: dump the inputs, rerun only the served arm
+            arms += [(f"-{lv}", active - {lv}, False) for lv in sorted(active)]
         res = {"fold": {"plddt": [float(c["plddt"]) for c in out]}}
         for name, lv, host in arms:
             t = time.time()
