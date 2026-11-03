@@ -89,16 +89,16 @@ def test_the_next_block_starts_where_the_last_one_landed(shape):
     assert [r for _, r in fold] == [2, 0, 0, 0, 0, 0, 0, 0]
 
 
-def test_re_probing_the_refused_width_walks_the_budget_to_chunk_1(shape):
-    """The defect, reproduced: the width collapses to 1 and the refusal is paid every block.
+def test_re_probing_the_refused_width_pays_a_refusal_every_block(shape):
+    """The defect, reproduced: re-entering at the tuned width pays the refusal every block.
 
-    Chunk 1 is 384 channel passes against 48 at the width that actually fits -- an 8x launch
-    count for the same arithmetic, on top of one refused 260 MB allocation per block.
+    Before the padded floor the budget also walked the width to chunk 1, 384 channel passes against
+    48 at the width that fits. Below chunk 8 the fused projection's 4 x chunk lanes pad to one tile,
+    so that walk freed nothing (test_trimul_sub_tile_padding.py) and it now stops at 8.
     """
     fold = _fold(old=True)
-    assert [w for w, _ in fold] == [8, 4, 2, 1, 1, 1, 1, 1]
-    assert [r for _, r in fold] == [2, 1, 1, 1, 1, 1, 1, 1]
-    assert HIDDEN // 1 == 8 * (HIDDEN // 8)
+    assert [w for w, _ in fold] == [8] * 8
+    assert all(r >= 1 for _, r in fold)
 
 
 def test_the_width_the_fix_settles_on_is_the_widest_that_fits(shape):
