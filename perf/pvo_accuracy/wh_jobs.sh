@@ -5,17 +5,21 @@
 # data copy (inputs sha256-identical to pc's ~/pvo-accuracy-data/inputs, same MSA cache), so nothing is re-staged.
 # Same flags as run_tt.sh: model-default recycles/steps, opendde --diffusion_samples 5, Mol-1 exact only (MODES.md).
 # Priority 4, behind pvo-tt's timing jobs; queued complex by complex so a short window still leaves exact/fast pairs. Resumable: a fold with rc=0 is skipped, a job whose 3 folds passed exits 0.
-# Arms default to all three; pass a subset (e.g. mol1:exact) to requeue what a reclaimed lend killed.
+# Arms default to all three; pass a subset (e.g. mol1:exact) to requeue what a reclaimed lend killed. An arm may name
+# its complexes (opendde-abag:exact:9TH6,9W3L) and -p sets the pool priority (default 4).
 # Output layout = run_tt.sh's ($R/wh/<model>/tt_<mode>/<PDB>/seed_<s>/), so tt_relayout.py reads it after the pull.
 set -u
 R=$HOME/spd/pvo-accuracy; P=$HOME/spd/pvo-tt; T=$P/tree-c52ab1702; D=$P/data
+PRIO=4; [ "${1:-}" = -p ] && { PRIO=$2; shift 2; }
 mkdir -p $R/wh; ln -sf $HOME/spd/spd-orchestrator/run_cell.sh $R/run_cell.sh
 for y in $D/inputs/*.yaml; do
   c=$(basename $y .yaml)
   for arm in ${@:-opendde:exact opendde:fast mol1:exact}; do
-    m=${arm%%:*}; mode=${arm#*:}; X=""; [ $mode = fast ] && X=--fast; S=""; [ $m = opendde ] && S="--diffusion_samples 5"
+    IFS=: read -r m mode only <<< "$arm"
+    [ -n "$only" ] && [[ ,$only, != *,$c,* ]] && continue
+    X=""; [ $mode = fast ] && X=--fast; S=""; [[ $m = opendde* ]] && S="--diffusion_samples 5"
     o=$R/wh/$m/tt_$mode/$c
-    cat > $HOME/spd/pool/queue/4-spd-pvo-accuracy-$m-$mode-$c.sh <<JOB
+    cat > $HOME/spd/pool/queue/$PRIO-spd-pvo-accuracy-$m-$mode-$c.sh <<JOB
 # pvo-accuracy WH: $m $mode $c seeds 101-103 (model-default recycles/steps $S), tree c52ab1702, frozen MSA cache
 # mem: 60
 # cap: 7200
