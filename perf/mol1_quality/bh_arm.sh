@@ -40,7 +40,9 @@ for c in "$@"; do
       while :; do
         python3 ~/spd/feed/book.py active $c 2>/dev/null | grep -qx $o ||
           { python3 ~/spd/feed/book.py add $o $c 14400 --note "mol1-quality $OUT" > /dev/null; say "chip $c: booked $(python3 ~/spd/feed/book.py list | grep " $o ")"; }
-        until [ "$(python3 ~/spd/feed/book.py active $c 2>/dev/null)" = "$o" ]; do sleep 60; done
+        # re-add while waiting (book.py's taker rule): a window that another booking overlaps and outlasts is moved, not lost
+        until [ "$(python3 ~/spd/feed/book.py active $c 2>/dev/null)" = "$o" ]; do
+          sleep 60; python3 ~/spd/feed/book.py add $o $c 14400 --note "mol1-quality $OUT" > /dev/null; done
         say "chip $c: window open, seeds $seeds"
         bash "$P/run_tt.sh" $REV --book $o inputs "$OUT" "$seeds" $c > "$OUT.c$c.last" 2>&1; cat "$OUT.c$c.last"
         grep -q "TT-STOP\|card lock held" "$OUT.c$c.last" || break  # ran to the end of the case list inside the window
