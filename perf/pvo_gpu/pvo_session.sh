@@ -138,6 +138,9 @@ if x.get("actual_status")=="running":
   $S 'mkdir -p /root/kc' &&
     push $P/pvo_fold.py $P/pick.py $P/burn_gate.py $P/recipe-opendde.json $P/recipe-mol1.json $P/$BOX ${EXTRA_FILES:-} $H:/root/kc/ &&
     { [ -z "${INPUTS:-}" ] || R "$INPUTS/" $H:/root/kc/inputs/; } &&
+    # RFD4's target is a .cif, which R() excludes (it keeps pvo-accuracy's reference structures off the box),
+    # so the RFD4 input tree gets its own push.
+    { [ -z "${RFD4IN:-}" ] || timeout 600 rsync -a -e "${S% root@*}" "$RFD4IN/" $H:/root/kc/rfd4in/; } &&
     echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' &&
     { [ -z "$QB2" ] || { qb2_key && { $Q2 "rsync -a -e '${S% root@*}' ${QB2#*:}/inputs/ $H:/root/kc/qinputs/ && ${S% root@*} $H touch /root/kc/QINPUTS-DONE" \
         > $OUT/qinputs.log 2>&1 & }; }; } ||
