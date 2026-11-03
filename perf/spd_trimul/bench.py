@@ -211,6 +211,12 @@ def _t2_nozw(on):
     return prev
 
 
+def _t2_abl(v):
+    """T2 stage-skip bits (compute_ln.cpp 1-16, reader_ln.cpp 16, writer.cpp 32): wrong output, timing only."""
+    prev, TTL.T2_ABL = TTL.T2_ABL, int(v)
+    return prev
+
+
 def _t2_mb2(on):
     """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
     prev = (10, 10) in TTL.T2_BLOCK
@@ -300,6 +306,9 @@ def arm_setters(name):
             continue
         if part.startswith("t1nb"):   # t1nbN: T1's gather NB N at every key
             out.append((_t1_nb, int(part[4:])))
+            continue
+        if part.startswith("t2abl"):   # t2ablN: T2 with stage-skip bits N (trimul_tail.T2_ABL), timing only
+            out.append((_t2_abl, int(part[5:])))
             continue
         if part.startswith("t1abl"):   # t1ablN: T1 with stage-skip bits N, timing only
             out.append((_t1_abl, int(part[5:])))
