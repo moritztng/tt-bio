@@ -1,4 +1,4 @@
-"""Block 43's single-Transition input (s + APB(s), float64) and its LayerNorm weights from upstream's last-cycle block
+"""Block 43's single-Transition input (s + APB(s), float64) and its Transition weights (norm, a, b, out) from upstream's last-cycle block
 inputs, for ln_split_probe.py.   python -I x0_dump.py CKPT UP_blkin.pt OUT.pt"""
 import sys, torch
 from mol.model.modules.pairformer import PairformerBlock
@@ -11,5 +11,7 @@ b = PairformerBlock(n_heads=16, c_z=w["attention_pair_bias.layernorm_z.weight"].
 b.load_state_dict(w, strict=True); b.eval().double()
 with torch.no_grad():
     x0 = si.double() + b.attention_pair_bias(a=si.double(), s=None, z=zo.double())
-ln = b.single_transition.layernorm1
-torch.save({"x": x0.reshape(-1, 384), "w": ln.weight.detach().clone(), "b": ln.bias.detach().clone()}, out)
+t = b.single_transition
+torch.save({"x": x0.reshape(-1, 384), "w": t.layernorm1.weight.detach().clone(), "b": t.layernorm1.bias.detach().clone(),
+            "w1": t.linear_no_bias_a.weight.detach().clone(), "w2": t.linear_no_bias_b.weight.detach().clone(),
+            "w3": t.linear_no_bias.weight.detach().clone()}, out)
