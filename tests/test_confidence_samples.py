@@ -18,6 +18,9 @@ class _Dev:
         _Dev.live += 1
 
 
+_BIASES = []  # the head's `_biases`: the stub pairformer appends one pair bias per block, as the device layers do
+
+
 def _stub(monkeypatch):
     def from_torch(x, **kw):
         return _Dev(x.to(torch.bfloat16))
@@ -29,7 +32,9 @@ def _stub(monkeypatch):
         _Dev.live -= 1
 
     def pairformer(pf, s, z, dev):
-        return _Dev(torch.tanh(s.t.float()) * 2), _Dev((z.t.float() * 0.5 + 1).to(torch.bfloat16))
+        zt = z.t.float()
+        _BIASES.extend(_Dev((zt[..., :16] * k).permute(0, 3, 1, 2).to(torch.bfloat16)) for k in (0.3, -0.2))
+        return _Dev(torch.tanh(s.t.float()) * 2), _Dev((zt * 0.5 + 1).to(torch.bfloat16))
 
     monkeypatch.setattr(P.ttnn, "from_torch", from_torch)
     monkeypatch.setattr(P.ttnn, "to_torch", to_torch)
@@ -53,6 +58,15 @@ def _head(N, n_atom, c_s=449, c_z=32, nb=50, g=None):
         "pde_ln.weight": r(c_z), "pde_ln.bias": r(c_z), "linear_no_bias_pde.weight": r(64, c_z),
         "plddt_ln.weight": r(384), "plddt_ln.bias": r(384), "plddt_weight": r(24, 384, nb),
     }
+    for i in range(2):  # the host single track (`_s_path`) of a two-block stack
+        a, t = f"pairformer_stack.blocks.{i}.attention_pair_bias.", f"pairformer_stack.blocks.{i}.single_transition."
+        h._w.update({a + "layernorm_a.weight": r(384), a + "layernorm_a.bias": r(384),
+                     a + "attention.linear_q.bias": r(384) * 0.05,
+                     t + "layernorm1.weight": r(384), t + "layernorm1.bias": r(384),
+                     t + "linear_no_bias_a.weight": r(1536, 384) * 0.05, t + "linear_no_bias_b.weight": r(1536, 384) * 0.05,
+                     t + "linear_no_bias.weight": r(384, 1536) * 0.05})
+        h._w.update({a + f"attention.linear_{x}.weight": r(384, 384) * 0.05 for x in "qkvgo"})
+    h._biases, h._bias_scale = _BIASES, [1.0, 2.0]
     return h
 
 
@@ -69,7 +83,7 @@ def _reference(h, pairformer, s_inputs, s_trunk, z_trunk, coords, feats):
     z = z + F.linear(oh, g("linear_no_bias_d.weight")) + F.linear(d.unsqueeze(-1), g("linear_no_bias_d_wo_onehot.weight"))
     T = lambda x: _Dev(x.float().to(torch.bfloat16))
     so, zo = pairformer(None, T(s_t.unsqueeze(0)), T(z.unsqueeze(0)), None)
-    s_single = so.t.float().reshape(N, 384)
+    s_single = h._s_path(s_t, [b.t for b in h._take_biases()])
     zf = zo.t.float().reshape(N, N, -1)
     pae = F.linear(F.layer_norm(zf, (zf.shape[-1],)) * g("pae_ln.weight") + b("pae_ln.bias"), g("linear_no_bias_pae.weight"))
     pde = F.linear(F.layer_norm(zf + zf.transpose(0, 1), (zf.shape[-1],)) * g("pde_ln.weight") + b("pde_ln.bias"),
