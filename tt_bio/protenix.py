@@ -2473,10 +2473,10 @@ class ConfidenceHead:
                     + F.linear(d.unsqueeze(-1), self._g("linear_no_bias_d_wo_onehot.weight")))
 
         def read(held):
-            so, zo, biases = held
+            so, zo, dev_biases = held
             zf = torch.Tensor(ttnn.to_torch(zo)).float().reshape(N, N, -1)
-            biases = [torch.Tensor(ttnn.to_torch(b)) for b in biases]
-            for t in (so, zo, *biases):
+            biases = [torch.Tensor(ttnn.to_torch(b)) for b in dev_biases]
+            for t in (so, zo, *dev_biases):
                 ttnn.deallocate(t)
             return self._s_path(s_t, biases), zf
 
