@@ -39,10 +39,19 @@ def mean_mm(x):
     for q in p[1:]:
         t = ttnn.add(t, rowsum_mm(ttnn.typecast(q, ttnn.bfloat16)))
     return ttnn.multiply(t, 1.0 / 384)
+def mean_sum_split(x):
+    p = split(x, 2)
+    return ttnn.multiply(ttnn.add(ttnn.sum(p[0], dim=-1, keepdim=True, compute_kernel_config=ckc),
+                                  ttnn.sum(p[1], dim=-1, keepdim=True, compute_kernel_config=ckc)), 1.0 / 384)
+def mean_tiles(x):
+    w = x.shape[-1]; t = ttnn.slice(x, [0, 0, 0], [1, x.shape[1], 32])
+    for c in range(32, w, 32):
+        t = ttnn.add(t, ttnn.slice(x, [0, 0, c], [1, x.shape[1], c + 32]))
+    return ttnn.multiply(mean_split(t), 32.0 / w)
 X = up(xd)
 W, B = up(lw.reshape(1, -1)), up(lb.reshape(1, -1))
 res = {}
-for k, mean in (("plain", mean_plain), ("split", mean_split), ("split3", mean_split3), ("mm3", mean_mm)):
+for k, mean in (("plain", mean_plain), ("split", mean_split), ("split3", mean_split3), ("mm3", mean_mm), ("sum_split", mean_sum_split), ("tiles", mean_tiles)):
     m = mean(X); xc = ttnn.subtract(X, m); v = mean(ttnn.multiply(xc, xc))
     o = ttnn.add(ttnn.multiply(ttnn.multiply(xc, ttnn.rsqrt(ttnn.add(v, 1e-5))), W), B)
     res[k] = {"mean_err_over_sigma": float(((back(m) - mu).abs() / var.sqrt()).max()),
