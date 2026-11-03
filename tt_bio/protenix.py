@@ -4262,11 +4262,19 @@ class Trunk(_KeyedWeights):
             del m_c, mask
             return carry
 
+        # Where a restart begins: cycle 0, or the carry a past-1-GiB pair left on the host after its last cycle.
+        # Such a pair already keeps z_init on the host (host_park), and `from_device` is one DMA of the same
+        # tile bytes: ~2 GiB once a ~290 s cycle at 2048 tokens, where a refused cycle 7 of 10 would
+        # otherwise redo seven cycles.
+        resume = [0, None]
+        keep = z_init.storage_type() != ttnn.StorageType.DEVICE and not ops.taping()
+
         def run(mode, m_feat, next_rows):
-            # Every cycle in one mode, from cycle 0. `rows` was drawn for all cycles up front, so a
+            # Every cycle in one mode, from `resume`. `rows` was drawn for all cycles up front, so a
             # restart sees the same rows.
-            carry = start()
-            for cyc in range(n_cycles):
+            c0, h = resume
+            carry = start() if h is None else [ttnn.to_device(t, get_device()) for t in h]
+            for cyc in range(c0, n_cycles):
                 # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
                 # the tape holds one cycle instead of n_cycles of them. That is upstream's own
                 # structure, not doing less of the model's work: all the cycles still run and the
@@ -4284,14 +4292,16 @@ class Trunk(_KeyedWeights):
                         carry = sampled(cyc, carry, x, park=mode == "park")
                     else:
                         carry = cycle(cyc, carry, m_feat)
+                    if keep and cyc + 1 < n_cycles:
+                        resume[:] = [cyc + 1, [ttnn.from_device(t) for t in carry]]
             return carry
 
-        # Crash guard, not a regime. A cycle DRAM refuses restarts the trunk from cycle 0 one mode
+        # Crash guard, not a regime. A cycle DRAM refuses restarts the trunk from `resume` one mode
         # lighter, for THIS fold only: rows picked on the chip from the resident alignment ("table"),
         # then rows cut on the host ("cut"), then each cycle's m built and streamed in depth chunks
         # ("park"); a resident m ("chip") streams from the host ("host"). Restarting, rather than
-        # re-running the refused cycle from kept inputs, means no cycle ever holds its input pair
-        # past its first op: kept, that pair (0.94 GB at 1024 Mol-1 tokens) was what a 1024-token
+        # re-running the refused cycle from inputs kept on the chip, means no cycle ever holds its
+        # input pair there past its first op: kept, that pair (0.94 GB at 1024 Mol-1 tokens) was what a 1024-token
         # cycle ran out of DRAM for. A row count drawn afresh every cycle changes the MSA shapes
         # every cycle, so a deep draw late in the fold can find the chip's DRAM in pieces where the
         # full-depth path reuses its blocks: 7ua2-assembly1 (712 tokens, 18,611 rows) was refused
@@ -4322,7 +4332,7 @@ class Trunk(_KeyedWeights):
                 m_feat = h
             gc.collect()
             if rows is not None:
-                next_rows = cut(0)
+                next_rows = cut(resume[0])
 
         carry = restart_lighter(lambda mode: run(mode, m_feat, next_rows), mode,
                                 {"table": "cut", "cut": "park", "chip": "host"}, step_down)
