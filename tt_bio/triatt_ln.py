@@ -238,7 +238,7 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None, 
         bi = 4 * H - n0 if hm and 0 <= 4 * H - n0 < nw else 0xFFFF   # the bias tile's place in this group, if any
         own = 2 + c % 2 if lns else 0
         p = phys(c ^ 1) if lns else ttnn.CoreCoord(0, 0)
-        rd[cx][cy] = [r0, n, int(bool(tr)), MT, n0, s, own, p.x, p.y]
+        rd[cx][cy] = [r0, n if tr else rows, int(bool(tr)), MT, n0, s, own, p.x, p.y]   # TR reads units, plain rows
         wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end, s, hm if bi != 0xFFFF else 0]
         cp[cx][cy] = [rows, q, c % 2, bi]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
