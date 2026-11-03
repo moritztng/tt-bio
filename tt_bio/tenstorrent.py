@@ -1827,6 +1827,18 @@ def _record_trimul_inproj_oom(seq_len: int, hidden: int, batch: int, fused: int)
     _TRIMUL_INPROJ_FUSED_CAP[key] = max(1, cap // 2)
 
 
+def forget_trimul_inproj_refusals() -> None:
+    """Drop every refusal-recorded in-projection budget.
+
+    A recorded budget describes the DRAM that refused it. When a caller frees what filled the
+    chip and restarts lighter (`size_limits.restart_lighter`), that DRAM is gone and the budget
+    only narrows the lighter run for nothing: seed 4101 of WH 1024 Mol-1 restarted in "park" with
+    7 GiB free and still entered every trimul at the width the full chip had been refused. The
+    next refusal, if there is one, records again.
+    """
+    _TRIMUL_INPROJ_FUSED_CAP.clear()
+
+
 # Narrowest channel chunk the in-projection may take. The channel loop consumes the fused
 # projection with a 4-way `ttnn.chunk` along the last axis, so the chunk width IS the slice width,
 # and on the parts `_SUB_TILE_SLICE_WEDGES` names a sub-tile piece never comes back (measurements
