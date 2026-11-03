@@ -15436,28 +15436,25 @@ class PairformerLayer(Module):
             z = _z_residual(z, zc, z_update, wide)
             _layer_tap("transition", z)
         if self.transform_s:
-            # The single track's small channels are near-cancelling sums (Mol-1's trunk carries a ~3e5 vector shared by
-            # every token), which is where Wormhole's fp32-dest fault lands on every token, so its matmuls run guarded.
-            with _dest_guard.scope():
-                s_norm = ttnn.layer_norm(
-                    self._s_compute(s),
-                    weight=self.pre_norm_s_weight,
-                    bias=self.pre_norm_s_bias,
-                    epsilon=1e-5,
-                    compute_kernel_config=self.compute_kernel_config,
-                )
-                s_update = self.attention_pair_bias(
-                    s_norm,
-                    _z_compute(z, wide),
-                    seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
-                )
-                ttnn.deallocate(s_norm)
-                s = self._s_residual(s, s_update)
-                _layer_tap("s_apb", s)
+            s_norm = ttnn.layer_norm(
+                self._s_compute(s),
+                weight=self.pre_norm_s_weight,
+                bias=self.pre_norm_s_bias,
+                epsilon=1e-5,
+                compute_kernel_config=self.compute_kernel_config,
+            )
+            s_update = self.attention_pair_bias(
+                s_norm,
+                _z_compute(z, wide),
+                seq_mask=extra_attn_bias if extra_attn_bias is not None else attn_mask_start,
+            )
+            ttnn.deallocate(s_norm)
+            s = self._s_residual(s, s_update)
+            _layer_tap("s_apb", s)
 
-                s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
-                s = self._s_residual(s, s_update)
-                _layer_tap("s_transition", s)
+            s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
+            s = self._s_residual(s, s_update)
+            _layer_tap("s_transition", s)
         return s, z
 
     def _s_compute(self, s: ttnn.Tensor) -> ttnn.Tensor:

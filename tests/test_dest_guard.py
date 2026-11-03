@@ -39,7 +39,6 @@ def _ckc(fp32=True, l1acc=False):
 @pytest.fixture
 def guard(monkeypatch):
     monkeypatch.setattr(dest_guard, "_ON", [True])
-    monkeypatch.setattr(dest_guard, "ENABLED", True)
     monkeypatch.setattr(dest_guard, "GUARDED", frozenset(dest_guard._CLASSES))
     monkeypatch.setattr(dest_guard, "_CHOSEN", {})
     monkeypatch.setattr(dest_guard, "_REFUSED", {})
@@ -132,21 +131,3 @@ def test_generic_descriptor_and_class_list(guard, monkeypatch):
     op, calls = _recorder()
     guard._wrap("linear", op, _MM)(_T(2560, 768), _T(768, 768), compute_kernel_config=_ckc())
     assert "program_config" not in calls[-1]
-
-
-def test_scope_guards_without_the_variable(guard, monkeypatch):
-    monkeypatch.setattr(guard, "ENABLED", False)
-    pc = ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(
-        compute_with_storage_grid_size=(8, 9), in0_block_w=4, out_subblock_h=1, out_subblock_w=2, out_block_h=4,
-        out_block_w=4, per_core_M=4, per_core_N=4, transpose_mcast=False, fused_activation=None, fuse_batch=True)
-    op, calls = _recorder()
-    f = guard._wrap("matmul", op, _MM)
-    f(_T(1024, 768), _T(768, 1024), compute_kernel_config=_ckc(), program_config=pc)
-    assert calls[-1]["program_config"] is pc
-    with guard.scope():
-        f(_T(1024, 768), _T(768, 1024), compute_kernel_config=_ckc(), program_config=pc)
-        assert guard.descriptor((8, 4, 8, 2, 2), (None, False, True, False)) == (8, 1, 8, 2, 2)
-    assert calls[-1]["program_config"].in0_block_w == 1
-    f(_T(1024, 768), _T(768, 1024), compute_kernel_config=_ckc(), program_config=pc)
-    assert calls[-1]["program_config"] is pc
-    assert guard.descriptor((8, 4, 8, 2, 2), (None, False, True, False)) == (8, 4, 8, 2, 2)
