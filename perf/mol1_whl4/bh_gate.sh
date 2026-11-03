@@ -9,21 +9,23 @@ C=${1:-3} R=~/spd/mol1-whl4 PY=/home/ttuser/tt-bio-dev/env/bin/python
 B=$R/tree-974d7c9ee F=$R/tree-bfb187307 O=$R/out/bh-gate
 mkdir -p $O
 say() { echo "$(date -u +%FT%TZ) $*" >> $O/run.log; }
-exec 8> ~/spd_qb2_card$C.lock 9> ~/spd_qb2_chip$C.lock
-say "waiting for card $C flocks"
-flock -w 36000 8 && flock -w 36000 9 || { say "card $C flock busy"; exit 3; }
+# card$C.lock is a symlink to chip$C.lock on qb2: open it once. Two fds on the same file self-deadlock (the second
+# flock waits on the first), which held chip 3 against a release-gate probe on 11-03.
+exec 9> "$(readlink -f ~/spd_qb2_chip$C.lock)"
+say "waiting for the chip $C flock"
+flock -w 36000 9 || { say "chip $C flock busy"; exit 3; }
 say "card $C taken"
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_HOLDER=mol1-whl4
 unset TT_BIO_LEVERS TT_BIO_DRAM_PEAK
 for m in protenix-v2 opendde mol1; do
   o=$O/$m; mkdir -p $o
   ( while kill -0 $$ 2>/dev/null; do l=$(cut -d' ' -f1 /proc/loadavg); for n in /sys/class/tenstorrent/tenstorrent\!*; do
-      printf '%s\t%s\t%s\t%s\n' "$(date +%s.%N)" "${n##*!}" "$(cat $n/tt_aiclk 2>/dev/null)" "$l"; done; sleep 0.5; done ) 8>&- 9>&- >> $o/aiclk.tsv 2>/dev/null &
+      printf '%s\t%s\t%s\t%s\n' "$(date +%s.%N)" "${n##*!}" "$(cat $n/tt_aiclk 2>/dev/null)" "$l"; done; sleep 0.5; done ) 9>&- >> $o/aiclk.tsv 2>/dev/null &
   S=$!
   for arm in base:$B:2 fix:$F:2 base2:$B:1; do
     IFS=: read a t n <<< "$arm"; mkdir -p $o/$a
     ( cd $t && PYTHONPATH=$t timeout -s INT 3000 $PY $F/perf/of3_4xpd/xmodel_ab.py --model $m --tree $t --size 512 \
-        --repeat $n --label $a --out $o/$a/result.json ) > $o/$a/harness.log 2>&1 < /dev/null 8>&- 9>&- &
+        --repeat $n --label $a --out $o/$a/result.json ) > $o/$a/harness.log 2>&1 < /dev/null 9>&- &
     H=$!
     while kill -0 $H 2>/dev/null; do sleep 5
       [ -s $o/nodes.txt ] || for p in $(pstree -p $H | grep -o "([0-9]*)" | tr -d "()"); do
