@@ -49,7 +49,14 @@ if [ ! -f $B/SETUP-DONE ]; then
     # Wait on the two installs by pid: a bare wait also waits on the clock logger and never returns.
     VIRTUAL_ENV=/opt/opendde-venv uv pip install -q --torch-backend cu126 -e "/root/opendde[gpu]" ninja & p1=$!
     VIRTUAL_ENV=/opt/mol1-venv uv pip install -q -e "/root/mol1[cuda]" "$OPT_CORE" ninja & p2=$!
-    wait $p1 && wait $p2
+    wait $p1 || fail "opendde install (tail $B/setup.log)"
+    # The burn runs as soon as one torch exists: session 3's Kansas box spent an hour on setup before the burn found
+    # it at 85 C and 1035 MHz. The block below then only re-checks the marker.
+    if [ ! -f $B/BURN ]; then
+      /opt/opendde-venv/bin/python /root/kc/burn_gate.py > $B/burn.log 2>&1; rc=$?
+      echo $rc > $B/BURN; [ $rc -eq 0 ] || fail "burn gate ($(tail -1 $B/burn.log))"
+    fi
+    wait $p2
     (cd /root/opendde && bash scripts/download_opendde_data.sh --skip-search-database)
     mkdir -p $OPENDDE_ROOT_DIR/checkpoint $MOL_ROOT_DIR/checkpoint
     [ -f $OPENDDE_ROOT_DIR/checkpoint/opendde.pt ] ||
