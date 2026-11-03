@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # PNR TT cells on qb1 p150a UMD 0 (/dev/tenstorrent/1), per state/pnr/PROTOCOL.md (frozen 11-03 17:40Z).
 #   run_cells.sh <out> [cells...]   cells: mol1 mol1_fast rfd4 bc2 (default all, in that order)
-# Each cell first waits for a device-free, quiet box (no other pid on any /dev/tenstorrent node, loadavg < 1.5),
-# then runs under benchlock. AICLK is sampled during every timed run by the harness itself.
+# Each cell first takes all four ~/spd_qb1_card{0..3}.lock flocks (the locks gate legs and SPD chains use, so it
+# queues behind a running gate and nothing new lands on qb1 during the cell), then waits for a device-free, quiet
+# box (no other pid on any /dev/tenstorrent node, loadavg < 1.5) and runs under benchlock. Locks drop after each cell. AICLK is sampled during every timed run by the harness itself.
 set -u
 WT=$HOME/.coworker/wt/pnr-tt; OUT=${1:?out dir}; shift; CELLS=${*:-mol1 mol1_fast rfd4 bc2}
 mkdir -p "$OUT"; exec >>"$OUT/chain.log" 2>&1
@@ -20,12 +21,16 @@ quiet() {
     echo "quiet after ${w}s $(date -u +%FT%TZ) load $(cat /proc/loadavg)"
 }
 cell() {  # name cmd...
-    local n=$1; shift; local d="$OUT/$n"; mkdir -p "$d"
-    quiet || return 1
+    local n=$1; shift; local d="$OUT/$n" c; mkdir -p "$d"
+    exec 5>>"$HOME/spd_qb1_card0.lock" 6>>"$HOME/spd_qb1_card1.lock" 7>>"$HOME/spd_qb1_card2.lock" 8>>"$HOME/spd_qb1_card3.lock"
+    for c in 5 6 7 8; do flock -w 43200 $c || { echo "GIVEUP lock fd $c"; exec 5>&- 6>&- 7>&- 8>&-; return 1; }; done
+    echo "locks held $(date -u +%FT%TZ)"
+    quiet || { exec 5>&- 6>&- 7>&- 8>&-; return 1; }
     { uptime; ~/.local/bin/tt-smi -s 2>/dev/null; } > "$d/host.start.txt"
     echo "cell $n start $(date -u +%FT%TZ)"
-    ( cd "$WT" && "$BL" pnr-tt -- timeout 14400 "$@" ) > "$d/run.log" 2>&1
+    ( cd "$WT" && "$BL" pnr-tt -- timeout 14400 "$@" ) > "$d/run.log" 2>&1 5>&- 6>&- 7>&- 8>&-
     echo "cell $n end rc=$? $(date -u +%FT%TZ) load $(cat /proc/loadavg)"
+    exec 5>&- 6>&- 7>&- 8>&-
 }
 for c in $CELLS; do case $c in
   mol1)      cell mol1 python3 perf/of3_4xpd/xmodel_ab.py --model mol1 --tree "$WT" --repeat 5 --label mol1 --out "$OUT/mol1/result.json" ;;
