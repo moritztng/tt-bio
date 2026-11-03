@@ -48,7 +48,12 @@ void kernel_main() {
         auto page = [&](uint32_t q, uint32_t n) { return ((st * 32 + q) * Bt + bt) * Nt + n; };
         cb_wait_front(stage_cb, R * Nt);
         const uint32_t stage = get_read_ptr(stage_cb);
-        for (uint32_t n = 0; n < Nt; ++n) {
+        for (uint32_t i = 0; i < Nt; ++i) {
+#ifdef NROT
+            const uint32_t n = (i + u) % Nt;
+#else
+            const uint32_t n = i;
+#endif
             cb_reserve_back(z_cb, 32);
             uint32_t lz = get_write_ptr(z_cb);
             for (uint32_t q = 0; q < 32; ++q, lz += tb) rows(z.get_noc_addr(page(q, n)), lz, off, false);
