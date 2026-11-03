@@ -422,6 +422,22 @@ def test_a_galaxy_with_no_chip_for_steal_s_hands_its_queue_to_a_pool_with_chips(
     assert {L["host"] for L in led.values()} == {"3"}
 
 
+def test_probe_reads_a_requeued_recall_as_queued_not_ended(tmp_path):
+    # pool.sh copies a recalled job back into queue/; its old running/ entry ends rc 130. The feed must see the queued
+    # copy, or it places a twin on another box (.108 11-03, kl1ab on two chips at once).
+    P = tmp_path / "spd/pool"; (P / "queue").mkdir(parents=True); (P / "running").mkdir()
+    (tmp_path / "japanfold/state/agent/lend").mkdir(parents=True)
+    for n in ["3-a-f-x.sh", "3-b-f-y.sh"]:
+        (P / "queue" / n).write_text("")
+    (P / "running/1103T1627Z-c18-3-a-f-x.sh").write_text(""); (P / "running/1103T1627Z-c18-3-a-f-x.sh.end").write_text("130\n")
+    (P / "running/1103T1700Z-c4-3-b-f-y.sh").write_text("")                           # started, no .end: still running
+    a = {"kind": "galaxy", "lend": True, "cards": [], "sweep": False, "paths": [], "outdirs": {}}
+    r = subprocess.run([sys.executable, "-c", feed.PROBE], input=json.dumps(a) + "\n", capture_output=True, text=True,
+                       env={"HOME": str(tmp_path)}, check=True)
+    jobs = json.loads(r.stdout)["jobs"]
+    assert jobs["3-a-f-x.sh"] == {"state": "queued"} and jobs["3-b-f-y.sh"] == {"state": "running"}
+
+
 def test_a_galaxy_just_gone_to_zero_chips_keeps_its_queue(tmp_path, monkeypatch):
     # lent chips churn: a box reading 0 for one pass gets its chips back minutes later, so the clock starts now
     cs, boxes, withdrawn = _two_galaxies(tmp_path, monkeypatch, None)
