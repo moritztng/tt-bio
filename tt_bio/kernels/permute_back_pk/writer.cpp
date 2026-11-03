@@ -18,12 +18,13 @@ void kernel_main() {
     const auto o = TensorAccessor(o_args, get_common_arg_val<uint32_t>(0));
     const uint32_t u0 = get_arg_val<uint32_t>(0);
     const uint32_t nunits = get_arg_val<uint32_t>(1);
+    const uint32_t step = get_arg_val<uint32_t>(2);     // 1, or the core count under round-robin (permute_back_pk.RR)
     constexpr uint32_t out_cb = tt::CBIndex::c_16;
     constexpr uint32_t SS = St * St;
     constexpr uint32_t CS = CT * SS;
     const uint32_t tb = get_tile_size(out_cb);
 
-    for (uint32_t u = u0; u < u0 + nunits; ++u) {
+    for (uint32_t i = 0, u = u0; i < nunits; ++i, u += step) {
         const uint32_t b = u / CS, v = u % CS;
         const uint32_t ct = ORD ? v % CT : v / SS;
         const uint32_t cube = ORD ? v / CT : v % SS;

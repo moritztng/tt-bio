@@ -189,6 +189,13 @@ def _t1_wfl(v):
     return prev
 
 
+def _pb_rr(v):
+    """permute_back_pk units dealt round-robin across cores (PB.RR), bit-identical."""
+    import tt_bio.permute_back_pk as PB
+    prev, PB.RR = PB.RR, v
+    return prev
+
+
 def _t2_mb2(on):
     """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
     prev = (10, 10) in TTL.T2_BLOCK
@@ -239,6 +246,7 @@ LEVERS = {
     "t1lnb4": [(_t1_lnblk, 4)],
     "t1g8": [(_t1_g8, True)],
     "t1split": [(_t1_split, 1)],
+    "pbrr": [(_pb_rr, 1)],
     "t1wfl": [(_t1_wfl, 1)],
     "bres256": [(T.set_trimul_bres_reuse, True)],
     "nores": [(TTL.set_res, False)],
