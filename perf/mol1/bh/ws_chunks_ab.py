@@ -1,11 +1,13 @@
 """The pair Transition as Mol-1 BH serves it, equal vs ragged weight-stationary hidden chunks: ms and error vs float64.
 
     TT_VISIBLE_DEVICES=<card> python perf/mol1/bh/ws_chunks_ab.py OUT.json --cells 256x320,512x448,1024x448 [--reps 10]
+        [--arms equal,ragged,12-12-16-16]
 
 Each cell is N x c_z on the served lever set for its size (NORMAL | WIDE_NORMAL | MOL1_BH, plus MOL1_BH_512 from 512
 tokens, as `size_levers` adds it), the call the Pairformer makes: `transition_z(z, add_to_input=True)`. Arm `equal`
 runs the split `pair_swiglu_ws.weights` took before ragged chunks (the fewest equal chunks that fit), arm `ragged`
-`hidden_chunks`. Random weights at 1/sqrt(fan-in), z ~ N(0, 4). Error is rel_rms of the update (out - z) against
+`hidden_chunks`, and an arm like `12-12-16-16` those hidden tiles per chunk in that order (cells whose hidden
+tiles it does not sum to take ragged). Random weights at 1/sqrt(fan-in), z ~ N(0, 4). Error is rel_rms of the update (out - z) against
 float64; AICLK is sampled from sysfs during the timed reps.
 """
 import argparse
@@ -30,6 +32,15 @@ def equal_chunks(W):
                   and W._l1_bytes(kt, nh // p, ct, dtype) <= W._L1_BUDGET), 1)
         return [nh // p] * p
     return f
+
+
+def chunker(W, arm, ragged):
+    if arm == "equal":
+        return equal_chunks(W)
+    if arm == "ragged":
+        return ragged
+    sizes = [int(v) for v in arm.split("-")]
+    return lambda kt, nh, ct, dtype: sizes if sum(sizes) == nh else ragged(kt, nh, ct, dtype)
 
 
 def ref(x, sd):
@@ -81,12 +92,12 @@ def main():
             ckc = TT.trunk_compute_kernel_config(base)
             mods = {}
             for arm in A.arms.split(","):
-                W.hidden_chunks = equal_chunks(W) if arm == "equal" else ragged
+                W.hidden_chunks = chunker(W, arm, ragged)
                 mods[arm] = TT.Transition(sd, ckc)
                 row[arm] = {"ms": [], "clk": []}
             for rep in range(A.reps + 1):
                 for arm, m in mods.items():
-                    W.hidden_chunks = equal_chunks(W) if arm == "equal" else ragged
+                    W.hidden_chunks = chunker(W, arm, ragged)
                     z = ttnn.from_torch(z0, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
                     ttnn.synchronize_device(dev)
                     n0 = len(samples)
