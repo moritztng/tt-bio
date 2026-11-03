@@ -38,6 +38,10 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - `tt-bio preflight mol1` no longer reports Mol-1 ready on a machine without the CCD molecule library it folds with.
 
 ### Changed
+- **RoseTTAFold3 and RFdiffusion3 featurize faster, with identical features.** Reference conformers come from
+  worker processes that stay up between inputs, and each residue type is converted once instead of once per residue.
+  A 512-residue RF3 input featurizes in 1.32 s instead of 1.96 s on a Wormhole Galaxy host, which comes straight off
+  every fold on Wormhole and Blackhole.
 - **ESMFold2 on Blackhole runs the MSA outer product's output projection on the shared pair-projection path.** A
   748-residue fold with a deep MSA on a p150a drops about 0.7 s in both modes (36.04 -> 35.36 s normal, 34.09 -> 33.36 s
   --fast), and the 512-residue page fold about 0.3 s. Graded over 44 paired folds per mode: normal CA-lDDT -0.0005
