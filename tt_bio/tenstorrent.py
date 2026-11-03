@@ -5169,7 +5169,11 @@ def _dram_oom(exc: BaseException) -> bool:
     Matched on the allocator's own wording so a compile error, a bad shape or a hang never gets
     silently retried at half the block size and reported as a smaller-is-fine success.
     """
-    return "Out of Memory" in str(exc)
+    s = str(exc)
+    if "Out of Memory" not in s:
+        return False
+    _note_dram_refusal(s)
+    return True
 
 
 #: Compact the live operands between narrowing attempts. OFF by default, so this branch changes
@@ -8668,20 +8672,69 @@ def program_cache_for(shapes, dev=None) -> None:
     the next fold hung the chip.
     Clearing when the signature changes keeps warm repeats of one input warm; shapes is None
     clears every time. The device is synchronized first: queued work may still need the
-    programs."""
-    if shapes is not None and shapes == _PROGRAM_CACHE_SHAPES[0]:
-        return
-    dev = dev or get_device()
+    programs.
+
+    A fold that was refused DRAM ran at the edge of the chip, and the next one starts on an
+    evicted heap (`evict_shape_keyed`) whatever its shapes. Each fold's new programs park their
+    binaries at the top of every bank and its lazily built weight copies land between its
+    activations, so a warm repeat at the edge started each fold with less contiguous DRAM than
+    the last: Mol-1 at 1024 tokens on a Wormhole chip went from 902 MiB largest free per bank
+    after load to 657, 454 and 425 after three folds, with 1546, 1989 and 3631 programs cached,
+    and the fourth was refused (state/mol1/evidence/wh1024leak/ROOT.md). A fold that was never
+    refused keeps the warm cache.
+    """
+    if DRAM_REFUSALS[0]:
+        evict_shape_keyed(dev)
+    elif shapes is None or shapes != _PROGRAM_CACHE_SHAPES[0]:
+        _clear_programs(dev or get_device())
+    _PROGRAM_CACHE_SHAPES[0] = shapes
+
+
+def _clear_programs(dev) -> None:
     ttnn.synchronize_device(dev)
     dev.disable_and_clear_program_cache()
     dev.enable_program_cache()
-    _PROGRAM_CACHE_SHAPES[0] = shapes
+    _PROGRAM_CACHE_SHAPES[0] = None
+
+
+def evict_shape_keyed(dev=None) -> tuple[int, int]:
+    """Clear the program cache and free every device tensor kept per shape; (programs, tensor sets).
+
+    The tensors are the triangle multiplications' in-projection copies, one set per chunk width
+    (`drop_width_variants`), and fused_sdpa's zero masks, one per length. The next call rebuilds
+    the ones its shape needs from the host weights, byte for byte. Resets `DRAM_REFUSALS`.
+    """
+    dev = dev or get_device()
+    n = int(dev.num_program_cache_entries())
+    k = len(_ZERO_MASKS) + sum(len(c) for t in _TRIMULS for c in t.width_variants())
+    gc.collect()
+    _clear_programs(dev)
+    for t in list(_TRIMULS):
+        t.drop_width_variants()
+    for _, m in _ZERO_MASKS.values():
+        ttnn.deallocate(m)
+    _ZERO_MASKS.clear()
+    gc.collect()
+    DRAM_REFUSALS[0] = 0
+    return n, k
 
 
 def is_dram_refusal(exc: BaseException) -> bool:
     """Whether `exc` is the allocator refusing a DRAM buffer (bank_manager's TT_FATAL)."""
     s = str(exc)
-    return "Out of Memory" in s and "DRAM buffer" in s
+    if "Out of Memory" not in s or "DRAM buffer" not in s:
+        return False
+    _note_dram_refusal(s)
+    return True
+
+
+#: DRAM refusals the handlers above have caught since the shape-keyed device state was last evicted.
+DRAM_REFUSALS = [0]
+
+
+def _note_dram_refusal(msg: str) -> None:
+    if "DRAM buffer" in msg:
+        DRAM_REFUSALS[0] += 1
 
 
 def evicting_programs_on_refusal(run, dev=None):
@@ -8713,19 +8766,12 @@ def evicting_programs_on_refusal(run, dev=None):
         if not is_dram_refusal(e):
             raise
         dev = dev or get_device()
-        n = int(dev.num_program_cache_entries())
-        k = len(_ZERO_MASKS) + sum(len(c) for t in _TRIMULS for c in t.width_variants())
-        if not (n or k):
+        if not (dev.num_program_cache_entries() or _ZERO_MASKS
+                or any(c for t in _TRIMULS for c in t.width_variants())):
             raise
     gc.collect()   # the failed attempt's tensors, before measuring what the eviction frees
     before = dram_free()
-    program_cache_for(None, dev)
-    for t in list(_TRIMULS):
-        t.drop_width_variants()
-    for _, m in _ZERO_MASKS.values():
-        ttnn.deallocate(m)
-    _ZERO_MASKS.clear()
-    gc.collect()
+    n, k = evict_shape_keyed(dev)
     print(f"  [tt-bio] DRAM refused with {n} programs and {k} shape-keyed tensor sets cached: "
           f"evicted them, largest free {before / 2**20:.0f} -> {dram_free() / 2**20:.0f} MiB across "
           "the banks; running again", file=sys.stderr, flush=True)
