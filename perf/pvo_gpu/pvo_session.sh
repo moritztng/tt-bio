@@ -78,6 +78,11 @@ done
 R $H:/root/kc/pvo/ $OUT/pvo/ 2>/dev/null; R $H:'/root/kc/*.log' $OUT/ 2>/dev/null; offload
 log "$I ended: $END"
 destroy $I "session end: $END"
+# A card that fails qualification is the host's fault, not the session's: blacklist the offer and rent the next
+# one. Session 3 ended on its burn failure with four attempts and 11 h of cap unused.
+case "$END" in "FAILED (burn gate"*|"FAILED (driver"*)
+  echo "$O" >> /home/moritz/.coworker/state/vast-bad-offers; mv $OUT/pvo $OUT/pvo-failed-$I
+  log "offer $O blacklisted, trying the next"; return 1;; esac
 log "credit \$$(credit) at end"; echo "$END" > $OUT/SESSION-END; exit 0
 }
 # RESUME=1 re-attaches to the box this label already rents (a watcher that died or was stopped), without renting.
@@ -158,6 +163,6 @@ if x.get("actual_status")=="running":
   timeout 60 $S -f "cd /root/kc && setsid nohup env PVO_SESSION=$L ${BOXENV:-} bash $BOX $CAP_H > box_pvo.log 2>&1 < /dev/null &" ||
     { destroy $I "launch failed"; continue; }
   log "$I running $BOX"
-  watch
+  watch || continue
 done
 log "SESSION-END no-offer-passed"; echo no-offer > $OUT/SESSION-END
