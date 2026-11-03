@@ -131,6 +131,30 @@ def test_a_card_with_no_baseline_is_seeded_not_failed(monkeypatch, tmp_path, cap
     assert m.cmd_gate(Namespace(**vars(args))) == 0
     assert "GATE PASS" in capsys.readouterr().out
 
+
+def test_a_model_new_to_a_seeded_machine_is_seeded_not_failed(monkeypatch, tmp_path, capsys):
+    """mol1 joined SPECS after qb1's p150a block was seeded: the gate records its first cell and
+    leaves the other models' cells alone, instead of failing it as NO BASELINE."""
+    m = _module()
+    rows = {k: {"model": k, "unit": "structures/s", "direction": "higher", "throughput": v,
+                "latency_ms": 500, "input": "trpcage", "warmup": 2, "repeat": 5, "hardware": "blackhole",
+                "tt_bio_version": "0.26.1", "date": "2026-11-03"} for k, v in (("boltz2", 1.0), ("mol1", 2.0))}
+    monkeypatch.setattr(m, "_assert_full_model_coverage", lambda: None)
+    monkeypatch.setattr(m, "_run_measure", lambda model: dict(rows[model]))
+    monkeypatch.setattr(m, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(m, "BASELINE_FILE", tmp_path / "docs" / "perf_baselines.json")
+    monkeypatch.setattr(m, "detect_machine_id", lambda: "tt-quietbox")
+    monkeypatch.setattr(m, "detect_card_type", lambda: "p150a")
+    args = Namespace(model=["boltz2"], update_baseline=False, threshold=15.0, note=None, allow_contended=False)
+    assert m.cmd_gate(Namespace(**vars(args))) == 0
+    capsys.readouterr()
+    args.model = ["boltz2", "mol1"]
+    assert m.cmd_gate(Namespace(**vars(args))) == 0
+    out = capsys.readouterr().out
+    assert "\nGATE SEEDED" in out and "for mol1 on p150a" in out and "GATE PASS" in out
+    cells = m.card_baselines(m.load_baselines(), "p150a", "tt-quietbox")
+    assert cells["mol1"]["value"] == 2.0 and cells["boltz2"]["value"] == 1.0
+
 def test_reference_run_writes_a_readonly_hardlinked_baseline_in_place(tmp_path):
     """The Galaxy dedupe hardlinks identical files across trees and makes them read-only. An old
     reference's in-place write must succeed on a private copy and leave the other link alone."""
