@@ -36,7 +36,7 @@ import ttnn
 from . import protenix_weights as PW
 from . import hostlane
 from .envflags import env_flag
-from .size_limits import is_alloc_refusal
+from .size_limits import restart_lighter
 from .sample_chunks import denoise_in_chunks, resolve_sample_chunk_width
 from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
@@ -4196,7 +4196,7 @@ class Trunk(_KeyedWeights):
         m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
         m_proj = lambda x: ttnn.add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
-        rows = None
+        rows = table = next_rows = None
         if msa_sample is not None:
             depth, gen = msa_sample
             msa = feat["msa"][:, :n_real]
@@ -4222,31 +4222,36 @@ class Trunk(_KeyedWeights):
             # then sends row indices, not up to ~0.9 GB of rows the chip waits for (1.5 s a cycle at
             # 9,216 rows x 736 tokens on a Wormhole host). Otherwise the host lane cuts the next cycle's
             # rows while this one runs. Both hand the MSA module the same bf16 tensor.
-            table = next_rows = None
             if msa_upload_whole(msa_row_bucket(n_rows, n_rows, step), *ms.shape[2:]):
                 table = msa_rows_table(ms)
             else:
                 next_rows = cut(0)
-        z3 = ttnn.reshape(ttnn.mul(z_init, 0.0), (1, N, N, self.C_Z))
         # Both are read once per cycle and never written, so past 1 GiB they wait on the host.
         z_init, tpl_a = host_park(z_init), host_park(tpl_a)
-        s = ttnn.mul(s_init, 0.0)
 
-        def cycle(cyc, carry, m_feat, rows=None, retry=False):
+        def start():
+            # Cycle 0's inputs, rebuilt from z_init and s_init whenever the trunk (re)starts.
+            zi = host_unpark(z_init)
+            z3 = ttnn.reshape(ttnn.mul(zi, 0.0), (1, N, N, self.C_Z))
+            if zi is not z_init:
+                ttnn.deallocate(zi)
+            return [z3, ttnn.mul(s_init, 0.0)]
+
+        def cycle(cyc, carry, m_feat, rows=None):
             # Unpacked and cleared, so the cycle's input pair dies at its first rebind exactly as
-            # it did inline; only a caller that kept its own copy holds it longer. `rows` marks a
-            # cycle's own row draw, freed with its mask once the MSA module has read it.
+            # it did inline. `rows` marks a cycle's own row draw, freed with its mask once the
+            # MSA module has read it.
             z3, s = carry
             carry.clear()
             zc = self._lin(self._ln(z3, "layernorm_z_cycle.weight", "layernorm_z_cycle.bias"), "linear_no_bias_z_cycle.weight")
             # The previous pair, zc and an unparked z_init are each a whole pair tensor (2 GiB in
             # bf16 at 2048 tokens, C_Z 256), and zc used to live to the end of the cycle: the add
             # held four of them and --fast died on the fourth on a 12 GiB Wormhole chip. The old
-            # pair goes once zc is made, unless the caller keeps it to re-run a refused cycle
-            # (`retry`), and zc and the upload go right after the add. Still `ttnn.add`: `add_`
-            # into the upload saves one more pair but moved exact's l2048 digest on Blackhole.
+            # pair goes once zc is made, and zc and the upload go right after the add. Still
+            # `ttnn.add`: `add_` into the upload saves one more pair but moved exact's l2048
+            # digest on Blackhole.
             free = not ops.taping()
-            if free and not retry:
+            if free:
                 ttnn.deallocate(z3)
             zi = host_unpark(z_init)
             z3 = ttnn.add(ttnn.reshape(zi, (1, N, N, self.C_Z)), zc)
@@ -4287,7 +4292,7 @@ class Trunk(_KeyedWeights):
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
             return [z3, s]
 
-        def sampled(cyc, carry, x, retry=False, park=False):
+        def sampled(cyc, carry, x, park=False):
             # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
             # `park` builds the cycle's m in depth chunks on the host and streams it, as a refused
             # resident cycle does below.
@@ -4295,98 +4300,77 @@ class Trunk(_KeyedWeights):
             m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1], park=park)
             if torch.is_tensor(m_c):
                 # Parked on the host: drop the padding there, which costs nothing.
-                return cycle(cyc, carry, m_c[:, :k], retry=retry)
+                return cycle(cyc, carry, m_c[:, :k])
             mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
-            carry = cycle(cyc, carry, m_c, (mask, k), retry=retry)
+            carry = cycle(cyc, carry, m_c, (mask, k))
             del m_c, mask
             return carry
 
-        carry = [z3, s]
-        del z3, s
-        parked = False
+        def run(mode, m_feat, next_rows):
+            # Every cycle in one mode, from cycle 0. `rows` was drawn for all cycles up front, so a
+            # restart sees the same rows.
+            carry = start()
+            for cyc in range(n_cycles):
+                # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
+                # the tape holds one cycle instead of n_cycles of them. That is upstream's own
+                # structure, not doing less of the model's work: all the cycles still run and the
+                # last one still sees what the one before it produced. With no tape installed
+                # no_grad only flips a flag nothing reads, so inference is untouched.
+                with ops.recycle_region(cyc, n_cycles - 1):
+                    if progress_fn:
+                        progress_fn("trunk", step=cyc, total=n_cycles)
+                    if mode == "table":
+                        carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
+                    elif rows is not None:
+                        x, _ = next_rows.result()
+                        if cyc + 1 < n_cycles:
+                            next_rows = cut(cyc + 1)
+                        carry = sampled(cyc, carry, x, park=mode == "park")
+                    else:
+                        carry = cycle(cyc, carry, m_feat)
+            return carry
 
-        for cyc in range(n_cycles):
-            # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
-            # the tape holds one cycle instead of n_cycles of them. That is upstream's own
-            # structure, not doing less of the model's work: all the cycles still run and the
-            # last one still sees what the one before it produced. With no tape installed
-            # no_grad only flips a flag nothing reads, so inference is untouched.
-            with ops.recycle_region(cyc, n_cycles - 1):
-                if progress_fn:
-                    progress_fn("trunk", step=cyc, total=n_cycles)
-                if rows is not None:
-                    if table is not None:
-                        # As for a resident m below: a cycle DRAM refuses with the alignment on the chip
-                        # runs again from its inputs with rows cut on the host, and so does the rest of this fold.
-                        inputs = list(carry)
-                        try:
-                            carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
-                            inputs = None
-                        except RuntimeError as exc:
-                            if not is_alloc_refusal(exc):
-                                raise
-                        if inputs is None:
-                            continue
-                        print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(ms.shape)} on the "
-                              f"chip; cutting each cycle's rows on the host for the rest of this fold. The tt-metal 'Out of "
-                              f"Memory' line above is expected and handled.", file=sys.stderr, flush=True)
-                        ttnn.deallocate(table)
-                        table, carry, inputs = None, inputs, None
-                        gc.collect()
-                        next_rows = cut(cyc)
-                    x, _ = next_rows.result()
-                    if cyc + 1 < n_cycles:
-                        next_rows = cut(cyc + 1)
-                    if parked:
-                        carry = sampled(cyc, carry, x, park=True)
-                        continue
-                    # The same crash guard as a resident m below. A row count drawn afresh every cycle
-                    # changes the MSA shapes every cycle, so a deep draw late in the fold can find the
-                    # chip's DRAM in pieces where the full-depth path reuses its blocks: 7ua2-assembly1
-                    # (712 tokens, 18,611 rows) was refused 2.96 GiB at cycle 7 of 20 on a Wormhole chip.
-                    inputs = list(carry)
-                    try:
-                        carry = sampled(cyc, carry, x, retry=True)
-                        inputs = None
-                    except RuntimeError as exc:
-                        if not is_alloc_refusal(exc):
-                            raise
-                    if inputs is None:
-                        continue
-                    print(f"[tt-bio] DRAM refused a recycling cycle with {len(rows[cyc])} MSA rows on the chip; "
-                          f"streaming each cycle's rows from the host for the rest of this fold. The tt-metal 'Out "
-                          f"of Memory' line above is expected and handled.", file=sys.stderr, flush=True)
-                    gc.collect()
-                    parked = True
-                    carry, inputs = sampled(cyc, inputs, x, park=True), None
-                    continue
-                if torch.is_tensor(m_feat):
-                    carry = cycle(cyc, carry, m_feat)
-                    continue
-                # Crash guard, not a regime: a cycle DRAM refuses runs again from its kept inputs
-                # with m streamed from the host for the rest of THIS fold only. Nothing is
-                # remembered across folds, because a process-wide switch made a served answer depend
-                # on what the process folded before (state/spd-msaresid.md). Protenix-v2 and OpenDDE
-                # serve the per-cycle sampled path above and never reach it. The retry runs outside
-                # the handler: the traceback pins every tensor the refused cycle made.
-                inputs = list(carry)
-                try:
-                    carry = cycle(cyc, carry, m_feat, retry=True)
-                    inputs = None
-                except RuntimeError as exc:
-                    if not is_alloc_refusal(exc):
-                        raise
-                if inputs is None:
-                    continue
-                print(f"[tt-bio] DRAM refused a recycling cycle with the MSA {tuple(m_feat.shape)} "
-                      f"on the chip; streaming it from the host for the rest of this fold. The tt-metal 'Out of "
-                      f"Memory' line above is expected and handled.", file=sys.stderr, flush=True)
+        # Crash guard, not a regime. A cycle DRAM refuses restarts the trunk from cycle 0 one mode
+        # lighter, for THIS fold only: rows picked on the chip from the resident alignment ("table"),
+        # then rows cut on the host ("cut"), then each cycle's m built and streamed in depth chunks
+        # ("park"); a resident m ("chip") streams from the host ("host"). Restarting, rather than
+        # re-running the refused cycle from kept inputs, means no cycle ever holds its input pair
+        # past its first op: kept, that pair (0.94 GB at 1024 Mol-1 tokens) was what a 1024-token
+        # cycle ran out of DRAM for. A row count drawn afresh every cycle changes the MSA shapes
+        # every cycle, so a deep draw late in the fold can find the chip's DRAM in pieces where the
+        # full-depth path reuses its blocks: 7ua2-assembly1 (712 tokens, 18,611 rows) was refused
+        # 2.96 GiB at cycle 7 of 20 on a Wormhole chip. Nothing is remembered across folds, because
+        # a process-wide switch made a served answer depend on what the process folded before
+        # (state/spd-msaresid.md). The restart runs outside the handler: the traceback pins every
+        # tensor the refused run made.
+        if rows is None:
+            mode = "host" if torch.is_tensor(m_feat) else "chip"
+        else:
+            mode = "table" if table is not None else "cut"
+
+        def step_down(mode):
+            nonlocal table, m_feat, next_rows
+            what = (f"the MSA {tuple(m_feat.shape)}" if rows is None else
+                    f"the MSA {tuple(ms.shape)}" if mode == "table" else "each cycle's MSA rows")
+            how = {"table": "cutting each cycle's rows on the host", "cut": "streaming each cycle's rows from the host",
+                   "chip": "streaming it from the host"}[mode]
+            print(f"[tt-bio] DRAM refused a recycling cycle with {what} on the chip; restarting the trunk {how} for "
+                  f"the rest of this fold. The tt-metal 'Out of Memory' line above is expected and handled.",
+                  file=sys.stderr, flush=True)
+            if mode == "table":
+                ttnn.deallocate(table)
+                table = None
+            elif mode == "chip":
                 h = ttnn.to_torch(m_feat)
                 ttnn.deallocate(m_feat)
                 m_feat = h
-                gc.collect()
-                carry, inputs = cycle(cyc, inputs, m_feat), None
+            gc.collect()
+            if rows is not None:
+                next_rows = cut(0)
+
+        carry = restart_lighter(lambda mode: run(mode, m_feat, next_rows), mode,
+                                {"table": "cut", "cut": "park", "chip": "host"}, step_down)
         z3, s = carry
         if rows is not None:
             ttnn.deallocate(s_m)
