@@ -26,9 +26,6 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #ifndef ABL_W
 #define ABL_W 0   // bench-only (triatt_ln.ABL bit 4): skip the DRAM writes
 #endif
-#ifndef ABL_WSEQ
-#define ABL_WSEQ 0   // bench-only (triatt_ln.ABL bit 16): every tile to q at a sequential page per core (wrong, timing)
-#endif
 #ifndef HP
 #define HP 0      // triatt_ln.head_pitch: head-major outputs at a head pitch of MT + 1 row tiles
 #endif
@@ -83,10 +80,6 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
             const uint32_t s = src;
             src += (NQ && j >= nq) ? tb_hi : tb;
             if constexpr (ABL_W) continue;
-            if constexpr (ABL_WSEQ) {
-                noc_async_write_page((r / MT) * H * P + (r % MT * (4 * H + 1) + n) % (H * P), oq, s);
-                continue;
-            }
             switch (n / H) {
                 case 0: noc_async_write_page(page, oq, s); break;
                 case 1: noc_async_write_page(page, ok, s); break;
