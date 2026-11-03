@@ -28,6 +28,8 @@ ap.add_argument("--tr", default="0,1", help="comma list: plain (0) / transposed 
 ap.add_argument("--stagger", default="1", help="comma list: triatt_ln.STAGGER off (0) / on (1)")
 ap.add_argument("--lnblk", default="1", help="comma list: triatt_ln.LN_BLK (1 or 4). With more than one stagger x lnblk "
                 "arm, ABL 0 rows print exact_vs_first, torch.equal to the first arm")
+ap.add_argument("--pitch", type=int, default=0, help="1: head-pitched outputs where the part aliases (triatt_ln.head_pitch, Mol-1 on Blackhole)")
+ap.add_argument("--bias", type=int, default=8, help="pair-bias channels (heads): 8 Protenix-v2, 10 / 14 Mol-1")
 ap.add_argument("--share", default="0", help="comma list: triatt_ln.LN_SHARE off (0) / on (1)")
 a = ap.parse_args()
 
@@ -52,7 +54,8 @@ B8 = False
 
 def run(fid, tr, grid=grid):
     with T.lever_scope(["triatt_ln"] + ["triatt_ln_b8"] * B8):
-        r = TL.ln_qkvgb_heads(x, lw, lb, w, (fid, False, True, False), H, 32, 8, grid, transposed=tr)
+        r = TL.ln_qkvgb_heads(x, lw, lb, w, (fid, False, True, False), H, 32, a.bias, grid, transposed=tr,
+                              pitch=bool(a.pitch))
     assert r is not None, TL.REJECTS
     return r
 
