@@ -38,7 +38,7 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 - `tt-bio preflight mol1` no longer reports Mol-1 ready on a machine without the CCD molecule library it folds with.
 
 ### Changed
-- **RoseTTAFold3 and RFdiffusion3 featurize faster, with identical features.** Reference conformers come from
+- **RoseTTAFold3 featurizes faster, with identical features.** Reference conformers come from
   worker processes that stay up between inputs, and each residue type is converted once instead of once per residue.
   A 512-residue RF3 input featurizes in 1.32 s instead of 1.96 s on a Wormhole Galaxy host, which comes straight off
   every fold on Wormhole and Blackhole.
