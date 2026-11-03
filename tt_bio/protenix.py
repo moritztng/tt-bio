@@ -330,19 +330,21 @@ MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
 # head split and the four-op head re-assembly (4.3 ms of the 32.4 ms step at 256) go. qb1 p150a at AICLK 1350, 3 warm
 # folds per arm: 256 25.76 -> 24.72 s, 0.251 A median vs the 4.58 A seed floor; 512 78.31 -> 76.13 s, 0.163 A (max 0.54)
 # vs the 0.60 A bar and the 1.35 A floor; 1024 293.1 -> 290.8 s, 0.08 A vs the 0.61 A floor (state/mol1/evidence/bh/b256.md).
+# Plus trimul_t1split, bit-identical: one trimul call (qb2 p300c, AICLK 1200-1350) c_z 320 2.67 -> 2.45 ms at 256 tokens,
+# 7.84 -> 7.00 at 512, 33.66 -> 30.23 at 1024; c_z 448 4.17 -> 4.01 ms at 256, flat at 512 and 1024
+# (state/mol1/evidence/bh/mulroof.md).
 MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
                                             "ws_l1dest", "edm_device", "atom_l1", "inproj_split", "trimul_t2cm",
-                                            "dit_qkvf"}
+                                            "dit_qkvf", "trimul_t1split"}
 # Mol-1 on Blackhole from 512 padded tokens (`size_levers`): bfp8 pair-transition weights in one chunk on the plain SwiGLU
 # kernel, the reblock move back writing bfp8 and T1's resident weights in bfp8. Graded as one stack over MOL1_BH, qb1
 # p150a at AICLK 1350, 5 warm folds per arm: 512 tokens 83.29 -> 75.23 s, samples matched to the base fold at 0.423 A
 # median (max 2.15) vs the 0.60 A bar and the 1.33 A seed floor, lDDT 0.991 vs 0.964. At 256 the same stack reads 0.735 A
-# and fails, so it stays off below 512. trimul_t1split joins it bit-identically: one c_z 320 trimul call (qb2 p300c,
-# AICLK 1200-1350) 7.84 -> 7.00 ms at 512 tokens, 33.66 -> 30.23 at 1024, flat at 256 (state/mol1/evidence/bh/mulroof.md).
+# and fails, so it stays off below 512.
 # trimul_t1g8 (g_out bfp8) graded over the rest of this set, qb2 p300c ABBA: 512 67.75 -> 66.21 s at AICLK 1275-1300,
 # 0.523 A median vs the 1.97 A seed floor; 1024 266.5 -> 260.3 s at 1237-1250, 0.091 A vs 0.538. At 256 it reads -0.8 %
 # for 0.52 A of the 0.60 A bar, so it stays off there.
-MOL1_BH_512 = frozenset({"transition_b8", "ws_b8_plain", "trimul_x8", "trimul_t1w8", "trimul_t1split", "trimul_t1g8"})
+MOL1_BH_512 = frozenset({"transition_b8", "ws_b8_plain", "trimul_x8", "trimul_t1w8", "trimul_t1g8"})
 SIZE_LEVERS_MIN_TOKENS = 512
 
 
