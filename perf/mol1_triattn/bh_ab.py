@@ -1,11 +1,13 @@
 # triangle attention block, add_to_input as the Pairformer calls it: the pair bias written head-major by triatt_ln
 # (triatt_ln.BIAS_HEADS, no permute after it) vs [S, S, H] and the permute. Output must be torch.equal.
-# bh_ab.py OUT.jsonl S:c:H:ending ...  (on a p300 through p300run.py)
+# bh_ab.py OUT.jsonl S:c:H:ending ...  (TT_VISIBLE_DEVICES pinned; sets the p300 mesh descriptor itself)
 import json, sys, time
 from pathlib import Path
 W = Path(__file__).resolve().parents[2]; sys.path[:0] = [str(W), str(W / "perf"), str(W / "perf/mol1_triattn")]
 out, cells = Path(sys.argv[1]), [tuple(map(int, c.split(":"))) for c in sys.argv[2:]]
 sys.argv = [sys.argv[0]]
+from tt_bio.main import ensure_p300_mesh_descriptor
+ensure_p300_mesh_descriptor()
 import torch, ttnn
 import bench as B
 import clocksample
