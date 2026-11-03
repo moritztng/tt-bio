@@ -29,6 +29,9 @@ inline uint32_t row_of(uint32_t r0, uint32_t i) {
 #ifndef ABL_WSEQ
 #define ABL_WSEQ 0   // bench-only (triatt_ln.ABL bit 16): every tile to q at a sequential page per core (wrong, timing)
 #endif
+#ifndef ABL_NOFLUSH
+#define ABL_NOFLUSH 0   // bench-only (triatt_ln.ABL bit 32): no per-row flush before the pop (may overwrite, timing)
+#endif
 #ifndef HP
 #define HP 0      // triatt_ln.head_pitch: head-major outputs at a head pitch of MT + 1 row tiles
 #endif
@@ -95,7 +98,7 @@ void write_heads(uint32_t r0, uint32_t nrows, uint32_t out_cb, uint32_t tb, uint
                 default: noc_async_write_page(r, ob, s);
             }
         }
-        noc_async_writes_flushed();
+        if constexpr (!ABL_NOFLUSH) noc_async_writes_flushed();
         cb_pop_front(out_cb, NQ ? nq : NW);
         if constexpr (NQ) cb_pop_front(hi_cb, NW - nq);
     }
