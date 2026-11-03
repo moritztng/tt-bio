@@ -4,10 +4,11 @@
 # Once every paired case has every seed of SEEDS on qb2 it starts full_grade.sh OUT once (D-orch-36: WH graded on 42+66;
 # SEEDS=42 with N=167 is the early one-seed grade, run first because the .107 queue folds seed 42 ahead of 66).
 # Only folds whose run.log names a tree in SHA count, and arms/tt_wh/ENGINE_SHA carries them joined by + (grade.py keys
-# its cache by it). SHA is a comma list: cases that refused DRAM on 7374eb5a6 refold on the fix tree (wh_requeue.sh).
+# its cache by it). SHA is a comma list: cases that refused DRAM on 7374eb5a6 refold on the fix tree (wh_requeue.sh);
+# 0f7f78917 (on main, whl1's k1 CB fix) folded 8pe3, which crashes both older trees.
 #   bash wh_sync.sh [OUT [N [SHA [SEEDS]]]]   OUT default final-wh, N = folds expected (167 cases x 2 seeds), SHA the WH trees
 set -uo pipefail
-OUT=${1:-final-wh} N=${2:-334} SHA=${3:-7374eb5a6,0b2e93ecd} SEEDS=${4:-42,66}
+OUT=${1:-final-wh} N=${2:-334} SHA=${3:-7374eb5a6,0b2e93ecd,0f7f78917} SEEDS=${4:-42,66}
 rcs=$(sed 's#[^,]*#.runs/*/seed_&/rc#g; s#,# #g' <<< "$SEEDS")
 G=ubuntu@172.16.102.107 Q=ttuser@tt-quietbox2 R=spd/mol1-quality/tt-wh A=mol1-quality/arms/tt_wh
 S="ssh -o BatchMode=yes -o ConnectTimeout=15"
@@ -21,7 +22,10 @@ have=$(timeout 120 $S $Q "mkdir -p $A && cd $A && echo ${SHA//,/+} > ENGINE_SHA 
 # REFUSED_BY_CAP as out of the arch's range, and the expected count drops by its seeds
 cap=$(timeout 120 $S $G "cd $R && grep -l SizeTooLargeError $(sed 's#rc#harness.log#g' <<< "$rcs") 2>/dev/null" | cut -d/ -f2 | sort -u)
 timeout 60 $S $Q "cd $A && cat > REFUSED_BY_CAP" <<< "$cap"
-N=$(( N - $(grep -c . <<< "$cap") * $(tr , '\n' <<< "$SEEDS" | grep -c .) ))
+# a case that crashes WH on every tree it has (.107 norequeue.txt, also read by wh_requeue.sh) is not waited for either:
+# grade.py lists it as missing, so the arch FAILs on it until a fixed tree folds it
+bad=$(timeout 60 $S $G "cat spd/mol1-quality/norequeue.txt 2>/dev/null")
+N=$(( N - $(cat <<< "$cap"$'\n'"$bad" | grep -c .) * $(tr , '\n' <<< "$SEEDS" | grep -c .) ))
 new=$(comm -23 <(sort <<< "$src") <(sort <<< "$have") | grep .)
 if [ -n "$new" ]; then
   # a multi-entry JSON file's results dir drops the .json and entry from the case name (same rule as sync_qb1.sh);
