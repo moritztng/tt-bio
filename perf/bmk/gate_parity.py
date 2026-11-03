@@ -34,6 +34,7 @@ LEGS = {
     "boltzgen": ["boltzgen"],
     "nesso1": ["nesso1"],
     "pxdesign": ["pxdesign-"],
+    "mol1": ["mol1-"], "bindcraft2": ["bindcraft2-"], "rfd4": ["rfd4-"],
     "esmc-300m": ["esmc-300m"], "esmc-600m": ["esmc-600m"], "esmc-6b": ["esmc-6b"],
     "saprot-35m": ["saprot-35m"], "saprot-650m": ["saprot-650m"], "saprot-1.3b": ["saprot-1.3b"],
 }

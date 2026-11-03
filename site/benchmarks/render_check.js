@@ -7,7 +7,8 @@
  * Exit 0 = every row drew. Run from the repo root: node site/benchmarks/render_check.js */
 const fs = require("fs");
 
-const raw = fs.readFileSync("site/data/perf-512aa.json", "utf8");
+/* An optional path renders a local copy instead, e.g. the fake fixture perf/pnr/cells_to_page.py --fake writes. */
+const raw = fs.readFileSync(process.argv[2] || "site/data/perf-512aa.json", "utf8");
 const D = JSON.parse(raw);
 
 function mkEl(tag) {
