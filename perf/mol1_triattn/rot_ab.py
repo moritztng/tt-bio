@@ -1,5 +1,5 @@
 # ending triangle attention, add_to_input as the Pairformer calls it, z^T tail served (TAIL_T=1): the writer's
-# channel-tile order as served vs spread per row tile (triatt_qkv.TAIL_T_ROT, QSPREAD). Order only, so the output must be
+# channel-tile order as served vs rotated per unit (triatt_qkv.TAIL_T_ROT, NROT). Order only, so the output must be
 # torch.equal. Time per call (median of 7), AICLK during, arms interleaved twice.
 # rot_ab.py OUT.jsonl S:c:H ...  (on a p300 open through tt_bio.main.ensure_p300_mesh_descriptor first)
 import json, sys, time

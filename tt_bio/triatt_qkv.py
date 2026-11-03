@@ -382,8 +382,8 @@ TAIL_KB1 = int(os.environ.get("TT_BIO_TRIATT_TAIL_KB1", "1"))
 TAIL_T = os.environ.get("TT_BIO_TRIATT_TAIL_T")   # "1" / "0" overrides the per-arch default
 TAIL_T_GRAN = 4   # sums per DEST batch, as pair_transpose_add
 # The z pages one unit reads and writes for channel tile n are Bt*Nt apart, a multiple of Blackhole's 8 DRAM banks at
-# every Mol-1 width, so all 64 land in one bank. QSPREAD moves channel tile (n + q) % Nt for row tile q instead
-# (writer_t.cpp; order only, the sums are the same).
+# every Mol-1 width, so all 64 land in one bank, and every core starts on n = 0. NROT starts unit u on channel tile
+# u % Nt instead (order only: compute pairs c_3 and c_18 tiles as they arrive, so the sums are the same).
 TAIL_T_ROT = os.environ.get("TT_BIO_TRIATT_TAIL_T_ROT", "0") == "1"
 TAIL_FORCE = os.environ.get("TT_BIO_TRIATT_TAIL")   # "1" / "0" overrides the `triatt_tail` lever
 GOP_STATS = [0, 0]   # gated_out_proj served, declined (TAIL_STATS above is the head-major tail's)
@@ -506,7 +506,7 @@ def _build_tail(o, g, w, out, ckc, grid, resid, brows=None, trans=0):
         kernel_source=str(_TAIL_DIR / ("writer_t.cpp" if trans else "writer.cpp")), source_type=src,
         core_ranges=core_grid,
         compile_time_args=([nt, St, B // TILE, TAIL_T_GRAN, trans] if trans else [nt, int(resid)]) + acc(out),
-        defines=[("QSPREAD", "1")] * int(bool(trans) and TAIL_T_ROT),
+        defines=[("NROT", "1")] * int(bool(trans) and TAIL_T_ROT),
         runtime_args=wr, common_runtime_args=[0], config=ttnn.WriterConfigDescriptor())
     fid, approx, fp32, full = G.ckc_args(ckc)
     fid, fp32 = ttnn.MathFidelity.HiFi3, True
