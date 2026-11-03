@@ -9,9 +9,11 @@ say() { echo "$(date -u +%FT%TZ) $*"; }
 case $(hostname) in tt-quietbox2) LOCK_HOST=qb2 L=~/spd_qb2_chip$C.lock ;; tt-quietbox) LOCK_HOST=qb1 L=~/spd_qb1_card$C.lock ;;
   *) say "unknown host"; exit 2 ;; esac
 P=$(dirname "$(realpath "$0")"); REPO=tt-bio.git; [ -d $REPO ] || REPO=~/tt-bio-dev
-if [ ! -f main-$SHA/.ok ]; then
-  rm -rf main-$SHA && mkdir main-$SHA && git -C $REPO archive $SHA tt_bio | tar -x -C main-$SHA && echo $SHA > main-$SHA/.ok ||
-    { say "archive $SHA failed"; exit 1; }
+if [ ! -f main-$SHA/.ok ]; then  # cards start together: each unpacks its own copy, the first rename wins
+  git -C $REPO cat-file -e $SHA^{commit} 2>/dev/null || git -C $REPO fetch -q origin main
+  t=$(mktemp -d main-$SHA.XXXX) && git -C $REPO archive $SHA tt_bio | tar -x -C $t && echo $SHA > $t/.ok ||
+    { say "archive $SHA failed"; rm -rf $t; exit 1; }
+  mv -T $t main-$SHA 2>/dev/null || rm -rf $t
 fi
 export PATH=$HOME/tt-bio-dev/env/bin:$HOME/mol1-quality/env/kalign/bin:$PATH PYTHONPATH=$PWD/main-$SHA LOCK_HOST
 say "engine $(python3 -c 'import tt_bio; print(tt_bio.__file__)') = $SHA"
