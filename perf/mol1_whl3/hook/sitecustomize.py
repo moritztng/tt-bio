@@ -48,12 +48,54 @@ def _patch(mod):
     sfp32 = bool(os.environ.get("WHL3_SFP32"))
     in_trunk = [False]
 
+    # WHL3_TAP=N: at the N-th PairformerLayer call (0-based, s-carrying), save the single Transition's input, output and
+    # every layer norm / linear / product it runs, plus its compute config, to WHL3_DUMP/tap.pt
+    tap = {"at": int(os.environ.get("WHL3_TAP", "-1")), "n": 0, "mod": None, "inner": False, "d": {}}
+    orig_tr = _T.Transition.__call__
+
+    def grab(name, t):
+        tap["d"].setdefault(name, []).append(ttnn.to_torch(t).float().clone())
+
+    def tr_call(self, x, *a, **kw):
+        if self is not tap["mod"]:
+            return orig_tr(self, x, *a, **kw)
+        grab("in", x)
+        tap["d"]["ckc"] = repr(self.compute_kernel_config)
+        tap["d"]["dtype"] = repr(self.dtype)
+        tap["inner"] = True
+        try:
+            out = orig_tr(self, x, *a, **kw)
+        finally:
+            tap["inner"] = False
+        grab("out", out)
+        return out
+
+    _T.Transition.__call__ = tr_call
+    for owner, fn in ((ttnn, "layer_norm"), (_T, "_transition_linear"), (ttnn, "multiply_"), (ttnn, "multiply"),
+                      (_T, "ws_swiglu")):
+        def wrap(*a, _f=getattr(owner, fn), _n=fn, **kw):
+            out = _f(*a, **kw)
+            if tap["inner"] and isinstance(out, ttnn.Tensor):
+                grab(_n + (":" + a[0] if a and isinstance(a[0], str) else ""), out)
+            return out
+        setattr(owner, fn, wrap)
+
     def layer_call(self, s, *a, **kw):
+        if s is not None and getattr(self, "transition_s", None) is not None:
+            if tap["n"] == tap["at"]:
+                tap["mod"] = self.transition_s
+            tap["n"] += 1
         if sfp32 and in_trunk[0] and s is not None:
             self.s_fp32_residual = True
             if s.dtype != ttnn.float32:
                 s = ttnn.typecast(s, ttnn.float32)
         so, zo = orig_layer(self, s, *a, **kw)
+        if tap["mod"] is not None and tap["mod"] is getattr(self, "transition_s", None):
+            tap["mod"] = None
+            if _OUT:
+                os.makedirs(_OUT, exist_ok=True)
+                torch.save(tap["d"], os.path.join(_OUT, "tap.pt"))
+                print("WHL3 tap saved", sorted(tap["d"]), flush=True)
         if layers["on"] and so is not None:
             layers["s"].append(ttnn.to_torch(so).float().reshape(-1, so.shape[-1]).clone())
         return so, zo
