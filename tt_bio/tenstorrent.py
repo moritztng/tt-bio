@@ -14289,7 +14289,7 @@ def _fp32_row_sum(x, mc):
     adds give 1.6e-7 and 3.1e-4 against a 1.3e-4 fp32 floor (perf/mol1_whl4/ln_var_probe.py, one .111 chip). The
     tokens of a single track share a vector ~1e3x their differences, so 1/sigma needs ~1e-6 per token.
     """
-    lead = list(x.shape[:-1])
+    lead = list(x.shape)[:-1]
     w = x.shape[-1]
     if w % 32:
         raise ValueError(f"_fp32_row_sum: last dim {w} is not a multiple of 32")
