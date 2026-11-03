@@ -22,8 +22,13 @@ Off by default: guarding everything costs +22 % of a Wormhole normal c730 fold (
 for a fault that writes about ten wrong values per fold; 1HCL scores 0.900 with it on and off. `TT_BIO_DEST_GUARD=1`
 turns it on; a comma list of classes (pc, auto, mmm, gen, tri, tail), or joined by +, guards only those
 (tri: the triangle-attention projections, the generic launches gen does not cover).
+`scope()` guards every class for the calls made inside it whatever the variable says. The Pairformer's
+single track runs in one: Mol-1's trunk writes a ~3e5 vector shared by every token into s, and the small
+channels the confidence head reads are the near-cancelling remainder of those sums, so the fault that is rare
+elsewhere hit every token there (8fg6 pLDDT 49 on Wormhole against 93 upstream).
 Blackhole and bf16-dest calls are untouched (Blackhole does not have the fault).
 """
+import contextlib
 import functools
 import os
 
@@ -34,6 +39,7 @@ _ENV = os.environ.get("TT_BIO_DEST_GUARD", "0")
 ENABLED = _ENV != "0"
 GUARDED = frozenset(_CLASSES if _ENV in ("0", "1") else _ENV.replace("+", ",").split(","))
 _ON = [False]                 # set by install() on a Wormhole device
+_SCOPE = [0]                  # depth of open scope() blocks
 STATS = {"rewritten": 0, "kept": 0, "refused": 0}
 _REFUSED: dict = {}           # (op, shapes, config) -> the last refusal's error
 _CHOSEN: dict = {}            # call key -> the kwargs it swaps in (False: run as written)
@@ -48,19 +54,33 @@ def active() -> bool:
     return _ON[0]
 
 
+def _guarding(cls=None) -> bool:
+    return _ON[0] and (_SCOPE[0] > 0 or (ENABLED and (cls is None or cls in GUARDED)))
+
+
+@contextlib.contextmanager
+def scope():
+    """Guard every fp32-dest matmul issued inside the block (Wormhole only, no-op elsewhere)."""
+    _SCOPE[0] += 1
+    try:
+        yield
+    finally:
+        _SCOPE[0] -= 1
+
+
 def exposed(ckc) -> bool:
     """True when `ckc` accumulates in an fp32 dest on a guarded (Wormhole) device."""
-    return _ON[0] and ckc is not None and bool(getattr(ckc, "fp32_dest_acc_en", False))
+    return _guarding() and ckc is not None and bool(getattr(ckc, "fp32_dest_acc_en", False))
 
 
 def tail_exposed(ckc) -> bool:
     """`exposed`, for a kernel that keeps all of K in dest and steps aside (the trimul tail)."""
-    return exposed(ckc) and "tail" in GUARDED
+    return exposed(ckc) and _guarding("tail")
 
 
 def exposed_args(ckc_args, cls="tail") -> bool:
     """`exposed` for `mm_generic.ckc_args`'s (fidelity, approx, fp32_dest_acc_en, dst_full_sync)."""
-    return _ON[0] and cls in GUARDED and bool(ckc_args[2])
+    return _guarding(cls) and bool(ckc_args[2])
 
 
 def descriptor(blk, ckc_args, cls="gen"):
@@ -117,7 +137,7 @@ def _rewrite(op, a, b, kw):
     kw2 = dict(kw)
     kw2["compute_kernel_config"] = _l1acc(kw["compute_kernel_config"])
     if op == "minimal_matmul":
-        if "mmm" not in GUARDED:
+        if not _guarding("mmm"):
             return []
         c = kw.get("config")
         if c is None:
@@ -133,13 +153,13 @@ def _rewrite(op, a, b, kw):
         return [kw2]
     pc = kw.get("program_config")
     if pc is not None:
-        if "pc" not in GUARDED:
+        if not _guarding("pc"):
             return []
         if getattr(pc, "in0_block_w", 1) > 1:
             kw2["program_config"] = type(pc)(**{f: getattr(pc, f) for f in _PC_FIELDS if hasattr(pc, f)}
                                              | {"in0_block_w": 1})
         return [kw2]
-    if "auto" not in GUARDED:
+    if not _guarding("auto"):
         return []
     kw2.pop("core_grid", None)
     out = []
@@ -194,8 +214,8 @@ def _apply(kw, swap):
 
 
 def install(device) -> bool:
-    """Guard this process's matmuls if `device` is a Wormhole. Idempotent."""
-    if not ENABLED or device.arch() != ttnn.Arch.WORMHOLE_B0:
+    """Wrap this process's matmuls if `device` is a Wormhole (guarded under the variable or a scope). Idempotent."""
+    if device.arch() != ttnn.Arch.WORMHOLE_B0:
         return False
     if not _ON[0]:
         mm = lambda args, kw: (args[0] if args else kw["input_tensor_a"],
