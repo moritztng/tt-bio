@@ -1721,8 +1721,9 @@ BF16_TILE, FP32_TILE = 2048, 4096
 # launch to the reader, which reads z for the next unit ahead (a later channel-group launch reads xn instead) and then
 # gathers them, and the odd ones to the writer, beside g_out. The bytes land where the writer alone put them:
 # bit-identical. This table turns it on at one-launch keys; trimul_t1split at any key where its staging fits L1 (t1_dm),
-# channel-group plans included (Mol-1's c_z 448, and 320 at 256 tokens with bf16 weights).
-T1_SPLIT = {(12, 16, 12): 1}
+# channel-group plans included (Mol-1's c_z 448, and 320 at 256 tokens with bf16 weights). ESMFold2's c_z 256 key
+# (8, 16, 8) takes both tables: see T1_MCAST.
+T1_SPLIT = {(12, 16, 12): 1, (8, 16, 8): 1}
 # One core reads T1's resident weights and multicasts them to the grid (kernels/trimul_in_t1/reader.cpp T1MCAST)
 # instead of every core pulling the same pages: 575 KB a core, 63 MB a call at RFD4's key. Same bytes in the same
 # CBs, so a, b and g_out are bit-identical. An int (bench knob) applies to every key. The channel-group plans load
@@ -1730,7 +1731,10 @@ T1_SPLIT = {(12, 16, 12): 1}
 # the multicast there, qb2 p300 chip, 1350 MHz (bench.py t1mc), a, b and g_out torch.equal in every cell:
 # c320 3.05 -> 2.71 ms at 256 tokens, 9.12 -> 8.94 at 512, 35.6 -> 35.9 at 1024;
 # c448 5.27 -> 4.82 at 256, 16.7 -> 15.9 at 512, 66.6 -> 65.6 at 1024.
-T1_MCAST = {(12, 16, 12): 1, (10, 20, 10): 1, (14, 28, 14): 1}
+# c256 (ESMFold2), with T1_SPLIT, under its Blackhole set, same chip and clock: 6.16 -> 5.59 ms at 512, 25.9 -> 24.0 at
+# 1024; the multicast alone is slower there (6.28 at 512), so the key sits in both tables. rel_rms against float64
+# identical to every digit across arms (state/spd-m-esmfold-3.md, t1k).
+T1_MCAST = {(12, 16, 12): 1, (10, 20, 10): 1, (14, 28, 14): 1, (8, 16, 8): 1}
 
 
 def _t1_knob(knob, key, default):
