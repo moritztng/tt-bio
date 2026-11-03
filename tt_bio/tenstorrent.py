@@ -5,6 +5,7 @@ import time
 import contextlib
 import functools
 import gc
+import weakref
 import torch, ttnn, atexit
 from torch import nn
 from typing import Callable, Mapping, NamedTuple, Sequence
@@ -8697,20 +8698,37 @@ def evicting_programs_on_refusal(run, dev=None):
     shape change, as `program_cache_for` does for Protenix, would make most folds of a
     mixed-length queue cold; evicting on refusal recompiles only when the binaries are what
     stands in the way, and a refusal with nothing cached is re-raised as it was.
+
+    Device tensors derived per shape and kept for reuse go with the programs: the triangle
+    multiplications' in-projection copies, one set per chunk width (`drop_width_variants`), and
+    fused_sdpa's zero masks, one per length. Program eviction alone left them: on a Wormhole
+    chip after ESMFold2 folds of 509, 1000, 700, 420 and 600 tokens it freed down to 651-653 MB
+    per bank, and dropping these too reaches 622-624 (2026-11-03). JapanFold's ESMFold2 retries
+    were refused 128 B per bank short of a 1.4 MB block (2026-11-02). The retry rebuilds the
+    copies its shape needs from the host weights, byte for byte.
     """
     try:
         return run()
     except RuntimeError as e:
+        if not is_dram_refusal(e):
+            raise
         dev = dev or get_device()
-        n = int(dev.num_program_cache_entries()) if is_dram_refusal(e) else 0
-        if not n:
+        n = int(dev.num_program_cache_entries())
+        k = len(_ZERO_MASKS) + sum(len(c) for t in _TRIMULS for c in t.width_variants())
+        if not (n or k):
             raise
     gc.collect()   # the failed attempt's tensors, before measuring what the eviction frees
     before = dram_free()
     program_cache_for(None, dev)
-    print(f"  [tt-bio] DRAM refused with {n} programs cached: evicted them, largest free "
-          f"{before / 2**20:.0f} -> {dram_free() / 2**20:.0f} MiB across the banks; running again",
-          file=sys.stderr, flush=True)
+    for t in list(_TRIMULS):
+        t.drop_width_variants()
+    for _, m in _ZERO_MASKS.values():
+        ttnn.deallocate(m)
+    _ZERO_MASKS.clear()
+    gc.collect()
+    print(f"  [tt-bio] DRAM refused with {n} programs and {k} shape-keyed tensor sets cached: "
+          f"evicted them, largest free {before / 2**20:.0f} -> {dram_free() / 2**20:.0f} MiB across "
+          "the banks; running again", file=sys.stderr, flush=True)
     return run()
 
 
@@ -10491,6 +10509,10 @@ def _t2cm_af2(xcm, ln_w, ln_b, wp, xb, z, wg, bp, bg, mask, ckc, cache, prev=Non
     return r
 
 
+#: Every live TriangleMultiplication, so a DRAM refusal can reach their per-width weight copies.
+_TRIMULS = weakref.WeakSet()
+
+
 class TriangleMultiplication(Module):
     def __init__(
         self,
@@ -10519,8 +10541,9 @@ class TriangleMultiplication(Module):
         ]
         # The chunk width is a per-call decision (_trimul_chunk_size), so the fused input
         # weights are built per width on first use and kept. Each variant is the same
-        # g_in/p_in bytes in a different column order -- 0.5 MB per trimul at c_z=256 --
-        # and a fold holds one sequence length, so in practice one variant exists.
+        # g_in/p_in bytes in a different column order -- 0.5 MB per trimul at c_z=256. One fold
+        # holds one width, but a server folding many lengths on one open chip collects a
+        # variant set per width it has met; evicting_programs_on_refusal drops them.
         self._g_in_t, self._p_in_t = g_in_t, p_in_t
         self._hidden = g_in_t.shape[1] // 2
         self._gp_cache: dict[tuple[int, int], list[ttnn.Tensor]] = {}
@@ -10537,6 +10560,7 @@ class TriangleMultiplication(Module):
         self._gp_gout_cache: dict[tuple[int, int], ttnn.Tensor] = {}
         self._gp_gated_cache: dict = {}
         self._t1_w = {}       # trimul_t1w8 -> T1's (wpT, wgT, bfp8 g_out or None), built on first use
+        _TRIMULS.add(self)
         # The in-projection as device leaves, set only by `train_in_proj`. Inference never
         # sets them and reads the caches above.
         self.g_in_weight = self.p_in_weight = None
@@ -10566,6 +10590,16 @@ class TriangleMultiplication(Module):
         self.g_in_weight, self.p_in_weight = up(self._g_in_t), up(self._p_in_t)
         self._gp_cache.clear()
         self._gp_gout_cache.clear()
+
+    def width_variants(self) -> tuple[dict, ...]:
+        """The caches holding a device copy of the in-projection per chunk width."""
+        return self._gp_cache, self._gp_bias_cache, self._gp_gout_cache, self._gp_gated_cache
+
+    def drop_width_variants(self) -> None:
+        """Free every per-width copy of the in-projection; the next call rebuilds the one it
+        needs from the host weights."""
+        for c in self.width_variants():
+            c.clear()
 
     def _gp_in_chunks(self, C: int, group: int = 1) -> list[ttnn.Tensor]:
         """Fused [g_a | g_b | p_a | p_b] input weights, `group` consecutive chunks per weight.
