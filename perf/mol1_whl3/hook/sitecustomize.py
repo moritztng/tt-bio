@@ -43,7 +43,16 @@ def _patch(mod):
     layers = {"on": bool(os.environ.get("WHL3_LAYERS")), "s": []}
     orig_layer = _T.PairformerLayer.__call__
 
+    # WHL3_SFP32=1: every PairformerLayer carries its single-track residual in fp32 (`s_fp32_residual`); the trunk hands
+    # back bf16 as before, so only the residual's precision inside the blocks changes
+    sfp32 = bool(os.environ.get("WHL3_SFP32"))
+    in_trunk = [False]
+
     def layer_call(self, s, *a, **kw):
+        if sfp32 and in_trunk[0] and s is not None:
+            self.s_fp32_residual = True
+            if s.dtype != ttnn.float32:
+                s = ttnn.typecast(s, ttnn.float32)
         so, zo = orig_layer(self, s, *a, **kw)
         if layers["on"] and so is not None:
             layers["s"].append(ttnn.to_torch(so).float().reshape(-1, so.shape[-1]).clone())
@@ -108,6 +117,19 @@ def _patch(mod):
         return out
 
     mod.Protenix._confidences = _confidences
+
+    if sfp32:
+        orig_trunk = mod.Trunk.__call__
+
+        def trunk_call(self, *a, **kw):
+            in_trunk[0] = True
+            try:
+                s, z = orig_trunk(self, *a, **kw)
+            finally:
+                in_trunk[0] = False
+            return (ttnn.typecast(s, ttnn.bfloat16) if s.dtype == ttnn.float32 else s), z
+
+        mod.Trunk.__call__ = trunk_call
 
 
 class _Finder(importlib.abc.MetaPathFinder, importlib.abc.Loader):

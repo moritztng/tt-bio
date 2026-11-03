@@ -1,4 +1,4 @@
-# mol1-whl3 WH s_trunk: 8fg6 s42 on main 59893ab61 with TT_BIO_DEST_GUARD=1 (served levers, and every lever off), inputs + per-layer trunk s dumped (WHL3_LAYERS), plus an unguarded layers arm
+# mol1-whl3 WH s_trunk: 8fg6 s42 on main 59893ab61 with TT_BIO_DEST_GUARD=1 (served levers, and every lever off), inputs + per-layer trunk s dumped (WHL3_LAYERS), plus an unguarded layers arm and sfp32 (trunk single-track residual in fp32)
 # mem: 60
 # threads: 4
 # cap: 7200
@@ -12,5 +12,6 @@ cell() { # arm case seed [env]
 }
 cell guard 8fg6-assembly1 42 TT_BIO_DEST_GUARD=1
 cell layers 8fg6-assembly1 42
+cell sfp32 8fg6-assembly1 42 WHL3_SFP32=1
 cell guardnolev 8fg6-assembly1 42 "TT_BIO_DEST_GUARD=1 TT_BIO_LEVERS=none"
 exit $rc
