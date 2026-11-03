@@ -196,6 +196,14 @@ def _pb_rr(v):
     return prev
 
 
+def _pb_wb(v):
+    """permute_back_pk writer flushes every v tiles, out_cb 2v tiles (PB.WB, PB.OUT_TILES), bit-identical."""
+    import tt_bio.permute_back_pk as PB
+    prev = PB.WB
+    PB.WB, PB.OUT_TILES = v, 2 * v
+    return prev
+
+
 def _t2_mb2(on):
     """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
     prev = (10, 10) in TTL.T2_BLOCK
@@ -278,6 +286,9 @@ def arm_setters(name):
             continue
         if part.startswith("pbabl"):   # pbablN: permute_back_pk with stage-skip bits N, timing only
             out.append((_pb_abl, int(part[5:])))
+            continue
+        if part.startswith("pbwb"):   # pbwbN: permute_back_pk writer flushes every N tiles (8, 16 or 32)
+            out.append((_pb_wb, int(part[4:])))
             continue
         if part.startswith("t1nb"):   # t1nbN: T1's gather NB N at every key
             out.append((_t1_nb, int(part[4:])))
