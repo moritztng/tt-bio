@@ -172,6 +172,18 @@ def _t1_lnblk(v):
     return prev
 
 
+def _t1_nb(v):
+    """T1's gather NB (TTL.T1_NB) at every key; NB only batches the read barriers, bit-identical."""
+    prev, TTL.T1_NB = TTL.T1_NB, v
+    return prev
+
+
+def _t1_split(v):
+    """T1_SPLIT at every one-launch key (both data-movement cores gather), bit-identical."""
+    prev, TTL.T1_SPLIT = TTL.T1_SPLIT, v
+    return prev
+
+
 def _t2_mb2(on):
     """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
     prev = (10, 10) in TTL.T2_BLOCK
@@ -221,6 +233,7 @@ LEVERS = {
     "t1nozln": [(_t1_abl, 17)],
     "t1lnb4": [(_t1_lnblk, 4)],
     "t1g8": [(_t1_g8, True)],
+    "t1split": [(_t1_split, 1)],
     "bres256": [(T.set_trimul_bres_reuse, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
@@ -251,6 +264,9 @@ def arm_setters(name):
             continue
         if part.startswith("pbabl"):   # pbablN: permute_back_pk with stage-skip bits N, timing only
             out.append((_pb_abl, int(part[5:])))
+            continue
+        if part.startswith("t1nb"):   # t1nbN: T1's gather NB N at every key
+            out.append((_t1_nb, int(part[4:])))
             continue
         if part.startswith("t1abl"):   # t1ablN: T1 with stage-skip bits N, timing only
             out.append((_t1_abl, int(part[5:])))
