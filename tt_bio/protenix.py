@@ -336,10 +336,11 @@ MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_
 # Mol-1 on Blackhole from 512 padded tokens (`size_levers`): bfp8 pair-transition weights in one chunk on the plain SwiGLU
 # kernel, the reblock move back writing bfp8 and T1's resident weights in bfp8. Graded as one stack over MOL1_BH, qb1
 # p150a at AICLK 1350, 5 warm folds per arm: 512 tokens 83.29 -> 75.23 s, samples matched to the base fold at 0.423 A
-# median (max 2.15) vs the 0.60 A bar and the 1.33 A seed floor, lDDT 0.991 vs 0.964. At 256 the same stack reads 0.735 A
-# and fails, so it stays off below 512.
+# median (max 2.15) vs the 0.60 A bar and the 1.33 A seed floor, lDDT 0.991 vs 0.964. It stays off below 512: on a fixed
+# 7-case QUALITY panel at 193-256 tokens (perf/mol1/fair/panel.py) it is 0.13 A median, -5.5 % at 256, but moves
+# 8aok-assembly1 1.18 A past its 1.11 A seed floor (lDDT 0.952), and diffusion_bf16 on top does not change that.
 MOL1_BH_512 = frozenset({"transition_b8", "ws_b8_plain", "trimul_x8", "trimul_t1w8"})
-SIZE_LEVERS_MIN_TOKENS = 256
+SIZE_LEVERS_MIN_TOKENS = 512
 
 
 def size_levers(state_dict):
