@@ -4,10 +4,11 @@
 # Once every paired case has every seed of SEEDS on qb2 it starts full_grade.sh OUT once (D-orch-36: WH graded on 42+66;
 # SEEDS=42 with N=167 is the early one-seed grade, run first because the .107 queue folds seed 42 ahead of 66).
 # Only folds whose run.log names a tree in SHA count, and arms/tt_wh/ENGINE_SHA carries them joined by + (grade.py keys
-# its cache by it). SHA is a comma list: cases that refused DRAM on 7374eb5a6 refold on the fix tree (wh_requeue.sh).
+# its cache by it). SHA is a comma list: cases that refused DRAM on 7374eb5a6 refold on the fix tree (wh_requeue.sh);
+# 0f7f78917 (on main, whl1's k1 CB fix) folded 8pe3, which crashes both older trees.
 #   bash wh_sync.sh [OUT [N [SHA [SEEDS]]]]   OUT default final-wh, N = folds expected (167 cases x 2 seeds), SHA the WH trees
 set -uo pipefail
-OUT=${1:-final-wh} N=${2:-334} SHA=${3:-7374eb5a6,0b2e93ecd} SEEDS=${4:-42,66}
+OUT=${1:-final-wh} N=${2:-334} SHA=${3:-7374eb5a6,0b2e93ecd,0f7f78917} SEEDS=${4:-42,66}
 rcs=$(sed 's#[^,]*#.runs/*/seed_&/rc#g; s#,# #g' <<< "$SEEDS")
 G=ubuntu@172.16.102.107 Q=ttuser@tt-quietbox2 R=spd/mol1-quality/tt-wh A=mol1-quality/arms/tt_wh
 S="ssh -o BatchMode=yes -o ConnectTimeout=15"

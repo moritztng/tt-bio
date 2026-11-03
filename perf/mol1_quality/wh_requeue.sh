@@ -15,7 +15,8 @@ FIX=$1 OUT=${2:-tt-wh}; shift $(( $# < 2 ? $# : 2 ))
 cd $R && [ -f tree-$FIX/TREE_SHA ] || { echo "no $R/tree-$FIX"; exit 1; }
 NAMES=("$@") SEEDS="42 66"; [ $OUT = tt-wh ] || SEEDS=42
 if [ ${#NAMES[@]} = 0 ]; then
-  mapfile -t NAMES < <(for h in $OUT/.runs/*/seed_*/harness.log; do d=${h%/harness.log}
+  # only the graded seeds: a seed_8888/101 fold cut by a lend return must not move a case's graded 42+66 folds aside
+  mapfile -t NAMES < <(for h in $(for s in $SEEDS; do echo $OUT/.runs/*/seed_$s/harness.log; done); do d=${h%/harness.log}
     [ -s $d/rc ] || continue; grep -qs rc=0 $d/rc || grep -q SizeTooLargeError $h || grep -q "tree $FIX " $d/run.log || echo ${d%/seed_*}
   done | sed 's#.*/##' | sort -u)
 fi
