@@ -9,7 +9,8 @@
 
 void kernel_main() {
     constexpr uint32_t St = get_compile_time_arg_val(0);
-    constexpr uint32_t ABL = get_compile_time_arg_val(1);   // bit 0: no DRAM read (diagnostic)
+    constexpr uint32_t ABL = get_compile_time_arg_val(1);   // bit 0: no DRAM read; bit 128: rotate a unit's reads over the
+                                                            // banks (page + c, wrong output). Diagnostic
     constexpr uint32_t CT = get_compile_time_arg_val(2);
     constexpr uint32_t ORD = get_compile_time_arg_val(3);   // 1: channel tile fastest (bank spread), 0: ct slowest
     constexpr auto x_args = TensorAccessorArgs<4>();
@@ -31,7 +32,7 @@ void kernel_main() {
             cb_reserve_back(in_cb, 8);
             uint32_t dst = get_write_ptr(in_cb);
             for (uint32_t c = 0; c < 8; ++c, page += SS, dst += tb)
-                if constexpr (!(ABL & 1)) noc_async_read_page(page, x, dst);
+                if constexpr (!(ABL & 1)) noc_async_read_page((ABL & 128) ? (page + g * 8 + c) % (32 * SS * CT) : page, x, dst);
             noc_async_read_barrier();
             cb_push_back(in_cb, 8);
         }
