@@ -119,6 +119,11 @@ census("after-load")
 rc = 0
 for i in range(folds):
     seed = seed0 + i
+    if i and getattr(T, "DRAM_REFUSALS", [0])[0]:
+        # What the fold's own program_cache_for does first on a tree with the fix, run here so the
+        # census sees the heap the fold starts on.
+        print(f"[census] evicting before fold {i}: {T.evict_shape_keyed()} (programs, tensor sets)", flush=True)
+        census(f"before-fold-{i}")
     sdir = out / f"f{i}-s{seed}"
     sdir.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
