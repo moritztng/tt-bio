@@ -68,3 +68,18 @@ def test_sub_tile_slices_join_on_the_host(monkeypatch):
     assert [T._sub_tile_join(bf16, c) for c in (8, 16, 32, 64)] == [True, True, False, False]
     # bf8 and fp32 blocks would round-trip through torch bf16 lossily: those keep the device join.
     assert not T._sub_tile_join(_X(T.ttnn.float32), 8)
+
+
+def test_a_lighter_restart_starts_trimul_at_the_tuned_width():
+    """The refused ladder's budget belongs to the DRAM that refused it, not to the lighter mode
+    the trunk restarts in after freeing that DRAM: 4101's park restart had 7 GiB free."""
+    _refuse_until_settled(1024, 448, TILE)
+    assert T._trimul_inproj_chunk_cap(1024, 448, 1, TILE) < TILE
+    T.forget_trimul_inproj_refusals()
+    assert T._trimul_inproj_chunk_cap(1024, 448, 1, TILE) == TILE
+
+
+def test_the_trunk_step_down_forgets_the_refusals():
+    import inspect
+    import tt_bio.protenix as P
+    assert "forget_trimul_inproj_refusals()" in inspect.getsource(P.Trunk.__call__)
