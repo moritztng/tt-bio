@@ -1,0 +1,1 @@
+{"accepted": 1, "attempted": ["391cb5093f890c7d", "58aa745db9c9841d"], "autotune": {"accepted": 0, "alternating": false, "loss": null, "overrides": {}, "restores": {}, "reviewed": 0}, "rejections": {"candidates_rejected": 18, "candidates_scored": 20, "failed_filters": {"Binder_RMSD": 1, "i_pTM": 17, "pLDDT": 1}, "terminated": {"completed": 2}}, "trajectories": 2}

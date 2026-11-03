@@ -1,0 +1,7 @@
+Linux 43df97abb2b9 5.15.0-202-generic #212-Ubuntu SMP Thu Oct 15 16:49:38 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+32
+               total        used        free      shared  buff/cache   available
+Mem:              62           9           2           0          51          52
+Swap:              7           0           7
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         200G   28G  173G  14% /

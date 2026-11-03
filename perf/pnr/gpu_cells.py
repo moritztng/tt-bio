@@ -1,11 +1,13 @@
 """Reduce one PNR GPU session (perf/pnr/gpu/<label>/box, pulled by pnr_session.sh) to its cells in GPU-CELLS.json.
 
-    python3 gpu_cells.py --gpu a100|h200|b200 --label LABEL [--out /home/moritz/.coworker/state/pnr/GPU-CELLS.json]
+    python3 gpu_cells.py --gpu a100|h200|b200 --label LABEL [--note MODEL=TEXT ...] [--out .../GPU-CELLS.json]
 
 Per model, every arm the box measured: median seconds per fold / design over its warm runs, n, spread_pct
 ((max - min) / median), batch, SM clock and power medians from the session's 500 ms nvidia-smi log over exactly
 those runs' windows, and the raw path. The chosen arm is the fastest with n >= 5 (PROTOCOL.md). BindCraft 2 counts
-only warm trajectories that ran all 140 iterations; RFD4 publishes each arm's final rerun, its ladder rungs only
+only warm trajectories that ran all 140 iterations, and drops the first of those when the cold trajectory stopped
+early: that one compiled the later stages (B200 attn-stock read 0.599 s/it on it, 0.330 on the next). An arm's
+alone-on-the-GPU rerun (box_bc2_rerun.sh) supersedes its screen. RFD4 publishes each arm's final rerun, its ladder rungs only
 pick the batch. Nothing is typed in by hand: every number here comes from a file under the label.
 """
 import argparse, json, re, statistics
@@ -75,20 +77,25 @@ def mol1(box, smi):
 
 def bc2(box, smi):
     arms = {}
-    dirs = sorted((box / "bc2/arms").glob("*")) + [box / "bc2/winner"]
+    dirs = sorted((box / "bc2/arms").glob("*")) + [box / "bc2/winner"] + sorted((box / "bc2").glob("rerun-*"))
     res = json.loads((box / "bc2/ARMS.json").read_text()) if (box / "bc2/ARMS.json").exists() else {}
     for d in dirs:
         rs = jl(d / "runs.jsonl")
         reps = [r for r in rs if r.get("ev") == "rep" and r.get("kind") == "warm" and not r.get("err")]
         full = [r for r in reps if r.get("iterations") == BC2_ITERS and (r.get("design_s") or 0) > 0]
-        name = d.name if d.name != "winner" else f"winner:{(res.get('_winner') or {}).get('arm')}"
+        first = next((r for r in rs if r.get("ev") == "rep" and r.get("iterations") == BC2_ITERS), None)
+        compiled = first if first and first.get("kind") == "warm" else None
+        full = [r for r in full if r is not compiled]
+        arm = (res.get("_winner") or {}).get("arm") if d.name == "winner" else d.name.removeprefix("rerun-")
+        name = f"winner:{arm}" if d.name == "winner" else f"rerun:{arm}" if d.name.startswith("rerun-") else d.name
         wins = [(r["t"] - r["traj_s"], r["t"] - r["traj_s"] + r["design_s"]) for r in full]
         arms[name] = cell([r["design_s"] for r in full], wins, smi, unit="s_per_design", batch=1,
                           s_per_it=round(statistics.median(r["design_s"] / r["iterations"] for r in full), 4) if full else None,
                           validate_s=round(statistics.median(r["validate_s"] for r in full if r.get("validate_s")), 2)
                           if any(r.get("validate_s") for r in full) else None,
                           warm_trajectories=len(reps), iterations_seen=sorted({r.get("iterations") for r in reps}),
-                          settings=(res.get(d.name) or res.get("_winner") or {}).get("settings"), raw=str(d / "runs.jsonl"))
+                          dropped_compile_traj=compiled["trajectory"] if compiled else None,
+                          settings=(res.get(arm) or {}).get("settings"), raw=str(d / "runs.jsonl"))
     return arms
 
 
@@ -146,8 +153,11 @@ def page(g, smi):
         groups = {}
         for k, a in x["arms"].items():
             if a["n"]:
-                name = k.split(":", 1)[1] if k.startswith("winner:") else k.split("@")[0]
+                name = k.split(":", 1)[1] if k.startswith(("winner:", "rerun:")) else k.split("@")[0]
                 groups.setdefault(name, []).append(a)
+        for k, a in x["arms"].items():   # an alone-on-the-GPU rerun supersedes the arm's screen
+            if k.startswith("rerun:") and a["n"]:
+                groups[k.split(":", 1)[1]] = [a]
         arms = {}
         for name, al in groups.items():
             if m == "rfd4":   # the arm's published batch: its final rerun's, else its fastest rung's
@@ -170,6 +180,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--gpu", required=True)
     ap.add_argument("--label", required=True)
+    ap.add_argument("--note", action="append", default=[], help="MODEL=TEXT, kept beside that model's cell")
     ap.add_argument("--out", type=Path, default=Path("/home/moritz/.coworker/state/pnr/GPU-CELLS.json"))
     a = ap.parse_args()
     box = HERE / "gpu" / a.label / "box"
@@ -185,6 +196,9 @@ def main():
     doc.setdefault("protocol", "state/pnr/PROTOCOL.md")
     doc.setdefault("detail", {})[a.gpu] = g
     doc[a.gpu] = page(g, smi)
+    for n in a.note:
+        m, t = n.split("=", 1)
+        doc[a.gpu][m]["note"] = t
     a.out.write_text(json.dumps(doc, indent=1) + "\n")
     print(json.dumps({m: (x["chosen"], {k: (y[UNIT[m]], y["n"]) for k, y in x["arms"].items()})
                       for m, x in doc[a.gpu].items()}))

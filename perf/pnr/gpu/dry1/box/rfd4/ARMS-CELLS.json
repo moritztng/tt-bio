@@ -1,0 +1,75 @@
+{
+  "224": {
+    "arms": {
+      "native-compile": {
+        "sweep": {
+          "4": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.2069857697283312,
+            "spread": [
+              0.2069857697283312,
+              0.2069857697283312
+            ],
+            "batch": 4,
+            "sm_mhz_median": 2670
+          },
+          "8": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.21778782021615442,
+            "spread": [
+              0.21778782021615442,
+              0.21778782021615442
+            ],
+            "batch": 8,
+            "sm_mhz_median": 2685
+          },
+          "16": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.22422153087250202,
+            "spread": [
+              0.22422153087250202,
+              0.22422153087250202
+            ],
+            "batch": 16,
+            "sm_mhz_median": 2670
+          },
+          "32": {
+            "status": "ok",
+            "n": 1,
+            "designs_s": 0.22595838129064602,
+            "spread": [
+              0.22595838129064602,
+              0.22595838129064602
+            ],
+            "batch": 32,
+            "sm_mhz_median": 2685
+          },
+          "64": {
+            "status": "FAILED",
+            "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 1.53 GiB. GPU 0 has a total capacity of 23.52 GiB of which 1.16 GiB is free. Including non-PyTorch memory, this process has 22.35 GiB memory in use. Of the allocated memory 20.99 GiB is allocated by PyTorch, and 918.71 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+            "n": 0
+          }
+        },
+        "start": 4,
+        "batch": 32,
+        "designs_s": 0.22595838129064602
+      }
+    },
+    "arm": "native-compile",
+    "batch": 32,
+    "final": {
+      "status": "ok",
+      "n": 1,
+      "designs_s": 0.22473961808311152,
+      "spread": [
+        0.22473961808311152,
+        0.22473961808311152
+      ],
+      "batch": 32,
+      "sm_mhz_median": 2685
+    }
+  }
+}
