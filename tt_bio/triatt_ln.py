@@ -40,6 +40,7 @@ import ttnn
 from . import dest_guard
 from . import mm_generic as MG
 from . import ops
+from .envflags import env_flag
 
 KERNEL_DIR = Path(__file__).resolve().parent / "kernels" / "triatt_ln"
 TILE = 32
@@ -72,6 +73,9 @@ ABL = 0
 #: only: every row is read, computed and written exactly as before. OpenDDE WH normal fold, same chip, CIFs identical,
 #: 1000 MHz: 512 -0.75 s, 640 -1.36 s (stgf); per call it moves only the HiFi2 bf16 write (512 9.67 -> 8.77 ms).
 STAGGER = True
+#: every core reads its weight column group from a different starting tile (reader.cpp WROT; same tiles, same slots,
+#: so the outputs are the same) instead of all walking the same pages in the same order. Instrument, off.
+WROT = env_flag("TT_BIO_TRIATT_LN_WROT", False)
 #: channel tiles per dest acquire in the LayerNorm's eltwise stages (kernels/common/ln_prologue.hpp LN_BLK), bit-identical
 LN_BLK = 1
 #: with two column groups (plain read), the two cores of a pair each read and norm every other row and copy the
@@ -241,7 +245,8 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
-        defines=[("ABL_R", "1")] if ABL & 8 else [],
+        defines=([("ABL_R", "1")] if ABL & 8 else []) + [("ABL_WREAD", "1")] * bool(ABL & 64)
+        + [("WROT", "1")] * WROT,
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
@@ -330,7 +335,7 @@ def _hp(outs, H, MT):
 def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
-           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()),
+           tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, WROT, tuple(cols or ()),
            _hp(outs, H, MT))
     entry = _CACHE.get(key)
     if entry is None:

@@ -17,6 +17,12 @@
 #ifndef ABL_R
 #define ABL_R 0   // bench-only (triatt_ln.ABL bit 8): skip the DRAM reads of x
 #endif
+#ifndef ABL_WREAD
+#define ABL_WREAD 0   // bench-only (triatt_ln.ABL bit 64): skip the weight reads (c_0 garbage, timing only)
+#endif
+#ifndef WROT
+#define WROT 0        // triatt_ln.WROT: each core starts its weight reads at a different tile (order only)
+#endif
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
 void kernel_main() {
@@ -59,9 +65,18 @@ void kernel_main() {
     const uint32_t n0 = get_arg_val<uint32_t>(4);
     const uint32_t nw = (NWF - n0 < NW) ? NWF - n0 : NW;
     uint32_t w = get_write_ptr(w_cb);
-    for (uint32_t k = 0; k < Kt; ++k)
-        for (uint32_t j = 0; j < NW; ++j, w += tb)
-            if (j < nw) noc_async_read_page(k * NWF + n0 + j, wt, w);
+    if constexpr (WROT) {
+        // same tiles to the same slots, issued from a per-core offset so 110 cores do not walk one bank in lockstep
+        const uint32_t w0 = w, nt = Kt * NW, off = (r0 * 7) % nt;
+        for (uint32_t i = 0; i < nt; ++i) {
+            const uint32_t t = i + off < nt ? i + off : i + off - nt, k = t / NW, j = t % NW;
+            if (j < nw && !ABL_WREAD) noc_async_read_page(k * NWF + n0 + j, wt, w0 + t * tb);
+        }
+    } else {
+        for (uint32_t k = 0; k < Kt; ++k)
+            for (uint32_t j = 0; j < NW; ++j, w += tb)
+                if (j < nw && !ABL_WREAD) noc_async_read_page(k * NWF + n0 + j, wt, w);
+    }
     w = get_write_ptr(gamma_cb);
     for (uint32_t t = 0; t < Kt; ++t, w += tb) noc_async_read_page(t, gm, w);
     w = get_write_ptr(beta_cb);
