@@ -18,7 +18,7 @@ S="ssh -o BatchMode=yes -o ConnectTimeout=15"
 say() { echo "$(date -u +%FT%TZ) $*"; }
 exec 9> /tmp/mol1-wh-sync.lock; flock -n 9 || exit 0
 $S $Q "test -e ~/mol1-quality/$OUT/QUALITY.json -o -e ~/mol1-quality/$OUT/LAUNCHED" && exit 0
-src=$(timeout 120 $S $G "cd $R && for f in \$(grep -l rc=0 .runs/*/seed_42/rc .runs/*/seed_66/rc 2>/dev/null); do
+src=$(timeout 120 $S $G "cd $R && for f in \$(grep -l rc=0 $rcs 2>/dev/null); do
   grep -qE 'tree (${SHA//,/|}) ' \${f%/rc}/run.log && echo \$f; done") || { say "$G unreachable"; exit 1; }
 have=$(timeout 120 $S $Q "mkdir -p $A && cd $A && echo ${SHA//,/+} > ENGINE_SHA && grep -l rc=0 .runs/*/seed_*/rc 2>/dev/null")
 # a case tt-bio refuses with its size-cap error on WH (SizeTooLargeError, D-orch-59) never folds: grade.py reads
