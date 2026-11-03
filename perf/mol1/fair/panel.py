@@ -7,7 +7,7 @@ folds every input at every seed with its directory as cwd, so relative MSA paths
 on the serving path in-process, never by a harness lever list:
   base  the tree as it is
   a     `SIZE_LEVERS_MIN_TOKENS` 0: every input takes `size_levers` (MOL1_BH_512 on Blackhole)
-  b     arm a with `diffusion_bf16` added to that set
+  b     the set named by --levers (arm a's built set plus `diffusion_bf16`); that lever is read at model build
 One line per fold to DIR/runs.jsonl: wall, tokens, coords sha256, AICLK sampled during the fold. CIFs under
 DIR/<input stem>/s<seed>/.
 """
@@ -35,6 +35,7 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--seeds", default="42,66")
     ap.add_argument("--model", default="mol1")
+    ap.add_argument("--levers", help="arm b: the whole lever set, `parse_levers` grammar")
     a = ap.parse_args()
     os.environ["TT_VISIBLE_DEVICES"] = os.environ["TT_BIO_LEASE_CARDS"] = str(a.chip)
     from tt_bio.main import ensure_p300_mesh_descriptor
@@ -43,8 +44,10 @@ def main():
     from tt_bio import protenix as P, worker as W
     if a.arm in ("a", "b"):
         P.SIZE_LEVERS_MIN_TOKENS = 0
-    if a.arm == "b":
-        P.MOL1_BH_512 = P.MOL1_BH_512 | {"diffusion_bf16"}
+    if a.arm == "b":  # diffusion_bf16 is read when the model is built, so arm b names its whole set up front
+        if not a.levers:
+            sys.exit("--arm b needs --levers: arm a's built set plus diffusion_bf16 (its runs.jsonl load line)")
+        os.environ["TT_BIO_LEVERS"] = a.levers
     out = Path(a.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     log = open(out / "runs.jsonl", "a")
