@@ -30,6 +30,7 @@ def near(res, chain, r):
     return False
 
 
+n_ag, n_bd = len(A), len(B)
 hot = [r for r in A if near(r, bd, hot_r)]
 hotset = {r.seqid.num for r in hot}
 ns2 = gemmi.NeighborSearch(m, st.cell, 13).populate()
@@ -61,6 +62,6 @@ for i in range(len(ch) - 1, -1, -1):
 st.setup_entities()
 doc = st.make_mmcif_document()
 doc.write_file(out + ".cif")
-print("antigen", ag, "residues", len(A), "binder", bd, "residues", len(B))
+print("antigen", ag, "residues", n_ag, "binder", bd, "residues", n_bd)
 print("hotspots", len(hot), sorted(hotset))
 print("crop", len(nums), "segments", segs)
