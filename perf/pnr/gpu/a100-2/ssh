@@ -1,0 +1,1 @@
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p 23785 root@216.249.100.66

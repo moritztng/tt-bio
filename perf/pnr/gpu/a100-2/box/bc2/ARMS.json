@@ -1,0 +1,134 @@
+{
+ "stock": {
+  "arm": "stock",
+  "settings": [],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/stock/runs.jsonl",
+  "n": 2,
+  "dropped_low_clock": 0,
+  "median": 0.849,
+  "spread": [
+   0.8477,
+   0.8503
+  ],
+  "iterations": [
+   140
+  ],
+  "terminated": [
+   "None"
+  ],
+  "design_s": [
+   118.68,
+   119.05
+  ],
+  "sm_mhz": 1410.0,
+  "gpu": "NVIDIA A100-SXM4-80GB, 400.00 W, 595.71.05",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "ncpu": 256,
+  "wall_s": 679.1,
+  "rc": 0
+ },
+ "cueq": {
+  "arm": "cueq",
+  "settings": [
+   "use_cueq=true"
+  ],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/cueq/runs.jsonl",
+  "n": 0,
+  "dropped_low_clock": 0,
+  "median": null,
+  "spread": null,
+  "iterations": [],
+  "terminated": [],
+  "design_s": [],
+  "sm_mhz": null,
+  "gpu": "NVIDIA A100-SXM4-80GB, 400.00 W, 595.71.05",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "ncpu": 256,
+  "wall_s": 23.1,
+  "rc": 0
+ },
+ "attn-stock": {
+  "arm": "attn-stock",
+  "settings": [
+   "attention_backend=stock"
+  ],
+  "xla": null,
+  "evidence": "/root/kc/bc2/arms/attn-stock/runs.jsonl",
+  "n": 2,
+  "dropped_low_clock": 0,
+  "median": 0.9191,
+  "spread": [
+   0.9165,
+   0.9217
+  ],
+  "iterations": [
+   140
+  ],
+  "terminated": [
+   "None"
+  ],
+  "design_s": [
+   128.3,
+   129.03
+  ],
+  "sm_mhz": 1410.0,
+  "gpu": "NVIDIA A100-SXM4-80GB, 400.00 W, 595.71.05",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "ncpu": 256,
+  "wall_s": 731.9,
+  "rc": 0
+ },
+ "_skipped": [],
+ "_ranking": [
+  "stock",
+  "attn-stock"
+ ],
+ "_winner": {
+  "arm": "stock",
+  "settings": [],
+  "xla": null,
+  "evidence": "/root/kc/bc2/winner/runs.jsonl",
+  "n": 7,
+  "dropped_low_clock": 0,
+  "median": 0.8534,
+  "spread": [
+   0.851,
+   0.8985
+  ],
+  "iterations": [
+   50,
+   140
+  ],
+  "terminated": [
+   "None",
+   "mutate",
+   "screen"
+  ],
+  "design_s": [
+   44.93,
+   119.48,
+   119.92,
+   119.15,
+   119.58,
+   119.44,
+   119.18
+  ],
+  "sm_mhz": 1410.0,
+  "gpu": "NVIDIA A100-SXM4-80GB, 400.00 W, 595.71.05",
+  "jax": "0.11.2",
+  "bc2_sha": "7a2dfdb8a285232a6f881899fe135c6dc48679f1",
+  "cpu": "AMD EPYC 7763 64-Core Processor",
+  "ncpu": 256,
+  "wall_s": 1221.3,
+  "rc": 0,
+  "stacked": null
+ }
+}

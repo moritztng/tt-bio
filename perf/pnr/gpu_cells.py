@@ -1,6 +1,6 @@
 """Reduce one PNR GPU session (perf/pnr/gpu/<label>/box, pulled by pnr_session.sh) to its cells in GPU-CELLS.json.
 
-    python3 gpu_cells.py --gpu a100|h200|b200 --label LABEL [--note MODEL=TEXT ...] [--out .../GPU-CELLS.json]
+    python3 gpu_cells.py --gpu a100|h200|b200 --label LABEL [--note MODEL=TEXT ...] [--extern ARM=DIR ...] [--out .../GPU-CELLS.json]
 
 Per model, every arm the box measured: median seconds per fold / design over its warm runs, n, spread_pct
 ((max - min) / median), batch, SM clock and power medians from the session's 500 ms nvidia-smi log over exactly
@@ -8,7 +8,9 @@ those runs' windows, and the raw path. The chosen arm is the fastest with n >= 5
 only warm trajectories that ran all 140 iterations, and drops the first of those when the cold trajectory stopped
 early: that one compiled the later stages (B200 attn-stock read 0.599 s/it on it, 0.330 on the next). An arm's
 alone-on-the-GPU rerun (box_bc2_rerun.sh) supersedes its screen. RFD4 publishes each arm's final rerun, its ladder rungs only
-pick the batch. Nothing is typed in by hand: every number here comes from a file under the label.
+pick the batch. --extern adds a BindCraft 2 arm measured in another session on the same SKU, with its own clock
+and box, when a decision says the cell is the faster of the two. An arm whose runs no nvidia-smi sample covers
+stays in detail only: a number without a clock is not a measurement. Nothing is typed in by hand: every number here comes from a file under the label.
 """
 import argparse, json, re, statistics
 from datetime import datetime, timezone
@@ -76,27 +78,43 @@ def mol1(box, smi):
 
 
 def bc2(box, smi):
-    arms = {}
     dirs = sorted((box / "bc2/arms").glob("*")) + [box / "bc2/winner"] + sorted((box / "bc2").glob("rerun-*"))
     res = json.loads((box / "bc2/ARMS.json").read_text()) if (box / "bc2/ARMS.json").exists() else {}
+    arms = {}
     for d in dirs:
-        rs = jl(d / "runs.jsonl")
-        reps = [r for r in rs if r.get("ev") == "rep" and r.get("kind") == "warm" and not r.get("err")]
-        full = [r for r in reps if r.get("iterations") == BC2_ITERS and (r.get("design_s") or 0) > 0]
-        first = next((r for r in rs if r.get("ev") == "rep" and r.get("iterations") == BC2_ITERS), None)
-        compiled = first if first and first.get("kind") == "warm" else None
-        full = [r for r in full if r is not compiled]
         arm = (res.get("_winner") or {}).get("arm") if d.name == "winner" else d.name.removeprefix("rerun-")
         name = f"winner:{arm}" if d.name == "winner" else f"rerun:{arm}" if d.name.startswith("rerun-") else d.name
-        wins = [(r["t"] - r["traj_s"], r["t"] - r["traj_s"] + r["design_s"]) for r in full]
-        arms[name] = cell([r["design_s"] for r in full], wins, smi, unit="s_per_design", batch=1,
-                          s_per_it=round(statistics.median(r["design_s"] / r["iterations"] for r in full), 4) if full else None,
-                          validate_s=round(statistics.median(r["validate_s"] for r in full if r.get("validate_s")), 2)
-                          if any(r.get("validate_s") for r in full) else None,
-                          warm_trajectories=len(reps), iterations_seen=sorted({r.get("iterations") for r in reps}),
-                          dropped_compile_traj=compiled["trajectory"] if compiled else None,
-                          settings=(res.get(arm) or {}).get("settings"), raw=str(d / "runs.jsonl"))
+        arms[name] = bc2_arm(d / "runs.jsonl", smi, settings=(res.get(arm) or {}).get("settings"))
     return arms
+
+
+def bc2_arm(runs, smi, **kw):
+    rs = jl(runs)
+    reps = [r for r in rs if r.get("ev") == "rep" and r.get("kind") == "warm" and not r.get("err")]
+    full = [r for r in reps if r.get("iterations") == BC2_ITERS and (r.get("design_s") or 0) > 0]
+    first = next((r for r in rs if r.get("ev") == "rep" and r.get("iterations") == BC2_ITERS), None)
+    compiled = first if first and first.get("kind") == "warm" else None
+    full = [r for r in full if r is not compiled]
+    wins = [(r["t"] - r["traj_s"], r["t"] - r["traj_s"] + r["design_s"]) for r in full]
+    return cell([r["design_s"] for r in full], wins, smi, unit="s_per_design", batch=1,
+                s_per_it=round(statistics.median(r["design_s"] / r["iterations"] for r in full), 4) if full else None,
+                validate_s=round(statistics.median(r["validate_s"] for r in full if r.get("validate_s")), 2)
+                if any(r.get("validate_s") for r in full) else None,
+                warm_trajectories=len(reps), iterations_seen=sorted({r.get("iterations") for r in reps}),
+                dropped_compile_traj=compiled["trajectory"] if compiled else None, raw=str(runs), **kw)
+
+
+def extern(spec):
+    """ARM=DIR: a BindCraft 2 arm measured in another session on the same SKU (DIR holds its runs.jsonl, smi.csv,
+    instance and a SOURCE saying why it is used). It keeps its own clock, power, box and date."""
+    arm, d = spec.split("=", 1)
+    d = HERE / "gpu" / d
+    c = bc2_arm(d / "runs.jsonl", Smi(d / "smi.csv"), source=(d / "SOURCE").read_text().strip())
+    start = next((r for r in jl(d / "runs.jsonl") if r.get("ev") == "start"), {})
+    c["box"] = (d / "instance").read_text().split()[0]
+    c["versions"] = f"BindCraft 2 {start['bc2_sha'][:9]}, jax {start['jax']}, driver {start['gpu'].split(', ')[-1]}, " \
+                    f"{start['gpu'].split(', ')[0]}"
+    return f"extern:{arm}", c
 
 
 def rfd4(box, smi):
@@ -133,7 +151,7 @@ def versions(box):
 
 
 def chosen(arms, final_only=False):
-    ok = {k: v for k, v in arms.items() if v["n"] >= NEED_N and (not final_only or k.endswith(":final"))}
+    ok = {k: v for k, v in arms.items() if v["n"] >= NEED_N and v.get("sm_clock_mhz") and (not final_only or k.endswith(":final"))}
     return min(ok, key=lambda k: ok[k]["median"]) if ok else None
 
 
@@ -152,12 +170,13 @@ def page(g, smi):
     for m, x in g["models"].items():
         groups = {}
         for k, a in x["arms"].items():
-            if a["n"]:
+            if a["n"] and not k.startswith("extern:"):
                 name = k.split(":", 1)[1] if k.startswith(("winner:", "rerun:")) else k.split("@")[0]
                 groups.setdefault(name, []).append(a)
         for k, a in x["arms"].items():   # an alone-on-the-GPU rerun supersedes the arm's screen
             if k.startswith("rerun:") and a["n"]:
                 groups[k.split(":", 1)[1]] = [a]
+        ext = {k.split(":", 1)[1]: a for k, a in x["arms"].items() if k.startswith("extern:")}
         arms = {}
         for name, al in groups.items():
             if m == "rfd4":   # the arm's published batch: its final rerun's, else its fastest rung's
@@ -171,6 +190,13 @@ def page(g, smi):
                           "when": datetime.fromtimestamp(min(w[0] for w in c["wins"]), timezone.utc).strftime("%FT%TZ"),
                           "box": g["box"], "raw": " ".join(str(Path(a["raw"]).relative_to(HERE.parents[1])) for a in al),
                           **({"batch": al[0]["batch"]} if m == "rfd4" else {})}
+        for name, a in ext.items():   # its own session's clock, box and versions; no clock, not a measurement
+            if not a.get("sm_clock_mhz"):
+                continue
+            arms[name] = {UNIT[m]: a["median"], "n": a["n"], "spread_pct": a["spread_pct"],
+                          "sm_clock_mhz": a["sm_clock_mhz"], "power_w": a["power_w"], "versions": a["versions"],
+                          "when": datetime.fromtimestamp(a["wins"][0][0], timezone.utc).strftime("%FT%TZ"),
+                          "box": a["box"], "raw": str(Path(a["raw"]).relative_to(HERE.parents[1])), "source": a["source"]}
         ok = {k: a for k, a in arms.items() if a["n"] >= NEED_N}
         out[m] = {"chosen": min(ok, key=lambda k: ok[k][UNIT[m]]) if ok else None, "arms": arms}
     return out
@@ -181,13 +207,16 @@ def main():
     ap.add_argument("--gpu", required=True)
     ap.add_argument("--label", required=True)
     ap.add_argument("--note", action="append", default=[], help="MODEL=TEXT, kept beside that model's cell")
+    ap.add_argument("--extern", action="append", default=[], help="ARM=DIR under gpu/: a BindCraft 2 arm from "
+                    "another session on the same SKU, competing for chosen (see extern())")
     ap.add_argument("--out", type=Path, default=Path("/home/moritz/.coworker/state/pnr/GPU-CELLS.json"))
     a = ap.parse_args()
     box = HERE / "gpu" / a.label / "box"
     smi = Smi(box / "smi.csv")
     when = datetime.fromtimestamp(smi.rows[0][0], timezone.utc).strftime("%FT%TZ") if smi.rows else None
     v = versions(box)
-    models = {"mol1": mol1(box, smi), "bindcraft2": bc2(box, smi), "rfd4": rfd4(box, smi)}
+    models = {"mol1": mol1(box, smi), "bindcraft2": dict([*bc2(box, smi).items(), *map(extern, a.extern)]),
+              "rfd4": rfd4(box, smi)}
     g = {"label": a.label, "when": when, "box": v["box"], "versions": v, "raw": str(box), "models": {}}
     for m, arms in models.items():
         c = chosen(arms, final_only=(m == "rfd4"))
