@@ -78,6 +78,9 @@ FIRST. A release never waits on our own experiments. A pool host queues its legs
 it names (0, ahead of every grading job), and a flock host shared with other rows sets
 `"first": true`: each leg then takes its card through scripts/flock_first.sh, which stops the
 other waiters on that card's lock (never the holder) until the gate is done with the card.
+With `"book": "<path to perf/spd/book.py>"` beside it the leg also books its card in the host's booker for its
+expected wall once it holds the flock, so a booked window it lands on moves to the next free slot instead of
+starting under the leg (qb1, 11-03).
 
 PERF A/B. Committed perf cells age: a cell recorded in August on another software stack fails a
 release that changed nothing. `"perf_against": "<tag>"` on a host checks the timed leg out at the
@@ -220,9 +223,14 @@ SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! 
 #: in lend mode; they held their ledger claims for 38 h, so the sibling runner's workers on the whole box lent for them
 #: (.112, 11-01) sat in _wait_held. For such a leg the host counts as paused, and the skip pattern is read from the
 #: host's own pool.sh so the two cannot drift.
+#: A reserved chip (the agent's lend/reserve) is the exception, as in pool.sh: it starts a LEND_SKIP job whose cap ends
+#: before the reservation. rel-1cf560aa6 (11-02) held its 17 WH OF3-family legs off .107 and .108 while both carried a
+#: 5 h reserve written for exactly those legs, and the whole-box lend they waited for never opened under user load.
 LEND_MODE = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
              'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
-             'sed -n "s/^LEND_SKIP=\'\\(.*\\)\'$/LENDSKIP \\1/p" ~/spd/galaxy/pool.sh || :')
+             '{ sed -n "s/^LEND_SKIP=\'\\(.*\\)\'$/LENDSKIP \\1/p" ~/spd/galaxy/pool.sh; '
+             'sed -n \'s/.*"reserved_until": \\([0-9][0-9]*\\).*/RESERVED \\1/p\' ~/japanfold/state/agent/lend/*.lent '
+             '2>/dev/null; } || :')
 LEND_READ_S = 300
 NONE_LENT_S = 1800
 REQUEUED = "requeued"     # run_in_pool's note for an attempt the pool put back after a chip recall
@@ -351,7 +359,12 @@ PY312 = {"pytest_device", "pytest_cpu", "bc2"}
 # Arms the parity gate already runs in-process by calling release_gate's own runner with the
 # same arguments (full_parity_gate.py: run_inprocess -> release_gate.run_<arm>). Running the rg
 # arm as well folds the same thing twice.
-PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa"}
+PARITY_COVERS_RG = {"boltzgen", "opendde-abag", "capacity", "nesso1", "rf3-1024aa", "mol1"}
+
+#: Parity legs whose reference and accuracy record exist on Blackhole only. RFD4's upstream fp32
+#: goldens live on the qb hosts, and both ports were graded on Blackhole; on a Wormhole Galaxy the
+#: RFD4 golden suite would skip (a GAP) and redden a release over data that was never there.
+PARITY_CARD_TYPES = {"rfd4-trunk": ("p150a", "p300c"), "bindcraft2-afgrad-stack": ("p150a", "p300c")}
 
 CAP_OWED = "host-threads"   # an OWED entry: no granted host times this ladder at its baseline's cap
 
@@ -495,6 +508,14 @@ def _commit(sha: str, repo: Path) -> str:
     """The commit id `sha` names, so a cache keyed on it survives a moving ref like HEAD."""
     return subprocess.run(["git", "-C", str(repo), "rev-parse", "--verify", f"{sha}^{{commit}}"],
                           check=True, capture_output=True, text=True).stdout.strip()
+
+
+@functools.lru_cache(maxsize=None)
+def books(sha: str, repo: Path = REPO) -> bool:
+    """Whether `sha`'s flock_first.sh takes --book: a leg runs the gated tree's copy, and an older one reads the flag
+    as its lock path."""
+    p = subprocess.run(["git", "-C", str(repo), "show", f"{sha}:scripts/flock_first.sh"], capture_output=True, text=True)
+    return "--book" in p.stdout
 
 
 def _ls_tree(sha: str, repo: Path) -> list[str]:
@@ -773,7 +794,8 @@ def build_legs(roster: dict, test_files: list, shards: int, record_lever: str = 
     for lid in roster["parity"]:
         legs.append(Leg(f"parity:{lid}", ["PY", "scripts/full_parity_gate.py", "--leg", lid,
                                           "--workers", "localhost:{CARD}", "--workdir", "{OUT}",
-                                          "--out", "{OUT}/report.json"], "parity", workdir=True))
+                                          "--out", "{OUT}/report.json"], "parity", workdir=True,
+                        card_types=PARITY_CARD_TYPES.get(lid, ())))
     for arm in roster["rg"]:
         if arm == "size-ladder" or arm in PARITY_COVERS_RG:
             continue
@@ -907,8 +929,8 @@ class Host:
     running: int = 0
     timed_running: bool = False
     outputs: set = field(default_factory=set)
-    # (read at, LEND-AT epoch, pool PAUSEd, lend mode's skip regex, first read with no chip lent)
-    lend: tuple = (float("-inf"), None, False, None, None)
+    # (read at, LEND-AT epoch, pool PAUSEd, lend mode's skip regex, first read with no chip lent, latest reserved_until)
+    lend: tuple = (float("-inf"), None, False, None, None, None)
 
     def read_lend(self) -> None:
         """Refresh `lend` from the host's pool at most every LEND_READ_S."""
@@ -920,19 +942,22 @@ class Host:
         if r.returncode in (0, 1):
             lines = r.stdout.splitlines()
             skip = next((ln.split(" ", 1)[1] for ln in lines if ln.startswith("LENDSKIP ")), None)
-            words = [w for ln in lines if not ln.startswith("LENDSKIP ") for w in ln.split()]
+            reserved = max((int(ln.split()[1]) for ln in lines if ln.startswith("RESERVED ")), default=None)
+            words = [w for ln in lines if not ln.startswith(("LENDSKIP ", "RESERVED ")) for w in ln.split()]
             at = next((int(w) for w in words if w.isdigit()), None)
             now = time.time()
             none = (self.lend[4] or now) if "NONELENT" in words else None
-            self.lend = (now, at, "PAUSE" in words, skip, none)
+            self.lend = (now, at, "PAUSE" in words, skip, none, reserved)
 
     def lent(self, leg: "Leg") -> bool:
         """True while this host's pool would not start `leg` (from `lend`): paused, no chip lent for NONE_LENT_S,
-        a lend window its cap reaches, or lend mode with the leg's job name in pool.sh's LEND_SKIP."""
-        _, at, paused, skip, none = self.lend
+        a lend window its cap reaches, or lend mode with the leg's job name in pool.sh's LEND_SKIP and no reserved chip
+        whose reservation outlasts the leg's cap."""
+        _, at, paused, skip, none, reserved = self.lend
         return paused or (none is not None and time.time() - none >= NONE_LENT_S) \
             or (at is not None and time.time() + leg.budget >= at) \
-            or (skip is not None and re.search(skip, leg.tag) is not None)
+            or (skip is not None and re.search(skip, leg.tag) is not None
+                and not (reserved is not None and time.time() + leg.expect_s <= reserved))
 
     @property
     def key_card_type(self) -> str:
@@ -1103,6 +1128,8 @@ class Host:
         run = f"env {envs} bash -c {shlex.quote(body)}"
         if card is not None:
             lock = "bash scripts/flock_first.sh" if c.get("first") else "flock"
+            if c.get("first") and c.get("book") and books(self.sha):
+                lock += f" --book {shlex.quote(c['book'])} {leg.expect_s}"
             run = f"{lock} {shlex.quote(c['lock'].format(card=card))} {run}"
         setup = f"{fill(leg.setup)} && " if leg.setup else ""
         # Each attempt is its own session, its pid in attempt.pid and its marker in the environment

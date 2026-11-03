@@ -2,12 +2,16 @@
 """Index the B200 reference predictions for mol1-quality.
 
     python3 mol1_refindex.py --qb2 ttuser@tt-quietbox2:/home/ttuser/mol1-fair-gpu-ref --out FILE LABEL [LABEL ...]
+    python3 mol1_refindex.py --qb2 ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32 --arm gpu_fp32 --sets paired \
+        --seeds 42,66 --out FILE LABEL [LABEL ...]
 
 Several sessions ran the same job list (forward and reverse boxes, relaunches seeded with earlier outputs), so a job
 can appear in more than one ledger. The structures live on qb2 under <dir>/<label>/ref/<set>/<case>/seed_<s>/; the
 ledgers were pulled to perf/kitcmp/results/<label>/mol1/ref/jobs.jsonl. One record per expected job: the session
 that produced its structures, the qb2 directory, sample count, recipe, wall time. Jobs with no structures anywhere
-are listed under "missing" so a grader sees the gap instead of a silently shorter set.
+are listed under "missing" so a grader sees the gap instead of a silently shorter set. --arm names the arm in the
+index (gpu = the bf16 reference, gpu_fp32 = upstream's fp32 mode, mol1_ref.py --dtype fp32); --sets/--seeds narrow the
+expected job list to what that arm ran.
 """
 import argparse
 import json
@@ -18,12 +22,19 @@ from pathlib import Path
 
 R = Path(__file__).resolve().parent / "results"
 SEEDS, SELFTEST = [42, 66, 101, 2024, 8888], [7, 13, 77, 1234, 9999]
+ARMS = {"gpu": "Mol-1 upstream reference predictions on NVIDIA B200, chosen arm cueq-triatt+chunk5+tf32 "
+               "(state/mol1/gpu/B200.md), protocol state/mol1/PROTOCOL.md",
+        "gpu_fp32": "Mol-1 upstream in its fp32 mode (autocast target float32, TF32 matmuls off) on the NVIDIA GPU named per "
+                    "job, kernels and settings otherwise as arm gpu (mol1_ref.py --dtype fp32), decisions D-orch-56/60"}
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--qb2", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--arm", choices=list(ARMS), default="gpu")
+    ap.add_argument("--sets", default="paired,selftest,headline")
+    ap.add_argument("--seeds", default=",".join(map(str, SEEDS)), help="GPU seeds (paired and headline)")
     ap.add_argument("labels", nargs="+")
     a = ap.parse_args()
     host, root = a.qb2.split(":", 1)
@@ -33,8 +44,10 @@ def main():
     stem = lambda c: Path(idx["cases"][c]).stem  # mol1_ref.py's directory name for a case
     head = set(idx["headline_only"])
     paired = [c for c in idx["cases"] if c not in head]
-    jobs = ([(c, "paired", s) for c in paired for s in SEEDS] + [(c, "selftest", s) for c in paired for s in SELFTEST]
-            + [(c, "headline", s) for c in sorted(head) for s in SEEDS])
+    seeds = [int(x) for x in a.seeds.split(",")]
+    jobs = ([(c, "paired", s) for c in paired for s in seeds] + [(c, "selftest", s) for c in paired for s in SELFTEST]
+            + [(c, "headline", s) for c in sorted(head) for s in seeds])
+    jobs = [j for j in jobs if j[1] in a.sets.split(",")]
 
     # (label, set, stem, seed) -> number of CIFs; summaries mark a finished job (mol1_ref.py's skip rule)
     cifs, done = defaultdict(int), set()
@@ -59,6 +72,12 @@ def main():
             if d.get("status") == "ok":
                 led[(lab, d["set"], stem(d["case"]), d["seed"])] = d
 
+    def gpu(lab):  # the SKU that produced a job: the session's own nvidia-smi -q
+        f = R / lab / "mol1/nvidia-smi-q.txt"
+        return next((l.split(":", 1)[1].strip() for l in (f.read_text().splitlines() if f.exists() else [])
+                     if l.strip().startswith("Product Name")), None)
+    gpus = {lab: gpu(lab) for lab in a.labels}
+
     records, missing = [], []
     for c, st, s in jobs:
         hit = next((lab for lab in a.labels if (lab, st, stem(c), s) in done), None)
@@ -68,12 +87,12 @@ def main():
         k = (hit, st, stem(c), s)
         d = led.get(k, {})
         records.append({"case": c, "set": st, "seed": s, "recipe": idx["recipes"].get(c, "default"),
-                        "session": hit, "samples": cifs[k], "wall_s": d.get("wall_s"),
+                        "session": hit, "gpu": gpus[hit], "samples": cifs[k], "wall_s": d.get("wall_s"),
                         "dir": f"{host}:{root}/{hit}/ref/{st}/{stem(c)}/seed_{s}/predictions"})
-    out = {"what": "Mol-1 upstream reference predictions on NVIDIA B200, chosen arm cueq-triatt+chunk5+tf32 "
-                   "(state/mol1/gpu/B200.md), protocol state/mol1/PROTOCOL.md",
+    sets = a.sets.split(",")
+    out = {"what": ARMS[a.arm], "arm": a.arm,
            "inputs": f"{host}:{root}/inputs (INDEX.json, sha256 per file)",
-           "seeds": {"paired": SEEDS, "selftest": SELFTEST, "headline": SEEDS},
+           "seeds": {k: v for k, v in {"paired": seeds, "selftest": SELFTEST, "headline": seeds}.items() if k in sets},
            "expected": len(jobs), "present": len(records), "missing_n": len(missing),
            "sessions": a.labels, "jobs": records, "missing": missing}
     Path(a.out).write_text(json.dumps(out, indent=1) + "\n")

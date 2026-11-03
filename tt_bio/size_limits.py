@@ -908,8 +908,13 @@ CEILINGS: dict[str, dict[str, Ceiling]] = {
         "wormhole_b0": Ceiling(
             residues=1024, pass_at=1024, fail_at=1074, binds=MEMORY, mechanism=DRAM,
             msa_rows=16384, ladder_ligand_atoms=0,
-            evidence="Capped at 1024 tokens (passed on tree 87224da42, below) although a single chain "
-                     "folds 1536, because the ladder is not the only wall. fail_at is FoldBench "
+            evidence="Capped at 1024 tokens although a single chain folds 1536, because the ladder is "
+                     "not the only wall. 1024 is the capacity gate's residency fixture (CDK2 tiled to "
+                     "1024 with its 8832-row alignment, 20 recycles, 1 sample), which needs a refused "
+                     "fold to restart one mode lighter (70e20bfa3, on main b73730028): .111 Galaxy "
+                     "(UF-EV-A6-GWH01) chip 1, 2026-11-03, ws:mol1-wh1024cap, PASS in 1380.7 s at "
+                     "AICLK 1000 MHz, every cycle host-cut at a 9.82 GiB DRAM peak, where the tree "
+                     "before it fails trunk 0 on 64 MiB (896 was the cap until then). fail_at is FoldBench "
                      "7yzt-assembly1 (3 x 315 residues plus 3 CCD ligands, about 1074 tokens, paired "
                      "7054-row alignment), which runs out of DRAM at trunk "
                      "0 on every seed on main's Wormhole tree c5e5bc392 (72.2 MiB requested, 3.8 MiB "
@@ -2174,6 +2179,23 @@ def is_alloc_refusal(exc: BaseException) -> bool:
     ``describe_device_oom`` renders, so the two can never disagree about what a refusal is.
     """
     return describe_device_oom(str(exc)) is not None
+
+
+def restart_lighter(run, mode, lighter, step_down):
+    """``run(mode)``; while the device allocator refuses it, ``step_down(mode)`` and run again from
+    the start in ``lighter[mode]``. The result of the first run that fits.
+
+    A refusal in a mode with nothing lighter, or any other error, propagates. ``step_down`` runs
+    outside the handler, once the traceback that pins every tensor the refused run made is gone.
+    """
+    while True:
+        try:
+            return run(mode)
+        except RuntimeError as exc:
+            if mode not in lighter or not is_alloc_refusal(exc):
+                raise
+        step_down(mode)
+        mode = lighter[mode]
 
 
 # What the allocator's own numbers say happened. One decision, two renderings: the sentence a user

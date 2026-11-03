@@ -501,6 +501,14 @@ def _out_dtype(q):
         return ttnn.bfloat16
     return q.dtype
 
+#: parts where the reader forwards K/V along the q_pf cores of each head, every batch
+#: (`sdpa_generic.build(kv_chain=True)`), so K/V leave DRAM once per head instead of once per core.
+#: Blackhole, perf/mol1_triattn/chain_ab.py, add_to_input, every cell torch.equal (qb1 p150a, 1343-1350 MHz):
+#: 1024 x c448 start 76.7 -> 69.5 ms, end 88.2 -> 81.0; 1024 x c320, 512 x c320/c384/c448 flat (K/V reads
+#: already hidden there). Wormhole is unmeasured and stays off.
+KV_CHAIN = {"wormhole": False, "blackhole": True}
+
+
 def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_factor=2,
          q_split_cap: int = -1, gate=None, padded_mask: bool = False, rows=None):
     """The fold's SDPA with the mask read once per head, or `None` to leave the call alone.
@@ -544,7 +552,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
                 or mc.memory_layout != ttnn.TensorMemoryLayout.INTERLEAVED):
             return _reject("memory_config", shape)
 
-    from .tenstorrent import COMPUTE_GRID_MAIN, _SDPA_Q_CHUNK_OVER_L1
+    from .tenstorrent import COMPUTE_GRID_MAIN, _SDPA_Q_CHUNK_OVER_L1, is_wormhole
     grid = tuple(COMPUTE_GRID_MAIN)
     l1_key = (shape[2], shape[2] if rows is not None else int(k.shape[2]), q_chunk, q.dtype)
     # `_PM_OVER_L1` is keyed on the FULL config, not on `l1_key`. This kernel's L1 cost moves with
@@ -631,6 +639,7 @@ def sdpa(q, k, v, bias, scale, q_chunk, k_chunk, ckc_default=None, kv_buffer_fac
         SG.sdpa(dev, q, k, v, bias, out, q_chunk, k_chunk, grid, ckc, scale, split=split,
                 kernel_dir=KERNEL_DIR, mask_cb_tiles=persistent,
                 kv_buffer_factor=kv_buffer_factor, gate=gate_arg, rows=rows,
+                kv_chain=KV_CHAIN["wormhole" if is_wormhole() else "blackhole"],
                 defines_extra={**_mask_defines(p["k_num_chunks"]),
                                **{f"ABLATE_{a}": 1 for a in _ABLATE},
                                **({"TRIATT_ZONES": 1} if _ZONES else {})})

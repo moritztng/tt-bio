@@ -1,0 +1,19 @@
+{"dtype": "fp32", "probe": {"autocast": true, "linear_in": "torch.float32", "linear_out": "torch.float32", "weight": "torch.float32", "allow_tf32": false}, "case": "8aok-assembly1", "set": "paired", "seed": 66, "recipe": "default", "rank": 0, "wall_s": 211.93, "status": "ok", "t": 1793661925.354929}
+{"dtype": "fp32", "case": "7y37-assembly1", "set": "paired", "seed": 66, "recipe": "default", "rank": 0, "wall_s": 38.63, "status": "ok", "t": 1793661963.9887218}
+{"dtype": "fp32", "case": "8fbw-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 194.56, "status": "ok", "t": 1793662158.5459795}
+{"dtype": "fp32", "case": "8hxq-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 94.03, "status": "ok", "t": 1793662252.5731742}
+{"dtype": "fp32", "case": "8oxx-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 591.18, "status": "ok", "t": 1793662843.7541356}
+{"dtype": "fp32", "case": "8r4u-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 272.79, "status": "ok", "t": 1793663116.5403824}
+{"dtype": "fp32", "case": "8be3-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 93.65, "status": "ok", "t": 1793663210.1886537}
+{"dtype": "fp32", "case": "8pyr-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 519.85, "status": "ok", "t": 1793663730.0356083}
+{"dtype": "fp32", "case": "8dtn-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 245.25, "status": "ok", "t": 1793663975.2835548}
+{"dtype": "fp32", "case": "7xld-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 69.92, "status": "ok", "t": 1793664045.2063498}
+{"dtype": "fp32", "case": "8tuz-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 320.03, "status": "ok", "t": 1793664365.2416663}
+{"dtype": "fp32", "case": "7txw-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 271.87, "status": "ok", "t": 1793664637.1086743}
+{"dtype": "fp32", "case": "8c3l-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 40.46, "status": "ok", "t": 1793664677.5654395}
+{"dtype": "fp32", "case": "8a44-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 468.87, "status": "ok", "t": 1793665146.435984}
+{"dtype": "fp32", "case": "8tmz-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 157.38, "status": "ok", "t": 1793665303.8140132}
+{"dtype": "fp32", "case": "9fww-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 64.52, "status": "ok", "t": 1793665368.3392546}
+{"dtype": "fp32", "case": "8duz-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 148.34, "status": "ok", "t": 1793665516.6777022}
+{"dtype": "fp32", "case": "8wdq-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 253.85, "status": "ok", "t": 1793665770.5246968}
+{"dtype": "fp32", "case": "8b9e-assembly1", "set": "paired", "seed": 42, "recipe": "default", "rank": 0, "wall_s": 71.29, "status": "ok", "t": 1793665841.8200395}

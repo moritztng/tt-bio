@@ -25,7 +25,10 @@ if [ ! -f inputs/INDEX.json ]; then
   mkdir -p ../inputs && cat p.* | gzip -dc | tar xf - -C ../inputs && cd ../inputs && python3 -c "
 import json, hashlib, os, sys; i = json.load(open('INDEX.json'))
 bad = [f for f, h in i['sha256'].items() if os.path.exists(f) and hashlib.sha256(open(f, 'rb').read()).hexdigest() != h]
-print('sha mismatches', len(bad)); sys.exit(1 if bad else 0)" && cd .. || { say "inputs verify failed"; exit 1; }
+# a staged case missing one of its files folds anyway on a fallback (online MSA, local template search), so it fails here
+gone = [f for f in i['sha256'] if '/' in f and os.path.exists(f.split('/')[0] + '.json') and not os.path.exists(f)]
+print('sha mismatches', len(bad), 'missing', len(gone), *gone); sys.exit(1 if bad or gone else 0)" && cd .. ||
+    { say "inputs verify failed"; exit 1; }
 fi
 # the engine env; --use_template needs kalign (qb2: micromamba env; a host without it fails 9fm7's folds visibly)
 export PATH=$HOME/tt-bio-dev/env/bin:$HOME/mol1-quality/env/kalign/bin:$PATH PYTHONPATH=$PWD/main-$SHA LOCK_HOST
@@ -37,7 +40,9 @@ for c in "$@"; do
       while :; do
         python3 ~/spd/feed/book.py active $c 2>/dev/null | grep -qx $o ||
           { python3 ~/spd/feed/book.py add $o $c 14400 --note "mol1-quality $OUT" > /dev/null; say "chip $c: booked $(python3 ~/spd/feed/book.py list | grep " $o ")"; }
-        until [ "$(python3 ~/spd/feed/book.py active $c 2>/dev/null)" = "$o" ]; do sleep 60; done
+        # re-add while waiting (book.py's taker rule): a window that another booking overlaps and outlasts is moved, not lost
+        until [ "$(python3 ~/spd/feed/book.py active $c 2>/dev/null)" = "$o" ]; do
+          sleep 60; python3 ~/spd/feed/book.py add $o $c 14400 --note "mol1-quality $OUT" > /dev/null; done
         say "chip $c: window open, seeds $seeds"
         bash "$P/run_tt.sh" $REV --book $o inputs "$OUT" "$seeds" $c > "$OUT.c$c.last" 2>&1; cat "$OUT.c$c.last"
         grep -q "TT-STOP\|card lock held" "$OUT.c$c.last" || break  # ran to the end of the case list inside the window

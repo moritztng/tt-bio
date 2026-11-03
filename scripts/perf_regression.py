@@ -1332,7 +1332,7 @@ def measure(model: str, out_path: Path) -> dict:
         # wipe between calls so saving stays inside the timed region but never
         # short-circuits on a stale output (predict_one overwrites anyway)
         for p in struct_dir.glob("*"):
-            p.unlink()
+            shutil.rmtree(p) if p.is_dir() else p.unlink()   # mol1 writes an upstream_layout/ dir
         t0 = time.perf_counter()
         metrics, _best, _feats = state.predict_one(input_path, job_cfg)
         return time.perf_counter() - t0
@@ -1694,8 +1694,13 @@ def cmd_gate(args) -> int:
     baselines = load_baselines()
     card_type = detect_card_type()
     machine_id = detect_machine_id()
-    if not card_baselines(baselines, card_type, machine_id) and not card_type.startswith("unknown"):
+    bm = card_baselines(baselines, card_type, machine_id)
+    if not bm and not card_type.startswith("unknown"):
         return _seed_first(rows, args, card_type, machine_id)
+    # A model new to SPECS has nothing to regress from on this machine either (mol1, 11-03).
+    if new := [r for r in rows if bm and r["model"] not in bm and not r.get("failed")]:
+        _seed_first(new, args, card_type, machine_id)
+        baselines = load_baselines()
     ok = _print_table(rows, baselines, card_type, machine_id, args.threshold)
     return 0 if ok else 1
 
@@ -1712,7 +1717,8 @@ def _seed_first(rows: list[dict], args, card_type: str, machine_id: str) -> int:
     args.note, args.allow_contended = note, True
     _update_baselines(rows, args)
     failed = [r["model"] for r in rows if r.get("failed")]
-    print(f"{'#' * 78}\nGATE SEEDED — no baseline existed for {card_type} @ {machine_id}; "
+    print(f"{'#' * 78}\nGATE SEEDED — no baseline existed for {', '.join(r['model'] for r in rows)} "
+          f"on {card_type} @ {machine_id}; "
           f"recorded {len(rows) - len(failed)} model(s) as the first one ({note})"
           + (f"; failed to measure: {', '.join(failed)}" if failed else ""))
     return 1 if failed else 0
@@ -1800,7 +1806,7 @@ def _update_baselines(rows: list[dict], args) -> int:
     save_baselines(data)
     machine_names = {ct: sorted(ct_entry.get("machines", {})) for ct, ct_entry in cards.items()}
     machine_names = {ct: ms for ct, ms in machine_names.items() if ms}
-    print(f"\nWrote {BASELINE_FILE.relative_to(REPO_ROOT)}  "
+    print(f"\nWrote {BASELINE_FILE}  "
           f"(card {card_type} @ {machine_id}: {len(models)} models; "
           f"{len(cards)} card type(s) recorded: {', '.join(sorted(cards))}; "
           f"machines: " +

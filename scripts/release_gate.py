@@ -2566,6 +2566,99 @@ def run_rf3_1024aa(keep: bool) -> dict:
     return row
 
 
+# RFD4's parity leg: the two device-vs-reference trunk suites the port was validated with. The
+# float64 transcription (tests/rfd4_reference.py, committed) grades every trunk module at random
+# weights; the golden suite grades the same modules at the real checkpoint against upstream's own
+# CPU fp32 activations. The golden suite skips on a host without the captures, and a skip here is
+# NO-DATA, never a pass: a leg that silently drops the real-weights half grades nothing upstream wrote.
+RFD4_PARITY_TESTS = ("tests/test_rfd4_trunk_parity.py", "tests/test_rfd4_trunk_golden.py")
+RFD4_PARITY_TIMEOUT_S = 3600
+
+
+def run_rfd4_trunk(keep: bool) -> dict:
+    """Run the RFD4 trunk parity suites on the pinned card and count their outcomes. Returns a row."""
+    import xml.etree.ElementTree as ET
+    work = RUN_DIR / "perf" / "rfd4" / "gate_parity"
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(parents=True, exist_ok=True)
+    junit = work / "junit.xml"
+    cmd = [sys.executable, "-m", "pytest", "-q", "-rs", "-p", "no:cacheprovider",
+           f"--junitxml={junit}", *RFD4_PARITY_TESTS]
+    print(f"\n{'='*70}\n[rfd4] trunk parity vs float64 and vs upstream fp32 goldens "
+          f"({', '.join(RFD4_PARITY_TESTS)})\n{'='*70}", flush=True)
+    row = {"model": "rfd4", "seconds": None, "tests": None, "failed": None, "skipped": None,
+           "gate": False, "error": None}
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(cmd, RFD4_PARITY_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    if timed_out:
+        row["error"] = f"pytest timed out after {RFD4_PARITY_TIMEOUT_S}s"
+        return row
+    if not junit.exists():
+        row["error"] = f"pytest exited {rc} and wrote no junit report"
+        return row
+    s = ET.parse(junit).getroot()
+    s = s if s.tag == "testsuite" else s.find("testsuite")
+    n, fail, err, skip = (int(s.get(k, 0)) for k in ("tests", "failures", "errors", "skipped"))
+    row.update(tests=n, failed=fail + err, skipped=skip)
+    row["gate"] = n > 0 and fail + err == 0 and skip == 0
+    if not row["gate"]:
+        row["error"] = f"{fail + err} failed, {skip} skipped of {n} (log above; a skip is a missing golden)"
+    if not keep:
+        shutil.rmtree(work, ignore_errors=True)
+    return row
+
+
+# BindCraft 2's parity leg: the float64 grade of one design-gradient round, the harness BC4 graded
+# every lever with (perf/spd/bc2_stack_grade.py over perf/bcx_afgrad's `stack --ckpt`). The device's
+# dL/dlogits through the whole 4 + 48 block stack is compared with float64 autograd on the same
+# stack, next to plain torch bf16 on the CPU as the precision envelope. Bars: the device no further
+# from float64 than BC2_MAX_OVER_BF16 x torch bf16 (the committed record, qb2 2026-10-01, reads
+# 0.1998 vs 0.1846, 1.08x), the float64 finite difference along the device gradient agreeing
+# inside BC2_FD_BAND (record 1.030), and the device deterministic (record repeat diff 0.0).
+BC2_STACK_GRADE = REPO_ROOT / "perf" / "spd" / "bc2_stack_grade.py"
+BC2_STACK_TIMEOUT_S = 3600
+BC2_MAX_OVER_BF16 = 1.25
+BC2_FD_BAND = (0.9, 1.1)
+
+
+def run_bc2_stack(keep: bool) -> dict:
+    """Grade BindCraft 2's device gradient round against float64. Returns a row."""
+    arm = "gate"
+    work = REPO_ROOT / "perf" / "bcx_afgrad" / f"spd_bc2_{arm}_s0"
+    if work.exists():
+        shutil.rmtree(work)  # a previous run's report here would be scored as this one's
+    params = os.environ.get("AF2IG_PARAMS") or str(Path.home() / ".boltz/af2/params/params_model_1_ptm.npz")
+    cmd = [sys.executable, str(BC2_STACK_GRADE), "--arm", arm, "--params", params]
+    print(f"\n{'='*70}\n[bindcraft2] gradient round vs float64 autograd (n 128, 4 + 48 blocks, "
+          f"bars: <= {BC2_MAX_OVER_BF16}x torch bf16, fd ratio {BC2_FD_BAND})\n{'='*70}", flush=True)
+    row = {"model": "bindcraft2", "seconds": None, "rel_l2": None, "bf16_rel_l2": None,
+           "fd_ratio": None, "repeat": None, "gate": False, "error": None}
+    t0 = time.monotonic()
+    rc, timed_out = _run_fold(cmd, BC2_STACK_TIMEOUT_S, cwd=REPO_ROOT)
+    row["seconds"] = time.monotonic() - t0
+    rep = work / f"stack_n128_e4_v48_ckpt_spd_bc2_{arm}.json"
+    if timed_out:
+        row["error"] = f"bc2_stack_grade timed out after {BC2_STACK_TIMEOUT_S}s"
+        return row
+    if not rep.exists():
+        row["error"] = f"bc2_stack_grade exited {rc} and wrote no report"
+        return row
+    d = json.loads(rep.read_text())
+    row["rel_l2"] = d["device_vs_f64"]["rel_l2"]
+    row["bf16_rel_l2"] = d["torch_bf16_vs_f64"]["rel_l2"]
+    row["fd_ratio"] = (d.get("fd_best") or {}).get("ratio_fd_over_device")
+    row["repeat"] = d.get("device_repeat_max_abs_diff")
+    lo, hi = BC2_FD_BAND
+    row["gate"] = (row["rel_l2"] <= BC2_MAX_OVER_BF16 * row["bf16_rel_l2"]
+                   and row["fd_ratio"] is not None and lo <= row["fd_ratio"] <= hi
+                   and row["repeat"] == 0)
+    if not keep:
+        shutil.rmtree(work, ignore_errors=True)
+    return row
+
+
 def run_capacity(keep: bool, leg) -> dict:
     """Fold one capacity leg (large target, campaign-scale sample count) and check the
     peak device DRAM against its budget. Also checks the per-sample output contract,

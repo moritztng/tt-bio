@@ -271,6 +271,8 @@ def main():
     for p in procs:
         p.join(timeout=60)
     emit({"kind": "summary", "clean": good, "rounds_tried": i})
+    if good < a.rounds:
+        sys.exit(5)  # too few clean rounds: a gate's control must not read this as a pass
 
 
 if __name__ == "__main__":

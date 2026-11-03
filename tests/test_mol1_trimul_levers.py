@@ -26,3 +26,35 @@ def test_mol1_set_only_at_448_normal(wh, fast, monkeypatch):
     for c_z in (128, 256, 384):           # Protenix-v1, Protenix-v2, OpenDDE: no Mol-1 lever
         assert not _levers(c_z, wh, fast, monkeypatch) & {"trimul_t1_c320", "trimul_t1_c448"}
     assert P.MOL1_BH | P.MOL1_WH <= set(T.LEVERS)
+
+
+def _size(c_z, wh, fast, monkeypatch, env=None):
+    monkeypatch.setattr(T, "is_wormhole", lambda: wh)
+    monkeypatch.setattr(T, "_FAST_MODE", fast)
+    monkeypatch.delenv("TT_BIO_LEVERS", raising=False)
+    if env:
+        monkeypatch.setenv("TT_BIO_LEVERS", env)
+    return P.size_levers({"layernorm_z_cycle.weight": torch.zeros(c_z)})
+
+
+def test_size_set_only_mol1_bh_normal(monkeypatch):
+    assert _size(448, False, False, monkeypatch) == P.MOL1_BH_512 <= set(T.LEVERS)
+    assert not _size(448, True, False, monkeypatch)          # Wormhole
+    assert not _size(448, False, True, monkeypatch)          # --fast names its whole set
+    assert not _size(448, False, False, monkeypatch, env="normal")   # a harness set is exact
+    for c_z in (128, 256, 384):
+        assert not _size(c_z, False, False, monkeypatch)
+
+
+@pytest.mark.parametrize("nt,big", [(245, False), (480, False), (481, True), (509, True), (1000, True)])
+def test_fold_takes_size_set_from_512_padded_tokens(nt, big):
+    class M:
+        _levers, _size_levers = frozenset({"opm_jd"}), frozenset({"transition_b8"})
+
+        @P._under_size_levers
+        def fold(self, feats):
+            return T._LEVERS
+
+    feats = {"atom_to_token_idx": torch.tensor([0, nt - 1])}
+    assert M().fold(feats) == (M._levers | M._size_levers if big else M._levers)
+    assert M().fold([feats, feats]) == M().fold(feats)       # fold_many keys on the shared token count

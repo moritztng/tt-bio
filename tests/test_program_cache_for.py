@@ -60,6 +60,8 @@ def evicting(monkeypatch):
     monkeypatch.setattr(T.ttnn, "synchronize_device", lambda dev: dev.calls.append("sync"))
     monkeypatch.setattr(T, "_PROGRAM_CACHE_SHAPES", [None])
     monkeypatch.setattr(T, "dram_free", lambda: 0)
+    monkeypatch.setattr(T, "_TRIMULS", T.weakref.WeakSet())
+    monkeypatch.setattr(T, "_ZERO_MASKS", {})
 
 
 def test_a_refusal_with_programs_cached_evicts_them_and_runs_again(evicting):
@@ -102,3 +104,30 @@ def test_a_second_refusal_after_eviction_is_raised(evicting):
     with pytest.raises(RuntimeError, match="Out of Memory"):
         T.evicting_programs_on_refusal(fold, dev)
     assert len(runs) == 2
+
+
+class WidthVariants:
+    """A trimul holding its in-projection at the chunk widths of two earlier lengths."""
+
+    def __init__(self):
+        self.gp = {(64, 1): "w64", (32, 2): "w32"}
+
+    def width_variants(self):
+        return (self.gp,)
+
+    def drop_width_variants(self):
+        self.gp.clear()
+
+
+def test_a_refusal_drops_per_width_weight_copies_even_with_no_programs(evicting):
+    # Program eviction alone left these, and JapanFold's ESMFold2 retries were refused beside them.
+    dev, tm = CachingDevice(programs=0), WidthVariants()
+    T._TRIMULS.add(tm)
+
+    def fold():
+        if tm.gp:
+            raise RuntimeError(REFUSAL)
+        return "folded"
+
+    assert T.evicting_programs_on_refusal(fold, dev) == "folded"
+    assert tm.gp == {}

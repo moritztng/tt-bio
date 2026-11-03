@@ -23,6 +23,15 @@ MOL1 = os.environ.get("MOL1_UPSTREAM", "/home/moritz/mol1-upstream/Mol-1")
 MODES = {"no_msa": dict(single_sequence=True), "msa": {}, "rna_msa": dict(use_rna_msa=True)}
 
 
+def _paths(block: dict):
+    """Every file or directory a chain block names, nested ones (msa.precomputed_msa_dir) too."""
+    for k, v in block.items():
+        if isinstance(v, dict):
+            yield from _paths(v)
+        elif k.endswith(("Path", "_dir")):
+            yield v
+
+
 def jobs() -> dict:
     """name -> job, with the @MOL1@ / @GOLDEN@ placeholders resolved; a job naming a file that is not here is left
     out (the upstream examples are not in this repository)."""
@@ -31,7 +40,7 @@ def jobs() -> dict:
         text = (DATA / name).read_text().replace("@MOL1@", MOL1).replace("@GOLDEN@", str(DATA))
         for job in json.loads(text):
             paths = [v for e in job["sequences"] for b in e.values() if isinstance(b, dict)
-                     for k, v in b.items() if k.endswith("Path")]
+                     for v in _paths(b)]
             paths += [b["ligand"][5:] for e in job["sequences"] for b in e.values()
                       if isinstance(b, dict) and str(b.get("ligand", "")).startswith("FILE_")]
             if all(Path(x).exists() for x in paths):

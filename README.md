@@ -246,6 +246,7 @@ is on record folding, from `docs/size_ladder_baseline.d/`:
 |---|---:|---:|
 | `boltz2` | 1536 | 1024 |
 | `esmfold2` | 1536 | 1024 |
+| `mol1` | 1536 | 1024 |
 | `nesso1` | 1536 | 1024 |
 | `openbind` | 1536 | 1024 |
 | `opendde` | 1024 | 1024 |

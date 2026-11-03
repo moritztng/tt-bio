@@ -4,8 +4,9 @@
  "note": "CAPACITY ONLY: allocates and completes. Not a correctness record. Per board type, because p150a and p300c do not have the same L1 and a cell filed under no card is a cell about no card.",
  "cards": {
   "p150a": {
-   "recorded": "2026-09-10T06:11:20Z",
-   "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
+   "recorded": "2026-11-02T16:36:55Z",
+   "host": "tt-quietbox",
+   "tree": "1cf560aa6cade818a8cd264105d6417ed6e2e721",
    "dirty_tree": false,
    "geometry": {
     "arch": "blackhole",
@@ -23,7 +24,7 @@
      "total_bytes": 160793600
     },
     "board_type": "p150a",
-    "host": "qb1",
+    "host": "tt-quietbox",
     "card": 0
    },
    "reductions": [
@@ -332,6 +333,25 @@
      "tree": "7f0e6c77abc68261b4189730fdcb97aab62b2698",
      "board_type": "p150a",
      "measured_on": "qb1:3"
+    },
+    "mol1": {
+     "verdict": "PASS",
+     "tokens_requested": 1536,
+     "tokens_padded": 1536,
+     "residues": 1536,
+     "msa_rows_effective": 8832,
+     "dram_peak_bytes": 10648997888,
+     "dram_total_bytes": 33923530240,
+     "wall_s": 1531.5,
+     "mechanism": null,
+     "decided_by": "residency",
+     "ceiling_tokens": null,
+     "alloc_ceiling_tokens": null,
+     "alloc_ceiling_note": null,
+     "reason": null,
+     "ceilings_fingerprint": "7a69c6f8c8589c16",
+     "tree": "1cf560aa6cade818a8cd264105d6417ed6e2e721",
+     "measured_on": "tt-quietbox:0"
     }
    }
   },

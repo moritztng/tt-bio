@@ -42,6 +42,17 @@ def postprocess(src, dst):
         elif ent[e][1] != g:
             ent[e] = ("polymer", g)
     b["entity"] = pdbx.CIFCategory({"id": list(ent), "type": [v[0] for v in ent.values()]})
+    lig = sorted({e for e, m in zip(a["label_entity_id"].as_array().tolist(), a["label_comp_id"].as_array().tolist())
+                  if m == "LIG"}, key=int)
+    if lig:  # tt-bio before 73aa8ca25 named SMILES/file ligands "LIG", a CCD compound; upstream's l01, l02 in entity order
+        name = {e: f"l{n:02d}" for n, e in enumerate(lig, 1)}
+        ents = a["label_entity_id"].as_array().tolist()
+        for k in ("label_comp_id", "auth_comp_id"):
+            if k in a:
+                a[k] = pdbx.CIFColumn(pdbx.CIFData([name[e] if m == "LIG" else m
+                                                    for e, m in zip(ents, a[k].as_array().tolist())]))
+        if "chem_comp" in b:
+            del b["chem_comp"]  # its LIG row describes the CCD compound; OST reads residue names, not this table
     if "entity_poly_seq" not in b:  # tt-bio writes atom_site only; DockQv2 finds polymer chains through this category
         seq = {}
         for g, e, n, m in zip(*(a[k].as_array().tolist() for k in ("group_PDB", "label_entity_id", "label_seq_id",
@@ -65,9 +76,9 @@ def cache(work, arm, arm_dir):
 def predictions(arm_dir, case, work):
     """[(seed, sample, ranking_score, postprocessed cif, summary dict)] for one case of one arm."""
     name = safe(case); out = []
-    # upstream writes <dump>/<case>/seed_*; tt-bio predict writes <out>/mol1_results_<case>/<case>/seed_*
+    # upstream writes <dump>/<case>/seed_*; tt-bio predict writes <out>/mol1_results_<input stem>/<case>/seed_*
     hits = [*(arm_dir / name).glob("seed_*/predictions/*_sample_*.cif"),
-            *(arm_dir / f"mol1_results_{name}" / name).glob("seed_*/predictions/*_sample_*.cif")]
+            *arm_dir.glob(f"mol1_results_*/{name}/seed_*/predictions/*_sample_*.cif")]  # a multi-job JSON names one dir
     for cif in sorted(hits):
         seed = int(cif.parts[-3].split("_")[1]); k = int(re.search(r"_sample_(\d+)\.cif$", cif.name).group(1))
         summ = json.loads(cif.with_name(f"{name}_summary_confidence_sample_{k}.json").read_text())
@@ -159,11 +170,15 @@ def evaluate(arm, arm_dir, cases, inputs, work):
     from evaluation.eval_by_dockqv2 import eval_by_dockqv2
     rows = []
     by_task = defaultdict(list)  # (task, variant) -> [(case, target row, preds)]
+    # cases the engine refused with its size-cap error on this arch (D-orch-59): out of the arch's served range, no miss
+    cap = arm_dir / "REFUSED_BY_CAP"
+    refused = {l.split()[0] for l in cap.read_text().splitlines() if l.strip()} if cap.exists() else set()
     for c in cases:
         task, trows = targets(c)
         preds = predictions(arm_dir, c["id"], cache(work, arm, arm_dir))
         if not preds:
-            rows.append({"arm": arm, "case": c["id"], "set": c["set"], "missing": True})
+            rows.append({"arm": arm, "case": c["id"], "set": c["set"], "missing": True,
+                         **({"refused_cap": True} if safe(c["id"]) in refused else {})})
             continue
         variant = c["id"].split(":", 1)[1] if ":" in c["id"] and not c["id"].startswith(("pfm:", "upstream:")) else ""
         for t in trows:
@@ -260,7 +275,8 @@ def main():
     ap.add_argument("--cases", required=True, type=Path)
     ap.add_argument("--work", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--arm", action="append", default=[], help="name=DIR (gpu, gpu_self, tt_bh, tt_wh; any tt_* arm is graded against gpu)")
+    ap.add_argument("--arm", action="append", default=[], help="name=DIR (gpu, gpu_self, gpu_fp32, tt_bh, tt_wh; any tt_* arm is graded against gpu, and with "
+                    "gpu_fp32 present also by the D-orch-56 width rule)")
     ap.add_argument("--headline", type=Path)
     ap.add_argument("--seeds", action="append", default=[], help="ARM=S1,S2: that TT arm ran only these seeds; graded "
                     "against gpu on the same seeds and a gpu_self floor of as many seeds")
@@ -281,9 +297,14 @@ def main():
     arm_seeds = {k: tuple(map(int, v.split(","))) for k, v in (x.split("=", 1) for x in a.seeds)}
     sets = sorted({c["set"] for c in spec["paired"]})
     per_arch, per_set = {}, {}
+    fp32_seeds = {r["seed"] for r in ok if r["arm"] == "gpu_fp32"}
     for test in [x for x in arms if x.startswith("tt_")]:  # tt_bh, tt_wh, and A/B arms such as tt_bh_b
         arch = test[3:]
-        missing = sorted({r["case"] for r in rows if r["arm"] == test and r.get("missing")})
+        # a case the GPU arm never produced (8jik smiles: no input staged) is no TT miss
+        base_has = {r["case"] for r in ok if r["arm"] == "gpu"}
+        mine = [r for r in rows if r["arm"] == test and r.get("missing")]
+        missing = sorted({r["case"] for r in mine if r["case"] in base_has and not r.get("refused_cap")})
+        refused = sorted({r["case"] for r in mine if r.get("refused_cap")})
         sd = arm_seeds.get(test)
         v = stats.verdict(ok, test, conf_split=split, seeds=sd)
         per_set[arch] = {s: stats.verdict(ok, test, cases={r["case"] for r in ok if r["set"] == s}, conf_split=split, seeds=sd)
@@ -291,9 +312,21 @@ def main():
         failed_sets = [s for s, x in per_set[arch].items() if x["verdict"] == "FAIL"]
         verdict = "FAIL" if missing or failed_sets or v["verdict"] == "FAIL" else v["verdict"]
         per_arch[arch] = {"verdict": verdict, "pooled": v, "failed_sets": failed_sets, "missing": missing,
+                          "refused_by_cap": refused,
                           "seeds": list(sd) if sd else sorted({r["seed"] for r in ok if r["arm"] == test})}
         if split:
             per_arch[arch]["pooled_all_cases"] = stats.verdict(ok, test, seeds=sd)
+        if "gpu_fp32" in arms:  # D-orch-56: all cases, the test arm's seeds that upstream fp32 also ran
+            fs = tuple(sorted(set(sd or {r["seed"] for r in ok if r["arm"] == test}) & fp32_seeds))
+            def d56(cases=None):
+                return stats.with_fp32(stats.verdict(ok, test, cases=cases, seeds=fs),
+                                       stats.verdict(ok, test, base="gpu_fp32", floor_base="gpu", cases=cases, seeds=fs))
+            pooled = d56()
+            sets56 = {s: d56({r["case"] for r in ok if r["set"] == s}) for s in sets}
+            failed56 = [s for s, x in sets56.items() if x["verdict"] == "FAIL"]
+            per_arch[arch]["d_orch_56"] = {"seeds": list(fs), "pooled": pooled, "per_set": sets56, "failed_sets": failed56}
+            per_arch[arch]["chartered_verdict"] = verdict
+            per_arch[arch]["verdict"] = "FAIL" if missing or failed56 or pooled["verdict"] == "FAIL" else pooled["verdict"]
     floor = stats.self_test(ok) if "gpu_self" in arms else None
     arch = {k: v["verdict"] for k, v in per_arch.items() if k in ("bh", "wh")}
     q = {"verdict": "PASS" if arch.get("wh") == "PASS" and arch.get("bh") == "PASS" else
@@ -306,6 +339,8 @@ def main():
          "headline": headline(a.headline, spec["headline"]["cases"], a.inputs, a.work) if a.headline else None,
          "ab": {x: stats.verdict(ok, *x.split("=", 1)) for x in a.ab},  # TT vs TT: both share the precision
          "ref_split": split,
+         # upstream's own precision split: fp32 minus bf16 autocast, beside the bf16 seed floor
+         "fp32_vs_bf16": stats.verdict(ok, "gpu_fp32", seeds=tuple(sorted(fp32_seeds))) if "gpu_fp32" in arms else None,
          "pose": pose(arms, a.pose_base, spec["paired"], a.work) if a.pose_base else None,
          "paths": {"cases": str(a.cases), "inputs": str(a.inputs), "arms": arms, "rows": str(a.work / "rows.json")}}
     a.out.write_text(json.dumps(q, indent=1, default=float))

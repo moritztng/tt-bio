@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 import time
+from functools import partial
 from typing import Any, ClassVar, Literal
 
 import numpy as np
@@ -575,16 +576,26 @@ def _fill_idealized(mol: Chem.Mol, idealized_conformer: Chem.Conformer, n_confor
     return mol
 
 
-def _conformers_here(jobs, seeds, timeout, kwargs):
-    """(mols, warnings) for (ccd_code, n_conformers) jobs on given seeds, one forked child per code."""
+def _generate_conformers_as(props, mol, **kwargs):
+    """`generate_conformers` in a `timer.SubprocessPool` worker, pickled back with the caller's RDKit pickle
+    properties: the worker was forked before the caller last set them."""
+    Chem.SetDefaultPickleProperties(props)
+    return generate_conformers(mol, **kwargs)
+
+
+def _conformers_here(jobs, seeds, timeout, kwargs, pool=None):
+    """(mols, warnings) for (ccd_code, n_conformers) jobs on given seeds, one child per code: forked for the
+    call, or a reused worker of `pool` (a `timer.SubprocessPool`)."""
+    gen = generate_conformers if pool is None else partial(_generate_conformers_as, Chem.GetDefaultPickleProperties())
     prepared, calls = [], []
     for (ccd_code, n), seed in zip(jobs, seeds):
         mol = ccd_code_to_rdkit(ccd_code, hydrogen_policy="remove")
         prepared.append((ccd_code, n, mol, Chem.Conformer(mol.GetConformer(0))))
         t = _auto_timeout_policy(n, *timeout) if isinstance(timeout, tuple) else timeout
-        calls.append((t, generate_conformers, (mol,), dict(kwargs, n_conformers=n, seed=seed)))
+        calls.append((t, gen, (mol,), dict(kwargs, n_conformers=n, seed=seed)))
+    run = timer.run_in_subprocesses if pool is None else pool.run
     mols, warnings = [], []
-    for (ccd_code, n, mol, ideal), (ok, value) in zip(prepared, timer.run_in_subprocesses(calls)):
+    for (ccd_code, n, mol, ideal), (ok, value) in zip(prepared, run(calls)):
         if ok:
             mol = value
         elif isinstance(value, (TimeoutError, RuntimeError, Chem.MolSanitizeException)):
@@ -604,8 +615,8 @@ _HELPER_LOCK = threading.Lock()
 def _conformers_in_helper(jobs, seeds, timeout, kwargs):
     """`_conformers_here` in a small long-lived helper process. Forking the serving process costs its page
     tables per child (about 0.4 s each with 12 GiB resident, 18 s for the 20 amino acids of a 512-residue
-    RF3 fold); the helper holds only RDKit and atomworks, so its children fork in milliseconds. One request
-    at a time on its pipe."""
+    RF3 fold); the helper holds only RDKit and atomworks and keeps its children between requests
+    (timer.SubprocessPool). One request at a time on its pipe."""
     with _HELPER_LOCK:
         if not _HELPER or _HELPER[0].poll() is not None:
             _HELPER[:] = [subprocess.Popen(

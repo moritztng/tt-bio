@@ -10,7 +10,12 @@ from biotite.structure import AtomArray
 from rdkit import Chem
 
 from tt_bio._vendor.atomworks.common import exists
-from tt_bio._vendor.atomworks.constants import CCD_MIRROR_PATH, ELEMENT_NAME_TO_ATOMIC_NUMBER, UNKNOWN_LIGAND
+from tt_bio._vendor.atomworks.constants import (
+    CCD_MIRROR_PATH,
+    ELEMENT_NAME_TO_ATOMIC_NUMBER,
+    HYDROGEN_LIKE_SYMBOLS,
+    UNKNOWN_LIGAND,
+)
 from tt_bio._vendor.atomworks.enums import GroundTruthConformerPolicy
 from tt_bio._vendor.atomworks.io.tools.rdkit import atom_array_from_rdkit, remove_hydrogens
 from tt_bio._vendor.atomworks.io.utils.ccd import get_available_ccd_codes
@@ -198,6 +203,20 @@ def _map_reference_conformer_to_residue(
     return ref_pos, ref_mask  # [n_atoms_in_res, 3], [n_atoms_in_res]
 
 
+def _conformer_array(converted: dict, mol: Chem.Mol, res_name: str, conformer_id: int) -> AtomArray:
+    """tt-bio: `atom_array_from_rdkit(mol, conformer_id=conformer_id, remove_hydrogens=True)` for one more residue
+    of a CCD code. Converting each residue cost 0.44 s of a 512-residue featurize, and the conformers of one code
+    differ only in their coordinates, so each code converts once and later residues copy in their coordinates."""
+    if res_name not in converted:
+        heavy = np.array([a.GetSymbol() not in HYDROGEN_LIKE_SYMBOLS for a in mol.GetAtoms()], dtype=bool)
+        converted[res_name] = (atom_array_from_rdkit(mol, conformer_id=conformer_id, remove_hydrogens=True), heavy)
+        return converted[res_name][0]
+    first, heavy = converted[res_name]
+    conformer = first.copy()
+    conformer.coord = mol.GetConformer(conformer_id).GetPositions()[heavy]
+    return conformer
+
+
 def get_af3_reference_molecule_features(
     atom_array: AtomArray,
     conformer_generation_timeout: float | tuple[float, float] = (3.0, 0.15),
@@ -335,6 +354,7 @@ def get_af3_reference_molecule_features(
     # Fill `ref_pos` and `ref_mask` arrays
     # ... helper variable to keep track of the next conformer to use for each residue type
     _next_conf_idx = {res_name: 0 for res_name in ref_mols}
+    _converted = {}
 
     # ... iterate over all residues in the atom array and fill the `ref_pos` and `ref_mask` arrays using the next reference conformer for each residue type
     # We also check the `ground_truth_conformer_policy` annotation to see if we should use the ground-truth conformer
@@ -359,11 +379,7 @@ def get_af3_reference_molecule_features(
         else:
             # Ensure conf_idx is within bounds for generated conformers
             n_conformers = ref_mols[res_name].GetNumConformers()
-            conformer = atom_array_from_rdkit(
-                ref_mols[res_name],
-                conformer_id=conf_idx % n_conformers,
-                remove_hydrogens=True,
-            )
+            conformer = _conformer_array(_converted, ref_mols[res_name], res_name, conf_idx % n_conformers)
 
         if _has_ground_truth_conformer_policy:
             _has_valid_ground_truth = ~np.isnan(atom_array.coord[res_start:res_end]).any()

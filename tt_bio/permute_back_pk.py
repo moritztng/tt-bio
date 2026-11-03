@@ -25,6 +25,10 @@ WB = 8
 # Units run channel tile fastest. Channel tile slowest put a unit's 32 reads (stride N^2/1024 pages) and 32 writes
 # (stride N*H/1024) on 3 of Wormhole's 12 DRAM banks: 1.62 vs 1.48 ms at 512 c256, 6.18 vs 5.67 at 1024 (bpk8).
 ORD = 1
+# Units dealt round-robin (core c runs c, c + ncores, ...) instead of in contiguous ranges. A unit's 32 writes share one
+# DRAM bank wherever St * Ht is a multiple of the bank count, so what spreads the banks is which units run at once;
+# round-robin runs consecutive units side by side. Same units per core, same tiles: bit-identical. A/B knob.
+RR = 0
 _CACHE: dict = {}
 TILE = 32
 
@@ -51,7 +55,7 @@ def permute_back_pk(x, out, grid, c_off=0):
     St, CT, Ht = N // TILE, C // TILE, H // TILE
     # The accessor args differ by buffer type (DRAM / L1) and bank layout, so the memory configs are part of the key.
     key = (B, C, N, H, c_off, tuple(grid), str(x.dtype), str(out.dtype), str(x.memory_config()), str(out.memory_config()), ABL, OUT_TILES,
-           WB, ORD)
+           WB, ORD, RR)
     entry = _CACHE.get(key)
     if entry is None:
         gx, gy = grid
@@ -62,8 +66,7 @@ def permute_back_pk(x, out, grid, c_off=0):
         u0 = 0
         for c in range(ncores):
             n = nu // ncores + (c < nu % ncores)
-            rd[c % gx][c // gx] = [u0, n]
-            wr[c % gx][c // gx] = [u0, n]
+            rd[c % gx][c // gx] = wr[c % gx][c // gx] = [c, n, ncores] if RR else [u0, n, 1]
             cp[c % gx][c // gx] = [n]
             u0 += n
         acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())
@@ -114,8 +117,7 @@ def tile_rows(x, out, grid):
         u0 = 0
         for c in range(ncores):
             n = nu // ncores + (c < nu % ncores)
-            rd[c % gx][c // gx] = [u0, n]
-            wr[c % gx][c // gx] = [u0, n]
+            rd[c % gx][c // gx] = wr[c % gx][c // gx] = [c, n, ncores] if RR else [u0, n, 1]
             cp[c % gx][c // gx] = [n]
             u0 += n
         acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())

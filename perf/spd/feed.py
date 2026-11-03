@@ -137,11 +137,14 @@ if A["kind"] == "galaxy":
     out["paused"] = os.path.exists(P + "/PAUSE") or not A.get("lend") and os.path.exists(P + "/RETURNED")
     out["live"] = q + [os.path.basename(r).split("-", 2)[2] for r in glob.glob(P + "/running/*.sh")
                        if not os.path.exists(r + ".end")]
-    for n in q:
-        if "-f-" in n: out["jobs"][n] = {"state": "queued"}
     for sh in sorted(glob.glob(P + "/running/*-f-*.sh"), key=os.path.getmtime):
         n = os.path.basename(sh).split("-", 2)[2]          # <stamp>-c<u>-<name>
         out["jobs"][n] = ended(sh, sh + ".end", sh) if os.path.exists(sh + ".end") else {"state": "running"}
+    # a name back in queue/ is queued, not its earlier run's end: pool.sh requeues a job recalled under it, and reading
+    # that as "ended rc 130" made the feed place a second copy elsewhere and miss this one as a twin (.108 11-03: kl1ab
+    # ran on chips 8 and 14 at once into one out dir). A copy still running stays running.
+    for n in q:
+        if "-f-" in n and out["jobs"].get(n, {}).get("state") != "running": out["jobs"][n] = {"state": "queued"}
     # sweep: renamed-dead entries (.moved/.stopped/.dup/...) older than 2 h go to archive/<day>/<dir>/
     arch = P + "/archive/" + time.strftime("%Y%m%d"); moved = 0
     for d in [P + "/queue", P + "/running"] + glob.glob(P + "/backlog/*"):
