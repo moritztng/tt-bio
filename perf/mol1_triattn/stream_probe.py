@@ -18,7 +18,33 @@ import torch
 import ttnn
 import tt_bio.tenstorrent as T
 import clocksample
-from sdpa_sweep import capture
+from bench import ARMS, HD, weights
+
+
+def capture(dev, S, c, H):
+    """(args, kwargs) of the first served `_tri_att_sdpa_at` call of one TriangleAttention, cloned on device."""
+    sd = weights(c, H, 7)
+    torch.manual_seed(S + c)
+    x = torch.randn(S, S, c).bfloat16()
+    ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
+                                                 fp32_dest_acc_en=True, packer_l1_acc=True)
+    got, orig = [], T._tri_att_sdpa_at
+
+    def grab(*args, **kw):
+        if not got:
+            got.append(([ttnn.clone(t) if isinstance(t, ttnn.Tensor) else t for t in args], dict(kw)))
+        return orig(*args, **kw)
+    T._MM_DEFAULT_WIDE = ARMS["served"][1]
+    T._tri_att_sdpa_at = grab
+    try:
+        with T.levers(ARMS["served"][0]):
+            mod = T.TriangleAttention(HD, H, False, sd, ckc, softmax_site="pairformer")
+            xt = ttnn.from_torch(x.unsqueeze(0), dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev)
+            ttnn.deallocate(mod(xt))
+            ttnn.deallocate(xt)
+    finally:
+        T._tri_att_sdpa_at = orig
+    return got[0]
 
 
 def timed(fn, reps, dev):
@@ -48,8 +74,9 @@ def main():
                                      q_chunk_size=int(qc), k_chunk_size=int(kc))
         ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi2,
                                                      math_approx_mode=True, fp32_dest_acc_en=False, packer_l1_acc=False)
-        sq, sk, sv, sb, ss, sckc, spad = capture(dev, S, H * 32, H)
-        arms = {"served": lambda: T._tri_att_sdpa(sq, sk, sv, sb, ss, sckc, spad),
+        sargs, skw = capture(dev, S, H * 32, H)
+        print(json.dumps({"S": S, "H": H, "served_q_shape": list(sargs[0].padded_shape), "served_kw": str(skw)}))
+        arms = {"served": lambda: T._tri_att_sdpa_at(*sargs, **skw),
                 "nomask": lambda: ttnn.transformer.scaled_dot_product_attention(
                     q, k, v, is_causal=False, scale=1.0, program_config=cfg, compute_kernel_config=ckc),
                 "mask": lambda: ttnn.transformer.scaled_dot_product_attention(
@@ -62,7 +89,7 @@ def main():
                                   "aiclk": clk.summary()}), flush=True)
             except Exception as e:  # noqa: BLE001
                 print(json.dumps({"S": S, "H": H, "arm": name, "error": str(e)[:300]}), flush=True)
-        for t in (q, k, v, mask, sq, sk, sv, sb):
+        for t in [q, k, v, mask] + [t for t in sargs if isinstance(t, ttnn.Tensor)]:
             t.deallocate()
 
 
