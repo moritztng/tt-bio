@@ -8,7 +8,8 @@
 # 0f7f78917 (on main, whl1's k1 CB fix) folded 8pe3, which crashes both older trees.
 # HOST, SRC and ARM (default .107, its tt-wh, qb2's arms/tt_wh) point a regrade on a candidate tree at its own folds and
 # arm dir, so the graded arm never mixes trees (D-moritz-1103c: WH regrade on whl3's tree before it merges).
-#   bash wh_sync.sh [OUT [N [SHA [SEEDS [HOST [SRC [ARM]]]]]]]   OUT default final-wh, N = folds expected (167 cases x 2 seeds), SHA the WH trees
+# NOREQ (default .107's norequeue.txt) lists the cases that crash every tree; a newer tree that may fold them passes its own.
+#   bash wh_sync.sh [OUT [N [SHA [SEEDS [HOST [SRC [ARM [NOREQ]]]]]]]]   OUT default final-wh, N = folds expected (167 cases x 2 seeds), SHA the WH trees
 set -uo pipefail
 OUT=${1:-final-wh} N=${2:-334} SHA=${3:-7374eb5a6,0b2e93ecd,0f7f78917} SEEDS=${4:-42,66}
 rcs=$(sed 's#[^,]*#.runs/*/seed_&/rc#g; s#,# #g' <<< "$SEEDS")
@@ -26,7 +27,7 @@ cap=$(timeout 120 $S $G "cd $R && grep -l SizeTooLargeError $(sed 's#rc#harness.
 timeout 60 $S $Q "cd $A && cat > REFUSED_BY_CAP" <<< "$cap"
 # a case that crashes WH on every tree it has (.107 norequeue.txt, also read by wh_requeue.sh) is not waited for either:
 # grade.py lists it as missing, so the arch FAILs on it until a fixed tree folds it
-bad=$(timeout 60 $S $G "cat spd/mol1-quality/norequeue.txt 2>/dev/null")
+bad=$(timeout 60 $S $G "cat ${8:-spd/mol1-quality/norequeue.txt} 2>/dev/null")
 N=$(( N - $(cat <<< "$cap"$'\n'"$bad" | grep -c .) * $(tr , '\n' <<< "$SEEDS" | grep -c .) ))
 new=$(comm -23 <(sort <<< "$src") <(sort <<< "$have") | grep .)
 if [ -n "$new" ]; then
