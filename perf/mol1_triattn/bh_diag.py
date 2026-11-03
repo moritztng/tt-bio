@@ -74,4 +74,8 @@ for S, c, H, end in cells:
         # is it a misplaced value (a permutation) or a wrong one?
         print(f"   bias sorted-equal {torch.equal(b0.flatten().sort().values, b1.flatten().sort().values)}"
               f" max_abs {float((b0 - b1).abs().max()):.4f}", flush=True)
+        # transpose_wh_dest moves fp32 DST through srcB: a 1-ulp bf16 difference is rounding, more is a bug
+        ulp = torch.ldexp(torch.ones_like(b0), torch.frexp(b0.abs().clamp_min(2**-126))[1] - 8)
+        du = ((b0 - b1).abs() / ulp).round().long()
+        print(f"   bias bf16 ulps {torch.bincount(du.flatten().clamp_max(8)).tolist()} (0..8+)", flush=True)
 T.cleanup()
