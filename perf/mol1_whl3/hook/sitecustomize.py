@@ -39,6 +39,18 @@ def _patch(mod):
 
     mod.bucketed_pairformer = bpf
 
+    # WHL3_LAYERS=1: the trunk's single track after every PairformerLayer up to the first confidence call (layers.pt)
+    layers = {"on": bool(os.environ.get("WHL3_LAYERS")), "s": []}
+    orig_layer = _T.PairformerLayer.__call__
+
+    def layer_call(self, s, *a, **kw):
+        so, zo = orig_layer(self, s, *a, **kw)
+        if layers["on"] and so is not None:
+            layers["s"].append(ttnn.to_torch(so).float().reshape(-1, so.shape[-1]).clone())
+        return so, zo
+
+    _T.PairformerLayer.__call__ = layer_call
+
     def run_arm(self, s_inputs, s_trunk, z_trunk, coords, feats, host):
         ch = self.confidence_head
         taps.append((ch.pf, []))
@@ -58,6 +70,11 @@ def _patch(mod):
                 "plddt_logits": torch.stack([c["plddt_logits"].float() for c in confs]), "s_single": so}
 
     def _confidences(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats, keep_logits=False):
+        if layers["on"]:
+            layers["on"] = False
+            if _OUT:
+                os.makedirs(_OUT, exist_ok=True)
+                torch.save(layers.pop("s"), os.path.join(_OUT, "layers.pt"))
         out = orig_conf(self, s_inputs, s_trunk, z_trunk, z_base, coords, feats, keep_logits)
         if not _OUT or os.path.exists(os.path.join(_OUT, "arms.pt")):
             return out
