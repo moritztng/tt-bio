@@ -14280,6 +14280,26 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
 _FP32_NORM_PARAMS = {}
 
 
+def _fp32_row_mean(x, ckc, mc):
+    """Mean over the last dim of an fp32 `x`, to fp32 precision on either arch.
+
+    `ttnn.mean` reduces through the FPU, whose source registers hold 19 bits (tf32) on Wormhole: on Mol-1's trunk
+    block 43 input (rows up to 3e5) the mean was off by 2.2e-3 sigma per token and the layer norm's per-token part
+    by 3.3x itself (float64 reference, perf/mol1_whl4/ln_split_probe.py). Split as x = bf16(x) + rest, every term
+    is exact in the source registers, so the two reductions add up to the fp32 mean.
+    """
+    hi = ttnn.typecast(ttnn.typecast(x, ttnn.bfloat16, memory_config=mc), ttnn.float32, memory_config=mc)
+    lo = ttnn.subtract(x, hi, memory_config=mc)
+    m_hi = ttnn.mean(hi, dim=-1, keepdim=True, compute_kernel_config=ckc, memory_config=mc)
+    ttnn.deallocate(hi)
+    m_lo = ttnn.mean(lo, dim=-1, keepdim=True, compute_kernel_config=ckc, memory_config=mc)
+    ttnn.deallocate(lo)
+    out = ttnn.add(m_hi, m_lo, memory_config=mc)
+    ttnn.deallocate(m_hi)
+    ttnn.deallocate(m_lo)
+    return out
+
+
 def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memory_config=None):
     """Layer norm over the last dim from fp32 primitives (mean, centred variance, rsqrt), written at `dtype`.
 
@@ -14297,12 +14317,12 @@ def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memo
                                            ttnn.typecast(bias, ttnn.float32))
     mc = memory_config
     x32 = ttnn.typecast(x, ttnn.float32, memory_config=mc) if x.dtype != ttnn.float32 else x
-    xc = ttnn.subtract(x32, ttnn.mean(x32, dim=-1, keepdim=True, compute_kernel_config=compute_kernel_config,
-                                      memory_config=mc), memory_config=mc)
+    xc = ttnn.subtract(x32, _fp32_row_mean(x32, compute_kernel_config, mc), memory_config=mc)
     if x32 is not x:
         ttnn.deallocate(x32)
-    var = ttnn.mean(ttnn.multiply(xc, xc, memory_config=mc), dim=-1, keepdim=True,
-                    compute_kernel_config=compute_kernel_config, memory_config=mc)
+    sq = ttnn.multiply(xc, xc, memory_config=mc)
+    var = _fp32_row_mean(sq, compute_kernel_config, mc)
+    ttnn.deallocate(sq)
     inv = ttnn.rsqrt(ttnn.add(var, epsilon, memory_config=mc), memory_config=mc)
     ttnn.deallocate(var)
     out = ttnn.multiply_(xc, inv)
@@ -14345,8 +14365,8 @@ def fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype):
     Wormhole the dithering reached 1.7-5.9 and cost the confidence head's pLDDT 0.92 -> 0.49 (8fg6) and 0.89 -> 0.74
     (8k83). The track is N_token x 384, so fp32 costs little. state/mol1/evidence/whl3/ROOT.md.
     """
-    ckc = ttnn.WormholeComputeKernelConfig(math_fidelity=ckc.math_fidelity, math_approx_mode=ckc.math_approx_mode,
-                                           fp32_dest_acc_en=True, packer_l1_acc=ckc.packer_l1_acc)
+    ckc = type(ckc)(math_fidelity=ckc.math_fidelity, math_approx_mode=ckc.math_approx_mode,
+                    fp32_dest_acc_en=True, packer_l1_acc=ckc.packer_l1_acc)
     # The fp32 intermediates stay in L1, as the bf16 path's do, unless the device refused that at this shape:
     # BoltzGen's diffusion conditioning keeps enough in L1 that the main-grid fc matmul's circular buffers clash.
     # The DRAM form computes the same values (only placement and the matmul grid differ).
@@ -14713,9 +14733,12 @@ class Transition(Module):
         state_dict: Weights,
         compute_kernel_config: ttnn.DeviceComputeKernelConfig,
         dtype: ttnn.DataType | None = None,
+        fp32_single: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.dtype = dtype
+        # A single track carried in fp32 (`PairformerLayer(s_fp32=True)`) runs `fp32_single_transition`.
+        self.fp32_single = fp32_single
         weight_dtype = dtype if dtype is not None else ttnn.bfloat16
         # transition_b8: the three matmul weights and the hidden activations fc1/fc2 write in bfp8;
         # the norm stays at the stage dtype, and so does fc3's output, added into the residual.
@@ -14936,8 +14959,7 @@ class Transition(Module):
         def swiglu_l1(x):
             dtype = self.dtype if self.dtype is not None else _dtype()
             hidden = ttnn.bfloat8_b if self._hidden_b8 else dtype
-            # The single track (3-D) on Wormhole runs in fp32: see `fp32_single_transition`.
-            if len(x.shape) == 3 and is_wormhole() and not ops.taping():
+            if self.fp32_single and not ops.taping():
                 return fp32_single_transition(x, self.norm_weight, self.norm_bias, self.fc1_weight, self.fc2_weight,
                                               self.fc3_weight, self.compute_kernel_config, x.dtype)
             x_norm = ttnn.layer_norm(
@@ -15400,6 +15422,7 @@ class PairformerLayer(Module):
         tri_att_sdpa_ragged_pad: bool = False,
         s_fp32_residual: bool = False,
         z_fp32_residual: bool = False,
+        s_fp32: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         self.transform_s = transform_s
@@ -15414,7 +15437,13 @@ class PairformerLayer(Module):
         # its own update with 3.1e-02 to 2.6e-01 relative error, and pLDDT, which reads the
         # small channels of LN(s), comes out 2.42e-01 off. Off by default: a track whose
         # residual and update are the same order of magnitude gains nothing.
-        self.s_fp32_residual = s_fp32_residual
+        self.s_fp32_residual = s_fp32_residual or s_fp32
+        # `s_fp32`: the single track is fp32 end to end, not only its residual. The Transition reads the fp32
+        # residual and runs in fp32 (`fp32_single_transition`), and the block hands back fp32. For a trunk whose
+        # output the confidence head reads: Mol-1's trunk block 43 leaves the small channels at 37-500 with a
+        # per-token part of 0.08-0.28, below bf16's step there, and the bf16 store alone costs 7fxn 0.065 pLDDT
+        # against upstream fp32 (state/mol1/evidence/whl4/ROOT.md).
+        self.s_fp32 = s_fp32
         # The same trade for the pair track, and TRAINING ONLY: it fires only while a tape is
         # open, so inference runs the bf16 `add_` below whatever a caller passes. Upstream keeps
         # z in fp32 between ops; holding it in bf16 is what carries our msa_module forward gap
@@ -15543,7 +15572,7 @@ class PairformerLayer(Module):
                 softmax_site="pairformer",
             )
             self.transition_s = Transition(
-                self.scope("transition_s"), compute_kernel_config
+                self.scope("transition_s"), compute_kernel_config, fp32_single=s_fp32
             )
 
     def __call__(
@@ -15624,7 +15653,7 @@ class PairformerLayer(Module):
             s = self._s_residual(s, s_update)
             _layer_tap("s_apb", s)
 
-            s_update = self.transition_s(self._s_compute(s), mask=trans_mask_s)
+            s_update = self.transition_s(s if self.s_fp32 else self._s_compute(s), mask=trans_mask_s)
             s = self._s_residual(s, s_update)
             _layer_tap("s_transition", s)
         return s, z
@@ -15675,6 +15704,7 @@ class Pairformer(Module):
         tri_att_sdpa_ragged_pad: bool = False,
         s_fp32_residual: bool = False,
         z_fp32_residual: bool = False,
+        s_fp32: bool = False,
     ):
         super().__init__(state_dict, compute_kernel_config)
         # One head count for the stack, or one per block where widths differ (0 = no triangle
@@ -15708,6 +15738,7 @@ class Pairformer(Module):
                 tri_att_sdpa_ragged_pad=tri_att_sdpa_ragged_pad,
                 s_fp32_residual=s_fp32_residual,
                 z_fp32_residual=z_fp32_residual,
+                s_fp32=s_fp32,
             )
             for i in range(n_blocks)
         ]

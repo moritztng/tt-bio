@@ -1,4 +1,4 @@
-"""Device probe: Wormhole fp32 LayerNorm statistics, ttnn.mean as is vs a two-term split (bf16 head + fp32 tail),
+"""Device probe: Wormhole fp32 LayerNorm statistics, ttnn.mean as is vs a two/three-term split (bf16 head + fp32 tail), and a bf16x3 split row sum through a matmul with ones,
 on trunk block 43's single-Transition input (x0_dump.py). Graded vs float64: mean err / sigma, var rel err, and the
 rel err of the LN output's token part (x - token mean). TT_VISIBLE_DEVICES=N python ln_split_probe.py X0.pt OUT.json"""
 import json, sys
@@ -24,10 +24,25 @@ def mean_split(x):
     hi = ttnn.typecast(ttnn.typecast(x, ttnn.bfloat16), ttnn.float32)
     lo = ttnn.subtract(x, hi)
     return ttnn.add(mean_plain(hi), mean_plain(lo))
+def split(x, k):
+    parts = []
+    for _ in range(k - 1):
+        hi = ttnn.typecast(ttnn.typecast(x, ttnn.bfloat16), ttnn.float32); parts.append(hi); x = ttnn.subtract(x, hi)
+    return parts + [x]
+def mean_split3(x):
+    p = split(x, 3); return ttnn.add(ttnn.add(mean_plain(p[0]), mean_plain(p[1])), mean_plain(p[2]))
+ONES = ttnn.from_torch(torch.ones(384, 32), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
+def rowsum_mm(x):
+    return ttnn.slice(ttnn.matmul(x, ONES, compute_kernel_config=ckc, dtype=ttnn.float32), [0, 0, 0], [1, x.shape[1], 1])
+def mean_mm(x):
+    p = split(x, 3); t = rowsum_mm(ttnn.typecast(p[0], ttnn.bfloat16))
+    for q in p[1:]:
+        t = ttnn.add(t, rowsum_mm(ttnn.typecast(q, ttnn.bfloat16)))
+    return ttnn.multiply(t, 1.0 / 384)
 X = up(xd)
 W, B = up(lw.reshape(1, -1)), up(lb.reshape(1, -1))
 res = {}
-for k, mean in (("plain", mean_plain), ("split", mean_split)):
+for k, mean in (("plain", mean_plain), ("split", mean_split), ("split3", mean_split3), ("mm3", mean_mm)):
     m = mean(X); xc = ttnn.subtract(X, m); v = mean(ttnn.multiply(xc, xc))
     o = ttnn.add(ttnn.multiply(ttnn.multiply(xc, ttnn.rsqrt(ttnn.add(v, 1e-5))), W), B)
     res[k] = {"mean_err_over_sigma": float(((back(m) - mu).abs() / var.sqrt()).max()),

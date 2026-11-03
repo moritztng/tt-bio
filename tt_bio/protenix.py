@@ -3821,8 +3821,10 @@ class Trunk(_KeyedWeights):
             pf_heads.append(0 if ta is None else int(ta.shape[0]))
         # Mol-1's pair-width adapters: before_block_<i> and after_blocks (PW.remap_pair_adapters).
         comb.update(PW.remap_pair_adapters(self._w, "pairformer_stack.", nb_pf))
+        # The single track in fp32 end to end (`PairformerLayer` s_fp32): the confidence head reads its small
+        # channels' per-token part, which a bf16 store erases.
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, pf_heads, 384 // 16, 16, True, comb,
-                             compute_kernel_config, gated_move=gated_move,
+                             compute_kernel_config, gated_move=gated_move, s_fp32=True,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.trunk", default=True))
         # Template embedder: pair-only PairformerLayers, count from the weights. Protenix-v2
         # has 2. Every PXDesign-pinned Protenix variant ships a template embedder that is only
@@ -4288,7 +4290,7 @@ class Trunk(_KeyedWeights):
                 ttnn.deallocate(rows[0])
                 del m_feat, rows
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
-            s = ttnn.add(s_init, sc)
+            s = ttnn.add(s_init, sc, dtype=ttnn.float32)
             s, z3 = self.PF(ttnn.reshape(s, (1, N, 384)), z3, pmask_tt, attn_tt, attn_tt)
             s = ttnn.reshape(s, (N, 384))
             # The one region cycle 0's MSA taps did not cover: the s update and the trunk-level
