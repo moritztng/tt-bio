@@ -196,10 +196,18 @@ def _pb_rr(v):
     return prev
 
 
-def _pb_sw(v):
-    """permute_back_pk split writer (PB.SW): the reader writes each unit's odd 8-tile groups, bit-identical."""
+def _pb_wb(v):
+    """permute_back_pk writer flushes every v tiles, out_cb 2v tiles (PB.WB, PB.OUT_TILES), bit-identical."""
     import tt_bio.permute_back_pk as PB
-    prev, PB.SW = PB.SW, v
+    prev = PB.WB
+    PB.WB, PB.OUT_TILES = v, 2 * v
+    return prev
+
+
+def _t2_nozw(on):
+    """T2_ZW off at c_z 320 (drops (10, 10) from T2_ZW_KEYS), the plan c_z 448 runs. Bit-identical."""
+    prev = (10, 10) not in TTL.T2_ZW_KEYS
+    TTL.T2_ZW_KEYS = TTL.T2_ZW_KEYS - {(10, 10)} if on else TTL.T2_ZW_KEYS | {(10, 10)}
     return prev
 
 
@@ -246,6 +254,7 @@ LEVERS = {
     "t2m": [(TTL.set_t2m, True)],
     "t2zw": [(TTL.set_t2_zw, True)],
     "t2mb2": [(_t2_mb2, True)],
+    "t2nozw": [(_t2_nozw, True)],
     "t1r4": [(_t1_rows, 4)],
     # ceiling of reusing z across the outgoing/incoming pair: T1 without its z reads (16), and without LN too (17)
     "t1noz": [(_t1_abl, 16)],
@@ -254,7 +263,6 @@ LEVERS = {
     "t1g8": [(_t1_g8, True)],
     "t1split": [(_t1_split, 1)],
     "pbrr": [(_pb_rr, 1)],
-    "pbsw": [(_pb_sw, 1)],
     "t1wfl": [(_t1_wfl, 1)],
     "bres256": [(T.set_trimul_bres_reuse, True)],
     "nores": [(TTL.set_res, False)],
@@ -286,6 +294,9 @@ def arm_setters(name):
             continue
         if part.startswith("pbabl"):   # pbablN: permute_back_pk with stage-skip bits N, timing only
             out.append((_pb_abl, int(part[5:])))
+            continue
+        if part.startswith("pbwb"):   # pbwbN: permute_back_pk writer flushes every N tiles (8, 16 or 32)
+            out.append((_pb_wb, int(part[4:])))
             continue
         if part.startswith("t1nb"):   # t1nbN: T1's gather NB N at every key
             out.append((_t1_nb, int(part[4:])))
