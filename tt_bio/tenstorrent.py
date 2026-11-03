@@ -14290,7 +14290,8 @@ def _centred_row_mean(x, ckc, mc, y=None):
     per-token part's size; for a product, x*y - r_x*r_y = (x - r_x)*y + r_x*(y - r_y), each term elementwise fp32.
     """
     def row0(t):
-        return ttnn.slice(t, [0] * (len(t.shape) - 2) + [0, 0], list(t.shape[:-2]) + [1, t.shape[-1]], memory_config=mc)
+        sh = list(t.shape)
+        return ttnn.slice(t, [0] * len(sh), sh[:-2] + [1, sh[-1]], memory_config=mc)
     mean = lambda t: ttnn.mean(t, dim=-1, keepdim=True, compute_kernel_config=ckc, memory_config=mc)
     rx = row0(x)
     if y is None:
