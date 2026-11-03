@@ -24,6 +24,7 @@ for S, c, H, end in cells:
         mod = T.TriangleAttention(32, H, bool(end), sd, ckc, softmax_site="pairformer")
         got = {}
         for arm in ("0", "1", "0", "1"):
+            print(f"{S}:{c}:{H}:{end} arm {arm} {time.strftime('%H:%M:%S')}", file=sys.stderr, flush=True)
             TL.BIAS_HEADS = {"wormhole": arm == "1", "blackhole": arm == "1"}
             xt = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             st0 = (TL.STATS[4], T.UNPITCH_STATS[0], TS.STATS[0], TQ.GOP_STATS[0])
