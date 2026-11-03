@@ -19,14 +19,19 @@ out.mkdir(parents=True, exist_ok=True)
 census_f = open(out / "census.jsonl", "a")
 
 
+_DT_BYTES = {"BFLOAT16": 2, "FLOAT32": 4, "UINT32": 4, "INT32": 4, "UINT16": 2, "UINT8": 1,
+             "BFLOAT8_B": 1088 / 1024, "BFLOAT4_B": 576 / 1024}
+
+
 def tbytes(t):
+    """Device bytes of a ttnn tensor (padded shape x dtype size), 0 for a host or freed tensor."""
     try:
         if t.storage_type() != ttnn.StorageType.DEVICE or not t.is_allocated():
             return 0
         n = 1
         for d in t.padded_shape:
             n *= int(d)
-        return int(n * t.element_size())
+        return int(n * _DT_BYTES.get(str(t.dtype).split(".")[-1], 2))
     except Exception:  # noqa: BLE001
         return 0
 
