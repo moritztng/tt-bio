@@ -12,6 +12,8 @@ every cell, so the summary on disk is always current. A cell that fails is recor
 
     python mol1_arms.py ... --cells "512:cueq-triatt+chunk5+tf32+compile:1 256:cueq-triatt+chunk5+tf32+compile:4"
 runs only the named cells (size:arm:K, the arm name spelling its kernels and options) and none of the search.
+`--gpu-args` is passed to every mol1_gpu.py call (PNR: "--samples 1 --seed0 0 --seed-step 0"), `--input` replaces
+<inputs>/mol1-<size>.json for every cell (PNR: the page's 512 fixture).
 """
 import argparse, json, statistics, subprocess, sys, time
 from pathlib import Path
@@ -36,6 +38,8 @@ def main():
     ap.add_argument("--deadline", required=True, type=int)
     ap.add_argument("--warm", type=int, default=5)
     ap.add_argument("--cells", default="", help="space-separated size:arm:K; skips the search")
+    ap.add_argument("--input", type=Path, help="one job JSON for every cell instead of <inputs>/mol1-<size>.json")
+    ap.add_argument("--gpu-args", default="", help="extra mol1_gpu.py arguments for every cell")
     a = ap.parse_args()
     arms = {}
 
@@ -46,10 +50,10 @@ def main():
             arms[key] = {"status": "SKIPPED", "reason": f"needs ~{need:.0f}s, past the deadline"}
         else:
             d = a.out / f"{size}-{name}-k{k}"
-            cmd = ([sys.executable, str(Path(__file__).with_name("mol1_gpu.py")), "--input", str(a.inputs / f"mol1-{size}.json"),
+            cmd = ([sys.executable, str(Path(__file__).with_name("mol1_gpu.py")), "--input", str(a.input or a.inputs / f"mol1-{size}.json"),
                    "--size", str(size), "--arm", name, "--k", str(k), "--warm", str(a.warm), "--out", str(d),
                    "--trimul", kern[0], "--triatt", kern[1]] + (["--tf32"] if tf32 else []) + (["--chunk5"] if chunk5 else [])
-                   + (["--compile", compile] if compile else []))
+                   + (["--compile", compile] if compile else []) + a.gpu_args.split())
             d.mkdir(parents=True, exist_ok=True)
             with (d.parent / f"{d.name}.log").open("w") as log:
                 rc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT).returncode

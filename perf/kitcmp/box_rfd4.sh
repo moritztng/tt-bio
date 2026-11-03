@@ -80,6 +80,8 @@ say "import gate: $(tail -1 $B/import-gate.log)"
 /opt/rfd4-venv/bin/python -m pip freeze > $B/pip-freeze.txt 2>&1
 nvidia-smi -q > $B/nvidia-smi-q.txt 2>&1
 { uname -a; nproc; free -g; df -h /; } > $B/census.txt 2>&1
+# SETUP_ONLY=1: install (and gate) and stop (perf/pnr/box_pnr.sh runs the three models' setups side by side, then its own arms)
+[ -n "${SETUP_ONLY:-}" ] && exit 0
 
 # --- the clock logger, alive for the life of the box (a logger that dies leaves the rerun unclocked) -----------
 nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.limit,temperature.gpu,utilization.gpu,utilization.memory,clocks_event_reasons.active,memory.used \
