@@ -1450,11 +1450,18 @@ ALWI void matmul_blocks(
                 uint32_t d = 0;
                 const uint32_t m0 = mask_base + in0_subblock * in0_subblock_all_cols_num_tiles +
                                     in1_subblock * subblock_w;
+#ifdef ABLATE_SEEDONE
+                // INSTRUMENT (TT_BIO_TRIATT_ABLATE=SEEDONE), wrong values on purpose: one mask tile per
+                // subblock instead of subblock_h x subblock_w, so the seed's per-subblock init and
+                // reconfigure cost is left and its per-tile copy cost is gone.
+                copy_tile(mask_cb, m0, d++);
+#else
                 for (uint32_t r = 0; r < subblock_h; r++) {
                     for (uint32_t c = 0; c < subblock_w; c++) {
                         copy_tile(mask_cb, m0 + r * N + c, d++);
                     }
                 }
+#endif
                 reconfig_data_format_srca(mask_cb, in1_cb);
                 mm_block_init_short(
                     in0_cb, in1_cb, transpose, subblock_w /*ct_dim*/, subblock_h /*rt_dim*/, in0_block_w /*kt_dim*/);
