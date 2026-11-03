@@ -2470,8 +2470,9 @@ class ConfidenceHead:
         nhp = self._w[b0 + "tri_att_start.linear.weight"].shape[0]
         chpa = self._w[b0 + "tri_att_start.mha.linear_q.weight"].shape[0] // nhp
         apb_nh = self._w[b0 + "attention_pair_bias.linear_nobias_z.weight"].shape[0]
+        # fp32 single track, as the trunk's: the pLDDT head reads the per-token part of LN(s_trunk)'s small channels.
         self.pf = Pairformer(nb, chpa, nhp, 384 // apb_nh, apb_nh, True, comb,
-                             compute_kernel_config, gated_move=gated_move,
+                             compute_kernel_config, gated_move=gated_move, s_fp32=True,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.confidence", default=True))
 
     def _g(self, k):
@@ -2522,7 +2523,7 @@ class ConfidenceHead:
             return out
 
         out, held = [], None
-        s_h = H(s_t.unsqueeze(0))
+        s_h = ttnn.from_torch(s_t.unsqueeze(0).float(), layout=ttnn.TILE_LAYOUT, dtype=ttnn.float32)
         for x in coords:
             z_h = H(z_of(x).unsqueeze(0))                  # host, while the chip runs the last pairformer
             done = read(held) if held is not None else None
@@ -2609,7 +2610,8 @@ class ConfidenceHead:
         T = lambda x: ttnn.from_torch(x.float(), layout=ttnn.TILE_LAYOUT, device=self.dev, dtype=ttnn.bfloat16)
         N = s_trunk.shape[0]
         s_t_h = F.layer_norm(torch.clamp(s_trunk, -512, 512), (384,)) * self._g("input_strunk_ln.weight") + self._bias("input_strunk_ln.bias")
-        s_t = T(s_t_h.unsqueeze(0))                                       # (1,N,384)
+        s_t = ttnn.from_torch(s_t_h.unsqueeze(0).float(), layout=ttnn.TILE_LAYOUT, device=self.dev,
+                              dtype=ttnn.float32)                         # (1,N,384), fp32 like the head's track
         # Distance bins in fp32, so the bin of every pair is the host path's (the edges are bf16-exact).
         F32 = lambda k: ttnn.from_torch(self._g(k).reshape(1, 1, 1, -1), layout=ttnn.TILE_LAYOUT,
                                         device=self.dev, dtype=ttnn.float32)
