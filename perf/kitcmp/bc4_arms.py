@@ -34,8 +34,15 @@ ap.add_argument("--final-warm", type=int, default=9)
 ap.add_argument("--seed", type=int, default=101)
 ap.add_argument("--python", default="/opt/bc2-venv/bin/python")
 ap.add_argument("--deadline", type=float, default=0, help="epoch seconds; stop starting arms that cannot finish")
+ap.add_argument("--arms", default="", help="comma list of arm names to screen (default: all); stock always runs")
+ap.add_argument("--min-sm", type=float, default=1800,
+                help="SM clock floor (MHz) for an admissible trajectory; 1800 is the B200's, other GPUs pass theirs")
 a = ap.parse_args()
 a.out.mkdir(parents=True, exist_ok=True)
+if a.arms:
+    keep = {"stock", *a.arms.split(",")}
+    assert keep <= {n for n, _, _ in ARMS}, f"unknown arm in {a.arms}"
+    ARMS = [x for x in ARMS if x[0] in keep]
 
 
 def log(*x):
@@ -79,8 +86,8 @@ def summarise(arm, d, xla, settings):
         if r.get("ev") == "rep" and r.get("kind") == "warm" and not r.get("err") \
                 and (r.get("design_s") or 0) > 0 and (r.get("iterations") or 0) > 0:
             reps.append(r)
-    # protocol rule 4: a trajectory whose SM clock fell below 1800 MHz is not admissible
-    adm = [r for r in reps if not (r.get("sm") or {}).get("median") or r["sm"]["median"] >= 1800]
+    # protocol rule 4: a trajectory whose SM clock fell below the floor (B200: 1800 MHz) is not admissible
+    adm = [r for r in reps if not (r.get("sm") or {}).get("median") or r["sm"]["median"] >= a.min_sm]
     ts = sorted(r["design_s"] / r["iterations"] for r in adm)
     sm = sorted((r.get("sm") or {}).get("median") for r in adm if (r.get("sm") or {}).get("median"))
     return dict(arm=arm, settings=settings, xla=xla, evidence=str(d / "runs.jsonl"), n=len(ts),

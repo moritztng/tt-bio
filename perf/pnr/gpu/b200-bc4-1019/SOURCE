@@ -1,0 +1,4 @@
+BindCraft 2 attn-stock on a B200 SXM 1000 W, BC4 fair session 2026-10-19 (vast 56723710), copied from
+/home/moritz/.coworker/artifacts/bc4-fair-gpu/b200-1019: bc4/arms/attn-stock-w9b/runs.jsonl and bc4/smi.csv. Same SKU, driver 580.126.09, JAX 0.11.2, bc2 7a2dfdb8a as
+the PNR b200-1 box. Used for the B200 BindCraft 2 cell because it is faster than b200-1's own alone-on-the-GPU rerun
+(pnr-orchestrator decision, state/pnr/note-pnr-orchestrator-to-pnr-gpu-bc2-attnstock.md, point 3).

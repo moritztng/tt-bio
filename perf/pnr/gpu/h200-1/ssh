@@ -1,0 +1,1 @@
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p 20301 root@205.196.19.50

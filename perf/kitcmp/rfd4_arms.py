@@ -103,7 +103,7 @@ def climb(arm, size, warm, tag, seed=None, on_rung=None, start=1):
     """
     seed = {int(k): v for k, v in (seed or {}).items()}
     sweep, best_rate, stall, b = {}, 0.0, 0, start
-    while b <= ceil(size) and time_left():
+    while b <= ceil(size) and time_left(600 + a.final_reserve):
         if b in seed:
             s = seed[b]
             print(f"climb {arm}@{size}: b{b} reused from this box's earlier sweep ({s.get('status')})",
@@ -197,6 +197,11 @@ def main():
                     help="size:arm:start_batch,... climb each cell from start_batch on THIS box, no reuse of "
                          "another box's rungs. Session 5's mode: the published ladders stopped on a configured "
                          "ceiling, and a rung measured on a different card cannot extend one measured here.")
+    ap.add_argument("--rung-warm", type=int, default=None,
+                    help="warm batches per --cells ladder rung (default max(5, screen-warm - 2)); the rungs only "
+                         "pick the batch, the published number is the --final-warm rerun")
+    ap.add_argument("--final-reserve", type=int, default=0,
+                    help="seconds a ladder leaves before the deadline for the --final-warm rerun of the winner")
     ap.add_argument("--sweep-only", action="store_true",
                     help="re-climb the batch of each size's top arms from ARMS.json, without the screen")
     ap.add_argument("--src", type=Path, default=Path("/root/rfd4"),
@@ -248,7 +253,7 @@ def main():
         cells = [c.split(":") for c in a.cells.split(",") if c]
         out = {}
         for size, arm, b0 in [(int(s), m, int(b)) for s, m, b in cells]:
-            if not time_left():
+            if not time_left(600 + a.final_reserve):
                 print(f"cells: out of time before {arm}@{size} b{b0}", flush=True)
                 break
             per_size = out.setdefault(str(size), {"arms": {}})
@@ -257,7 +262,7 @@ def main():
                 per_size["arms"][arm] = {"sweep": {str(k): v for k, v in sw.items()}, "partial": True}
                 (a.out / "ARMS-CELLS.json").write_text(json.dumps(out, indent=2) + "\n")
 
-            sweep = climb(arm, size, max(5, a.screen_warm - 2), f"s5-{arm}", start=b0, on_rung=keep)
+            sweep = climb(arm, size, a.rung_warm or max(5, a.screen_warm - 2), f"s5-{arm}", start=b0, on_rung=keep)
             okb = {b: v for b, v in sweep.items() if v["status"] == "ok"}
             rec = {"sweep": {str(k): v for k, v in sweep.items()}, "start": b0}
             if okb:

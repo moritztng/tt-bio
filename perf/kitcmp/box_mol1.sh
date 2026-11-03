@@ -44,6 +44,8 @@ $PY -m pip freeze > $B/pip-freeze.txt 2>&1
 /opt/mol1-venv/bin/mol doctor > $B/doctor.txt 2>&1
 nvidia-smi -q > $B/nvidia-smi-q.txt 2>&1
 { uname -a; nproc; lscpu | grep 'Model name'; free -g; df -h /; sha256sum $MOL1_CKPT; } > $B/census.txt 2>&1
+# SETUP_ONLY=1: install (and gate) and stop (perf/pnr/box_pnr.sh runs the three models' setups side by side, then its own arms)
+[ -n "${SETUP_ONLY:-}" ] && exit 0
 
 # The clock logger lives as long as the box: a logger that dies with an arm leaves the rest unclocked.
 pkill -f "nvidia-smi --query-gpu" 2>/dev/null  # one logger per box, also across a relaunch

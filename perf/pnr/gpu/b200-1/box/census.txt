@@ -1,0 +1,21 @@
+Linux 349796f019f7 6.8.0-1066-aws #69~22.04.1-Ubuntu SMP Mon Sep 21 16:20:15 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+192
+Model name:                              Intel(R) Xeon(R) Platinum 8559C
+               total        used        free      shared  buff/cache   available
+Mem:            1996         600         419         461        1453        1395
+Swap:              0           0           0
+Filesystem      Size  Used Avail Use% Mounted on
+overlay         200G   43M  200G   1% /
+PRETTY_NAME="Ubuntu 24.04.3 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.3 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo

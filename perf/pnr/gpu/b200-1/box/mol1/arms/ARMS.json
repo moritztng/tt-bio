@@ -1,0 +1,14 @@
+{
+ "512/cueq-cueq/k1": {
+  "predictions_per_s": 0.05556,
+  "n": 5,
+  "rc": 0,
+  "dir": "/root/kc/mol1/arms/512-cueq-cueq-k1"
+ },
+ "512/cueq-triatt+chunk5+tf32/k1": {
+  "predictions_per_s": 0.05346,
+  "n": 5,
+  "rc": 0,
+  "dir": "/root/kc/mol1/arms/512-cueq-triatt+chunk5+tf32-k1"
+ }
+}

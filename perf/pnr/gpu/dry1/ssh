@@ -1,0 +1,1 @@
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -p 16539 root@190.22.57.87

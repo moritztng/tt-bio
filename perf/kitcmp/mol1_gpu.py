@@ -9,14 +9,16 @@ appends one line to `--out/runs.jsonl` as it finishes.
     python mol1_gpu.py --input inputs/mol1-512.json --size 512 --arm fpf-triatt --k 2 --warm 5 --out DIR \
         [--trimul flashpairformer] [--triatt triattention] [--tf32] [--chunk5] [--compile all|dt] [--seed0 101]
 
-The recipe (20 cycles, 200 steps, 5 samples, bf16, MSA from the input's a3m files, no templates) is fixed here and
-is NOT settable: an arm that does less work is not an arm.
+The recipe (20 cycles, 200 steps, bf16, MSA from the input's a3m files, no templates) is fixed here and is NOT
+settable: an arm that does less work is not an arm. The sample count and seeds are the protocol's, not an arm's:
+MOL1 predicts 5 samples from seed 101 on, PNR (the tt-bio.com page protocol, state/pnr/PROTOCOL.md) 1 sample at
+seed 0 every round (`--samples 1 --seed0 0 --seed-step 0`), the same work the TT cell does.
 """
 import argparse, json, multiprocessing as mp, os, sys, time, traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
-RECIPE = dict(n_cycle=20, n_step=200, n_sample=5, dtype="bf16", use_msa=True, use_template=False)
+RECIPE = dict(n_cycle=20, n_step=200, dtype="bf16", use_msa=True, use_template=False)
 # --compile: upstream ships no compile path, so the arm is a regional torch.compile of the repeated blocks (each class
 # compiles once and is reused by every instance), the form that paid on the RFD4 B200 (state/rfd4/gpu/B200.md).
 # "dt" (arm option compiledt) is the diffusion transformer alone: the full set dies in Inductor (KeyError 'op11' in compute_ancestors,
@@ -33,7 +35,8 @@ def worker(rank, a, todo, done):
         t0 = time.time()
         mem = {"infer_setting.sample_diffusion_chunk_size": 5} if a.chunk5 else None
         runner = get_default_runner(seeds=[a.seed0], trimul_kernel=a.trimul, triatt_kernel=a.triatt,
-                                    enable_tf32=a.tf32, load_checkpoint_path=a.ckpt, memory_settings=mem, **RECIPE)
+                                    enable_tf32=a.tf32, load_checkpoint_path=a.ckpt, memory_settings=mem,
+                                    n_sample=a.samples, **RECIPE)
         if a.compile:
             import cuequivariance_ops_torch
             cuequivariance_ops_torch.init_triton_cache()  # upstream triangular.py note (5): before compiled trimul
@@ -70,6 +73,8 @@ def main():
     ap.add_argument("--warm", type=int, default=5)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--seed0", type=int, default=101)
+    ap.add_argument("--seed-step", type=int, default=1, help="seed increment per round (0: every round at --seed0)")
+    ap.add_argument("--samples", type=int, default=5, help="diffusion samples per prediction (protocol, not an arm)")
     ap.add_argument("--trimul", default="cuequivariance")
     ap.add_argument("--triatt", default="cuequivariance")
     ap.add_argument("--tf32", action="store_true")
@@ -82,7 +87,7 @@ def main():
     runs = a.out / "runs.jsonl"
     base = {"size": a.size, "arm": a.arm, "batch": a.k, "session": os.environ.get("MOL1_SESSION", ""),
             "sha": os.environ.get("MOL1_SHA", ""), "host": os.environ.get("MOL1_HOST", ""), "raw": str(a.out),
-            "knobs": {"trimul": a.trimul, "triatt": a.triatt, "tf32": a.tf32, "chunk5": a.chunk5, "compile": a.compile}}
+            "samples": a.samples, "knobs": {"trimul": a.trimul, "triatt": a.triatt, "tf32": a.tf32, "chunk5": a.chunk5, "compile": a.compile}}
 
     def emit(rec):
         rec["t"] = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -106,7 +111,7 @@ def main():
         sys.exit(1)
     seed = a.seed0
     for rnd in range(a.warm + 1):
-        seeds = list(range(seed, seed + a.k)); seed += a.k
+        seeds = [seed + i * a.seed_step for i in range(a.k)]; seed += a.k * a.seed_step
         t0 = time.time(); start = datetime.now(timezone.utc).isoformat(timespec="seconds")
         for r, q in enumerate(todos):
             q.put((rnd, seeds[r]))
@@ -114,14 +119,14 @@ def main():
         wall = round(max(t for _, _, t, _ in res) - t0, 3)
         errs = [e for *_, e in res if e]
         cifs = len(list((a.out / f"r{rnd}").rglob("*.cif")))
-        made = cifs // RECIPE["n_sample"]
+        made = cifs // a.samples
         rec = {**base, "kind": "cold" if rnd == 0 else "warm", "predictions": made, "wall_s": wall,
                "seed": seeds, "start": start}
         if rnd == 0:
             rec["phase"] = "first"
         if errs or made != a.k:
             rec["status"] = "FAILED"
-            rec["error"] = (errs[0] if errs else f"wrote {cifs} CIFs, expected {a.k * RECIPE['n_sample']}")[-2000:]
+            rec["error"] = (errs[0] if errs else f"wrote {cifs} CIFs, expected {a.k * a.samples}")[-2000:]
         emit(rec)
         if errs:
             break
