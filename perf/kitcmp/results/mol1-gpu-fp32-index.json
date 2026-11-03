@@ -1,0 +1,2295 @@
+{
+ "what": "Mol-1 upstream in its fp32 mode (autocast target float32, TF32 matmuls off) on the NVIDIA GPU named per job, kernels and settings otherwise as arm gpu (mol1_ref.py --dtype fp32), decisions D-orch-56/60",
+ "arm": "gpu_fp32",
+ "inputs": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/inputs (INDEX.json, sha256 per file)",
+ "seeds": {
+  "paired": [
+   42,
+   66
+  ]
+ },
+ "expected": 334,
+ "present": 100,
+ "missing_n": 234,
+ "sessions": [
+  "mol1-fp32-p1",
+  "mol1-fp32-s0b",
+  "mol1-fp32-s1",
+  "mol1-fp32-s2",
+  "mol1-fp32-s3"
+ ],
+ "jobs": [
+  {
+   "case": "8c5h-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 245.24,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8c5h-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8c5h-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 63.41,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8c5h-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8fbw-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 194.56,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8fbw-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8fbw-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 314.19,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8fbw-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8qz3-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 655.31,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8qz3-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8qz3-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 584.0,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8qz3-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8hxq-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 94.03,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8hxq-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8hxq-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 92.54,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8hxq-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8be2-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 278.22,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8be2-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8be2-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 261.52,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8be2-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8oxx-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 591.18,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8oxx-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8oxx-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 580.78,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8oxx-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8w90-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 72.32,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8w90-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8w90-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 74.68,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8w90-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8r4u-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 272.79,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8r4u-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8r4u-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 266.39,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8r4u-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8w84-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 530.43,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8w84-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8w84-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 508.88,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8w84-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8be3-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 93.65,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8be3-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8be3-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 90.98,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8be3-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8ts0-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 255.66,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8ts0-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8ts0-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 238.86,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8ts0-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8pyr-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 519.85,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8pyr-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8pyr-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 506.09,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8pyr-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8aom-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 86.78,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8aom-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8aom-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 90.13,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8aom-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8dtn-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 245.25,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8dtn-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8dtn-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 232.59,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8dtn-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "7ua2-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 356.56,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/7ua2-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "7ua2-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 335.22,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/7ua2-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "7xld-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 69.92,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/7xld-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "7xld-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 66.83,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/7xld-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "7ucx-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 140.94,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/7ucx-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "7ucx-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 149.78,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/7ucx-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8tuz-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 320.03,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8tuz-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8tuz-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 306.24,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8tuz-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8av2-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 105.92,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8av2-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8av2-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 100.19,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8av2-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "7txw-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 271.87,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/7txw-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "7txw-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 242.45,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/7txw-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8aon-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 324.91,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8aon-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8aon-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 348.45,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8aon-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8c3l-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 40.46,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8c3l-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8c3l-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 28.28,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8c3l-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8fas-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 147.47,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8fas-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8fas-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 141.93,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8fas-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8a44-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 468.87,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8a44-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8a44-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 422.15,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8a44-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8pih-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 96.31,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8pih-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8pih-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 92.8,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8pih-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8tmz-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 157.38,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8tmz-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8tmz-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 148.23,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8tmz-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8byu-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 333.82,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8byu-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8byu-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 310.75,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8byu-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "9fww-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 64.52,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/9fww-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "9fww-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 64.45,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/9fww-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "9g2g-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 193.35,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/9g2g-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "9g2g-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 177.72,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/9g2g-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8f5n-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-p1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 480.24,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-p1/ref/paired/8f5n-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8f5n-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-p1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 439.8,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-p1/ref/paired/8f5n-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8aok-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-p1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 55.66,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-p1/ref/paired/8aok-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8aok-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 211.93,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8aok-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8duz-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 148.34,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8duz-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8duz-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 127.88,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8duz-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8txe-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 54.63,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8txe-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8txe-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 57.76,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8txe-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8wdq-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 253.85,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8wdq-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8wdq-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 220.27,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8wdq-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8jik-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 502.18,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8jik-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8jik-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 491.5,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8jik-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8b9e-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 71.29,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/8b9e-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8b9e-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 67.47,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8b9e-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8bdn-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 168.85,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8bdn-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8bdn-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 174.42,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8bdn-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8sio-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 349.25,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8sio-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8s4h-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 75.64,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8s4h-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8s4h-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 74.72,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8s4h-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8qa8-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 176.11,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8qa8-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8eud-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 478.22,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8eud-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8eud-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 468.72,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8eud-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8q34-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 30.4,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8q34-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8q1a-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 205.9,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8q1a-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8q1a-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 211.15,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8q1a-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8w4b-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-p1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 328.28,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-p1/ref/paired/8w4b-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8w4b-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 530.79,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8w4b-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "7fvy-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 20.59,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/7fvy-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8fo5-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 130.68,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8fo5-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8fo5-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 130.56,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8fo5-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8bo1-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 486.1,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/8bo1-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "7fxn-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 33.75,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/7fxn-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "7fxn-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 35.51,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/7fxn-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8uou-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 360.81,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8uou-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8u12-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-p1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 344.43,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-p1/ref/paired/8u12-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "8u12-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s3",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 368.78,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s3/ref/paired/8u12-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "7y37-assembly1",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "default",
+   "session": "mol1-fp32-p1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 35.26,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-p1/ref/paired/7y37-assembly1/seed_42/predictions"
+  },
+  {
+   "case": "7y37-assembly1",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "default",
+   "session": "mol1-fp32-s0b",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 38.63,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s0b/ref/paired/7y37-assembly1/seed_66/predictions"
+  },
+  {
+   "case": "8fo5-assembly1:nomsa",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "use_msa_false",
+   "session": "mol1-fp32-p1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 268.73,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-p1/ref/paired/8fo5-assembly1__nomsa/seed_42/predictions"
+  },
+  {
+   "case": "8fo5-assembly1:nomsa",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "use_msa_false",
+   "session": "mol1-fp32-s2",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 287.25,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s2/ref/paired/8fo5-assembly1__nomsa/seed_66/predictions"
+  },
+  {
+   "case": "7fxn-assembly1:nomsa",
+   "set": "paired",
+   "seed": 42,
+   "recipe": "use_msa_false",
+   "session": "mol1-fp32-p1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 170.53,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-p1/ref/paired/7fxn-assembly1__nomsa/seed_42/predictions"
+  },
+  {
+   "case": "7fxn-assembly1:nomsa",
+   "set": "paired",
+   "seed": 66,
+   "recipe": "use_msa_false",
+   "session": "mol1-fp32-s1",
+   "gpu": "NVIDIA GeForce RTX 4090",
+   "samples": 5,
+   "wall_s": 191.86,
+   "dir": "ttuser@tt-quietbox2:/home/ttuser/mol1-gpu-fp32/mol1-fp32-s1/ref/paired/7fxn-assembly1__nomsa/seed_66/predictions"
+  }
+ ],
+ "missing": [
+  {
+   "case": "8sio-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qa8-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8q34-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7fvy-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8bo1-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7gnr-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7gnr-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8uou-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7uy4-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7uy4-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8ff8-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8ff8-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8qdy-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qdy-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7fwf-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7fwf-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7zi6-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7zi6-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8grj-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8grj-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7fuq-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7fuq-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8rak-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8rak-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7u9i-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7u9i-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8qch-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qch-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7x4t-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7x4t-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7vf6-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7vf6-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8jvl-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8jvl-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8igx-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8igx-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8smq-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8smq-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8p9c-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8p9c-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7yzt-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7yzt-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8q9n-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8q9n-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7xpi-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7xpi-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8tn8-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8tn8-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8bjj-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8bjj-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8tlf-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8tlf-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8ih8-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8ih8-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8iqa-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8iqa-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8buy-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8buy-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8an5-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8an5-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8qvc-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qvc-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "9eqo-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "9eqo-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8q5o-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8q5o-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "9c3s-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "9c3s-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7ydw-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7ydw-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7ysf-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7ysf-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8uvk-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8uvk-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8vdn-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8vdn-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8rm6-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8rm6-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8k4l-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8k4l-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8f69-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8f69-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8tlg-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8tlg-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8sco-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8sco-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8q41-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8q41-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7yey-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7yey-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "9dn4-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "9dn4-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8pe3-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8pe3-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8t65-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8t65-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "9avr-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "9avr-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8q42-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8q42-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "9c69-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "9c69-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8vm9-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8vm9-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8enk-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8enk-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8ey6-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8ey6-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8sj7-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8sj7-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8c8j-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8c8j-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8agy-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8agy-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8i84-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8i84-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8sao-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8sao-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8s6o-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8s6o-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8qlm-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qlm-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8bvf-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8bvf-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8fg6-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8fg6-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8qlk-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qlk-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8cba-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8cba-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8e0r-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8e0r-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8pxu-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8pxu-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8dez-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8dez-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8vpo-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8vpo-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8pvs-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8pvs-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8gsy-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8gsy-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8k5j-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8k5j-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8k7x-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8k7x-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8k83-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8k83-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8qnf-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qnf-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8cjd-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8cjd-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7zj4-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7zj4-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7wii-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7wii-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8hb8-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8hb8-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8utg-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8utg-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8g3w-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8g3w-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "upstream:examples_with_template/example_9fm7.json",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "upstream:examples_with_template/example_9fm7.json",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "upstream:examples_with_template/example_mgyp004658859411.json",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "upstream:examples_with_template/example_mgyp004658859411.json",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "upstream:example_with_json_template/demo_ab.json",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "upstream:example_with_json_template/demo_ab.json",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "upstream:examples_with_rna_msa/example_9gmw_2.json",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "upstream:examples_with_rna_msa/example_9gmw_2.json",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "upstream:example.json#7r6r",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "upstream:example.json#7r6r",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "upstream:example.json#7pzb",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "upstream:example.json#7pzb",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "upstream:example.json#7wux",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "upstream:example.json#7wux",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "upstream:example_without_msa.json#8cnh-assembly1",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "upstream:example_without_msa.json#8cnh-assembly1",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9TH6",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9TH6",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9W89",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9W89",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9W8A",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9W8A",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9TY2",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9TY2",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9W3L",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9W3L",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9LV4",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9LV4",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9LLG",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9LLG",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:28VJ",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:28VJ",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9HL2",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9HL2",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9DBP",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9DBP",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "pfm:9PCQ",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "pfm:9PCQ",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8txe-assembly1:smiles",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8txe-assembly1:smiles",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8wdq-assembly1:smiles",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8wdq-assembly1:smiles",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8b9e-assembly1:smiles",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8b9e-assembly1:smiles",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8bdn-assembly1:smiles",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8bdn-assembly1:smiles",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8sio-assembly1:smiles",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8sio-assembly1:smiles",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8s4h-assembly1:smiles",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8s4h-assembly1:smiles",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8qa8-assembly1:smiles",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qa8-assembly1:smiles",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8eud-assembly1:file",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8eud-assembly1:file",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8q34-assembly1:file",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8q34-assembly1:file",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8q1a-assembly1:file",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8q1a-assembly1:file",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8w4b-assembly1:file",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8w4b-assembly1:file",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8c5h-assembly1:nomsa",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8c5h-assembly1:nomsa",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8fbw-assembly1:nomsa",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8fbw-assembly1:nomsa",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8qz3-assembly1:nomsa",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8qz3-assembly1:nomsa",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8hxq-assembly1:nomsa",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8hxq-assembly1:nomsa",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "7fvy-assembly1:nomsa",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "7fvy-assembly1:nomsa",
+   "set": "paired",
+   "seed": 66
+  },
+  {
+   "case": "8bo1-assembly1:nomsa",
+   "set": "paired",
+   "seed": 42
+  },
+  {
+   "case": "8bo1-assembly1:nomsa",
+   "set": "paired",
+   "seed": 66
+  }
+ ]
+}
