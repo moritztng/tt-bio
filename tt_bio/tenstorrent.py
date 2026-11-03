@@ -15646,13 +15646,17 @@ class PairformerLayer(Module):
             z = _z_residual(z, zc, z_update, wide)
             _layer_tap("transition", z)
         if self.transform_s:
-            s_norm = ttnn.layer_norm(
+            # An fp32 single track keeps its per-token part only through an fp32 norm: `ttnn.layer_norm` on
+            # the bf16 copy loses it the same way the Transition's norm did (`fp32_layer_norm`).
+            s_norm = (fp32_layer_norm(s, self.pre_norm_s_weight, self.pre_norm_s_bias, 1e-5,
+                                      self.compute_kernel_config, ttnn.bfloat16)
+                      if self.s_fp32 and not ops.taping() else ttnn.layer_norm(
                 self._s_compute(s),
                 weight=self.pre_norm_s_weight,
                 bias=self.pre_norm_s_bias,
                 epsilon=1e-5,
                 compute_kernel_config=self.compute_kernel_config,
-            )
+            ))
             s_update = self.attention_pair_bias(
                 s_norm,
                 _z_compute(z, wide),
