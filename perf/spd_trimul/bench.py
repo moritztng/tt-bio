@@ -151,6 +151,19 @@ def _t1_abl(v):
     return prev
 
 
+def _pb_abl(v):
+    """permute_back_pk with stage-skip bits v (1 read, 2 tilize + transpose, 4 write, 8 transpose): timing only."""
+    import tt_bio.permute_back_pk as PB
+    prev, PB.ABL = PB.ABL, int(v)
+    return prev
+
+
+def _t1_lnblk(v):
+    """T1's LayerNorm stages on v channel tiles per dest acquire (TTL.T1_LN_BLK), bit-identical."""
+    prev, TTL.T1_LN_BLK = TTL.T1_LN_BLK, int(v)
+    return prev
+
+
 def _t2_mb2(on):
     """T2 at c_z 320 on blocks of 2 row tiles instead of the fitted 4 (one K block either way)."""
     prev = (10, 10) in TTL.T2_BLOCK
@@ -198,6 +211,7 @@ LEVERS = {
     # ceiling of reusing z across the outgoing/incoming pair: T1 without its z reads (16), and without LN too (17)
     "t1noz": [(_t1_abl, 16)],
     "t1nozln": [(_t1_abl, 17)],
+    "t1lnb4": [(_t1_lnblk, 4)],
     "bres256": [(T.set_trimul_bres_reuse, True)],
     "nores": [(TTL.set_res, False)],
     "nomf": [(TTL.set_mask_fold, False)],
@@ -225,6 +239,12 @@ def arm_setters(name):
     for part in name.split("+"):
         if part.startswith("lv:"):
             out.append((_lever_setter(part[3:]), True))
+            continue
+        if part.startswith("pbabl"):   # pbablN: permute_back_pk with stage-skip bits N, timing only
+            out.append((_pb_abl, int(part[5:])))
+            continue
+        if part.startswith("t1abl"):   # t1ablN: T1 with stage-skip bits N, timing only
+            out.append((_t1_abl, int(part[5:])))
             continue
         if part not in LEVERS:
             raise SystemExit(f"unknown lever {part!r}; known: {sorted(LEVERS)}")

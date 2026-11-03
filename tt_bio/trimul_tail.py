@@ -1691,6 +1691,7 @@ T1_WIDE_LEVERS = ("trimul_t1_c256", "trimul_t1_c320", "trimul_t1_c384", "trimul_
 T1_RB = 8                         # z row tiles per reader barrier
 T1_SBW = 4                        # DST tiles per matmul block (half-sync fp32 DST holds 4)
 T1_ABL = 0                        # bench-only stage-skip bits (kernels/trimul_in_t1 ABL); 0 = the real T1
+T1_LN_BLK = 1                     # channel tiles per dest acquire in T1's LayerNorm (ln_prologue.hpp LN_BLK), bit-identical
 T1_PSIG = 0                       # bench knob for lever trimul_t1_psig (kernels/trimul_in_t1 T1_PSIG)
 T1_B8 = 0                         # bench knob: a and b as bfp8 (lever trimul_t1b8 in a model)
 T1_C256 = 0                       # bench knob: the c_z 256 / 384 plans without their levers
@@ -2021,7 +2022,8 @@ def _build_t1(x, ln_w, ln_b, wpT, wgT, wgo, outs, grid, ckc, mask, eps, il, nb, 
     compute = ttnn.KernelDescriptor(
         kernel_source=str(d / "compute.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, qn, T1_SBW, int(mask is not None), _sigpoly(), RNE, ng, q0, ct2, il],
-        defines=abl + xout + pre + sp + ([("T1FGATE", "1")] if fg else []), runtime_args=cp,
+        defines=abl + xout + pre + sp + ([("T1FGATE", "1")] if fg else [])
+        + ([("LN_BLK", str(T1_LN_BLK))] if T1_LN_BLK != 1 else []), runtime_args=cp,
         # fp32 DEST always, as T2: the LayerNorm statistics live in fp32 CBs. The fidelity stays
         # the caller's, so the projections run as the incumbent in-projection runs them.
         config=ttnn.ComputeConfigDescriptor(
@@ -2076,7 +2078,8 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
             alloc(shp[:-1] + [int(wgo.shape[-1])], ttnn.bfloat8_b if g8 else ttnn.bfloat16)]
     key = ("t1", str(x.padded_shape), str(x.dtype), str(wpT.padded_shape), str(wgo.padded_shape), tuple(grid),
            tuple(str(c) for c in ckc), mask is not None, float(eps), _sigpoly(), RNE, nb,
-           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0, T1_ZPRE, T1_ZIL)
+           T1_RB, T1_SBW, T1_ABL, _t1_psig(), b8, il, w8, split, mcast, g8, fg, T1_FGD if fg else 0, T1_ZPRE, T1_ZIL,
+           T1_LN_BLK)
     xn = alloc(shp) if T1_LN1 and groups > 1 else None
     for g in range(groups):
         ln1 = 0 if xn is None else 1 if g == 0 else 2
