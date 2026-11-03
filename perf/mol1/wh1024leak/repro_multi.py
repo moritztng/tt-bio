@@ -1,11 +1,14 @@
 # N folds of one frozen mol1-fair-tt input in ONE process, as perf/mol1/fair/run.py's chip_main folds them (load once,
 # then predict_one per round), with a device-DRAM census between folds: allocated + largest free block per bank, and
 # every Python-held device tensor grouped by its holder (module global, model attribute, cache dict).
-# usage (cwd = the inputs dir): python repro_multi.py <input.json> <first seed> <folds> <outdir>
+# usage (cwd = the inputs dir): python repro_multi.py <input.json> <first seed> <folds> <outdir> [--clear-programs]
+# --clear-programs: after each fold's census, clear the program cache (program_cache_for(None)) and census again, so the
+# difference is the DRAM the cached programs' kernel binaries held, and the next fold starts on an empty cache.
 import gc, json, os, sys, time, traceback
 from collections import defaultdict
 from pathlib import Path
 inp, seed0, folds, out = Path(sys.argv[1]).resolve(), int(sys.argv[2]), int(sys.argv[3]), Path(sys.argv[4])
+clear = "--clear-programs" in sys.argv[5:]
 os.environ["TT_BIO_LEASE_CARDS"] = os.environ["TT_VISIBLE_DEVICES"]
 from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
@@ -128,4 +131,7 @@ for i in range(folds):
         print("RESULT", json.dumps({"fold": i, "seed": seed, "rc": 1, "wall_s": round(time.time() - t0, 1)}), flush=True)
         rc = 1
     census(f"after-fold-{i}")
+    if clear:
+        T.program_cache_for(None)
+        census(f"after-fold-{i}-cleared")
 sys.exit(rc)
