@@ -153,7 +153,7 @@ def _t1_abl(v):
 
 def _pb_abl(v):
     """permute_back_pk with stage-skip bits v (1 read, 2 tilize + transpose, 4 write, 8 transpose,
-    16 / 32 write pages consecutive / bank-rotated): timing only."""
+    16 / 32 / 64 write pages consecutive / rotated over 8 banks / over 2): timing only."""
     import tt_bio.permute_back_pk as PB
     prev, PB.ABL = PB.ABL, int(v)
     return prev
