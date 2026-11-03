@@ -6,6 +6,7 @@ and from https://github.com/chaidiscovery/chai-lab/blob/main/chai_lab/utils/time
 """
 
 import multiprocessing
+import multiprocessing.connection
 import os
 import queue as _queue
 import signal
@@ -220,6 +221,77 @@ def run_in_subprocesses(calls: list[tuple[float, Callable, tuple, dict]]) -> lis
             except Exception as e:  # noqa: BLE001 -- handed back to the caller like the decorator raises it
                 out.append((False, e))
     return out
+
+
+def _pool_worker(conn) -> None:
+    """One `SubprocessPool` worker: run calls off the pipe until it closes or the parent is gone."""
+    parent = os.getppid()
+    while True:
+        while not conn.poll(1.0):
+            if os.getppid() != parent:  # a sibling forked later holds our pipe open, so EOF alone is not enough
+                return
+        try:
+            func, args, kwargs = conn.recv()
+        except EOFError:
+            return
+        try:
+            reply = (_TimeoutHandlerStatus.SUCCESS, func(*args, **kwargs))
+        except Exception as e:  # noqa: BLE001 -- handed back to the caller like the decorator raises it
+            reply = (_TimeoutHandlerStatus.EXCEPTION, e)
+        conn.send(reply)
+
+
+class SubprocessPool:
+    """tt-bio: `run_in_subprocesses` on forked workers that outlive the call. A fork costs the parent's page
+    tables, about 25 ms from a process holding torch, and a batch of 20 paid them one after the other before
+    any call ran. Workers are forked on first need and reused; one that times out or dies is dropped and the
+    next call forks a fresh one. Same contract: each call keeps its own timeout from its own start, at most one
+    per usable CPU runs at a time, (ok, value or exception) per call."""
+
+    def __init__(self):
+        self._idle = []
+        self._width = max(1, len(os.sched_getaffinity(0)))
+
+    def _worker(self):
+        if self._idle:
+            return self._idle.pop()
+        ctx = multiprocessing.get_context("fork")
+        conn, child = ctx.Pipe()
+        proc = ctx.Process(target=_pool_worker, args=(child,), daemon=True)
+        with _AllowSubprocessForDeamonicProcess():
+            proc.start()
+        child.close()
+        return proc, conn
+
+    def run(self, calls: list[tuple[float, Callable, tuple, dict]]) -> list[tuple[bool, Any]]:
+        out = [None] * len(calls)
+        todo = list(enumerate(calls))[::-1]
+        busy = {}  # conn -> (index, proc, deadline, func, timeout)
+        while todo or busy:
+            while todo and len(busy) < self._width:
+                i, (timeout, func, args, kwargs) = todo.pop()
+                proc, conn = self._worker()
+                conn.send((func, args, kwargs))
+                busy[conn] = (i, proc, time.monotonic() + timeout, func, timeout)
+            wait = min(d for _, _, d, _, _ in busy.values()) - time.monotonic()
+            for conn in multiprocessing.connection.wait(list(busy), timeout=max(wait, 0.0)):
+                i, proc, _, func, _ = busy.pop(conn)
+                try:
+                    status, value = conn.recv()
+                except EOFError:
+                    proc.join()
+                    out[i] = (False, ChildProcessError("Child process died unexpectedly"))
+                    continue
+                out[i] = (status is _TimeoutHandlerStatus.SUCCESS, value)
+                self._idle.append((proc, conn))
+            now = time.monotonic()
+            for conn in [c for c, (_, _, d, _, _) in busy.items() if d <= now]:
+                i, proc, _, func, timeout = busy.pop(conn)
+                proc.terminate()
+                proc.join()
+                conn.close()
+                out[i] = (False, TimeoutError(f"Function {func} timed out after {timeout} seconds"))
+        return out
 
 
 # TODO: This is dangerous: revert once the underlying problem in rdkit is fixed

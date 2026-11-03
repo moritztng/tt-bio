@@ -5,11 +5,13 @@ import sys
 from rdkit import Chem
 
 from tt_bio._vendor.atomworks.ml.transforms.rdkit_utils import _conformers_here
+from tt_bio._vendor.atomworks.ml.utils.timer import SubprocessPool
 
 
 def main():
     inp, out = sys.stdin.buffer, sys.stdout.buffer
     sys.stdout = sys.stderr  # nothing but replies on the pipe
+    pool = SubprocessPool()
     while True:
         try:
             props, jobs, seeds, timeout, kwargs = pickle.load(inp)
@@ -17,7 +19,7 @@ def main():
             return
         Chem.SetDefaultPickleProperties(props)
         try:
-            reply = (True, _conformers_here(jobs, seeds, timeout, kwargs))
+            reply = (True, _conformers_here(jobs, seeds, timeout, kwargs, pool))
         except Exception as e:  # noqa: BLE001 -- raised again in the caller
             reply = (False, e)
         pickle.dump(reply, out)
