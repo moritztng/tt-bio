@@ -322,7 +322,8 @@ def main():
             fs = tuple(sorted(set(sd or {r["seed"] for r in tok if r["arm"] == test}) & fp32_seeds))
             def d56(cases=None):
                 return stats.with_fp32(stats.verdict(tok, test, cases=cases, seeds=fs),
-                                       stats.verdict(tok, test, base="gpu_fp32", floor_base="gpu", cases=cases, seeds=fs))
+                                       stats.verdict(tok, test, base="gpu_fp32", floor_base="gpu", cases=cases, seeds=fs,
+                                                     split="gpu"))
             pooled = d56()
             sets56 = {s: d56({r["case"] for r in tok if r["set"] == s}) for s in sets}
             failed56 = [s for s, x in sets56.items() if x["verdict"] == "FAIL"]
