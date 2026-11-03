@@ -46,6 +46,7 @@ print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t)
 # qb2 -> box: vast's ssh proxy authenticates against keys ATTACHED to the instance, so a line appended to the box's
 # authorized_keys alone was refused (session mol1-b200-ref1, 2026-11-01: gate passed, inputs never arrived, $5 spent).
 # Attach through the API, append as well for the direct port, and prove qb2 gets in before the box is launched.
+# The push itself retries: a single rsync died on a broken pipe and left mol1-fp32-r2 waiting 30 min for nothing (11-03).
 qb2_key(){ local k; k=$($Q2 'cat ~/.ssh/id_ed25519.pub') || return 1
   $V attach ssh $I "$k" >/dev/null 2>&1; echo "$k" | timeout 30 $S 'cat >> /root/.ssh/authorized_keys' || return 1
   for _ in 1 2 3 4 5 6; do timeout 60 $Q2 "${S% root@*} $H true" >/dev/null 2>&1 && return 0; sleep 30; done
@@ -139,7 +140,7 @@ if x.get("actual_status")=="running":
     push $P/mol1_gpu.py $P/mol1_arms.py $P/mol1_inputs.py $P/mol1_ref.py $P/$BOX $H:/root/kc/ &&
     { [ -z "${INPUTS:-}" ] || R "$INPUTS/" $H:/root/kc/inputs/; } &&
     echo "$I $O" | timeout 30 $S 'cat > /root/kc/instance' &&
-    { [ -z "$QB2" ] || { qb2_key && { $Q2 "rsync -a -e '${S% root@*}' ${QB2#*:}/inputs/ $H:/root/kc/qinputs/ && ${S% root@*} $H touch /root/kc/QINPUTS-DONE" \
+    { [ -z "$QB2" ] || { qb2_key && { $Q2 "ok=; for n in 1 2 3 4 5; do rsync -a --partial -e '${S% root@*}' ${QB2#*:}/inputs/ $H:/root/kc/qinputs/ && { ok=1; break; }; sleep 30; done; [ -n \"\$ok\" ] && ${S% root@*} $H touch /root/kc/QINPUTS-DONE" \
         > $OUT/qinputs.log 2>&1 & }; }; } ||
     { destroy $I "push failed"; continue; }
   # BOXENV carries the box script's knobs across ssh (CELLS, FINAL_WARM, CUDA_VISIBLE_DEVICES). An env var
