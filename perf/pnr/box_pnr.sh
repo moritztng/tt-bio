@@ -26,10 +26,11 @@ printf '#!/bin/sh\nexec flock /tmp/pnr-apt.lock /usr/bin/apt-get "$@"\n' > $K/bi
 export PATH=$K/bin:/root/.local/bin:$PATH
 # box_mol1.sh and box_rfd4.sh each install uv if it is missing; two installers writing one binary at once race
 command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh > uv-install.log 2>&1
-( SETUP_ONLY=1 bash box_mol1.sh $CAP_H > mol1/box.log 2>&1; echo $? > SETUP-mol1 ) &
-( bash box_bc_setup.sh bc2 > bc2/setup.log 2>&1; echo $? > SETUP-bc2 ) &
-( SETUP_ONLY=1 bash box_rfd4.sh $CAP_H > rfd4/box.log 2>&1; echo $? > SETUP-rfd4 ) &
-wait
+# wait on the three setups by pid: a bare wait would also wait on the nvidia-smi logger, which never exits
+( SETUP_ONLY=1 bash box_mol1.sh $CAP_H > mol1/box.log 2>&1; echo $? > SETUP-mol1 ) & W1=$!
+( bash box_bc_setup.sh bc2 > bc2/setup.log 2>&1; echo $? > SETUP-bc2 ) & W2=$!
+( SETUP_ONLY=1 bash box_rfd4.sh $CAP_H > rfd4/box.log 2>&1; echo $? > SETUP-rfd4 ) & W3=$!
+wait $W1 $W2 $W3
 for m in mol1 bc2 rfd4; do prog setup-$m "$(cat SETUP-$m)"; done
 say "setup done after $(( $(date +%s) - T0 ))s: mol1=$(cat SETUP-mol1) bc2=$(cat SETUP-bc2) rfd4=$(cat SETUP-rfd4)"
 /opt/bc2-venv/bin/python -m pip freeze > bc2/pip-freeze.txt 2>&1
