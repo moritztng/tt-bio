@@ -2179,6 +2179,23 @@ def is_alloc_refusal(exc: BaseException) -> bool:
     return describe_device_oom(str(exc)) is not None
 
 
+def restart_lighter(run, mode, lighter, step_down):
+    """``run(mode)``; while the device allocator refuses it, ``step_down(mode)`` and run again from
+    the start in ``lighter[mode]``. The result of the first run that fits.
+
+    A refusal in a mode with nothing lighter, or any other error, propagates. ``step_down`` runs
+    outside the handler, once the traceback that pins every tensor the refused run made is gone.
+    """
+    while True:
+        try:
+            return run(mode)
+        except RuntimeError as exc:
+            if mode not in lighter or not is_alloc_refusal(exc):
+                raise
+        step_down(mode)
+        mode = lighter[mode]
+
+
 # What the allocator's own numbers say happened. One decision, two renderings: the sentence a user
 # reads (``describe_device_oom``) and the mechanism a ceiling row records (``classify_device_oom``).
 # Written once because they have to agree -- a refusal a ladder records as fragmentation and the
