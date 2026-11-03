@@ -1886,12 +1886,18 @@ def _trimul_inproj_chunk_cap(seq_len: int, hidden: int, batch: int, chunk: int) 
 
     Narrowing is bit-exact: the chunk is a partition of an independent-channel sum, the same
     argument `_trimul_chunk_size` and `_trimul_inproj_group` make for their own widths.
+
+    The fused projection is TILE laid out, so its last axis, 4 x chunk, is padded to a tile: below
+    chunk 8 a halving allocates exactly the bytes it was refused and only doubles the channel loop.
+    The ladder stops where a halving no longer shrinks the padded bytes, and a refusal there is
+    raised for the caller's lighter mode (seed 4101 of WH 1024 Mol-1 walked to chunk 1, then died).
     """
     budget = _trimul_inproj_budget(seq_len, hidden, batch)
     refused = _trimul_chunk_key(seq_len, hidden, batch) in _TRIMUL_INPROJ_FUSED_CAP
     floor = 1 if refused and not _SUB_TILE_SLICE_WEDGES else _TRIMUL_MIN_CHUNK
-    while (chunk > floor and hidden % (chunk // 2) == 0
-           and 4 * chunk * seq_len * seq_len * batch * 2 > budget):
+    lanes = lambda c: -(-4 * c // _reblock.TILE_W) * _reblock.TILE_W  # noqa: E731
+    while (chunk > floor and hidden % (chunk // 2) == 0 and lanes(chunk // 2) < lanes(chunk)
+           and lanes(chunk) * seq_len * seq_len * batch * 2 > budget):
         chunk //= 2
     return chunk
 
@@ -9389,6 +9395,19 @@ _HOST_ACC_KEYS = set()
 _DEVICE_ACC_TRIAL = [False]
 
 
+def _sub_tile_join(x: ttnn.Tensor, chunk: int) -> bool:
+    """Whether a channel loop over x's pair in `chunk`-wide slices joins them on the host.
+
+    Each slice is [.., chunk] in TILE layout, so below a tile every slice the device join holds
+    costs a whole tile of lanes: hidden / chunk slices of 32 lanes, 32 / chunk times the output.
+    Seed 4101 of WH 1024 Mol-1 ran trimul at chunk 1, its slices 64 MiB each where 2 MiB is
+    the data, and the join filled the chip from 5.1 GiB to 12.7 GB. On the host the slices
+    are their own size, one at a time on the device. bf16 only, as `_host_concat`.
+    """
+    return (chunk % _reblock.TILE_W != 0 and x.dtype == ttnn.bfloat16
+            and _dtype() == ttnn.bfloat16)
+
+
 def host_acc_after_refusal(key, x, run):
     """`run()` with its blocks joined on device first; on the host only after DRAM refuses that.
 
@@ -11223,7 +11242,7 @@ class TriangleMultiplication(Module):
         # Assemble the per-channel chunks on the host when the full result is large
         # enough that the concat's full-size allocation would risk a fragmented-DRAM
         # refusal; the loop then holds at most one chunk on device (concat_host_bytes()).
-        host_acc = large_seq and _host_concat(x_in)
+        host_acc = large_seq and (_host_concat(x_in) or _sub_tile_join(x_in, chunk_size))
         # The channel loop's L1 footprint is set by chunk_size, and the budget that
         # picked it is a 130-core calibration: on a tighter grid (110-core p300/p300c)
         # the picked width can clash at program creation (issue #11). The clash throws
@@ -11845,6 +11864,7 @@ class TriangleMultiplication(Module):
                     group = _trimul_inproj_group(H, chunk_size, batch, n_pairs)
                     if (chunk_size, group) == was:
                         raise                       # nothing left to give
+                    host_acc = host_acc or _sub_tile_join(x_in, chunk_size)
                     gp_in_chunks = self._gp_in_chunks(chunk_size, group)
                     print(f"[tt-bio] trimul DRAM refused the fused in-projection at chunk "
                           f"{was[0]} x group {was[1]} (seq {H}): retrying at chunk "
