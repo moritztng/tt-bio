@@ -54,3 +54,6 @@ cd /root/kc && /opt/rfd4-venv/bin/python -I /root/kc/pvo_rfd4.py --spec /root/kc
   --out $B --deadline $DEADLINE --designs ${RFD4_DESIGNS:-128} > $B/rfd4.log 2>&1
 say "rfd4 rc=$? after deadline-$((DEADLINE - $(date +%s)))s"
 echo done > $B/RFD4-DONE
+# pull_cifs.sh on pc touches HOLD-PULL and removes it once every CIF is on pc; the session destroys the box at
+# PVO-DONE, so without the hold the last arm's structures die with it (session 5 lost Mol-1 exact's 165 that way).
+while [ -f /root/kc/HOLD-PULL ] && [ "$(date +%s)" -lt "$DEADLINE" ]; do sleep 30; done
