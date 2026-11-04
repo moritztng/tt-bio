@@ -18,3 +18,5 @@ rm -f $B/rfd4/RFD4-FAILED
 bash /root/kc/box_rfd4_pvo.sh $((END - 5400)) >> $B/extra.log 2>&1
 bash /root/kc/run_acc.sh $END 101,102,103 >> $B/extra.log 2>&1
 echo done > $B/PVO-DONE; say "PVO-DONE"
+# FAILED 07:25Z: launched from a bare ssh shell, it had none of box_pvo.sh's exports (PATH with uv, MOL_ROOT_DIR),
+# so RFD4 setup and Mol-1 fast both died in seconds and it still wrote PVO-DONE. Session 6 reran them via box_pvo.sh.

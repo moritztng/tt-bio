@@ -8,13 +8,16 @@
 # Clocks come from box_pvo.sh's box-wide smi.csv, cut to each arm's t_start/t_end; no second logger.
 set -u
 A=${ACC_DIR:-/root/kc/acc}; B=${PVO_DIR:-/root/kc/pvo}/acc; DEADLINE=${1:-$(( $(date +%s) + 86400 ))}
-SEEDSETS=${2:-"101,102,103 104,105"}
+SEEDSETS=${2:-${ACC_SEEDSETS:-"101,102,103 104,105"}}
+# ACC_ARMS="mol1/fast ..." runs only those <model>/<mode> arms (a re-run on a fresh box has no rc files to skip on).
+ACC_ARMS=${ACC_ARMS:-}
 mkdir -p "$B"
 say(){ echo "$(date -u +%FT%TZ) run_acc: $*"; }
 
 # arm <model> <mode> <seeds> <env> <flags...>; ARM_IN overrides the input JSON, opendde-abag runs OpenDDE's venv
 arm(){ local m=$1 mode=$2 seeds=$3 e=$4; shift 4
   local d=$B/$m/${mode}_${seeds//,/-}
+  [ -n "$ACC_ARMS" ] && [[ " $ACC_ARMS " != *" $m/$mode "* ]] && return 0
   [ "$(cat "$d/rc" 2>/dev/null)" = 0 ] && return 0
   if [ "$(date +%s)" -ge "$DEADLINE" ]; then say "deadline: skip $m $mode $seeds"; return 1; fi
   rm -rf "$d"; mkdir -p "$d"; say "arm $m $mode $seeds"

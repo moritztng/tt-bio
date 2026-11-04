@@ -124,6 +124,11 @@ for m in opendde mol1; do
 done
 say "gates passed after $(( $(date +%s) - T0 ))s"
 
+# MOL1_FAST=<arm> skips every timing arm and goes straight to EXTRA with that Mol-1 fast arm: session 6 re-ran only
+# RFD4 and Mol-1 fast accuracy, whose ranking (cueq-cueq-c5-tf32) session 5 had already measured on this card.
+if [ -n "${MOL1_FAST:-}" ]; then
+  mkdir -p $B/mol1; echo "$MOL1_FAST" > $B/mol1/FAST-ARM; say "timing arms skipped, mol1 fast arm $MOL1_FAST"
+else
 # MODES.md, frozen 2026-11-03. Exact = upstream defaults. Fast = every same-work switch upstream ships.
 ODDE_FAST="--tf32 --trimul cuequivariance --triatt cuequivariance"
 arm opendde exact 1 LAYERNORM_TYPE=torch
@@ -147,6 +152,7 @@ esac
 for k in 2 3; do arm mol1 $MBEST $k X=1 $MF || break; done
 for k in 2 3; do arm mol1 exact $k X=1 || break; done
 echo done > $B/ARMS-DONE; say "timing arms done after $(( $(date +%s) - T0 ))s"
+fi
 
 # RFD4 and pvo-accuracy's arms hook in here (box_rfd4_pvo.sh, run_acc.sh), each resumable on its own rc files.
 for x in ${EXTRA:-}; do [ -f /root/kc/$x ] && bash /root/kc/$x $DEADLINE >> $B/extra.log 2>&1; done
