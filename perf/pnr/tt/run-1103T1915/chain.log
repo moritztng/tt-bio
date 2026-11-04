@@ -1,0 +1,16 @@
+start 2026-11-03T19:05:46Z pid=3438496 sha=21b5d039bffea6296df9740d992842a049a01c91 cells=mol1 mol1_fast rfd4 bc2
+locks held 2026-11-03T20:19:24Z
+wait quiet (holders: none; load 2.37) 2026-11-03T20:19:26Z
+quiet after 60s 2026-11-03T20:20:28Z load 1.48 4.04 7.66 2/987 4125170
+cell mol1 start 2026-11-03T20:20:29Z
+cell mol1 end rc=1 2026-11-03T20:20:34Z load 1.52 4.00 7.63 2/987 4126942
+locks held 2026-11-03T20:32:10Z
+wait quiet (holders: none; load 3.35) 2026-11-03T20:32:11Z
+quiet after 210s 2026-11-03T20:35:50Z load 1.19 3.35 5.89 1/983 47677
+cell mol1_fast start 2026-11-03T20:35:50Z
+cell mol1_fast end rc=1 2026-11-03T20:35:55Z load 1.18 3.31 5.86 1/983 49428
+locks held 2026-11-03T20:43:02Z
+wait quiet (holders: none; load 7.44) 2026-11-03T20:43:03Z
+quiet after 120s 2026-11-03T20:45:08Z load 1.35 5.27 6.35 2/988 144835
+cell rfd4 start 2026-11-03T20:45:08Z
+cell rfd4 end rc=0 2026-11-03T21:36:16Z load 4.92 2.94 2.88 3/991 381456
