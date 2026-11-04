@@ -122,7 +122,7 @@ def main():
 
     def op_wrap(name, fn):
         def w(*args, **kw):
-            if not st["armed"] or st["depth"]:
+            if not st["armed"] or st["depth"] or not st["stack"]:   # only inside the instrumented denoise
                 return fn(*args, **kw)
             st["depth"] += 1
             try:
