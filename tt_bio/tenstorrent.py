@@ -22,6 +22,7 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import dest_guard as _dest_guard
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from . import fp32_ln as _fp32_ln
 from . import bmm_res as _bmm_res
 from .addcmul_at import addcmul_at as _addcmul_at
 from . import page_copy as _page_copy
@@ -14193,39 +14194,9 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(transpose_mcast=False, **kw)
 
 
-_FP32_NORM_PARAMS = {}
-
-
-def _fp32_row_sum(x, mc):
-    """Sum over the last dim (a multiple of 32) of an fp32 `x` from fp32 elementwise adds only: tile columns folded in
-    halves while their count is even, the rest added in turn, then the 32 columns of one tile halved down to one.
-
-    Wormhole's FPU reductions do not hold fp32 here: on Mol-1's trunk block 43 input `ttnn.sum` and a matmul with ones
-    both land the 32-column partial of xc^2 1.07e-3 off and the layer norm's per-token part 0.50 off, where these
-    adds give 1.6e-7 and 3.1e-4 against a 1.3e-4 fp32 floor (perf/mol1_whl4/ln_var_probe.py, one .111 chip). The
-    tokens of a single track share a vector ~1e3x their differences, so 1/sigma needs ~1e-6 per token.
-    """
-    lead = list(x.shape)[:-1]
-    w = x.shape[-1]
-    if w % 32:
-        raise ValueError(f"_fp32_row_sum: last dim {w} is not a multiple of 32")
-    sl = lambda t, a, b: ttnn.slice(t, [0] * len(lead) + [a], lead + [b], memory_config=mc)
-    while w > 32 and (w // 32) % 2 == 0:
-        w //= 2
-        x = ttnn.add(sl(x, 0, w), sl(x, w, 2 * w), memory_config=mc)
-    t = sl(x, 0, 32) if w > 32 else x
-    for c in range(32, w, 32):
-        t = ttnn.add(t, sl(x, c, c + 32), memory_config=mc)
-    w = 32
-    while w > 1:
-        w //= 2
-        t = ttnn.add(sl(t, 0, w), sl(t, w, 2 * w), memory_config=mc)
-    return t
-
-
-def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memory_config=None):
-    """Layer norm over the last dim from fp32 primitives (mean, centred variance, rsqrt), written at `dtype`. Both
-    statistics are sums of fp32 elementwise adds (`_fp32_row_sum`), not FPU reductions.
+def fp32_layer_norm(x, weight, bias, epsilon, dtype, memory_config=None):
+    """Layer norm over the last dim with fp32 statistics, written at `dtype`: one SFPU program (`fp32_ln`) whose
+    row sums are fp32 adds, not FPU reductions.
 
     For Wormhole's single track, where `ttnn.layer_norm` gets each row's 1/sigma only to ~0.3 % (std, any
     fidelity, fp32 dest or fp32 input alike). Mol-1's trunk block 43 single Transition normalizes a ~149-valued
@@ -14234,26 +14205,10 @@ def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memo
     93 in upstream fp32. Composed in fp32 the norm's token error is 0.0053 against the correctly rounded bf16
     floor of 0.0045 (ttnn.layer_norm: 0.018-0.024), state/mol1/evidence/whl3/ROOT.md.
     """
-    key = (id(weight), id(bias))
-    params = _FP32_NORM_PARAMS.get(key)
-    if params is None:
-        params = _FP32_NORM_PARAMS[key] = (weight, bias, ttnn.typecast(weight, ttnn.float32),
-                                           ttnn.typecast(bias, ttnn.float32))
-    mc = memory_config
-    x32 = ttnn.typecast(x, ttnn.float32, memory_config=mc) if x.dtype != ttnn.float32 else x
-    inv_w = 1.0 / x.shape[-1]
-    xc = ttnn.subtract(x32, ttnn.multiply(_fp32_row_sum(x32, mc), inv_w, memory_config=mc), memory_config=mc)
+    x32 = ttnn.typecast(x, ttnn.float32, memory_config=memory_config) if x.dtype != ttnn.float32 else x
+    out = _fp32_ln.layer_norm(x32, weight, bias, epsilon, dtype, memory_config)
     if x32 is not x:
         ttnn.deallocate(x32)
-    sq = ttnn.multiply(xc, xc, memory_config=mc)
-    var = ttnn.multiply(_fp32_row_sum(sq, mc), inv_w, memory_config=mc)
-    ttnn.deallocate(sq)
-    inv = ttnn.rsqrt(ttnn.add(var, epsilon, memory_config=mc), memory_config=mc)
-    ttnn.deallocate(var)
-    out = ttnn.multiply_(xc, inv)
-    ttnn.deallocate(inv)
-    out = ttnn.add(ttnn.multiply_(out, params[2]), params[3], dtype=dtype, memory_config=mc)
-    ttnn.deallocate(xc)
     return out
 
 
@@ -14308,7 +14263,7 @@ def fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype):
 
 
 def _fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype, inner):
-    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ckc, ttnn.float32, inner)
+    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ttnn.float32, inner)
     a = _centred_linear(xn, w1, ckc, ttnn.float32, inner, inner)
     b = _centred_linear(xn, w2, ckc, ttnn.float32, inner, inner)
     ttnn.deallocate(xn)
@@ -15553,8 +15508,7 @@ class PairformerLayer(Module):
         if self.transform_s:
             # An fp32 single track keeps its per-token part only through an fp32 norm: `ttnn.layer_norm` on
             # the bf16 copy loses it the same way the Transition's norm did (`fp32_layer_norm`).
-            s_norm = (fp32_layer_norm(s, self.pre_norm_s_weight, self.pre_norm_s_bias, 1e-5,
-                                      self.compute_kernel_config, ttnn.bfloat16)
+            s_norm = (fp32_layer_norm(s, self.pre_norm_s_weight, self.pre_norm_s_bias, 1e-5, ttnn.bfloat16)
                       if self.s_fp32 and not ops.taping() else ttnn.layer_norm(
                 self._s_compute(s),
                 weight=self.pre_norm_s_weight,
