@@ -8,7 +8,8 @@
 # active on every card, then takes all four ~/spd_qb1_card{0..3}.lock flocks (the locks gate legs and SPD chains use, so it
 # queues behind a running gate and nothing new lands on qb1 during the cell), then waits for a device-free, quiet
 # box (no other pid on any /dev/tenstorrent node, loadavg < 1.5) and runs under benchlock. Locks drop after each cell,
-# the booking at the end. tt_bio cells run ~/tt-bio-dev/env (ttnn 0.68.0, what main targets);
+# the booking at the end. While it waits it drops fleet-pnr-tt, the card hold fleet.sh books for this row on every
+# launch: that hold sits on one of the four cards, so the booking never reads active and lapses unused. tt_bio cells run ~/tt-bio-dev/env (ttnn 0.68.0, what main targets);
 # /usr/bin/python3 imports 0.67.4. AICLK is sampled during every timed run by the harness itself.
 set -u
 WT=$HOME/.coworker/wt/pnr-tt; OWNER=worker:pnr-tt; [ "${1:-}" = --owner ] && { OWNER=$2; shift 2; }
@@ -32,8 +33,8 @@ secs() { case $1 in mol1|mol1_fast) echo 2700 ;; rfd4) echo 9000 ;; bc2) echo 11
 REM=0; for c in $CELLS; do REM=$((REM + $(secs $c))); done
 cell() {  # name cmd...  (one booking covers the remaining cells, so no other booker lands between two of them)
     local n=$1; shift; local d="$OUT/$n" c; mkdir -p "$d"
-    booked || echo "book $n+: $($BOOK add "$OWNER" 0,1,2,3 "$REM" --note "pnr-tt $CELLS (needs the box quiet)") $(date -u +%FT%TZ)"
-    until booked; do sleep 60; $BOOK add "$OWNER" 0,1,2,3 "$REM" --note "pnr-tt $CELLS (needs the box quiet)" > /dev/null; done
+    $BOOK rm fleet-pnr-tt > /dev/null; booked || echo "book $n+: $($BOOK add "$OWNER" 0,1,2,3 "$REM" --note "pnr-tt $CELLS (needs the box quiet)") $(date -u +%FT%TZ)"
+    until booked; do sleep 60; $BOOK rm fleet-pnr-tt > /dev/null; $BOOK add "$OWNER" 0,1,2,3 "$REM" --note "pnr-tt $CELLS (needs the box quiet)" > /dev/null; done
     echo "booked $(date -u +%FT%TZ)"
     exec 5>>"$HOME/spd_qb1_card0.lock" 6>>"$HOME/spd_qb1_card1.lock" 7>>"$HOME/spd_qb1_card2.lock" 8>>"$HOME/spd_qb1_card3.lock"
     for c in 5 6 7 8; do flock -w 43200 $c || { echo "GIVEUP lock fd $c"; exec 5>&- 6>&- 7>&- 8>&-; return 1; }; done
