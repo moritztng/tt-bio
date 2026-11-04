@@ -1,12 +1,13 @@
 #!/bin/bash
 # pair.sh OUT CARD TREE "NAME=SPEC NAME=SPEC" "PDB PDB ..." SECONDS [LADDER_ARMS] (on qb1 or qb2): grade folds for OpenDDE on
 # one Blackhole card (qb1 p150a or qb2 p300c), per complex every arm back to back (bench.py --seed 101 --warm 3, one process each), so whatever finishes
-# is paired. Books the card through ~/spd/feed/book.py (owner spd-m-opendde-2-c<CARD>), holds its flock, and stops
+# is paired. Books the card through ~/spd/feed/book.py (owner spd-m-opendde-2-c<CARD>[-$TAG]: book.py keeps one booking an
+# owner and the exit trap drops it, so two launches on one card need distinct TAGs), holds its flock, and stops
 # starting work 20 min before the window ends; rerun it to finish the rest (done arm x complex pairs are skipped).
 # LADDER_ARMS: an arms file for ladder.sh, run first under the same booking. Grade on pc with perf/spd/grade.py.
 set -u
 OUT=$1 CHIP=$2 T=$3 ARMS=$4 PDBS=$5 SEC=$6 LADDER=${7:-}
-OWN=spd-m-opendde-2-c$CHIP BK=$HOME/spd/feed/book.py
+OWN=spd-m-opendde-2-c$CHIP${TAG:+-$TAG} BK=$HOME/spd/feed/book.py
 VENV=$(ls -dt $HOME/scratch/shipflow/venv-*/done | head -1); VENV=${VENV%done}; export PATH=${VENV%/}/bin:$PATH
 mkdir -p "$OUT"; log() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/chain.log"; }
 trap 'python3 $BK rm $OWN; log "chain exit"' EXIT
