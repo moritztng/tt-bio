@@ -4230,7 +4230,12 @@ class Trunk(_KeyedWeights):
         # m_feat stays on the chip up to `MSA_JOIN_MAX_BYTES`, a size decided by the input alone.
         s_m = self._lin(self._up(s_inputs), "msa_module.linear_no_bias_s.weight")
         m_key = (N, ms.shape[1] * N * self._w["msa_module.linear_no_bias_m.weight"].shape[0] * 2)
-        m_proj = lambda x: ttnn.add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
+        # The s term is added into the projection's own buffer: a second `m` for the sum was the
+        # deepest cycle's peak, the 224 MB/bank a Wormhole chip refused at 1024 Mol-1 tokens (6848
+        # rows) with 380 MB/bank free in pieces, which sent the rest of the fold to "park" streaming.
+        # Not under a tape, which may still hold the projection.
+        add = ttnn.add if ops.taping() else ttnn.add_
+        m_proj = lambda x: add(self._lin(x, "msa_module.linear_no_bias_m.weight"), s_m)
         n_cycles = self.N_CYCLES if n_cycles is None else n_cycles
         rows = table = next_rows = None
         if msa_sample is not None:
