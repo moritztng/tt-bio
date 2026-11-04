@@ -17,6 +17,9 @@
 #ifndef ABL_R
 #define ABL_R 0   // bench-only (triatt_ln.ABL bit 8): skip the DRAM reads of x
 #endif
+#ifndef HM
+#define HM 0      // triatt_ln.BIAS_HEADS: plain rows run in TR's 16-row units too (writer.cpp row_of), r0 is a unit
+#endif
 #include "ttnn/kernel/dataflow/generate_reduce_scaler.hpp"
 
 void kernel_main() {
@@ -107,7 +110,8 @@ void kernel_main() {
         for (uint32_t k = 0; k < n; ++k) {
             uint32_t ir = i + k * step + s;
             if (ir >= nrows) ir -= nrows;
-            const uint32_t page = (r0 + ir) * Kt;
+            const uint32_t MT = get_arg_val<uint32_t>(3), u = r0 + ir / 16;
+            const uint32_t page = (HM ? ((u >> 1) / MT * 32 + (u & 1) * 16 + ir % 16) * MT + (u >> 1) % MT : r0 + ir) * Kt;
             for (uint32_t t = 0; t < Kt; ++t, dst += tb)
                 if constexpr (!ABL_R) noc_async_read_page(page + t, x, dst);
         }

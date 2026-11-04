@@ -65,6 +65,11 @@ def head_pitch(MT) -> int:
     from .tenstorrent import is_wormhole
     arch = "wormhole" if is_wormhole() else "blackhole"
     return int(HEAD_PITCH[arch] and MT % DRAM_BANKS[arch] == 0)
+#: parts where the pair bias comes out head-major ([1, bc, S, S], the layout triatt_sdpa reads) instead of [S, S, bc],
+#: so the caller's permute goes. Compute transposes the bias tile (h rows, j columns) and the writer gathers
+#: row h of 16 such tiles into one half of head h's output tile (writer.cpp HM). Rows run in TR's 16-row units
+#: either way, so a core holds the 16 b of a half tile together. Data movement only, so bit-exact with the permute.
+BIAS_HEADS = {"wormhole": False, "blackhole": True}
 #: bench-only stage skips (kernels/triatt_ln/compute.cpp ABL; perf/spd_m_protenix/tl_attr.py), 0 in production
 ABL = 0
 #: rotate each core's plain-read rows by its row-split index, so the cores of a group do not all start on the same
@@ -81,8 +86,8 @@ LN_BLK = 1
 #: 640 117.96 -> 115.72 s, 288 null.
 LN_SHARE = True
 _CACHE: dict = {}
-#: (served, declined, served with bfp8 q/k/v, served head-pitched)
-STATS = [0, 0, 0, 0]
+#: (served, declined, served with bfp8 q/k/v, served head-pitched, served with a head-major bias)
+STATS = [0, 0, 0, 0, 0]
 REJECTS: dict = {}
 
 
@@ -207,7 +212,7 @@ def _cb_tiles(cols, nw):
     return 2 * lcm([q for _, q, _ in cols]), 2 * lcm([nw - q for _, q, _ in cols if nw > q])
 
 
-def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
+def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None, hm=0):
     kt, nwf = int(x.shape[-1]) // TILE, int(w.padded_shape[-1]) // TILE
     m = 1
     for d in list(x.padded_shape)[:-1]:
@@ -216,9 +221,10 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     gx, gy = grid
     core_grid = ttnn.CoreRangeSet([ttnn.CoreRange(ttnn.CoreCoord(0, 0), ttnn.CoreCoord(gx - 1, gy - 1))])
     rd, wr, cp = ttnn.RuntimeArgs(), ttnn.RuntimeArgs(), ttnn.RuntimeArgs()
-    # TR splits 16-row units (2 per x^T row-tile pair (bt, jt)), the rest splits row tiles. Core c is in
+    # TR and HM split 16-row units (2 per row-tile pair (bt, jt)), the rest splits row tiles. Core c is in
     # column group c % g, and every group splits the same rows.
-    split = split_rows(m // 16 if tr else m, gx * gy // g)
+    units = tr or hm
+    split = split_rows(m // 16 if units else m, gx * gy // g)
     nq = max(q for _, q, _ in cols) if cols else 0
     lns = _share(g, tr, H, bool(nq))
     phys = lambda c: x.device().worker_core_from_logical_core(ttnn.CoreCoord(c % gx, c // gx))  # noqa: E731
@@ -226,14 +232,15 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     for c in range(gx * gy):
         r0, n = split[c // g]
         cx, cy = c % gx, c // gx
-        rows = 16 * n if tr else n
+        rows = 16 * n if units else n
         n0, q, end = cols[c % g] if cols else ((c % g) * nw, 0, nwf)
-        s = (c // g) % n if STAGGER and not tr and n else 0
+        s = (c // g) % n if STAGGER and not units and n else 0
+        bi = 4 * H - n0 if hm and 0 <= 4 * H - n0 < nw else 0xFFFF   # the bias tile's place in this group, if any
         own = 2 + c % 2 if lns else 0
         p = phys(c ^ 1) if lns else ttnn.CoreCoord(0, 0)
-        rd[cx][cy] = [r0, n, int(bool(tr)), MT, n0, s, own, p.x, p.y]
-        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end, s]
-        cp[cx][cy] = [rows, q, c % 2]
+        rd[cx][cy] = [r0, n if tr else rows, int(bool(tr)), MT, n0, s, own, p.x, p.y]   # TR reads units, plain rows
+        wr[cx][cy] = [r0, rows, int(bool(tr)), MT, n0, q, end, s, hm if bi != 0xFFFF else 0]
+        cp[cx][cy] = [rows, q, c % 2, bi]
     inv = struct.unpack("<I", struct.pack("<f", 1.0 / int(x.shape[-1])))[0] >> 16
     eps_bits = struct.unpack("<I", struct.pack("<f", float(eps)))[0]
     acc = lambda t: list(ttnn.TensorAccessorArgs(t).get_compile_time_args())  # noqa: E731
@@ -241,17 +248,17 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
     reader = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "reader.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[kt, nw, RB, (inv << 16) | inv, eps_bits, nwf] + acc(x) + acc(w) + acc(ln_w) + acc(ln_b),
-        defines=[("ABL_R", "1")] if ABL & 8 else [],
+        defines=([("ABL_R", "1")] if ABL & 8 else []) + [("HM", "1")] * bool(hm),
         runtime_args=rd, common_runtime_args=[0] * 4, config=ttnn.ReaderConfigDescriptor())
     writer = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "writer.cpp"), source_type=src, core_ranges=core_grid,
         compile_time_args=[H, MT, nw, nwf] + sum((acc(o) for o in outs), []),
-        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq) + [("HP", "1")] * _hp(outs, H, MT),
+        defines=([("ABL_W", "1")] if ABL & 4 else []) + _nq(nq) + [("HP", "1")] * _hp(outs, H, MT) + [("HM", "1")] * bool(hm),
         runtime_args=wr, common_runtime_args=[0] * len(outs), config=ttnn.WriterConfigDescriptor())
     fid, approx, _, full = ckc
     compute = ttnn.KernelDescriptor(
         kernel_source=str(KERNEL_DIR / "compute.cpp"), source_type=src, core_ranges=core_grid,
-        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq) + _lnblk() + [("LNS", "1")] * lns,   # RNE off: pack truncates, as T1 ships
+        compile_time_args=[kt, nw, 0, ABL], runtime_args=cp, defines=_nq(nq) + _lnblk() + [("LNS", "1")] * lns + [("HM", "1")] * bool(hm),   # RNE off: pack truncates, as T1 ships
         config=ttnn.ComputeConfigDescriptor(math_fidelity=fid, math_approx_mode=approx,
                                             fp32_dest_acc_en=True, dst_full_sync_en=full))
     cbs = [_cb(0, core_grid, kt * nw), _cb(1, core_grid, 2 * kt), _cb(2, core_grid, c2, outs[0].dtype),
@@ -261,6 +268,8 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
         cbs.append(_cb(3, core_grid, 16))   # the 32 half tiles of one channel tile
     if c4:
         cbs.append(_cb(4, core_grid, c4))   # the bf16 rest: bias, and the gate unless triatt_ln_b8g
+    if hm:
+        cbs += [_cb(15, core_grid, hm), _cb(18, core_grid, 1)]   # HM: the writer's stages, compute's bias tile
     if lns:
         cbs += [_cb(5, core_grid, 2 * kt), _cb(6, core_grid, 2)]   # the partner's xn, own-xn tokens
     cbs += [_cb(i, core_grid, t, ttnn.float32) for i, t in ((11, 1), (12, 1), (13, 1), (14, 1), (16, kt), (17, kt))]
@@ -269,12 +278,14 @@ def _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols=None):
 
 
 def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid, eps=1e-5, transposed=False,
-                   pitch=False):
+                   pitch=False, bias_heads=False):
     """`((q, k, v), gate, bias)` of `layer_norm(x)` (of `x^T` with `transposed`) in one kernel, or None
     (nothing allocated).
 
     `pitch` says the caller reads head-pitched outputs: where `head_pitch` asks for it q, k, v and g are then
     `[B, H, S + 32, 32]`, rows S.. of each head unwritten (`triatt_sdpa.sdpa(rows=S)`, `gated_out_proj`).
+    `bias_heads` says the caller takes the bias head-major: where `BIAS_HEADS` serves it, it is `[1, bias_channels,
+    S, S]` (`permute(unsqueeze(bias, 0), (0, 3, 1, 2))` of the plain one), else the plain `[B, S, bias_channels]`.
 
     `x` is the raw [B, S, K] pair (square and whole tiles with `transposed`), `w` the [K, 4c + 32]
     qkvgb weight of `qkvgb_heads`, `ckc` a (fidelity, approx, fp32_acc, full_sync) tuple as
@@ -318,23 +329,30 @@ def ln_qkvgb_heads(x, ln_w, ln_b, w, ckc, n_heads, head_dim, bias_channels, grid
     hd = lambda dt: ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], n_heads, shp[1] + TILE * hp, head_dim]), dt,  # noqa: E731
                                                    ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
     outs = [hd(ttnn.bfloat8_b if nq > i * H else ttnn.bfloat16) for i in range(4)]   # q, k, v, g
-    outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape([shp[0], shp[1], bias_channels]), ttnn.bfloat16,
+    hm = bias_channels if (bias_heads and BIAS_HEADS["wormhole" if is_wormhole() else "blackhole"]
+                           and shp[0] == shp[1] and shp[0] % TILE == 0) else 0
+    if hm and _cb_bytes(K // TILE, plan[1], plan[2], _share(plan[0], transposed, H, bool(nq))) \
+            + (hm + 1) * MG.tile_bytes(ttnn.bfloat16) > _lcf(dev):
+        hm = 0
+    STATS[4] += bool(hm)
+    bshape = [1, bias_channels, shp[0], shp[1]] if hm else [shp[0], shp[1], bias_channels]
+    outs.append(ttnn.allocate_tensor_on_device(ttnn.Shape(bshape), ttnn.bfloat16,
                                                ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG))
-    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, cols)
+    return _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, bias_channels, plan, cols, hm)
 
 
 def _hp(outs, H, MT):
     return int(bool(H) and int(outs[0].padded_shape[2]) == (MT + 1) * TILE)
 
 
-def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None):
+def _launch(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tag, plan, cols=None, hm=0):
     g, nw, tr = plan
     key = (x.device().id(), tuple(int(d) for d in x.padded_shape), tuple(int(d) for d in w.padded_shape), H, tag,
            tuple(grid), tuple(str(a) for a in ckc), float(eps), plan, ABL, STAGGER, LN_BLK, LN_SHARE, tuple(cols or ()),
-           _hp(outs, H, MT))
+           _hp(outs, H, MT), hm)
     entry = _CACHE.get(key)
     if entry is None:
-        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols)
+        entry = _CACHE[key] = _build(x, w, ln_w, ln_b, outs, grid, ckc, eps, H, MT, tr, g, nw, cols, hm)
     reader, writer, _ = entry["kernels"]
     reader.common_runtime_args = [x.buffer_address(), w.buffer_address(), ln_w.buffer_address(),
                                   ln_b.buffer_address()]

@@ -12953,13 +12953,16 @@ class TriangleAttention(Module):
             # one-program tail. Any other rung they decline to gets them sliced back (`_unpitch`).
             pitch_ok = not (_FP32_SOFTMAX or self.fp32_softmax or _TRIATT_DUALPROBE or self.subtile
                             or _triatt_bias_b8() or _triatt_b8())
+            # triatt_ln.BIAS_HEADS: the kernel writes the bias as the permute below would leave it; not where the
+            # ending bias is transposed back afterwards, whose tiles that writer cannot gather.
+            bias_heads = not (self.ending and not self.transpose_bias)
             # triatt_ln TR: the ending variant norms x^T straight out of x, no transpose pass (x is square,
             # so x^T has x's shape and the L1-qkv test above reads the same).
             fused = (_triatt_ln.ln_qkvgb_heads(
                 x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
                 _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads, self.head_dim,
-                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True, pitch=pitch_ok)
-                     if self.ending and fusable else None)
+                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True, pitch=pitch_ok,
+                bias_heads=bias_heads) if self.ending and fusable else None)
             if self.ending and fused is None:
                 # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm
                 # below, whose static circular buffers are 274 944 B per core at 768 aa and do not
@@ -12977,7 +12980,8 @@ class TriangleAttention(Module):
                 fused = _triatt_ln.ln_qkvgb_heads(
                     x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
                     _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
-                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), pitch=pitch_ok)
+                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), pitch=pitch_ok,
+                    bias_heads=bias_heads)
             x_owned = fused is None or transposed
             if fused is not None:
                 pre_qkv, pre_g, triangle_bias = fused
@@ -12998,8 +13002,9 @@ class TriangleAttention(Module):
                 triangle_bias = _pair_proj_linear(
                     x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
                 )
-            triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
-            triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
+            if len(triangle_bias.shape) == 3:   # else triatt_ln wrote it head-major already
+                triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
+                triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
             if self.ending and not self.transpose_bias:
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             if fused is not None and pre_qkv[0].dtype == ttnn.bfloat8_b:
