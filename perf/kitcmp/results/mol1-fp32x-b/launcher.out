@@ -1,0 +1,21 @@
+2026-11-04T14:16:38Z credit $30.765735530478423 at start, cap 7.0 h
+2026-11-04T14:16:41Z created 59115593 on offer 48882867
+2026-11-04T14:18:57Z DESTROYED 59115593 (no ssh: intended_status=stopped); instances left: 2
+2026-11-04T14:19:01Z created 59115934 on offer 57147116
+2026-11-04T14:20:13Z 59115934 up at 23.158.136.85:32741, power limit 450 W
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.
+Have fun!
+2026-11-04T14:21:15Z 59115934 running box_mol1.sh
+2026-11-04T21:14:23Z 59115934 ended: cap
+2026-11-04T21:14:35Z DESTROYED 59115934 (session end: cap); instances left: 1
+2026-11-04T21:14:35Z credit $19.738017888477543 at end

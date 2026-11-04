@@ -11,7 +11,7 @@ ledgers were pulled to perf/kitcmp/results/<label>/mol1/ref/jobs.jsonl. One reco
 that produced its structures, the qb2 directory, sample count, recipe, wall time. Jobs with no structures anywhere
 are listed under "missing" so a grader sees the gap instead of a silently shorter set. --arm names the arm in the
 index (gpu = the bf16 reference, gpu_fp32 = upstream's fp32 mode, mol1_ref.py --dtype fp32); --sets/--seeds narrow the
-expected job list to what that arm ran.
+expected job list to what that arm ran; --cases narrows a top-up's seeds to its own case list.
 """
 import argparse
 import json
@@ -35,6 +35,7 @@ def main():
     ap.add_argument("--arm", choices=list(ARMS), default="gpu")
     ap.add_argument("--sets", default="paired,selftest,headline")
     ap.add_argument("--seeds", default=",".join(map(str, SEEDS)), help="GPU seeds (paired and headline)")
+    ap.add_argument("--cases", help="JSON {seeds, entries[{case}]}: its seeds run only its entries (a top-up)")
     ap.add_argument("labels", nargs="+")
     a = ap.parse_args()
     host, root = a.qb2.split(":", 1)
@@ -47,6 +48,11 @@ def main():
     seeds = [int(x) for x in a.seeds.split(",")]
     jobs = ([(c, "paired", s) for c in paired for s in seeds] + [(c, "selftest", s) for c in paired for s in SELFTEST]
             + [(c, "headline", s) for c in sorted(head) for s in seeds])
+    if a.cases:
+        cs = json.loads(Path(a.cases).read_text())
+        only, top = {e["case"] for e in cs["entries"]}, set(cs["seeds"])
+        assert only <= set(paired), sorted(only - set(paired))
+        jobs = [j for j in jobs if j[2] not in top or j[0] in only]
     jobs = [j for j in jobs if j[1] in a.sets.split(",")]
 
     # (label, set, stem, seed) -> number of CIFs; summaries mark a finished job (mol1_ref.py's skip rule)
