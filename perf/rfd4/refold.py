@@ -90,6 +90,13 @@ def main(argv=None) -> int:
                     help="which oracle key the family's columns come from")
     ap.add_argument("--chain", default=None, help="chain of interest (required for a complex)")
     ap.add_argument("--limit", type=int, default=None, help="refold at most this many designs")
+    ap.add_argument("--shards", type=int, default=1,
+                    help="split the work this many ways so several cards can run the same root")
+    ap.add_argument("--shard", type=int, default=0, help="which stride of --shards this run takes")
+    ap.add_argument("--deadline", type=int, default=None,
+                    help="unix epoch: start no refold that could run past it; exit 3 with work left")
+    ap.add_argument("--fold-s", type=int, default=600,
+                    help="worst-case seconds for one refold, the margin --deadline keeps")
     ap.add_argument("--recycles", type=int, default=5)
     ap.add_argument("--sampling-steps", type=int, default=200)
     ap.add_argument("--msa-dir", default="/tmp/rfd4_refold_msa")
@@ -98,8 +105,6 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     from tt_bio.rfd4.evaluate import example_id
-    from tt_bio.rfd4.oracle import OracleRequest
-    from tt_bio.rfd4.oracle_of3 import OpenFold3Oracle
 
     inputs = pathlib.Path(args.inputs).resolve()
     samples = pathlib.Path(args.out).resolve() / "evaluation_samples"
@@ -112,15 +117,29 @@ def main(argv=None) -> int:
         if (out_dir / f"{eid}_{oracle_name}_confidences.json").exists():
             continue
         todo.append((path, eid, out_dir))
+    # The skip above already makes a run idempotent; the stride is what keeps two cards working the
+    # same root from both starting at design 1.
+    if args.shards > 1:
+        todo = todo[args.shard :: args.shards]
     if args.limit:
         todo = todo[: args.limit]
     print(f"{len(todo)} design(s) to refold into {samples}", flush=True)
     if not todo:
         return 0
+    # Before the 2.3 GB oracle load, not after the first design: at a window edge the load alone can
+    # outlast the booking.
+    if args.deadline and time.time() + args.fold_s > args.deadline:
+        print(f"deadline: stopping with {len(todo)} design(s) left", flush=True)
+        return 3
     # Before the oracle loads 2.3 GB of weights, not after: an unwritable record path cost a
     # full model load and left nothing behind.
     if args.record:
         pathlib.Path(args.record).parent.mkdir(parents=True, exist_ok=True)
+
+    # Imported here, not at the top of main: it pulls ttnn in, and the paths above (nothing to do, or a
+    # window too short to start) must stay runnable off a card.
+    from tt_bio.rfd4.oracle import OracleRequest
+    from tt_bio.rfd4.oracle_of3 import OpenFold3Oracle
 
     oracle = OpenFold3Oracle(msa_dir=args.msa_dir, template_structures=args.templates,
                              name=key, oracle_name=oracle_name, recycles=args.recycles,
@@ -131,6 +150,11 @@ def main(argv=None) -> int:
     failures = 0
     with clocksample.during(period=2.0) as clk:
         for i, (path, eid, out_dir) in enumerate(todo, 1):
+            if args.deadline and time.time() + args.fold_s > args.deadline:
+                print(f"deadline: stopping with {len(todo) - i + 1} design(s) left", flush=True)
+                if record:
+                    record.close()
+                return 3
             text = path.read_text()
             job = OracleRequest(structure=text, example_id=eid,
                                 chain_of_interest=chain_of_interest(text, args.chain),

@@ -1,0 +1,12 @@
+pdb	target	binder	why
+9TH6	A	B	SARS-CoV-2 nsp14 + camelid VHH: viral antigen + nanobody, the closest shape to PopVax's 600+120
+9W89	A	B	Chikungunya E protein + 10D5 heavy-chain binder: viral antigen, ~770 tokens (upper end)
+9W8A	A	B	Chikungunya E protein + 7H9: same antigen, a second binder and epitope
+9TY2	A	B	MBP + picomolar nanobody: high-resolution (1.75 A) X-ray antigen/VHH
+9W3L	A	B	GPR151 + Nb6: membrane receptor + nanobody, small interface (11 residues each side)
+9LV4	B	A	Tie2 + de novo minibinder tw1102: designed binder on a receptor ectodomain
+9LLG	R	M	D1 dopamine receptor + de novo designed allosteric miniprotein
+28VJ	B	A	NorA transporter + miniprotein I-23: designed 70 aa binder on a membrane target
+9HL2	A	B	vaccinia A56 + K2 (OPG185): viral surface protein complex
+9DBP	A	B	LSD1 + CoREST: large natural interface, ~790 tokens
+9PCQ	A	B00A	eEF2K + calmodulin: natural regulatory complex, 678 tokens
