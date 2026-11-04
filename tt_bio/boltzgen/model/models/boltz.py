@@ -69,10 +69,10 @@ from tt_bio.boltzgen.model.modules.inverse_fold import (
 # seeds 0-7, on top of the device conditioning and fused bias stacks, against the exact normal stack): 64
 # designs, filter pass 64 of 64 in both, design ipTM +0.002 [-0.031, +0.035], design pTM -0.000 [-0.019,
 # +0.016], complex pLDDT +0.001. Wormhole 61.2 -> 58.0 s/design, all of it in the trunk (35.3 -> 31.5 s).
-LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "trunk_hifi3", "dit_sdpa32", "silu_f32", "triatt_tail",
+LEVERS_NORMAL = frozenset({"trimul_ibw", "trimul_tail", "dit_sdpa32", "silu_f32", "triatt_tail",
                            "atom_k1", "dit_mm16", "dit_qkv16", "msa_sample", "dit_sdpa", "dit_chunk", "conf_bins"})
-LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
-                         "trimul_ibw", "trimul_tail", "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32",
+LEVERS_FAST = frozenset({"diffusion_bf16", "dit_sdpa", "transition_b8", "opm_b8", "atom_sdpa",
+                         "trimul_ibw", "trimul_tail", "trimul_gin", "dit_sdpa32", "silu_f32",
                          "ln_f32", "triatt_tail", "transition_bw", "transition_shard", "dit_mm16", "atom_k1",
                          "dit_b8", "dit_qkv16", "swiglu_fc12g", "msa_sample", "adaln_mod", "dit_cond_hifi2"})
 # Every arch set also featurizes the next design in a spawned process (bg_featproc) rather than a thread, so its Python
@@ -417,6 +417,12 @@ class Boltz(nn.Module):
                     att_head_dim=att_head_dim, att_n_heads=num_heads,
                     transform_s=True,
                 )
+            # The trunk's matmul config under trunk_hifi3 / trunk_hifi2 / acc_off, applied as Boltz-2 applies it. Until
+            # 2026-11-04 BoltzGen never made this call, so the trunk_hifi3 and acc_off its sets named did nothing; they
+            # left the sets then, and the default trunk is still HiFi4 with fp32 accumulation.
+            with tenstorrent.levers(self._levers):
+                for trunk in (self.msa_module, self.pairformer_module):
+                    trunk.compute_kernel_config = tenstorrent.trunk_compute_kernel_config(trunk.compute_kernel_config)
             self.checkpoint_diffusion_conditioning = checkpoint_diffusion_conditioning
 
             self.diffusion_conditioning = DiffusionConditioning(
