@@ -39,9 +39,11 @@ destroy(){ curl -s -X DELETE -H "Authorization: Bearer $K" "$API/instances/$1/" 
   # The reaper only ever touches ids listed in OWNED, so an id that is gone must leave the list.
   sed -i "/^$1\$/d" $S4/gpu/OWNED 2>/dev/null
   sed -i "s|^$1  $CAP_H  $SLUG$|#$1 DESTROYED $(date -u +%FT%TZ) ($2), confirmed instances=$n|" $B; }
+# A host re-lists its GPUs under fresh offer ids, so a bad link is excluded by machine (NOT_MACHINES="25706 ..."):
+# a4 landed twice on a2's Japan machine 11-04 with every earlier offer id already on the tried list.
 next_offer(){ $V search offers "$Q" -o dph --raw 2>/dev/null | python3 -c 'import json,sys
-t=sys.argv[1].split()
-print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t), ""))' "$TRIED"; }
+t=sys.argv[1].split(); m=sys.argv[2].split()
+print(next((str(o["id"]) for o in json.load(sys.stdin) if str(o["id"]) not in t and str(o["machine_id"]) not in m), ""))' "$TRIED" "${NOT_MACHINES:-}"; }
 
 # qb2 -> box: vast's ssh proxy authenticates against keys ATTACHED to the instance, so a line appended to the box's
 # authorized_keys alone was refused (session mol1-b200-ref1, 2026-11-01: gate passed, inputs never arrived, $5 spent).
