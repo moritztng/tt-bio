@@ -2,17 +2,21 @@
 # ladder.sh OUT CARD SHA9 ARMS_FILE (on qb1): OpenDDE 512 lever ladder on one p150a, one process per arm.
 # ARMS_FILE lines: "NAME MODE ADDS" (MODE normal|fast, ADDS comma list joined to the model's own set on this arch, or "-").
 # Books the card through ~/spd/feed/book.py, waits for the window, holds the card flock, samples AICLK every 0.5 s.
+# TREE=dir runs from that tree instead of the gapboard's (which prunes old trees mid-run); NOBOOK=1 when the caller
+# already holds the booking and the flock (pair.sh).
 set -u
-OUT=$1 CHIP=$2 SHA=$3 ARMS=$4; G=~/spd/gapboard; T=$G/trees/m$SHA; OWN=spd-m-opendde-2; BK=$HOME/spd/feed/book.py
+OUT=$1 CHIP=$2 SHA=$3 ARMS=$4; G=~/spd/gapboard; T=${TREE:-$G/trees/m$SHA}; OWN=spd-m-opendde-2; BK=$HOME/spd/feed/book.py
 mkdir -p "$OUT"; log() { echo "$(date -u +%FT%TZ) $*" >> "$OUT/chain.log"; }
 VENV=$(ls -dt $HOME/scratch/shipflow/venv-*/done | head -1); VENV=${VENV%done}; export PATH=${VENV%/}/bin:$PATH
 export PYTHONPATH=$T TT_VISIBLE_DEVICES=$CHIP
 N=$(grep -c . "$ARMS"); SEC=$((N * 600 + 600))
-trap 'python3 $BK rm $OWN; log "chain exit"' EXIT
-log "book card $CHIP ${SEC}s: $(python3 $BK add $OWN $CHIP $SEC --note "OpenDDE BH lever ladder")"
-while [ "$(python3 $BK active $CHIP 2>/dev/null)" != "$OWN" ]; do sleep 60; python3 $BK add $OWN $CHIP $SEC --note "OpenDDE BH lever ladder" >/dev/null; done
-exec 9> "$HOME/spd_qb1_card$CHIP.lock"; flock -w 3600 9 || { log "flock timeout"; exit 3; }
-log "window open, flock held, tree $SHA venv $VENV"
+if [ -z "${NOBOOK:-}" ]; then
+  trap 'python3 $BK rm $OWN; log "chain exit"' EXIT
+  log "book card $CHIP ${SEC}s: $(python3 $BK add $OWN $CHIP $SEC --note "OpenDDE BH lever ladder")"
+  while [ "$(python3 $BK active $CHIP 2>/dev/null)" != "$OWN" ]; do sleep 60; python3 $BK add $OWN $CHIP $SEC --note "OpenDDE BH lever ladder" >/dev/null; done
+  exec 9> "$HOME/spd_qb1_card$CHIP.lock"; flock -w 3600 9 || { log "flock timeout"; exit 3; }
+fi
+log "window open, tree $T venv $VENV"
 cd $T
 while read -r NAME MODE ADDS; do
   [ -z "$NAME" ] || [ "${NAME:0:1}" = "#" ] && continue
