@@ -73,8 +73,8 @@ def main():
     global runs
     ap = argparse.ArgumentParser()
     ap.add_argument("--spec", required=True, type=Path, help="condition spec from state/rfd4/inputs/")
-    # The compile bucket: a shipped one (multiples of 16) or a target's exact sample dim, e.g. 620 for 9TH6-A-b120.
-    ap.add_argument("--size", required=True, type=int, choices=range(128, 1025), metavar="128..1024")
+    # Any shipped compile bucket: the gated 128/256/512 and the realistic-binder sizes rfd4-size-typical adds.
+    ap.add_argument("--size", required=True, type=int, choices=tuple(range(128, 1025, 16)))
     ap.add_argument("--arm", required=True)
     ap.add_argument("--batch", required=True, type=int)
     ap.add_argument("--warm", type=int, default=5, help="warm batches after the cold one")
