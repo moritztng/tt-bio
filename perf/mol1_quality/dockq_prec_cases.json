@@ -1,0 +1,92 @@
+{
+ "by": "mol1-dockq-prec",
+ "written": "2026-11-04",
+ "note": "Interfaces where GPU bf16's five seeds split modes at DockQ 0.23 (23, from data/rows-wh5-61755b06e.json) plus 8u12 and 8f5n (TT-only basins). run_tt.sh --cases reads 'paired' (entry ids); analysis reads 'interfaces'.",
+ "interfaces": [
+  "7ydw-assembly1|A|C||",
+  "7ysf-assembly1|A|B||",
+  "7ysf-assembly1|A|C||",
+  "7yzt-assembly1|A-2|B||",
+  "8a44-assembly1|A|C||",
+  "8a44-assembly1|A|D||",
+  "8agy-assembly1|A|B||",
+  "8be3-assembly1|A|B||",
+  "8fbw-assembly1:nomsa|A|C||",
+  "8fbw-assembly1:nomsa|B|C||",
+  "8i84-assembly1|B|C||",
+  "8ih8-assembly1|A|B||",
+  "8k4l-assembly1|A|C||",
+  "8pih-assembly1|A|B||",
+  "8q9n-assembly1|A|E||",
+  "8qz3-assembly1:nomsa|A|C||",
+  "8qz3-assembly1|A|C||",
+  "8tlg-assembly1|A|B||",
+  "8w84-assembly1|A|C||",
+  "8w84-assembly1|A|D||",
+  "8w84-assembly1|B|D||",
+  "9c3s-assembly1|A|E||",
+  "9c3s-assembly1|A|F||",
+  "8f5n-assembly1|A|B||",
+  "8f5n-assembly1|A|C||",
+  "8u12-assembly1|A|B||"
+ ],
+ "paired": [
+  {
+   "id": "7ydw-assembly1"
+  },
+  {
+   "id": "7ysf-assembly1"
+  },
+  {
+   "id": "7yzt-assembly1"
+  },
+  {
+   "id": "8a44-assembly1"
+  },
+  {
+   "id": "8agy-assembly1"
+  },
+  {
+   "id": "8be3-assembly1"
+  },
+  {
+   "id": "8f5n-assembly1"
+  },
+  {
+   "id": "8fbw-assembly1:nomsa"
+  },
+  {
+   "id": "8i84-assembly1"
+  },
+  {
+   "id": "8ih8-assembly1"
+  },
+  {
+   "id": "8k4l-assembly1"
+  },
+  {
+   "id": "8pih-assembly1"
+  },
+  {
+   "id": "8q9n-assembly1"
+  },
+  {
+   "id": "8qz3-assembly1"
+  },
+  {
+   "id": "8qz3-assembly1:nomsa"
+  },
+  {
+   "id": "8tlg-assembly1"
+  },
+  {
+   "id": "8u12-assembly1"
+  },
+  {
+   "id": "8w84-assembly1"
+  },
+  {
+   "id": "9c3s-assembly1"
+  }
+ ]
+}
