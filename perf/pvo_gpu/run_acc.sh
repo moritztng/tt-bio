@@ -4,10 +4,11 @@
 # both modes: fast(s) vs exact(s) isolates the mode, exact(s) vs exact(s') is the seed floor.
 # Interleaved (101-103, then 104-105) so a session cut short still leaves paired data, never one complete mode.
 # Resumable: an arm whose rc is 0 is skipped on a re-run.
-#   bash run_acc.sh [deadline_epoch]     inputs /root/kc/acc (make_acc.py), outputs /root/kc/pvo/acc/<model>/<arm>
+#   bash run_acc.sh [deadline_epoch] ["101,102,103 104,105"]     inputs /root/kc/acc (make_acc.py), outputs /root/kc/pvo/acc/<model>/<arm>
 # Clocks come from box_pvo.sh's box-wide smi.csv, cut to each arm's t_start/t_end; no second logger.
 set -u
 A=${ACC_DIR:-/root/kc/acc}; B=${PVO_DIR:-/root/kc/pvo}/acc; DEADLINE=${1:-$(( $(date +%s) + 86400 ))}
+SEEDSETS=${2:-"101,102,103 104,105"}
 mkdir -p "$B"
 say(){ echo "$(date -u +%FT%TZ) run_acc: $*"; }
 
@@ -51,7 +52,7 @@ case "$(cat "${PVO_DIR:-/root/kc/pvo}/mol1/FAST-ARM" 2>/dev/null)" in
 esac
 MOL_FAST="$MOL_K --enable_tf32 true --infer_setting.sample_diffusion_chunk_size 5"
 
-for seeds in 101,102,103 104,105; do
+for seeds in $SEEDSETS; do
   arm opendde exact "$seeds" LAYERNORM_TYPE=torch           $ODDE
   arm opendde fast  "$seeds" LAYERNORM_TYPE=fast_layernorm  $ODDE $ODDE_FAST
   if [ "$seeds" = 101,102,103 ]; then

@@ -16,7 +16,9 @@ if [ ! -f $B/SETUP-DONE ]; then
     # rented box on 2026-10-21 with a ValueError six frames from the missing library. python3.12-dev: Triton
     # JIT-builds its driver shim against Python.h at the first kernel launch, after the import gate passes.
     apt-get install -y -qq --no-install-recommends libxrender1 libxext6 libsm6 python3.12-dev
-    git clone -q https://github.com/RosettaCommons/RFD4-Proteina /root/rfd4 && git -C /root/rfd4 checkout -q $SHA
+    # A tree staged ahead of time is kept: session 5's box lost github.com for the whole setup window (11-04).
+    { [ -d /root/rfd4/.git ] || git clone -q https://github.com/RosettaCommons/RFD4-Proteina /root/rfd4; } &&
+      git -C /root/rfd4 checkout -q $SHA
     uv venv -q --python 3.12 --seed /opt/rfd4-venv
     VIRTUAL_ENV=/opt/rfd4-venv uv pip install -q -e "/root/rfd4[all-cuda13]" ||
       VIRTUAL_ENV=/opt/rfd4-venv uv pip install -q -e "/root/rfd4[all]"
