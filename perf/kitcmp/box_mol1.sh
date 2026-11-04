@@ -75,7 +75,7 @@ say "gate passed after $(( $(date +%s) - T0 ))s"
 # REF=1: the reference predictions (PROTOCOL section 8) instead of the arms. qb2 pushes mol1-quality's tree to
 # /root/kc/qinputs and writes QINPUTS-DONE; K=4 first, then K=1 for whatever that left (a 1024-token case that did not
 # fit four to a GPU; REF_K=1 skips straight to it on a retry box). mol1_ref.py skips every job whose summary exists,
-# so a relaunch resumes. REF_FIRST=case,... runs those cases first, seed-major. REF_REVERSE=1 runs the
+# so a relaunch resumes. REF_FIRST=case,... runs those cases first, seed-major (recipes grouped within a seed). REF_REVERSE=1 runs the
 # list from the end, so a second box started beside a running one works toward it instead of duplicating it.
 # REF_ARGS passes the rest to mol1_ref.py, e.g. "--dtype fp32 --sets paired --seeds 42,66" (mol1-gpu-fp32).
 if [ -n "${REF:-}" ]; then

@@ -91,6 +91,8 @@ def main():
                     help="comma-separated cases run before everything else, seed-major (each case at the first seed, then the next)")
     ap.add_argument("--shard", default="0/1",
                     help="i/n: this box runs every n-th job of the ordered list starting at i, so n boxes split it with no overlap")
+    ap.add_argument("--cases", default="",
+                    help="comma-separated cases or @file (one per line): run only these, everything else is left out")
     ap.add_argument("--dtype", choices=list(DTYPES), default="bf16")
     ap.add_argument("--sets", default="paired,selftest,headline", help="which job sets to run")
     ap.add_argument("--seeds", default="42,66,101,2024,8888")
@@ -108,11 +110,15 @@ def main():
     jobs = ([(c, "paired", x) for c in paired for x in seeds] + [(c, "selftest", x) for c in paired for x in selftest]
             + [(c, "headline", x) for c in sorted(head) for x in seeds])
     jobs = [j for j in jobs if j[1] in a.sets.split(",")]
+    if a.cases:
+        keep = set((Path(a.cases[1:]).read_text().split() if a.cases.startswith("@") else a.cases.split(",")))
+        jobs = [j for j in jobs if j[0] in keep]
     order = list(RECIPES)
     jobs = [(c, a.index["recipes"].get(c, "default"), s, x) for c, s, x in jobs]
     jobs.sort(key=lambda j: order.index(j[1]) if j[1] in order else len(order))  # stable: set order kept per recipe
     first, allseeds = [c for c in a.first.split(",") if c], seeds + selftest
-    jobs.sort(key=lambda j: (0, allseeds.index(j[3]), first.index(j[0])) if j[0] in first else (1,))
+    rank = lambda r: order.index(r) if r in order else len(order)  # within a seed, one runner build per recipe
+    jobs.sort(key=lambda j: (0, allseeds.index(j[3]), rank(j[1]), first.index(j[0])) if j[0] in first else (1,))
     i, n = (int(x) for x in a.shard.split("/"))
     jobs = jobs[i::n]
     stem = lambda c: Path(a.index["cases"][c]).stem
