@@ -16,16 +16,23 @@ say "timing arm gone, booking"
 cd /home/ttuser/spd/feed
 end() { awk -v o=$OWN '$3 == o {print $2}' /home/ttuser/spd/feed/windows.tsv; }
 # 2. same booking discipline as bh.sh: arbiter window first, then the four card flocks, else give the booking back.
+# CARDS: the cards this arm may touch. With NOBOOK=1 they are already booked to this row by the fleet
+# (the dispatcher books `fleet-<slug>` for the row's own card grant), so booking them again under a second
+# owner would only queue us behind ourselves. Otherwise we book them here and wait for the arbiter.
+CARDS=${CARDS:-0,1,2,3}; CL=$(echo $CARDS | tr , " ")
 tries=0
 while :; do
   tries=$((tries + 1)); [ $tries -gt 240 ] && { say "no window in 4 h, giving up"; echo nowindow > $G/DONE; exit 5; }
-  python3 book.py list | grep -q " $OWN " ||
-    python3 book.py add $OWN 0,1,2,3 $SPAN --note "pvo-tt BH RFD4 designs for pvo-accuracy (4 cards, 32 seeds each)" >> $G/book.log
-  if python3 book.py active 0 | tr " " "\n" | grep -qx $OWN; then
+  if [ "${NOBOOK:-0}" = 1 ]; then mine=1; else
+    python3 book.py list | grep -q " $OWN " ||
+      python3 book.py add $OWN $CARDS $SPAN --note "pvo-tt BH RFD4 designs for pvo-accuracy (seed blocks of 32)" >> $G/book.log
+    python3 book.py active ${CL%% *} | tr " " "\n" | grep -qx $OWN && mine=1 || mine=0
+  fi
+  if [ $mine = 1 ]; then
     # Designs are graded for QUALITY, not timed, so this arm needs no quiet box and no particular card count:
     # take whatever is free right now. Demanding all four made it as unwinnable as the timing arm for no gain.
     H=()
-    for i in 0 1 2 3; do eval "exec $((5+i))>/home/ttuser/spd_qb1_card$i.lock"; flock -n $((5+i)) && H+=($i) || eval "exec $((5+i))>&-"; done
+    for i in $CL; do eval "exec $((5+i))>/home/ttuser/spd_qb1_card$i.lock"; flock -n $((5+i)) && H+=($i) || eval "exec $((5+i))>&-"; done
     [ ${#H[@]} -ge 1 ] && break
     say "no card free, holding the booking and retrying"
   fi
@@ -44,7 +51,7 @@ shard() { TT_VISIBLE_DEVICES=$1 TT_BIO_LEASE_CARDS=$1 TT_BIO_LEASE_HOLDER=worker
 #    one card decides whether to spend the other three.
 cd $D/rfd4
 shard ${H[0]} $G/s0 1 $S0 > $G/probe.log 2>&1; r=$?; echo $r > $G/probe.rc; say "probe rc=$r on card ${H[0]}"
-[ $r = 0 ] || { say "568 tok does not run on p150a, no fan-out"; echo probe-failed > $G/DONE; cd /home/ttuser/spd/feed && python3 book.py rm $OWN; exit 0; }
+[ $r = 0 ] || { say "568 tok does not run on p150a, no fan-out"; echo probe-failed > $G/DONE; [ "${NOBOOK:-0}" = 1 ] || { cd /home/ttuser/spd/feed && python3 book.py rm $OWN; }; exit 0; }
 # 4. four cards, 32 consecutive seeds each; card 0 skips the probe's seed because its CIF is already on disk.
 # The 4 seed blocks are dealt round-robin over the cards we actually hold, so all 128 seeds are covered
 # whether that is one card or four; a card simply runs its blocks one after another.
@@ -56,6 +63,6 @@ for j in "${!H[@]}"; do (
 wait
 say "blocks rc: $(for k in 0 1 2 3; do printf '%s=%s ' $k "$(cat $G/s$k.rc 2>/dev/null)"; done)"
 say "designs on disk: $(ls $G/s*/designs/*_generated.cif 2>/dev/null | wc -l)"
-cd /home/ttuser/spd/feed && python3 book.py rm $OWN
+[ "${NOBOOK:-0}" = 1 ] || { cd /home/ttuser/spd/feed && python3 book.py rm $OWN; }
 git -C $W worktree remove --force $T0
 say done; echo ok > $G/DONE
