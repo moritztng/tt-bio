@@ -778,6 +778,10 @@ _FAST_MODE = False
 #   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
 #                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
 #                   The k chunk stays, so each row's arithmetic is unchanged: expected bit-exact (fold A/B digest).
+#   dit_qbox        `_sdpa32` / `_sdpa32_fused` give each core its own (sample, head, q chunk) box
+#                   (`sdpa_generic.box_split`) when that puts fewer rows on the busiest core than the factored split:
+#                   5 samples x 16 heads fill 80 of Blackhole's 110 cores, the boxes all of them. Each row keeps its
+#                   q chunk's keys in the same order, so expected bit-exact.
 #   dit_kc          `_sdpa32` / `_sdpa32_fused` on Wormhole take the full k chunk (256 at 512 tokens) instead of one
 #                   key tile. The PV product then accumulates k_chunk / 32 tiles in the fp32 dest, which is the
 #                   erratum dest_guard.py describes (rare -2/-4/-8 pixels); the rest of the fold runs unguarded
@@ -919,7 +923,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_relpos_lookup",
-          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
+          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "dit_qbox", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
@@ -946,7 +950,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
-                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
+                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "dit_qbox",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
@@ -3359,7 +3363,15 @@ def _sdpa32_chunks(dev, B: int, heads: int, n: int):
         qp = min(cores // (bp * hp), qc)
         return -(-B // bp) * -(-heads // hp) * -(-qc // qp) * chunk
     q_chunk = 128 if big == 256 and lever("dit_qsplit") and rows(128) < rows(256) else big
-    return q_chunk, k_chunk, (g.x, g.y)
+    boxes = None
+    if lever("dit_qbox"):
+        from .sdpa_generic import box_split
+        best = rows(q_chunk)
+        for c in {q_chunk, 128} if big == 256 else {q_chunk}:
+            bs = box_split(B, heads, n // c, cores)
+            if bs and bs[0] * c < best:
+                best, q_chunk, boxes = bs[0] * c, c, bs[1]
+    return q_chunk, k_chunk, (g.x, g.y), boxes
 
 
 def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
@@ -3376,10 +3388,10 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     assert sdpa32_chunk(n) and int(mask.shape[-1]) == n == int(k.shape[2]), \
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
     dev = q.device()
-    chunk, k_chunk, grid = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
+    chunk, k_chunk, grid, boxes = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale, boxes=boxes)
     return out
 
 
@@ -3393,12 +3405,12 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, c
     S, _, n, w = (int(d) for d in qkv.shape)
     assert sdpa32_chunk(n) and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
     dev = qkv.device()
-    chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
+    chunk, k_chunk, grid, boxes = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, memory_config or ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc or _SDPA32_CKC, scale,
-            qkv_fused=heads)
+            qkv_fused=heads, boxes=boxes)
     return out
 
 

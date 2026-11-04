@@ -91,9 +91,10 @@ def _packed_identity_scalar():
 
 
 def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None,
-         kv_buffer_factor=2, rows=None):
+         kv_buffer_factor=2, rows=None, boxes=None):
     """Everything the descriptor needs, derived exactly as the factory derives it.
 
+    `boxes` (`box_split`) gives each core its own (batch, head, q chunk) ranges instead of the factored split.
     `split` overrides `(batch_parallel_factor, nh_parallel_factor, q_parallel_factor)`. The
     factory's own choice saturates batch first -- `batch_pf = min(B, num_cores)` -- which at
     B = 512 on 110 cores leaves `nh_pf = 1` and hands every core all 8 heads. K2 needs one head per
@@ -135,6 +136,9 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
     batch_per_core = _div_up(B, batch_pf)
     nh_per_core = _div_up(NQH, nh_pf)
     q_per_core = _div_up(q_num_chunks, q_pf)
+    if boxes is not None:
+        assert len(boxes) <= num_cores, (len(boxes), num_cores)
+        q_per_core = max(b[5] - b[4] for b in boxes)
     q_buffer_factor = 2 if q_per_core > 1 else 1
 
     math_fidelity, math_approx, fp32_dest_acc, dst_full_sync = ckc
@@ -402,6 +406,28 @@ def qkv_fused_kernel_dir() -> Path:
     return d
 
 
+def box_split(B: int, H: int, Q: int, cores: int):
+    """(q chunks on the busiest core, per-core boxes) spreading B x H x Q (batch, head, q chunk) units over `cores`.
+
+    The factored split (`plan`) hands every core the same box, so at 5 samples and 16 heads it fills 80 cores and
+    leaves the rest of a 110-core grid idle. Here each (batch, head) is cut into runs of `t` q chunks and each batch's
+    remainders are grouped `t // r` heads a core, for the smallest `t` that fits the grid. A box is
+    `(b, b_end, h, h_end, q, q_end)`, the kernels' own runtime ranges, so each row's arithmetic is unchanged."""
+    for t in range(max(1, -(-B * H * Q // cores)), H * Q + 1):
+        if t >= Q:
+            g = t // Q
+            boxes = [(b, b + 1, h, min(h + g, H), 0, Q) for b in range(B) for h in range(0, H, g)]
+        else:
+            full, r = divmod(Q, t)
+            boxes = [(b, b + 1, h, h + 1, j * t, (j + 1) * t) for b in range(B) for h in range(H) for j in range(full)]
+            if r:
+                g = t // r
+                boxes += [(b, b + 1, h, min(h + g, H), full * t, Q) for b in range(B) for h in range(0, H, g)]
+        if len(boxes) <= cores:
+            return t, tuple(boxes)
+    return None
+
+
 def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
                    dtype=None, batch=0):
     """`plan` for a square attention call at `seq` padded tokens, without a device. The batch is
@@ -545,7 +571,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
           out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
-          keypad=None, merged_out=False, rows=None, kv_chain=False):
+          keypad=None, merged_out=False, rows=None, kv_chain=False, boxes=None):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, DH]`
@@ -617,7 +643,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if rows is not None:
         assert not (merged_out or qkv_fused or kv_window or fuse_qkv or gate or css or keypad), "plain reads only"
     p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
-             kv_buffer_factor, rows)
+             kv_buffer_factor, rows, boxes)
     if css is not None:
         assert kv_window is None and qkv_fused is None and fuse_qkv is None and gate is None
         css_w = css_width(p["k_num_chunks"])
@@ -811,7 +837,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
                        KEYPAD_W=str(kp_w))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
-    chained = bool(kv_chain and p["q_pf"] > 1 and p["nh_per_core"] == 1 and p["q_per_core"] == 1
+    chained = bool(kv_chain and boxes is None and p["q_pf"] > 1 and p["nh_per_core"] == 1 and p["q_per_core"] == 1
                    and fuse_qkv is None and css is None and keypad is None)
     used = p["batch_pf"] * p["nh_pf"] * p["q_pf"]
     if chained:
@@ -865,6 +891,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         lne = min(ln + p["nh_per_core"], p["NQH"])
         lq = min((i % p["q_pf"]) * p["q_per_core"], p["q_num_chunks"])
         lqe = min(lq + p["q_per_core"], p["q_num_chunks"])
+        if boxes is not None:
+            lb, lbe, ln, lne, lq, lqe = boxes[i] if i < len(boxes) else (p["B"],) * 2 + (p["NQH"],) * 2 + (0, 0)
         # num_phases=1, chunked_q_chunk_offset=0, read/write_offset=0 (:807-809)
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
                    + chain_args(i, lb, ln, lq, lqe)    # chain metadata, no-chain zeros unless kv_chain
@@ -953,7 +981,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
            kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
-           kw.get("rows"), bool(kw.get("kv_chain")),
+           kw.get("rows"), bool(kw.get("kv_chain")), kw.get("boxes"),
            None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:
