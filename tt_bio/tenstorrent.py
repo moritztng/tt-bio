@@ -789,6 +789,8 @@ _FAST_MODE = False
 #   dit_mask16      on Wormhole, an fp32 token DiT's `_sdpa32` attention reads its cached pair-bias mask bf16, not
 #                   fp32 (`sdpa32_mask_lowp`: OpenFold3 under dit_fuse, the Protenix family's `finish_bias`).
 #                   Blackhole ignores it.
+#   dit_mask_bf16   the dit_mask16 bf16 mask on either arch. On a p150a the fp32 mask is half of Mol-1's DiT attention at
+#                   1024 tokens (5 samples read it once each): 1.50 -> 1.06 ms a call bf16.
 #   dit_mask8       the same mask bfp8 on either arch (overrides dit_mask16).
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
@@ -923,7 +925,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_relpos_lookup",
-          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "dit_qbox", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
+          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "dit_qbox", "dit_mask_bf16", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
@@ -950,7 +952,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
-                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "dit_qbox",
+                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "dit_qbox", "dit_mask_bf16",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
@@ -3323,7 +3325,8 @@ def sdpa32_mask_lowp(m: ttnn.Tensor) -> ttnn.Tensor:
     """An `_sdpa32` mask the attention reads in every block of every step, at the format `dit_mask8` (bfp8) or
     `dit_mask16` (bf16, Wormhole only) names; `m` itself otherwise. The token axis buckets to 32, so padded keys sit
     in whole tiles and no 16-wide bfp8 exponent block mixes the pad mask with a real bias."""
-    dt = ttnn.bfloat8_b if lever("dit_mask8") else (ttnn.bfloat16 if is_wormhole() and lever("dit_mask16") else None)
+    dt = ttnn.bfloat8_b if lever("dit_mask8") else (
+        ttnn.bfloat16 if lever("dit_mask_bf16") or is_wormhole() and lever("dit_mask16") else None)
     if dt is None:
         return m
     mt = ttnn.typecast(m, dt)
@@ -3367,10 +3370,9 @@ def _sdpa32_chunks(dev, B: int, heads: int, n: int):
     if lever("dit_qbox"):
         from .sdpa_generic import box_split
         best = rows(q_chunk)
-        for c in {q_chunk, 128} if big == 256 else {q_chunk}:
-            bs = box_split(B, heads, n // c, cores)
-            if bs and bs[0] * c < best:
-                best, q_chunk, boxes = bs[0] * c, c, bs[1]
+        bs = box_split(B, heads, n // q_chunk, cores)
+        if bs and bs[0] * q_chunk < best:
+            boxes = bs[1]
     return q_chunk, k_chunk, (g.x, g.y), boxes
 
 

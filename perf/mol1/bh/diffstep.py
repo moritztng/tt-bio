@@ -42,7 +42,8 @@ def main():
     ap.add_argument("--seed", type=int, default=101)
     ap.add_argument("--min-ms", type=float, default=3.0, help="replay each op until this much device time has run")
     ap.add_argument("--rerun-generic", action="store_true",
-                    help="also replay generic_op kernels that write a buffer they were given (values change, timing does not)")
+                    help="also replay the token DiT generic_op kernels that write a buffer they were given (values change, timing does not); not the atom "
+                         "side, whose windowed attention hangs a replay")
     ap.add_argument("--cli-extra", nargs=argparse.REMAINDER, default=[])
     a = ap.parse_args()
 
@@ -145,7 +146,7 @@ def main():
                     except Exception:  # noqa: BLE001
                         pass
                 ms, err = (None, "in-place, view or allocation: not re-run") if (
-                    (inplace and not (a.rerun_generic and name == "generic_op")) or name in SKIP or not any(i and i["dev"] for i in ins)) else replay(
+                    (inplace and not (a.rerun_generic and name == "generic_op" and "dit" in st["stack"])) or name in SKIP or not any(i and i["dev"] for i in ins)) else replay(
                     lambda: fn(*args, **kw))
                 st["seq"] += 1
                 st["ops"].append({"i": st["seq"], "op": name, "fam": list(st["stack"]), "chain": chain(),
