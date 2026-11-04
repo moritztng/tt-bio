@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PNR TT cells on qb1 p150a UMD 0 (/dev/tenstorrent/1), per state/pnr/PROTOCOL.md (frozen 11-03 17:40Z).
 #   run_cells.sh <out> [cells...]   cells: mol1 mol1_fast rfd4 bc2 (default all, in that order)
-# Cells run in the order given (bc2 first fits the next 4 h gap; it needs ~2 h 45 min, a Mol-1 cell ~10 min).
+# Cells run in the order given (bc2 needs ~2 h 45 min, a Mol-1 cell ~10 min; Mol-1 first reaches the page sooner).
 # Each cell first books all four cards through ~/spd/feed/book.py as worker:pnr-tt and waits until the booking is
 # active on every card, then takes all four ~/spd_qb1_card{0..3}.lock flocks (the locks gate legs and SPD chains use, so it
 # queues behind a running gate and nothing new lands on qb1 during the cell), then waits for a device-free, quiet
