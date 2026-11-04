@@ -35,15 +35,22 @@ say "fw $FW"
 run() { TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:pvo-tt PYTHONPATH=$T0 timeout ${T:-3600} $PY $T0/perf/mol1/fair/run.py \
   --chips $C --part p150a --firmware "$FW" --rounds 3 --max-attempts 5 "$@"; }
 cd $D/inputs
-for arm in opendde:exact opendde:fast mol1:exact; do
-  m=${arm%%:*}; mode=${arm#*:}; X=(); [ $mode = fast ] && X=(--fast)
-  for c in 9TH6 9DBP 9LV4 9W3L; do
-    o=$G/$m-$mode-$c; grep -qsx 0 $o.rc && continue
-    run --model $m --arm $mode --input $D/inputs/$c.yaml --out $o --cli-extra --diffusion_samples 5 \
-      --recycling_steps $([ $m = mol1 ] && echo 20 || echo 10) --msa_dir $D/msa/cache --msa_cache_only "${X[@]}" > $o.log 2>&1
-    echo $? > $o.rc; say "$m $mode $c rc=$(cat $o.rc)"
-    [ $(( $(end) - $(date +%s) )) -lt 600 ] && { say "window ending"; break 2; }
-  done
+# Cells run largest-shape-first and interleaved across models, not arm-major. Arm-major ran all four OpenDDE
+# cells before the first Mol-1 one, so a window truncated before the two-thirds mark priced OpenDDE on Blackhole
+# and left Mol-1 with no BH number at all -- and the deal turns on the OpenDDE-vs-Mol-1 gap, so one side of it
+# alone is worth little. Interleaving is free: run.py is a fresh process per cell, so the model reloads between
+# cells either way. 9DBP (791 tok) leads because it is PopVax's stated ~800 aa shape.
+for cell in 9DBP:opendde:exact 9DBP:mol1:exact 9DBP:opendde:fast \
+            9TH6:opendde:exact 9TH6:mol1:exact 9TH6:opendde:fast \
+            9LV4:opendde:exact 9LV4:mol1:exact 9LV4:opendde:fast \
+            9W3L:opendde:exact 9W3L:mol1:exact 9W3L:opendde:fast; do
+  c=${cell%%:*}; r=${cell#*:}; m=${r%%:*}; mode=${r#*:}
+  X=(); [ $mode = fast ] && X=(--fast)
+  o=$G/$m-$mode-$c; grep -qsx 0 $o.rc && continue
+  run --model $m --arm $mode --input $D/inputs/$c.yaml --out $o --cli-extra --diffusion_samples 5 \
+    --recycling_steps $([ $m = mol1 ] && echo 20 || echo 10) --msa_dir $D/msa/cache --msa_cache_only "${X[@]}" > $o.log 2>&1
+  echo $? > $o.rc; say "$m $mode $c rc=$(cat $o.rc)"
+  [ $(( $(end) - $(date +%s) )) -lt 600 ] && { say "window ending"; break; }
 done
 cd /home/ttuser/spd/feed && python3 book.py rm $OWN
 git -C $W worktree remove --force $T0
