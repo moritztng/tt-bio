@@ -15,6 +15,10 @@ B=/root/kc/pvo; I=/root/kc/inputs; mkdir -p $B; cd /root/kc
 export OPENDDE_ROOT_DIR=/root/oddedata MOL_ROOT_DIR=/root/moldata PATH=$PATH:/root/.local/bin
 export PVO_SESSION=${PVO_SESSION:-pvo-a100} PVO_HOST="vast:$(cut -d' ' -f1 /root/kc/instance 2>/dev/null)"
 say(){ echo "$(date -u +%FT%TZ) box_pvo: $*"; }
+# RFD4_ONLY=1: the box installs RFD4 alone and runs nothing else. Session 6's RFD4 died on a bucket too small
+# (pvo_rfd4.py SIZE) after an hour of OpenDDE/Mol-1 data it never touched; the rerun should not pay for it again.
+# The burn and the ballast then run out of RFD4's venv, the only torch on the box.
+VENV=/opt/opendde-venv; [ -n "${RFD4_ONLY:-}" ] && VENV=/opt/rfd4-venv
 fail(){ say "FAILED: $1"; echo "$1" > $B/PVO-FAILED; exit 3; }
 
 # The clock logger lives as long as the box, started before anything else so the setup and burn are clocked too.
@@ -33,6 +37,16 @@ c=ctypes.CDLL("libcuda.so.1"); v=ctypes.c_int()
 sys.exit(0 if c.cuInit(0)==0 and c.cuDriverGetVersion(ctypes.byref(v))==0 and v.value>=13000 else 1)' ||
   fail "driver $DRV cannot run cuda 13"
 
+if [ ! -f $B/SETUP-DONE ] && [ -n "${RFD4_ONLY:-}" ]; then
+  {
+    apt-get update -qq && apt-get install -y -qq --no-install-recommends git wget python3.12-dev build-essential
+    command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
+    RFD4_SETUP_ONLY=1 bash /root/kc/box_rfd4_pvo.sh $DEADLINE
+  } > $B/setup.log 2>&1 || fail "rfd4 setup (tail $B/setup.log and $B/rfd4/setup.log)"
+  /opt/rfd4-venv/bin/python /root/kc/burn_gate.py > $B/burn.log 2>&1; rc=$?
+  echo $rc > $B/BURN; [ $rc -eq 0 ] || fail "burn gate ($(tail -1 $B/burn.log))"
+  echo ok > $B/SETUP-DONE
+fi
 if [ ! -f $B/SETUP-DONE ]; then
   {
     # python3.12-dev: Triton JIT-builds its driver shim against Python.h (RFD4 session 2). X11 libs: Open Babel
@@ -53,7 +67,7 @@ if [ ! -f $B/SETUP-DONE ]; then
     # The burn runs as soon as one torch exists: session 3's Kansas box spent an hour on setup before the burn found
     # it at 85 C and 1035 MHz. The block below then only re-checks the marker.
     if [ ! -f $B/BURN ]; then
-      /opt/opendde-venv/bin/python /root/kc/burn_gate.py > $B/burn.log 2>&1; rc=$?
+      $VENV/bin/python /root/kc/burn_gate.py > $B/burn.log 2>&1; rc=$?
       echo $rc > $B/BURN; [ $rc -eq 0 ] || fail "burn gate ($(tail -1 $B/burn.log))"
     fi
     wait $p2
@@ -70,14 +84,15 @@ if [ ! -f $B/SETUP-DONE ]; then
   echo ok > $B/SETUP-DONE
 fi
 say "setup done after $(( $(date +%s) - T0 ))s"
-for m in opendde mol1; do /opt/$m-venv/bin/python -m pip freeze > $B/pip-freeze-$m.txt 2>&1; done
+for m in opendde mol1; do [ -x /opt/$m-venv/bin/python ] && /opt/$m-venv/bin/python -m pip freeze > $B/pip-freeze-$m.txt 2>&1; done
 nvidia-smi -q > $B/nvidia-smi-q.txt 2>&1
-{ uname -a; nproc; lscpu | grep 'Model name'; free -g; df -h /; sha256sum $OPENDDE_ROOT_DIR/checkpoint/opendde.pt $MOL_ROOT_DIR/checkpoint/mol-1-base.pt; } > $B/census.txt 2>&1
+{ uname -a; nproc; lscpu | grep 'Model name'; free -g; df -h /
+  [ -n "${RFD4_ONLY:-}" ] || sha256sum $OPENDDE_ROOT_DIR/checkpoint/opendde.pt $MOL_ROOT_DIR/checkpoint/mol-1-base.pt; } > $B/census.txt 2>&1
 
 # Card qualification under load. A 400 W limit alone does not qualify an A100 (PFM 54695728: 400 W, then SW thermal
 # slowdown at 210-270 MHz for every fold), so 150 s of bf16 matmul must hold the clock before anything is timed.
 if [ ! -f $B/BURN ]; then
-  /opt/opendde-venv/bin/python /root/kc/burn_gate.py > $B/burn.log 2>&1; rc=$?
+  $VENV/bin/python /root/kc/burn_gate.py > $B/burn.log 2>&1; rc=$?
   echo $rc > $B/BURN; [ $rc -eq 0 ] || fail "burn gate ($(tail -1 $B/burn.log))"
 fi
 grep -q '^0$' $B/BURN || fail "burn gate ($(tail -1 $B/burn.log))"
@@ -88,7 +103,7 @@ TOT=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -
 if [ "$TOT" -gt 45000 ]; then
   pkill -f pvo_ballast 2>/dev/null
   W=$((TOT - 40960))
-  nohup /opt/opendde-venv/bin/python -I -c 'import subprocess,sys,time,torch  # pvo_ballast
+  nohup $VENV/bin/python -I -c 'import subprocess,sys,time,torch  # pvo_ballast
 w=int(sys.argv[1]); used=lambda: int(subprocess.check_output(["nvidia-smi","--query-gpu=memory.used","--format=csv,noheader,nounits"]).split()[0])
 torch.zeros(1,device="cuda"); held=[]
 while used() < w - 32: held.append(torch.empty(min(1024, w - used()) << 20, dtype=torch.uint8, device="cuda"))
@@ -99,6 +114,7 @@ print("ballast holds", used(), "MiB", flush=True); time.sleep(10**9)' $W > $B/ba
   say "A100-80 box: ballast leaves $((TOT - U)) MiB, an A100-40's 40960"
 fi
 
+if [ -n "${RFD4_ONLY:-}" ]; then say "RFD4 only: no timing inputs, no gate folds, no timing arms"; else
 # The inputs pvo_session.sh pushed, checked against the hashes they were frozen with.
 (cd $I && python3 -c 'import json,hashlib,sys
 bad=[p for p,h in json.load(open("INDEX.json"))["sha256"].items() if hashlib.sha256(open(p,"rb").read()).hexdigest()!=h]
@@ -152,6 +168,7 @@ esac
 for k in 2 3; do arm mol1 $MBEST $k X=1 $MF || break; done
 for k in 2 3; do arm mol1 exact $k X=1 || break; done
 echo done > $B/ARMS-DONE; say "timing arms done after $(( $(date +%s) - T0 ))s"
+fi
 fi
 
 # RFD4 and pvo-accuracy's arms hook in here (box_rfd4_pvo.sh, run_acc.sh), each resumable on its own rc files.

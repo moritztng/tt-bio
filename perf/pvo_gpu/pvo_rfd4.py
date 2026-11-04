@@ -1,7 +1,7 @@
 """RFD4-Proteina on the rented A100-40, for PVO: price per design, then the designs pvo-accuracy grades.
 
 One target (state/pvo/INPUTS.md: 9TH6's antigen whole, 448 residues + a 120-residue binder = 568 tokens, so the
-576 compile bucket), modes from state/pvo/MODES.md. Exact is `native-compile` at b1, which is what a Modal user
+620-wide compile bucket), modes from state/pvo/MODES.md. Exact is `native-compile` at b1, which is what a Modal user
 pays per design today. Fast is whichever shipped arm wins at its own best batch on THIS card: the published
 fast arms are a B200 ranking and batch is RFD4's dominant lever, so it is re-swept here rather than assumed.
 
@@ -18,7 +18,11 @@ HERE = Path(__file__).resolve().parent
 RFD4_GPU = HERE / "rfd4_gpu.py"
 if not RFD4_GPU.exists():
     RFD4_GPU = HERE.parent / "kitcmp" / "rfd4_gpu.py"
-SIZE = 576  # 568 tokens padded to the shipped compile bucket; both sides pad the same way
+# The contig `120-120, /0, A25-524` spans 500 target positions (448 of them modelled, 52 unmodelled gaps the
+# datapipe still carries) plus the 120-residue binder, so RFD4's sample dimension is 620, not 568. Session 6 asked
+# for 576 and every arm died in the collate with "Sample dimension I=620 exceeds the largest bucket 576". 620 is
+# also the size pvo-tt measured on Wormhole (state/pvo/tt/wh-rfd4/fair.jsonl "size": 620), so both sides pad alike.
+SIZE = 620
 # MODES.md: exact is upstream's shipped config, fast is every same-work switch upstream ships. The two compiled
 # arms below are the ones that won a size on the B200 (state/rfd4/FAIR.md); native-eager, bioir and the graph
 # variants were rejected on speed there and are not re-paid for here.

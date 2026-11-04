@@ -1,6 +1,7 @@
 #!/bin/bash
 # RFD4-Proteina on the PVO box, hooked in after the timing arms by box_pvo.sh's EXTRA list.
 #   EXTRA="box_rfd4_pvo.sh run_acc.sh" bash box_pvo.sh <cap_h>        (or: bash box_rfd4_pvo.sh <deadline_epoch>)
+# RFD4 alone on a box: RFD4_ONLY=1 EXTRA=box_rfd4_pvo.sh bash box_pvo.sh <cap_h> -- no OpenDDE/Mol-1 install.
 # Its own venv, because RFD4 pins torch against cuda 13 while OpenDDE pins cu126. Results land in
 # /root/kc/pvo/rfd4, which pvo_session.sh already mirrors to pc.
 set -u
@@ -29,6 +30,9 @@ if [ ! -f $B/SETUP-DONE ]; then
   } > $B/setup.log 2>&1 || { say "setup failed"; tail -20 $B/setup.log; echo setup > $B/RFD4-FAILED; exit 2; }
   echo ok > $B/SETUP-DONE
 fi
+# RFD4_SETUP_ONLY: box_pvo.sh's RFD4_ONLY path installs the venv first so the burn gate has a torch, then calls
+# this script again for the gate and the arms (SETUP-DONE makes the install a no-op the second time).
+[ -n "${RFD4_SETUP_ONLY:-}" ] && { say "setup only, done"; exit 0; }
 /opt/rfd4-venv/bin/python -m pip freeze > $B/pip-freeze-rfd4.txt 2>&1
 
 # Pre-flight: import, a real Triton build and the arms' overrides against upstream's own validator. Seconds
