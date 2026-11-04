@@ -4,7 +4,7 @@
 
 SEEDS (default all five, e.g. "42 66") lets seeds 42+66 go at a higher priority than 101/2024/8888 (D-orch-36);
 the job file name carries the first seed when SEEDS is given, so both halves of a case can sit in the queue.
-OUT (default tt-wh) is the results dir under ROW_DIR; the cross-tree check folds into its own.
+OUT (default tt-wh) is the results dir under ROW_DIR; a regrade on another tree folds into its own and names its jobs after it.
 
 ROW_DIR holds inputs/ (quality_inputs.py tree, paired cases), kalign/bin (templates need kalign) and run_cell.sh (the SPD per-chip harness: chip flock,
 lease, AICLK sampled during the run). A job runs its case's five seeds in order with run_tt.sh's recipe flags and
@@ -34,7 +34,7 @@ exit $rc
 
 def main():
     row, tree, cache, backlog = map(Path, sys.argv[1:5]); prio = sys.argv[5] if len(sys.argv) > 5 else "4"
-    seeds = sys.argv[6] if len(sys.argv) > 6 else SEEDS; out = sys.argv[7] if len(sys.argv) > 7 else "tt-wh"; tag = "" if seeds == SEEDS else f"-s{seeds.split()[0]}"
+    seeds = sys.argv[6] if len(sys.argv) > 6 else SEEDS; out = sys.argv[7] if len(sys.argv) > 7 else "tt-wh"; tag = ("" if seeds == SEEDS else f"-s{seeds.split()[0]}") + ("" if out == "tt-wh" else f"-{out}")
     idx = json.loads((row / "inputs" / "INDEX.json").read_text())
     head = set(idx.get("headline_only", ())); rec = idx.get("recipes", {})
     backlog.mkdir(parents=True, exist_ok=True); n = 0
