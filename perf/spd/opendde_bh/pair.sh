@@ -21,7 +21,7 @@ flock -w 1800 8 && flock -w 1800 9 || { log "flock timeout"; exit 3; }
 log "window open until $END, flock held, tree $T"
 [ -n "$LADDER" ] && NOBOOK=1 TREE=$T bash "$(dirname "$0")/ladder.sh" "$OUT/ladder" "$CHIP" - "$LADDER" 8>&- 9>&-
 cd "$T"; export PYTHONPATH=$T TT_VISIBLE_DEVICES=$CHIP
-done_n() { grep -c '"kind": "\(cold\|warm\)"' "$1" 2>/dev/null || echo 0; }
+done_n() { cat "$1" 2>/dev/null | grep -c '"fold_s": [0-9]'; }
 for x in $PDBS; do
   for a in $ARMS; do
     name=${a%%=*} spec=${a#*=} d=$OUT/$name/$x
