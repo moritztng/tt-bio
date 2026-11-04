@@ -163,6 +163,7 @@ def main():
     ap.add_argument("--model", default="mol1")
     ap.add_argument("--seed", type=int, default=101)
     ap.add_argument("--skip-timed", action="store_true", help="attribution fold only (after the cold one)")
+    ap.add_argument("--no-sections", action="store_true", help="cold + timed folds only, no attribution fold (an A/B arm)")
     ap.add_argument("--sections-first", action="store_true",
                     help="attribution fold only, as the first fold: the on-disk kernel cache makes it read like a warm "
                          "one (1024: cold 1275 s, warm 1323 s), and it halves the time a recall can cut it short")
@@ -195,7 +196,7 @@ def main():
           "sha": fair.git("rev-parse", "HEAD"), "chip": a.chip, "input": a.input})
     S = (HostSplit if a.hostsplit else Sections)(out)
     S.install()
-    plan = ["sections"] if a.sections_first else ["cold"] + ([] if a.skip_timed else ["timed"]) + ["sections"]
+    plan = ["sections"] if a.sections_first else ["cold"] + ([] if a.skip_timed else ["timed"]) + ([] if a.no_sections else ["sections"])
     for i, kind in enumerate(plan):
         S.on = kind == "sections"
         if S.on:

@@ -9631,7 +9631,7 @@ def _chunk_l1_per_core(t: ttnn.Tensor) -> int:
 def _add_input(x: ttnn.Tensor, u: ttnn.Tensor) -> ttnn.Tensor:
     """`x + u`, consuming `x`: the end of every pair op's `add_to_input` path.
 
-    A row-blocked op past `concat_host_bytes()` writes each block's `x + update` back into `x`
+    A row-blocked op writes each block's `x + update` back into `x`
     (`_pair_inplace`), so it returns `x` itself and there is nothing left to add. One whose blocks
     went to the host instead frees `x` before its upload, so `u` already is the sum and `x` is
     gone. Every other path returns the bare update and gets the caller's in-place add here, the
@@ -9677,14 +9677,14 @@ TRANSITION_ADD_ROWS_STATS = [0, 0]
 def _pair_inplace(z: ttnn.Tensor, add_to_input: bool) -> bool:
     """Whether a row-blocked `z + update` should be written back into `z` block by block.
 
-    From the size where the join may go to the host (`host_acc_after_refusal`), so every smaller
-    pair keeps its device concat and its numbers. Above it the device join is still tried first
-    and often fits (Nesso-1 at 3072 tokens never left the card); there the write replaces a device
-    concat, which is why `page_copy` has to move bytes at least as fast as ttnn.concat does. Not
-    under a tape: the write mutates a tensor the tape may still hold."""
+    At every size a row-blocked op runs at. The write lands the bytes a join would have put there,
+    so the numbers are the join's, and it never holds a second pair tensor: a device join needs
+    z, every block and the result at once. Gated at the host-join size until 11-04, Mol-1 at 1024
+    tokens on a Wormhole chip (a 0.94 GB pair, under the 1.5 GiB line) had 28 such joins a fold
+    refused and assembled on the host, 6.55 s each. `page_copy` moves bytes at least as fast as
+    ttnn.concat. Not under a tape: the write mutates a tensor the tape may still hold."""
     return (add_to_input and _PAIR_INPLACE and not ops.taping()
-            and z.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16
-            and z.logical_volume() * 2 > concat_host_bytes() and _page_copy.ok(z, z))
+            and z.dtype == ttnn.bfloat16 and _dtype() == ttnn.bfloat16 and _page_copy.ok(z, z))
 
 
 def _write_rows(z: ttnn.Tensor, blk: ttnn.Tensor, start: int) -> None:
@@ -12263,8 +12263,8 @@ class TriangleMultiplication(Module):
         """
         chunks = isinstance(x, list)
         on_host = chunks and not isinstance(x[0], ttnn.Tensor)
-        # Block s reads only rows s:e of `x_in`, so past `concat_host_bytes()` it overwrites them
-        # (`_pair_inplace`) instead of joining the blocks on the host.
+        # Block s reads only rows s:e of `x_in`, so it overwrites them
+        # (`_pair_inplace`) instead of joining the blocks.
         inplace = _pair_inplace(x_in, add_to_input)
         residual = add_to_input and (host_acc or inplace)
         blocks = []
@@ -18242,7 +18242,7 @@ class OuterProductMean(Module):
         z_cap = _OPM_DRAM_ROW_CAP.get((I, C, D, J))
         if z_cap is not None:
             rows_blk = min(rows_blk, z_cap)
-        # Above the host-join size each `residual + update` row block overwrites its own rows of
+        # Each `residual + update` row block overwrites its own rows of
         # the residual (dead once the block is computed), so no join holds the residual, its
         # blocks and the result at once. Protenix-v2 at 2048 tokens (c_z 256) was refused that
         # 2 GiB join on every MSA block and sent it to the host. Same bytes in the same place.
