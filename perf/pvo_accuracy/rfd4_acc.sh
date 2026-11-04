@@ -13,18 +13,26 @@ FOLD_S=${FOLD_S:-600}; SHARDS=${SHARDS:-1}; SHARD=${SHARD:-0}
 # chain instead would be wrong rather than noisy. Read it off a design before you launch.
 CHAIN=${CHAIN:?set CHAIN to the designed chain id in designs/$SIDE/*_generated.cif}
 OWN=${OWN:-pvo-accuracy-rfd4-$SIDE-$CARD}; PY=/home/ttuser/tt-bio-dev/env/bin; T0=$G/tree-$PIN; FEED=/home/ttuser/spd/feed
+# Both QuietBoxes run the same arbiter but name their per-card lock after the box, so the lock path is an
+# argument: qb1 refolds while qb2's four cards are booked out by other rows.
+BOX=${BOX:-qb2}; LOCK=${LOCK:-/home/ttuser/spd_${BOX}_card$CARD.lock}
 LOG=$G/rfd4-$SIDE-$CARD.log
 say() { echo "$(date -u +%FT%TZ) $*" >> $LOG; }
 say "start pid $$ card $CARD side $SIDE shard $SHARD/$SHARDS"
 [ -d $T0 ] || { mkdir -p $T0 && git -C /home/ttuser/tt-bio-dev archive $PIN | tar -x -C $T0; } || { say "tree failed"; exit 4; }
+# Model code is the pin; the refold harness is this row's and is overlaid from $G/harness/ (copied from
+# wk/pvo-accuracy). Both sides get the identical overlay, so the oracle stays one configuration.
+[ -d $G/harness ] && cp $G/harness/*.py $T0/perf/rfd4/
 export TT_VISIBLE_DEVICES=$CARD TT_BIO_LEASE_CARDS=$CARD TT_BIO_LEASE_HOLDER=worker:pvo-accuracy PYTHONPATH=$T0 PATH=$PY:$PATH
 while :; do
   cd $FEED
   while :; do
-    python3 book.py list | grep -q " $OWN " ||
-      python3 book.py add $OWN $CARD $SPAN --note "pvo-accuracy RFD4 $SIDE refolds" >> $G/book.log
+    # Re-add every poll, not once: `add` replaces this owner's booking and never moves it later, so on a
+    # box booked solid the start creeps earlier as the work ahead finishes. Booking once and waiting would
+    # sit on the first slot the arbiter offered (11-04: 14 h out) even after a card came free in an hour.
+    python3 book.py add $OWN $CARD $SPAN --note "pvo-accuracy RFD4 $SIDE refolds" >> $G/book.log
     if python3 book.py active $CARD | tr " " "\n" | grep -qx $OWN; then
-      exec 5>/home/ttuser/spd_qb2_card$CARD.lock; flock -w 300 5 && break
+      exec 5>$LOCK; flock -w 300 5 && break
       exec 5>&-; say "card lock busy, rebook"; python3 book.py rm $OWN
     fi
     sleep 60; done
