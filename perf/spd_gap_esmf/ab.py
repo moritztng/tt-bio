@@ -18,6 +18,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="esmfold2", choices=("esmfold2", "esmfold2-fast"))
 ap.add_argument("--fast", action="store_true")
 ap.add_argument("--alt", required=True, help="module.ATTR flipped between arms; arm A = True, arm B = False. "
+                "Several, comma-separated, flip together. "
                 "env:NAME sets the environment variable to --a in arm A and to --b (unset when absent) in arm B")
 ap.add_argument("--a", help="string value of ATTR in arm A instead of True (e.g. a lever spec)")
 ap.add_argument("--b", help="string value of ATTR in arm B instead of False")
@@ -43,10 +44,9 @@ if a.alt.startswith("env:"):
         def __setattr__(self, k, v):
             if v is False: os.environ.pop(k, None)
             else: os.environ[k] = str(v)
-    mod, attr = _Env(), a.alt[4:]
+    alts = [(_Env(), a.alt[4:])]
 else:
-    modname, attr = a.alt.rsplit(".", 1)
-    mod = importlib.import_module(modname)
+    alts = [(importlib.import_module(m), attr) for m, attr in (x.rsplit(".", 1) for x in a.alt.split(","))]
 
 fix = ROOT / "perf" / "size512" / "fixtures"
 a3m = a.a3m or fix / f"cdk2x2_{a.size}.a3m"
@@ -67,7 +67,8 @@ threading.Thread(target=sampler, daemon=True).start()
 res = {"model": a.model, "fast": a.fast, "alt": a.alt, "a": a.a, "b": a.b, "nodes": nodes, "trace_region": T.trace_region_size(),
        "card": os.environ.get("TT_VISIBLE_DEVICES"), "host": os.uname().nodename, "folds": []}
 def fold(arm, tag):
-    setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
+    for mod, attr in alts:
+        setattr(mod, attr, (a.a if a.a is not None else True) if arm == "A" else (a.b if a.b is not None else False))
     before = {k: dict(v) for k, v in T.LATCH_STATS.items()}
     t2_before, rej_before = list(TL.T2_STATS), dict(TL.REJECTS)
     t0 = time.monotonic(); s, m = one_fold(); t1 = time.monotonic()
