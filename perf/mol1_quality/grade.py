@@ -297,7 +297,10 @@ def main():
     arm_seeds = {k: tuple(map(int, v.split(","))) for k, v in (x.split("=", 1) for x in a.seeds)}
     sets = sorted({c["set"] for c in spec["paired"]})
     per_arch, per_set = {}, {}
-    fp32_seeds = {r["seed"] for r in ok if r["arm"] == "gpu_fp32"}
+    fp32_seeds = defaultdict(set)  # per case: upstream fp32's seed coverage is uneven (D-orch-131 top-up)
+    for r in ok:
+        if r["arm"] == "gpu_fp32":
+            fp32_seeds[r["case"]].add(r["seed"])
     for test in [x for x in arms if x.startswith("tt_")]:  # tt_bh, tt_wh, and A/B arms such as tt_bh_b
         arch = test[3:]
         # a case the GPU arm never produced (8jik smiles: no input staged) is no TT miss
@@ -318,8 +321,9 @@ def main():
                           "seeds": list(sd) if sd else sorted({r["seed"] for r in tok if r["arm"] == test})}
         if split:
             per_arch[arch]["pooled_all_cases"] = stats.verdict(tok, test, seeds=sd)
-        if "gpu_fp32" in arms:  # D-orch-56: all cases, the test arm's seeds that upstream fp32 also ran
-            fs = tuple(sorted(set(sd or {r["seed"] for r in tok if r["arm"] == test}) & fp32_seeds))
+        if "gpu_fp32" in arms:  # D-orch-56: all cases, per case the test arm's seeds that upstream fp32 also ran
+            mine_sd = set(sd or {r["seed"] for r in tok if r["arm"] == test})
+            fs = {c: tuple(sorted(v & mine_sd)) for c, v in fp32_seeds.items()}
             def d56(cases=None):
                 return stats.with_fp32(stats.verdict(tok, test, cases=cases, seeds=fs),
                                        stats.verdict(tok, test, base="gpu_fp32", floor_base="gpu", cases=cases, seeds=fs,
@@ -327,7 +331,7 @@ def main():
             pooled = d56()
             sets56 = {s: d56({r["case"] for r in tok if r["set"] == s}) for s in sets}
             failed56 = [s for s, x in sets56.items() if x["verdict"] == "FAIL"]
-            per_arch[arch]["d_orch_56"] = {"seeds": list(fs), "pooled": pooled, "per_set": sets56, "failed_sets": failed56}
+            per_arch[arch]["d_orch_56"] = {"seeds": sorted(set().union(*fs.values())), "pooled": pooled, "per_set": sets56, "failed_sets": failed56}
             per_arch[arch]["chartered_verdict"] = verdict
             per_arch[arch]["verdict"] = "FAIL" if missing or failed56 or pooled["verdict"] == "FAIL" else pooled["verdict"]
     floor = stats.self_test(ok) if "gpu_self" in arms else None
@@ -343,7 +347,7 @@ def main():
          "ab": {x: stats.verdict(ok, *x.split("=", 1)) for x in a.ab},  # TT vs TT: both share the precision
          "ref_split": split,
          # upstream's own precision split: fp32 minus bf16 autocast, beside the bf16 seed floor
-         "fp32_vs_bf16": stats.verdict(ok, "gpu_fp32", seeds=tuple(sorted(fp32_seeds))) if "gpu_fp32" in arms else None,
+         "fp32_vs_bf16": stats.verdict(ok, "gpu_fp32", seeds={c: tuple(v) for c, v in fp32_seeds.items()}) if "gpu_fp32" in arms else None,
          "pose": pose(arms, a.pose_base, spec["paired"], a.work) if a.pose_base else None,
          "paths": {"cases": str(a.cases), "inputs": str(a.inputs), "arms": arms, "rows": str(a.work / "rows.json")}}
     a.out.write_text(json.dumps(q, indent=1, default=float))

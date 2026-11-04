@@ -25,12 +25,14 @@ MIN_SEEDS = 4
 
 
 def per_target(rows, arm, metric, min_seeds=MIN_SEEDS):
-    """{case: mean over seeds} for one arm; cases with fewer than min_seeds finite values are left out."""
+    """{case: mean over seeds} for one arm; cases with fewer than min_seeds finite values are left out
+    (min_seeds may be a dict {case: n})."""
     acc = defaultdict(list)
     for r in rows:
         if r["arm"] == arm and r.get(metric) is not None:
             acc[r["case"]].append(r[metric])
-    return {c: float(np.mean(v)) for c, v in acc.items() if len(v) >= min_seeds and np.all(np.isfinite(v))}
+    need = min_seeds.get if isinstance(min_seeds, dict) else lambda c: min_seeds
+    return {c: float(np.mean(v)) for c, v in acc.items() if len(v) >= (need(c) or 1) and np.all(np.isfinite(v))}
 
 
 def success(rows, arm, case_set=None):
@@ -105,20 +107,24 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=
     conf_split: case ids ("<id>[:recipe]") whose CONFIDENCE metrics are left out (upstream's own fp32 and bf16
     disagree there, so the GPU is no reference); their structure metrics still count.
     seeds: grade a test arm that ran only these seeds against the base on the same seeds and a floor of the self arm
-    on as many of its own seeds per case (lowest first), so all three means average the same number of folds."""
+    on as many of its own seeds per case (lowest first), so all three means average the same number of folds.
+    A dict {case: seeds} does the same per case (a reference arm with uneven seed coverage, D-orch-131: graded on
+    the seeds each case has); a case absent from the dict is left out."""
     floor_base = floor_base or base
     if cases is not None:
         rows = [r for r in rows if r["case"] in cases]
     min_seeds = MIN_SEEDS
     if seeds:
+        of = seeds.get if isinstance(seeds, dict) else lambda c: seeds
         own = defaultdict(set)
         for r in rows:
             if r["arm"] == self_arm:
                 own[r["case"]].add(r["seed"])
-        own = {c: set(sorted(v)[:len(seeds)]) for c, v in own.items()}
+        own = {c: set(sorted(v)[:len(of(c) or ())]) for c, v in own.items()}
         rows = [r for r in rows if (r["seed"] in own.get(r["case"], ()) if r["arm"] == self_arm else
-                                    r["seed"] in seeds if r["arm"] in (base, test, floor_base, split) else False)]
-        min_seeds = len(seeds)
+                                    r["seed"] in (of(r["case"]) or ()) if r["arm"] in (base, test, floor_base, split)
+                                    else False)]
+        min_seeds = {c: len(v) for c, v in seeds.items()} if isinstance(seeds, dict) else len(seeds)
     rng = np.random.default_rng(SEED)
     out, ok, insufficient = {}, True, False
 
