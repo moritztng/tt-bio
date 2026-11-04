@@ -50,7 +50,7 @@ def test_cb_budget_rfd4_gathers_8_per_barrier(mask):
 @pytest.mark.parametrize("mask", [False, True])
 def test_rfd4_splits_the_gather_at_nb_8(mask, monkeypatch):
     """RFD4's key gathers on both data-movement cores at NB 8 with or without the mask (c_2's two channel tiles become
-    one per core, the reader stages its own 2 * NB); the other keys keep the writer alone."""
+    one per core, the reader stages its own 2 * NB); so does ESMFold2's (8, 16, 8); the other keys keep the writer alone."""
     import tt_bio.tenstorrent as T_
     monkeypatch.setattr(T_, "_l1_bank_bytes", lambda: L1_ALLOCATOR_BANK)
     one = TTL.t1_cb_bytes(12, 16, 12, mask, w8=True)
@@ -59,7 +59,8 @@ def test_rfd4_splits_the_gather_at_nb_8(mask, monkeypatch):
     assert TTL.t1_dm((12, 16, 12), mask, True, b8=True) == (8, True)   # bfp8 a / b: the split and the holds fit
     assert TTL.t1_cb_bytes(12, 16, 12, mask, w8=True, split=True, b8=True, il=8) < one + 16 * 2048
     assert TTL.t1_dm((12, 16, 12), mask, False)[1] is False          # bf16 weights: no room
-    for key in [(4, 8, 4), (8, 16, 8), (12, 24, 12)]:
+    assert TTL.t1_dm((8, 16, 8), mask, True)[1] is True               # ESMFold2's c_z 256 key, in T1_SPLIT
+    for key in [(4, 8, 4), (12, 24, 12)]:
         assert TTL.t1_dm(key, mask, True)[1] is False
 
 
