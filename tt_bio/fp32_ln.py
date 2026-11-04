@@ -77,7 +77,7 @@ def _build(x, out, g, b, kt, mt, dtype, eps):
         config=ttnn.WriterConfigDescriptor())
     cfg = ttnn.ComputeConfigDescriptor(math_fidelity=ttnn.MathFidelity.HiFi4, math_approx_mode=False,
                                        fp32_dest_acc_en=True)
-    modes = [ttnn.UnpackToDestMode.Default] * 32
+    modes = [ttnn.UnpackToDestMode.Default] * 64  # indexed by CB id; Blackhole has 64
     for i in (CB_X, CB_G, CB_B, CB_XC, CB_M, CB_R):
         modes[i] = ttnn.UnpackToDestMode.UnpackToDestFp32
     cfg.unpack_to_dest_mode = modes
