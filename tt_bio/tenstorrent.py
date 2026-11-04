@@ -8296,6 +8296,12 @@ def dram_free():
     return (min(lcf) if isinstance(lcf, (list, tuple)) else lcf) * mv.num_banks
 
 
+def dram_bytes():
+    """The chip's whole interleaved DRAM in bytes, a constant of the part (12 GiB on a Wormhole chip)."""
+    mv = ttnn.get_memory_view(get_device(), ttnn.BufferType.DRAM)
+    return int(mv.total_bytes_per_bank) * int(mv.num_banks)
+
+
 def place_by_reserve(t, reserve):
     """`t` on the device if DRAM can hold it and still keep `reserve` bytes free, else parked.
 
