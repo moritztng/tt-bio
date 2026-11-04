@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # PNR TT cells on qb1 p150a UMD 0 (/dev/tenstorrent/1), per state/pnr/PROTOCOL.md (frozen 11-03 17:40Z).
 #   run_cells.sh <out> [cells...]   cells: mol1 mol1_fast rfd4 bc2 (default all, in that order)
+# Cells run in the order given (bc2 first fits the next 4 h gap; it needs ~2 h 45 min, a Mol-1 cell ~10 min).
 # Each cell first books all four cards through ~/spd/feed/book.py as worker:pnr-tt and waits until the booking is
 # active on every card, then takes all four ~/spd_qb1_card{0..3}.lock flocks (the locks gate legs and SPD chains use, so it
 # queues behind a running gate and nothing new lands on qb1 during the cell), then waits for a device-free, quiet
@@ -40,12 +41,12 @@ cell() {  # name seconds cmd...
     exec 5>&- 6>&- 7>&- 8>&-; $BOOK rm worker:pnr-tt
 }
 for c in $CELLS; do case $c in
-  mol1)      cell mol1 2400 "$PY" perf/of3_4xpd/xmodel_ab.py --model mol1 --tree "$WT" --repeat 5 --label mol1 --out "$OUT/mol1/result.json" ;;
-  mol1_fast) cell mol1_fast 2400 "$PY" perf/of3_4xpd/xmodel_ab.py --model mol1 --tree "$WT" --repeat 5 --fast --label mol1-fast --out "$OUT/mol1_fast/result.json" ;;
+  mol1)      cell mol1 1200 "$PY" perf/of3_4xpd/xmodel_ab.py --model mol1 --tree "$WT" --repeat 5 --label mol1 --out "$OUT/mol1/result.json" ;;
+  mol1_fast) cell mol1_fast 1200 "$PY" perf/of3_4xpd/xmodel_ab.py --model mol1 --tree "$WT" --repeat 5 --fast --label mol1-fast --out "$OUT/mol1_fast/result.json" ;;
   rfd4)      cell rfd4 9000 env PYTHONPATH="$WT" "$HOME/rfd4-fair/env/bin/python" perf/rfd4/fair/run.py \
                  --spec "$HOME/rfd4-inputs/pdl1-224.yaml" --weights "$HOME/rfd4-fair/bundle" --out "$OUT/rfd4" --part p150a \
                  --lane-width 10 --ladder-start 20 --ladder-step 10 --ceiling 200 --batches 5 ;;
-  bc2)       cell bc2 12600 env PYTHONPATH="$WT" JAPANFOLD_BC2_AF2_WEIGHTS="$HOME/bcx_e2e/af2_params" \
+  bc2)       cell bc2 11400 env PYTHONPATH="$WT" JAPANFOLD_BC2_AF2_WEIGHTS="$HOME/bcx_e2e/af2_params" \
                  JAPANFOLD_BC2_MPNN_WEIGHTS="$HOME/bcx_e2e/bc2/bindcraft/weights/proteinmpnn/weights_neutral" \
                  "$HOME/bcx_e2e_venv/bin/python3" perf/spd/bench.py --out "$OUT/bc2" --chip 0 --model bindcraft2 \
                  --bc2 "$HOME/bcx_e2e/bc2" --seed 101 --warm 9 --inputs 80 ;;
