@@ -42,7 +42,7 @@ from .token_axis import bucket_multiple as _bucket_multiple
 from .protenix_weights import remap_adaln  # single source of all v2->tt-bio weight remaps
 from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
-                          MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
+                          MSA_CHUNK_SIZE, batched_matmul, dram_bytes, msa_depth_chunks, host_park,
                           host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_rows_mask, msa_rows_table,
                           msa_rows_device, msa_upload_whole, msa_update_chunks,
                           pair_row_blocks,
@@ -3751,6 +3751,18 @@ def msa_cycle_rows(msa, n_cycles, depth, generator):
     return out
 
 
+def deeper_than_before(depths, first=0):
+    """The cycles, numbered from `first`, that read more alignment rows than every cycle before them
+    in `depths`: where a refusal can land that the cycles already run did not meet. The trunk keeps
+    its carry on the host before each, so a refused cycle resumes there instead of at `first`."""
+    out, deepest = set(), depths[0] if depths else 0
+    for i, d in enumerate(depths[1:], first + 1):
+        if d > deepest:
+            out.add(i)
+            deepest = d
+    return out
+
+
 # Upstream Protenix's inference cap on the rows one cycle reads (configs_data.py msa.sample_cutoff.test).
 MSA_SAMPLE_CUTOFF = 16384
 
@@ -4335,14 +4347,22 @@ class Trunk(_KeyedWeights):
         # Such a pair already keeps z_init on the host (host_park), and `from_device` is one DMA of the same
         # tile bytes: ~2 GiB once a ~290 s cycle at 2048 tokens, where a refused cycle 7 of 10 would
         # otherwise redo seven cycles.
+        # A sampled fold whose pair is a 32nd of the chip keeps the carry before each cycle that draws more
+        # rows than any cycle before it in this mode, the cycles a refusal lands on. At 1024 Mol-1 tokens on
+        # a Wormhole chip a deep draw late in the fold was refused and the restart redid up to 19 cycles
+        # from cycle 0, so a fold's time hung on its seed: 937 s to 2352 s for one input, and a gang of 8
+        # seeds waits for the slowest.
         resume = [0, None]
         keep = z_init.storage_type() != ttnn.StorageType.DEVICE and not ops.taping()
+        mark = (rows is not None and not keep and not ops.taping()
+                and 32 * N * N * self.C_Z * 2 >= dram_bytes())
 
         def run(mode, m_feat, next_rows):
             # Every cycle in one mode, from `resume`. `rows` was drawn for all cycles up front, so a
             # restart sees the same rows.
             c0, h = resume
             carry = start() if h is None else [ttnn.to_device(t, get_device()) for t in h]
+            marks = deeper_than_before([bucket(c) for c in range(c0, n_cycles)], c0) if mark else ()
             for cyc in range(c0, n_cycles):
                 # AF3 trains the recycling stack with every cycle but the LAST under no_grad, so
                 # the tape holds one cycle instead of n_cycles of them. That is upstream's own
@@ -4361,7 +4381,7 @@ class Trunk(_KeyedWeights):
                         carry = sampled(cyc, carry, x, park=mode == "park")
                     else:
                         carry = cycle(cyc, carry, m_feat)
-                    if keep and cyc + 1 < n_cycles:
+                    if cyc + 1 < n_cycles and (keep or cyc + 1 in marks):
                         resume[:] = [cyc + 1, [ttnn.from_device(t) for t in carry]]
             return carry
 

@@ -73,3 +73,21 @@ def test_no_cycle_keeps_its_input_pair():
     src = inspect.getsource(P.Trunk.__call__)
     assert "restart_lighter(" in src
     assert "retry" not in src and "inputs = list(carry)" not in src
+
+
+def test_a_refused_deep_draw_resumes_at_its_own_cycle():
+    """The carry is kept before every cycle that draws deeper than all before it, so a refusal there
+    resumes at that cycle. Seed 1101's draws at 1024 Mol-1 tokens (6835 rows), whose deepest at cycle 17
+    redid 17 cycles from cycle 0 and made it the slowest fold of the WH gang."""
+    from tt_bio.protenix import deeper_than_before
+    assert deeper_than_before([3, 10, 27, 27, 25, 74, 58, 15, 52, 65, 31, 38, 44, 9, 58, 37, 49, 93, 86, 65]) == {1, 2, 5, 17}
+    assert deeper_than_before([5, 9, 7], first=4) == {5}
+    assert deeper_than_before([9]) == set() and deeper_than_before([]) == set()
+
+
+def test_only_a_large_sampled_pair_keeps_marks():
+    """The kept carry costs one DMA of the pair a mark: only where the pair is a 32nd of the chip."""
+    import tt_bio.protenix as P
+    src = inspect.getsource(P.Trunk.__call__)
+    assert "32 * N * N * self.C_Z * 2 >= dram_bytes()" in src
+    assert "cyc + 1 in marks" in src
