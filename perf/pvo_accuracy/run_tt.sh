@@ -9,6 +9,8 @@
 # run MODES="exact" and report the one mode twice, never a `--fast` run that drops the tuned levers.
 #   DATA=~/pvo-accuracy-data MODEL=opendde SEEDS="101 102 103" MODES="exact fast" bash run_tt.sh
 #   DATA=~/pvo-accuracy-data MODEL=mol1    SEEDS="101 102 103" MODES="exact"      bash run_tt.sh
+# GUARD, if set, is a shell command run before every fold; when it fails the run stops with rc 3 and no
+# relayout, so a booked card is handed back at its window edge instead of overrunning (bh_acc.sh).
 # Writes $DATA/<MODEL>/tt/out/tt_<mode>/<PDB>/seed_<s>/ (tt-bio's layout) and relays it into
 # $DATA/<MODEL>/tt/out/tt<mode>_<seeds>/pred/<PDB>/seed_<s>/predictions/, which score.py reads.
 set -uo pipefail
@@ -24,6 +26,7 @@ for s in ${SEEDS:-101 102 103}; do
     for y in "$DATA"/inputs/*.yaml; do
       p=$(basename "$y" .yaml); o=$OUTROOT/tt_$mode/$p/seed_$s
       [ -f "$o/rc" ] && grep -q "rc=0" "$o/rc" && continue
+      [ -n "${GUARD:-}" ] && ! bash -c "$GUARD" && { echo "TT-YIELD $MODEL $mode $p $s"; exit 3; }
       mkdir -p "$o"
       FAST=(); [ "$mode" = fast ] && FAST=(--fast)
       SAMP=(); [ "$MODEL" = opendde ] && SAMP=(--diffusion_samples 5)
