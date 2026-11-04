@@ -1732,9 +1732,11 @@ T1_SPLIT = {(12, 16, 12): 1, (8, 16, 8): 1}
 # c320 3.05 -> 2.71 ms at 256 tokens, 9.12 -> 8.94 at 512, 35.6 -> 35.9 at 1024;
 # c448 5.27 -> 4.82 at 256, 16.7 -> 15.9 at 512, 66.6 -> 65.6 at 1024.
 # c256 (ESMFold2), with T1_SPLIT, under its Blackhole set, same chip and clock: 6.16 -> 5.59 ms at 512, 25.9 -> 24.0 at
-# 1024; the multicast alone is slower there (6.28 at 512), so the key sits in both tables. rel_rms against float64
-# identical to every digit across arms (state/spd-m-esmfold-3.md, t1k).
-T1_MCAST = {(12, 16, 12): 1, (10, 20, 10): 1, (14, 28, 14): 1, (8, 16, 8): 1}
+# 1024; the multicast alone is slower there (6.28 at 512). A 2 takes the multicast only where T1_SPLIT fires: at c256
+# that is the bfp8-weight single launch (ESMFold2 on Blackhole, Protenix-v2 --fast on Wormhole), while Protenix-v2's
+# bf16 two-launch plan on Blackhole keeps the plain reader (fold A/B there read 0.3-0.6 s slower with the multicast).
+# rel_rms against float64 identical to every digit across arms (state/spd-m-esmfold-3.md, t1k, t1pb).
+T1_MCAST = {(12, 16, 12): 1, (10, 20, 10): 1, (14, 28, 14): 1, (8, 16, 8): 2}
 
 
 def _t1_knob(knob, key, default):
@@ -2081,7 +2083,8 @@ def fused_in_ln(x, ln_w, ln_b, wpT, wgT, wgo, ckc, grid, mask=None, eps=1e-5, b8
     il = t1_rows(il, B * (S // TILE) ** 2, grid[0] * grid[1])
     b8 = bool(b8 or T1_B8) and (il == 32 or il == 8 and t1_pair_free(B * (S // TILE) ** 2 * 4, grid[0] * grid[1]))
     nb, split = t1_dm(pkey, mask is not None, w8, b8, sp)
-    mcast = bool(_t1_knob(T1_MCAST, pkey, 0)) and grid[0] * grid[1] > 1
+    mc = _t1_knob(T1_MCAST, pkey, 0)
+    mcast = bool(mc) and (mc != 2 or split) and grid[0] * grid[1] > 1
     alloc = lambda s, dt=ttnn.bfloat16: ttnn.allocate_tensor_on_device(  # noqa: E731
         ttnn.Shape(s), dt, ttnn.TILE_LAYOUT, device, ttnn.DRAM_MEMORY_CONFIG)
     ab = ttnn.bfloat8_b if b8 else ttnn.bfloat16
