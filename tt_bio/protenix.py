@@ -3849,10 +3849,13 @@ class Trunk(_KeyedWeights):
             pf_heads.append(0 if ta is None else int(ta.shape[0]))
         # Mol-1's pair-width adapters: before_block_<i> and after_blocks (PW.remap_pair_adapters).
         comb.update(PW.remap_pair_adapters(self._w, "pairformer_stack.", nb_pf))
-        # The single track in fp32 end to end (`PairformerLayer` s_fp32): the confidence head reads its small
-        # channels' per-token part, which a bf16 store erases.
+        # Mol-1 (the two-width trunk) carries the single track in fp32 end to end (`PairformerLayer` s_fp32): its
+        # confidence head reads the small channels' per-token part, which a bf16 store erases. One-width trunks keep
+        # the bf16 track they shipped with; on them fp32 cost 12-21 % a call at the perf gate's sizes
+        # (state/mol1/evidence/confperf/ROOT.md).
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, pf_heads, 384 // 16, 16, True, comb,
-                             compute_kernel_config, gated_move=gated_move, s_fp32=True,
+                             compute_kernel_config, gated_move=gated_move,
+                             s_fp32=len(self._pair_widths(model_state_dict)) > 1,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.trunk", default=True))
         # Template embedder: pair-only PairformerLayers, count from the weights. Protenix-v2
         # has 2. Every PXDesign-pinned Protenix variant ships a template embedder that is only
