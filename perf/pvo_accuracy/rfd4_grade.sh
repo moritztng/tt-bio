@@ -7,6 +7,10 @@
 #   $D/designs/<side>/        the *_generated.cif, pulled from the box that made them
 #   $D/out/<side>/            evaluation_samples/ (refold cache) + per_example_metrics.csv
 # Sides: gpu-exact, gpu-fast, tt-wh (TT fast = TT exact, one distribution reported as both), tt-bh if it lands.
+# Each side also carries `$D/designs/<side>/SOURCE_SHA`, the tt-bio commit its designs were generated on (the
+# MODES.md pin, c52ab1702031, unless a side says otherwise). quality.py rebinds a grade to that commit and must
+# find it on origin/main; without the file the grade returns REBIND_FAILED and no number is reported. Measured
+# 2026-11-04 on a CPU dry run of this exact path: no sha -> REBIND_FAILED, sha -> the grade proceeds.
 set -eu
 D=${D:?}; TAGS=${TAGS:-design,ppi_refolding,hotspot_conditioning,interchain_interactions}
 Q=${Q:-$D/QUALITY-PVO.json}; REPO=${REPO:-/home/moritz/.coworker/wt/pvo-accuracy}
@@ -27,10 +31,16 @@ python3 $REPO/perf/rfd4/quality.py floor --feature binder --kind resample \
 # A grade rewrites the "binder" feature of the doc it reads, so each comparison gets its own file, seeded
 # from the floor doc -- without that copy the grade would run with no floor and every bar would be the bare
 # p-value.
+sha_of() {  # <side>
+  f=$D/designs/$1/SOURCE_SHA
+  [ -s $f ] || { echo "$1: no $f, the grade would not bind to a commit" >&2; exit 5; }
+  tr -d " \t\n" < $f
+}
 grade() {  # <label> <arm> <reference>
   cp $Q $D/QUALITY-$1.json
   python3 $REPO/perf/rfd4/quality.py grade --feature binder --label "$1" \
-    --tt $D/out/$2 --ref $D/out/$3 --out $D/QUALITY-$1.json
+    --tt $D/out/$2 --ref $D/out/$3 --tt-sha "$(sha_of $2)" --ref-sha "$(sha_of $3)" \
+    --repo $REPO --out $D/QUALITY-$1.json
   python3 $REPO/perf/rfd4/quality.py show --out $D/QUALITY-$1.json
 }
 grade gpu-fast-vs-exact gpu-fast gpu-exact
