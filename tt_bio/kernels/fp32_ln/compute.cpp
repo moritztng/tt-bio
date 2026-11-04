@@ -21,7 +21,7 @@
 
 constexpr uint32_t KT = get_compile_time_arg_val(0);
 constexpr uint32_t INV_K = get_compile_time_arg_val(1);   // fp32 bits of 1 / K
-constexpr uint32_t EPS = get_compile_time_arg_val(2);     // fp32 bits
+constexpr uint32_t EPS_BITS = get_compile_time_arg_val(2);     // fp32 bits
 constexpr uint32_t OUT_BF16 = get_compile_time_arg_val(3);
 
 constexpr uint32_t cb_x = tt::CBIndex::c_0, cb_g = tt::CBIndex::c_1, cb_b = tt::CBIndex::c_2;
@@ -95,7 +95,7 @@ void kernel_main() {
         cb_reserve_back(cb_s2, 1);
         tile_regs_acquire();
         row_mean<true>(cb_xc);
-        add_unary_tile(0, EPS);
+        add_unary_tile(0, EPS_BITS);
         rsqrt_tile_init();
         rsqrt_tile(0);
         pack_one(cb_s2);
