@@ -13,12 +13,62 @@ from tt_bio.main import ensure_p300_mesh_descriptor
 ensure_p300_mesh_descriptor()
 import ttnn  # noqa: E402
 from tt_bio import fp32_ln  # noqa: E402
-from tt_bio.tenstorrent import fp32_layer_norm, get_device  # noqa: E402
+from tt_bio.tenstorrent import get_device  # noqa: E402
 
 dev = get_device()
-ckc = ttnn.init_device_compute_kernel_config(dev.arch(), math_fidelity=ttnn.MathFidelity.HiFi4,
-                                             math_approx_mode=False, fp32_dest_acc_en=True, packer_l1_acc=False)
 tok = lambda v: v - v.mean(0)  # noqa: E731
+_PARAMS = {}
+
+
+def _fp32_row_sum(x, mc):
+    """Sum over the last dim (a multiple of 32) of an fp32 `x` from fp32 elementwise adds only: tile columns folded in
+    halves while their count is even, the rest added in turn, then the 32 columns of one tile halved down to one.
+
+    Wormhole's FPU reductions do not hold fp32 here: on Mol-1's trunk block 43 input `ttnn.sum` and a matmul with ones
+    both land the 32-column partial of xc^2 1.07e-3 off and the layer norm's per-token part 0.50 off, where these
+    adds give 1.6e-7 and 3.1e-4 against a 1.3e-4 fp32 floor (perf/mol1_whl4/ln_var_probe.py, one .111 chip). The
+    tokens of a single track share a vector ~1e3x their differences, so 1/sigma needs ~1e-6 per token.
+    """
+    lead = list(x.shape)[:-1]
+    w = x.shape[-1]
+    if w % 32:
+        raise ValueError(f"_fp32_row_sum: last dim {w} is not a multiple of 32")
+    sl = lambda t, a, b: ttnn.slice(t, [0] * len(lead) + [a], lead + [b], memory_config=mc)
+    while w > 32 and (w // 32) % 2 == 0:
+        w //= 2
+        x = ttnn.add(sl(x, 0, w), sl(x, w, 2 * w), memory_config=mc)
+    t = sl(x, 0, 32) if w > 32 else x
+    for c in range(32, w, 32):
+        t = ttnn.add(t, sl(x, c, c + 32), memory_config=mc)
+    w = 32
+    while w > 1:
+        w //= 2
+        t = ttnn.add(sl(t, 0, w), sl(t, w, 2 * w), memory_config=mc)
+    return t
+
+
+def composed_ln(x, weight, bias, epsilon, dtype, memory_config=None):
+    """tenstorrent.fp32_layer_norm before fp32_ln (main 2dba2f72e), kept as the probe's reference arm."""
+    key = (id(weight), id(bias))
+    params = _PARAMS.get(key)
+    if params is None:
+        params = _PARAMS[key] = (ttnn.typecast(weight, ttnn.float32), ttnn.typecast(bias, ttnn.float32))
+    mc = memory_config
+    x32 = ttnn.typecast(x, ttnn.float32, memory_config=mc) if x.dtype != ttnn.float32 else x
+    inv_w = 1.0 / x.shape[-1]
+    xc = ttnn.subtract(x32, ttnn.multiply(_fp32_row_sum(x32, mc), inv_w, memory_config=mc), memory_config=mc)
+    if x32 is not x:
+        ttnn.deallocate(x32)
+    sq = ttnn.multiply(xc, xc, memory_config=mc)
+    var = ttnn.multiply(_fp32_row_sum(sq, mc), inv_w, memory_config=mc)
+    ttnn.deallocate(sq)
+    inv = ttnn.rsqrt(ttnn.add(var, epsilon, memory_config=mc), memory_config=mc)
+    ttnn.deallocate(var)
+    out = ttnn.multiply_(xc, inv)
+    ttnn.deallocate(inv)
+    out = ttnn.add(ttnn.multiply_(out, params[0]), params[1], dtype=dtype, memory_config=mc)
+    ttnn.deallocate(xc)
+    return out
 
 
 def ref(x, w, b):
@@ -37,7 +87,7 @@ def case(name, x, w, b):
     r = ref(x.double(), wd, bd)   # the bf16 weights both paths see
     out = {}
     arms = {"fused": lambda dt: fp32_ln.layer_norm(X, W, B, 1e-5, dt),
-            "composed": lambda dt: fp32_layer_norm(X, W, B, 1e-5, ckc, dt)}
+            "composed": lambda dt: composed_ln(X, W, B, 1e-5, dt)}
     for arm, f in arms.items():
         for dt in (ttnn.float32, ttnn.bfloat16):
             y = ttnn.to_torch(f(dt)).double().reshape(-1, k)[:n]
