@@ -333,9 +333,13 @@ MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
 # Plus trimul_t1split, bit-identical: one trimul call (qb2 p300c, AICLK 1200-1350) c_z 320 2.67 -> 2.45 ms at 256 tokens,
 # 7.84 -> 7.00 at 512, 33.66 -> 30.23 at 1024; c_z 448 4.17 -> 4.01 ms at 256, flat at 512 and 1024
 # (state/mol1/evidence/bh/mulroof.md).
+# Plus dit_qbox + dit_mask_chain, bit-identical: the token DiT fp32 attention as per-core (sample, head, q chunk) boxes
+# that hand the sample-broadcast mask core to core from 512 tokens. One call, 5 samples: 1024 1.495 -> 1.168 ms, 512
+# 0.432 -> 0.410. qb1 p150a at AICLK 1350, 3 warm folds per arm, coords identical: 512 74.93 -> 74.23 s, 1024 294.28 ->
+# 291.84 s (state/mol1/evidence/bh/diffstep.md).
 MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
                                             "ws_l1dest", "edm_device", "atom_l1", "inproj_split", "trimul_t2cm",
-                                            "dit_qkvf", "trimul_t1split"}
+                                            "dit_qkvf", "trimul_t1split", "dit_qbox", "dit_mask_chain"}
 # Mol-1 on Blackhole from 512 padded tokens (`size_levers`): bfp8 pair-transition weights in one chunk on the plain SwiGLU
 # kernel, the reblock move back writing bfp8 and T1's resident weights in bfp8. Graded as one stack over MOL1_BH, qb1
 # p150a at AICLK 1350, 5 warm folds per arm: 512 tokens 83.29 -> 75.23 s, samples matched to the base fold at 0.423 A

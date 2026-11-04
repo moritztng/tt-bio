@@ -91,9 +91,10 @@ def _packed_identity_scalar():
 
 
 def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None,
-         kv_buffer_factor=2, rows=None):
+         kv_buffer_factor=2, rows=None, boxes=None):
     """Everything the descriptor needs, derived exactly as the factory derives it.
 
+    `boxes` (`box_split`) gives each core its own (batch, head, q chunk) ranges instead of the factored split.
     `split` overrides `(batch_parallel_factor, nh_parallel_factor, q_parallel_factor)`. The
     factory's own choice saturates batch first -- `batch_pf = min(B, num_cores)` -- which at
     B = 512 on 110 cores leaves `nh_pf = 1` and hands every core all 8 heads. K2 needs one head per
@@ -135,6 +136,9 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
     batch_per_core = _div_up(B, batch_pf)
     nh_per_core = _div_up(NQH, nh_pf)
     q_per_core = _div_up(q_num_chunks, q_pf)
+    if boxes is not None:
+        assert len(boxes) <= num_cores, (len(boxes), num_cores)
+        q_per_core = max(b[5] - b[4] for b in boxes)
     q_buffer_factor = 2 if q_per_core > 1 else 1
 
     math_fidelity, math_approx, fp32_dest_acc, dst_full_sync = ckc
@@ -366,6 +370,35 @@ def _twin(src, orig, alt):
     return src.replace(orig, f"#ifdef QKV_FUSED_W\n{alt}\n#else\n{orig}\n#endif", 1)
 
 
+# MASK_CHAIN (`build(mask_chain=True)`): a batch-broadcast mask is read from DRAM once per (head, q range) instead
+# of once per sample. The cores that walk the same heads and q chunks for different samples form a unicast chain on
+# the K/V chain's semaphores and coordinates (the K/V chain itself never fires: its batch is out of range): the first
+# reads each mask chunk and writes it into the next core's cb_mask_in at the same L1 address, which waits for it in
+# place of its own read. Same tiles, so the arithmetic is unchanged.
+_MASK_READ_ORIG = ("                            uint32_t tile_idx = 0;\n"
+                   "                            for (uint32_t row = 0; row < Sq_chunk_t; ++row) {")
+_MASK_READ_CHAIN = ("                            uint32_t tile_idx = 0;\n#ifdef MASK_CHAIN\n"
+                    "                            if (is_chain_participant && !is_injector) {\n"
+                    "                                noc_semaphore_set(receiver_semaphore_addr_ptr, INVALID);\n"
+                    "                                noc_semaphore_inc(sender_semaphore_noc_addr, 1);\n"
+                    "                                noc_semaphore_wait(receiver_semaphore_addr_ptr, VALID);\n"
+                    "                            } else\n#endif\n"
+                    "                            for (uint32_t row = 0; row < Sq_chunk_t; ++row) {")
+_MASK_PUSH_ORIG = ("                            noc_async_read_barrier();\n"
+                   "                            cb_push_back(cb_mask_in, mask_chunk_tiles);")
+_MASK_PUSH_CHAIN = ("                            noc_async_read_barrier();\n#ifdef MASK_CHAIN\n"
+                    "                            if (is_chain_participant && !is_sink) {\n"
+                    "                                const uint32_t m0 = get_write_ptr(cb_mask_in);\n"
+                    "                                noc_semaphore_wait(sender_semaphore_addr_ptr, 1);\n"
+                    "                                noc_semaphore_set(sender_semaphore_addr_ptr, 0);\n"
+                    "                                noc_async_write(m0, get_noc_addr(next_physical_x, next_physical_y, m0),\n"
+                    "                                                mask_chunk_tiles * mask_tile_bytes);\n"
+                    "                                noc_async_writes_flushed();\n"
+                    "                                noc_semaphore_set_remote(valid_semaphore_addr, receiver_semaphore_noc_addr);\n"
+                    "                            }\n#endif\n"
+                    "                            cb_push_back(cb_mask_in, mask_chunk_tiles);")
+
+
 def qkv_fused_kernel_dir() -> Path:
     """The wheel's SDPA reader and writer reading q, k and v straight out of one fused projection.
 
@@ -380,6 +413,9 @@ def qkv_fused_kernel_dir() -> Path:
         common = common.replace(orig, alt, 1)
     rows = "(nb * QKV_ROWS_T + {r}) * QKV_FUSED_W"
     reader = (_kdir() / "dataflow/reader_interleaved.cpp").read_text()
+    for orig, alt in ((_MASK_READ_ORIG, _MASK_READ_CHAIN), (_MASK_PUSH_ORIG, _MASK_PUSH_CHAIN)):
+        assert reader.count(orig) == 1, ("mask_chain: the wheel's reader changed", orig)
+        reader = reader.replace(orig, alt, 1)
     reader = _twin(reader, _Q_WINDOW_ORIG, "                    uint32_t q_read_tile_id = "
                    + rows.format(r="read_offset + q_row_start_tile") + " + nq * DHt;")
     reader = _twin(reader, _KV_WINDOW_ORIG[0], "                        const uint32_t k_start_tile_id = "
@@ -400,6 +436,28 @@ def qkv_fused_kernel_dir() -> Path:
             tmp.write_text(s)
             tmp.replace(d / "dataflow" / name)
     return d
+
+
+def box_split(B: int, H: int, Q: int, cores: int):
+    """(q chunks on the busiest core, per-core boxes) spreading B x H x Q (batch, head, q chunk) units over `cores`.
+
+    The factored split (`plan`) hands every core the same box, so at 5 samples and 16 heads it fills 80 cores and
+    leaves the rest of a 110-core grid idle. Here each (batch, head) is cut into runs of `t` q chunks and each batch's
+    remainders are grouped `t // r` heads a core, for the smallest `t` that fits the grid. A box is
+    `(b, b_end, h, h_end, q, q_end)`, the kernels' own runtime ranges, so each row's arithmetic is unchanged."""
+    for t in range(max(1, -(-B * H * Q // cores)), H * Q + 1):
+        if t >= Q:
+            g = t // Q
+            boxes = [(b, b + 1, h, min(h + g, H), 0, Q) for b in range(B) for h in range(0, H, g)]
+        else:
+            full, r = divmod(Q, t)
+            boxes = [(b, b + 1, h, h + 1, j * t, (j + 1) * t) for b in range(B) for h in range(H) for j in range(full)]
+            if r:
+                g = t // r
+                boxes += [(b, b + 1, h, min(h + g, H), full * t, Q) for b in range(B) for h in range(0, H, g)]
+        if len(boxes) <= cores:
+            return t, tuple(boxes)
+    return None
 
 
 def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
@@ -545,7 +603,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
           out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
-          keypad=None, merged_out=False, rows=None, kv_chain=False):
+          keypad=None, merged_out=False, rows=None, kv_chain=False, boxes=None,
+          mask_chain=False):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, DH]`
@@ -555,6 +614,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     first reads K/V from DRAM and hands each chunk to the next, for every batch the head's cores walk
     (reader define KV_CHAIN_EVERY_BATCH), so K/V leave DRAM once instead of q_pf times. Needs one
     head and one q chunk per core; the triatt_sdpa reader only.
+
+    `mask_chain` reads a batch-broadcast mask once per (head, q range) and forwards it along the cores
+    that walk the same heads and q chunks for other samples (`_MASK_READ_CHAIN`); the qkv_fused reader
+    only, and not with `kv_chain`.
 
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
@@ -617,7 +680,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if rows is not None:
         assert not (merged_out or qkv_fused or kv_window or fuse_qkv or gate or css or keypad), "plain reads only"
     p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
-             kv_buffer_factor, rows)
+             kv_buffer_factor, rows, boxes)
     if css is not None:
         assert kv_window is None and qkv_fused is None and fuse_qkv is None and gate is None
         css_w = css_width(p["k_num_chunks"])
@@ -811,12 +874,32 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
                        KEYPAD_W=str(kp_w))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
-    chained = bool(kv_chain and p["q_pf"] > 1 and p["nh_per_core"] == 1 and p["q_per_core"] == 1
+    chained = bool(kv_chain and boxes is None and p["q_pf"] > 1 and p["nh_per_core"] == 1 and p["q_per_core"] == 1
                    and fuse_qkv is None and css is None and keypad is None)
     used = p["batch_pf"] * p["nh_pf"] * p["q_pf"]
     if chained:
         defines["KV_CHAIN_EVERY_BATCH"] = "1"
         CHAIN_BUILDS[0] += 1
+    links = {}
+    if mask_chain and qkv_fused is not None and p["bcast_batch"] and not chained:
+        # core -> (position, chain); a chain is the cores with one (head, q) range and one sample count
+        spans = {}
+        for i in range(num_cores):
+            b = boxes[i] if boxes is not None and i < len(boxes) else None
+            if boxes is None and i < used:
+                lb = (i // (p["nh_pf"] * p["q_pf"])) * p["batch_per_core"]
+                b = (lb, min(lb + p["batch_per_core"], p["B"]),
+                     ((i // p["q_pf"]) % p["nh_pf"]) * p["nh_per_core"], None,
+                     (i % p["q_pf"]) * p["q_per_core"], None)
+                b = (b[0], b[1], b[2], min(b[2] + p["nh_per_core"], p["NQH"]),
+                     b[4], min(b[4] + p["q_per_core"], p["q_num_chunks"]))
+            if b and b[0] < b[1] and b[2] < b[3] and b[4] < b[5]:
+                spans.setdefault((b[1] - b[0],) + tuple(b[2:]), []).append(i)
+        for chain in spans.values():
+            for pos, i in enumerate(chain):
+                links[i] = (pos, chain)
+        if any(len(c) > 1 for c in spans.values()):
+            defines["MASK_CHAIN"] = "1"
     dlist = sorted(defines.items())
 
     kd = kernel_dir or _kdir()
@@ -847,6 +930,14 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     def chain_args(i, lb, ln, lq, lqe):
         # reader_interleaved.cpp chain block: participant, injector, sink, batch, head, q start, q count,
         # prev x, y, next x, y, next core's q chunks, mcast dests, mcast wait (unicast: mcast_enabled 0)
+        if i in links and len(links[i][1]) > 1:
+            # the K/V chain's batch and head are out of range, so only the mask moves
+            pos, chain = links[i]
+            prv = device.worker_core_from_logical_core(ttnn.CoreCoord(chain[pos - 1] % gx, chain[pos - 1] // gx)) if pos else None
+            nxt = (device.worker_core_from_logical_core(ttnn.CoreCoord(chain[pos + 1] % gx, chain[pos + 1] // gx))
+                   if pos < len(chain) - 1 else None)
+            return [1, int(pos == 0), int(pos == len(chain) - 1), 0xFFFFFFFF, 0xFFFFFFFF, 0, 0,
+                    prv.x if prv else 0, prv.y if prv else 0, nxt.x if nxt else 0, nxt.y if nxt else 0, 0, 0, 0]
         if not chained or i >= used or lb >= p["B"] or lq >= lqe:
             return [0] * 14
         pos, last = i % p["q_pf"], p["q_pf"] - 1
@@ -865,6 +956,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         lne = min(ln + p["nh_per_core"], p["NQH"])
         lq = min((i % p["q_pf"]) * p["q_per_core"], p["q_num_chunks"])
         lqe = min(lq + p["q_per_core"], p["q_num_chunks"])
+        if boxes is not None:
+            lb, lbe, ln, lne, lq, lqe = boxes[i] if i < len(boxes) else (p["B"],) * 2 + (p["NQH"],) * 2 + (0, 0)
         # num_phases=1, chunked_q_chunk_offset=0, read/write_offset=0 (:807-809)
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
                    + chain_args(i, lb, ln, lq, lqe)    # chain metadata, no-chain zeros unless kv_chain
@@ -953,7 +1046,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
            kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
-           kw.get("rows"), bool(kw.get("kv_chain")),
+           kw.get("rows"), bool(kw.get("kv_chain")), kw.get("boxes"), bool(kw.get("mask_chain")),
            None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:
