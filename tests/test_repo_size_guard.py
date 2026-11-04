@@ -64,3 +64,17 @@ def test_no_virtualenvs_or_build_output_tracked():
         "A committed virtualenv (press/pmol-env) is what put ~976 MB into this "
         "repo's history. Add to .gitignore instead." % ", ".join(sorted(bad)[:10])
     )
+
+
+def test_no_tracked_symlink_points_outside_the_repo():
+    """A symlink pulled from a rented box (`smi.csv -> /root/kc/smi.csv`) dangles on every other
+    machine, and where /root is unreadable the stat raises PermissionError and fails every test that
+    walks perf/. Link relative, to a file the repo carries."""
+    bad = []
+    for rel in _tracked():
+        f = REPO / rel
+        if f.is_symlink():
+            target = (f.parent / f.readlink()).resolve()
+            if not target.is_relative_to(REPO.resolve()):
+                bad.append("%s -> %s" % (rel, f.readlink()))
+    assert not bad, "Tracked symlinks that leave the repo: %s" % ", ".join(sorted(bad))

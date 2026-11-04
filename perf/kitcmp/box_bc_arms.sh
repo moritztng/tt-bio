@@ -18,7 +18,7 @@ SMI=$!
 # --- stock BindCraft 2 ----------------------------------------------------------------------------------------------
 d=$R/stock; mkdir -p $d; date -u +%FT%T.%3NZ > $d/t_start
 # bc2_gpu.py reads the 1 Hz clock log from its own --out; give it the one this script keeps
-ln -sf $R/smi.csv $d/smi.csv
+ln -sf ../smi.csv $d/smi.csv
 /opt/bc2-venv/bin/python /root/kc/bc2_gpu.py --bc2 /root/bc2 --out $d --seed ${BC2_SEED:-101} \
   --warm ${BC2_WARM:-3} --binder-len ${BLEN:-80} > $d/stdout.log 2> $d/stderr.log
 echo $? > $d/rc; date -u +%FT%T.%3NZ > $d/t_end
