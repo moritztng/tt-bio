@@ -54,7 +54,7 @@ def run(arm, settings, xla, warm, d):
     d.mkdir(parents=True, exist_ok=True)
     if a.smi:
         (d / "smi.csv").unlink(missing_ok=True)
-        (d / "smi.csv").symlink_to(a.smi)
+        (d / "smi.csv").symlink_to(os.path.relpath(a.smi, d))  # relative: survives the pull into the repo
     env = dict(os.environ)
     if xla:
         env["BC2_XLA_EXTRA"] = xla

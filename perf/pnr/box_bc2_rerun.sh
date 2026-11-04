@@ -10,7 +10,7 @@ mkdir -p PNR-DONE
 say(){ echo "$(date -u +%FT%TZ) bc2_rerun: $*" | tee -a box_pnr.log; }
 say "holding PNR-DONE until box_pnr.sh exits"
 while pgrep -f box_pnr.sh > /dev/null; do sleep 5; done
-D=$K/bc2/rerun-attn-stock; mkdir -p $D; ln -sf $K/smi.csv $D/smi.csv
+D=$K/bc2/rerun-attn-stock; mkdir -p $D; ln -sf ../../smi.csv $D/smi.csv
 say "attn-stock --warm $1 alone on the GPU"
 /opt/bc2-venv/bin/python $K/bc2_gpu.py --bc2 /root/bc2 --out $D --seed 101 --warm $1 --binder-len 80 \
   --set attention_backend=stock > $D/stdout.log 2> $D/stderr.log
