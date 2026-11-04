@@ -50,7 +50,7 @@ for S, c, H, end in cells:
     with T.levers(B.ARMS["served"][0]):
         mod = T.TriangleAttention(32, H, bool(end), sd, ckc, softmax_site="pairformer")
         outs = {}
-        for arm in ("0", "1"):
+        for arm in ("0", "1", "0b"):  # 0b repeats 0: the run-to-run control
             TL.BIAS_HEADS = {"wormhole": arm == "1", "blackhole": arm == "1"}
             xt = ttnn.from_torch(x, dtype=ttnn.bfloat16, layout=ttnn.TILE_LAYOUT, device=dev, memory_config=ttnn.DRAM_MEMORY_CONFIG)
             cap.clear()
@@ -59,12 +59,15 @@ for S, c, H, end in cells:
             outs[arm] = cap[0] if cap else None
         del mod
     print(f"== {S}:{c}:{H}:{end}", flush=True)
-    if outs["0"] is None or outs["1"] is None:
+    if None in outs.values():
         print("   fused kernel not served", flush=True)
         continue
     for i, n in enumerate("qkvg"):
         a, b = outs["0"][i], outs["1"][i]
-        print(f"   {n} {tuple(a.shape)} equal {torch.equal(a, b)}", flush=True)
+        r = slice(None, S)  # rows past S are tile padding, never read downstream
+        print(f"   {n} {tuple(a.shape)} equal {torch.equal(a, b)} rows<S {torch.equal(a[:, :, r], b[:, :, r])}"
+              f" control 0/0b {torch.equal(a, outs['0b'][i])} rows<S {torch.equal(a[:, :, r], outs['0b'][i][:, :, r])}",
+              flush=True)
     b0, b1 = outs["0"][4], outs["1"][4]
     print(f"   bias plain {tuple(b0.shape)} hm {tuple(b1.shape)}", flush=True)
     b0 = b0.reshape(S, S, -1).permute(2, 0, 1).unsqueeze(0)
