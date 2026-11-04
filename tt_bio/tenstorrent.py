@@ -8331,6 +8331,36 @@ def msa_upload_whole(depth, tokens, channels):
     return depth * tokens * (-(-channels // 32) * 32) * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES)
 
 
+def _msa_feat_up(t):
+    """A host MSA feature slice on the chip in bf16 TILE layout."""
+    return (_up_tilize_on_device(t) if t.dtype == torch.bfloat16 else
+            ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
+                            dtype=ttnn.bfloat16))
+
+
+def msa_embed_chunks(feats, project, park=False):
+    """`m` as the list of `project(f)` for each depth chunk `f` of the MSA feature, never joined:
+    the form the MSA blocks cut a large `m` into, built directly. `feats` yields device or host
+    chunks; with `park` each projected chunk goes to the host in device layout, the form
+    `msa_update_chunks(park=True)` leaves. Every op in the projection is per alignment row, so
+    the chunks hold the rows the whole projection does.
+
+    A sampled recycling cycle builds its `m` this way so that every depth-sized buffer it places
+    is one chunk shape whatever the cycle drew: a whole `m` a different size each cycle left DRAM
+    holes a later, deeper draw could not use."""
+    out = []
+    for f in feats:
+        x = _msa_feat_up(f) if torch.is_tensor(f) else f
+        mc = project(x)
+        ttnn.deallocate(x)
+        if park:
+            h = ttnn.from_device(mc)
+            ttnn.deallocate(mc)
+            mc = h
+        out.append(mc)
+    return out
+
+
 def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, park=False):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload(m, keep)` places it.
 
@@ -8344,9 +8374,7 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, park=False):
     the host. Every op in the projection is per alignment row, so the chunks hold the rows the
     whole pass does. `park` sends a host feature up in depth chunks and every projected chunk back
     to the host, whatever its size: the fallback for a cycle DRAM refused."""
-    up = lambda t: (_up_tilize_on_device(t) if t.dtype == torch.bfloat16 else
-                    ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                    dtype=ttnn.bfloat16))
+    up = _msa_feat_up
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
     host = torch.is_tensor(feat)
     if not host or (msa_upload_whole(*feat.shape[1:]) and not park):
@@ -8387,9 +8415,9 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, park=False):
 
 def msa_row_bucket(depth, n_rows, step=1024):
     """The rows a recycling cycle that reads `depth` rows of an `n_rows` alignment is padded to:
-    the next multiple of `step`, never past `n_rows` rounded up to a tile. The trunk pads every
-    cycle of a fold to the bucket of its deepest draw, so the MSA module sees one shape a fold and
-    every per-row op runs once on one tensor as the full-depth path does."""
+    the next multiple of `step`, never past `n_rows` rounded up to a tile. A depth drawn afresh
+    every cycle then reaches the MSA module in at most ceil(n_rows / step) shapes, so nothing
+    compiles per cycle, and a large one is built as fixed-size depth chunks (`msa_embed_chunks`)."""
     return min(-(-depth // step) * step, -(-n_rows // 32) * 32)
 
 

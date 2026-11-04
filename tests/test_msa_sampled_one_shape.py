@@ -1,8 +1,8 @@
-"""A sampled recycling cycle runs at one depth per fold, the bucket of the fold's deepest draw,
-with the rows past its own draw masked. The only reduction over MSA rows is OuterProductMean, so
-the padded, masked OPM must land as close to a float64 reference of the UNPADDED draw as the
-unpadded OPM does, in each form the trunk hands it: one device tensor, device depth chunks, and
-host-parked chunks (a deep alignment's streamed m)."""
+"""A sampled recycling cycle pads its draw to a bucket and masks the rest, and a large one is built
+as fixed-size depth chunks so its DRAM buffers keep one shape whatever the draw. The only reduction
+over MSA rows is OuterProductMean, so the padded, masked OPM must land as close to a float64
+reference of the UNPADDED draw as the unpadded OPM does, in each form the trunk hands it: one
+device tensor, device depth chunks, and host-parked chunks (a deep alignment's streamed m)."""
 import pytest
 import torch
 import ttnn

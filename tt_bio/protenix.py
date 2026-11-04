@@ -44,7 +44,8 @@ from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, msa_depth_chunks, host_park,
                           host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_rows_mask, msa_rows_table,
-                          msa_rows_device, msa_upload_whole, msa_update_chunks,
+                          msa_rows_device, msa_upload_whole, msa_update_chunks, msa_embed_chunks,
+                          MSA_JOIN_MAX_BYTES,
                           pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
@@ -3985,8 +3986,9 @@ class Trunk(_KeyedWeights):
 
     def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None):
         """The MSA module's blocks on `z3`. `m_feat` is the pristine m, a device or a host tensor.
-        rows=(mask, depth) says only the first `depth` rows of `m_feat`, device or host, are alignment
-        rows (a cycle's sampled rows padded to the fold's one bucket); OuterProductMean masks the rest."""
+        rows=(mask, depth) says only the first `depth` rows of `m_feat`, a tensor or a list of depth
+        chunks, are alignment rows (a cycle's sampled rows padded to its bucket); OuterProductMean
+        masks the rest."""
         opm_mask, n_msa = rows if rows is not None else (None, None)
         def update_msa(m, z, pwa, transition):
             if pwa is None:
@@ -4215,19 +4217,15 @@ class Trunk(_KeyedWeights):
             dram_peak(f"trunk m_feat built [{tuple(m_feat.shape)} {m_feat.dtype}]")
         else:
             # The embedding is per alignment row, so embedding a cycle's rows equals picking them
-            # out of the embedded whole; only the picked rows are built, and the host lane cuts the
-            # next cycle's rows while this one runs. Every cycle is padded to ONE depth, the bucket
-            # of the fold's deepest draw, and masked past its own rows: a depth that changed every
-            # cycle left DRAM holes no later deep draw could use (7ua2 at 712 tokens on Wormhole was
-            # refused its 2.96 GiB m at cycle 7 with 414 MiB a bank free). One shape also places m
-            # once, on the chip or on the host, as the full-depth path places a whole alignment.
-            # A fixed depth (OpenDDE's 1280) is one shape already: padding it to the next 1024
-            # would run every per-row op on 2048 rows, 60 % of them zeros.
+            # out of the embedded whole; only the picked rows are built, padded to a few depths
+            # (msa_row_bucket) and masked past the draw, and the host lane cuts the next cycle's rows
+            # while this one runs. A fixed depth (OpenDDE's 1280) is one shape already: padding it
+            # to the next 1024 would run every per-row op on 2048 rows, 60 % of them zeros.
             m_feat = None
             n_rows = ms.shape[1]
             step = 1024 if depth is None else 32
-            B = msa_row_bucket(max(len(r) for r in rows), n_rows, step)
-            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], B)
+            bucket = lambda c: msa_row_bucket(len(rows[c]), n_rows, step)
+            cut = lambda c: hostlane.submit(msa_rows_host, ms, rows[c], bucket(c))
             # The cycle's rows are picked on the chip from the alignment, uploaded once, when every cycle
             # would upload its rows in one piece, a test on the input alone: the host
             # then sends row indices, not up to ~0.9 GB of rows the chip waits for (1.5 s a cycle at
@@ -4289,7 +4287,8 @@ class Trunk(_KeyedWeights):
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
                 # transition no room to join its blocks on device from cycle 1 on, and every
                 # later recycle took the host join: ~12 min instead of ~4:20 on a Wormhole chip.
-                if not torch.is_tensor(m_feat):
+                # A list of chunks was consumed by the blocks, which free each one they replace.
+                if not torch.is_tensor(m_feat) and not isinstance(m_feat, list):
                     ttnn.deallocate(m_feat)
                 ttnn.deallocate(rows[0])
                 del m_feat, rows
@@ -4304,16 +4303,34 @@ class Trunk(_KeyedWeights):
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
             return [z3, s]
 
-        def sampled(cyc, carry, x, park=False):
-            # One cycle over its sampled rows x [1, B, N, c], host or device, the real ones first.
+        def sampled(cyc, carry, x=None, park=False):
+            # One cycle over its sampled rows, the real ones first then zero rows to its bucket: the
+            # host cut x [1, bucket, N, c], or, with x None, rows gathered on the chip from `table`.
             # `park` builds the cycle's m in depth chunks on the host and streams it, as a refused
-            # resident cycle does below. A parked m keeps its padding too, so its stream is the same
-            # chunks every cycle.
-            k = len(rows[cyc])
-            m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1], park=park)
-            mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
+            # resident cycle does below.
+            # An m the MSA blocks would cut into depth chunks anyway is BUILT as those chunks, one
+            # fixed size whatever the draw. Built whole, the m changed size every cycle and left DRAM
+            # holes no later deep draw could use: 7ua2-assembly1 (712 tokens) was refused its
+            # 2.96 GiB m at cycle 7 of 20 on a Wormhole chip with 414 MiB a bank free. Padding every
+            # cycle to the fold's deepest draw fixed that and cost 4-7 % on Blackhole at 512 and
+            # 1024 tokens, per-row work on rows no cycle drew.
+            r, Bc = rows[cyc], bucket(cyc)
+            row_bytes = m_key[1] // ms.shape[1]
+            if _msa_take_whole_path(Bc * row_bytes):
+                if x is None:
+                    x = msa_rows_device(table, r, Bc, N)
+                m_c = msa_embed(x, m_proj, keep=Bc * row_bytes, park=park)
+            else:
+                # Parked where msa_embed would park the whole m: a host cut past one upload whose m
+                # is past what the chip joins.
+                park = park or (x is not None and not msa_upload_whole(*x.shape[1:])
+                                and Bc * row_bytes > MSA_JOIN_MAX_BYTES)
+                C = _msa_row_chunk_size()
+                m_c = msa_embed_chunks((msa_rows_device(table, r[s:s + C], min(C, Bc - s), N) if x is None
+                                        else x[:, s:s + C] for s in range(0, Bc, C)), m_proj, park=park)
+            mask = ttnn.from_torch(msa_rows_mask(len(r), Bc), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
-            carry = cycle(cyc, carry, m_c, (mask, k))
+            carry = cycle(cyc, carry, m_c, (mask, len(r)))
             del m_c, mask
             return carry
 
@@ -4339,7 +4356,7 @@ class Trunk(_KeyedWeights):
                     if progress_fn:
                         progress_fn("trunk", step=cyc, total=n_cycles)
                     if mode == "table":
-                        carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], B, N))
+                        carry = sampled(cyc, carry)
                     elif rows is not None:
                         x, _ = next_rows.result()
                         if cyc + 1 < n_cycles:
