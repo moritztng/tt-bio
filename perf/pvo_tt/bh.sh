@@ -15,11 +15,16 @@ while :; do
   python3 book.py list | grep -q " $OWN " ||
     python3 book.py add $OWN 0,1,2,3 $SPAN --note "pvo-tt BH OpenDDE+Mol-1 timing (run.py needs the box quiet)" >> $G/book.log
   if python3 book.py active $C | tr " " "\n" | grep -qx $OWN; then
-    if [ $(( $(end) - $(date +%s) )) -lt $((SPAN - 1800)) ]; then say "window too short, rebook"; python3 book.py rm $OWN; sleep 60; continue; fi
-    got=0; for i in 0 1 2 3; do eval "exec $((5+i))>/home/ttuser/spd_qb1_card$i.lock"; flock -w 300 $((5+i)) && got=$((got+1)) || break; done
+    # An arbiter window does NOT preempt a flock chain that started before it: on 11-03 and 11-04 a card leg
+    # launched before the window ran on into it, the 300 s wait below expired, and the booking was handed back
+    # for a slot a day out -- two windows and 20 h lost for 5 minutes of waiting. So hold the window we own and
+    # keep retrying until the legs end; give it back only when too little is left to run a cell in.
+    left=$(( $(end) - $(date +%s) ))
+    if [ $left -lt ${MINRUN:-3600} ]; then say "window has ${left}s left, under MINRUN, rebook"; python3 book.py rm $OWN; sleep 60; continue; fi
+    got=0; for i in 0 1 2 3; do eval "exec $((5+i))>/home/ttuser/spd_qb1_card$i.lock"; flock -w 60 $((5+i)) && got=$((got+1)) || break; done
     [ $got = 4 ] && break
     for i in 0 1 2 3; do eval "exec $((5+i))>&-"; done
-    say "card locks busy, rebook"; python3 book.py rm $OWN
+    say "card locks busy ($got/4), ${left}s of my window left, holding it and retrying"
   fi
   sleep 60; done
 say "booking active, locks held"
