@@ -28,7 +28,8 @@ from run import run_config  # noqa: E402
 SKIP = {"copy", "deallocate", "fill_implicit_tile_padding", "from_torch", "to_torch", "to_device", "from_device",
         "copy_host_to_device_tensor", "copy_device_to_host_tensor", "synchronize_device", "begin_trace_capture",
         "end_trace_capture", "execute_trace", "release_trace", "dump_device_profiler", "open_device", "close_device",
-        "init_device_compute_kernel_config", "get_device_tensors"}
+        "init_device_compute_kernel_config", "get_device_tensors", "allocate_tensor_on_device",
+        "allocate_tensor_on_host", "empty", "empty_like", "zeros", "ones", "full", "arange", "rand"}
 ESIZE = {"FLOAT32": 4, "BFLOAT16": 2, "BFLOAT8_B": 1088 / 1024, "BFLOAT4_B": 576 / 1024, "UINT32": 4, "INT32": 4,
          "UINT16": 2, "UINT8": 1}
 
@@ -141,7 +142,8 @@ def main():
                         inplace |= t.buffer_address() in addr_in
                     except Exception:  # noqa: BLE001
                         pass
-                ms, err = (None, "in-place or view, not re-run") if inplace or name in SKIP else replay(
+                ms, err = (None, "in-place, view or allocation: not re-run") if (
+                    inplace or name in SKIP or not any(i and i["dev"] for i in ins)) else replay(
                     lambda: fn(*args, **kw))
                 st["seq"] += 1
                 st["ops"].append({"i": st["seq"], "op": name, "fam": list(st["stack"]), "chain": chain(),
