@@ -31,6 +31,9 @@ def main():
                     help="boltz2 | esmfold2 | protenix-v2 | mol1 | opendde | openfold3")
     ap.add_argument("--tree", type=Path, required=True, help="source tree to import tt_bio from")
     ap.add_argument("--size", type=int, default=512)
+    ap.add_argument("--target", default="cdk2x2",
+                    help="fixture stem under perf/size512/fixtures: <stem>_<size>.yaml + .a3m "
+                         "(cdk2x2 = the page cell; cdk2x2dimer = two copies of the half-size chain)")
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--label", default="arm")
     ap.add_argument("--census", action="store_true")
@@ -158,7 +161,7 @@ def main():
             setattr(owner, meth, _timed(path, getattr(owner, meth)))
 
     fixdir = tree / "perf" / "size512" / "fixtures"
-    tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
+    tgt, a3m = fixdir / f"{a.target}_{a.size}.yaml", fixdir / f"{a.target}_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
     # The recycle count is build_fold's argument, not a tt_baseline global: setting B.RECYCLING_STEPS
     # was a no-op, so --recycles folded at the default and the record named the request.
@@ -170,7 +173,7 @@ def main():
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
-    res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
+    res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size, "target": a.target,
            "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ab_lever": a.ab_lever, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
