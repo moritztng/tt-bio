@@ -28,7 +28,12 @@ Q=${Q:-$D/QUALITY-PVO.json}; REPO=${REPO:-/home/moritz/.coworker/wt/pvo-accuracy
 # python3.10 (what the `tt-bio` console script runs, numpy and all) and a `python3` -> `python`
 # symlink to a bare 3.11 with no numpy. Putting that venv's bin on PATH for `tt-bio evaluate`
 # therefore breaks every `python3` in this script. Keep them separate.
-PY3=${PY3:-/usr/bin/python3}
+# ... and that real 3.10 is also the only interpreter on this box with numpy+scipy+gemmi, so it
+# runs quality.py too (/usr/bin/python3 has no numpy; the 08:13Z grade died on the import).
+PY3=${PY3:-/home/moritz/tt-bio/env/bin/python3.10}
+# tt_bio is pip-installed editable from the SHARED checkout, so `tt-bio evaluate` picks up
+# /home/moritz/tt-bio unless told otherwise. This grade must run THIS branch's eval code.
+export PYTHONPATH=${REPO}${PYTHONPATH:+:$PYTHONPATH}
 have() { [ -n "$(find $D/out/$1 -name per_example_metrics.csv 2>/dev/null)" ]; }
 SIDES=${SIDES:-"gpu-exact gpu-fast tt-wh"}; FLOOR=${FLOOR:-gpu-exact}
 
