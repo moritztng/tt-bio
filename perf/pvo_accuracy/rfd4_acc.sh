@@ -9,6 +9,12 @@
 set -u
 G=${G:?}; CARD=${CARD:-3}; SIDE=${SIDE:?}; PIN=${PIN:-c52ab1702}; SPAN=${SPAN:-10800}
 FOLD_S=${FOLD_S:-600}; SHARDS=${SHARDS:-1}; SHARD=${SHARD:-0}
+# The oracle's MSA cache. The default is a scratch dir, which means NO cached alignment, which
+# means OF3 folds every chain from its own sequence alone -- and a 500-residue target folded
+# single-sequence comes back at plddt ~33, failing every design regardless of the design. Point
+# this at a dir holding <seq_hash(target)>.a3m (rfd4_crop_msa.py writes one) and the target gets
+# its alignment while the designed binder keeps the one-row fallback, which is the protocol.
+MSA_DIR=${MSA_DIR:-/tmp/rfd4_refold_msa}
 # The binder chain, not guessed: the geom.* and *_coi columns are about this chain, and grading the target
 # chain instead would be wrong rather than noisy. Read it off a design before you launch.
 CHAIN=${CHAIN:?set CHAIN to the designed chain id in designs/$SIDE/*_generated.cif}
@@ -38,7 +44,7 @@ while :; do
     sleep 60; done
   END=$(awk -v o=$OWN '$3==o {print $2}' windows.tsv | tail -1)
   say "booking active until $(date -u -d @$END +%TZ), lock held, tree $PIN"
-  python3 $T0/perf/rfd4/refold.py --inputs $G/designs/$SIDE --out $G/out/$SIDE --family binder \
+  python3 $T0/perf/rfd4/refold.py --inputs $G/designs/$SIDE --out $G/out/$SIDE --family binder --msa-dir $MSA_DIR \
     --chain $CHAIN --shards $SHARDS --shard $SHARD --deadline $END --fold-s $FOLD_S \
     --record $G/out/$SIDE/refolds-$SHARD.jsonl >> $LOG 2>&1; rc=$?
   exec 5>&-; cd $FEED && python3 book.py rm $OWN
