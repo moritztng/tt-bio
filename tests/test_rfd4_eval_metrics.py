@@ -18,7 +18,9 @@ import pytest
 from biotite.structure import filter_amino_acids, filter_nucleotides
 from biotite.structure.io.pdbx import CIFFile, get_structure
 
+from tt_bio.rfd4.eval_io import read_design
 from tt_bio.rfd4.eval_metrics import compute_bond_length_stats, compute_clash_stats
+from tt_bio.rfd4.eval_refold import masks
 
 GOLDENS = Path(__file__).resolve().parents[1] / "perf" / "rfd4" / "eval_goldens"
 UPSTREAM = json.loads((GOLDENS / "upstream_design_metrics.json").read_text())
@@ -509,3 +511,41 @@ def test_internal_coordinate_target_is_indeterminate_not_failed(tmp_path, caplog
     assert "no absolute coordinate conditioning (C_CRD)" in message
     assert "refolded_target_aligned_binder_rmsd" in message
     assert "refolded_target_backbone_aligned_binder_rmsd" in message
+
+
+@pytest.mark.parametrize("written_coi", ["A_1", "A"])
+def test_the_designed_chain_subset_is_non_empty_for_either_chain_label(tmp_path, written_coi):
+    """The designed-chain metrics must survive both spellings of the chain of interest.
+
+    Upstream writes the chain instance id (`A_1`, what the golden confidence JSON beside this test
+    carries); tt-bio's own oracles index their own chain list and write the plain `A`, which is
+    what the confidence JSONs already on disk hold. Both name the same chain. Keying the mask on
+    one spelling alone emptied `is_chain_of_interest` on every design graded through tt-bio's
+    oracles, and an empty subset is not an error: both binder-pose RMSDs just came back absent.
+    """
+    import csv
+    import shutil
+
+    from tt_bio.rfd4.evaluate import evaluate
+
+    inputs = tmp_path / "designs"
+    inputs.mkdir()
+    shutil.copy(GOLDENS / "ppi" / "binder_generated.cif", inputs / "binder_generated.cif")
+    out = tmp_path / "out"
+    (out / "evaluation_samples").mkdir(parents=True)
+    cached = out / "evaluation_samples" / "binder_generated_975e6ee5"
+    shutil.copytree(GOLDENS / "ppi" / "refold_binder_generated_975e6ee5", cached)
+    confidences = next(cached.glob("*_confidences.json"))
+    values = json.loads(confidences.read_text())
+    assert values["chain_of_interest"] == "A_1"
+    values["chain_of_interest"] = written_coi
+    confidences.write_text(json.dumps(values))
+
+    design = read_design(inputs / "binder_generated.cif")
+    assert masks(design, written_coi)["is_chain_of_interest"].sum() == 406
+
+    csv_path = evaluate(inputs, "design,ppi_refolding", out)
+    row = next(iter(csv.DictReader(open(csv_path))))
+    assert row["chain_of_interest"] == written_coi
+    assert float(row["refolded_target_backbone_aligned_binder_rmsd.rmsd"]) == pytest.approx(1.3824, abs=1e-4)
+    assert float(row["refolded_target_aligned_binder_rmsd.rmsd"]) > 0
