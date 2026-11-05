@@ -62,3 +62,33 @@ with open(lk[1]) as h:
     assert book.flocked({0, 1}) == {1}
 assert book.flocked({0, 1}) == set()
 print("ok")
+
+# active: booking owners first, then running feed jobs, then an unbooked held flock or open node
+os.makedirs(book.J, exist_ok=True)
+book.PROC_LOCKS = d + "/locks"
+open(book.PROC_LOCKS, "w").close()
+book.LOCKS = d + "/spd_*.lock"
+def job(n, card, start=True, end=False):
+    sh = book.J + "/" + n + ".sh"
+    open(sh, "w").write("true\n"); open(sh + ".card", "w").write("%d" % card); open(sh + ".until", "w").write("%d" % (t0 + 99))
+    for x, on in ((".start", start), (".end", end)):
+        if on: open(sh + x, "w").close()
+job("8-f-ladr2-qb2-opendde_fast_1", 2)
+job("waiting", 3, start=False)
+job("finished", 3, end=True)
+free = lambda: set()
+rows = [row(t0 - 60, "gate", [1]), row(t0 + 600, "later", [0])]
+assert book.holders(rows, 1, t0, busy=free) == ["gate"]
+assert book.holders(rows, 1, t0, x="gate", busy=free) == []
+assert book.holders(rows, 2, t0, busy=free) == ["feed:8-f-ladr2-qb2-opendde_fast_1"]
+assert book.holders(rows, 3, t0, busy=free) == []            # waiting and ended jobs hold nothing
+assert book.holders(rows, 0, t0, busy=free) == []            # a booking that has not started holds nothing
+assert book.holders(rows, 0, t0, busy=lambda: {0}) == ["held:unbooked"]
+assert book.holders(rows, 1, t0, x="gate", busy=lambda: {1}) == []   # the caller's own booking holds its node
+assert book.feed_end({2}) == t0 + 99 and book.feed_end({3}) == 0
+lk = d + "/spd_qb2_card3.lock"; open(lk, "w").close()
+open(book.PROC_LOCKS, "w").write("1: FLOCK  ADVISORY  WRITE 4242 00:2a:%d 0 EOF\n" % os.stat(lk).st_ino)
+assert book.holders(rows, 3, t0, busy=free) == ["held:unbooked"]
+open(book.PROC_LOCKS, "w").write("1: -> FLOCK  ADVISORY  WRITE 4242 00:2a:%d 0 EOF\n" % os.stat(lk).st_ino)
+assert book.holders(rows, 3, t0, busy=free) == []            # a waiter on the flock holds nothing
+print("ok")
