@@ -45,6 +45,14 @@ binder-1:
 A condition block is the condition's name, then the value to set, then the selections it applies
 to.
 
+`C_CRDGRP` gives the model the target's internal geometry and lets it place the complex where it
+likes, which is RFD4's recommended binder recipe. It also means the design carries no absolute
+coordinates, so the two binder-pose RMSDs under `ppi_refolding` have nothing to align on and the
+`ppi` criterion comes back indeterminate (`all_metrics_present = 0`). Pin the target with
+`C_CRD: {true: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}` instead if you intend to grade the designs
+that way; that is what upstream's own PPI benchmark inputs do. See
+[rfd4-evaluate](rfd4-evaluate.md).
+
 The contig reads left to right: `A10-20` takes residues 10-20 of chain A from the input verbatim,
 a bare number is a designed region of that length, a range (`50-120`) randomizes the designed
 length per design, and `/0` is a chain break. `global_args:` sets defaults every design inherits;

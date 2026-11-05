@@ -6,6 +6,12 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Added
+- **A PPI grade says when it could not score the binder's pose.** The two binder-pose RMSDs under
+  `ppi_refolding` align on the target's absolute conditioned coordinates, so a design whose target was pinned with
+  `C_CRDGRP` (an internal coordinate group, RFD4's recommended binder recipe) has nothing to align on and the `ppi`
+  criterion comes back `pass = 0` with `all_metrics_present = 0`. That is upstream's behaviour and it reads exactly
+  like a design that was scored and failed. `tt-bio evaluate` now names those designs and the columns it could not
+  compute, and `docs/rfd4-design.md` says which conditioning to use if you intend to grade a binder's pose.
 - **RFD4-Proteina on the benchmarks page.** 3.74 s per design on one Blackhole p150a at batch 40, against 1.12 s on
   a B200, 1.48 s on an H200 and 3.50 s on an A100, each NVIDIA card at its own best batch. A Galaxy Blackhole
   delivers 4.2x a DGX B200's designs per dollar of purchase price.

@@ -29,6 +29,7 @@ from biotite.structure import residue_iter
 from biotite.structure.io.pdbx import CIFCategory, CIFFile, get_structure, set_structure
 
 CRDGRP_ABSOLUTE = 0
+CRDGRP_INTERNAL = 1
 CRDGRP_UNKNOWN = -1
 
 
@@ -80,23 +81,38 @@ def dna_complex(atoms, dna_path):
     return out, out.chain_id != "C"
 
 
-def write(atoms, target, path, hotspot=None):
-    """Write the design with the conditioning annotations the C_CRD (and C_HOT) masks read."""
-    cif = CIFFile()
-    set_structure(cif, atoms)
-    block = cif.block
-    if hotspot is not None:
-        block["atom_site"]["condition_hotspot_1_atom"] = np.where(hotspot, "True", "False")
-    block["atom_site"]["condition_CoordinateGroup_1_atom"] = np.where(
-        target, CRDGRP_ABSOLUTE, CRDGRP_UNKNOWN
-    ).astype(str)
-    idx = np.nonzero(target)[0]
-    block["condition_coordinate_1_atom"] = CIFCategory(
+def _coord_loop(atoms, idx):
+    return CIFCategory(
         {
             "idx0": idx.astype(str),
             **{f"val{k}": np.array([f"{v:.3f}" for v in atoms.coord[idx, k]]) for k in range(3)},
         }
     )
+
+
+def write(atoms, target, path, hotspot=None, internal_group=False):
+    """Write the design with the conditioning annotations the C_CRD (and C_HOT) masks read.
+
+    `internal_group=True` writes the other way a target can be pinned: coordinate group 1, an
+    internal-coordinate group, which is what a `C_CRDGRP` spec produces. The target's geometry is
+    then a `condition_InternalCoordinate_1_atom` payload and a `coords-with-insertion` overlay with
+    no absolute coordinate anywhere, so `sa_mask('C_CRD')` is empty by construction.
+    """
+    cif = CIFFile()
+    set_structure(cif, atoms)
+    block = cif.block
+    if hotspot is not None:
+        block["atom_site"]["condition_hotspot_1_atom"] = np.where(hotspot, "True", "False")
+    idx = np.nonzero(target)[0]
+    block["atom_site"]["condition_CoordinateGroup_1_atom"] = np.where(
+        target, CRDGRP_INTERNAL if internal_group else CRDGRP_ABSOLUTE, CRDGRP_UNKNOWN
+    ).astype(str)
+    if internal_group:
+        block["atom_site"]["annotation_src-coordinate-conditioned-region_1_atom"] = np.where(target, "A1", ".")
+        block["condition_InternalCoordinate_1_atom"] = _coord_loop(atoms, idx)
+        block["annotation_coords-with-insertion_1_atom"] = _coord_loop(atoms, np.arange(atoms.array_length()))
+    else:
+        block["condition_coordinate_1_atom"] = _coord_loop(atoms, idx)
     cif.write(str(path))
 
 
@@ -108,6 +124,7 @@ def main():
     ap.add_argument("--in-contact", action="store_true", help="leave chain B where the fold put it")
     ap.add_argument("--dna", type=Path, default=None, help="a duplex CIF whose nucleotide chains become the target")
     ap.add_argument("--homodimer", action="store_true", help="chain B is a copy of the whole monomer")
+    ap.add_argument("--internal-group", action="store_true", help="pin the target as internal coordinate group 1, not absolute")
     ap.add_argument("--hotspots", default="", help="comma-separated 0-based residue indices on chain B")
     args = ap.parse_args()
 
@@ -127,7 +144,7 @@ def main():
     hotspot = None
     if args.hotspots:
         hotspot = np.isin(residue_index, [int(i) for i in args.hotspots.split(",")]) & target
-    write(design, target, args.out, hotspot)
+    write(design, target, args.out, hotspot, args.internal_group)
     print(f"{args.out}: chain A {int((~target).sum())} atoms, chain B {int(target.sum())} conditioned")
 
 

@@ -397,6 +397,21 @@ def motif_rmsd(gt, gt_mask, groups, pred, pred_mask, gt_is_polymer):
     return {"rmsd": float(np.sqrt(weighted / total))}
 
 
+def crd_aligned_metrics(tags):
+    """The refolding metrics a tag set switches on whose alignment reads `C_CRD`.
+
+    They align the design on the atoms whose absolute coordinates were conditioned, so a design
+    that has none cannot be scored on them. Read off `REFOLDING` rather than listed, so it stays
+    true if the mask of a metric changes.
+    """
+    names = []
+    for name, gate, align, _subset in REFOLDING:
+        flat = [m for entry in align for m in (entry if isinstance(entry, tuple) else (entry,))]
+        if (tags is None or tags & gate) and any(m.lstrip("~") == "C_CRD" for m in flat):
+            names.append(name)
+    return names
+
+
 def pass_criteria(metrics, tags):
     """`oracles/pass_criterion_metric.py:118-150`: every threshold must hold, a missing key is
     indeterminate and scores `pass=0` with `all_metrics_present=0`."""
