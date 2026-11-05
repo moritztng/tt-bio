@@ -18,7 +18,7 @@ import torch
 import ttnn
 
 from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T1_PSIG, T2_TAIL, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST,
-                       WS_CHAIN, _KeyedWeights)
+                       WS_CHAIN, WS_FAST, _KeyedWeights)
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -521,6 +521,11 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
                                    "trimul_t1_dram", "trunk_hifi2", "bres_ta_hifi3"}
                   | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10 | TRIATT_LN_B8_FAST)
+# Blackhole fast takes the Wormhole fast set plus WS_FAST, ws_lofi, the BH trimul routes and T1_PSIG. p150a, cdk2x2 512,
+# one process per arm, 1 cold + 3 warm folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1,
+# 2026-11-04): 47.20 -> 36.32 s (-23.1 %).
+# GRADE_PENDING
+BH_FAST_LEVERS = WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | T1_PSIG
 # Wormhole fast writes triangle attention's q, k, v and gate bfp8 out of the fused LayerNorm (protenix.TRIATT_LN_B8_FAST),
 # now that the kernel does it on OpenDDE's two column groups. At fast's HiFi2 trunk the bf16 write was the cost: 640 x
 # c384 15.76 -> 11.05 ms per call (1000 MHz, spd-m-opendde lbg). Galaxy chip, separate-process ABBA, 2 warm folds per
@@ -584,11 +589,11 @@ class OpenDDE:
         levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
         (`tenstorrent.model_levers`): `NORMAL_LEVERS` (Protenix family set + ws_chain + T2 tail; `BH_NORMAL_LEVERS` on
-        Blackhole), or `FAST_LEVERS` (`WH_FAST_LEVERS` on Wormhole) under `--fast`."""
+        Blackhole), or `WH_FAST_LEVERS` / `BH_FAST_LEVERS` under `--fast`."""
         import tt_bio.tenstorrent as _TT
         wh = _TT.is_wormhole()
         self._levers = _TT.model_levers(NORMAL_LEVERS if wh else BH_NORMAL_LEVERS,
-                                        WH_FAST_LEVERS if wh else FAST_LEVERS, spec=levers)
+                                        WH_FAST_LEVERS if wh else BH_FAST_LEVERS, spec=levers)
         with _TT.levers(self._levers):
             self._build(state_dict, compute_kernel_config, device, diffusion_fp32)
 
