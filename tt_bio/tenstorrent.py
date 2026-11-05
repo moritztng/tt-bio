@@ -14447,20 +14447,25 @@ def fp32_layer_norm(x, weight, bias, epsilon, dtype, memory_config=None):
     return out
 
 
-def _centred_linear(v, w, ckc, dtype, memory_config, inner):
-    """`v @ w` for a single track whose rows share one dominant vector: token 0's row `c` goes through the matmul
-    on its own and only `v - c`, of the per-token part's size, is rounded to bf16, so that part keeps bf16's
-    relative precision instead of the shared vector's. Exact algebra; `v` fp32, the result at `dtype`, the
-    intermediates at `inner` (in L1 the main-grid matmul reads them there)."""
-    grid = {"core_grid": CORE_GRID_MAIN} if inner.buffer_type == ttnn.BufferType.L1 else {}
+def _centre(v, inner):
+    """`(v - c, c)` at bf16 for `_centred_linear`, `c` token 0's row of the fp32 `v`: the two matmul inputs, computed
+    once for every weight that reads `v`."""
     c = ttnn.slice(v, [0, 0, 0], [v.shape[0], 1, v.shape[2]], memory_config=inner)
     d = ttnn.typecast(ttnn.subtract(v, c, memory_config=inner), ttnn.bfloat16, memory_config=inner)
-    y = ttnn.linear(d, w, compute_kernel_config=ckc, dtype=ttnn.float32, memory_config=inner, **grid)
-    ttnn.deallocate(d)
     cb = ttnn.typecast(c, ttnn.bfloat16, memory_config=inner)
     ttnn.deallocate(c)
+    return d, cb
+
+
+def _centred_linear(dc, w, ckc, dtype, memory_config, inner):
+    """`v @ w` for a single track whose rows share one dominant vector: token 0's row `c` goes through the matmul
+    on its own and only `v - c`, of the per-token part's size, is rounded to bf16, so that part keeps bf16's
+    relative precision instead of the shared vector's. Exact algebra; `dc` is `_centre(v)` of the fp32 `v`, the
+    result at `dtype`, the intermediates at `inner` (in L1 the main-grid matmul reads them there)."""
+    d, cb = dc
+    grid = {"core_grid": CORE_GRID_MAIN} if inner.buffer_type == ttnn.BufferType.L1 else {}
+    y = ttnn.linear(d, w, compute_kernel_config=ckc, dtype=ttnn.float32, memory_config=inner, **grid)
     yc = ttnn.linear(cb, w, compute_kernel_config=ckc, dtype=ttnn.float32, memory_config=inner)
-    ttnn.deallocate(cb)
     out = ttnn.add(y, yc, dtype=dtype, memory_config=memory_config)
     ttnn.deallocate(y)
     ttnn.deallocate(yc)
@@ -14499,13 +14504,19 @@ def fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype):
 
 def _fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype, inner):
     xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ttnn.float32, inner)
-    a = _centred_linear(xn, w1, ckc, ttnn.float32, inner, inner)
-    b = _centred_linear(xn, w2, ckc, ttnn.float32, inner, inner)
+    dc = _centre(xn, inner)
     ttnn.deallocate(xn)
+    a = _centred_linear(dc, w1, ckc, ttnn.float32, inner, inner)
+    b = _centred_linear(dc, w2, ckc, ttnn.float32, inner, inner)
+    for t in dc:
+        ttnn.deallocate(t)
     h = ttnn.multiply_(ttnn.silu(a, output_tensor=a), b)
     ttnn.deallocate(b)
-    out = _centred_linear(h, w3, ckc, dtype, ttnn.DRAM_MEMORY_CONFIG, inner)
+    dc = _centre(h, inner)
     ttnn.deallocate(h)
+    out = _centred_linear(dc, w3, ckc, dtype, ttnn.DRAM_MEMORY_CONFIG, inner)
+    for t in dc:
+        ttnn.deallocate(t)
     return out
 
 
