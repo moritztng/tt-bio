@@ -30,6 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -454,7 +455,7 @@ def build_fold(model: str, msa_dir: Path, target: Path, a3m: Path,
     def one_fold():
         job_cfg["struct_dir"] = str(struct_dir)
         for p in struct_dir.glob("*"):
-            p.unlink()
+            shutil.rmtree(p) if p.is_dir() else p.unlink()
         if hoist and cold_done["v"]:
             return hoisted()
         t0 = time.perf_counter()
