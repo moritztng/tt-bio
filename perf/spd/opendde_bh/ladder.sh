@@ -26,7 +26,7 @@ while read -r NAME MODE ADDS; do
   L=$(python - "$MODE" "$ADDS" <<'PY' 2>/dev/null | tail -1
 import sys, tt_bio.opendde as O, tt_bio.tenstorrent as T
 mode, adds = sys.argv[1], sys.argv[2]
-base = O.FAST_LEVERS if mode == "fast" else O.BH_NORMAL_LEVERS
+base = O.BH_FAST_LEVERS if mode == "fast" else O.BH_NORMAL_LEVERS
 print(",".join(sorted(base | (T.parse_levers(adds) if adds != "-" else frozenset()))))
 PY
 )
