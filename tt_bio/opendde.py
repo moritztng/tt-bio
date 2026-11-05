@@ -515,6 +515,10 @@ NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL |
 # Blackhole takes Mol-1's graded BH diffusion levers (BH_DIT, protenix.MOL1_DIT_BH plus the DiT and atom routes) and its
 # trunk routes (BH_TRUNK). p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm, AICLK 1343-1350 MHz (spd-m-opendde-2
 # lad3, 2026-11-05): normal 40.55 -> 39.04 s (BH_DIT) and 39.57 s (BH_TRUNK); fast 36.92 -> 35.67 s and 35.44 s.
+# Both stacked (lad4, same window, 1343-1350 MHz): normal 40.45 -> 38.40 s, fast 36.38 -> 34.64 s. Graded vs
+# TT_BIO_LEVERS=none on the BH 11-set, seed 101 + 3 warm, 44 paired folds: normal PASS, same-seed top pose median 0.341 A
+# (bar 0.60 A, A/A floor 1.241 A), CA-lDDT +0.0051 [+0.0031, +0.0073], pLDDT -0.0006 [-0.0020, +0.0007], docking 24 -> 25
+# of 44; fast PASS, top pose 0.934 A, pLDDT -0.0136 [-0.0207, -0.0067] (tolerance 0.03), docking 24 -> 26 of 44.
 BH_DIT = frozenset({"dit_shoist", "atom_mm16", "adaln_mod", "dit_qbox", "dit_mask_chain", "dit_qkvf", "edm_device",
                     "atom_l1"})
 BH_TRUNK = frozenset({"trimul_t1_part", "trimul_t1split", "ws_l1dest"})
