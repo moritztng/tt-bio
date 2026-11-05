@@ -39,6 +39,13 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   downloaded (OpenFold3 and OpenBind-0 too).
 
 ### Fixed
+- **An RFD4 grade scores the designed chain again.** Every metric defined on the chain of interest
+  (`refolded_target_aligned_binder_rmsd`, `refolded_target_backbone_aligned_binder_rmsd`) was computed over an
+  empty atom subset, because the evaluate path matched the oracle's chain label against a chain instance id it
+  synthesised itself: `B_1` against the `B` the oracle wrote. The subset is no longer empty, and a confidence JSON
+  written with either spelling now resolves to the same chain. A refold also inherits its design's `C_CRD` and
+  `SA_CRDSRC` masks, which an oracle's plain output structure does not carry, so metrics aligned on them are
+  scored rather than dropped.
 - `tt-bio predict --use_template` on Protenix/Mol-1 job JSON refuses up front when `.a3m`/`.hhr` template hits
   need `kalign` and none is on PATH, instead of failing each job once a worker reaches it.
 - Mol-1 accepts every ligand and modification CCD code in its own Chemical Component Dictionary. A code newer than
