@@ -158,10 +158,11 @@ def seed_msa_cache(target: Path, a3m: Path, msa_dir: Path) -> int:
     # A ligand or nucleic-acid chain carries no alignment, so what has to be unique is the
     # chain this seeds, not the chain count: a protein + ligand target seeds the protein and
     # leaves the ligand alone. Monomers take exactly the path they always did.
-    polymers = [c for c in chains if c[3] == "protein"]
-    assert len(polymers) == 1, (
-        f"{target} has {len(polymers)} protein chains; this seeds exactly one alignment")
-    seq = polymers[0][1]
+    # A homomer seeds that one alignment too: the cache is keyed by sequence, so every copy reads it.
+    seqs = {c[1] for c in chains if c[3] == "protein"}
+    assert len(seqs) == 1, (
+        f"{target} has {len(seqs)} distinct protein sequences; this seeds exactly one alignment")
+    seq = seqs.pop()
     text = a3m.read_text()
     rows = text.split("\n")
     assert rows[1] == seq, f"{a3m} query row does not match {target}'s sequence"
