@@ -144,19 +144,21 @@ def _between(what):
 
 def parse_arm(spec):
     parts = spec.split(":")
-    env, fast, lv = {}, False, None
+    env, fast, lv, trace = {}, False, None, None
     for p in parts[1:]:
         if p == "fast":
             fast = True
+        elif p in ("trace", "notrace"):
+            trace = p == "trace"
         elif p.startswith("L="):
             lv = p[2:]
         elif p:
             # A comma starts a new pair only before NAME=, so a value can list several sites.
             env.update(kv.split("=", 1) for kv in re.split(r",(?=[A-Za-z_][A-Za-z0-9_]*=)", p))
-    return parts[0], env, fast, lv
+    return parts[0], env, fast, lv, trace
 
 
-ARM, ARM_ENV, FAST, LEVER_SPEC = parse_arm(a.arm)
+ARM, ARM_ENV, FAST, LEVER_SPEC, TRACE = parse_arm(a.arm)
 PV2 = a.model == "protenix-v2"
 if LEVER_SPEC is not None and a.model in ("openfold3", "openbind", "rf3", "opendde", "boltz2", "esmfold2",
                                            "esmfold2-fast"):
@@ -393,6 +395,8 @@ argv = ["predict", str(INPUTS[0][1]), "--model", a.model,
         *([] if AF2IG else ["--msa_dir", str(a.data / "msa"), "--msa_cache_only"]), "--out_dir", str(a.out / "cli")]
 if FAST:
     argv.append("--fast")
+if TRACE is not None:  # arm token trace / notrace; unset folds at the shipped default
+    argv.append("--trace" if TRACE else "--no_trace")
 try:
     M.cli.main(argv, standalone_mode=False)
 except _Stop:
