@@ -81,6 +81,6 @@ The defaults are upstream's: 20 recycles, 200 diffusion steps, 5 samples, seed 1
 ## Weights and licence
 
 The checkpoint is fetched from a byte-identical Hugging Face mirror first and Molence's own bucket second, and is
-checked against the sha256 of the official file either way. Mol-1's code is Apache-2.0. Molence has not yet stated a
-licence for the weights ([molence/Mol-1#5](https://github.com/molence/Mol-1/issues/5)); check it before you use
-them commercially.
+checked against the sha256 of the official file either way. Mol-1's code is Apache-2.0, and Molence
+answered on 2026-11-02 that the weights are Apache-2.0 too
+([molence/Mol-1#5](https://github.com/molence/Mol-1/issues/5)).
