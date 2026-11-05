@@ -76,14 +76,26 @@ def masks(design, coi):
         "is_nucleic_acid": is_nucleic_acid,
         "is_dna": is_nucleic_acid & np.char.startswith(atoms.res_name.astype(str), "D"),
         "is_ligand": ~design.is_polymer,
-        "is_chain_of_interest": (
-            np.zeros(atoms.array_length(), dtype=bool) if coi is None else chain_iid(atoms) == coi
-        ),
+        "is_chain_of_interest": _coi_mask(atoms, coi),
         "C_CRD": design.is_crd,
         "SA_CRDSRC": design.crd_src,
         "is_CA": atoms.atom_name == "CA",
         "all": np.ones(atoms.array_length(), dtype=bool),
     }
+
+
+def _coi_mask(atoms, coi):
+    """The chain-of-interest mask, keyed on atomworks' chain instance id.
+
+    An oracle that indexes its own chain list writes the bare chain label (`B`) rather than the
+    instance id (`B_1`) -- tt-bio's OpenFold3 oracle does. Taking the strict match as the answer
+    then leaves the mask empty and silently drops every metric defined on the designed chain, so
+    fall back to the plain chain id when the instance id matches nothing.
+    """
+    if coi is None:
+        return np.zeros(atoms.array_length(), dtype=bool)
+    mask = chain_iid(atoms) == coi
+    return mask if mask.any() else atoms.chain_id.astype(str) == coi
 
 
 def chain_iid(atoms):
@@ -293,6 +305,13 @@ def refolding_metrics(design, refolds, tags, coi):
         keep = remove_terminal_oxygen(refold)
         pred = refold.atoms[keep]
         pred_masks = {name: mask[keep] for name, mask in masks(refold, coi).items()}
+        # The conditioning masks belong to the design, not to its refold: an oracle writes a plain
+        # structure with no condition annotations, so re-deriving C_CRD/SA_CRDSRC from the
+        # prediction yields an empty mask and every metric that aligns on one is silently dropped.
+        # A refold is the same atom set in the same order as the design it came from, so carry the
+        # design's masks over; when that is not true, leave the metric absent rather than guess.
+        if pred.array_length() == gt.array_length():
+            pred_masks |= {name: gt_masks[name] for name in ("C_CRD", "SA_CRDSRC")}
         for name, gate, align, subset in REFOLDING:
             if not (tags is None or tags & gate):
                 continue
