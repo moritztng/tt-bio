@@ -34,13 +34,14 @@ PY3=${PY3:-/home/moritz/tt-bio/env/bin/python3.10}
 # tt_bio is pip-installed editable from the SHARED checkout, so `tt-bio evaluate` picks up
 # /home/moritz/tt-bio unless told otherwise. This grade must run THIS branch's eval code.
 export PYTHONPATH=${REPO}${PYTHONPATH:+:$PYTHONPATH}
+TTBIO=${TTBIO:-/home/moritz/tt-bio/env/bin/tt-bio}   # explicit, for the same reason as PY3
 have() { [ -n "$(find $D/out/$1 -name per_example_metrics.csv 2>/dev/null)" ]; }
 SIDES=${SIDES:-"gpu-exact gpu-fast tt-wh"}; FLOOR=${FLOOR:-gpu-exact}
 
 for s in $SIDES; do
   [ -d $D/designs/$s ] || { echo "skip $s: no designs"; continue; }
   have $s ||
-    tt-bio evaluate --model rfd4 $D/designs/$s --metrics_tags $TAGS --out_dir $D/out/$s
+    "$TTBIO" evaluate --model rfd4 $D/designs/$s --metrics_tags $TAGS --out_dir $D/out/$s
 done
 
 # Floor first, and it is a `resample` floor by name: one arm split in two disjoint halves. With rng=per_design
