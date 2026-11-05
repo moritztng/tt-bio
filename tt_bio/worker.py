@@ -1340,11 +1340,9 @@ class _WorkerState:
                 num_timesteps=int(cfg.get("sampling_steps") or 200))
         elif model_id in ("opendde", "opendde-abag"):
             from tt_bio.opendde import OpenDDE
-            from tt_bio.tenstorrent import cleanup, get_device
+            from tt_bio.tenstorrent import get_device
 
-            # OpenDDE denoises through Protenix-v2's sampler, so it takes the family's trace rule.
-            if _protenix_trace(cfg) and not _protenix_region_reserved():
-                cleanup()
+            if cfg.get("trace"):
                 get_device(trace="protenix")
 
             prec = diffusion_precision(cfg)
@@ -1765,7 +1763,7 @@ class _WorkerState:
             coords, conf = self.model.fold(
                 feats, n_step=cfg["sampling_steps"], n_sample=n_sample,
                 seed=_target_seed(path, cfg), progress_fn=report_progress,
-                n_cycles=cfg.get("recycling_steps"), trace=_protenix_trace(cfg) and _protenix_region_reserved(),
+                n_cycles=cfg.get("recycling_steps"), trace=cfg.get("trace", False),
                 return_confidence=True, max_parallel_samples=cfg.get("max_parallel_samples"),
                 distogram=bool(cfg.get("write_pae")), guidance=guidance, trunk_cache=trunk_cache)
         confs = conf if isinstance(conf, list) else [conf]
