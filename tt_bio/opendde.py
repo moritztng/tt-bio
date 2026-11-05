@@ -17,8 +17,8 @@ device.
 import torch
 import ttnn
 
-from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST, WS_CHAIN,
-                       _KeyedWeights)
+from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T1_PSIG, T2_TAIL, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST,
+                       WS_CHAIN, _KeyedWeights)
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -444,7 +444,7 @@ def route_opendde_weights(state_dict):
 # Both modes take ws_chain (graded on Wormhole, see protenix.WS_CHAIN). Blackhole 11-set grades, shipped set vs
 # + ws_chain (spd-gap-small gwchbh, 2026-10-15): fast PASS, top pose median 0.369 A vs the 1.277 A A/A floor (39
 # paired folds); normal FAIL, DockQ worse with the CI excluding 0 ([-0.0286, -0.0012], 44 paired folds, docking 25 -> 24),
-# so Blackhole normal runs the family set without it (`BH_NORMAL_LEVERS`).
+# so Blackhole normal runs without it (`BH_NORMAL_LEVERS`).
 # Wormhole normal also takes the T2 tail (protenix.T2_TAIL). WH 11-set normal grade, shipped set vs + T2_TAIL
 # (spd-integrate gpsn, 2026-10-17, 8 seeds, 85 paired folds): PASS, same-seed top pose median 0.000 A (A/A floor
 # 1.201 A), CA-lDDT +0.0001 [-0.0003, +0.0006], DockQ -0.0022 [-0.0110, +0.0046], docking 50 -> 49 of 85. cdk2x2 512 x 1
@@ -506,7 +506,13 @@ TRIATT_Q10 = frozenset({"triatt_q10"})
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
-BH_NORMAL_LEVERS = _FAMILY_NORMAL
+# Blackhole normal takes the Wormhole normal set without ws_chain (still graded FAIL on BH, above), plus the BH trimul
+# routes (trimul_bres_bh, trimul_t1_2g), ws_psilu and T1_PSIG. p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm
+# folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1, 2026-11-04): 52.09 -> 40.26 s (-22.7 %).
+# BH 11-set normal grade, family set vs this set, seed 101 + 3 warm, 44 paired folds (spd-m-opendde-2 g1, 2026-11-05):
+# PASS, same-seed top pose median 0.210 A (A/A floor 1.018 A), CA-lDDT +0.0024 [+0.0006, +0.0045], DockQ +0.025
+# [-0.003, +0.068], pLDDT -0.0003 [-0.0013, +0.0010], docking 24 -> 26 of 44.
+BH_NORMAL_LEVERS = (NORMAL_LEVERS - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
