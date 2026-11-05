@@ -185,6 +185,7 @@ def main():
                       "TRANSPOSE_L1_HEADROOM")},
            "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
            "loadavg": open("/proc/loadavg").read().split()[:3], "folds": []}
+    a.out.parent.mkdir(parents=True, exist_ok=True)
 
     # AICLK sampled during each fold: on Blackhole the clock sets the fold time, so a fold without
     # its clock is not a measurement.
@@ -209,7 +210,6 @@ def main():
                 **({"phases": {k: round(v, 3) for k, v in phase_s.items()}} if a.phases else {})}
 
     def flush():
-        a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
 
     cold = one("cold")
