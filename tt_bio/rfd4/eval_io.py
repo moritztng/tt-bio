@@ -120,7 +120,15 @@ def read_design(path) -> Design:
     c_seq = ann("condition_sequence_1_residue", MASKED).astype(str)
     atomize = _as_bool(ann("atomize", "False"))
     crd_group = ann("condition_CoordinateGroup_1_atom", str(CRDGRP_UNKNOWN)).astype(float).astype(int)
-    crd = _per_atom_loop(block, "condition_coordinate_1_atom", n, 3)
+    crd_src = ann("annotation_src-coordinate-conditioned-region_1_atom", ".").astype(str) != "."
+    if "condition_coordinate_1_atom" in block:
+        is_crd = np.isfinite(_per_atom_loop(block, "condition_coordinate_1_atom", n, 3)).any(axis=1)
+    else:
+        # A *generated* CIF has no condition-coordinate loop: the conditioned atoms were written
+        # straight into atom_site and their provenance is recorded in the src-region annotation
+        # instead. Without this fallback every atom reads unconditioned, which empties the binder
+        # pose metrics on exactly the designs we want to grade.
+        is_crd = crd_src
     seq_prob = np.stack(
         [
             ann(f"condition_sequence-probability-{t}_1_residue", "nan").astype(str)
@@ -135,11 +143,11 @@ def read_design(path) -> Design:
         is_protein=is_protein,
         c_seq=c_seq,
         atomize=atomize,
-        is_crd=np.isfinite(crd).any(axis=1),
+        is_crd=is_crd,
         crd_group=crd_group,
         seq_prob=seq_prob,
         hotspot=_as_bool(ann("condition_hotspot_1_atom", "False")),
-        crd_src=ann("annotation_src-coordinate-conditioned-region_1_atom", ".").astype(str) != ".",
+        crd_src=crd_src,
         coords_with_insertion=_per_atom_loop(block, "annotation_coords-with-insertion_1_atom", n, 3),
         rasa=ann("condition_rasa-binned_1_atom", "0").astype(str),
         centroid=_per_atom_loop(block, "condition_ChainCentroid_1_atom", n, 3),
