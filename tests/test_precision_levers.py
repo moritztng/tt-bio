@@ -232,11 +232,11 @@ def test_boltzgen_mode_sets_name_only_known_levers():
 
 
 def test_protenix_family_normal_set():
-    from tt_bio.opendde import BH_NORMAL_LEVERS, NORMAL_LEVERS as DDE
+    from tt_bio.opendde import BH_DIT, BH_NORMAL_LEVERS, BH_TRUNK, NORMAL_LEVERS as DDE
     from tt_bio.protenix import BRES_NORMAL, NORMAL_LEVERS, T1_PSIG, T2_TAIL, TRIATT_LN, WS_CHAIN
 
     assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2", "transition_b8", "ws_b8_plain", "pz_device", "dit_mod16", "triatt_q10", "triatt_k1"} and DDE <= set(T.LEVERS)
-    assert BH_NORMAL_LEVERS == (DDE - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG
+    assert BH_NORMAL_LEVERS == (DDE - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG | BH_DIT | BH_TRUNK
     assert BH_NORMAL_LEVERS <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
@@ -289,13 +289,13 @@ def test_protenix_wormhole_fast_set_drops_t1_c256():
 
 
 def test_opendde_fast_set_names_only_known_levers():
-    from tt_bio.opendde import BH_FAST_LEVERS, FAST_LEVERS, WH_FAST_LEVERS
+    from tt_bio.opendde import BH_DIT, BH_FAST_LEVERS, BH_TRUNK, FAST_LEVERS, WH_FAST_LEVERS
     from tt_bio.protenix import T1_PSIG, WS_CHAIN, WS_FAST
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
     assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "pz_device", "dit_mod16", "triatt_q10", "trunk_hifi2", "bres_ta_hifi3",
                                                 "triatt_ln_b8", "triatt_ln_b8g"}
-    assert BH_FAST_LEVERS == WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | T1_PSIG
+    assert BH_FAST_LEVERS == WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | T1_PSIG | BH_DIT | BH_TRUNK
     assert BH_FAST_LEVERS <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 
