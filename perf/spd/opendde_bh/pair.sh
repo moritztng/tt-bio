@@ -4,7 +4,7 @@
 # is paired. Books the card through ~/spd/feed/book.py (owner spd-m-opendde-2-c<CARD>[-$TAG]: book.py keeps one booking an
 # owner and the exit trap drops it, so two launches on one card need distinct TAGs), holds its flock, and stops
 # starting work 20 min before the window ends; rerun it to finish the rest (done arm x complex pairs are skipped).
-# LADDER_ARMS: an arms file for ladder.sh, run first under the same booking. Grade on pc with perf/spd/grade.py.
+# LADDER_ARMS: an arms file for ladder.sh, run first under the same booking (from tree $LTREE if set, else TREE). Grade on pc with perf/spd/grade.py.
 set -u
 OUT=$1 CHIP=$2 T=$3 ARMS=$4 PDBS=$5 SEC=$6 LADDER=${7:-}
 OWN=spd-m-opendde-2-c$CHIP${TAG:+-$TAG} BK=$HOME/spd/feed/book.py
@@ -20,7 +20,7 @@ BOX=qb1; [ "$(hostname)" = tt-quietbox2 ] && BOX=qb2  # runners hold either name
 exec 8> "$HOME/spd_${BOX}_chip$CHIP.lock" 9> "$HOME/spd_${BOX}_card$CHIP.lock"
 flock -w 1800 8 && flock -w 1800 9 || { log "flock timeout"; exit 3; }
 log "window open until $END, flock held, tree $T"
-[ -n "$LADDER" ] && NOBOOK=1 TREE=$T bash "$(dirname "$0")/ladder.sh" "$OUT/ladder" "$CHIP" - "$LADDER" 8>&- 9>&-
+[ -n "$LADDER" ] && NOBOOK=1 TREE=${LTREE:-$T} bash "$(dirname "$0")/ladder.sh" "$OUT/ladder" "$CHIP" - "$LADDER" 8>&- 9>&-
 cd "$T"; export PYTHONPATH=$T TT_VISIBLE_DEVICES=$CHIP
 done_n() { cat "$1" 2>/dev/null | grep -c '"fold_s": [0-9]'; }
 for x in $PDBS; do
