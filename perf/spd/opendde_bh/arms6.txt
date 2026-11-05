@@ -1,0 +1,5 @@
+# lad5's two normal winners (triatt_ln_b8 -1.10 s, trimul_gin -0.40 s) alone and stacked, on the shipped BH normal set (main 85441859d), against a same-window control.
+n0 normal -
+nL normal triatt_ln_b8
+nLG normal triatt_ln_b8,trimul_gin
+n0b normal -
