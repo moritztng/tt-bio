@@ -512,7 +512,14 @@ NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL |
 # BH 11-set normal grade vs TT_BIO_LEVERS=none, seed 101 + 3 warm, 44 paired folds (spd-m-opendde-2, 2026-11-05):
 # PASS, same-seed top pose median 0.465 A (bar 0.60 A, A/A floor 1.241 A), CA-lDDT +0.0041 [+0.0017, +0.0068], DockQ
 # +0.025 [-0.003, +0.069], pLDDT -0.0003 [-0.0016, +0.0011], docking 24 -> 26 of 44.
-BH_NORMAL_LEVERS = (NORMAL_LEVERS - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG
+# Blackhole takes Mol-1's graded BH diffusion levers (BH_DIT, protenix.MOL1_DIT_BH plus the DiT and atom routes) and its
+# trunk routes (BH_TRUNK). p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm, AICLK 1343-1350 MHz (spd-m-opendde-2
+# lad3, 2026-11-05): normal 40.55 -> 39.04 s (BH_DIT) and 39.57 s (BH_TRUNK); fast 36.92 -> 35.67 s and 35.44 s.
+BH_DIT = frozenset({"dit_shoist", "atom_mm16", "adaln_mod", "dit_qbox", "dit_mask_chain", "dit_qkvf", "edm_device",
+                    "atom_l1"})
+BH_TRUNK = frozenset({"trimul_t1_part", "trimul_t1split", "ws_l1dest"})
+BH_NORMAL_LEVERS = ((NORMAL_LEVERS - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG
+                    | BH_DIT | BH_TRUNK)
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
@@ -526,7 +533,7 @@ WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "
 # 2026-11-04): 47.20 -> 36.32 s (-23.1 %).
 # Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds: PASS on the fast bar, same-seed top pose median 1.092 A
 # (A/A floor 1.241 A), pLDDT -0.0148 [-0.0212, -0.0091] (tolerance 0.03), CA-lDDT +0.0016, docking 24 -> 24 of 44.
-BH_FAST_LEVERS = WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | T1_PSIG
+BH_FAST_LEVERS = WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | T1_PSIG | BH_DIT | BH_TRUNK
 # Wormhole fast writes triangle attention's q, k, v and gate bfp8 out of the fused LayerNorm (protenix.TRIATT_LN_B8_FAST),
 # now that the kernel does it on OpenDDE's two column groups. At fast's HiFi2 trunk the bf16 write was the cost: 640 x
 # c384 15.76 -> 11.05 ms per call (1000 MHz, spd-m-opendde lbg). Galaxy chip, separate-process ABBA, 2 warm folds per
