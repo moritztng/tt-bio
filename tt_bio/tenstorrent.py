@@ -1844,6 +1844,9 @@ def _record_trimul_clash(seq_len: int, hidden: int, batch: int, width: int) -> N
 # Per-shape ceiling on the fused in-projection, once DRAM has refused one. Recorded so that a
 # shape pays one refused allocation rather than one per pairformer block.
 _TRIMUL_INPROJ_FUSED_CAP: dict = {}
+# Per-shape count of refusals met behind T1, and how many trimul_t1_3g tolerates before T1 takes the recorded budget.
+_TRIMUL_T1_REFUSED: dict = {}
+_TRIMUL_T1_RETRIES = 4
 
 
 def _trimul_inproj_budget(seq_len: int, hidden: int, batch: int) -> int:
@@ -1878,6 +1881,7 @@ def forget_trimul_inproj_refusals() -> None:
     next refusal, if there is one, records again.
     """
     _TRIMUL_INPROJ_FUSED_CAP.clear()
+    _TRIMUL_T1_REFUSED.clear()
 
 
 # Narrowest channel chunk the in-projection may take. The channel loop consumes the fused
@@ -10864,8 +10868,13 @@ class TriangleMultiplication(Module):
         t1_bytes = (2 * self._hidden + shp[-1]) * H * H * batch * 2
         # This route is refused above unless the chunk memory is DRAM, so the operands are not L1.
         pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock(), False)
-        t1_cap = _trimul_inproj_budget(H, self._hidden, batch) * (
-            3 if lever("trimul_t1_3g") else 2 if lever("trimul_t1_2g") else 1)
+        # Under trimul_t1_3g a refusal halves the loop's budget, not T1's: on a 12 GiB chip the refusal comes from
+        # fragmentation at one call, and T1 fits the calls around it. T1 stops after _TRIMUL_T1_RETRIES of them.
+        key = _trimul_chunk_key(H, self._hidden, batch)
+        t1_base = (_TRIMUL_INPROJ_FUSED_BYTES if lever("trimul_t1_3g")
+                   and _TRIMUL_T1_REFUSED.get(key, 0) < _TRIMUL_T1_RETRIES
+                   else _trimul_inproj_budget(H, self._hidden, batch))
+        t1_cap = t1_base * (3 if lever("trimul_t1_3g") else 2 if lever("trimul_t1_2g") else 1)
         if lever("trimul_t1_part"):
             t1_cap = _single_shot_budget(t1_cap, _dram_total_bytes())
         if (t1_bytes > t1_cap
@@ -11992,6 +12001,7 @@ class TriangleMultiplication(Module):
                         and (large_seq or "clash with L1 buffers" not in msg)):
                     raise
                 learned_from_refusal()
+                t1_refused = t1 is not None
                 if t1 is not None:
                     # T1's a and b may already be consumed, so the retry takes the incumbent route
                     # from a fresh input norm; its g_out goes with g_out_fused below.
@@ -12048,8 +12058,14 @@ class TriangleMultiplication(Module):
                     fuse_gout = False
                 if oom:
                     was = (chunk_size, group)
-                    _record_trimul_inproj_oom(
-                        H, self._hidden, batch, 4 * chunk_size * group * H * H * batch * 2)
+                    t1_key = _trimul_chunk_key(H, self._hidden, batch)
+                    if t1_refused:
+                        _TRIMUL_T1_REFUSED[t1_key] = _TRIMUL_T1_REFUSED.get(t1_key, 0) + 1
+                    # A refusal behind T1 is the loop meeting T1's held outputs in a fragmented DRAM: the
+                    # first one sets the loop's budget, a repeat keeps it instead of halving toward a sub-tile.
+                    if not (t1_refused and t1_key in _TRIMUL_INPROJ_FUSED_CAP):
+                        _record_trimul_inproj_oom(
+                            H, self._hidden, batch, 4 * chunk_size * group * H * H * batch * 2)
                     # Narrow the channel chunk while even a single group is over the new
                     # budget. On the DRAM path `_trimul_chunk_size` already returns the
                     # minimum tuned width, so this is the only lever below it -- and on
