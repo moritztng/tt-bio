@@ -10,3 +10,12 @@ quiet after 2850s 2026-11-06T00:55:01Z load 1.46 2.21 2.46 2/957 2724447
 cell mol1 start 2026-11-06T00:55:02Z
 cell mol1 end rc=0 2026-11-06T01:00:29Z load 5.58 4.18 3.25 3/950 2793072
 book mol1_fast+: 1793933445 1793936145 2026-11-06T01:00:29Z
+stopped 2026-11-06T03:42:54Z: restart on run_cells.sh that re-books only after a lapse
+start 2026-11-06T03:42:54Z pid=768181 owner=worker:pnr-tt sha=1712bdfba1121f489606fd1b55a724812e07d257 cells=mol1_fast
+booked 2026-11-06T16:47:42Z
+locks held 2026-11-06T16:47:42Z
+wait quiet (holders: none; load 1.63) 2026-11-06T16:47:43Z
+quiet after 90s 2026-11-06T16:49:16Z load 1.33 1.94 3.27 2/915 458425
+cell mol1_fast start 2026-11-06T16:49:17Z
+cell mol1_fast end rc=0 2026-11-06T16:58:18Z load 2.77 2.75 3.11 3/937 544355
+end 2026-11-06T16:58:18Z
