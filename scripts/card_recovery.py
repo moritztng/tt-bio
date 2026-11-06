@@ -88,6 +88,34 @@ def fd_holders(card: int) -> list[int]:
     return held
 
 
+def pinned_to(card: int) -> list[int]:
+    """Pids of Python processes whose TT_VISIBLE_DEVICES names <card>, by /proc environ scan.
+
+    A leg granted the card holds no fd until its device open, which comes after the imports: on
+    2026-11-06 ux:boltzgen started on qb2 card 2 at 15:08:12Z, the timed-out ladder on card 3 found
+    no fd on card 2 at 15:08:31Z, reset the pair, and the boltzgen run died 19 s in. A process
+    pinned to the card is about to open it, so it counts as busy. Only Python processes count, so
+    an idle shell that once exported the variable does not hold the pair forever.
+    """
+    held = []
+    for proc in Path("/proc").iterdir():
+        if not proc.name.isdigit() or int(proc.name) == os.getpid():
+            continue
+        try:
+            argv0 = (proc / "cmdline").read_bytes().split(b"\0", 1)[0]
+            if b"python" not in os.path.basename(argv0):
+                continue
+            env = (proc / "environ").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        for kv in env:
+            if kv.startswith(b"TT_VISIBLE_DEVICES="):
+                if str(card).encode() in [c.strip() for c in kv.split(b"=", 1)[1].split(b",")]:
+                    held.append(int(proc.name))
+                break
+    return held
+
+
 def _tt_smi() -> str | None:
     found = shutil.which("tt-smi")
     if found:
@@ -106,10 +134,10 @@ def reset_after_kill(card: int, *, timeout_s: float = 180.0, say=print) -> str:
     card = int(card)
     sib = board_sibling(card)
     if sib is not None:
-        busy = fd_holders(sib)
+        busy = sorted(set(fd_holders(sib)) | set(pinned_to(sib)))
         if busy:
             say(f"[card-recovery] REFUSING to reset card {card}: `tt-smi -r` resets the whole "
-                f"board pair and sibling card {sib} is held by pid(s) {busy}. The card is still "
+                f"board pair and sibling card {sib} is held by or pinned to pid(s) {busy}. The card is still "
                 f"dirty -- do NOT open it.")
             return REFUSED
     smi = _tt_smi()
