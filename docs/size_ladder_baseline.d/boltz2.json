@@ -3656,7 +3656,8 @@
                 "served": 296,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3954,7 +3955,8 @@
                 "served": 296,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4252,7 +4254,8 @@
                 "served": 296,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -4546,7 +4549,8 @@
                 "served": 296,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -7095,7 +7099,8 @@
                 "served": 296,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -7393,7 +7398,8 @@
                 "served": 296,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -7691,7 +7697,8 @@
                 "served": 296,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -7985,7 +7992,8 @@
                 "served": 296,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
