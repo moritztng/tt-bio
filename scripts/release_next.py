@@ -421,6 +421,13 @@ def frozen(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
     sha = json.loads((d / "plan.json").read_text())["sha"]
     if not failed or passed(gates, d, sha, repo, ref):
         return None
+    # A commit from before main merged the release back was graded on the baselines the release
+    # replaced: fixed forward, it re-fails the drift the release recorded, so gate main's head
+    # (rel-cf9e4c6b0, 11-06: v0.27.0's eleven re-recorded ladders failed again on cf9 + its fix).
+    if tsha and all(subprocess.run(["git", "-C", str(repo), "merge-base", "--is-ancestor", *ab],
+                                   capture_output=True).returncode == rc
+                    for ab, rc in (((tsha, ref), 0), ((tsha, sha), 1))):
+        return None
     last = max(f.stat().st_mtime for f in (v, d / "FIXES") if f.exists())
     if (now or time.time()) - last >= FIX_HOLD_S:
         return None

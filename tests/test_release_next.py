@@ -476,6 +476,31 @@ def test_a_gate_from_before_the_release_merged_back_still_ships(tmp_path):
     assert d["do"] == "CUT" and d["sha"] == b
 
 
+def test_a_failed_gate_from_before_the_release_merged_back_is_not_fixed_forward(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging A")
+    git("checkout", "-qb", "rel")                                 # release branch re-records the ladders
+    (tmp_path / "baseline.json").write_text("{}\n")
+    git("add", "."), git("commit", "-qm", "records")
+    git("tag", "v0.2.0")
+    git("checkout", "-q", "main")
+    (tmp_path / "a.py").write_text("x = 3\n")
+    git("commit", "-qam", "staging B")
+    b = git("rev-parse", "main")
+    (tmp_path / "t.py").write_text("ok = 1\n")
+    git("add", "."), git("commit", "-qm", "test fix")
+    fix = git("rev-parse", "main")
+    git("merge", "-q", "--no-ff", "rel", "-m", "Merge rel/v0.2.0")
+    head = git("rev-parse", "main")
+    gates = tmp_path / "gates"
+    g = _plan(gates, "gb", b, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": []}))
+    (g / "FIXES").write_text(fix + "\n")
+    d = rn.decide(tmp_path, gates, "main")
+    assert d["do"] == "GATE" and d["sha"] == head and "fixes" not in d
+
+
 def test_a_newer_gate_carries_an_older_gates_fixes_that_never_reached_main(tmp_path):
     git = _repo(tmp_path)
     (tmp_path / "harness.py").write_text("drop = 1\n")
