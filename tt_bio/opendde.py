@@ -522,6 +522,8 @@ NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL |
 BH_DIT = frozenset({"dit_shoist", "atom_mm16", "adaln_mod", "dit_qbox", "dit_mask_chain", "dit_qkvf", "edm_device",
                     "atom_l1"})
 BH_TRUNK = frozenset({"trimul_t1_part", "trimul_t1split", "ws_l1dest"})
+# triatt_ln_b8 stays fast-only on Blackhole: ~-0.8 s on this set (arms6), but the BH 11-set normal grade vs
+# TT_BIO_LEVERS=none (glg, 44 paired folds, 2026-11-06) FAILs, pLDDT -0.0070 [-0.0130, -0.0013] and top pose 0.634 A.
 BH_NORMAL_LEVERS = ((NORMAL_LEVERS - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG
                     | BH_DIT | BH_TRUNK)
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
