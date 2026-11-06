@@ -1,0 +1,124 @@
+diff -u ../orig/dispatcher_data.py ./dispatcher_data.py
+--- ../orig/dispatcher_data.py	2026-11-06 23:48:24.154087674 +0100
++++ ./dispatcher_data.py	2026-11-06 23:49:00.805124984 +0100
+@@ -363,6 +363,8 @@
+             kernel = self.find_kernel(watcher_kernel_id)
+         except Exception:
+             pass
++        if kernel is None and kernel_config_base >= 0 and kernel_text_offset >= 0:
++            kernel = match_cached_kernel(location, proc_name, kernel_config_base + kernel_text_offset)
+         try:
+             previous_kernel = self.find_kernel(watcher_previous_kernel_id)
+         except Exception:
+@@ -583,6 +585,56 @@
+         )
+ 
+ 
++_kernel_text_index: dict[str, list[tuple[bytes, str]]] | None = None
++TEXT_PROBE = 64
++
++
++def _xip_text(path: str) -> bytes | None:
++    from elftools.elf.elffile import ELFFile
++
++    with open(path, "rb") as f:
++        sec = ELFFile(f).get_section_by_name(".text")
++        return sec.data()[:TEXT_PROBE] if sec is not None else None
++
++
++def match_cached_kernel(location: OnChipCoordinate, proc_name: str, text_addr: int):
++    """Name a kernel without Inspector: the first TEXT_PROBE bytes of its text in L1 equal those of exactly one
++    `<cache>/kernels/<name>/<hash>/<risc>/<risc>.elf.xip.elf` (TRIAGE_KERNEL_CACHE, ':'-separated roots)."""
++    global _kernel_text_index
++    roots = os.environ.get("TRIAGE_KERNEL_CACHE")
++    proc = proc_name.lower()
++    if not roots or proc == "ncrisc":  # Wormhole NCRISC runs from IRAM with no XIP ELF
++        return None
++    if _kernel_text_index is None:
++        import glob
++
++        _kernel_text_index = {}
++        for root in roots.split(":"):
++            for xip in glob.glob(os.path.join(root, "**/kernels/*/*/*/*.elf.xip.elf"), recursive=True):
++                try:
++                    text = _xip_text(xip)
++                except Exception:
++                    continue
++                if text:
++                    _kernel_text_index.setdefault(os.path.basename(os.path.dirname(xip)), []).append((text, xip))
++    from ttexalens.tt_exalens_lib import read_from_device
++
++    try:
++        l1 = bytes(read_from_device(location, text_addr, num_bytes=TEXT_PROBE))
++    except Exception:
++        return None
++    hits = sorted({x for text, x in _kernel_text_index.get(proc, []) if l1.startswith(text)})
++    if not hits:
++        return None
++    from types import SimpleNamespace
++
++    hash_dir = os.path.dirname(os.path.dirname(hits[0]))
++    name = os.path.basename(os.path.dirname(hash_dir))
++    if len(hits) > 1:
++        name += f" (+{len(hits) - 1} same-text)"
++    return SimpleNamespace(path=hash_dir, name=name, watcherKernelId=-1, programId=-1)
++
++
+ @triage_singleton
+ def run(args, context: Context):
+     inspector_data = get_inspector_data(args, context)
+diff -u ../orig/inspector_data.py ./inspector_data.py
+--- ../orig/inspector_data.py	2026-11-06 23:48:21.514157001 +0100
++++ ./inspector_data.py	2026-11-06 23:48:53.593314440 +0100
+@@ -160,6 +160,41 @@
+ # TODO: parse_inspector_logs types should have different field names and different return types (not dictionary, but named tuple with array of elements)
+ 
+ 
++class NoInspector:
++    """Stand-in for a process that ran with TT_METAL_INSPECTOR=0 (jf-abag-hang).
++
++    Answers only what dispatcher_data needs to decode mailboxes: the device list and a firmware path
++    (TRIAGE_NO_INSPECTOR_FW). No programs and no kernel ids, so dispatcher_data names kernels by matching
++    L1 text against the kernel cache (TRIAGE_KERNEL_CACHE)."""
++
++    def __init__(self, context, firmware_path):
++        from types import SimpleNamespace as ns
++
++        ids = list(context.devices.keys())
++        self._ns, self._ids, self._context, self._fw = ns, ids, context, firmware_path
++
++    def getMetalDeviceIdMappings(self):
++        return self._ns(mappings=[self._ns(metalDeviceId=i, uniqueId=self._context.devices[i].unique_id) for i in self._ids])
++
++    def getDevicesInUse(self):
++        return self._ns(metalDeviceIds=self._ids)
++
++    def getBlocksByType(self):
++        return self._ns(chips=[self._ns(chipId=i, blocks=self._ns(idleEth=[], activeEth=[])) for i in self._ids])
++
++    def getAllBuildEnvs(self):
++        return self._ns(buildEnvs=[self._ns(metalDeviceId=i, buildInfo=self._ns(firmwarePath=self._fw)) for i in self._ids])
++
++    def getPrograms(self):
++        return self._ns(programs=[])
++
++    def getKernel(self, watcher_kernel_id):
++        raise KeyError(watcher_kernel_id)
++
++    def stop(self):
++        pass
++
++
+ @triage_singleton
+ def run(args, context) -> InspectorData:
+     log_directory = args["--inspector-log-path"]
+@@ -174,6 +209,8 @@
+ 
+     # Check for Inspector log directory
+     log_directory = get_log_directory(log_directory)
++    if not os.path.exists(log_directory) and os.environ.get("TRIAGE_NO_INSPECTOR_FW"):
++        return NoInspector(context, os.environ["TRIAGE_NO_INSPECTOR_FW"])
+     if not os.path.exists(log_directory):
+         raise ValueError(
+             f"\n\tLog directory {log_directory} does not exist."
+Only in .: __pycache__
