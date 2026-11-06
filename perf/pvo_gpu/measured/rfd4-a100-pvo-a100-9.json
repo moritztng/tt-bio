@@ -1,0 +1,249 @@
+{
+  "size": 624,
+  "spec": "/root/kc/rfd4in/9TH6-A-b120.yaml",
+  "sweeps": {
+    "native-compile": {
+      "1": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.022993262973948634,
+        "s_per_design": 43.491,
+        "spread": [
+          0.022893248780934503,
+          0.023034044317501265
+        ],
+        "batch": 1,
+        "load_s": 14.169,
+        "sm_mhz_median": 1410
+      },
+      "2": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.041798156701289474,
+        "s_per_design": 23.9245,
+        "spread": [
+          0.04171968543357183,
+          0.041808641846269624
+        ],
+        "batch": 2,
+        "load_s": 13.961,
+        "sm_mhz_median": 1410
+      },
+      "4": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.0431062353169386,
+        "s_per_design": 23.198499999999996,
+        "spread": [
+          0.043020466987169145,
+          0.0431490151237298
+        ],
+        "batch": 4,
+        "load_s": 14.05,
+        "sm_mhz_median": 1410
+      },
+      "8": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.04373783541452534,
+        "s_per_design": 22.8635,
+        "spread": [
+          0.04367622812093948,
+          0.04377780574693144
+        ],
+        "batch": 8,
+        "load_s": 14.484,
+        "sm_mhz_median": 1275
+      },
+      "16": {
+        "status": "FAILED",
+        "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 11.88 GiB. GPU 0 has a total capacity of 79.44 GiB of which 10.23 GiB is free. Process 2365280 has 39.99 GiB memory in use. Process 2410145 has 29.20 GiB memory in use. Of the allocated memory 28.56 GiB is allocated by PyTorch, and 145.21 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+        "n": 0
+      }
+    },
+    "compile-cueq": {
+      "1": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.023224487900041803,
+        "s_per_design": 43.058,
+        "spread": [
+          0.023196474135931337,
+          0.023227185097438045
+        ],
+        "batch": 1,
+        "load_s": 14.141,
+        "sm_mhz_median": 1275
+      },
+      "2": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.041890080428954424,
+        "s_per_design": 23.872,
+        "spread": [
+          0.04172490768364175,
+          0.04191466174867969
+        ],
+        "batch": 2,
+        "load_s": 14.828,
+        "sm_mhz_median": 1275
+      },
+      "4": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.04317835900646596,
+        "s_per_design": 23.15975,
+        "spread": [
+          0.04312714961886382,
+          0.04318861548095922
+        ],
+        "batch": 4,
+        "load_s": 14.013,
+        "sm_mhz_median": 1275
+      },
+      "8": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.04377181751529278,
+        "s_per_design": 22.84575,
+        "spread": [
+          0.04373329251559365,
+          0.04377541025767301
+        ],
+        "batch": 8,
+        "load_s": 14.137,
+        "sm_mhz_median": 1410
+      },
+      "16": {
+        "status": "FAILED",
+        "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 11.88 GiB. GPU 0 has a total capacity of 79.44 GiB of which 10.26 GiB is free. Process 2365280 has 39.99 GiB memory in use. Process 2445268 has 29.17 GiB memory in use. Of the allocated memory 28.56 GiB is allocated by PyTorch, and 110.46 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+        "n": 0
+      }
+    },
+    "compile-reduce-overhead": {
+      "1": {
+        "status": "ok",
+        "n": 2,
+        "designs_s": 0.022077777907367032,
+        "s_per_design": 45.29441342311513,
+        "spread": [
+          0.021998328127062344,
+          0.02215722768767172
+        ],
+        "batch": 1,
+        "load_s": 15.461,
+        "sm_mhz_median": 1410.0
+      },
+      "2": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.04072573255411432,
+        "s_per_design": 24.5545,
+        "spread": [
+          0.039755898781481704,
+          0.04083466045979828
+        ],
+        "batch": 2,
+        "load_s": 14.731,
+        "sm_mhz_median": 1275
+      },
+      "4": {
+        "status": "ok",
+        "n": 3,
+        "designs_s": 0.04264846998613924,
+        "s_per_design": 23.447500000000005,
+        "spread": [
+          0.042428613857185285,
+          0.0426539273603617
+        ],
+        "batch": 4,
+        "load_s": 14.654,
+        "sm_mhz_median": 1275
+      },
+      "8": {
+        "status": "FAILED",
+        "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 2.23 GiB. GPU 0 has a total capacity of 79.44 GiB of which 1.21 GiB is free. Process 2365280 has 39.99 GiB memory in use. Process 2463534 has 38.22 GiB memory in use. Of the allocated memory 35.36 GiB is allocated by PyTorch, with 24.72 GiB allocated in private pools (e.g., CUDA Graphs), and 2.32 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)",
+        "n": 0
+      }
+    }
+  },
+  "designs": {
+    "designs-exact": {
+      "arm": "native-compile",
+      "batch": 8,
+      "made": 128,
+      "wanted": 128,
+      "seeds": [
+        1234,
+        1235,
+        1236,
+        1237,
+        1238,
+        1239,
+        1240,
+        1241,
+        1242,
+        1243,
+        1244,
+        1245,
+        1246,
+        1247,
+        1248,
+        1249
+      ]
+    },
+    "designs-fast": {
+      "arm": "compile-cueq",
+      "batch": 8,
+      "made": 128,
+      "wanted": 128,
+      "seeds": [
+        1234,
+        1235,
+        1236,
+        1237,
+        1238,
+        1239,
+        1240,
+        1241,
+        1242,
+        1243,
+        1244,
+        1245,
+        1246,
+        1247,
+        1248,
+        1249
+      ]
+    }
+  },
+  "exact_serial": {
+    "status": "ok",
+    "n": 3,
+    "designs_s": 0.02317926846228733,
+    "s_per_design": 43.142,
+    "spread": [
+      0.023176045239640307,
+      0.02322286988226005
+    ],
+    "batch": 1,
+    "load_s": 30.027,
+    "sm_mhz_median": 1275
+  },
+  "fast_arm": "compile-cueq",
+  "fast_batch": 8,
+  "fast": {
+    "status": "ok",
+    "n": 3,
+    "designs_s": 0.04377181751529278,
+    "s_per_design": 22.84575,
+    "spread": [
+      0.04373329251559365,
+      0.04377541025767301
+    ],
+    "batch": 8,
+    "load_s": 14.137,
+    "sm_mhz_median": 1410
+  },
+  "design_batch": 8
+}

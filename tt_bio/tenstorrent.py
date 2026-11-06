@@ -23,8 +23,10 @@ from . import triatt_sdpa as _triatt_sdpa
 from . import dest_guard as _dest_guard
 from . import trimul_tail as _trimul_tail
 from . import mm_generic as _mm_generic
+from . import fp32_ln as _fp32_ln
 from . import bmm_res as _bmm_res
 from .addcmul_at import addcmul_at as _addcmul_at
+from . import ln_split as _ln_split
 from . import page_copy as _page_copy
 from . import pair_add as _pair_add
 from . import pair_swiglu_ws as _pair_ws
@@ -772,19 +774,33 @@ _FAST_MODE = False
 #                   block and one data-movement kernel (opm_relayout) lays it out for the projection in place of
 #                   the 4-op chain. Moves bytes only: bit-exact. C = D = 32 and J a whole number of tiles.
 #   dit_hifi2       a bf16 token DiT's linears (OpenFold3's `--fast` stack) at HiFi2 instead of the model's
-#                   fidelity, fp32 accumulation kept. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
+#                   fidelity, fp32 accumulation kept. Boltz-2 / BoltzGen's token DiT takes it through
+#                   `Module.compute_kernel_config`, so its layer norms and modulation run at HiFi2 too. On a Galaxy chip they are math-bound at HiFi4 (768 x 3072:
 #                   107 us, ~23 TF/s at 1000 MHz) and take 2.5 s of the 512-token fold.
 #   dit_qsplit      `_sdpa32` / `_sdpa32_fused` (the token DiT's attention) take the q chunk that puts the fewest
 #                   rows on the busiest core: 128 at 512 tokens and one sample, 64 busy cores where 256 left 32.
 #                   The k chunk stays, so each row's arithmetic is unchanged: expected bit-exact (fold A/B digest).
+#   dit_qbox        `_sdpa32` / `_sdpa32_fused` give each core its own (sample, head, q chunk) box
+#                   (`sdpa_generic.box_split`) when that puts fewer rows on the busiest core than the factored split:
+#                   5 samples x 16 heads fill 80 of Blackhole's 110 cores, the boxes all of them. Each row keeps its
+#                   q chunk's keys in the same order, so expected bit-exact.
 #   dit_kc          `_sdpa32` / `_sdpa32_fused` on Wormhole take the full k chunk (256 at 512 tokens) instead of one
 #                   key tile. The PV product then accumulates k_chunk / 32 tiles in the fp32 dest, which is the
 #                   erratum dest_guard.py describes (rare -2/-4/-8 pixels); the rest of the fold runs unguarded
 #                   too, so this arms the same exposure for ~30 % of the call (perf/spd_wherr/sdpa_probe.py).
+#   dit_kl1         dit_kc's full k chunk on Wormhole with the PV product summed by the packer in L1, one key tile
+#                   per dest pass (`sdpa_generic.pv_l1acc_kernel_dir`), so dest never holds more than one K tile.
+#                   Off when dit_kc is set.
 #   dit_mask16      on Wormhole, an fp32 token DiT's `_sdpa32` attention reads its cached pair-bias mask bf16, not
 #                   fp32 (`sdpa32_mask_lowp`: OpenFold3 under dit_fuse, the Protenix family's `finish_bias`).
 #                   Blackhole ignores it.
+#   dit_mask_bf16   the dit_mask16 bf16 mask on either arch. On a p150a the fp32 mask is half of Mol-1's DiT attention at
+#                   1024 tokens (5 samples read it once each): 1.50 -> 1.06 ms a call bf16.
 #   dit_mask8       the same mask bfp8 on either arch (overrides dit_mask16).
+#   dit_mask_chain  `_sdpa32_fused` reads its sample-broadcast mask from DRAM once per (head, q range) and passes it
+#                   core to core along the samples (`sdpa_generic._MASK_READ_CHAIN`), from 512 tokens. Bit-exact. p150a,
+#                   5 samples, ms a call: 1024 1.495 -> 1.168 with dit_qbox (1.449 without), 512 0.432 -> 0.410,
+#                   256 0.126 -> 0.155 (the per-chunk hand-off costs more than the read it saves).
 #   dit_cond_jit    under adaln_mod, Boltz-2's token DiT projects each layer's six conditioning terms just before
 #                   the layer, one [768, 768] linear each off the shared normed s, instead of three [768, 36864]
 #                   linears for all 24 layers and 144 slices a step to cut them back out.
@@ -909,6 +925,10 @@ _FAST_MODE = False
 #   tok_w8          RFD4's token transition and attention projections with bfp8 weights at HiFi2 (state/rfd4/bets/tok512.md)
 #   atom_kvcat      Protenix-family atom attention: K and V as one linear over their stacked weights, one op and one
 #                   concat input fewer per block (spd-m-pxdesign lv5)
+#   adaln_at        a bf16 token DiT AdaLN whose scale and shift are windows (`dit_shoist` / `dit_cond_steps`) as one
+#                   kernel, `shift + layer_norm(a) * scale` (`ln_split.adaln`): the normalised activation is never
+#                   written and re-read, and each row tile is split over several cores. The norm stays fp32 into the
+#                   modulation, so not bit-exact against layer_norm then addcmul_at.
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -918,7 +938,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
           "trimul_t2m", "trimul_t2cm", "dit_fuse", "pair_mm", "ref_memo", "edm_device", "ws_l1acc", "ws_resid", "pib_where", "relp_host",
           "trimul_t2w", "narrow_bw16", "ws_l1dest", "opm_jd", "trimul_gin_hifi2", "trimul_gin_b8",
           "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine", "ef2_relpos_lookup",
-          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
+          "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "dit_qbox", "dit_mask_bf16", "dit_mask_chain", "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
           "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
           "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "trimul_bres", "atomp_dev", "ie_dev", "lm_qk_chain",
           "lm_gate_ng", "lm_sdpa_stock", "lm_ln_stock", "lm_k64", "lm_linear", "triatt_hifi2", "dit_cond_jcat", "triatt_lofi", "triatt_k1", "ef2_atom_rope", "trunk_hifi2", "dit_sigf32",
@@ -928,7 +948,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-          "trimul_t1split")
+           "trimul_t1split", "adaln_at", "dit_kl1")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -945,7 +965,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "pair_mm", "ref_memo", "trimul_t2m", "edm_device", "ws_l1acc", "pib_where", "relp_host", "trimul_t2w",
                              "narrow_bw16", "ws_l1dest", "trimul_gin_hifi2", "trimul_gin_b8",
                              "ef2_bit_draw", "ef2_pair_init", "ef2_lm_combine",
-                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit",
+                             "ef2_relpos_lookup", "ef2_atom_ffn_split", "dit_hifi2", "dit_qsplit", "dit_qbox", "dit_mask_bf16", "dit_mask_chain",
                              "trimul_t1b8", "trimul_t1_c256", "trimul_t1_c384", "trimul_t1_c320", "trimul_t1_c448",
                              "dit_shoist", "triatt_ln", "apb_ln", "ws_lofi", "ws_chain", "ws_resid2", "dit_kc", "dit_mask16", "trimul_sig6", "trimul_gin_fuse",
                              "dit_cond_jit", "relp_gather", "apb_cat", "dit_qkvf", "triatt_hifi2", "dit_cond_jcat",
@@ -3318,7 +3338,8 @@ def sdpa32_mask_lowp(m: ttnn.Tensor) -> ttnn.Tensor:
     """An `_sdpa32` mask the attention reads in every block of every step, at the format `dit_mask8` (bfp8) or
     `dit_mask16` (bf16, Wormhole only) names; `m` itself otherwise. The token axis buckets to 32, so padded keys sit
     in whole tiles and no 16-wide bfp8 exponent block mixes the pad mask with a real bias."""
-    dt = ttnn.bfloat8_b if lever("dit_mask8") else (ttnn.bfloat16 if is_wormhole() and lever("dit_mask16") else None)
+    dt = ttnn.bfloat8_b if lever("dit_mask8") else (
+        ttnn.bfloat16 if lever("dit_mask_bf16") or is_wormhole() and lever("dit_mask16") else None)
     if dt is None:
         return m
     mt = ttnn.typecast(m, dt)
@@ -3348,7 +3369,7 @@ def _sdpa32_chunks(dev, B: int, heads: int, n: int):
     """
     g = dev.compute_with_storage_grid_size()
     big = sdpa32_chunk(n)
-    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 and not lever("dit_kc") else big
+    k_chunk = 32 if dev.arch() == ttnn.Arch.WORMHOLE_B0 and not (lever("dit_kc") or lever("dit_kl1")) else big
     cores = g.x * g.y
 
     def rows(chunk):
@@ -3358,7 +3379,21 @@ def _sdpa32_chunks(dev, B: int, heads: int, n: int):
         qp = min(cores // (bp * hp), qc)
         return -(-B // bp) * -(-heads // hp) * -(-qc // qp) * chunk
     q_chunk = 128 if big == 256 and lever("dit_qsplit") and rows(128) < rows(256) else big
-    return q_chunk, k_chunk, (g.x, g.y)
+    boxes = None
+    if lever("dit_qbox"):
+        from .sdpa_generic import box_split
+        best = rows(q_chunk)
+        bs = box_split(B, heads, n // q_chunk, cores)
+        if bs and bs[0] * q_chunk < best:
+            boxes = bs[1]
+    return q_chunk, k_chunk, (g.x, g.y), boxes
+
+
+def _sdpa32_pv_l1acc(dev, k_chunk: int) -> bool:
+    """dit_kl1: a Wormhole k chunk over one tile takes its PV sums out of the fp32 dest (`pv_l1acc_kernel_dir`).
+    dit_kc keeps them in dest, so it wins when both are set."""
+    return (k_chunk > 32 and dev.arch() == ttnn.Arch.WORMHOLE_B0 and lever("dit_kl1")
+            and not lever("dit_kc"))
 
 
 def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
@@ -3375,10 +3410,11 @@ def _sdpa32(q, k, v, mask, scale: float) -> ttnn.Tensor:
     assert sdpa32_chunk(n) and int(mask.shape[-1]) == n == int(k.shape[2]), \
         ("_sdpa32 wants the token axis padded by sdpa32_rows", q.shape, k.shape, mask.shape)
     dev = q.device()
-    chunk, k_chunk, grid = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
+    chunk, k_chunk, grid, boxes = _sdpa32_chunks(dev, int(q.shape[0]), int(q.shape[1]), n)
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([int(q.shape[i]) for i in range(3)] + [int(v.shape[3])]), ttnn.float32,
                                          ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale)
+    SG.sdpa(dev, q, k, v, mask, out, chunk, k_chunk, grid, _SDPA32_CKC, scale, boxes=boxes,
+            pv_l1acc=_sdpa32_pv_l1acc(dev, k_chunk))
     return out
 
 
@@ -3392,12 +3428,13 @@ def _sdpa32_fused(qkv, mask, scale: float, heads: int, out_dtype=ttnn.float32, c
     S, _, n, w = (int(d) for d in qkv.shape)
     assert sdpa32_chunk(n) and int(mask.shape[-1]) == n, ("_sdpa32 wants the token axis padded by sdpa32_rows", qkv.shape, mask.shape)
     dev = qkv.device()
-    chunk, k_chunk, grid = _sdpa32_chunks(dev, S, heads, n)
+    chunk, k_chunk, grid, boxes = _sdpa32_chunks(dev, S, heads, n)
     # `out_dtype` bf16 (dit_fuse): the packer writes the result bf16, no typecast program after it.
     out = ttnn.allocate_tensor_on_device(ttnn.Shape([S, 1, n, w // 3]), out_dtype,
                                          ttnn.TILE_LAYOUT, dev, memory_config or ttnn.DRAM_MEMORY_CONFIG)
     SG.sdpa(dev, qkv, qkv, qkv, mask, out, chunk, k_chunk, grid, ckc or _SDPA32_CKC, scale,
-            qkv_fused=heads)
+            qkv_fused=heads, boxes=boxes, mask_chain=n >= 512 and lever("dit_mask_chain"),
+            pv_l1acc=_sdpa32_pv_l1acc(dev, k_chunk))
     return out
 
 
@@ -8341,6 +8378,36 @@ def msa_upload_whole(depth, tokens, channels):
     return depth * tokens * (-(-channels // 32) * 32) * 2 <= (int(v) if v else MSA_HOST_OFFLOAD_MIN_BYTES)
 
 
+def _msa_feat_up(t):
+    """A host MSA feature slice on the chip in bf16 TILE layout."""
+    return (_up_tilize_on_device(t) if t.dtype == torch.bfloat16 else
+            ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
+                            dtype=ttnn.bfloat16))
+
+
+def msa_embed_chunks(feats, project, park=False):
+    """`m` as the list of `project(f)` for each depth chunk `f` of the MSA feature, never joined:
+    the form the MSA blocks cut a large `m` into, built directly. `feats` yields device or host
+    chunks; with `park` each projected chunk goes to the host in device layout, the form
+    `msa_update_chunks(park=True)` leaves. Every op in the projection is per alignment row, so
+    the chunks hold the rows the whole projection does.
+
+    A sampled recycling cycle builds its `m` this way so that every depth-sized buffer it places
+    is one chunk shape whatever the cycle drew: a whole `m` a different size each cycle left DRAM
+    holes a later, deeper draw could not use."""
+    out = []
+    for f in feats:
+        x = _msa_feat_up(f) if torch.is_tensor(f) else f
+        mc = project(x)
+        ttnn.deallocate(x)
+        if park:
+            h = ttnn.from_device(mc)
+            ttnn.deallocate(mc)
+            mc = h
+        out.append(mc)
+    return out
+
+
 def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, park=False):
     """The trunk's pristine `m` = `project(feat)`, placed the way `msa_host_offload(m, keep)` places it.
 
@@ -8354,9 +8421,7 @@ def msa_embed(feat, project, rows=MSA_CHUNK_SIZE, keep=None, park=False):
     the host. Every op in the projection is per alignment row, so the chunks hold the rows the
     whole pass does. `park` sends a host feature up in depth chunks and every projected chunk back
     to the host, whatever its size: the fallback for a cycle DRAM refused."""
-    up = lambda t: (_up_tilize_on_device(t) if t.dtype == torch.bfloat16 else
-                    ttnn.from_torch(t.float().contiguous(), layout=ttnn.TILE_LAYOUT, device=get_device(),
-                                    dtype=ttnn.bfloat16))
+    up = _msa_feat_up
     v = os.environ.get("TT_BIO_MSA_HOST_OFFLOAD_MIN_BYTES")
     host = torch.is_tensor(feat)
     if not host or (msa_upload_whole(*feat.shape[1:]) and not park):
@@ -8399,7 +8464,7 @@ def msa_row_bucket(depth, n_rows, step=1024):
     """The rows a recycling cycle that reads `depth` rows of an `n_rows` alignment is padded to:
     the next multiple of `step`, never past `n_rows` rounded up to a tile. A depth drawn afresh
     every cycle then reaches the MSA module in at most ceil(n_rows / step) shapes, so nothing
-    compiles per cycle, and every per-row op runs once on one tensor as the full-depth path does."""
+    compiles per cycle, and a large one is built as fixed-size depth chunks (`msa_embed_chunks`)."""
     return min(-(-depth // step) * step, -(-n_rows // 32) * 32)
 
 
@@ -10021,7 +10086,23 @@ def _clear_tiles(cache_dir):
             os.remove(os.path.join(cache_dir, f))
 
 
+_HIFI2_CKCS = {}
+
+
+def _hifi2_ckc(c):
+    """`c` at HiFi2, everything else kept; one object per source config so program caches keep hitting."""
+    h = _HIFI2_CKCS.get(id(c))
+    if h is None:
+        h = _HIFI2_CKCS[id(c)] = (c, type(c)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=c.math_approx_mode,
+                                              fp32_dest_acc_en=c.fp32_dest_acc_en, packer_l1_acc=c.packer_l1_acc))
+    return h[1]
+
+
 class Module:
+    # Set on the bf16 token DiT's modules (`DiffusionTransformer.mark_hifi2_site`): under dit_hifi2 their
+    # compute config reads at HiFi2, decided per access so a lever set chosen after construction applies.
+    _hifi2_site = False
+
     def __init__(
         self,
         state_dict: Weights,
@@ -10030,6 +10111,17 @@ class Module:
         self.weights = WeightScope.wrap(state_dict)
         self.compute_kernel_config = compute_kernel_config
         self.device = get_device()
+
+    @property
+    def compute_kernel_config(self):
+        c = self._ckc
+        if self._hifi2_site and c is not None and lever("dit_hifi2"):
+            return _hifi2_ckc(c)
+        return c
+
+    @compute_kernel_config.setter
+    def compute_kernel_config(self, c):
+        self._ckc = c
 
     def scope(self, scope: str, strip_prefix: str = "") -> WeightScope:
         return self.weights.child(scope, strip_prefix)
@@ -12934,13 +13026,16 @@ class TriangleAttention(Module):
             # one-program tail. Any other rung they decline to gets them sliced back (`_unpitch`).
             pitch_ok = not (_FP32_SOFTMAX or self.fp32_softmax or _TRIATT_DUALPROBE or self.subtile
                             or _triatt_bias_b8() or _triatt_b8())
+            # triatt_ln.BIAS_HEADS: the kernel writes the bias as the permute below would leave it; not where the
+            # ending bias is transposed back afterwards, whose tiles that writer cannot gather.
+            bias_heads = not (self.ending and not self.transpose_bias)
             # triatt_ln TR: the ending variant norms x^T straight out of x, no transpose pass (x is square,
             # so x^T has x's shape and the L1-qkv test above reads the same).
             fused = (_triatt_ln.ln_qkvgb_heads(
                 x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
                 _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads, self.head_dim,
-                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True, pitch=pitch_ok)
-                     if self.ending and fusable else None)
+                int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), transposed=True, pitch=pitch_ok,
+                bias_heads=bias_heads) if self.ending and fusable else None)
             if self.ending and fused is None:
                 # The DESTINATION stays DRAM here: this transpose's consumer is the layer_norm
                 # below, whose static circular buffers are 274 944 B per core at 768 aa and do not
@@ -12958,7 +13053,8 @@ class TriangleAttention(Module):
                 fused = _triatt_ln.ln_qkvgb_heads(
                     x, self.layer_norm_weight, self.layer_norm_bias, self.qkvgb_weight,
                     _mm_generic.ckc_args(self.compute_kernel_config), self.n_heads,
-                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), pitch=pitch_ok)
+                    self.head_dim, int(self.bias_weight.shape[-1]), tuple(COMPUTE_GRID_MAIN), pitch=pitch_ok,
+                    bias_heads=bias_heads)
             x_owned = fused is None or transposed
             if fused is not None:
                 pre_qkv, pre_g, triangle_bias = fused
@@ -12979,8 +13075,9 @@ class TriangleAttention(Module):
                 triangle_bias = _pair_proj_linear(
                     x, self.bias_weight, self.compute_kernel_config, ttnn.bfloat16
                 )
-            triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
-            triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
+            if len(triangle_bias.shape) == 3:   # else triatt_ln wrote it head-major already
+                triangle_bias = ttnn.unsqueeze(triangle_bias, 0)
+                triangle_bias = ttnn.permute(triangle_bias, (0, 3, 1, 2))
             if self.ending and not self.transpose_bias:
                 triangle_bias = ttnn.permute(triangle_bias, (0, 1, 3, 2))
             if fused is not None and pre_qkv[0].dtype == ttnn.bfloat8_b:
@@ -14329,39 +14426,9 @@ def _transition_bw_config(op: str, mt: int, kt: int, nt: int, b8: bool, silu: bo
     return ttnn.MatmulMultiCoreReuseMultiCastProgramConfig(transpose_mcast=False, **kw)
 
 
-_FP32_NORM_PARAMS = {}
-
-
-def _fp32_row_sum(x, mc):
-    """Sum over the last dim (a multiple of 32) of an fp32 `x` from fp32 elementwise adds only: tile columns folded in
-    halves while their count is even, the rest added in turn, then the 32 columns of one tile halved down to one.
-
-    Wormhole's FPU reductions do not hold fp32 here: on Mol-1's trunk block 43 input `ttnn.sum` and a matmul with ones
-    both land the 32-column partial of xc^2 1.07e-3 off and the layer norm's per-token part 0.50 off, where these
-    adds give 1.6e-7 and 3.1e-4 against a 1.3e-4 fp32 floor (perf/mol1_whl4/ln_var_probe.py, one .111 chip). The
-    tokens of a single track share a vector ~1e3x their differences, so 1/sigma needs ~1e-6 per token.
-    """
-    lead = list(x.shape)[:-1]
-    w = x.shape[-1]
-    if w % 32:
-        raise ValueError(f"_fp32_row_sum: last dim {w} is not a multiple of 32")
-    sl = lambda t, a, b: ttnn.slice(t, [0] * len(lead) + [a], lead + [b], memory_config=mc)
-    while w > 32 and (w // 32) % 2 == 0:
-        w //= 2
-        x = ttnn.add(sl(x, 0, w), sl(x, w, 2 * w), memory_config=mc)
-    t = sl(x, 0, 32) if w > 32 else x
-    for c in range(32, w, 32):
-        t = ttnn.add(t, sl(x, c, c + 32), memory_config=mc)
-    w = 32
-    while w > 1:
-        w //= 2
-        t = ttnn.add(sl(t, 0, w), sl(t, w, 2 * w), memory_config=mc)
-    return t
-
-
-def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memory_config=None):
-    """Layer norm over the last dim from fp32 primitives (mean, centred variance, rsqrt), written at `dtype`. Both
-    statistics are sums of fp32 elementwise adds (`_fp32_row_sum`), not FPU reductions.
+def fp32_layer_norm(x, weight, bias, epsilon, dtype, memory_config=None):
+    """Layer norm over the last dim with fp32 statistics, written at `dtype`: one SFPU program (`fp32_ln`) whose
+    row sums are fp32 adds, not FPU reductions.
 
     For Wormhole's single track, where `ttnn.layer_norm` gets each row's 1/sigma only to ~0.3 % (std, any
     fidelity, fp32 dest or fp32 input alike). Mol-1's trunk block 43 single Transition normalizes a ~149-valued
@@ -14370,26 +14437,10 @@ def fp32_layer_norm(x, weight, bias, epsilon, compute_kernel_config, dtype, memo
     93 in upstream fp32. Composed in fp32 the norm's token error is 0.0053 against the correctly rounded bf16
     floor of 0.0045 (ttnn.layer_norm: 0.018-0.024), state/mol1/evidence/whl3/ROOT.md.
     """
-    key = (id(weight), id(bias))
-    params = _FP32_NORM_PARAMS.get(key)
-    if params is None:
-        params = _FP32_NORM_PARAMS[key] = (weight, bias, ttnn.typecast(weight, ttnn.float32),
-                                           ttnn.typecast(bias, ttnn.float32))
-    mc = memory_config
-    x32 = ttnn.typecast(x, ttnn.float32, memory_config=mc) if x.dtype != ttnn.float32 else x
-    inv_w = 1.0 / x.shape[-1]
-    xc = ttnn.subtract(x32, ttnn.multiply(_fp32_row_sum(x32, mc), inv_w, memory_config=mc), memory_config=mc)
+    x32 = ttnn.typecast(x, ttnn.float32, memory_config=memory_config) if x.dtype != ttnn.float32 else x
+    out = _fp32_ln.layer_norm(x32, weight, bias, epsilon, dtype, memory_config)
     if x32 is not x:
         ttnn.deallocate(x32)
-    sq = ttnn.multiply(xc, xc, memory_config=mc)
-    var = ttnn.multiply(_fp32_row_sum(sq, mc), inv_w, memory_config=mc)
-    ttnn.deallocate(sq)
-    inv = ttnn.rsqrt(ttnn.add(var, epsilon, memory_config=mc), memory_config=mc)
-    ttnn.deallocate(var)
-    out = ttnn.multiply_(xc, inv)
-    ttnn.deallocate(inv)
-    out = ttnn.add(ttnn.multiply_(out, params[2]), params[3], dtype=dtype, memory_config=mc)
-    ttnn.deallocate(xc)
     return out
 
 
@@ -14444,7 +14495,7 @@ def fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype):
 
 
 def _fp32_single_transition(x, norm_weight, norm_bias, w1, w2, w3, ckc, dtype, inner):
-    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ckc, ttnn.float32, inner)
+    xn = fp32_layer_norm(x, norm_weight, norm_bias, 1e-5, ttnn.float32, inner)
     a = _centred_linear(xn, w1, ckc, ttnn.float32, inner, inner)
     b = _centred_linear(xn, w2, ckc, ttnn.float32, inner, inner)
     ttnn.deallocate(xn)
@@ -15707,8 +15758,7 @@ class PairformerLayer(Module):
         if self.transform_s:
             # An fp32 single track keeps its per-token part only through an fp32 norm: `ttnn.layer_norm` on
             # the bf16 copy loses it the same way the Transition's norm did (`fp32_layer_norm`).
-            s_norm = (fp32_layer_norm(s, self.pre_norm_s_weight, self.pre_norm_s_bias, 1e-5,
-                                      self.compute_kernel_config, ttnn.bfloat16)
+            s_norm = (fp32_layer_norm(s, self.pre_norm_s_weight, self.pre_norm_s_bias, 1e-5, ttnn.bfloat16)
                       if self.s_fp32 and not ops.taping() else ttnn.layer_norm(
                 self._s_compute(s),
                 weight=self.pre_norm_s_weight,
@@ -16625,6 +16675,11 @@ class AdaLN(Module):
         """`dtype`: write the modulated output at this dtype (the norm and the modulation run at
         the input's); the `dit_mm16` lever takes it bf16 for the linears that read it."""
         memory_config = _adaln_memory_config(self.atom_level, large_seq_len)
+        if (not self.atom_level and lever("adaln_at") and s_terms is not None and dtype in (None, ttnn.bfloat16)
+                and isinstance(s_terms, _SigTerms) and isinstance(s_terms[0], _ColWin)):
+            out = _ln_split.adaln(a, s_terms[0], s_terms[1])
+            if out is not None:
+                return out
         if self.atom_level:
             a = ttnn.to_memory_config(a, memory_config=memory_config)
         a = ttnn.layer_norm(
@@ -16966,6 +17021,30 @@ class DiffusionTransformer(Module):
         if _B2_DIT_COND_HOIST and not atom_level:
             self._cond_weights()
 
+    def mark_hifi2_site(self):
+        """Put this token DiT and every module under it on dit_hifi2 (`Module.compute_kernel_config`).
+        The caller marks only a bf16 token DiT; the fp32 one keeps the model's fidelity."""
+        seen, todo = set(), [self]
+        while todo:
+            m = todo.pop()
+            if id(m) in seen:
+                continue
+            seen.add(id(m))
+            m._hifi2_site = True
+            for v in vars(m).values():
+                for x in (v if isinstance(v, (list, tuple)) else (v,)):
+                    if isinstance(x, Module):
+                        todo.append(x)
+
+    def _cond_ckc(self):
+        """The conditioning projections' kernel config: HiFi2 under `dit_cond_hifi2`, in the hoisted block and in
+        `cond_steps` alike, else the module's own."""
+        ckc = self.compute_kernel_config
+        if (_B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2")) and ckc is not None:
+            ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2, math_approx_mode=ckc.math_approx_mode,
+                            fp32_dest_acc_en=ckc.fp32_dest_acc_en, packer_l1_acc=ckc.packer_l1_acc)
+        return ckc
+
     def _cond_weights(self):
         """The 24 layers' conditioning projections, concatenated into two weight blocks.
 
@@ -17055,7 +17134,7 @@ class DiffusionTransformer(Module):
         """`dit_cond_jcat`'s three [768, 1536] projections a layer on `s` stacked over steps: `(sigmoid scales,
         shifts, sigmoid gates)` a layer, each [G, n, 1536] with the attention half first."""
         s_hat = ttnn.layer_norm(s, epsilon=1e-5, compute_kernel_config=self.compute_kernel_config)
-        ckc = self.compute_kernel_config
+        ckc = self._cond_ckc()
         lin = lambda x, w, b=None, act=None: ttnn.linear(  # noqa: E731
             x, w, bias=b, compute_kernel_config=ckc, activation=mm_sigmoid(ckc) if act else None)
         out = [(lin(s_hat, sw, sb, True), lin(s_hat, bw), lin(s, ow, ob, True))
@@ -17097,12 +17176,7 @@ class DiffusionTransformer(Module):
             adw, adb, opw, opb = self._cond_weights()
             s_hat = ttnn.layer_norm(s, epsilon=1e-5,
                                     compute_kernel_config=self.compute_kernel_config)
-            ckc = self.compute_kernel_config
-            if (_B2_DIT_COND_HIFI2 or lever("dit_cond_hifi2")) and ckc is not None:
-                ckc = type(ckc)(math_fidelity=ttnn.MathFidelity.HiFi2,
-                                math_approx_mode=ckc.math_approx_mode,
-                                fp32_dest_acc_en=ckc.fp32_dest_acc_en,
-                                packer_l1_acc=ckc.packer_l1_acc)
+            ckc = self._cond_ckc()
             if _B2_ADALN_ADDCMUL or lever("adaln_mod"):
                 sw, sb, bw = self._cond_weights_split()
                 o_ad = (ttnn.linear(s_hat, sw, bias=sb, compute_kernel_config=ckc, activation=mm_sigmoid(ckc)),
@@ -18544,6 +18618,8 @@ class Diffusion(Module):
                 state_dict=self.scope("token_transformer"),
                 compute_kernel_config=compute_kernel_config,
             )
+        if not self.token_transformer_fp32:
+            self.token_transformer.mark_hifi2_site()
         self.a_norm_weight = self.torch_to_tt("a_norm.weight")
         self.a_norm_bias = self.torch_to_tt("a_norm.bias")
         self.a_to_q_weight = self.torch_to_tt(

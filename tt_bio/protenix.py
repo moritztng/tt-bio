@@ -44,7 +44,8 @@ from . import ops
 from .tenstorrent import (Module, CORE_GRID_MAIN, get_device, dram_peak,
                           MSA_CHUNK_SIZE, batched_matmul, dram_bytes, msa_depth_chunks, host_park,
                           host_unpark, msa_embed, msa_row_bucket, msa_rows_host, msa_rows_mask, msa_rows_table,
-                          msa_rows_device, msa_upload_whole, msa_update_chunks,
+                          msa_rows_device, msa_upload_whole, msa_update_chunks, msa_embed_chunks,
+                          MSA_JOIN_MAX_BYTES,
                           pair_row_blocks,
                           row_block_after_refusal, device_generation, accurate_softmax_site,
                           softmax_ckc, host_f64_softmax_site, site_softmax, stack_samples)
@@ -333,9 +334,13 @@ MOL1_DIT_BH = frozenset({"dit_shoist", "atom_mm16", "adaln_mod"})
 # Plus trimul_t1split, bit-identical: one trimul call (qb2 p300c, AICLK 1200-1350) c_z 320 2.67 -> 2.45 ms at 256 tokens,
 # 7.84 -> 7.00 at 512, 33.66 -> 30.23 at 1024; c_z 448 4.17 -> 4.01 ms at 256, flat at 512 and 1024
 # (state/mol1/evidence/bh/mulroof.md).
+# Plus dit_qbox + dit_mask_chain, bit-identical: the token DiT fp32 attention as per-core (sample, head, q chunk) boxes
+# that hand the sample-broadcast mask core to core from 512 tokens. One call, 5 samples: 1024 1.495 -> 1.168 ms, 512
+# 0.432 -> 0.410. qb1 p150a at AICLK 1350, 3 warm folds per arm, coords identical: 512 74.93 -> 74.23 s, 1024 294.28 ->
+# 291.84 s (state/mol1/evidence/bh/diffstep.md).
 MOL1_BH = MOL1_T1 | MOL1_DIT_BH | T1_PSIG | {"trimul_t2", "trimul_t2w", "trimul_bres", "trunk_hifi2", "trimul_t1_part",
                                             "ws_l1dest", "edm_device", "atom_l1", "inproj_split", "trimul_t2cm",
-                                            "dit_qkvf", "trimul_t1split"}
+                                            "dit_qkvf", "trimul_t1split", "dit_qbox", "dit_mask_chain"}
 # Mol-1 on Blackhole from 512 padded tokens (`size_levers`): bfp8 pair-transition weights in one chunk on the plain SwiGLU
 # kernel, the reblock move back writing bfp8 and T1's resident weights in bfp8. Graded as one stack over MOL1_BH, qb1
 # p150a at AICLK 1350, 5 warm folds per arm: 512 tokens 83.29 -> 75.23 s, samples matched to the base fold at 0.423 A
@@ -821,7 +826,7 @@ class _KeyedWeights:
             t = t.to(torch.bfloat16)
         return t
 
-    def _opm_from_host(self, opm, t, z):
+    def _opm_from_host(self, opm, t, z, mask=None, n_msa=None):
         """`z + opm(t)` for a host-resident `t` [1, depth, tokens, c]: `t` uploaded whole, or, if
         DRAM refuses that upload or the OPM that reads it, as host-tiled depth chunks that
         OuterProductMean uploads one at a time (its chunk-list input).
@@ -833,7 +838,8 @@ class _KeyedWeights:
         whole `m` is still on the chip beside OPM's full-depth projections. The chunk list is the
         form every later MSA block already hands OPM, and it is not bit-exact against the
         whole-depth product (it reassociates the depth sum), so it runs only after a refusal. The
-        memo skips the refused attempt on later recycling cycles.
+        memo skips the refused attempt on later recycling cycles. `mask`/`n_msa` are a sampled
+        cycle's row mask and drawn row count, as for a device `m`.
 
         OPM gives back its own partial buffers before a refusal leaves it, and adds its residual
         out of place until a successful join, so the chunked retry reads the same `z`. A refusal
@@ -841,7 +847,7 @@ class _KeyedWeights:
         def whole():
             d = self._up(t)
             try:
-                return opm(d, None, None, residual=z)
+                return opm(d, mask, n_msa, residual=z)
             finally:
                 ttnn.deallocate(d)
 
@@ -851,7 +857,7 @@ class _KeyedWeights:
                                    "the depth-chunked retry has no pair to add to")
             return opm([ttnn.from_torch(t[:, s:s + r].contiguous(), layout=ttnn.TILE_LAYOUT,
                                         dtype=getattr(self, "dtype", ttnn.bfloat16))
-                        for s in range(0, t.shape[1], r)], None, None, residual=z)
+                        for s in range(0, t.shape[1], r)], mask, n_msa, residual=z)
 
         return _T.row_block_after_refusal(_UPLOAD_REFUSED_ROWS, tuple(t.shape), whole, chunked,
                                           MSA_CHUNK_SIZE, "protenix msa upload")
@@ -3849,10 +3855,13 @@ class Trunk(_KeyedWeights):
             pf_heads.append(0 if ta is None else int(ta.shape[0]))
         # Mol-1's pair-width adapters: before_block_<i> and after_blocks (PW.remap_pair_adapters).
         comb.update(PW.remap_pair_adapters(self._w, "pairformer_stack.", nb_pf))
-        # The single track in fp32 end to end (`PairformerLayer` s_fp32): the confidence head reads its small
-        # channels' per-token part, which a bf16 store erases.
+        # Mol-1 (the two-width trunk) carries the single track in fp32 end to end (`PairformerLayer` s_fp32): its
+        # confidence head reads the small channels' per-token part, which a bf16 store erases. One-width trunks keep
+        # the bf16 track they shipped with; on them fp32 cost 12-21 % a call at the perf gate's sizes
+        # (state/mol1/evidence/confperf/ROOT.md).
         self.PF = Pairformer(nb_pf, self.TRI_HEAD_DIM, pf_heads, 384 // 16, 16, True, comb,
-                             compute_kernel_config, gated_move=gated_move, s_fp32=True,
+                             compute_kernel_config, gated_move=gated_move,
+                             s_fp32=len(self._pair_widths(model_state_dict)) > 1,
                              accurate_softmax=accurate_softmax_site(f"{softmax_scope}.trunk", default=True))
         # Template embedder: pair-only PairformerLayers, count from the weights. Protenix-v2
         # has 2. Every PXDesign-pinned Protenix variant ships a template embedder that is only
@@ -4014,8 +4023,9 @@ class Trunk(_KeyedWeights):
 
     def _msa(self, z3, m_feat, pmask_tt=None, attn_tt=None, rows=None):
         """The MSA module's blocks on `z3`. `m_feat` is the pristine m, a device or a host tensor.
-        rows=(mask, depth) says only the first `depth` rows of a device `m_feat` are alignment
-        rows (a cycle's sampled rows padded to `msa_row_bucket`); OuterProductMean masks the rest."""
+        rows=(mask, depth) says only the first `depth` rows of `m_feat`, a tensor or a list of depth
+        chunks, are alignment rows (a cycle's sampled rows padded to its bucket); OuterProductMean
+        masks the rest."""
         opm_mask, n_msa = rows if rows is not None else (None, None)
         def update_msa(m, z, pwa, transition):
             if pwa is None:
@@ -4084,7 +4094,7 @@ class Trunk(_KeyedWeights):
             if torch.is_tensor(m_feat):
                 # Protenix-order block 0 reads the pristine m with OPM, from one transient upload
                 # or its depth chunks; update_msa below streams from host.
-                z3 = self._opm_from_host(opm, m_feat, z3)
+                z3 = self._opm_from_host(opm, m_feat, z3, opm_mask, n_msa)
             else:
                 z3 = opm(m_feat, opm_mask, n_msa, residual=z3)
             dram_peak("trunk msa block: after opm")
@@ -4250,9 +4260,9 @@ class Trunk(_KeyedWeights):
         else:
             # The embedding is per alignment row, so embedding a cycle's rows equals picking them
             # out of the embedded whole; only the picked rows are built, padded to a few depths
-            # (msa_row_bucket), and the host lane cuts the next cycle's rows while this one runs.
-            # A fixed depth (OpenDDE's 1280) is one shape already: padding it to the next 1024
-            # would run every per-row op on 2048 rows, 60 % of them zeros.
+            # (msa_row_bucket) and masked past the draw, and the host lane cuts the next cycle's rows
+            # while this one runs. A fixed depth (OpenDDE's 1280) is one shape already: padding it
+            # to the next 1024 would run every per-row op on 2048 rows, 60 % of them zeros.
             m_feat = None
             n_rows = ms.shape[1]
             step = 1024 if depth is None else 32
@@ -4319,7 +4329,9 @@ class Trunk(_KeyedWeights):
                 # Held through the Pairformer, the draw left the 1536-token OpenDDE trunk's
                 # transition no room to join its blocks on device from cycle 1 on, and every
                 # later recycle took the host join: ~12 min instead of ~4:20 on a Wormhole chip.
-                ttnn.deallocate(m_feat)
+                # A list of chunks was consumed by the blocks, which free each one they replace.
+                if not torch.is_tensor(m_feat) and not isinstance(m_feat, list):
+                    ttnn.deallocate(m_feat)
                 ttnn.deallocate(rows[0])
                 del m_feat, rows
             sc = self._lin(self._ln(s, "layernorm_s.weight", "layernorm_s.bias"), "linear_no_bias_s.weight")
@@ -4333,18 +4345,34 @@ class Trunk(_KeyedWeights):
             trunk_tap(f"cyc{cyc}_after_PF:z3", z3, always=True)
             return [z3, s]
 
-        def sampled(cyc, carry, x, park=False):
-            # One cycle over its sampled rows x [1, bucket, N, c], host or device, the real ones first.
+        def sampled(cyc, carry, x=None, park=False):
+            # One cycle over its sampled rows, the real ones first then zero rows to its bucket: the
+            # host cut x [1, bucket, N, c], or, with x None, rows gathered on the chip from `table`.
             # `park` builds the cycle's m in depth chunks on the host and streams it, as a refused
             # resident cycle does below.
-            k = len(rows[cyc])
-            m_c = msa_embed(x, m_proj, keep=x.shape[1] * m_key[1] // ms.shape[1], park=park)
-            if torch.is_tensor(m_c):
-                # Parked on the host: drop the padding there, which costs nothing.
-                return cycle(cyc, carry, m_c[:, :k])
-            mask = ttnn.from_torch(msa_rows_mask(k, m_c.shape[1]), layout=ttnn.TILE_LAYOUT, device=get_device(),
+            # An m the MSA blocks would cut into depth chunks anyway is BUILT as those chunks, one
+            # fixed size whatever the draw. Built whole, the m changed size every cycle and left DRAM
+            # holes no later deep draw could use: 7ua2-assembly1 (712 tokens) was refused its
+            # 2.96 GiB m at cycle 7 of 20 on a Wormhole chip with 414 MiB a bank free. Padding every
+            # cycle to the fold's deepest draw fixed that and cost 4-7 % on Blackhole at 512 and
+            # 1024 tokens, per-row work on rows no cycle drew.
+            r, Bc = rows[cyc], bucket(cyc)
+            row_bytes = m_key[1] // ms.shape[1]
+            if _msa_take_whole_path(Bc * row_bytes):
+                if x is None:
+                    x = msa_rows_device(table, r, Bc, N)
+                m_c = msa_embed(x, m_proj, keep=Bc * row_bytes, park=park)
+            else:
+                # Parked where msa_embed would park the whole m: a host cut past one upload whose m
+                # is past what the chip joins.
+                park = park or (x is not None and not msa_upload_whole(*x.shape[1:])
+                                and Bc * row_bytes > MSA_JOIN_MAX_BYTES)
+                C = _msa_row_chunk_size()
+                m_c = msa_embed_chunks((msa_rows_device(table, r[s:s + C], min(C, Bc - s), N) if x is None
+                                        else x[:, s:s + C] for s in range(0, Bc, C)), m_proj, park=park)
+            mask = ttnn.from_torch(msa_rows_mask(len(r), Bc), layout=ttnn.TILE_LAYOUT, device=get_device(),
                                    dtype=ttnn.bfloat16)
-            carry = cycle(cyc, carry, m_c, (mask, k))
+            carry = cycle(cyc, carry, m_c, (mask, len(r)))
             del m_c, mask
             return carry
 
@@ -4378,7 +4406,7 @@ class Trunk(_KeyedWeights):
                     if progress_fn:
                         progress_fn("trunk", step=cyc, total=n_cycles)
                     if mode == "table":
-                        carry = sampled(cyc, carry, msa_rows_device(table, rows[cyc], bucket(cyc), N))
+                        carry = sampled(cyc, carry)
                     elif rows is not None:
                         x, _ = next_rows.result()
                         if cyc + 1 < n_cycles:

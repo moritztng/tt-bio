@@ -76,24 +76,12 @@ def masks(design, coi):
         "is_nucleic_acid": is_nucleic_acid,
         "is_dna": is_nucleic_acid & np.char.startswith(atoms.res_name.astype(str), "D"),
         "is_ligand": ~design.is_polymer,
-        "is_chain_of_interest": (
-            np.zeros(atoms.array_length(), dtype=bool) if coi is None else chain_iid(atoms) == coi
-        ),
+        "is_chain_of_interest": M.chain_of_interest_mask(atoms, coi),
         "C_CRD": design.is_crd,
         "SA_CRDSRC": design.crd_src,
         "is_CA": atoms.atom_name == "CA",
         "all": np.ones(atoms.array_length(), dtype=bool),
     }
-
-
-def chain_iid(atoms):
-    """atomworks' chain instance id: the chain plus its assembly transform, `A` -> `A_1`.
-
-    Every structure on the evaluate path comes out of assembly 1 under the identity transform, so
-    the suffix is always `_1`. It is the label upstream writes in the `chain_of_interest` column
-    and the one the per-chain oracle keys are named after, so the port has to carry it too.
-    """
-    return np.char.add(atoms.chain_id.astype(str), "_1")
 
 
 #: `configs/metrics/refolding_metrics/all_refolding_metrics.yaml`, in file order:
@@ -293,6 +281,13 @@ def refolding_metrics(design, refolds, tags, coi):
         keep = remove_terminal_oxygen(refold)
         pred = refold.atoms[keep]
         pred_masks = {name: mask[keep] for name, mask in masks(refold, coi).items()}
+        # The conditioning masks belong to the design, not to its refold: an oracle writes a plain
+        # structure with no condition annotations, so re-deriving C_CRD/SA_CRDSRC from the
+        # prediction yields an empty mask and every metric that aligns on one is silently dropped.
+        # A refold is the same atom set in the same order as the design it came from, so carry the
+        # design's masks over; when that is not true, leave the metric absent rather than guess.
+        if pred.array_length() == gt.array_length():
+            pred_masks |= {name: gt_masks[name] for name in ("C_CRD", "SA_CRDSRC")}
         for name, gate, align, subset in REFOLDING:
             if not (tags is None or tags & gate):
                 continue
@@ -395,6 +390,21 @@ def motif_rmsd(gt, gt_mask, groups, pred, pred_mask, gt_is_polymer):
     if total == 0:
         return {}
     return {"rmsd": float(np.sqrt(weighted / total))}
+
+
+def crd_aligned_metrics(tags):
+    """The refolding metrics a tag set switches on whose alignment reads `C_CRD`.
+
+    They align the design on the atoms whose absolute coordinates were conditioned, so a design
+    that has none cannot be scored on them. Read off `REFOLDING` rather than listed, so it stays
+    true if the mask of a metric changes.
+    """
+    names = []
+    for name, gate, align, _subset in REFOLDING:
+        flat = [m for entry in align for m in (entry if isinstance(entry, tuple) else (entry,))]
+        if (tags is None or tags & gate) and any(m.lstrip("~") == "C_CRD" for m in flat):
+            names.append(name)
+    return names
 
 
 def pass_criteria(metrics, tags):

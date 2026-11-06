@@ -9,6 +9,9 @@
     python <tt-bio>/perf/mol1/bh/opgap.py host --input mol1-256.json --out <dir> --cprofile pf48/b10/
     # diff: the fold as served, the warm fold's whole diffusion sampler under cProfile (the per-step host round trip)
     python <tt-bio>/perf/mol1/bh/opgap.py diff --input mol1-256.json --out <dir> --recycles 1
+    # another family model on the gapboard fixture, its alignment seeded so no MSA search runs
+    ... opgap.py prof --model opendde --input perf/size512/fixtures/cdk2x2_512.yaml \
+        --a3m perf/size512/fixtures/cdk2x2_512.a3m [--fast] --out <dir>
 
 Both modes fold once cold and once warm in one process and record only the warm fold. `prof` enqueues a fence op
 (a multiply on a [1,1,32,224] tensor nobody else makes) before and after every Pairformer block and every denoise
@@ -41,6 +44,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", choices=("prof", "wall", "host", "diff"))
     ap.add_argument("--input", required=True)
+    ap.add_argument("--model", default="mol1", help="any Pairformer-family model: mol1, protenix-v2, opendde")
+    ap.add_argument("--a3m", default=None, help="seed this alignment for the input's one protein chain")
+    ap.add_argument("--fast", action="store_true")
     ap.add_argument("--out", required=True)
     ap.add_argument("--recycles", type=int, default=None, help="default: 1 for prof, the model's own for wall")
     ap.add_argument("--steps", type=int, default=None, help="default: 2 for prof, the protocol's 200 for wall")
@@ -60,7 +66,13 @@ def main():
     prof = a.mode == "prof"
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    cfg, jobs = run_config("mol1", Path(a.input).resolve(), out)
+    cli = []
+    if a.a3m:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "gpu_vs_tt"))
+        from tt_baseline import seed_msa_cache
+        seed_msa_cache(Path(a.input), Path(a.a3m), out / "msa")
+        cli += ["--use_msa_server", "--msa_dir", str(out / "msa")]
+    cfg, jobs = run_config(a.model, Path(a.input).resolve(), out, ["--fast"] * a.fast + cli)
     cfg.update(recycling_steps=1 if prof else cfg.get("recycling_steps"),
                sampling_steps={"prof": 2, "host": 2}.get(a.mode, 200))
     if a.recycles is not None:
@@ -72,9 +84,10 @@ def main():
     W._ensure_local_artifacts(cfg)
     state = W._WorkerState("tenstorrent")
     state.load_model(cfg)
-    state.bind_run("mol1-opgap", cfg)
+    state.bind_run(f"{a.model}-opgap", cfg)
     m = state.model
-    dev = m.diffusion.dev
+    diffusion = getattr(m, "_protenix", m).diffusion   # OpenDDE wraps the Protenix stack
+    dev = diffusion.dev
     fence_t = ttnn.from_torch(torch.zeros(FENCE_SHAPE), layout=ttnn.TILE_LAYOUT, device=dev, dtype=ttnn.bfloat16)
     rec = {"on": False, "stack": "?", "last_cycle_from": None}
     regions, walls, extra, host_blocks = [], [], {}, []
@@ -129,14 +142,14 @@ def main():
     T.PairformerLayer.__call__ = layer
 
     if prof:
-        denoise = m.diffusion.denoise
+        denoise = diffusion.denoise
 
         def fenced_denoise(x_noisy, t_hat, cond):
             fence(f"start denoise/M{x_noisy.shape[0]}")
             r = denoise(x_noisy, t_hat, cond)
             fence(f"end denoise/M{x_noisy.shape[0]}")
             return r
-        m.diffusion.denoise = fenced_denoise
+        diffusion.denoise = fenced_denoise
     else:
         sampled = P.edm_sample
 
@@ -148,7 +161,7 @@ def main():
             x = sampled(*args, **kw)
             cprof.disable()
             extra["diffusion_s"] = time.perf_counter() - t0
-            tr = getattr(m.diffusion, "_trace", None)
+            tr = getattr(diffusion, "_trace", None)
             if rec["on"] and tr is not None and a.step_probe:
                 ttnn.synchronize_device(dev)
                 t0 = time.perf_counter()

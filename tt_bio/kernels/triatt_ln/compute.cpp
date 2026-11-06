@@ -20,6 +20,7 @@
 #include "api/compute/eltwise_unary/eltwise_unary.h"
 #include "api/compute/eltwise_unary/rsqrt.h"
 #include "api/compute/eltwise_binary_sfpu.h"
+#include "api/compute/transpose_wh.h"
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 #include "../common/ln_prologue.hpp"
 
@@ -31,6 +32,9 @@ constexpr uint32_t RNE = get_compile_time_arg_val(2);   // 1: round to nearest e
 constexpr uint32_t ABL = get_compile_time_arg_val(3);
 #ifndef NQ
 #define NQ 0   // triatt_ln_b8: tiles n < nq (runtime arg 1: q, k, v) pack bfp8 to c_2, the rest bf16 to c_4 at n - nq
+#endif
+#ifndef HM
+#define HM 0   // triatt_ln.BIAS_HEADS: the bias tile (this group's tile runtime arg 3) leaves transposed, h rows x j
 #endif
 #ifndef LNS
 #define LNS 0  // triatt_ln.LN_SHARE: this core norms rows i % 2 == runtime arg 2 and takes the others' xn in c_5
@@ -53,14 +57,34 @@ constexpr uint32_t cb_var = tt::CBIndex::c_13;
 constexpr uint32_t cb_rstd = tt::CBIndex::c_14;
 constexpr uint32_t cb_xc = tt::CBIndex::c_16;
 constexpr uint32_t cb_tmp = tt::CBIndex::c_17;
+constexpr uint32_t bias_cb = tt::CBIndex::c_18;  // HM: the bias tile packed as it is, unpacked transposed
 
 struct LnCbs {
     static constexpr uint32_t Kt = ::Kt, x = cb_x, gamma = cb_gamma, beta = cb_beta, scaler = cb_scaler,
         eps = cb_eps, mean = cb_mean, var = cb_var, rstd = cb_rstd, xc = cb_xc, tmp = cb_tmp;
 };
 
+// HM: the bias tile is packed bf16 to c_18 and comes back through the unpacker's transpose, so it leaves exactly
+// as the permute would have left it. transpose_wh_dest in DST after the matmul moved q, k, v and g as well as the
+// bias (perf/mol1_triattn/bh_diag.py): it stalls on a srcA valid the matmul does not leave and clears the next one.
+ALWI void transpose_bias(uint32_t a_cb, uint32_t cb, uint32_t slot) {
+    cb_wait_front(bias_cb, 1);
+    transpose_wh_init_short(bias_cb);
+    tile_regs_acquire();
+    transpose_wh_tile(bias_cb, 0, 0);
+    tile_regs_commit();
+    tile_regs_wait();
+    pack_tile<true>(0, cb, slot);
+    tile_regs_release();
+    cb_pop_front(bias_cb, 1);
+    mm_block_init_short(a_cb, w_cb, false, SBW, 1, Kt);   // the next full block's; a tail inits its own
+    reconfig_data_format(w_cb, a_cb);
+}
+
 template <uint32_t W>
-ALWI void project(uint32_t a_cb, uint32_t n0, uint32_t nq) {
+ALWI void project(uint32_t a_cb, uint32_t n0, uint32_t nq, uint32_t bi) {
+    const uint32_t b = HM ? bi - n0 : W;   // the bias tile's place in this block, W (or more) if not here
+    if (HM && b < W) cb_reserve_back(bias_cb, 1);
     tile_regs_acquire();
     uint32_t i1 = n0;
     for (uint32_t k = 0; k < Kt; ++k, i1 += NW) matmul_block(a_cb, w_cb, k, i1, 0, false, W, 1, Kt);
@@ -69,20 +93,24 @@ ALWI void project(uint32_t a_cb, uint32_t n0, uint32_t nq) {
     }
     tile_regs_commit();
     tile_regs_wait();
-    if constexpr (NQ) {
-        // nq is a multiple of SBW, so a block never straddles the two buffers
-        const uint32_t cb = n0 < nq ? out_cb : (uint32_t)tt::CBIndex::c_4;
-        pack_reconfig_data_format(cb);
-        for (uint32_t i = 0; i < W; ++i) pack_tile<true>(i, cb, n0 < nq ? n0 + i : n0 - nq + i);
-    } else {
-        for (uint32_t i = 0; i < W; ++i) pack_tile<true>(i, out_cb, n0 + i);
+    // nq is a multiple of SBW, so a block never straddles the two buffers
+    const uint32_t cb = NQ && n0 >= nq ? (uint32_t)tt::CBIndex::c_4 : out_cb, at = NQ && n0 >= nq ? n0 - nq : n0;
+    if constexpr (NQ) pack_reconfig_data_format(cb);
+    for (uint32_t i = 0; i < W; ++i) {
+        if (HM && i == b) pack_tile<true>(i, bias_cb, 0);
+        else pack_tile<true>(i, cb, at + i);
     }
     tile_regs_release();
+    if (HM && b < W) {
+        cb_push_back(bias_cb, 1);
+        transpose_bias(a_cb, cb, at + b);
+    }
 }
 
 void kernel_main() {
     const uint32_t nrows = get_arg_val<uint32_t>(0);
     const uint32_t nq = NQ ? get_arg_val<uint32_t>(1) : 0;
+    const uint32_t bi = HM ? get_arg_val<uint32_t>(3) : 0xFFFF;
 
     mm_init(xn_cb, w_cb, out_cb, 0);
     cb_wait_front(w_cb, Kt * NW);
@@ -119,10 +147,10 @@ void kernel_main() {
             mm_block_init_short(a_cb, w_cb, false, SBW, 1, Kt);
             reconfig_data_format(w_cb, a_cb);
             pack_reconfig_data_format(out_cb);
-            for (uint32_t n0 = 0; n0 < NFULL; n0 += SBW) project<SBW>(a_cb, n0, nq);
+            for (uint32_t n0 = 0; n0 < NFULL; n0 += SBW) project<SBW>(a_cb, n0, nq, bi);
             if constexpr (NW % SBW) {
                 mm_block_init_short(a_cb, w_cb, false, NW % SBW, 1, Kt);
-                project<NW % SBW>(a_cb, NFULL, nq);
+                project<NW % SBW>(a_cb, NFULL, nq, bi);
             }
         }
         cb_push_back(out_cb, NQ ? nq : NW);

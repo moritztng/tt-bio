@@ -28,9 +28,12 @@ from pathlib import Path
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True,
-                    help="boltz2 | esmfold2 | protenix-v2 | opendde | openfold3")
+                    help="boltz2 | esmfold2 | protenix-v2 | mol1 | opendde | openfold3")
     ap.add_argument("--tree", type=Path, required=True, help="source tree to import tt_bio from")
     ap.add_argument("--size", type=int, default=512)
+    ap.add_argument("--target", default="cdk2x2",
+                    help="fixture stem under perf/size512/fixtures: <stem>_<size>.yaml + .a3m "
+                         "(cdk2x2 = the page cell; cdk2x2dimer = two copies of the half-size chain)")
     ap.add_argument("--repeat", type=int, default=3)
     ap.add_argument("--label", default="arm")
     ap.add_argument("--census", action="store_true")
@@ -82,6 +85,8 @@ def main():
 
     import tt_bio.tenstorrent as T
     import tt_baseline as B
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # perf/ for clocksample
+    import clocksample
     from tt_bio.main import (_resolve_sampling_steps, _resolve_recycling_steps,
                              _detect_p300_devices, _find_ttnn_mesh_graph_descriptor)
     assert Path(T.__file__).resolve().is_relative_to(tree), \
@@ -156,7 +161,7 @@ def main():
             setattr(owner, meth, _timed(path, getattr(owner, meth)))
 
     fixdir = tree / "perf" / "size512" / "fixtures"
-    tgt, a3m = fixdir / f"cdk2x2_{a.size}.yaml", fixdir / f"cdk2x2_{a.size}.a3m"
+    tgt, a3m = fixdir / f"{a.target}_{a.size}.yaml", fixdir / f"{a.target}_{a.size}.a3m"
     msa_dir = tree / f".msa_xmodel_{a.model}_{a.size}"
     # The recycle count is build_fold's argument, not a tt_baseline global: setting B.RECYCLING_STEPS
     # was a no-op, so --recycles folded at the default and the record named the request.
@@ -168,7 +173,7 @@ def main():
     struct_dir = Path(meta["struct_dir"])
 
     import importlib.metadata as im
-    res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size,
+    res = {"label": a.label, "model": a.model, "tree": str(tree), "size": a.size, "target": a.target,
            "census": a.census, "fast": a.fast, "trace": a.trace, "ab_trace": a.ab_trace, "ab_attr": a.ab_attr, "ab_lever": a.ab_lever, "ttnn": im.version("ttnn"),
            "host": os.uname().nodename,
            "card": os.environ.get("TT_VISIBLE_DEVICES"),
@@ -180,10 +185,15 @@ def main():
                       "TRANSPOSE_L1_HEADROOM")},
            "started": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
            "loadavg": open("/proc/loadavg").read().split()[:3], "folds": []}
+    a.out.parent.mkdir(parents=True, exist_ok=True)
 
+    # AICLK sampled during each fold: on Blackhole the clock sets the fold time, so a fold without
+    # its clock is not a measurement.
     def one(tag):
         phase_s.clear()
-        fold_s, m = one_fold()
+        with clocksample.during(period=1.0) as clk:
+            fold_s, m = one_fold()
+        cs = clk.summary().get(0) or {}
         for p in sorted(struct_dir.glob("*.cif")):  # the structure itself, for an RMSD between arms
             shutil.copyfile(p, a.out.parent / f"{tag}_{p.name}")
         plddt = m.get("plddt")
@@ -196,10 +206,10 @@ def main():
                 "cif_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest()[:16]
                                for p in sorted(struct_dir.glob("*")) if p.is_file()},
                 "loadavg": open("/proc/loadavg").read().split()[:3],
+                "aiclk": {k: cs.get(k) for k in ("median", "min", "max", "n")},
                 **({"phases": {k: round(v, 3) for k, v in phase_s.items()}} if a.phases else {})}
 
     def flush():
-        a.out.parent.mkdir(parents=True, exist_ok=True)
         a.out.write_text(json.dumps(res, indent=1))
 
     cold = one("cold")
@@ -290,8 +300,11 @@ def main():
         w = sorted(f["fold_s"] for f in res["folds"])
         res["median_s"] = round(statistics.median(w), 3)
         res["spread_s"] = round(w[-1] - w[0], 3)
-        print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s",
-              flush=True)
+        clks = [f["aiclk"] for f in res["folds"] if f["aiclk"].get("median") is not None]
+        res["aiclk_mhz"] = statistics.median(c["median"] for c in clks) if clks else None
+        res["aiclk_min"] = min(c["min"] for c in clks) if clks else None
+        print(f"[{a.label}] median {res['median_s']:.3f}s spread {res['spread_s']:.3f}s "
+              f"aiclk median {res['aiclk_mhz']} min {res['aiclk_min']} MHz", flush=True)
 
     if a.instrument:
         res["phase_times"] = meta["phase_times"]

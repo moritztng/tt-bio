@@ -6,6 +6,27 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Added
+- **A PPI grade says when it could not score the binder's pose.** The two binder-pose RMSDs under
+  `ppi_refolding` align on the target's absolute conditioned coordinates, so a design whose target was pinned with
+  `C_CRDGRP` (an internal coordinate group, RFD4's recommended binder recipe) has nothing to align on and the `ppi`
+  criterion comes back `pass = 0` with `all_metrics_present = 0`. That is upstream's behaviour and it reads exactly
+  like a design that was scored and failed. `tt-bio evaluate` now names those designs and the columns it could not
+  compute, and `docs/rfd4-design.md` says which conditioning to use if you intend to grade a binder's pose.
+### Fixed
+- **An RFD4 grade scores the designed chain again.** Every metric defined on the chain of interest
+  (`refolded_target_aligned_binder_rmsd`, `refolded_target_backbone_aligned_binder_rmsd`) was computed over an
+  empty atom subset, because the evaluate path matched the oracle's chain label against a chain instance id it
+  synthesised itself: `B_1` against the `B` the oracle wrote. The subset is no longer empty, and a confidence JSON
+  written with either spelling now resolves to the same chain. A refold also inherits its design's `C_CRD` and
+  `SA_CRDSRC` masks, which an oracle's plain output structure does not carry, so metrics aligned on them are
+  scored rather than dropped.
+
+## [0.27.0] - 2026-11-06
+
+### Added
+- **Mol-1 on the benchmarks page.** 49.6 s per 512-residue fold (20 recycles, 200 sampling steps) on one Blackhole
+  p150a, against 18.0 s on a B200, 24.0 s on an H200 and 50.1 s on an A100, each NVIDIA card on Mol-1's fastest shipped
+  option. A Galaxy Blackhole delivers 5.1x a DGX B200's folds per dollar of purchase price.
 - **RFD4-Proteina on the benchmarks page.** 3.74 s per design on one Blackhole p150a at batch 40, against 1.12 s on
   a B200, 1.48 s on an H200 and 3.50 s on an A100, each NVIDIA card at its own best batch. A Galaxy Blackhole
   delivers 4.2x a DGX B200's designs per dollar of purchase price.

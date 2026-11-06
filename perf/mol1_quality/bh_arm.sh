@@ -11,6 +11,7 @@ cd ~/mol1-quality; say() { echo "$(date -u +%FT%TZ) $*"; }
 host=$(hostname); case $host in tt-quietbox2) LOCK_HOST=qb2 ;; tt-quietbox) LOCK_HOST=qb1 ;; *) say "unknown host $host"; exit 2 ;; esac
 P=$(dirname "$(realpath "$0")"); REPO=tt-bio.git; [ -d $REPO ] || REPO=~/tt-bio-dev
 if [ ! -f main-$SHA/.ok ]; then
+  git -C $REPO cat-file -e $SHA^{commit} 2>/dev/null || git -C $REPO fetch -q origin main
   rm -rf main-$SHA && mkdir main-$SHA && git -C $REPO archive $SHA tt_bio | tar -x -C main-$SHA && echo $SHA > main-$SHA/.ok ||
     { say "archive $SHA failed"; exit 1; }
 fi

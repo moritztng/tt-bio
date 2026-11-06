@@ -96,6 +96,7 @@ def test_the_repo_itself_passes(sandbox: Path):
 
 
 def test_a_complete_held_row_is_published_and_both_counts_follow(sandbox: Path):
+    before = ids(sandbox, "design"), visible(sandbox, "design"), data(sandbox)["subtitle"], meta(sandbox)
     good = make_held(sandbox)
     f = sandbox / "perf/page_rows_pending.json"
     pending = json.loads(f.read_text())
@@ -104,15 +105,14 @@ def test_a_complete_held_row_is_published_and_both_counts_follow(sandbox: Path):
     f.write_text(json.dumps(pending, indent=2) + "\n")
 
     assert "restored design/pxdesign" in guard(sandbox, "--restore").stdout
-    assert ids(sandbox, "design") == ["rfd3", "boltzgen", "pxdesign"]
     assert held(sandbox) == []
-    # The counts follow the rows the page DRAWS, not the rows in the file. rfd3 is hidden,
-    # so restoring pxdesign takes the visible design count from one to two. The literal
-    # "three" that stood here went stale the day rfd3 was hidden; the returncode-0 check
-    # below is what actually pins the counts to the rows.
-    assert visible(sandbox, "design") == ["boltzgen", "pxdesign"]
-    assert data(sandbox)["subtitle"].startswith("Eight structure-prediction models, two binder")
-    assert meta(sandbox).startswith("Eleven open biomolecular models")
+    # A restored row goes back at the end of its block, and the counts follow the rows the page
+    # DRAWS (a hidden row stays in the file and does not count). Compare against the page as it
+    # was before the hold: literal row lists and counts here went stale each time a row was added.
+    assert ids(sandbox, "design")[-1] == "pxdesign"
+    assert sorted(ids(sandbox, "design")) == sorted(before[0])
+    assert sorted(visible(sandbox, "design")) == sorted(before[1])
+    assert (data(sandbox)["subtitle"], meta(sandbox)) == before[2:]
     assert guard(sandbox).returncode == 0
 
 

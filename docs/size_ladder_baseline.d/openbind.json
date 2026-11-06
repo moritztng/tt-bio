@@ -15,28 +15,28 @@
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-10-25",
+      "recorded": "2026-11-05",
       "host": "tt-quietbox",
-      "commit": "0a3f28e58",
+      "commit": "b46cbc7c5",
       "host_threads": 8,
       "models": {
         "openbind": {
           "grid": "11x10",
-          "recorded": "2026-10-25",
+          "recorded": "2026-11-05",
           "host": "tt-quietbox",
-          "commit": "0a3f28e58",
+          "commit": "b46cbc7c5",
           "host_threads": 8,
           "runtime_s": {
-            "256": 9.7,
-            "512": 12.9,
-            "640": 16.3,
-            "768": 20.1,
-            "896": 25.2,
-            "1024": 36.3,
-            "1152": 41.5,
-            "1280": 45.8,
-            "1408": 61.6,
-            "1536": 66.6
+            "256": 9.6,
+            "512": 12.7,
+            "640": 16.7,
+            "768": 19.5,
+            "896": 24.9,
+            "1024": 31.1,
+            "1152": 38.3,
+            "1280": 44.9,
+            "1408": 60.5,
+            "1536": 65.2
           },
           "levers": {
             "256": {
@@ -266,7 +266,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -586,7 +586,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -909,7 +909,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -1231,7 +1231,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -1553,7 +1553,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -1873,7 +1873,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -2190,7 +2190,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -2507,7 +2507,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -2824,7 +2824,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -3141,7 +3141,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). On p150a triangle attention runs whole-tensor through 1536 tokens (Blackhole SEQ_LEN_MORE_CHUNKING = 1536), so triatt_ln serves and these stay dark at every rung. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -3246,47 +3246,47 @@
           },
           "runtime_reps_s": {
             "256": [
-              9.9,
-              9.3,
-              9.7,
               9.6,
-              9.7
+              9.6,
+              9.8,
+              9.3,
+              9.1
             ],
             "512": [
-              12.9,
+              12.3,
               13.1,
-              12.9,
-              12.5,
-              13.1
+              12.7,
+              12.7,
+              13.0
             ],
             "640": [
-              16.3
+              16.7
             ],
             "768": [
-              20.1
+              19.5
             ],
             "896": [
-              25.2
+              24.9
             ],
             "1024": [
-              36.3
+              31.1
             ],
             "1152": [
-              41.5
+              38.3
             ],
             "1280": [
-              45.8
+              44.9
             ],
             "1408": [
-              61.6
+              60.5
             ],
             "1536": [
-              66.6
+              65.2
             ]
           },
           "aiclk": {
             "256": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3296,10 +3296,10 @@
                 1350,
                 1350
               ],
-              "n": 31
+              "n": 39
             },
             "512": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3309,28 +3309,10 @@
                 1350,
                 1350
               ],
-              "n": 35
+              "n": 40
             },
             "640": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 7
-            },
-            "768": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 8
-            },
-            "896": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3338,8 +3320,17 @@
               ],
               "n": 9
             },
-            "1024": {
-              "card": "3",
+            "768": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 9
+            },
+            "896": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3347,26 +3338,26 @@
               ],
               "n": 11
             },
-            "1152": {
-              "card": "3",
+            "1024": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
               "n": 12
+            },
+            "1152": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 13
             },
             "1280": {
-              "card": "3",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 12
-            },
-            "1408": {
-              "card": "3",
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -3374,83 +3365,92 @@
               ],
               "n": 15
             },
-            "1536": {
-              "card": "3",
+            "1408": {
+              "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 16
+              "n": 18
+            },
+            "1536": {
+              "card": "1",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 19
             }
           },
           "load": {
             "256": {
-              "max": 0.25,
+              "max": 0.24,
               "rep_median": [
-                0.18,
                 0.2,
+                0.2,
+                0.19,
                 0.23,
-                0.22,
                 0.21
               ]
             },
             "512": {
-              "max": 0.31,
+              "max": 0.23,
               "rep_median": [
+                0.2,
                 0.21,
-                0.22,
-                0.24,
-                0.25,
-                0.25
+                0.19,
+                0.23,
+                0.2
               ]
             },
             "640": {
+              "max": 0.21,
+              "rep_median": [
+                0.19
+              ]
+            },
+            "768": {
+              "max": 0.25,
+              "rep_median": [
+                0.18
+              ]
+            },
+            "896": {
+              "max": 0.32,
+              "rep_median": [
+                0.29
+              ]
+            },
+            "1024": {
+              "max": 0.26,
+              "rep_median": [
+                0.24
+              ]
+            },
+            "1152": {
               "max": 0.23,
               "rep_median": [
                 0.22
               ]
             },
-            "768": {
+            "1280": {
               "max": 0.24,
               "rep_median": [
-                0.22
-              ]
-            },
-            "896": {
-              "max": 0.29,
-              "rep_median": [
-                0.25
-              ]
-            },
-            "1024": {
-              "max": 0.29,
-              "rep_median": [
-                0.26
-              ]
-            },
-            "1152": {
-              "max": 0.36,
-              "rep_median": [
-                0.31
-              ]
-            },
-            "1280": {
-              "max": 0.3,
-              "rep_median": [
-                0.28
+                0.2
               ]
             },
             "1408": {
               "max": 0.23,
               "rep_median": [
-                0.19
+                0.22
               ]
             },
             "1536": {
-              "max": 0.27,
+              "max": 0.31,
               "rep_median": [
-                0.23
+                0.27
               ]
             }
           },
@@ -3623,54 +3623,54 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.019,
+          "sigma_runtime_512": 0.0245,
           "exponents": {
             "256->512": {
-              "k": 0.411,
+              "k": 0.404,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.094,
+              "k": 1.058,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0227,
-            "512": 0.019
+            "256": 0.0293,
+            "512": 0.0245
           },
           "exponents_measured": {
-            "256->512": 0.411,
-            "512->640": 1.048,
-            "640->768": 1.149,
-            "768->896": 1.467,
-            "896->1024": 2.733,
-            "1024->1152": 1.137,
-            "1152->1280": 0.936,
-            "1280->1408": 3.11,
-            "1408->1536": 0.897
+            "256->512": 0.404,
+            "512->640": 1.227,
+            "640->768": 0.85,
+            "768->896": 1.586,
+            "896->1024": 1.665,
+            "1024->1152": 1.768,
+            "1152->1280": 1.509,
+            "1280->1408": 3.129,
+            "1408->1536": 0.86
           }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-10-25",
+      "recorded": "2026-11-05",
       "host": "tt-quietbox2",
-      "commit": "0a3f28e58",
+      "commit": "b46cbc7c5",
       "host_threads": 5,
       "models": {
         "openbind": {
           "grid": "11x10",
-          "recorded": "2026-10-25",
+          "recorded": "2026-11-05",
           "host": "tt-quietbox2",
-          "commit": "0a3f28e58",
+          "commit": "b46cbc7c5",
           "host_threads": 5,
           "runtime_s": {
-            "256": 4.2,
-            "512": 7.3,
-            "640": 41.0,
-            "768": 44.4,
-            "896": 20.8,
-            "1024": 24.2
+            "256": 4.5,
+            "512": 7.9,
+            "640": 11.1,
+            "768": 14.5,
+            "896": 19.5,
+            "1024": 24.8
           },
           "levers": {
             "256": {
@@ -3900,7 +3900,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -4220,7 +4220,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -4543,7 +4543,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -4865,7 +4865,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -5187,7 +5187,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -5507,7 +5507,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Blackhole OpenFold3/OpenBind-0 normal, 7f6f0444b) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.688 A vs 1.208 A floor, OpenBind-0 0.519 A vs 1.898 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -5612,35 +5612,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              4.1,
-              4.2,
               4.5,
-              4.1,
-              4.4
+              4.4,
+              4.5,
+              4.5,
+              4.6
             ],
             "512": [
-              7.3,
-              7.1,
-              7.2,
-              7.3,
-              7.3
+              8.3,
+              7.9,
+              7.8,
+              7.9,
+              7.6
             ],
             "640": [
-              41.0
+              11.1
             ],
             "768": [
-              44.4
+              14.5
             ],
             "896": [
-              20.8
+              19.5
             ],
             "1024": [
-              24.2
+              24.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5650,14 +5650,14 @@
                 1350,
                 1350
               ],
-              "n": 25
+              "n": 28
             },
             "512": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1343,
+                1350,
                 1350,
                 1350,
                 1350,
@@ -5666,25 +5666,16 @@
               "n": 30
             },
             "640": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1350
+                1337
               ],
-              "n": 14
+              "n": 7
             },
             "768": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 14
-            },
-            "896": {
-              "card": "0",
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -5692,59 +5683,68 @@
               ],
               "n": 8
             },
-            "1024": {
-              "card": "0",
+            "896": {
+              "card": "2",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1325
+                1350
               ],
               "n": 9
+            },
+            "1024": {
+              "card": "2",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1343
+              ],
+              "n": 10
             }
           },
           "load": {
             "256": {
-              "max": 0.28,
+              "max": 0.33,
               "rep_median": [
+                0.32,
+                0.28,
+                0.28,
                 0.26,
-                0.22,
-                0.23,
-                0.2,
-                0.17
+                0.26
               ]
             },
             "512": {
-              "max": 0.25,
+              "max": 0.4,
               "rep_median": [
-                0.24,
-                0.24,
-                0.22,
-                0.18,
-                0.18
+                0.36,
+                0.38,
+                0.37,
+                0.36,
+                0.38
               ]
             },
             "640": {
-              "max": 0.54,
+              "max": 0.38,
               "rep_median": [
-                0.48
+                0.37
               ]
             },
             "768": {
-              "max": 0.71,
+              "max": 0.44,
               "rep_median": [
-                0.66
+                0.41
               ]
             },
             "896": {
-              "max": 0.59,
+              "max": 0.33,
               "rep_median": [
-                0.5
+                0.32
               ]
             },
             "1024": {
-              "max": 0.39,
+              "max": 0.3,
               "rep_median": [
-                0.31
+                0.28
               ]
             }
           },
@@ -5851,52 +5851,52 @@
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0124,
+          "sigma_runtime_512": 0.0323,
           "exponents": {
             "256->512": {
-              "k": 0.798,
+              "k": 0.812,
               "tol": 0.5
             },
             "512->768": {
-              "k": 4.453,
+              "k": 1.498,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0426,
-            "512": 0.0124
+            "256": 0.0157,
+            "512": 0.0323
           },
           "exponents_measured": {
-            "256->512": 0.798,
-            "512->640": 7.734,
-            "640->768": 0.437,
-            "768->896": -4.919,
-            "896->1024": 1.134
+            "256->512": 0.812,
+            "512->640": 1.524,
+            "640->768": 1.466,
+            "768->896": 1.922,
+            "896->1024": 1.801
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-10-25",
-      "host": "UF-EV-A2-GWH01",
-      "commit": "0a3f28e58",
+      "recorded": "2026-11-06",
+      "host": "UF-EV-A4-GWH02",
+      "commit": "b46cbc7c5",
       "host_threads": 2,
       "models": {
         "openbind": {
           "grid": "8x9",
-          "recorded": "2026-10-25",
-          "host": "UF-EV-A2-GWH01",
-          "commit": "0a3f28e58",
+          "recorded": "2026-11-06",
+          "host": "UF-EV-A4-GWH02",
+          "commit": "b46cbc7c5",
           "host_threads": 2,
           "runtime_s": {
-            "256": 7.2,
-            "512": 14.9,
-            "640": 20.6,
-            "768": 29.2,
-            "896": 37.4,
-            "1024": 50.6,
-            "1280": 140.9,
-            "1536": 228.2
+            "256": 7.6,
+            "512": 16.2,
+            "640": 20.1,
+            "768": 28.9,
+            "896": 37.2,
+            "1024": 49.6,
+            "1280": 139.7,
+            "1536": 229.6
           },
           "levers": {
             "256": {
@@ -5965,7 +5965,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6118,7 +6118,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -6285,7 +6285,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6438,7 +6438,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -6605,7 +6605,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -6760,7 +6760,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -6927,7 +6927,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7082,7 +7082,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -7249,7 +7249,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7402,7 +7402,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -7570,7 +7570,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7723,7 +7723,7 @@
                 "rejects": {
                   "head_dim_or_width": 16
                 },
-                "reason": "declines all 16 calls: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
+                "reason": "declines all 16 calls on head_dim_or_width x16: triatt_ln (Wormhole OpenFold3/OpenBind-0 normal, 76f3a1caa, again in 2ebe59b5c) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so `qkvgb_heads` and the head-major gate projection are never called at 256-1024 (the 16 QKV declines on head_dim_or_width are the same 16 as at v0.21.1). Above 1024 triangle attention is chunked, triatt_ln is not reached and these serve. Graded: OpenFold3 0.398 A vs 1.010 A floor, OpenBind-0 0.633 A vs 0.813 A, 44 paired folds each. Falsifier: calls served here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
@@ -7891,7 +7891,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 141,
+                "served": 45,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -7928,15 +7928,16 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2192,
+                "declined": 10992,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
+                  "k_tiles=2:(2,2)": 336,
                   "k_tiles=2:(2,1)": 56,
-                  "k_tiles=2:(2,2)": 16,
+                  "k_tiles=4:(4,4)": 8480,
                   "k_tiles=4:(4,1)": 2120
                 },
-                "reason": "declines all 2192 calls on k_tiles=4:(4,1) x2120, k_tiles=2:(2,1) x56, k_tiles=2:(2,2) x16: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 10992 calls on k_tiles=4:(4,4) x8480, k_tiles=4:(4,1) x2120, k_tiles=2:(2,2) x336, k_tiles=2:(2,1) x56: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -8243,15 +8244,16 @@
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 2844,
+                "declined": 13404,
                 "frac": 0.0,
                 "how": "wrap",
                 "rejects": {
+                  "k_tiles=2:(2,2)": 408,
                   "k_tiles=2:(2,1)": 64,
-                  "k_tiles=2:(2,2)": 24,
+                  "k_tiles=4:(4,4)": 10176,
                   "k_tiles=4:(4,1)": 2756
                 },
-                "reason": "declines all 2844 calls on k_tiles=4:(4,1) x2756, k_tiles=2:(2,1) x64, k_tiles=2:(2,2) x24: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
+                "reason": "declines all 13404 calls on k_tiles=4:(4,4) x10176, k_tiles=4:(4,1) x2756, k_tiles=2:(2,2) x408, k_tiles=2:(2,1) x64: the minimal matmul admits an 8-tile weight K dim and this checkpoint's pair projections resolve fewer, a property of c_z and not of N, so it is inert on this model at every size rather than dark at this one [carried from p300c] [carried from rung 768] [carried from p150a]"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -8458,41 +8460,53 @@
           },
           "runtime_reps_s": {
             "256": [
-              7.9,
-              7.0,
-              7.2,
-              7.2,
-              7.2
+              6.9,
+              6.9,
+              13.2,
+              12.7,
+              7.6
             ],
             "512": [
-              14.7,
-              16.0,
-              15.8,
-              14.9,
-              14.8
+              22.9,
+              16.6,
+              14.6,
+              15.5,
+              16.2
             ],
             "640": [
-              20.6
+              21.8,
+              19.8,
+              20.1
             ],
             "768": [
-              29.2
+              29.3,
+              28.9,
+              28.9
             ],
             "896": [
-              37.4
+              40.2,
+              37.2,
+              36.9
             ],
             "1024": [
-              50.6
+              59.7,
+              49.6,
+              49.6
             ],
             "1280": [
-              140.9
+              141.6,
+              139.7,
+              139.0
             ],
             "1536": [
-              228.2
+              229.6,
+              229.4,
+              232.6
             ]
           },
           "aiclk": {
             "256": {
-              "card": "26",
+              "card": "20",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8502,10 +8516,10 @@
                 1000,
                 1000
               ],
-              "n": 37
+              "n": 39
             },
             "512": {
-              "card": "26",
+              "card": "20",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -8515,118 +8529,142 @@
                 1000,
                 1000
               ],
-              "n": 44
+              "n": 45
             },
             "640": {
-              "card": "26",
+              "card": "20",
               "min": 500,
               "max": 1000,
               "rep_median": [
+                1000,
+                1000,
                 1000
               ],
-              "n": 11
+              "n": 30
             },
             "768": {
-              "card": "26",
+              "card": "20",
               "min": 500,
               "max": 1000,
               "rep_median": [
+                1000,
+                1000,
                 1000
               ],
-              "n": 12
+              "n": 33
             },
             "896": {
-              "card": "26",
+              "card": "20",
               "min": 500,
               "max": 1000,
               "rep_median": [
+                1000,
+                1000,
                 1000
               ],
-              "n": 12
+              "n": 40
             },
             "1024": {
-              "card": "26",
+              "card": "20",
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000
-              ],
-              "n": 15
-            },
-            "1280": {
-              "card": "26",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 32
-            },
-            "1536": {
-              "card": "26",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
+                1000,
+                1000,
                 1000
               ],
               "n": 49
+            },
+            "1280": {
+              "card": "20",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 102
+            },
+            "1536": {
+              "card": "20",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000,
+                1000,
+                1000
+              ],
+              "n": 155
             }
           },
           "load": {
             "256": {
-              "max": 0.63,
+              "max": 1.05,
               "rep_median": [
-                0.62,
-                0.62,
-                0.61,
-                0.57,
-                0.56
+                0.66,
+                0.59,
+                0.73,
+                0.67,
+                0.92
               ]
             },
             "512": {
-              "max": 0.57,
+              "max": 0.72,
               "rep_median": [
-                0.53,
-                0.55,
-                0.54,
-                0.56,
-                0.55
+                0.65,
+                0.57,
+                0.44,
+                0.36,
+                0.25
               ]
             },
             "640": {
-              "max": 0.58,
+              "max": 0.45,
               "rep_median": [
-                0.57
+                0.12,
+                0.44,
+                0.41
               ]
             },
             "768": {
               "max": 0.62,
               "rep_median": [
-                0.6
+                0.57,
+                0.44,
+                0.48
               ]
             },
             "896": {
-              "max": 0.58,
+              "max": 3.03,
               "rep_median": [
-                0.57
+                2.63,
+                0.44,
+                0.41
               ]
             },
             "1024": {
-              "max": 0.58,
+              "max": 0.73,
               "rep_median": [
-                0.57
+                0.45,
+                0.41,
+                0.4
               ]
             },
             "1280": {
-              "max": 0.63,
+              "max": 0.45,
               "rep_median": [
-                0.57
+                0.1,
+                0.39,
+                0.41
               ]
             },
             "1536": {
-              "max": 0.6,
+              "max": 0.52,
               "rep_median": [
-                0.58
+                0.32,
+                0.48,
+                0.49
               ]
             }
           },
@@ -8635,15 +8673,16 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0234,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 109.3665,
-              "radius_of_gyration_A": 83.595,
-              "plddt_mean": 0.292743,
+              "ca_ca_median_A": 107.3218,
+              "radius_of_gyration_A": 83.584,
+              "plddt_mean": 0.293183,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 109.367 A outside [3.6, 4.0]",
+                "median CA-CA 107.322 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
+                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 83.6 A outside [9.0, 45.2]"
               ]
             },
@@ -8651,66 +8690,64 @@
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 111.2864,
-              "radius_of_gyration_A": 86.943,
-              "plddt_mean": 0.282089,
+              "ca_ca_median_A": 110.122,
+              "radius_of_gyration_A": 86.76,
+              "plddt_mean": 0.281798,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 111.286 A outside [3.6, 4.0]",
+                "median CA-CA 110.122 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 86.9 A outside [11.8, 58.9]"
+                "radius of gyration 86.8 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0281,
+              "clash_frac": 0.0125,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 104.9423,
-              "radius_of_gyration_A": 86.114,
-              "plddt_mean": 0.280237,
+              "ca_ca_median_A": 105.7931,
+              "radius_of_gyration_A": 86.302,
+              "plddt_mean": 0.280235,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 104.942 A outside [3.6, 4.0]",
+                "median CA-CA 105.793 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.8% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 86.1 A outside [12.8, 64.1]"
+                "radius of gyration 86.3 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0208,
+              "clash_frac": 0.0195,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 105.2425,
-              "radius_of_gyration_A": 82.808,
-              "plddt_mean": 0.274106,
+              "ca_ca_median_A": 106.5045,
+              "radius_of_gyration_A": 83.132,
+              "plddt_mean": 0.274178,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.243 A outside [3.6, 4.0]",
+                "median CA-CA 106.504 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 82.8 A outside [13.7, 68.7]"
+                "radius of gyration 83.1 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0223,
+              "clash_frac": 0.0201,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 108.8717,
-              "radius_of_gyration_A": 87.402,
-              "plddt_mean": 0.270871,
+              "ca_ca_median_A": 108.4997,
+              "radius_of_gyration_A": 87.395,
+              "plddt_mean": 0.270652,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 108.872 A outside [3.6, 4.0]",
+                "median CA-CA 108.500 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.2% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 87.4 A outside [14.6, 72.8]"
               ]
             },
@@ -8718,77 +8755,77 @@
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0459,
+              "clash_frac": 0.0391,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 104.2152,
-              "radius_of_gyration_A": 85.06,
-              "plddt_mean": 0.281439,
+              "ca_ca_median_A": 103.7654,
+              "radius_of_gyration_A": 84.962,
+              "plddt_mean": 0.281301,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 104.215 A outside [3.6, 4.0]",
+                "median CA-CA 103.765 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "4.6% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 85.1 A outside [15.3, 76.6]"
+                "3.9% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 85.0 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0375,
+              "clash_frac": 0.043,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 103.7569,
-              "radius_of_gyration_A": 85.873,
-              "plddt_mean": 0.282134,
+              "ca_ca_median_A": 104.0859,
+              "radius_of_gyration_A": 86.099,
+              "plddt_mean": 0.281952,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 103.757 A outside [3.6, 4.0]",
+                "median CA-CA 104.086 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.8% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 85.9 A outside [16.7, 83.4]"
+                "4.3% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 86.1 A outside [16.7, 83.4]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0482,
-              "chain_break_frac": 0.9987,
-              "ca_ca_median_A": 105.6632,
-              "radius_of_gyration_A": 84.945,
-              "plddt_mean": 0.294045,
+              "clash_frac": 0.0553,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 105.7321,
+              "radius_of_gyration_A": 85.272,
+              "plddt_mean": 0.293003,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 105.663 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "4.8% of CA atoms sit under 3.5 A from a non-bonded CA"
+                "median CA-CA 105.732 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "5.5% of CA atoms sit under 3.5 A from a non-bonded CA"
               ]
             }
           },
-          "reps": 1,
-          "sigma_runtime_512": 0.0401,
+          "reps": 3,
+          "sigma_runtime_512": 0.1922,
           "exponents": {
             "256->512": {
-              "k": 1.049,
-              "tol": 0.5
+              "k": 1.092,
+              "tol": 0.973
             },
             "512->768": {
-              "k": 1.659,
-              "tol": 0.5
+              "k": 1.428,
+              "tol": 1.161
             }
           },
           "sigma_runtime": {
-            "256": 0.0475,
-            "512": 0.0401
+            "256": 0.3386,
+            "512": 0.1922
           },
           "exponents_measured": {
-            "256->512": 1.049,
-            "512->640": 1.452,
-            "640->768": 1.914,
-            "768->896": 1.606,
-            "896->1024": 2.264,
-            "1024->1280": 4.589,
-            "1280->1536": 2.645
+            "256->512": 1.092,
+            "512->640": 0.967,
+            "640->768": 1.992,
+            "768->896": 1.638,
+            "896->1024": 2.154,
+            "1024->1280": 4.641,
+            "1280->1536": 2.725
           }
         }
       }

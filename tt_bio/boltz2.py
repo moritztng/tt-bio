@@ -117,7 +117,15 @@ LEVERS_FAST = frozenset({"acc_off", "diffusion_bf16", "dit_sdpa", "transition_b8
 # 2026-10-19), so it needs no grade. Blackhole leaves it off until a p150a pair reads it.
 # trimul_bres in normal (no acc_off there) is the same: byte-identical CIFs, Galaxy chip 512 x 1 (1000 MHz) 28.45 ->
 # 28.24 s, -0.21 s median, 7/8 warm pairs (spd-gap-small xf9, 2026-10-21).
-WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres"}
+# Wormhole normal also takes eleven levers the fast set graded: triatt_tail, triatt_k1, triatt_ln, apb_ln, dit_cond_jit,
+# dit_cond_jcat, dit_cond_steps, adaln_mod, transition_ws, ws_resid, trimul_sig6. Galaxy chip 512 x 1 (1000 MHz), 4
+# in-process pairs: -5.23 s median (l0, spd-m-boltz2-3, 2026-11-06); transition_ws alone is -2.59 s. 44-fold normal grade
+# as a stack (gswh): vs TT_BIO_LEVERS=none top pose median 1.145 A (floor 2.386 A), CA-lDDT +0.0019 [+0.0007, +0.0033],
+# DockQ +0.0108 [+0.0035, +0.0189], docking 24 -> 24; vs the previous Wormhole normal set 1.290 A (floor 2.283 A),
+# CA-lDDT +0.0018 [+0.0008, +0.0028], docking 24 -> 24.
+WH_LEVERS_NORMAL = LEVERS_NORMAL | {"atom_l1", "trimul_bres", "triatt_tail", "triatt_k1", "triatt_ln", "apb_ln",
+                                    "dit_cond_jit", "dit_cond_jcat", "dit_cond_steps", "adaln_mod", "transition_ws",
+                                    "ws_resid", "trimul_sig6"}
 # triatt_ln_b8 + triatt_ln_b8g (triatt_ln writes q, k, v and the gate bfp8): 512-token set fast grade, 44 paired folds
 # (spd-gap-small gtlb2, 2026-10-19), PASS: top pose median 1.566 A (floor 2.245 A), CA-lDDT +0.0003 [-0.0006, +0.0013],
 # docking 24 -> 24; Galaxy chip 512 x 1 (1000 MHz) -0.98 s median, 5/5 warm pairs (tlb2).
@@ -144,6 +152,13 @@ WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_s
 # same 44-fold fast grade (giebh, 2026-10-21): top pose median 1.106 A (floor 2.438 A), CA-lDDT +0.0001 [-0.0006, +0.0007],
 # docking 24 -> 24.
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev"}
+# Blackhole normal adds the fast set's fusions that change no arithmetic or only regroup an fp32 modulate: triatt_tail,
+# adaln_mod, transition_ws, ws_resid. p150a 512 x 1, in-process pairs at AICLK ~1349 MHz: -0.60 s median (l0bh,
+# spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a against TT_BIO_LEVERS=none (gsbh): PASS, top pose median
+# 1.374 A (A/A seed floor 2.318 A), CA-lDDT +0.0002 [-0.0011, +0.0013], DockQ -0.0050 [-0.0147, +0.0036], pLDDT +0.0008,
+# docking 24 -> 24 with no flips. LRMSD moves only on folds neither arm docks (LRMSD 30-120 A); on the 24 docked folds
+# its median moves -0.02 A.
+BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid"}
 
 
 def _under_levers(method):
@@ -5509,7 +5524,7 @@ class Boltz2(nn.Module):
     ) -> None:
         super().__init__()
         self._levers = (tenstorrent.model_levers(
-            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (LEVERS_NORMAL, BH_LEVERS_FAST)))
+            *((WH_LEVERS_NORMAL, WH_LEVERS_FAST) if tenstorrent.is_wormhole() else (BH_LEVERS_NORMAL, BH_LEVERS_FAST)))
                         if use_tenstorrent else frozenset())
         # Reserve the DiT trace region BEFORE any module opens the device: the first
         # get_device() opens, so this must precede module construction.

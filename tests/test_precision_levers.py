@@ -193,7 +193,10 @@ def test_boltz2_mode_sets_name_only_known_levers():
     assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1", "atom_l1",
                                                                                           "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev", "opm_b8cfg",
                                                                                           "dit_cond_steps"}
-    assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"atom_l1", "trimul_bres"}
+    assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) and B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {
+        "atom_l1", "trimul_bres", "triatt_tail", "triatt_k1", "triatt_ln", "apb_ln", "dit_cond_jit", "dit_cond_jcat",
+        "dit_cond_steps", "adaln_mod", "transition_ws", "ws_resid", "trimul_sig6"}
+    assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid"}
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist", "ie_dev"}
 
 
@@ -214,7 +217,7 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL - B.HOST_LEVERS == {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps",
                                                     "trimul_t1", "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf",
                                                     "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest",
-                                                    "ws_resid", "trimul_t2cm", "trimul_bres", "opm_jd"}
+                                                    "ws_resid", "trimul_t2cm", "trimul_bres", "opm_jd", "dit_kl1"}
     assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) | T.UNGRADED_LEVERS
     # The trunk group left both Blackhole sets on 2026-11-02: graded against TT_BIO_LEVERS=none the shipped stack cost
     # design_iptm 0.041 normal / 0.040 fast, and the trunk group is the group both the seed-cluster bootstrap and the
@@ -225,18 +228,19 @@ def test_boltzgen_mode_sets_name_only_known_levers():
     assert B.WH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws",
                                                 "triatt_ln", "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short",
                                                 "dit_bpad", "dit_shard", "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid",
-                                                "trimul_t2cm", "opm_jd", "dit_kc"}
+                                                "trimul_t2cm", "opm_jd", "dit_kc", "adaln_at", "dit_kl1"}
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST - B.HOST_LEVERS == {"atom_l1", "dit_qkvf", "dit_chunk", "dit_pad_short",
                                                 "dit_bpad", "dit_shard", "dit_fc123g", "dit_shoist"}
     assert B.BH_LEVERS_FAST <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 
 def test_protenix_family_normal_set():
-    from tt_bio.opendde import BH_NORMAL_LEVERS, NORMAL_LEVERS as DDE
-    from tt_bio.protenix import BRES_NORMAL, NORMAL_LEVERS, T2_TAIL, TRIATT_LN, WS_CHAIN
+    from tt_bio.opendde import BH_DIT, BH_NORMAL_LEVERS, BH_TRUNK, NORMAL_LEVERS as DDE
+    from tt_bio.protenix import BRES_NORMAL, NORMAL_LEVERS, T1_PSIG, T2_TAIL, TRIATT_LN, WS_CHAIN
 
     assert DDE == NORMAL_LEVERS | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2", "transition_b8", "ws_b8_plain", "pz_device", "dit_mod16", "triatt_q10", "triatt_k1"} and DDE <= set(T.LEVERS)
-    assert BH_NORMAL_LEVERS == NORMAL_LEVERS
+    assert BH_NORMAL_LEVERS == (DDE - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG | BH_DIT | BH_TRUNK
+    assert BH_NORMAL_LEVERS <= set(T.LEVERS) | T.UNGRADED_LEVERS
     assert NORMAL_LEVERS - T.NORMAL_LEVERS == {"transition_ws", "ws_l1acc", "trimul_t1_c256", "trimul_t1_c384"}
 
 
@@ -288,12 +292,14 @@ def test_protenix_wormhole_fast_set_drops_t1_c256():
 
 
 def test_opendde_fast_set_names_only_known_levers():
-    from tt_bio.opendde import FAST_LEVERS, WH_FAST_LEVERS
-    from tt_bio.protenix import WS_CHAIN
+    from tt_bio.opendde import BH_DIT, BH_FAST_LEVERS, BH_TRUNK, FAST_LEVERS, WH_FAST_LEVERS
+    from tt_bio.protenix import T1_PSIG, WS_CHAIN, WS_FAST
 
     assert FAST_LEVERS <= set(T.LEVERS) and {"trimul_b8in", "trimul_t2w"} | WS_CHAIN <= FAST_LEVERS and "dit_b8" not in FAST_LEVERS
     assert WH_FAST_LEVERS - FAST_LEVERS == {"trimul_t1_c384", "triatt_ln", "apb_ln", "triatt_k1", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "pz_device", "dit_mod16", "triatt_q10", "trunk_hifi2", "bres_ta_hifi3",
                                                 "triatt_ln_b8", "triatt_ln_b8g"}
+    assert BH_FAST_LEVERS == WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | T1_PSIG | BH_DIT | BH_TRUNK
+    assert BH_FAST_LEVERS <= set(T.LEVERS) | T.UNGRADED_LEVERS
 
 
 def test_triatt_k1_offers_the_one_k_rung_when_a_narrower_fused_q_fits(monkeypatch):

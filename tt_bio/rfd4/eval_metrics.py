@@ -40,9 +40,34 @@ def threshold_key(threshold: float) -> str:
     return f"{threshold:.1f}".replace(".", "p") + "A"
 
 
-def _chain_identifier(atoms):
+def chain_identifier(atoms):
+    """The label a chain is known by: atomworks' chain instance id when the structure carries one,
+    the plain chain id otherwise. Upstream picks between the two the same way
+    (`rfproteina/utils/chain.py:25,51-54`), and every chain comparison in this port goes through
+    here so the two namespaces are never mixed."""
     categories = atoms.get_annotation_categories()
     return atoms.chain_iid if "chain_iid" in categories else atoms.chain_id
+
+
+def chain_of_interest_mask(atoms, coi):
+    """Which atoms belong to the chain of interest, by its label (`rfproteina/utils/chain.py:25-26`).
+
+    `coi` reaches this from a cached oracle confidence JSON, written by whichever producer scored
+    the design: tt-bio's oracles index their own chain list and write the plain `B`, an annotated
+    structure carries the instance id `B_1`. The two name the same chain, because every structure
+    on the evaluate path comes out of assembly 1 under the identity transform, but a label matched
+    against the wrong namespace leaves the mask empty and silently drops every metric defined on
+    the designed chain. So try the identifier upstream would use, then the other spelling.
+    """
+    empty = np.zeros(atoms.array_length(), dtype=bool)
+    if coi is None:
+        return empty
+    chain_id = atoms.chain_id.astype(str)
+    for labels in (chain_identifier(atoms).astype(str), chain_id, np.char.add(chain_id, "_1")):
+        mask = labels == coi
+        if mask.any():
+            return mask
+    return empty
 
 
 def _bond_threshold(elem_a, elem_b):
@@ -60,7 +85,7 @@ def _bond_threshold(elem_a, elem_b):
 def _bond_spatial_masks(atoms, a1, a2, is_polymer):
     """Upstream `design_metrics.py:14-47`. Mutually exclusive except that
     `between_chain.nonpolymer_to_polymer` is an XOR sub-category of between-chain."""
-    chain = _chain_identifier(atoms)
+    chain = chain_identifier(atoms)
     same_chain = chain[a1] == chain[a2]
     same_res = same_chain & (atoms.res_id[a1] == atoms.res_id[a2])
     cross_chain = ~same_chain
@@ -107,7 +132,7 @@ def compute_bond_length_stats(atoms, is_polymer, verbose: bool = True) -> dict:
 
 def _clash_category_masks(atoms, i_idx, j_idx, is_polymer):
     """Upstream `design_metrics.py:184-218`: same-vs-different residue x the two molecule types."""
-    chain = _chain_identifier(atoms)
+    chain = chain_identifier(atoms)
     poly_i, poly_j = is_polymer[i_idx], is_polymer[j_idx]
     both_polymer = poly_i & poly_j
     both_ligand = ~poly_i & ~poly_j
@@ -213,7 +238,7 @@ def token_starts(atoms, atomize):
 
 def chain_of_interest(design):
     """rfproteina `utils/chain.py:29-103`. Returns (chain, unambiguous)."""
-    chains = design.atoms.chain_id
+    chains = chain_identifier(design.atoms)
     unique = np.unique(chains)
     if len(unique) < 2:
         return unique[0], True
@@ -366,7 +391,7 @@ def compute_sse_distribution(design) -> dict:
     token_sse = sse[residue_index[tokens]]
     token_valid = valid[residue_index[tokens]]
     coi, _ = chain_of_interest(design)
-    coi_mask = token_valid & (atoms.chain_id[tokens] == coi)
+    coi_mask = token_valid & chain_of_interest_mask(atoms, coi)[tokens]
     return {**_sse_fractions(token_sse[token_valid], ""), **_sse_fractions(token_sse[coi_mask], "_coi")}
 
 

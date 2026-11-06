@@ -8,7 +8,7 @@ Release-gate legs keep absolute priority and book through `take`, so the booker 
     book.py take OWNER CARDS SECONDS [--note TEXT]          book from now ahead of everything (a release leg)
     book.py rm OWNER                                        drop OWNER's booking
     book.py next CARD [--except OWNER]                      earliest start of a booking on CARD not yet over
-    book.py active CARD [--except OWNER]                    owner of the booking on CARD now (rc 1 if none)
+    book.py active CARD [--except OWNER]                    who holds CARD now (rc 1 if nobody)
     book.py list
 
 `add` replaces OWNER's booking. Without --now it starts at the earliest time all CARDS are clear: after every feed job
@@ -35,6 +35,11 @@ windows started under a foreign holder, gave them up and rebooked by hand up to 
 
 Why: on 10-24 the rfd4-bh-scaling chain read qb2 cards 0-1 as free in such a gap and took them, and two ladder legs of
 gate a06d92c6d FAILed on DeviceInUseError.
+
+`active` prints the owners of the bookings started on CARD; with none, the feed jobs running on it as feed:<job>; with
+neither, held:unbooked if its flock is held or its node open, unless the caller's own booking (--except) covers CARD.
+Why: on 11-05 it printed nothing for qb1 cards 1-3 and qb2 cards 1-2 while feed jobs ran on them, so a caller probing
+for a free card read busy cards as free.
 """
 import fcntl
 import glob
@@ -75,17 +80,22 @@ def write(rows):
     os.replace(t, F)
 
 
-def feed_end(cards):
-    """Worst-case end of the feed jobs running on `cards`."""
-    m = 0
+def feed_running(cards):
+    """{job: worst-case end} of the feed jobs running on `cards`."""
+    out = {}
     for sh in glob.glob(J + "/*.sh"):
         try:
             if (int(open(sh + ".card").read()) in cards and os.path.exists(sh + ".start")
                     and not os.path.exists(sh + ".end")):
-                m = max(m, int(open(sh + ".until").read()))
+                out[os.path.basename(sh)[:-3]] = int(open(sh + ".until").read())
         except (OSError, ValueError):
             pass
-    return m
+    return out
+
+
+def feed_end(cards):
+    """Worst-case end of the feed jobs running on `cards`."""
+    return max(feed_running(cards).values(), default=0)
 
 
 def busy_now():
@@ -162,6 +172,17 @@ def lapse(rows, now, busy=busy_now):
     return keep
 
 
+def holders(rows, card, now, x=None, busy=busy_now):
+    """Who holds `card` now, for `active` (see the module doc)."""
+    on = [r[2] for r in rows if card in r[3] and r[0] <= now]
+    if [o for o in on if o != x]:
+        return [o for o in on if o != x]
+    jobs = ["feed:" + j for j in sorted(feed_running({card}))]
+    if jobs or x in on:
+        return jobs
+    return ["held:unbooked"] if card in flocked({card}) or card in busy() else []
+
+
 def earliest(rows, cards, dur, start):
     """First start >= `start` at which [start, start + dur) overlaps no booking on `cards`."""
     while True:
@@ -216,11 +237,10 @@ def main(a):
             write([r for r in rows if r[2] != a[1]])
         elif a[0] in ("next", "active"):
             c, x = int(a[1]), opt("--except")
-            mine = [r for r in rows if c in r[3] and r[2] != x]
             if a[0] == "next":
-                print(min([r[0] for r in mine], default=NEVER))
+                print(min([r[0] for r in rows if c in r[3] and r[2] != x], default=NEVER))
             else:
-                on = [r[2] for r in mine if r[0] <= now]
+                on = holders(rows, c, now, x)
                 print(" ".join(on))
                 return 0 if on else 1
         elif a[0] == "list":

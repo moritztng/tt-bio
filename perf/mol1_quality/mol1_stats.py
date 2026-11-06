@@ -25,12 +25,14 @@ MIN_SEEDS = 4
 
 
 def per_target(rows, arm, metric, min_seeds=MIN_SEEDS):
-    """{case: mean over seeds} for one arm; cases with fewer than min_seeds finite values are left out."""
+    """{case: mean over seeds} for one arm; cases with fewer than min_seeds finite values are left out
+    (min_seeds may be a dict {case: n})."""
     acc = defaultdict(list)
     for r in rows:
         if r["arm"] == arm and r.get(metric) is not None:
             acc[r["case"]].append(r[metric])
-    return {c: float(np.mean(v)) for c, v in acc.items() if len(v) >= min_seeds and np.all(np.isfinite(v))}
+    need = min_seeds.get if isinstance(min_seeds, dict) else lambda c: min_seeds
+    return {c: float(np.mean(v)) for c, v in acc.items() if len(v) >= (need(c) or 1) and np.all(np.isfinite(v))}
 
 
 def success(rows, arm, case_set=None):
@@ -81,33 +83,48 @@ def boot_spearman(conf, struct, rng):
             "n": len(keys)}
 
 
-def equivalent(test, floor):
-    """test interval inside the floor interval widened by the floor's own half-width."""
+def margin(floor):
     lo, hi = floor["ci95"]
     w = (hi - lo) / 2
-    return lo - w <= test["ci95"][0] and test["ci95"][1] <= hi + w
+    return lo - w, hi + w
 
 
-def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=(), seeds=None, floor_base=None):
+def equivalent(test, floor, split=None):
+    """test interval inside the floor interval widened by the floor's own half-width. With split (the bf16 reference
+    minus the fp32 one), the accepted range also reaches the split's own widened interval: TT may sit as far from
+    upstream fp32 as upstream's bf16 does (D-orch-100)."""
+    lo, hi = margin(floor)
+    if split:
+        lo, hi = min(lo, margin(split)[0]), max(hi, margin(split)[1])
+    return lo <= test["ci95"][0] and test["ci95"][1] <= hi
+
+
+def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=(), seeds=None, floor_base=None,
+            split=None):
     """floor_base: the arm the seed floor is measured against (default base). Grading TT against upstream fp32 keeps
     the bf16 floor (gpu_self - gpu), since no fp32 self arm exists (D-orch-56).
+    split: an arm whose difference to base also bounds the test (equivalent()); "gpu" when base is "gpu_fp32".
     conf_split: case ids ("<id>[:recipe]") whose CONFIDENCE metrics are left out (upstream's own fp32 and bf16
     disagree there, so the GPU is no reference); their structure metrics still count.
     seeds: grade a test arm that ran only these seeds against the base on the same seeds and a floor of the self arm
-    on as many of its own seeds per case (lowest first), so all three means average the same number of folds."""
+    on as many of its own seeds per case (lowest first), so all three means average the same number of folds.
+    A dict {case: seeds} does the same per case (a reference arm with uneven seed coverage, D-orch-131: graded on
+    the seeds each case has); a case absent from the dict is left out."""
     floor_base = floor_base or base
     if cases is not None:
         rows = [r for r in rows if r["case"] in cases]
     min_seeds = MIN_SEEDS
     if seeds:
+        of = seeds.get if isinstance(seeds, dict) else lambda c: seeds
         own = defaultdict(set)
         for r in rows:
             if r["arm"] == self_arm:
                 own[r["case"]].add(r["seed"])
-        own = {c: set(sorted(v)[:len(seeds)]) for c, v in own.items()}
+        own = {c: set(sorted(v)[:len(of(c) or ())]) for c, v in own.items()}
         rows = [r for r in rows if (r["seed"] in own.get(r["case"], ()) if r["arm"] == self_arm else
-                                    r["seed"] in seeds if r["arm"] in (base, test, floor_base) else False)]
-        min_seeds = len(seeds)
+                                    r["seed"] in (of(r["case"]) or ()) if r["arm"] in (base, test, floor_base, split)
+                                    else False)]
+        min_seeds = {c: len(v) for c, v in seeds.items()} if isinstance(seeds, dict) else len(seeds)
     rng = np.random.default_rng(SEED)
     out, ok, insufficient = {}, True, False
 
@@ -120,13 +137,14 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=
         if not b:
             continue
         d, f = paired(t, b, rng), paired(s, fb, rng)
+        sp = paired(targets(split, m), b, rng) if split else None
         if d is None or f is None:
             insufficient = True
             out[m] = {"test_minus_base": d, "seed_floor": f, "pass": None}
             continue
         missing = sorted(set(b) - set(t))
-        p = equivalent(d, f) and not missing
-        out[m] = {"test_minus_base": d, "seed_floor": f, "missing": missing, "pass": p}
+        p = equivalent(d, f, sp) and not missing
+        out[m] = {"test_minus_base": d, "seed_floor": f, "split": sp, "missing": missing, "pass": p}
         ok &= p
     sb, st, ss, sf = (success(rows, a) for a in (base, test, self_arm, floor_base))
     if sb:
@@ -150,21 +168,25 @@ def verdict(rows, test, base="gpu", self_arm="gpu_self", cases=None, conf_split=
     return {"verdict": v, "metrics": out}
 
 
-def margin(floor):
-    lo, hi = floor["ci95"]
-    w = (hi - lo) / 2
-    return lo - w, hi + w
+
+
+FP32_REF = ("plddt",)  # D-orch-100: bf16 storage of the trunk single track costs upstream's own pLDDT
 
 
 def with_fp32(chartered, fp32):
     """D-orch-56 (pre-registered before the fp32 arm landed): the chartered verdict stands, except that a metric
     failing it on interval width alone (mean inside the margin, nothing missing) passes when the same test against
     upstream fp32 passes. A mean outside the margin fails whatever fp32 says. Success rate and calibration are the
-    chartered ones."""
+    chartered ones. D-orch-100: a FP32_REF metric is graded against upstream fp32 alone, pass or fail, with the
+    fp32-vs-bf16 split as floor (fp32 must be verdict(..., base="gpu_fp32", split="gpu"))."""
     out = {}
     for m, x in chartered["metrics"].items():
         p, rec = x["pass"], {"chartered": x["pass"]}
-        if m in METRICS and p is False and not x.get("missing"):
+        y = fp32["metrics"].get(m) if fp32 else None
+        if m in FP32_REF and y:
+            rec.update(reference="gpu_fp32", fp32=y["pass"], test_minus_fp32=y["test_minus_base"], split=y.get("split"))
+            p = y["pass"]
+        elif m in METRICS and p is False and not x.get("missing"):
             lo, hi = margin(x["seed_floor"])
             y = fp32["metrics"].get(m, {}) if fp32 else {}
             rec.update(width_only=lo <= x["test_minus_base"]["mean"] <= hi, fp32=y.get("pass"),

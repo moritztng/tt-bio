@@ -270,7 +270,7 @@ def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njob
     metrics_dir = out_dir / "evaluation_metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
-    rows, uncached = [], []
+    rows, uncached, no_crd = [], [], []
     for path in files:
         eid = example_id(path, inputs)
         row = {
@@ -306,6 +306,8 @@ def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njob
             row.update(columns)
             row["chain_of_interest"] = coi
             refold_columns = R.refolding_metrics(design, refolds, tagset, coi)
+            if not design.is_crd.any():
+                no_crd.append(eid)
             row.update(refold_columns)
             row.update(R.pass_criteria({**metrics, **columns, **refold_columns}, tagset))
         elif oracle_active:
@@ -313,6 +315,22 @@ def evaluate(inputs, metrics_tags, out_dir, task_csv=None, job_id=None, gen_njob
             # at merge time (rfproteina `evaluate.py:251-256`).
             row.update({k: 0.0 for k in R.pass_criteria({}, None if tags is None else set(tags))})
         rows.append(row)
+
+    crd_metrics = R.crd_aligned_metrics(None if tags is None else set(tags))
+    if no_crd and crd_metrics:
+        # A design pinned by an internal coordinate group (`C_CRDGRP`, upstream's recommended PPI
+        # recipe) carries no absolute coordinates, so a metric that aligns on `C_CRD` has nothing
+        # to align on and is absent. Upstream drops it silently and the criterion then reads
+        # `pass=0, all_metrics_present=0`, which is easy to mistake for a design that was scored
+        # and failed. Say it once instead.
+        log.warning(
+            "%d of %d designs have no absolute coordinate conditioning (C_CRD), so %s %s not "
+            "computed and every criterion reading them scores all_metrics_present=0 "
+            "(indeterminate, not failed). Their target is pinned as an internal coordinate group; "
+            "condition it with C_CRD instead to make these scoreable. First: %s.",
+            len(no_crd), len(rows), ", ".join(crd_metrics),
+            "is" if len(crd_metrics) == 1 else "are", no_crd[0],
+        )
 
     if uncached:
         raise NotImplementedError(

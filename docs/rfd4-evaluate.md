@@ -69,6 +69,18 @@ Before each RMSD the design's identical chains, and its chemically equivalent at
 oxygens of an aspartate, the ring edges of a phenylalanine), are matched to the refold the way
 upstream matches them. A refold is therefore not penalised for a labelling it cannot know.
 
+### A binder pinned by a coordinate group cannot be scored on its pose
+
+The two binder-pose RMSDs under `ppi_refolding` (`refolded_target_aligned_binder_rmsd` and
+`refolded_target_backbone_aligned_binder_rmsd`) align on the target's *absolute* conditioned
+coordinates, `C_CRD`. A spec that pins the target with `C_CRDGRP` instead gives the model the
+target's internal geometry and lets it place the complex freely, so the design carries no absolute
+coordinates and neither RMSD exists. The `ppi` criterion then reads `pass = 0` with
+`all_metrics_present = 0`: indeterminate, not failed. Upstream behaves the same way, and its own PPI
+benchmark inputs condition the target with `C_CRD` for exactly this reason. `tt-bio evaluate` says
+so in a warning naming the designs, and if you want those columns, condition the target with
+`C_CRD: {true: [...]}` and generate again.
+
 Tags that switch on anything else (apo/holo, interchain interactions, chiral accuracy,
 unindexed metrics, CATH, Rosetta developability, antibody contacts) are refused with the list of
 what is missing, rather than producing a shorter CSV that looks complete.

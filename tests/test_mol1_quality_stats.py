@@ -40,3 +40,15 @@ def test_too_few_targets_is_insufficient():
 def test_self_test_passes_a_reseed():
     rows = [dict(r, arm="gpu_self") if r["arm"] == "tt" else r for r in synth(0.0) if r["arm"] != "gpu_self"]
     assert stats.self_test(rows)["verdict"] == "PASS"
+
+
+def test_per_case_seeds_grade_uneven_coverage():
+    """A reference arm with two seeds on some cases and five on others is graded on each case's own seeds: a tuple of
+    all five would keep only the fully covered cases (the D-orch-131 fp32 top-up, 11-04)."""
+    rows = synth(0.0)
+    keep = {f"c{c}": tuple(range(5 if c % 2 else 2)) for c in range(40)}
+    rows = [r for r in rows if r["seed"] in keep[r["case"]]]
+    assert stats.verdict(rows, test="tt", seeds=tuple(range(5)))["metrics"]["dockq"]["test_minus_base"]["n"] == 20
+    r = stats.verdict(rows, test="tt", seeds=keep)
+    assert r["metrics"]["dockq"]["test_minus_base"]["n"] == 40
+    assert r["verdict"] == "PASS"

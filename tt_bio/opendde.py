@@ -17,8 +17,8 @@ device.
 import torch
 import ttnn
 
-from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T2_TAIL, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST, WS_CHAIN,
-                       _KeyedWeights)
+from .protenix import (NORMAL_LEVERS as _FAMILY_NORMAL, BRES_NORMAL, T1_PSIG, T2_TAIL, TRIATT_K1, TRIATT_LN, TRIATT_LN_B8_FAST,
+                       WS_CHAIN, WS_FAST, _KeyedWeights)
 from . import hostlane
 from .envflags import env_flag
 from .opendde_data import STRUCTURAL_TOKEN_ROLES
@@ -444,7 +444,7 @@ def route_opendde_weights(state_dict):
 # Both modes take ws_chain (graded on Wormhole, see protenix.WS_CHAIN). Blackhole 11-set grades, shipped set vs
 # + ws_chain (spd-gap-small gwchbh, 2026-10-15): fast PASS, top pose median 0.369 A vs the 1.277 A A/A floor (39
 # paired folds); normal FAIL, DockQ worse with the CI excluding 0 ([-0.0286, -0.0012], 44 paired folds, docking 25 -> 24),
-# so Blackhole normal runs the family set without it (`BH_NORMAL_LEVERS`).
+# so Blackhole normal runs without it (`BH_NORMAL_LEVERS`).
 # Wormhole normal also takes the T2 tail (protenix.T2_TAIL). WH 11-set normal grade, shipped set vs + T2_TAIL
 # (spd-integrate gpsn, 2026-10-17, 8 seeds, 85 paired folds): PASS, same-seed top pose median 0.000 A (A/A floor
 # 1.201 A), CA-lDDT +0.0001 [-0.0003, +0.0006], DockQ -0.0022 [-0.0110, +0.0046], docking 50 -> 49 of 85. cdk2x2 512 x 1
@@ -506,7 +506,24 @@ TRIATT_Q10 = frozenset({"triatt_q10"})
 NORMAL_LEVERS = (_FAMILY_NORMAL | WS_CHAIN | T2_TAIL | TRIATT_LN | BRES_NORMAL | DIT_SEAM | TRIATT_Q10 | TRIATT_K1
                  | {"ws_resid", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split", "trimul_t1_dram", "trunk_hifi2",
                     "transition_b8", "ws_b8_plain"})
-BH_NORMAL_LEVERS = _FAMILY_NORMAL
+# Blackhole normal takes the Wormhole normal set without ws_chain (still graded FAIL on BH, above), plus the BH trimul
+# routes (trimul_bres_bh, trimul_t1_2g), ws_psilu and T1_PSIG. p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm
+# folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1, 2026-11-04): 52.09 -> 40.26 s (-22.7 %).
+# BH 11-set normal grade vs TT_BIO_LEVERS=none, seed 101 + 3 warm, 44 paired folds (spd-m-opendde-2, 2026-11-05):
+# PASS, same-seed top pose median 0.465 A (bar 0.60 A, A/A floor 1.241 A), CA-lDDT +0.0041 [+0.0017, +0.0068], DockQ
+# +0.025 [-0.003, +0.069], pLDDT -0.0003 [-0.0016, +0.0011], docking 24 -> 26 of 44.
+# Blackhole takes Mol-1's graded BH diffusion levers (BH_DIT, protenix.MOL1_DIT_BH plus the DiT and atom routes) and its
+# trunk routes (BH_TRUNK). p150a, cdk2x2 512, one process per arm, 1 cold + 3 warm, AICLK 1343-1350 MHz (spd-m-opendde-2
+# lad3, 2026-11-05): normal 40.55 -> 39.04 s (BH_DIT) and 39.57 s (BH_TRUNK); fast 36.92 -> 35.67 s and 35.44 s.
+# Both stacked (lad4, same window, 1343-1350 MHz): normal 40.45 -> 38.40 s, fast 36.38 -> 34.64 s. Graded vs
+# TT_BIO_LEVERS=none on the BH 11-set, seed 101 + 3 warm, 44 paired folds: normal PASS, same-seed top pose median 0.341 A
+# (bar 0.60 A, A/A floor 1.241 A), CA-lDDT +0.0051 [+0.0031, +0.0073], pLDDT -0.0006 [-0.0020, +0.0007], docking 24 -> 25
+# of 44; fast PASS, top pose 0.934 A, pLDDT -0.0136 [-0.0207, -0.0067] (tolerance 0.03), docking 24 -> 26 of 44.
+BH_DIT = frozenset({"dit_shoist", "atom_mm16", "adaln_mod", "dit_qbox", "dit_mask_chain", "dit_qkvf", "edm_device",
+                    "atom_l1"})
+BH_TRUNK = frozenset({"trimul_t1_part", "trimul_t1split", "ws_l1dest"})
+BH_NORMAL_LEVERS = ((NORMAL_LEVERS - WS_CHAIN) | {"trimul_bres_bh", "trimul_t1_2g", "ws_psilu"} | T1_PSIG
+                    | BH_DIT | BH_TRUNK)
 FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS_CHAIN
 # Wormhole fast also runs T1 on OpenDDE's c_z 384 pair (trimul_t1_c384). WH 11-set fast grade, FAST_LEVERS vs +
 # trimul_t1_c384 (spd-integrate gpsf, 2026-10-17, 44 paired folds): PASS, CA-lDDT -0.0005 [-0.0016, +0.0002], pLDDT
@@ -515,6 +532,12 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
                                    "trimul_t1_dram", "trunk_hifi2", "bres_ta_hifi3"}
                   | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10 | TRIATT_LN_B8_FAST)
+# Blackhole fast takes the Wormhole fast set plus WS_FAST, ws_lofi, the BH trimul routes and T1_PSIG. p150a, cdk2x2 512,
+# one process per arm, 1 cold + 3 warm folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1,
+# 2026-11-04): 47.20 -> 36.32 s (-23.1 %).
+# Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds: PASS on the fast bar, same-seed top pose median 1.092 A
+# (A/A floor 1.241 A), pLDDT -0.0148 [-0.0212, -0.0091] (tolerance 0.03), CA-lDDT +0.0016, docking 24 -> 24 of 44.
+BH_FAST_LEVERS = WH_FAST_LEVERS | WS_FAST | {"ws_lofi", "trimul_bres_bh", "trimul_t1_2g"} | T1_PSIG | BH_DIT | BH_TRUNK
 # Wormhole fast writes triangle attention's q, k, v and gate bfp8 out of the fused LayerNorm (protenix.TRIATT_LN_B8_FAST),
 # now that the kernel does it on OpenDDE's two column groups. At fast's HiFi2 trunk the bf16 write was the cost: 640 x
 # c384 15.76 -> 11.05 ms per call (1000 MHz, spd-m-opendde lbg). Galaxy chip, separate-process ABBA, 2 warm folds per
@@ -578,11 +601,11 @@ class OpenDDE:
         levers: the precision levers this model builds and folds under, the same switches
         Protenix-v2 runs (`tenstorrent.LEVERS`); None takes the mode's set
         (`tenstorrent.model_levers`): `NORMAL_LEVERS` (Protenix family set + ws_chain + T2 tail; `BH_NORMAL_LEVERS` on
-        Blackhole), or `FAST_LEVERS` (`WH_FAST_LEVERS` on Wormhole) under `--fast`."""
+        Blackhole), or `WH_FAST_LEVERS` / `BH_FAST_LEVERS` under `--fast`."""
         import tt_bio.tenstorrent as _TT
         wh = _TT.is_wormhole()
         self._levers = _TT.model_levers(NORMAL_LEVERS if wh else BH_NORMAL_LEVERS,
-                                        WH_FAST_LEVERS if wh else FAST_LEVERS, spec=levers)
+                                        WH_FAST_LEVERS if wh else BH_FAST_LEVERS, spec=levers)
         with _TT.levers(self._levers):
             self._build(state_dict, compute_kernel_config, device, diffusion_fp32)
 

@@ -62,7 +62,7 @@ def pair_nc(ins):
             return s[1], s[3]
         if s[0] == 1 and s[2] == s[3] and s[2] >= 64:
             return s[2], s[1]
-        if s[0] == s[2] and s[0] >= 64:        # [N, H, N, 32] q/k/v
+        if s[0] >= 64 and 0 <= s[2] - s[0] < 64:  # [N, H, N, 32] q/k/v, keys padded to a tile multiple
             return s[0], s[1] * s[3]
     return None, None
 

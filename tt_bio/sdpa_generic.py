@@ -91,9 +91,10 @@ def _packed_identity_scalar():
 
 
 def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split=None,
-         kv_buffer_factor=2, rows=None):
+         kv_buffer_factor=2, rows=None, boxes=None):
     """Everything the descriptor needs, derived exactly as the factory derives it.
 
+    `boxes` (`box_split`) gives each core its own (batch, head, q chunk) ranges instead of the factored split.
     `split` overrides `(batch_parallel_factor, nh_parallel_factor, q_parallel_factor)`. The
     factory's own choice saturates batch first -- `batch_pf = min(B, num_cores)` -- which at
     B = 512 on 110 cores leaves `nh_pf = 1` and hands every core all 8 heads. K2 needs one head per
@@ -135,6 +136,9 @@ def plan(q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split
     batch_per_core = _div_up(B, batch_pf)
     nh_per_core = _div_up(NQH, nh_pf)
     q_per_core = _div_up(q_num_chunks, q_pf)
+    if boxes is not None:
+        assert len(boxes) <= num_cores, (len(boxes), num_cores)
+        q_per_core = max(b[5] - b[4] for b in boxes)
     q_buffer_factor = 2 if q_per_core > 1 else 1
 
     math_fidelity, math_approx, fp32_dest_acc, dst_full_sync = ckc
@@ -320,6 +324,88 @@ def css_kernel_dir() -> Path:
     return d
 
 
+_PV_CALL_ORIG = "            /* OUT_IM = QK @ V_CHUNK */\n            matmul_blocks("
+_PV_ANCHOR = "template <uint32_t M>\nvoid matmul_reduce("
+_PV_FN = r"""// pv_l1acc: QK @ V_CHUNK one key tile per dest pass, the partial sums added by the packer in L1.
+ALWI void matmul_blocks_pv(
+    const uint32_t& in0_cb, const uint32_t& in1_cb, const uint32_t& out_cb, const uint32_t& M,
+    const uint32_t& N, const uint32_t& K, const uint32_t& num_blocks, const uint32_t& in0_num_subblocks,
+    const uint32_t& in1_num_subblocks, const uint32_t& in0_block_w, const uint32_t& subblock_h,
+    const uint32_t& subblock_w, const bool& transpose) {
+    mm_block_init_short(in0_cb, in1_cb, transpose, subblock_w, subblock_h, in0_block_w);
+    const uint32_t in0_subblock_num_tiles = subblock_h * in0_block_w;
+    uint32_t in0_index_offset = 0;
+    uint32_t in0_wait_tiles = in0_subblock_num_tiles;
+    reconfig_data_format(in1_cb, in0_cb);
+    cb_wait_front(in1_cb, K * N);
+    cb_reserve_back(out_cb, M * N);
+    for (uint32_t in0_subblock = 0; in0_subblock < in0_num_subblocks; ++in0_subblock) {
+        cb_wait_front(in0_cb, in0_wait_tiles);
+        uint32_t in1_index_offset = 0;
+        for (uint32_t in1_subblock = 0; in1_subblock < in1_num_subblocks; ++in1_subblock) {
+            uint32_t in0_index = in0_index_offset;
+            uint32_t in1_index = in1_index_offset;
+            const uint32_t out_col_offset = in1_subblock * subblock_w;
+            for (uint32_t inner_dim = 0; inner_dim < in0_block_w; inner_dim++) {
+                tile_regs_acquire();
+                matmul_block(in0_cb, in1_cb, in0_index, in1_index, 0, transpose, subblock_w, subblock_h, in0_block_w);
+                tile_regs_commit();
+                tile_regs_wait();
+                PACK((llk_pack_reconfig_l1_acc(inner_dim > 0)));
+                uint32_t dst_idx = 0;
+                for (uint32_t r = 0; r < subblock_h; r++) {
+                    for (uint32_t c = 0; c < subblock_w; c++) {
+                        pack_tile<true>(dst_idx, out_cb, r * N + out_col_offset + c);
+                        dst_idx++;
+                    }
+                }
+                tile_regs_release();
+                in0_index++;
+                in1_index += N;
+            }
+            PACK((llk_pack_reconfig_l1_acc(0)));
+            in1_index_offset += subblock_w;
+        }
+        in0_index_offset += subblock_h * in0_block_w;
+        in0_wait_tiles += in0_subblock_num_tiles;
+        cb_push_back(out_cb, subblock_h * N);
+    }
+    cb_pop_front(in1_cb, K * N);
+}
+
+"""
+
+
+def pv_l1acc_kernel_dir() -> Path:
+    """The wheel's SDPA compute kernel with the PV product (`OUT_IM = QK @ V_CHUNK`) stepped one key tile
+    per dest pass and the partial sums added by the packer in L1 (`pv_l1acc`).
+
+    On Wormhole an fp32 dest that accumulates more than one K tile writes an occasional wrong value
+    (`dest_guard.py`). `_sdpa32` used to dodge it with one key tile per k chunk, which also runs the
+    online softmax (row max, exp, rescale) once per 32 keys. Here the k chunk stays big and only the
+    PV accumulation leaves dest, the same fix `dest_guard` applies to the linears. The sums land in the
+    bf16 output CB either way, as they did when each 32-key chunk was its own softmax step."""
+    kd = _kdir()
+    common = (kd / "compute/compute_common.hpp").read_text()
+    for line in (_PV_CALL_ORIG, _PV_ANCHOR):
+        assert common.count(line) == 1, ("pv_l1acc: the wheel's SDPA compute kernel changed", line)
+    common = common.replace(_PV_ANCHOR, _PV_FN + _PV_ANCHOR, 1)
+    common = common.replace(_PV_CALL_ORIG, _PV_CALL_ORIG.replace("matmul_blocks(", "matmul_blocks_pv("), 1)
+    files = {"compute/compute_common.hpp": common}
+    for name in ("compute/sdpa.cpp", "compute/compute_streaming.hpp"):
+        files[name] = (kd / name).read_text()
+    import hashlib
+    d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "sdpa_pv_l1acc"
+         / hashlib.sha1("".join(files[k] for k in sorted(files)).encode()).hexdigest()[:12])
+    if not (d / "compute/compute_common.hpp").exists():
+        for name, src in files.items():
+            (d / name).parent.mkdir(parents=True, exist_ok=True)
+            tmp = d / (name + f".{os.getpid()}")
+            tmp.write_text(src)
+            tmp.replace(d / name)
+    return d
+
+
 def css_width(k_num_chunks):
     return _div_up(k_num_chunks + 1, 16) * 16
 
@@ -366,6 +452,35 @@ def _twin(src, orig, alt):
     return src.replace(orig, f"#ifdef QKV_FUSED_W\n{alt}\n#else\n{orig}\n#endif", 1)
 
 
+# MASK_CHAIN (`build(mask_chain=True)`): a batch-broadcast mask is read from DRAM once per (head, q range) instead
+# of once per sample. The cores that walk the same heads and q chunks for different samples form a unicast chain on
+# the K/V chain's semaphores and coordinates (the K/V chain itself never fires: its batch is out of range): the first
+# reads each mask chunk and writes it into the next core's cb_mask_in at the same L1 address, which waits for it in
+# place of its own read. Same tiles, so the arithmetic is unchanged.
+_MASK_READ_ORIG = ("                            uint32_t tile_idx = 0;\n"
+                   "                            for (uint32_t row = 0; row < Sq_chunk_t; ++row) {")
+_MASK_READ_CHAIN = ("                            uint32_t tile_idx = 0;\n#ifdef MASK_CHAIN\n"
+                    "                            if (is_chain_participant && !is_injector) {\n"
+                    "                                noc_semaphore_set(receiver_semaphore_addr_ptr, INVALID);\n"
+                    "                                noc_semaphore_inc(sender_semaphore_noc_addr, 1);\n"
+                    "                                noc_semaphore_wait(receiver_semaphore_addr_ptr, VALID);\n"
+                    "                            } else\n#endif\n"
+                    "                            for (uint32_t row = 0; row < Sq_chunk_t; ++row) {")
+_MASK_PUSH_ORIG = ("                            noc_async_read_barrier();\n"
+                   "                            cb_push_back(cb_mask_in, mask_chunk_tiles);")
+_MASK_PUSH_CHAIN = ("                            noc_async_read_barrier();\n#ifdef MASK_CHAIN\n"
+                    "                            if (is_chain_participant && !is_sink) {\n"
+                    "                                const uint32_t m0 = get_write_ptr(cb_mask_in);\n"
+                    "                                noc_semaphore_wait(sender_semaphore_addr_ptr, 1);\n"
+                    "                                noc_semaphore_set(sender_semaphore_addr_ptr, 0);\n"
+                    "                                noc_async_write(m0, get_noc_addr(next_physical_x, next_physical_y, m0),\n"
+                    "                                                mask_chunk_tiles * mask_tile_bytes);\n"
+                    "                                noc_async_writes_flushed();\n"
+                    "                                noc_semaphore_set_remote(valid_semaphore_addr, receiver_semaphore_noc_addr);\n"
+                    "                            }\n#endif\n"
+                    "                            cb_push_back(cb_mask_in, mask_chunk_tiles);")
+
+
 def qkv_fused_kernel_dir() -> Path:
     """The wheel's SDPA reader and writer reading q, k and v straight out of one fused projection.
 
@@ -380,6 +495,9 @@ def qkv_fused_kernel_dir() -> Path:
         common = common.replace(orig, alt, 1)
     rows = "(nb * QKV_ROWS_T + {r}) * QKV_FUSED_W"
     reader = (_kdir() / "dataflow/reader_interleaved.cpp").read_text()
+    for orig, alt in ((_MASK_READ_ORIG, _MASK_READ_CHAIN), (_MASK_PUSH_ORIG, _MASK_PUSH_CHAIN)):
+        assert reader.count(orig) == 1, ("mask_chain: the wheel's reader changed", orig)
+        reader = reader.replace(orig, alt, 1)
     reader = _twin(reader, _Q_WINDOW_ORIG, "                    uint32_t q_read_tile_id = "
                    + rows.format(r="read_offset + q_row_start_tile") + " + nq * DHt;")
     reader = _twin(reader, _KV_WINDOW_ORIG[0], "                        const uint32_t k_start_tile_id = "
@@ -400,6 +518,28 @@ def qkv_fused_kernel_dir() -> Path:
             tmp.write_text(s)
             tmp.replace(d / "dataflow" / name)
     return d
+
+
+def box_split(B: int, H: int, Q: int, cores: int):
+    """(q chunks on the busiest core, per-core boxes) spreading B x H x Q (batch, head, q chunk) units over `cores`.
+
+    The factored split (`plan`) hands every core the same box, so at 5 samples and 16 heads it fills 80 cores and
+    leaves the rest of a 110-core grid idle. Here each (batch, head) is cut into runs of `t` q chunks and each batch's
+    remainders are grouped `t // r` heads a core, for the smallest `t` that fits the grid. A box is
+    `(b, b_end, h, h_end, q, q_end)`, the kernels' own runtime ranges, so each row's arithmetic is unchanged."""
+    for t in range(max(1, -(-B * H * Q // cores)), H * Q + 1):
+        if t >= Q:
+            g = t // Q
+            boxes = [(b, b + 1, h, min(h + g, H), 0, Q) for b in range(B) for h in range(0, H, g)]
+        else:
+            full, r = divmod(Q, t)
+            boxes = [(b, b + 1, h, h + 1, j * t, (j + 1) * t) for b in range(B) for h in range(H) for j in range(full)]
+            if r:
+                g = t // r
+                boxes += [(b, b + 1, h, min(h + g, H), full * t, Q) for b in range(B) for h in range(0, H, g)]
+        if len(boxes) <= cores:
+            return t, tuple(boxes)
+    return None
 
 
 def plan_for_shape(seq, heads, head_dim, q_chunk, k_chunk, grid=(11, 10), split=None,
@@ -545,7 +685,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
           exp_approx_mode=False, mask_cb_tiles=None, defines_extra=None, kernel_dir=None,
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
           out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
-          keypad=None, merged_out=False, rows=None, kv_chain=False):
+          keypad=None, merged_out=False, rows=None, kv_chain=False, boxes=None,
+          mask_chain=False, pv_l1acc=False):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, DH]`
@@ -556,6 +697,10 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     (reader define KV_CHAIN_EVERY_BATCH), so K/V leave DRAM once instead of q_pf times. Needs one
     head and one q chunk per core; the triatt_sdpa reader only.
 
+    `mask_chain` reads a batch-broadcast mask once per (head, q range) and forwards it along the cores
+    that walk the same heads and q chunks for other samples (`_MASK_READ_CHAIN`); the qkv_fused reader
+    only, and not with `kv_chain`.
+
     `mask_cb_tiles` overrides the size of `cb_mask_in` (K2 makes it the whole head's grid instead of
     a double-buffered chunk; at the shipped config those are the same 256 tiles). `kernel_dir` swaps
     in patched kernel sources. With both left alone this is the wheel's own program.
@@ -563,6 +708,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     `gate` is `(g, gate_buffer_factor)`: triangle attention's `[B, NQH, Sq, DH]` gate, which the
     compute kernel's pack stage multiplies in as `out * sigmoid(g)` instead of the caller running
     that multiply as its own program. Head-major and DHt == 1, so gate tile i is output tile i.
+
+    `pv_l1acc` runs the compute kernel of `pv_l1acc_kernel_dir` (not with `css`, which patches its own).
 
     `css` is `(lists, counts)` from `css_lists` (lists on device, ROW_MAJOR uint32): q chunk i visits
     only the key chunks its row lists (`css_kernel_dir`).
@@ -617,7 +764,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     if rows is not None:
         assert not (merged_out or qkv_fused or kv_window or fuse_qkv or gate or css or keypad), "plain reads only"
     p = plan(q, kp, vp, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scale, split,
-             kv_buffer_factor, rows)
+             kv_buffer_factor, rows, boxes)
     if css is not None:
         assert kv_window is None and qkv_fused is None and fuse_qkv is None and gate is None
         css_w = css_width(p["k_num_chunks"])
@@ -811,12 +958,32 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
                        KEYPAD_W=str(kp_w))
     if defines_extra:
         defines.update({str(a): str(b) for a, b in dict(defines_extra).items()})
-    chained = bool(kv_chain and p["q_pf"] > 1 and p["nh_per_core"] == 1 and p["q_per_core"] == 1
+    chained = bool(kv_chain and boxes is None and p["q_pf"] > 1 and p["nh_per_core"] == 1 and p["q_per_core"] == 1
                    and fuse_qkv is None and css is None and keypad is None)
     used = p["batch_pf"] * p["nh_pf"] * p["q_pf"]
     if chained:
         defines["KV_CHAIN_EVERY_BATCH"] = "1"
         CHAIN_BUILDS[0] += 1
+    links = {}
+    if mask_chain and qkv_fused is not None and p["bcast_batch"] and not chained:
+        # core -> (position, chain); a chain is the cores with one (head, q) range and one sample count
+        spans = {}
+        for i in range(num_cores):
+            b = boxes[i] if boxes is not None and i < len(boxes) else None
+            if boxes is None and i < used:
+                lb = (i // (p["nh_pf"] * p["q_pf"])) * p["batch_per_core"]
+                b = (lb, min(lb + p["batch_per_core"], p["B"]),
+                     ((i // p["q_pf"]) % p["nh_pf"]) * p["nh_per_core"], None,
+                     (i % p["q_pf"]) * p["q_per_core"], None)
+                b = (b[0], b[1], b[2], min(b[2] + p["nh_per_core"], p["NQH"]),
+                     b[4], min(b[4] + p["q_per_core"], p["q_num_chunks"]))
+            if b and b[0] < b[1] and b[2] < b[3] and b[4] < b[5]:
+                spans.setdefault((b[1] - b[0],) + tuple(b[2:]), []).append(i)
+        for chain in spans.values():
+            for pos, i in enumerate(chain):
+                links[i] = (pos, chain)
+        if any(len(c) > 1 for c in spans.values()):
+            defines["MASK_CHAIN"] = "1"
     dlist = sorted(defines.items())
 
     kd = kernel_dir or _kdir()
@@ -832,6 +999,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         writer_src = str(qkv_fused_kernel_dir() / "dataflow/writer_interleaved.cpp")
     if not Path(compute_src).exists():
         compute_src = str(stock / "compute/sdpa.cpp")
+    if pv_l1acc:
+        assert css is None, "pv_l1acc and css both patch the compute kernel"
+        compute_src = str(pv_l1acc_kernel_dir() / "compute/sdpa.cpp")
 
     q_a, k_a, v_a = q.buffer_address(), k.buffer_address(), v.buffer_address()
     m_a, o_a = mask.buffer_address(), out.buffer_address()
@@ -847,6 +1017,14 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     def chain_args(i, lb, ln, lq, lqe):
         # reader_interleaved.cpp chain block: participant, injector, sink, batch, head, q start, q count,
         # prev x, y, next x, y, next core's q chunks, mcast dests, mcast wait (unicast: mcast_enabled 0)
+        if i in links and len(links[i][1]) > 1:
+            # the K/V chain's batch and head are out of range, so only the mask moves
+            pos, chain = links[i]
+            prv = device.worker_core_from_logical_core(ttnn.CoreCoord(chain[pos - 1] % gx, chain[pos - 1] // gx)) if pos else None
+            nxt = (device.worker_core_from_logical_core(ttnn.CoreCoord(chain[pos + 1] % gx, chain[pos + 1] // gx))
+                   if pos < len(chain) - 1 else None)
+            return [1, int(pos == 0), int(pos == len(chain) - 1), 0xFFFFFFFF, 0xFFFFFFFF, 0, 0,
+                    prv.x if prv else 0, prv.y if prv else 0, nxt.x if nxt else 0, nxt.y if nxt else 0, 0, 0, 0]
         if not chained or i >= used or lb >= p["B"] or lq >= lqe:
             return [0] * 14
         pos, last = i % p["q_pf"], p["q_pf"] - 1
@@ -865,6 +1043,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         lne = min(ln + p["nh_per_core"], p["NQH"])
         lq = min((i % p["q_pf"]) * p["q_per_core"], p["q_num_chunks"])
         lqe = min(lq + p["q_per_core"], p["q_num_chunks"])
+        if boxes is not None:
+            lb, lbe, ln, lne, lq, lqe = boxes[i] if i < len(boxes) else (p["B"],) * 2 + (p["NQH"],) * 2 + (0, 0)
         # num_phases=1, chunked_q_chunk_offset=0, read/write_offset=0 (:807-809)
         rr.append((core, [q_a, k_a, v_a, m_a, 0, 0, 0, i, lb, lbe, ln, lne, lq, lqe, 1, 0, 0]
                    + chain_args(i, lb, ln, lq, lqe)    # chain metadata, no-chain zeros unless kv_chain
@@ -953,7 +1133,8 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            os.environ.get("TT_BIO_SDPA_ADD_GRANULARITY"),
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
            kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
-           kw.get("rows"), bool(kw.get("kv_chain")),
+           kw.get("rows"), bool(kw.get("kv_chain")), kw.get("boxes"), bool(kw.get("mask_chain")),
+           bool(kw.get("pv_l1acc")),
            None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:
