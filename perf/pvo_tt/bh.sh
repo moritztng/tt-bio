@@ -32,8 +32,11 @@ say "booking active, locks held"
 say "tree $(git -C $T0 rev-parse HEAD)"
 FW=$(~/.local/bin/tt-smi -s 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin)["device_info"][0]["firmwares"]["fw_bundle_version"])')
 say "fw $FW"
+# --max-foreign-cores 1.5, not run.py's 1.0: with every card ours and no foreign device holder, qb1 still reads
+# 0.9-1.2 foreign cores from its own power recorder (qb1-powerrec.sh polling ipmitool), so on 11-06 every round
+# of the first cell was discarded at 1.0 while the clock sat at 1350 MHz and the rounds agreed to 0.2 %.
 run() { TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:pvo-tt PYTHONPATH=$T0 timeout ${T:-3600} $PY $T0/perf/mol1/fair/run.py \
-  --chips $C --part p150a --firmware "$FW" --rounds 3 --max-attempts 5 "$@"; }
+  --chips $C --part p150a --firmware "$FW" --rounds 3 --max-attempts 5 --max-foreign-cores ${MAXFC:-1.5} "$@"; }
 cd $D/inputs
 # Cells run largest-shape-first and interleaved across models, not arm-major. Arm-major ran all four OpenDDE
 # cells before the first Mol-1 one, so a window truncated before the two-thirds mark priced OpenDDE on Blackhole
