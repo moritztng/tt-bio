@@ -536,7 +536,8 @@ FAST_LEVERS = (_T.FAST_LEVERS - {"dit_b8"}) | {"trimul_b8in", "trimul_t2w"} | WS
 # Wormhole fast takes DIT_SEAM too (above).
 WH_FAST_LEVERS = (FAST_LEVERS | {"trimul_t1_c384", "ws_resid2", "trimul_t1w8", "dit_bpad", "inproj_split",
                                    "trimul_t1_dram", "trunk_hifi2", "bres_ta_hifi3"}
-                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10 | TRIATT_LN_B8_FAST | PACKER)
+                  | TRIATT_LN | TRIATT_K1 | DIT_SEAM | TRIATT_Q10 | TRIATT_LN_B8_FAST | PACKER
+                  | {"dit_shoist", "atom_mm16", "dit_qbox", "dit_mask_chain", "dit_qkvf"})
 # Blackhole fast takes the Wormhole fast set plus WS_FAST, ws_lofi, the BH trimul routes and T1_PSIG. p150a, cdk2x2 512,
 # one process per arm, 1 cold + 3 warm folds, AICLK 1331-1350 MHz sampled during the folds (spd-m-opendde-2 l1,
 # 2026-11-04): 47.20 -> 36.32 s (-23.1 %).
