@@ -28,13 +28,19 @@ quiet() {
     done
     echo "quiet after ${w}s $(date -u +%FT%TZ) load $(cat /proc/loadavg)"
 }
+listed() { $BOOK list | awk -v o="$OWNER" '$3 == o {f=1} END {exit !f}'; }
 booked() { local c; for c in 0 1 2 3; do [ "$($BOOK active $c)" = "$OWNER" ] || return 1; done; }
 secs() { case $1 in mol1|mol1_fast) echo 2700 ;; rfd4) echo 9000 ;; bc2) echo 11400 ;; esac; }
 REM=0; for c in $CELLS; do REM=$((REM + $(secs $c))); done
 cell() {  # name cmd...  (one booking covers the remaining cells, so no other booker lands between two of them)
     local n=$1; shift; local d="$OUT/$n" c; mkdir -p "$d"
-    $BOOK rm fleet-pnr-tt > /dev/null; booked || echo "book $n+: $($BOOK add "$OWNER" 0,1,2,3 "$REM" --note "pnr-tt $CELLS (needs the box quiet)") $(date -u +%FT%TZ)"
-    until booked; do sleep 60; $BOOK rm fleet-pnr-tt > /dev/null; $BOOK add "$OWNER" 0,1,2,3 "$REM" --note "pnr-tt $CELLS (needs the box quiet)" > /dev/null; done
+    $BOOK rm fleet-pnr-tt > /dev/null; booked || listed || echo "book $n+: $($BOOK add "$OWNER" 0,1,2,3 "$REM" --note "pnr-tt $CELLS (needs the box quiet)") $(date -u +%FT%TZ)"
+    # Re-book only when the booking is gone (lapsed). `add` replaces it with the next slot free on all four cards, so
+    # re-adding while a --now hold still sits on one card of our started window sends it to the back of the queue
+    # (11-06: 02:50Z -> 16:46Z). The hold yields at its next boundary; wait for that instead.
+    until booked; do sleep 60; $BOOK rm fleet-pnr-tt > /dev/null
+        listed || echo "rebook $n: $($BOOK add "$OWNER" 0,1,2,3 "$REM" --note "pnr-tt $CELLS (needs the box quiet)") $(date -u +%FT%TZ)"
+    done
     echo "booked $(date -u +%FT%TZ)"
     exec 5>>"$HOME/spd_qb1_card0.lock" 6>>"$HOME/spd_qb1_card1.lock" 7>>"$HOME/spd_qb1_card2.lock" 8>>"$HOME/spd_qb1_card3.lock"
     for c in 5 6 7 8; do flock -w 43200 $c || { echo "GIVEUP lock fd $c"; exec 5>&- 6>&- 7>&- 8>&-; return 1; }; done
