@@ -146,9 +146,10 @@ WH_LEVERS_FAST = LEVERS_FAST | {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_s
 BH_LEVERS_FAST = LEVERS_FAST | {"dit_shoist", "ie_dev"}
 # Blackhole normal adds the fast set's fusions that change no arithmetic or only regroup an fp32 modulate: triatt_tail,
 # adaln_mod, transition_ws, ws_resid. p150a 512 x 1, in-process pairs at AICLK ~1349 MHz: -0.60 s median (l0bh,
-# spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a (gsbh): top pose median 1.469 A (floor 2.328 A), CA-lDDT
-# +0.0009 [+0.0002, +0.0018], DockQ -0.0002 [-0.0103, +0.0133], docking 24 -> 24 with no flips. The LRMSD mean rises
-# (+2.67 A) only on folds neither arm docks (LRMSD 30-120 A); on the 24 docked folds it moves +0.03 A.
+# spd-m-boltz2-3, 2026-11-05). 44-fold normal grade on p150a against TT_BIO_LEVERS=none (gsbh): PASS, top pose median
+# 1.374 A (A/A seed floor 2.318 A), CA-lDDT +0.0002 [-0.0011, +0.0013], DockQ -0.0050 [-0.0147, +0.0036], pLDDT +0.0008,
+# docking 24 -> 24 with no flips. LRMSD moves only on folds neither arm docks (LRMSD 30-120 A); on the 24 docked folds
+# its median moves -0.02 A.
 BH_LEVERS_NORMAL = LEVERS_NORMAL | {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid"}
 
 
