@@ -1,0 +1,13 @@
+d              trunk [13.245, 13.432, 12.907] med 13.245 loop 11.959 ms 32.97 pre 0.90 wall 30.94
+b1             trunk [13.609, 13.225, 13.37] med 13.370 loop 11.966 ms 33.01 pre 1.09 wall 31.04
+triatt_k1      trunk [13.369, 13.085, 12.994] med 13.085 loop 11.961 ms 31.60 pre 0.79 wall 30.09
+triatt_ln_b8   trunk [13.415, 13.284, 13.152] med 13.284 loop 12.048 ms 31.80 pre 0.89 wall 30.48
+triatt_ln_b8g  trunk [13.41, 13.148, 13.111] med 13.148 loop 11.964 ms 32.07 pre 0.84 wall 30.55
+trimul_sig6    trunk [13.225, 12.964, 12.994] med 12.994 loop 11.791 ms 31.64 pre 0.84 wall 30.15
+opm_b8cfg      trunk [13.465, 13.295, 13.04] med 13.295 loop 11.950 ms 32.63 pre 0.99 wall 30.70
+trimul_t1_2g   trunk [13.399, 13.188, 12.93] med 13.188 loop 11.969 ms 34.70 pre 0.84 wall 32.02
+trimul_t1w8    trunk [13.461, 13.154, 13.044] med 13.154 loop 11.965 ms 39.67 pre 0.80 wall 34.43
+triatt_q10     trunk [13.821, 13.292, 12.986] med 13.292 loop 11.981 ms 35.70 pre 0.93 wall 32.22
+trimul_t2w     trunk [13.919, 13.069, 13.206] med 13.206 loop 11.960 ms 39.12 pre 0.87 wall 34.40
+all            trunk [12.72, 12.927, 12.976] med 12.927 loop 11.464 ms 32.12 pre 1.04 wall 30.27
+b2             trunk [13.474, 13.211, 12.981] med 13.211 loop 11.961 ms 32.50 pre 0.88 wall 30.52
