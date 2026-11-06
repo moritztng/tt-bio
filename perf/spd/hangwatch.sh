@@ -5,7 +5,7 @@
 # bench.py appends one record to OUT/bench.jsonl per finished fold. If that file has not grown for STALL_S
 # seconds the fold is called hung: py-spy dumps every thread (OUT/hang.pyspy), then SIGINT, then SIGTERM
 # 120 s later. A hung chip is left guarded: a `sleep` holds its flock and OUT/HUNG names it, so nobody opens it
-# before spd-galaxy resets it. Stall time and the fold it hung in go to OUT/run.log.
+# before spd-galaxy resets it (GUARD_S, default 43200; 0 on a lent JapanFold chip, which the agent resets when it comes back). Stall time and the fold it hung in go to OUT/run.log.
 # DIAG=1 also arms tt-metal's own dispatch timeout (DIAG_TIMEOUT s, default 600): the stuck wait throws, and
 # before it does tt-metal runs perf/spd/triage_hang.sh on the chip as it stands (OUT/triage.txt), with Inspector
 # logging this process alone under OUT/tmlogs. Timing arms leave it off.
@@ -62,12 +62,12 @@ while kill -0 $pid 2>/dev/null; do
   wait $pid; rc=$?
   echo "chip $CHIP hung $(date -u +%FT%TZ) under $ROW; reset before reuse" > "$OUT/HUNG"
   say "rc=$rc chip $CHIP left guarded (flock held) for reset"
-  exec sleep 43200
+  exec sleep "${GUARD_S:-43200}"
 done
 wait $pid; rc=$?
 say "end rc=$rc folds $(grep -c '"fold_s"' "$J" 2>/dev/null)"
 if [ -s "$OUT/triage.txt" ]; then
   echo "chip $CHIP hit a dispatch timeout $(date -u +%FT%TZ) under $ROW (OUT/triage.txt); reset before reuse" > "$OUT/HUNG"
   say "dispatch timeout seen: chip $CHIP left guarded (flock held) for reset"
-  exec sleep 43200
+  exec sleep "${GUARD_S:-43200}"
 fi
