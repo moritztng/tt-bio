@@ -68,6 +68,8 @@ The defaults are upstream's: 20 recycles, 200 diffusion steps, 5 samples, seed 1
 | `--device` | `--devices` (card ids); a card that is not there is an error |
 | `-d`, `--trimul_kernel`, `--triatt_kernel`, `--enable_fusion`, `--enable_tf32`, chunking options | none: GPU execution choices. tt-bio's own precision options are `--fast` and `--diffusion_precision` |
 
+Leave `--fast` off on Blackhole for now: it makes a Mol-1 fold slower, not faster (85.6 s against 49.6 s for the 512-residue benchmark fold on a p150a), because the fused triangle-multiplication kernels it relies on do not cover Mol-1's channel widths yet.
+
 ## Other upstream commands
 
 | upstream | tt-bio |
