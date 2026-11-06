@@ -193,7 +193,10 @@ def test_boltz2_mode_sets_name_only_known_levers():
     assert B.WH_LEVERS_FAST <= set(T.LEVERS) and B.WH_LEVERS_FAST - B.LEVERS_FAST == {"triatt_ln", "apb_ln", "dit_cond_jit", "trimul_sig6", "dit_cond_jcat", "triatt_k1", "atom_l1",
                                                                                           "triatt_ln_b8", "triatt_ln_b8g", "dit_shard", "trimul_bres", "ie_dev", "opm_b8cfg",
                                                                                           "dit_cond_steps"}
-    assert B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"atom_l1", "trimul_bres"}
+    assert B.WH_LEVERS_NORMAL <= set(T.LEVERS) and B.WH_LEVERS_NORMAL - B.LEVERS_NORMAL == {
+        "atom_l1", "trimul_bres", "triatt_tail", "triatt_k1", "triatt_ln", "apb_ln", "dit_cond_jit", "dit_cond_jcat",
+        "dit_cond_steps", "adaln_mod", "transition_ws", "ws_resid", "trimul_sig6"}
+    assert B.BH_LEVERS_NORMAL - B.LEVERS_NORMAL == {"triatt_tail", "adaln_mod", "transition_ws", "ws_resid"}
     assert B.BH_LEVERS_FAST - B.LEVERS_FAST == {"dit_shoist", "ie_dev"}
 
 
