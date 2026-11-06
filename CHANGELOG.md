@@ -24,6 +24,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [0.27.0] - 2026-11-06
 
 ### Added
+- **Mol-1 on the benchmarks page.** 49.6 s per 512-residue fold (20 recycles, 200 sampling steps) on one Blackhole
+  p150a, against 18.0 s on a B200, 24.0 s on an H200 and 50.1 s on an A100, each NVIDIA card on Mol-1's fastest shipped
+  option. A Galaxy Blackhole delivers 5.1x a DGX B200's folds per dollar of purchase price.
 - **RFD4-Proteina on the benchmarks page.** 3.74 s per design on one Blackhole p150a at batch 40, against 1.12 s on
   a B200, 1.48 s on an H200 and 3.50 s on an A100, each NVIDIA card at its own best batch. A Galaxy Blackhole
   delivers 4.2x a DGX B200's designs per dollar of purchase price.

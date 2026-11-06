@@ -67,8 +67,10 @@ def test_a_row_subset_places_only_those_rows_and_prose_names_only_them(tmp_path)
     subprocess.run([sys.executable, str(REPO / "perf/pnr/cells_to_page.py"), "--fake", "--rows", "rfd4",
                     "--out", str(out)], check=True, capture_output=True)
     d = json.loads(out.read_text())
+    base = json.loads((REPO / "site/data/perf-512aa.json").read_text())
     ids = {m["id"] for m in d["design"]["models"]}
-    assert "rfd4" in ids and "bindcraft2" not in ids and "mol1" not in [m["id"] for m in d["models"]]
+    assert "rfd4" in ids and "bindcraft2" not in ids
+    assert [m["id"] for m in d["models"]] == [m["id"] for m in base["models"]]
     prose = " ".join(d["design"][k] for k in ("cond", "note", "methods"))
     assert "RFD4-Proteina" in prose and "BindCraft" not in prose
     assert "RFD4-Proteina" in d["scope"]["timed_region"]

@@ -2,7 +2,7 @@
   "schema": 3,
   "updated": "2026-11-05",
   "title": "TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware",
-  "subtitle": "Eight structure-prediction models, three binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
+  "subtitle": "Nine structure-prediction models, three binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
@@ -932,6 +932,55 @@
             "versions": "kit f4f62fa65, torch 2.10.0, openfold3 0.5.0, driver 580.159.03",
             "when": "2026-10-14"
           }
+        }
+      }
+    },
+    {
+      "id": "mol1",
+      "name": "Mol-1",
+      "recycles": 20,
+      "sampling_steps": 200,
+      "nvidia_impl": "Mol-1 as released at commit e6e64866, on every GPU, using its fastest shipped option on each: cueq-triatt+chunk5+tf32 on the H200, cueq-cueq on the B200, cueq-triatt+chunk5+tf32 on the A100.",
+      "cells": {
+        "p150a": {
+          "status": "measured",
+          "s_per_fold": 49.61,
+          "n": 5,
+          "spread_pct": 0.38,
+          "aiclk_mhz": 1350,
+          "versions": "tt-bio main e4b3407e4, ttnn 0.68.0, fw 19.15.0.0, qb1 p150a card 0",
+          "when": "2026-11-06T01:00:29Z",
+          "parity": "Passes its release-gate accuracy check against the experimental structure on Blackhole (tt-bio cb1a9f10e)"
+        },
+        "h200": {
+          "status": "measured",
+          "s_per_fold": 24.012,
+          "n": 5,
+          "spread_pct": 1.59,
+          "clock_mhz": 1905,
+          "versions": "cueq-triatt+chunk5+tf32, Mol-1 e6e64866, torch 2.13.0, CUDA 13.0, driver 580.178.04, image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04, NVIDIA H200",
+          "when": "2026-11-03T19:17:27Z",
+          "ref": "stock"
+        },
+        "b200": {
+          "status": "measured",
+          "s_per_fold": 18.0,
+          "n": 5,
+          "spread_pct": 0.19,
+          "clock_mhz": 1957,
+          "versions": "cueq-cueq, Mol-1 e6e64866, torch 2.13.0, CUDA 13.0, driver 580.126.09, image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04, NVIDIA B200",
+          "when": "2026-11-03T20:09:41Z",
+          "ref": "stock"
+        },
+        "a100": {
+          "status": "measured",
+          "s_per_fold": 50.081,
+          "n": 5,
+          "spread_pct": 1.63,
+          "clock_mhz": 1350,
+          "versions": "cueq-triatt+chunk5+tf32, Mol-1 e6e64866, torch 2.13.0, CUDA 13.2, driver 595.71.05, image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04, NVIDIA A100-SXM4-80GB",
+          "when": "2026-11-03T19:21:17Z",
+          "ref": "stock"
         }
       }
     }
