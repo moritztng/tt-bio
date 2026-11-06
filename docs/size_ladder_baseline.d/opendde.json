@@ -134,14 +134,16 @@
                 "rejects": {
                   "l1_dest_is_faster:256x256x64": 80,
                   "l1_dest_is_faster:256x256x384": 524
-                }
+                },
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 1057,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached, not declined: on Blackhole normal (d447308e0, f8cdcb0aa) no OpenDDE call at this size reaches _pair_proj_linear's minimal_matmul leg. The trimul projections run inside the T1/T2 trimul kernels (trimul_t1_dram, trimul_t1split, T2 tail), triangle attention's bias and gate come from triatt_ln, and its out projection is head-major. From 640 the remaining projections land here again. Falsifier: calls here mean a trimul or triatt_ln route declined"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -161,7 +163,8 @@
                 "served": 2273,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: on Blackhole normal (d447308e0, f8cdcb0aa) triatt_ln returns q, k, v itself and the trimul projections run inside the T1/T2 kernels, so no qkv-shaped matmul is left at this size; from 640 the pair projections reach it again. Falsifier: calls here mean triatt_ln or a trimul route declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -252,21 +255,24 @@
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -289,7 +295,8 @@
                 "served": 144,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -311,7 +318,8 @@
                 "served": 604,
                 "declined": 4,
                 "frac": 0.993421052631579,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -342,7 +350,8 @@
                 "how": "stats",
                 "rejects": {
                   "base-unraised": 524
-                }
+                },
+                "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -447,14 +456,16 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:512x512x64": 80
-                }
+                },
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 1064,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached, not declined: on Blackhole normal (d447308e0, f8cdcb0aa) no OpenDDE call at this size reaches _pair_proj_linear's minimal_matmul leg. The trimul projections run inside the T1/T2 trimul kernels (trimul_t1_dram, trimul_t1split, T2 tail), triangle attention's bias and gate come from triatt_ln, and its out projection is head-major. From 640 the remaining projections land here again. Falsifier: calls here mean a trimul or triatt_ln route declined"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -473,7 +484,8 @@
                 "served": 2280,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: on Blackhole normal (d447308e0, f8cdcb0aa) triatt_ln returns q, k, v itself and the trimul projections run inside the T1/T2 kernels, so no qkv-shaped matmul is left at this size; from 640 the pair projections reach it again. Falsifier: calls here mean triatt_ln or a trimul route declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -561,21 +573,24 @@
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -598,7 +613,8 @@
                 "served": 144,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -620,7 +636,8 @@
                 "served": 80,
                 "declined": 528,
                 "frac": 0.13157894736842105,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -648,7 +665,8 @@
                 "served": 80,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -753,7 +771,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:640x640x64": 80
-                }
+                },
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -865,21 +884,24 @@
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -924,7 +946,8 @@
                 "served": 80,
                 "declined": 528,
                 "frac": 0.13157894736842105,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -952,7 +975,8 @@
                 "served": 80,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1057,7 +1081,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:768x768x64": 80
-                }
+                },
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1174,21 +1199,24 @@
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1211,7 +1239,8 @@
                 "served": 144,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -1233,7 +1262,8 @@
                 "served": 80,
                 "declined": 528,
                 "frac": 0.13157894736842105,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -1261,7 +1291,8 @@
                 "served": 80,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1549,7 +1580,8 @@
                 "served": 80,
                 "declined": 564,
                 "frac": 0.12422360248447205,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -2291,14 +2323,16 @@
                 "rejects": {
                   "l1_dest_is_faster:256x256x64": 80,
                   "l1_dest_is_faster:256x256x384": 524
-                }
+                },
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 1057,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached, not declined: on Blackhole normal (d447308e0, f8cdcb0aa) no OpenDDE call at this size reaches _pair_proj_linear's minimal_matmul leg. The trimul projections run inside the T1/T2 trimul kernels (trimul_t1_dram, trimul_t1split, T2 tail), triangle attention's bias and gate come from triatt_ln, and its out projection is head-major. From 640 the remaining projections land here again. Falsifier: calls here mean a trimul or triatt_ln route declined"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2318,7 +2352,8 @@
                 "served": 2273,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: on Blackhole normal (d447308e0, f8cdcb0aa) triatt_ln returns q, k, v itself and the trimul projections run inside the T1/T2 kernels, so no qkv-shaped matmul is left at this size; from 640 the pair projections reach it again. Falsifier: calls here mean triatt_ln or a trimul route declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2409,21 +2444,24 @@
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -2446,7 +2484,8 @@
                 "served": 144,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -2468,7 +2507,8 @@
                 "served": 604,
                 "declined": 4,
                 "frac": 0.993421052631579,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -2499,7 +2539,8 @@
                 "how": "stats",
                 "rejects": {
                   "base-unraised": 524
-                }
+                },
+                "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2604,14 +2645,16 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:512x512x64": 80
-                }
+                },
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
                 "served": 1064,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached, not declined: on Blackhole normal (d447308e0, f8cdcb0aa) no OpenDDE call at this size reaches _pair_proj_linear's minimal_matmul leg. The trimul projections run inside the T1/T2 trimul kernels (trimul_t1_dram, trimul_t1split, T2 tail), triangle attention's bias and gate come from triatt_ln, and its out projection is head-major. From 640 the remaining projections land here again. Falsifier: calls here mean a trimul or triatt_ln route declined"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
@@ -2630,7 +2673,8 @@
                 "served": 2280,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: on Blackhole normal (d447308e0, f8cdcb0aa) triatt_ln returns q, k, v itself and the trimul projections run inside the T1/T2 kernels, so no qkv-shaped matmul is left at this size; from 640 the pair projections reach it again. Falsifier: calls here mean triatt_ln or a trimul route declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -2718,21 +2762,24 @@
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -2755,7 +2802,8 @@
                 "served": 144,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -2777,7 +2825,8 @@
                 "served": 80,
                 "declined": 528,
                 "frac": 0.13157894736842105,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -2805,7 +2854,8 @@
                 "served": 80,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2910,7 +2960,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:640x640x64": 80
-                }
+                },
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3022,21 +3073,24 @@
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -3081,7 +3135,8 @@
                 "served": 80,
                 "declined": 528,
                 "frac": 0.13157894736842105,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -3109,7 +3164,8 @@
                 "served": 80,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3214,7 +3270,8 @@
                 "how": "wrap",
                 "rejects": {
                   "l1_dest_is_faster:768x768x64": 80
-                }
+                },
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -3331,21 +3388,24 @@
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -3368,7 +3428,8 @@
                 "served": 144,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
@@ -3390,7 +3451,8 @@
                 "served": 80,
                 "declined": 528,
                 "frac": 0.13157894736842105,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -3418,7 +3480,8 @@
                 "served": 80,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -3706,7 +3769,8 @@
                 "served": 80,
                 "declined": 564,
                 "frac": 0.12422360248447205,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
