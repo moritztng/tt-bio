@@ -12,6 +12,18 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   criterion comes back `pass = 0` with `all_metrics_present = 0`. That is upstream's behaviour and it reads exactly
   like a design that was scored and failed. `tt-bio evaluate` now names those designs and the columns it could not
   compute, and `docs/rfd4-design.md` says which conditioning to use if you intend to grade a binder's pose.
+### Fixed
+- **An RFD4 grade scores the designed chain again.** Every metric defined on the chain of interest
+  (`refolded_target_aligned_binder_rmsd`, `refolded_target_backbone_aligned_binder_rmsd`) was computed over an
+  empty atom subset, because the evaluate path matched the oracle's chain label against a chain instance id it
+  synthesised itself: `B_1` against the `B` the oracle wrote. The subset is no longer empty, and a confidence JSON
+  written with either spelling now resolves to the same chain. A refold also inherits its design's `C_CRD` and
+  `SA_CRDSRC` masks, which an oracle's plain output structure does not carry, so metrics aligned on them are
+  scored rather than dropped.
+
+## [0.27.0] - 2026-11-06
+
+### Added
 - **RFD4-Proteina on the benchmarks page.** 3.74 s per design on one Blackhole p150a at batch 40, against 1.12 s on
   a B200, 1.48 s on an H200 and 3.50 s on an A100, each NVIDIA card at its own best batch. A Galaxy Blackhole
   delivers 4.2x a DGX B200's designs per dollar of purchase price.
@@ -39,13 +51,6 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
   downloaded (OpenFold3 and OpenBind-0 too).
 
 ### Fixed
-- **An RFD4 grade scores the designed chain again.** Every metric defined on the chain of interest
-  (`refolded_target_aligned_binder_rmsd`, `refolded_target_backbone_aligned_binder_rmsd`) was computed over an
-  empty atom subset, because the evaluate path matched the oracle's chain label against a chain instance id it
-  synthesised itself: `B_1` against the `B` the oracle wrote. The subset is no longer empty, and a confidence JSON
-  written with either spelling now resolves to the same chain. A refold also inherits its design's `C_CRD` and
-  `SA_CRDSRC` masks, which an oracle's plain output structure does not carry, so metrics aligned on them are
-  scored rather than dropped.
 - `tt-bio predict --use_template` on Protenix/Mol-1 job JSON refuses up front when `.a3m`/`.hhr` template hits
   need `kalign` and none is on PATH, instead of failing each job once a worker reaches it.
 - Mol-1 accepts every ligand and modification CCD code in its own Chemical Component Dictionary. A code newer than
