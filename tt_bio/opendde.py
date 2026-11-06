@@ -785,6 +785,8 @@ class OpenDDE:
         feats = place_ref_conformers(feats, seed)
         ifd = build_structural_token_features(feats)
         Ns = ifd["parent_residue_idx"].shape[0]
+        # The structural axis is not a function of the residue shapes (a nucleotide is two tokens).
+        _T.program_cache_for((_T.input_shapes(feats), _T.input_shapes(ifd)), self.dev)
 
         # 1) input embedder + trunk, residue axis (Protenix.fold's own first stage)
         key = hit = None
