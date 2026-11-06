@@ -62,15 +62,16 @@ def test_rfd4_cells_carry_each_sides_batch():
     assert all(c["ref"] == "stock" for k, c in rows["mol1"]["cells"].items() if k != "p150a")
 
 
-def test_a_row_subset_places_only_those_rows_and_prose_names_only_them(tmp_path):
+def test_a_row_subset_replaces_only_those_rows(tmp_path):
     out = tmp_path / "perf.json"
     subprocess.run([sys.executable, str(REPO / "perf/pnr/cells_to_page.py"), "--fake", "--rows", "rfd4",
                     "--out", str(out)], check=True, capture_output=True)
     d = json.loads(out.read_text())
     base = json.loads((REPO / "site/data/perf-512aa.json").read_text())
-    ids = {m["id"] for m in d["design"]["models"]}
-    assert "rfd4" in ids and "bindcraft2" not in ids
-    assert [m["id"] for m in d["models"]] == [m["id"] for m in base["models"]]
+    design, base_design = ({m["id"]: m for m in x["design"]["models"]} for x in (d, base))
+    assert design["rfd4"]["cells"]["p150a"]["versions"].startswith("FAKE")
+    assert {k: v for k, v in design.items() if k != "rfd4"} == {k: v for k, v in base_design.items() if k != "rfd4"}
+    assert d["models"] == base["models"]
     prose = " ".join(d["design"][k] for k in ("cond", "note", "methods"))
-    assert "RFD4-Proteina" in prose and "BindCraft" not in prose
+    assert "RFD4-Proteina" in prose and "BindCraft 2" in prose
     assert "RFD4-Proteina" in d["scope"]["timed_region"]

@@ -6,6 +6,9 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 ## [Unreleased]
 
 ### Added
+- **BindCraft 2 on the benchmarks page.** 352 s per 140-iteration design trajectory against PD-L1 on one Blackhole
+  p150a, against 44.4 s on a B200, 52.0 s on an H200 and 119 s on an A100, each NVIDIA card on BindCraft 2's fastest
+  shipped option. A Galaxy Blackhole delivers 1.8x a DGX B200's designs per dollar of purchase price.
 - **A PPI grade says when it could not score the binder's pose.** The two binder-pose RMSDs under
   `ppi_refolding` align on the target's absolute conditioned coordinates, so a design whose target was pinned with
   `C_CRDGRP` (an internal coordinate group, RFD4's recommended binder recipe) has nothing to align on and the `ppi`

@@ -2,7 +2,7 @@
   "schema": 3,
   "updated": "2026-11-06",
   "title": "TT-Bio benchmarks: biomolecular structure prediction, design and binding affinity on Tenstorrent hardware",
-  "subtitle": "Nine structure-prediction models, three binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
+  "subtitle": "Nine structure-prediction models, four binder-design models and one binding-affinity model at 512 residues, measured on Tenstorrent Blackhole and on NVIDIA H200, B200 and A100.",
   "notes": [
     "This file is the only place numbers are edited. index.html reads it and derives everything else.",
     "Never write a derived value here. Server throughput, cost per hour and both throughput-per-dollar charts are computed in the page from s_per_fold, accelerators, price and power.",
@@ -987,8 +987,8 @@
   ],
   "design": {
     "cond": "Seconds per binder design on one AI Processor, warm, at shipped defaults. Shorter is better. Each row runs one design at a time except RFD4-Proteina, which runs a batch on each side at that side's best batch size and divides the batch's wall time by its designs.",
-    "note": "Each row has its own target, BoltzGen at 514 tokens, PXDesign at 592 and RFD4-Proteina at 224 tokens, so compare each model only with itself.",
-    "methods": "One fixed target per row at shipped defaults. BoltzGen (500 sampling steps) and PXDesign (400) run one design at a time. RFD4-Proteina (60 steps) grows the batch on each side until it stops paying, prints that batch in its cell and reports wall time divided by designs. Figures are warm medians, with the run count on hover; GPU figures use the same protocol on rented single-GPU nodes.",
+    "note": "Each row has its own target, BoltzGen at 514 tokens, PXDesign at 592, BindCraft 2 an 80-residue binder to PD-L1 and RFD4-Proteina at 224 tokens, so compare each model only with itself.",
+    "methods": "One fixed target per row at shipped defaults. BoltzGen (500 sampling steps) and PXDesign (400) run one design at a time. A BindCraft 2 design is one 140-iteration design trajectory, one at a time on both sides; the sequence redesign and AlphaFold2 validation after it are not timed. RFD4-Proteina (60 steps) grows the batch on each side until it stops paying, prints that batch in its cell and reports wall time divided by designs. Figures are warm medians, with the run count on hover; GPU figures use the same protocol on rented single-GPU nodes.",
     "models": [
       {
         "id": "rfd3",
@@ -1284,6 +1284,57 @@
             "clock_mhz": 1245,
             "versions": "native-compile, RFD4-Proteina 2db07bb4 ckpt a06e2509, torch 2.14.1, CUDA 13.2, driver 595.71.05, image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04, NVIDIA A100-SXM4-80GB",
             "when": "2026-11-03T20:33:19Z",
+            "ref": "stock"
+          }
+        }
+      },
+      {
+        "id": "bindcraft2",
+        "name": "BindCraft 2",
+        "target": "PD-L1 (hPDL1 chain A, hotspots 54, 56, 66, 115), 80-residue binder; one design is one 140-iteration trajectory, validation not timed",
+        "iterations": 140,
+        "batch": 1,
+        "nvidia_impl": "BindCraft 2 as released at commit 7a2dfdb8a, on every GPU, using its fastest shipped option on each: stock on the H200, attn-stock on the B200, stock on the A100.",
+        "cells": {
+          "p150a": {
+            "status": "measured",
+            "s_per_design": 352.5,
+            "n": 7,
+            "spread_pct": 4.19,
+            "batch": 1,
+            "aiclk_mhz": 1350,
+            "versions": "tt-bio main e4b3407e4 (tt_bio tree; run from wk/pnr-tt 1712bdfba, perf/ only), BindCraft 2 7a2dfdb8a, ttnn 0.68.0 (~/bcx_e2e_venv), fw 19.15.0.0, qb1 p150a card 0",
+            "when": "2026-11-06T12:15:18Z",
+            "parity": "Passes its release-gate accuracy check against the reference implementation on Blackhole (tt-bio cb1a9f10e)"
+          },
+          "h200": {
+            "status": "measured",
+            "s_per_design": 51.95,
+            "n": 6,
+            "spread_pct": 0.84,
+            "clock_mhz": 1980,
+            "versions": "stock, BindCraft 2 7a2dfdb8a, jax 0.11.2, CUDA 13.0, driver 580.178.04, image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04, NVIDIA H200",
+            "when": "2026-11-03T19:22:01Z",
+            "ref": "stock"
+          },
+          "b200": {
+            "status": "measured",
+            "s_per_design": 44.441,
+            "n": 7,
+            "spread_pct": 1.23,
+            "clock_mhz": 1965,
+            "versions": "attn-stock, BindCraft 2 7a2dfdb8a, jax 0.11.2, CUDA 13.0, driver 580.126.09, image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04, NVIDIA B200",
+            "when": "2026-11-03T22:04:39Z",
+            "ref": "stock"
+          },
+          "a100": {
+            "status": "measured",
+            "s_per_design": 119.311,
+            "n": 8,
+            "spread_pct": 1.04,
+            "clock_mhz": 1410,
+            "versions": "stock, BindCraft 2 7a2dfdb8a, jax 0.11.2, CUDA 13.2, driver 595.71.05, image nvidia/cuda:13.0.1-cudnn-devel-ubuntu24.04, NVIDIA A100-SXM4-80GB",
+            "when": "2026-11-03T19:32:28Z",
             "ref": "stock"
           }
         }
