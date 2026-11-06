@@ -383,7 +383,9 @@ def _under_size_levers(method):
 # 20 cycles / 200 steps / 5 samples, warm 272.4 -> 194.1 s per prediction (-29 %; WIDE_NORMAL alone 227.1, + MOL1_T1
 # 206.9); samples matched to the base fold's 0.269 A median (max 0.937) vs the 0.60 A bar and the 1.442 A sample floor,
 # all-atom lDDT 0.996 vs 0.965. T2 (trimul_t2, t2w) is not graded on Wormhole at 320/448 and stays out.
-MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG
+# Plus trimul_t1_3g, which keeps c_z 448 on T1 at 1024 tokens (2.63 GiB of outputs, over trimul_t1_2g's 2 GiB) instead
+# of the chunk-32 channel loop, and changes nothing below ~900 tokens. Its A/B: state/mol1/evidence/wh1024-host.
+MOL1_WH = MOL1_T1 | DIT_MM_WH | TRIATT_Q10_WH | X8_WH | BRES_NORMAL | T1_PSIG | {"trimul_t1_3g"}
 from .eltwise_fusion import scale_add, norm_residual, gated_add
 
 

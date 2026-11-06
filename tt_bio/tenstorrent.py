@@ -721,6 +721,8 @@ _FAST_MODE = False
 #   trimul_t1_part  T1 may hold the part's single-shot share of DRAM (3/32: 2.99 GiB on a p150a) when that is more than
 #                   its byte cap, so c_z 448 keeps T1 at 1024 tokens (2.63 GiB) instead of the chunk-32 channel loop. Never
 #                   lower than the cap; a 12 GiB Wormhole part reads 1.12 GiB and keeps 2 GiB under trimul_t1_2g
+#   trimul_t1_3g    T1 may hold 3 GiB of outputs, the Wormhole form of trimul_t1_part: Mol-1's c_z 448 needs 2.63 GiB
+#                   at 1024 tokens and otherwise runs the chunk-32 channel loop at 3.6x the c_z 320 call's time
 #   trimul_t1_psig  T1's gate sigmoid runs on the packer thread's SFPU, overlapping the next [a|b] matmul block on the
 #                   FPU. Same instructions on the same values: bit-identical outputs. N 512 c_z 256 on a Galaxy chip at
 #                   1000 MHz (t1sig): 6.84 -> 6.41 ms/call bf16 weights, 6.27 -> 5.86 bfp8, equal to skipping the sigmoid
@@ -948,7 +950,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-           "trimul_t1split", "adaln_at", "dit_kl1")
+           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
@@ -977,7 +979,7 @@ UNGRADED_LEVERS = frozenset({"dit_bf16", "atom_kvcat", "bres_ta_hifi3", "pz_devi
                              "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8",
                              "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
                              "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-                             "trimul_t1split"})
+                             "trimul_t1_3g", "trimul_t1split"})
 # trimul_gin is fast-only. Fast grade (fast vs fast+trimul_gin, Wormhole, 9DBP/9W89/9W8A, 21 paired folds)
 # PASS: docking 5/21 -> 9/21, every CI covers 0 or sits on the better side. Normal grade against stack6
 # (23 paired folds) FAIL on dockq, lddt_ca and irmsd. The loss is two 9W8A cold folds, where stack6 lands
@@ -10862,7 +10864,8 @@ class TriangleMultiplication(Module):
         t1_bytes = (2 * self._hidden + shp[-1]) * H * H * batch * 2
         # This route is refused above unless the chunk memory is DRAM, so the operands are not L1.
         pc = _triangle_mul_program_config((H + 31) // 32, _trimul_ibw_full(), _trimul_subblock(), False)
-        t1_cap = _trimul_inproj_budget(H, self._hidden, batch) * (2 if lever("trimul_t1_2g") else 1)
+        t1_cap = _trimul_inproj_budget(H, self._hidden, batch) * (
+            3 if lever("trimul_t1_3g") else 2 if lever("trimul_t1_2g") else 1)
         if lever("trimul_t1_part"):
             t1_cap = _single_shot_budget(t1_cap, _dram_total_bytes())
         if (t1_bytes > t1_cap
