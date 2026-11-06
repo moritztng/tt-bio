@@ -17,6 +17,7 @@ import argparse
 import importlib.util
 import json
 import os
+import resource
 import sys
 import time
 from collections import defaultdict
@@ -221,6 +222,7 @@ def main():
         sdir = out / f"r{i}-{kind}"
         sdir.mkdir(parents=True, exist_ok=True)
         with clocksample.during(period=1.0) as clk:
+            ru = resource.getrusage(resource.RUSAGE_SELF)
             t = time.time()
             try:
                 metrics, _, _ = state.predict_one(jobs[0], dict(cfg, seed=a.seed, struct_dir=str(sdir)))
@@ -230,8 +232,10 @@ def main():
                 emit({"phase": kind, "round": i, "wall_s": round(time.time() - t, 2), "err": str(exc)[:600]})
                 return
             wall = time.time() - t
+            ru2 = resource.getrusage(resource.RUSAGE_SELF)
         cs = clk.summary()
-        emit({"phase": kind, "round": i, "wall_s": round(wall, 2), "tokens": metrics.get("n_tokens"),
+        cpu = {"user_s": round(ru2.ru_utime - ru.ru_utime, 1), "sys_s": round(ru2.ru_stime - ru.ru_stime, 1)}
+        emit({"phase": kind, "round": i, "wall_s": round(wall, 2), "host_cpu": cpu, "tokens": metrics.get("n_tokens"),
               "aiclk": cs, "aiclk_line": clk.line(0), "plddt": metrics.get("plddt"), "ptm": metrics.get("ptm")})
         if S.on:
             S.f.close()
