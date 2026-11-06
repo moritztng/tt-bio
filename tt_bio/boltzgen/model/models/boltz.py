@@ -101,7 +101,12 @@ HOST_LEVERS = frozenset({"bg_featproc"})
 WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
                                     "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf", "dit_bpad", "dit_shard",
                                     "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "trimul_bres",
-                                    "opm_jd"}
+                                    "opm_jd", "dit_kl1"}
+# dit_kl1 (both Wormhole sets) keeps the token DiT attention at the full k chunk with the PV sums added in L1, so the
+# Wormhole fp32-dest erratum guard holds without the 32-key chunk: ~-1.2 ms a diffusion step at 1000 MHz (kl1ab,
+# 2026-11-03, b l l b). Graded as a stack with device z_init on Wormhole vs TT_BIO_LEVERS=none (seed-cluster bootstrap,
+# 2026-11-06): normal 8 seeds x 8 designs, design_iptm +0.009 [-0.014, +0.031], design_ptm +0.026 [+0.007, +0.045],
+# complex_plddt +0.007 [+0.002, +0.013]; fast 5 seeds, iptm +0.013 [-0.015, +0.040], ptm +0.023, plddt +0.008.
 # Wormhole fast also runs the trunk on the T1/T2 trimul kernels, the weight-stationary transition, the fused triangle-
 # attention LN and conditions several DiT steps ahead (dit_cond_steps). These move the CIFs, graded as one stack by the
 # fast protocol (perf/spd/bg_grade.py, bg_R3, seeds 0-3 x 8 designs vs exact normal, 2026-10-26): every confidence
@@ -125,7 +130,7 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "t
 WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
                                 "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard",
                                 "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "opm_jd", "dit_kc",
-                                "adaln_at"}
+                                "adaln_at", "dit_kl1"}
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
 # residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
 # designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.
@@ -670,9 +675,7 @@ class Boltz(nn.Module):
                 # builds z_init where it consumes it, so the [1, n, n, token_z] host sum and its
                 # 134 MB upload never happen. The host relative position encoding is then only
                 # built for the one reader that still needs it, the token-distance features.
-                # Blackhole only until the Wormhole grade (bf16 device sum moves the CIFs) passes.
-                device_zinit = (self.use_resident_trunk and _device_zinit()
-                                and not tenstorrent.is_wormhole())
+                device_zinit = self.use_resident_trunk and _device_zinit()
                 z_init = z_init_build = relative_position_encoding = None
                 if device_zinit:
                     z_init_build = self._tt_zinit_module()

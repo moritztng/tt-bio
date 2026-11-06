@@ -324,6 +324,88 @@ def css_kernel_dir() -> Path:
     return d
 
 
+_PV_CALL_ORIG = "            /* OUT_IM = QK @ V_CHUNK */\n            matmul_blocks("
+_PV_ANCHOR = "template <uint32_t M>\nvoid matmul_reduce("
+_PV_FN = r"""// pv_l1acc: QK @ V_CHUNK one key tile per dest pass, the partial sums added by the packer in L1.
+ALWI void matmul_blocks_pv(
+    const uint32_t& in0_cb, const uint32_t& in1_cb, const uint32_t& out_cb, const uint32_t& M,
+    const uint32_t& N, const uint32_t& K, const uint32_t& num_blocks, const uint32_t& in0_num_subblocks,
+    const uint32_t& in1_num_subblocks, const uint32_t& in0_block_w, const uint32_t& subblock_h,
+    const uint32_t& subblock_w, const bool& transpose) {
+    mm_block_init_short(in0_cb, in1_cb, transpose, subblock_w, subblock_h, in0_block_w);
+    const uint32_t in0_subblock_num_tiles = subblock_h * in0_block_w;
+    uint32_t in0_index_offset = 0;
+    uint32_t in0_wait_tiles = in0_subblock_num_tiles;
+    reconfig_data_format(in1_cb, in0_cb);
+    cb_wait_front(in1_cb, K * N);
+    cb_reserve_back(out_cb, M * N);
+    for (uint32_t in0_subblock = 0; in0_subblock < in0_num_subblocks; ++in0_subblock) {
+        cb_wait_front(in0_cb, in0_wait_tiles);
+        uint32_t in1_index_offset = 0;
+        for (uint32_t in1_subblock = 0; in1_subblock < in1_num_subblocks; ++in1_subblock) {
+            uint32_t in0_index = in0_index_offset;
+            uint32_t in1_index = in1_index_offset;
+            const uint32_t out_col_offset = in1_subblock * subblock_w;
+            for (uint32_t inner_dim = 0; inner_dim < in0_block_w; inner_dim++) {
+                tile_regs_acquire();
+                matmul_block(in0_cb, in1_cb, in0_index, in1_index, 0, transpose, subblock_w, subblock_h, in0_block_w);
+                tile_regs_commit();
+                tile_regs_wait();
+                PACK((llk_pack_reconfig_l1_acc(inner_dim > 0)));
+                uint32_t dst_idx = 0;
+                for (uint32_t r = 0; r < subblock_h; r++) {
+                    for (uint32_t c = 0; c < subblock_w; c++) {
+                        pack_tile<true>(dst_idx, out_cb, r * N + out_col_offset + c);
+                        dst_idx++;
+                    }
+                }
+                tile_regs_release();
+                in0_index++;
+                in1_index += N;
+            }
+            PACK((llk_pack_reconfig_l1_acc(0)));
+            in1_index_offset += subblock_w;
+        }
+        in0_index_offset += subblock_h * in0_block_w;
+        in0_wait_tiles += in0_subblock_num_tiles;
+        cb_push_back(out_cb, subblock_h * N);
+    }
+    cb_pop_front(in1_cb, K * N);
+}
+
+"""
+
+
+def pv_l1acc_kernel_dir() -> Path:
+    """The wheel's SDPA compute kernel with the PV product (`OUT_IM = QK @ V_CHUNK`) stepped one key tile
+    per dest pass and the partial sums added by the packer in L1 (`pv_l1acc`).
+
+    On Wormhole an fp32 dest that accumulates more than one K tile writes an occasional wrong value
+    (`dest_guard.py`). `_sdpa32` used to dodge it with one key tile per k chunk, which also runs the
+    online softmax (row max, exp, rescale) once per 32 keys. Here the k chunk stays big and only the
+    PV accumulation leaves dest, the same fix `dest_guard` applies to the linears. The sums land in the
+    bf16 output CB either way, as they did when each 32-key chunk was its own softmax step."""
+    kd = _kdir()
+    common = (kd / "compute/compute_common.hpp").read_text()
+    for line in (_PV_CALL_ORIG, _PV_ANCHOR):
+        assert common.count(line) == 1, ("pv_l1acc: the wheel's SDPA compute kernel changed", line)
+    common = common.replace(_PV_ANCHOR, _PV_FN + _PV_ANCHOR, 1)
+    common = common.replace(_PV_CALL_ORIG, _PV_CALL_ORIG.replace("matmul_blocks(", "matmul_blocks_pv("), 1)
+    files = {"compute/compute_common.hpp": common}
+    for name in ("compute/sdpa.cpp", "compute/compute_streaming.hpp"):
+        files[name] = (kd / name).read_text()
+    import hashlib
+    d = (Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "tt_bio" / "sdpa_pv_l1acc"
+         / hashlib.sha1("".join(files[k] for k in sorted(files)).encode()).hexdigest()[:12])
+    if not (d / "compute/compute_common.hpp").exists():
+        for name, src in files.items():
+            (d / name).parent.mkdir(parents=True, exist_ok=True)
+            tmp = d / (name + f".{os.getpid()}")
+            tmp.write_text(src)
+            tmp.replace(d / name)
+    return d
+
+
 def css_width(k_num_chunks):
     return _div_up(k_num_chunks + 1, 16) * 16
 
@@ -604,7 +686,7 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
           split=None, kv_buffer_factor=2, fuse_qkv=None, gate=None, im_dtype=None,
           out_im_dtype=None, stats_dtype=None, kv_window=None, qkv_fused=None, css=None,
           keypad=None, merged_out=False, rows=None, kv_chain=False, boxes=None,
-          mask_chain=False):
+          mask_chain=False, pv_l1acc=False):
     """The ProgramDescriptor for the fold's SDPA call.
 
     `rows` is the real sequence length when q, k and v are head-pitched `[B, H, rows + 32, DH]`
@@ -626,6 +708,8 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
     `gate` is `(g, gate_buffer_factor)`: triangle attention's `[B, NQH, Sq, DH]` gate, which the
     compute kernel's pack stage multiplies in as `out * sigmoid(g)` instead of the caller running
     that multiply as its own program. Head-major and DHt == 1, so gate tile i is output tile i.
+
+    `pv_l1acc` runs the compute kernel of `pv_l1acc_kernel_dir` (not with `css`, which patches its own).
 
     `css` is `(lists, counts)` from `css_lists` (lists on device, ROW_MAJOR uint32): q chunk i visits
     only the key chunks its row lists (`css_kernel_dir`).
@@ -915,6 +999,9 @@ def build(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, sca
         writer_src = str(qkv_fused_kernel_dir() / "dataflow/writer_interleaved.cpp")
     if not Path(compute_src).exists():
         compute_src = str(stock / "compute/sdpa.cpp")
+    if pv_l1acc:
+        assert css is None, "pv_l1acc and css both patch the compute kernel"
+        compute_src = str(pv_l1acc_kernel_dir() / "compute/sdpa.cpp")
 
     q_a, k_a, v_a = q.buffer_address(), k.buffer_address(), v.buffer_address()
     m_a, o_a = mask.buffer_address(), out.buffer_address()
@@ -1047,6 +1134,7 @@ def sdpa(device, q, k, v, mask, out, q_chunk_size, k_chunk_size, grid, ckc, scal
            str(kw.get("im_dtype")), str(kw.get("out_im_dtype")), str(kw.get("stats_dtype")),
            kw.get("kv_window"), kw.get("qkv_fused"), kw.get("css") is not None, bool(kw.get("merged_out")),
            kw.get("rows"), bool(kw.get("kv_chain")), kw.get("boxes"), bool(kw.get("mask_chain")),
+           bool(kw.get("pv_l1acc")),
            None if kw.get("keypad") is None else str(kw["keypad"].padded_shape))
     e = _CACHE.get(key)
     if e is None:

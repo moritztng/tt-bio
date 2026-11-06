@@ -46,7 +46,8 @@ def main():
     ap.add_argument("--heads", type=int, default=16)
     ap.add_argument("--dim", type=int, default=64)
     ap.add_argument("--ls", type=float, default=2.0, help="q, k, v scale")
-    ap.add_argument("--chunks", default="256x256,256x128,256x64,256x32,128x32")
+    ap.add_argument("--chunks", default="256x256,256x128,256x64,256x32,128x32",
+                    help="QxK; a trailing l runs the PV product with packer L1 accumulation (pv_l1acc, dit_kl1)")
     ap.add_argument("--draws", type=int, default=4)
     ap.add_argument("--window", type=int, default=0, help="atom form: 32 queries against a W-key window per head")
     ap.add_argument("--kvwin", type=int, default=0, help="with --window: nb windows per frame head, through kv_window")
@@ -80,14 +81,15 @@ def main():
         tk, tv = (up(f) for f in fr) if a.kvwin else (up(pad(k, pk)), up(pad(v, pk)))
         kw = dict(kv_window=(a.kvwin, nk)) if a.kvwin else {}
         for c in a.chunks.split(","):
-            qc, kc = map(int, c.split("x"))
+            l1 = c.endswith("l")
+            qc, kc = map(int, c.rstrip("l").split("x"))
             if pq % qc or pk % kc:
                 continue
 
             def run():
                 out = ttnn.allocate_tensor_on_device(ttnn.Shape([a.m, hv, pq, a.dim]), ttnn.float32,
                                                      ttnn.TILE_LAYOUT, dev, ttnn.DRAM_MEMORY_CONFIG)
-                return SG.sdpa(dev, tq, tk, tv, tm, out, qc, kc, grid, T._SDPA32_CKC, s, **kw)
+                return SG.sdpa(dev, tq, tk, tv, tm, out, qc, kc, grid, T._SDPA32_CKC, s, pv_l1acc=l1, **kw)
             try:
                 y = run()
             except Exception as e:
