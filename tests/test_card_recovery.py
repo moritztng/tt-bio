@@ -14,12 +14,19 @@ SPEC = importlib.util.spec_from_file_location(
     "card_recovery", Path(__file__).resolve().parents[1] / "scripts" / "card_recovery.py")
 cr = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(cr)
+PINNED_TO = cr.pinned_to    # the real scan, before the autouse fixture below stubs it
 
 
 @pytest.fixture(autouse=True)
 def _p300c_by_default(monkeypatch):
     # Pin the board to p300c so the pair tests do not depend on which host runs them.
     monkeypatch.setattr(cr, "subsystem_device", lambda card: "0x0044")
+
+
+@pytest.fixture(autouse=True)
+def _no_pinned_process(monkeypatch):
+    # The real environ scan would see whatever runs on the test host (a gate leg pinned to card 1).
+    monkeypatch.setattr(cr, "pinned_to", lambda card: [])
 
 
 @pytest.mark.parametrize("card,sibling", [(0, 1), (1, 0), (2, 3), (3, 2)])
@@ -89,3 +96,29 @@ def test_no_tt_smi_is_a_failure_rather_than_a_silent_pass(monkeypatch):
     monkeypatch.setattr(cr, "_tt_smi", lambda: None)
     monkeypatch.setattr(cr, "fd_holders", lambda card: [])
     assert cr.reset_after_kill(0, say=lambda *a: None) == cr.FAILED
+
+
+def test_a_leg_pinned_to_the_sibling_but_not_yet_open_blocks_the_reset(monkeypatch):
+    # qb2 2026-11-06: ux:boltzgen was 19 s into its imports on card 2, no fd yet, when the pair reset killed it.
+    calls = _spy(monkeypatch, sibling_busy=False)
+    monkeypatch.setattr(cr, "pinned_to", lambda card: [5151] if card == 1 else [])
+    assert cr.reset_after_kill(0, say=lambda *a: None) == cr.REFUSED
+    assert calls == []
+
+
+def test_the_pin_scan_reads_tt_visible_devices_of_python_processes(tmp_path, monkeypatch):
+    def proc(pid, argv0, env):
+        d = tmp_path / str(pid)
+        d.mkdir()
+        (d / "cmdline").write_bytes(argv0 + b"\0-m\0tt_bio.main\0")
+        (d / "environ").write_bytes(b"\0".join(env) + b"\0")
+    proc(11, b"/venv/bin/python3", [b"HOME=/h", b"TT_VISIBLE_DEVICES=2"])
+    proc(12, b"/venv/bin/python", [b"TT_VISIBLE_DEVICES=0,1"])
+    proc(13, b"/bin/bash", [b"TT_VISIBLE_DEVICES=1"])        # an idle shell does not hold the pair
+    proc(14, b"/venv/bin/python", [b"TT_VISIBLE_DEVICES=12"])  # card 12, not card 1 or 2
+    (tmp_path / "self").mkdir()
+    real = cr.Path
+    monkeypatch.setattr(cr, "Path", lambda p: tmp_path if p == "/proc" else real(p))
+    assert PINNED_TO(2) == [11]
+    assert PINNED_TO(1) == [12]
+    assert PINNED_TO(3) == []
