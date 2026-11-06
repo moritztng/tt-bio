@@ -1,0 +1,16 @@
+benchlock: pnr-tt acquired after 2s, loadavg 1.33 1.94 3.27
+2026-11-06 16:49:20.085 | DEBUG    | ttnn:<module>:77 - Initial ttnn.CONFIG:
+Config{cache_path=/home/ttuser/.cache/ttnn,model_cache_path=/home/ttuser/.cache/ttnn/models,tmp_dir=/tmp/ttnn,enable_model_cache=false,enable_fast_runtime_mode=true,throw_exception_on_fallback=false,enable_logging=false,enable_graph_report=false,enable_detailed_buffer_report=false,enable_detailed_tensor_report=false,enable_comparison_mode=false,comparison_mode_should_raise_exception=false,comparison_mode_pcc=0.9999,root_report_path=generated/ttnn/reports,report_name=std::nullopt,std::nullopt}
+[mol1-fast] cold 93.896s plddt=0.754219 cif=['f40b4eaeadd88f62']
+[mol1-fast] warm 0 85.392s plddt=0.754219 cif=['f40b4eaeadd88f62']
+[mol1-fast] warm 1 85.737s plddt=0.754219 cif=['f40b4eaeadd88f62']
+[mol1-fast] warm 2 85.571s plddt=0.754219 cif=['f40b4eaeadd88f62']
+[mol1-fast] warm 3 85.644s plddt=0.754219 cif=['f40b4eaeadd88f62']
+[mol1-fast] warm 4 85.749s plddt=0.754219 cif=['f40b4eaeadd88f62']
+[mol1-fast] median 85.644s spread 0.357s aiclk median 1350 min 1343 MHz
+[mol1-fast] reach {'adaln_calls': 0, 'adaln_with_s_terms': 0, 'adaln_s_terms_calls': 0}
+[mol1-fast] latches {'l1_out': {'served': 3840, 'refused': 0, 'blocked': 0, 'declined': 26064, 'why': []}, 'transpose_l1': {'served': 960, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}, 'bmm_cfg': {'served': 11568, 'refused': 0, 'blocked': 0, 'declined': 0, 'why': []}}
+[mol1-fast] FP32_SOFTMAX_STATS {'calls': 0, 'blocked': 0, 'blocks': 0, 'fused': 0, 'unfused': 0, 'l1': 0, 'l1_blocks': 0, 'l1_refused': 0, 'l1_cores': 0, 'l1_free_retired': 0, 'l1_free_walked': 0, 'l1_padded_diverged': 0, 'dram_narrowed': 0}
+[mol1-fast] TRIMUL_ROUTES {'gated-inproj-moved|defer': 1920, 'gated-move|defer': 15456} {'GIN_MOVE_STATS': [1920, 0], 'RES_STATS': [0, 0], 'T1_STATS': [0, 14448], 'T2_STATS': [0, 9600], 'T2CM_STATS': [0, 0], 'MASK_STATS': [0]} BMM_RES served/declined [0, 17376]
+wrote /home/ttuser/.coworker/wt/pnr-tt/perf/pnr/tt/run-1105T1810-mol1/mol1_fast/result.json
+benchlock: pnr-tt released, rc=0, loadavg 2.77 2.75 3.11
