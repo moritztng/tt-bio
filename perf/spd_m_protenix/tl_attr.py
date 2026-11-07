@@ -113,7 +113,8 @@ for fid in [getattr(ttnn.MathFidelity, f) for f in a.fids.split(",")]:
                 TL.ABL = abl
                 ms = timed(lambda: run(fid, tr))
                 row = dict(n=a.n, c=c, card=os.environ.get("TT_VISIBLE_DEVICES"), fid=str(fid), tr=tr, b8=b8,
-                           abl=abl, stagger=st, lnblk=blk, share=sh, ms=ms)
+                           abl=abl, stagger=st, lnblk=blk, share=sh, ms=ms,
+                           plan=TL._plan(c // 32, (4 * c + 32) // 32, int(tr), dev, grid[0] * grid[1]))
                 if abl == 0 and len(arms) > 1:
                     r = run(fid, tr)
                     out = host(r)
