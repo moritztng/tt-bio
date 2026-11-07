@@ -5,6 +5,15 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.27.1] - 2026-11-07
+
+### Fixed
+- **OpenDDE and ESMFold2 no longer hang Wormhole chips.** On Wormhole, OpenDDE (normal and `--fast`) and ESMFold2
+  `--fast` ran the trunk's matmuls at HiFi2. Under sustained load one core of such a matmul could stall and the chip
+  stopped answering: on two JapanFold Galaxies this hit about 8-11 % of OpenDDE antibody-antigen targets. The
+  Wormhole trunk runs at HiFi3 again, the fidelity it used before 0.21.0; Blackhole is unchanged. HiFi3 is the more
+  precise setting and costs OpenDDE about 2 % at 608 tokens on Wormhole.
+
 ## [0.27.0] - 2026-11-06
 
 ### Added
