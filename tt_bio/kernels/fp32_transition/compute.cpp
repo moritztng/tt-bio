@@ -35,7 +35,9 @@ constexpr uint32_t cb_x = 0, cb_g = 1, cb_b = 2, cb_xc = 3, cb_s1 = 4, cb_m = 5,
 constexpr uint32_t cb_d = 9, cb_c0b = 10, cb_w1 = 11, cb_w2 = 12, cb_w3 = 13, cb_dh = 14, cb_h0b = 15;
 constexpr uint32_t cb_out = 16, cb_c0 = 17;
 
+// The matmuls leave unpacker A on bf16, and every LN load is fp32: reconfigure it on each copy.
 ALWI void load(uint32_t cb, uint32_t tile, uint32_t dst) {
+    reconfig_data_format_srca(cb);
     copy_tile_to_dst_init_short(cb);
     copy_tile(cb, tile, dst);
 }
