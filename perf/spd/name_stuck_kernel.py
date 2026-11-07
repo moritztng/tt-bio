@@ -37,27 +37,30 @@ def same(l1, text, skip, base_addr):
 def name(cap: Path, index):
     for m in LINE.finditer((cap / "triage.txt").read_text()):
         loc, risc, pc, base, off = m.group(1), m.group(2), *(int(g, 16) for g in m.groups()[2:])
-        dump = cap / f"l1-{loc}.bin"
-        if not dump.exists():
+        dump = next(cap.glob(f"l1-{loc}[ .]*bin"), None)  # dump_callstacks names it "l1-<noc> (<logical>).bin"
+        if dump is None:
             print(f"{cap.name} {loc} {risc}: pc=0x{pc:x}, no L1 dump")
             continue
         start = base + off
         l1 = dump.read_bytes()[start:start + 64 * 1024]
-        cands = [x for t, x in index.get(risc, []) if sum(a == b for a, b in zip(t, l1)) >= 48]
+        # Best prefix scores first; parsing every >=48/64 candidate ELF (thousands share a prologue) ran for minutes.
+        cands = sorted(((sum(a == b for a, b in zip(t, l1)), x) for t, x in index.get(risc, [])), reverse=True)
+        cands = [x for k, x in cands[:300] if k >= 48]
         hits = []
         for x in cands:
             text, addr, skip, syms = elf_text(x)
             if same(l1, text, skip, addr):
                 hits.append((x, addr, syms))
+                break
         if not hits:
             print(f"{cap.name} {loc} {risc}: pc=0x{pc:x} start=0x{start:x}: no cached kernel matches ({len(cands)} prefix candidates)")
             continue
         x, addr, syms = hits[0]
         rel = (pc - 0xFFC00000 if pc >= 0xFFC00000 else pc - start) + addr
         fn = max((s for s in syms if s[0] <= rel), default=(0, "?"))[1]
-        src = Path(x).parents[2]
+        src = Path(x).parents[1]
         inc = next(src.glob("chlkc_math.cpp"), None)
-        print(f"{cap.name} {loc} {risc}: {src.parent.name}/{src.name} ({len(hits)} identical) pc 0x{rel:x} in {fn}"
+        print(f"{cap.name} {loc} {risc}: {src.parent.name}/{src.name} pc 0x{rel:x} in {fn}"
               + (f" src {inc.read_text().split(chr(34))[-2]}" if inc else ""))
         dis = subprocess.run([OBJDUMP, "-d", x, f"--start-address={rel - 24}", f"--stop-address={rel + 16}"],
                              capture_output=True, text=True).stdout
