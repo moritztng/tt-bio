@@ -69,6 +69,7 @@ def main():
     ap.add_argument("--batch", type=int, default=1, help="designs a trunk call (the sample width)")
     ap.add_argument("--reps", type=int, default=20)
     ap.add_argument("--no-trace", action="store_true")
+    ap.add_argument("--real", type=int, help="real tokens per design (default all n); the rest are masked pad tokens")
     a = ap.parse_args()
 
     from tt_bio import tenstorrent as T
@@ -86,10 +87,11 @@ def main():
     s0, z0 = torch.randn(b, n, tok, generator=g), torch.randn(b, n, n, pair, generator=g)
     c0 = [torch.randn(b, n, dc, generator=g) for _ in range(3)]
     mask = torch.ones(b, n)
+    mask[:, a.real or n:] = 0
 
     up = lambda t, dt: ttnn.from_torch(t.contiguous(), dtype=dt, layout=ttnn.TILE_LAYOUT, device=dev)  # noqa: E731
     masks = TR.trunk_masks(mask, dev, residual_dtype=ttnn.float32)
-    s, z = up(s0, ttnn.float32), up(z0, trunk.pair_residual_dtype)
+    s, z = up(s0, ttnn.float32), up(z0, trunk.pair_dtype(masks))
     conds = [up(c, ttnn.bfloat16) for c in c0]
     sync = lambda: ttnn.synchronize_device(dev)  # noqa: E731
 
@@ -114,7 +116,7 @@ def main():
             ms.append(1e3 * (time.perf_counter() - t))
         return ms
 
-    rec = {"n": n, "batch": b, "nlayers": cfg["nlayers"], "tt_bio": str(Path(TR.__file__).resolve().parents[2])}
+    rec = {"n": n, "real": a.real or n, "batch": b, "nlayers": cfg["nlayers"], "tt_bio": str(Path(TR.__file__).resolve().parents[2])}
     # Is a mixed fp32 + bf16 add the fp32 add of the widened bf16? If so the residual's typecast
     # can go; if the unpacker narrows the fp32 operand instead, it cannot.
     zf = up(z0, ttnn.float32)
