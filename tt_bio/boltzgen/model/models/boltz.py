@@ -101,7 +101,7 @@ HOST_LEVERS = frozenset({"bg_featproc"})
 WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
                                     "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf", "dit_bpad", "dit_shard",
                                     "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "trimul_bres",
-                                    "opm_jd", "dit_kl1"}
+                                    "opm_jd", "dit_kl1", "adaln_at"}
 # dit_kl1 (both Wormhole sets) keeps the token DiT attention at the full k chunk with the PV sums added in L1, so the
 # Wormhole fp32-dest erratum guard holds without the 32-key chunk: ~-1.2 ms a diffusion step at 1000 MHz (kl1ab,
 # 2026-11-03, b l l b). Graded as a stack with device z_init on Wormhole vs TT_BIO_LEVERS=none (seed-cluster bootstrap,
@@ -126,11 +126,19 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "t
 # conditioning computed steps ahead now takes the set's dit_cond_hifi2: 33.1 -> 31.9 ms a diffusion step, ~-0.8 s/design
 # at 1000 MHz (abwsf, 2026-11-01). Fast grade of the whole set vs TT_BIO_LEVERS=none (seed-cluster bootstrap, 7 seeds x 8
 # designs vs 8 x 8, 2026-11-05): design_iptm +0.003 [-0.024, +0.029], design_ptm +0.026 [+0.007, +0.046], complex_plddt
-# +0.004 [-0.002, +0.009]. Normal fails with adaln_at (iptm -0.023 [-0.045, -0.003]).
+# +0.004 [-0.002, +0.009]. Normal first failed with adaln_at against a base that was already a lever stack; graded
+# against TT_BIO_LEVERS=none (seed-cluster bootstrap, 8 seeds x 8 designs, 2026-11-07) it passes: design_iptm -0.008
+# [-0.030, +0.014], design_ptm +0.009 [-0.017, +0.035], complex_plddt +0.003 [-0.003, +0.010], so normal carries it too.
+# Fast also takes four trunk levers from the shared kernels (trimul_sig6, triatt_ln_b8 with triatt_ln_b8g, trimul_t1w8):
+# trunk loop 11.96 -> 11.48 s/design at 1000 MHz on both pairs of a b g a b g a A/B (trgab, 2026-11-07); five more
+# shared trunk levers leave the CIFs byte-identical in BoltzGen and stay out. Fast grade vs TT_BIO_LEVERS=none (5 seeds
+# x 8 designs, 2026-11-07): design_iptm +0.023 [-0.011, +0.063], design_ptm +0.026 [+0.008, +0.046], complex_plddt
+# +0.001 [-0.005, +0.008].
 WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
                                 "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard",
                                 "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "opm_jd", "dit_kc",
-                                "adaln_at", "dit_kl1"}
+                                "adaln_at", "dit_kl1", "trimul_sig6", "triatt_ln_b8",
+                                "triatt_ln_b8g", "trimul_t1w8"}
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
 # residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
 # designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.
