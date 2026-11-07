@@ -1207,6 +1207,11 @@ Tools other people built that use tt-bio as the fold engine:
 
 Built something? Open an issue and we'll add it.
 
+## Contact
+
+To run TT-Bio on your own hardware, or for a model it does not run yet, write to bio@tenstorrent.com or use the form
+on [tt-bio.com](https://tt-bio.com/#contact). Bugs go to [GitHub issues](https://github.com/moritztng/tt-bio/issues).
+
 ## Cite
 
 If you use this code or the models in your research, please cite the following papers:
