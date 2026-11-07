@@ -594,15 +594,15 @@ class PairUpdate(Module):
         fused = zb is not z or lever("pair_bf16z")
         for sub, own_mask in subs:
             u = None
-            if not own_mask and pair_mask is None and fused and whole and lever("pair_tail"):
-                # no padded token: the triangle's output tail adds into the pair stream in the same program,
+            if not own_mask and pair_mask_c is None and fused and whole and lever("pair_tail"):
+                # no residual mask: the triangle's output tail adds into the pair stream in the same program,
                 # z and zb written in place
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
-                u = tri(zb, None, stream32=z)
+                u = tri(zb, pair_mask, stream32=z)
                 if tri.took_residual:
                     continue
-            if own_mask and pair_mask is None and self.tr_ws is not None and fused:
-                # the transition with no padded token: its residual write rides the same program, in place
+            if own_mask and pair_mask_c is None and self.tr_ws is not None and fused:
+                # the transition with no residual mask: its residual write rides the same program, in place
                 both = self._transition_block(zb, resid=z)
                 if both is not None:
                     z, zb = both
@@ -788,9 +788,16 @@ class Trunk(Module):
     def _group_biases(self, k, zb, mask_scaled):
         """The pre-scaled [b, heads, n, n] pair bias of every block in `bias_groups[k]`."""
         g = self.bias_groups[k]
-        if self.bias_wts is not None and mask_scaled is None and dit_pair_bias.rms_eligible(zb, self.bias_wts[k]):
-            return dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
-                                               fidelity=self.compute_kernel_config.math_fidelity)
+        if (self.bias_wts is not None and (mask_scaled is None or lever("mask_at_mix"))
+                and dit_pair_bias.rms_eligible(zb, self.bias_wts[k])):
+            out = dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
+                                              fidelity=self.compute_kernel_config.math_fidelity)
+            if mask_scaled is None:
+                return out
+            masked = [ttnn.add(t, mask_scaled) for t in out]
+            for t in out:
+                ttnn.deallocate(t)
+            return masked
         both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
         if len(g) == 1:
             return [both]
@@ -830,6 +837,11 @@ class Trunk(Module):
         """One trunk pass. Consumes `s` and `z` (frees them) and returns the new pair. `zb`, when given, is
         z's `dtype` copy, made by whoever wrote z, and is consumed too."""
         mask, bias_mask, pair_mask, pair_mask_c, res_mask, res_pair_mask_c = masks
+        if mask is not None and lever("mask_at_mix"):
+            # Only the attention (over keys) and the triangle multiplication (over the third token) mix tokens; both
+            # keep their masks. Every other op is per token or per pair, so a padded token cannot reach a real one
+            # through it, and the residual masks go: the pass runs the unpadded path's fused programs.
+            mask = pair_mask_c = res_mask = None
         ckc = self.compute_kernel_config
         cn = _rms(cond, None, ckc)  # every adaptive norm of the pass reads rms0(cond)
         mask_scaled = None if bias_mask is None else ttnn.multiply(bias_mask, self.head_dim ** 0.5)
@@ -865,7 +877,7 @@ class Trunk(Module):
         token is padded, where every z write is one of the fused programs; a padded call reads z far past the float64
         model of bfp8 storage (state/rfd4/bets/z8.md), so it keeps the bfloat16 stream, main's path bit for bit."""
         zd = self.pair_residual_dtype
-        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None else zd
+        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None and "mask_at_mix" not in self._levers else zd
 
     @under_lever_scope
     def __call__(self, s_init, z_init, conds, masks):
@@ -896,6 +908,12 @@ class Trunk(Module):
                 ttnn.deallocate(s)
                 ttnn.deallocate(z)
             s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
+        if res_mask is not None and lever("mask_at_mix"):
+            # the passes left the padded tokens unmasked; the call hands them back as zeros, as upstream does
+            ms, mz = _masked_copy(s, res_mask, self.residual_dtype), _masked_copy(z, res_pair_mask_c, zd)
+            ttnn.deallocate(s)
+            ttnn.deallocate(z)
+            s, z = ms, mz
         for t, given in zip((s_init, z_init), inputs):
             if t is not given:
                 ttnn.deallocate(t)

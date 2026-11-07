@@ -932,6 +932,9 @@ _FAST_MODE = False
 #                   kernel, `shift + layer_norm(a) * scale` (`ln_split.adaln`): the normalised activation is never
 #                   written and re-read, and each row tile is split over several cores. The norm stays fp32 into the
 #                   modulation, so not bit-exact against layer_norm then addcmul_at.
+#   mask_at_mix     RFD4's padded trunk call masks only where tokens mix (attention keys, the triangle multiplication's
+#                   a and b) and zeroes the pad tokens once on the way out, so it runs the unpadded call's fused programs
+#                   and bfp8 pair stream (state/bat-lever.md)
 LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffusion_bf16", "dit_bf16", "dit_sdpa", "triatt_bias_b8", "triatt_b8",
           "transition_b8", "opm_b8", "atom_sdpa", "trimul_ibw", "trimul_tail", "trimul_b8in",
           "trimul_gin", "trunk_hifi3", "dit_sdpa32", "silu_f32", "ln_f32", "triatt_tail", "transition_bw",
@@ -951,7 +954,7 @@ LEVERS = ("lofi", "trimul_l1x2", "inproj_k6", "inproj_split", "acc_off", "diffus
            "pair_bias_rms", "pair_write_res", "dit_cond_steps", "trimul_bres_hifi2", "pair_tail_small", "pair_bf16z",
            "pair_tail_cm", "pair_batch", "pair_block_hifi2", "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z",
            "trimul_t1_fgate", "pair_x8", "pair_x8t", "tok_recycle_mm", "tok_w8", "trimul_x8", "ws_ln_resid", "dit_pad_short", "bg_featproc", "ef2_msa_ffn", "ef2_opm_proj", "trimul_t1_part",
-           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1")
+           "trimul_t1_3g", "trimul_t1split", "adaln_at", "dit_kl1", "mask_at_mix")
 # Named but in no shared mode set until their fold grade puts them in one. ESMFold2's own --fast set
 # (esmfold2_runtime.LEVERS_FAST) names trimul_b8in and the ef2_* switches, graded on ESMFold2's fold. AF2 names
 # triatt_tail_bias and pair_mm in its own set: graded on AF2-IG only, and each would reach any other
