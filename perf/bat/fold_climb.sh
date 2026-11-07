@@ -21,7 +21,7 @@ for cell in ${CELLS:-opendde:9TH6:5:5 opendde:9TH6:1:1 opendde:9TH6:5:1 opendde:
   IFS=: read m c s w <<< "$cell"
   o=$R/$m-$c-s$s-w$w; grep -qsx 0 $o.rc && continue
   TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:bat-fold PYTHONPATH=$WT timeout ${T:-5400} \
-    $PY $WT/perf/mol1/fair/run.py --chips $C --part dev --rounds ${ROUNDS:-2} --max-attempts 3 --model $m --arm exact \
+    $PY $WT/perf/mol1/fair/run.py --chips $C --part dev --rounds ${ROUNDS:-2} --max-attempts ${ATTEMPTS:-3} --model $m --samples $s --arm exact \
     --input $D/inputs/$c.yaml --out $o --cli-extra --diffusion_samples $s --max_parallel_samples $w \
     --recycling_steps $([ $m = mol1 ] && echo 20 || echo 10) --msa_dir $D/msa/cache --msa_cache_only > $o.log 2>&1
   echo $? > $o.rc; stamp "$m $c s$s w$w rc=$(cat $o.rc)"

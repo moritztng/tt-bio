@@ -174,7 +174,10 @@ def main():
     ap.add_argument("--cli-extra", nargs=argparse.REMAINDER, default=[],
                     help="dev only: more `tt-bio predict` flags (e.g. an MSA cache); recorded, and verdict.py refuses the line")
     ap.add_argument("--quiet-timeout", type=float, default=1800)
+    ap.add_argument("--samples", type=int, default=WORK["diffusion_samples"],
+                    help="diffusion samples each fold must return; anything but the protocol 5 is a climb, not a fair number")
     a = ap.parse_args()
+    WORK["diffusion_samples"] = a.samples
     a.chips = [int(c) for c in a.chips.split(",")]
     grant = os.environ.get("TT_BIO_LEASE_CARDS")
     if grant and not set(a.chips) <= {int(c) for c in grant.split(",")}:
