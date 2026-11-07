@@ -36,7 +36,9 @@ while n < cap:
         for p in pid[:1]:
             subprocess.run(f"timeout 30 sudo -n {kit}/xv/bin/py-spy dump --native --pid {p} > {d}/pyspy.txt 2>&1 || timeout 30 {kit}/xv/bin/py-spy dump --pid {p} >> {d}/pyspy.txt 2>&1", shell=True)
         cache = Path.home() / "japanfold/cache/tt-metal"
-        fw = next(cache.glob("tt-metal-cache*/firmware"), "")  # prod runs TT_METAL_INSPECTOR=0: triage-no-inspector.patch
+        # Prod runs TT_METAL_INSPECTOR=0 (triage-no-inspector.patch), so its firmware is built without -g and
+        # dispatcher_data cannot decode mailboxes from it. kit/fwdbg is the same tt-metal's firmware built with -g.
+        fw = kit / "fwdbg" if (kit / "fwdbg").is_dir() else next(cache.glob("tt-metal-cache*/firmware"), "")
         env = dict(os.environ, TT_VISIBLE_DEVICES=chip, TT_METAL_LOGS_PATH=str(d / "tmlogs"),
                    TRIAGE_NO_INSPECTOR_FW=str(fw), TRIAGE_KERNEL_CACHE=str(cache))
         t0 = time.time()
