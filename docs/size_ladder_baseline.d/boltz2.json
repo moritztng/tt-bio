@@ -1,26 +1,26 @@
 {
   "cards": {
     "tt-galaxy-wh-l": {
-      "recorded": "2026-11-06",
-      "host": "UF-EV-A4-GWH02",
-      "commit": "b46cbc7c5",
+      "recorded": "2026-11-07",
+      "host": "UF-EV-A6-GWH01",
+      "commit": "e0cfe5c47",
       "host_threads": 2,
       "models": {
         "boltz2": {
           "grid": "8x9",
-          "recorded": "2026-11-06",
-          "host": "UF-EV-A4-GWH02",
-          "commit": "b46cbc7c5",
+          "recorded": "2026-11-07",
+          "host": "UF-EV-A6-GWH01",
+          "commit": "e0cfe5c47",
           "host_threads": 2,
           "runtime_s": {
-            "256": 7.0,
-            "512": 21.9,
-            "640": 34.6,
-            "768": 51.4,
-            "896": 67.5,
-            "1024": 90.3,
-            "1280": 188.2,
-            "1536": 308.3
+            "256": 8.3,
+            "512": 18.2,
+            "640": 28.8,
+            "768": 43.5,
+            "896": 54.3,
+            "1024": 76.8,
+            "1280": 164.6,
+            "1536": 276.0
           },
           "levers": {
             "256": {
@@ -106,12 +106,9 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 280,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:256x256x128": 280
-                },
                 "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -132,9 +129,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -221,25 +218,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -280,9 +277,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 280,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -309,7 +306,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -405,12 +402,9 @@
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 280,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:512x512x128": 280
-                },
                 "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
@@ -431,9 +425,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -482,11 +476,10 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 560,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -520,25 +513,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -579,9 +572,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 280,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -609,12 +602,9 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 296,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 296
-                },
                 "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -707,9 +697,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 280,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -734,9 +724,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -789,11 +779,10 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 560,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -827,25 +816,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -887,7 +876,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 280,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size."
@@ -916,12 +905,9 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 296,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 296
-                },
                 "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -1014,9 +1000,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 280,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -1041,9 +1027,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -1086,21 +1072,20 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 560,
-                "declined": 560,
-                "frac": 0.5,
+                "declined": 1120,
+                "frac": 0.3333333333333333,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 1,
-                  "pm_over_l1": 559
+                  "l1_budget": 2,
+                  "pm_over_l1": 1118
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 560,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -1134,25 +1119,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -1194,7 +1179,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 280,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size."
@@ -1223,13 +1208,9 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 296,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 16,
-                  "ratio-shrunk": 280
-                },
                 "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -1322,9 +1303,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 280,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -1349,9 +1330,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -1394,21 +1375,20 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 560,
-                "declined": 560,
-                "frac": 0.5,
+                "declined": 1120,
+                "frac": 0.3333333333333333,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 1,
-                  "pm_over_l1": 559
+                  "l1_budget": 2,
+                  "pm_over_l1": 1118
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 560,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -1442,25 +1422,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -1502,7 +1482,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 280,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size."
@@ -1531,13 +1511,9 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 296,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 16,
-                  "ratio-shrunk": 280
-                },
                 "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -1630,9 +1606,9 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 280,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -1657,9 +1633,9 @@
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -1750,25 +1726,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 560,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
@@ -1810,7 +1786,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 280,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "L1 capacity, not tuning. The lever routes the Pairformer output transpose to L1 when the tensor plus 1.25x headroom fits. boltz-2's pair tensor is N^2*128*2 bytes: 67.1 MB at 512, 104.9 MB at 640. The 8x9 Wormhole grid has 72 cores x 1.5 MB = ~108 MB of L1, so 104.9*1.25 = 131 MB cannot fit while 67.1*1.25 = 83.9 MB can. `_pair_transpose` falls back to DRAM, which is the designed refusal path. Dark at 640 and above on every card whose L1 is this size."
@@ -1839,13 +1815,9 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 296,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 16,
-                  "ratio-shrunk": 280
-                },
                 "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -2140,13 +2112,9 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 296,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 16,
-                  "ratio-shrunk": 280
-                },
                 "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -2441,12 +2409,9 @@
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
                 "served": 0,
-                "declined": 296,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "ratio-shrunk": 296
-                },
                 "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -2460,36 +2425,36 @@
           },
           "runtime_reps_s": {
             "256": [
-              7.2,
-              7.0,
-              7.0,
-              7.2,
-              6.9
+              8.0,
+              8.3,
+              8.3,
+              8.1,
+              8.7
             ],
             "512": [
-              22.0,
-              21.9,
-              21.8,
-              21.8,
-              21.9
+              19.0,
+              19.2,
+              17.9,
+              18.2,
+              18.1
             ],
             "640": [
-              34.6
+              28.8
             ],
             "768": [
-              51.4
+              43.5
             ],
             "896": [
-              67.5
+              54.3
             ],
             "1024": [
-              90.3
+              76.8
             ],
             "1280": [
-              188.2
+              164.6
             ],
             "1536": [
-              308.3
+              276.0
             ]
           },
           "aiclk": {
@@ -2498,9 +2463,9 @@
               "min": 500,
               "max": 1000,
               "rep_median": [
-                1000,
                 500,
-                1000,
+                500,
+                500,
                 1000,
                 1000
               ],
@@ -2517,7 +2482,7 @@
                 1000,
                 1000
               ],
-              "n": 40
+              "n": 37
             },
             "640": {
               "card": "24",
@@ -2526,9 +2491,18 @@
               "rep_median": [
                 1000
               ],
-              "n": 10
+              "n": 9
             },
             "768": {
+              "card": "24",
+              "min": 500,
+              "max": 1000,
+              "rep_median": [
+                1000
+              ],
+              "n": 12
+            },
+            "896": {
               "card": "24",
               "min": 500,
               "max": 1000,
@@ -2537,15 +2511,6 @@
               ],
               "n": 16
             },
-            "896": {
-              "card": "24",
-              "min": 500,
-              "max": 1000,
-              "rep_median": [
-                1000
-              ],
-              "n": 17
-            },
             "1024": {
               "card": "24",
               "min": 500,
@@ -2553,7 +2518,7 @@
               "rep_median": [
                 1000
               ],
-              "n": 21
+              "n": 31
             },
             "1280": {
               "card": "24",
@@ -2562,7 +2527,7 @@
               "rep_median": [
                 1000
               ],
-              "n": 41
+              "n": 38
             },
             "1536": {
               "card": "24",
@@ -2571,64 +2536,64 @@
               "rep_median": [
                 1000
               ],
-              "n": 67
+              "n": 62
             }
           },
           "load": {
             "256": {
-              "max": 0.43,
+              "max": 0.28,
               "rep_median": [
-                0.41,
-                0.42,
-                0.42,
-                0.41,
-                0.42
+                0.12,
+                0.25,
+                0.2,
+                0.16,
+                0.14
               ]
             },
             "512": {
-              "max": 0.42,
+              "max": 0.98,
               "rep_median": [
-                0.39,
-                0.4,
-                0.39,
-                0.39,
-                0.41
-              ]
-            },
-            "640": {
-              "max": 0.5,
-              "rep_median": [
+                0.51,
+                0.68,
+                0.84,
+                0.59,
                 0.48
               ]
             },
-            "768": {
-              "max": 1.76,
+            "640": {
+              "max": 0.2,
               "rep_median": [
-                1.2
+                0.15
+              ]
+            },
+            "768": {
+              "max": 0.1,
+              "rep_median": [
+                0.07
               ]
             },
             "896": {
-              "max": 0.6,
+              "max": 0.46,
               "rep_median": [
-                0.45
+                0.43
               ]
             },
             "1024": {
-              "max": 0.24,
+              "max": 0.89,
               "rep_median": [
-                0.22
+                0.69
               ]
             },
             "1280": {
-              "max": 0.2,
+              "max": 0.75,
               "rep_median": [
-                0.19
+                0.61
               ]
             },
             "1536": {
-              "max": 0.71,
+              "max": 0.39,
               "rep_median": [
-                0.54
+                0.31
               ]
             }
           },
@@ -2637,16 +2602,16 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.719,
-              "radius_of_gyration_A": 111.003,
-              "plddt_mean": 0.52684,
+              "ca_ca_median_A": 135.8844,
+              "radius_of_gyration_A": 111.229,
+              "plddt_mean": 0.531357,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.719 A outside [3.6, 4.0]",
+                "median CA-CA 135.884 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.0 A outside [9.0, 45.2]"
+                "radius of gyration 111.2 A outside [9.0, 45.2]"
               ]
             },
             "512": {
@@ -2654,153 +2619,167 @@
               "steps": 6,
               "n_ca": 512,
               "clash_frac": 0.0117,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 134.9619,
-              "radius_of_gyration_A": 107.453,
-              "plddt_mean": 0.507448,
+              "chain_break_frac": 0.998,
+              "ca_ca_median_A": 135.4964,
+              "radius_of_gyration_A": 107.651,
+              "plddt_mean": 0.502735,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 134.962 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.5 A outside [11.8, 58.9]"
+                "median CA-CA 135.496 A outside [3.6, 4.0]",
+                "99.8% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 107.7 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0156,
+              "clash_frac": 0.0125,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 130.5263,
-              "radius_of_gyration_A": 107.594,
-              "plddt_mean": 0.498793,
+              "ca_ca_median_A": 130.777,
+              "radius_of_gyration_A": 107.053,
+              "plddt_mean": 0.500531,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 130.526 A outside [3.6, 4.0]",
+                "median CA-CA 130.777 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.6 A outside [12.8, 64.1]"
+                "radius of gyration 107.1 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0195,
+              "clash_frac": 0.0208,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 127.6406,
-              "radius_of_gyration_A": 102.728,
-              "plddt_mean": 0.491042,
+              "ca_ca_median_A": 129.0253,
+              "radius_of_gyration_A": 103.986,
+              "plddt_mean": 0.497245,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 127.641 A outside [3.6, 4.0]",
+                "median CA-CA 129.025 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 102.7 A outside [13.7, 68.7]"
+                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 104.0 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0067,
+              "clash_frac": 0.0179,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.4701,
-              "radius_of_gyration_A": 108.154,
-              "plddt_mean": 0.50589,
+              "ca_ca_median_A": 136.9728,
+              "radius_of_gyration_A": 108.043,
+              "plddt_mean": 0.504051,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.470 A outside [3.6, 4.0]",
+                "median CA-CA 136.973 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 108.2 A outside [14.6, 72.8]"
+                "radius of gyration 108.0 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0215,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.1592,
-              "radius_of_gyration_A": 104.811,
-              "plddt_mean": 0.503614,
+              "ca_ca_median_A": 132.8806,
+              "radius_of_gyration_A": 105.426,
+              "plddt_mean": 0.504556,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.159 A outside [3.6, 4.0]",
+                "median CA-CA 132.881 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 104.8 A outside [15.3, 76.6]"
+                "radius of gyration 105.4 A outside [15.3, 76.6]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0328,
-              "chain_break_frac": 0.9992,
-              "ca_ca_median_A": 133.8143,
-              "radius_of_gyration_A": 107.734,
-              "plddt_mean": 0.492861,
+              "clash_frac": 0.0187,
+              "chain_break_frac": 1.0,
+              "ca_ca_median_A": 132.804,
+              "radius_of_gyration_A": 107.232,
+              "plddt_mean": 0.492681,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.814 A outside [3.6, 4.0]",
-                "99.9% of consecutive CA pairs exceed 5.0 A",
-                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 107.7 A outside [16.7, 83.4]"
+                "median CA-CA 132.804 A outside [3.6, 4.0]",
+                "100.0% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 107.2 A outside [16.7, 83.4]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0267,
+              "clash_frac": 0.0312,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 128.0545,
-              "radius_of_gyration_A": 105.57,
-              "plddt_mean": 0.502991,
+              "ca_ca_median_A": 127.4453,
+              "radius_of_gyration_A": 104.933,
+              "plddt_mean": 0.501362,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 128.055 A outside [3.6, 4.0]",
+                "median CA-CA 127.445 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 105.6 A outside [17.9, 89.4]"
+                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 104.9 A outside [17.9, 89.4]"
               ]
             }
           },
-          "exponents_skipped": "768 aa was timed at 1.8x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
+          "reps": 1,
+          "sigma_runtime_512": 0.0314,
+          "exponents": {
+            "256->512": {
+              "k": 1.133,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 2.149,
+              "tol": 0.5
+            }
+          },
+          "sigma_runtime": {
+            "256": 0.0324,
+            "512": 0.0314
+          },
           "exponents_measured": {
-            "256->512": 1.646,
-            "512->640": 2.05,
-            "640->768": 2.171,
-            "768->896": 1.768,
-            "896->1024": 2.179,
-            "1024->1280": 3.291,
-            "1280->1536": 2.707
+            "256->512": 1.133,
+            "512->640": 2.057,
+            "640->768": 2.262,
+            "768->896": 1.439,
+            "896->1024": 2.596,
+            "1024->1280": 3.416,
+            "1280->1536": 2.835
           }
         }
       }
     },
     "p150a": {
-      "recorded": "2026-11-05",
+      "recorded": "2026-11-07",
       "host": "tt-quietbox",
-      "commit": "b46cbc7c5",
+      "commit": "e0cfe5c47",
       "host_threads": 8,
       "models": {
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-11-05",
+          "recorded": "2026-11-07",
           "host": "tt-quietbox",
-          "commit": "b46cbc7c5",
+          "commit": "e0cfe5c47",
           "host_threads": 8,
           "runtime_s": {
-            "256": 7.4,
-            "512": 12.9,
-            "640": 18.5,
-            "768": 25.4,
-            "896": 34.0,
-            "1024": 43.1,
-            "1152": 59.6,
-            "1280": 72.9,
-            "1408": 97.1,
-            "1536": 114.7
+            "256": 6.8,
+            "512": 12.8,
+            "640": 17.0,
+            "768": 22.9,
+            "896": 30.7,
+            "1024": 39.0,
+            "1152": 52.0,
+            "1280": 62.8,
+            "1408": 85.1,
+            "1536": 101.1
           },
           "levers": {
             "256": {
@@ -3095,7 +3074,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3389,7 +3368,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3683,9 +3662,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
@@ -3982,9 +3961,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
@@ -4281,9 +4260,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
@@ -4576,9 +4555,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
@@ -4872,10 +4851,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape [carried from rung 1024]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5167,10 +5147,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5462,10 +5443,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape [carried from tt-galaxy-wh-l] [carried from rung 1280]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5757,10 +5739,11 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "frac": 0.0,
+                "how": "stats",
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape [carried from tt-galaxy-wh-l]"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -5773,58 +5756,58 @@
           },
           "runtime_reps_s": {
             "256": [
-              9.3,
-              8.3,
-              7.2,
+              6.5,
+              6.8,
               6.9,
-              7.4
+              7.0,
+              6.6
             ],
             "512": [
               12.6,
-              13.2,
+              12.8,
               13.1,
-              12.7,
-              12.9
+              12.4,
+              12.8
             ],
             "640": [
-              18.4,
-              18.6,
-              18.5
+              16.6,
+              17.0,
+              17.0
             ],
             "768": [
-              25.4,
-              25.3,
-              25.4
+              23.3,
+              22.3,
+              22.9
             ],
             "896": [
-              34.1,
-              33.5,
-              34.0
+              30.7,
+              30.8,
+              30.2
             ],
             "1024": [
-              42.9,
-              43.1,
-              43.4
+              39.0,
+              38.8,
+              39.0
             ],
             "1152": [
-              59.6,
-              59.9,
-              59.1
+              52.0,
+              51.7,
+              52.2
             ],
             "1280": [
-              72.9,
-              72.8,
-              73.0
+              63.1,
+              62.8,
+              62.8
             ],
             "1408": [
-              97.4,
-              97.1,
-              97.1
+              84.9,
+              85.6,
+              85.1
             ],
             "1536": [
-              114.6,
-              114.7,
-              114.9
+              101.1,
+              100.9,
+              101.4
             ]
           },
           "aiclk": {
@@ -5839,7 +5822,7 @@
                 1350,
                 1350
               ],
-              "n": 28
+              "n": 27
             },
             "512": {
               "card": "0",
@@ -5848,11 +5831,11 @@
               "rep_median": [
                 1350,
                 1350,
-                1350,
+                1343,
                 1350,
                 1350
               ],
-              "n": 33
+              "n": 35
             },
             "640": {
               "card": "0",
@@ -5863,7 +5846,7 @@
                 1350,
                 1350
               ],
-              "n": 24
+              "n": 23
             },
             "768": {
               "card": "0",
@@ -5872,7 +5855,7 @@
               "rep_median": [
                 1350,
                 1350,
-                1350
+                1343
               ],
               "n": 27
             },
@@ -5885,7 +5868,7 @@
                 1350,
                 1350
               ],
-              "n": 33
+              "n": 30
             },
             "1024": {
               "card": "0",
@@ -5896,7 +5879,7 @@
                 1350,
                 1350
               ],
-              "n": 37
+              "n": 36
             },
             "1152": {
               "card": "0",
@@ -5907,7 +5890,7 @@
                 1350,
                 1350
               ],
-              "n": 48
+              "n": 42
             },
             "1280": {
               "card": "0",
@@ -5918,7 +5901,7 @@
                 1350,
                 1350
               ],
-              "n": 54
+              "n": 49
             },
             "1408": {
               "card": "0",
@@ -5929,7 +5912,7 @@
                 1350,
                 1350
               ],
-              "n": 69
+              "n": 63
             },
             "1536": {
               "card": "0",
@@ -5940,92 +5923,92 @@
                 1350,
                 1350
               ],
-              "n": 81
+              "n": 72
             }
           },
           "load": {
             "256": {
-              "max": 0.33,
+              "max": 0.37,
               "rep_median": [
-                0.3,
-                0.3,
-                0.31,
-                0.27,
-                0.23
-              ]
-            },
-            "512": {
-              "max": 0.3,
-              "rep_median": [
-                0.26,
-                0.28,
-                0.25,
-                0.23,
-                0.24
-              ]
-            },
-            "640": {
-              "max": 0.33,
-              "rep_median": [
-                0.3,
-                0.25,
-                0.21
-              ]
-            },
-            "768": {
-              "max": 0.27,
-              "rep_median": [
-                0.24,
-                0.21,
-                0.24
-              ]
-            },
-            "896": {
-              "max": 0.28,
-              "rep_median": [
-                0.23,
-                0.23,
-                0.22
-              ]
-            },
-            "1024": {
-              "max": 0.25,
-              "rep_median": [
-                0.23,
-                0.22,
-                0.23
-              ]
-            },
-            "1152": {
-              "max": 0.24,
-              "rep_median": [
-                0.21,
-                0.2,
-                0.22
-              ]
-            },
-            "1280": {
-              "max": 0.24,
-              "rep_median": [
-                0.21,
-                0.22,
-                0.19
-              ]
-            },
-            "1408": {
-              "max": 0.35,
-              "rep_median": [
-                0.2,
-                0.24,
+                0.36,
+                0.36,
+                0.36,
+                0.34,
                 0.31
               ]
             },
-            "1536": {
-              "max": 0.32,
+            "512": {
+              "max": 0.41,
               "rep_median": [
+                0.39,
+                0.41,
+                0.35,
+                0.35,
+                0.35
+              ]
+            },
+            "640": {
+              "max": 0.5,
+              "rep_median": [
+                0.43,
+                0.47,
+                0.47
+              ]
+            },
+            "768": {
+              "max": 0.42,
+              "rep_median": [
+                0.38,
+                0.39,
+                0.4
+              ]
+            },
+            "896": {
+              "max": 0.35,
+              "rep_median": [
+                0.33,
                 0.26,
-                0.28,
+                0.27
+              ]
+            },
+            "1024": {
+              "max": 0.37,
+              "rep_median": [
+                0.32,
+                0.32,
+                0.33
+              ]
+            },
+            "1152": {
+              "max": 0.37,
+              "rep_median": [
+                0.32,
+                0.34,
                 0.29
+              ]
+            },
+            "1280": {
+              "max": 0.36,
+              "rep_median": [
+                0.32,
+                0.23,
+                0.24
+              ]
+            },
+            "1408": {
+              "max": 0.43,
+              "rep_median": [
+                0.29,
+                0.39,
+                0.32
+              ]
+            },
+            "1536": {
+              "max": 0.34,
+              "rep_median": [
+                0.28,
+                0.3,
+                0.24
               ]
             }
           },
@@ -6034,216 +6017,216 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.0359,
-              "radius_of_gyration_A": 111.643,
-              "plddt_mean": 0.527631,
+              "ca_ca_median_A": 136.9366,
+              "radius_of_gyration_A": 111.307,
+              "plddt_mean": 0.537449,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.036 A outside [3.6, 4.0]",
+                "median CA-CA 136.937 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.6 A outside [9.0, 45.2]"
+                "radius of gyration 111.3 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.7856,
-              "radius_of_gyration_A": 107.42,
-              "plddt_mean": 0.50438,
+              "ca_ca_median_A": 134.4896,
+              "radius_of_gyration_A": 106.367,
+              "plddt_mean": 0.507337,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.786 A outside [3.6, 4.0]",
+                "median CA-CA 134.490 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.4 A outside [11.8, 58.9]"
+                "radius of gyration 106.4 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0125,
+              "clash_frac": 0.0094,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 129.2756,
-              "radius_of_gyration_A": 107.414,
-              "plddt_mean": 0.500388,
+              "ca_ca_median_A": 128.6157,
+              "radius_of_gyration_A": 107.201,
+              "plddt_mean": 0.49956,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 129.276 A outside [3.6, 4.0]",
+                "median CA-CA 128.616 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.4 A outside [12.8, 64.1]"
+                "radius of gyration 107.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0182,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 127.8582,
-              "radius_of_gyration_A": 103.356,
-              "plddt_mean": 0.494902,
+              "clash_frac": 0.0078,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 129.8791,
+              "radius_of_gyration_A": 103.745,
+              "plddt_mean": 0.494987,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 127.858 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 103.4 A outside [13.7, 68.7]"
+                "median CA-CA 129.879 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 103.7 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0145,
+              "clash_frac": 0.0201,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.4882,
-              "radius_of_gyration_A": 107.865,
-              "plddt_mean": 0.503287,
+              "ca_ca_median_A": 134.8993,
+              "radius_of_gyration_A": 107.012,
+              "plddt_mean": 0.503556,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.488 A outside [3.6, 4.0]",
+                "median CA-CA 134.899 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.9 A outside [14.6, 72.8]"
+                "2.0% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 107.0 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0273,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.7513,
-              "radius_of_gyration_A": 105.358,
-              "plddt_mean": 0.502673,
+              "ca_ca_median_A": 132.0133,
+              "radius_of_gyration_A": 104.556,
+              "plddt_mean": 0.50367,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.751 A outside [3.6, 4.0]",
+                "median CA-CA 132.013 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 105.4 A outside [15.3, 76.6]"
+                "radius of gyration 104.6 A outside [15.3, 76.6]"
               ]
             },
             "1152": {
               "file": "cdk2x2_1152.cif",
               "steps": 6,
               "n_ca": 1152,
-              "clash_frac": 0.0174,
+              "clash_frac": 0.0182,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.0445,
-              "radius_of_gyration_A": 108.121,
-              "plddt_mean": 0.493826,
+              "ca_ca_median_A": 132.0189,
+              "radius_of_gyration_A": 108.394,
+              "plddt_mean": 0.497716,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.044 A outside [3.6, 4.0]",
+                "median CA-CA 132.019 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 108.1 A outside [16.0, 80.1]"
+                "radius of gyration 108.4 A outside [16.0, 80.1]"
               ]
             },
             "1280": {
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0242,
+              "clash_frac": 0.0266,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.8661,
-              "radius_of_gyration_A": 106.869,
-              "plddt_mean": 0.493378,
+              "ca_ca_median_A": 133.4763,
+              "radius_of_gyration_A": 107.371,
+              "plddt_mean": 0.490946,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.866 A outside [3.6, 4.0]",
+                "median CA-CA 133.476 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.4% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 106.9 A outside [16.7, 83.4]"
+                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 107.4 A outside [16.7, 83.4]"
               ]
             },
             "1408": {
               "file": "cdk2x2_1408.cif",
               "steps": 6,
               "n_ca": 1408,
-              "clash_frac": 0.0213,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.3446,
-              "radius_of_gyration_A": 106.398,
-              "plddt_mean": 0.493356,
+              "clash_frac": 0.0241,
+              "chain_break_frac": 0.9986,
+              "ca_ca_median_A": 134.836,
+              "radius_of_gyration_A": 107.065,
+              "plddt_mean": 0.49469,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.345 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.1% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 106.4 A outside [17.3, 86.5]"
+                "median CA-CA 134.836 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "2.4% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "radius of gyration 107.1 A outside [17.3, 86.5]"
               ]
             },
             "1536": {
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0306,
+              "clash_frac": 0.0332,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 128.9,
-              "radius_of_gyration_A": 105.669,
-              "plddt_mean": 0.501972,
+              "ca_ca_median_A": 128.2979,
+              "radius_of_gyration_A": 105.666,
+              "plddt_mean": 0.501712,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 128.900 A outside [3.6, 4.0]",
+                "median CA-CA 128.298 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "3.1% of CA atoms sit under 3.5 A from a non-bonded CA",
+                "3.3% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 105.7 A outside [17.9, 89.4]"
               ]
             }
           },
-          "reps": 3,
-          "sigma_runtime_512": 0.0198,
+          "reps": 1,
+          "sigma_runtime_512": 0.0205,
           "exponents": {
             "256->512": {
-              "k": 0.802,
+              "k": 0.913,
               "tol": 0.5
             },
             "512->768": {
-              "k": 1.671,
+              "k": 1.435,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.1251,
-            "512": 0.0198
+            "256": 0.0307,
+            "512": 0.0205
           },
           "exponents_measured": {
-            "256->512": 0.802,
-            "512->640": 1.616,
-            "640->768": 1.739,
-            "768->896": 1.892,
-            "896->1024": 1.776,
-            "1024->1152": 2.752,
-            "1152->1280": 1.912,
-            "1280->1408": 3.008,
-            "1408->1536": 1.914
+            "256->512": 0.913,
+            "512->640": 1.272,
+            "640->768": 1.634,
+            "768->896": 1.902,
+            "896->1024": 1.792,
+            "1024->1152": 2.442,
+            "1152->1280": 1.791,
+            "1280->1408": 3.188,
+            "1408->1536": 1.98
           }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-11-05",
+      "recorded": "2026-11-07",
       "host": "tt-quietbox2",
-      "commit": "b46cbc7c5",
+      "commit": "e0cfe5c47",
       "host_threads": 5,
       "models": {
         "boltz2": {
           "grid": "11x10",
-          "recorded": "2026-11-05",
+          "recorded": "2026-11-07",
           "host": "tt-quietbox2",
-          "commit": "b46cbc7c5",
+          "commit": "e0cfe5c47",
           "host_threads": 5,
           "runtime_s": {
-            "256": 3.9,
-            "512": 9.4,
-            "640": 14.9,
-            "768": 21.4,
-            "896": 29.9,
-            "1024": 39.2
+            "256": 4.1,
+            "512": 9.6,
+            "640": 14.4,
+            "768": 19.3,
+            "896": 27.7,
+            "1024": 35.4
           },
           "levers": {
             "256": {
@@ -6538,7 +6521,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -6832,7 +6815,7 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 280,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -7126,9 +7109,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
@@ -7425,9 +7408,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
@@ -7724,9 +7707,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
@@ -8019,9 +8002,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 296,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws (Boltz-2's Blackhole normal set since 864081c67) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. Below 640 the update fits L1 and, without ws_l1dest, ws declines and this serves. 44-fold normal grade on p150a, docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
@@ -8036,30 +8019,30 @@
           },
           "runtime_reps_s": {
             "256": [
-              3.9,
-              3.8,
+              4.2,
+              4.1,
               4.0,
-              3.9,
-              4.0
+              4.2,
+              3.9
             ],
             "512": [
               9.3,
+              9.6,
               9.7,
-              9.3,
-              9.5,
-              9.4
+              9.6,
+              9.6
             ],
             "640": [
-              14.9
+              14.4
             ],
             "768": [
-              21.4
+              19.3
             ],
             "896": [
-              29.9
+              27.7
             ],
             "1024": [
-              39.2
+              35.4
             ]
           },
           "aiclk": {
@@ -8069,41 +8052,41 @@
               "max": 1350,
               "rep_median": [
                 800,
-                1325,
+                800,
                 800,
                 800,
                 800
               ],
-              "n": 18
+              "n": 20
             },
             "512": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1337,
                 800,
-                1325,
                 800,
-                1318
+                800,
+                800,
+                800
               ],
-              "n": 23
+              "n": 25
             },
             "640": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1343
+                1331
               ],
-              "n": 6
+              "n": 5
             },
             "768": {
               "card": "1",
               "min": 800,
-              "max": 1350,
+              "max": 1343,
               "rep_median": [
-                1325
+                1306
               ],
               "n": 7
             },
@@ -8112,63 +8095,63 @@
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1331
+                1312
               ],
-              "n": 9
+              "n": 8
             },
             "1024": {
               "card": "1",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1312
+                1300
               ],
-              "n": 11
+              "n": 10
             }
           },
           "load": {
             "256": {
-              "max": 0.44,
+              "max": 0.45,
               "rep_median": [
-                0.36,
-                0.35,
-                0.35,
-                0.41,
-                0.41
+                0.4,
+                0.45,
+                0.43,
+                0.38,
+                0.37
               ]
             },
             "512": {
-              "max": 0.37,
+              "max": 0.4,
               "rep_median": [
-                0.36,
-                0.32,
+                0.34,
                 0.31,
-                0.3,
-                0.32
+                0.34,
+                0.37,
+                0.38
               ]
             },
             "640": {
-              "max": 0.28,
+              "max": 0.45,
               "rep_median": [
-                0.27
+                0.43
               ]
             },
             "768": {
-              "max": 0.29,
+              "max": 0.45,
               "rep_median": [
-                0.28
+                0.42
               ]
             },
             "896": {
-              "max": 0.36,
+              "max": 0.44,
               "rep_median": [
-                0.35
+                0.43
               ]
             },
             "1024": {
-              "max": 0.42,
+              "max": 0.5,
               "rep_median": [
-                0.41
+                0.48
               ]
             }
           },
@@ -8177,122 +8160,121 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.0359,
-              "radius_of_gyration_A": 111.643,
-              "plddt_mean": 0.527631,
+              "ca_ca_median_A": 136.9366,
+              "radius_of_gyration_A": 111.307,
+              "plddt_mean": 0.537449,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.036 A outside [3.6, 4.0]",
+                "median CA-CA 136.937 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 111.6 A outside [9.0, 45.2]"
+                "radius of gyration 111.3 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.7856,
-              "radius_of_gyration_A": 107.42,
-              "plddt_mean": 0.50438,
+              "ca_ca_median_A": 134.4896,
+              "radius_of_gyration_A": 106.367,
+              "plddt_mean": 0.507337,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.786 A outside [3.6, 4.0]",
+                "median CA-CA 134.490 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.4 A outside [11.8, 58.9]"
+                "radius of gyration 106.4 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0125,
+              "clash_frac": 0.0094,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 129.2756,
-              "radius_of_gyration_A": 107.414,
-              "plddt_mean": 0.500388,
+              "ca_ca_median_A": 128.6157,
+              "radius_of_gyration_A": 107.201,
+              "plddt_mean": 0.49956,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 129.276 A outside [3.6, 4.0]",
+                "median CA-CA 128.616 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.4 A outside [12.8, 64.1]"
+                "radius of gyration 107.2 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0182,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 127.8582,
-              "radius_of_gyration_A": 103.356,
-              "plddt_mean": 0.494896,
+              "clash_frac": 0.0078,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 129.8791,
+              "radius_of_gyration_A": 103.745,
+              "plddt_mean": 0.49505,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 127.858 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 103.4 A outside [13.7, 68.7]"
+                "median CA-CA 129.879 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 103.7 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0145,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 136.7045,
-              "radius_of_gyration_A": 107.619,
-              "plddt_mean": 0.501038,
+              "ca_ca_median_A": 134.4783,
+              "radius_of_gyration_A": 106.717,
+              "plddt_mean": 0.500148,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 136.704 A outside [3.6, 4.0]",
+                "median CA-CA 134.478 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 107.6 A outside [14.6, 72.8]"
+                "radius of gyration 106.7 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0273,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 133.7513,
-              "radius_of_gyration_A": 105.358,
-              "plddt_mean": 0.502673,
+              "ca_ca_median_A": 132.0133,
+              "radius_of_gyration_A": 104.556,
+              "plddt_mean": 0.50367,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 133.751 A outside [3.6, 4.0]",
+                "median CA-CA 132.013 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.7% of CA atoms sit under 3.5 A from a non-bonded CA",
-                "radius of gyration 105.4 A outside [15.3, 76.6]"
+                "radius of gyration 104.6 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0177,
+          "sigma_runtime_512": 0.0159,
           "exponents": {
             "256->512": {
-              "k": 1.269,
+              "k": 1.227,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.029,
+              "k": 1.722,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0213,
-            "512": 0.0177
+            "256": 0.032,
+            "512": 0.0159
           },
           "exponents_measured": {
-            "256->512": 1.269,
-            "512->640": 2.064,
-            "640->768": 1.986,
-            "768->896": 2.17,
-            "896->1024": 2.028
+            "256->512": 1.227,
+            "512->640": 1.817,
+            "640->768": 1.606,
+            "768->896": 2.344,
+            "896->1024": 1.837
           }
         }
       }

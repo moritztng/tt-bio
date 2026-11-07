@@ -15,24 +15,24 @@
   ],
   "cards": {
     "p150a": {
-      "recorded": "2026-11-05",
+      "recorded": "2026-11-07",
       "host": "tt-quietbox",
-      "commit": "b46cbc7c5",
+      "commit": "e0cfe5c47",
       "host_threads": 8,
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-11-05",
+          "recorded": "2026-11-07",
           "host": "tt-quietbox",
-          "commit": "b46cbc7c5",
+          "commit": "e0cfe5c47",
           "host_threads": 8,
           "runtime_s": {
-            "256": 20.4,
-            "512": 51.2,
-            "640": 82.4,
-            "768": 126.1,
-            "896": 166.7,
-            "1024": 213.4
+            "256": 19.2,
+            "512": 41.0,
+            "640": 61.6,
+            "768": 85.5,
+            "896": 122.3,
+            "1024": 157.8
           },
           "levers": {
             "256": {
@@ -94,17 +94,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 145,
-                "declined": 26,
-                "frac": 0.847953216374269,
-                "how": "stats",
-                "rejects": {
-                  "memory": 26
-                }
+                "served": 160,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -127,42 +124,37 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 4,
-                "declined": 604,
-                "frac": 0.006578947368421052,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:256x256x64": 80,
-                  "l1_dest_is_faster:256x256x384": 524
-                },
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1057,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached, not declined: on Blackhole normal (d447308e0, f8cdcb0aa) no OpenDDE call at this size reaches _pair_proj_linear's minimal_matmul leg. The trimul projections run inside the T1/T2 trimul kernels (trimul_t1_dram, trimul_t1split, T2 tail), triangle attention's bias and gate come from triatt_ln, and its out projection is head-major. From 640 the remaining projections land here again. Falsifier: calls here mean a trimul or triatt_ln route declined"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 17,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "act_memcfg_pair": 16,
-                  "k_tiles=12": 1,
-                  "t1:key=2x4x2": 144
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 17 calls on t1:key=2x4x2 x144, act_memcfg_pair x16, k_tiles=12 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2273,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: on Blackhole normal (d447308e0, f8cdcb0aa) triatt_ln returns q, k, v itself and the trimul projections run inside the T1/T2 kernels, so no qkv-shaped matmul is left at this size; from 640 the pair projections reach it again. Falsifier: calls here mean triatt_ln or a trimul route declined"
               },
@@ -176,31 +168,28 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 24,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "back_l1_src_narrow": 24
-                },
-                "reason": "declines all 24 calls on back_l1_src_narrow x24: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N"
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1200,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 338,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 338,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -214,11 +203,10 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 8,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -252,25 +240,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
@@ -292,17 +280,17 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 484,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -315,9 +303,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 604,
-                "declined": 4,
-                "frac": 0.993421052631579,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -344,13 +332,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
-                "declined": 524,
-                "frac": 0.13245033112582782,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 524
-                },
                 "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -420,14 +405,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 184,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -450,40 +435,37 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 528,
-                "declined": 80,
-                "frac": 0.868421052631579,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:512x512x64": 80
-                },
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1064,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached, not declined: on Blackhole normal (d447308e0, f8cdcb0aa) no OpenDDE call at this size reaches _pair_proj_linear's minimal_matmul leg. The trimul projections run inside the T1/T2 trimul kernels (trimul_t1_dram, trimul_t1split, T2 tail), triangle attention's bias and gate come from triatt_ln, and its out projection is head-major. From 640 the remaining projections land here again. Falsifier: calls here mean a trimul or triatt_ln route declined"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 8,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 8
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2280,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: on Blackhole normal (d447308e0, f8cdcb0aa) triatt_ln returns q, k, v itself and the trimul projections run inside the T1/T2 kernels, so no qkv-shaped matmul is left at this size; from 640 the pair projections reach it again. Falsifier: calls here mean triatt_ln or a trimul route declined"
               },
@@ -504,21 +486,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1232,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 368,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 368,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -526,17 +508,20 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 16,
+                "frac": 0.987012987012987,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 2,
+                  "pm_over_l1": 14
+                }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1216,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -570,25 +555,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
@@ -610,17 +595,17 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 484,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -633,9 +618,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 528,
-                "frac": 0.13157894736842105,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -662,9 +647,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
@@ -742,7 +727,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -765,18 +750,15 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 528,
-                "declined": 80,
-                "frac": 0.868421052631579,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:640x640x64": 80
-                },
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1064,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -789,13 +771,14 @@
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160,
                   "k_tiles=12": 8
                 },
-                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, t2:key=2x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2280,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -839,13 +822,17 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 1208,
+                "frac": 0.5016501650165016,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 1207
+                }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 8,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -881,25 +868,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
@@ -928,9 +915,9 @@
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 628,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -943,9 +930,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 528,
-                "frac": 0.13157894736842105,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -972,9 +959,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
@@ -1045,14 +1032,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1075,18 +1062,15 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 528,
-                "declined": 80,
-                "frac": 0.868421052631579,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:768x768x64": 80
-                },
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 2112,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1094,18 +1078,19 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1056,
+                "declined": 8,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 1056
+                  "t2:key=2x2": 160,
+                  "k_tiles=12": 8
                 },
-                "reason": "declines all 1056 calls on k_tiles=12 x1056, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, t2:key=2x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 3328,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1127,21 +1112,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 1304,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1149,21 +1134,20 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1216,
-                "declined": 1216,
-                "frac": 0.5,
+                "declined": 2424,
+                "frac": 0.33406593406593404,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 2,
-                  "pm_over_l1": 1214
+                  "l1_budget": 3,
+                  "pm_over_l1": 2421
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1208,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l] [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -1196,25 +1180,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
@@ -1236,17 +1220,17 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 484,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -1259,9 +1243,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 528,
-                "frac": 0.13157894736842105,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -1288,9 +1272,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
@@ -1361,14 +1345,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1391,19 +1375,16 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 584,
-                "declined": 80,
-                "frac": 0.8795180722891566,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:896x896x64": 80
-                }
+                "served": 60,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 2320,
+                "served": 224,
                 "declined": 40,
-                "frac": 0.9830508474576272,
+                "frac": 0.8484848484848485,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=12:(12,1)": 40
@@ -1412,20 +1393,20 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1048,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 1048
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 3648,
+                "served": 344,
                 "declined": 40,
-                "frac": 0.9891540130151844,
+                "frac": 0.8958333333333334,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(12,1)": 40
@@ -1448,21 +1429,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 1304,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1470,22 +1451,21 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1248,
-                "declined": 1368,
-                "frac": 0.47706422018348627,
+                "declined": 2576,
+                "frac": 0.3263598326359833,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 2,
-                  "pm_over_l1": 1246,
+                  "l1_budget": 3,
+                  "pm_over_l1": 2453,
                   "fill_preconditions": 120
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1208,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l] [carried from p300c]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -1518,21 +1498,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1248,
+                "served": 40,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1248,
+                "served": 40,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1248,
+                "served": 40,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1562,9 +1542,9 @@
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 628,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -1577,9 +1557,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 564,
-                "frac": 0.12422360248447205,
+                "served": 0,
+                "declined": 40,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -1679,14 +1659,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -1709,16 +1689,16 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 688,
+                "served": 84,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 256,
                 "declined": 216,
-                "frac": 0.9158878504672897,
+                "frac": 0.5423728813559322,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 160,
@@ -1728,20 +1708,20 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1048,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 1048
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768] [carried from p300c]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 3728,
+                "served": 424,
                 "declined": 56,
-                "frac": 0.985200845665962,
+                "frac": 0.8833333333333333,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(12,1)": 56
@@ -1764,21 +1744,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 1304,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1786,17 +1766,17 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1264,
-                "declined": 320,
-                "frac": 0.797979797979798,
+                "declined": 2416,
+                "frac": 0.34347826086956523,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 318
+                  "pm_over_l1": 2414
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 56,
+                "served": 1264,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -1832,21 +1812,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1264,
+                "served": 56,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1264,
+                "served": 56,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1264,
+                "served": 56,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -1876,9 +1856,9 @@
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 628,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -1892,7 +1872,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 660,
+                "declined": 56,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "dark on 1024x1024x64 since b63dc4021 sized _l1_fits to the allocator bank (1461760 B/core): the 167772160 B slice at x1.25 no longer fits 110 cores (160793600 B). Same CIF digest, and 219.0 s dark against 220.1 s firing on qb2 card 0 at ~1300 MHz (perf/rfd4/opendde-drift/ab), so it costs nothing measurable [carried from p300c]"
@@ -1937,35 +1917,35 @@
           },
           "runtime_reps_s": {
             "256": [
-              20.5,
-              20.3,
-              19.9,
-              20.4,
-              20.5
+              19.2,
+              19.1,
+              19.5,
+              19.1,
+              19.6
             ],
             "512": [
-              50.6,
-              51.1,
-              51.2,
-              51.3,
-              51.2
+              41.1,
+              41.2,
+              41.0,
+              40.6,
+              40.9
             ],
             "640": [
-              82.4
+              61.6
             ],
             "768": [
-              126.1
+              85.5
             ],
             "896": [
-              166.7
+              122.3
             ],
             "1024": [
-              213.4
+              157.8
             ]
           },
           "aiclk": {
             "256": {
-              "card": "1",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -1978,7 +1958,7 @@
               "n": 40
             },
             "512": {
-              "card": "1",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -1988,19 +1968,28 @@
                 1350,
                 1350
               ],
-              "n": 70
+              "n": 60
             },
             "640": {
-              "card": "1",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 20
+              "n": 17
             },
             "768": {
-              "card": "1",
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                1350
+              ],
+              "n": 21
+            },
+            "896": {
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
@@ -2008,68 +1997,59 @@
               ],
               "n": 29
             },
-            "896": {
-              "card": "1",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1350
-              ],
-              "n": 37
-            },
             "1024": {
-              "card": "1",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
                 1350
               ],
-              "n": 46
+              "n": 36
             }
           },
           "load": {
             "256": {
-              "max": 0.3,
+              "max": 0.47,
               "rep_median": [
-                0.22,
-                0.25,
-                0.26,
-                0.26,
-                0.28
+                0.46,
+                0.42,
+                0.39,
+                0.4,
+                0.4
               ]
             },
             "512": {
-              "max": 0.3,
+              "max": 0.38,
               "rep_median": [
-                0.25,
-                0.27,
-                0.24,
-                0.25,
-                0.22
+                0.36,
+                0.33,
+                0.26,
+                0.31,
+                0.34
               ]
             },
             "640": {
-              "max": 0.32,
+              "max": 0.37,
+              "rep_median": [
+                0.33
+              ]
+            },
+            "768": {
+              "max": 0.39,
+              "rep_median": [
+                0.31
+              ]
+            },
+            "896": {
+              "max": 0.36,
               "rep_median": [
                 0.26
               ]
             },
-            "768": {
-              "max": 0.31,
-              "rep_median": [
-                0.24
-              ]
-            },
-            "896": {
-              "max": 0.24,
-              "rep_median": [
-                0.21
-              ]
-            },
             "1024": {
-              "max": 0.25,
+              "max": 0.33,
               "rep_median": [
-                0.21
+                0.28
               ]
             }
           },
@@ -2078,14 +2058,14 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 134.069,
-              "radius_of_gyration_A": 114.126,
-              "plddt_mean": 0.584826,
+              "ca_ca_median_A": 133.5384,
+              "radius_of_gyration_A": 114.058,
+              "plddt_mean": 0.587979,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 134.069 A outside [3.6, 4.0]",
+                "median CA-CA 133.538 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 114.1 A outside [9.0, 45.2]"
               ]
@@ -2096,78 +2076,78 @@
               "n_ca": 512,
               "clash_frac": 0.0039,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.8456,
-              "radius_of_gyration_A": 113.447,
-              "plddt_mean": 0.574141,
+              "ca_ca_median_A": 137.3536,
+              "radius_of_gyration_A": 113.347,
+              "plddt_mean": 0.574876,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.846 A outside [3.6, 4.0]",
+                "median CA-CA 137.354 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 113.4 A outside [11.8, 58.9]"
+                "radius of gyration 113.3 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0,
+              "clash_frac": 0.0094,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 150.0018,
-              "radius_of_gyration_A": 116.884,
-              "plddt_mean": 0.565825,
+              "ca_ca_median_A": 149.632,
+              "radius_of_gyration_A": 116.737,
+              "plddt_mean": 0.567791,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 150.002 A outside [3.6, 4.0]",
+                "median CA-CA 149.632 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.9 A outside [12.8, 64.1]"
+                "radius of gyration 116.7 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0052,
+              "clash_frac": 0.0104,
               "chain_break_frac": 0.9987,
-              "ca_ca_median_A": 145.5214,
-              "radius_of_gyration_A": 114.154,
-              "plddt_mean": 0.55602,
+              "ca_ca_median_A": 144.634,
+              "radius_of_gyration_A": 113.756,
+              "plddt_mean": 0.557988,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 145.521 A outside [3.6, 4.0]",
+                "median CA-CA 144.634 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.2 A outside [13.7, 68.7]"
+                "radius of gyration 113.8 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0179,
+              "clash_frac": 0.0134,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.167,
-              "radius_of_gyration_A": 112.875,
-              "plddt_mean": 0.561973,
+              "ca_ca_median_A": 138.1214,
+              "radius_of_gyration_A": 112.537,
+              "plddt_mean": 0.563884,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.167 A outside [3.6, 4.0]",
+                "median CA-CA 138.121 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.9 A outside [14.6, 72.8]"
+                "radius of gyration 112.5 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0176,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.9679,
-              "radius_of_gyration_A": 115.356,
-              "plddt_mean": 0.560569,
+              "ca_ca_median_A": 136.1839,
+              "radius_of_gyration_A": 115.279,
+              "plddt_mean": 0.563841,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.968 A outside [3.6, 4.0]",
+                "median CA-CA 136.184 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.4 A outside [15.3, 76.6]"
+                "radius of gyration 115.3 A outside [15.3, 76.6]"
               ]
             }
           },
@@ -2178,50 +2158,50 @@
             "1536": "'cdk2x2_1536.yaml' has 1536 residues, and opendde is measured to handle at most 1024 residues on blackhole -- the largest size below the first measured failure. Models with a measured ceiling above 1536 on this hardware: esmc-300m, esmc-600m, pxdesign, saprot-1.3b, saprot-35m, saprot-650m. If you have reason to think this input is roomier than the ladder that set the limit (a single-sequence run o"
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0054,
+          "sigma_runtime_512": 0.0056,
           "exponents": {
             "256->512": {
-              "k": 1.328,
+              "k": 1.095,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.223,
+              "k": 1.813,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0123,
-            "512": 0.0054
+            "256": 0.0122,
+            "512": 0.0056
           },
           "exponents_measured": {
-            "256->512": 1.328,
-            "512->640": 2.132,
-            "640->768": 2.334,
-            "768->896": 1.811,
-            "896->1024": 1.85
+            "256->512": 1.095,
+            "512->640": 1.824,
+            "640->768": 1.798,
+            "768->896": 2.322,
+            "896->1024": 1.909
           }
         }
       }
     },
     "p300c": {
-      "recorded": "2026-11-05",
+      "recorded": "2026-11-07",
       "host": "tt-quietbox2",
-      "commit": "b46cbc7c5",
+      "commit": "e0cfe5c47",
       "host_threads": 5,
       "models": {
         "opendde": {
           "grid": "11x10",
-          "recorded": "2026-11-05",
+          "recorded": "2026-11-07",
           "host": "tt-quietbox2",
-          "commit": "b46cbc7c5",
+          "commit": "e0cfe5c47",
           "host_threads": 5,
           "runtime_s": {
-            "256": 14.9,
-            "512": 45.5,
-            "640": 71.8,
-            "768": 119.9,
-            "896": 221.1,
-            "1024": 284.3
+            "256": 13.8,
+            "512": 45.9,
+            "640": 73.1,
+            "768": 106.7,
+            "896": 152.6,
+            "1024": 205.7
           },
           "levers": {
             "256": {
@@ -2283,17 +2263,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 145,
-                "declined": 26,
-                "frac": 0.847953216374269,
-                "how": "stats",
-                "rejects": {
-                  "memory": 26
-                }
+                "served": 160,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2316,42 +2293,37 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 4,
-                "declined": 604,
-                "frac": 0.006578947368421052,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:256x256x64": 80,
-                  "l1_dest_is_faster:256x256x384": 524
-                },
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1057,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached, not declined: on Blackhole normal (d447308e0, f8cdcb0aa) no OpenDDE call at this size reaches _pair_proj_linear's minimal_matmul leg. The trimul projections run inside the T1/T2 trimul kernels (trimul_t1_dram, trimul_t1split, T2 tail), triangle attention's bias and gate come from triatt_ln, and its out projection is head-major. From 640 the remaining projections land here again. Falsifier: calls here mean a trimul or triatt_ln route declined"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 17,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
-                  "act_memcfg_pair": 16,
-                  "k_tiles=12": 1,
-                  "t1:key=2x4x2": 144
+                  "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 17 calls on t1:key=2x4x2 x144, act_memcfg_pair x16, k_tiles=12 x1: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2273,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: on Blackhole normal (d447308e0, f8cdcb0aa) triatt_ln returns q, k, v itself and the trimul projections run inside the T1/T2 kernels, so no qkv-shaped matmul is left at this size; from 640 the pair projections reach it again. Falsifier: calls here mean triatt_ln or a trimul route declined"
               },
@@ -2365,31 +2337,28 @@
               "REBLOCK_PERMUTE": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 24,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "back_l1_src_narrow": 24
-                },
-                "reason": "declines all 24 calls on back_l1_src_narrow x24: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
+                "reason": "declines all 0 calls: at 256 the gate's L1 leg admits 288 <= N <= 352 only; from 512 up the remaining declines are back_ragged, a ragged channel-move-back shape the permute does not cover, and the count scales with N [carried from p150a]"
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1200,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 338,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 338,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -2403,11 +2372,10 @@
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 8,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -2441,25 +2409,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
@@ -2481,17 +2449,17 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 484,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -2504,9 +2472,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 604,
-                "declined": 4,
-                "frac": 0.993421052631579,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -2533,13 +2501,10 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
-                "declined": 524,
-                "frac": 0.13245033112582782,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "stats",
-                "rejects": {
-                  "base-unraised": 524
-                },
                 "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
               "TRIATT_SDPA_HIFI": {
@@ -2609,14 +2574,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 184,
+                "served": 160,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2639,40 +2604,37 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 528,
-                "declined": 80,
-                "frac": 0.868421052631579,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:512x512x64": 80
-                },
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1064,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached, not declined: on Blackhole normal (d447308e0, f8cdcb0aa) no OpenDDE call at this size reaches _pair_proj_linear's minimal_matmul leg. The trimul projections run inside the T1/T2 trimul kernels (trimul_t1_dram, trimul_t1split, T2 tail), triangle attention's bias and gate come from triatt_ln, and its out projection is head-major. From 640 the remaining projections land here again. Falsifier: calls here mean a trimul or triatt_ln route declined"
               },
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 8,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 8
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2280,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: on Blackhole normal (d447308e0, f8cdcb0aa) triatt_ln returns q, k, v itself and the trimul projections run inside the T1/T2 kernels, so no qkv-shaped matmul is left at this size; from 640 the pair projections reach it again. Falsifier: calls here mean triatt_ln or a trimul route declined"
               },
@@ -2693,21 +2655,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 1232,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 368,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 368,
+                "served": 320,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -2715,17 +2677,20 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 16,
+                "frac": 0.987012987012987,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 2,
+                  "pm_over_l1": 14
+                }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1216,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -2759,25 +2724,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
@@ -2799,17 +2764,17 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 484,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -2822,9 +2787,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 528,
-                "frac": 0.13157894736842105,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -2851,9 +2816,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
@@ -2931,7 +2896,7 @@
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2954,18 +2919,15 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 528,
-                "declined": 80,
-                "frac": 0.868421052631579,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:640x640x64": 80
-                },
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 1064,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -2978,13 +2940,14 @@
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
+                  "t2:key=2x2": 160,
                   "k_tiles=12": 8
                 },
-                "reason": "declines all 8 calls on t1:key=2x4x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, t2:key=2x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 2280,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3028,13 +2991,17 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1216,
-                "declined": 0,
-                "frac": 1.0,
-                "how": "stats"
+                "declined": 1208,
+                "frac": 0.5016501650165016,
+                "how": "stats",
+                "rejects": {
+                  "l1_budget": 1,
+                  "pm_over_l1": 1207
+                }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 8,
+                "served": 1216,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -3070,25 +3037,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
@@ -3117,9 +3084,9 @@
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 628,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -3132,9 +3099,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 528,
-                "frac": 0.13157894736842105,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -3161,9 +3128,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
@@ -3234,14 +3201,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3264,18 +3231,15 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 528,
-                "declined": 80,
-                "frac": 0.868421052631579,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:768x768x64": 80
-                },
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 2112,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3283,18 +3247,19 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1056,
+                "declined": 8,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 1056
+                  "t2:key=2x2": 160,
+                  "k_tiles=12": 8
                 },
-                "reason": "declines all 1056 calls on k_tiles=12 x1056, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
+                "reason": "declines all 8 calls on t1:key=2x4x2 x160, t2:key=2x2 x160, k_tiles=12 x8: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 3328,
+                "served": 16,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3316,21 +3281,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 1304,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 4704,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3338,21 +3303,20 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1216,
-                "declined": 1216,
-                "frac": 0.5,
+                "declined": 2424,
+                "frac": 0.33406593406593404,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 2,
-                  "pm_over_l1": 1214
+                  "l1_budget": 3,
+                  "pm_over_l1": 2421
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1208,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "the shipped k_chunk does not divide the padded length here, and no wider dividing (q, k) pair ran (the fused kernel declined and the stock op refused on L1, or no q_chunk divides the padded length), so every call took the shipped pick: the TT_BIO_SDPA_WIDE_K=0 path [carried from tt-galaxy-wh-l]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3385,25 +3349,25 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1216,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats-shared",
                 "reason": "shares TAIL_STATS with TRIATT_HEAD_MAJOR_TAIL and reads what it reads: unreached: triatt_ln (OpenDDE's Blackhole normal set since d447308e0) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, qkvgb_heads and the head-major gate projection are never called while triangle attention runs whole-tensor. From 896 it is chunked, triatt_ln is not reached and these serve. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean triatt_ln declined"
               },
@@ -3425,17 +3389,17 @@
               },
               "B2_TOKEN_DIT_SDPA": {
                 "resolved": "True",
-                "served": 144,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: dit_qkvf (BH_DIT, OpenDDE's Blackhole normal set since f8cdcb0aa) runs the token DiT's attention as one fused SDPA read from the qkv projection and returns before the stock token-DiT SDPA branch this counts. Where dit_qkvf's shape checks decline (640 here) the stock branch runs and this serves. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS (970494723). Falsifier: DIT_QKVF declines at this rung"
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 484,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -3448,9 +3412,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 528,
-                "frac": 0.13157894736842105,
+                "served": 0,
+                "declined": 0,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -3477,9 +3441,9 @@
               },
               "TRANSITION_H_CHUNK": {
                 "resolved": "16",
-                "served": 80,
+                "served": 0,
                 "declined": 0,
-                "frac": 1.0,
+                "frac": 0.0,
                 "how": "stats",
                 "reason": "unreached: transition_ws with ws_l1dest (BH_TRUNK, OpenDDE's Blackhole normal set since f8cdcb0aa) runs every pair transition as pair_swiglu_ws programs, including those whose update fits L1, so the row-chunked Transition this counts is never called. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean ws declined a shape"
               },
@@ -3550,14 +3514,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3580,19 +3544,16 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 584,
-                "declined": 80,
-                "frac": 0.8795180722891566,
-                "how": "wrap",
-                "rejects": {
-                  "l1_dest_is_faster:896x896x64": 80
-                }
+                "served": 60,
+                "declined": 0,
+                "frac": 1.0,
+                "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 2320,
+                "served": 224,
                 "declined": 40,
-                "frac": 0.9830508474576272,
+                "frac": 0.8484848484848485,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=12:(12,1)": 40
@@ -3601,20 +3562,20 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1048,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 1048
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 3648,
+                "served": 344,
                 "declined": 40,
-                "frac": 0.9891540130151844,
+                "frac": 0.8958333333333334,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(12,1)": 40
@@ -3637,21 +3598,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 1304,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3659,22 +3620,21 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1248,
-                "declined": 1368,
-                "frac": 0.47706422018348627,
+                "declined": 2576,
+                "frac": 0.3263598326359833,
                 "how": "stats",
                 "rejects": {
-                  "l1_budget": 2,
-                  "pm_over_l1": 1246,
+                  "l1_budget": 3,
+                  "pm_over_l1": 2453,
                   "fill_preconditions": 120
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 0,
+                "served": 1208,
                 "declined": 0,
-                "frac": 0.0,
-                "how": "stats",
-                "reason": "structural, not size-specific: both SDPA_K_CHUNK_STATS sites are inside `_tri_att_sdpa_at`'s `len(k_chunks) > 1` block, and served 0 declined 0 means no call entered it: the shipped k_chunk divides the padded length at this rung, so there is no wider dividing pick to offer [carried from tt-galaxy-wh-l]"
+                "frac": 1.0,
+                "how": "stats"
               },
               "SDPA_FUSED_LARGE_S": {
                 "resolved": "True",
@@ -3707,21 +3667,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1248,
+                "served": 40,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1248,
+                "served": 40,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1248,
+                "served": 40,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3751,9 +3711,9 @@
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 628,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -3766,9 +3726,9 @@
               },
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
-                "served": 80,
-                "declined": 564,
-                "frac": 0.12422360248447205,
+                "served": 0,
+                "declined": 40,
+                "frac": 0.0,
                 "how": "wrap",
                 "reason": "unreached: triatt_ln's TR mode (OpenDDE's Blackhole normal set since d447308e0) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded vs TT_BIO_LEVERS=none on the BH 11-set, 44 paired folds, PASS. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
@@ -3868,14 +3828,14 @@
               },
               "TRIMUL_IN_PROJ_DUAL_NOC": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 256,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "ADALN_S_HOIST": {
                 "resolved": "True",
-                "served": 315,
+                "served": 27,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
@@ -3898,16 +3858,16 @@
               },
               "PAIR_TRANSPOSE_VIA_ROW_MAJOR": {
                 "resolved": "True",
-                "served": 688,
+                "served": 84,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "wrap"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
-                "served": 2352,
+                "served": 256,
                 "declined": 216,
-                "frac": 0.9158878504672897,
+                "frac": 0.5423728813559322,
                 "how": "wrap",
                 "rejects": {
                   "k_tiles=2:(2,2)": 160,
@@ -3917,20 +3877,20 @@
               "TRIMUL_TAIL_F1": {
                 "resolved": "True",
                 "served": 0,
-                "declined": 1048,
+                "declined": 0,
                 "frac": 0.0,
                 "how": "stats",
                 "rejects": {
                   "t1:key=2x4x2": 160,
-                  "k_tiles=12": 1048
+                  "t2:key=2x2": 160
                 },
-                "reason": "declines all 1048 calls on k_tiles=12 x1048, t1:key=2x4x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
+                "reason": "declines all 0 calls on t1:key=2x4x2 x160, t2:key=2x2 x160: F1_BLOCK_KEYS allow-lists only (8, 8) and opendde's trimul tails resolve 12 and 2 K tiles, properties of c_hidden and not of N -- so F1 is inert on this model at every size, not dark at this one [carried from rung 768]"
               },
               "QKV_MM_CONFIG": {
                 "resolved": "True",
-                "served": 3728,
+                "served": 424,
                 "declined": 56,
-                "frac": 0.985200845665962,
+                "frac": 0.8833333333333333,
                 "how": "wrap",
                 "rejects": {
                   "no_mm_block:(12,1)": 56
@@ -3953,21 +3913,21 @@
               },
               "REBLOCK_PERMUTE_BACK": {
                 "resolved": "True",
-                "served": 3400,
+                "served": 1304,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "REBLOCK_PERMUTE_GATED": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIMUL_MASK_AFTER_MOVE": {
                 "resolved": "True",
-                "served": 6800,
+                "served": 512,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -3975,17 +3935,17 @@
               "TRIATT_PERSISTENT_MASK": {
                 "resolved": "True",
                 "served": 1264,
-                "declined": 320,
-                "frac": 0.797979797979798,
+                "declined": 2416,
+                "frac": 0.34347826086956523,
                 "how": "stats",
                 "rejects": {
                   "l1_budget": 2,
-                  "pm_over_l1": 318
+                  "pm_over_l1": 2414
                 }
               },
               "SDPA_WIDE_K": {
                 "resolved": "True",
-                "served": 56,
+                "served": 1264,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
@@ -4021,21 +3981,21 @@
               },
               "TRIATT_HEAD_MAJOR_QKV": {
                 "resolved": "True",
-                "served": 1264,
+                "served": 56,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
-                "served": 1264,
+                "served": 56,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
-                "served": 1264,
+                "served": 56,
                 "declined": 0,
                 "frac": 1.0,
                 "how": "stats-shared"
@@ -4065,9 +4025,9 @@
               },
               "APB_CONCAT_HEADS": {
                 "resolved": "False",
-                "served": 0,
-                "declined": 628,
-                "frac": 0.0,
+                "served": 628,
+                "declined": 0,
+                "frac": 1.0,
                 "how": "stats"
               },
               "ATOM_AXIS_BUCKET": {
@@ -4081,7 +4041,7 @@
               "TRANSPOSE_L1_RESIDENT": {
                 "resolved": "1.25",
                 "served": 0,
-                "declined": 660,
+                "declined": 56,
                 "frac": 0.0,
                 "how": "wrap",
                 "reason": "dark on 1024x1024x64 since b63dc4021 sized _l1_fits to the allocator bank (1461760 B/core): the 167772160 B slice at x1.25 no longer fits 110 cores (160793600 B). Same CIF digest, and 219.0 s dark against 220.1 s firing on qb2 card 0 at ~1300 MHz (perf/rfd4/opendde-drift/ab), so it costs nothing measurable"
@@ -4126,139 +4086,139 @@
           },
           "runtime_reps_s": {
             "256": [
-              14.9,
-              15.0,
-              14.9,
-              14.8,
-              14.8
+              13.8,
+              14.0,
+              13.3,
+              13.4,
+              13.9
             ],
             "512": [
-              45.4,
-              45.5,
-              46.3,
-              45.3,
-              45.6
+              44.1,
+              44.7,
+              45.9,
+              46.6,
+              46.1
             ],
             "640": [
-              71.8
+              73.1
             ],
             "768": [
-              119.9
+              106.7
             ],
             "896": [
-              221.1
+              152.6
             ],
             "1024": [
-              284.3
+              205.7
             ]
           },
           "aiclk": {
             "256": {
-              "card": "0",
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1318,
-                1306,
-                1325,
-                1350,
-                1337
-              ],
-              "n": 27
-            },
-            "512": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1325,
-                1306,
-                1312,
-                1337,
-                1306
-              ],
-              "n": 58
-            },
-            "640": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1306
-              ],
-              "n": 17
-            },
-            "768": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
-                1300
-              ],
-              "n": 27
-            },
-            "896": {
-              "card": "0",
-              "min": 800,
-              "max": 1350,
-              "rep_median": [
+                1331,
+                1293,
+                1343,
+                1331,
                 1325
               ],
-              "n": 48
+              "n": 29
             },
-            "1024": {
-              "card": "0",
+            "512": {
+              "card": "3",
               "min": 800,
               "max": 1350,
               "rep_median": [
-                1306
+                800,
+                800,
+                800,
+                800,
+                800
               ],
               "n": 60
+            },
+            "640": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 18
+            },
+            "768": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 25
+            },
+            "896": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 33
+            },
+            "1024": {
+              "card": "3",
+              "min": 800,
+              "max": 1350,
+              "rep_median": [
+                800
+              ],
+              "n": 44
             }
           },
           "load": {
             "256": {
-              "max": 1.05,
+              "max": 0.45,
               "rep_median": [
-                0.96,
-                0.7,
-                0.59,
-                0.49,
-                0.41
+                0.43,
+                0.37,
+                0.37,
+                0.34,
+                0.31
               ]
             },
             "512": {
-              "max": 0.53,
+              "max": 0.52,
               "rep_median": [
-                0.47,
-                0.4,
-                0.39,
-                0.42,
-                0.39
+                0.41,
+                0.44,
+                0.43,
+                0.43,
+                0.48
               ]
             },
             "640": {
-              "max": 0.47,
+              "max": 0.68,
               "rep_median": [
-                0.4
+                0.63
               ]
             },
             "768": {
-              "max": 0.45,
+              "max": 0.54,
               "rep_median": [
-                0.4
+                0.51
               ]
             },
             "896": {
-              "max": 1.2,
+              "max": 0.62,
               "rep_median": [
-                1.08
+                0.47
               ]
             },
             "1024": {
-              "max": 1.0,
+              "max": 0.43,
               "rep_median": [
-                0.49
+                0.4
               ]
             }
           },
@@ -4267,14 +4227,14 @@
               "file": "cdk2x2_256.cif",
               "steps": 6,
               "n_ca": 256,
-              "clash_frac": 0.0078,
+              "clash_frac": 0.0,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 134.069,
-              "radius_of_gyration_A": 114.126,
-              "plddt_mean": 0.584826,
+              "ca_ca_median_A": 133.5384,
+              "radius_of_gyration_A": 114.058,
+              "plddt_mean": 0.587979,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 134.069 A outside [3.6, 4.0]",
+                "median CA-CA 133.538 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 114.1 A outside [9.0, 45.2]"
               ]
@@ -4285,128 +4245,128 @@
               "n_ca": 512,
               "clash_frac": 0.0039,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.8456,
-              "radius_of_gyration_A": 113.447,
-              "plddt_mean": 0.574141,
+              "ca_ca_median_A": 137.3536,
+              "radius_of_gyration_A": 113.347,
+              "plddt_mean": 0.574876,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.846 A outside [3.6, 4.0]",
+                "median CA-CA 137.354 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 113.4 A outside [11.8, 58.9]"
+                "radius of gyration 113.3 A outside [11.8, 58.9]"
               ]
             },
             "640": {
               "file": "cdk2x2_640.cif",
               "steps": 6,
               "n_ca": 640,
-              "clash_frac": 0.0,
+              "clash_frac": 0.0094,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 150.0018,
-              "radius_of_gyration_A": 116.884,
-              "plddt_mean": 0.565825,
+              "ca_ca_median_A": 149.632,
+              "radius_of_gyration_A": 116.737,
+              "plddt_mean": 0.567791,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 150.002 A outside [3.6, 4.0]",
+                "median CA-CA 149.632 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.9 A outside [12.8, 64.1]"
+                "radius of gyration 116.7 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0052,
+              "clash_frac": 0.0104,
               "chain_break_frac": 0.9987,
-              "ca_ca_median_A": 145.5214,
-              "radius_of_gyration_A": 114.154,
-              "plddt_mean": 0.55602,
+              "ca_ca_median_A": 144.634,
+              "radius_of_gyration_A": 113.756,
+              "plddt_mean": 0.557988,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 145.521 A outside [3.6, 4.0]",
+                "median CA-CA 144.634 A outside [3.6, 4.0]",
                 "99.9% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.2 A outside [13.7, 68.7]"
+                "radius of gyration 113.8 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0179,
+              "clash_frac": 0.0134,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.167,
-              "radius_of_gyration_A": 112.875,
-              "plddt_mean": 0.561973,
+              "ca_ca_median_A": 138.1214,
+              "radius_of_gyration_A": 112.537,
+              "plddt_mean": 0.563884,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.167 A outside [3.6, 4.0]",
+                "median CA-CA 138.121 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.9 A outside [14.6, 72.8]"
+                "radius of gyration 112.5 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0176,
+              "clash_frac": 0.0156,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.9679,
-              "radius_of_gyration_A": 115.356,
-              "plddt_mean": 0.560569,
+              "ca_ca_median_A": 136.1839,
+              "radius_of_gyration_A": 115.279,
+              "plddt_mean": 0.563841,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.968 A outside [3.6, 4.0]",
+                "median CA-CA 136.184 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 115.4 A outside [15.3, 76.6]"
+                "radius of gyration 115.3 A outside [15.3, 76.6]"
               ]
             }
           },
           "reps": 1,
-          "sigma_runtime_512": 0.0087,
+          "sigma_runtime_512": 0.0229,
           "exponents": {
             "256->512": {
-              "k": 1.611,
+              "k": 1.734,
               "tol": 0.5
             },
             "512->768": {
-              "k": 2.39,
+              "k": 2.08,
               "tol": 0.5
             }
           },
           "sigma_runtime": {
-            "256": 0.0056,
-            "512": 0.0087
+            "256": 0.0228,
+            "512": 0.0229
           },
           "exponents_measured": {
-            "256->512": 1.611,
-            "512->640": 2.044,
-            "640->768": 2.812,
-            "768->896": 3.97,
-            "896->1024": 1.883
+            "256->512": 1.734,
+            "512->640": 2.085,
+            "640->768": 2.074,
+            "768->896": 2.321,
+            "896->1024": 2.236
           }
         }
       }
     },
     "tt-galaxy-wh-l": {
-      "recorded": "2026-11-05",
-      "host": "UF-EV-A4-GWH01",
-      "commit": "b46cbc7c5",
+      "recorded": "2026-11-07",
+      "host": "UF-EV-A5-GWH02",
+      "commit": "e0cfe5c47",
       "host_threads": 2,
       "models": {
         "opendde": {
           "grid": "8x9",
-          "recorded": "2026-11-05",
-          "host": "UF-EV-A4-GWH01",
-          "commit": "b46cbc7c5",
+          "recorded": "2026-11-07",
+          "host": "UF-EV-A5-GWH02",
+          "commit": "e0cfe5c47",
           "host_threads": 2,
           "runtime_s": {
-            "256": 26.9,
+            "256": 26.0,
             "512": 72.4,
-            "640": 113.3,
-            "768": 265.4,
-            "896": 332.8,
-            "1024": 459.0,
-            "1280": 1080.4,
-            "1536": 2101.5
+            "640": 114.0,
+            "768": 259.6,
+            "896": 322.8,
+            "1024": 451.9,
+            "1280": 1065.0,
+            "1536": 2091.9
           },
           "levers": {
             "256": {
@@ -6942,54 +6902,54 @@
           },
           "runtime_reps_s": {
             "256": [
-              27.3,
               26.4,
+              25.8,
+              25.7,
               26.0,
-              28.3,
-              26.9
+              26.3
             ],
             "512": [
-              71.2,
               72.4,
-              72.4,
-              74.0,
-              71.4
+              72.1,
+              72.2,
+              73.0,
+              72.4
             ],
             "640": [
-              113.3
+              114.0
             ],
             "768": [
-              265.4
+              259.6
             ],
             "896": [
-              332.8
+              322.8
             ],
             "1024": [
-              459.0
+              451.9
             ],
             "1280": [
-              1080.4
+              1065.0
             ],
             "1536": [
-              2101.5
+              2091.9
             ]
           },
           "aiclk": {
             "256": {
-              "card": "14",
+              "card": "11",
               "min": 500,
               "max": 1000,
               "rep_median": [
+                500,
                 1000,
                 1000,
                 1000,
-                1000,
-                1000
+                500
               ],
-              "n": 46
+              "n": 74
             },
             "512": {
-              "card": "14",
+              "card": "11",
               "min": 500,
               "max": 1000,
               "rep_median": [
@@ -6999,118 +6959,118 @@
                 1000,
                 1000
               ],
-              "n": 91
+              "n": 90
             },
             "640": {
-              "card": "14",
+              "card": "11",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 27
+              "n": 26
             },
             "768": {
-              "card": "14",
+              "card": "11",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 57
+              "n": 55
             },
             "896": {
-              "card": "14",
+              "card": "11",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 71
+              "n": 68
             },
             "1024": {
-              "card": "14",
+              "card": "11",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 96
+              "n": 93
             },
             "1280": {
-              "card": "14",
+              "card": "11",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 219
+              "n": 215
             },
             "1536": {
-              "card": "14",
+              "card": "11",
               "min": 500,
               "max": 1000,
               "rep_median": [
                 1000
               ],
-              "n": 423
+              "n": 419
             }
           },
           "load": {
             "256": {
-              "max": 0.46,
+              "max": 0.69,
               "rep_median": [
-                0.39,
-                0.25,
-                0.29,
-                0.27,
-                0.32
+                0.23,
+                0.49,
+                0.63,
+                0.61,
+                0.51
               ]
             },
             "512": {
-              "max": 10.86,
+              "max": 0.42,
               "rep_median": [
-                0.64,
-                1.11,
-                0.48,
-                6.73,
-                3.28
+                0.36,
+                0.37,
+                0.31,
+                0.28,
+                0.29
               ]
             },
             "640": {
-              "max": 2.18,
+              "max": 0.35,
               "rep_median": [
-                1.66
+                0.25
               ]
             },
             "768": {
-              "max": 2.49,
+              "max": 0.74,
               "rep_median": [
-                1.03
+                0.5
               ]
             },
             "896": {
-              "max": 1.82,
+              "max": 0.41,
               "rep_median": [
-                1.0
+                0.26
               ]
             },
             "1024": {
-              "max": 2.0,
+              "max": 0.1,
               "rep_median": [
-                1.2
+                0.07
               ]
             },
             "1280": {
-              "max": 3.93,
+              "max": 0.8,
               "rep_median": [
-                0.41
+                0.38
               ]
             },
             "1536": {
-              "max": 7.07,
+              "max": 2.36,
               "rep_median": [
-                1.68
+                0.39
               ]
             }
           },
@@ -7121,30 +7081,30 @@
               "n_ca": 256,
               "clash_frac": 0.0078,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 132.9423,
-              "radius_of_gyration_A": 113.818,
-              "plddt_mean": 0.588508,
+              "ca_ca_median_A": 133.794,
+              "radius_of_gyration_A": 113.928,
+              "plddt_mean": 0.58679,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 132.942 A outside [3.6, 4.0]",
+                "median CA-CA 133.794 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 113.8 A outside [9.0, 45.2]"
+                "radius of gyration 113.9 A outside [9.0, 45.2]"
               ]
             },
             "512": {
               "file": "cdk2x2_512.cif",
               "steps": 6,
               "n_ca": 512,
-              "clash_frac": 0.0039,
+              "clash_frac": 0.0117,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.2264,
-              "radius_of_gyration_A": 113.256,
-              "plddt_mean": 0.577254,
+              "ca_ca_median_A": 137.6331,
+              "radius_of_gyration_A": 113.66,
+              "plddt_mean": 0.571056,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.226 A outside [3.6, 4.0]",
+                "median CA-CA 137.633 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 113.3 A outside [11.8, 58.9]"
+                "radius of gyration 113.7 A outside [11.8, 58.9]"
               ]
             },
             "640": {
@@ -7153,60 +7113,60 @@
               "n_ca": 640,
               "clash_frac": 0.0031,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 149.2017,
-              "radius_of_gyration_A": 116.692,
-              "plddt_mean": 0.569374,
+              "ca_ca_median_A": 149.1638,
+              "radius_of_gyration_A": 116.863,
+              "plddt_mean": 0.566781,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 149.202 A outside [3.6, 4.0]",
+                "median CA-CA 149.164 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 116.7 A outside [12.8, 64.1]"
+                "radius of gyration 116.9 A outside [12.8, 64.1]"
               ]
             },
             "768": {
               "file": "cdk2x2_768.cif",
               "steps": 6,
               "n_ca": 768,
-              "clash_frac": 0.0078,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 145.7034,
-              "radius_of_gyration_A": 113.84,
-              "plddt_mean": 0.556981,
+              "clash_frac": 0.013,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 145.0907,
+              "radius_of_gyration_A": 113.937,
+              "plddt_mean": 0.554716,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 145.703 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 113.8 A outside [13.7, 68.7]"
+                "median CA-CA 145.091 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 113.9 A outside [13.7, 68.7]"
               ]
             },
             "896": {
               "file": "cdk2x2_896.cif",
               "steps": 6,
               "n_ca": 896,
-              "clash_frac": 0.0089,
+              "clash_frac": 0.0134,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 138.392,
-              "radius_of_gyration_A": 112.511,
-              "plddt_mean": 0.562032,
+              "ca_ca_median_A": 138.8359,
+              "radius_of_gyration_A": 112.571,
+              "plddt_mean": 0.55965,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 138.392 A outside [3.6, 4.0]",
+                "median CA-CA 138.836 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 112.5 A outside [14.6, 72.8]"
+                "radius of gyration 112.6 A outside [14.6, 72.8]"
               ]
             },
             "1024": {
               "file": "cdk2x2_1024.cif",
               "steps": 6,
               "n_ca": 1024,
-              "clash_frac": 0.0117,
+              "clash_frac": 0.0098,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 135.8595,
-              "radius_of_gyration_A": 115.193,
-              "plddt_mean": 0.561185,
+              "ca_ca_median_A": 136.1799,
+              "radius_of_gyration_A": 115.192,
+              "plddt_mean": 0.558512,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 135.860 A outside [3.6, 4.0]",
+                "median CA-CA 136.180 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
                 "radius of gyration 115.2 A outside [15.3, 76.6]"
               ]
@@ -7215,16 +7175,15 @@
               "file": "cdk2x2_1280.cif",
               "steps": 6,
               "n_ca": 1280,
-              "clash_frac": 0.0234,
+              "clash_frac": 0.0109,
               "chain_break_frac": 1.0,
-              "ca_ca_median_A": 137.0674,
-              "radius_of_gyration_A": 113.388,
-              "plddt_mean": 0.580687,
+              "ca_ca_median_A": 137.2558,
+              "radius_of_gyration_A": 113.393,
+              "plddt_mean": 0.57847,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 137.067 A outside [3.6, 4.0]",
+                "median CA-CA 137.256 A outside [3.6, 4.0]",
                 "100.0% of consecutive CA pairs exceed 5.0 A",
-                "2.3% of CA atoms sit under 3.5 A from a non-bonded CA",
                 "radius of gyration 113.4 A outside [16.7, 83.4]"
               ]
             },
@@ -7232,28 +7191,43 @@
               "file": "cdk2x2_1536.cif",
               "steps": 6,
               "n_ca": 1536,
-              "clash_frac": 0.0156,
-              "chain_break_frac": 1.0,
-              "ca_ca_median_A": 143.3747,
-              "radius_of_gyration_A": 114.328,
-              "plddt_mean": 0.579578,
+              "clash_frac": 0.0117,
+              "chain_break_frac": 0.9987,
+              "ca_ca_median_A": 143.1578,
+              "radius_of_gyration_A": 114.222,
+              "plddt_mean": 0.575894,
               "geometry_ok": false,
               "geometry_fail": [
-                "median CA-CA 143.375 A outside [3.6, 4.0]",
-                "100.0% of consecutive CA pairs exceed 5.0 A",
-                "radius of gyration 114.3 A outside [17.9, 89.4]"
+                "median CA-CA 143.158 A outside [3.6, 4.0]",
+                "99.9% of consecutive CA pairs exceed 5.0 A",
+                "radius of gyration 114.2 A outside [17.9, 89.4]"
               ]
             }
           },
-          "exponents_skipped": "512 aa was timed at 10.9x nproc, above the 1.5x load ceiling: the runtimes are the host's, re-time on a quiet box",
+          "reps": 1,
+          "sigma_runtime_512": 0.0048,
+          "exponents": {
+            "256->512": {
+              "k": 1.477,
+              "tol": 0.5
+            },
+            "512->768": {
+              "k": 3.149,
+              "tol": 0.5
+            }
+          },
+          "sigma_runtime": {
+            "256": 0.0117,
+            "512": 0.0048
+          },
           "exponents_measured": {
-            "256->512": 1.428,
-            "512->640": 2.007,
-            "640->768": 4.669,
-            "768->896": 1.468,
-            "896->1024": 2.408,
-            "1024->1280": 3.836,
-            "1280->1536": 3.649
+            "256->512": 1.477,
+            "512->640": 2.035,
+            "640->768": 4.514,
+            "768->896": 1.413,
+            "896->1024": 2.519,
+            "1024->1280": 3.842,
+            "1280->1536": 3.703
           }
         }
       }
