@@ -1,6 +1,6 @@
 diff -u ../orig/dispatcher_data.py ./dispatcher_data.py
---- ../orig/dispatcher_data.py	2026-11-06 23:48:24.154087674 +0100
-+++ ./dispatcher_data.py	2026-11-06 23:49:00.805124984 +0100
+--- ../orig/dispatcher_data.py	2026-11-06 22:49:27.530941634 +0000
++++ ./dispatcher_data.py	2026-11-07 02:18:18.221798240 +0000
 @@ -363,6 +363,8 @@
              kernel = self.find_kernel(watcher_kernel_id)
          except Exception:
@@ -10,7 +10,7 @@ diff -u ../orig/dispatcher_data.py ./dispatcher_data.py
          try:
              previous_kernel = self.find_kernel(watcher_previous_kernel_id)
          except Exception:
-@@ -583,6 +585,56 @@
+@@ -583,6 +585,46 @@
          )
  
  
@@ -18,34 +18,24 @@ diff -u ../orig/dispatcher_data.py ./dispatcher_data.py
 +TEXT_PROBE = 64
 +
 +
-+def _xip_text(path: str) -> bytes | None:
-+    from elftools.elf.elffile import ELFFile
-+
-+    with open(path, "rb") as f:
-+        sec = ELFFile(f).get_section_by_name(".text")
-+        return sec.data()[:TEXT_PROBE] if sec is not None else None
-+
-+
 +def match_cached_kernel(location: OnChipCoordinate, proc_name: str, text_addr: int):
 +    """Name a kernel without Inspector: the first TEXT_PROBE bytes of its text in L1 equal those of exactly one
-+    `<cache>/kernels/<name>/<hash>/<risc>/<risc>.elf.xip.elf` (TRIAGE_KERNEL_CACHE, ':'-separated roots)."""
++    `<cache>/kernels/<name>/<hash>/<risc>/<risc>.elf.xip.elf` (TRIAGE_KERNEL_CACHE, ':'-separated roots), looked up
++    in the kit's prebuilt kernel_text_index.pkl (TRIAGE_KERNEL_INDEX = its directory; parsing the cache live is too slow)."""
 +    global _kernel_text_index
-+    roots = os.environ.get("TRIAGE_KERNEL_CACHE")
++    roots, kit = os.environ.get("TRIAGE_KERNEL_CACHE"), os.environ.get("TRIAGE_KERNEL_INDEX")
 +    proc = proc_name.lower()
-+    if not roots or proc == "ncrisc":  # Wormhole NCRISC runs from IRAM with no XIP ELF
++    if not roots or not kit or proc == "ncrisc":  # Wormhole NCRISC runs from IRAM with no XIP ELF
 +        return None
 +    if _kernel_text_index is None:
-+        import glob
++        import sys
 +
-+        _kernel_text_index = {}
-+        for root in roots.split(":"):
-+            for xip in glob.glob(os.path.join(root, "**/kernels/*/*/*/*.elf.xip.elf"), recursive=True):
-+                try:
-+                    text = _xip_text(xip)
-+                except Exception:
-+                    continue
-+                if text:
-+                    _kernel_text_index.setdefault(os.path.basename(os.path.dirname(xip)), []).append((text, xip))
++        sys.path.insert(0, kit)
++        import kernel_text_index
++
++        if not kernel_text_index.INDEX.exists():
++            return None
++        _kernel_text_index = kernel_text_index.load(roots)
 +    from ttexalens.tt_exalens_lib import read_from_device
 +
 +    try:
@@ -68,8 +58,8 @@ diff -u ../orig/dispatcher_data.py ./dispatcher_data.py
  def run(args, context: Context):
      inspector_data = get_inspector_data(args, context)
 diff -u ../orig/inspector_data.py ./inspector_data.py
---- ../orig/inspector_data.py	2026-11-06 23:48:21.514157001 +0100
-+++ ./inspector_data.py	2026-11-06 23:48:53.593314440 +0100
+--- ../orig/inspector_data.py	2026-11-06 22:49:27.526941626 +0000
++++ ./inspector_data.py	2026-11-06 22:49:27.526941626 +0000
 @@ -160,6 +160,41 @@
  # TODO: parse_inspector_logs types should have different field names and different return types (not dictionary, but named tuple with array of elements)
  
@@ -121,4 +111,3 @@ diff -u ../orig/inspector_data.py ./inspector_data.py
      if not os.path.exists(log_directory):
          raise ValueError(
              f"\n\tLog directory {log_directory} does not exist."
-Only in .: __pycache__

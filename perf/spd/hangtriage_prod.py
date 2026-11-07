@@ -40,7 +40,8 @@ while n < cap:
         # dispatcher_data cannot decode mailboxes from it. kit/fwdbg is the same tt-metal's firmware built with -g.
         fw = kit / "fwdbg" if (kit / "fwdbg").is_dir() else next(cache.glob("tt-metal-cache*/firmware"), "")
         env = dict(os.environ, TT_VISIBLE_DEVICES=chip, TT_METAL_LOGS_PATH=str(d / "tmlogs"),
-                   TRIAGE_NO_INSPECTOR_FW=str(fw), TRIAGE_KERNEL_CACHE=str(cache))
+                   TRIAGE_NO_INSPECTOR_FW=str(fw), TRIAGE_KERNEL_CACHE=str(cache), TRIAGE_KERNEL_INDEX=str(kit),
+                   PYTHONUNBUFFERED="1")
         t0 = time.time()
         with open(d / "triage.txt", "w") as f:
             r = subprocess.run(["timeout", "200", str(kit / "xv/bin/python"), "tools/tt-triage.py", "-vv", "--verbosity=5",
