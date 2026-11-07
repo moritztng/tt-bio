@@ -7,7 +7,7 @@ PY=${PY:-$HOME/scratch/shipflow/venv312-8edb023e00db/bin/python}
 mkdir -p $R; R=$(cd $R && pwd); cd $WT
 export TT_VISIBLE_DEVICES=$C TT_BIO_LEASE_CARDS=$C TT_BIO_LEASE_HOLDER=worker:bat-lever PYTHONPATH=$WT OMP_NUM_THREADS=8
 stamp() { echo "$1 $(date -u +%FT%TZ) load $(cut -d" " -f1 /proc/loadavg)" >> $R/done; }
-exec 9>"$HOME/spd_qb2_chip$C.lock"; flock -w 3600 9 || { stamp "flock timeout"; exit 3; }
+exec 9>"$HOME/spd_qb2_chip$C.lock"; flock -w 21600 9 || { stamp "flock timeout"; exit 3; }
 BASE=$($PY -c "from tt_bio.rfd4.trunk import NORMAL_LEVERS as L; print(\",\".join(sorted(L)))" 2>/dev/null | tail -1)
 stamp "start chip $C sha $(git rev-parse --short HEAD) dirty $(git status --porcelain tt_bio | wc -l)"
 for arm in ${ARMS:-base:}; do name=${arm%%:*}; ex=${arm#*:}
