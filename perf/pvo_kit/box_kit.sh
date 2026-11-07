@@ -32,7 +32,11 @@ nohup nvidia-smi --query-gpu=timestamp,clocks.sm,clocks.mem,power.draw,power.lim
   --format=csv,noheader -l 1 >> $B/smi.csv 2>&1 &
 
 if [ ! -f $B/SETUP-DONE ]; then
-  {
+  # Subshells, not brace groups: `set -e` in a { } group stays on for the rest of the script, so on session
+  # pvo-kit-1 the burn gate's exit 3 killed this script before it wrote BURN or PVO-FAILED, and the watcher
+  # kept billing a rejected box with no marker to read. And the status is read on the next line, not with `||`:
+  # bash ignores set -e inside anything tested by ||, so a failed apt-get or sha256sum would have carried on.
+  (
     set -e
     # python3.12-dev: Triton JIT-builds its driver shim against Python.h. X11 libs: Open Babel plugins.
     # kalign: the template path both models use. ninja: torch JIT-builds the fused LayerNorms.
@@ -53,7 +57,7 @@ if [ ! -f $B/SETUP-DONE ]; then
     VIRTUAL_ENV=/opt/kit-venv uv pip install -q --no-deps -r /tmp/stack.txt
     VIRTUAL_ENV=/opt/kit-venv uv pip install -q --no-deps /root/kit/opendde/stock/opendde-1.1.1-py3-none-any.whl
     VIRTUAL_ENV=/opt/kit-venv uv pip install -q -e /root/kit/common/opt_core -e /root/kit/opendde/opt
-  } > $B/setup-kit.log 2>&1 || fail "kit venv (tail $B/setup-kit.log)"
+  ) > $B/setup-kit.log 2>&1; [ $? -eq 0 ] || fail "kit venv (tail $B/setup-kit.log)"
 
   # The burn runs as soon as ONE torch exists: pvo-gpu session 3 spent an hour on setup before the burn found the
   # box at 85 C and 1035 MHz. A capped or throttling host is destroyed now, not after the downloads.
@@ -63,7 +67,7 @@ if [ ! -f $B/SETUP-DONE ]; then
     say "burn passed: $(tail -1 $B/burn.log)"
   fi
 
-  {
+  (
     set -e
     # --- the Mol-1 venv: pvo-gpu's recipe plus opt_core at the SAME kit sha, which is what upstream's
     # docs/kernels.md pins for --trimul_kernel flashpairformer.
@@ -83,7 +87,7 @@ if [ ! -f $B/SETUP-DONE ]; then
     wget -q https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt -O $MOL_ROOT_DIR/checkpoint/mol-1-base.pt ||
       wget -q https://huggingface.co/RUIMA294264/Mol-1/resolve/main/mol-1-base.pt -O $MOL_ROOT_DIR/checkpoint/mol-1-base.pt
     echo "$MOL1_CKPT_SHA  $MOL_ROOT_DIR/checkpoint/mol-1-base.pt" | sha256sum -c
-  } > $B/setup.log 2>&1 || fail "setup (tail $B/setup.log)"
+  ) > $B/setup.log 2>&1; [ $? -eq 0 ] || fail "setup (tail $B/setup.log)"
   echo ok > $B/SETUP-DONE
 fi
 say "setup done after $(( $(date +%s) - T0 ))s"
