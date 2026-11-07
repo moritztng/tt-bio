@@ -112,7 +112,7 @@
                 "rejects": {
                   "l1_dest_is_faster:256x256x128": 280
                 },
-                "reason": "declined deliberately, reason `l1_dest_is_faster:NxNx128`: at 256 and 512 the L1 destination is the faster route, so the row-major path is correctly refused. Serves 560/560 from 640 up, where the pair tensor no longer fits L1."
+                "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -135,7 +135,8 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -223,21 +224,24 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -279,7 +283,8 @@
                 "served": 280,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -406,7 +411,7 @@
                 "rejects": {
                   "l1_dest_is_faster:512x512x128": 280
                 },
-                "reason": "declined deliberately, reason `l1_dest_is_faster:NxNx128`: at 256 and 512 the L1 destination is the faster route, so the row-major path is correctly refused. Serves 560/560 from 640 up, where the pair tensor no longer fits L1."
+                "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -429,7 +434,8 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -517,21 +523,24 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -573,7 +582,8 @@
                 "served": 280,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "SDPA_Q_CHUNK_FITS": {
                 "resolved": "True",
@@ -605,7 +615,7 @@
                 "rejects": {
                   "base-unraised": 296
                 },
-                "reason": "declines all 296 calls on base-unraised x296: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -700,7 +710,8 @@
                 "served": 280,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -726,7 +737,8 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -818,21 +830,24 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -907,7 +922,7 @@
                 "rejects": {
                   "base-unraised": 296
                 },
-                "reason": "declines all 296 calls on base-unraised x296: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1002,7 +1017,8 @@
                 "served": 280,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1028,7 +1044,8 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1120,21 +1137,24 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1210,7 +1230,7 @@
                   "base-unraised": 16,
                   "ratio-shrunk": 280
                 },
-                "reason": "declines all 296 calls on ratio-shrunk x280, base-unraised x16: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1305,7 +1325,8 @@
                 "served": 280,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1331,7 +1352,8 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1423,21 +1445,24 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1513,7 +1538,7 @@
                   "base-unraised": 16,
                   "ratio-shrunk": 280
                 },
-                "reason": "declines all 296 calls on ratio-shrunk x280, base-unraised x16: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -1608,7 +1633,8 @@
                 "served": 280,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln's TR mode (Boltz-2's Wormhole normal set since 6042c51ee) norms x^T straight out of x for the ending triangle attention, so the pair transpose before it is never called while triangle attention runs whole-tensor. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean the TR kernel declined the ending variant"
               },
               "PAIR_PROJ_MINIMAL_MATMUL": {
                 "resolved": "True",
@@ -1634,7 +1660,8 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "wrap"
+                "how": "wrap",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "DEVICE_LM_HANDOFF": {
                 "resolved": "not-imported",
@@ -1726,21 +1753,24 @@
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_HEAD_MAJOR_TAIL": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats"
+                "how": "stats",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "TRIATT_TAIL_OVER_L1": {
                 "resolved": "True",
                 "served": 560,
                 "declined": 0,
                 "frac": 1.0,
-                "how": "stats-shared"
+                "how": "stats-shared",
+                "reason": "unreached: triatt_ln (Boltz-2's Wormhole normal set since 6042c51ee) norms the pair and projects q/k/v/gate/bias in one kernel that writes all five head-major, so qkv_heads, the head-major tail and the qkv matmul are never called while triangle attention runs whole-tensor. From 1280 it is chunked, triatt_ln is not reached and these serve. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean triatt_ln declined"
               },
               "B2_BIAS_SLICE_HOIST": {
                 "resolved": "True",
@@ -1816,7 +1846,7 @@
                   "base-unraised": 16,
                   "ratio-shrunk": 280
                 },
-                "reason": "declines all 296 calls on ratio-shrunk x280, base-unraised x16: on Wormhole the height cannot exceed its base at this width, whatever the channel. Served means a height above TRANSITION_H_CHUNK_SIZE=16, and the base is 32 only when W <= 384 (tenstorrent.TRANSITION_H_CHUNK_BIG_MAX_W). Every small-grid clause after that can only lower it: the ratio is min(1, ...), the 256 < c <= 384 clause is bounded by min(_base_h, ...), and the per-core L1 row cap is a min. The raise above the base is the Blackhole elif, so this board reads 0.0 above 384 tokens on every model and the lever has no Wormhole raise to decline"
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2117,7 +2147,7 @@
                   "base-unraised": 16,
                   "ratio-shrunk": 280
                 },
-                "reason": "declines all 296 calls on ratio-shrunk x280, base-unraised x16: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and Boltz-2's pair transition is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif reads the same budget the other way round and raises, which is why the Blackhole cells read 1.0 and this board reads 0.0. The lever has no Wormhole raise to decline"
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
@@ -2417,7 +2447,7 @@
                 "rejects": {
                   "ratio-shrunk": 296
                 },
-                "reason": "declines all 296 calls on ratio-shrunk x296: the height RAISE is the Blackhole branch and there is no Wormhole one. tt_bio/tenstorrent.py scores this counter as served only when the derived height comes out ABOVE the shipped base, and on a small grid it cannot: the small-grid raise is scoped to 256 < c <= 384 and Boltz-2's pair transition is c=128, so the height stays at the base (base-unraised) or the per-core L1 cap pulls it under (ratio-shrunk). The Blackhole elif reads the same budget the other way round and raises, which is why the Blackhole cells read 1.0 and this board reads 0.0. The lever has no Wormhole raise to decline"
+                "reason": "unreached: transition_ws (Boltz-2's Wormhole normal set since 6042c51ee) runs every pair transition whose update goes to DRAM as one pair_swiglu_ws program, so the row-chunked Transition this counts is never called. At 256 the update fits L1 and, without ws_l1dest, ws declines and this declines on base-unraised as before. Graded as a stack vs TT_BIO_LEVERS=none on 44 paired folds: top pose median 1.145 A (floor 2.386 A), docking 24 -> 24. Falsifier: calls here mean ws declined a DRAM shape"
               },
               "TRIATT_SDPA_HIFI": {
                 "resolved": "none",
