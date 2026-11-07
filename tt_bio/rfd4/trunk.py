@@ -592,17 +592,19 @@ class PairUpdate(Module):
                 (lambda h: self._transition(h, pair_mask_c), True))
         # `pair_bf16z`: a bf16 stream is its own copy (zb is z), which the fused programs below write in place
         fused = zb is not z or lever("pair_bf16z")
+        # no residual mask to apply: no padded token (the triangle mask is None), or `mask_at_mix` dropped it
+        unmasked = pair_mask is None or pair_mask_c is None
         for sub, own_mask in subs:
             u = None
-            if not own_mask and pair_mask is None and fused and whole and lever("pair_tail"):
-                # no padded token: the triangle's output tail adds into the pair stream in the same program,
+            if not own_mask and unmasked and fused and whole and lever("pair_tail"):
+                # no residual mask: the triangle's output tail adds into the pair stream in the same program,
                 # z and zb written in place
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
-                u = tri(zb, None, stream32=z)
+                u = tri(zb, pair_mask, stream32=z)
                 if tri.took_residual:
                     continue
-            if own_mask and pair_mask is None and self.tr_ws is not None and fused:
-                # the transition with no padded token: its residual write rides the same program, in place
+            if own_mask and unmasked and self.tr_ws is not None and fused:
+                # the transition with no residual mask: its residual write rides the same program, in place
                 both = self._transition_block(zb, resid=z)
                 if both is not None:
                     z, zb = both
@@ -710,13 +712,19 @@ SDPA_FILL = True
 #: 256 1.023x, 128 1.033x; whole design at 512 1.012x. z rel RMS vs float64 0.050 -> 0.052 at 512 and 224. 31 designs:
 #: designed chain 5.7 A median against a 40.0 A seed floor at 512, 3.1 against 21.4 at 224, binder grade PASS at both
 #: (state/rfd4/bets/tok512.md).
+#: `mask_at_mix`: a padded call masks only where tokens mix (the attention keys, the triangle multiplication's a and
+#: b), drops every per-token and per-pair residual mask and zeroes the pads once on the way out, so it runs the
+#: unpadded call's fused programs. 620 real tokens in the 640 bucket: traced trunk 382.2 -> 202.2 ms a design a pass
+#: (1.89x), whole design 71.8 -> 39.5 s (1.82x, 1250-1331 MHz). A no-op on an unpadded call. z rel RMS vs float64
+#: 0.0175 -> 0.0195 padded. 31 designs at 620: designed chain 3.93 A median against a 25.7 A seed floor, binder grade
+#: PASS (state/bat-lever.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
                            "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
                            "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
-                           "tok_recycle_mm", "dit_sigf32", "tok_w8"})
+                           "tok_recycle_mm", "dit_sigf32", "tok_w8", "mask_at_mix"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 
@@ -788,9 +796,16 @@ class Trunk(Module):
     def _group_biases(self, k, zb, mask_scaled):
         """The pre-scaled [b, heads, n, n] pair bias of every block in `bias_groups[k]`."""
         g = self.bias_groups[k]
-        if self.bias_wts is not None and mask_scaled is None and dit_pair_bias.rms_eligible(zb, self.bias_wts[k]):
-            return dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
-                                               fidelity=self.compute_kernel_config.math_fidelity)
+        if (self.bias_wts is not None and (mask_scaled is None or lever("mask_at_mix"))
+                and dit_pair_bias.rms_eligible(zb, self.bias_wts[k])):
+            out = dit_pair_bias.rms_pair_bias(zb, self.bias_wts[k], EPS, self.n_heads, n_out=len(g),
+                                              fidelity=self.compute_kernel_config.math_fidelity)
+            if mask_scaled is None:
+                return out
+            masked = [ttnn.add(t, mask_scaled) for t in out]
+            for t in out:
+                ttnn.deallocate(t)
+            return masked
         both = pair_biases(zb, self.bias_ws[k], mask_scaled, self.compute_kernel_config, self.dtype)
         if len(g) == 1:
             return [both]
@@ -830,6 +845,11 @@ class Trunk(Module):
         """One trunk pass. Consumes `s` and `z` (frees them) and returns the new pair. `zb`, when given, is
         z's `dtype` copy, made by whoever wrote z, and is consumed too."""
         mask, bias_mask, pair_mask, pair_mask_c, res_mask, res_pair_mask_c = masks
+        if mask is not None and lever("mask_at_mix"):
+            # Only the attention (over keys) and the triangle multiplication (over the third token) mix tokens; both
+            # keep their masks. Every other op is per token or per pair, so a padded token cannot reach a real one
+            # through it, and the residual masks go: the pass runs the unpadded path's fused programs.
+            mask = pair_mask_c = res_mask = None
         ckc = self.compute_kernel_config
         cn = _rms(cond, None, ckc)  # every adaptive norm of the pass reads rms0(cond)
         mask_scaled = None if bias_mask is None else ttnn.multiply(bias_mask, self.head_dim ** 0.5)
@@ -863,9 +883,12 @@ class Trunk(Module):
     def pair_dtype(self, masks):
         """The pair stream's dtype for a call with these `trunk_masks`. `pair_bfp8z` stores it bfloat8_b only when no
         token is padded, where every z write is one of the fused programs; a padded call reads z far past the float64
-        model of bfp8 storage (state/rfd4/bets/z8.md), so it keeps the bfloat16 stream, main's path bit for bit."""
+        model of bfp8 storage (state/rfd4/bets/z8.md), so it keeps the bfloat16 stream, main's path bit for bit.
+        `mask_at_mix_z8` is that decision re-opened for a padded call that now runs the fused programs: it is a
+        precision trade with its own grade, so it is a lever of its own and `mask_at_mix` alone does not take it."""
         zd = self.pair_residual_dtype
-        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None else zd
+        padded_ok = "mask_at_mix" in self._levers and "mask_at_mix_z8" in self._levers
+        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None and not padded_ok else zd
 
     @under_lever_scope
     def __call__(self, s_init, z_init, conds, masks):
@@ -896,6 +919,12 @@ class Trunk(Module):
                 ttnn.deallocate(s)
                 ttnn.deallocate(z)
             s, z = self.run_pass(s_in, z_in, c, masks, zb=zb)
+        if res_mask is not None and lever("mask_at_mix"):
+            # the passes left the padded tokens unmasked; the call hands them back as zeros, as upstream does
+            ms, mz = _masked_copy(s, res_mask, self.residual_dtype), _masked_copy(z, res_pair_mask_c, zd)
+            ttnn.deallocate(s)
+            ttnn.deallocate(z)
+            s, z = ms, mz
         for t, given in zip((s_init, z_init), inputs):
             if t is not given:
                 ttnn.deallocate(t)

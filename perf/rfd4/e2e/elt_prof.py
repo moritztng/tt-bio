@@ -81,6 +81,7 @@ def main():
     ap.add_argument("--n", type=int, default=128)
     ap.add_argument("--cycles", type=int, default=2)
     ap.add_argument("--batch", type=int, default=1, help="designs a trunk call (the sample batch)")
+    ap.add_argument("--real", type=int, help="real tokens per design (default all n); the rest are masked pad tokens")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -94,7 +95,9 @@ def main():
     g = torch.Generator().manual_seed(0)
     tok, pair = int(trunk.blocks[0].mhba.mha.node_norm_w.shape[-1]), int(trunk.z_proj.shape[-1])
     cond = int(trunk.blocks[0].mhba.adaln.gamma_w.shape[0])
-    masks = trunk.masks_for(torch.ones(b, n), dev)
+    mask = torch.ones(b, n)
+    mask[:, a.real or n:] = 0
+    masks = trunk.masks_for(mask, dev)
     up = lambda t, dt: upload(t, dtype=dt, device=dev)  # noqa: E731
 
     def call():
@@ -113,7 +116,7 @@ def main():
         call()
     signpost("elt_end")
     ttnn.synchronize_device(dev)
-    json.dump({"n": n, "batch": b, "cycles": a.cycles, "tok": tok, "pair": pair, "cond": cond, "aiclk": clk.summary(),
+    json.dump({"n": n, "real": a.real or n, "batch": b, "cycles": a.cycles, "tok": tok, "pair": pair, "cond": cond, "aiclk": clk.summary(),
                "load": os.getloadavg()[0], "card": os.environ.get("TT_VISIBLE_DEVICES")}, open(a.out, "w"), indent=2)
     ttnn.ReadDeviceProfiler(dev)
 
