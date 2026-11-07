@@ -101,7 +101,7 @@ HOST_LEVERS = frozenset({"bg_featproc"})
 WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "triatt_ln", "dit_cond_steps", "trimul_t1",
                                     "trimul_t2", "dit_pad_short", "adaln_mod", "dit_qkvf", "dit_bpad", "dit_shard",
                                     "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "trimul_bres",
-                                    "opm_jd", "dit_kl1", "adaln_at"}
+                                    "opm_jd", "dit_kl1", "adaln_at", "ws_psilu", "trimul_t1_psig"}
 # dit_kl1 (both Wormhole sets) keeps the token DiT attention at the full k chunk with the PV sums added in L1, so the
 # Wormhole fp32-dest erratum guard holds without the 32-key chunk: ~-1.2 ms a diffusion step at 1000 MHz (kl1ab,
 # 2026-11-03, b l l b). Graded as a stack with device z_init on Wormhole vs TT_BIO_LEVERS=none (seed-cluster bootstrap,
@@ -134,11 +134,14 @@ WH_LEVERS_NORMAL = LEVERS_NORMAL | HOST_LEVERS | {"atom_l1", "transition_ws", "t
 # shared trunk levers leave the CIFs byte-identical in BoltzGen and stay out. Fast grade vs TT_BIO_LEVERS=none (5 seeds
 # x 8 designs, 2026-11-07): design_iptm +0.023 [-0.011, +0.063], design_ptm +0.026 [+0.008, +0.046], complex_plddt
 # +0.001 [-0.005, +0.008].
+# Both Wormhole sets run the transition's SwiGLU silu and T1's gate sigmoid on the packer thread (ws_psilu,
+# trimul_t1_psig, as OpenDDE does), overlapping the matmuls. The CIFs stay byte-identical; trunk loop 12.25 -> 11.97
+# s/design normal, 11.47 -> 11.34 fast, at 1000 MHz on both pairs of a b p b p A/B (psab, 2026-11-07).
 WH_LEVERS_FAST = LEVERS_FAST | HOST_LEVERS | {"atom_l1", "trimul_bres", "trimul_t1", "trimul_t2", "transition_ws", "triatt_ln",
                                 "dit_cond_steps", "dit_qkvf", "dit_chunk", "dit_pad_short", "dit_bpad", "dit_shard",
                                 "dit_fc123g", "apb_ln", "ws_l1dest", "ws_resid", "trimul_t2cm", "opm_jd", "dit_kc",
                                 "adaln_at", "dit_kl1", "trimul_sig6", "triatt_ln_b8",
-                                "triatt_ln_b8g", "trimul_t1w8"}
+                                "triatt_ln_b8g", "trimul_t1w8", "ws_psilu", "trimul_t1_psig"}
 # Blackhole fast runs the same trunk kernels Boltz-2 uses on Blackhole (T1/T2 trimul with the column-major T2, banded
 # residual, two-buffer L1) plus atom_l1. Graded as one stack by the fast protocol (bg_grade.py, bg_R3, seeds 0-3 x 8
 # designs vs exact BH normal, 2026-10-26): design_ptm -0.000, complex_plddt -0.005, iptm +0.004, filter 32/32 vs 32/32.
