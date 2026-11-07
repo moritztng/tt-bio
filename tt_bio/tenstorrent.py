@@ -634,7 +634,8 @@ _FAST_MODE = False
 #                   --fast: -0.13 s (-Fast) / -0.15 s (ESMFold2) against HiFi3, LoFi no better (spd-gap-whesmf wtf).
 #                   ESMFold2 fast bar, 44 paired folds (dh2): CA-lDDT -0.0004 [-0.0024, +0.0010], top pose 0.56 A vs
 #                   1.58 A seed floor, docking 32 -> 33; ESMFold2-Fast -0.0006 [-0.0027, +0.0013], 0.82 vs 1.19 A,
-#                   docking 24 -> 24. In ESMFold2's Wormhole fast set.
+#                   docking 24 -> 24. In ESMFold2's Wormhole fast set. Blackhole only since 2026-11-07: on Wormhole
+#                   it hangs chips (`hifi2_allowed`) and the trunk runs at HiFi3 instead.
 #   trunk_hifi3     the trunk's matmuls at HiFi3 instead of HiFi4 (`trunk_compute_kernel_config`).
 #                   Also a correctness fix on Wormhole: HiFi4 with fp32 accumulation returns wrong
 #                   values on some row blocks there (perf/spd_overhead/wh_hifi4_dot.py).
@@ -1643,7 +1644,8 @@ def trunk_compute_kernel_config(base):
     in-place write to `model.trunk.compute_kernel_config.math_fidelity` that provably cannot reach
     the diffusion or confidence stages.
     """
-    fid = _TRUNK_MATH_FIDELITY or ("hifi2" if lever("trunk_hifi2") else "hifi3" if lever("trunk_hifi3") else "hifi4")
+    hifi2 = lever("trunk_hifi2") and hifi2_allowed()
+    fid = _TRUNK_MATH_FIDELITY or ("hifi2" if hifi2 else "hifi3" if lever("trunk_hifi3") or lever("trunk_hifi2") else "hifi4")
     if fid not in _MATH_FIDELITIES:
         raise ValueError(f"TT_BIO_TRUNK_MATH_FIDELITY must be one of {sorted(_MATH_FIDELITIES)}, "
                          f"got {fid!r}")
@@ -8119,6 +8121,16 @@ def lofi_allowed() -> bool:
     5 hangs in 65 folds, every one at LoFi, the matmul throttle no cure; spd-gap-of3 2026-10-20: OpenFold3 9PCQ --fast
     hung in 3 of 3 processes with the pair SwiGLU at LoFi and folded 48 of 48 clean without it). On Wormhole the
     levers are no-ops, so no set or harness arm can bring LoFi back there."""
+    return not is_wormhole()
+
+
+def hifi2_allowed() -> bool:
+    """Whether `trunk_hifi2` may take effect: Blackhole only. On Wormhole the LoFi stall of `lofi_allowed` recurs one
+    step up: a HiFi2 fp32-dest matmul leaves one core's unpacker spinning in wait_for_next_context and the chip hangs.
+    tt-triage of prod OpenDDE-abag hangs on four Galaxies (~4 % of leases under load; jf-abag-hang, 2026-11-07,
+    state/jf-service/ENGINE-HANG-opendde-abag-VERDICT.md) named a HiFi2 trunk matmul on the one stuck core: bmm_res
+    (trimul_bres) and trimul_tail_res compute_ln, both untransposed. On Wormhole the lever is a no-op and the trunk
+    runs at HiFi3, its graded fidelity before 10-21."""
     return not is_wormhole()
 
 
