@@ -142,6 +142,7 @@ def main():
         rec["ops_by_name"] = dict(counts.most_common())
         _, call_counts = count_ops(lambda: free(one_call()))
         rec["ops_per_call_depth3"] = sum(call_counts.values())
+        rec["call_ops_by_name"] = dict(call_counts.most_common())
         ms = timed(one_pass, a.reps)
         rec["eager_ms"] = {"median": round(statistics.median(ms), 3), "min": round(min(ms), 3)}
         ms = timed(one_call, max(3, a.reps // 3))
