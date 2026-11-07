@@ -875,9 +875,12 @@ class Trunk(Module):
     def pair_dtype(self, masks):
         """The pair stream's dtype for a call with these `trunk_masks`. `pair_bfp8z` stores it bfloat8_b only when no
         token is padded, where every z write is one of the fused programs; a padded call reads z far past the float64
-        model of bfp8 storage (state/rfd4/bets/z8.md), so it keeps the bfloat16 stream, main's path bit for bit."""
+        model of bfp8 storage (state/rfd4/bets/z8.md), so it keeps the bfloat16 stream, main's path bit for bit.
+        `mask_at_mix_z8` is that decision re-opened for a padded call that now runs the fused programs: it is a
+        precision trade with its own grade, so it is a lever of its own and `mask_at_mix` alone does not take it."""
         zd = self.pair_residual_dtype
-        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None and "mask_at_mix" not in self._levers else zd
+        padded_ok = "mask_at_mix" in self._levers and "mask_at_mix_z8" in self._levers
+        return ttnn.bfloat16 if zd == ttnn.bfloat8_b and masks[0] is not None and not padded_ok else zd
 
     @under_lever_scope
     def __call__(self, s_init, z_init, conds, masks):
