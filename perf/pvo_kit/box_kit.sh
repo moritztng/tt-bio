@@ -19,6 +19,8 @@ ODDE_CKPT_SHA=7b826620390afad877ee2babc6a4d0df81b94d3a0be030959853d6a7da0807cc  
 ODDE_HF_REV=eddd563ce96571f784012edd8f045181c8f8627d
 MOL1_SHA=e6e64866ee89640a91cef7ee777a85f1d8be03bb
 MOL1_CKPT_SHA=d5b83a86884aa6870565b1a249e8f13c232dfc6dfa311089ab0c7868212b6bd6
+MOL1_COMMON_SHA=f6f953dac716bf89b46799738c85f5e0d4626e0cc905bb805a161671fd5cf898
+MOL1_SEARCH_SHA=66cf966d64c9f346e55f9d2121d47ebb1d046a88e93437c149e91d3fdfbcf57d
 B=/root/kc/pvo; I=/root/kc/inputs; mkdir -p $B; cd /root/kc
 export OPENDDE_ROOT_DIR=/root/oddedata MOL_ROOT_DIR=/root/moldata PATH=$PATH:/root/.local/bin
 export PVO_SESSION=${PVO_SESSION:-pvo-kit} PVO_HOST="vast:$(cut -d' ' -f1 /root/kc/instance 2>/dev/null)"
@@ -83,13 +85,19 @@ if [ ! -f $B/SETUP-DONE ]; then
         -O $OPENDDE_ROOT_DIR/checkpoint/opendde.pt
     echo "$ODDE_CKPT_SHA  $OPENDDE_ROOT_DIR/checkpoint/opendde.pt" | sha256sum -c
     (cd /root/kit/opendde && PATH=/opt/kit-venv/bin:$PATH bash run.sh install --weights $OPENDDE_ROOT_DIR)
-    bash /root/mol1/scripts/database/download_mol_data.sh
     # The checkpoint's one live mirror is Aliyun OSS in Shanghai (the HF path is a 404). On pvo-kit-1 it stalled
     # from a US box into wget's 900 s read timeout and failed setup on the only box that passed the burn. So qb2
     # pushes the sha-checked 2.4 GB into /root/kc/qinputs while setup runs (QB2= on pvo_session.sh), and OSS is
     # only the fallback, resumable, with a short read timeout instead of one 15-minute stall.
+    # pvo-kit-2 then lost its box to the same mirror refusing SSL on search_database.tar.gz, so the two data
+    # tarballs come from qb2 as well (sha-checked against qb2's 10-31 fetch); upstream's script is the fallback.
     ck=$MOL_ROOT_DIR/checkpoint/mol-1-base.pt
     for _ in $(seq 40); do [ -f /root/kc/QINPUTS-DONE ] || [ ! -f /root/kc/QB2-EXPECTED ] && break; sleep 30; done
+    if [ -f /root/kc/qinputs/common.tar.gz ] && [ -f /root/kc/qinputs/search_database.tar.gz ]; then
+      (cd /root/kc/qinputs && printf '%s\n' "$MOL1_COMMON_SHA  common.tar.gz" "$MOL1_SEARCH_SHA  search_database.tar.gz" | sha256sum -c)
+      for f in common search_database; do tar -xzf /root/kc/qinputs/$f.tar.gz -C $MOL_ROOT_DIR; done
+      echo "mol-1 data from qb2"
+    else bash /root/mol1/scripts/database/download_mol_data.sh; fi
     if [ -f /root/kc/qinputs/mol-1-base.pt ]; then mv /root/kc/qinputs/mol-1-base.pt $ck; echo "mol-1-base.pt from qb2"
     else wget -c -q --read-timeout=60 --tries=30 --waitretry=10 \
       https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt -O $ck; fi
