@@ -330,6 +330,18 @@ def test_lofi_levers_are_inert_on_wormhole(monkeypatch):
         assert triatt_sdpa._ckc(None) == triatt_sdpa._CKC_LOFI
 
 
+def test_trunk_hifi2_runs_hifi3_on_wormhole(monkeypatch):
+    """A HiFi2 trunk matmul hangs Wormhole chips (jf-abag-hang 11-07), so trunk_hifi2 falls back to HiFi3 there."""
+    import ttnn
+    base = ttnn.WormholeComputeKernelConfig(math_fidelity=ttnn.MathFidelity.HiFi4, fp32_dest_acc_en=True)
+    monkeypatch.setattr(T, "_TRUNK_MATH_FIDELITY", "")
+    with T.levers("trunk_hifi2"):
+        monkeypatch.setattr(T, "is_wormhole", lambda: True)
+        assert T.trunk_compute_kernel_config(base).math_fidelity == ttnn.MathFidelity.HiFi3
+        monkeypatch.setattr(T, "is_wormhole", lambda: False)
+        assert T.trunk_compute_kernel_config(base).math_fidelity == ttnn.MathFidelity.HiFi2
+
+
 def test_dit_pad_short_takes_the_first_length_a_wide_chunk_divides():
     assert T.dit_bias_pad_len(512, short=True) == 512     # 256 divides it
     assert T.dit_bias_pad_len(514, short=True) == 576     # 544 is 17 tiles: 288 divides 576, the 256 grid is 768
