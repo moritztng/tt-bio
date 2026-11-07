@@ -114,7 +114,9 @@ def chip_main(chip, a, barrier, results):
         fold = m.fold
 
         def counted_fold(*args, **kw):
+            t = time.time()
             r = fold(*args, **kw)
+            coords["fold_s"] = time.time() - t
             c = r[0] if isinstance(r, tuple) else r
             coords["c"] = c.detach().float().cpu()
             return r
@@ -146,6 +148,7 @@ def chip_main(chip, a, barrier, results):
                      "samples": int(c.shape[0]) if c is not None and c.dim() == 3 else None,
                      "coords_sha256": hashlib.sha256(c.numpy().tobytes()).hexdigest() if c is not None else None,
                      "plddt": metrics.get("plddt"), "ptm": metrics.get("ptm"), "iptm": metrics.get("iptm"),
+                     "fold_s": round(coords["fold_s"], 3) if "fold_s" in coords else None,
                      "struct_dir": str(sdir)})
 
 
@@ -241,7 +244,7 @@ def main():
                "size": size or rs[0]["tokens"], "tokens": rs[0]["tokens"], "predictions": len(rs), "wall_s": round(wall, 3),
                "predictions_per_s": round(len(rs) / wall, 6), "work": work, "seed": [r["seed"] for r in rs],
                "per_chip": [{k: r[k] for k in ("chip", "seed", "err", "finite", "samples", "coords_sha256",
-                                               "plddt", "ptm", "iptm", "struct_dir")}
+                                               "plddt", "ptm", "iptm", "fold_s", "struct_dir")}
                             | {"wall_s": round(r["t1"] - start, 3)} for r in rs],
                "aiclk_mhz": statistics.median(v for v in aiclk.values() if v) if any(aiclk.values()) else None,
                "aiclk_per_chip": aiclk, "aiclk_min_mhz": min((s["min"] for s in cs.values()), default=None),
