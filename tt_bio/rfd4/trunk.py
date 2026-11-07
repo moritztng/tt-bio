@@ -592,16 +592,18 @@ class PairUpdate(Module):
                 (lambda h: self._transition(h, pair_mask_c), True))
         # `pair_bf16z`: a bf16 stream is its own copy (zb is z), which the fused programs below write in place
         fused = zb is not z or lever("pair_bf16z")
+        # no residual mask to apply: no padded token (the triangle mask is None), or `mask_at_mix` dropped it
+        unmasked = pair_mask is None or pair_mask_c is None
         for sub, own_mask in subs:
             u = None
-            if not own_mask and pair_mask_c is None and fused and whole and lever("pair_tail"):
+            if not own_mask and unmasked and fused and whole and lever("pair_tail"):
                 # no residual mask: the triangle's output tail adds into the pair stream in the same program,
                 # z and zb written in place
                 tri = self.tri_out if sub is subs[0][0] else self.tri_in
                 u = tri(zb, pair_mask, stream32=z)
                 if tri.took_residual:
                     continue
-            if own_mask and pair_mask_c is None and self.tr_ws is not None and fused:
+            if own_mask and unmasked and self.tr_ws is not None and fused:
                 # the transition with no residual mask: its residual write rides the same program, in place
                 both = self._transition_block(zb, resid=z)
                 if both is not None:
@@ -710,13 +712,19 @@ SDPA_FILL = True
 #: 256 1.023x, 128 1.033x; whole design at 512 1.012x. z rel RMS vs float64 0.050 -> 0.052 at 512 and 224. 31 designs:
 #: designed chain 5.7 A median against a 40.0 A seed floor at 512, 3.1 against 21.4 at 224, binder grade PASS at both
 #: (state/rfd4/bets/tok512.md).
+#: `mask_at_mix`: a padded call masks only where tokens mix (the attention keys, the triangle multiplication's a and
+#: b), drops every per-token and per-pair residual mask and zeroes the pads once on the way out, so it runs the
+#: unpadded call's fused programs. 620 real tokens in the 640 bucket: traced trunk 382.2 -> 202.2 ms a design a pass
+#: (1.89x), whole design 71.8 -> 39.5 s (1.82x, 1250-1331 MHz). A no-op on an unpadded call. z rel RMS vs float64
+#: 0.0175 -> 0.0195 padded. 31 designs at 620: designed chain 3.93 A median against a 25.7 A seed floor, binder grade
+#: PASS (state/bat-lever.md).
 NORMAL_LEVERS = frozenset({"trimul_t1", "pair_mm", "pair_mm_tr", "transition_b8", "trimul_gin", "trimul_gin_w8",
                            "pair_block", "pair_tail", "trimul_t1_dram", "pair_bias_rms",
                            "pair_write_res", "trimul_t1_psig", "trimul_gin_hifi2", "trimul_t1w8", "pair_tail_small",
                            "trimul_bres", "trimul_bres_hifi2", "pair_bf16z",
                            "pair_tail_cm", "trimul_t1b8", "pair_batch", "pair_block_hifi2",
                            "trimul_t1g8", "trimul_tail_hifi2", "pair_bfp8z", "trimul_t1_fgate", "pair_x8", "pair_x8t",
-                           "tok_recycle_mm", "dit_sigf32", "tok_w8"})
+                           "tok_recycle_mm", "dit_sigf32", "tok_w8", "mask_at_mix"})
 #: `--fast` runs the same set: its two extra levers were graded into the default (bet 23).
 FAST_LEVERS = NORMAL_LEVERS
 

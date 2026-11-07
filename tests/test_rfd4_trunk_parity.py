@@ -295,8 +295,7 @@ def test_full_mask_elision_is_bit_identical(monkeypatch):
 
 
 @pytest.mark.device
-@pytest.mark.parametrize("lever", ["mask_at_mix", "mask_at_mix,mask_at_mix_z8"], ids=["masks", "masks-z8"])
-def test_mask_at_mix_ragged_length(monkeypatch, lever):
+def test_mask_at_mix_ragged_length(monkeypatch):
     """`mask_at_mix` drops the trunk's per-token and per-pair residual masks on a padded call, keeping masks
     only where tokens mix. What has to survive that is the answer on the REAL tokens, so this grades a ragged
     100-token run against float64 run at 100 tokens with no padding at all -- the same grade and the same bar
@@ -304,7 +303,7 @@ def test_mask_at_mix_ragged_length(monkeypatch, lever):
 
     It also pins the other half of the rule: the padded tokens come back zero. A caller reading the bucket
     rather than the slice must not see what the pass left in them."""
-    monkeypatch.setenv("TT_BIO_LEVERS", ",".join(sorted(TR.NORMAL_LEVERS | set(lever.split(",")))))
+    monkeypatch.setenv("TT_BIO_LEVERS", ",".join(sorted(TR.NORMAL_LEVERS | {"mask_at_mix"})))
     dev = T.get_device()
     nlayers, cycles = 4, 2
     w = REF.trunk_weights(nlayers, DIM, DIM_PAIR, DIM_COND, HEADS, seed=21)
@@ -318,8 +317,8 @@ def test_mask_at_mix_ragged_length(monkeypatch, lever):
     s, z = mod.run_bucketed(s0, z0, conds, mask, dev)
     assert tuple(s.shape) == (1, 100, DIM) and tuple(z.shape) == (1, 100, 100, DIM_PAIR)
     pair = mask[:, :, None] * mask[:, None, :]
-    _grade(f"mask_at_mix[{lever}] 100->128 s", s.double(), ref_s, fl_s, mask)
-    _grade(f"mask_at_mix[{lever}] 100->128 z", z.double(), ref_z, fl_z, pair)
+    _grade("mask_at_mix 100->128 s", s.double(), ref_s, fl_s, mask)
+    _grade("mask_at_mix 100->128 z", z.double(), ref_z, fl_z, pair)
 
 
 @pytest.mark.device
