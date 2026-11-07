@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-07
+
 ### Added
 - **A PPI grade says when it could not score the binder's pose.** The two binder-pose RMSDs under
   `ppi_refolding` align on the target's absolute conditioned coordinates, so a design whose target was pinned with
