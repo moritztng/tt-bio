@@ -41,7 +41,7 @@ while n < cap:
         fw = kit / "fwdbg" if (kit / "fwdbg").is_dir() else next(cache.glob("tt-metal-cache*/firmware"), "")
         env = dict(os.environ, TT_VISIBLE_DEVICES=chip, TT_METAL_LOGS_PATH=str(d / "tmlogs"),
                    TRIAGE_NO_INSPECTOR_FW=str(fw), TRIAGE_KERNEL_CACHE=str(cache), TRIAGE_KERNEL_INDEX=str(kit),
-                   PYTHONUNBUFFERED="1")
+                   PYTHONUNBUFFERED="1", TRIAGE_DUMP_DIR=str(d))
         t0 = time.time()
         with open(d / "triage.txt", "w") as f:
             r = subprocess.run(["timeout", "200", str(kit / "xv/bin/python"), "tools/tt-triage.py", "-vv", "--verbosity=5",

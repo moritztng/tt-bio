@@ -111,3 +111,52 @@ diff -u ../orig/inspector_data.py ./inspector_data.py
      if not os.path.exists(log_directory):
          raise ValueError(
              f"\n\tLog directory {log_directory} does not exist."
+--- ../orig/dump_callstacks.py
++++ ./dump_callstacks.py
+@@ -22,6 +22,8 @@
+     tt-vjovanovic
+ """
+ 
++import os
++
+ from triage import ScriptConfig, log_check_risc, run_script
+ from callstack_provider import run as get_callstack_provider, CallstackProvider, CallstacksData
+ from run_checks import run as get_run_checks
+@@ -54,11 +56,36 @@
+             risc_name,
+             location,
+             False,
+-            f"[warning]Failed to dump callstacks: {e}[/]",
++            f"[warning]Failed to dump callstacks: {e}{raw_state(location, risc_name, callstack_provider)}[/]",
+         )
+         return None
+ 
+ 
++_dumped: set[str] = set()
++
++
++def raw_state(location: OnChipCoordinate, risc_name: str, callstack_provider: CallstackProvider) -> str:
++    """No-DWARF fallback (jf-abag-hang): the PC and where the kernel's text sits, plus the core's whole L1 written once
++    to TRIAGE_DUMP_DIR (first 8 cores), so the kernel and the instruction it waits on can be named offline."""
++    try:
++        d = callstack_provider.dispatcher_data.get_cached_core_data(location, risc_name)
++        pc = location._device.get_block(location).get_risc_debug(risc_name).get_pc()
++        out = f" | pc=0x{pc:08x} base=0x{d.kernel_config_base:x} text_offset=0x{d.kernel_text_offset:x}"
++        dump, key = os.environ.get("TRIAGE_DUMP_DIR"), location.to_user_str()
++        if dump and key not in _dumped and len(_dumped) < 8:
++            from ttexalens.tt_exalens_lib import read_from_device
++
++            _dumped.add(key)
++            l1 = bytes(read_from_device(location, 0, num_bytes=1464 * 1024))
++            with open(os.path.join(dump, f"l1-{key}.bin"), "wb") as f:
++                f.write(l1)
++        return out
++    except TimeoutDeviceRegisterError:
++        raise
++    except Exception as e:
++        return f" | raw state failed: {e}"
++
++
+ def run(args, context: Context):
+     show_all_cores: bool = args["--all-cores"]
+     BLOCK_TYPES_TO_CHECK = ["tensix", "idle_eth", "active_eth"]
