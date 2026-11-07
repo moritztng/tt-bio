@@ -18,6 +18,9 @@ MINW=${MINW:-400} MAXW=${MAXW:-410} SLUG=${SLUG:-pvo-a100}
 # also copies the box's /root/kc/pvo (with CIFs) to qb2 dir/<label>/ref.
 BOX=${BOX:-box_pvo.sh}
 P=$(cd "$(dirname "$0")" && pwd); V=~/.vast-venv/bin/vastai; B=/home/moritz/.coworker/state/vast-budget
+# A sibling row's box script lives in its own directory (pvo-kit: perf/pvo_kit/box_kit.sh). Take BOX as a path when
+# it is one, else as a name beside this script; the box always runs it by basename from /root/kc.
+BOXSRC=$BOX; [ -f "$BOXSRC" ] || BOXSRC=$P/$BOX; BOX=$(basename "$BOX")
 HOLD=/home/moritz/.coworker/state/vast-holder; S4=/home/moritz/.coworker/state/pvo
 K=$(cat ~/.config/vastai/vast_api_key); API=https://console.vast.ai/api/v0; FLOOR=${VAST_FLOOR_USD:-1}
 OUT=$P/results/$L; mkdir -p "$OUT"
@@ -148,7 +151,7 @@ if x.get("actual_status")=="running":
   echo "$S" > $OUT/ssh; echo "$I $O" > $OUT/instance
   H=root@$HOST
   $S 'mkdir -p /root/kc' &&
-    push $P/pvo_fold.py $P/pick.py $P/burn_gate.py $P/recipe-opendde.json $P/recipe-mol1.json $P/$BOX ${EXTRA_FILES:-} $H:/root/kc/ &&
+    push $P/pvo_fold.py $P/pick.py $P/burn_gate.py $P/recipe-opendde.json $P/recipe-mol1.json "$BOXSRC" ${EXTRA_FILES:-} $H:/root/kc/ &&
     { [ -z "${INPUTS:-}" ] || R "$INPUTS/" $H:/root/kc/inputs/; } &&
     # RFD4's target is a .cif, which R() excludes (it keeps pvo-accuracy's reference structures off the box),
     # so the RFD4 input tree gets its own push.
