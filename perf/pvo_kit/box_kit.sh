@@ -84,9 +84,16 @@ if [ ! -f $B/SETUP-DONE ]; then
     echo "$ODDE_CKPT_SHA  $OPENDDE_ROOT_DIR/checkpoint/opendde.pt" | sha256sum -c
     (cd /root/kit/opendde && PATH=/opt/kit-venv/bin:$PATH bash run.sh install --weights $OPENDDE_ROOT_DIR)
     bash /root/mol1/scripts/database/download_mol_data.sh
-    wget -q https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt -O $MOL_ROOT_DIR/checkpoint/mol-1-base.pt ||
-      wget -q https://huggingface.co/RUIMA294264/Mol-1/resolve/main/mol-1-base.pt -O $MOL_ROOT_DIR/checkpoint/mol-1-base.pt
-    echo "$MOL1_CKPT_SHA  $MOL_ROOT_DIR/checkpoint/mol-1-base.pt" | sha256sum -c
+    # The checkpoint's one live mirror is Aliyun OSS in Shanghai (the HF path is a 404). On pvo-kit-1 it stalled
+    # from a US box into wget's 900 s read timeout and failed setup on the only box that passed the burn. So qb2
+    # pushes the sha-checked 2.4 GB into /root/kc/qinputs while setup runs (QB2= on pvo_session.sh), and OSS is
+    # only the fallback, resumable, with a short read timeout instead of one 15-minute stall.
+    ck=$MOL_ROOT_DIR/checkpoint/mol-1-base.pt
+    for _ in $(seq 40); do [ -f /root/kc/QINPUTS-DONE ] || [ ! -f /root/kc/QB2-EXPECTED ] && break; sleep 30; done
+    if [ -f /root/kc/qinputs/mol-1-base.pt ]; then mv /root/kc/qinputs/mol-1-base.pt $ck; echo "mol-1-base.pt from qb2"
+    else wget -c -q --read-timeout=60 --tries=30 --waitretry=10 \
+      https://mol-1-release.oss-cn-shanghai.aliyuncs.com/checkpoint/mol-1-base.pt -O $ck; fi
+    echo "$MOL1_CKPT_SHA  $ck" | sha256sum -c
   ) > $B/setup.log 2>&1; [ $? -eq 0 ] || fail "setup (tail $B/setup.log)"
   echo ok > $B/SETUP-DONE
 fi
