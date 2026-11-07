@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // fp32_transition compute (tt_bio/fp32_transition.py): `tenstorrent._fp32_single_transition` for one 32-token row tile,
-// as one program. Same algebra and rounding points as the composed form:
+// as one program; this core takes NHG of the hidden tiles and the same K run of fc3. Same algebra and rounding points as the composed form:
 //   xn = LN(x) in fp32 (fp32_ln's SFPU steps), c0 = token 0's xn row, d = bf16(xn - c0), c0b = bf16(c0)
 //   a = d @ w1 + c0b @ w1, b = d @ w2 + c0b @ w2 (fp32 dest), h = silu(a) * b (SFPU, fp32)
 //   h0 = token 0's h = silu(c0b @ w1) * (c0b @ w2), since token 0's d is zero
-//   out = bf16(h - h0) @ w3 + bf16(h0) @ w3, one fp32 dest sum, rounded once to the output format
+//   out = bf16(h - h0) @ w3 + bf16(h0) @ w3: an fp32 partial per output tile over this core's K run, summed over the
+//   G cores in a fixed order by the tile's owner (the writer moves the partials), rounded once to the output format
 // The reader hands this core token 0's x row copied over all 32 rows of a tile (c_8), so c0, c0b @ w and h0 come out
 // already broadcast over the rows and no core needs another's results. Only the fp32 summation order differs from the
 // composed form. Each matmul keeps all of its K in dest, as ttnn.linear does with the dest guard off (dest_guard.py).
@@ -25,15 +26,17 @@
 #include "../trimul_gin_moved/sigmoid_poly.hpp"
 
 constexpr uint32_t KT = get_compile_time_arg_val(0);       // channel tiles (384 -> 12)
-constexpr uint32_t NH = get_compile_time_arg_val(1);       // hidden tiles (1536 -> 48)
+constexpr uint32_t NH = get_compile_time_arg_val(1);       // this core's hidden tiles (1536 / G)
 constexpr uint32_t INV_K = get_compile_time_arg_val(2);    // fp32 bits of 1 / channels
 constexpr uint32_t EPS_BITS = get_compile_time_arg_val(3);
 constexpr uint32_t OUT_BF16 = get_compile_time_arg_val(4);
 constexpr uint32_t KC3 = get_compile_time_arg_val(5);      // fc3 K tiles a w3 chunk
+constexpr uint32_t G = get_compile_time_arg_val(6);        // cores per row tile
+constexpr uint32_t MG = KT / G;                            // output tiles each owns
 
 constexpr uint32_t cb_x = 0, cb_g = 1, cb_b = 2, cb_xc = 3, cb_s1 = 4, cb_m = 5, cb_s2 = 6, cb_r = 7, cb_x0 = 8;
 constexpr uint32_t cb_d = 9, cb_c0b = 10, cb_w1 = 11, cb_w2 = 12, cb_w3 = 13, cb_dh = 14, cb_h0b = 15;
-constexpr uint32_t cb_out = 16, cb_c0 = 17;
+constexpr uint32_t cb_out = 16, cb_c0 = 17, cb_part = 18, cb_parts = 19;
 
 // The matmuls leave unpacker A on bf16, and every LN load is fp32: reconfigure it on each copy.
 ALWI void load(uint32_t cb, uint32_t tile, uint32_t dst) {
@@ -224,13 +227,28 @@ void transition_row() {
             }
             cb_pop_front(cb_w3, KC3);
         }
+        cb_reserve_back(cb_part, 1);
+        pack_one(cb_part);
+        cb_push_back(cb_part, 1);
+    }
+    cb_pop_front(cb_dh, NH);
+    cb_pop_front(cb_h0b, NH);
+    // the G partials of each owned tile, slot j * MG + m, summed in order j
+    cb_wait_front(cb_parts, KT);
+    for (uint32_t m = 0; m < MG; ++m) {
+        tile_regs_acquire();
+        load(cb_parts, m, 0);
+        for (uint32_t j = 1; j < G; ++j) {
+            load(cb_parts, j * MG + m, 1);
+            add_binary_tile_init();
+            add_binary_tile(0, 1, 0);
+        }
         if constexpr (OUT_BF16) round_bf16_rne_tile(0);
         cb_reserve_back(cb_out, 1);
         pack_one(cb_out);
         cb_push_back(cb_out, 1);
     }
-    cb_pop_front(cb_dh, NH);
-    cb_pop_front(cb_h0b, NH);
+    cb_pop_front(cb_parts, KT);
 }
 
 void kernel_main() {

@@ -5,7 +5,8 @@
 // fp32_transition reader (tt_bio/fp32_transition.py): gamma and beta (KT fp32 tiles each) and token 0's x row copied
 // over all 32 rows of KT tiles (c_8) once; per row tile r of this core's nr from r0 its KT x tiles (c_0), the two LN
 // statistics broadcast back over the columns (c_4 -> c_5, c_6 -> c_7, as fp32_ln's reader; twice for token 0 first),
-// then column n of w1 and of w2 (KT tiles each) for every hidden tile n, and column m of w3 in KC3-tile chunks.
+// then column n of w1 and of w2 (KT tiles each) for each of this core's NHG hidden tiles from j * NHG, and column m
+// of w3 over the same K run in KC3-tile chunks.
 #include "api/dataflow/dataflow_api.h"
 
 // dst[row][col] = src[row][0] for a 32 x 32 fp32 tile in face order (four 16 x 16 faces, row-major in each).
@@ -41,8 +42,9 @@ void broadcast_row0(uint32_t addr) {
 void kernel_main() {
     constexpr uint32_t KT = get_compile_time_arg_val(0);
     constexpr uint32_t NH = get_compile_time_arg_val(1);
-    constexpr uint32_t KC3 = get_compile_time_arg_val(2);
-    constexpr auto x_args = TensorAccessorArgs<3>();
+    constexpr uint32_t NHG = get_compile_time_arg_val(2);
+    constexpr uint32_t KC3 = get_compile_time_arg_val(3);
+    constexpr auto x_args = TensorAccessorArgs<4>();
     constexpr auto g_args = TensorAccessorArgs<x_args.next_compile_time_args_offset()>();
     constexpr auto b_args = TensorAccessorArgs<g_args.next_compile_time_args_offset()>();
     constexpr auto w1_args = TensorAccessorArgs<b_args.next_compile_time_args_offset()>();
@@ -56,6 +58,7 @@ void kernel_main() {
     const auto w3 = TensorAccessor(w3_args, get_common_arg_val<uint32_t>(5));
     const uint32_t r0 = get_arg_val<uint32_t>(0);
     const uint32_t nr = get_arg_val<uint32_t>(1);
+    const uint32_t h0 = get_arg_val<uint32_t>(2) * NHG;
 
     constexpr uint32_t cb_x = 0, cb_g = 1, cb_b = 2, cb_x0 = 8, cb_w1 = 11, cb_w2 = 12, cb_w3 = 13;
     const uint32_t tb = get_tile_size(cb_x), wb = get_tile_size(cb_w1), w3b = get_tile_size(cb_w3);
@@ -85,7 +88,7 @@ void kernel_main() {
         cb_push_back(cb_x, KT);
         broadcast_col0(tt::CBIndex::c_4, tt::CBIndex::c_5);
         broadcast_col0(tt::CBIndex::c_6, tt::CBIndex::c_7);
-        for (uint32_t n = 0; n < NH; ++n) {
+        for (uint32_t n = h0; n < h0 + NHG; ++n) {
             cb_reserve_back(cb_w1, KT);
             cb_reserve_back(cb_w2, KT);
             uint32_t p1 = get_write_ptr(cb_w1), p2 = get_write_ptr(cb_w2);
@@ -98,7 +101,7 @@ void kernel_main() {
             cb_push_back(cb_w2, KT);
         }
         for (uint32_t m = 0; m < KT; ++m) {
-            for (uint32_t k0 = 0; k0 < NH; k0 += KC3) {
+            for (uint32_t k0 = h0; k0 < h0 + NHG; k0 += KC3) {
                 cb_reserve_back(cb_w3, KC3);
                 uint32_t p3 = get_write_ptr(cb_w3);
                 for (uint32_t k = k0; k < k0 + KC3; ++k, p3 += w3b) noc_async_read_page(k * KT + m, w3, p3);
