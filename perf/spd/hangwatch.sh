@@ -8,7 +8,8 @@
 # before spd-galaxy resets it (GUARD_S, default 43200; 0 on a lent JapanFold chip, which the agent resets when it comes back). Stall time and the fold it hung in go to OUT/run.log.
 # DIAG=1 also arms tt-metal's own dispatch timeout (DIAG_TIMEOUT s, default 600): the stuck wait throws, and
 # before it does tt-metal runs perf/spd/triage_hang.sh on the chip as it stands (OUT/triage.txt), with Inspector
-# logging this process alone under OUT/tmlogs. Timing arms leave it off.
+# logging this process alone under OUT/tmlogs. Its kernels are built with -g (TT_METAL_RISCV_DEBUG_INFO) into the
+# row's own kernel cache, so triage gets callstacks and a served cache never sees a debug build. Timing arms leave it off.
 set -u
 CHIP=$1 OUT=$2 ARM=$3 INPUTS=$4 STALL=$5; shift 5
 ROW=${TT_BIO_LEASE_HOLDER:-spd-fasthang}
@@ -21,7 +22,8 @@ if [ "${DIAG:-0}" = 1 ]; then
   export FH_OUT=$OUT TT_METAL_LOGS_PATH=$OUT/tmlogs TT_METAL_INSPECTOR=1 TT_METAL_INSPECTOR_RPC=1 \
     TT_METAL_INSPECTOR_RPC_SERVER_ADDRESS=localhost:$((50200 + CHIP)) \
     TT_METAL_OPERATION_TIMEOUT_SECONDS=${DIAG_TIMEOUT:-600} TT_METAL_INSPECTOR_SERIALIZE_ON_DISPATCH_TIMEOUT=1 \
-    TT_METAL_DISPATCH_TIMEOUT_COMMAND_TO_EXECUTE="bash $PWD/perf/spd/triage_hang.sh"
+    TT_METAL_DISPATCH_TIMEOUT_COMMAND_TO_EXECUTE="bash $PWD/perf/spd/triage_hang.sh" \
+    TT_METAL_RISCV_DEBUG_INFO=1 TT_METAL_CACHE=$HOME/spd/$ROW/ttcache
   mkdir -p "$TT_METAL_LOGS_PATH"
 fi
 LOCK=${LOCK:-$HOME/spd/locks/chip$CHIP.lock}
