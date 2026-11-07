@@ -51,16 +51,18 @@ def name(cap: Path, index):
             text, addr, skip, syms = elf_text(x)
             if same(l1, text, skip, addr):
                 hits.append((x, addr, syms))
-                break
         if not hits:
             print(f"{cap.name} {loc} {risc}: pc=0x{pc:x} start=0x{start:x}: no cached kernel matches ({len(cands)} prefix candidates)")
             continue
         x, addr, syms = hits[0]
+        # Identical text can come from builds that differ elsewhere (a packer does not see MATH_FIDELITY): list them all.
+        fids = sorted({m.group(1) for h in hits for m in [re.search(r"MathFidelity>\((\d)\)",
+                       (Path(h[0]).parents[1] / "chlkc_descriptors.h").read_text())] if m})
         rel = (pc - 0xFFC00000 if pc >= 0xFFC00000 else pc - start) + addr
         fn = max((s for s in syms if s[0] <= rel), default=(0, "?"))[1]
         src = Path(x).parents[1]
         inc = next(src.glob("chlkc_math.cpp"), None)
-        print(f"{cap.name} {loc} {risc}: {src.parent.name}/{src.name} pc 0x{rel:x} in {fn}"
+        print(f"{cap.name} {loc} {risc}: {src.parent.name}/{src.name} ({len(hits)} identical, fidelity {'/'.join(fids)}) pc 0x{rel:x} in {fn}"
               + (f" src {inc.read_text().split(chr(34))[-2]}" if inc else ""))
         dis = subprocess.run([OBJDUMP, "-d", x, f"--start-address={rel - 24}", f"--stop-address={rel + 16}"],
                              capture_output=True, text=True).stdout
