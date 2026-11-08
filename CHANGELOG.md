@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-08
+
 ### Added
 - **BindCraft 2 on the benchmarks page.** 352 s per 140-iteration design trajectory against PD-L1 on one Blackhole
   p150a, against 44.4 s on a B200, 52.0 s on an H200 and 119 s on an A100, each NVIDIA card on BindCraft 2's fastest
