@@ -70,6 +70,31 @@ _timed(W.FoldingWriter, "write", "FoldingWriter.write")
 _timed(W.DesignWriter, "write", "DesignWriter.write")
 _timed(PR, "load_boltz_checkpoint", "load_boltz_checkpoint")
 _timed(ttnn, "from_torch", "ttnn.from_torch")
+# The per-stage prelude (stage start -> checkpoint load, ~2.8 s a stage on WH .111): config instantiate (data module,
+# tokenizer, featurizer, writer), the bg_featproc spawn and its first reply, the dataloader, the writers' finalize.
+from tt_bio.boltzgen.task.predict import data_from_generated as DG, data_from_yaml as DY
+_timed(C, "_instantiate", "instantiate")
+_timed(C, "seed_everything", "seed_everything")
+_timed(PR, "quiet_startup", "quiet_startup")
+_timed(PR._FeatureProcess, "__init__", "featproc.spawn")
+_timed(PR._FeatureProcess, "result", "featproc.result")
+for _c in (DG.FromGeneratedDataModule, DY.FromYamlDataModule):
+    _timed(_c, "__init__", f"{_c.__name__}.__init__")
+    _timed(_c, "predict_dataloader", f"{_c.__name__}.predict_dataloader")
+for _c in (W.FoldingWriter, W.DesignWriter):
+    if hasattr(_c, "finalize"):
+        _timed(_c, "finalize", f"{_c.__name__}.finalize")
+# Does building the model draw from torch's global stream? If it does, a resident model changes every later draw
+# (the designs) unless the cache replays the build's draws.
+_lbc = PR.load_boltz_checkpoint
+def _lbc_rng(*a, **kw):
+    before = torch.random.get_rng_state().clone()
+    try:
+        return _lbc(*a, **kw)
+    finally:
+        if REC:
+            REC[-1]["timers"]["load.rng_moved"] = [1, float(not torch.equal(before, torch.random.get_rng_state())), []]
+PR.load_boltz_checkpoint = _lbc_rng
 for _m in ("load_checkpoint_weights", "load_state_dict", "setup_for_inference", "predict_step",
            "_tt_trunk_module", "_tt_zinit_module"):
     _timed(B.Boltz, _m, _m)
