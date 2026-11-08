@@ -13,6 +13,7 @@ quiet_startup()
 import multiprocessing
 import pickle
 import random
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
 
@@ -55,8 +56,8 @@ def _featurize_next(rng: tuple = None) -> bytes:
     return pickle.dumps(next(_items, None), protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def _featurize_serve(conn, data: bytes) -> None:
-    _featurize_open(data)
+def _featurize_serve(conn) -> None:
+    _featurize_open(conn.recv_bytes())
     while True:
         try:
             rng = conn.recv()
@@ -77,11 +78,23 @@ class _FeatureProcess:
     def __init__(self, data) -> None:
         ctx = multiprocessing.get_context("spawn")
         self._conn, child = ctx.Pipe()
-        self._proc = ctx.Process(target=_featurize_serve, args=(child, pickle.dumps(data)), daemon=True)
+        self._proc = ctx.Process(target=_featurize_serve, args=(child,), daemon=True)
         self._proc.start()
         child.close()
+        # The data module goes over the pipe behind the caller, not as a spawn argument: an argument past the pipe
+        # buffer holds start() until the child has imported this module (~3 s on a Galaxy host), in front of the
+        # checkpoint load it is meant to hide behind.
+        self._sent = threading.Thread(target=self._send_data, args=(pickle.dumps(data),), daemon=True)
+        self._sent.start()
+
+    def _send_data(self, data: bytes) -> None:
+        try:
+            self._conn.send_bytes(data)
+        except OSError:
+            pass  # the child died; the first submit or result reports it
 
     def submit(self, rng: tuple = None) -> "_FeatureProcess":
+        self._sent.join()
         try:
             self._conn.send(rng)
         except OSError as e:
