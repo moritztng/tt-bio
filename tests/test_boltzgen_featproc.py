@@ -56,6 +56,7 @@ def test_next_stage_takes_the_warm_spare_unless_the_environment_moved(monkeypatc
     with _FeatureProcess(_NoDesigns()) as first:
         spare = P._SPARE[1]
         assert spare is not first._proc and spare.is_alive()
+    monkeypatch.setenv("BOLTZGEN_PROGRESS_FILE", "/tmp/next-job-progress.jsonl")
     with _FeatureProcess(_NoDesigns()) as second:
         assert second._proc is spare
         moved = P._SPARE[1]
