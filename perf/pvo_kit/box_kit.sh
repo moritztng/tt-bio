@@ -148,8 +148,10 @@ INPUTS="$I/9DBP.json $I/9TH6.json"
 # Seeds: pvo_fold.py starts every arm at --seed0 101 and increments per round, so round r of a given input carries
 # the SAME seed in every arm. The timing arms' own CIFs are therefore a seed-matched accuracy set, and the DockQ
 # guard costs no extra GPU time.
+# ARMS=a,b,c (comma-separated, BOXENV cannot carry spaces) runs only those arms; the gate fold always runs.
 arm(){ local v=$1 m=$2 n=$3 e=$4; shift 4
   local d=$B/$m/$n; [ "$(cat $d/rc 2>/dev/null)" = 0 ] && return 0
+  [ -n "${ARMS:-}" ] && [ $n != gate ] && case ",$ARMS," in *",$n,"*) ;; *) return 0;; esac
   [ $(date +%s) -ge $DEADLINE ] && { say "deadline: skip $m $n"; return 1; }
   rm -rf $d; mkdir -p $d; say "arm $m $n"
   local ck=$OPENDDE_ROOT_DIR/checkpoint/opendde.pt sha=$KIT_SHA
@@ -189,6 +191,14 @@ arm mol1 mol1 exact           "X=1"
 arm mol1 mol1 cueq-c5-tf32    "X=1" --trimul cuequivariance --triatt cuequivariance --chunk 5 --tf32
 arm mol1 mol1 fpf-triatt      "X=1" --trimul flashpairformer --triatt triattention || true
 arm mol1 mol1 fpf-triatt-c5-tf32 "X=1" --trimul flashpairformer --triatt triattention --chunk 5 --tf32 || true
+# pvo-kit-3 found the A100 assert's cause: Mol-1's c_z is 448, and opt_core's sm_80 tile table (arch_tables.json
+# bf16_256, which every unlisted bf16 C inherits) gives stage C' a 128-wide BN, which does not divide 448. On the
+# Blackwell card upstream measured, the shipped C' tile exceeds the shared-memory cap and falls back to 64x64x32, so it
+# runs there by that fallback. opt_core's own switch FPF_TRIMUL_ARCH_TABLE=0 (fpf_trimul/trimul.py:43) serves the
+# shipped tiles on sm_80, where the same cap fallback applies. So the fast path can run on an A100: time it, since a
+# Modal-best figure must not rest on a config gap the GPU side could step around.
+arm mol1 mol1 fpf-triatt-at0       "FPF_TRIMUL_ARCH_TABLE=0" --trimul flashpairformer --triatt triattention || true
+arm mol1 mol1 fpf-triatt-c5-tf32-at0 "FPF_TRIMUL_ARCH_TABLE=0" --trimul flashpairformer --triatt triattention --chunk 5 --tf32 || true
 # Did FlashPairformer actually serve the calls, or quietly hand them to cuEquivariance? upstream ships the counter.
 grep -l . $B/mol1/fpf-triatt*/stderr 2>/dev/null | xargs -r grep -i "flashpairformer\|fallback\|assert" \
   > $B/mol1/fpf-evidence.log 2>&1 || true
