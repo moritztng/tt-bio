@@ -192,7 +192,7 @@ def test_a_held_engine_is_dropped_before_a_predict_model_loads(monkeypatch):
     from tt_bio import worker as worker_mod
 
     monkeypatch.setattr(worker_mod, "_RFD4_ENGINE", ("high/flat", object()))
-    worker_mod._free_rfd4_engine()
+    worker_mod._free_design_engines()
     assert worker_mod._RFD4_ENGINE == (None, None)
 
 

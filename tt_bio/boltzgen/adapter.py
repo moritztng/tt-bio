@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import inspect
+import os
 import sys
 import types
 
@@ -25,6 +26,7 @@ import torch.nn as nn
 from tt_bio.tenstorrent import (
     DiffusionModule as TTDiffusionModule,
     PairformerModule as TTPairformerModule,
+    resident_weights,
 )
 
 
@@ -207,6 +209,15 @@ def load_boltz_checkpoint(
     hp.update({k: v for k, v in constructor_overrides.items() if k in sig})
 
     model = Boltz(**hp)
+    model._resident_hp = repr(sorted(hp.items()))
     state = _remap_legacy_state_dict_keys(ckpt["state_dict"])
-    model.load_state_dict(state, strict=strict)
+    with resident_weights(checkpoint_tag(checkpoint_path, model._resident_hp)):
+        model.load_state_dict(state, strict=strict)
     return model.eval()
+
+
+def checkpoint_tag(checkpoint_path: str, hp: str) -> tuple:
+    """What a resident device module built from this checkpoint is keyed on (`tenstorrent.resident_weights`): the
+    file as it is on disk and the hyper-parameters the modules were built from."""
+    st = os.stat(checkpoint_path)
+    return os.path.realpath(checkpoint_path), st.st_size, st.st_mtime_ns, hp

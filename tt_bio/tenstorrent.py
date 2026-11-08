@@ -9883,6 +9883,7 @@ def cleanup():
         # here, once, instead of timing out again inside _close_device_locked.
         _drain_or_raise(_device)
         _ZERO_MASKS.clear()  # device tensors, freed while the device is still open
+        _RESIDENT.clear()
         _close_device_locked(_device)
         _device = None
         _trace_region_size = 0
@@ -18924,6 +18925,44 @@ class Diffusion(Module):
         return r_update
 
 
+# Device modules built from a named checkpoint, kept on the card across loads of it. BoltzGen builds a fresh model for
+# every pipeline stage and shard from the same few checkpoints, and the weight upload (3-4 s a load on a Galaxy host) was
+# most of a stage's setup. A loader opts in with `resident_weights(tag)`, `tag` naming the checkpoint and the hyper-
+# parameters its modules are built from; the key adds the wrapper's place, the levers it builds under and the device
+# open, so a model built any other way never sees a resident module. One lever set is kept at a time.
+_RESIDENT: dict = {}
+_RESIDENT_TAG = None
+
+
+@contextlib.contextmanager
+def resident_weights(tag):
+    global _RESIDENT_TAG
+    prev, _RESIDENT_TAG = _RESIDENT_TAG, tag
+    try:
+        yield
+    finally:
+        _RESIDENT_TAG = prev
+
+
+def free_resident_weights() -> None:
+    """Drop the resident modules: before another model loads onto the chip."""
+    if _RESIDENT:
+        _RESIDENT.clear()
+        gc.collect()
+
+
+def _resident_module(prefix: str, wrapper: type, build: Callable):
+    if _RESIDENT_TAG is None:
+        return build()
+    built_as = (_LEVERS, _ALSO, _FAST_MODE, _device_generation)
+    key = (_RESIDENT_TAG, prefix, wrapper.__qualname__, built_as)
+    if _RESIDENT and next(iter(_RESIDENT))[3] != built_as:
+        free_resident_weights()
+    if key not in _RESIDENT:
+        _RESIDENT[key] = build()
+    return _RESIDENT[key]
+
+
 class TorchWrapper(nn.Module):
     def __init__(self):
         super().__init__()
@@ -18988,7 +19027,8 @@ class TorchWrapper(nn.Module):
         self._runtime_cache.clear()
 
     def _load_from_state_dict(self, state_dict, prefix, _local_metadata, _strict, _missing_keys, _unexpected_keys, _error_msgs):
-        self.module = self._create_module(WeightScope.wrap(state_dict).child(prefix[:-1]))
+        self.module = _resident_module(
+            prefix, type(self), lambda: self._create_module(WeightScope.wrap(state_dict).child(prefix[:-1])))
 
     def _create_module(self, weights: WeightScope):
         raise NotImplementedError

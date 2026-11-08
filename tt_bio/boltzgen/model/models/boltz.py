@@ -590,6 +590,7 @@ class Boltz(nn.Module):
         from tt_bio.boltzgen.adapter import (
             _legacy_pickle_compat,
             _remap_legacy_state_dict_keys,
+            checkpoint_tag,
         )
         # Same legacy-pickle shim load_boltz_checkpoint() uses: shipping
         # checkpoints pickle hyper_parameters referencing deleted training-only
@@ -599,7 +600,9 @@ class Boltz(nn.Module):
                 checkpoint_path, map_location="cpu", weights_only=False
             )
         state = _remap_legacy_state_dict_keys(checkpoint["state_dict"])
-        self.load_state_dict(state, strict=False)
+        hp = getattr(self, "_resident_hp", None)
+        with tenstorrent.resident_weights(hp and checkpoint_tag(checkpoint_path, hp)):
+            self.load_state_dict(state, strict=False)
         print(f"Loaded weights from {checkpoint_path}")
 
     def _tt_trunk_module(self):

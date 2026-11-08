@@ -2551,15 +2551,19 @@ def run_worker_loop(
                 state.free_model()
                 shard = {"rfd3": _execute_rfd3_job_inprocess,
                          "pxdesign": _execute_pxdesign_job_inprocess,
-                         "rfd4": _execute_rfd4_job_inprocess}.get(
-                             cfg.get("engine"), _execute_design_job_inprocess)
+                         "rfd4": _execute_rfd4_job_inprocess}.get(cfg.get("engine"))
+                if shard is not None:  # BoltzGen's resident weights serve BoltzGen shards only
+                    from tt_bio.tenstorrent import free_resident_weights
+
+                    free_resident_weights()
+                shard = shard or _execute_design_job_inprocess
                 for job in jobs:
                     shard(client, run_id, worker_id, worker_info, meta, job, cfg)
                 continue
 
-            # A design engine held from an earlier design run would otherwise keep RFD4's
-            # weights in DRAM while this worker loads a predict model onto the same chip.
-            _free_rfd4_engine()
+            # A design engine held from an earlier design run (RFD4's, BoltzGen's resident weights) would
+            # otherwise stay in DRAM while this worker loads a predict model onto the same chip.
+            _free_design_engines()
             _ensure_local_artifacts(cfg)
 
             try:
@@ -3130,9 +3134,12 @@ def _execute_rfd4_job_inprocess(
 _RFD4_ENGINE: tuple[Any, Any] = (None, None)
 
 
-def _free_rfd4_engine() -> None:
-    """Drop this worker's RFD4 engine, if it holds one. Called before a predict model loads."""
+def _free_design_engines() -> None:
+    """Drop this worker's design engines (RFD4's, BoltzGen's resident weights). Called before a predict model loads."""
     global _RFD4_ENGINE
+    from tt_bio.tenstorrent import free_resident_weights
+
+    free_resident_weights()
     if _RFD4_ENGINE[1] is not None:
         _RFD4_ENGINE = (None, None)
         gc.collect()
