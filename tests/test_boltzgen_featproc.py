@@ -14,6 +14,11 @@ class _DiesOnLoad:
         return os._exit, (3,)
 
 
+class _NoDesigns:
+    def predict_dataloader(self):
+        return []
+
+
 def test_dead_worker_raises_and_creates_no_named_semaphore(monkeypatch):
     # logind's RemoveIPC deletes a user's named semaphores when their last login session closes; the worker must not
     # depend on one surviving between its start and its first request.
@@ -40,3 +45,22 @@ def test_shipped_sets_reach_the_featurize_process(monkeypatch, wormhole, fast):
     monkeypatch.setattr(T, "_FAST_MODE", fast)
     assert P.design_levers is B.design_levers
     assert "bg_featproc" in B.design_levers()
+
+
+def test_next_stage_takes_the_warm_spare_unless_the_environment_moved(monkeypatch):
+    # Each featurizer starts the next one, so the next stage does not wait on a fresh process's imports. A spare carries
+    # the environment it was spawned under, so one from before an environment change must not be used.
+    from tt_bio.boltzgen.task.predict import predict as P
+
+    monkeypatch.setattr(P, "_SPARE", None)
+    with _FeatureProcess(_NoDesigns()) as first:
+        spare = P._SPARE[1]
+        assert spare is not first._proc and spare.is_alive()
+    with _FeatureProcess(_NoDesigns()) as second:
+        assert second._proc is spare
+        moved = P._SPARE[1]
+    monkeypatch.setenv("TT_BIO_FEATPROC_TEST", "1")
+    with _FeatureProcess(_NoDesigns()) as third:
+        assert third._proc is not moved
+    moved.join(10)
+    assert not moved.is_alive() and moved.exitcode == 0
