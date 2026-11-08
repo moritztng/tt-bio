@@ -11,8 +11,10 @@ from tt_bio.boltzgen.utils.quiet import quiet_startup
 quiet_startup()
 
 import multiprocessing
+import os
 import pickle
 import random
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
@@ -57,13 +59,51 @@ def _featurize_next(rng: tuple = None) -> bytes:
 
 
 def _featurize_serve(conn) -> None:
-    _featurize_open(conn.recv_bytes())
+    try:
+        data = conn.recv_bytes()
+    except EOFError:
+        return  # a spare that was never used
+    _featurize_open(data)
     while True:
         try:
             rng = conn.recv()
         except EOFError:
             return
         conn.send_bytes(_featurize_next(rng))
+
+
+# A spawned featurizer spends ~3 s importing this module before it can take its data module, and once the checkpoint
+# load is gone (resident weights) nothing hides that. So one idle, imported spare is kept ahead: each stage takes it and
+# starts the next, and a persistent worker's next shard starts on one too. A spawn inherits the environment, the cwd and
+# sys.path at start(), so a spare started under different ones is dropped, not used.
+_SPARE = None
+
+
+def _spawn_key() -> tuple:
+    return tuple(sorted(os.environ.items())), os.getcwd(), tuple(sys.path)
+
+
+def _spawn() -> tuple:
+    ctx = multiprocessing.get_context("spawn")
+    conn, child = ctx.Pipe()
+    proc = ctx.Process(target=_featurize_serve, args=(child,), daemon=True)
+    proc.start()
+    child.close()
+    return _spawn_key(), proc, conn
+
+
+def _take_featurize_process() -> tuple:
+    global _SPARE
+    spare, _SPARE = _SPARE, None
+    if spare is not None and spare[0] == _spawn_key() and spare[1].is_alive():
+        _, proc, conn = spare
+    else:
+        if spare is not None:
+            spare[2].close()
+            spare[1].join(1)
+        _, proc, conn = _spawn()
+    _SPARE = _spawn()
+    return proc, conn
 
 
 class _FeatureProcess:
@@ -76,11 +116,7 @@ class _FeatureProcess:
     future, and a worker that exits without replying raises rather than hangs."""
 
     def __init__(self, data) -> None:
-        ctx = multiprocessing.get_context("spawn")
-        self._conn, child = ctx.Pipe()
-        self._proc = ctx.Process(target=_featurize_serve, args=(child,), daemon=True)
-        self._proc.start()
-        child.close()
+        self._proc, self._conn = _take_featurize_process()
         # The data module goes over the pipe behind the caller, not as a spawn argument: an argument past the pipe
         # buffer holds start() until the child has imported this module (~3 s on a Galaxy host), in front of the
         # checkpoint load it is meant to hide behind.
