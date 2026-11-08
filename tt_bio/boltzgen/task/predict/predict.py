@@ -75,12 +75,14 @@ def _featurize_serve(conn) -> None:
 # A spawned featurizer spends ~3 s importing this module before it can take its data module, and once the checkpoint
 # load is gone (resident weights) nothing hides that. So one idle, imported spare is kept ahead: each stage takes it and
 # starts the next, and a persistent worker's next shard starts on one too. A spawn inherits the environment, the cwd and
-# sys.path at start(), so a spare started under different ones is dropped, not used.
+# sys.path at start(), so a spare started under different ones is dropped, not used. The worker's per-job progress file
+# is left out: the featurizer never reports progress, and keying on it would cold-start every shard's first stage.
 _SPARE = None
 
 
 def _spawn_key() -> tuple:
-    return tuple(sorted(os.environ.items())), os.getcwd(), tuple(sys.path)
+    env = sorted((k, v) for k, v in os.environ.items() if k != "BOLTZGEN_PROGRESS_FILE")
+    return tuple(env), os.getcwd(), tuple(sys.path)
 
 
 def _spawn() -> tuple:
