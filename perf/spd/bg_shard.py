@@ -6,6 +6,7 @@ designs, seeded 0; the second and later shards are the served case (the worker p
 stamped, and the host-side suspects of a per-shard fixed cost (checkpoint torch.load, model build, state-dict load, the
 mid-run checkpoint swap, the per-design device driver builds, ttnn.from_torch) are timed cumulatively per stage.
 Only class / module attributes are patched: the analysis stage pickles its task.
+With TT_BIO_DRAM_PEAK set, each shard end adds a "[DRAM] bg_shard.endI" line (untimed capacity runs only).
 Writes OUT/shards.jsonl, one line per shard: {"i", "n", "wall", "stages": [{name, start, end, events, timers}]}.
 """
 import functools
@@ -113,6 +114,10 @@ def main():
         t0 = time.time()
         C.run_command(C.build_parser().parse_args(argv))
         wall = time.time() - t0
+        if os.environ.get("TT_BIO_DRAM_PEAK"):
+            # What stays on the card between shards (resident weights), read after the timed wall.
+            from tt_bio.tenstorrent import dram_peak
+            dram_peak(f"bg_shard.end{i}")
         for r in REC:
             for c in r["timers"].values():
                 c[1] = round(c[1], 3)
