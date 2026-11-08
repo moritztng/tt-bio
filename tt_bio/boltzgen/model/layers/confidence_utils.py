@@ -165,7 +165,10 @@ def compute_ipsae_score(src_mask, tgt_mask, pae, maski, mask_pad, cutoff=15.0):
     return ipsae_res.max(dim=-1).values
 
 
-def compute_ptms(logits, x_preds, feats, multiplicity):
+def compute_ptms(logits, x_preds, feats, multiplicity, tm_expected_value=None,
+                 expected_pae=None):
+    """``tm_expected_value``/``expected_pae`` are the ``[B, N, N]`` bin expectations of the TM
+    curve and of the pae bin centres; given both, ``logits`` is not read (it may be None)."""
     # It needs to take as input the mask of the frames as they are not used to compute the PTM
     _, mask_collinear_pred = compute_frame_pred(
         x_preds, feats["frames_idx"], feats, multiplicity, inference=True
@@ -181,19 +184,21 @@ def compute_ptms(logits, x_preds, feats, multiplicity):
         * mask_pad[:, None, :]
         * mask_pad[:, :, None]
     )
-    num_bins = logits.shape[-1]
-    bin_width = 32.0 / num_bins
-    end = 32.0
-    pae_value = torch.arange(
-        start=0.5 * bin_width, end=end, step=bin_width, device=logits.device
-    ).unsqueeze(0)
-    N_res = mask_pad.sum(dim=-1, keepdim=True)
-    tm_value = tm_function(pae_value, N_res).unsqueeze(1).unsqueeze(2)
-    probs = nn.functional.softmax(logits, dim=-1)
-    tm_expected_value = torch.sum(
-        probs * tm_value,
-        dim=-1,
-    )  # shape (B, N, N)
+    if tm_expected_value is None:
+        num_bins = logits.shape[-1]
+        bin_width = 32.0 / num_bins
+        end = 32.0
+        pae_value = torch.arange(
+            start=0.5 * bin_width, end=end, step=bin_width, device=logits.device
+        ).unsqueeze(0)
+        N_res = mask_pad.sum(dim=-1, keepdim=True)
+        tm_value = tm_function(pae_value, N_res).unsqueeze(1).unsqueeze(2)
+        probs = nn.functional.softmax(logits, dim=-1)
+        tm_expected_value = torch.sum(
+            probs * tm_value,
+            dim=-1,
+        )  # shape (B, N, N)
+        expected_pae = torch.sum(probs * pae_value.squeeze(0), dim=-1)  # (B, N, N)
     ptm = torch.max(
         torch.sum(tm_expected_value * pair_mask_ptm, dim=-1)
         / (torch.sum(pair_mask_ptm, dim=-1) + 1e-5),
@@ -375,12 +380,7 @@ def compute_ptms(logits, x_preds, feats, multiplicity):
         dim=1,
     ).values
 
-    # Compute ipSAE
-    # Compute expected PAE
-    # reuse probs and pae_value from earlier
-    pae_bins = pae_value.squeeze(0)
-    expected_pae = torch.sum(probs * pae_bins, dim=-1)  # (B, N, N)
-
+    # Compute ipSAE from the expected PAE
     design_to_target_ipsae = compute_ipsae_score(
         is_chain_design_token, is_target_token, expected_pae, maski, mask_pad
     )

@@ -1353,6 +1353,53 @@ def _device_conf_heads() -> bool:
     return env_flag("TT_BIO_DEVICE_CONF_HEADS", True)
 
 
+def device_conf_heads(conf, multiplicity, label):
+    """The device pae/pde heads for a confidence module's call, or ``None`` with a printed reason.
+
+    Shared by Boltz-2's confidence head and BoltzGen's refold confidence head, which carry the
+    same ``ConfidenceHeads`` projections. A lever that can decline needs an instrument that says
+    it declined: the parent row's gate fell back to torch for two folds because
+    `bond_type_feature` arrives from the `Boltz2` constructor and not from
+    `confidence_model_args`, and the fold simply read as "the lever did nothing". So every
+    operand is named here, and a refusal prints once.
+    """
+    # A device pairformer exists only if tt_bio.tenstorrent was imported; asking the lazy
+    # handle otherwise would import ttnn on a CPU/GPU host that has none (issue #6).
+    if not _device_conf_heads() or "tt_bio.tenstorrent" not in sys.modules:
+        return None
+    heads = conf.confidence_heads
+    operands = {
+        "pairformer_stack is a device PairformerModule":
+            isinstance(getattr(conf, "pairformer_stack", None), tenstorrent.PairformerModule),
+        "ConfidenceHeadsDevice.supports(confidence_heads)":
+            tenstorrent.ConfidenceHeadsDevice.supports(heads),
+        "one sample (multiplicity == 1)": multiplicity == 1,
+        "no latent feats asked for (return_latent_feats is False)":
+            not getattr(conf, "return_latent_feats", False),
+    }
+    declined = [k for k, v in operands.items() if not v]
+    if declined:
+        if not getattr(conf, "_tt_heads_declined", False):
+            conf._tt_heads_declined = True
+            print(f"[{label}] TT_BIO_DEVICE_CONF_HEADS declines, torch owns the head: "
+                  + "; ".join(f"NOT {d}" for d in declined), flush=True)
+        return None
+    dev = getattr(conf, "_tt_heads", None)
+    if dev is None:
+        dev = tenstorrent.ConfidenceHeadsDevice(
+            heads, conf.pairformer_stack.compute_kernel_config)
+        conf._tt_heads = dev
+    return dev
+
+
+def conf_heads_bins(heads_device, mask):
+    """``(pae centres, TM curve over them, pde centres)`` for ``ConfidenceHeadsDevice``."""
+    pae_c = bin_centres(heads_device.n_pae_bins, 32.0)
+    n_res = mask.sum(dim=-1, keepdim=True)
+    return (pae_c, tm_function(pae_c.unsqueeze(0), n_res).reshape(-1),
+            bin_centres(heads_device.n_pde_bins, 32.0))
+
+
 def _row_block(bytes_per_row: int) -> int:
     return max(1, HOST_BLOCK_BYTES // max(int(bytes_per_row), 1))
 
@@ -5106,40 +5153,7 @@ class ConfidenceModule(nn.Module):
         return pair
 
     def _tt_heads_device(self, multiplicity):
-        """The device pae/pde heads for this call, or ``None`` with a printed reason.
-
-        A lever that can decline needs an instrument that says it declined: the parent row's
-        gate fell back to torch for two folds because `bond_type_feature` arrives from the
-        `Boltz2` constructor and not from `confidence_model_args`, and the fold simply read as
-        "the lever did nothing". So every operand is named here, and a refusal prints once.
-        """
-        # A device pairformer exists only if tt_bio.tenstorrent was imported; asking the lazy
-        # handle otherwise would import ttnn on a CPU/GPU host that has none (issue #6).
-        if not _device_conf_heads() or "tt_bio.tenstorrent" not in sys.modules:
-            return None
-        heads = self.confidence_heads
-        operands = {
-            "pairformer_stack is a device PairformerModule":
-                isinstance(getattr(self, "pairformer_stack", None), tenstorrent.PairformerModule),
-            "ConfidenceHeadsDevice.supports(confidence_heads)":
-                tenstorrent.ConfidenceHeadsDevice.supports(heads),
-            "one sample (multiplicity == 1)": multiplicity == 1,
-            "no latent feats asked for (return_latent_feats is False)":
-                not getattr(self, "return_latent_feats", False),
-        }
-        declined = [k for k, v in operands.items() if not v]
-        if declined:
-            if not getattr(self, "_tt_heads_declined", False):
-                self._tt_heads_declined = True
-                print("[boltz2] TT_BIO_DEVICE_CONF_HEADS declines, torch owns the head: "
-                      + "; ".join(f"NOT {d}" for d in declined), flush=True)
-            return None
-        dev = getattr(self, "_tt_heads", None)
-        if dev is None:
-            dev = tenstorrent.ConfidenceHeadsDevice(
-                heads, self.pairformer_stack.compute_kernel_config)
-            self._tt_heads = dev
-        return dev
+        return device_conf_heads(self, multiplicity, "boltz2")
 
     def forward(
         self,
@@ -5265,13 +5279,8 @@ class ConfidenceModule(nn.Module):
         if keep_z:
             # `z` is the device tensor, not a host one: the heads read it in place and hand back
             # the three [1, n, n] reductions that are all anyone downstream wants.
-            pae_c = bin_centres(heads_device.n_pae_bins, 32.0)
-            n_res = mask.sum(dim=-1, keepdim=True)
-            pair_dev = heads_device(
-                z, feats["asym_id"],
-                (pae_c, tm_function(pae_c.unsqueeze(0), n_res).reshape(-1),
-                 bin_centres(heads_device.n_pde_bins, 32.0)),
-                seq_len, int(z.shape[1]))
+            pair_dev = heads_device(z, feats["asym_id"], conf_heads_bins(heads_device, mask),
+                                    seq_len, int(z.shape[1]))
             z = None
 
         out_dict = {}
