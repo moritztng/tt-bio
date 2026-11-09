@@ -136,6 +136,9 @@ shell:
 unset OMPI_MCA_pml OMPI_MCA_plm OPAL_PREFIX LD_LIBRARY_PATH
 ```
 
+The one MPI default tt-bio sets is `OMPI_MCA_btl=^tcp`, so a fold does not open a network listener
+it never uses. Set `OMPI_MCA_btl` yourself if you run tt-metal across hosts.
+
 ## Structure Prediction
 
 ```bash

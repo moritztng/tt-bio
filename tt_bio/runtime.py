@@ -54,6 +54,20 @@ IDLE_THREADS_PARK = {"OMP_WAIT_POLICY": "PASSIVE", "GOMP_SPINCOUNT": "0", "KMP_B
 # and a tool that silently unsets someone's MPI configuration is worse than one that names it.
 MPI_UNSET_HINT = "unset OMPI_MCA_pml OMPI_MCA_plm OPAL_PREFIX LD_LIBRARY_PATH"
 
+# The one MPI setting tt-bio does make. The bundled build starts its tcp BTL at device open, and that
+# listener binds 0.0.0.0 on a port from 1024 up for the life of the process, whatever
+# btl_tcp_if_include says. One process per card on one host never sends a byte over it: a lone rank
+# talks to itself through "self" and to a sibling rank through "sm". So the tcp BTL is left out. It is
+# a default, not a scrub: an OMPI_MCA_btl already in the environment wins.
+LOCAL_MPI_ENV = {"OMPI_MCA_btl": "^tcp"}
+
+
+def keep_mpi_local(env: dict | None = None) -> None:
+    """Default the bundled MPI to on-host transports, so a fold opens no LAN listener."""
+    env = os.environ if env is None else env
+    for key, value in LOCAL_MPI_ENV.items():
+        env.setdefault(key, value)
+
 
 def _bundled_mpi_root() -> Path | None:
     """The ttnn package directory, whose libmpi is the one we want. None if ttnn is absent.
@@ -75,7 +89,7 @@ def conflicting_mpi_env(env: dict | None = None) -> list[str]:
     """Host OpenMPI settings in `env` that can abort tt-metal's bundled MPI, or []."""
     env = os.environ if env is None else env
     found = []
-    mca = sorted(k for k in env if k.startswith("OMPI_MCA_"))
+    mca = sorted(k for k in env if k.startswith("OMPI_MCA_") and env[k] != LOCAL_MPI_ENV.get(k))
     if mca:
         found.append(", ".join(f"{k}={env[k]}" for k in mca))
     if env.get("OPAL_PREFIX"):

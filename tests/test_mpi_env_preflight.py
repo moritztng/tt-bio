@@ -57,3 +57,22 @@ def test_the_check_never_scrubs(monkeypatch):
     assert conflicting_mpi_env()
     assert os.environ["OMPI_MCA_pml"] == "ucx"
     assert os.environ["OPAL_PREFIX"] == "/opt/mpi-stack"
+
+
+def test_the_local_mpi_default_is_not_a_conflict():
+    """tt-bio's own tcp-BTL opt-out must not trip the warning it sits beside."""
+    from tt_bio.runtime import LOCAL_MPI_ENV
+
+    assert conflicting_mpi_env(dict(LOCAL_MPI_ENV)) == []
+    assert conflicting_mpi_env({"OMPI_MCA_btl": "tcp,self"}) == ["OMPI_MCA_btl=tcp,self"]
+
+
+def test_keep_mpi_local_defaults_and_never_overrides():
+    from tt_bio.runtime import keep_mpi_local
+
+    env = {}
+    keep_mpi_local(env)
+    assert env == {"OMPI_MCA_btl": "^tcp"}
+    env = {"OMPI_MCA_btl": "tcp,self"}
+    keep_mpi_local(env)
+    assert env == {"OMPI_MCA_btl": "tcp,self"}
