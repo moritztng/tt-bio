@@ -233,6 +233,19 @@ def pypi_has(version: str) -> bool:
         return False
 
 
+def tag_run(version: str) -> dict:
+    """The newest GitHub release-workflow run for tag v<version>, or {} if gh cannot say. On
+    2026-11-09 the v0.30.0 run failed at startup with no jobs and the train waited out its full PyPI
+    wait on a run that had already ended; a rerun went green."""
+    try:
+        out = subprocess.run(["gh", "run", "list", "--workflow", "release.yaml", "--branch", f"v{version}",
+                              "-L", "1", "--json", "databaseId,status,conclusion,attempt"],
+                             cwd=REPO, capture_output=True, text=True, timeout=60).stdout
+        return (json.loads(out) or [{}])[0]
+    except Exception:
+        return {}
+
+
 def install_check(version: str, tries: int = 10) -> str:
     """The installed version, or "" if it never installs. PyPI's JSON lists a release minutes before
     the simple index serves it; on 2026-10-15 v0.17.0 crashed the train here and lost its record."""
@@ -280,6 +293,16 @@ def cut(sha: str, gate_dir: str, remote: str, dry: bool, wait_s: int, record: Pa
                             "waived": waived or {},
                             "tagged": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     while not pypi_has(version) and time.time() - t0 < wait_s:
+        run = tag_run(version)
+        if run.get("status") == "completed" and run.get("conclusion") != "success":
+            if run.get("attempt", 1) > 1:
+                print(f"release workflow run {run['databaseId']} failed again ({run.get('conclusion')}); not waiting for PyPI")
+                break
+            print(f"release workflow run {run['databaseId']} ended {run.get('conclusion')}; rerunning it once")
+            try:
+                subprocess.run(["gh", "run", "rerun", str(run["databaseId"])], cwd=REPO, timeout=60)
+            except Exception as e:
+                print(f"rerun failed to start: {e}")
         time.sleep(60)
     rec["pypi"] = pypi_has(version)
     rec["installed"] = install_check(version) if rec["pypi"] else ""

@@ -256,3 +256,25 @@ def test_galaxy_pools_list_every_galaxy_pool(tmp_path):
     got = rt.galaxy_pools(cfg)
     assert got["workers"] == "qb2:1,g107:pool,g107:pool,g108:pool,g108:pool"
     assert got["timed"] == "qb2:1,g107:pool,g108:pool"
+
+
+def test_the_pypi_wait_reruns_a_failed_release_run_once_then_stops_waiting(monkeypatch, capsys):
+    runs = iter([{"databaseId": 7, "status": "completed", "conclusion": "startup_failure", "attempt": 1},
+                 {"databaseId": 7, "status": "in_progress", "conclusion": "", "attempt": 2},
+                 {"databaseId": 7, "status": "completed", "conclusion": "failure", "attempt": 2}])
+    reruns = []
+    monkeypatch.setattr(rt, "tag_run", lambda v: next(runs))
+    monkeypatch.setattr(rt, "pypi_has", lambda v: False)
+    monkeypatch.setattr(rt.time, "sleep", lambda s: None)
+    monkeypatch.setattr(rt.subprocess, "run", lambda a, **k: reruns.append(a))
+    monkeypatch.setattr(rt, "git", lambda *a, **k: "")
+    monkeypatch.setattr(rt, "last_release", lambda: ("v0.1.0", "a" * 40))
+    monkeypatch.setattr(rt, "notes", lambda *a: "### Changed\n- x")
+    monkeypatch.setattr(rt, "rerecorded_files", lambda *a: {})
+    monkeypatch.setattr(rt, "new_todos", lambda *a: {})
+    monkeypatch.setattr(rt, "release_commit", lambda *a: "r" * 40)
+    monkeypatch.setattr(rt, "content_hash", lambda c: "same")
+    monkeypatch.setattr(rt, "merge_back", lambda *a: "")
+    assert rt.cut("b" * 40, "/g", "origin", False, 10**6, None) == 1
+    assert reruns == [["gh", "run", "rerun", "7"]]
+    assert "failed again" in capsys.readouterr().out
