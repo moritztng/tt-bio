@@ -215,7 +215,12 @@ LEND_AT = "~/spd/galaxy/LEND-AT"
 #: single read between two lends took back a leg the pool would have started minutes later. rel-f4177cee0 (10-31..
 #: 11-02): perf on .111 and ladder:opendde on .112 were queued and taken back 12 times each in 40 h while both boxes
 #: ran prio-9 SPD jobs on lent chips, and the train waited 65 h on them.
-SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
+#: glx_elastic drains a box it lends to a pool borrower (rel, spd, mol1) for ~20 min with the agent still up, and
+#: writes ~/glx/LENDING for that span. Such a box is about to run every pool job, so it reads as neither paused nor in
+#: lend mode. rel-cc61bed92 (11-09): .110 was drained for the gate's two whole-box WH legs, the drain read as "no chip
+#: lent", the legs were taken back to a serving box 6 min into it, and the lent box then sat at 0/32 for 17 min.
+LENDING = '[ ! -e ~/glx/LENDING ] && '
+SERVING_NONE_LENT = (LENDING + '{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
                      'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
                      '! grep -qs \'"recall_at": null\' ~/japanfold/state/agent/lend/*.lent')
 #: Even with chips lent, lend mode never starts a job whose name matches pool.sh's LEND_SKIP (OpenFold3-family legs:
@@ -226,7 +231,7 @@ SERVING_NONE_LENT = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! 
 #: A reserved chip (the agent's lend/reserve) is the exception, as in pool.sh: it starts a LEND_SKIP job whose cap ends
 #: before the reservation. rel-1cf560aa6 (11-02) held its 17 WH OF3-family legs off .107 and .108 while both carried a
 #: 5 h reserve written for exactly those legs, and the whole-box lend they waited for never opened under user load.
-LEND_MODE = ('{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
+LEND_MODE = (LENDING + '{ systemctl is-active -q "japanfold-agent@$USER" || { [ ! -e ~/glx/LENT ] && '
              'systemctl is-enabled -q "japanfold-agent@$USER"; }; } 2>/dev/null && '
              '{ sed -n "s/^LEND_SKIP=\'\\(.*\\)\'$/LENDSKIP \\1/p" ~/spd/galaxy/pool.sh; '
              'sed -n \'s/.*"reserved_until": \\([0-9][0-9]*\\).*/RESERVED \\1/p\' ~/japanfold/state/agent/lend/*.lent '

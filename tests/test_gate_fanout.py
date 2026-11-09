@@ -1658,6 +1658,38 @@ def test_a_serving_galaxy_that_lends_no_chip_reads_as_paused(tmp_path, monkeypat
     assert not paused(gf.NONE_LENT_S)                 # no agent: an SPD box, its own pool rules
 
 
+def test_a_box_glx_elastic_is_draining_for_the_pool_keeps_its_legs(tmp_path, monkeypatch):
+    """While glx_elastic drains a box it lends to a pool borrower, the agent is still up and lends no chip. That box is
+    about to run every pool job, so it is neither paused nor in lend mode. rel-cc61bed92 (11-09): .110's drain for the
+    gate read as "no chip lent" and both whole-box legs were taken back to a serving box 6 min before the lend landed."""
+    stub = tmp_path / "bin"
+    stub.mkdir()
+    (stub / "systemctl").write_text("#!/bin/sh\nexit 0\n")
+    (stub / "systemctl").chmod(0o755)
+    (tmp_path / "japanfold" / "state" / "agent" / "lend").mkdir(parents=True)
+    (tmp_path / "spd" / "galaxy").mkdir(parents=True)
+    (tmp_path / "spd" / "galaxy" / "pool.sh").write_text("#!/bin/bash\nLEND_SKIP='(^|[-_])(openbind|openfold3|of3)'\n")
+    (tmp_path / "glx").mkdir()
+    (tmp_path / "glx" / "LENDING").write_text("rel since 1794200760\n")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PATH", f"{stub}:{os.environ['PATH']}")
+    h = gf.Host("g110", {"arch": "wh", "card_type": "wh", "root": str(tmp_path), "ssh": "localhost",
+                         "pool": {"queue": str(tmp_path / "pool" / "queue")}}, "f" * 40)
+
+    def lent(leg, ago=0):
+        h.lend = (float("-inf"),) + h.lend[1:]
+        h.read_lend()
+        if ago and h.lend[4] is not None:
+            h.lend = h.lend[:4] + (h.lend[4] - ago,) + h.lend[5:]
+        return h.lent(gf.Leg(leg, [], leg.split(":")[0]))
+
+    assert not lent("ladder:opendde", gf.NONE_LENT_S) and not lent("ladder:openfold3")
+    (tmp_path / "glx" / "LENDING").unlink()              # lend abandoned: the box serves again
+    assert lent("ladder:openfold3")                       # lend mode skips OF3 again at once
+    assert not lent("ladder:opendde")                     # and the no-chip clock starts over
+    assert lent("ladder:opendde", gf.NONE_LENT_S)
+
+
 def test_lend_mode_holds_no_leg_its_pool_skips(tmp_path, monkeypatch):
     """A serving box with chips lent never starts a LEND_SKIP job (OpenFold3 family), so for those legs it reads as
     paused and only they go elsewhere. rel-f4177cee0: 16 WH OF3-family legs sat 38 h in .107's lend-mode queue."""
