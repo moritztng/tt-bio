@@ -5,6 +5,8 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-09
+
 ### Changed
 - **tt-bio no longer opens a network listener during a fold.** tt-metal's bundled OpenMPI listened on every interface
   for the whole run; tt-bio now defaults `OMPI_MCA_btl=^tcp`, since one host needs only `self` and `sm`.
