@@ -171,6 +171,52 @@ def test_a_gate_failing_only_on_ladder_drift_is_re_recorded_then_cut(tmp_path):
     assert (d["do"], d["sha"], d["models"]) == ("RECORD", head, ["m"]) and "lost its runner" in d["why"]
 
 
+def test_a_gate_one_record_run_from_a_cut_is_recorded_after_main_moved_on(tmp_path):
+    git = _repo(tmp_path)
+    (tmp_path / "a.py").write_text("x = 2\n")
+    git("commit", "-qam", "staging A")
+    a = git("rev-parse", "main")
+    gates = tmp_path / "gates"
+    g = _plan(gates, f"rel-{a[:9]}", a, tmp_path)
+    (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+        {"leg": "perf", "arch": "bh", "verdict": "FAIL"},
+        {"leg": "ladder:m", "arch": "bh", "verdict": "FAIL"}]}))
+    (g / "WAIVE").write_text(f"perf bh {a[:12]}  # host contention\nladder:m bh {a[:12]}  # new lever\n")
+    (tmp_path / "a.py").write_text("x = 3\n")                          # main moved on, its gate runs
+    git("commit", "-qam", "runtime change")
+    head = git("rev-parse", "main")
+    _plan(gates, f"rel-{head[:9]}", head, tmp_path)
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["models"]) == ("RECORD", a, ["m"]) and "owed" in d["why"]
+    assert d["running"] == [head]                     # release_train turns only GATE into WAIT
+    r = _plan(gates, f"rec-{a[:9]}", a, tmp_path, partial=True)
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"]) == ("WAIT", head)      # no second record run
+    (r / "verdict.json").write_text(json.dumps({"pass": True}))
+    d = rn.decide(tmp_path, gates, "main")
+    assert (d["do"], d["sha"], d["records"]) == ("CUT", a, str(r))
+
+
+def test_only_the_newest_gate_owing_a_record_run_is_owed(tmp_path):
+    git = _repo(tmp_path)
+    gates, shas = tmp_path / "gates", []
+    for n in (2, 3):
+        (tmp_path / "a.py").write_text(f"x = {n}\n")
+        git("commit", "-qm", f"staging {n}", "-a", f"--date=@{1_700_000_000 + n}")
+        shas.append(sha := git("rev-parse", "main"))
+        g = _plan(gates, f"rel-{sha[:9]}", sha, tmp_path)
+        (g / "verdict.json").write_text(json.dumps({"pass": False, "results": [
+            {"leg": "ladder:m", "arch": "bh", "verdict": "FAIL"}]}))
+        (g / "WAIVE").write_text(f"ladder:m bh {sha[:12]}  # new lever\n")
+    (tmp_path / "a.py").write_text("x = 4\n")
+    git("commit", "-qam", "staging 4")
+    assert rn.decide(tmp_path, gates, "main")["sha"] == shas[1]
+    (_plan(gates, f"rec-{shas[1][:9]}", shas[1], tmp_path, partial=True) / "verdict.json").write_text(
+        json.dumps({"pass": False}))
+    d = rn.decide(tmp_path, gates, "main")            # its record run failed: older gates stay unrecorded
+    assert d["do"] != "RECORD" and d["sha"] != shas[0]
+
+
 def test_a_card_failed_ladder_leg_of_a_drifted_model_records_alongside_its_rerun(tmp_path, monkeypatch):
     git = _repo(tmp_path)
     (tmp_path / "a.py").write_text("x = 2\n")

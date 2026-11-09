@@ -365,27 +365,34 @@ def _since(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/
     return out
 
 
-def lost_record(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
-                ) -> tuple[str, Path, list] | None:
-    """(sha, gate dir, models) of a candidate after the last release whose gate failed only on
-    ladder drift and whose record run lost its runner before writing a verdict. Nothing else
-    restarts it once main has moved on: decide() records only the commit it targets (pc's
-    maintenance reboot stopped rec-5e250928a 10-16 17:25Z with 23 of 27 legs recorded, and the
-    train gated main's head instead). gate_fanout resumes it in place, keeping its PASSes."""
+def owed_record(gates: Path | None, tsha: str, repo: Path = REPO, ref: str = "origin/main"
+                ) -> tuple[str, Path, list, Path | None] | None:
+    """(sha, gate dir, models, record dir or None) of the newest candidate after the last release
+    whose gate failed only on ladder drift (or waived ladders) when it has no record run: none was
+    started, or one lost its runner before writing a verdict. decide() records only the commit it
+    targets, so once main moves on nothing else starts it: rel-cc61bed92 (11-09) failed only on two
+    waived legs, one of them ladder:protenix-v1 bh, and the train gated main's head bef29b514 for a
+    day instead of the ~30 min record run that cuts 0.30.0. pc's maintenance reboot stopped
+    rec-5e250928a 10-16 17:25Z with 23 of 27 legs recorded the same way; gate_fanout resumes such a
+    run in place, keeping its PASSes. Only the newest such gate is owed, so a failed record run
+    does not walk the train back through older ones. It runs beside a running full gate."""
+    runs = []
     for p, plan in _since(gates, tsha, repo, ref):
-        sha, d = plan["sha"], p.parent
+        d = p.parent
         try:
             if not (d / "verdict.json").exists() or json.loads((d / "verdict.json").read_text()).get("pass"):
                 continue
-            state, rd = record_run(gates, sha)
-            if state != "none" or rd is None:
-                continue
             drift, other = failures(d, waivers(d, gates, repo, ref))
-        except ValueError:
+            if drift and not other:
+                ct = int(git("show", "-s", "--format=%ct", plan["sha"], repo=repo))
+                runs.append((ct, p.stat().st_mtime, plan["sha"], d, drift))
+        except (ValueError, subprocess.CalledProcessError):
             continue
-        if drift and not other:
-            return sha, d, drift
-    return None
+    if not runs:
+        return None
+    _, _, sha, d, drift = max(runs)
+    state, rd = record_run(gates, sha)
+    return (sha, d, drift, rd) if state == "none" else None
 
 
 #: How long a failed gate stays the candidate with no FIXES before the train gates main's head
@@ -474,10 +481,12 @@ def decide(repo: Path = REPO, gates: Path | None = None, ref: str = "origin/main
                 "waived": waivers(d, gates, repo, ref),
                 "why": f"gate passed on every arch: {d}/VERDICT.md{nxt}"
                        + (f"; size ladders re-recorded in {rec}" if rec != d else "")}
-    if lost := lost_record(gates, tsha, repo, ref):
-        sha, d, models = lost
+    if owed := owed_record(gates, tsha, repo, ref):
+        sha, d, models, rd = owed
         return {**out, "do": "RECORD", "sha": sha, "gate": str(d), "models": models,
-                "why": f"the record run {gates}/rec-{sha[:9]} lost its runner; resume it"}
+                "why": f"the record run {rd} lost its runner; resume it" if rd else
+                       f"gate failed only on size-ladder drift ({', '.join(models)}): {d}/VERDICT.md; "
+                       f"re-record them, the record run is owed"}
     target, what = head, "main's head"
     if fz := frozen(gates, tsha, repo, ref):
         base, fd, fl = fz
