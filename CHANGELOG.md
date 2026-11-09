@@ -5,6 +5,14 @@ releases are cut from a commit that has passed the on-hardware test suite (see `
 
 ## [Unreleased]
 
+### Changed
+- **tt-bio no longer opens a network listener during a fold.** tt-metal's bundled OpenMPI listened on every interface
+  for the whole run; tt-bio now defaults `OMPI_MCA_btl=^tcp`, since one host needs only `self` and `sm`.
+  A value you set yourself wins; set it if you run tt-metal across hosts. Outputs are unchanged.
+- **BoltzGen designs start each stage faster.** The featurizer process is spawned without waiting on its imports and
+  one imported spare is kept ahead, removing ~3 s of serial wait per stage, and the refold's confidence heads run
+  on the device with the per-sample pair terms built once. Same results.
+
 ## [0.29.0] - 2026-11-08
 
 ### Added
