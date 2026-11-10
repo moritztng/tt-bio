@@ -361,6 +361,17 @@ def test_the_screen_hook_actually_truncates_a_block_stack(tmp_path, monkeypatch)
     assert h._state["truncated"][0][2] == 48, "the record must carry the ORIGINAL depth"
 
 
+def test_a_cut_is_on_disk_before_the_process_exits(tmp_path, monkeypatch):
+    """A worker that ends without atexit (os._exit, a signal) must still leave the proof of its
+    cut. rel-afa0888b9 lost it: the boltz2 screen failed on the cut's own head slice, the record
+    said nothing was cut, and the gate scored a capacity FAIL instead of running residency."""
+    import json
+    h = _fresh_hook("screen", tmp_path, monkeypatch)
+    _stack_module(h).Stack(48)
+    written = [json.loads(p.read_text()) for p in tmp_path.glob("out.*.json")]
+    assert written and written[0]["truncated"], "the cut is only recorded by the exit flush"
+
+
 def test_the_hook_emits_a_heartbeat_per_block_call(tmp_path, monkeypatch):
     """The stall detector's sharp signal. Without it a legitimately slow block reads as a hang."""
     h = _fresh_hook("residency", tmp_path, monkeypatch)

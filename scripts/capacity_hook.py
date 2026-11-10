@@ -89,7 +89,13 @@ def _record(err: str) -> None:
 def _flush() -> None:
     """Write this process's findings. Every interpreter writes its own file: the launcher patches
     nothing and folds nothing, so a single shared path would let its empty result overwrite the
-    worker's real one."""
+    worker's real one.
+
+    Called at exit and again on every cut and every instrumented class, because a process that
+    ends without running atexit (os._exit, a signal) would otherwise take the proof of its cut
+    with it. rel-afa0888b9 lost it that way: the boltz2 screen at 1536 failed on the cut's own
+    4-vs-12 head slice, the record said nothing was cut, and the gate scored that as a capacity
+    FAIL instead of falling through to the residency run."""
     out = os.environ.get("TT_BIO_CAPACITY_HOOK_OUT")
     if not out:
         return
@@ -209,6 +215,7 @@ def _instrument_class(cls) -> None:
             continue
         _patched.append((cls, name, fn))
         _state["instrumented"].append(f"{cls.__module__}.{cls.__qualname__}.{name}")
+        _flush()
         return
 
 
@@ -292,6 +299,7 @@ def _visit(obj) -> None:
             continue
         _forget_truncated_weights(cut, attr, n)
         _state["truncated"].append([f"{type(obj).__module__}.{type(obj).__qualname__}", attr, n])
+        _flush()
 
 
 def _patch_module(mod) -> None:
