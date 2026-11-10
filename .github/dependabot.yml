@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # the release build toolchain (.github/requirements-release-build.txt, hash-locked)
+  - package-ecosystem: pip
+    directory: /.github
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
